@@ -87,6 +87,14 @@ class ComponentStateStore:
         cls._instance._state[scope][address] = state
 
     @classmethod
+    def delete_state(cls, state: T) -> None:
+        if cls._instance is None:
+            raise AttributeError("ComponentStateStore not built")
+        if state:
+            # noinspection PyTypeChecker
+            cls._instance._delete_state(state.scope, state.address)
+
+    @classmethod
     def reset(cls) -> None:
         with cls._lock:
             if cls._instance:
@@ -321,6 +329,10 @@ class ComponentStateStore:
 
     def addresses(self, scope: CommandScope) -> collections.Iterable[int]:
         return set(self._state[scope].keys())
+
+    def _delete_state(self, scope: CommandScope, address: int) -> None:
+        if scope in self._state and address in self._state[scope]:
+            del self._state[scope][address]
 
 
 # noinspection DuplicatedCode
