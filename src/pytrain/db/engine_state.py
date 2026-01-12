@@ -487,7 +487,9 @@ class EngineState(ComponentState):
                         elif shutdown in TMCC1_COMMAND_TO_ALIAS_MAP:
                             self._start_stop = TMCC1_COMMAND_TO_ALIAS_MAP[shutdown]
                 elif command.command == TMCC2R4LCEnum.TRAIN_ADDRESS and self._comp_data:
+                    print(f"** {command}")
                     self._comp_data.train_tmcc_id = command.data
+                    print(f"** Setting train address to {self.train_tmcc_id}")
             elif (
                 isinstance(command, BaseReq)
                 and command.status == 0
