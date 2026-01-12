@@ -36,7 +36,7 @@ from ..protocol.constants import (
     PROGRAM_NAME,
     CommandScope,
 )
-from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2R4LCEnum
+from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
@@ -64,14 +64,14 @@ COMMAND_IMPACTS = {
         lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
         BaseReq.request_config,
     ),
-    TMCC2R4LCEnum.TRAIN_ADDRESS: (
-        lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
-        BaseReq.request_config,
-    ),
-    TMCC2R4LCEnum.TRAIN_UNIT: (
-        lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
-        BaseReq.request_config,
-    ),
+    # TMCC2R4LCEnum.TRAIN_ADDRESS: (
+    #     lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
+    #     BaseReq.request_config,
+    # ),
+    # TMCC2R4LCEnum.TRAIN_UNIT: (
+    #     lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
+    #     BaseReq.request_config,
+    # ),
 }
 
 
