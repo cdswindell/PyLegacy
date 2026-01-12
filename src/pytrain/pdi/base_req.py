@@ -211,7 +211,6 @@ class BaseReq(PdiReq, CompDataMixin):
                         data_length=pkg.length,
                         data_bytes=pkg.data_bytes,
                     )
-                    print(f"{cmd}: {req}")
                     cmds.append(req)
                 else:
                     assert cur_state.record_no != 0xFFFF

@@ -331,6 +331,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             if client in self._server_ips and port == self._server_port:
                 continue  # don't notify ourself
             try:
+                print(f"Sending state update to {client}:{port}: {command}")
                 with self._lock:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((client, port))

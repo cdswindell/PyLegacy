@@ -465,7 +465,6 @@ class CompData(ABC, Generic[R]):
         update_pkgs: list[UpdatePkg] = []
         cmd = req.command
         updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, [])
-        print(f"*** cmd: {cmd.name} updates: {updates}")
         if req.has_command_alias:
             for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []):
                 if update not in updates:

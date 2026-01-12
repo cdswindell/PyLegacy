@@ -36,7 +36,7 @@ from ..protocol.constants import (
     PROGRAM_NAME,
     CommandScope,
 )
-from ..protocol.multibyte.multibyte_constants import TMCC2R4LCEnum, TMCC2_VARIABLE_INDEX
+from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2R4LCEnum
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
