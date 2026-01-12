@@ -64,14 +64,6 @@ COMMAND_IMPACTS = {
         lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
         BaseReq.request_config,
     ),
-    # TMCC2R4LCEnum.TRAIN_ADDRESS: (
-    #     lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
-    #     BaseReq.request_config,
-    # ),
-    # TMCC2R4LCEnum.TRAIN_UNIT: (
-    #     lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
-    #     BaseReq.request_config,
-    # ),
 }
 
 
