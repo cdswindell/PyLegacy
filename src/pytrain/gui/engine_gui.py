@@ -819,10 +819,10 @@ class EngineGui(Thread, Generic[S]):
         repeats = [
             (("AUX1_OPTION_ONE", "e"), 0.2),  # Standard repeat
             (("BOOST_SPEED", "bs"), 0.3),
-            (("BOOST_SPEED", "a"), 0.3),
+            (("BOOST_SPEED", "t"), 0.3),
             (("BOOST_SPEED", "l"), 0.3),
             (("BRAKE_SPEED", "bs"), 0.3),
-            (("BRAKE_SPEED", "a"), 0.3),
+            (("BRAKE_SPEED", "t"), 0.3),
             (("BRAKE_SPEED", "l"), 0.3),
             (("WATER_INJECTOR", "s"), 0.2),
             (("LET_OFF_LONG", "s"), 0.2),
