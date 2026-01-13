@@ -9,11 +9,9 @@
 
 from __future__ import annotations
 
-import io
 import logging
 import math
 import tkinter as tk
-from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
@@ -21,9 +19,6 @@ from typing import Any, Callable, Generic, TypeVar, cast
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
-
-# noinspection PyPackageRequirements
-from PIL import Image, ImageOps, ImageTk
 
 from ..db.accessory_state import AccessoryState
 from ..db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
@@ -152,13 +147,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.repeat = repeat
         self.num_recents = num_recents
         self._sensor_track_id = sensor_track_id
-        self.button_size = int(round(self.width / 6))
         self.slider_height = self.button_size * 4
-        self.titled_button_size = int(round((self.width / 6) * 0.80))
+
         self.scope_size = int(round(self.width / 5))
         self._text_pad_x = 20
         self._text_pad_y = 20
-        self.s_72 = self.scale(72, 0.7)
         self.grid_pad_by = 2
         self.avail_image_height = self.avail_image_width = None
         self.options = [self.title]
@@ -181,14 +174,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._recents_queue: dict[CommandScope, UniqueDeque[S]] = {}
         self._train_linked_queue: UniqueDeque[EngineState] = UniqueDeque()
         self._options_to_state = {}
-        self._prod_info_cache = {}
-        self._image_cache = {}
+
         self.entry_cells = set()
         self.ops_cells = set()
         self._elements = set()
-        self._pending_prod_infos = set()
-        self._executor = ThreadPoolExecutor(max_workers=3)
-        self.size_cache = {}
         self.scope = scope if scope else CommandScope.ENGINE
         self.initial = tmcc_id
         self._active_engine_state = self._active_train_state = None
@@ -2574,19 +2563,26 @@ class EngineGui(GuiZeroBase, Generic[S]):
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
                 state = self._state_store.get_state(scope, tmcc_id, False)
-                prod_info = self._prod_info_cache.get(tmcc_id, None)
-
-                # If not cached or not a valid Future/ProdInfo, start a background fetch
-                if prod_info is None and state and state.bt_id:
-                    if (scope, tmcc_id) not in self._pending_prod_infos:
-                        # Submit fetch immediately and cache the Future itself
-                        future = self._executor.submit(self._fetch_prod_info, scope, tmcc_id, train_id)
-                        self._prod_info_cache[tmcc_id] = future
+                prod_info = self.get_prod_info(
+                    state.bt_id if state else None,
+                    self.update_component_image,
+                    tmcc_id,
+                    key=key,
+                )
+                if prod_info is None:
                     return
-
-                if isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
-                    prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
-                    self._pending_prod_infos.discard((scope, tmcc_id))
+                #
+                # # If not cached or not a valid Future/ProdInfo, start a background fetch
+                # if prod_info is None and state and state.bt_id:
+                #     if (scope, tmcc_id) not in self._pending_prod_infos:
+                #         # Submit fetch immediately and cache the Future itself
+                #         future = self._executor.submit(self.fetch_prod_info, scope, tmcc_id, train_id)
+                #         self._prod_info_cache[tmcc_id] = future
+                #     return
+                #
+                # if isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
+                #     prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
+                #     self._pending_prod_infos.discard((scope, tmcc_id))
 
                 if isinstance(prod_info, ProdInfo):
                     # Image should have been cached by fetch_prod_indo
@@ -2728,9 +2724,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             avail_image_width = self.avail_image_width
         return avail_image_height, avail_image_width
-
-    def sizeof(self, widget: Widget) -> tuple[int, int]:
-        return self.size_cache.get(widget, None) or (widget.tk.winfo_reqwidth(), widget.tk.winfo_reqheight())
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
@@ -2908,13 +2901,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 return TMCC2EffectsControl.SMOKE_MEDIUM
         return None
 
-    def scale(self, value: int, factor: float = None) -> int:
-        orig_value = value
-        value = max(orig_value, int(value * self.width / 480))
-        if factor is not None and self.width > 480:
-            value = max(orig_value, int(factor * value))
-        return value
-
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
         if pb.enabled:
@@ -2932,103 +2918,3 @@ class EngineGui(GuiZeroBase, Generic[S]):
             state = self._state_store.get_state(scope, tmcc_id, False)
             if isinstance(state, AccessoryState) and state.is_asc2:
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
-
-    def request_prod_info(self, scope: CommandScope, tmcc_id: int | None) -> ProdInfo | None:
-        prod_info = "N/A"
-        state = self._state_store.get_state(scope, tmcc_id, False)
-        if state and state.bt_id:
-            try:
-                prod_info = ProdInfo.by_btid(state.bt_id)
-            except ValueError as ve:
-                log.info(f"Product info for engine {state.address} ({state.bt_id}) is unavailable: {ve}")
-        return prod_info
-
-    def _fetch_prod_info(self, scope: CommandScope, tmcc_id: int, train_id: int = None) -> ProdInfo | None:
-        """Fetch product info in a background thread, then schedule UI update."""
-        prod_info = None
-        key = (scope, tmcc_id, train_id)
-        do_request_prod_info = False
-        with self._cv:
-            if key not in self._pending_prod_infos:
-                self._pending_prod_infos.add(key)
-                do_request_prod_info = True  # don't hold lock for long
-        if do_request_prod_info:
-            prod_info = self.request_prod_info(scope, tmcc_id)
-            self._prod_info_cache[tmcc_id] = prod_info
-            self._pending_prod_infos.discard((scope, tmcc_id))
-            # now get image
-            if isinstance(prod_info, ProdInfo):
-                img = self.get_scaled_image(BytesIO(prod_info.image_content))
-                self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                if train_id:
-                    self._image_cache[(CommandScope.TRAIN, train_id)] = img
-        # Schedule the UI update on the main thread
-        self.queue_message(self.update_component_image, tmcc_id, key)
-        return prod_info
-
-    def get_scaled_image(
-        self,
-        source: str | io.BytesIO,
-        preserve_height: bool = False,
-        force_lionel: bool = False,
-    ) -> ImageTk.PhotoImage:
-        pil_img = Image.open(source)
-        orig_width, orig_height = pil_img.size
-        scaled_width, scaled_height = self._calc_scaled_image_size(
-            orig_width, orig_height, preserve_height, force_lionel
-        )
-        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
-        return img
-
-    def _calc_scaled_image_size(
-        self,
-        orig_width: int,
-        orig_height: int,
-        preserve_height: bool = False,
-        force_lionel: bool = False,
-    ) -> tuple[int, int]:
-        available_height, available_width = self.calc_image_box_size()
-        if force_lionel:
-            scaled_width, scaled_height = self._calc_scaled_image_size(300, 100)
-        else:
-            # Calculate scaling to fit available space
-            width_scale = available_width / orig_width
-            height_scale = available_height / orig_height
-            scale = min(width_scale, height_scale)
-            if preserve_height:
-                scaled_width = int(orig_width * scale)
-                scaled_height = int(orig_height * height_scale)
-            else:
-                scaled_width = int(orig_width * width_scale)
-                scaled_height = int(orig_height * scale)
-        return scaled_width, scaled_height
-
-    # Example lazy loader pattern for images
-    def get_image(
-        self,
-        path,
-        size=None,
-        inverse: bool = True,
-        scale: bool = False,
-        preserve_height: bool = False,
-    ):
-        if path not in self._image_cache:
-            img = None
-            if scale:
-                normal_tk = self.get_scaled_image(path, preserve_height=preserve_height)
-            else:
-                img = Image.open(path)
-                if size:
-                    img = img.resize(size)
-                normal_tk = ImageTk.PhotoImage(img)
-            if inverse and img:
-                inverted = ImageOps.invert(img.convert("RGB"))
-                inverted.putalpha(img.split()[-1])
-                inverted_tk = ImageTk.PhotoImage(inverted)
-                self._image_cache[path] = (normal_tk, inverted_tk)
-            else:
-                self._image_cache[path] = normal_tk
-        return self._image_cache[path]
-
-    def get_titled_image(self, path):
-        return self.get_image(path, size=(self.titled_button_size, self.titled_button_size))

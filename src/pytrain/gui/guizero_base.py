@@ -6,8 +6,13 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from __future__ import annotations
+
+import io
 import logging
 from abc import ABC, ABCMeta, abstractmethod
+from concurrent.futures import Future, ThreadPoolExecutor
+from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
@@ -16,9 +21,13 @@ from typing import Any, Callable, cast
 from guizero import App
 from guizero.base import Widget
 
+# noinspection PyPackageRequirements
+from PIL import Image, ImageOps, ImageTk
+
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state_store import ComponentStateStore
+from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.constants import PROGRAM_NAME, CommandScope
@@ -74,6 +83,7 @@ class GuiZeroBase(Thread, ABC):
         self._inactive_bg = inactive_bg
 
         # font sizes
+        self.s_72 = self.scale(72, 0.7)
         self.s_30: int = int(round(30 * scale_by))
         self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))
@@ -84,6 +94,21 @@ class GuiZeroBase(Thread, ABC):
         self.s_12: int = int(round(12 * scale_by))
         self.s_10: int = int(round(10 * scale_by))
         self.s_8: int = int(round(8 * scale_by))
+
+        # standard widget sizes
+        self.button_size = int(round(self.width / 6))
+        self.titled_button_size = int(round((self.width / 6) * 0.80))
+
+        # prod info support
+        self._prod_info_cache = {}
+        self._pending_prod_infos = set()
+        self._executor = ThreadPoolExecutor(max_workers=3)
+
+        # cache for widget size info
+        self.size_cache = {}
+
+        # image cache
+        self._image_cache = {}
 
         # queue task for gui main thread
         self.app = None
@@ -108,6 +133,9 @@ class GuiZeroBase(Thread, ABC):
 
     @abstractmethod
     def destroy_gui(self) -> None: ...
+
+    @abstractmethod
+    def calc_image_box_size(self) -> tuple[int, int | Any]: ...
 
     def close(self) -> None:
         # Only signal shutdown here; actual tkinter destroy happens on the GUI thread
@@ -150,6 +178,13 @@ class GuiZeroBase(Thread, ABC):
             # start GUI; heavy lifting done in run()
             self._init_complete_flag.wait()
             self.start()
+
+    def scale(self, value: int, factor: float = None) -> int:
+        orig_value = value
+        value = max(orig_value, int(value * self.width / 480))
+        if factor is not None and self.width > 480:
+            value = max(orig_value, int(factor * value))
+        return value
 
     def set_button_inactive(self, widget: Widget):
         widget.bg = self._disabled_bg
@@ -211,3 +246,131 @@ class GuiZeroBase(Thread, ABC):
             self.destroy_gui()
             self.app = None
             self._ev.set()
+
+    def sizeof(self, widget: Widget) -> tuple[int, int]:
+        return self.size_cache.get(widget, None) or (widget.tk.winfo_reqwidth(), widget.tk.winfo_reqheight())
+
+    # Example lazy loader pattern for images
+    def get_scaled_image(
+        self,
+        source: str | io.BytesIO,
+        preserve_height: bool = False,
+        force_lionel: bool = False,
+    ) -> ImageTk.PhotoImage:
+        pil_img = Image.open(source)
+        orig_width, orig_height = pil_img.size
+        scaled_width, scaled_height = self._calc_scaled_image_size(
+            orig_width, orig_height, preserve_height, force_lionel
+        )
+        img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
+        return img
+
+    def get_image(
+        self,
+        path,
+        size=None,
+        inverse: bool = True,
+        scale: bool = False,
+        preserve_height: bool = False,
+    ):
+        if path not in self._image_cache:
+            img = None
+            if scale:
+                normal_tk = self.get_scaled_image(path, preserve_height=preserve_height)
+            else:
+                img = Image.open(path)
+                if size:
+                    img = img.resize(size)
+                normal_tk = ImageTk.PhotoImage(img)
+            if inverse and img:
+                inverted = ImageOps.invert(img.convert("RGB"))
+                inverted.putalpha(img.split()[-1])
+                inverted_tk = ImageTk.PhotoImage(inverted)
+                self._image_cache[path] = (normal_tk, inverted_tk)
+            else:
+                self._image_cache[path] = normal_tk
+        return self._image_cache[path]
+
+    def get_titled_image(self, path):
+        return self.get_image(path, size=(self.titled_button_size, self.titled_button_size))
+
+    def _calc_scaled_image_size(
+        self,
+        orig_width: int,
+        orig_height: int,
+        preserve_height: bool = False,
+        force_lionel: bool = False,
+    ) -> tuple[int, int]:
+        available_height, available_width = self.calc_image_box_size()
+        if force_lionel:
+            scaled_width, scaled_height = self._calc_scaled_image_size(300, 100)
+        else:
+            # Calculate scaling to fit available space
+            width_scale = available_width / orig_width
+            height_scale = available_height / orig_height
+            scale = min(width_scale, height_scale)
+            if preserve_height:
+                scaled_width = int(orig_width * scale)
+                scaled_height = int(orig_height * height_scale)
+            else:
+                scaled_width = int(orig_width * width_scale)
+                scaled_height = int(orig_height * scale)
+        return scaled_width, scaled_height
+
+    def _request_prod_info(self, bt_id: str) -> ProdInfo | None:
+        prod_info = "N/A"
+        if bt_id:
+            try:
+                prod_info = ProdInfo.by_btid(bt_id)
+            except ValueError as ve:
+                state = self._state_store.by_bluetooth_id(int(bt_id, 16))
+                if state:
+                    log.info(f"Product info for engine {state.address} ({bt_id}) is unavailable: {ve}")
+                else:
+                    log.info(f"Product info for engine btid: {bt_id} is unavailable: {ve}")
+        return prod_info
+
+    def _fetch_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int, key: tuple) -> ProdInfo | None:
+        """Fetch product info in a background thread, then schedule UI update."""
+        prod_info = None
+        do_request_prod_info = False
+        with self._cv:
+            if key not in self._pending_prod_infos:
+                self._pending_prod_infos.add(key)
+                do_request_prod_info = True  # don't hold lock for long
+        if do_request_prod_info:
+            prod_info = self._request_prod_info(bt_id)
+            self._prod_info_cache[tmcc_id] = prod_info
+            self._pending_prod_infos.discard(key)
+            # now get image
+            if isinstance(prod_info, ProdInfo):
+                img = self.get_scaled_image(BytesIO(prod_info.image_content))
+                self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                # if train_id:
+                #     self._image_cache[(CommandScope.TRAIN, train_id)] = img
+        # Schedule the UI update on the main thread
+        self.queue_message(callback, tmcc_id, key)
+        return prod_info
+
+    def get_prod_info(
+        self,
+        bt_id: str,
+        callback: Callable,
+        tmcc_id: int,
+        key: tuple = None,
+    ) -> ProdInfo | None:
+        if key is None:
+            key = (CommandScope.ENGINE, tmcc_id)
+        prod_info = self._prod_info_cache.get(tmcc_id, None)
+        if prod_info is None and bt_id:
+            if (CommandScope.ENGINE, tmcc_id) not in self._pending_prod_infos:
+                future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id, key)
+                self._prod_info_cache[tmcc_id] = future
+        elif isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
+            prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
+            self._pending_prod_infos.discard(key)
+        elif isinstance(prod_info, ProdInfo):
+            pass
+        else:
+            prod_info = None
+        return prod_info
