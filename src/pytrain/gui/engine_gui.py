@@ -43,7 +43,7 @@ from ..pdi.constants import Asc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, EngineType
+from ..protocol.constants import PROGRAM_NAME, CommandScope, EngineType
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
 from ..protocol.sequence.sequence_constants import SequenceCommandEnum
@@ -253,6 +253,7 @@ class EngineGui(Thread, Generic[S]):
         self.ac_aux1_cell = self.ac_aux1_btn = None
 
         # controller
+        self._admin_title = f"Manage {PROGRAM_NAME}"
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
@@ -498,11 +499,14 @@ class EngineGui(Thread, Generic[S]):
             pass
         finally:
             # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            self.box = None
-            self.acc_box = None
-            self._image = None
+            self.destroy_gui()
             self.app = None
             self._ev.set()
+
+    def destroy_gui(self) -> None:
+        self.box = None
+        self.acc_box = None
+        self._image = None
 
     # noinspection PyTypeChecker
     def make_controller(self, app):
@@ -1524,9 +1528,12 @@ class EngineGui(Thread, Generic[S]):
 
     def on_recents(self, value: str):
         if value != self.title:
-            state = self._options_to_state[value]
-            if state and state not in {self._active_engine_state, self._active_train_state}:
-                self.update_component_info(tmcc_id=state.tmcc_id)
+            if value == self._admin_title:
+                pass
+            else:
+                state = self._options_to_state[value]
+                if state and state not in {self._active_engine_state, self._active_train_state}:
+                    self.update_component_info(tmcc_id=state.tmcc_id)
             self.header.select_default()
 
     @property
@@ -1556,7 +1563,7 @@ class EngineGui(Thread, Generic[S]):
                 if name:
                     options.append(name)
                     self._options_to_state[name] = state
-        options.append("PyTrain Administration")
+        options.append(self._admin_title)
         return options
 
     def monitor_state(self):
