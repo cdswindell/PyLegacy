@@ -1380,10 +1380,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         self.on_engine_command("MOMENTUM_HIGH")
                 self.momentum_level.value = f"{value:02d}"
 
+    def on_admin_panel(self) -> None:
+        print("display_admin_panel")
+
     def on_recents(self, value: str):
-        if value != self.title:
+        if value not in {self.title, self._seperator}:
             if value == self._admin_title:
-                pass
+                self.on_admin_panel()
             else:
                 state = self._options_to_state[value]
                 if state and state not in {self._active_engine_state, self._active_train_state}:
