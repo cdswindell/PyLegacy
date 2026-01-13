@@ -330,45 +330,39 @@ class GuiZeroBase(Thread, ABC):
                     log.info(f"Product info for engine btid: {bt_id} is unavailable: {ve}")
         return prod_info
 
-    def _fetch_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int, key: tuple) -> ProdInfo | None:
+    def _fetch_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:
         """Fetch product info in a background thread, then schedule UI update."""
         prod_info = None
         do_request_prod_info = False
         with self._cv:
-            if key not in self._pending_prod_infos:
-                self._pending_prod_infos.add(key)
+            if tmcc_id not in self._pending_prod_infos:
+                self._pending_prod_infos.add(tmcc_id)
                 do_request_prod_info = True  # don't hold lock for long
         if do_request_prod_info:
             prod_info = self._request_prod_info(bt_id)
             self._prod_info_cache[tmcc_id] = prod_info
-            self._pending_prod_infos.discard(key)
+            self._pending_prod_infos.discard(tmcc_id)
             # now get image
             if isinstance(prod_info, ProdInfo):
                 img = self.get_scaled_image(BytesIO(prod_info.image_content))
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
         # Schedule the UI update on the main thread
-        self.queue_message(callback, tmcc_id, key)
+        self.queue_message(callback, tmcc_id)
         return prod_info
 
-    def get_prod_info(
-        self,
-        bt_id: str,
-        callback: Callable,
-        tmcc_id: int,
-        key: tuple = None,
-    ) -> ProdInfo | None:
-        if key is None:
-            key = (CommandScope.ENGINE, tmcc_id)
+    def get_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:
         prod_info = self._prod_info_cache.get(tmcc_id, None)
         if prod_info is None and bt_id:
-            if (CommandScope.ENGINE, tmcc_id) not in self._pending_prod_infos:
-                future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id, key)
+            if tmcc_id not in self._pending_prod_infos:
+                future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id)
                 self._prod_info_cache[tmcc_id] = future
         elif isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
             prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
-            self._pending_prod_infos.discard(key)
+            self._pending_prod_infos.discard(tmcc_id)
         elif isinstance(prod_info, ProdInfo):
             pass
         else:
             prod_info = "N/A"
+            if bt_id is None:
+                self._prod_info_cache[tmcc_id] = prod_info
         return prod_info

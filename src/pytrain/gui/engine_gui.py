@@ -2563,12 +2563,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
                 state = self._state_store.get_state(scope, tmcc_id, False)
-                prod_info = self.get_prod_info(
-                    state.bt_id if state else None,
-                    self.update_component_image,
-                    tmcc_id,
-                    key=key,
-                )
+                prod_info = self.get_prod_info(state.bt_id if state else None, self.update_component_image, tmcc_id)
 
                 if prod_info is None:
                     return
