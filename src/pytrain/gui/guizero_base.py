@@ -129,6 +129,8 @@ class GuiZeroBase(Thread, ABC):
     # noinspection PyUnresolvedReferences
     def init_complete(self) -> None:
         if self._sync_state:
+            # in the event the base state is already synchronized, notify the watcher
+            # so it starts the main GUI thread
             with self._sync_state.synchronizer:
                 self._sync_state.synchronizer.notify_all()
         self._init_complete_flag.set()
