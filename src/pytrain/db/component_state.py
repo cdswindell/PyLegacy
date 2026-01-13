@@ -319,7 +319,10 @@ class ComponentState(ABC, CompDataMixin):
         Used to synchronizer component state when client connects to the server.
         """
         with self.synchronizer:
-            byte_str = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self).as_bytes
+            req = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
+            if req.scope == CommandScope.ENGINE and req.address == 52:
+                print(f"************ ComponentState.as_bytes {req}")
+            byte_str = req.as_bytes
             return byte_str
 
     def _update_comp_data(self, comp_data: CompData):
