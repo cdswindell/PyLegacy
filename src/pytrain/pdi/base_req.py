@@ -385,10 +385,15 @@ class BaseReq(PdiReq, CompDataMixin):
                     CommandScope.SWITCH,
                     CommandScope.ROUTE,
                 }:
-                    self._comp_data = CompData.from_bytes(self._data_bytes, scope=self.scope, tmcc_id=self.tmcc_id)
-                    self._name = self._comp_data.road_name
-                    self._number = self._comp_data.road_number
-                    self._comp_data_record = True  # mark this req as containing a complete CompData record
+                    if self._data_bytes:
+                        self._comp_data = CompData.from_bytes(self._data_bytes, scope=self.scope, tmcc_id=self.tmcc_id)
+                        self._comp_data_record = True  # mark this req as containing a complete CompData record
+                        self._name = self._comp_data.road_name
+                        self._number = self._comp_data.road_number
+                    else:
+                        self._comp_data = None
+                        self._comp_data_record = False
+                        self._name = self._number = None
             elif self.pdi_command in {PdiCommand.UPDATE_ENGINE_SPEED, PdiCommand.UPDATE_TRAIN_SPEED}:
                 self._speed = self._data[2] if data_len > 2 else None
                 self._valid1 = (1 << EngineBits.SPEED) if data_len > 2 else 0
