@@ -320,8 +320,7 @@ class ComponentState(ABC, CompDataMixin):
         """
         with self.synchronizer:
             req = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
-            byte_str = req.as_bytes
-            return byte_str
+            return req.as_bytes if req.data_bytes else bytes()
 
     def _update_comp_data(self, comp_data: CompData):
         with self._cv:
