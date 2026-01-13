@@ -125,18 +125,8 @@ class ClientStateListener(threading.Thread):
         if log.isEnabledFor(logging.DEBUG):
             log.debug(f"ClientStateListener Offered: {data.hex(' ')}")
         if data and data[0] == PDI_SOP:
-            from ..pdi.pdi_req import PdiReq
-
-            req = PdiReq.from_bytes(data)
-            if req.address == 52:
-                print(f"***** {req}")
             self._pdi_listener.offer(data)
         else:
-            from ..protocol.command_req import CommandReq
-
-            req = CommandReq.from_bytes(data)
-            if req.address == 52:
-                print(f"***** {req}")
             self._tmcc_listener.offer(data)
 
     def subscribe(
