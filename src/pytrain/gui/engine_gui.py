@@ -1390,7 +1390,6 @@ class EngineGui(Thread, Generic[S]):
         if self.horn_box.visible:
             # hide the horn box
             self.horn_box.hide()
-        print(f"Toggle momentum train brake called, btn: {btn}, show_btn: {show_btn}")
         if show_btn:
             _, btn = self.engine_ops_cells[(MOM_TB, "e")]
             if show_btn == "brake":

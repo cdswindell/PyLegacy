@@ -116,16 +116,16 @@ ENGINE_OPS_LAYOUT = [
             ("PANTO_BOTH_DOWN", "panto-down-a.jpg", "", "", "a"),
         ],
         [
-            (SMOKE_ON, "smoke-up.jpg", "", "", "sm"),
-            ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "pf"),
             ("PANTO_BOTH_UP", "panto-up-a.jpg", "", "", "a"),
             ("PANTO_FRONT_UP_CAB2", "panto-up-f.jpg", "", "", "l"),
+            ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "pf"),
+            (SMOKE_ON, "smoke-up.jpg", "", "", "sm"),
         ],
         [
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "bs"),
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "t"),
-            ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
             ("PANTO_REAR_UP_CAB2", "panto-up-r.jpg", "", "", "l"),
+            ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
         ],
         [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
@@ -139,13 +139,15 @@ ENGINE_OPS_LAYOUT = [
             ("START_UP_IMMEDIATE", "on_button.jpg", "", "", "a"),
         ],
         [
-            (SMOKE_OFF, "smoke-down.jpg", "", "", "sm"),
+            ("PANTO_FRONT_DOWN_CAB2", "panto-down-f.jpg", "", "", "l"),
+            ("SHUTDOWN_IMMEDIATE", "off_button.jpg", "", "", "a"),
             ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "pf"),
             ("TOGGLE_DIRECTION", "", DIR_KEY, "", "t"),
-            ("SHUTDOWN_IMMEDIATE", "off_button.jpg", "", "", "a"),
+            (SMOKE_OFF, "smoke-down.jpg", "", "", "sm"),
         ],
         [
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "bs"),
+            ("PANTO_REAR_DOWN_CAB2", "panto-down-r.jpg", "", "", "l"),
             ("STOCK_OPTION_TWO_OFF", "stock-b-off.jpg", "", "", "pf"),
         ],
         [
