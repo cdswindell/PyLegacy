@@ -652,6 +652,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                 for address in store.addresses(scope):
                     with self._client_lock:
                         state: ComponentState = store.query(scope, address)
+                        if scope == CommandScope.ENGINE and address == 52:
+                            print(f"**** {state} {state.comp_data}")
                         if state is not None:
                             # don't send records that do not have a component state, unless the state is from
                             # an LCS device. Otherwise, this means the Base 2/3 never provided initial state
