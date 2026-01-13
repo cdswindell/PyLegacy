@@ -639,6 +639,8 @@ class CompData(ABC, Generic[R]):
 
         # load the data from the byte string
         if data:
+            if len(data) != PdiReq.scope_record_length(self.scope):
+                print(f"Invalid data length for {self.scope}: {len(data)}")
             self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
     def is_active(self) -> bool:
@@ -951,6 +953,7 @@ class CompDataMixin(Generic[C]):
         elif scope == CommandScope.ENGINE:
             self._comp_data = EngineData(b"\xff" * data_len, tmcc_id)
             self._init_engine_data()
+            print(f"************ Initializing engine data for {tmcc_id}")
         elif scope == CommandScope.TRAIN:
             self._comp_data = TrainData(b"\xff" * data_len, tmcc_id)
             self._init_engine_data()

@@ -376,7 +376,7 @@ class BaseReq(PdiReq, CompDataMixin):
                 self._start = int.from_bytes(self._data[5:9], byteorder="little") if data_len > 8 else None
                 _ = self._data[9] if data_len > 9 else None  # we assume port is always 2; Database EEProm
                 self._data_length = self._data[10] if data_len > 10 else None
-                self._data_bytes = self._data[11:] if data_len > 11 else None
+                self._data_bytes = bytes(self._data[11:]) if data_len > 11 else None
                 base_record_length = PdiReq.scope_record_length(self.scope)
                 if self.data_length == base_record_length and self.scope in {
                     CommandScope.ENGINE,
