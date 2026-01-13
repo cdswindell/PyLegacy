@@ -1379,7 +1379,7 @@ class EngineGui(Thread, Generic[S]):
                 self._on_close_show = None
 
     def show_horn_control(self) -> None:
-        for loco_type in ["d", "s"]:
+        for loco_type in ["d", "s", "l"]:
             _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
             btn.on_hold = self.toggle_momentum_train_brake
         self.momentum_box.hide()
@@ -1390,7 +1390,7 @@ class EngineGui(Thread, Generic[S]):
         if self.horn_box.visible:
             # hide the horn box
             self.horn_box.hide()
-
+        print(f"Toggle momentum train brake called, btn: {btn}, show_btn: {show_btn}")
         if show_btn:
             _, btn = self.engine_ops_cells[(MOM_TB, "e")]
             if show_btn == "brake":
@@ -1422,7 +1422,7 @@ class EngineGui(Thread, Generic[S]):
                 self.brake_box.visible = True
 
         # restore the on_hold handler
-        for loco_type in ["d", "s"]:
+        for loco_type in ["d", "s", "l"]:
             _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
             btn.on_hold = self.show_horn_control
 

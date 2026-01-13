@@ -170,7 +170,6 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             (MOM_TB, "", MOMENTUM, "", "e"),
-            # ("", "", "Etc...", "", "f"),
         ],
     ],
 ]
