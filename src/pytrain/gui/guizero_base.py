@@ -26,7 +26,7 @@ from ..protocol.constants import PROGRAM_NAME, CommandScope
 log = logging.getLogger(__name__)
 
 
-class GuiBase(Thread, ABC):
+class GuiZeroBase(Thread, ABC):
     __metaclass__ = ABCMeta
 
     @abstractmethod

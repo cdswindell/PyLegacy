@@ -9,15 +9,12 @@
 
 from __future__ import annotations
 
-import atexit
 import io
 import logging
 import math
 import tkinter as tk
 from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
-from queue import Empty, Queue
-from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar, cast
 
@@ -28,16 +25,12 @@ from guizero.event import EventData
 # noinspection PyPackageRequirements
 from PIL import Image, ImageOps, ImageTk
 
-from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
-from ..db.base_state import BaseState
 from ..db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
-from ..db.component_state_store import ComponentStateStore
 from ..db.engine_state import EngineState, TrainState
 from ..db.irda_state import IrdaState
 from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
-from ..gpio.gpio_handler import GpioHandler
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import Asc2Action, IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
@@ -103,6 +96,7 @@ from .engine_gui_conf import (
     send_lcs_off_command,
     send_lcs_on_command,
 )
+from .guizero_base import GuiZeroBase
 from .hold_button import HoldButton
 from .scrolling_text import ScrollingText
 from .state_info_overlay import StateInfoOverlay
@@ -112,7 +106,7 @@ log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
 
 
-class EngineGui(Thread, Generic[S]):
+class EngineGui(GuiZeroBase, Generic[S]):
     @classmethod
     def name(cls) -> str:
         return cls.__name__
@@ -135,43 +129,27 @@ class EngineGui(Thread, Generic[S]):
         scope: CommandScope = CommandScope.ENGINE,
         auto_scroll: bool = True,
     ) -> None:
-        Thread.__init__(self, daemon=True, name="Engine GUI")
-        self._cv = Condition(RLock())
-        self._ev = Event()
-        if width is None or height is None:
-            try:
-                from tkinter import Tk
-
-                root = Tk()
-                self.width = root.winfo_screenwidth()
-                self.height = root.winfo_screenheight()
-                root.destroy()
-            except Exception as e:
-                log.exception("Error determining window size", exc_info=e)
-        else:
-            self.width = width
-            self.height = height
-        self.title = None
+        GuiZeroBase.__init__(
+            self,
+            title="Engine GUI",
+            width=width,
+            height=height,
+            enabled_bg=enabled_bg,
+            disabled_bg=disabled_bg,
+            enabled_text=enabled_text,
+            disabled_text=disabled_text,
+            active_bg=active_bg,
+            inactive_bg=inactive_bg,
+            scale_by=scale_by,
+        )
         self.auto_scroll = auto_scroll
         self.image_file = None
-        self._base_state = None
         self._engine_tmcc_id = None
         self._engine_state = None
         self._image = None
-        self._scale_by = scale_by
         self.repeat = repeat
         self.num_recents = num_recents
         self._sensor_track_id = sensor_track_id
-        self.s_30: int = int(round(30 * scale_by))
-        self.s_24: int = int(round(24 * scale_by))
-        self.s_22: int = int(round(22 * scale_by))
-        self.s_20: int = int(round(20 * scale_by))
-        self.s_18: int = int(round(18 * scale_by))
-        self.s_16: int = int(round(16 * scale_by))
-        self.s_14: int = int(round(14 * scale_by))
-        self.s_12: int = int(round(12 * scale_by))
-        self.s_10: int = int(round(10 * scale_by))
-        self.s_8: int = int(round(8 * scale_by))
         self.button_size = int(round(self.width / 6))
         self.slider_height = self.button_size * 4
         self.titled_button_size = int(round((self.width / 6) * 0.80))
@@ -183,13 +161,7 @@ class EngineGui(Thread, Generic[S]):
         self.avail_image_height = self.avail_image_width = None
         self.options = [self.title]
 
-        self._enabled_bg = enabled_bg
-        self._disabled_bg = disabled_bg
-        self._enabled_text = enabled_text
-        self._disabled_text = disabled_text
-        self._active_bg = active_bg
-        self._inactive_bg = inactive_bg
-        self.app = self.box = self.acc_box = self.y_offset = None
+        self.box = self.acc_box = self.y_offset = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
         self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
@@ -198,7 +170,6 @@ class EngineGui(Thread, Generic[S]):
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.power_off_path = find_file("bulb-power-off.png")
         self.power_on_path = find_file("bulb-power-on.png")
-        self._app_counter = 0
         self._in_entry_mode = True
         self._btn_images = []
         self._dim_cache = {}
@@ -216,7 +187,6 @@ class EngineGui(Thread, Generic[S]):
         self._pending_prod_infos = set()
         self._executor = ThreadPoolExecutor(max_workers=3)
         self.size_cache = {}
-        self._message_queue = Queue()
         self.scope = scope if scope else CommandScope.ENGINE
         self.initial = tmcc_id
         self._active_engine_state = self._active_train_state = None
@@ -304,42 +274,6 @@ class EngineGui(Thread, Generic[S]):
 
         self.engine_ops_cells = {}
 
-        # Thread-aware shutdown signaling
-        self._tk_thread_id: int | None = None
-        self._is_closed = False
-        self._shutdown_flag = Event()
-
-        # listen for state changes
-        self._dispatcher = CommandDispatcher.get()
-        self._state_store = ComponentStateStore.get()
-        self._synchronized = False
-        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if self._sync_state and self._sync_state.is_synchronized is True:
-            self._sync_watcher = None
-            self.on_sync()
-        else:
-            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-
-        # Important: don't call tkinter from atexit; only signal
-        atexit.register(lambda: self._shutdown_flag.set())
-
-    def close(self) -> None:
-        # Only signal shutdown here; actual tkinter destroy happens on the GUI thread
-        if not self._is_closed:
-            self._is_closed = True
-            self._shutdown_flag.set()
-
-    def reset(self) -> None:
-        self.close()
-
-    @property
-    def destroy_complete(self) -> Event:
-        return self._ev
-
-    @property
-    def version(self) -> str:
-        return self._dispatcher.version
-
     # noinspection PyTypeChecker
     @property
     def active_engine_state(self) -> EngineState:
@@ -355,29 +289,6 @@ class EngineGui(Thread, Generic[S]):
                 return self._active_engine_state
         else:
             return None
-
-    # noinspection PyTypeChecker
-    def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
-            if self._sync_watcher:
-                self._sync_watcher.shutdown()
-                self._sync_watcher = None
-            self._synchronized = True
-            self._base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
-            if self._base_state:
-                self.title = cast(BaseState, self._base_state).base_name
-            else:
-                self.title = "My Layout"
-
-            # start GUI
-            self.start()
-
-            # create watcher for sensor track, if needed
-            if self._sensor_track_id:
-                state = self._state_store.get_state(CommandScope.IRDA, self._sensor_track_id)
-                action = self.on_state_changed_action(state)
-                if state:
-                    self._sensor_track_watcher = StateWatcher(state, action)
 
     def on_sensor_track_update(self, state: IrdaState) -> None:
         if state.last_train_id:
@@ -397,51 +308,8 @@ class EngineGui(Thread, Generic[S]):
                 self.ops_mode()
 
     # noinspection PyTypeChecker
-    def set_button_inactive(self, widget: Widget):
-        widget.bg = self._disabled_bg
-        widget.text_color = self._disabled_text
-
-    # noinspection PyTypeChecker
-    def set_button_active(self, widget: Widget):
-        widget.bg = self._enabled_bg
-        widget.text_color = self._enabled_text
-
-    def queue_message(self, message: Callable, *args: Any) -> None:
-        self._message_queue.put((message, args))
-
-    # noinspection PyTypeChecker
-    def run(self) -> None:
-        self._shutdown_flag.clear()
-        self._ev.clear()
-        self._tk_thread_id = get_ident()
-        GpioHandler.cache_handler(self)
-        self.app = app = App(title=self.title, width=self.width, height=self.height)
-        app.full_screen = True
-        app.when_closed = self.close
-        app.bg = "white"
-
-        # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        def _poll_shutdown():
-            self._app_counter += 1
-            if self._shutdown_flag.is_set():
-                try:
-                    app.destroy()
-                except TclError:
-                    pass  # ignore, we're shutting down
-                return None
-            else:
-                # Process pending messages in the queue
-                try:
-                    message = self._message_queue.get_nowait()
-                    if isinstance(message, tuple):
-                        if message[1] and len(message[1]) > 0:
-                            message[0](*message[1])
-                        else:
-                            message[0]()
-                        # app.tk.update_idletasks()
-                except Empty:
-                    pass
-            return None
+    def build_gui(self) -> None:
+        app = self.app
 
         # customize label
         self.header = cb = Combo(
@@ -485,23 +353,15 @@ class EngineGui(Thread, Generic[S]):
         y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight()
         self.popup_position = (x, y)
 
-        # start the event watcher
-        app.repeat(20, _poll_shutdown)
+        # create watcher for sensor track, if needed
+        if self._sensor_track_id:
+            state = self._state_store.get_state(CommandScope.IRDA, self._sensor_track_id)
+            action = self.on_state_changed_action(state)
+            if state:
+                self._sensor_track_watcher = StateWatcher(state, action)
 
         if self.initial:
-            app.after(50, self.update_component_info, [self.initial])
-
-        # Display GUI and start event loop; call blocks
-        try:
-            app.display()
-        except TclError:
-            # If Tcl is already tearing down, ignore
-            pass
-        finally:
-            # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            self.destroy_gui()
-            self.app = None
-            self._ev.set()
+            app.after(100, self.update_component_info, [self.initial])
 
     def destroy_gui(self) -> None:
         self.box = None
