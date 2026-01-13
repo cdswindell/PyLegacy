@@ -609,6 +609,7 @@ class EngineGui(Thread, Generic[S]):
             | self._acela_btns
             | self._crane_btns
             | self._diesel_btns
+            | self._electric_btns
             | self._freight_btns
             | self._passenger_btns
             | self._passenger_freight_btns
