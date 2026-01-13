@@ -818,8 +818,12 @@ class EngineGui(Thread, Generic[S]):
         # Logic: Assign current on_press to on_repeat and set the interval
         repeats = [
             (("AUX1_OPTION_ONE", "e"), 0.2),  # Standard repeat
-            (("BOOST_SPEED", "e"), 0.3),
-            (("BRAKE_SPEED", "e"), 0.3),
+            (("BOOST_SPEED", "bs"), 0.3),
+            (("BOOST_SPEED", "a"), 0.3),
+            (("BOOST_SPEED", "l"), 0.3),
+            (("BRAKE_SPEED", "bs"), 0.3),
+            (("BRAKE_SPEED", "a"), 0.3),
+            (("BRAKE_SPEED", "l"), 0.3),
             (("WATER_INJECTOR", "s"), 0.2),
             (("LET_OFF_LONG", "s"), 0.2),
         ]
