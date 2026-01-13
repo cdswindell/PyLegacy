@@ -129,6 +129,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
         scope: CommandScope = CommandScope.ENGINE,
         auto_scroll: bool = True,
     ) -> None:
+        # have to call parent init after all variables are set up
+        GuiZeroBase.__init__(
+            self,
+            title="Engine GUI",
+            width=width,
+            height=height,
+            enabled_bg=enabled_bg,
+            disabled_bg=disabled_bg,
+            enabled_text=enabled_text,
+            disabled_text=disabled_text,
+            active_bg=active_bg,
+            inactive_bg=inactive_bg,
+            scale_by=scale_by,
+        )
+
         self.auto_scroll = auto_scroll
         self.image_file = None
         self._engine_tmcc_id = None
@@ -260,20 +275,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             CommandScope.IRDA: self.on_sensor_track_update,
         }
 
-        # have to call parent init after all variables are set up
-        GuiZeroBase.__init__(
-            self,
-            title="Engine GUI",
-            width=width,
-            height=height,
-            enabled_bg=enabled_bg,
-            disabled_bg=disabled_bg,
-            enabled_text=enabled_text,
-            disabled_text=disabled_text,
-            active_bg=active_bg,
-            inactive_bg=inactive_bg,
-            scale_by=scale_by,
-        )
+        # tell parent we've set up variables and are ready to proceed
+        self.init_complete()
 
     # noinspection PyTypeChecker
     @property

@@ -93,6 +93,7 @@ class GuiZeroBase(Thread, ABC):
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
         self._is_closed = False
+        self._init_complete_flag = Event()
         self._shutdown_flag = Event()
 
         # listen for state changes
@@ -100,11 +101,7 @@ class GuiZeroBase(Thread, ABC):
         self._state_store = ComponentStateStore.get()
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if self._sync_state and self._sync_state.is_synchronized is True:
-            self._sync_watcher = None
-            self._on_initial_sync()
-        else:
-            self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
+        self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
 
     @abstractmethod
     def build_gui(self) -> None: ...
@@ -129,6 +126,13 @@ class GuiZeroBase(Thread, ABC):
     def version(self) -> str:
         return self._dispatcher.version
 
+    # noinspection PyUnresolvedReferences
+    def init_complete(self) -> None:
+        if self._sync_state:
+            with self._sync_state.synchronizer:
+                self._sync_state.synchronizer.notify_all()
+        self._init_complete_flag.set()
+
     def _on_initial_sync(self) -> None:
         if self._sync_state.is_synchronized:
             if self._sync_watcher:
@@ -142,6 +146,7 @@ class GuiZeroBase(Thread, ABC):
                 self.title = "My Layout"
 
             # start GUI; heavy lifting done in run()
+            self._init_complete_flag.wait()
             self.start()
 
     def set_button_inactive(self, widget: Widget):
