@@ -553,6 +553,52 @@ class UnitAssignment(Mixins, IntEnum):
     TAIL_FORWARD = 0b011
     TAIL_REVERSE = 0b111
 
+    @property
+    def is_forward(self) -> bool:
+        return self.value & 0b100 == 0b000
+
+    @property
+    def is_reverse(self) -> bool:
+        return self.value & 0b100 == 0b100
+
+    @property
+    def is_head(self) -> bool:
+        return self.value & 0b011 == 0b001
+
+    @property
+    def is_middle(self) -> bool:
+        return self.value & 0b011 == 0b010
+
+    @property
+    def is_tail(self) -> bool:
+        return self.value & 0b011 == 0b011
+
+    @property
+    def is_single(self) -> bool:
+        return self.value & 0b011 == 0b000
+
+    @property
+    def position(self) -> str:
+        if self.is_single:
+            return "Single"
+        elif self.is_head:
+            return "Head"
+        elif self.is_middle:
+            return "Middle"
+        elif self.is_tail:
+            return "Tail"
+        else:
+            return "NA"
+
+    @property
+    def direction(self) -> str:
+        if self.is_forward:
+            return "Forward"
+        elif self.is_reverse:
+            return "Reverse"
+        else:
+            return "NA"
+
 
 # index values,
 TMCC2_SET_ENGINE_ADDRESS_INDEX: int = 0x40

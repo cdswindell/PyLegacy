@@ -98,6 +98,8 @@ class StateInfoOverlay:
             ("fuel", "Fuel Level", [2, 5], CommandScope.ENGINE),
             ("water", "Water Level", [3, 5], CommandScope.ENGINE),
             ("train id", "Train TMCC ID", [0, 6], CommandScope.ENGINE),
+            ("train pos", "Position", [1, 6], CommandScope.ENGINE),
+            ("train dir", "Direction", [1, 6], CommandScope.ENGINE),
             ("lead", "Lead Engine ID", [0, 6], CommandScope.TRAIN),
             ("engines", "Engines", [1, 6], CommandScope.TRAIN),
             ("cars", "Cars", [2, 6], CommandScope.TRAIN),
@@ -153,7 +155,9 @@ class StateInfoOverlay:
                 self._set_val("cars", f"{state.num_train_linked}")
                 self._set_val("accessories", f"{state.num_accessories}")
             else:
-                self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else ''}")
+                self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
+                self._set_val("train pos", f"{state.train_unit.position if state.train_unit else 'NA'}")
+                self._set_val("train dir", f"{state.train_unit.direction if state.train_unit else 'NA'}")
 
         elif isinstance(state, LcsProxyState):
             self._set_val("type", state.accessory_type)

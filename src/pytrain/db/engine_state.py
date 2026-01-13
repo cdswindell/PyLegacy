@@ -39,7 +39,7 @@ from ..protocol.constants import (
     EngineType,
     OfficialRRSpeeds,
 )
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum
+from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum, UnitAssignment
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1EngineCommandEnum,
@@ -658,6 +658,13 @@ class EngineState(ComponentState):
     @property
     def train_tmcc_id(self) -> int:
         return self.comp_data.train_tmcc_id if self.comp_data and self.comp_data.train_tmcc_id != 255 else None
+
+    # noinspection PyTypeChecker
+    @property
+    def train_unit(self) -> UnitAssignment:
+        if self.comp_data and self.comp_data.train_unit != 255:
+            return UnitAssignment(self.comp_data.train_unit)
+        return None
 
     @property
     def target_speed(self) -> int:
