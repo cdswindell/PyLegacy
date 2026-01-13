@@ -1399,7 +1399,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def get_options(self) -> list[str]:
         if self._seperator is None:
-            self._seperator = "-" * len(self.title)
+            self._seperator = "-" * int(3 * len(self.title) / 2)
         options = [self.title]
         add_sep = False
         self._options_to_state.clear()
