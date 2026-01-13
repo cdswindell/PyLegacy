@@ -72,6 +72,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
+            ("BOOST_SPEED", "boost.jpg", "", "Boost", "l"),
             ("LET_OFF_LONG", "let-off.jpg", "", "", "s"),
             ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
             ("NUMBER_3", "load.jpg", "", "", "f"),
@@ -95,6 +96,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
+            ("BRAKE_SPEED", "brake.jpg", "", "Brake", "l"),
             ("WATER_INJECTOR", "water-inject.jpg", "", "", "s"),
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
@@ -118,7 +120,7 @@ ENGINE_OPS_LAYOUT = [
             ("PANTO_BOTH_UP", "panto-up-a.jpg", "", "", "a"),
         ],
         [
-            ("BOOST_SPEED", "boost.jpg", "", "Boost", "e"),
+            ("BOOST_SPEED", "boost.jpg", "", "Boost", "bs"),
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "t"),
             ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
         ],
@@ -140,7 +142,7 @@ ENGINE_OPS_LAYOUT = [
             ("SHUTDOWN_IMMEDIATE", "off_button.jpg", "", "", "a"),
         ],
         [
-            ("BRAKE_SPEED", "brake.jpg", "", "Brake", "e"),
+            ("BRAKE_SPEED", "brake.jpg", "", "Brake", "bs"),
             ("STOCK_OPTION_TWO_OFF", "stock-b-off.jpg", "", "", "pf"),
         ],
         [

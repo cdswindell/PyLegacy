@@ -178,10 +178,10 @@ class CommandReq:
     ) -> None:
         from .sequence.sequence_constants import SequenceCommandEnum
 
-        if isinstance(command, TMCC1Enum):
-            enum_class = TMCC1Enum
-        elif isinstance(command, TMCC2Enum) or isinstance(command, SequenceCommandEnum):
+        if isinstance(command, TMCC2Enum) or isinstance(command, SequenceCommandEnum):
             enum_class = TMCC2Enum
+        elif isinstance(command, TMCC1Enum):
+            enum_class = TMCC1Enum
         else:
             raise TypeError(f"Command def not recognized: '{command}'")
 
