@@ -846,7 +846,7 @@ class EngineGui(Thread, Generic[S]):
             get_btn(key).on_hold = callback
 
         # 4. Loco-specific Horn/Whistle control holds
-        for loco in ["d", "s"]:
+        for loco in ["d", "s", "l"]:
             get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
 
     def make_slider(

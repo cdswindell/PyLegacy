@@ -80,6 +80,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
+            ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "l"),
             ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s"),
             ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
             ("NUMBER_6", "unload.jpg", "", "", "f"),
