@@ -99,7 +99,7 @@ class StateInfoOverlay:
             ("water", "Water Level", [3, 5], CommandScope.ENGINE),
             ("train id", "Train TMCC ID", [0, 6], CommandScope.ENGINE),
             ("train pos", "Position", [1, 6], CommandScope.ENGINE),
-            ("train dir", "Direction", [1, 6], CommandScope.ENGINE),
+            ("train dir", "Direction", [2, 6], CommandScope.ENGINE),
             ("lead", "Lead Engine ID", [0, 6], CommandScope.TRAIN),
             ("engines", "Engines", [1, 6], CommandScope.TRAIN),
             ("cars", "Cars", [2, 6], CommandScope.TRAIN),
