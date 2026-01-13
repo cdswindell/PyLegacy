@@ -6,25 +6,26 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+
 from __future__ import annotations
 
-from ..db.accessory_state import AccessoryState
-from ..db.engine_state import TrainState
-from ..pdi.asc2_req import Asc2Req
-from ..pdi.bpc2_req import Bpc2Req
-from ..pdi.constants import Asc2Action, Bpc2Action, PdiCommand
-from ..protocol.command_def import CommandDefEnum
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, EngineType
-from ..protocol.multibyte.multibyte_constants import TMCC2LightingControl
-from ..protocol.tmcc1.tmcc1_constants import (
+from ...db.accessory_state import AccessoryState
+from ...db.engine_state import TrainState
+from ...pdi.asc2_req import Asc2Req
+from ...pdi.bpc2_req import Bpc2Req
+from ...pdi.constants import Asc2Action, Bpc2Action, PdiCommand
+from ...protocol.command_def import CommandDefEnum
+from ...protocol.command_req import CommandReq
+from ...protocol.constants import CommandScope, EngineType
+from ...protocol.multibyte.multibyte_constants import TMCC2LightingControl
+from ...protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
     TMCC1EngineCommandEnum,
     TMCC1HaltCommandEnum,
     TMCC1SwitchCommandEnum,
 )
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RouteCommandEnum
-from ..utils.path_utils import find_file
+from ...protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, TMCC2RouteCommandEnum
+from ...utils.path_utils import find_file
 
 HALT_KEY = "Emergency"
 SWITCH_THRU_KEY = "↑"

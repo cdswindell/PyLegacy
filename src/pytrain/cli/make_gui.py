@@ -18,7 +18,7 @@ from pathlib import Path
 
 from ..gui.accessories_gui import AccessoriesGui
 from ..gui.component_state_gui import ComponentStateGui
-from ..gui.engine_gui import EngineGui
+from ..gui.controller.engine_gui import EngineGui
 from ..gui.launch_gui import LaunchGui
 from ..gui.motors_gui import MotorsGui
 from ..gui.power_district_gui import PowerDistrictsGui

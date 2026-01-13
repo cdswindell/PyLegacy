@@ -6,14 +6,15 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+
 import logging
 
 from guizero import Box, Text, TitleBox
 
-from ..db.component_state import LcsProxyState
-from ..db.engine_state import EngineState, TrainState
-from ..db.prod_info import ProdInfo
-from ..protocol.constants import CommandScope
+from ...db.component_state import LcsProxyState
+from ...db.engine_state import EngineState, TrainState
+from ...db.prod_info import ProdInfo
+from ...protocol.constants import CommandScope
 
 log = logging.getLogger(__name__)
 
