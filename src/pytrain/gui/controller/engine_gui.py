@@ -215,6 +215,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # controller
         self._admin_title = f"Manage {PROGRAM_NAME}"
+        self._seperator = None
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
@@ -1397,18 +1398,25 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return None
 
     def get_options(self) -> list[str]:
+        if self._seperator is None:
+            self._seperator = "-" * len(self.title)
         options = [self.title]
+        add_sep = False
         self._options_to_state.clear()
         queue = self._recents_queue.get(self.scope, UniqueDeque())
         if self.scope == CommandScope.ENGINE and self._train_linked_queue:
             if queue:
                 # we want to preserve the order of the original queue
                 queue = queue.copy()
+                add_sep = True
             for i, state in enumerate(self._train_linked_queue):
                 queue.insert(i, state)
         if isinstance(queue, UniqueDeque):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             for state in queue:
+                if add_sep and self._train_linked_queue and state not in self._train_linked_queue:
+                    options.append(self._seperator)
+                    add_sep = False
                 name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
                 road_number = state.road_number
                 if road_number and road_number.isnumeric() and int(road_number) != state.tmcc_id:
@@ -1416,6 +1424,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if name:
                     options.append(name)
                     self._options_to_state[name] = state
+        options.append(self._seperator)
         options.append(self._admin_title)
         return options
 

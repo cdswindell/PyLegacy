@@ -179,22 +179,6 @@ class GuiZeroBase(Thread, ABC):
             self._init_complete_flag.wait()
             self.start()
 
-    def scale(self, value: int, factor: float = None) -> int:
-        orig_value = value
-        value = max(orig_value, int(value * self.width / 480))
-        if factor is not None and self.width > 480:
-            value = max(orig_value, int(factor * value))
-        return value
-
-    def set_button_inactive(self, widget: Widget):
-        widget.bg = self._disabled_bg
-        widget.text_color = self._disabled_text
-
-    # noinspection PyTypeChecker
-    def set_button_active(self, widget: Widget):
-        widget.bg = self._enabled_bg
-        widget.text_color = self._enabled_text
-
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
 
@@ -246,6 +230,22 @@ class GuiZeroBase(Thread, ABC):
             self.destroy_gui()
             self.app = None
             self._ev.set()
+
+    def scale(self, value: int, factor: float = None) -> int:
+        orig_value = value
+        value = max(orig_value, int(value * self.width / 480))
+        if factor is not None and self.width > 480:
+            value = max(orig_value, int(factor * value))
+        return value
+
+    def set_button_inactive(self, widget: Widget):
+        widget.bg = self._disabled_bg
+        widget.text_color = self._disabled_text
+
+    # noinspection PyTypeChecker
+    def set_button_active(self, widget: Widget):
+        widget.bg = self._enabled_bg
+        widget.text_color = self._enabled_text
 
     def sizeof(self, widget: Widget) -> tuple[int, int]:
         return self.size_cache.get(widget, None) or (widget.tk.winfo_reqwidth(), widget.tk.winfo_reqheight())
