@@ -320,7 +320,7 @@ class ComponentState(ABC, CompDataMixin):
         """
         with self.synchronizer:
             req = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
-            if req.scope == CommandScope.ENGINE and req.address == 52:
+            if req.scope == CommandScope.IRDA and req.address == 52:
                 print(f"************ ComponentState.as_bytes {req}")
             byte_str = req.as_bytes
             return byte_str
