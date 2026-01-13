@@ -316,6 +316,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         cb.text_size = self.s_24
         cb.text_bold = True
 
+        if "menu" in cb.tk.children:
+            menu = cb.tk.children["menu"]
+            menu.config(activebackground="lightgrey")
+
         # determine if we can set the "selected" value directly;
         # will be used for other combo boxes
         self.can_hack_combo = hasattr(cb, "_selected")
