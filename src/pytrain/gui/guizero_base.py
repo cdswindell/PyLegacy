@@ -372,5 +372,5 @@ class GuiZeroBase(Thread, ABC):
         elif isinstance(prod_info, ProdInfo):
             pass
         else:
-            prod_info = None
+            prod_info = "N/A"
         return prod_info
