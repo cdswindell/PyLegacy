@@ -124,7 +124,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "bs"),
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "t"),
-            ("PANTO_REAR_UP_CAB2", "panto-up-r.jpg", "", "", "l"),
+            ("PANTO_FRONT_DOWN_CAB2", "panto-down-f.jpg", "", "", "l"),
             ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
         ],
         [
@@ -139,7 +139,7 @@ ENGINE_OPS_LAYOUT = [
             ("START_UP_IMMEDIATE", "on_button.jpg", "", "", "a"),
         ],
         [
-            ("PANTO_FRONT_DOWN_CAB2", "panto-down-f.jpg", "", "", "l"),
+            ("PANTO_REAR_UP_CAB2", "panto-up-r.jpg", "", "", "l"),
             ("SHUTDOWN_IMMEDIATE", "off_button.jpg", "", "", "a"),
             ("STOCK_OPTION_ONE_OFF", "stock-a-off.jpg", "", "", "pf"),
             ("TOGGLE_DIRECTION", "", DIR_KEY, "", "t"),
