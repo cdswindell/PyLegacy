@@ -2563,28 +2563,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with self._cv:
                 state = self._state_store.get_state(scope, tmcc_id, False)
-                print(f"Calling gpi State: {state} key: {key}")
                 prod_info = self.get_prod_info(
                     state.bt_id if state else None,
                     self.update_component_image,
                     tmcc_id,
                     key=key,
                 )
-                print(f"Prod info: {prod_info}")
+
                 if prod_info is None:
                     return
-                #
-                # # If not cached or not a valid Future/ProdInfo, start a background fetch
-                # if prod_info is None and state and state.bt_id:
-                #     if (scope, tmcc_id) not in self._pending_prod_infos:
-                #         # Submit fetch immediately and cache the Future itself
-                #         future = self._executor.submit(self.fetch_prod_info, scope, tmcc_id, train_id)
-                #         self._prod_info_cache[tmcc_id] = future
-                #     return
-                #
-                # if isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
-                #     prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
-                #     self._pending_prod_infos.discard((scope, tmcc_id))
 
                 if isinstance(prod_info, ProdInfo):
                     # Image should have been cached by fetch_prod_indo

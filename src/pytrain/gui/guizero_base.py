@@ -346,8 +346,6 @@ class GuiZeroBase(Thread, ABC):
             if isinstance(prod_info, ProdInfo):
                 img = self.get_scaled_image(BytesIO(prod_info.image_content))
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                # if train_id:
-                #     self._image_cache[(CommandScope.TRAIN, train_id)] = img
         # Schedule the UI update on the main thread
         self.queue_message(callback, tmcc_id, key)
         return prod_info
