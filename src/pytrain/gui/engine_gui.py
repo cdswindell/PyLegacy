@@ -1645,13 +1645,15 @@ class EngineGui(Thread, Generic[S]):
                 if self._rr_speed_btn.enabled:
                     self._rr_speed_btn.disable()
 
-            self.brake_level.value = f"{state.train_brake:02d}"
+            brake = state.train_brake if state.train_brake is not None else 0
+            self.brake_level.value = f"{brake:02d}"
             if self.brake.tk.focus_displayof() != self.brake.tk:
-                self.brake.value = state.train_brake
+                self.brake.value = brake
 
-            self.momentum_level.value = f"{state.momentum:02d}"
+            momentum = state.momentum if state.momentum is not None else 0
+            self.momentum_level.value = f"{momentum:02d}"
             if self.app.tk.focus_get() != self.momentum.tk:
-                self.momentum.value = state.momentum
+                self.momentum.value = momentum
 
             if state.is_legacy:
                 self.momentum.tk.config(resolution=1, showvalue=True)
