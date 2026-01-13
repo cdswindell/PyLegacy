@@ -114,6 +114,7 @@ RECORD_TYPE_MAP = {
 }
 
 SCOPE_TO_RECORD_TYPE_MAP = {s: p for p, s in RECORD_TYPE_MAP.items()}
+SCOPE_TO_RECORD_TYPE_MAP[CommandScope.IRDA] = 3  # manually patch irda record
 
 
 class BaseReq(PdiReq, CompDataMixin):
