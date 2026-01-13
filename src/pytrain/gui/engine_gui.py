@@ -129,19 +129,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         scope: CommandScope = CommandScope.ENGINE,
         auto_scroll: bool = True,
     ) -> None:
-        GuiZeroBase.__init__(
-            self,
-            title="Engine GUI",
-            width=width,
-            height=height,
-            enabled_bg=enabled_bg,
-            disabled_bg=disabled_bg,
-            enabled_text=enabled_text,
-            disabled_text=disabled_text,
-            active_bg=active_bg,
-            inactive_bg=inactive_bg,
-            scale_by=scale_by,
-        )
         self.auto_scroll = auto_scroll
         self.image_file = None
         self._engine_tmcc_id = None
@@ -261,6 +248,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._info_details = {}  # manage state details info popup fields
         self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
         self._on_close_show = None
+        self.engine_ops_cells = {}
 
         # callbacks
         self._scoped_callbacks = {
@@ -272,7 +260,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
             CommandScope.IRDA: self.on_sensor_track_update,
         }
 
-        self.engine_ops_cells = {}
+        # have to call parent init after all variables are set up
+        GuiZeroBase.__init__(
+            self,
+            title="Engine GUI",
+            width=width,
+            height=height,
+            enabled_bg=enabled_bg,
+            disabled_bg=disabled_bg,
+            enabled_text=enabled_text,
+            disabled_text=disabled_text,
+            active_bg=active_bg,
+            inactive_bg=inactive_bg,
+            scale_by=scale_by,
+        )
 
     # noinspection PyTypeChecker
     @property
