@@ -768,6 +768,8 @@ class CompData(ABC, Generic[R]):
 
     def _parse_bytes(self, data: bytes, pmap: dict) -> None:
         data_len = len(data)
+        if self.tmcc_id == 50 and self.scope == CommandScope.ENGINE:
+            print(f"data: {data.hex()}")
         for k, v in pmap.items():
             if not isinstance(v, CompDataHandler):
                 continue
@@ -777,6 +779,8 @@ class CompData(ABC, Generic[R]):
                 try:
                     value = func(data[k : k + item_len])
                     if hasattr(self, v.field):
+                        if self.tmcc_id == 50 and self.scope == CommandScope.ENGINE:
+                            print(f"{v.field}: {value}")
                         setattr(self, v.field, value)
                 except Exception as e:
                     log.exception(f"Exception decoding {v.field} {e}", exc_info=e)
