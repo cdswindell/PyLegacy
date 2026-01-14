@@ -24,7 +24,7 @@ SCOPE_OPTS = [
 
 # noinspection PyUnresolvedReferences
 class AdminPanel:
-    def __init__(self, gui: GuiZeroBase, width: int, height: int):
+    def __init__(self, gui: GuiZeroBase, width: int, height: int, hold_threshold: int = 1):
         self._gui = gui
         self._width = width
         self._height = height
@@ -32,6 +32,7 @@ class AdminPanel:
         self._sync_state = None
         self._reload_btn = None
         self._scope_btns = None
+        self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -113,7 +114,7 @@ class AdminPanel:
         # admin operations
         tb = self._titlebox(
             admin_box,
-            text="Hold for 5 seconds",
+            text=f"Hold for {self.hold_threshold} second{'s' if self.hold_threshold > 1 else ''}",
             grid=[0, 4, 2, 1],
             # height=self._gui.button_size * 4,
         )
@@ -214,6 +215,7 @@ class AdminPanel:
         text_size = kwargs.pop("text_size", self._gui.s_18)
         width = kwargs.pop("width", 12)
         text_bold = kwargs.pop("text_bold", True)
+        hold_threshold = kwargs.pop("hold_threshold", self.hold_threshold)
         hb = HoldButton(
             parent,
             text=text,
@@ -222,6 +224,7 @@ class AdminPanel:
             text_size=text_size,
             width=width,
             text_bold=text_bold,
+            hold_threshold=hold_threshold,
             **kwargs,
         )
         hb.tk.config(
