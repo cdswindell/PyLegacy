@@ -53,6 +53,10 @@ class AdminPanel:
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
+        pb.tk.config(
+            justify="center",
+            anchor="w",
+        )
 
         _ = Text(tb, text=" ", grid=[1, 0], size=6, height=1, bold=True)
 
@@ -69,6 +73,8 @@ class AdminPanel:
             pady=self._gui.text_pad_y,
         )
         pb.tk.config(
+            justify="center",
+            anchor="e",
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
@@ -86,6 +92,6 @@ class AdminPanel:
             self._sync_state.bg = "green"
             self._reload_btn.enable()
         elif self._gui.sync_state.is_synchronizing:
-            self._sync_state.text = "Loading..."
+            self._sync_state.text = "Reloading..."
             self._sync_state.bg = "white"
             self._reload_btn.disable()
