@@ -114,7 +114,7 @@ class AdminPanel:
         tb.text_color = "red"
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        sp.text_size = self._gui.s_4
 
         _ = self._hold_button(
             tb,
@@ -131,7 +131,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 2, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        sp.text_size = self._gui.s_4
 
         _ = self._hold_button(
             tb,
@@ -148,7 +148,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 4, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        sp.text_size = self._gui.s_4
 
         _ = self._hold_button(
             tb,
@@ -206,7 +206,7 @@ class AdminPanel:
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
         text_size = kwargs.pop("text_size", self._gui.s_18)
-        width = kwargs.pop("width", 13)
+        width = kwargs.pop("width", 12)
         text_bold = kwargs.pop("text_bold", True)
         hb = HoldButton(
             parent,

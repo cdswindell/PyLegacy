@@ -197,7 +197,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
-        self.name_text = self.titlebar_height = self.popup_position = None
+        self.name_text = self.titlebar_height = self.popup_position = self.popup_position_no_image = None
         self.on_key_cell = self.off_key_cell = None
         self.image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
@@ -345,7 +345,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # calculate offset for popups
         x = self.info_box.tk.winfo_rootx()
-        y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight()
+        y = self.info_box.tk.winfo_rooty()
+        self.popup_position_no_image = (x, y)
+
+        y += self.info_box.tk.winfo_reqheight()
         self.popup_position = (x, y)
 
         # create watcher for sensor track, if needed
@@ -1204,7 +1207,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.bell_overlay = self.create_popup("Bell/Horn Options", self.build_bell_horn_body)
         self.show_popup(self.bell_overlay, button=self._bell_btn)
 
-    def show_popup(self, overlay, op: str = None, modifier: str = None, button: HoldButton = None):
+    def show_popup(
+        self,
+        overlay,
+        op: str = None,
+        modifier: str = None,
+        button: HoldButton = None,
+        position: tuple = None,
+    ):
         with self._cv:
             if self._current_popup:
                 self._current_popup.hide()
@@ -1223,7 +1233,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self._on_close_show = box
 
             self._current_popup = overlay
-            x, y = self.popup_position
+            position = position if position else self.popup_position
+            x, y = position
             overlay.tk.place(x=x, y=y)
             overlay.show()
 
@@ -1387,7 +1398,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
             if self._admin_overlay is None:
                 self._admin_overlay = self.create_popup(self._admin_title, self._admin_panel.build)
-        self.show_popup(self._admin_overlay)
+        self.show_popup(self._admin_overlay, position=self.popup_position_no_image)
 
     def on_recents(self, value: str):
         if value not in {self.title, self._seperator}:
