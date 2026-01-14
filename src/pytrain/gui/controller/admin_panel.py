@@ -15,6 +15,7 @@ from ..guizero_base import GuiZeroBase
 from ..hold_button import HoldButton
 
 
+# noinspection PyUnresolvedReferences
 class AdminPanel:
     def __init__(self, gui: GuiZeroBase, width: int, height: int):
         self._gui = gui
@@ -23,8 +24,8 @@ class AdminPanel:
         self._sync_watcher = None
         self._sync_state = None
         self._reload_btn = None
-        self._pytrain = hasattr(PyTrain, "_instances")
-        print("*****", PyTrain.version)
+        self._pytrain = PyTrain.instance
+        print("*****", PyTrain.version, self._pytrain)
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
