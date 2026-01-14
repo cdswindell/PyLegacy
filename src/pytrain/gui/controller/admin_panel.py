@@ -31,6 +31,7 @@ class AdminPanel:
             border=1,
             align="top",
         )
+        admin_box.tk.config(width=aw)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
@@ -38,10 +39,9 @@ class AdminPanel:
             text="Base 3 Database",
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
-            width=aw,
-            height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
+        tb.tk.config(width=aw)
 
         self._sync_state = pb = PushButton(
             tb,
