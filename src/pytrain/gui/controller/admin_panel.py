@@ -24,7 +24,7 @@ SCOPE_OPTS = [
 
 # noinspection PyUnresolvedReferences
 class AdminPanel:
-    def __init__(self, gui: GuiZeroBase, width: int, height: int, hold_threshold: int = 1):
+    def __init__(self, gui: GuiZeroBase, width: int, height: int, hold_threshold: int = 3):
         self._gui = gui
         self._width = width
         self._height = height
