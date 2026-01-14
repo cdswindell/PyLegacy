@@ -196,7 +196,7 @@ class AdminPanel:
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
         text_size = kwargs.pop("text_size", self._gui.s_18)
-        width = kwargs.pop("width", 12)
+        width = kwargs.pop("width", 13)
         text_bold = kwargs.pop("text_bold", True)
         hb = HoldButton(
             parent,
