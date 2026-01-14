@@ -8,6 +8,7 @@
 #
 from guizero import Box, PushButton, TitleBox
 
+from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..guizero_base import GuiZeroBase
@@ -22,6 +23,8 @@ class AdminPanel:
         self._sync_watcher = None
         self._sync_state = None
         self._reload_btn = None
+        self._pytrain = PyTrain()
+        print(self._pytrain)
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
