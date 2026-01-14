@@ -174,15 +174,25 @@ class AdminPanel:
     def _titlebox(self, parent: Box, text: str, grid: list[int], **kwargs):
         is_height = "height" in kwargs
         height = kwargs.pop("height", self._gui.button_size)
-        tb = TitleBox(
-            parent,
-            text=text,
-            layout="grid",  # use grid INSIDE the TitleBox
-            align="top",
-            grid=grid,
-            width=self._width,
-            height=height,
-        )
+        if is_height:
+            tb = TitleBox(
+                parent,
+                text=text,
+                layout="grid",  # use grid INSIDE the TitleBox
+                align="top",
+                grid=grid,
+                width=self._width,
+                height=height,
+            )
+        else:
+            tb = TitleBox(
+                parent,
+                text=text,
+                layout="grid",  # use grid INSIDE the TitleBox
+                align="top",
+                grid=grid,
+            )
+            tb.tk.config(width=self._width)
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
         tb.tk.config(width=self._width)
