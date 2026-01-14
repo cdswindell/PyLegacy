@@ -44,9 +44,9 @@ class AdminPanel:
             align="top",
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="ew")
-        tb.tk.config(width=aw)
-        tb.tk.pack_propagate(False)
+        # tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="ew")
+        # tb.tk.config(width=aw)
+        # tb.tk.pack_propagate(False)
 
         self._sync_state = pb = PushButton(
             tb,
