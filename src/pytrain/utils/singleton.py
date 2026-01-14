@@ -24,6 +24,7 @@ def singleton(cls: Type[T]) -> Type[T]:
             nonlocal _instance
 
             # Fast path (no lock if already initialized)
+            print(f"instance called: {_instance}")
             inst = _instance
             if inst is not None and getattr(inst, "_singleton_init_done", False):
                 return inst
@@ -42,6 +43,7 @@ def singleton(cls: Type[T]) -> Type[T]:
                 if not getattr(inst, "_singleton_init_done", False):
                     # Mark that init is needed, but do not run user code under the lock
                     need_init = True
+            print("*****")
 
             # Run user __init__ OUTSIDE the lock (prevents deadlocks)
             if need_init:
@@ -50,6 +52,7 @@ def singleton(cls: Type[T]) -> Type[T]:
                     if not getattr(inst, "_singleton_init_done", False):
                         super(SingletonWrapper, inst).__init__(*args, **kwargs)
                         setattr(inst, "_singleton_init_done", True)
+            print("********")
 
             return inst
 
