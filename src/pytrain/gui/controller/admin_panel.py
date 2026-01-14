@@ -6,7 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-from guizero import Box, PushButton, Text, TitleBox
+from guizero import Box, PushButton, TitleBox
 
 from ...db.state_watcher import StateWatcher
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
@@ -40,7 +40,7 @@ class AdminPanel:
             height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="ew")
+        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="ew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
@@ -57,12 +57,12 @@ class AdminPanel:
         pb.text_bold = True
         pb.text_size = self._gui.s_18
 
-        _ = Text(tb, text=" ", grid=[1, 0], size=6, height=1, bold=True)
+        # _ = Text(tb, text=" ", grid=[1, 0], size=6, height=1, bold=True)
 
         self._reload_btn = pb = HoldButton(
             tb,
             text="Reload",
-            grid=[2, 0],
+            grid=[1, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
             width=11,
             text_bold=True,
