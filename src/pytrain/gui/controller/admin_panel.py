@@ -40,7 +40,7 @@ class AdminPanel:
             height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="ew")
+        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="w")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
@@ -62,7 +62,7 @@ class AdminPanel:
             text="Reload",
             grid=[1, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
-            width=10,
+            width=11,
             text_bold=True,
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized,
