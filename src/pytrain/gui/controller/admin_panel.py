@@ -49,13 +49,13 @@ class AdminPanel:
             width=11,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
-            align="top",
+            align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
 
-        _ = Text(tb, text=" ", grid=[1, 0], align="top", size=6, height=1, bold=True)
+        _ = Text(tb, text=" ", grid=[1, 0], align="left", size=6, height=1, bold=True)
 
         self._reload_btn = pb = HoldButton(
             tb,
@@ -68,7 +68,7 @@ class AdminPanel:
             enabled=self._gui.sync_state.is_synchronized,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
-            align="top",
+            align="right",
         )
         pb.tk.config(
             borderwidth=3,
