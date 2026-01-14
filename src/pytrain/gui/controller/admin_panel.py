@@ -26,7 +26,7 @@ class AdminPanel:
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        admin_box = Box(body, border=1, align="top")
+        admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
 
         # noinspection PyTypeChecker
@@ -35,6 +35,9 @@ class AdminPanel:
             text="Base 3 Database",
             layout="grid",  # use grid INSIDE the TitleBox
             align="top",
+            grid=[0, 0, 3, 1],
+            width=self._width,
+            height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
         tb.tk.config(width=self._width)
@@ -75,7 +78,6 @@ class AdminPanel:
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        tb.tk.config(width=self._width, borderwidth=0)
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
