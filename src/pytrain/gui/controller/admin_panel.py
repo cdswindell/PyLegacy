@@ -32,11 +32,10 @@ class AdminPanel:
             align="top",
         )
 
-        aw, ah = self._gui.calc_image_box_size()
-        # admin_box.tk.config(width=aw)
+        _, aw = self._gui.calc_image_box_size()
+        admin_box.tk.config(width=aw)
 
-        col_width = int(aw / 2)
-        print(col_width, aw, ah)
+        # col_width = int(aw / 2)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
@@ -47,9 +46,7 @@ class AdminPanel:
             width="fill",
         )
         tb.text_size = self._gui.s_10
-        # tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="ew")
-        # tb.tk.config(width=aw)
-        # tb.tk.pack_propagate(False)
+        tb.tk.config(width=aw)
 
         self._sync_state = pb = PushButton(
             tb,
