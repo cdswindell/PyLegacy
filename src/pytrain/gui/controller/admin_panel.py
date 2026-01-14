@@ -32,6 +32,7 @@ class AdminPanel:
         admin_box.tk.config(width=aw)
 
         col_width = int(aw / 2)
+        print(col_width)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
@@ -54,7 +55,8 @@ class AdminPanel:
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
-        pb.tk.config(justify="center", anchor="e", width=col_width)
+        # pb.tk.config(justify="center", anchor="e", width=col_width)
+        pb.tk.config(justify="center", anchor="e")
 
         self._reload_btn = pb = HoldButton(
             tb,
@@ -68,7 +70,7 @@ class AdminPanel:
         pb.tk.config(
             justify="center",
             anchor="w",
-            width=col_width,
+            # width=col_width,
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
