@@ -29,6 +29,7 @@ from ..db.base_state import BaseState
 from ..db.component_state_store import ComponentStateStore
 from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
+from ..db.sync_state import SyncState
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 
@@ -153,6 +154,10 @@ class GuiZeroBase(Thread, ABC):
     @property
     def version(self) -> str:
         return self._dispatcher.version
+
+    @property
+    def sync_state(self) -> SyncState:
+        return self._sync_state
 
     # noinspection PyUnresolvedReferences
     def init_complete(self) -> None:
