@@ -109,6 +109,7 @@ class AdminPanel:
             admin_box,
             text="Hold for 5 seconds",
             grid=[0, 2, 2, 1],
+            height=self._gui.button_size * 4,
         )
         tb.text_color = "red"
 
@@ -161,7 +162,8 @@ class AdminPanel:
         else:
             self._gui.do_tmcc_request(command)
 
-    def _titlebox(self, parent: Box, text: str, grid: list[int]):
+    def _titlebox(self, parent: Box, text: str, grid: list[int], **kwargs):
+        height = kwargs.pop("height", self._gui.button_size)
         tb = TitleBox(
             parent,
             text=text,
@@ -169,7 +171,7 @@ class AdminPanel:
             align="top",
             grid=grid,
             width=self._width,
-            height=self._gui.button_size,
+            height=height,
         )
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
