@@ -97,7 +97,7 @@ class AdminPanel:
             align="top",
             width=int(self._width / 2.5),
         )
-        sb.tk.pack_configure(padx=20)
+        sb.tk.pack_configure(anchor="center")
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
