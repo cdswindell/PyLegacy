@@ -15,24 +15,18 @@ from ..hold_button import HoldButton
 
 
 class AdminPanel:
-    def __init__(self, gui: GuiZeroBase):
+    def __init__(self, gui: GuiZeroBase, width: int, height: int):
         self._gui = gui
+        self._width = width
+        self._height = height
         self._sync_watcher = None
         self._sync_state = None
         self._reload_btn = None
 
-    # noinspection PyTypeChecker
+    # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        _, aw = self._gui.calc_image_box_size()
-        print(aw, self._gui.emergency_box_width)
-        admin_box = Box(
-            body,
-            layout="grid",
-            border=1,
-            align="top",
-        )
-        # admin_box.tk.config(width=aw, borderwidth=0)
+        admin_box = Box(body, layout="grid", border=1, align="top", width=self._width, height=self._gui.button_height)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
@@ -40,6 +34,8 @@ class AdminPanel:
             text="Base 3 Database",
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
+            width=self._width,
+            height=self._gui.button_height,
         )
         tb.text_size = self._gui.s_10
 
@@ -77,7 +73,7 @@ class AdminPanel:
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        tb.tk.config(width=aw, borderwidth=0)
+        tb.tk.config(width=self._width, borderwidth=0)
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
