@@ -250,8 +250,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
-        self._info_details = {}  # manage state details info popup fields
         self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
+        self._admin_overlay = None
         self._on_close_show = None
         self.engine_ops_cells = {}
 
@@ -807,7 +807,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return overlay
 
     def build_tower_dialogs_body(self, body: Box):
-        self.tower_dialog_box = self.make_combo_panel(body, TOWER_DIALOGS)
+        # self.tower_dialog_box = self.make_combo_panel(body, TOWER_DIALOGS)
+        self._elements.add(self.make_combo_panel(body, TOWER_DIALOGS))
 
     def build_crew_dialogs_body(self, body: Box):
         self.crew_dialog_box = self.make_combo_panel(body, CREW_DIALOGS)
