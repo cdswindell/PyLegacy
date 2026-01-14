@@ -35,11 +35,10 @@ class AdminPanel:
             text="Base 3 Database",
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
-            width=self._width,
-            height=self._gui.button_size // 3,
             align="top",
         )
         tb.text_size = self._gui.s_10
+        tb.tk.config(width=self._width)
 
         self._sync_state = pb = PushButton(
             tb,
