@@ -7,21 +7,24 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-import threading
+
+from functools import wraps
+from threading import Lock
 
 
 def singleton(cls):
-    _instances = {}
-    _lock: threading.Lock = threading.Lock()
+    instances = {}
+    lock = Lock()
 
-    def wrapper(*args, **kwargs):
-        with _lock:
-            if cls not in _instances:
-                instance = cls(*args, **kwargs)
-                if not hasattr(instance, "_initialized"):
-                    instance._initialized = False
-                _instances[cls] = instance
-            print(f"******** {_instances}")
-            return _instances[cls]
+    @wraps(cls)
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            with lock:
+                if cls not in instances:
+                    instance = cls(*args, **kwargs)
+                    if not hasattr(instance, "_initialized"):
+                        instance._initialized = False
+                    instances[cls] = instance
+        return instances[cls]
 
-    return wrapper
+    return get_instance
