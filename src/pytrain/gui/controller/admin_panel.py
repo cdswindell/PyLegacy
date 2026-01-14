@@ -95,7 +95,7 @@ class AdminPanel:
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
-            width=self._width // 3,
+            width=int(self._width / 2.5),
         )
         sb.tk.pack_configure(padx=20)
 

@@ -34,5 +34,5 @@ class CheckBoxGroup(ButtonGroup):
                 selectimage=f"radio_sel_{id(widget)}",
                 compound="left",
                 indicatoron=False,
-                pady=20,
+                pady=50,
             )
