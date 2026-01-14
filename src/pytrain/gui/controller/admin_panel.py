@@ -40,7 +40,7 @@ class AdminPanel:
             height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1)
+        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
@@ -52,6 +52,7 @@ class AdminPanel:
             width=10,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
+            align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
@@ -68,6 +69,7 @@ class AdminPanel:
             enabled=self._gui.sync_state.is_synchronized,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
+            align="right",
         )
         pb.tk.config(
             borderwidth=3,
