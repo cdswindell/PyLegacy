@@ -54,7 +54,7 @@ class AdminPanel:
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
-        pb.tk.config(justify="center", anchor="ew", width=col_width)  # borderless
+        pb.tk.config(justify="center", anchor="n", width=col_width)  # borderless
 
         self._reload_btn = HoldButton(
             tb,
