@@ -90,6 +90,7 @@ class AdminPanel:
 
         self._scope_btns = CheckBoxGroup(
             tb,
+            size=self._gui.s_20,
             grid=[0, 0, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
