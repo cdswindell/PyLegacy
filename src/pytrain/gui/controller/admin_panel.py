@@ -6,7 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-from guizero import Box, PushButton, TitleBox
+from guizero import Box, PushButton, Text, TitleBox
 
 from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
@@ -88,10 +88,12 @@ class AdminPanel:
             grid=[0, 1, 2, 1],
         )
 
+        sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True)
+        sp.text_size = self._gui.s_10
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_22,
-            grid=[0, 0, 2, 1],
+            grid=[0, 1, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
             align="bottom",
