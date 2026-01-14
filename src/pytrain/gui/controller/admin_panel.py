@@ -35,7 +35,7 @@ class AdminPanel:
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
             width=self._width,
-            height=self._gui.button_height,
+            height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
 
