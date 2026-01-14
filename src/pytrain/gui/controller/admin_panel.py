@@ -50,7 +50,7 @@ class AdminPanel:
         # Let the internal grid column stretch so the TextBox can fill
         tb.tk.grid_columnconfigure(0, weight=1)
 
-        self._sync_state = pb = PushButton(tb, text="Loaded", grid=[0, 0], width="fill")
+        self._sync_state = pb = PushButton(admin_box, text="Loaded", grid=[0, 0], width="fill")
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
