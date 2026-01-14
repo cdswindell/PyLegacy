@@ -176,7 +176,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         self.entry_cells = set()
         self.ops_cells = set()
-        self._elements = set()
         self.scope = scope if scope else CommandScope.ENGINE
         self.initial = tmcc_id
         self._active_engine_state = self._active_train_state = None

@@ -31,7 +31,6 @@ class AdminPanel:
         self._sync_state = None
         self._reload_btn = None
         self._scope_btns = None
-        self._shutdown_btn = self._restart_btn = None
         self._pytrain = PyTrain.current()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -112,44 +111,18 @@ class AdminPanel:
         )
         tb.text_color = "red"
 
-        self._restart_btn = pb = HoldButton(
+        _ = self._hold_button(
             tb,
             text="Restart",
             grid=[0, 0],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
-            width=10,
-            text_bold=True,
-            text_size=self._gui.s_18,
-            pady=self._gui.text_pad_y,
-            align="left",
-        )
-        pb.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
         )
 
-        self._shutdown_btn = pb = HoldButton(
+        _ = self._hold_button(
             tb,
             text="Shutdown",
             grid=[1, 0],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
-            width=10,
-            text_bold=True,
-            text_size=self._gui.s_18,
-            pady=self._gui.text_pad_y,
-            align="right",
-        )
-        pb.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
         )
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
@@ -176,6 +149,31 @@ class AdminPanel:
         tb.tk.grid_columnconfigure(grid[0], weight=1)
 
         return tb
+
+    def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
+        text_size = kwargs.pop("text_size", self._gui.s_18)
+        width = kwargs.pop("width", 10)
+        text_bold = kwargs.pop("text_bold", True)
+        hb = HoldButton(
+            parent,
+            text=text,
+            grid=grid,
+            align="left" if grid[0] % 2 == 0 else "right",
+            text_size=text_size,
+            width=width,
+            text_bold=text_bold,
+            **kwargs,
+        )
+        hb.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+        self._gui.cache(hb)
+        return hb
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized:

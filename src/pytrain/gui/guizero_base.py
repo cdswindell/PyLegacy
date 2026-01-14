@@ -114,6 +114,9 @@ class GuiZeroBase(Thread, ABC):
         self._pending_prod_infos = set()
         self._executor = ThreadPoolExecutor(max_workers=3)
 
+        # widget_cache
+        self._elements = set()
+
         # cache for widget size info
         self.size_cache = {}
 
@@ -167,6 +170,9 @@ class GuiZeroBase(Thread, ABC):
     @property
     def sync_state(self) -> SyncState:
         return self._sync_state
+
+    def cache(self, widget: Widget) -> None:
+        self._elements.add(widget)
 
     # noinspection PyUnresolvedReferences
     def init_complete(self) -> None:
