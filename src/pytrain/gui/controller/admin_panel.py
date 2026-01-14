@@ -88,14 +88,13 @@ class AdminPanel:
             grid=[0, 1, 2, 1],
         )
 
-        content = Box(tb, align="center", grid=[0, 0, 2, 1])
         self._scope_btns = CheckBoxGroup(
-            content,
-            size=self._gui.s_20,
+            tb,
+            size=self._gui.s_22,
             grid=[0, 0, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
-            align="top",
+            align="bottom",
             width=int(self._width / 2.5),
         )
 
