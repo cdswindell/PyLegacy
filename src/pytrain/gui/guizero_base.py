@@ -99,6 +99,9 @@ class GuiZeroBase(Thread, ABC):
         self.s_10: int = int(round(10 * scale_by))
         self.s_8: int = int(round(8 * scale_by))
 
+        self.text_pad_x = 20
+        self.text_pad_y = 20
+
         # standard widget sizes
         self.button_size = int(round(self.width / 6))
         self.titled_button_size = int(round((self.width / 6) * 0.80))

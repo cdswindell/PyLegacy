@@ -151,8 +151,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.slider_height = self.button_size * 4
 
         self.scope_size = int(round(self.width / 5))
-        self._text_pad_x = 20
-        self._text_pad_y = 20
         self.grid_pad_by = 2
         self.avail_image_height = self.avail_image_width = None
         self.options = [self.title]
@@ -2740,8 +2738,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             grid=[0, 1],
             align="top",
             width=11,
-            padx=self._text_pad_x,
-            pady=self._text_pad_y,
+            padx=self.text_pad_x,
+            pady=self.text_pad_y,
             bg="red",
             text_bold=True,
             text_size=self.s_20,
@@ -2757,8 +2755,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             grid=[2, 1],
             align="top",
             width=11,
-            padx=self._text_pad_x,
-            pady=self._text_pad_y,
+            padx=self.text_pad_x,
+            pady=self.text_pad_y,
             bg="gray",
             text_size=self.s_20,
             text_color="black",

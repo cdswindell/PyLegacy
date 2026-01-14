@@ -48,7 +48,14 @@ class AdminPanel:
         tb.tk.config(width=aw)
         tb.tk.pack_propagate(False)
 
-        self._sync_state = pb = PushButton(tb, text="Loaded", grid=[0, 0], width=11)
+        self._sync_state = pb = PushButton(
+            tb,
+            text="Loaded",
+            grid=[0, 0],
+            width=11,
+            padx=self._gui.text_pad_x,
+            pady=self._gui.text_pad_y,
+        )
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_20
@@ -64,6 +71,8 @@ class AdminPanel:
             text_bold=True,
             text_size=self._gui.s_20,
             enabled=self._gui.sync_state.is_synchronized,
+            padx=self._gui.text_pad_x,
+            pady=self._gui.text_pad_y,
         )
         pb.tk.config(
             borderwidth=3,
