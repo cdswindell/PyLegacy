@@ -24,7 +24,7 @@ class AdminPanel:
     # noinspection PyTypeChecker
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        aw = self._gui.calc_image_box_size()
+        _, aw = self._gui.calc_image_box_size()
         admin_box = Box(
             body,
             layout="grid",
