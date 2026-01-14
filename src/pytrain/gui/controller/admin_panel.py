@@ -31,6 +31,7 @@ class AdminPanel:
         self._sync_state = None
         self._reload_btn = None
         self._scope_btns = None
+        self._shutdown_btn = self._restart_btn = None
         self._pytrain = PyTrain.current()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -81,6 +82,9 @@ class AdminPanel:
             background="#f7f7f7",
         )
 
+        # setup sync watcher to manage button state
+        self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
+
         # scope
         tb = self._titlebox(
             admin_box,
@@ -100,8 +104,59 @@ class AdminPanel:
             width=int(self._width / 2.5),
         )
 
-        # setup sync watcher to manage button state
-        self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
+        # admin operations
+        tb = self._titlebox(
+            admin_box,
+            text="Hold for 5 seconds",
+            grid=[0, 2, 2, 1],
+        )
+        tb.text_color = "red"
+
+        self._restart_btn = pb = HoldButton(
+            tb,
+            text="Restart",
+            grid=[0, 0],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
+            width=12,
+            text_bold=True,
+            text_size=self._gui.s_18,
+            padx=self._gui.text_pad_x,
+            pady=self._gui.text_pad_y,
+        )
+        pb.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+
+        self._shutdown_btn = pb = HoldButton(
+            tb,
+            text="Shutdown",
+            grid=[1, 0],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
+            width=12,
+            text_bold=True,
+            text_size=self._gui.s_18,
+            padx=self._gui.text_pad_x,
+            pady=self._gui.text_pad_y,
+        )
+        pb.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+
+    def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
+        if self._scope_btns.value == 0:
+            print(f"Scope is set to local only, ignoring admin command: {command}")
+        else:
+            self._gui.do_tmcc_request(command)
 
     def _titlebox(self, parent: Box, text: str, grid: list[int]):
         tb = TitleBox(
