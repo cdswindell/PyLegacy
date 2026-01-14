@@ -24,18 +24,15 @@ class AdminPanel:
     # noinspection PyTypeChecker
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
+        ah, aw = self._gui.calc_image_box_size()
         admin_box = Box(
             body,
             layout="grid",
             border=1,
-            width="fill",
+            width=aw,
+            height=ah,
             align="top",
         )
-
-        _, aw = self._gui.calc_image_box_size()
-        admin_box.tk.config(width=aw)
-
-        # col_width = int(aw / 2)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
@@ -43,10 +40,10 @@ class AdminPanel:
             text="Base 3 Database",
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
-            width="fill",
+            width=aw,
         )
         tb.text_size = self._gui.s_10
-        tb.tk.config(width=aw)
+        # tb.tk.config(width=aw)
 
         self._sync_state = pb = PushButton(
             tb,
