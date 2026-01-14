@@ -98,6 +98,14 @@ ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN
 
 @singleton
 class PyTrain:
+    _current: "PyTrain | None" = None
+
+    @classmethod
+    def current(cls) -> "PyTrain":
+        if cls._current is None:
+            raise RuntimeError("PyTrain.current() called before PyTrain was created")
+        return cls._current
+
     def __init__(self, cmd_line: List[str] = None) -> None:
         from .. import get_version
 
@@ -260,6 +268,7 @@ class PyTrain:
         # Start the command line processor; run as a thread if we're serving the REST api
         self._initialized = True
         self._command_processor_ev = Event()
+        PyTrain._current = self
         if args.api is True:
             self._api = True
             self._command_queue = Queue(DEFAULT_QUEUE_SIZE)
