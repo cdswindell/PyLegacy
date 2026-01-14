@@ -85,11 +85,14 @@ class AdminPanel:
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
+        sp = Text(admin_box, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_10
+
         # scope
         tb = self._titlebox(
             admin_box,
             text="Scope",
-            grid=[0, 1, 2, 1],
+            grid=[0, 2, 2, 1],
         )
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
@@ -104,14 +107,14 @@ class AdminPanel:
             width=int(self._width / 2.5),
         )
 
-        sp = Text(admin_box, text=" ", grid=[0, 2, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_10
+        sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_4
 
         # admin operations
         tb = self._titlebox(
             admin_box,
             text="Hold for 5 seconds",
-            grid=[0, 3, 2, 1],
+            grid=[0, 4, 2, 1],
             # height=self._gui.button_size * 4,
         )
         tb.text_color = "red"
