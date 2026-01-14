@@ -88,7 +88,7 @@ class AdminPanel:
             grid=[0, 1, 2, 1],
         )
 
-        self._scope_btns = CheckBoxGroup(
+        self._scope_btns = sb = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
             grid=[0, 0, 2, 1],
@@ -97,6 +97,7 @@ class AdminPanel:
             align="top",
             width=self._width // 3,
         )
+        sb.tk.pack_configure(padx=20)
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
