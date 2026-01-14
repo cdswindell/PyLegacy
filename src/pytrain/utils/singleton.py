@@ -21,36 +21,49 @@ def singleton(cls: Type[T]) -> Type[T]:
     class SingletonWrapper(cls):  # type: ignore[misc]
         @classmethod
         def instance(cls, *args, **kwargs) -> T:
-            # Explicit accessor: just construct; __new__/__init__ enforce singleton behavior.
-            return cls(*args, **kwargs)
+            """
+            Explicit accessor. Returns the same singleton instance.
+            Creates it lazily if needed (thread-safe).
+            """
+            nonlocal _instance
+            if _instance is None:
+                with _lock:
+                    if _instance is None:
+                        obj = super().__new__(cls)  # type: ignore[arg-type]
+                        # Per your unit test: decorator sets this and leaves it False.
+                        if not hasattr(obj, "_initialized"):
+                            setattr(obj, "_initialized", False)
+                        setattr(obj, "_singleton_init_done", False)
+                        _instance = obj
+
+            # Ensure __init__ runs once (first call wins for args)
+            if not getattr(_instance, "_singleton_init_done", False):
+                with _lock:
+                    if not getattr(_instance, "_singleton_init_done", False):
+                        super(SingletonWrapper, _instance).__init__(*args, **kwargs)
+                        setattr(_instance, "_singleton_init_done", True)
+
+            return _instance
 
         @classmethod
         def reset(cls) -> None:
-            # Reset the singleton (useful for tests)
+            """
+            Reset the singleton instance (useful for unit tests).
+            """
             nonlocal _instance
             with _lock:
                 _instance = None
 
         def __new__(cls, *args, **kwargs):
-            nonlocal _instance
-            if _instance is None:
-                with _lock:
-                    if _instance is None:
-                        _instance = super().__new__(cls)
-                        if not hasattr(_instance, "_initialized"):
-                            setattr(_instance, "_initialized", False)
-                        # Internal init guard (private-ish; do not rely on externally)
-                        setattr(_instance, "_singleton_init_done", False)
-            return _instance
+            # Normal construction returns the singleton too.
+            return cls.instance(*args, **kwargs)
 
         def __init__(self, *args, **kwargs):
-            # Guard to ensure original __init__ runs only once
-            if getattr(self, "_singleton_init_done", False):
-                return
-            super().__init__(*args, **kwargs)
-            setattr(self, "_singleton_init_done", True)
+            # Block Python from re-running __init__ on subsequent Foo(...)
+            # (Real init is performed inside instance() exactly once.)
+            return
 
-    # Preserve identity/introspection as much as possible
+    # Preserve identity/introspection
     SingletonWrapper.__name__ = cls.__name__
     SingletonWrapper.__qualname__ = cls.__qualname__
     SingletonWrapper.__doc__ = cls.__doc__
