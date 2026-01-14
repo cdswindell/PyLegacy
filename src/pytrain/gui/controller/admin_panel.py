@@ -10,6 +10,7 @@ from guizero import Box, PushButton, Text, TitleBox
 
 from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
+from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..checkbox_group import CheckBoxGroup
 from ..guizero_base import GuiZeroBase
@@ -120,8 +121,36 @@ class AdminPanel:
 
         _ = self._hold_button(
             tb,
-            text="Shutdown",
+            text="Reboot",
             grid=[1, 0],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
+        )
+
+        _ = self._hold_button(
+            tb,
+            text=f"Update {PROGRAM_NAME}",
+            grid=[0, 1],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
+        )
+
+        _ = self._hold_button(
+            tb,
+            text="Upgrade Pi OS",
+            grid=[1, 1],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPGRADE]),
+        )
+
+        _ = self._hold_button(
+            tb,
+            text="Quit",
+            grid=[0, 2],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.QUIT]),
+        )
+
+        _ = self._hold_button(
+            tb,
+            text="Shutdown",
+            grid=[1, 2],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
