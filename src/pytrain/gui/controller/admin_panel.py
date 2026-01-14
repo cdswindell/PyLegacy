@@ -29,12 +29,11 @@ class AdminPanel:
             layout="grid",
             border=1,
             width="fill",
+            align="top",
         )
-        # for i in range(2):
-        #     admin_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
 
         aw, ah = self._gui.calc_image_box_size()
-        admin_box.tk.config(width=aw)
+        # admin_box.tk.config(width=aw)
 
         col_width = int(aw / 2)
         print(col_width, aw, ah)
@@ -46,7 +45,6 @@ class AdminPanel:
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
             width="fill",
-            align="top",
         )
         tb.text_size = self._gui.s_10
         # tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="ew")
