@@ -36,7 +36,8 @@ class AdminPanel:
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
             width=self._width,
-            height=self._gui.button_size,
+            height=self._gui.button_size // 3,
+            align="top",
         )
         tb.text_size = self._gui.s_10
 
@@ -47,6 +48,7 @@ class AdminPanel:
             width=11,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
+            align="top",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
@@ -65,6 +67,7 @@ class AdminPanel:
             enabled=self._gui.sync_state.is_synchronized,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
+            align="top",
         )
         pb.tk.config(
             borderwidth=3,
