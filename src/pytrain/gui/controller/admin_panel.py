@@ -25,7 +25,7 @@ class AdminPanel:
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
         _, aw = self._gui.calc_image_box_size()
-        print(aw)
+        print(aw, self._gui.emergency_box_width)
         admin_box = Box(
             body,
             layout="grid",
