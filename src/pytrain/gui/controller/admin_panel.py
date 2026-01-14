@@ -24,7 +24,7 @@ class AdminPanel:
         self._sync_state = None
         self._reload_btn = None
         self._pytrain = hasattr(PyTrain, "_instances")
-        print(self._pytrain)
+        print(dir(PyTrain))
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
