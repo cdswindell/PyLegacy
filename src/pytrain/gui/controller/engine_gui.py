@@ -1385,7 +1385,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_admin_panel(self) -> None:
         with self._cv:
             if self._admin_panel is None:
-                self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(2 * self.height / 3))
+                self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
             if self._admin_overlay is None:
                 self._admin_overlay = self.create_popup(self._admin_title, self._admin_panel.build)
         self.show_popup(self._admin_overlay)

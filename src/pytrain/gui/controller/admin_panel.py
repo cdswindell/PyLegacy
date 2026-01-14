@@ -28,6 +28,7 @@ class AdminPanel:
         """Builds the 2-column grid layout for the admin popup."""
         admin_box = Box(body, layout="grid", border=1, align="top", width=self._width, height=self._height)
 
+        print(self._width, self._height, self._gui.button_size)
         # noinspection PyTypeChecker
         tb = TitleBox(
             admin_box,
