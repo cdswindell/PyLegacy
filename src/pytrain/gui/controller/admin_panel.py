@@ -58,7 +58,7 @@ class AdminPanel:
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
-        pb.text_size = self._gui.s_20
+        pb.text_size = self._gui.s_18
 
         _ = Text(tb, text=" ", grid=[1, 0], align="top", size=6, height=1, bold=True)
 
@@ -69,7 +69,7 @@ class AdminPanel:
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
             width=11,
             text_bold=True,
-            text_size=self._gui.s_20,
+            text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
