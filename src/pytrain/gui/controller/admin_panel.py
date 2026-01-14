@@ -17,6 +17,7 @@ class AdminPanel:
         self._gui = gui
         self._sync_watcher = None
         self._sync_state = None
+        self._reload_btn = None
 
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
@@ -42,6 +43,10 @@ class AdminPanel:
         pb.text_bold = True
         pb.text_size = self._gui.s_18
 
+        self._reload_btn = pb = PushButton(tb, text="Reload", grid=[0, 1], enabled=self._gui.sync_state.is_synchronized)
+        pb.text_bold = True
+        pb.text_size = self._gui.s_18
+
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
@@ -49,6 +54,8 @@ class AdminPanel:
         if self._gui.sync_state.is_synchronized:
             self._sync_state.text = "Loaded"
             self._sync_state.bg = "green"
+            self._reload_btn.enable()
         elif self._gui.sync_state.is_synchronizing:
             self._sync_state.text = "Loading..."
             self._sync_state.bg = "white"
+            self._reload_btn.disable()
