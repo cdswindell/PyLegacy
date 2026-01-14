@@ -320,7 +320,7 @@ class PyTrain:
 
             # process startup script, we need state loaded before doing this
             if self._buttons_file:
-                self._buttons_loader = ButtonsFileLoader(self._buttons_file)
+                self._buttons_loader = ButtonsFileLoader(self._buttons_file, self)
                 self._buttons_loader.join()
 
             # print opening line
@@ -1445,9 +1445,10 @@ class ButtonsFileLoader(Thread):
     the main program while the script is loading
     """
 
-    def __init__(self, buttons_file: str) -> None:
+    def __init__(self, buttons_file: str, pytrain: PyTrain) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Buttons Script Loader")
         self._buttons_file = buttons_file
+        self._pytrain = pytrain
         self.start()
 
     def run(self) -> None:
