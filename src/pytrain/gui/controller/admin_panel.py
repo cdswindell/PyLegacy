@@ -94,7 +94,7 @@ class AdminPanel:
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
-            width=self._width // 2,
+            width=self._width // 3,
         )
 
         # setup sync watcher to manage button state
