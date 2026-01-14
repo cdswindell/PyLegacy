@@ -11,8 +11,14 @@ from guizero import Box, PushButton, TitleBox
 from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from ..checkbox_group import CheckBoxGroup
 from ..guizero_base import GuiZeroBase
 from ..hold_button import HoldButton
+
+SCOPE_OPTS = [
+    ["Local", 0],
+    ["All", 1],
+]
 
 
 # noinspection PyUnresolvedReferences
@@ -24,8 +30,8 @@ class AdminPanel:
         self._sync_watcher = None
         self._sync_state = None
         self._reload_btn = None
+        self._scope_btns = None
         self._pytrain = PyTrain.current()
-        print("*****", self._pytrain.version, self._pytrain)
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
@@ -34,20 +40,11 @@ class AdminPanel:
         admin_box.tk.config(width=self._width)
 
         # noinspection PyTypeChecker
-        tb = TitleBox(
+        tb = self._titlebox(
             admin_box,
             text="Base 3 Database",
-            layout="grid",  # use grid INSIDE the TitleBox
-            align="top",
             grid=[0, 0, 2, 1],
-            width=self._width,
-            height=self._gui.button_size,
         )
-        tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="nsew")
-        tb.tk.config(width=self._width)
-        tb.tk.pack_propagate(False)
-        tb.tk.grid_columnconfigure(0, weight=1)
 
         self._sync_state = pb = PushButton(
             tb,
@@ -84,8 +81,43 @@ class AdminPanel:
             background="#f7f7f7",
         )
 
+        # scope
+        tb = self._titlebox(
+            admin_box,
+            text="Scope",
+            grid=[0, 1, 2, 1],
+        )
+
+        self._scope_btns = CheckBoxGroup(
+            tb,
+            grid=[0, 0, 2, 1],
+            options=SCOPE_OPTS,
+            horizontal=True,
+            border=1,
+            align="top",
+            width=self._width,
+        )
+
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
+
+    def _titlebox(self, parent: Box, text: str, grid: list[int]):
+        tb = TitleBox(
+            parent,
+            text=text,
+            layout="grid",  # use grid INSIDE the TitleBox
+            align="top",
+            grid=grid,
+            width=self._width,
+            height=self._gui.button_size,
+        )
+        tb.text_size = self._gui.s_10
+        tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
+        tb.tk.config(width=self._width)
+        tb.tk.pack_propagate(False)
+        tb.tk.grid_columnconfigure(grid[0], weight=1)
+
+        return tb
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized:
