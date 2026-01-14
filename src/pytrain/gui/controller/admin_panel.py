@@ -35,7 +35,7 @@ class AdminPanel:
             text="Base 3 Database",
             layout="grid",  # use grid INSIDE the TitleBox
             align="top",
-            grid=[0, 0, 3, 1],
+            grid=[0, 0, 2, 1],
             width=self._width,
             height=self._gui.button_size,
         )
