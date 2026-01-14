@@ -250,6 +250,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
         self._admin_panel = self._admin_overlay = None
         self._on_close_show = None
+        self._restore_image_box = False
         self.engine_ops_cells = {}
 
         # callbacks
@@ -1245,6 +1246,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if overlay:
                 overlay.hide()
                 overlay.tk.place_forget()
+            if self._restore_image_box and not self.image_box.visible:
+                self.image_box.show()
+            self._restore_image_box = False
             if self._on_close_show:
                 self._on_close_show.show()
                 self._on_close_show = None
@@ -1400,6 +1404,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._admin_overlay = self.create_popup(self._admin_title, self._admin_panel.build)
         if self.image_box.visible:
             self.image_box.hide()
+            self._restore_image_box = True
+        else:
+            self._restore_image_box = False
         self.show_popup(self._admin_overlay, position=self.popup_position_no_image)
 
     def on_recents(self, value: str):
