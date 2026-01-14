@@ -72,6 +72,7 @@ class AdminPanel:
             pady=self._gui.text_pad_y,
         )
         pb.tk.config(
+            align="center",
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
