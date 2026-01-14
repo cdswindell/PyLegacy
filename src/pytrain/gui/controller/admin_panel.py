@@ -9,9 +9,7 @@
 from guizero import Box, PushButton, TitleBox
 
 from ...db.state_watcher import StateWatcher
-from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..guizero_base import GuiZeroBase
-from ..hold_button import HoldButton
 
 
 class AdminPanel:
@@ -54,30 +52,30 @@ class AdminPanel:
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
-        pb.tk.config(justify="center", anchor="n", width=col_width)
+        pb.tk.config(justify="center", anchor="s", width=col_width)
 
-        self._reload_btn = pb = HoldButton(
-            tb,
-            text="Reload",
-            grid=[1, 0],
-            on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
-            text_bold=True,
-            text_size=self._gui.s_18,
-            enabled=self._gui.sync_state.is_synchronized,
-        )
-        pb.tk.config(
-            justify="center",
-            anchor="s",
-            width=col_width,
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
+        # self._reload_btn = pb = HoldButton(
+        #     tb,
+        #     text="Reload",
+        #     grid=[1, 0],
+        #     on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
+        #     text_bold=True,
+        #     text_size=self._gui.s_18,
+        #     enabled=self._gui.sync_state.is_synchronized,
+        # )
+        # pb.tk.config(
+        #     justify="center",
+        #     anchor="s",
+        #     width=col_width,
+        #     borderwidth=3,
+        #     relief="raised",
+        #     highlightthickness=1,
+        #     highlightbackground="black",
+        #     padx=6,
+        #     pady=4,
+        #     activebackground="#e0e0e0",
+        #     background="#f7f7f7",
+        # )
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
