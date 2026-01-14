@@ -50,14 +50,14 @@ class AdminPanel:
         # Let the internal grid column stretch so the TextBox can fill
         tb.tk.grid_columnconfigure(0, weight=1)
 
-        self._sync_state = pb = PushButton(admin_box, text="Loaded", grid=[0, 0], width="fill")
+        self._sync_state = pb = PushButton(tb, text="Loaded", grid=[0, 0], width="fill")
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
-        pb.tk.config(justify="center", anchor="n", width=col_width)  # borderless
+        pb.tk.config(justify="center", anchor="n", width=col_width)
 
-        self._reload_btn = HoldButton(
-            tb,
+        self._reload_btn = pb = HoldButton(
+            admin_box,
             text="Reload",
             grid=[1, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
@@ -65,6 +65,7 @@ class AdminPanel:
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized,
         )
+        pb.tk.config(justify="center", anchor="n", width=col_width)
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
