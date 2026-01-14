@@ -89,7 +89,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_2
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_22,
