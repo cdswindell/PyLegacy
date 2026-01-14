@@ -24,7 +24,6 @@ from guizero.base import Widget
 # noinspection PyPackageRequirements
 from PIL import Image, ImageOps, ImageTk
 
-from .. import CommandReq
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state_store import ComponentStateStore
@@ -33,6 +32,7 @@ from ..db.state_watcher import StateWatcher
 from ..db.sync_state import SyncState
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.command_def import CommandDefEnum
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 
 log = logging.getLogger(__name__)
