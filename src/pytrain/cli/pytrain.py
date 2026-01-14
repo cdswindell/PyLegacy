@@ -27,18 +27,6 @@ from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from .acc import AccCli
-from .amc2 import Amc2Cli
-from .asc2 import Asc2Cli
-from .bpc2 import Bpc2Cli
-from .dialogs import DialogsCli
-from .effects import EffectsCli
-from .engine import EngineCli
-from .halt import HaltCli
-from .lighting import LightingCli
-from .route import RouteCli
-from .sounds import SoundEffectsCli
-from .switch import SwitchCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -78,6 +66,18 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import find_base_address, get_ip_address
+from .acc import AccCli
+from .amc2 import Amc2Cli
+from .asc2 import Asc2Cli
+from .bpc2 import Bpc2Cli
+from .dialogs import DialogsCli
+from .effects import EffectsCli
+from .engine import EngineCli
+from .halt import HaltCli
+from .lighting import LightingCli
+from .route import RouteCli
+from .sounds import SoundEffectsCli
+from .switch import SwitchCli
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
@@ -638,7 +638,7 @@ class PyTrain:
             arg_parts = args[0].split(":")
             addr = arg_parts[0] if len(arg_parts) > 0 else None
             port = int(arg_parts[1]) if len(arg_parts) > 1 else self._port
-            print(f"Sending {command.name} request to {addr}:{port}...")
+            log.info(f"Sending {command.name} request to {addr}:{port}...")
             self._dispatcher.signal_clients(cmd, client=addr, port=port)
             return
 
@@ -650,10 +650,10 @@ class PyTrain:
         if args and args[0] == "me" and self.is_client:
             # If the client is on the server node, send command to the server
             if self._client_ip in self._server_ips:
-                print(f"Sending {command.name} to {PROGRAM_NAME} server...")
+                log.info(f"Sending {command.name} to {PROGRAM_NAME} server...")
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes)
             else:
-                print(f"Sending {command.name} to all clients on this system ({self._client_ip})...")
+                log.info(f"Sending {command.name} to all clients on this system ({self._client_ip})...")
                 self._tmcc_buffer.enqueue_command(cmd.as_bytes + self._client_ip.encode())
                 self._admin_action = None
             return
