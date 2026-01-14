@@ -9,69 +9,45 @@
 from __future__ import annotations
 
 from threading import RLock
-from typing import Optional, Type, TypeVar
+from typing import Type, TypeVar
 
 T = TypeVar("T")
 
 
-def singleton(cls: Type[T]) -> Type[T]:
+class _SingletonMeta(type):
     _lock = RLock()
-    _instance: Optional[T] = None
+    _instances: dict[type, object] = {}
 
-    class SingletonWrapper(cls):  # type: ignore[misc]
-        @classmethod
-        def instance(cls, *args, **kwargs) -> T:
-            nonlocal _instance
+    def __call__(cls, *args, **kwargs):
+        # Calling Foo(...) returns the singleton instance
+        return cls.instance(*args, **kwargs)
 
-            # Fast path (no lock if already initialized)
-            print(f"instance called: {_instance}")
-            inst = _instance
-            if inst is not None and getattr(inst, "_singleton_init_done", False):
-                return inst
-
-            # Create or fetch instance under lock
-            need_init = False
-            with _lock:
-                if _instance is None:
-                    _instance = super().__new__(cls)  # type: ignore[arg-type]
-                    # Per your unit test: decorator sets this and leaves it False.
-                    if not hasattr(_instance, "_initialized"):
-                        setattr(_instance, "_initialized", False)
-                    setattr(_instance, "_singleton_init_done", False)
-
-                inst = _instance
-                if not getattr(inst, "_singleton_init_done", False):
-                    # Mark that init is needed, but do not run user code under the lock
-                    need_init = True
-            print("*****")
-
-            # Run user __init__ OUTSIDE the lock (prevents deadlocks)
-            if need_init:
-                with _lock:
-                    # Double-check in case another thread initialized in the meantime
-                    if not getattr(inst, "_singleton_init_done", False):
-                        super(SingletonWrapper, inst).__init__(*args, **kwargs)
-                        setattr(inst, "_singleton_init_done", True)
-            print("********")
-
+    def instance(cls, *args, **kwargs):
+        # Explicit accessor
+        with _SingletonMeta._lock:
+            inst = _SingletonMeta._instances.get(cls)
+            if inst is None:
+                inst = super().__call__(*args, **kwargs)  # alloc + __init__
+                # Per your unit test requirement:
+                if not hasattr(inst, "_initialized"):
+                    setattr(inst, "_initialized", False)
+                setattr(inst, "_singleton_init_done", True)
+                _SingletonMeta._instances[cls] = inst
             return inst
 
-        @classmethod
-        def reset(cls) -> None:
-            nonlocal _instance
-            with _lock:
-                _instance = None
+    def reset(cls):
+        with _SingletonMeta._lock:
+            _SingletonMeta._instances.pop(cls, None)
 
-        def __new__(cls, *args, **kwargs):
-            return cls.instance(*args, **kwargs)
 
-        def __init__(self, *args, **kwargs):
-            # Prevent Python from calling __init__ on every Foo(...)
-            # Real init happens once in instance().
-            return
+def singleton(cls: Type[T]) -> Type[T]:
+    """
+    Decorator: returns a new class with the same body but using _SingletonMeta.
+    """
+    # Recreate the class with the same name/bases/namespace, but a singleton metaclass.
+    namespace = dict(cls.__dict__)
+    # Clean up attributes that shouldn't be carried over verbatim
+    namespace.pop("__dict__", None)
+    namespace.pop("__weakref__", None)
 
-    SingletonWrapper.__name__ = cls.__name__
-    SingletonWrapper.__qualname__ = cls.__qualname__
-    SingletonWrapper.__doc__ = cls.__doc__
-
-    return SingletonWrapper
+    return _SingletonMeta(cls.__name__, cls.__bases__, namespace)  # type: ignore[return-value]
