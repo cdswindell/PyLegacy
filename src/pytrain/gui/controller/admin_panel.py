@@ -8,11 +8,11 @@
 #
 from guizero import Box
 
-from .engine_gui import EngineGui
+from ..guizero_base import GuiZeroBase
 
 
 class AdminPanel:
-    def __init__(self, gui: EngineGui):
+    def __init__(self, gui: GuiZeroBase):
         self._gui = gui
 
     def build(self, body: Box):
