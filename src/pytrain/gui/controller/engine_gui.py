@@ -1395,7 +1395,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 state = self._options_to_state[value]
                 if state and state not in {self._active_engine_state, self._active_train_state}:
                     self.update_component_info(tmcc_id=state.tmcc_id)
-            self.header.select_default()
+        self.header.select_default()
 
     @property
     def active_state(self) -> S | None:
