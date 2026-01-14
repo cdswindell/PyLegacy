@@ -348,8 +348,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         y = self.info_box.tk.winfo_rooty()
         self.popup_position_no_image = (x, y)
 
-        y += self.info_box.tk.winfo_reqheight()
-        self.popup_position = (x, y)
+        y1 = y + self.info_box.tk.winfo_reqheight()
+        self.popup_position = (x, y1)
+        print(f"Popup: {self.popup_position} {self.popup_position_no_image}")
 
         # create watcher for sensor track, if needed
         if self._sensor_track_id:
@@ -1234,6 +1235,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
             self._current_popup = overlay
             position = position if position else self.popup_position
+            print(f"Showing popup: {overlay} at {position}")
             x, y = position
             overlay.tk.place(x=x, y=y)
             overlay.show()
@@ -2059,7 +2061,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
 
     def make_info_box(self, app: App):
-        # self.info_box = info_box = Box(app, border=2, align="top")
         self.info_box = info_box = Box(app, layout="left", border=2, align="top")
 
         # ───────────────────────────────
