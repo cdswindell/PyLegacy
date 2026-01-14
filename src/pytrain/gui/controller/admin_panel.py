@@ -24,13 +24,11 @@ class AdminPanel:
     # noinspection PyTypeChecker
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        ah, aw = self._gui.calc_image_box_size()
+        aw = self._gui.calc_image_box_size()
         admin_box = Box(
             body,
             layout="grid",
             border=1,
-            width=aw,
-            height="fill",
             align="top",
         )
 
@@ -44,7 +42,6 @@ class AdminPanel:
             height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
-        # tb.tk.config(width=aw)
 
         self._sync_state = pb = PushButton(
             tb,
