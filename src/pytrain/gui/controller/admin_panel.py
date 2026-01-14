@@ -38,13 +38,13 @@ class AdminPanel:
             admin_box,
             text="Base 3 Database",
             layout="grid",  # use grid INSIDE the TitleBox
-            grid=[0, 0],
+            grid=[0, 0, 2, 1],
             width="fill",
             align="top",
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=1, rowspan=1, sticky="ew")
-        tb.tk.config(width=col_width)
+        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="ew")
+        tb.tk.config(width=aw)
         tb.tk.pack_propagate(False)
 
         # Let the internal grid column stretch so the TextBox can fill
@@ -57,7 +57,7 @@ class AdminPanel:
         pb.tk.config(justify="center", anchor="n", width=col_width)
 
         self._reload_btn = pb = HoldButton(
-            admin_box,
+            tb,
             text="Reload",
             grid=[1, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
@@ -65,7 +65,19 @@ class AdminPanel:
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized,
         )
-        pb.tk.config(justify="center", anchor="n", width=col_width)
+        pb.tk.config(
+            justify="center",
+            anchor="s",
+            width=col_width,
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            padx=6,
+            pady=4,
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
