@@ -66,7 +66,6 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import find_base_address, get_ip_address
-from ..utils.singleton import singleton
 from .acc import AccCli
 from .amc2 import Amc2Cli
 from .asc2 import Asc2Cli
@@ -96,7 +95,6 @@ ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
 ACTION_TO_ADMIN_COMMAND_MAP: Dict[CommandDefEnum, str] = {v: k for k, v in ADMIN_COMMAND_TO_ACTION_MAP.items()}
 
 
-@singleton
 class PyTrain:
     def __init__(self, cmd_line: List[str] = None) -> None:
         from .. import get_version
@@ -258,6 +256,7 @@ class PyTrain:
             self._get_system_state(is_startup=True)
 
         # Start the command line processor; run as a thread if we're serving the REST api
+        self._initialized = True
         self._command_processor_ev = Event()
         if args.api is True:
             self._api = True

@@ -34,6 +34,7 @@ class Bar:
         self._initialized = True
 
 
+# noinspection PyUnresolvedReferences
 def test_returns_same_instance_and_init_called_once():
     # First construction sets value
     a = Foo(123)
