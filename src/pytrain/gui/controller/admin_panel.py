@@ -52,7 +52,7 @@ class AdminPanel:
             tb,
             text="Loaded",
             grid=[0, 0],
-            width=12,
+            width=11,
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
         )
@@ -67,7 +67,7 @@ class AdminPanel:
             text="Reload",
             grid=[2, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
-            width=12,
+            width=11,
             text_bold=True,
             text_size=self._gui.s_20,
             enabled=self._gui.sync_state.is_synchronized,
