@@ -16,7 +16,7 @@ from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from typing import Any, Callable, cast
+from typing import Any, Callable, TypeVar, cast
 
 from guizero import App
 from guizero.base import Widget
@@ -24,6 +24,7 @@ from guizero.base import Widget
 # noinspection PyPackageRequirements
 from PIL import Image, ImageOps, ImageTk
 
+from .. import CommandReq
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state_store import ComponentStateStore
@@ -31,9 +32,11 @@ from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
 from ..db.sync_state import SyncState
 from ..gpio.gpio_handler import GpioHandler
+from ..protocol.command_def import CommandDefEnum
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 
 log = logging.getLogger(__name__)
+E = TypeVar("E", bound=CommandDefEnum)
 
 
 class GuiZeroBase(Thread, ABC):
@@ -235,6 +238,14 @@ class GuiZeroBase(Thread, ABC):
             self.destroy_gui()
             self.app = None
             self._ev.set()
+
+    def do_command(self, command: E, address: int = None, data: int = None, scope: CommandScope = None) -> None:
+        try:
+            req = CommandReq.build(command, address, data, scope)
+            if req:
+                req.send()
+        except Exception as e:
+            log.exception(f"Error sending command {command}", exc_info=e)
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
