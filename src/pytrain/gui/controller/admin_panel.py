@@ -40,6 +40,7 @@ class AdminPanel:
             height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
+        tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="ew")
         tb.tk.config(width=self._width)
 
         self._sync_state = pb = PushButton(
@@ -53,10 +54,6 @@ class AdminPanel:
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
-        pb.tk.config(
-            justify="center",
-            anchor="w",
-        )
 
         _ = Text(tb, text=" ", grid=[1, 0], size=6, height=1, bold=True)
 
@@ -73,8 +70,6 @@ class AdminPanel:
             pady=self._gui.text_pad_y,
         )
         pb.tk.config(
-            justify="center",
-            anchor="e",
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
