@@ -121,6 +121,7 @@ class AdminPanel:
             text_bold=True,
             text_size=self._gui.s_18,
             pady=self._gui.text_pad_y,
+            align="left",
         )
         pb.tk.config(
             borderwidth=3,
@@ -140,6 +141,7 @@ class AdminPanel:
             text_bold=True,
             text_size=self._gui.s_18,
             pady=self._gui.text_pad_y,
+            align="right",
         )
         pb.tk.config(
             borderwidth=3,
