@@ -113,45 +113,54 @@ class AdminPanel:
         )
         tb.text_color = "red"
 
+        sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_2
+
         _ = self._hold_button(
             tb,
             text="Restart",
-            grid=[0, 0],
+            grid=[0, 1],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
 
         _ = self._hold_button(
             tb,
             text="Reboot",
-            grid=[1, 0],
+            grid=[1, 1],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
         )
+
+        sp = Text(tb, text=" ", grid=[0, 2, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_2
 
         _ = self._hold_button(
             tb,
             text=f"Update {PROGRAM_NAME}",
-            grid=[0, 1],
+            grid=[0, 3],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
         )
 
         _ = self._hold_button(
             tb,
             text="Upgrade Pi OS",
-            grid=[1, 1],
+            grid=[1, 3],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPGRADE]),
         )
+
+        sp = Text(tb, text=" ", grid=[0, 4, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_2
 
         _ = self._hold_button(
             tb,
             text="Quit",
-            grid=[0, 2],
+            grid=[0, 5],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.QUIT]),
         )
 
         _ = self._hold_button(
             tb,
             text="Shutdown",
-            grid=[1, 2],
+            grid=[1, 5],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
@@ -183,7 +192,7 @@ class AdminPanel:
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
         text_size = kwargs.pop("text_size", self._gui.s_18)
-        width = kwargs.pop("width", 10)
+        width = kwargs.pop("width", 12)
         text_bold = kwargs.pop("text_bold", True)
         hb = HoldButton(
             parent,
