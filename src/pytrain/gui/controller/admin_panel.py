@@ -93,7 +93,6 @@ class AdminPanel:
             grid=[0, 0, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
-            border=1,
             align="top",
             width=self._width,
         )
