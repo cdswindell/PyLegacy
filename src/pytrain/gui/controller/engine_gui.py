@@ -197,7 +197,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
-        self.name_text = self.titlebar_height = self.popup_position = self.popup_position_no_image = None
+        self.name_text = self.titlebar_height = self.popup_position = None
         self.on_key_cell = self.off_key_cell = None
         self.image = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
@@ -346,11 +346,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # calculate offset for popups
         x = self.info_box.tk.winfo_rootx()
-        y = self.info_box.tk.winfo_rooty()
-        self.popup_position_no_image = (x, y)
-
-        y1 = y + self.info_box.tk.winfo_reqheight()
-        self.popup_position = (x, y1)
+        y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight()
+        self.popup_position = (x, y)
 
         # create watcher for sensor track, if needed
         if self._sensor_track_id:
@@ -1407,7 +1404,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._restore_image_box = True
         else:
             self._restore_image_box = False
-        self.show_popup(self._admin_overlay, position=self.popup_position_no_image)
+        self.show_popup(self._admin_overlay)
 
     def on_recents(self, value: str):
         if value not in {self.title, self._seperator}:
