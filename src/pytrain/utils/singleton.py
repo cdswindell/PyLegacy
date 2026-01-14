@@ -25,7 +25,6 @@ def singleton(cls):
                     if not hasattr(instance, "_initialized"):
                         instance._initialized = False
                     instances[cls] = instance
-        print(instances[cls])
         return instances[cls]
 
     return get_instance
