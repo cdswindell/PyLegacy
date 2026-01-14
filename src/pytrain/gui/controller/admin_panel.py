@@ -57,14 +57,12 @@ class AdminPanel:
         pb.text_bold = True
         pb.text_size = self._gui.s_18
 
-        # _ = Text(tb, text=" ", grid=[1, 0], size=6, height=1, bold=True)
-
         self._reload_btn = pb = HoldButton(
             tb,
             text="Reload",
             grid=[1, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
-            width=11,
+            width=10,
             text_bold=True,
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized,
@@ -72,7 +70,6 @@ class AdminPanel:
             pady=self._gui.text_pad_y,
         )
         pb.tk.config(
-            align="center",
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
