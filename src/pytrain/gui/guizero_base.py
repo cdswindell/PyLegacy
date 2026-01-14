@@ -239,7 +239,8 @@ class GuiZeroBase(Thread, ABC):
             self.app = None
             self._ev.set()
 
-    def do_command(self, command: E, address: int = None, data: int = None, scope: CommandScope = None) -> None:
+    @staticmethod
+    def do_tmcc_request(command: E, address: int = None, data: int = None, scope: CommandScope = None) -> None:
         try:
             req = CommandReq.build(command, address, data, scope)
             if req:

@@ -21,6 +21,7 @@ class AdminPanel:
         self._sync_state = None
         self._reload_btn = None
 
+    # noinspection PyTypeChecker
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
         admin_box = Box(body, layout="grid", border=1)
@@ -29,6 +30,8 @@ class AdminPanel:
 
         aw, _ = self._gui.calc_image_box_size()
         admin_box.tk.config(width=aw)
+
+        col_width = int(aw / 2)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
@@ -40,16 +43,24 @@ class AdminPanel:
             align="top",
         )
         tb.text_size = self._gui.s_10
-        self._sync_state = pb = PushButton(tb, text="Loaded", grid=[0, 0])
+        tb.tk.grid_configure(column=0, row=0, columnspan=1, rowspan=1, sticky="ew")
+        tb.tk.config(width=col_width)
+        tb.tk.pack_propagate(False)
+
+        # Let the internal grid column stretch so the TextBox can fill
+        tb.tk.grid_columnconfigure(0, weight=1)
+
+        self._sync_state = pb = PushButton(tb, text="Loaded", grid=[0, 0], width="fill")
         pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
+        pb.tk.config(justify="center", anchor="ew", width=col_width)  # borderless
 
-        self._reload_btn = pb = HoldButton(
+        self._reload_btn = HoldButton(
             tb,
             text="Reload",
             grid=[1, 0],
-            on_hold=(self._gui.do_command, [TMCC1SyncCommandEnum.RESYNC]),
+            on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
             text_bold=True,
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized,
