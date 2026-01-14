@@ -350,7 +350,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         y1 = y + self.info_box.tk.winfo_reqheight()
         self.popup_position = (x, y1)
-        print(f"Popup: {self.popup_position} {self.popup_position_no_image}")
 
         # create watcher for sensor track, if needed
         if self._sensor_track_id:
@@ -1234,8 +1233,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self._on_close_show = box
 
             self._current_popup = overlay
-            position = (0, 0) if position else self.popup_position
-            print(f"Showing popup: {overlay} at {position}")
+            position = position if position else self.popup_position
             x, y = position
             overlay.tk.place(x=x, y=y)
             overlay.show()
@@ -1400,6 +1398,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
             if self._admin_overlay is None:
                 self._admin_overlay = self.create_popup(self._admin_title, self._admin_panel.build)
+        if self.image_box.visible:
+            self.image_box.hide()
         self.show_popup(self._admin_overlay, position=self.popup_position_no_image)
 
     def on_recents(self, value: str):
