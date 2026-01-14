@@ -154,7 +154,7 @@ class AdminPanel:
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         print(f"Admin command: {command} {self._scope_btns.value} {type(self._scope_btns.value)}")
-        if self._scope_btns.value == '0':
+        if self._scope_btns.value == "0":
             print(f"Scope is set to local only, ignoring admin command: {command}")
         else:
             self._gui.do_tmcc_request(command)
