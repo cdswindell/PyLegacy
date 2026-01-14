@@ -51,6 +51,7 @@ from ..guizero_base import GuiZeroBase
 from ..hold_button import HoldButton
 from ..scrolling_text import ScrollingText
 from ..swipe_detector import SwipeDetector
+from .admin_panel import AdminPanel
 from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
@@ -224,7 +225,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
-        self.tower_dialog_overlay = self.crew_dialog_overlay = None
+        self._tower_overlay = self._crew_overlay = None
         self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
         self._acela_btns = set()
@@ -246,12 +247,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._last_engine_type = None
         self._quill_after_id = None
-        self.tower_dialog_box = self.crew_dialog_box = None
         self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
         self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
-        self._admin_overlay = None
+        self._admin_panel = self._admin_overlay = None
         self._on_close_show = None
         self.engine_ops_cells = {}
 
@@ -807,14 +807,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return overlay
 
     def build_tower_dialogs_body(self, body: Box):
-        # self.tower_dialog_box = self.make_combo_panel(body, TOWER_DIALOGS)
         self._elements.add(self.make_combo_panel(body, TOWER_DIALOGS))
 
     def build_crew_dialogs_body(self, body: Box):
-        self.crew_dialog_box = self.make_combo_panel(body, CREW_DIALOGS)
+        self._elements.add(self.make_combo_panel(body, CREW_DIALOGS))
 
     def build_conductor_actions_body(self, body: Box):
-        self.conductor_actions_box = self.make_combo_panel(body, CONDUCTOR_ACTIONS)
+        self._elements.add(self.make_combo_panel(body, CONDUCTOR_ACTIONS))
 
     def build_lights_body(self, body: Box):
         # cab light
@@ -1174,14 +1173,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE", "e")
 
     def on_tower_dialog(self) -> None:
-        if self.tower_dialog_overlay is None:
-            self.tower_dialog_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
-        self.show_popup(self.tower_dialog_overlay, "TOWER_CHATTER", "e")
+        if self._tower_overlay is None:
+            self._tower_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
+        self.show_popup(self._tower_overlay, "TOWER_CHATTER", "e")
 
     def on_crew_dialog(self) -> None:
-        if self.crew_dialog_overlay is None:
-            self.crew_dialog_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
-        self.show_popup(self.crew_dialog_overlay, "ENGINEER_CHATTER", "e")
+        if self._crew_overlay is None:
+            self._crew_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
+        self.show_popup(self._crew_overlay, "ENGINEER_CHATTER", "e")
 
     def on_conductor_actions(self) -> None:
         if self.conductor_overlay is None:
@@ -1386,7 +1385,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.momentum_level.value = f"{value:02d}"
 
     def on_admin_panel(self) -> None:
-        print("display_admin_panel")
+        with self._cv:
+            if self._admin_panel is None:
+                self._admin_panel = AdminPanel(self)
+            if self._admin_overlay is None:
+                self._admin_overlay = self.create_popup(self._admin_title, self._admin_panel.build)
+        self.show_popup(self._admin_overlay)
 
     def on_recents(self, value: str):
         if value not in {self.title, self._seperator}:
