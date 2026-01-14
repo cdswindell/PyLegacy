@@ -25,13 +25,14 @@ class AdminPanel:
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
         _, aw = self._gui.calc_image_box_size()
+        print(aw)
         admin_box = Box(
             body,
             layout="grid",
             border=1,
             align="top",
         )
-        admin_box.tk.config(width=aw)
+        # admin_box.tk.config(width=aw, borderwidth=0)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
@@ -41,7 +42,6 @@ class AdminPanel:
             grid=[0, 0, 2, 1],
         )
         tb.text_size = self._gui.s_10
-        tb.tk.config(width=aw)
 
         self._sync_state = pb = PushButton(
             tb,
@@ -77,6 +77,7 @@ class AdminPanel:
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
+        tb.tk.config(width=aw, borderwidth=0)
 
         # setup sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
