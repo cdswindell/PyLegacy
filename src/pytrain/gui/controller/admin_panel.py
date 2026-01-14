@@ -30,7 +30,7 @@ class AdminPanel:
             layout="grid",
             border=1,
             width=aw,
-            height=ah,
+            height="fill",
             align="top",
         )
 
@@ -41,6 +41,7 @@ class AdminPanel:
             layout="grid",  # use grid INSIDE the TitleBox
             grid=[0, 0, 2, 1],
             width=aw,
+            height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
         # tb.tk.config(width=aw)
