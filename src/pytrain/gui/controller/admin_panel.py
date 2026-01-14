@@ -26,7 +26,7 @@ class AdminPanel:
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        admin_box = Box(body, layout="grid", border=1, align="top", width=self._width, height=self._gui.button_height)
+        admin_box = Box(body, layout="grid", border=1, align="top", width=self._width, height=self._height)
 
         # noinspection PyTypeChecker
         tb = TitleBox(
