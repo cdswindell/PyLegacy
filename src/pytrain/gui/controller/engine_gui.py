@@ -1234,7 +1234,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self._on_close_show = box
 
             self._current_popup = overlay
-            position = position if position else self.popup_position
+            position = (0, 0) if position else self.popup_position
             print(f"Showing popup: {overlay} at {position}")
             x, y = position
             overlay.tk.place(x=x, y=y)
