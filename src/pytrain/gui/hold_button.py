@@ -256,9 +256,11 @@ class HoldButton(PushButton):
         if not self._bg_img_installed:
             return
         if self._normal_img or self._inverted_img:
-            return  # persistent progress bg isn't used for image buttons
+            return
 
-        self._ensure_bg_image_installed()
+        if not self._ensure_bg_image_installed():
+            return
+
         frac = self._progress_fraction() if (self._pressed and self._progress_start) else 0.0
         self._paint_bg(frac)
 
@@ -366,44 +368,65 @@ class HoldButton(PushButton):
         elapsed = time.monotonic() - self._progress_start
         return max(0.0, min(1.0, elapsed / self.hold_threshold))
 
-    def _ensure_bg_image_installed(self) -> None:
+    def _ensure_bg_image_installed(self) -> bool:
         """
-        Install a persistent PhotoImage as the button's image so Tk geometry doesn't
-        change when progress starts/stops. Only used for text buttons.
+        Install (or re-install) a persistent PhotoImage as the button's image.
+
+        Returns True if the bg image is ready to paint (has a reasonable size),
+        False if caller should retry later.
         """
         if self._normal_img or self._inverted_img:
-            return
+            return False
 
-        w = max(1, int(self.tk.winfo_width()))
-        h = max(1, int(self.tk.winfo_height()))
+        # Ensure geometry has been computed
+        try:
+            self.tk.update_idletasks()
+        except TclError:
+            # Widget destroyed / Tcl not ready
+            pass
+        except RuntimeError:
+            # Rare: interpreter shutdown / Tk teardown
+            pass
 
+        w = int(self.tk.winfo_width())
+        h = int(self.tk.winfo_height())
+
+        # If the widget isn't realized yet, widths can be 1 or 2.
+        if w <= 2 or h <= 2:
+            return False
+
+        recreated = False
         if self._bg_img is None or self._bg_img.width() != w or self._bg_img.height() != h:
             self._bg_img = tk.PhotoImage(width=w, height=h)
+            recreated = True
 
-        if not self._bg_img_installed:
+        # CRITICAL: Always (re)attach the image if recreated OR not yet installed.
+        if recreated or not self._bg_img_installed:
             self.tk.config(image=self._bg_img, compound="center")
             self._bg_img_installed = True
 
+        return True
+
     def _paint_bg(self, frac: float) -> None:
-        """
-        Type-checker-friendly painter.
-        Paints empty background, then left->right fill across full height.
-        """
         if not self._bg_img:
             return
 
-        w = int(self._bg_img.width())
-        h = int(self._bg_img.height())
+        try:
+            w = int(self._bg_img.width())
+            h = int(self._bg_img.height())
 
-        # Use explicit empty color if provided; otherwise prefer _normal_bg then current bg
-        empty = self._progress_empty_color or self._normal_bg or self.bg
-        fill = self._progress_fill_color
+            empty = self._progress_empty_color or self._normal_bg or self.bg
+            fill = self._progress_fill_color
+            fill_w = int(w * max(0.0, min(1.0, frac)))
 
-        fill_w = int(w * max(0.0, min(1.0, frac)))
-
-        for y in range(h):
-            for x in range(w):
-                self._bg_img.put(fill if x < fill_w else empty, to=(x, y))
+            for y in range(h):
+                for x in range(w):
+                    self._bg_img.put(fill if x < fill_w else empty, to=(x, y))
+        except TclError:
+            # If Tk invalidated the image for any reason, bail out safely.
+            # Next tick/configure will recreate/reattach.
+            self._bg_img = None
+            self._bg_img_installed = False
 
     def _set_progress_full(self) -> None:
         if not self._show_hold_progress:
@@ -439,8 +462,11 @@ class HoldButton(PushButton):
         self._progress_start = time.monotonic()
         self._cancel_progress_after()
 
-        self._ensure_bg_image_installed()
-        # paint empty, then start ticking
+        # If widget size isn't stable yet, retry shortly to avoid tiny-image layout.
+        if not self._ensure_bg_image_installed():
+            self._progress_after_id = self.tk.after(20, self._start_progress)
+            return
+
         self._paint_bg(0.0)
         self._schedule_progress_tick()
 
