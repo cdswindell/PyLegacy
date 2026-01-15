@@ -17,12 +17,11 @@ from typing import Any, Callable
 from guizero import PushButton
 
 
-# noinspection PyUnusedLocal
 class HoldButton(PushButton):
     """
     A PushButton subclass that adds:
-      - on_press → single short tap, or fired when held if no hold/repeat defined
-      - on_hold → single fire after hold_threshold seconds
+      - on_press  → single short tap, or fired when held if no hold/repeat defined
+      - on_hold   → single fire after hold_threshold seconds
       - on_repeat → continuous fire while held
 
     Each callback can be:
@@ -30,9 +29,13 @@ class HoldButton(PushButton):
         or (func, args)
         or (func, args, kwargs)
 
-    Optional: full-height left-to-right progress fill BEHIND TEXT while holding.
-      - Implemented via a Canvas overlay (does NOT modify button image), so it does not affect geometry.
-      - Works with text buttons and image buttons (your images= setter) without compositing.
+    Hold-progress feedback:
+      - Full-height left-to-right fill while holding.
+      - Implemented with a Canvas overlay placed in the *toplevel* window, so it does not perturb
+        button geometry (avoids the "shrinks to 2 chars" and "keeps growing" behavior seen with
+        PhotoImage-on-Button approaches).
+      - Because the overlay sits above the button, the overlay also draws the button label text
+        (centered), and the underlying button text is temporarily hidden while the overlay is visible.
     """
 
     def __init__(
@@ -52,15 +55,16 @@ class HoldButton(PushButton):
         flash: bool = True,
         command: Callable | None = None,
         args: list[Any] | None = None,
-        # ── Progress options ──
+        # ── Progress fill options ──
         show_hold_progress: bool = False,
         progress_update_ms: int = 40,
         progress_fill_color: str = "darkgrey",
-        progress_empty_color: str | None = None,  # None => transparent/no background
+        progress_empty_color: str | None = "#f7f7f7",  # None => uses button bg
         progress_keep_full_until_release: bool = True,
         cancel_on_leave: bool = False,
         **kwargs,
     ):
+        # semaphore to protect critical code
         self._cv = Condition(RLock())
 
         # base properties
@@ -69,29 +73,26 @@ class HoldButton(PushButton):
         self._normal_img = None
         self._inverted_img = None
 
-        super().__init__(master, text=text, **kwargs)
+        # overlay/progress state
+        self._show_hold_progress = bool(show_hold_progress)
+        self._progress_update_ms = int(progress_update_ms)
+        self._progress_fill_color = str(progress_fill_color)
+        self._progress_empty_color = progress_empty_color
+        self._progress_keep_full_until_release = bool(progress_keep_full_until_release)
 
-        # basic button properties
-        if bg:
-            self._normal_bg = self.bg = bg
-        if text_color:
-            self._normal_fg = self.text_color = text_color
-        if text_size is not None:
-            self.text_size = text_size
-        if text_bold is not None:
-            self.text_bold = text_bold
+        self._progress_start: float | None = None
+        self._progress_after_id: str | None = None
 
-        if command and on_press:
-            raise ValueError("Cannot specify both command and on_press")
-        elif command:
-            on_press = (command, args) if args else command
+        self._progress_canvas: tk.Canvas | None = None
+        self._progress_rect = None
+        self._progress_bg_rect = None
+        self._progress_text_item = None
+        self._overlay_visible: bool = False
 
-        # callback configuration
-        self._on_press = on_press
-        self._on_hold = on_hold
-        self._on_repeat = on_repeat
+        # stash/restore underlying label while overlay is visible
+        self._saved_button_text: str | None = None
 
-        # timing and state tracking
+        # timer/state tracking
         self.hold_threshold = float(hold_threshold)
         self.repeat_interval = float(repeat_interval)
         self.debounce_ms = int(debounce_ms)
@@ -104,29 +105,37 @@ class HoldButton(PushButton):
         self._handled_hold: bool = False
         self._handled_flash: bool = False
 
-        # progress config/state
-        self._show_hold_progress = bool(show_hold_progress)
-        self._progress_update_ms = int(progress_update_ms)
-        self._progress_fill_color = str(progress_fill_color)
-        self._progress_empty_color = progress_empty_color
-        self._progress_keep_full_until_release = bool(progress_keep_full_until_release)
+        # initialize parent
+        super().__init__(master, text=text, **kwargs)
 
-        self._progress_start: float | None = None
-        self._progress_after_id: str | None = None
+        # apply basic properties
+        if bg:
+            self._normal_bg = self.bg = bg
+        if text_color:
+            self._normal_fg = self.text_color = text_color
+        if text_size is not None:
+            self.text_size = text_size
+        if text_bold is not None:
+            self.text_bold = text_bold
 
-        # Canvas overlay used for progress (does not change button geometry)
-        self._progress_canvas: tk.Canvas | None = None
-        self._progress_rect = None
-        self._progress_bg_rect = None
-        self._overlay_visible = False
+        # resolve command vs on_press
+        if command and on_press:
+            raise ValueError("Cannot specify both command and on_press")
+        elif command:
+            on_press = (command, args) if args else command
 
-        # bind events
+        # callbacks
+        self._on_press = on_press
+        self._on_hold = on_hold
+        self._on_repeat = on_repeat
+
+        # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
         self.when_left_button_released = self._on_release_event
         if cancel_on_leave:
             self.tk.bind("<Leave>", self._on_leave_event, add="+")
 
-        # keep overlay positioned when button moves/resizes
+        # keep overlay aligned to button moves/resizes
         self.tk.bind("<Configure>", self._on_configure_event, add="+")
 
         # flash button on press, if requested
@@ -149,6 +158,9 @@ class HoldButton(PushButton):
         with self._cv:
             PushButton.text_color.fset(self, value)
             self._normal_fg = value
+            # If overlay is visible, keep overlay text color in sync
+            if self._overlay_visible and self._progress_canvas and self._progress_text_item is not None:
+                self._progress_canvas.itemconfig(self._progress_text_item, fill=value)
 
     @PushButton.bg.setter
     def bg(self, value):
@@ -197,6 +209,7 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     # Internal event handlers
     # ───────────────────────────────
+    # noinspection PyUnusedLocal
     def _on_press_event(self, event=None):
         self._pressed = True
         self._press_time = time.monotonic()
@@ -209,6 +222,7 @@ class HoldButton(PushButton):
         self._cancel_after()
         self._after_id = self.tk.after(int(self.hold_threshold * 1000), self._trigger_hold_or_repeat)
 
+    # noinspection PyUnusedLocal
     def _on_release_event(self, event=None):
         self._pressed = False
 
@@ -219,25 +233,29 @@ class HoldButton(PushButton):
         if elapsed < (self.debounce_ms / 1000.0):
             return
 
+        # stop repeating
         if self._repeating:
             self._repeating = False
             return
 
+        # Case 1: standard short press
         if not self._held:
             self._invoke_callback(self._on_press)
             return
 
+        # Case 2: held long enough, but no hold/repeat defined
         if self._held and not self._handled_hold:
             self._invoke_callback(self._on_press)
 
+    # noinspection PyUnusedLocal
     def _on_leave_event(self, event=None):
         self._pressed = False
         self._repeating = False
         self._stop_progress()
         self._cancel_after()
 
+    # noinspection PyUnusedLocal
     def _on_configure_event(self, event=None):
-        # keep overlay aligned to the button
         if self._overlay_visible:
             self._position_overlay()
 
@@ -285,6 +303,7 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     @staticmethod
     def _invoke_callback(cb):
+        """Invoke callback allowing func, (func,args), or (func,args,kwargs)."""
         if not cb:
             return
         if callable(cb):
@@ -296,7 +315,7 @@ class HoldButton(PushButton):
             func(*args, **kwargs)
 
     # ───────────────────────────────
-    # Flash button on press
+    # Helper: Flash button when pressed
     # ───────────────────────────────
     def do_flash(self) -> None:
         if self._handled_flash:
@@ -326,28 +345,35 @@ class HoldButton(PushButton):
 
     def restore_color_state(self):
         with self._cv:
-            if self.text:
+            if self._saved_button_text is None:
+                # Only restore if we didn't blank it for overlay; overlay logic restores text itself.
+                if self.text:
+                    self.bg = self._normal_bg
+                    self.text_color = self._normal_fg
+            else:
+                # If overlay is active, keep base state updated but don't fight overlay
                 self.bg = self._normal_bg
                 self.text_color = self._normal_fg
+
             if self._normal_img and self.tk.cget("image") != self._normal_img:
                 self.tk.config(image=self._normal_img, compound="center")
 
     # ───────────────────────────────
-    # Progress overlay (Canvas) — does not affect geometry
+    # Progress overlay (Canvas) — no button geometry changes
     # ───────────────────────────────
     def _progress_fraction(self) -> float:
         if not self._progress_start or self.hold_threshold <= 0:
             return 0.0
-        return max(0.0, min(1.0, (time.monotonic() - self._progress_start) / self.hold_threshold))
+        elapsed = time.monotonic() - self._progress_start
+        return max(0.0, min(1.0, elapsed / self.hold_threshold))
 
     def _ensure_overlay(self) -> None:
         if self._progress_canvas is not None:
             return
 
-        top = self.tk.winfo_toplevel()  # <-- important: toplevel, not self.tk.master
+        top = self.tk.winfo_toplevel()
 
         canvas_bg = self._progress_empty_color or self._normal_bg or self.bg or "white"
-
         self._progress_canvas = tk.Canvas(
             top,
             highlightthickness=0,
@@ -355,6 +381,7 @@ class HoldButton(PushButton):
             background=canvas_bg,
         )
 
+        # background rect (covers full button)
         self._progress_bg_rect = self._progress_canvas.create_rectangle(
             0,
             0,
@@ -364,6 +391,7 @@ class HoldButton(PushButton):
             fill=canvas_bg,
         )
 
+        # fill rect (left->right)
         self._progress_rect = self._progress_canvas.create_rectangle(
             0,
             0,
@@ -373,8 +401,22 @@ class HoldButton(PushButton):
             fill=self._progress_fill_color,
         )
 
+        # text label on overlay
+        self._progress_text_item = self._progress_canvas.create_text(
+            0,
+            0,
+            text="",
+            anchor="center",
+            fill=self._normal_fg or self.text_color or "black",
+            font=self.tk.cget("font"),
+        )
+
+        # When overlay is visible, allow it to receive release events if needed
+        self._progress_canvas.bind("<ButtonRelease-1>", lambda e: self._on_release_event(e), add="+")
+        self._progress_canvas.bind("<Leave>", lambda e: self._on_leave_event(e), add="+")
         self._progress_canvas.place_forget()
 
+    # noinspection PyProtectedMember
     def _position_overlay(self) -> None:
         if not self._progress_canvas:
             return
@@ -397,17 +439,36 @@ class HoldButton(PushButton):
 
         self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
 
+        # update colors + background rect
         canvas_bg = self._progress_empty_color or self._normal_bg or self.bg or "white"
         self._progress_canvas.config(background=canvas_bg)
         self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
         self._progress_canvas.coords(self._progress_bg_rect, 0, 0, bw, bh)
 
+        # update fill rect
         frac = self._progress_fraction() if self._pressed else 0.0
         fill_w = int(bw * frac)
         self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, bh)
 
-        # Ensure the button widget stays above the overlay canvas
-        self.tk.tkraise()
+        # update label text
+        if self._progress_text_item is not None:
+            label = self._saved_button_text if self._saved_button_text is not None else self.text
+            self._progress_canvas.itemconfig(
+                self._progress_text_item,
+                text=label,
+                fill=self._normal_fg or self.text_color or "black",
+                font=self.tk.cget("font"),
+            )
+            self._progress_canvas.coords(self._progress_text_item, bw // 2, bh // 2)
+
+        # keep overlay above other widgets so it is visible,
+        # but also ensure the button is raised so it keeps its native border/relief appearance.
+        # (overlay is effectively our "fill layer"; text is drawn on overlay)
+        try:
+            # Widget stacking (type-safe; avoids Canvas item APIs)
+            self._progress_canvas.tk.call("raise", str(self._progress_canvas))
+        except TclError:
+            pass
 
     def _set_overlay_fraction(self, frac: float) -> None:
         if not self._progress_canvas:
@@ -423,8 +484,11 @@ class HoldButton(PushButton):
     def _progress_tick(self) -> None:
         if not self._pressed or not self._progress_start:
             return
-        self._set_overlay_fraction(self._progress_fraction())
-        if self._progress_fraction() < 1.0:
+
+        frac = self._progress_fraction()
+        self._set_overlay_fraction(frac)
+
+        if frac < 1.0:
             self._schedule_progress_tick()
 
     def _start_progress(self) -> None:
@@ -435,6 +499,13 @@ class HoldButton(PushButton):
         self._cancel_progress_after()
 
         self._ensure_overlay()
+
+        # Hide underlying label while overlay is visible (overlay draws the label)
+        if self._saved_button_text is None:
+            self._saved_button_text = self.text
+            # Empty string is usually fine; a single space can avoid some theme oddities
+            self.text = ""
+
         self._overlay_visible = True
         self._position_overlay()
         self._set_overlay_fraction(0.0)
@@ -452,6 +523,11 @@ class HoldButton(PushButton):
         if self._progress_canvas:
             self._progress_canvas.place_forget()
         self._overlay_visible = False
+
+        # Restore underlying label
+        if self._saved_button_text is not None:
+            self.text = self._saved_button_text
+            self._saved_button_text = None
 
     # ───────────────────────────────
     # Timer cancellation helpers (narrow exceptions)
