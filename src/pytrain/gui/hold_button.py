@@ -538,9 +538,15 @@ class HoldButton(PushButton):
             pass
 
     def _refresh_hover_state(self) -> None:
-        print("********************")
-        """Force Tk to refresh hover/active visuals after the overlay is removed."""
+        """
+        Force Tk to recompute hover visuals after overlay removal by explicitly setting
+        the button state to 'active' (pointer inside) or 'normal' (pointer outside).
+        """
         try:
+            # Don't fight disabled buttons
+            if str(self.tk.cget("state")) == "disabled":
+                return
+
             px = int(self.tk.winfo_pointerx())
             py = int(self.tk.winfo_pointery())
 
@@ -552,8 +558,9 @@ class HoldButton(PushButton):
             return
 
         inside = (bx <= px < bx + bw) and (by <= py < by + bh)
+
         try:
-            self.tk.event_generate("<Enter>" if inside else "<Leave>")
+            self.tk.config(state=("active" if inside else "normal"))
         except TclError:
             pass
 
