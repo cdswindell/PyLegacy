@@ -74,14 +74,7 @@ class AdminPanel:
             pady=self._gui.text_pad_y,
             align="right",
         )
-        pb.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
+        self._gui.add_hold_button(pb)
 
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
@@ -230,14 +223,7 @@ class AdminPanel:
             progress_empty_color="white",
             **kwargs,
         )
-        hb.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
+        self._gui.add_hold_button(hb)
         self._gui.cache(hb)
         return hb
 
