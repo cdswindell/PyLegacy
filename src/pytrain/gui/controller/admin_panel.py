@@ -83,7 +83,7 @@ class AdminPanel:
             background="#f7f7f7",
         )
 
-        # setup sync watcher to manage button state
+        # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
         sp = Text(admin_box, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
