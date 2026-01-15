@@ -625,23 +625,8 @@ class HoldButton(PushButton):
             self.text = self._saved_button_text
             self._saved_button_text = None
 
-        # After overlay removal, restore hover immediately if pointer is inside.
-        # (Our hover implementation is explicit, so we can just call it directly.)
-        try:
-            px = int(self.tk.winfo_pointerx())
-            py = int(self.tk.winfo_pointery())
-            bx = int(self.tk.winfo_rootx())
-            by = int(self.tk.winfo_rooty())
-            bw = int(self.tk.winfo_width())
-            bh = int(self.tk.winfo_height())
-            inside = (bx <= px < bx + bw) and (by <= py < by + bh)
-        except TclError:
-            inside = False
-
-        if inside:
-            self._on_hover_enter()
-        else:
-            self._on_hover_leave()
+        # Clear hover unconditionally (prevents "stuck hover" after touch release)
+        self._on_hover_leave()
 
     # ───────────────────────────────
     # Timer cancellation helpers (narrow exceptions)
