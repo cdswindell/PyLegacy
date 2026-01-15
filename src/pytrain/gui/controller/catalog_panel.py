@@ -44,10 +44,10 @@ class CatalogPanel:
             height=self._gui.button_size,
         )
         tb.text_size = self._gui.s_10
-        # tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
+        tb.tk.grid_configure(0, row=0, columnspan=2, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
-        # tb.tk.grid_columnconfigure(grid[0], weight=1)
+        tb.tk.grid_columnconfigure(0, weight=1)
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
@@ -58,7 +58,7 @@ class CatalogPanel:
             options=SORT_OPTS,
             horizontal=True,
             align="top",
-            width=int(self._width / 2.5),
+            width=int(self._width / 2.2),
         )
 
         # catalog
