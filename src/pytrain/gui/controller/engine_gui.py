@@ -1622,7 +1622,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             hc = "lightgreen" if state.is_active else "#e0e0e0"
             self.add_hover_action(self.fire_route_btn, hover_color=hc, background=bg)
         else:
-            self.add_hover_action(self.fire_route_btn, self._inactive_bg)
+            self.add_hover_action(self.fire_route_btn, background=self._inactive_bg)
 
     @staticmethod
     def add_hover_action(btn: Widget, hover_color: str = "#e0e0e0", background: str = "#f7f7f7") -> None:
@@ -1654,7 +1654,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # self.switch_out_btn.bg = self._active_bg if state.is_out else self._inactive_bg
         else:
             for btn in (self.switch_thru_btn, self.switch_out_btn):
-                self.add_hover_action(btn, self._inactive_bg)
+                self.add_hover_action(btn, background=self._inactive_bg)
 
     def on_new_accessory(self, state: AccessoryState | TrainState = None):
         state = state if state else self.active_state
