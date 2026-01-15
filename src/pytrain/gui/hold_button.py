@@ -383,23 +383,38 @@ class HoldButton(PushButton):
         if not self._progress_canvas:
             return
 
-        x = self.tk.winfo_x()
-        y = self.tk.winfo_y()
-        w = max(1, int(self.tk.winfo_width()))
-        h = max(1, int(self.tk.winfo_height()))
+        # Canvas lives in THIS parent:
+        canvas_parent = self._progress_canvas.master
 
-        self._progress_canvas.place(x=x, y=y, width=w, height=h)
+        try:
+            # Button position in screen/root coordinates
+            bx = int(self.tk.winfo_rootx())
+            by = int(self.tk.winfo_rooty())
+            bw = max(1, int(self.tk.winfo_width()))
+            bh = max(1, int(self.tk.winfo_height()))
+
+            # Parent position in screen/root coordinates
+            px = int(canvas_parent.winfo_rootx())
+            py = int(canvas_parent.winfo_rooty())
+        except TclError:
+            return
+
+        # Convert to canvas-parent coordinate system
+        x = bx - px
+        y = by - py
+
+        self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
 
         canvas_bg = self._progress_empty_color or self._normal_bg or self.bg or "white"
         self._progress_canvas.config(background=canvas_bg)
         self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
-        self._progress_canvas.coords(self._progress_bg_rect, 0, 0, w, h)
+        self._progress_canvas.coords(self._progress_bg_rect, 0, 0, bw, bh)
 
         frac = self._progress_fraction() if self._pressed else 0.0
-        fill_w = int(w * frac)
-        self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, h)
+        fill_w = int(bw * frac)
+        self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, bh)
 
-        # Put the button above the overlay canvas (Canvas.lower() is for canvas *items*, not widgets)
+        # Ensure the button stays above the overlay
         self.tk.tkraise()
 
     def _set_overlay_fraction(self, frac: float) -> None:
