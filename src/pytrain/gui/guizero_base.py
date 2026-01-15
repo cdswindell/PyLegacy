@@ -171,6 +171,10 @@ class GuiZeroBase(Thread, ABC):
     def sync_state(self) -> SyncState:
         return self._sync_state
 
+    @property
+    def state_store(self) -> ComponentStateStore:
+        return self._state_store
+
     def cache(self, widget: Widget) -> None:
         self._elements.add(widget)
 

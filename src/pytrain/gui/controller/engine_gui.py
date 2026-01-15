@@ -52,6 +52,7 @@ from ..hold_button import HoldButton
 from ..scrolling_text import ScrollingText
 from ..swipe_detector import SwipeDetector
 from .admin_panel import AdminPanel
+from .catalog_panel import CatalogPanel
 from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
@@ -249,6 +250,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._isd = None  # swipe detector for engine image field
         self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
         self._admin_panel = self._admin_overlay = None
+        self._catalog_panel = self._catalog_overlay = None
         self._on_close_show = None
         self._restore_image_box = False
         self.engine_ops_cells = {}
@@ -780,7 +782,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # Title row
         title_row = Box(overlay, width=self.emergency_box_width, height=self.button_size // 3)
         title_row.bg = "lightgrey"
-        Text(title_row, text=title_text, bold=True, size=self.s_18).bg = "lightgrey"
+        overlay.title = Text(title_row, text=title_text, bold=True, size=self.s_18).bg = "lightgrey"
 
         # Body container (the caller populates this)
         body = Box(overlay, layout="auto")
@@ -1720,6 +1722,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
         self.on_scope(pb.scope, held=True)
+        with self._cv:
+            if self._catalog_panel is None:
+                self._catalog_panel = CatalogPanel(
+                    self, width=self.emergency_box_width, height=int(3 * self.height / 4)
+                )
+            if self._catalog_overlay is None:
+                self._catalog_overlay = self.create_popup("Catalog", self._catalog_panel.build)
+            self._catalog_panel.update(pb.scope)
+            self._catalog_overlay.title.value = self._catalog_panel.title
+        self.show_popup(self._catalog_overlay, hide_image_box=True)
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:

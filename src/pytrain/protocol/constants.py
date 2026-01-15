@@ -212,6 +212,15 @@ class CommandScope(Mixins):
         else:
             raise ValueError(f"'{name}' is not a valid {cls.__name__}")
 
+    @property
+    def plural(self) -> str:
+        if self == CommandScope.ACC:
+            return "Accessories"
+        elif self == CommandScope.SWITCH:
+            return "Switches"
+        else:
+            return f"{self.title}s"
+
 
 @unique
 class Direction(Mixins):
