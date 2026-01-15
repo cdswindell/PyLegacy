@@ -1619,7 +1619,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             state = self._state_store.get_state(CommandScope.ROUTE, tmcc_id, False) if 1 <= tmcc_id < 99 else None
         if state:
             bg = self._active_bg if state.is_active else self._inactive_bg
-            hc = "lightgreen" if state.is_active else self._inactive_bg
+            hc = "lightgreen" if state.is_active else "#e0e0e0"
             self.add_hover_action(self.fire_route_btn, hover_color=hc, background=bg)
         else:
             self.add_hover_action(self.fire_route_btn, self._inactive_bg)
