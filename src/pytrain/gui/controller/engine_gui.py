@@ -1618,17 +1618,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
             tmcc_id = self._scope_tmcc_ids[CommandScope.ROUTE]
             state = self._state_store.get_state(CommandScope.ROUTE, tmcc_id, False) if 1 <= tmcc_id < 99 else None
         if state:
-            self.fire_route_btn.bg = self._active_bg if state.is_active else self._inactive_bg
+            self.add_hover_action(self.fire_route_btn, self._active_bg if state.is_active else self._inactive_bg)
         else:
-            self.fire_route_btn.bg = self._inactive_bg
-            self.fire_route_btn.tk.config(
-                borderwidth=3,
-                relief="raised",
-                highlightthickness=1,
-                highlightbackground="black",
-                activebackground="#e0e0e0",
-                background="#f7f7f7",
-            )
+            self.add_hover_action(self.fire_route_btn, self._inactive_bg)
+
+    @staticmethod
+    def add_hover_action(btn: Widget, background: str = "#f7f7f7") -> None:
+        btn.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            activebackground="#e0e0e0",
+            background=background,
+        )
 
     def on_new_switch(self, state: SwitchState = None):
         # must be called from app thread!!
