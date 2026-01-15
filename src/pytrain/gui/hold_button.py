@@ -129,7 +129,7 @@ class HoldButton(PushButton):
         if text_bold is not None:
             self.text_bold = text_bold
 
-        # resolve command vs on_press
+        # resolve command vs. on_press
         if command and on_press:
             raise ValueError("Cannot specify both command and on_press")
         elif command:
@@ -159,6 +159,16 @@ class HoldButton(PushButton):
 
         # capture initial "real" tk background/foreground (your helper often sets these after creation)
         self._snapshot_tk_normals()
+
+        # button hover behavior
+        self.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
 
     # ───────────────────────────────
     # Parent setter overrides
