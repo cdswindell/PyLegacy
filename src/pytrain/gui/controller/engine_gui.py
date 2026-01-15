@@ -1212,6 +1212,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         modifier: str = None,
         button: HoldButton = None,
         position: tuple = None,
+        hide_image_box: bool = False,
     ):
         with self._cv:
             if self._current_popup:
@@ -1229,6 +1230,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if box and box.visible:
                     box.hide()
                     self._on_close_show = box
+
+            if hide_image_box and self.image_box.visible:
+                self.image_box.hide()
+                self._restore_image_box = True
+            else:
+                self._restore_image_box = False
 
             self._current_popup = overlay
             position = position if position else self.popup_position
@@ -1399,12 +1406,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
             if self._admin_overlay is None:
                 self._admin_overlay = self.create_popup(self._admin_title, self._admin_panel.build)
-        if self.image_box.visible:
-            self.image_box.hide()
-            self._restore_image_box = True
-        else:
-            self._restore_image_box = False
-        self.show_popup(self._admin_overlay)
+        self.show_popup(self._admin_overlay, hide_image_box=True)
 
     def on_recents(self, value: str):
         if value not in {self.title, self._seperator}:
@@ -1717,10 +1719,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
-        print(f"** on_scope_hold: {pb.scope}")
+        self.on_scope(pb.scope, held=True)
 
     # noinspection PyTypeChecker
-    def on_scope(self, scope: CommandScope) -> None:
+    def on_scope(self, scope: CommandScope, held: bool = False) -> None:
         self.scope_box.hide()
         force_entry_mode = False
         clear_info = True
@@ -1746,13 +1748,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if self._scope_tmcc_ids[scope] == 0:
                 self.display_most_recent(scope)
             else:
-                # pressing the same scope button again returns to entry mode with current
-                # component active
-                if self._in_entry_mode:
-                    self.ops_mode(update_info=False)
-                else:
-                    force_entry_mode = True
-                    clear_info = False
+                if not held:
+                    # pressing the same scope button again returns to entry mode with current
+                    # component active
+                    if self._in_entry_mode:
+                        self.ops_mode(update_info=False)
+                    else:
+                        force_entry_mode = True
+                        clear_info = False
         # update display
         self.close_popup()
         self.update_component_info()
