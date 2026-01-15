@@ -26,8 +26,8 @@ class CatalogPanel:
     def build(self, body: Box) -> None:
         self._catalog = lb = ListBox(
             body,
-            width=self._width,
-            height=self._height // 2,
+            width=25,
+            height=15,
             items=[],
             scrollbar=True,
         )
