@@ -31,9 +31,10 @@ class CatalogPanel:
         )
         lb.text_size = self._gui.s_22
 
-        for child in lb.tk.master.winfo_children():
-            if child.winfo_class() == "Scrollbar":
-                child.config(width=30)  # pixels
+        # tk_listbox = lb.children[0].tk
+        tk_scrollbar = lb.children[1].tk
+        tk_scrollbar.config(width=30)  # pixels
+        print(dir(lb.children[1]))
 
     def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
