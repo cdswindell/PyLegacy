@@ -53,7 +53,7 @@ class CatalogPanel:
         sp.text_size = self._gui.s_2
         self._sort_btns = CheckBoxGroup(
             tb,
-            size=self._gui.s_22,
+            size=self._gui.s_20,
             grid=[0, 1, 2, 1],
             options=SORT_OPTS,
             horizontal=True,
