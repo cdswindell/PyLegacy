@@ -1641,10 +1641,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
             tmcc_id = self._scope_tmcc_ids[CommandScope.SWITCH]
             state = self._state_store.get_state(CommandScope.SWITCH, tmcc_id, False) if 1 <= tmcc_id < 99 else None
         if state:
-            self.switch_thru_btn.bg = self._active_bg if state.is_thru else self._inactive_bg
-            self.switch_out_btn.bg = self._active_bg if state.is_out else self._inactive_bg
+            if state.is_thru:
+                self.add_hover_action(self.switch_thru_btn, hover_color="lightgreen", background=self._active_bg)
+                self.add_hover_action(self.switch_out_btn, background=self._inactive_bg)
+            elif state.is_out:
+                self.add_hover_action(self.switch_out_btn, hover_color="lightgreen", background=self._active_bg)
+                self.add_hover_action(self.switch_thru_btn, background=self._inactive_bg)
+            else:
+                for btn in (self.switch_thru_btn, self.switch_out_btn):
+                    self.add_hover_action(btn, self._inactive_bg)
+            # self.switch_thru_btn.bg = self._active_bg if state.is_thru else self._inactive_bg
+            # self.switch_out_btn.bg = self._active_bg if state.is_out else self._inactive_bg
         else:
-            self.switch_thru_btn.bg = self.switch_out_btn.bg = self._inactive_bg
+            for btn in (self.switch_thru_btn, self.switch_out_btn):
+                self.add_hover_action(btn, self._inactive_bg)
 
     def on_new_accessory(self, state: AccessoryState | TrainState = None):
         state = state if state else self.active_state
