@@ -20,8 +20,8 @@ from guizero import PushButton
 class HoldButton(PushButton):
     """
     A PushButton subclass that adds:
-      - on_press  → single short tap, or fired when held if no hold/repeat defined
-      - on_hold   → single fire after hold_threshold seconds
+      - on_press → single short tap, or fired when held if no hold/repeat defined
+      - on_hold → single fire after hold_threshold seconds
       - on_repeat → continuous fire while held
 
     Each callback can be:
@@ -528,6 +528,33 @@ class HoldButton(PushButton):
         if self._saved_button_text is not None:
             self.text = self._saved_button_text
             self._saved_button_text = None
+
+        # Force hover/active to update immediately (no mouse move required)
+        try:
+            self.tk.after_idle(self._refresh_hover_state)
+        except TclError:
+            pass
+        except RuntimeError:
+            pass
+
+    def _refresh_hover_state(self) -> None:
+        """Force Tk to refresh hover/active visuals after the overlay is removed."""
+        try:
+            px = int(self.tk.winfo_pointerx())
+            py = int(self.tk.winfo_pointery())
+
+            bx = int(self.tk.winfo_rootx())
+            by = int(self.tk.winfo_rooty())
+            bw = int(self.tk.winfo_width())
+            bh = int(self.tk.winfo_height())
+        except TclError:
+            return
+
+        inside = (bx <= px < bx + bw) and (by <= py < by + bh)
+        try:
+            self.tk.event_generate("<Enter>" if inside else "<Leave>")
+        except TclError:
+            pass
 
     # ───────────────────────────────
     # Timer cancellation helpers (narrow exceptions)
