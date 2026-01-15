@@ -782,8 +782,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # Title row
         title_row = Box(overlay, width=self.emergency_box_width, height=self.button_size // 3)
         title_row.bg = "lightgrey"
-        overlay.title = Text(title_row, text=title_text, bold=True, size=self.s_18).bg = "lightgrey"
-
+        overlay.title = title = Text(title_row, text=title_text, bold=True, size=self.s_18)
+        title.bg = "lightgrey"
         # Body container (the caller populates this)
         body = Box(overlay, layout="auto")
         build_body(body)
