@@ -83,7 +83,7 @@ class CatalogPanel:
         if self._scope != scope:
             self._catalog.clear()
             for state in self._state_store.get_all(scope):
-                self._catalog.append(state.name)
+                self._catalog.append(str(state.name) + "\n")
         self._scope = scope
 
     @property
