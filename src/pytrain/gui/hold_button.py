@@ -344,20 +344,17 @@ class HoldButton(PushButton):
         if self._progress_canvas is not None:
             return
 
-        parent = self.tk.master  # same container as the button
+        top = self.tk.winfo_toplevel()  # <-- important: toplevel, not self.tk.master
 
-        # Canvas requires a valid color string; empty "" breaks on some Tk builds.
-        # Use the configured empty color, or fall back to the button's bg.
         canvas_bg = self._progress_empty_color or self._normal_bg or self.bg or "white"
 
         self._progress_canvas = tk.Canvas(
-            parent,
+            top,
             highlightthickness=0,
             bd=0,
             background=canvas_bg,
         )
 
-        # Background rect (optional)
         self._progress_bg_rect = self._progress_canvas.create_rectangle(
             0,
             0,
@@ -367,7 +364,6 @@ class HoldButton(PushButton):
             fill=canvas_bg,
         )
 
-        # Fill rect
         self._progress_rect = self._progress_canvas.create_rectangle(
             0,
             0,
@@ -383,25 +379,21 @@ class HoldButton(PushButton):
         if not self._progress_canvas:
             return
 
-        # Canvas lives in THIS parent:
-        canvas_parent = self._progress_canvas.master
+        top = self._progress_canvas.master  # toplevel
 
         try:
-            # Button position in screen/root coordinates
             bx = int(self.tk.winfo_rootx())
             by = int(self.tk.winfo_rooty())
             bw = max(1, int(self.tk.winfo_width()))
             bh = max(1, int(self.tk.winfo_height()))
 
-            # Parent position in screen/root coordinates
-            px = int(canvas_parent.winfo_rootx())
-            py = int(canvas_parent.winfo_rooty())
+            tx = int(top.winfo_rootx())
+            ty = int(top.winfo_rooty())
         except TclError:
             return
 
-        # Convert to canvas-parent coordinate system
-        x = bx - px
-        y = by - py
+        x = bx - tx
+        y = by - ty
 
         self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
 
@@ -414,7 +406,7 @@ class HoldButton(PushButton):
         fill_w = int(bw * frac)
         self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, bh)
 
-        # Ensure the button stays above the overlay
+        # Ensure the button widget stays above the overlay canvas
         self.tk.tkraise()
 
     def _set_overlay_fraction(self, frac: float) -> None:
