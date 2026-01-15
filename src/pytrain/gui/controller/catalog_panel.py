@@ -29,7 +29,11 @@ class CatalogPanel:
             items=[],
             scrollbar=True,
         )
-        lb.text_size = self._gui.s_20
+        lb.text_size = self._gui.s_22
+        lb.tk.configure(exportselection=False)
+        for child in lb.tk.master.winfo_children():
+            if child.winfo_class() == "Scrollbar":
+                child.config(width=30)  # pixels
 
     def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
