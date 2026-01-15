@@ -399,8 +399,8 @@ class HoldButton(PushButton):
         fill_w = int(w * frac)
         self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, h)
 
-        # Put canvas behind the button so text remains visible
-        self._progress_canvas.lower(self.tk)
+        # Put the button above the overlay canvas (Canvas.lower() is for canvas *items*, not widgets)
+        self.tk.tkraise()
 
     def _set_overlay_fraction(self, frac: float) -> None:
         if not self._progress_canvas:
