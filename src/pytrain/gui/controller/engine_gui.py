@@ -1705,8 +1705,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
-        scope = CommandScope.by_prefix(pb.scope)
-        print(f"** on_scope_hold: {pb.scope} {scope}")
+        print(f"** on_scope_hold: {pb.scope}")
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope) -> None:
