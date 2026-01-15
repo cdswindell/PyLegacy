@@ -28,6 +28,7 @@ class CatalogPanel:
             body,
             items=[],
             scrollbar=True,
+            command=self.on_select,
         )
         lb.text_size = self._gui.s_24
 
@@ -47,3 +48,6 @@ class CatalogPanel:
     @property
     def title(self) -> str:
         return self._scope.plural if self._scope else "N/A"
+
+    def on_select(self, item: str) -> None:
+        print(f"Selected {item}")
