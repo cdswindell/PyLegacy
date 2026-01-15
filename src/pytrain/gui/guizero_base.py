@@ -276,6 +276,17 @@ class GuiZeroBase(Thread, ABC):
         widget.bg = self._enabled_bg
         widget.text_color = self._enabled_text
 
+    @staticmethod
+    def add_hover_action(btn: Widget, hover_color: str = "#e0e0e0", background: str = "#f7f7f7") -> None:
+        btn.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            activebackground=hover_color,
+            background=background,
+        )
+
     def sizeof(self, widget: Widget) -> tuple[int, int]:
         return self.size_cache.get(widget, None) or (widget.tk.winfo_reqwidth(), widget.tk.winfo_reqheight())
 

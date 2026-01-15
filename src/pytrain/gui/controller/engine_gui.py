@@ -1624,17 +1624,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             self.add_hover_action(self.fire_route_btn, background=self._inactive_bg)
 
-    @staticmethod
-    def add_hover_action(btn: Widget, hover_color: str = "#e0e0e0", background: str = "#f7f7f7") -> None:
-        btn.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            activebackground=hover_color,
-            background=background,
-        )
-
     def on_new_switch(self, state: SwitchState = None):
         # must be called from app thread!!
         if state is None:
@@ -1649,7 +1638,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.add_hover_action(self.switch_thru_btn, background=self._inactive_bg)
             else:
                 for btn in (self.switch_thru_btn, self.switch_out_btn):
-                    self.add_hover_action(btn, self._inactive_bg)
+                    self.add_hover_action(btn, background=self._inactive_bg)
             # self.switch_thru_btn.bg = self._active_bg if state.is_thru else self._inactive_bg
             # self.switch_out_btn.bg = self._active_bg if state.is_out else self._inactive_bg
         else:
