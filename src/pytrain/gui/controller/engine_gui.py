@@ -1926,6 +1926,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             command=self.on_keypress,
             args=[SET_KEY],
             is_entry=True,
+            hover=True,
         )
         self.set_key_cell = cell = Box(keypad_keys, layout="auto", grid=[2, row])
         self.entry_cells.add(cell)
@@ -1939,6 +1940,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             size=self.s_30,
             visible=False,
             is_ops=True,
+            hover=True,
         )
 
         # switch button
