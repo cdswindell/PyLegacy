@@ -116,7 +116,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
         active_bg: str = "green",
-        inactive_bg: str = "f7f7f7",
+        inactive_bg: str = "#f7f7f7",
         scale_by: float = 1.5,
         repeat: int = 2,
         num_recents: int = 5,
