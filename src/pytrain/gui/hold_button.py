@@ -538,6 +538,7 @@ class HoldButton(PushButton):
             pass
 
     def _refresh_hover_state(self) -> None:
+        print("********************")
         """Force Tk to refresh hover/active visuals after the overlay is removed."""
         try:
             px = int(self.tk.winfo_pointerx())
