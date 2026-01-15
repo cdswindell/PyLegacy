@@ -38,7 +38,7 @@ class CatalogPanel:
         sb.tk.config(width=self._width)
         # sort
         tb = TitleBox(
-            catalog_box,
+            sb,
             text="Sort By",
             layout="grid",  # use grid INSIDE the TitleBox
             align="top",
