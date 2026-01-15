@@ -32,10 +32,10 @@ class CatalogPanel:
         lb.text_size = self._gui.s_24
 
         tk_listbox = lb.children[0].tk
-        tk_listbox.config(width=20, height=10)
+        tk_listbox.config(width=22, height=10)
 
         tk_scrollbar = lb.children[1].tk
-        tk_scrollbar.config(width=30)  # pixels
+        tk_scrollbar.config(width=40)  # pixels
 
     def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
