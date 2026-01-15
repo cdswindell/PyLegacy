@@ -1683,6 +1683,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 args=[scope],
             )
             pb.scope = scope
+            pb.on_hold = (self.on_scope_hold, [pb])
             # Configure the button with the image as background
             pb.tk.config(
                 image=img,
@@ -1701,6 +1702,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._scope_tmcc_ids[scope] = 0
         # highlight initial button
         self.on_scope(self.scope)
+
+    # noinspection PyUnresolvedReferences
+    def on_scope_hold(self, pb: HoldButton):
+        scope = CommandScope.by_prefix(pb.scope)
+        print(f"** on_scope_hold: {pb.scope} {scope}")
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope) -> None:
