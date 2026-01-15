@@ -147,8 +147,9 @@ class HoldButton(PushButton):
             self.tk.bind("<Leave>", self._on_leave_event, add="+")
 
         # hover bindings (robust, independent of Tk "active" internals)
-        self.tk.bind("<Enter>", self._on_hover_enter, add="+")
-        self.tk.bind("<Leave>", self._on_hover_leave, add="+")
+        if show_hold_progress:
+            self.tk.bind("<Enter>", self._on_hover_enter, add="+")
+            self.tk.bind("<Leave>", self._on_hover_leave, add="+")
 
         # keep overlay aligned when widget moves/resizes
         self.tk.bind("<Configure>", self._on_configure_event, add="+")
