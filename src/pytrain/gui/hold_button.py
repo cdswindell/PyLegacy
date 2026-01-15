@@ -119,6 +119,16 @@ class HoldButton(PushButton):
         # initialize parent
         super().__init__(master, text=text, **kwargs)
 
+        # button hover behavior
+        self.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+
         # apply base properties (guizero-level)
         if bg:
             self._normal_bg = self.bg = bg
@@ -159,16 +169,6 @@ class HoldButton(PushButton):
 
         # capture initial "real" tk background/foreground (your helper often sets these after creation)
         self._snapshot_tk_normals()
-
-        # button hover behavior
-        self.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
 
     # ───────────────────────────────
     # Parent setter overrides
