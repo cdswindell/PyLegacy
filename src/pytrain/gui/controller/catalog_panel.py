@@ -29,9 +29,12 @@ class CatalogPanel:
             items=[],
             scrollbar=True,
         )
-        lb.text_size = self._gui.s_22
+        lb.text_size = self._gui.s_24
 
-        # tk_listbox = lb.children[0].tk
+        tk_listbox = lb.children[0].tk
+        tk_listbox.config(width=25, height=15)
+        print(dir(lb.children[0]))
+
         tk_scrollbar = lb.children[1].tk
         tk_scrollbar.config(width=30)  # pixels
         print(dir(lb.children[1]))
