@@ -345,55 +345,61 @@ class HoldButton(PushButton):
             return
 
         parent = self.tk.master  # same container as the button
+
+        # Canvas requires a valid color string; empty "" breaks on some Tk builds.
+        # Use the configured empty color, or fall back to the button's bg.
+        canvas_bg = self._progress_empty_color or self._normal_bg or self.bg or "white"
+
         self._progress_canvas = tk.Canvas(
             parent,
             highlightthickness=0,
             bd=0,
-            bg="",  # transparent-ish; we control drawing ourselves
+            background=canvas_bg,
         )
 
-        # Optional background rect (empty color) + fill rect
+        # Background rect (optional)
         self._progress_bg_rect = self._progress_canvas.create_rectangle(
-            0, 0, 0, 0, outline="", fill=self._progress_empty_color if self._progress_empty_color else ""
+            0,
+            0,
+            0,
+            0,
+            outline="",
+            fill=canvas_bg,
         )
+
+        # Fill rect
         self._progress_rect = self._progress_canvas.create_rectangle(
-            0, 0, 0, 0, outline="", fill=self._progress_fill_color
+            0,
+            0,
+            0,
+            0,
+            outline="",
+            fill=self._progress_fill_color,
         )
+
         self._progress_canvas.place_forget()
 
     def _position_overlay(self) -> None:
         if not self._progress_canvas:
             return
 
-        try:
-            x = self.tk.winfo_x()
-            y = self.tk.winfo_y()
-            w = self.tk.winfo_width()
-            h = self.tk.winfo_height()
-        except TclError:
-            return
-        except RuntimeError:
-            return
+        x = self.tk.winfo_x()
+        y = self.tk.winfo_y()
+        w = max(1, int(self.tk.winfo_width()))
+        h = max(1, int(self.tk.winfo_height()))
 
-        w = max(1, int(w))
-        h = max(1, int(h))
-
-        # Place overlay exactly over the button in the parent coordinate system
         self._progress_canvas.place(x=x, y=y, width=w, height=h)
 
-        # Resize background + fill rects
-        if self._progress_empty_color:
-            self._progress_canvas.coords(self._progress_bg_rect, 0, 0, w, h)
-            self._progress_canvas.itemconfig(self._progress_bg_rect, fill=self._progress_empty_color)
-        else:
-            # If no empty color, make bg rect empty
-            self._progress_canvas.itemconfig(self._progress_bg_rect, fill="")
+        canvas_bg = self._progress_empty_color or self._normal_bg or self.bg or "white"
+        self._progress_canvas.config(background=canvas_bg)
+        self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
+        self._progress_canvas.coords(self._progress_bg_rect, 0, 0, w, h)
 
         frac = self._progress_fraction() if self._pressed else 0.0
         fill_w = int(w * frac)
         self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, h)
 
-        # keep progress behind visual focus ring: lower the canvas
+        # Put canvas behind the button so text remains visible
         self._progress_canvas.lower(self.tk)
 
     def _set_overlay_fraction(self, frac: float) -> None:
