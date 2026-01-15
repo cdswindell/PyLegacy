@@ -1621,6 +1621,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.fire_route_btn.bg = self._active_bg if state.is_active else self._inactive_bg
         else:
             self.fire_route_btn.bg = self._inactive_bg
+            self.fire_route_btn.tk.config(
+                borderwidth=3,
+                relief="raised",
+                highlightthickness=1,
+                highlightbackground="black",
+                activebackground="#e0e0e0",
+                background="#f7f7f7",
+            )
 
     def on_new_switch(self, state: SwitchState = None):
         # must be called from app thread!!
