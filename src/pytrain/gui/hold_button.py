@@ -118,7 +118,7 @@ class HoldButton(PushButton):
         if text_bold is not None:
             self.text_bold = text_bold
 
-        # resolve command vs on_press
+        # resolve command vs. on_press
         if command and on_press:
             raise ValueError("Cannot specify both command and on_press")
         elif command:
@@ -439,7 +439,7 @@ class HoldButton(PushButton):
 
         self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
 
-        # update colors + background rect
+        # update colors and background rect
         canvas_bg = self._progress_empty_color or self._normal_bg or self.bg or "white"
         self._progress_canvas.config(background=canvas_bg)
         self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
