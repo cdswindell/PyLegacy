@@ -552,7 +552,7 @@ class HoldButton(PushButton):
             except TclError:
                 return
 
-        # Raise overlay widget safely (type-checker friendly; avoids Canvas item APIs)
+        # Raise the overlay widget safely (type-checker friendly; avoids Canvas item APIs)
         try:
             self._progress_canvas.tk.call("raise", str(self._progress_canvas))
         except TclError:

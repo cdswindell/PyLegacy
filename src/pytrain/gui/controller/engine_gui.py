@@ -1883,6 +1883,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self.enter_key_cell = cell
                 elif label == SET_KEY:
                     self.set_key_cell = cell
+
+                nb.tk.config(
+                    borderwidth=3,
+                    relief="raised",
+                    highlightthickness=1,
+                    highlightbackground="black",
+                    activebackground="#e0e0e0",
+                    background="#f7f7f7",
+                )
             row += 1
 
         # fill in last row; contents depends on scope
