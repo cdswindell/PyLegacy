@@ -1873,6 +1873,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     command=self.on_keypress,
                     args=[label],
                     image=image,
+                    hover=True,
                 )
 
                 if label == CLEAR_KEY:
@@ -1883,15 +1884,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self.enter_key_cell = cell
                 elif label == SET_KEY:
                     self.set_key_cell = cell
-
-                nb.tk.config(
-                    borderwidth=3,
-                    relief="raised",
-                    highlightthickness=1,
-                    highlightbackground="black",
-                    activebackground="#e0e0e0",
-                    background="#f7f7f7",
-                )
             row += 1
 
         # fill in last row; contents depends on scope
@@ -2165,6 +2157,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         is_entry: bool = False,
         titlebox_text: str = None,
         align: str = "bottom",
+        hover: bool = False,
         command: Callable | bool | None = None,
         args: list = None,
     ):
@@ -2261,6 +2254,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
             nb.text_size = size
             nb.text_bold = bolded
             nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
+            if hover:
+                nb.tk.config(
+                    borderwidth=3,
+                    relief="raised",
+                    highlightthickness=1,
+                    highlightbackground="black",
+                    activebackground="#e0e0e0",
+                    background="#f7f7f7",
+                )
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------
