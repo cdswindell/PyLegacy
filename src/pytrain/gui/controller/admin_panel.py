@@ -223,7 +223,7 @@ class AdminPanel:
             progress_empty_color="white",
             **kwargs,
         )
-        self._gui.add_hold_button(hb)
+        self._gui.add_hover_action(hb)
         self._gui.cache(hb)
         return hb
 
