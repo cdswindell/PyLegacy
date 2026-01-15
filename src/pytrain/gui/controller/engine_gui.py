@@ -116,7 +116,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         enabled_text: str = "black",
         disabled_text: str = "lightgrey",
         active_bg: str = "green",
-        inactive_bg: str = "white",
+        inactive_bg: str = "f7f7f7",
         scale_by: float = 1.5,
         repeat: int = 2,
         num_recents: int = 5,
@@ -1618,18 +1618,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
             tmcc_id = self._scope_tmcc_ids[CommandScope.ROUTE]
             state = self._state_store.get_state(CommandScope.ROUTE, tmcc_id, False) if 1 <= tmcc_id < 99 else None
         if state:
-            self.add_hover_action(self.fire_route_btn, self._active_bg if state.is_active else self._inactive_bg)
+            bg = self._active_bg if state.is_active else self._inactive_bg
+            hc = "lightgreen" if state.is_active else self._inactive_bg
+            self.add_hover_action(self.fire_route_btn, hover_color=hc, background=bg)
         else:
             self.add_hover_action(self.fire_route_btn, self._inactive_bg)
 
     @staticmethod
-    def add_hover_action(btn: Widget, background: str = "#f7f7f7") -> None:
+    def add_hover_action(btn: Widget, hover_color: str = "#e0e0e0", background: str = "#f7f7f7") -> None:
         btn.tk.config(
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
             highlightbackground="black",
-            activebackground="#e0e0e0",
+            activebackground=hover_color,
             background=background,
         )
 
