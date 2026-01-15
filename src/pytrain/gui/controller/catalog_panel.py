@@ -49,7 +49,7 @@ class CatalogPanel:
         tb.tk.pack_propagate(False)
         # tb.tk.grid_columnconfigure(grid[0], weight=1)
 
-        sp = Text(tb, text=" ", height=1, bold=True, align="top")
+        sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
         self._sort_btns = CheckBoxGroup(
             tb,

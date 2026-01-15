@@ -74,7 +74,7 @@ class AdminPanel:
             pady=self._gui.text_pad_y,
             align="right",
         )
-        self._gui.add_hold_button(pb)
+        self._gui.add_hover_action(pb)
 
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
