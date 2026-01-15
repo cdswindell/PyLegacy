@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import tkinter as tk
 from threading import Condition, RLock
+from tkinter import TclError
 from typing import Any, Callable
 
 from guizero import PushButton
@@ -21,21 +22,24 @@ class HoldButton(PushButton):
         or (func, args, kwargs)
 
     Optional: full-height left-to-right progress fill BEHIND TEXT while holding.
-      - Works best for text buttons.
-      - If you set images=(normal,inverted), this class will *not* attempt to composite progress with your image.
-        (It will simply skip the full-height progress image so your normal images remain intact.)
+
+    IMPORTANT BEHAVIOR NOTE (persistent-image fix):
+      - For text buttons (no custom images), when show_hold_progress=True we install a persistent PhotoImage
+        as the button's image and NEVER remove it. We simply repaint it to "empty" when not holding.
+        This prevents Tk from changing the button's requested size mid-hold (which can cause layout jitter).
+      - If you set images=(normal,inverted), full-height progress is skipped (no compositing).
     """
 
     def __init__(
         self,
         master,
-        text="",
+        text: str = "",
         on_press=None,
         on_hold=None,
         on_repeat=None,
-        hold_threshold=1.0,
-        repeat_interval=0.2,
-        debounce_ms=80,
+        hold_threshold: float = 1.0,
+        repeat_interval: float = 0.2,
+        debounce_ms: int = 80,
         bg: str = "white",
         text_color: str = "black",
         text_size: int | None = None,
@@ -60,6 +64,10 @@ class HoldButton(PushButton):
         self._normal_fg: str | None = None
         self._normal_img = None
         self._inverted_img = None
+
+        # progress persistent background image (for text buttons)
+        self._bg_img: tk.PhotoImage | None = None
+        self._bg_img_installed: bool = False
 
         # now initialize the parent class
         super().__init__(master, text=text, **kwargs)
@@ -93,12 +101,12 @@ class HoldButton(PushButton):
         self.debounce_ms = int(debounce_ms)
 
         self._press_time: float | None = None
-        self._pressed = False
-        self._held = False
-        self._repeating = False
+        self._pressed: bool = False
+        self._held: bool = False
+        self._repeating: bool = False
         self._after_id: str | None = None
-        self._handled_hold = False
-        self._handled_flash = False
+        self._handled_hold: bool = False
+        self._handled_flash: bool = False
 
         # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
@@ -121,10 +129,8 @@ class HoldButton(PushButton):
 
         self._progress_start: float | None = None
         self._progress_after_id: str | None = None
-        self._progress_img: tk.PhotoImage | None = None
-        self._progress_using_image = False
 
-        # keep progress image sized correctly while pressed
+        # keep persistent bg image sized correctly
         self.tk.bind("<Configure>", self._on_configure_event, add="+")
 
     # ───────────────────────────────
@@ -148,6 +154,9 @@ class HoldButton(PushButton):
         with self._cv:
             PushButton.bg.fset(self, value)
             self._normal_bg = value
+            # If we have a persistent bg image installed and aren't holding, repaint empty
+            if self._bg_img_installed and not self._pressed:
+                self._paint_bg(0.0)
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
@@ -243,10 +252,15 @@ class HoldButton(PushButton):
 
     # noinspection PyUnusedLocal
     def _on_configure_event(self, event=None):
-        # If the widget is resizing while we're drawing progress, rebuild at the new size
-        if self._pressed and self._progress_using_image:
-            self._ensure_progress_image()
-            self._update_progress_image(self._progress_fraction())
+        # Rebuild persistent bg image on resize; repaint current fraction.
+        if not self._bg_img_installed:
+            return
+        if self._normal_img or self._inverted_img:
+            return  # persistent progress bg isn't used for image buttons
+
+        self._ensure_bg_image_installed()
+        frac = self._progress_fraction() if (self._pressed and self._progress_start) else 0.0
+        self._paint_bg(frac)
 
     def _trigger_hold_or_repeat(self):
         self._held = True
@@ -254,21 +268,18 @@ class HoldButton(PushButton):
 
         if self._on_repeat:
             self._repeating = True
-            # For repeat mode, leaving the bar full until release is usually nice feedback.
-            if not self._progress_keep_full_until_release:
-                self._stop_progress()
-            else:
-                self._set_progress_full()
-            self._repeat_fire()
-            handled = True
-
-        elif self._on_hold:
-            # Single hold fire
             if self._progress_keep_full_until_release:
                 self._set_progress_full()
             else:
                 self._stop_progress()
+            self._repeat_fire()
+            handled = True
 
+        elif self._on_hold:
+            if self._progress_keep_full_until_release:
+                self._set_progress_full()
+            else:
+                self._stop_progress()
             self._invoke_callback(self._on_hold)
             handled = True
             self.restore_color_state()
@@ -279,7 +290,6 @@ class HoldButton(PushButton):
                 self._set_progress_full()
             else:
                 self._stop_progress()
-
             self._invoke_callback(self._on_press)
             handled = True
             self.restore_color_state()
@@ -348,7 +358,7 @@ class HoldButton(PushButton):
                 self.tk.config(image=self._normal_img, compound="center")
 
     # ───────────────────────────────
-    # Progress fill (full height, left→right, behind text)
+    # Progress fill (full height, left→right, behind text) with persistent-image fix
     # ───────────────────────────────
     def _progress_fraction(self) -> float:
         if not self._progress_start or self.hold_threshold <= 0:
@@ -356,71 +366,52 @@ class HoldButton(PushButton):
         elapsed = time.monotonic() - self._progress_start
         return max(0.0, min(1.0, elapsed / self.hold_threshold))
 
-    def _ensure_progress_image(self) -> None:
+    def _ensure_bg_image_installed(self) -> None:
         """
-        Create a full-size PhotoImage and install it as the button image.
-        We only do this if you are NOT using custom images=(normal,inverted).
+        Install a persistent PhotoImage as the button's image so Tk geometry doesn't
+        change when progress starts/stops. Only used for text buttons.
         """
         if self._normal_img or self._inverted_img:
-            self._progress_using_image = False
             return
 
         w = max(1, int(self.tk.winfo_width()))
         h = max(1, int(self.tk.winfo_height()))
 
-        # Recreate at current size. Keep a reference on self to prevent GC.
-        self._progress_img = tk.PhotoImage(width=w, height=h)
+        if self._bg_img is None or self._bg_img.width() != w or self._bg_img.height() != h:
+            self._bg_img = tk.PhotoImage(width=w, height=h)
 
-        # Install image so text is drawn on top
-        self.tk.config(image=self._progress_img, compound="center")
-        self._progress_using_image = True
+        if not self._bg_img_installed:
+            self.tk.config(image=self._bg_img, compound="center")
+            self._bg_img_installed = True
 
-    def _update_progress_image(self, frac: float) -> None:
+    def _paint_bg(self, frac: float) -> None:
         """
-        Type-checker-friendly progress rendering.
-
-        Draws a full-height background, then a left→right fill behind the text.
-        Uses only PhotoImage.put(color, to=(x, y)) which matches conservative stubs.
+        Type-checker-friendly painter.
+        Paints empty background, then left->right fill across full height.
         """
-        if not self._progress_using_image or not self._progress_img:
+        if not self._bg_img:
             return
 
-        w = int(self._progress_img.width())
-        h = int(self._progress_img.height())
+        w = int(self._bg_img.width())
+        h = int(self._bg_img.height())
 
+        # Use explicit empty color if provided; otherwise prefer _normal_bg then current bg
         empty = self._progress_empty_color or self._normal_bg or self.bg
         fill = self._progress_fill_color
 
         fill_w = int(w * max(0.0, min(1.0, frac)))
-        if fill_w <= 0:
-            # All empty
-            for y in range(h):
-                for x in range(w):
-                    self._progress_img.put(empty, to=(x, y))
-            return
 
-        if fill_w >= w:
-            # All filled
-            for y in range(h):
-                for x in range(w):
-                    self._progress_img.put(fill, to=(x, y))
-            return
-
-        # Mixed: fill left part, empty right part
         for y in range(h):
-            # Filled region (0 .. fill_w-1)
-            for x in range(fill_w):
-                self._progress_img.put(fill, to=(x, y))
-            # Empty region (fill_w .. w-1)
-            for x in range(fill_w, w):
-                self._progress_img.put(empty, to=(x, y))
+            for x in range(w):
+                self._bg_img.put(fill if x < fill_w else empty, to=(x, y))
 
     def _set_progress_full(self) -> None:
         if not self._show_hold_progress:
             return
-        self._ensure_progress_image()
-        if self._progress_using_image:
-            self._update_progress_image(1.0)
+        if self._normal_img or self._inverted_img:
+            return
+        self._ensure_bg_image_installed()
+        self._paint_bg(1.0)
 
     def _schedule_progress_tick(self) -> None:
         self._progress_after_id = self.tk.after(self._progress_update_ms, self._progress_tick)
@@ -429,8 +420,12 @@ class HoldButton(PushButton):
         if not self._pressed or not self._progress_start:
             return
 
+        if self._normal_img or self._inverted_img:
+            return  # skip for image buttons
+
         frac = self._progress_fraction()
-        self._update_progress_image(frac)
+        self._ensure_bg_image_installed()
+        self._paint_bg(frac)
 
         if frac < 1.0:
             self._schedule_progress_tick()
@@ -438,32 +433,30 @@ class HoldButton(PushButton):
     def _start_progress(self) -> None:
         if not self._show_hold_progress or self.hold_threshold <= 0:
             return
+        if self._normal_img or self._inverted_img:
+            return  # skip for image buttons
 
         self._progress_start = time.monotonic()
         self._cancel_progress_after()
 
-        self._ensure_progress_image()
-        if self._progress_using_image:
-            self._update_progress_image(0.0)
-            self._schedule_progress_tick()
+        self._ensure_bg_image_installed()
+        # paint empty, then start ticking
+        self._paint_bg(0.0)
+        self._schedule_progress_tick()
 
     def _stop_progress(self) -> None:
+        """
+        IMPORTANT: do not remove the image. Repaint it to "empty" instead.
+        This is the core of the persistent-image fix.
+        """
         self._cancel_progress_after()
         self._progress_start = None
 
-        if self._progress_using_image:
-            self._progress_using_image = False
-            self._progress_img = None
-
-            # Restore canonical image state
-            if self._normal_img:
-                self.tk.config(image=self._normal_img, compound="center")
-            else:
-                # Remove the image so this returns to a normal text button
-                self.tk.config(image="", compound="center")
+        if self._bg_img_installed and self._bg_img and not (self._normal_img or self._inverted_img):
+            self._paint_bg(0.0)
 
     # ───────────────────────────────
-    # Timer cancellation helpers
+    # Timer cancellation helpers (narrow exceptions)
     # ───────────────────────────────
     def _cancel_after(self) -> None:
         after_id = self._after_id
@@ -472,11 +465,9 @@ class HoldButton(PushButton):
         self._after_id = None
         try:
             self.tk.after_cancel(after_id)
-        except tk.TclError:
-            # Usually: "can't delete Tcl command" / invalid or already-fired after id
+        except TclError:
             pass
         except RuntimeError:
-            # Rare: during interpreter shutdown / widget teardown
             pass
 
     def _cancel_progress_after(self) -> None:
@@ -486,7 +477,7 @@ class HoldButton(PushButton):
         self._progress_after_id = None
         try:
             self.tk.after_cancel(after_id)
-        except tk.TclError:
+        except TclError:
             pass
         except RuntimeError:
             pass
