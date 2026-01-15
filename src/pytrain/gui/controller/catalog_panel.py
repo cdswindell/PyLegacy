@@ -34,9 +34,9 @@ class CatalogPanel:
         catalog_box = Box(body, border=1, align="top")
         catalog_box.tk.config(width=self._width)
 
+        # sort
         sb = Box(catalog_box, layout="grid", align="top")
         sb.tk.config(width=self._width)
-        # sort
         tb = TitleBox(
             sb,
             text="Sort By",
@@ -47,7 +47,7 @@ class CatalogPanel:
             grid=[0, 0, 2, 1],
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(0, row=0, columnspan=2, rowspan=1, sticky="nsew")
+        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
