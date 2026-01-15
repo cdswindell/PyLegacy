@@ -225,6 +225,9 @@ class AdminPanel:
             width=width,
             text_bold=text_bold,
             hold_threshold=hold_threshold,
+            show_hold_progress=True,
+            progress_fill_color="darkgrey",
+            progress_empty_color="white",
             **kwargs,
         )
         hb.tk.config(
