@@ -73,25 +73,6 @@ class TouchListBox(ListBox):
         self.move_px = int(move_px)
 
     # ---------- Internal helpers ----------
-    def _on_press(self, event):
-        print("PRESS y=", event.y, "size=", self._tk_size())
-        ...
-
-    def _on_motion(self, event):
-        dy = int(event.y) - self._press_y
-        if abs(dy) >= self.move_px and not self._moved:
-            print("MOTION cancel hold dy=", dy, "move_px=", self.move_px)
-        ...
-
-    def _schedule_hold_timer(self):
-        ...
-        print("SCHEDULE hold_ms=", self.hold_ms, "idx=", self._candidate_index)
-
-    def _fire_hold_select(self):
-        print("HOLD FIRE moved=", self._moved, "idx=", self._candidate_index, "size=", self._tk_size())
-        ...
-        print("CALL on_hold_select")
-
     def _bind_touch_handlers(self) -> None:
         self.tk.bind("<ButtonPress-1>", self._on_press, add="+")
         self.tk.bind("<B1-Motion>", self._on_motion, add="+")
@@ -115,6 +96,7 @@ class TouchListBox(ListBox):
         except TclError:
             # Can fail if widget is being destroyed
             self._after_id = None
+        print("SCHEDULE hold_ms=", self.hold_ms, "idx=", self._candidate_index)
 
     def _tk_size(self) -> int:
         try:
@@ -123,6 +105,7 @@ class TouchListBox(ListBox):
             return 0
 
     def _fire_hold_select(self) -> None:
+        print("HOLD FIRE moved=", self._moved, "idx=", self._candidate_index, "size=", self._tk_size())
         # Timer callback: only fire if user hasn't scrolled
         self._after_id = None
         if self._moved:
@@ -147,10 +130,12 @@ class TouchListBox(ListBox):
 
         self._hold_fired = True
         self.on_hold_select(idx, text)
+        print("CALL on_hold_select")
 
     # ---------- Tk event handlers ----------
 
     def _on_press(self, event: Any) -> None:
+        print("PRESS y=", event.y, "size=", self._tk_size())
         self._press_y = int(event.y)
         self._press_time = time.monotonic()
         self._moved = False
@@ -183,6 +168,9 @@ class TouchListBox(ListBox):
         self._schedule_hold_timer()
 
     def _on_motion(self, event: Any) -> None:
+        dy = int(event.y) - self._press_y
+        if abs(dy) >= self.move_px and not self._moved:
+            print("MOTION cancel hold dy=", dy, "move_px=", self.move_px)
         dy = int(event.y) - self._press_y
 
         if abs(dy) >= self.move_px:
