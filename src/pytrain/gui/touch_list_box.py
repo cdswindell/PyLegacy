@@ -73,6 +73,24 @@ class TouchListBox(ListBox):
         self.move_px = int(move_px)
 
     # ---------- Internal helpers ----------
+    def _on_press(self, event):
+        print("PRESS y=", event.y, "size=", self._tk_size())
+        ...
+
+    def _on_motion(self, event):
+        dy = int(event.y) - self._press_y
+        if abs(dy) >= self.move_px and not self._moved:
+            print("MOTION cancel hold dy=", dy, "move_px=", self.move_px)
+        ...
+
+    def _schedule_hold_timer(self):
+        ...
+        print("SCHEDULE hold_ms=", self.hold_ms, "idx=", self._candidate_index)
+
+    def _fire_hold_select(self):
+        print("HOLD FIRE moved=", self._moved, "idx=", self._candidate_index, "size=", self._tk_size())
+        ...
+        print("CALL on_hold_select")
 
     def _bind_touch_handlers(self) -> None:
         self.tk.bind("<ButtonPress-1>", self._on_press, add="+")
