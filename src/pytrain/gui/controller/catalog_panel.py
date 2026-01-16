@@ -84,7 +84,7 @@ class CatalogPanel:
 
         tk_scrollbar = lb.children[1].tk
         tk_scrollbar.config(
-            width=45,
+            width=50,
             troughcolor="#003366",
             activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
             bg="lightgrey",  # darker navy background
