@@ -143,10 +143,11 @@ class CatalogPanel:
             self._skip_update = False
 
     def on_select(self, idx: int, item: str) -> None:
+        from ...db.component_state import ComponentState
         from .engine_gui import EngineGui
 
         state = self._entry_state_map.get(item, None)
         print(f"Selected {idx}: {state}")
 
-        if state and isinstance(self._gui, EngineGui):
+        if isinstance(state, ComponentState) and isinstance(self._gui, EngineGui):
             self._gui.update_component_info(state.address)
