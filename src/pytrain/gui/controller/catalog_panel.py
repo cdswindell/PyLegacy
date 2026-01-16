@@ -89,7 +89,7 @@ class CatalogPanel:
             width=50,
             troughcolor="#003366",
             activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-            bg="#f7f7f7",
+            bg="#e0e0e0",
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,
         )  # pixels
