@@ -32,7 +32,7 @@ class TouchListBox(ListBox):
         selected=None,
         *,
         hold_ms: int = 500,
-        move_px: int = 12,
+        move_px: int = 35,
         tap_highlight: bool = True,
         on_hold_select: Optional[Callable[[int, str], None]] = None,
         **kwargs,
@@ -75,9 +75,9 @@ class TouchListBox(ListBox):
     # ---------- Internal helpers ----------
 
     def _bind_touch_handlers(self) -> None:
-        self.tk.bind("<ButtonPress-1>", self._on_press, add=True)
-        self.tk.bind("<B1-Motion>", self._on_motion, add=True)
-        self.tk.bind("<ButtonRelease-1>", self._on_release, add=True)
+        self.tk.bind("<ButtonPress-1>", self._on_press, add="+")
+        self.tk.bind("<B1-Motion>", self._on_motion, add="+")
+        self.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
 
     def _cancel_hold_timer(self) -> None:
         if self._after_id is None:
