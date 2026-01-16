@@ -79,6 +79,7 @@ class CatalogPanel:
             command=self.on_select,
         )
         lb.text_size = self._gui.s_24
+        lb.bg = "lightgrey"
 
         tk_listbox = lb.children[0].tk
         tk_listbox.config(width=21, height=10)
