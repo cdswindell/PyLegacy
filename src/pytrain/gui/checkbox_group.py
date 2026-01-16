@@ -10,16 +10,24 @@ from guizero import ButtonGroup
 
 
 class CheckBoxGroup(ButtonGroup):
-    def __init__(self, master, size: int = 22, scale_by: float = 1.5, **kwargs):
+    def __init__(
+        self,
+        master,
+        size: int = 22,
+        scale_by: float = 1.5,
+        **kwargs,
+    ):
         # now initialize parent class
+        padx = kwargs.get("padx", 18)
+        pady = kwargs.get("pady", 6)
         super().__init__(master, **kwargs)
 
         indicator_size = int(size * scale_by)
         for widget in self.tk.winfo_children():
             widget.config(
                 font=("TkDefaultFont", size),
-                padx=14,  # Horizontal padding inside each radio button
-                pady=6,  # Vertical padding inside each radio button
+                padx=padx,  # Horizontal padding inside each radio button
+                pady=pady,  # Vertical padding inside each radio button
                 anchor="w",
             )
             # Increase the size of the radio button indicator

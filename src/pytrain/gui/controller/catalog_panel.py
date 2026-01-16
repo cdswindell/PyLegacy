@@ -58,13 +58,15 @@ class CatalogPanel:
         sp.text_size = self._gui.s_2
         self._sort_btns = CheckBoxGroup(
             tb,
-            size=self._gui.s_20,
+            size=self._gui.s_18,
             grid=[0, 1, 2, 1],
             options=SORT_OPTS,
             selected=str(self._sort_order),
             horizontal=True,
             align="top",
             width=int(self._width / 3.5),
+            padx=14,
+            pady=10,
             command=self.on_sort,
         )
 
@@ -81,7 +83,7 @@ class CatalogPanel:
         tk_listbox.config(width=21, height=10)
 
         tk_scrollbar = lb.children[1].tk
-        tk_scrollbar.config(width=40)  # pixels
+        tk_scrollbar.config(width=45)  # pixels
 
     def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
