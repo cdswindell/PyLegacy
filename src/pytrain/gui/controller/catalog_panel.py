@@ -69,7 +69,7 @@ class CatalogPanel:
             width=int(self._width / 3.5),
             padx=14,
             pady=12,
-            on_hold_select=self.on_sort,
+            command=self.on_sort,
         )
 
         # catalog
@@ -77,7 +77,7 @@ class CatalogPanel:
             catalog_box,
             items=[],
             scrollbar=True,
-            command=self.on_select,
+            on_hold_select=self.on_select,
         )
         lb.text_size = self._gui.s_24
         lb.bg = "#f7f7f7"
