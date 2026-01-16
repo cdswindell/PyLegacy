@@ -30,7 +30,8 @@ class CatalogPanel:
         self._state_store = self._gui.state_store
         self._catalog = None
         self._sort_btns = None
-        self._sort_order = 0
+        self._scoped_sort_order = {}
+        self._skip_update = False
 
     def build(self, body: Box) -> None:
         catalog_box = Box(body, border=1, align="top")
@@ -61,7 +62,7 @@ class CatalogPanel:
             size=self._gui.s_18,
             grid=[0, 1, 2, 1],
             options=SORT_OPTS,
-            selected=str(self._sort_order),
+            selected=str(0),
             horizontal=True,
             align="top",
             width=int(self._width / 3.5),
@@ -94,7 +95,8 @@ class CatalogPanel:
 
     def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
-            sort_order = self._sort_order
+            sort_order = self._scoped_sort_order[scope] if scope in self._scoped_sort_order else 0
+            self._set_sort_order_widget(sort_order)
             self._catalog.clear()
             states = self._state_store.get_all(scope)
             if sort_order == 0:
@@ -118,10 +120,19 @@ class CatalogPanel:
         return self._scope.plural if self._scope else "N/A"
 
     def on_sort(self) -> None:
-        self._sort_order = int(self._sort_btns.value)
+        self._scoped_sort_order[self._scope] = int(self._sort_btns.value)
+        if self._skip_update:
+            return
         scope = self._scope
         self._scope = None
         self.update(scope)
+
+    def _set_sort_order_widget(self, sort_order: int) -> None:
+        try:
+            self._skip_update = True
+            self._sort_btns.value = str(sort_order)
+        finally:
+            self._skip_update = False
 
     def on_select(self, item: str) -> None:
         print(f"Selected {item}")
