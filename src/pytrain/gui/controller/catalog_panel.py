@@ -85,9 +85,9 @@ class CatalogPanel:
         tk_scrollbar = lb.children[1].tk
         tk_scrollbar.config(width=45)  # pixels
 
-    def update(self, scope: CommandScope, sort_order: int = None) -> None:
+    def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
-            sort_order = sort_order if sort_order is not None else 0
+            sort_order = self._sort_order
             self._catalog.clear()
             states = self._state_store.get_all(scope)
             if sort_order == 0:
@@ -98,7 +98,10 @@ class CatalogPanel:
                 states.sort(key=lambda x: x.tmcc_id)
             for state in states:
                 if sort_order in {0, 2}:
-                    self._catalog.append(f"{state.tmcc_id}: {state.name}")
+                    if scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE}:
+                        self._catalog.append(f"{state.tmcc_id:02d}: {state.name}")
+                    else:
+                        self._catalog.append(f"{state.tmcc_id}: {state.name}")
                 elif sort_order == 1:
                     self._catalog.append(f"{state.road_number}: {state.road_name}")
             self._scope = scope
@@ -108,10 +111,10 @@ class CatalogPanel:
         return self._scope.plural if self._scope else "N/A"
 
     def on_sort(self) -> None:
-        self._sort_order = sort_order = int(self._sort_btns.value)
+        self._sort_order = int(self._sort_btns.value)
         scope = self._scope
         self._scope = None
-        self.update(scope, sort_order)
+        self.update(scope)
 
     def on_select(self, item: str) -> None:
         print(f"Selected {item}")
