@@ -15,9 +15,9 @@ from ..checkbox_group import CheckBoxGroup
 from ..guizero_base import GuiZeroBase
 
 SORT_OPTS = [
-    ["TMCC ID", 0],
-    ["Name", 1],
-    ["Road #", 2],
+    ["Name", 0],
+    ["Road #", 1],
+    ["TMCC ID", 2],
 ]
 
 
@@ -66,7 +66,7 @@ class CatalogPanel:
             align="top",
             width=int(self._width / 3.5),
             padx=14,
-            pady=10,
+            pady=12,
             command=self.on_sort,
         )
 
@@ -85,22 +85,23 @@ class CatalogPanel:
         tk_scrollbar = lb.children[1].tk
         tk_scrollbar.config(width=45)  # pixels
 
-    def update(self, scope: CommandScope) -> None:
+    def update(self, scope: CommandScope, sort_order: int = None) -> None:
         if self._scope != scope:
+            sort_order = sort_order if sort_order is not None else 0
             self._catalog.clear()
             states = self._state_store.get_all(scope)
-            if self._sort_order == 0:
-                states.sort(key=lambda x: x.tmcc_id)
-            elif self._sort_order == 1:
+            if sort_order == 0:
                 states.sort(key=lambda x: x.name)
-            elif self._sort_order == 2:
+            elif sort_order == 1:
                 states.sort(key=lambda x: x.road_number)
+            elif sort_order == 2:
+                states.sort(key=lambda x: x.tmcc_id)
             for state in states:
-                if self._sort_order in {0, 1}:
+                if sort_order in {0, 2}:
                     self._catalog.append(f"{state.tmcc_id}: {state.name}")
-                elif self._sort_order == 2:
+                elif sort_order == 1:
                     self._catalog.append(f"{state.road_number}: {state.road_name}")
-        self._scope = scope
+            self._scope = scope
 
     @property
     def title(self) -> str:
@@ -108,10 +109,9 @@ class CatalogPanel:
 
     def on_sort(self) -> None:
         self._sort_order = sort_order = int(self._sort_btns.value)
-        print(f"Sort by {SORT_OPTS[sort_order][0]}")
         scope = self._scope
         self._scope = None
-        self.update(scope)
+        self.update(scope, sort_order)
 
     def on_select(self, item: str) -> None:
         print(f"Selected {item}")
