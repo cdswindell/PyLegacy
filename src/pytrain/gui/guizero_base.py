@@ -37,6 +37,7 @@ from ..protocol.constants import PROGRAM_NAME, CommandScope
 
 log = logging.getLogger(__name__)
 E = TypeVar("E", bound=CommandDefEnum)
+LIONEL_ORANGE = "#FF6600"
 
 
 class GuiZeroBase(Thread, ABC):

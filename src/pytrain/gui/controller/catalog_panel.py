@@ -12,7 +12,7 @@ from guizero import Box, ListBox, Text, TitleBox
 
 from ...protocol.constants import CommandScope
 from ..checkbox_group import CheckBoxGroup
-from ..guizero_base import GuiZeroBase
+from ..guizero_base import GuiZeroBase, LIONEL_ORANGE
 
 SORT_OPTS = [
     ["Name", 0],
@@ -83,7 +83,14 @@ class CatalogPanel:
         tk_listbox.config(width=21, height=10)
 
         tk_scrollbar = lb.children[1].tk
-        tk_scrollbar.config(width=45)  # pixels
+        tk_scrollbar.config(
+            width=45,
+            troughcolor="#003366",
+            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
+            bg="lightgrey",  # darker navy background
+            highlightthickness=1,
+            highlightbackground=LIONEL_ORANGE,
+        )  # pixels
 
     def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
