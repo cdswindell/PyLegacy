@@ -18,7 +18,7 @@ class CheckBoxGroup(ButtonGroup):
         for widget in self.tk.winfo_children():
             widget.config(
                 font=("TkDefaultFont", size),
-                padx=18,  # Horizontal padding inside each radio button
+                padx=14,  # Horizontal padding inside each radio button
                 pady=6,  # Vertical padding inside each radio button
                 anchor="w",
             )
