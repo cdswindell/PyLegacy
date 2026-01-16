@@ -8,11 +8,12 @@
 #
 #
 #
-from guizero import Box, ListBox, Text, TitleBox
+from guizero import Box, Text, TitleBox
 
 from ...protocol.constants import CommandScope
 from ..checkbox_group import CheckBoxGroup
 from ..guizero_base import LIONEL_ORANGE, GuiZeroBase
+from ..touch_list_box import TouchListBox
 
 SORT_OPTS = [
     ["Name", 0],
@@ -68,11 +69,11 @@ class CatalogPanel:
             width=int(self._width / 3.5),
             padx=14,
             pady=12,
-            command=self.on_sort,
+            on_hold_select=self.on_sort,
         )
 
         # catalog
-        self._catalog = lb = ListBox(
+        self._catalog = lb = TouchListBox(
             catalog_box,
             items=[],
             scrollbar=True,
@@ -135,5 +136,5 @@ class CatalogPanel:
         finally:
             self._skip_update = False
 
-    def on_select(self, item: str) -> None:
-        print(f"Selected {item}")
+    def on_select(self, idx: int, item: str) -> None:
+        print(f"Selected {idx}: {item}")
