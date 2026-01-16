@@ -165,7 +165,6 @@ class AdminPanel:
         )
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
-        print(f"Admin command: {command} {self._scope_btns.value} {type(self._scope_btns.value)}")
         if self._scope_btns.value == "0":
             self._pytrain.do_admin_cmd(command, ["me"])
         else:
