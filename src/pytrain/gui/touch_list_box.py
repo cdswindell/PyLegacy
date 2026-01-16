@@ -36,7 +36,7 @@ class TouchListBox(ListBox):
         *,
         hold_ms: int = 500,
         move_px: int = 35,
-        tap_highlight: bool = True,
+        tap_highlight: bool = False,
         on_hold_select: Optional[Callable[[int, str], None]] = None,
         debug: bool = False,
         **kwargs,

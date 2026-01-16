@@ -33,6 +33,7 @@ class CatalogPanel:
         self._sort_btns = None
         self._scoped_sort_order = {}
         self._skip_update = False
+        self._entry_state_map = {}
 
     def build(self, body: Box) -> None:
         catalog_box = Box(body, border=1, align="top")
@@ -110,11 +111,16 @@ class CatalogPanel:
             for state in states:
                 if sort_order in {0, 2}:
                     if scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE}:
-                        self._catalog.append(f"{state.tmcc_id:02d}: {state.name}")
+                        entry = f"{state.tmcc_id:02d}: {state.name}"
                     else:
-                        self._catalog.append(f"{state.tmcc_id}: {state.name}")
+                        entry = f"{state.tmcc_id}: {state.name}"
                 elif sort_order == 1:
-                    self._catalog.append(f"{state.road_number}: {state.road_name}")
+                    entry = f"{state.road_number}: {state.road_name}"
+                else:
+                    entry = None
+                if entry:
+                    self._entry_state_map[entry] = state
+                    self._catalog.append(entry)
             self._scope = scope
 
     @property
@@ -137,4 +143,10 @@ class CatalogPanel:
             self._skip_update = False
 
     def on_select(self, idx: int, item: str) -> None:
-        print(f"Selected {idx}: {item}")
+        from .engine_gui import EngineGui
+
+        state = self._entry_state_map.get(item, None)
+        print(f"Selected {idx}: {state}")
+
+        if state and isinstance(self._gui, EngineGui):
+            self._gui.update_component_info(state.address)
