@@ -18,8 +18,8 @@ class CheckBoxGroup(ButtonGroup):
         **kwargs,
     ):
         # now initialize parent class
-        padx = kwargs.get("padx", 18)
-        pady = kwargs.get("pady", 6)
+        padx = kwargs.pop("padx", 18)
+        pady = kwargs.pop("pady", 6)
         super().__init__(master, **kwargs)
 
         indicator_size = int(size * scale_by)
