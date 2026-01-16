@@ -79,7 +79,7 @@ class CatalogPanel:
             command=self.on_select,
         )
         lb.text_size = self._gui.s_24
-        lb.bg = "#e0e0e0"
+        lb.bg = "#f7f7f7"
 
         tk_listbox = lb.children[0].tk
         tk_listbox.config(width=21, height=10)
@@ -89,7 +89,7 @@ class CatalogPanel:
             width=50,
             troughcolor="#003366",
             activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-            bg="grey",
+            bg="lightgrey",
             highlightthickness=1,
             highlightbackground=LIONEL_ORANGE,
         )  # pixels
