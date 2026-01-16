@@ -30,6 +30,7 @@ class CatalogPanel:
         self._state_store = self._gui.state_store
         self._catalog = None
         self._sort_btns = None
+        self._sort_order = 0
 
     def build(self, body: Box) -> None:
         catalog_box = Box(body, border=1, align="top")
@@ -60,9 +61,11 @@ class CatalogPanel:
             size=self._gui.s_20,
             grid=[0, 1, 2, 1],
             options=SORT_OPTS,
+            selected=self._sort_order,
             horizontal=True,
             align="top",
             width=int(self._width / 2.2),
+            command=self.on_sort,
         )
 
         # catalog
@@ -83,13 +86,30 @@ class CatalogPanel:
     def update(self, scope: CommandScope) -> None:
         if self._scope != scope:
             self._catalog.clear()
-            for state in self._state_store.get_all(scope):
-                self._catalog.append(str(state.name))
+            states = self._state_store.get_all(scope)
+            if self._sort_order == 0:
+                states.sort(key=lambda x: x.tmcc_id)
+            elif self._sort_order == 1:
+                states.sort(key=lambda x: x.name)
+            elif self._sort_order == 2:
+                states.sort(key=lambda x: x.road_number)
+            for state in states:
+                if self._sort_order in {0, 1}:
+                    self._catalog.append(f"{state.tmcc_id}: {state.name}")
+                elif self._sort_order == 2:
+                    self._catalog.append(f"{state.road_number}: {state.road_name}")
         self._scope = scope
 
     @property
     def title(self) -> str:
         return self._scope.plural if self._scope else "N/A"
+
+    def on_sort(self, sort_order: int) -> None:
+        print(f"Sort by {SORT_OPTS[sort_order][0]}")
+        self._sort_order = sort_order
+        scope = self._scope
+        self._scope = None
+        self.update(scope)
 
     def on_select(self, item: str) -> None:
         print(f"Selected {item}")
