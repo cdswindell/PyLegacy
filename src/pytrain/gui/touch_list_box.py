@@ -59,6 +59,7 @@ class TouchListBox(ListBox):
             # Tk can throw during teardown / if widget not fully realized yet
             pass
 
+        print("calling bind touch handlers")
         self._bind_touch_handlers()
 
     # ---------- Public API ----------
