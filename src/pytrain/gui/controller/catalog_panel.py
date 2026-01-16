@@ -15,8 +15,9 @@ from ..checkbox_group import CheckBoxGroup
 from ..guizero_base import GuiZeroBase
 
 SORT_OPTS = [
-    ["By Name", 0],
-    ["By TMCC ID", 1],
+    ["TMCC ID", 0],
+    ["Name", 1],
+    ["Road #", 2],
 ]
 
 
@@ -83,7 +84,7 @@ class CatalogPanel:
         if self._scope != scope:
             self._catalog.clear()
             for state in self._state_store.get_all(scope):
-                self._catalog.append(str(state.name) + "\n")
+                self._catalog.append(str(state.name))
         self._scope = scope
 
     @property
