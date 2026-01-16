@@ -12,7 +12,7 @@ from guizero import Box, ListBox, Text, TitleBox
 
 from ...protocol.constants import CommandScope
 from ..checkbox_group import CheckBoxGroup
-from ..guizero_base import GuiZeroBase, LIONEL_ORANGE
+from ..guizero_base import LIONEL_ORANGE, GuiZeroBase
 
 SORT_OPTS = [
     ["Name", 0],
