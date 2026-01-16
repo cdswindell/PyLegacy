@@ -64,7 +64,7 @@ class CatalogPanel:
             selected=self._sort_order,
             horizontal=True,
             align="top",
-            width=int(self._width / 2.2),
+            width=int(self._width / 3),
             command=self.on_sort,
         )
 
@@ -104,9 +104,9 @@ class CatalogPanel:
     def title(self) -> str:
         return self._scope.plural if self._scope else "N/A"
 
-    def on_sort(self, sort_order: int) -> None:
+    def on_sort(self) -> None:
+        self._sort_order = sort_order = self._sort_btns.selected
         print(f"Sort by {SORT_OPTS[sort_order][0]}")
-        self._sort_order = sort_order
         scope = self._scope
         self._scope = None
         self.update(scope)
