@@ -75,9 +75,38 @@ class TouchListBox(ListBox):
 
     # ---------- Internal helpers ----------
     def _bind_touch_handlers(self) -> None:
-        self.tk.bind("<ButtonPress-1>", self._on_press, add="+")
-        self.tk.bind("<B1-Motion>", self._on_motion, add="+")
-        self.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
+        # Preferred target: the actual Tk listbox inside the GuiZero ListBox composite
+        # Fallback target: self.tk (wrapper) if the child listbox isn't accessible.
+        targets = []
+
+        # 1) Try to bind to the embedded Tk Listbox (guizero composites usually expose it as children[0])
+        try:
+            child0 = self.children[0]
+        except (AttributeError, IndexError, KeyError, TypeError):
+            child0 = None
+
+        if child0 is not None:
+            try:
+                tk_listbox = child0.tk
+            except AttributeError:
+                tk_listbox = None
+
+            if tk_listbox is not None:
+                targets.append(tk_listbox)
+
+        # 2) Also bind to wrapper as a fallback / extra safety (rarely hurts, often helps)
+        # self.tk should exist on a guizero Widget; if not, let it raise loudly.
+        targets.append(self.tk)
+
+        # Bind handlers
+        for w in targets:
+            try:
+                w.bind("<ButtonPress-1>", self._on_press, add="+")
+                w.bind("<B1-Motion>", self._on_motion, add="+")
+                w.bind("<ButtonRelease-1>", self._on_release, add="+")
+            except TclError:
+                # Widget may be destroying or not fully realized yet
+                pass
 
     def _cancel_hold_timer(self) -> None:
         if self._after_id is None:
