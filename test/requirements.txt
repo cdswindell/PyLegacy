@@ -4,7 +4,7 @@ packaging>=25.0
 pluggy>=1.6.0
 pypi-cleanup>=0.1.8
 pytest>=9.0.2
-ruff>=0.14.11
+ruff>=0.14.13
 tox>=4.34.0
 twine>=6.2.0
 ipython>=9.8.0; python_version>="3.11"
