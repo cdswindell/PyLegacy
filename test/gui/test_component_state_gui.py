@@ -4,11 +4,11 @@ from threading import Event
 import pytest
 
 import src.pytrain.gui.component_state_gui
+from src.pytrain.gui import power_district_gui as pd_mod
+from src.pytrain.gui import routes_gui as ro_mod
 
 # Target module
 from src.pytrain.gui import state_based_gui as mod
-from src.pytrain.gui import power_district_gui as pd_mod
-from src.pytrain.gui import routes_gui as ro_mod
 from src.pytrain.gui import switches_gui as sw_mod
 
 
@@ -16,7 +16,7 @@ class DummyGui:
     """
     Minimal stand-in for the concrete GUI classes used by ComponentStateGui.
     It avoids any tkinter/guizero usage but mimics the required interface:
-      - __init__(label, width, height, aggrigator=None)
+      - __init__(label, width, height, aggregator=None)
       - close()
       - destroy_complete: Event that becomes set after close() is called
     """
@@ -30,14 +30,14 @@ class DummyGui:
         label=None,
         width=None,
         height=None,
-        aggrigator=None,
+        aggregator=None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
     ):
         self.label = label
         self.width = width
         self.height = height
-        self.aggrigator = aggrigator
+        self.aggregator = aggregator
         self.destroy_complete = Event()
         self._closed = False
         self._scale_by = scale_by
@@ -115,7 +115,7 @@ def test_initial_gui_is_created_and_aggregator_set():
 
     inst = DummyGui.instances[0]
     # Ensure the 'aggregator' reference is set so combo-box can call back
-    assert inst.aggrigator is comp
+    assert inst.aggregator is comp
     # Ensure dimensions/label plumb through
     assert inst.label == "My Label"
     assert inst.width == 320

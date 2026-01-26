@@ -35,7 +35,7 @@ class HobbyShopGui(AccessoryBase):
         motion: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a Lionel Hobby Shop.
@@ -57,7 +57,7 @@ class HobbyShopGui(AccessoryBase):
         self._variant = variant
         self.power_button = self.motion_button = None
         self.power_state = self.motion_state = None
-        super().__init__(self._title, self._image, aggrigator=aggrigator)
+        super().__init__(self._title, self._image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

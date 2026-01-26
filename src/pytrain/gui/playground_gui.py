@@ -48,7 +48,7 @@ class PlaygroundGui(AccessoryBase):
         motion: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control Lionel Plug n Play Playground Accessories.
@@ -68,7 +68,7 @@ class PlaygroundGui(AccessoryBase):
 
         self._variant = variant
         self.motion_button = None
-        super().__init__(self._title, image, aggrigator=aggrigator)
+        super().__init__(self._title, image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

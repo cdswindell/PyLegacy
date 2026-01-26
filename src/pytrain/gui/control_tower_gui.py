@@ -41,7 +41,7 @@ class ControlTowerGui(AccessoryBase):
         motion: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a Lionel Control Tower.
@@ -63,7 +63,7 @@ class ControlTowerGui(AccessoryBase):
         self.lights_button = self.motion_button = None
         self.lights_state = self.motion_state = None
         self.motion_image = find_file("control_tower_animation.gif")
-        super().__init__(self._title, self._image, aggrigator=aggrigator)
+        super().__init__(self._title, self._image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

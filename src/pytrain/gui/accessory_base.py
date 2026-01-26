@@ -54,7 +54,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         image_file: str = None,
         width: int = None,
         height: int = None,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
         enabled_bg: str = "green",
         disabled_bg: str = "black",
         enabled_text: str = "black",
@@ -82,7 +82,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.title = title
         self.image_file = image_file
         self._image = None
-        self._aggrigator = aggrigator
+        self._aggregator = aggregator
         self._scale_by = scale_by
         self._max_image_width = max_image_width
         if self.height > 320 and max_image_height == 0.45:
@@ -97,7 +97,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._enabled_text = enabled_text
         self._disabled_text = disabled_text
         self.app = self.box = self.acc_box = self.y_offset = None
-        self.aggrigator_combo = None
+        self.aggregator_combo = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
         self.alarm_on_image = find_file("Breaking-News-Emoji.gif")
@@ -252,11 +252,11 @@ class AccessoryBase(Thread, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, row_num, 1, 1], size=6, height=1, bold=True)
         row_num += 1
         ats = int(round(23 * self._scale_by))
-        if self._aggrigator:
+        if self._aggregator:
             # customize label
-            cb = self.aggrigator_combo = Combo(
+            cb = self.aggregator_combo = Combo(
                 box,
-                options=self._aggrigator.guis,
+                options=self._aggregator.guis,
                 selected=self.title,
                 grid=[0, row_num],
                 command=self.on_combo_change,
@@ -295,11 +295,11 @@ class AccessoryBase(Thread, Generic[S], ABC):
             pass
         finally:
             # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            if self._aggrigator:
+            if self._aggregator:
                 for sw in self._state_watchers.values():
                     sw.shutdown()
                 self._state_watchers.clear()
-            self.aggrigator_combo = None
+            self.aggregator_combo = None
             self.box = None
             self.acc_box = None
             self._image = None
@@ -341,7 +341,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         if option == self.title:
             return  # Noop
         else:
-            self._aggrigator.cycle_gui(option)
+            self._aggregator.cycle_gui(option)
 
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:

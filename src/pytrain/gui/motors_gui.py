@@ -31,7 +31,7 @@ class MotorsGui(StateBasedGui):
         label: str = None,
         width: int = None,
         height: int = None,
-        aggrigator: ComponentStateGui = None,
+        aggregator: ComponentStateGui = None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
     ) -> None:
@@ -41,7 +41,7 @@ class MotorsGui(StateBasedGui):
             label,
             width,
             height,
-            aggrigator,
+            aggregator,
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
         )

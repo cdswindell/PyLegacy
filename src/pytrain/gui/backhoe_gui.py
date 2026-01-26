@@ -28,7 +28,7 @@ class BackhoeGui(AccessoryBase):
         backhoe: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a K-Line Backhoe Construction Scene.
@@ -49,7 +49,7 @@ class BackhoeGui(AccessoryBase):
         self._variant = variant
         self.action_button = None
         self.backhoe_image = find_file("animated_backhoe.gif")
-        super().__init__(self._title, image, aggrigator=aggrigator)
+        super().__init__(self._title, image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

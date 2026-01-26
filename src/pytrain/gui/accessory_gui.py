@@ -179,7 +179,7 @@ class AccessoryGui(Thread):
     def run(self) -> None:
         # create the initially requested gui
         gui = self._guis[self.requested_gui]
-        gui[2]["aggrigator"] = self
+        gui[2]["aggregator"] = self
         self._gui = instantiate(gui[0], gui[1], gui[2])
 
         # wait for user to request a different GUI
@@ -199,7 +199,7 @@ class AccessoryGui(Thread):
 
             # create and display new gui
             gui = self._guis[self.requested_gui]
-            gui[2]["aggrigator"] = self
+            gui[2]["aggregator"] = self
             self._gui = instantiate(gui[0], gui[1], gui[2])
 
     def cycle_gui(self, gui: str):

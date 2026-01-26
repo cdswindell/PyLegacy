@@ -32,7 +32,7 @@ class FreightDepotGui(AccessoryBase):
         eject: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a K-Line Freight Depot.
@@ -59,7 +59,7 @@ class FreightDepotGui(AccessoryBase):
         self.power_button = self.conveyor_button = self.eject_button = None
         self.power_state = self.conveyor_state = self.eject_state = None
         self.eject_image = find_file("Man-With-Handcart.png")
-        super().__init__(self._title, self._image, aggrigator=aggrigator)
+        super().__init__(self._title, self._image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

@@ -54,7 +54,7 @@ class GasStationGui(AccessoryBase):
         alarm: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a MTH Gas Station.
@@ -76,7 +76,7 @@ class GasStationGui(AccessoryBase):
         self.power_button = self.car_button = None
         self.power_state = self.car_state = None
         self.car_image = find_file("gas-station-car.png")
-        super().__init__(self._title, self._image, aggrigator=aggrigator)
+        super().__init__(self._title, self._image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

@@ -73,7 +73,7 @@ class FreightStationGui(AccessoryBase):
         platform: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a K-Line Freight/Passenger Station.
@@ -101,7 +101,7 @@ class FreightStationGui(AccessoryBase):
         self.freight_image = find_file("freight-waiting.jpg")
         self.people_image = find_file("passengers-waiting.png")
         self.empty_image = find_file("loaded.png")
-        super().__init__(self._title, image, aggrigator=aggrigator)
+        super().__init__(self._title, image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

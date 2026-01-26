@@ -10,10 +10,10 @@
 from __future__ import annotations
 
 import logging
-from threading import Thread, Event
+from threading import Event, Thread
 
-from ..protocol.constants import PROGRAM_NAME
 from ..gpio.gpio_handler import GpioHandler
+from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class ComponentStateGui(Thread):
             self.label,
             self.width,
             self.height,
-            aggrigator=self,
+            aggregator=self,
             scale_by=self._scale_by,
             exclude_unnamed=self._exclude_unnamed,
         )
@@ -115,7 +115,7 @@ class ComponentStateGui(Thread):
                 self.label,
                 self.width,
                 self.height,
-                aggrigator=self,
+                aggregator=self,
                 scale_by=self._scale_by,
                 exclude_unnamed=self._exclude_unnamed,
             )

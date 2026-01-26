@@ -14,14 +14,14 @@ from typing import cast
 
 from guizero.event import EventData
 
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
 from ..db.accessory_state import AccessoryState
 from ..gui.component_state_gui import ComponentStateGui
-from ..gui.state_based_gui import StateBasedGui, MomentaryActionHandler
+from ..gui.state_based_gui import MomentaryActionHandler, StateBasedGui
 from ..pdi.asc2_req import Asc2Req
-from ..pdi.constants import PdiCommand, Asc2Action
+from ..pdi.constants import Asc2Action, PdiCommand
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 
 
 class AccessoriesGui(StateBasedGui):
@@ -30,7 +30,7 @@ class AccessoriesGui(StateBasedGui):
         label: str = None,
         width: int = None,
         height: int = None,
-        aggrigator: ComponentStateGui = None,
+        aggregator: ComponentStateGui = None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
     ) -> None:
@@ -42,7 +42,7 @@ class AccessoriesGui(StateBasedGui):
             label,
             width,
             height,
-            aggrigator,
+            aggregator,
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
         )

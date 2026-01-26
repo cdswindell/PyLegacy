@@ -45,7 +45,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         label: str = None,
         width: int = None,
         height: int = None,
-        aggrigator: ComponentStateGui = None,
+        aggregator: ComponentStateGui = None,
         enabled_bg: str = "green",
         disabled_bg: str = "black",
         enabled_text: str = "black",
@@ -71,7 +71,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             self.height = height
         self.title = title
         self.label = label
-        self._aggrigator = aggrigator
+        self._aggregator = aggregator
         self._scale_by = scale_by
         self._exclude_unnamed = exclude_unnamed
         self._text_size: int = 24
@@ -88,7 +88,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         self.right_arrow = find_file("right_arrow.jpg")
         self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
-        self.aggrigator_combo = None
+        self.aggregator_combo = None
         self._max_name_len = 0
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
@@ -223,7 +223,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
         _ = Text(box, text="    ", grid=[1, 1], size=ts)
         ats = int(round(23 * self._scale_by))
-        if self._aggrigator:
+        if self._aggregator:
             txt_lbl = txt_spacer = None
             ag_box = Box(box, grid=[2, 1, 2, 1], layout="auto")
             if self.label:
@@ -234,22 +234,22 @@ class StateBasedGui(Thread, Generic[S], ABC):
             # Wrap the Combo in a vertical container as well
             combo_vbox = Box(ag_box, layout="auto", align="right")
             combo_spacer = Box(combo_vbox)  # will be set after measuring
-            self.aggrigator_combo = Combo(
+            self.aggregator_combo = Combo(
                 combo_vbox,
-                options=self._aggrigator.guis,
+                options=self._aggregator.guis,
                 selected=self.title,
                 align="top",
                 command=self.on_combo_change,
             )
-            self.aggrigator_combo.text_size = ats
-            self.aggrigator_combo.text_bold = True
+            self.aggregator_combo.text_size = ats
+            self.aggregator_combo.text_bold = True
 
             # Compute center-offset and add top spacer to the shorter control
             if self.label:
                 # After creation, force layout and measure actual heights
                 self.app.update()
                 txt_h = txt_lbl.tk.winfo_height() if self.label else 0
-                combo_h = self.aggrigator_combo.tk.winfo_height()
+                combo_h = self.aggregator_combo.tk.winfo_height()
                 if txt_h < combo_h:
                     delta = (combo_h - txt_h) // 2
                     txt_spacer.height = max(0, delta)
@@ -337,11 +337,11 @@ class StateBasedGui(Thread, Generic[S], ABC):
             pass
         finally:
             # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            if self._aggrigator:
+            if self._aggregator:
                 for sw in self._state_watchers.values():
                     sw.shutdown()
                 self._state_watchers.clear()
-            self.aggrigator_combo = None
+            self.aggregator_combo = None
             self.left_scroll_btn = None
             self.right_scroll_btn = None
             self.by_name = None
@@ -357,7 +357,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
         if option == self.title:
             return  # Noop
         else:
-            self._aggrigator.cycle_gui(option)
+            self._aggregator.cycle_gui(option)
 
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:

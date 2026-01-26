@@ -45,7 +45,7 @@ class CulvertGui(AccessoryBase):
         tmcc_id: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a Lionel Command Control Culvert Loader/Unloader.
@@ -67,7 +67,7 @@ class CulvertGui(AccessoryBase):
         self.action_button = None
         self.load_image = find_file("load_culvert.png")
         self.unload_image = find_file("unload_culvert.png")
-        super().__init__(self._title, image, aggrigator=aggrigator)
+        super().__init__(self._title, image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:

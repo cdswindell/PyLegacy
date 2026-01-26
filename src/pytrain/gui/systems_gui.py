@@ -15,11 +15,11 @@ from guizero import Text
 from guizero.base import Widget
 from guizero.event import EventData
 
-from ..protocol.command_req import CommandReq
 from ..db.sync_state import SyncState
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.state_based_gui import StateBasedGui
-from ..protocol.constants import CommandScope, PROGRAM_NAME
+from ..protocol.command_req import CommandReq
+from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 
@@ -29,7 +29,7 @@ class SystemsGui(StateBasedGui):
         label: str = None,
         width: int = None,
         height: int = None,
-        aggrigator: ComponentStateGui = None,
+        aggregator: ComponentStateGui = None,
         scale_by: float = 1.0,
         press_for: int = 5,
         exclude_unnamed: bool = True,
@@ -40,7 +40,7 @@ class SystemsGui(StateBasedGui):
             label,
             width,
             height,
-            aggrigator,
+            aggregator,
             enabled_bg="red",
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,

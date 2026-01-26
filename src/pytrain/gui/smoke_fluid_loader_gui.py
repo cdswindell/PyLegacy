@@ -12,13 +12,13 @@
 from guizero import Box, PushButton, Text
 from guizero.event import EventData
 
-from .accessory_base import AccessoryBase, PowerButton, S
-from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
+from .accessory_base import AccessoryBase, PowerButton, S
+from .accessory_gui import AccessoryGui
 
 VARIANTS = {
     "advanced smoke fluid loader 6-37821": "Advanced-Smoke-Fluid-Loader-6-37821.jpg",
@@ -37,7 +37,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         tmcc_id: int,
         variant: str = None,
         *,
-        aggrigator: AccessoryGui = None,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a K-Line/Lionel Milk Loader.
@@ -59,7 +59,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         self._variant = variant
         self.lights_button = self._boom_left_button = self._boom_right_button = self.droplet_button = None
         self.droplet_image = find_file("smoke-fluid.png")
-        super().__init__(self._title, self._image, aggrigator=aggrigator)
+        super().__init__(self._title, self._image, aggregator=aggregator)
 
     @staticmethod
     def get_variant(variant) -> tuple[str, str]:
