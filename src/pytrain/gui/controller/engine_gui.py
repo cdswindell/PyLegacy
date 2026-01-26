@@ -2345,7 +2345,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             cmd_enum = SCOPE_TO_SET_ENUM.get(scope, None)
             if isinstance(cmd_enum, CommandDefEnum):
                 if scope == CommandScope.ENGINE and tmcc_id > 99:
-                    cmd = TMCC2EngineCommandEnum.SET_ADDRESS
+                    cmd = CommandReq.build(TMCC2EngineCommandEnum.SET_ADDRESS, address=tmcc_id, scope=scope)
                 else:
                     cmd = CommandReq.build(cmd_enum, address=tmcc_id, scope=scope)
                 print(f"Set: {cmd}")
