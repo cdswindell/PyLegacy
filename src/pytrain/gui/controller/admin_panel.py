@@ -73,6 +73,9 @@ class AdminPanel:
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
             align="right",
+            show_hold_progress=True,
+            progress_fill_color="darkgrey",
+            progress_empty_color="white",
         )
         self._gui.add_hover_action(pb)
 
