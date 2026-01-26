@@ -214,7 +214,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # controller
         self._admin_title = f"Manage {PROGRAM_NAME}"
-        self._seperator = None
+        self._separator = None
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
@@ -1411,7 +1411,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(self._admin_overlay, hide_image_box=True)
 
     def on_recents(self, value: str):
-        if value not in {self.title, self._seperator}:
+        if value not in {self.title, self._separator}:
             if value == self._admin_title:
                 self.on_admin_panel()
             else:
@@ -1428,8 +1428,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return None
 
     def get_options(self) -> list[str]:
-        if self._seperator is None:
-            self._seperator = "-" * int(3 * len(self.title) / 2)
+        if self._separator is None:
+            self._separator = "-" * int(3 * len(self.title) / 2)
         options = [self.title]
         add_sep = False
         self._options_to_state.clear()
@@ -1445,7 +1445,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             for state in queue:
                 if add_sep and self._train_linked_queue and state not in self._train_linked_queue:
-                    options.append(self._seperator)
+                    options.append(self._separator)
                     add_sep = False
                 name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
                 road_number = state.road_number
@@ -1454,7 +1454,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if name:
                     options.append(name)
                     self._options_to_state[name] = state
-        options.append(self._seperator)
+        options.append(self._separator)
         options.append(self._admin_title)
         return options
 
@@ -2348,6 +2348,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     cmd = TMCC2EngineCommandEnum.SET_ADDRESS
                 else:
                     cmd = CommandReq.build(cmd_enum, address=tmcc_id, scope=scope)
+                print(f"Set: {cmd}")
                 cmd.send(repeat=self.repeat)
         else:
             self.entry_mode(clear_info=False)
