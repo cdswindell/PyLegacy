@@ -327,7 +327,7 @@ REPEAT_EXCEPTIONS = {
     TMCC2LightingControl.CAB_AUTO: 1,
     TMCC2LightingControl.CAB_OFF: 1,
     TMCC2LightingControl.CAB_ON: 1,
-    TMCC2LightingControl.CAB_TOGGLEO: 1,
+    TMCC2LightingControl.CAB_TOGGLE: 1,
     TMCC2LightingControl.DOGHOUSE_OFF: 1,
     TMCC2LightingControl.DOGHOUSE_ON: 1,
     TMCC2LightingControl.GROUND_AUTO: 1,
