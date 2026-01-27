@@ -744,7 +744,7 @@ class DelayHandler(Thread):
                 command = CommandReq.from_bytes(command)
             self._cache_event(command, evt)
 
-            # start purge events job, if this is the first scheduled request
+            # start purge events jobs, if this is the first scheduled request
             if not self._have_scheduled_requests:
                 self._have_scheduled_requests = True
                 self._scheduler.enter(self._purge_frequency, 2, self.purge_inactive_events)
@@ -770,6 +770,7 @@ class DelayHandler(Thread):
     def cancel_delayed_requests(
         self, tmcc_id: int, scope: CommandScope = None, requests: set[CommandDefEnum] = None
     ) -> None:
+        print(requests)
         with self._cv:
             deleted = 0
             if tmcc_id == 99 and scope is None:
@@ -783,8 +784,15 @@ class DelayHandler(Thread):
             if ce:
                 to_delete = set()
                 for event in ce:
-                    if requests and hasattr(event, "request"):
-                        if isinstance(event.request, CommandReq) and event.request.command not in requests:
+                    if hasattr(event, "request") and isinstance(event.request, CommandReq):
+                        from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+                        from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+
+                        # don't cancel numeric requests or requests that are not in the given set'
+                        if event.request.command in {
+                            TMCC1EngineCommandEnum.NUMERIC,
+                            TMCC2EngineCommandEnum.NUMERIC,
+                        } or (requests and event.request.command not in requests):
                             continue
                     to_delete.add(event)
                     event.cancel()
