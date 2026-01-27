@@ -770,7 +770,6 @@ class DelayHandler(Thread):
     def cancel_delayed_requests(
         self, tmcc_id: int, scope: CommandScope = None, requests: set[CommandDefEnum] = None
     ) -> None:
-        print(requests)
         with self._cv:
             deleted = 0
             if tmcc_id == 99 and scope is None:
