@@ -155,6 +155,10 @@ class BaseReq(PdiReq, CompDataMixin):
             address = cmd.address
             data = cmd.data
             scope = cmd.scope
+            # if cmd.address is 99, the broadcast address, just return...
+            if address == 99:
+                return []
+            # otherwise, get state
             cur_state = ComponentStateStore.get_state(scope, address, False)
 
             # special case numeric commands
@@ -226,8 +230,8 @@ class BaseReq(PdiReq, CompDataMixin):
                             data_bytes=pkg.data_bytes,
                         )
                     )
-        elif state.name in ENGINE_WRITE_MAP and cmd.address <= 99:
-            log.warning(f"Using old-style {state.name} for updates from {cmd}")
+        elif state.name in ENGINE_WRITE_MAP and cmd.address < 99:
+            log.warning(f"********* Using old-style {state.name} for updates from {cmd}")
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
@@ -258,7 +262,6 @@ class BaseReq(PdiReq, CompDataMixin):
             byte_str += PDI_EOP.to_bytes(1, byteorder="big")
             cmds.append(cls(byte_str))
             log.warning(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
-            print(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
         return cmds
 
     @classmethod
