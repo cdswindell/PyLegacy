@@ -513,7 +513,10 @@ class CompData(ABC, Generic[R]):
                     from ..db.component_state_store import ComponentStateStore
 
                     state = ComponentStateStore.build().get_state(scope, address, False)
-                    assert state is not None
+                    if state is None:
+                        if address != 99:
+                            log.warning(f"State not found for {scope}:{address}, continuing...")
+                        return None
                     with state.synchronizer:
                         from .engine_state import EngineState
 

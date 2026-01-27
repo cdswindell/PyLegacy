@@ -953,10 +953,25 @@ class EngineState(ComponentState):
 
     def as_dict(self) -> Dict[str, Any]:
         d = super()._as_dict()
-        for elem in ["speed", "speed_limit", "max_speed", "train_brake", "momentum", "rpm", "labor", "year"]:
+        for elem in [
+            "bt_id",
+            "fuel_level",
+            "labor",
+            "max_speed",
+            "momentum",
+            "rpm",
+            "speed",
+            "speed_limit",
+            "target_speed",
+            "train_brake",
+            "water_level",
+            "year",
+        ]:
             if hasattr(self, elem):
                 val = getattr(self, elem)
                 d[elem] = val if val is not None and val != 255 else None
+            elif self.comp_data and hasattr(self.comp_data, "_" + elem):
+                d[elem] = getattr(self.comp_data, elem)
         d["direction"] = self.direction.name.lower() if self.direction else None
         d["smoke"] = self.smoke_level.name.lower() if self.smoke_level else None
         d["control"] = self.control_type_label.lower() if self.control_type is not None else None
