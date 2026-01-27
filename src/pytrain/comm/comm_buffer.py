@@ -790,7 +790,9 @@ class DelayHandler(Thread):
                         # don't cancel numeric requests or requests that are not in the given set'
                         if event.request.command in {
                             TMCC1EngineCommandEnum.NUMERIC,
+                            TMCC1EngineCommandEnum.RESET,
                             TMCC2EngineCommandEnum.NUMERIC,
+                            TMCC2EngineCommandEnum.RESET,
                         } or (requests and event.request.command not in requests):
                             continue
                     to_delete.add(event)
