@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .comp_data import CompDataMixin
-from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
 from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
@@ -21,6 +19,8 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
+from .comp_data import CompDataMixin
+from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
 
 
 class AccessoryState(TmccState, LcsProxyState):
@@ -39,7 +39,7 @@ class AccessoryState(TmccState, LcsProxyState):
     def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
         if self.is_bpc2:
-            aux = f"Bpc2 Port {self.port}: {' ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+            aux = f"BPC2 Port {self.port}: {' ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
         elif self.is_sensor_track:
             aux = "Sensor Track" if self.is_road_name and not self.road_name.startswith("Sensor Track") else ""
         elif self.is_amc2:
@@ -52,12 +52,12 @@ class AccessoryState(TmccState, LcsProxyState):
                 l3 = f"{self._config_req.lamp3}"
                 l4 = f"{self._config_req.lamp4}"
                 aux, aux1, aux2, aux_num = self._get_aux_state()
-                aux = f"Amc2 {at} {m1} {m2} {l1} {l2} {l3} {l4} {aux}"
+                aux = f"AMC2 {at} {m1} {m2} {l1} {l2} {l3} {l4} {aux}"
             else:
-                aux = "Amc2"
+                aux = "AMC2"
         else:
             if self.is_asc2:
-                aux = f"Asc2 Port {self.port}: {' ON' if self._aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+                aux = f"ASC2 Port {self.port}: {' ON' if self._aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
             else:
                 aux, aux1, aux2, aux_num = self._get_aux_state()
         return f"{aux}{aux1}{aux2}{aux_num}"
@@ -269,9 +269,19 @@ class AccessoryState(TmccState, LcsProxyState):
         d = super()._as_dict()
         if self.is_sensor_track:
             d["type"] = "sensor track"
+            d["lcs"] = "IRDA"
         elif self.is_bpc2:
             d["type"] = "power district"
-            d["block"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
+            d["lcs"] = "BPC2"
+            d["state"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
+        elif self.is_asc2:
+            d["type"] = "accessory controller"
+            d["lcs"] = "ASC2"
+            d["state"] = "on" if self._aux_state == Aux.AUX1_OPT_ONE else "off"
+        elif self.is_amc2:
+            d["type"] = "motor controller"
+            d["lcs"] = "AMC2"
+            # TODO: implement AMC2 state reporting
         else:
             d["type"] = "accessory"
             d["aux"] = self._aux_state.name.lower() if self._aux_state else None

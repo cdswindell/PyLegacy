@@ -24,7 +24,7 @@ class TestAccessoryState:
     @staticmethod
     def _new_acc(addr: int = 9) -> AccessoryState:
         st = AccessoryState(CommandScope.ACC)
-        # Allocate comp_data so as_bytes can emit state packet first
+        # Allocate comp_data so as_bytes can emit state packets first
         st.initialize(CommandScope.ACC, addr)
         # Ensure address-dependent code paths are deterministic
         st._address = addr  # type: ignore[attr-defined]
@@ -73,7 +73,8 @@ class TestAccessoryState:
         # as_dict for power district
         d = acc.as_dict()
         assert d["type"] == "power district"
-        assert d["block"] in {"on", "off"}
+        assert d["lcs"] == "BPC2"
+        assert d["state"] in {"on", "off"}
 
     def test_bpc2_control1_causes_error(self):
         acc = self._new_acc(15)
@@ -179,6 +180,7 @@ class TestAccessoryState:
         acc2.update(IrdaReq(acc2.address, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC))
         d2 = acc2.as_dict()
         assert d2["type"] == "sensor track"
+        assert d2["lcs"] == "IRDA"
 
     def test_payload_renders_reasonable_info(self):
         acc = self._new_acc(30)
@@ -216,7 +218,7 @@ class TestAccessoryState:
         assert acc.aux1_state == Aux.AUX1_ON
         assert acc.aux2_state == Aux.AUX2_ON
 
-        # TMCC accessory commands should NOT change state once LCS source
+        # TMCC accessory commands should NOT change state once LCS sources
         acc.update(CommandReq.build(Aux.AUX1_OFF, acc.address))
         acc.update(CommandReq.build(Aux.AUX2_OFF, acc.address))
         # Still the LCS-determined ON state
@@ -230,16 +232,16 @@ class TestAccessoryState:
         acc_on.update(Asc2Req(acc_on.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1))
         s_on = acc_on.payload
         assert isinstance(s_on, str)
-        # Should include "Asc2 " and reflect ON
-        assert "Asc2" in s_on
+        # Should include "ASC2 " and reflect ON
+        assert "ASC2" in s_on
 
         # OFF
         acc_off = self._new_acc(34)
         acc_off.update(Asc2Req(acc_off.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0))
         s_off = acc_off.payload
         assert isinstance(s_off, str)
-        # Should include "Asc2 " and reflect OFF, not just bare "OFF"
-        assert "Asc2" in s_off
+        # Should include "ASC2 " and reflect OFF, not just bare "OFF"
+        assert "ASC2" in s_off
 
     def test_as_bytes_lcs_asc2_uses_first_action_and_value(self):
         acc = self._new_acc(35)
