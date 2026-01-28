@@ -5,9 +5,11 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+from unittest.mock import PropertyMock, patch
+
 import pytest
 
-from src.pytrain import TMCC2EffectsControl, CommandScope
+from src.pytrain import CommandScope, TMCC2EffectsControl
 from src.pytrain.db.comp_data import CompData
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
@@ -159,6 +161,20 @@ class TestEngineStateBehavior:
         with pytest.raises(AttributeError):
             _ = e.this_attribute_does_not_exist
 
+    def test_train_moniker(self):
+        t = TrainState(CommandScope.TRAIN)
+        assert t.moniker == "Train"
+
+    def test_train_as_bpc2_moniker(self):
+        with patch.object(TrainState, "is_bpc2", new_callable=PropertyMock) as mock_prop:
+            mock_prop.return_value = True
+            t = TrainState(CommandScope.TRAIN)
+            assert t.moniker == "Power District"
+
+    def test_engine_moniker(self):
+        t = EngineState(CommandScope.ENGINE)
+        assert t.moniker == "Engine"
+
     def test_train_state_as_dict_includes_consist(self):
         t = TrainState(CommandScope.TRAIN)
         t.initialize(CommandScope.TRAIN, tmcc_id=101)
@@ -175,3 +191,26 @@ class TestEngineStateBehavior:
         assert isinstance(d["components"], dict)
         # Keys are component tmcc_ids; values are info strings
         assert 11 in d["components"] and 22 in d["components"]
+
+    def test_train_state_as_dict_includes_core_engine(self):
+        t = TrainState(CommandScope.TRAIN)
+        t.initialize(CommandScope.TRAIN, tmcc_id=105)
+        t._address = 105  # type: ignore[attr-defined]
+        t.comp_data._speed = 25
+        t.comp_data._road_name = t._road_name = "abc road"
+        t.comp_data._road_number = t._road_number = "123"
+        # Add some consist components
+        t.comp_data._consist_flags = 0b10101010  # type: ignore[attr-defined]
+        t.comp_data._consist_comps = [  # type: ignore[attr-defined]
+            ConsistComponent(tmcc_id=11, flags=0b00000001),
+            ConsistComponent(tmcc_id=22, flags=0b00000100),
+        ]
+        d = t.as_dict()
+        assert d["scope"] == "train"
+        assert isinstance(d["flags"], int)
+        assert isinstance(d["components"], dict)
+        # Keys are component tmcc_ids; values are info strings
+        assert 11 in d["components"] and 22 in d["components"]
+        assert d["speed"] == 25
+        assert d["road_name"] == "abc road"
+        assert d["road_number"] == "123"

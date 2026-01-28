@@ -405,6 +405,9 @@ class TmccState(ComponentState, ABC):
     def is_lcs(self) -> bool:
         return False
 
+    def as_dict(self) -> Dict[str, Any]:
+        return super()._as_dict()
+
 
 class LcsState(ComponentState, ABC):
     __metaclass__ = ABCMeta
@@ -438,6 +441,9 @@ class LcsState(ComponentState, ABC):
         if self._info_req:
             byte_str += self._info_req.as_bytes
         return byte_str
+
+    def as_dict(self) -> Dict[str, Any]:
+        return super()._as_dict()
 
     @property
     def is_tmcc(self) -> bool:
@@ -607,6 +613,9 @@ class LcsProxyState(LcsState, ABC):
             return self.address - self._parent.address + 1
         else:
             return 1
+
+    def as_dict(self) -> Dict[str, Any]:
+        return super()._as_dict()
 
 
 class SwitchState(TmccState):

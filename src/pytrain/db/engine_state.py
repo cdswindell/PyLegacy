@@ -1106,6 +1106,13 @@ class TrainState(EngineState, LcsProxyState):
     def is_lcs(self) -> bool:
         return True if self.is_bpc2 else super().is_lcs
 
+    @property
+    def moniker(self) -> str:
+        if self.is_bpc2:
+            return LcsProxyState.moniker.fget(self)
+        else:
+            return EngineState.moniker.fget(self)
+
     def as_bytes(self) -> list[bytes]:
         packets = []
         if self._pdi_source:
@@ -1121,7 +1128,7 @@ class TrainState(EngineState, LcsProxyState):
         return packets
 
     def as_dict(self) -> Dict[str, Any]:
-        d = super()._as_dict()
+        d = super().as_dict()
         d["flags"] = self.consist_flags
         d["components"] = {c.tmcc_id: c.info for c in self.consist_components}
         return d
