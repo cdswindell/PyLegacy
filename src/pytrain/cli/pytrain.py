@@ -421,6 +421,14 @@ class PyTrain:
     def tmcc_buffer(self) -> CommBuffer:
         return self._tmcc_buffer
 
+    @property
+    def base3_ip_addr(self) -> str | None:
+        if self.is_server:
+            return self._base_addr
+        elif self.is_client:
+            return self._tmcc_buffer.base3_address if self._tmcc_buffer else None
+        return None
+
     def command_line_parser_ex(self) -> ArgumentParser:
         from .. import is_package
 
