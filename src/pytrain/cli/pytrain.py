@@ -6,7 +6,6 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-#
 
 from __future__ import annotations
 
@@ -265,10 +264,12 @@ class PyTrain:
             self._pdi_state_store = PdiStateStore()
             self._get_system_state(is_startup=True)
 
+        # a bit of a hack, but remember on the class this instance of PyTrain is the current one
+        PyTrain._current = self
+
         # Start the command line processor; run as a thread if we're serving the REST api
         self._initialized = True
         self._command_processor_ev = Event()
-        PyTrain._current = self
         if args.api is True:
             self._api = True
             self._command_queue = Queue(DEFAULT_QUEUE_SIZE)
