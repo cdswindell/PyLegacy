@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
-#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 import logging
 from argparse import ArgumentParser
 from typing import List
 
-from . import CliBaseTMCC
 from ..protocol.tmcc1.route_cmd import RouteCmd as RouteCmdTMCC1
 from ..protocol.tmcc2.route_cmd import RouteCmd as RouteCmdTMCC2
 from ..utils.argument_parser import PyTrainArgumentParser
+from . import CliBaseTMCC
 
 log = logging.getLogger(__name__)
 

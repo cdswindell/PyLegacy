@@ -53,6 +53,9 @@ DEFAULT_AUTHOR = "Dave Swindell <pytraininfo.gmail.com>"
 OLD_PROJECT_LINE = "PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories"
 NEW_PROJECT_LINE = "PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories."
 
+ENCODING_RE = re.compile(r"^#.*coding[:=][ \t]*([-\w.]+)", re.IGNORECASE)
+
+
 @dataclass(frozen=True)
 class RewriteResult:
     path: Path
@@ -66,8 +69,8 @@ def _iter_files(path: Path, exts: set[str]) -> Iterable[Path]:
     """
     Yield files to process.
 
-    - If path is a file: yield it if its suffix matches.
-    - If path is a directory: recursively yield matching files under it.
+    - If `path` is a file: yield it if its suffix matches.
+    - If `path` is a directory: recursively yield matching files under it.
     """
     if path.is_file():
         if path.suffix in exts:
@@ -90,62 +93,16 @@ def _iter_files(path: Path, exts: set[str]) -> Iterable[Path]:
                    "__pycache__",
                    ".mypy_cache",
                    ".pytest_cache",
+                   ".ruff_cache",
+                   ".tox",
+                   "dist",
+                   "build",
                }
         ]
         for name in filenames:
             p = Path(dirpath) / name
             if p.suffix in exts:
                 yield p
-
-
-ENCODING_RE = re.compile(r"^#.*coding[:=][ \t]*([-\w.]+)", re.IGNORECASE)
-
-
-def _split_prefix(text: str) -> tuple[str, str]:
-    lines = text.splitlines(True)
-    i = 0
-    prefix = []
-
-    # shebang
-    if i < len(lines) and lines[i].startswith("#!"):
-        prefix.append(lines[i]);
-        i += 1
-        # allow exactly one blank line after shebang (we normalize later anyway)
-        if i < len(lines) and lines[i].strip() == "":
-            prefix.append(lines[i]);
-            i += 1
-
-    # encoding cookie (must be in first 2 physical lines of the *file*)
-    # If there was a shebang, the cookie can be on line 2; otherwise line 1 or 2.
-    for _ in range(2):
-        if i < len(lines) and ENCODING_RE.match(lines[i]):
-            prefix.append(lines[i]);
-            i += 1
-            break
-
-    return "".join(prefix), "".join(lines[i:])
-
-
-# Matches legacy header block near the top (we only search first N chars for speed/safety).
-# Captures:
-#  - project line (w/ or w/out final period)
-#  - the year token (2024 or 2024-2025 or 2024-2026)
-#  - author name/email (rest of copyright line)
-#  - old SPDX id (LPGL etc.)
-HEADER_RE = re.compile(
-    r"""
-    (?P<block>
-        (?:[ \t]*\#.*\n)*?
-        [ \t]*\#[ \t]{2}PyTrain:\ a\ library\ for\ controlling\ Lionel\ Legacy\ engines,\ trains,\ switches,\ and\ accessories\.?\s*\n
-        (?:[ \t]*\#.*\n)*?
-        [ \t]*\#[ \t]{2}Copyright\ \(c\)\ (?P<years>2024(?:-(?:2025|2026))?)\ (?P<author>.+?)\s*\n
-        (?:[ \t]*\#.*\n)*?
-        [ \t]*\#[ \t]{2}SPDX-License-Identifier:\ (?P<spdx_old>[A-Za-z0-9.\-+]+)\s*\n
-        (?:[ \t]*\#.*\n)*?
-    )
-    """,
-    re.VERBOSE | re.MULTILINE,
-)
 
 
 def has_new_header(text: str) -> bool:
@@ -183,11 +140,13 @@ def _fix_shebang_spacing(text: str) -> str:
 
     return text
 
+
 def _normalize_author(author: str, fallback: str) -> str:
     author = author.strip()
     if not author or author == "#":
         return fallback
     return author
+
 
 def _new_header(author: str, end_year: str) -> str:
     years_new = f"2024-{end_year}"
@@ -201,55 +160,100 @@ def _new_header(author: str, end_year: str) -> str:
         "#  SPDX-License-Identifier: LGPL-3.0-only",
         "#",
     ]
-    # End with exactly one newline; do NOT add extra blank lines.
     return "\n".join(lines) + "\n"
+
+
+def _split_prefix_lines(lines: List[str]) -> Tuple[int, List[str]]:
+    """
+    Return (start_index_after_prefix, prefix_lines).
+
+    Preserves:
+      - shebang line (#!...) if present
+      - encoding cookie line if present immediately after the shebang (or as line 1)
+    """
+    i = 0
+    prefix: List[str] = []
+
+    if i < len(lines) and lines[i].startswith("#!"):
+        prefix.append(lines[i])
+        i += 1
+
+    if i < len(lines) and ENCODING_RE.match(lines[i]):
+        prefix.append(lines[i])
+        i += 1
+
+    return i, prefix
+
 
 def rewrite_text(text: str, *, end_year: str, default_author: str) -> Tuple[str, bool, str]:
     """
-    Rewrite a legacy header to the new one.
+    SAFE rewrite: only touches the initial contiguous comment/blank block at the top of the file
+    (after optional shebang and optional encoding cookie).
 
     Returns (new_text, header_changed, reason).
     """
-    head_limit = 8000
+    lines = text.splitlines(True)
+    if not lines:
+        return text, False, "empty file"
 
-    prefix, body = _split_prefix(text)
-    head = body[:head_limit]
-    m = HEADER_RE.search(head)
-    if not m:
-        return text, False, "no matching old PyTrain header found"
+    start_idx, _prefix_lines = _split_prefix_lines(lines)
 
-    author = _normalize_author(m.group("author"), default_author)
-
-    start, end = m.start("block"), m.end("block")
-    inserted = _new_header(author, end_year)
-    new_head = head[:start] + inserted + head[end:]
-
-    # Post-trim: keep exactly ONE '#' line at end of header,
-    # then exactly ONE blank line before the next real content.
-    lines = new_head.splitlines(True)
-    inserted_lines = inserted.splitlines(True)
-
-    end_idx = None
-    for i in range(0, len(lines) - len(inserted_lines) + 1):
-        if lines[i: i + len(inserted_lines)] == inserted_lines:
-            end_idx = i + len(inserted_lines)  # first line AFTER inserted header
-            break
-
-    if end_idx is None:
-        out = new_head + text[head_limit:]
-        return out, True, "rewrote header (no post-trim)"
-
-    # Remove any immediate legacy separator lines after the inserted header
-    j = end_idx
-    while j < len(lines):
-        stripped = lines[j].strip()
-        if stripped == "" or stripped == "#":
-            j += 1
+    # Find the initial header/comment block: contiguous blank lines or comment lines
+    block_start = start_idx
+    i = block_start
+    while i < len(lines):
+        s = lines[i].strip()
+        if s == "" or s.startswith("#"):
+            i += 1
             continue
         break
+    block_end = i
 
-    rebuilt = "".join(lines[:end_idx]).rstrip("\n") + "\n\n" + "".join(lines[j:])
-    out = prefix + rebuilt + text[head_limit:]
+    block = lines[block_start:block_end]
+
+    # Match project line in a tolerant way:
+    #   "#  <project line>" with optional trailing period.
+    project_pat = re.compile(r"^[ \t]*#[ \t]{2}" + re.escape(OLD_PROJECT_LINE) + r"\.?\s*$")
+    project_ok = any(project_pat.match(ln) for ln in block)
+    if not project_ok:
+        return text, False, "no matching old PyTrain header found at top"
+
+    # Must have old SPDX license identifier line in the header block
+    spdx_old_pat = re.compile(r"^[ \t]*#[ \t]{2}SPDX-License-Identifier:\s+[A-Za-z0-9.+-]+\s*$")
+    if not any(spdx_old_pat.match(ln) for ln in block):
+        return text, False, "no matching old PyTrain SPDX line found at top"
+
+    # Extract author from copyright line (years can be 2024, 2024-2025, 2024-2026)
+    author = ""
+    cr_pat = re.compile(r"^[ \t]*#[ \t]{2}Copyright \(c\)\s+2024(?:-(?:2025|2026))?\s+(.+?)\s*$")
+    for ln in block:
+        m = cr_pat.match(ln)
+        if m:
+            author = m.group(1).strip()
+            break
+
+    author = _normalize_author(author, default_author)
+    inserted = _new_header(author, end_year)
+
+    # Rebuild:
+    # - keep everything before the header block
+    # - insert new header
+    # - skip any extra blank/comment separators after old header block
+    # - ensure exactly one blank line before first content line
+    rebuilt: List[str] = []
+    rebuilt.extend(lines[:block_start])
+    rebuilt.append(inserted)
+
+    k = block_end
+    while k < len(lines) and (lines[k].strip() == "" or lines[k].strip() == "#"):
+        k += 1
+
+    rebuilt.append("\n")
+    rebuilt.extend(lines[k:])
+
+    out = "".join(rebuilt)
+    out = _fix_shebang_spacing(out)
+
     return out, True, "rewrote legacy header"
 
 
@@ -288,7 +292,7 @@ def process_file(
         )
 
     # Auto-skip header rewrite if already has the new header
-    # but still allow shebang-only normalization to write.
+    # but still allow shebang spacing normalization to write.
     if has_new_header(after_shebang):
         if shebang_changed and not dry_run:
             try:
@@ -305,12 +309,11 @@ def process_file(
                    + ("; normalized shebang spacing" if shebang_changed else ""),
         )
 
-    # Otherwise, rewrite header (working from the shebang-normalized text)
     rewritten, header_changed, reason = rewrite_text(
         after_shebang, end_year=end_year, default_author=default_author
     )
 
-    # After header rewrite, also enforce the shebang rule again (in case insertion moved things)
+    # After header rewrite, enforce the shebang rule again
     final_text = _fix_shebang_spacing(rewritten)
     shebang_changed = shebang_changed or (final_text != rewritten)
 
@@ -329,6 +332,7 @@ def process_file(
         shebang_changed=shebang_changed,
         reason=reason,
     )
+
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
@@ -353,8 +357,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--dry-run", action="store_true", help="Show what would change, but do not write files")
     parser.add_argument("--check", action="store_true", help="Do not write; exit non-zero if any file would change")
-    parser.add_argument("--shebang-only", action="store_true",
-                        help="Only normalize blank line after shebang; do not rewrite headers")
+    parser.add_argument(
+        "--shebang-only",
+        action="store_true",
+        help="Only normalize blank line after shebang; do not rewrite headers",
+    )
     parser.add_argument("--quiet", action="store_true", help="Only print summary (useful for CI logs)")
 
     args = parser.parse_args(argv)
@@ -393,12 +400,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 shebang_changed += 1
 
             if not args.quiet:
+                action = "UPDATED"
                 if args.check:
                     action = "WOULD CHANGE"
                 elif args.dry_run:
                     action = "WOULD UPDATE"
-                else:
-                    action = "UPDATED"
 
                 bits: List[str] = []
                 if r.header_changed:
@@ -408,11 +414,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                 detail = ",".join(bits) if bits else "unknown"
 
                 print(f"{action}: {r.path} [{detail}]")
-        else:
-            # Optional verbose skip reporting:
-            # if not args.quiet and args.dry_run and r.reason:
-            #     print(f"SKIP: {r.path} ({r.reason})")
-            pass
 
     if not args.quiet:
         print()
@@ -426,6 +427,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.check and changed > 0:
         return 1
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

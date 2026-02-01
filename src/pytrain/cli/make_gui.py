@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 #  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #

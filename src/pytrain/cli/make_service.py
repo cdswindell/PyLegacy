@@ -1,11 +1,13 @@
+#!/usr/bin/env python3
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
-#
+
 import os
 import platform
 import shutil
@@ -15,10 +17,10 @@ import tempfile
 from argparse import ArgumentParser
 from pathlib import Path
 
-from .make_base import _MakeBase
-from .pytrain import DEFAULT_BUTTONS_FILE
 from ..utils.argument_parser import PyTrainArgumentParser
 from ..utils.path_utils import find_file
+from .make_base import _MakeBase
+from .pytrain import DEFAULT_BUTTONS_FILE
 
 
 class MakeService(_MakeBase):
