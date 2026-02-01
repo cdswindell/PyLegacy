@@ -110,7 +110,7 @@ class CatalogPanel:
                 states.sort(key=lambda x: x.tmcc_id)
             for state in states:
                 if sort_order == 0:
-                    entry = f"{state.tmcc_id}: {state.name}"
+                    entry = f"{state.name}"
                 elif sort_order == 1:
                     entry = f"{state.road_number}: {state.road_name}"
                 elif sort_order == 2:
