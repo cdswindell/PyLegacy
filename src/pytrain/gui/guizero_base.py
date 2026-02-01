@@ -373,6 +373,8 @@ class GuiZeroBase(Thread, ABC):
                     log.info(f"Product info for engine {state.address} ({bt_id}) is unavailable: {ve}")
                 else:
                     log.info(f"Product info for engine btid: {bt_id} is unavailable: {ve}")
+            except Exception as e:
+                print(e)
         return prod_info
 
     def _fetch_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:

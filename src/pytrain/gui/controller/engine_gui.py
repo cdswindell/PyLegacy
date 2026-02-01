@@ -2466,7 +2466,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return (
             self.scope == CommandScope.ENGINE
             or (self.scope == CommandScope.TRAIN and self.active_state is None)
-            or (self.scope == CommandScope.TRAIN and not self.active_state.is_power_district)
+            or (
+                self.scope == CommandScope.TRAIN
+                and isinstance(self.active_state, TrainState)
+                and not self.active_state.is_power_district
+            )
         )
 
     @property
