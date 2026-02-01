@@ -16,7 +16,7 @@ from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, Callable, TypeVar
 
 from guizero import App
 from guizero.base import Widget
@@ -181,7 +181,7 @@ class GuiZeroBase(Thread, ABC):
 
     # noinspection PyUnresolvedReferences
     def init_complete(self) -> None:
-        if self._sync_state:
+        if isinstance(self._sync_state, SyncState):
             # in the event the base state is already synchronized, notify the watcher
             # so it starts the main GUI thread
             with self._sync_state.synchronizer:
@@ -195,8 +195,8 @@ class GuiZeroBase(Thread, ABC):
                 self._sync_watcher = None
             self._synchronized = True
             self._base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
-            if self._base_state:
-                self.title = cast(BaseState, self._base_state).base_name
+            if isinstance(self._base_state, BaseState):
+                self.title = self._base_state.base_name
             else:
                 self.title = "My Layout"
 
