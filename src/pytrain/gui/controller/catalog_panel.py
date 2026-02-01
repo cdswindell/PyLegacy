@@ -109,13 +109,15 @@ class CatalogPanel:
             elif sort_order == 2:
                 states.sort(key=lambda x: x.tmcc_id)
             for state in states:
-                if sort_order in {0, 2}:
+                if sort_order == 0:
+                    entry = f"{state.tmcc_id}: {state.name}"
+                elif sort_order == 1:
+                    entry = f"{state.road_number}: {state.road_name}"
+                elif sort_order == 2:
                     if scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE}:
                         entry = f"{state.tmcc_id:02d}: {state.name}"
                     else:
                         entry = f"{state.tmcc_id}: {state.name}"
-                elif sort_order == 1:
-                    entry = f"{state.road_number}: {state.road_name}"
                 else:
                     entry = None
                 if entry:
