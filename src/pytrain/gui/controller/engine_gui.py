@@ -2666,13 +2666,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     if isinstance(state, EngineState):
                         img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
                         if img is None:
-                            source = ENGINE_TYPE_TO_IMAGE.get(
-                                state.engine_type_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL]
+                            et_enum = (
+                                state.engine_type_enum if state.engine_type_enum is not None else EngineType.DIESEL
                             )
+                            source = ENGINE_TYPE_TO_IMAGE.get(et_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL])
                             img = self._image_cache.get(source, None)
                             if img is None:
                                 img = self.get_scaled_image(source, force_lionel=True)
-                                img = center_text_on_image(img, state.engine_type_enum.label(), styled=True)
+                                img = center_text_on_image(img, et_enum.label(), styled=True)
                                 self._image_cache[source] = img
                                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                                 self._image_cache[source] = img
