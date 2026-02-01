@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
-#
-
 # -------------------------------------------------------------------------------
 #                                                                               -
 #  Python dual-logging setup (console and log file),                            -
