@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
 #
 
 from __future__ import annotations
@@ -626,8 +628,8 @@ class PyTrain:
         except Exception as e:
             log.warning(f"Error disconnecting API, continuing shutdown: {e}")
         try:
-            if self.is_client:
-                self._tmcc_buffer.disconnect(self._tmcc_listener.port)
+            if self.is_client and self._tmcc_listener.port:
+                self._tmcc_buffer.disconnect(int(self._tmcc_listener.port))
         except Exception as e:
             log.warning(f"Error disconnecting client, continuing shutdown: {e}")
         try:
