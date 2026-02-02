@@ -276,7 +276,7 @@ class AdminPanel:
             self._reload_btn.disable()
 
     def _decorate_checkbox(self, cb: CheckBox, size: int) -> None:
-        indicator_size = int(size * 0.85)
+        indicator_size = int(size * 0.95)
         widget = cb.tk
         widget.config(
             font=("TkDefaultFont", size),
