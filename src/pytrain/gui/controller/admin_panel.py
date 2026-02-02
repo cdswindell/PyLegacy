@@ -87,11 +87,12 @@ class AdminPanel:
         sp = Text(admin_box, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
 
-        # scope
+        # logging & debugging
+        row = Box(admin_box, align="top", width="fill", grid=[0, 2, 2, 1])
         tb = self._titlebox(
-            admin_box,
+            row,
             text="Logging & Debugging",
-            grid=[0, 2, 2, 1],
+            width="fill",
         )
         tb.tk.config(width=self._width)
 
@@ -102,7 +103,7 @@ class AdminPanel:
             command=self._on_echo,
         )
         cb.value = 1 if self._pytrain.echo else 0
-        cb.text_size = self._gui.s_18
+        cb.text_size = self._gui.s_20
 
         self._debug_btn = cb = CheckBox(
             tb,
@@ -110,7 +111,7 @@ class AdminPanel:
             grid=[1, 0],
             command=self._on_debug,
         )
-        cb.text_size = self._gui.s_18
+        cb.text_size = self._gui.s_20
         cb.value = 1 if self._pytrain.debug else 0
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
@@ -210,7 +211,7 @@ class AdminPanel:
         else:
             self._gui.do_tmcc_request(command)
 
-    def _titlebox(self, parent: Box, text: str, grid: list[int], **kwargs):
+    def _titlebox(self, parent: Box, text: str, grid: list[int] = None, **kwargs):
         is_height = "height" in kwargs
         height = kwargs.pop("height", self._gui.button_size)
         if is_height:
@@ -224,13 +225,21 @@ class AdminPanel:
                 height=height,
             )
         else:
-            tb = TitleBox(
-                parent,
-                text=text,
-                layout="grid",  # use grid INSIDE the TitleBox
-                align="top",
-                grid=grid,
-            )
+            if grid:
+                tb = TitleBox(
+                    parent,
+                    text=text,
+                    layout="grid",  # use grid INSIDE the TitleBox
+                    align="top",
+                    grid=grid,
+                )
+            else:
+                tb = TitleBox(
+                    parent,
+                    text=text,
+                    layout="grid",  # use grid INSIDE the TitleBox
+                    align="top",
+                )
             tb.tk.config(width=self._width)
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
