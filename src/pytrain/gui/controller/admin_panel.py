@@ -224,6 +224,7 @@ class AdminPanel:
                 width=self._width,
                 height=height,
             )
+            tb.tk.config(width=self._width)
         else:
             if grid:
                 tb = TitleBox(
@@ -233,7 +234,8 @@ class AdminPanel:
                     align="top",
                     grid=grid,
                 )
-                print(f"Grid: {tb}")
+                tb.tk.config(width=self._width)
+                print(f"Grid: {text} {grid}")
             else:
                 tb = TitleBox(
                     parent,
@@ -241,11 +243,10 @@ class AdminPanel:
                     layout="grid",  # use grid INSIDE the TitleBox
                     align="top",
                 )
-                print(f"No Grid: {tb}")
+                print(f"No Grid: {text}")
         tb.text_size = self._gui.s_10
         if grid:
             tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
-        tb.tk.config(width=self._width)
         if is_height:
             tb.tk.pack_propagate(False)
         else:
