@@ -43,11 +43,12 @@ class AdminPanel:
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
 
+        row = 0
         # noinspection PyTypeChecker
         tb = self._titlebox(
             admin_box,
             text="Base 3 Database",
-            grid=[0, 0, 2, 1],
+            grid=[0, row, 2, 1],
         )
 
         self._sync_state = pb = PushButton(
@@ -84,14 +85,16 @@ class AdminPanel:
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
-        sp = Text(admin_box, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        # row += 1
+        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        # sp.text_size = self._gui.s_1
 
         # logging & debugging
+        row += 1
         tb = self._titlebox(
             admin_box,
             text="Logging & Debugging",
-            grid=[0, 2, 2, 1],
+            grid=[0, row, 2, 1],
             width="fill",
         )
 
@@ -113,7 +116,8 @@ class AdminPanel:
         cb.value = 1 if self._pytrain.debug else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.3))
 
-        sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
+        row += 1
+        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_1
 
         # scope
@@ -135,15 +139,16 @@ class AdminPanel:
             width=int(self._width / 2.3),
         )
 
-        sp = Text(admin_box, text=" ", grid=[0, 5, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        # row += 1
+        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        # sp.text_size = self._gui.s_1
 
         # admin operations
+        row += 1
         tb = self._titlebox(
             admin_box,
             text=f"Hold for {self.hold_threshold} second{'s' if self.hold_threshold > 1 else ''}",
-            grid=[0, 6, 2, 1],
-            # height=self._gui.button_size * 4,
+            grid=[0, row, 2, 1],
         )
         tb.text_color = "red"
 
