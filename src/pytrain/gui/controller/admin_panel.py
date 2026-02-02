@@ -138,6 +138,7 @@ class AdminPanel:
             horizontal=True,
             align="top",
             width=int(self._width / 2.3),
+            style="radio",
         )
 
         # row += 1
