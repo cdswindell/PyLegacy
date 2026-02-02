@@ -85,7 +85,7 @@ class AdminPanel:
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
         sp = Text(admin_box, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_10
+        sp.text_size = self._gui.s_4
 
         # scope
         tb = self._titlebox(
@@ -99,20 +99,20 @@ class AdminPanel:
             tb,
             text="Log Actions",
             grid=[0, 0],
-            enabled=self._pytrain.echo,
         )
+        cb.value = 1 if self._pytrain.echo else 0
         cb.text_size = self._gui.s_18
 
         self._debug_btn = cb = CheckBox(
             tb,
             text="Debugging",
             grid=[1, 0],
-            enabled=self._pytrain.debug,
         )
         cb.text_size = self._gui.s_18
+        cb.value = 1 if self._pytrain.debug else 0
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_10
+        sp.text_size = self._gui.s_4
 
         # scope
         tb = self._titlebox(
