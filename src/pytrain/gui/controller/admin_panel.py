@@ -283,7 +283,7 @@ class AdminPanel:
             padx=1,  # Horizontal padding inside each radio button
             pady=6,  # Vertical padding inside each radio button
             anchor="w",
-            width=int(self._width / 2.25),
+            width=int(self._width / 2.3),
         )
         # Increase the size of the radio button indicator
         widget.tk.eval(f"""
