@@ -121,10 +121,11 @@ class AdminPanel:
         sp.text_size = self._gui.s_1
 
         # scope
+        row += 1
         tb = self._titlebox(
             admin_box,
             text="Scope",
-            grid=[0, 4, 2, 1],
+            grid=[0, row, 2, 1],
         )
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
