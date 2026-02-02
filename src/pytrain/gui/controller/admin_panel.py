@@ -132,7 +132,7 @@ class AdminPanel:
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
-            width=int(self._width / 2.5),
+            width=int(self._width / 2.3),
         )
 
         sp = Text(admin_box, text=" ", grid=[0, 5, 2, 1], height=1, bold=True, align="top")
