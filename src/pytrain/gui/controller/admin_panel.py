@@ -233,6 +233,7 @@ class AdminPanel:
                     align="top",
                     grid=grid,
                 )
+                print(f"Grid: {tb}")
             else:
                 tb = TitleBox(
                     parent,
@@ -240,7 +241,7 @@ class AdminPanel:
                     layout="grid",  # use grid INSIDE the TitleBox
                     align="top",
                 )
-            tb.tk.config(width=self._width)
+                print(f"No Grid: {tb}")
         tb.text_size = self._gui.s_10
         if grid:
             tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
@@ -251,7 +252,6 @@ class AdminPanel:
             tb.tk.pack_propagate(True)
         if grid:
             tb.tk.grid_columnconfigure(grid[0], weight=1)
-
         return tb
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
