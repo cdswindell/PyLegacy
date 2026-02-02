@@ -366,9 +366,8 @@ class GuiZeroBase(Thread, ABC):
         prod_info = "N/A"
         if bt_id:
             try:
-                print("Calling ProdInfo.by_btid")
                 prod_info = ProdInfo.by_btid(bt_id)
-                print(f"ProdInfo.by_btid returned {prod_info}")
+                log.debug(f"ProdInfo.by_btid returned {prod_info}")
             except ValueError as ve:
                 state = self._state_store.by_bluetooth_id(int(bt_id, 16))
                 if state:
@@ -396,7 +395,7 @@ class GuiZeroBase(Thread, ABC):
                 img = self.get_scaled_image(BytesIO(prod_info.image_content))
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
         # Schedule the UI update on the main thread
-        print(f"get_prod_info: Scheduling UI update for tmcc_id {tmcc_id}")
+        log.debug(f"get_prod_info: Scheduling UI update for tmcc_id {tmcc_id}")
         self.queue_message(callback, tmcc_id)
         return prod_info
 

@@ -6,7 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-from guizero import Box, PushButton, Text, TitleBox
+from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
 from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
@@ -32,6 +32,7 @@ class AdminPanel:
         self._sync_state = None
         self._reload_btn = None
         self._scope_btns = None
+        self._echo_btn = None
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
 
@@ -88,8 +89,26 @@ class AdminPanel:
         # scope
         tb = self._titlebox(
             admin_box,
-            text="Scope",
+            text="Logging & Debugging",
             grid=[0, 2, 2, 1],
+        )
+
+        self._echo_btn = cb = CheckBox(
+            tb,
+            text="Echo Commands",
+            grid=[0, 0],
+            width=int(self._width / 2.5),
+        )
+        cb.text_size = self._gui.s_18
+
+        sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_10
+
+        # scope
+        tb = self._titlebox(
+            admin_box,
+            text="Scope",
+            grid=[0, 4, 2, 1],
         )
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
@@ -104,14 +123,14 @@ class AdminPanel:
             width=int(self._width / 2.5),
         )
 
-        sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
+        sp = Text(admin_box, text=" ", grid=[0, 5, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_4
 
         # admin operations
         tb = self._titlebox(
             admin_box,
             text=f"Hold for {self.hold_threshold} second{'s' if self.hold_threshold > 1 else ''}",
-            grid=[0, 4, 2, 1],
+            grid=[0, 6, 2, 1],
             # height=self._gui.button_size * 4,
         )
         tb.text_color = "red"

@@ -1168,6 +1168,20 @@ class PyTrain:
             handler.setLevel(logging.DEBUG)
         self._debug = True
 
+    @property
+    def debug(self) -> bool:
+        return self._debug
+
+    @debug.setter
+    def debug(self, value: bool):
+        """Sets debug mode by enabling or disabling it"""
+        if bool(value):
+            if not self._debug:
+                self._enable_debug()
+        else:
+            if self._debug:
+                self._disable_debug()
+
     def _handle_echo(self, ui_parts: List[str] = None):
         if ui_parts is None:
             ui_parts = ["echo"]
@@ -1193,6 +1207,20 @@ class PyTrain:
             self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
         print("PDI command echoing ENABLED...")
         self._echo = True
+
+    @property
+    def echo(self) -> bool:
+        return self._echo
+
+    @echo.setter
+    def echo(self, value: bool):
+        """Sets echo state; enables/disables echoing as needed"""
+        if bool(value):
+            if not self._echo:
+                self._enable_echo()
+        else:
+            if self._echo:
+                self._disable_echo()
 
     def _do_pdi(self, param: List[str]) -> None:
         param_len = len(param)
