@@ -14,13 +14,14 @@ class CheckBoxGroup(ButtonGroup):
         self,
         master,
         size: int = 22,
+        width: int = None,
         # scale_by: float = 1.5,
         **kwargs,
     ):
         # now initialize parent class
         self._padx = kwargs.pop("padx", 18)
         self._pady = kwargs.pop("pady", 6)
-        self._width = kwargs.pop("width", None)
+        self._width = width
         super().__init__(master, **kwargs)
 
         # indicator_size = int(size * scale_by)
