@@ -99,17 +99,19 @@ class AdminPanel:
             tb,
             text="Log Actions",
             grid=[0, 0],
-            # width=int(self._width / 2.5),
+            enabled=self._pytrain.echo,
         )
         cb.text_size = self._gui.s_18
+        cb.tk.config(width=int(self._width / 2.5))
 
         self._debug_btn = cb = CheckBox(
             tb,
             text="Debugging",
             grid=[1, 0],
-            # width=int(self._width / 2.5),
+            enabled=self._pytrain.debug,
         )
         cb.text_size = self._gui.s_18
+        cb.tk.config(width=int(self._width / 2.5))
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_10
