@@ -242,6 +242,13 @@ class AdminPanel:
                     layout="grid",  # use grid INSIDE the TitleBox
                     align="top",
                 )
+                tb.tk.config(
+                    bd=2,
+                    relief="groove",
+                    highlightthickness=1,
+                    highlightbackground="black",
+                    fg="black",  # title text color (often works)
+                )
                 print(f"No Grid: {text}")
         tb.text_size = self._gui.s_10
         if grid:
