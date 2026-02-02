@@ -85,9 +85,9 @@ class AdminPanel:
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
-        # row += 1
-        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        # sp.text_size = self._gui.s_1
+        row += 1
+        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_4
 
         # logging & debugging
         row += 1
@@ -118,7 +118,7 @@ class AdminPanel:
 
         row += 1
         sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        sp.text_size = self._gui.s_4
 
         # scope
         row += 1
@@ -140,10 +140,6 @@ class AdminPanel:
             width=int(self._width / 2.3),
             style="radio",
         )
-
-        # row += 1
-        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        # sp.text_size = self._gui.s_1
 
         # admin operations
         row += 1
