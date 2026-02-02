@@ -12,7 +12,7 @@ from guizero import Box, Text, TitleBox
 
 from ...protocol.constants import CommandScope
 from ..checkbox_group import CheckBoxGroup
-from ..guizero_base import LIONEL_ORANGE, GuiZeroBase
+from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE, GuiZeroBase
 from ..touch_list_box import TouchListBox
 
 SORT_OPTS = [
@@ -89,7 +89,7 @@ class CatalogPanel:
         tk_scrollbar = lb.children[1].tk
         tk_scrollbar.config(
             width=50,
-            troughcolor="#003366",
+            troughcolor=LIONEL_BLUE,
             activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
             bg="lightgrey",
             highlightthickness=1,

@@ -47,7 +47,7 @@ from ...protocol.tmcc2.tmcc2_constants import (
 from ...utils.image_utils import center_text_on_image
 from ...utils.path_utils import find_file
 from ...utils.unique_deque import UniqueDeque
-from ..guizero_base import GuiZeroBase
+from ..guizero_base import LIONEL_BLUE, GuiZeroBase
 from ..hold_button import HoldButton
 from ..scrolling_text import ScrollingText
 from ..swipe_detector import SwipeDetector
@@ -543,7 +543,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             from_=195,
             to=0,
             takefocus=0,
-            troughcolor="#003366",  # deep Lionel blue for the track,
+            troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
             activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
             bg="lightgrey",  # darker navy background
             highlightthickness=1,
@@ -758,7 +758,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             from_=frm,
             to=to,
             takefocus=0,
-            troughcolor="#003366",  # deep Lionel blue for the track,
+            troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
             activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
             bg="lightgrey",  # darker navy background
             highlightthickness=1,
@@ -1529,7 +1529,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     )
                 else:
                     self.throttle.tk.config(
-                        troughcolor="#003366",  # deep Lionel blue for the track,
+                        troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
                     )
 
                 if throttle_state and throttle_state.is_legacy:
