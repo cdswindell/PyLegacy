@@ -102,7 +102,7 @@ class AdminPanel:
             command=self._on_echo,
         )
         cb.value = 1 if self._pytrain.echo else 0
-        self._decorate_checkbox(cb, self._gui.s_20)
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.3))
 
         self._debug_btn = cb = CheckBox(
             tb,
@@ -111,7 +111,7 @@ class AdminPanel:
             command=self._on_debug,
         )
         cb.value = 1 if self._pytrain.debug else 0
-        self._decorate_checkbox(cb, self._gui.s_20)
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.3))
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
@@ -127,7 +127,7 @@ class AdminPanel:
         sp.text_size = self._gui.s_2
         self._scope_btns = CheckBoxGroup(
             tb,
-            size=self._gui.s_22,
+            size=self._gui.s_20,
             grid=[0, 1, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
