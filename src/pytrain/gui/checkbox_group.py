@@ -21,14 +21,12 @@ class CheckBoxGroup(ButtonGroup):
         # now initialize parent class
         self._padx = kwargs.pop("padx", 18)
         self._pady = kwargs.pop("pady", 6)
-        self._width = width
-        print(f"Width: {width} ({self._width})")
+        self._dis_width = width
         super().__init__(master, **kwargs)
 
         # indicator_size = int(size * scale_by)
         for widget in self.tk.winfo_children():
-            print(f"Width: {width} ({self._width})")
-            self.decorate_checkbox(widget, size, self._width, self._padx, self._pady)
+            self.decorate_checkbox(widget, size, self._dis_width, self._padx, self._pady)
             # widget.config(
             #     font=("TkDefaultFont", size),
             #     padx=padx,  # Horizontal padding inside each radio button
