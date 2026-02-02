@@ -85,7 +85,7 @@ class AdminPanel:
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
         sp = Text(admin_box, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_2
 
         # scope
         tb = self._titlebox(
@@ -99,6 +99,7 @@ class AdminPanel:
             tb,
             text="Log Actions",
             grid=[0, 0],
+            command=self._on_echo,
         )
         cb.value = 1 if self._pytrain.echo else 0
         cb.text_size = self._gui.s_18
@@ -107,12 +108,13 @@ class AdminPanel:
             tb,
             text="Debugging",
             grid=[1, 0],
+            command=self._on_debug,
         )
         cb.text_size = self._gui.s_18
         cb.value = 1 if self._pytrain.debug else 0
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_2
 
         # scope
         tb = self._titlebox(
@@ -195,6 +197,12 @@ class AdminPanel:
             grid=[1, 5],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
+
+    def _on_echo(self, value: int) -> None:
+        self._pytrain.echo = bool(value)
+
+    def _on_debug(self, value: int) -> None:
+        self._pytrain.debug = bool(value)
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         if self._scope_btns.value == "0":
