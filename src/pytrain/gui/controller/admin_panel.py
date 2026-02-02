@@ -280,7 +280,7 @@ class AdminPanel:
         widget = cb.tk
         widget.config(
             font=("TkDefaultFont", size),
-            padx=10,  # Horizontal padding inside each radio button
+            padx=18,  # Horizontal padding inside each radio button
             pady=6,  # Vertical padding inside each radio button
             anchor="w",
             width=int(self._width / 2.3),
