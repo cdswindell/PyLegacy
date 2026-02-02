@@ -97,12 +97,13 @@ class AdminPanel:
 
         self._echo_btn = cb = CheckBox(
             tb,
-            text="Log Actions",
+            text="Logging",
             grid=[0, 0],
             command=self._on_echo,
         )
         cb.value = 1 if self._pytrain.echo else 0
         cb.text_size = self._gui.s_20
+        self._decorate_checkbox(cb)
 
         self._debug_btn = cb = CheckBox(
             tb,
