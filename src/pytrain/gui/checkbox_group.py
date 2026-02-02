@@ -82,7 +82,7 @@ class CheckBoxGroup(ButtonGroup):
         if isinstance(widget, CheckBox):
             widget = widget.tk
 
-        indicator_size = int(size * 1.3)
+        indicator_size = int(size * 1.5) if style == "radio" else int(size * 1.3)
 
         widget.config(
             font=("TkDefaultFont", size),
