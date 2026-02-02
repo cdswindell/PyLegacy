@@ -67,7 +67,7 @@ class CatalogPanel:
             selected=str(0),
             horizontal=True,
             align="top",
-            width=int(self._width / 3.5),
+            width=int(self._width / 3.6),
             padx=14,
             pady=12,
             command=self.on_sort,

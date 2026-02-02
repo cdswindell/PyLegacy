@@ -85,7 +85,7 @@ class AdminPanel:
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
         sp = Text(admin_box, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        sp.text_size = self._gui.s_1
 
         # logging & debugging
         tb = self._titlebox(
@@ -114,7 +114,7 @@ class AdminPanel:
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.3))
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        sp.text_size = self._gui.s_1
 
         # scope
         tb = self._titlebox(
@@ -124,7 +124,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        sp.text_size = self._gui.s_1
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
@@ -136,7 +136,7 @@ class AdminPanel:
         )
 
         sp = Text(admin_box, text=" ", grid=[0, 5, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_1
 
         # admin operations
         tb = self._titlebox(
