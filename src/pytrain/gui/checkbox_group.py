@@ -6,7 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-from guizero import ButtonGroup
+from guizero import ButtonGroup, CheckBox
 
 
 class CheckBoxGroup(ButtonGroup):
@@ -48,6 +48,9 @@ class CheckBoxGroup(ButtonGroup):
 
     @classmethod
     def decorate_checkbox(cls, widget, size: int, width: int, padx: int = 18, pady: int = 6) -> None:
+        if isinstance(widget, CheckBox):
+            widget = widget.tk
+        print(f"Width: {width}")
         indicator_size = int(size * 0.95)
         widget.config(
             font=("TkDefaultFont", size),
