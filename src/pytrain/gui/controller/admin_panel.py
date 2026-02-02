@@ -97,12 +97,12 @@ class AdminPanel:
 
         self._echo_btn = cb = CheckBox(
             tb,
-            text="Logging  ",
+            text="Logging",
             grid=[0, 0],
             command=self._on_echo,
         )
         cb.value = 1 if self._pytrain.echo else 0
-        self._decorate_checkbox(cb, self._gui.s_22)
+        self._decorate_checkbox(cb, self._gui.s_20)
 
         self._debug_btn = cb = CheckBox(
             tb,
@@ -111,7 +111,7 @@ class AdminPanel:
             command=self._on_debug,
         )
         cb.value = 1 if self._pytrain.debug else 0
-        self._decorate_checkbox(cb, self._gui.s_22)
+        self._decorate_checkbox(cb, self._gui.s_20)
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
@@ -283,7 +283,7 @@ class AdminPanel:
             padx=18,  # Horizontal padding inside each radio button
             pady=6,  # Vertical padding inside each radio button
             anchor="w",
-            width=int(self._width / 2),
+            width=int(self._width / 2.2),
         )
         # Increase the size of the radio button indicator
         widget.tk.eval(f"""
