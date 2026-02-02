@@ -94,7 +94,6 @@ class AdminPanel:
             text="Logging & Debugging",
             width="fill",
         )
-        tb.tk.config(width=self._width)
 
         self._echo_btn = cb = CheckBox(
             tb,
