@@ -275,8 +275,7 @@ class AdminPanel:
             self._sync_state.bg = "white"
             self._reload_btn.disable()
 
-    @staticmethod
-    def _decorate_checkbox(cb: CheckBox, size: int) -> None:
+    def _decorate_checkbox(self, cb: CheckBox, size: int) -> None:
         indicator_size = 22
         widget = cb.tk
         widget.config(
@@ -284,6 +283,7 @@ class AdminPanel:
             padx=18,  # Horizontal padding inside each radio button
             pady=6,  # Vertical padding inside each radio button
             anchor="w",
+            width=int(self._width / 2.5),
         )
         # Increase the size of the radio button indicator
         widget.tk.eval(f"""
