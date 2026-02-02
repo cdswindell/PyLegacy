@@ -70,6 +70,7 @@ class CatalogPanel:
             width=int(self._width / 3.55),
             padx=14,
             pady=12,
+            style="radio",
             command=self.on_sort,
         )
 

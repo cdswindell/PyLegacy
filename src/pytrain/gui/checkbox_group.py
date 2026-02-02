@@ -82,7 +82,7 @@ class CheckBoxGroup(ButtonGroup):
         if isinstance(widget, CheckBox):
             widget = widget.tk
 
-        indicator_size = int(size * 0.95)
+        indicator_size = int(size * 1.1)
 
         widget.config(
             font=("TkDefaultFont", size),
