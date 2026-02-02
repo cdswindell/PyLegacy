@@ -33,6 +33,7 @@ class AdminPanel:
         self._reload_btn = None
         self._scope_btns = None
         self._echo_btn = None
+        self._debug_btn = None
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
 
@@ -91,12 +92,21 @@ class AdminPanel:
             admin_box,
             text="Logging & Debugging",
             grid=[0, 2, 2, 1],
+            width=self._width,
         )
 
         self._echo_btn = cb = CheckBox(
             tb,
             text="Log Actions",
             grid=[0, 0],
+            # width=int(self._width / 2.5),
+        )
+        cb.text_size = self._gui.s_18
+
+        self._debug_btn = cb = CheckBox(
+            tb,
+            text="Debugging",
+            grid=[1, 0],
             # width=int(self._width / 2.5),
         )
         cb.text_size = self._gui.s_18
