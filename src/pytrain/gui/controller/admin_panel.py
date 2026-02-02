@@ -290,7 +290,7 @@ class AdminPanel:
         widget.tk.eval(f"""
             image create photo radio_unsel_{id(widget)} -width {indicator_size} -height {indicator_size}
             image create photo radio_sel_{id(widget)} -width {indicator_size} -height {indicator_size}
-            radio_unsel_{id(widget)} put white -to 0 0 {indicator_size} {indicator_size}
+            radio_unsel_{id(widget)} put gray -to 0 0 {indicator_size} {indicator_size}
             radio_sel_{id(widget)} put green -to 0 0 {indicator_size} {indicator_size}
         """)
         widget.config(
