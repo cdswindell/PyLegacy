@@ -92,8 +92,8 @@ class AdminPanel:
             admin_box,
             text="Logging & Debugging",
             grid=[0, 2, 2, 1],
-            width=self._width,
         )
+        tb.tk.config(width=self._width)
 
         self._echo_btn = cb = CheckBox(
             tb,
@@ -102,7 +102,6 @@ class AdminPanel:
             enabled=self._pytrain.echo,
         )
         cb.text_size = self._gui.s_18
-        cb.tk.config(width=int(self._width / 2.5))
 
         self._debug_btn = cb = CheckBox(
             tb,
@@ -111,7 +110,6 @@ class AdminPanel:
             enabled=self._pytrain.debug,
         )
         cb.text_size = self._gui.s_18
-        cb.tk.config(width=int(self._width / 2.5))
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_10
