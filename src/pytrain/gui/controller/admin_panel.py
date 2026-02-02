@@ -87,11 +87,11 @@ class AdminPanel:
         sp.text_size = self._gui.s_10
 
         # scope
-        # tb = self._titlebox(
-        #     admin_box,
-        #     text="Logging & Debugging",
-        #     grid=[0, 2, 2, 1],
-        # )
+        tb = self._titlebox(
+            admin_box,
+            text="Logging & Debugging",
+            grid=[0, 2, 2, 1],
+        )
         #
         # self._echo_btn = cb = CheckBox(
         #     tb,
