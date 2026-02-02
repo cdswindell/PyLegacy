@@ -102,6 +102,7 @@ class GuiZeroBase(Thread, ABC):
         self.s_6: int = int(round(6 * scale_by))
         self.s_4: int = int(round(4 * scale_by))
         self.s_2: int = int(round(2 * scale_by))
+        self.s_1: int = int(round(1 * scale_by))
 
         self.text_pad_x = 20
         self.text_pad_y = 20
