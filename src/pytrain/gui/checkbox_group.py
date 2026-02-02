@@ -78,7 +78,7 @@ class CheckBoxGroup(ButtonGroup):
 
                 # Checked: ring + filled dot
                 _draw_circle_outline(sel, border_color, thickness=max(1, thickness), inset=1)
-                _draw_circle_filled(sel, check_color, radius_frac=0.3)
+                _draw_circle_filled(sel, check_color, radius_frac=0.33)
 
             widget._pytrain_images[("unsel", style, indicator_size)] = unsel
             widget._pytrain_images[("sel", style, indicator_size)] = sel
