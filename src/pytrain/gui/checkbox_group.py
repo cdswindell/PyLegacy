@@ -30,6 +30,7 @@ class CheckBoxGroup(ButtonGroup):
         padx: int = 18,
         pady: int = 6,
         style: Literal["checkbox", "radio"] = "checkbox",
+        thickness: int = 2,
         border_color: str = "black",
         check_color: str = LIONEL_BLUE,
         background: str = WHITE,
@@ -65,18 +66,18 @@ class CheckBoxGroup(ButtonGroup):
 
             if style == "checkbox":
                 # Unchecked: empty square
-                _draw_rect_outline(unsel, border_color, thickness=max(2, indicator_size // 8), inset=1)
+                _draw_rect_outline(unsel, border_color, thickness=max(1, thickness), inset=1)
 
                 # Checked: same square + checkmark
-                _draw_rect_outline(sel, border_color, thickness=max(2, indicator_size // 8), inset=1)
+                _draw_rect_outline(sel, border_color, thickness=max(1, thickness), inset=1)
                 _draw_checkmark(sel, check_color, thickness=max(2, indicator_size // 6))
 
             else:  # "radio"
                 # Unchecked: ring
-                _draw_circle_outline(unsel, border_color, thickness=max(2, indicator_size // 8), inset=1)
+                _draw_circle_outline(unsel, border_color, thickness=max(1, thickness), inset=1)
 
                 # Checked: ring + filled dot
-                _draw_circle_outline(sel, border_color, thickness=max(2, indicator_size // 8), inset=1)
+                _draw_circle_outline(sel, border_color, thickness=max(1, thickness), inset=1)
                 _draw_circle_filled(sel, check_color, radius_frac=0.28)
 
             widget._pytrain_images[("unsel", style, indicator_size)] = unsel
@@ -95,6 +96,7 @@ class CheckBoxGroup(ButtonGroup):
         size: int = 22,
         width: int = None,
         style: Literal["checkbox", "radio"] = "checkbox",
+        thickness: int = 2,
         **kwargs,
     ):
         # now initialize parent class
@@ -105,7 +107,15 @@ class CheckBoxGroup(ButtonGroup):
 
         # indicator_size = int(size * scale_by)
         for widget in self.tk.winfo_children():
-            self.decorate_checkbox(widget, size, self._dis_width, self._padx, self._pady, style=style)
+            self.decorate_checkbox(
+                widget,
+                size,
+                self._dis_width,
+                self._padx,
+                self._pady,
+                style=style,
+                thickness=thickness,
+            )
 
 
 def _fill(img, color: str) -> None:
