@@ -242,13 +242,15 @@ class AdminPanel:
                 )
             tb.tk.config(width=self._width)
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
+        if grid:
+            tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
         tb.tk.config(width=self._width)
         if is_height:
             tb.tk.pack_propagate(False)
         else:
             tb.tk.pack_propagate(True)
-        tb.tk.grid_columnconfigure(grid[0], weight=1)
+        if grid:
+            tb.tk.grid_columnconfigure(grid[0], weight=1)
 
         return tb
 
