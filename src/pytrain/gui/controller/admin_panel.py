@@ -87,19 +87,19 @@ class AdminPanel:
         sp.text_size = self._gui.s_10
 
         # scope
-        tb = self._titlebox(
-            admin_box,
-            text="Logging & Debugging",
-            grid=[0, 2, 2, 1],
-        )
-
-        self._echo_btn = cb = CheckBox(
-            tb,
-            text="Echo Commands",
-            grid=[0, 0],
-            width=int(self._width / 2.5),
-        )
-        cb.text_size = self._gui.s_18
+        # tb = self._titlebox(
+        #     admin_box,
+        #     text="Logging & Debugging",
+        #     grid=[0, 2, 2, 1],
+        # )
+        #
+        # self._echo_btn = cb = CheckBox(
+        #     tb,
+        #     text="Echo Commands",
+        #     grid=[0, 0],
+        #     width=int(self._width / 2.5),
+        # )
+        # cb.text_size = self._gui.s_18
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_10
