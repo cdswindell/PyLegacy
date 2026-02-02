@@ -201,7 +201,7 @@ class AdminPanel:
     def _on_echo(self) -> None:
         self._pytrain.echo = bool(self._echo_btn.value)
 
-    def _on_debug(self, value: int) -> None:
+    def _on_debug(self) -> None:
         self._pytrain.debug = bool(self._debug_btn.value)
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
