@@ -198,11 +198,11 @@ class AdminPanel:
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
-    def _on_echo(self, value: int) -> None:
-        self._pytrain.echo = bool(value)
+    def _on_echo(self) -> None:
+        self._pytrain.echo = bool(self._echo_btn.value)
 
     def _on_debug(self, value: int) -> None:
-        self._pytrain.debug = bool(value)
+        self._pytrain.debug = bool(self._debug_btn.value)
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         if self._scope_btns.value == "0":
