@@ -88,10 +88,10 @@ class AdminPanel:
         sp.text_size = self._gui.s_2
 
         # logging & debugging
-        row = Box(admin_box, align="top", width="fill", grid=[0, 2, 2, 1])
         tb = self._titlebox(
-            row,
+            admin_box,
             text="Logging & Debugging",
+            grid=[0, 2, 2, 1],
             width="fill",
         )
 
@@ -110,8 +110,9 @@ class AdminPanel:
             grid=[1, 0],
             command=self._on_debug,
         )
-        cb.text_size = self._gui.s_20
         cb.value = 1 if self._pytrain.debug else 0
+        cb.text_size = self._gui.s_20
+        self._decorate_checkbox(cb)
 
         sp = Text(admin_box, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
@@ -225,40 +226,21 @@ class AdminPanel:
             )
             tb.tk.config(width=self._width)
         else:
-            if grid:
-                tb = TitleBox(
-                    parent,
-                    text=text,
-                    layout="grid",  # use grid INSIDE the TitleBox
-                    align="top",
-                    grid=grid,
-                )
-                tb.tk.config(width=self._width)
-                print(f"Grid: {text} {grid}")
-            else:
-                tb = TitleBox(
-                    parent,
-                    text=text,
-                    layout="grid",  # use grid INSIDE the TitleBox
-                    align="top",
-                )
-                tb.tk.config(
-                    bd=2,
-                    relief="groove",
-                    highlightthickness=1,
-                    highlightbackground="black",
-                    fg="black",  # title text color (often works)
-                )
-                print(f"No Grid: {text}")
+            tb = TitleBox(
+                parent,
+                text=text,
+                layout="grid",  # use grid INSIDE the TitleBox
+                align="top",
+                grid=grid,
+            )
+            tb.tk.config(width=self._width)
         tb.text_size = self._gui.s_10
-        if grid:
-            tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
+        tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
         if is_height:
             tb.tk.pack_propagate(False)
         else:
             tb.tk.pack_propagate(True)
-        if grid:
-            tb.tk.grid_columnconfigure(grid[0], weight=1)
+        tb.tk.grid_columnconfigure(grid[0], weight=1)
         return tb
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
@@ -293,3 +275,27 @@ class AdminPanel:
             self._sync_state.text = "Reloading..."
             self._sync_state.bg = "white"
             self._reload_btn.disable()
+
+    @staticmethod
+    def _decorate_checkbox(cb: CheckBox):
+        indicator_size = 22
+        widget = cb.tk
+        widget.config(
+            font=("TkDefaultFont", 22),
+            padx=18,  # Horizontal padding inside each radio button
+            pady=6,  # Vertical padding inside each radio button
+            anchor="w",
+        )
+        # Increase the size of the radio button indicator
+        widget.tk.eval(f"""
+            image create photo radio_unsel_{id(widget)} -width {indicator_size} -height {indicator_size}
+            image create photo radio_sel_{id(widget)} -width {indicator_size} -height {indicator_size}
+            radio_unsel_{id(widget)} put white -to 0 0 {indicator_size} {indicator_size}
+            radio_sel_{id(widget)} put green -to 0 0 {indicator_size} {indicator_size}
+        """)
+        widget.config(
+            image=f"radio_unsel_{id(widget)}",
+            selectimage=f"radio_sel_{id(widget)}",
+            compound="left",
+            indicatoron=False,
+        )
