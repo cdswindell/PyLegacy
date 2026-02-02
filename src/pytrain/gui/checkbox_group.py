@@ -133,6 +133,24 @@ class CheckBoxGroup(ButtonGroup):
             indicatoron=False,
         )
 
+    def __init__(
+        self,
+        master,
+        size: int = 22,
+        width: int = None,
+        style: Literal["checkbox", "radio"] = "checkbox",
+        **kwargs,
+    ):
+        # now initialize parent class
+        self._padx = kwargs.pop("padx", 18)
+        self._pady = kwargs.pop("pady", 6)
+        self._dis_width = width
+        super().__init__(master, **kwargs)
+
+        # indicator_size = int(size * scale_by)
+        for widget in self.tk.winfo_children():
+            self.decorate_checkbox(widget, size, self._dis_width, self._padx, self._pady, style=style)
+
 
 def _fill(img, color: str) -> None:
     w, h = img.width(), img.height()
