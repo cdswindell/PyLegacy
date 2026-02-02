@@ -198,7 +198,7 @@ def _draw_circle_outline(img, color: str, thickness: int = 2, inset: int = 1) ->
                 img.put(color, to=(x, y, x + 1, y + 1))
 
 
-def _draw_circle_filled(img, color: str, radius_frac: float = 2) -> None:
+def _draw_circle_filled(img, color: str, radius_frac: float = 1) -> None:
     w, h = img.width(), img.height()
     cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
     r = min(w, h) * radius_frac
@@ -208,4 +208,5 @@ def _draw_circle_filled(img, color: str, radius_frac: float = 2) -> None:
         for x in range(w):
             dx, dy = x - cx, y - cy
             if (dx * dx + dy * dy) <= r2:
+                print(x, y, dx, dy, r2)
                 img.put(color, to=(x, y, x + 1, y + 1))
