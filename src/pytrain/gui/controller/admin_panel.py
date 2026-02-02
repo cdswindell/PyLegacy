@@ -283,13 +283,13 @@ class AdminPanel:
             padx=18,  # Horizontal padding inside each radio button
             pady=6,  # Vertical padding inside each radio button
             anchor="w",
-            width=int(self._width / 2.5),
+            width=int(self._width / 2),
         )
         # Increase the size of the radio button indicator
         widget.tk.eval(f"""
             image create photo radio_unsel_{id(widget)} -width {indicator_size} -height {indicator_size}
             image create photo radio_sel_{id(widget)} -width {indicator_size} -height {indicator_size}
-            radio_unsel_{id(widget)} put gray -to 0 0 {indicator_size} {indicator_size}
+            radio_unsel_{id(widget)} put lightgray -to 0 0 {indicator_size} {indicator_size}
             radio_sel_{id(widget)} put green -to 0 0 {indicator_size} {indicator_size}
         """)
         widget.config(
