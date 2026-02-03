@@ -1,4 +1,3 @@
-#
 #  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
 #  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
@@ -7,6 +6,10 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
+from __future__ import annotations
+
+from typing import Any, Mapping
+
 from guizero import Box, PushButton, Text
 
 from ..db.accessory_state import AccessoryState
@@ -14,20 +17,10 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
+from .accessories.accessory_registry import AccessoryRegistry
+from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
-
-VARIANTS = {
-    "dairymens league 6-14291": "Dairymens-League-6-14291.jpg",
-    "moose pond creamery 6-22660": "Moose-Pond-Creamery-6-22660.jpg",
-    "mountain view creamery 6-21675": "Mountain-View-Creamery-6-21675.jpg",
-}
-
-TITLES = {
-    "Dairymens-League-6-14291.jpg": "Dairymen's League",
-    "Moose-Pond-Creamery-6-22660.jpg": "Moose Pond Creamery",
-    "Mountain-View-Creamery-6-21675.jpg": "Mountain View Creamery",
-}
 
 
 class MilkLoaderGui(AccessoryBase):
@@ -36,47 +29,73 @@ class MilkLoaderGui(AccessoryBase):
         power: int,
         conveyor: int,
         eject: int,
-        variant: str = None,
+        variant: str | None = None,
+        operation_images: Mapping[str, Any] | None = None,
         *,
-        aggregator: AccessoryGui = None,
+        aggregator: AccessoryGui | None = None,
     ):
         """
         Create a GUI to control a K-Line/Lionel Milk Loader.
 
         :param int power:
-            TMCC ID of the ACS2 port used to power the milk loader.
+            TMCC ID of the ASC2 port used to power the milk loader.
 
         :param int conveyor:
-            TMCC ID of the ACS2 port used to control the conveyor belt.
+            TMCC ID of the ASC2 port used to control the conveyor belt.
 
         :param int eject:
-            TMCC ID of the ACS2 port used to eject a milk can.
+            TMCC ID of the ASC2 port used to eject a milk can.
 
         :param str variant:
-            Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
-        """
+            Optional; Specifies the variant (stable key preferred, but aliases accepted).
 
-        # identify the accessory
-        self._title, self._image = self.get_variant(variant)
+        :param Mapping[str, Any] operation_images:
+            Optional; per-instance operation image overrides.
+
+            Supported formats:
+              - {"eject": "custom-eject.jpeg"} for momentary/default operations
+              - {"power": {"off": "...", "on": "..."}} for latch operations
+        """
+        registry = AccessoryRegistry.instance()
+        registry.bootstrap()
+
+        # Definition is GUI-agnostic and includes variant + bundled per-operation assets (filenames)
+        definition = registry.get_definition(AccessoryType.MILK_LOADER, variant)
+        print(f"MilkLoaderGui: {definition.variant.title} ({definition.type}) {definition}")
+
         self._power = power
         self._conveyor = conveyor
         self._eject = eject
         self._variant = variant
+
         self.power_button = self.conveyor_button = self.eject_button = None
         self.power_state = self.conveyor_state = self.eject_state = None
-        self.eject_image = find_file("depot-milk-can-eject.jpeg")
+
+        # Main title + image from definition variant
+        self._title = definition.variant.title
+        self._image = find_file(definition.variant.image)
+
+        # Resolve operation image for "eject" (momentary) with precedence:
+        #   instance override -> variant override -> operation default -> None
+        eject_assets = self._find_assets(definition, "eject")
+        eject_image = eject_assets.image
+        if operation_images:
+            ov = operation_images.get("eject")
+            if isinstance(ov, str):
+                eject_image = ov
+
+        # Registry spec defines a default for eject; keep a safe fallback anyway.
+        self.eject_image = find_file(eject_image or "depot-milk-can-eject.jpeg")
+
         super().__init__(self._title, self._image, aggregator=aggregator)
 
     @staticmethod
-    def get_variant(variant) -> tuple[str, str]:
-        if variant is None:
-            variant = "Moose Pond"
-        variant = MilkLoaderGui.normalize(variant)
-        for k, v in VARIANTS.items():
-            if variant in k:
-                title = TITLES[v]
-                return title, find_file(v)
-        raise ValueError(f"Unsupported milk loader: {variant}")
+    def _find_assets(definition, key: str):
+        nk = " ".join(key.strip().lower().split())
+        for op in definition.operations:
+            if " ".join(op.key.strip().lower().split()) == nk:
+                return op
+        raise KeyError(f"MilkLoaderGui: operation assets not found: {key}")
 
     def get_target_states(self) -> list[S]:
         self.power_state = self._state_store.get_state(CommandScope.ACC, self._power)
@@ -94,15 +113,18 @@ class MilkLoaderGui(AccessoryBase):
     def switch_state(self, state: AccessoryState) -> None:
         with self._cv:
             if state == self.eject_state:
-                pass
-            elif state.is_aux_on:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
-                    self.queue_message(lambda: self.eject_button.disable())
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
+                # Eject is momentary (press/release handlers)
+                return
+
+            # LATCH behavior for power / conveyor
+            CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
+
+            if state == self.power_state:
+                # If power is off, disable eject; if power is on, enable eject
+                if state.is_aux_on:
                     self.queue_message(lambda: self.eject_button.enable())
+                else:
+                    self.queue_message(lambda: self.eject_button.disable())
 
     def build_accessory_controls(self, box: Box) -> None:
         max_text_len = len("Conveyor") + 2

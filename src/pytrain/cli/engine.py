@@ -680,7 +680,9 @@ class EngineCli(CliBaseTMCC):
             else:
                 self._command_format = CommandSyntax.TMCC
 
-    def _decode_engine_option(self) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | None:
+    def _decode_engine_option(
+        self,
+    ) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | SequenceCommandEnum | None:
         """
         Decode the 'option' argument, if present, into a valid
         TMCC1EngineCommandDef, TMCC2EngineCommandDef, or one of the multiword TMCC2
@@ -741,7 +743,7 @@ class EngineCli(CliBaseTMCC):
     def _get_option_enum(
         option: str,
         assume_tmcc: bool,
-    ) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | None:
+    ) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | SequenceCommandEnum | None:
         if assume_tmcc:
             enum_classes = [TMCC1EngineCommandEnum, SequenceCommandEnum]
         else:
