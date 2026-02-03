@@ -160,10 +160,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
             self._synchronized = True
 
             # initialize registry
-            print("Initializing accessory registry...")
-            self._registry = AccessoryRegistry()
+            self._registry = AccessoryRegistry.get()
             self._registry.bootstrap()
-            print("Accessory registry initialized.")
 
             # bind variant to gui
             self.bind_variant()

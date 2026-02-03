@@ -86,7 +86,7 @@ def configure_accessory(
       - {"eject": "custom.jpg"} for momentary/default operations
       - {"power": {"off": "...", "on": "..."}} for latch operations
     """
-    registry = AccessoryRegistry.instance()
+    registry = AccessoryRegistry.get()
     spec = registry.get_spec(definition.type)
 
     ops: list[ConfiguredOperation] = []
