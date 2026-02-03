@@ -89,7 +89,6 @@ class MilkLoaderGui(AccessoryBase):
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
-        print(f"MilkLoaderGui: switch_state: {state} {state.is_aux_on}")
         with self._cv:
             if state == self.eject_state:
                 # Eject is momentary (press/release handlers)
@@ -103,7 +102,6 @@ class MilkLoaderGui(AccessoryBase):
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
         if state == self.power_state:
             # If power is off, disable eject; if power is on, enable eject
-            print(f"MilkLoaderGui: power_state: {state} {state.is_aux_on}")
             if state.is_aux_on:
                 self.queue_message(lambda: self.eject_button.enable())
             else:

@@ -179,7 +179,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
         with self._cv:
             pd: S = self._states[tmcc_id]
             pb = self._state_buttons.get(tmcc_id, None)
-            print(f"Update Button: {tmcc_id} {pd} {pb}")
             if pb:
                 if self.is_active(pd):
                     self.set_button_active(pb)
@@ -209,7 +208,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
-                print(f"New State: {self._states[tmcc_id]}")
                 self._message_queue.put((self.update_button, [tmcc_id]))
 
         return upd
@@ -246,7 +244,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 try:
                     message = self._message_queue.get_nowait()
                     if isinstance(message, tuple):
-                        print(f"GUI Thread: {message}")
                         if message[1] and len(message[1]) > 0:
                             message[0](*message[1])
                         else:
