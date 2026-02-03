@@ -1,20 +1,21 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 from guizero import Box, PushButton, Text
 
+from .accessory_base import AccessoryBase, S
+from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, S
-from .accessory_gui import AccessoryGui
 
 VARIANTS = {
     "atlantic gas station 30 91003": "Atlantic-Gas-Station-30-91003.jpg",
@@ -49,12 +50,12 @@ TITLES = {
 
 class GasStationGui(AccessoryBase):
     def __init__(
-        self,
-        power: int,
-        alarm: int,
-        variant: str = None,
-        *,
-        aggregator: AccessoryGui = None,
+            self,
+            power: int,
+            alarm: int,
+            variant: str = None,
+            *,
+            aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a MTH Gas Station.
