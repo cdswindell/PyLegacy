@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-
 from guizero import Box, PushButton, Text
 
 from ..db.accessory_state import AccessoryState
@@ -29,7 +27,6 @@ class MilkLoaderGui(AccessoryBase):
         conveyor: int,
         eject: int,
         variant: str | None = None,
-        operation_images: Mapping[str, Any] | None = None,
         *,
         aggregator: AccessoryGui | None = None,
     ):
@@ -47,13 +44,6 @@ class MilkLoaderGui(AccessoryBase):
 
         :param str variant:
             Optional; Specifies the variant (stable key preferred, but aliases accepted).
-
-        :param Mapping[str, Any] operation_images:
-            Optional; per-instance operation image overrides.
-
-            Supported formats:
-              - {"eject": "custom-eject.jpeg"} for momentary/default operations
-              - {"power": {"off": "...", "on": "..."}} for latch operations
         """
         self._power = power
         self._conveyor = conveyor
@@ -68,19 +58,9 @@ class MilkLoaderGui(AccessoryBase):
         self._image = None
         self._eject_image = None
 
-        # # Resolve operation image for "eject" (momentary) with precedence:
-        # #   instance override -> variant override -> operation default -> None
-        # eject_assets = self._find_assets(definition, "eject")
-        # eject_image = eject_assets.image
-        # if operation_images:
-        #     ov = operation_images.get("eject")
-        #     if isinstance(ov, str):
-        #         eject_image = ov
-        #
-        # # Registry spec defines a default for eject; keep a safe fallback anyway.
-        # self.eject_image = find_file(eject_image or "depot-milk-can-eject.jpeg")
-
+        print("before accessory_base.__init__")
         super().__init__(self._title, self._image, aggregator=aggregator)
+        print("after accessory_base.__init__")
 
     def bind_variant(self) -> None:
         # Definition is GUI-agnostic and includes variant + bundled per-operation assets (filenames)

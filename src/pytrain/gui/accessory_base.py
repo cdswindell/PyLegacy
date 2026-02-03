@@ -163,6 +163,9 @@ class AccessoryBase(Thread, Generic[S], ABC):
             self._registry = AccessoryRegistry.get()
             self._registry.bootstrap()
 
+            # bind variant to gui
+            self.bind_variant()
+
             # get all target states; watch for state changes
             accs = self.get_target_states()
             for acc in accs:
