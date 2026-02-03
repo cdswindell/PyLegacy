@@ -733,11 +733,8 @@ class EngineCli(CliBaseTMCC):
         opt_enum = self._get_option_enum(option, self.is_tmcc1)
         if opt_enum is None and self.is_tmcc1 and engine == BROADCAST_ADDRESS:
             opt_enum = self._get_option_enum(option, False)
-        # if scope is TMCC1, resolve via TMCC1EngineCommandDef
-        print(f"Engine: {engine}, Option: {option} is tmcc1: {self.is_tmcc1} {opt_enum}")
         if opt_enum is not None:
             return opt_enum
-
         raise ArgumentError(None, f"Invalid {self.command_format.name} option: {option}")
 
     @staticmethod
