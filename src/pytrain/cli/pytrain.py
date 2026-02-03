@@ -165,7 +165,7 @@ class PyTrain:
             self._base_port = base_pieces[1] if len(base_pieces) > 1 else DEFAULT_BASE_PORT
             self._client = False  # disable client mode
         elif self._server is None and args.client is True and args.ser2 is False:
-            # use avahi/zeroconf to locate a PyTrain server on the local network
+            # use avahi/zeroconf to locate a PyTrain server on the local network,
             # raise exception and exit if none found
             info = self.get_service_info()
             if info is None:
@@ -329,7 +329,7 @@ class PyTrain:
                 else:
                     self._load_client_state()
 
-            # process startup script, we need state loaded before doing this
+            # process startup script; need state loaded before doing this
             if self._buttons_file:
                 self._buttons_loader = ButtonsFileLoader(self._buttons_file, self)
                 self._buttons_loader.join()
@@ -957,7 +957,7 @@ class PyTrain:
             return "No command specified."
         ui = ui.lower().strip()
         if ui:
-            # show help if user enters '?'
+            # display help if user enters '?'
             if ui == "?":
                 ui = "h"
             # the argparse library requires the argument string to be presented as a list
