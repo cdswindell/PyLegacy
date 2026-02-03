@@ -161,7 +161,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
             # initialize registry
             print("Initializing accessory registry...")
-            self._registry = AccessoryRegistry.get()
+            self._registry = AccessoryRegistry()
             self._registry.bootstrap()
             print("Accessory registry initialized.")
 
