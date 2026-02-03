@@ -26,14 +26,18 @@ class _SingletonMeta(type):
         the allocated instance BEFORE calling __init__.
         """
         with _SingletonMeta._lock:
+            print(f"Creating singleton instance of {cls.__name__}")
             inst = _SingletonMeta._instances.get(cls)
             if inst is not None:
+                print(f"Returning existing singleton instance of {cls.__name__}")
                 return inst
 
+            print(f"Initializing:  {cls in _SingletonMeta._initializing}")
             if cls in _SingletonMeta._initializing:
                 # Re-entrant access during __init__. Return the partially
                 # constructed instance if it was stored; otherwise fail loudly.
                 inst2 = _SingletonMeta._instances.get(cls)
+                print(f"Re-entrant singleton construction for {cls.__name__} inst2: {inst2}")
                 if inst2 is not None:
                     return inst2
                 raise RuntimeError(f"Re-entrant singleton construction for {cls.__name__}")
@@ -42,9 +46,11 @@ class _SingletonMeta(type):
 
             try:
                 # Allocate without running __init__
+                print(f"Allocating singleton instance of {cls.__name__}")
                 inst = cls.__new__(cls, *args, **kwargs)  # type: ignore[misc]
 
                 # Store immediately to break recursion
+                print(f"Storing singleton instance of {cls.__name__}")
                 _SingletonMeta._instances[cls] = inst
 
                 # Mark initialization flags expected by your tests (optional)
@@ -53,10 +59,13 @@ class _SingletonMeta(type):
                 setattr(inst, "_singleton_init_done", True)
 
                 # Now run __init__ exactly once
+                print(f"Running __init__ for singleton instance of {cls.__name__}")
                 cls.__init__(inst, *args, **kwargs)  # type: ignore[misc]
+                print(f"Finished __init__ for singleton instance of {cls.__name__}")
 
                 return inst
             finally:
+                print(f"Finished creating singleton instance of {cls.__name__}")
                 _SingletonMeta._initializing.discard(cls)
 
     def instance(cls, *args, **kwargs):
