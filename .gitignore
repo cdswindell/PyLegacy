@@ -2,6 +2,8 @@ dist/
 src/*.egg-info/
 src/pytrain/_version.py
 .idea/
+!.idea/
+.idea/*
 !.idea/dictionaries/
 !.idea/dictionaries/project.xml
 .tox/
