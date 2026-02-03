@@ -233,6 +233,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
         app.full_screen = True
         app.when_closed = self.close
 
+        print(self.title, self.image_file, self.width, self.height, self._aggregator)
+
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
             self._app_counter += 1
