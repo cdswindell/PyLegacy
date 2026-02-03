@@ -119,6 +119,7 @@ class MilkLoaderGui(AccessoryBase):
         self.power_state = self._state_store.get_state(CommandScope.ACC, power_id)
         self.conveyor_state = self._state_store.get_state(CommandScope.ACC, conveyor_id)
         self.eject_state = self._state_store.get_state(CommandScope.ACC, eject_id)
+        print(f"Bound states: power={power_id}: {self.power_state}, conveyor={conveyor_id}, eject={eject_id}")
         return [
             self.power_state,
             self.conveyor_state,
