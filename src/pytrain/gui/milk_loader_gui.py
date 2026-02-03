@@ -58,14 +58,11 @@ class MilkLoaderGui(AccessoryBase):
         self._image = None
         self._eject_image = None
 
-        print("before accessory_base.__init__")
         super().__init__(self._title, self._image, aggregator=aggregator)
-        print("after accessory_base.__init__")
 
     def bind_variant(self) -> None:
         # Definition is GUI-agnostic and includes variant + bundled per-operation assets (filenames)
         definition = self.registry.get_definition(AccessoryType.MILK_LOADER, self._variant)
-        print(f"MilkLoaderGui: {definition.variant.title} ({definition.type}) {definition}")
         self.title = self._title = definition.variant.title
         self.image_file = self._image = find_file(definition.variant.image)
         self._eject_image = find_file(self._find_assets(definition, "eject").image)

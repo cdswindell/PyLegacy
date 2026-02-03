@@ -207,6 +207,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
+                print(f"New State: {self._states[tmcc_id]}")
                 self._message_queue.put((self.update_button, [tmcc_id]))
 
         return upd
