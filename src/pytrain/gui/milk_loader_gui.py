@@ -9,13 +9,13 @@
 
 from guizero import Box, PushButton, Text
 
-from .accessory_base import AccessoryBase, S
-from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
+from .accessory_base import AccessoryBase, S
+from .accessory_gui import AccessoryGui
 
 VARIANTS = {
     "dairymens league 6-14291": "Dairymens-League-6-14291.jpg",
