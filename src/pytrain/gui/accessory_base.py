@@ -106,7 +106,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.alarm_off_image = find_file("red_light_off.jpg")
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
-        self._app_counter = 0
         self._message_queue = Queue()
 
         # States
@@ -232,11 +231,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
         app.full_screen = True
         app.when_closed = self.close
 
-        print(self.title, self.image_file, self.width, self.height, self._aggregator)
-
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
-            self._app_counter += 1
             if self._shutdown_flag.is_set():
                 try:
                     app.destroy()
@@ -247,6 +243,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 try:
                     message = self._message_queue.get_nowait()
                     if isinstance(message, tuple):
+                        print(f"GUI Thread: {message}")
                         if message[1] and len(message[1]) > 0:
                             message[0](*message[1])
                         else:
