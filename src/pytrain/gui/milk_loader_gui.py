@@ -102,6 +102,7 @@ class MilkLoaderGui(AccessoryBase):
 
             if state == self.power_state:
                 # If power is off, disable eject; if power is on, enable eject
+                print(f"MilkLoaderGui: power_state: {state} {state.is_aux_on}")
                 if state.is_aux_on:
                     self.queue_message(lambda: self.eject_button.enable())
                 else:
