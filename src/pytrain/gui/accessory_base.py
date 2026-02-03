@@ -1,9 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 from __future__ import annotations
@@ -17,11 +18,12 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar
 
+from PIL import Image
 from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
 from guizero.event import EventData
-from PIL import Image
 
+from .accessory_gui import AccessoryGui
 from ..comm.command_listener import CommandDispatcher
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
@@ -31,7 +33,6 @@ from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import Asc2Action, PdiCommand
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
-from .accessory_gui import AccessoryGui
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
@@ -49,19 +50,19 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     @abstractmethod
     def __init__(
-        self,
-        title: str,
-        image_file: str = None,
-        width: int = None,
-        height: int = None,
-        aggregator: AccessoryGui = None,
-        enabled_bg: str = "green",
-        disabled_bg: str = "black",
-        enabled_text: str = "black",
-        disabled_text: str = "lightgrey",
-        scale_by: float = 1.0,
-        max_image_width: float = 0.80,
-        max_image_height: float = 0.45,
+            self,
+            title: str,
+            image_file: str = None,
+            width: int = None,
+            height: int = None,
+            aggregator: AccessoryGui = None,
+            enabled_bg: str = "green",
+            disabled_bg: str = "black",
+            enabled_text: str = "black",
+            disabled_text: str = "lightgrey",
+            scale_by: float = 1.0,
+            max_image_width: float = 0.80,
+            max_image_height: float = 0.45,
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -426,21 +427,27 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
             self.post_process_when_released(pb, state)
 
-    def post_process_when_pressed(self, button: PushButton, state: S) -> None: ...
+    def post_process_when_pressed(self, button: PushButton, state: S) -> None:
+        ...
 
-    def post_process_when_released(self, button: PushButton, state: S) -> None: ...
-
-    @abstractmethod
-    def get_target_states(self) -> list[S]: ...
-
-    @abstractmethod
-    def is_active(self, state: S) -> bool: ...
+    def post_process_when_released(self, button: PushButton, state: S) -> None:
+        ...
 
     @abstractmethod
-    def switch_state(self, state: S) -> bool: ...
+    def get_target_states(self) -> list[S]:
+        ...
 
     @abstractmethod
-    def build_accessory_controls(self, box: Box) -> None: ...
+    def is_active(self, state: S) -> bool:
+        ...
+
+    @abstractmethod
+    def switch_state(self, state: S) -> bool:
+        ...
+
+    @abstractmethod
+    def build_accessory_controls(self, box: Box) -> None:
+        ...
 
 
 class MomentaryActionHandler(Thread, Generic[S]):

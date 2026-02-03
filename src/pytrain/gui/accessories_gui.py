@@ -1,10 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
-#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 from __future__ import annotations
@@ -26,13 +26,13 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 
 class AccessoriesGui(StateBasedGui):
     def __init__(
-        self,
-        label: str = None,
-        width: int = None,
-        height: int = None,
-        aggregator: ComponentStateGui = None,
-        scale_by: float = 1.0,
-        exclude_unnamed: bool = False,
+            self,
+            label: str = None,
+            width: int = None,
+            height: int = None,
+            aggregator: ComponentStateGui = None,
+            scale_by: float = 1.0,
+            exclude_unnamed: bool = False,
     ) -> None:
         self._is_momentary = set()
         self._released_events = dict[int, Event]()

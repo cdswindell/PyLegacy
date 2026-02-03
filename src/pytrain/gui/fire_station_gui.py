@@ -1,20 +1,21 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 from guizero import Box, PushButton, Text
 
+from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
+from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
-from .accessory_gui import AccessoryGui
 
 VARIANTS = {
     "mth fire station 30-9157": "Fire-Station-MTH-30-9157.jpg",
@@ -27,12 +28,12 @@ TITLES = {
 
 class FireStationGui(AccessoryBase):
     def __init__(
-        self,
-        power: int,
-        alarm: int,
-        variant: str = None,
-        *,
-        aggregator: AccessoryGui = None,
+            self,
+            power: int,
+            alarm: int,
+            variant: str = None,
+            *,
+            aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a MTH Fire Station.
@@ -112,7 +113,7 @@ class FireStationGui(AccessoryBase):
     def set_button_active(self, button: PushButton) -> None:
         with self._cv:
             if button == self.alarm_button and self.is_active(self.power_state):
-                # Switch to animated gif
+                # Switch to animated GIF
                 self.alarm_button.image = self.alarm_on_image
                 self.alarm_button.height = self.alarm_button.width = self.s_72
                 self.app.after(5000, self.deactivate_alarm)
