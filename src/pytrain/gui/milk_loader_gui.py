@@ -96,6 +96,9 @@ class MilkLoaderGui(AccessoryBase):
         eject_op = self._op("eject")
         self._eject_image = find_file(eject_op.image or "depot-milk-can-eject.jpeg")
 
+        # make sure we have a configuration
+        assert self._cfg is not None
+
     def _op(self, key: str):
         """
         Return the configured operation by key.
@@ -184,5 +187,7 @@ class MilkLoaderGui(AccessoryBase):
         self.eject_button.when_left_button_pressed = self.when_pressed
         self.eject_button.when_left_button_released = self.when_released
         self.register_widget(self.eject_state, self.eject_button)
-        if not self.is_active(self.power_state):
-            self.eject_button.disable()
+        self.register_widget(self.eject_state, self.eject_button)
+
+        # Robust initial gating
+        self.after_state_change(None, self.power_state)

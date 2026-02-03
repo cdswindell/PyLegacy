@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .accessory_type import AccessoryType
 from ...protocol.constants import Mixins
 from ...utils.singleton import singleton
-from .accessory_type import AccessoryType
 
 
 class PortBehavior(Mixins):
@@ -174,6 +174,10 @@ class AccessoryRegistry:
 
         register_all_accessory_types(self)
         self._bootstrapped = True
+
+    @property
+    def is_bootstrapped(self) -> bool:
+        return self._bootstrapped
 
     def reset_for_tests(self) -> None:
         self._specs.clear()
