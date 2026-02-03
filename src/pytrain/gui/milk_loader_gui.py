@@ -95,6 +95,7 @@ class MilkLoaderGui(AccessoryBase):
                 return
 
             # LATCH behavior for power / conveyor
+            print(f"MilkLoaderGui: switch_state: {state} {state.is_aux_on}")
             CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
 
             if state == self.power_state:
