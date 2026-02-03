@@ -52,7 +52,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
     @abstractmethod
     def __init__(
         self,
-        title: str,
+        title: str | None,
         image_file: str = None,
         width: int = None,
         height: int = None,
@@ -113,6 +113,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._states = dict[int, S]()
         self._state_buttons = dict[int, Widget | list[Widget]]()
         self._state_watchers = dict[int, StateWatcher]()
+        self._registry: AccessoryRegistry | None = None
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -129,8 +130,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
             self.on_sync()
         else:
             self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-
-        self._registry: AccessoryRegistry | None = None
 
         # Important: don't call tkinter from atexit; only signal
         atexit.register(lambda: self._shutdown_flag.set())
@@ -441,6 +440,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
     def post_process_when_pressed(self, button: PushButton, state: S) -> None: ...
 
     def post_process_when_released(self, button: PushButton, state: S) -> None: ...
+
+    def bind_variant(self) -> None: ...
 
     @abstractmethod
     def get_target_states(self) -> list[S]: ...

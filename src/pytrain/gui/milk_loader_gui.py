@@ -17,7 +17,6 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessories.accessory_registry import AccessoryRegistry
 from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
@@ -56,13 +55,6 @@ class MilkLoaderGui(AccessoryBase):
               - {"eject": "custom-eject.jpeg"} for momentary/default operations
               - {"power": {"off": "...", "on": "..."}} for latch operations
         """
-        registry = AccessoryRegistry.get()
-        registry.bootstrap()
-
-        # Definition is GUI-agnostic and includes variant + bundled per-operation assets (filenames)
-        definition = registry.get_definition(AccessoryType.MILK_LOADER, variant)
-        print(f"MilkLoaderGui: {definition.variant.title} ({definition.type}) {definition}")
-
         self._power = power
         self._conveyor = conveyor
         self._eject = eject
@@ -72,22 +64,31 @@ class MilkLoaderGui(AccessoryBase):
         self.power_state = self.conveyor_state = self.eject_state = None
 
         # Main title + image from definition variant
-        self._title = definition.variant.title
-        self._image = find_file(definition.variant.image)
+        self._title = None
+        self._image = None
+        self._eject_image = None
 
-        # Resolve operation image for "eject" (momentary) with precedence:
-        #   instance override -> variant override -> operation default -> None
-        eject_assets = self._find_assets(definition, "eject")
-        eject_image = eject_assets.image
-        if operation_images:
-            ov = operation_images.get("eject")
-            if isinstance(ov, str):
-                eject_image = ov
-
-        # Registry spec defines a default for eject; keep a safe fallback anyway.
-        self.eject_image = find_file(eject_image or "depot-milk-can-eject.jpeg")
+        # # Resolve operation image for "eject" (momentary) with precedence:
+        # #   instance override -> variant override -> operation default -> None
+        # eject_assets = self._find_assets(definition, "eject")
+        # eject_image = eject_assets.image
+        # if operation_images:
+        #     ov = operation_images.get("eject")
+        #     if isinstance(ov, str):
+        #         eject_image = ov
+        #
+        # # Registry spec defines a default for eject; keep a safe fallback anyway.
+        # self.eject_image = find_file(eject_image or "depot-milk-can-eject.jpeg")
 
         super().__init__(self._title, self._image, aggregator=aggregator)
+
+    def bind_variant(self) -> None:
+        # Definition is GUI-agnostic and includes variant + bundled per-operation assets (filenames)
+        definition = self.registry.get_definition(AccessoryType.MILK_LOADER, self._variant)
+        print(f"MilkLoaderGui: {definition.variant.title} ({definition.type}) {definition}")
+        self.title = self._title = definition.variant.title
+        self.image_file = self._image = find_file(definition.variant.image)
+        self._eject_image = find_file(self._find_assets(definition, "eject").image)
 
     @staticmethod
     def _find_assets(definition, key: str):
@@ -136,7 +137,7 @@ class MilkLoaderGui(AccessoryBase):
         tb.width = max_text_len
         self.eject_button = PushButton(
             eject_box,
-            image=self.eject_image,
+            image=self._eject_image,
             align="top",
             height=self.s_72,
             width=self.s_72,
