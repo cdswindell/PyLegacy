@@ -56,7 +56,7 @@ class MilkLoaderGui(AccessoryBase):
               - {"eject": "custom-eject.jpeg"} for momentary/default operations
               - {"power": {"off": "...", "on": "..."}} for latch operations
         """
-        registry = AccessoryRegistry.instance()
+        registry = AccessoryRegistry.get()
         registry.bootstrap()
 
         # Definition is GUI-agnostic and includes variant + bundled per-operation assets (filenames)

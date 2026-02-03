@@ -149,7 +149,7 @@ class AccessoryRegistry:
     """
 
     @classmethod
-    def instance(cls) -> "AccessoryRegistry":
+    def get(cls) -> "AccessoryRegistry":
         """
         Return the singleton AccessoryRegistry instance.
 
