@@ -277,6 +277,7 @@ class CliBaseTMCC(CliBase):
             self._command_format = self._args.format
         else:
             self._command_format = CommandSyntax.LEGACY
+        print(f"Command format: {self._command_format} {cmd_line}")
 
     def _determine_scope(self):
         return CommandScope.TRAIN if self._args.train else CommandScope.ENGINE

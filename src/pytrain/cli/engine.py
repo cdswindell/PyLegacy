@@ -693,6 +693,7 @@ class EngineCli(CliBaseTMCC):
         # if option is None, check if an aux command was specified via
         # the aux1/aux2 arguments; only one should have a value
         option = self._args.option
+        engine = self._args.engine
         if not option or not option.strip():
             # construct the EngineOptionEnum by prepending the aux choice
             # (AUX1/AUX2) to the suffix based on the argument value
@@ -729,6 +730,7 @@ class EngineCli(CliBaseTMCC):
             self._args.data = min(rr_value.value)
 
         # if scope is TMCC1, resolve via TMCC1EngineCommandDef
+        print(f"Engine: {engine}, Option: {option} is tmcc1: {self.is_tmcc1}")
         if self.is_tmcc1:
             enum_classes = [TMCC1EngineCommandEnum, SequenceCommandEnum]
         else:

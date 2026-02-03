@@ -20,11 +20,11 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     Keep this list explicit so adding a new accessory type is a deliberate code change.
     """
     # Local imports prevent circular import issues during module import time.
-    # from .types.milk_loader import register_milk_loader
-    # from .types.fire_station import register_fire_station
-    # from .types.hobby_shop import register_hobby_shop
-    # ...
 
-    # register_milk_loader(registry)
-    # register_fire_station(registry)
-    # register_hobby_shop(registry)
+    from .defs.control_tower_defs import register_control_tower
+    from .defs.gas_station_defs import register_gas_station
+    from .defs.milk_loader_defs import register_milk_loader
+
+    register_control_tower(registry)
+    register_gas_station(registry)
+    register_milk_loader(registry)
