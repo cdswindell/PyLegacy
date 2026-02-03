@@ -98,13 +98,16 @@ class MilkLoaderGui(AccessoryBase):
             # LATCH behavior for power / conveyor
             CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
 
-            if state == self.power_state:
-                # If power is off, disable eject; if power is on, enable eject
-                print(f"MilkLoaderGui: power_state: {state} {state.is_aux_on}")
-                if state.is_aux_on:
-                    self.queue_message(lambda: self.eject_button.enable())
-                else:
-                    self.queue_message(lambda: self.eject_button.disable())
+            self.after_state_change(None, self.power_state)
+
+    def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
+        if state == self.power_state:
+            # If power is off, disable eject; if power is on, enable eject
+            print(f"MilkLoaderGui: power_state: {state} {state.is_aux_on}")
+            if state.is_aux_on:
+                self.queue_message(lambda: self.eject_button.enable())
+            else:
+                self.queue_message(lambda: self.eject_button.disable())
 
     def build_accessory_controls(self, box: Box) -> None:
         max_text_len = len("Conveyor") + 2

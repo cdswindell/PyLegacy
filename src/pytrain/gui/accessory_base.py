@@ -185,6 +185,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
                     self.set_button_active(pb)
                 else:
                     self.set_button_inactive(pb)
+            # call child's after state change hook
+            self.after_state_change(pb, pd)
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
@@ -444,6 +446,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
     def post_process_when_pressed(self, button: PushButton, state: S) -> None: ...
 
     def post_process_when_released(self, button: PushButton, state: S) -> None: ...
+
+    def after_state_change(self, button: PushButton, state: S) -> None: ...
 
     def bind_variant(self) -> None: ...
 
