@@ -1,10 +1,12 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
+
 from guizero import Box, PushButton, Text
 
 from ..db.accessory_state import AccessoryState
@@ -47,7 +49,7 @@ class FreightDepotGui(AccessoryBase):
             TMCC ID of the ACS2 port used to eject a package.
 
         :param str variant:
-            Optional; Specifies the variant (K-line, ).
+            Optional; Specifies the variant (K-line, etc.).
         """
 
         # identify the accessory
