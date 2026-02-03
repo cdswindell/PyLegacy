@@ -26,13 +26,13 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 
 class AccessoriesGui(StateBasedGui):
     def __init__(
-            self,
-            label: str = None,
-            width: int = None,
-            height: int = None,
-            aggregator: ComponentStateGui = None,
-            scale_by: float = 1.0,
-            exclude_unnamed: bool = False,
+        self,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggregator: ComponentStateGui = None,
+        scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
     ) -> None:
         self._is_momentary = set()
         self._released_events = dict[int, Event]()

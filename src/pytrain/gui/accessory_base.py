@@ -50,19 +50,19 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     @abstractmethod
     def __init__(
-            self,
-            title: str,
-            image_file: str = None,
-            width: int = None,
-            height: int = None,
-            aggregator: AccessoryGui = None,
-            enabled_bg: str = "green",
-            disabled_bg: str = "black",
-            enabled_text: str = "black",
-            disabled_text: str = "lightgrey",
-            scale_by: float = 1.0,
-            max_image_width: float = 0.80,
-            max_image_height: float = 0.45,
+        self,
+        title: str,
+        image_file: str = None,
+        width: int = None,
+        height: int = None,
+        aggregator: AccessoryGui = None,
+        enabled_bg: str = "green",
+        disabled_bg: str = "black",
+        enabled_text: str = "black",
+        disabled_text: str = "lightgrey",
+        scale_by: float = 1.0,
+        max_image_width: float = 0.80,
+        max_image_height: float = 0.45,
     ) -> None:
         Thread.__init__(self, daemon=True, name=f"{title} GUI")
         self._cv = Condition(RLock())
@@ -427,27 +427,21 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
             self.post_process_when_released(pb, state)
 
-    def post_process_when_pressed(self, button: PushButton, state: S) -> None:
-        ...
+    def post_process_when_pressed(self, button: PushButton, state: S) -> None: ...
 
-    def post_process_when_released(self, button: PushButton, state: S) -> None:
-        ...
+    def post_process_when_released(self, button: PushButton, state: S) -> None: ...
 
     @abstractmethod
-    def get_target_states(self) -> list[S]:
-        ...
+    def get_target_states(self) -> list[S]: ...
 
     @abstractmethod
-    def is_active(self, state: S) -> bool:
-        ...
+    def is_active(self, state: S) -> bool: ...
 
     @abstractmethod
-    def switch_state(self, state: S) -> bool:
-        ...
+    def switch_state(self, state: S) -> bool: ...
 
     @abstractmethod
-    def build_accessory_controls(self, box: Box) -> None:
-        ...
+    def build_accessory_controls(self, box: Box) -> None: ...
 
 
 class MomentaryActionHandler(Thread, Generic[S]):

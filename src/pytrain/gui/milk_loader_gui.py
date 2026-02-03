@@ -32,13 +32,13 @@ TITLES = {
 
 class MilkLoaderGui(AccessoryBase):
     def __init__(
-            self,
-            power: int,
-            conveyor: int,
-            eject: int,
-            variant: str = None,
-            *,
-            aggregator: AccessoryGui = None,
+        self,
+        power: int,
+        conveyor: int,
+        eject: int,
+        variant: str = None,
+        *,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a K-Line/Lionel Milk Loader.

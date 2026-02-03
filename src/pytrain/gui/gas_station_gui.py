@@ -50,12 +50,12 @@ TITLES = {
 
 class GasStationGui(AccessoryBase):
     def __init__(
-            self,
-            power: int,
-            alarm: int,
-            variant: str = None,
-            *,
-            aggregator: AccessoryGui = None,
+        self,
+        power: int,
+        alarm: int,
+        variant: str = None,
+        *,
+        aggregator: AccessoryGui = None,
     ):
         """
         Create a GUI to control a MTH Gas Station.
