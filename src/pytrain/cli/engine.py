@@ -12,7 +12,7 @@ import logging
 from argparse import ArgumentError, ArgumentParser
 from typing import List
 
-from ..protocol.constants import CommandScope, CommandSyntax
+from ..protocol.constants import BROADCAST_ADDRESS, CommandScope, CommandSyntax
 from ..protocol.multibyte.multibyte_constants import (
     TMCC2EffectsControl,
     TMCC2LightingControl,
@@ -729,9 +729,23 @@ class EngineCli(CliBaseTMCC):
                 raise ArgumentError(None, f"Invalid speed: {self._args.data}")
             self._args.data = min(rr_value.value)
 
+        # determine enum from option string
+        opt_enum = self._get_option_enum(option, self.is_tmcc1)
+        if opt_enum is None and self.is_tmcc1 and engine == BROADCAST_ADDRESS:
+            opt_enum = self._get_option_enum(option, False)
         # if scope is TMCC1, resolve via TMCC1EngineCommandDef
-        print(f"Engine: {engine}, Option: {option} is tmcc1: {self.is_tmcc1}")
-        if self.is_tmcc1:
+        print(f"Engine: {engine}, Option: {option} is tmcc1: {self.is_tmcc1} {opt_enum}")
+        if opt_enum is not None:
+            return opt_enum
+
+        raise ArgumentError(None, f"Invalid {self.command_format.name} option: {option}")
+
+    @staticmethod
+    def _get_option_enum(
+        option: str,
+        assume_tmcc: bool,
+    ) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | None:
+        if assume_tmcc:
             enum_classes = [TMCC1EngineCommandEnum, SequenceCommandEnum]
         else:
             enum_classes = [
@@ -743,7 +757,8 @@ class EngineCli(CliBaseTMCC):
                 TMCC2VariableEnum,
                 SequenceCommandEnum,
             ]
+
         for enum_class in enum_classes:
             if option in dir(enum_class):
                 return enum_class[option]
-        raise ArgumentError(None, f"Invalid {self.command_format.name} option: {option}")
+        return None
