@@ -57,7 +57,6 @@ class AccessoryGuiCatalog:
         self.register(GuiCatalogEntry("depot", ".freight_depot_gui", "FreightDepotGui"))
         self.register(GuiCatalogEntry("playground", ".playground_gui", "PlaygroundGui"))
         self.register(GuiCatalogEntry("smoke", ".smoke_fluid_loader_gui", "SmokeFluidLoaderGui"))
-        self.register(GuiCatalogEntry("station", ".freight_station_gui", "FreightStationGui"))
 
         # ---- Registry-backed GUIs (AccessoryType present; no get_variant needed) ----
         self.register(GuiCatalogEntry("control", ".control_tower_gui", "ControlTowerGui", AccessoryType.CONTROL_TOWER))
