@@ -35,7 +35,7 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
     Register the Milk Loader accessory type metadata.
 
     Operations / ports:
-      - power: latch (on/off)  -> uses default power off/on images unless overridden
+      - power: latch (on/off) -> uses default power off/on images unless overridden
       - conveyor: latch (on/off) -> uses default latch off/on images unless overridden
       - eject: momentary_hold (press/release) with default icon
 

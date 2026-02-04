@@ -24,9 +24,11 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     from .defs.control_tower_defs import register_control_tower
     from .defs.fire_station_defs import register_fire_station
     from .defs.gas_station_defs import register_gas_station
+    from .defs.hobby_shop_defs import register_hobby_shop
     from .defs.milk_loader_defs import register_milk_loader
 
     register_control_tower(registry)
     register_fire_station(registry)
     register_gas_station(registry)
+    register_hobby_shop(registry)
     register_milk_loader(registry)

@@ -1,38 +1,27 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
-from guizero import Box
 
-from ..db.accessory_state import AccessoryState
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from ..utils.path_utils import find_file
+from guizero import Box, PushButton
+
+from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
-
-VARIANTS = {
-    "lionelville hobby shop 6-85294": "Lionelville-Hobby-Shop-6-85294.jpg",
-    "madison hobby shop 6-14133": "Madison-Hobby-Shop-6-14133.jpg",
-    "midtown models hobby shop 6-32998": "Midtown-Models-Hobby-Shop-6-32998.jpg",
-}
-
-TITLES = {
-    "Lionelville-Hobby-Shop-6-85294.jpg": "Lionelville Hobby Shop",
-    "Madison-Hobby-Shop-6-14133.jpg": "Madison Hobby Shop",
-    "Midtown-Models-Hobby-Shop-6-32998.jpg": "Midtown Models Hobby Shop",
-}
+from ..db.accessory_state import AccessoryState
 
 
 class HobbyShopGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.HOBBY_SHOP
+
     def __init__(
         self,
         power: int,
-        motion: int,
+        action: int,
         variant: str = None,
         *,
         aggregator: AccessoryGui = None,
@@ -43,39 +32,47 @@ class HobbyShopGui(AccessoryBase):
         :param int power:
             TMCC ID of the ACS2 port used to power the hobby shop.
 
-        :param int motion:
-            TMCC ID of the ACS2 port used to control the motion.
+        :param int action:
+            TMCC ID of the ACS2 port used to control the action.
 
         :param str variant:
             Optional; Specifies the variant (Lionelville, Madison, Midtown).
         """
 
         # identify the accessory
-        self._title, self._image = self.get_variant(variant)
-        self._power = power
-        self._motion = motion
+        self._power = int(power)
+        self._action = int(action)
         self._variant = variant
-        self.power_button = self.motion_button = None
-        self.power_state = self.motion_state = None
+        self.power_button = self.action_button = None
+        self.power_state = self.action_state = None
+
+        # Main title + image + eject image (resolved in bind_variant)
+        self._title: str | None = None
+        self._image: str | None = None
+
         super().__init__(self._title, self._image, aggregator=aggregator)
 
-    @staticmethod
-    def get_variant(variant) -> tuple[str, str]:
-        if variant is None:
-            variant = "Midtown"
-        variant = HobbyShopGui.normalize(variant)
-        for k, v in VARIANTS.items():
-            if variant in k:
-                title = TITLES[v]
-                return title, find_file(v)
-        raise ValueError(f"Unsupported hobby shop: {variant}")
+    def bind_variant(self) -> None:
+        """
+        Resolve all metadata (title, main image, op images) via registry + configure_accessory().
+
+        This keeps the public constructor signature stable while moving all metadata
+        to your centralized registry/config pipeline.
+        """
+        self.configure_from_registry(
+            self.ACCESSORY_TYPE,
+            self._variant,
+            tmcc_ids={"power": self._power, "action": self._action},
+        )
 
     def get_target_states(self) -> list[S]:
-        self.power_state = self._state_store.get_state(CommandScope.ACC, self._power)
-        self.motion_state = self._state_store.get_state(CommandScope.ACC, self._motion)
+        assert self.config is not None
+
+        self.power_state = self.state_for("power")
+        self.action_state = self.state_for("action")
         return [
             self.power_state,
-            self.motion_state,
+            self.action_state,
         ]
 
     def is_active(self, state: AccessoryState) -> bool:
@@ -83,20 +80,20 @@ class HobbyShopGui(AccessoryBase):
 
     def switch_state(self, state: AccessoryState) -> None:
         with self._cv:
-            if state.is_aux2_on:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state and self.motion_button:
-                    CommandReq(TMCC1AuxCommandEnum.AUX2_OFF, self.motion_state.tmcc_id).send()
-                    self.queue_message(lambda: self.motion_button.disable())
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state and self.motion_button:
-                    self.queue_message(lambda: self.motion_button.enable())
+            self.toggle_latch(state)
+            self.after_state_change(None, self.power_state)
+
+    def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
+        if state == self.power_state:
+            self.gate_widget_on_power(self.power_state, self.action_button)
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len("Motion") + 2
-        self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
-        self.motion_button = self.make_power_button(self.motion_state, "Motion", 1, max_text_len, box)
-        if not self.is_active(self.power_state):
-            CommandReq(TMCC1AuxCommandEnum.AUX2_OFF, self.motion_state.tmcc_id).send()
-            self.motion_button.disable()
+        assert self.config is not None
+        power_label, action_label = self.config.labels_for("power", "action")
+        max_text_len = max(len(power_label), len(action_label)) + 2
+
+        self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
+        self.action_button = self.make_power_button(self.action_state, action_label, 1, max_text_len, box)
+
+        # Robust initial gating
+        self.after_state_change(None, self.power_state)
