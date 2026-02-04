@@ -50,6 +50,9 @@ def register_fire_station(registry: AccessoryRegistry) -> None:
                 key="alarm",
                 label="Alarm",
                 behavior=PortBehavior.MOMENTARY_PULSE,
+                image="red_light_off.jpg",
+                width=72,
+                height=72,
             ),
         ),
         variants=(

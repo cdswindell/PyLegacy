@@ -6,8 +6,9 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from typing import cast
 
-from guizero import Box, Text, PushButton
+from guizero import Box, PushButton
 
 from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
@@ -100,20 +101,16 @@ class ControlTowerGui(AccessoryBase):
         max_text_len = max(len(power_label), len(action_label)) + 2
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
 
-        action_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        tb = Text(action_box, text=action_label, align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-        self.action_button = AnimatedButton(
-            action_box,
+        self.action_button = self.make_momentary_button(
+            box,
+            state=self.action_state,
+            label=action_label,
+            col=1,
+            text_len=max_text_len,
             image=self._action_image,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
+            button_cls=AnimatedButton,
         )
-        self.action_button.stop_animation()
-        self.action_button.when_left_button_pressed = self.when_pressed
-        self.action_button.when_left_button_released = self.when_released
-        self.register_widget(self.action_state, self.action_button)
+        cast(AnimatedButton, self.action_button).stop_animation()
 
         # Robust initial gating
         self.after_state_change(None, self.power_state)

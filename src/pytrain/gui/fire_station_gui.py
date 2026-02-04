@@ -6,13 +6,15 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from typing import cast
 
-from guizero import Box, PushButton, Text
+from guizero import Box, PushButton
 
 from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
+from ..utils.path_utils import find_file
 
 
 class FireStationGui(AccessoryBase):
@@ -48,6 +50,7 @@ class FireStationGui(AccessoryBase):
         # Main title + image + eject image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
+        self._alarm_image: str | None = None
 
         super().__init__(self._title, self._image, aggregator=aggregator)
 
@@ -63,6 +66,7 @@ class FireStationGui(AccessoryBase):
             self._variant,
             tmcc_ids={"power": self._power, "alarm": self._alarm},
         )
+        self._alarm_image = find_file(self.config.image_for("alarm", "red_light_off.jpg"))
 
     def get_target_states(self) -> list[S]:
         assert self.config is not None
@@ -95,21 +99,16 @@ class FireStationGui(AccessoryBase):
         max_text_len = max(len(power_label), len(alarm_label)) + 2
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
 
-        alarm_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        tb = Text(alarm_box, text=alarm_label, align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-
-        height, width = self.config.size_for("alarm", self.s_72)
-        self.alarm_button = AnimatedButton(
-            alarm_box,
-            image=self.alarm_off_image,
-            align="top",
-            height=height,
-            width=width,
+        self.alarm_button = self.make_momentary_button(
+            box,
+            state=self.alarm_state,
+            label=alarm_label,
+            col=1,
+            text_len=max_text_len,
+            image=self._alarm_image,
+            button_cls=AnimatedButton,
         )
-        self.alarm_button.when_left_button_pressed = self.when_pressed
-        self.alarm_button.when_left_button_released = self.when_released
-        self.register_widget(self.alarm_state, self.alarm_button)
+        cast(AnimatedButton, self.alarm_button).stop_animation()
 
         # Robust initial gating
         self.after_state_change(None, self.power_state)

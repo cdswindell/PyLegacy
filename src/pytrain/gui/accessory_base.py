@@ -422,6 +422,28 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.register_widget(state, button)
         return button
 
+    def make_momentary_button(
+        self,
+        container: Box,
+        *,
+        state: S,
+        label: str,
+        col: int,
+        text_len: int,
+        image: str,
+        width: int | None = None,
+        height: int | None = None,
+        button_cls=PushButton,
+    ) -> PushButton:
+        b = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
+        t = Text(b, text=label, align="top", size=self.s_16, underline=True)
+        t.width = text_len
+        btn = button_cls(b, image=image, align="top", width=width or self.s_72, height=height or self.s_72)
+        btn.when_left_button_pressed = self.when_pressed
+        btn.when_left_button_released = self.when_released
+        self.register_widget(state, btn)
+        return btn
+
     def on_combo_change(self, option: str) -> None:
         if option == self.title:
             return  # Noop
