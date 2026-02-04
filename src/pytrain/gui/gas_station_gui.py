@@ -66,7 +66,7 @@ class GasStationGui(AccessoryBase):
         This keeps the public constructor signature stable while moving all metadata
         to your centralized registry/config pipeline.
         """
-        definition = self.registry.get_definition(AccessoryType.MILK_LOADER, self._variant)
+        definition = self.registry.get_definition(self.ACCESSORY_TYPE, self._variant)
 
         # Bind wiring (TMCC ids) to the definition
         self._cfg = configure_accessory(
