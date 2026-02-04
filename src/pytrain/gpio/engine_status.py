@@ -1,20 +1,21 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
-#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 import atexit
 from threading import Event, RLock, Thread
 
-from .. import ComponentStateStore, EngineState, TrainState
-from ..db.state_watcher import StateWatcher
-from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 from .gpio_device import GpioDevice
 from .i2c.oled import Oled, OledDevice
+from ..db.component_state_store import ComponentStateStore
+from ..db.engine_state import EngineState, TrainState
+from ..db.state_watcher import StateWatcher
+from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
 
 UP = "\u25b4"
 DOWN = "\u25be"
@@ -36,7 +37,7 @@ class EngineStatus(Thread, GpioDevice):
         scroll_rate: float = 0.03,
     ) -> None:
         self._lock = RLock()
-        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Engine Status Oled")
+        super().__init__(daemon=True, name=f"{PROGRAM_NAME} Engine Status OLED")
         self._oled = Oled(address, device, auto_update=False, scroll_rate=scroll_rate)
         self._state_store = ComponentStateStore.get()
         if isinstance(tmcc_id, EngineState):
@@ -95,6 +96,7 @@ class EngineStatus(Thread, GpioDevice):
     def state(self) -> EngineState | TrainState | None:
         return self._monitored_state
 
+    # noinspection PyUnresolvedReferences
     @property
     def railroad(self) -> str:
         if self._railroad is None:

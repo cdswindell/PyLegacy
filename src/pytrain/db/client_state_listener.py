@@ -42,7 +42,7 @@ class ClientStateListener(threading.Thread):
             return
         else:
             self._initialized = True
-        from .. import PROGRAM_NAME
+        from ..protocol.constants import PROGRAM_NAME
 
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} ComponentStateListener")
         self._tmcc_listener = CommandListener.build(ser2_receiver=False, base3_receiver=False)

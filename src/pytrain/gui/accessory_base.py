@@ -24,15 +24,20 @@ from guizero.base import Widget
 from guizero.event import EventData
 
 from .accessories.accessory_registry import AccessoryRegistry
+from .accessories.accessory_type import AccessoryType
+from .accessories.config import ConfiguredAccessory, configure_accessory
 from .accessory_gui import AccessoryGui
 from ..comm.command_listener import CommandDispatcher
+from ..db.accessory_state import AccessoryState
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
 from ..gpio.gpio_handler import GpioHandler
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import Asc2Action, PdiCommand
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
@@ -112,6 +117,9 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._states = dict[int, S]()
         self._state_buttons = dict[int, Widget | set[Widget]]()
         self._state_watchers = dict[int, StateWatcher]()
+
+        # New: configured model (definition + resolved assets + tmcc wiring)
+        self._cfg: ConfiguredAccessory | None = None
         self._registry: AccessoryRegistry | None = None
 
         # Thread-aware shutdown signaling
@@ -176,6 +184,59 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
             # start GUI
             self.start()
+
+    def configure_from_registry(
+        self,
+        accessory_type: AccessoryType,
+        variant: str | None,
+        *,
+        tmcc_ids: dict[str, int],
+        operation_images: dict[str, str] | None = None,
+        instance_id: str | None = None,
+        display_name: str | None = None,
+    ) -> ConfiguredAccessory:
+        definition = self.registry.get_definition(accessory_type, variant)
+        cfg = configure_accessory(
+            definition,
+            tmcc_ids=tmcc_ids,
+            operation_images=operation_images,
+            instance_id=instance_id,
+            display_name=display_name,
+        )
+
+        self.title = cfg.title
+        self.image_file = find_file(cfg.definition.variant.image)
+        self._cfg = cfg
+        return cfg
+
+    def state_for(self, key: str, scope: CommandScope = CommandScope.ACC) -> S:
+        assert self._cfg is not None
+        tmcc_id = self._cfg.tmcc_id_for(key)
+        return self._state_store.get_state(scope, tmcc_id)
+
+    def states_for(self, *keys: str, scope: CommandScope = CommandScope.ACC) -> list[S]:
+        return [self.state_for(k, scope) for k in keys]
+
+    def gate_widget_on_power(
+        self,
+        power_state: AccessoryState,
+        widget: PushButton | None,
+    ) -> None:
+        if widget is None:
+            return
+        if power_state.is_aux_on:
+            self.queue_message(widget.enable)
+        else:
+            self.queue_message(widget.disable)
+
+    @property
+    def config(self) -> ConfiguredAccessory:
+        return self._cfg
+
+    # noinspection PyTypeChecker
+    @staticmethod
+    def toggle_latch(state: S) -> None:
+        CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
 
     # noinspection PyTypeChecker
     def update_button(self, tmcc_id: int) -> None:

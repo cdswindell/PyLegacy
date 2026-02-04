@@ -17,6 +17,8 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
+from .make_base import _MakeBase
+from .pytrain import DEFAULT_BUTTONS_FILE
 from ..gui.accessories_gui import AccessoriesGui
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.controller.engine_gui import EngineGui
@@ -26,11 +28,9 @@ from ..gui.power_district_gui import PowerDistrictsGui
 from ..gui.routes_gui import RoutesGui
 from ..gui.switches_gui import SwitchesGui
 from ..gui.systems_gui import SystemsGui
-from ..protocol.constants import PROGRAM_NAME, CommandScope
+from ..protocol.constants import PROGRAM_BASE, PROGRAM_NAME, CommandScope
 from ..utils.argument_parser import IntRange, PyTrainArgumentParser, UniqueChoice
 from ..utils.path_utils import find_dir, find_file
-from .make_base import _MakeBase
-from .pytrain import DEFAULT_BUTTONS_FILE
 
 GUI_ARG_TO_CLASS = {
     "ac": AccessoriesGui,
@@ -122,7 +122,7 @@ class MakeGui(_MakeBase):
         return "GUI"
 
     def postprocess_args(self) -> None:
-        from .. import PROGRAM_BASE, is_package
+        from .. import is_package
 
         if not self._args.remove and not self._args.gui:
             self._parser.error("the following arguments are required: gui")

@@ -22,7 +22,8 @@ from typing import Dict
 
 import psutil
 
-from .. import find_dir, find_file
+from .. import find_dir, find_file, is_package, get_version
+from ..protocol.constants import PROGRAM_NAME
 from ..utils.argument_parser import PyTrainArgumentParser
 
 
@@ -31,8 +32,6 @@ class _MakeBase(ABC):
 
     @abstractmethod
     def __init__(self, cmd_line: list[str] = None) -> None:
-        from .. import is_package
-
         self._user = cur_user = getpass.getuser()
         self._home = Path.home()
         self._cwd = Path.cwd()
@@ -174,8 +173,6 @@ class _MakeBase(ABC):
         return cmd_line
 
     def confirm_environment(self) -> bool:
-        from .. import PROGRAM_NAME
-
         for line in self.config_header():
             print(line)
         print(f"  Mode: {'Client' if self._args.mode == 'client' else 'Server'}")
@@ -274,8 +271,6 @@ class _MakeBase(ABC):
         subprocess.run("sudo systemctl reset-failed".split())
 
     def _command_line_parser(self) -> PyTrainArgumentParser:
-        from .. import PROGRAM_NAME, get_version
-
         parser = PyTrainArgumentParser(add_help=False)
         mode_group = parser.add_mutually_exclusive_group(required=True)
         mode_group.add_argument(

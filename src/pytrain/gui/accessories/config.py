@@ -78,6 +78,19 @@ class ConfiguredAccessory:
         """
         return self.operation(key).tmcc_id
 
+    def label_for(self, key: str) -> str:
+        """
+        Convenience: return label for the given operation key.
+        """
+        return self.operation(key).label
+
+    def image_for(self, key: str, default: str | None = None) -> str | None:
+        op = self.operation(key)
+        return op.image or default
+
+    def labels_for(self, *keys: str) -> tuple[str, ...]:
+        return tuple(self.operation(k).label for k in keys)
+
     @property
     def type(self):
         return self.definition.type

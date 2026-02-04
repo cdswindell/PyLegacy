@@ -1,10 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
-#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from enum import IntEnum, unique
 from math import floor
 from typing import Dict, List, Tuple
 
+from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
+from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 from ..db.comp_data import (
     SCOPE_TO_COMP_MAP,
     CompData,
@@ -26,8 +28,6 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CONTROL_TYPE, LOCO_CLASS, LOCO_TYPE, SOUND_TYPE, CommandScope, Mixins
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
-from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
-from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 
 log = logging.getLogger(__name__)
 
@@ -117,6 +117,7 @@ SCOPE_TO_RECORD_TYPE_MAP = {s: p for p, s in RECORD_TYPE_MAP.items()}
 SCOPE_TO_RECORD_TYPE_MAP[CommandScope.IRDA] = 3  # manually patch irda record
 
 
+# noinspection PyUnresolvedReferences
 class BaseReq(PdiReq, CompDataMixin):
     # noinspection PyTypeChecker,PyUnusedLocal
     @classmethod
@@ -427,7 +428,7 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._data_length = data_length
                     self._data_bytes = data_bytes
             elif state:
-                from .. import EngineState, TrainState
+                from ..db.engine_state import EngineState, TrainState
                 from ..db.base_state import BaseState
 
                 self._status = 0

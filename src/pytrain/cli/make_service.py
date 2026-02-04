@@ -17,10 +17,10 @@ import tempfile
 from argparse import ArgumentParser
 from pathlib import Path
 
-from ..utils.argument_parser import PyTrainArgumentParser
-from ..utils.path_utils import find_file
 from .make_base import _MakeBase
 from .pytrain import DEFAULT_BUTTONS_FILE
+from ..utils.argument_parser import PyTrainArgumentParser
+from ..utils.path_utils import find_file
 
 
 class MakeService(_MakeBase):
@@ -40,7 +40,7 @@ class MakeService(_MakeBase):
         self._buttons_file = self._args.buttons_file
 
     def config_header(self) -> list[str]:
-        from .. import PROGRAM_NAME
+        from ..protocol.constants import PROGRAM_NAME
 
         lines = list()
         lines.append(f"\nInstalling {PROGRAM_NAME} as a systemd service with these settings:")
@@ -54,7 +54,7 @@ class MakeService(_MakeBase):
             self.install_service()
 
     def remove(self) -> None:
-        from .. import PROGRAM_NAME
+        from ..protocol.constants import PROGRAM_NAME
 
         if self.is_server_present:
             mode = "Server"
@@ -74,7 +74,7 @@ class MakeService(_MakeBase):
             self.deactivate_service("pytrain_server" if mode == "Server" else "pytrain_client")
 
     def command_line_parser(self) -> ArgumentParser:
-        from .. import PROGRAM_NAME
+        from ..protocol.constants import PROGRAM_NAME
 
         parser = ArgumentParser(add_help=False)
         misc_opts = parser.add_argument_group("Service options")
@@ -117,7 +117,7 @@ class MakeService(_MakeBase):
         return path
 
     def install_service(self) -> str | None:
-        from .. import PROGRAM_NAME
+        from ..protocol.constants import PROGRAM_NAME
 
         if platform.system().lower() != "linux":
             print(f"\nPlease run {self._prog} from a Raspberry Pi. Exiting")

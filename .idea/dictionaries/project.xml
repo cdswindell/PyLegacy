@@ -34,6 +34,7 @@
       <w>maxlen</w>
       <w>mome</w>
       <w>ntum</w>
+      <w>oled</w>
       <w>padx</w>
       <w>pady</w>
       <w>pendings</w>
@@ -43,6 +44,7 @@
       <w>pytraininfo</w>
       <w>quilling</w>
       <w>respbcasts</w>
+      <w>rnum</w>
       <w>setsid</w>
       <w>sunoco</w>
       <w>titlebox</w>

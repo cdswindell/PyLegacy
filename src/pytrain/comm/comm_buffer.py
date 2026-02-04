@@ -881,7 +881,7 @@ class TrackedEvent:
 
 class ClientHeartBeat(Thread):
     def __init__(self, tmcc_buffer: CommBufferProxy, heartbeat: bytes = None) -> None:
-        from .. import CommandReq
+        from ..protocol.command_req import CommandReq
 
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Client Heart Beat")
         self._tmcc_buffer = tmcc_buffer
