@@ -209,6 +209,7 @@ def register_gas_station(registry: AccessoryRegistry) -> None:
                 "9154",
                 "sunoco",
             ),
+            default=True,
         ),
         VariantSpec(
             key=_variant_key_from_title("Texaco Gas Station"),
@@ -223,7 +224,6 @@ def register_gas_station(registry: AccessoryRegistry) -> None:
                 "91001",
                 "texaco",
             ),
-            default=True,
         ),
         VariantSpec(
             key=_variant_key_from_title("Tidewater Oil Gas Station"),
