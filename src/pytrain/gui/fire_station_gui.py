@@ -21,7 +21,7 @@ from ..utils.path_utils import find_file
 
 
 class FireStationGui(AccessoryBase):
-    ACCESSORY_TYPE = AccessoryType.GAS_STATION
+    ACCESSORY_TYPE = AccessoryType.FIRE_STATION
 
     def __init__(
         self,
