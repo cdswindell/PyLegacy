@@ -9,6 +9,8 @@
 
 from guizero import Box, PushButton, Text
 
+from .accessories.accessory_type import AccessoryType
+from .accessories.config import ConfiguredAccessory, configure_accessory
 from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
@@ -17,16 +19,10 @@ from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 
-VARIANTS = {
-    "mth fire station 30-9157": "Fire-Station-MTH-30-9157.jpg",
-}
-
-TITLES = {
-    "Fire-Station-MTH-30-9157.jpg": "MTH Fire Station",
-}
-
 
 class FireStationGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.GAS_STATION
+
     def __init__(
         self,
         power: int,
@@ -48,28 +44,52 @@ class FireStationGui(AccessoryBase):
             Optional; Specifies the variant (MTH Fire Station).
         """
         # identify the accessory
-        self._title, self._image = self.get_variant(variant)
         self._power = power
         self._alarm = alarm
         self._variant = variant
         self.power_button = self.alarm_button = None
         self.power_state = self.alarm_state = None
+
+        # New: configured model (definition + resolved assets + tmcc wiring)
+        self._cfg: ConfiguredAccessory | None = None
+
+        # Main title + image + eject image (resolved in bind_variant)
+        self._title: str | None = None
+        self._image: str | None = None
+
         super().__init__(self._title, self._image, aggregator=aggregator)
 
-    @staticmethod
-    def get_variant(variant) -> tuple[str, str]:
-        if variant is None:
-            variant = "mth fire station"
-        variant = FireStationGui.normalize(variant)
-        for k, v in VARIANTS.items():
-            if variant in k:
-                title = TITLES[v]
-                return title, find_file(v)
-        raise ValueError(f"Unsupported fire station: {variant}")
+    def bind_variant(self) -> None:
+        """
+        Resolve all metadata (title, main image, op images) via registry + configure_accessory().
+
+        This keeps the public constructor signature stable while moving all metadata
+        to your centralized registry/config pipeline.
+        """
+        definition = self.registry.get_definition(self.ACCESSORY_TYPE, self._variant)
+
+        # Bind wiring (TMCC ids) to the definition
+        self._cfg = configure_accessory(
+            definition,
+            tmcc_ids={
+                "power": self._power,
+                "alarm": self._alarm,
+            },
+        )
+        # make sure we have a configuration
+        assert self._cfg is not None
+
+        # Apply main title/image to the AccessoryBase fields
+        self.title = self._title = self._cfg.title
+        self.image_file = self._image = find_file(self._cfg.definition.variant.image)
 
     def get_target_states(self) -> list[S]:
-        self.power_state = self._state_store.get_state(CommandScope.ACC, self._power)
-        self.alarm_state = self._state_store.get_state(CommandScope.ACC, self._alarm)
+        assert self._cfg is not None
+        power_id = self._cfg.tmcc_id_for("power")
+        alarm_id = self._cfg.tmcc_id_for("alarm")
+
+        self.power_state = self._state_store.get_state(CommandScope.ACC, power_id)
+        self.alarm_state = self._state_store.get_state(CommandScope.ACC, alarm_id)
         return [
             self.power_state,
             self.alarm_state,
@@ -83,19 +103,30 @@ class FireStationGui(AccessoryBase):
             return
         with self._cv:
             # a bit confusing, but sending this command toggles the power
-            if state == self.power_state:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state.is_aux_on:
-                    self.queue_message(lambda: self.alarm_button.disable())
-                else:
-                    self.queue_message(lambda: self.alarm_button.enable())
+            CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
+            self.after_state_change(None, self.power_state)
+
+    def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
+        if state == self.power_state:
+            if self.alarm_button is None:
+                return  # defensive programming
+            # If power is off, disable action; if power is on, enable action
+            if state.is_aux_on:
+                self.queue_message(lambda: self.alarm_button.enable())
+            else:
+                self.queue_message(lambda: self.alarm_button.disable())
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len("Conveyor") + 2
-        self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
+        assert self._cfg is not None
+        power_label = self._cfg.operation("power").label
+        alarm_label = self._cfg.operation("alarm").label
+
+        max_text_len = max(len(power_label), len(alarm_label)) + 2
+
+        self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
 
         alarm_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        tb = Text(alarm_box, text="Alarm", align="top", size=self.s_16, underline=True)
+        tb = Text(alarm_box, text="alarm_label", align="top", size=self.s_16, underline=True)
         tb.width = max_text_len
         self.alarm_button = AnimatedButton(
             alarm_box,
@@ -107,8 +138,9 @@ class FireStationGui(AccessoryBase):
         self.alarm_button.when_left_button_pressed = self.when_pressed
         self.alarm_button.when_left_button_released = self.when_released
         self.register_widget(self.alarm_state, self.alarm_button)
-        if not self.is_active(self.power_state):
-            self.alarm_button.disable()
+
+        # Robust initial gating
+        self.after_state_change(None, self.power_state)
 
     def set_button_active(self, button: PushButton) -> None:
         with self._cv:

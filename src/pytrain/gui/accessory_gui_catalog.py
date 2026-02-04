@@ -54,7 +54,6 @@ class AccessoryGuiCatalog:
         # ---- Legacy GUIs (no AccessoryType required; still have get_variant) ----
         self.register(GuiCatalogEntry("backhoe", ".backhoe_gui", "BackhoeGui"))
         self.register(GuiCatalogEntry("culvert", ".culvert_gui", "CulvertGui"))
-        self.register(GuiCatalogEntry("fire", ".fire_station_gui", "FireStationGui"))
         self.register(GuiCatalogEntry("depot", ".freight_depot_gui", "FreightDepotGui"))
         self.register(GuiCatalogEntry("station", ".freight_station_gui", "FreightStationGui"))
         self.register(GuiCatalogEntry("hobby", ".hobby_shop_gui", "HobbyShopGui"))
@@ -66,10 +65,7 @@ class AccessoryGuiCatalog:
         # Flip these over one-by-one as you migrate each GUI.
         self.register(GuiCatalogEntry("milk", ".milk_loader_gui", "MilkLoaderGui", AccessoryType.MILK_LOADER))
         self.register(GuiCatalogEntry("gas", ".gas_station_gui", "GasStationGui", AccessoryType.GAS_STATION))
-
-        # Add more as you convert:
-        # self.register(GuiCatalogEntry("tower", ".control_tower_gui", "ControlTowerGui", AccessoryType.CONTROL_TOWER))
-        # etc.
+        self.register(GuiCatalogEntry("fire", ".fire_station_gui", "FireStationGui", AccessoryType.FIRE_STATION))
 
     def register(self, entry: GuiCatalogEntry) -> None:
         nk = _norm(entry.key)

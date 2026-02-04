@@ -92,6 +92,7 @@ class GasStationGui(AccessoryBase):
         self._action_image = find_file(action_op.image or "gas-station-car.png")
 
     def get_target_states(self) -> list[S]:
+        assert self._cfg is not None
         power_id = self._cfg.tmcc_id_for("power")
         action_id = self._cfg.tmcc_id_for("action")
 
@@ -125,6 +126,7 @@ class GasStationGui(AccessoryBase):
                 self.queue_message(lambda: self.action_button.disable())
 
     def build_accessory_controls(self, box: Box) -> None:
+        assert self._cfg is not None
         power_label = self._cfg.operation("power").label
         action_label = self._cfg.operation("action").label
 
