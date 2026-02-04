@@ -110,7 +110,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
         # States
         self._states = dict[int, S]()
-        self._state_buttons = dict[int, Widget | list[Widget]]()
+        self._state_buttons = dict[int, Widget | set[Widget]]()
         self._state_watchers = dict[int, StateWatcher]()
         self._registry: AccessoryRegistry | None = None
 
@@ -329,10 +329,17 @@ class AccessoryBase(Thread, Generic[S], ABC):
     def register_widget(self, state: S, widget: Widget) -> None:
         with self._cv:
             if state.tmcc_id in self._state_buttons:
-                if isinstance(self._state_buttons[state.tmcc_id], list):
-                    self._state_buttons[state.tmcc_id].append(widget)
-                else:
-                    self._state_buttons[state.tmcc_id] = [self._state_buttons[state.tmcc_id], widget]
+                contents = self._state_buttons[state.tmcc_id]
+                if contents == widget:
+                    pass  # already registered
+                elif isinstance(contents, Widget):
+                    contents = {contents}
+                    contents.add(widget)
+                    self._state_buttons[state.tmcc_id] = contents
+                elif isinstance(contents, set) and widget not in contents:
+                    contents.add(widget)
+                if isinstance(contents, set):
+                    log.warning(f"TMCC ID {state.tmcc_id} state registered to multiple widgets: {contents}")
             else:
                 self._state_buttons[state.tmcc_id] = widget
             widget.component_state = state

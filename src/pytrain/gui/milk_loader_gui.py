@@ -187,7 +187,6 @@ class MilkLoaderGui(AccessoryBase):
         self.eject_button.when_left_button_pressed = self.when_pressed
         self.eject_button.when_left_button_released = self.when_released
         self.register_widget(self.eject_state, self.eject_button)
-        self.register_widget(self.eject_state, self.eject_button)
 
         # Robust initial gating
         self.after_state_change(None, self.power_state)
