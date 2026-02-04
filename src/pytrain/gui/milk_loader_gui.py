@@ -93,31 +93,19 @@ class MilkLoaderGui(AccessoryBase):
         self.image_file = self._image = find_file(self._cfg.definition.variant.image)
 
         # Pre-resolve eject image (momentary)
-        eject_op = self._op("eject")
+        eject_op = self._cfg.operation("eject")
         self._eject_image = find_file(eject_op.image or "depot-milk-can-eject.jpeg")
 
         # make sure we have a configuration
         assert self._cfg is not None
 
-    def _op(self, key: str):
-        """
-        Return the configured operation by key.
-        """
-        if self._cfg is None:
-            raise RuntimeError("MilkLoaderGui: bind_variant() has not been called yet")
-        nk = " ".join(key.strip().lower().split())
-        for op in self._cfg.operations:
-            if " ".join(op.key.strip().lower().split()) == nk:
-                return op
-        raise KeyError(f"MilkLoaderGui: configured operation not found: {key}")
-
     def get_target_states(self) -> list[S]:
         """
         Bind GUI to AccessoryState objects. TMCC ids are sourced from ConfiguredAccessory.
         """
-        power_id = self._op("power").tmcc_id
-        conveyor_id = self._op("conveyor").tmcc_id
-        eject_id = self._op("eject").tmcc_id
+        power_id = self._cfg.operation("power").tmcc_id
+        conveyor_id = self._cfg.operation("conveyor").tmcc_id
+        eject_id = self._cfg.operation("eject").tmcc_id
 
         self.power_state = self._state_store.get_state(CommandScope.ACC, power_id)
         self.conveyor_state = self._state_store.get_state(CommandScope.ACC, conveyor_id)
@@ -155,16 +143,16 @@ class MilkLoaderGui(AccessoryBase):
         """
         Build controls using labels from configured operations.
         """
-        power_label = self._op("power").label
-        conveyor_label = self._op("conveyor").label
-        eject_label = self._op("eject").label
+        power_label = self._cfg.operation("power").label
+        conveyor_label = self._cfg.operation("conveyor").label
+        eject_label = self._cfg.operation("eject").label
 
         max_text_len = max(len(power_label), len(conveyor_label), len(eject_label)) + 2
 
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
         self.conveyor_button = self.make_power_button(self.conveyor_state, conveyor_label, 1, max_text_len, box)
 
-        eject_op = self._op("eject")
+        eject_op = self._cfg.operation("eject")
         height = eject_op.height or self.s_72
         width = eject_op.width or self.s_72
 

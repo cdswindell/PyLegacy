@@ -15,6 +15,10 @@ from typing import Any, Mapping
 from .accessory_registry import AccessoryDefinition, AccessoryRegistry, PortBehavior
 
 
+def _norm(s: str) -> str:
+    return " ".join(s.strip().lower().split())
+
+
 @dataclass(frozen=True)
 class ConfiguredOperation:
     """
@@ -57,6 +61,19 @@ class ConfiguredAccessory:
 
     # Original TMCC mapping (handy for serialization/debugging)
     tmcc_ids: Mapping[str, int] | None = None
+
+    def operation(self, key: str) -> ConfiguredOperation:
+        """
+        Look up a configured operation by key (case/space-insensitive).
+        """
+        nk = _norm(key)
+        for op in self.operations:
+            if _norm(op.key) == nk:
+                return op
+        raise KeyError(f"ConfiguredAccessory: operation not found: {key}")
+
+    def tmcc_id_for(self, key: str) -> int:
+        return self.operation(key).tmcc_id
 
     @property
     def type(self):
