@@ -83,6 +83,7 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
                     "moose pond creamery",
                     "moose",
                 ),
+                default=True,
             ),
             VariantSpec(
                 key="dairymens_league",
@@ -112,7 +113,6 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
                     "mountain view creamery",
                     "mountain",
                 ),
-                default=True,
             ),
         ),
     )
