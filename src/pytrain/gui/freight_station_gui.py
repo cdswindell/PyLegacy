@@ -93,15 +93,6 @@ class FreightStationGui(AccessoryBase):
         with self._cv:
             self.toggle_latch(state)
             self.after_state_change(None, state)
-        with self._cv:
-            if state.is_aux_on:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
-                    self.queue_message(lambda: self.platform_button.disable())
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
-                    self.queue_message(lambda: self.platform_button.enable())
 
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
         if state == self.power_state:
