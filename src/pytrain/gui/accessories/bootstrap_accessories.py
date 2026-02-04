@@ -22,9 +22,11 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     # Local imports prevent circular import issues during module import time.
 
     from .defs.control_tower_defs import register_control_tower
+    from .defs.fire_station_defs import register_fire_station
     from .defs.gas_station_defs import register_gas_station
     from .defs.milk_loader_defs import register_milk_loader
 
     register_control_tower(registry)
+    register_fire_station(registry)
     register_gas_station(registry)
     register_milk_loader(registry)
