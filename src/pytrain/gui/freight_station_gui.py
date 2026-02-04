@@ -19,7 +19,7 @@ from ..utils.path_utils import find_file
 
 
 class FreightStationGui(AccessoryBase):
-    ACCESSORY_TYPE = AccessoryType.CONTROL_TOWER
+    ACCESSORY_TYPE = AccessoryType.FREIGHT_STATION
 
     def __init__(
         self,
