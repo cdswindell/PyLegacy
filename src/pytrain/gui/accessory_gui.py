@@ -126,7 +126,6 @@ class AccessoryGui(Thread):
         for gui in args:
             if isinstance(gui, tuple):
                 gui_class, gui_type, gui_args, gui_kwargs = self._parse_tuple(gui)
-                print(gui_class, gui_type, gui_args, gui_kwargs)
                 variant_arg = gui_kwargs.get("variant", None)
                 title, _ = self._resolve_variant(gui_class, variant_arg)
                 if title in self._guis:
