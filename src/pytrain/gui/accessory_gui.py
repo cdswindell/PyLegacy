@@ -152,6 +152,7 @@ class AccessoryGui(Thread):
         # New-style registry-backed accessory
         if gui_type is not None:
             definition = self._registry.get_definition(gui_type, variant)
+            print(definition)
             title = definition.variant.title
             image = find_file(definition.variant.image)
             return title, image
