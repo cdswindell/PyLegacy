@@ -102,9 +102,7 @@ class AccessoryGui(Thread):
         from .fire_station_gui import FireStationGui
         from .freight_depot_gui import FreightDepotGui
         from .freight_station_gui import FreightStationGui
-        from .gas_station_gui import GasStationGui
         from .hobby_shop_gui import HobbyShopGui
-        from .milk_loader_gui import MilkLoaderGui
         from .playground_gui import PlaygroundGui
         from .smoke_fluid_loader_gui import SmokeFluidLoaderGui
 
@@ -117,9 +115,7 @@ class AccessoryGui(Thread):
             "culvert": CulvertGui,
             "depot": FreightDepotGui,
             "fire": FireStationGui,
-            "gas": GasStationGui,
             "hobby": HobbyShopGui,
-            "milk": MilkLoaderGui,
             "smoke": SmokeFluidLoaderGui,
             "station": FreightStationGui,
             "playground": PlaygroundGui,
