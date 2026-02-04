@@ -9,11 +9,14 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from .accessory_type import AccessoryType
 from ...protocol.constants import Mixins
 from ...utils.singleton import singleton
+
+log = logging.getLogger(__name__)
 
 
 class PortBehavior(Mixins):
@@ -84,6 +87,7 @@ class VariantSpec:
     title: str
     image: str
     aliases: tuple[str, ...] = ()
+    default: bool = False
     operation_images: dict[str, object] | None = None  # see docstring
 
 
@@ -251,6 +255,9 @@ class AccessoryRegistry:
     def default_variant(self, spec: AccessoryTypeSpec) -> VariantSpec:
         if not spec.variants:
             raise ValueError(f"Accessory type '{spec.type}' defines no variants")
+        for v in spec.variants:
+            if v.default:
+                return v
         return spec.variants[0]
 
     def resolve_variant(self, spec: AccessoryTypeSpec, variant: str | None) -> VariantSpec:
@@ -356,3 +363,10 @@ class AccessoryRegistry:
             if nk in seen_vars:
                 raise ValueError(f"Duplicate variant key '{vs.key}' in type '{spec.type}'")
             seen_vars.add(nk)
+
+        # check for default variant
+        defaults = [v for v in spec.variants if v.default]
+        if len(defaults) == 0:
+            log.warning(f"Accessory type '{spec.type}' must define exactly one default variant")
+        if len(defaults) > 1:
+            raise ValueError(f"Accessory type '{spec.type}' defines multiple default variants")

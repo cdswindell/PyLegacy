@@ -96,7 +96,7 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
                     "614291",
                     "dairymens league",
                     "dairymen's league",
-                    "dairymen'sdairymen",
+                    "dairymen",
                 ),
             ),
             VariantSpec(
@@ -112,6 +112,7 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
                     "mountain view creamery",
                     "mountain",
                 ),
+                default=True,
             ),
         ),
     )
