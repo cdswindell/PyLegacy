@@ -126,7 +126,7 @@ class FireStationGui(AccessoryBase):
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
 
         alarm_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        tb = Text(alarm_box, text="alarm_label", align="top", size=self.s_16, underline=True)
+        tb = Text(alarm_box, text=alarm_label, align="top", size=self.s_16, underline=True)
         tb.width = max_text_len
         self.alarm_button = AnimatedButton(
             alarm_box,
