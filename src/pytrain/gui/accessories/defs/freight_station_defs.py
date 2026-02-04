@@ -198,8 +198,8 @@ def register_freight_station(registry: AccessoryRegistry) -> None:
         )
 
     spec = AccessoryTypeSpec(
-        type=AccessoryType.FREIGHT_DEPOT,
-        display_name="Freight Depot",
+        type=AccessoryType.FREIGHT_STATION,
+        display_name="Freight Station",
         operations=operations,
         variants=tuple(variants),
     )
