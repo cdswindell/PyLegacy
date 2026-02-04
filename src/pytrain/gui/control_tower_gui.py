@@ -7,38 +7,26 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-from guizero import Box, Text
+from guizero import Box, Text, PushButton
 
+from .accessories.accessory_type import AccessoryType
+from .accessories.config import ConfiguredAccessory, configure_accessory
+from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
+from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
-from .accessory_gui import AccessoryGui
-
-VARIANTS = {
-    "192 yellow control tower 6-37996": "192-Control-Tower-6-37996.jpg",
-    "192 orange control tower 6-82014": "192-Control-Tower-6-82014.jpg",
-    "192r red railroad control tower 6-32988": "192R-Railroad-Control-Tower-6-32988.jpg",
-    "nasa mission control tower 2229040": "NASA-Mission-Control-Tower-2229040.jpg",
-    "radio control tower 6-24153": "Radio-Control-Tower-6-24153.jpg",
-}
-
-TITLES = {
-    "192-Control-Tower-6-37996.jpg": "Control Tower",
-    "192-Control-Tower-6-82014.jpg": "Control Tower",
-    "192R-Railroad-Control-Tower-6-32988.jpg": "Railroad Control Tower",
-    "NASA-Mission-Control-Tower-2229040.jpg": "NASA Mission Control Tower",
-    "Radio-Control-Tower-6-24153.jpg": "Radio Control Tower",
-}
 
 
 class ControlTowerGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.CONTROL_TOWER
+
     def __init__(
         self,
-        lights: int,
-        motion: int,
+        power: int,
+        action: int,
         variant: str = None,
         *,
         aggregator: AccessoryGui = None,
@@ -46,79 +34,119 @@ class ControlTowerGui(AccessoryBase):
         """
         Create a GUI to control a Lionel Control Tower.
 
-        :param int lights:
-            TMCC ID of the ACS2 port used for lights.
+        :param int power:
+            TMCC ID of the ACS2 port used for lights/power.
 
-        :param int motion:
+        :param int action:
             TMCC ID of the ACS2 port used to trigger motion.
 
         :param str variant:
             Optional; Specifies the variant (NASA, Yellow, Orange, Red, Radio, etc.).
         """
         # identify the accessory
-        self._title, self._image = self.get_variant(variant)
-        self._lights = lights
-        self._motion = motion
+        self._power = power
+        self._action = action
         self._variant = variant
-        self.lights_button = self.motion_button = None
-        self.lights_state = self.motion_state = None
-        self.motion_image = find_file("control_tower_animation.gif")
+        self.power_button = self.action_button = None
+        self.power_state = self.action_state = None
+
+        # New: configured model (definition + resolved assets + tmcc wiring)
+        self._cfg: ConfiguredAccessory | None = None
+
+        # Main title + image + eject image (resolved in bind_variant)
+        self._title: str | None = None
+        self._image: str | None = None
+        self._action_image: str | None = None
+
         super().__init__(self._title, self._image, aggregator=aggregator)
 
-    @staticmethod
-    def get_variant(variant) -> tuple[str, str]:
-        if variant is None:
-            variant = "NASA"
-        variant = ControlTowerGui.normalize(variant)
-        for k, v in VARIANTS.items():
-            if variant in k:
-                title = TITLES[v]
-                return title, find_file(v)
-        raise ValueError(f"Unsupported control tower: {variant}")
+    def bind_variant(self) -> None:
+        """
+        Resolve all metadata (title, main image, op images) via registry + configure_accessory().
+
+        This keeps the public constructor signature stable while moving all metadata
+        to your centralized registry/config pipeline.
+        """
+        definition = self.registry.get_definition(self.ACCESSORY_TYPE, self._variant)
+
+        # Bind wiring (TMCC ids) to the definition
+        self._cfg = configure_accessory(
+            definition,
+            tmcc_ids={
+                "power": self._power,
+                "action": self._action,
+            },
+        )
+        # make sure we have a configuration
+        assert self._cfg is not None
+
+        # Apply main title/image to the AccessoryBase fields
+        self.title = self._title = self._cfg.title
+        self.image_file = self._image = find_file(self._cfg.definition.variant.image)
+
+        # Pre-resolve action image (momentary)
+        action_op = self._cfg.operation("action")
+        self._action_image = find_file(action_op.image or "control_tower_animation.gif")
 
     def get_target_states(self) -> list[S]:
-        self.lights_state = self._state_store.get_state(CommandScope.ACC, self._lights)
-        self.motion_state = self._state_store.get_state(CommandScope.ACC, self._motion)
+        assert self._cfg is not None
+        power_id = self._cfg.tmcc_id_for("power")
+        action_id = self._cfg.tmcc_id_for("action")
+
+        self.power_state = self._state_store.get_state(CommandScope.ACC, power_id)
+        self.action_state = self._state_store.get_state(CommandScope.ACC, action_id)
+
         return [
-            self.lights_state,
-            self.motion_state,
+            self.power_state,
+            self.action_state,
         ]
 
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
-        if state == self.motion_state:
-            return
+        if state == self.action_state:
+            return  # Action is momentary (press/release handlers)
         with self._cv:
-            # a bit confusing, but sending this command toggles the lights
-            if state == self.lights_state:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state.is_aux_on:
-                    self.queue_message(lambda: self.motion_button.disable())
-                else:
-                    self.queue_message(lambda: self.motion_button.enable())
+            # a bit confusing, but sending this command toggles the power
+            CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
+            self.after_state_change(None, self.power_state)
+
+    def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
+        if state == self.power_state:
+            if self.action_button is None:
+                return  # defensive programming
+            # If power is off, disable action; if power is on, enable action
+            if state.is_aux_on:
+                self.queue_message(lambda: self.action_button.enable())
+            else:
+                self.queue_message(lambda: self.action_button.disable())
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len("Conveyor") + 2
-        self.lights_button = self.make_power_button(self.lights_state, "Lights", 0, max_text_len, box)
+        assert self._cfg is not None
+        power_label = self._cfg.operation("power").label
+        action_label = self._cfg.operation("action").label
 
-        motion_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
-        tb = Text(motion_box, text="Motion", align="top", size=self.s_16, underline=True)
+        max_text_len = max(len(power_label), len(action_label)) + 2
+        self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
+
+        action_box = Box(box, layout="auto", border=2, grid=[1, 0], align="top")
+        tb = Text(action_box, text=action_label, align="top", size=self.s_16, underline=True)
         tb.width = max_text_len
-        self.motion_button = AnimatedButton(
-            motion_box,
-            image=self.motion_image,
+        self.action_button = AnimatedButton(
+            action_box,
+            image=self._action_image,
             align="top",
             height=self.s_72,
             width=self.s_72,
         )
-        self.motion_button.stop_animation()
-        self.motion_button.when_left_button_pressed = self.when_pressed
-        self.motion_button.when_left_button_released = self.when_released
-        self.register_widget(self.motion_state, self.motion_button)
-        if not self.is_active(self.lights_state):
-            self.motion_button.disable()
+        self.action_button.stop_animation()
+        self.action_button.when_left_button_pressed = self.when_pressed
+        self.action_button.when_left_button_released = self.when_released
+        self.register_widget(self.action_state, self.action_button)
+
+        # Robust initial gating
+        self.after_state_change(None, self.power_state)
 
     def set_button_active(self, button: AnimatedButton) -> None:
         with self._cv:
@@ -132,6 +160,6 @@ class ControlTowerGui(AccessoryBase):
             if isinstance(button, PowerButton):
                 super().set_button_inactive(button)
             else:
-                button.image = self.motion_image
+                button.image = self._action_image
                 button.height = button.width = self.s_72
                 button.stop_animation()

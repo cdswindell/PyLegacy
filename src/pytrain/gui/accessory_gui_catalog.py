@@ -59,13 +59,12 @@ class AccessoryGuiCatalog:
         self.register(GuiCatalogEntry("hobby", ".hobby_shop_gui", "HobbyShopGui"))
         self.register(GuiCatalogEntry("playground", ".playground_gui", "PlaygroundGui"))
         self.register(GuiCatalogEntry("smoke", ".smoke_fluid_loader_gui", "SmokeFluidLoaderGui"))
-        self.register(GuiCatalogEntry("control", ".control_tower_gui", "ControlTowerGui"))
 
         # ---- Registry-backed GUIs (AccessoryType present; no get_variant needed) ----
-        # Flip these over one-by-one as you migrate each GUI.
         self.register(GuiCatalogEntry("milk", ".milk_loader_gui", "MilkLoaderGui", AccessoryType.MILK_LOADER))
         self.register(GuiCatalogEntry("gas", ".gas_station_gui", "GasStationGui", AccessoryType.GAS_STATION))
         self.register(GuiCatalogEntry("fire", ".fire_station_gui", "FireStationGui", AccessoryType.FIRE_STATION))
+        self.register(GuiCatalogEntry("control", ".control_tower_gui", "ControlTowerGui", AccessoryType.CONTROL_TOWER))
 
     def register(self, entry: GuiCatalogEntry) -> None:
         nk = _norm(entry.key)
