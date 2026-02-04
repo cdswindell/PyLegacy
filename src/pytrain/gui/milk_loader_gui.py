@@ -115,7 +115,6 @@ class MilkLoaderGui(AccessoryBase):
         """
         Bind GUI to AccessoryState objects. TMCC ids are sourced from ConfiguredAccessory.
         """
-        print(f"Binding MilkLoaderGui to TMCC ids: {self._cfg.tmcc_ids} (get_target_states)")
         power_id = self._op("power").tmcc_id
         conveyor_id = self._op("conveyor").tmcc_id
         eject_id = self._op("eject").tmcc_id
@@ -123,11 +122,7 @@ class MilkLoaderGui(AccessoryBase):
         self.power_state = self._state_store.get_state(CommandScope.ACC, power_id)
         self.conveyor_state = self._state_store.get_state(CommandScope.ACC, conveyor_id)
         self.eject_state = self._state_store.get_state(CommandScope.ACC, eject_id)
-        print(
-            f"Bound states: power={power_id}: {self.power_state},\n"
-            f"conveyor={conveyor_id}: {self.conveyor_state},\n"
-            f"eject={eject_id} : {self.eject_state}"
-        )
+
         return [
             self.power_state,
             self.conveyor_state,
@@ -160,7 +155,6 @@ class MilkLoaderGui(AccessoryBase):
         """
         Build controls using labels from configured operations.
         """
-        print(f"Building MilkLoaderGui controls: {self._cfg.operations} {self.power_state}")
         power_label = self._op("power").label
         conveyor_label = self._op("conveyor").label
         eject_label = self._op("eject").label
