@@ -23,6 +23,8 @@ from ..utils.path_utils import find_file
 
 
 class MilkLoaderGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.MILK_LOADER
+
     def __init__(
         self,
         power: int,
@@ -87,6 +89,8 @@ class MilkLoaderGui(AccessoryBase):
             instance_id=None,
             display_name=None,
         )
+        # make sure we have a configuration
+        assert self._cfg is not None
 
         # Apply main title/image to the AccessoryBase fields
         self.title = self._title = self._cfg.title
@@ -96,16 +100,13 @@ class MilkLoaderGui(AccessoryBase):
         eject_op = self._cfg.operation("eject")
         self._eject_image = find_file(eject_op.image or "depot-milk-can-eject.jpeg")
 
-        # make sure we have a configuration
-        assert self._cfg is not None
-
     def get_target_states(self) -> list[S]:
         """
         Bind GUI to AccessoryState objects. TMCC ids are sourced from ConfiguredAccessory.
         """
-        power_id = self._cfg.operation("power").tmcc_id
-        conveyor_id = self._cfg.operation("conveyor").tmcc_id
-        eject_id = self._cfg.operation("eject").tmcc_id
+        power_id = self._cfg.tmcc_id_for("power")
+        conveyor_id = self._cfg.tmcc_id_for("conveyor")
+        eject_id = self._cfg.tmcc_id_for("eject")
 
         self.power_state = self._state_store.get_state(CommandScope.ACC, power_id)
         self.conveyor_state = self._state_store.get_state(CommandScope.ACC, conveyor_id)
@@ -133,6 +134,8 @@ class MilkLoaderGui(AccessoryBase):
 
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
         if state == self.power_state:
+            if self.eject_button is None:
+                return  # defensive programming
             # If power is off, disable eject; if power is on, enable eject
             if state.is_aux_on:
                 self.queue_message(lambda: self.eject_button.enable())

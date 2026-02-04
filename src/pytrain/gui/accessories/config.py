@@ -73,6 +73,9 @@ class ConfiguredAccessory:
         raise KeyError(f"ConfiguredAccessory: operation not found: {key}")
 
     def tmcc_id_for(self, key: str) -> int:
+        """
+        Convenience: return TMCC id for the given operation key.
+        """
         return self.operation(key).tmcc_id
 
     @property

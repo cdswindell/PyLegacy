@@ -14,7 +14,9 @@ import logging
 from threading import Event, Thread
 from typing import Any
 
+from .accessories.accessory_registry import AccessoryRegistry
 from ..gpio.gpio_handler import GpioHandler
+from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +111,7 @@ class AccessoryGui(Thread):
         super().__init__(daemon=True)
         self._ev = Event()
 
-        self._gui_classes = {
+        self._gui_classes: dict[str, type] = {
             "backhoe": BackhoeGui,
             "control": ControlTowerGui,
             "culvert": CulvertGui,
@@ -127,9 +129,10 @@ class AccessoryGui(Thread):
         self._guis = {}
         for gui in args:
             if isinstance(gui, tuple):
-                gui_class, gui_args, gui_kwargs = self._parse_tuple(gui)
+                gui_class, gui_type, gui_args, gui_kwargs = self._parse_tuple(gui)
+                print(gui_class, gui_type, gui_args, gui_kwargs)
                 variant_arg = gui_kwargs.get("variant", None)
-                title, _ = gui_class.get_variant(variant_arg)
+                title, _ = self._resolve_variant(gui_class, variant_arg)
                 if title in self._guis:
                     raise ValueError(f"Duplicate GUI variant: {gui[0]}: {title}")
                 self._guis[title] = (gui_class, gui_args, gui_kwargs)
@@ -167,7 +170,7 @@ class AccessoryGui(Thread):
 
         self.start()
 
-    def get_variant(self, variant: str):
+    def get_variant(self, variant: str) -> type:
         if not isinstance(variant, str):
             raise ValueError(f"Invalid GUI variant: {variant}")
         variant = variant.lower().strip().replace("'", "").replace("-", "")
@@ -175,6 +178,38 @@ class AccessoryGui(Thread):
             if variant in k:
                 return v
         raise ValueError(f"Invalid GUI variant: {variant}")
+
+    @staticmethod
+    def _resolve_variant(gui_class, variant: str | None) -> tuple[str, str]:
+        """
+        Resolve (title, image_file) for a GUI class.
+
+        Supports:
+          - registry-backed accessories (new)
+          - legacy get_variant() accessories (old)
+        """
+        acc_type = getattr(gui_class, "ACCESSORY_TYPE", None)
+
+        if acc_type is not None:
+            # New-style registry-backed accessory
+            registry = AccessoryRegistry.instance()
+            registry.bootstrap()
+
+            definition = registry.get_definition(acc_type, variant)
+
+            title = definition.variant.title
+            image = find_file(definition.variant.image)
+            return title, image
+
+        # Legacy fallback
+        if hasattr(gui_class, "get_variant"):
+            return gui_class.get_variant(variant)
+
+        raise TypeError(f"{gui_class.__name__} does not define ACCESSORY_TYPE or get_variant()")
+
+    @staticmethod
+    def _gui_accessory_type(gui_class: type):
+        return getattr(gui_class, "ACCESSORY_TYPE", None)
 
     def run(self) -> None:
         # create the initially requested gui
@@ -211,10 +246,11 @@ class AccessoryGui(Thread):
     def guis(self) -> list[str]:
         return self._sorted_guis
 
-    def _parse_tuple(self, gui: tuple) -> tuple[Any, tuple, dict]:
+    def _parse_tuple(self, gui: tuple) -> tuple[Any, Any, tuple, dict]:
         if len(gui) < 2:
             raise ValueError(f"Invalid GUI tuple: {gui}")
         gui_class = self.get_variant(gui[0])
+        gui_type = self._gui_accessory_type(gui_class)
         gui_args = list()
         gui_kwargs: dict[str, Any] = dict()
         for arg in gui[1:]:
@@ -232,4 +268,4 @@ class AccessoryGui(Thread):
             if isinstance(gui_args[-1], str) and "variant" not in gui_kwargs:
                 gui_kwargs["variant"] = gui_args[-1]
                 gui_args = gui_args[:-1]
-        return gui_class, tuple(gui_args), gui_kwargs
+        return gui_class, gui_type, tuple(gui_args), gui_kwargs
