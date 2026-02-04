@@ -61,7 +61,7 @@ def register_gas_station(registry: AccessoryRegistry) -> None:
         ),
         OperationSpec(
             key="action",
-            label="Action",
+            label="Garage",
             behavior=PortBehavior.MOMENTARY_PULSE,
             image="gas-station-car.png",
             width=72,
@@ -223,6 +223,7 @@ def register_gas_station(registry: AccessoryRegistry) -> None:
                 "91001",
                 "texaco",
             ),
+            default=True,
         ),
         VariantSpec(
             key=_variant_key_from_title("Tidewater Oil Gas Station"),

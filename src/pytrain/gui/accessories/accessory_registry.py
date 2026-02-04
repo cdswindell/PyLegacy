@@ -367,6 +367,6 @@ class AccessoryRegistry:
         # check for default variant
         defaults = [v for v in spec.variants if v.default]
         if len(defaults) == 0:
-            log.warning(f"Accessory type '{spec.type}' must define exactly one default variant")
+            log.warning(f"Accessory type '{spec.type}' should define exactly one default variant")
         if len(defaults) > 1:
             raise ValueError(f"Accessory type '{spec.type}' defines multiple default variants")

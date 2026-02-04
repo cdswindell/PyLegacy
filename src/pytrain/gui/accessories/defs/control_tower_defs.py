@@ -115,8 +115,8 @@ def register_control_tower(registry: AccessoryRegistry) -> None:
         ),
         VariantSpec(
             key=_variant_key_from_title("NASA Mission Control Tower"),
-            display="NASA Mission Control Tower",
-            title="NASA Mission Control Tower",
+            display="NASA Mission Control ",
+            title="NASA Mission Control",
             image="NASA-Mission-Control-Tower-2229040.jpg",
             aliases=(
                 "nasa mission control tower 2229040",
@@ -124,6 +124,7 @@ def register_control_tower(registry: AccessoryRegistry) -> None:
                 "2229040",
                 "nasa",
             ),
+            default=True,
         ),
         VariantSpec(
             key=_variant_key_from_title("Radio Control Tower"),

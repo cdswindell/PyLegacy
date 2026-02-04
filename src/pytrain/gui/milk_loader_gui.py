@@ -122,14 +122,11 @@ class MilkLoaderGui(AccessoryBase):
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
+        if state == self.eject_state:
+            return  # Eject is momentary (press/release handlers)
         with self._cv:
-            if state == self.eject_state:
-                # Eject is momentary (press/release handlers)
-                return
-
             # LATCH behavior for power / conveyor
             CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-
             self.after_state_change(None, self.power_state)
 
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
