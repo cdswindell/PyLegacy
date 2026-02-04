@@ -22,10 +22,6 @@ Control Tower accessory definition (GUI-agnostic).
 This module registers:
   - required operations (ports) and their behaviors
   - supported variants (title + primary image)
-
-IMPORTANT:
-  - No GUI imports here.
-  - Only registry metadata lives in this module.
 """
 
 

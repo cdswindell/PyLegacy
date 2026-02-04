@@ -14,8 +14,8 @@ import logging
 from threading import Event, Thread
 from typing import Any
 
-from src.pytrain.gui.accessory_gui_catalog import AccessoryGuiCatalog
 from .accessories.accessory_registry import AccessoryRegistry
+from .accessory_gui_catalog import AccessoryGuiCatalog
 from ..gpio.gpio_handler import GpioHandler
 from ..utils.path_utils import find_file
 

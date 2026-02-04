@@ -68,7 +68,7 @@ class ControlTowerGui(AccessoryBase):
         )
 
         # Pre-resolve action image (momentary)
-        self._action_image = find_file(self.config.image_for("action", "control_tower_animation.gif"))
+        self._action_image = find_file(self.config.image_for("action", "loaded.png"))
 
     def get_target_states(self) -> list[S]:
         assert self.config is not None
@@ -88,7 +88,7 @@ class ControlTowerGui(AccessoryBase):
             return  # Action is momentary (press/release handlers)
         with self._cv:
             self.toggle_latch(state)
-            self.after_state_change(None, self.power_state)
+            self.after_state_change(None, state)
 
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
         if state == self.power_state:

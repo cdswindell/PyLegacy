@@ -38,7 +38,7 @@ def register_hobby_shop(registry: AccessoryRegistry) -> None:
       - power: latch (on/off)
       - action: momentary_pulse (trigger animation)
 
-    If your HobbyShopGui uses different semantics, just adjust the operation keys/behavior here.
+    If your HobbyShopGui uses different semantics, adjust the operation keys/behavior here.
     """
 
     operations = (

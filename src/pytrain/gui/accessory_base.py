@@ -221,13 +221,17 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self,
         power_state: AccessoryState,
         widget: PushButton | None,
+        on_enable: Callable = None,
+        on_disable: Callable = None,
     ) -> None:
         if widget is None:
             return
+        on_enable = on_enable or widget.enable
+        on_disable = on_disable or widget.disable
         if power_state.is_aux_on:
-            self.queue_message(widget.enable)
+            self.queue_message(on_enable)
         else:
-            self.queue_message(widget.disable)
+            self.queue_message(on_disable)
 
     @property
     def config(self) -> ConfiguredAccessory:

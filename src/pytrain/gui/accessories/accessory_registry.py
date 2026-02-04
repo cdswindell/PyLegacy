@@ -87,6 +87,7 @@ class VariantSpec:
     title: str
     image: str
     aliases: tuple[str, ...] = ()
+    flavor: str | None = (None,)
     default: bool = False
     operation_images: dict[str, object] | None = None  # see docstring
 
@@ -343,7 +344,7 @@ class AccessoryRegistry:
     def _coerce_type(self, type_: AccessoryType | str) -> AccessoryType:
         if isinstance(type_, AccessoryType):
             return type_
-        return AccessoryType.from_value(type_)  # type: ignore[attr-defined]
+        return AccessoryType.by_name(type_)  # type: ignore[attr-defined]
 
     @staticmethod
     def _norm(s: str) -> str:

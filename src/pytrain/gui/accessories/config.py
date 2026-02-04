@@ -88,6 +88,14 @@ class ConfiguredAccessory:
         op = self.operation(key)
         return op.image or default
 
+    def off_image_for(self, key: str, default: str | None = None) -> str | None:
+        op = self.operation(key)
+        return op.off_image or default
+
+    def on_image_for(self, key: str, default: str | None = None) -> str | None:
+        op = self.operation(key)
+        return op.on_image or default
+
     def size_for(self, key: str, default: int | None = None) -> tuple[int, int] | None:
         op = self.operation(key)
         return op.height or default, op.width or default
@@ -106,6 +114,10 @@ class ConfiguredAccessory:
     @property
     def variant_key(self) -> str:
         return self.definition.variant.key
+
+    @property
+    def variant_flavor(self) -> str:
+        return self.definition.variant.flavor
 
 
 def configure_accessory(
