@@ -97,6 +97,7 @@ def register_hobby_shop(registry: AccessoryRegistry) -> None:
                 "midtown models",
                 "midtown",
             ),
+            default=True,
         ),
     )
 
