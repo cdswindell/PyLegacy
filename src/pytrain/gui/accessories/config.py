@@ -88,6 +88,10 @@ class ConfiguredAccessory:
         op = self.operation(key)
         return op.image or default
 
+    def size_for(self, key: str, default: int | None = None) -> tuple[int, int] | None:
+        op = self.operation(key)
+        return op.height or default, op.width or default
+
     def labels_for(self, *keys: str) -> tuple[str, ...]:
         return tuple(self.operation(k).label for k in keys)
 
