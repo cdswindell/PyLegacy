@@ -127,6 +127,8 @@ class FreightStationGui(AccessoryBase):
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
+        if widget is None:
+            return
         if isinstance(widget, PowerButton):
             super().set_button_inactive(widget)
         elif widget == self.platform_button:
@@ -136,6 +138,8 @@ class FreightStationGui(AccessoryBase):
 
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
+        if widget is None:
+            return
         if isinstance(widget, PowerButton):
             super().set_button_active(widget)
         elif widget == self.platform_button:
