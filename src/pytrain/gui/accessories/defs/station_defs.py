@@ -86,6 +86,8 @@ _BREWING_IMAGES = {
     "Pittsburgh-Brewing-Co-30-90189.jpg",
 }
 
+DEFAULT_STATION = "Middletown-Passenger-Station-30-9125.jpg"
+
 
 def _variant_key_from_filename(filename: str) -> str:
     base = filename.rsplit(".", 1)[0]
@@ -141,9 +143,9 @@ def _load_on_image_for_flavor(flavor: str) -> str:
     return "freight-waiting.jpg"
 
 
-def register_freight_station(registry: AccessoryRegistry) -> None:
+def register_station(registry: AccessoryRegistry) -> None:
     """
-    Register the Freight Depot / Station accessory type metadata.
+    Register the Freight / Passenger Station accessory type metadata.
 
     Assumed operations:
       - power: latch (on/off)
@@ -174,6 +176,7 @@ def register_freight_station(registry: AccessoryRegistry) -> None:
 
         # Per-variant override for the LOAD button ON image (loaded)
         load_on = _load_on_image_for_flavor(flavor)
+        default = filename == DEFAULT_STATION
 
         variants.append(
             VariantSpec(
@@ -182,6 +185,7 @@ def register_freight_station(registry: AccessoryRegistry) -> None:
                 title=title,
                 image=filename,
                 flavor=flavor,
+                default=default,
                 aliases=tuple(
                     dict.fromkeys(
                         (
@@ -198,8 +202,8 @@ def register_freight_station(registry: AccessoryRegistry) -> None:
         )
 
     spec = AccessoryTypeSpec(
-        type=AccessoryType.FREIGHT_STATION,
-        display_name="Freight Station",
+        type=AccessoryType.STATION,
+        display_name="Station",
         operations=operations,
         variants=tuple(variants),
     )
@@ -212,14 +216,15 @@ if __name__ == "__main__":  # pragma: no cover
     reg = AccessoryRegistry.get()
     reg.reset_for_tests()
 
-    register_freight_station(reg)
+    register_station(reg)
 
-    d_spec = reg.get_spec("freight_station")  # or AccessoryType.FREIGHT_STATION
+    d_spec = reg.get_spec("station")  # or AccessoryType.FREIGHT
     print(f"{d_spec.type} variants: {len(d_spec.variants)}")
     for v in d_spec.variants:
         print(f"- key={v.key!r} flavor={getattr(v, 'flavor', None)!r}")
         print(f"  display={v.display!r}")
         print(f"  title={v.title!r}")
+        print(f"  default={v.default!r}")
         print(f"  image={v.image!r}")
         print(f"  aliases={v.aliases}")
         print(f"  op images={v.operation_images}")

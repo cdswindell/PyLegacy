@@ -18,8 +18,8 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
 
 
-class FreightStationGui(AccessoryBase):
-    ACCESSORY_TYPE = AccessoryType.FREIGHT_STATION
+class StationGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.STATION
 
     def __init__(
         self,

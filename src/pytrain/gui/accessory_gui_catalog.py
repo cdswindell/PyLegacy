@@ -64,9 +64,7 @@ class AccessoryGuiCatalog:
         self.register(GuiCatalogEntry("gas", ".gas_station_gui", "GasStationGui", AccessoryType.GAS_STATION))
         self.register(GuiCatalogEntry("hobby", ".hobby_shop_gui", "HobbyShopGui", AccessoryType.HOBBY_SHOP))
         self.register(GuiCatalogEntry("milk", ".milk_loader_gui", "MilkLoaderGui", AccessoryType.MILK_LOADER))
-        self.register(
-            GuiCatalogEntry("station", ".freight_station_gui", "FreightStationGui", AccessoryType.FREIGHT_STATION)
-        )
+        self.register(GuiCatalogEntry("station", ".station_gui", "StationGui", AccessoryType.STATION))
 
     def register(self, entry: GuiCatalogEntry) -> None:
         nk = _norm(entry.key)
