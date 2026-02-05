@@ -9,13 +9,13 @@ from tkinter import Widget
 
 from guizero import Box, PushButton
 
+from .accessories.accessory_type import AccessoryType
+from .accessory_base import AccessoryBase, S
+from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ..utils.path_utils import find_file
-from .accessories.accessory_type import AccessoryType
-from .accessory_base import AccessoryBase, PowerButton, S
-from .accessory_gui import AccessoryGui
 
 
 class FreightStationGui(AccessoryBase):
@@ -129,11 +129,8 @@ class FreightStationGui(AccessoryBase):
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
-        if widget is None:
-            return
-        if isinstance(widget, PowerButton):
-            super().set_button_inactive(widget)
-        elif widget == self.platform_button:
+        print(f"set_button_inactive: {widget} pl: {self.platform_button == widget}")
+        if widget == self.platform_button:
             # self._platform_text.value = "Depart"
             print(f"Platform inactive: {self.config.off_image_for('platform', 'loaded.png')}")
             self.platform_button.image = self.config.off_image_for("platform", "loaded.png")
@@ -141,11 +138,7 @@ class FreightStationGui(AccessoryBase):
 
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
-        if widget is None:
-            return
-        if isinstance(widget, PowerButton):
-            super().set_button_active(widget)
-        elif widget == self.platform_button:
+        if widget == self.platform_button:
             # self._platform_text.value = "Arrive"
             print(f"Platform active: {self.config.on_image_for('platform', 'loaded.png')}")
             self.platform_button.image = self.config.on_image_for("platform")
