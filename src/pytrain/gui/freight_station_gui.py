@@ -98,7 +98,6 @@ class FreightStationGui(AccessoryBase):
 
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
         # Updates platform button based on platform state
-        print(f"after_state_change: {state} pw: {state == self.power_state} pl: {state == self.platform_state}")
         if state == self.power_state:
             self.gate_widget_on_power(self.power_state, self.platform_button)
         elif state == self.platform_state:
@@ -134,6 +133,7 @@ class FreightStationGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self.platform_button:
+            print(f"Platform inactive: {self.get_boxed_button_label(widget)}")
             # self._platform_text.value = "Depart"
             self.platform_button.image = self._empty_image
             self.platform_button.height = self.platform_button.width = self.s_72
@@ -145,8 +145,8 @@ class FreightStationGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self.platform_button:
+            print(f"Platform active: {self.get_boxed_button_label(widget)}")
             # self._platform_text.value = "Arrive"
-            print(f"Platform active: {self.config.on_image_for('platform')}")
             self.platform_button.image = self._full_image
             self.platform_button.height = self.platform_button.width = self.s_72
         else:
