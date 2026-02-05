@@ -58,6 +58,7 @@ class FreightStationGui(AccessoryBase):
         self._title: str | None = None
         self._image: str | None = None
         self._empty_image: str | None = None
+        self._full_image: str | None = None
         super().__init__(self._title, self._image, aggregator=aggregator)
 
     def bind_variant(self) -> None:
@@ -75,6 +76,7 @@ class FreightStationGui(AccessoryBase):
 
         # Pre-resolve action image (platform empty)
         self._empty_image = find_file(self.config.off_image_for("platform", "loaded.png"))
+        self._full_image = find_file(self.config.on_image_for("platform"))
 
     def get_target_states(self) -> list[S]:
         assert self.config is not None
@@ -132,14 +134,13 @@ class FreightStationGui(AccessoryBase):
         print(f"set_button_inactive: {widget} pl: {self.platform_button == widget}")
         if widget and widget == self.platform_button:
             # self._platform_text.value = "Depart"
-            print(f"Platform inactive: {self.config.off_image_for('platform', 'loaded.png')}")
-            self.platform_button.image = self.config.off_image_for("platform", "loaded.png")
+            self.platform_button.image = self._empty_image
             self.platform_button.height = self.platform_button.width = self.s_72
 
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
         if widget and widget == self.platform_button:
             # self._platform_text.value = "Arrive"
-            print(f"Platform active: {self.config.on_image_for('platform', 'loaded.png')}")
-            self.platform_button.image = self.config.on_image_for("platform")
+            print(f"Platform active: {self.config.on_image_for('platform')}")
+            self.platform_button.image = self._full_image
             self.platform_button.height = self.platform_button.width = self.s_72
