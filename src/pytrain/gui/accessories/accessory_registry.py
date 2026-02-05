@@ -60,26 +60,21 @@ class OperationSpec:
 @dataclass(frozen=True)
 class VariantSpec:
     """
-    A single named variant choice for an accessory type.
-
-    key:
-      - Stable id stored in config (recommended)
-    display:
-      - What the configurator shows
-    title/image:
-      - What the accessory GUI displays
-    aliases:
-      - Optional extra strings to match (legacy input, marketing names, part numbers)
+    ...
     operation_images:
       - Optional per-variant overrides for specific operation images
 
-    operation_images format:
+    operation_labels:
+      - Optional per-variant overrides for specific operation labels
+      - operation_labels is static per variant, not per-state
+      - state-dependent label switching is a GUI behavior
 
-      - For momentary/default buttons:
-            {"eject": "depot-milk-can-eject.jpeg"}
+        {"motion": "Swing"}
+        {"platform": "Depart"} # etc.
 
-      - For latch buttons (off/on):
-            {"power": {"off": "power-off.png", "on": "power-on.png"}}
+    NOTE:
+      - operation_images affects filenames (bundled into OperationAssets)
+      - operation_labels affects UI text (resolved via registry helpers)
     """
 
     key: str
@@ -87,9 +82,10 @@ class VariantSpec:
     title: str
     image: str
     aliases: tuple[str, ...] = ()
-    flavor: str | None = (None,)
+    flavor: str | None = None
     default: bool = False
     operation_images: dict[str, object] | None = None  # see docstring
+    operation_labels: dict[str, str] | None = None  # NEW
 
 
 @dataclass(frozen=True)
@@ -238,6 +234,37 @@ class AccessoryRegistry:
         )
 
     # -------------------------------------------------------------------------
+    # Label resolution helpers (NEW)
+    # -------------------------------------------------------------------------
+
+    def get_operation_label(
+        self,
+        spec: AccessoryTypeSpec,
+        key: str,
+        *,
+        variant: VariantSpec | None = None,
+    ) -> str:
+        """
+        Return the effective label for an operation key, optionally applying
+        per-variant label overrides.
+
+        If no override exists, returns the OperationSpec.label.
+        """
+        op = self.get_operation(spec, key)
+        if variant is None:
+            return op.label
+
+        ov = self._variant_operation_label_override(variant, op.key)
+        return ov if ov is not None else op.label
+
+    def operation_labels(self, definition: AccessoryDefinition) -> dict[str, str]:
+        """
+        Convenience: return a dict of effective labels for a concrete definition.
+        """
+        spec = self.get_spec(definition.type)
+        return {op.key: self.get_operation_label(spec, op.key, variant=definition.variant) for op in spec.operations}
+
+    # -------------------------------------------------------------------------
     # Spec helpers
     # -------------------------------------------------------------------------
 
@@ -290,6 +317,18 @@ class AccessoryRegistry:
     # -------------------------------------------------------------------------
     # Internal helpers
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _variant_operation_label_override(variant: VariantSpec, op_key: str) -> str | None:
+        """
+        Return a per-variant label override for an operation key.
+        """
+        if not variant.operation_labels:
+            return None
+        k = " ".join(op_key.strip().lower().split())
+        for kk, vv in variant.operation_labels.items():
+            if " ".join(kk.strip().lower().split()) == k:
+                return vv
+        return None
 
     def _bundle_operation_assets(self, op: OperationSpec, variant: VariantSpec) -> OperationAssets:
         """
@@ -364,6 +403,13 @@ class AccessoryRegistry:
             if nk in seen_vars:
                 raise ValueError(f"Duplicate variant key '{vs.key}' in type '{spec.type}'")
             seen_vars.add(nk)
+
+        valid_ops = {self._norm(op.key) for op in spec.operations}
+        for vs in spec.variants:
+            if vs.operation_labels:
+                for k in vs.operation_labels.keys():
+                    if self._norm(k) not in valid_ops:
+                        log.warning(f"{spec.type} variant '{vs.key}' overrides unknown label op '{k}'")
 
         # check for default variant
         defaults = [v for v in spec.variants if v.default]

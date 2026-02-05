@@ -5,44 +5,20 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-from guizero import Box, Text
+from typing import cast
 
-from ..db.accessory_state import AccessoryState
-from ..protocol.constants import CommandScope
-from ..utils.path_utils import find_file
+from guizero import Box
+
+from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, AnimatedButton, S
 from .accessory_gui import AccessoryGui
-
-VARIANTS = {
-    "tire swing 6-82105": "Tire-Swing-6-82105.jpg",
-    "tug of war 6-82107": "Tug-of-War-6-82107.jpg",
-    "Playground-6-82104.jpg": "Playground-6-82104.jpg",
-    "Swing-6-14199.jpg": "Swing-6-14199.jpg",
-}
-
-TITLES = {
-    "Tire-Swing-6-82105.jpg": "Tire Swing",
-    "Tug-of-War-6-82107.jpg": "Tug of War",
-    "Playground-6-82104.jpg": "Playground",
-    "Swing-6-14199.jpg": "Swings",
-}
-
-MOTION_IMAGE = {
-    "Tire-Swing-6-82105.jpg": "tire-swing-child.jpg",
-    "Tug-of-War-6-82107.jpg": "tug-of-war.jpg",
-    "Playground-6-82104.jpg": "motion.gif",
-    "Swing-6-14199.jpg": "swing.gif",
-}
-
-MOTION_TEXT = {
-    "Tire-Swing-6-82105.jpg": "Swing",
-    "Tug-of-War-6-82107.jpg": "Tug of War",
-    "Playground-6-82104.jpg": "Motion",
-    "Swing-6-14199.jpg": "Swing",
-}
+from ..db.accessory_state import AccessoryState
+from ..utils.path_utils import find_file
 
 
 class PlaygroundGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.PLAYGROUND
+
     def __init__(
         self,
         motion: int,
@@ -54,36 +30,46 @@ class PlaygroundGui(AccessoryBase):
         Create a GUI to control Lionel Plug n Play Playground Accessories.
 
         :param int motion:
-            MCC ID of the ACS2 port used for motion.
+            MCC ID of the ACS2 port used for action motion.
 
         :param str variant:
             Optional; Specifies the variant (Tree Swing).
         """
 
         # identify the accessory
-        self._title, self.image_key = self.get_variant(variant)
-        image = find_file(self.image_key)
         self._motion = motion
-        self.motion_state = None
-
         self._variant = variant
-        self.motion_button = None
-        super().__init__(self._title, image, aggregator=aggregator)
+        self._motion_button = None
+        self._motion_state = None
 
-    @staticmethod
-    def get_variant(variant) -> tuple[str, str]:
-        if variant is None:
-            variant = "tire swing"
-        variant = PlaygroundGui.normalize(variant)
-        for k, v in VARIANTS.items():
-            if variant in k:
-                title = TITLES[v]
-                return title, v
-        raise ValueError(f"Unsupported playground: {variant}")
+        # Main title + image + eject image (resolved in bind_variant)
+        self._title: str | None = None
+        self._image: str | None = None
+        self._motion_image: str | None = None
+        self._motion_label: str | None = None
+
+        super().__init__(self._title, self._image, aggregator=aggregator)
+
+    def bind_variant(self) -> None:
+        """
+        Resolve all metadata (title, main image, op images) via registry + configure_accessory().
+
+        This keeps the public constructor signature stable while moving all metadata
+        to your centralized registry/config pipeline.
+        """
+        self.configure_from_registry(
+            self.ACCESSORY_TYPE,
+            self._variant,
+            tmcc_ids={"motion": self._motion},
+        )
+
+        # Pre-resolve action image (momentary)
+        self._motion_image = find_file(self.config.image_for("motion"))
+        self._motion_label = self.config.label_for("motion")
 
     def get_target_states(self) -> list[S]:
-        self.motion_state = self._state_store.get_state(CommandScope.ACC, self._motion)
-        return [self.motion_state]
+        self._motion_state = self.state_for("motion")
+        return [self._motion_state]
 
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
@@ -92,27 +78,17 @@ class PlaygroundGui(AccessoryBase):
         pass
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len(self.motion_text) + 2
-        col = 0
-        button_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
-        col += 1
-        tb = Text(button_box, text=self.motion_text, align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-        self.motion_button = action = AnimatedButton(
-            button_box,
-            image=self.motion_image,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
+        assert self.config is not None
+        motion_label = self.config.label_for("motion")
+        max_text_len = len(motion_label) + 2
+
+        self._motion_button = self.make_momentary_button(
+            box,
+            state=self._motion_state,
+            label=motion_label,
+            col=1,
+            text_len=max_text_len,
+            image=self._motion_image,
+            button_cls=AnimatedButton,
         )
-        self.register_widget(self.motion_state, action)
-        action.when_left_button_pressed = self.when_pressed
-        action.when_left_button_released = self.when_released
-
-    @property
-    def motion_image(self) -> str:
-        return find_file(MOTION_IMAGE.get(self.image_key, "motion.gif"))
-
-    @property
-    def motion_text(self) -> str:
-        return MOTION_TEXT.get(self.image_key, "Motion")
+        cast(AnimatedButton, self._motion_button).stop_animation()

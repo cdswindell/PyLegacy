@@ -9,10 +9,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .accessory_registry import AccessoryDefinition, AccessoryRegistry, PortBehavior
+
+log = logging.getLogger(__name__)
 
 
 def _norm(s: str) -> str:
@@ -116,7 +119,7 @@ class ConfiguredAccessory:
         return self.definition.variant.key
 
     @property
-    def variant_flavor(self) -> str:
+    def variant_flavor(self) -> str | None:
         return self.definition.variant.flavor
 
 
@@ -161,12 +164,38 @@ def configure_accessory(
                 if "on" in ov and isinstance(ov["on"], str):
                     on_image = ov["on"]
 
-        op_spec = registry.get_operation(spec, key)
+        # Apply per-instance overrides (if any)
+        ov = matched_key = None
+        if operation_images:
+            nk = _norm(key)
+            for k2, v2 in operation_images.items():
+                if _norm(k2) == nk:
+                    ov = v2
+                    matched_key = k2
+                    break
+
+            if isinstance(ov, str):
+                image = ov
+            elif isinstance(ov, dict):
+                if "off" in ov and isinstance(ov["off"], str):
+                    off_image = ov["off"]
+                if "on" in ov and isinstance(ov["on"], str):
+                    on_image = ov["on"]
+            elif matched_key is not None:
+                # Only warn if the key matched but the value was invalid
+                log.warning(
+                    "Invalid operation_images override for %s on %s: %r",
+                    matched_key,
+                    definition.type,
+                    ov,
+                )
+
+        label = registry.get_operation_label(spec, key, variant=definition.variant)
 
         ops.append(
             ConfiguredOperation(
                 key=key,
-                label=op_spec.label,
+                label=label,
                 behavior=op_assets.behavior,
                 tmcc_id=int(tmcc_ids[key]),
                 image=image,
