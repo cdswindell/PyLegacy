@@ -95,6 +95,8 @@ class FreightStationGui(AccessoryBase):
             self.after_state_change(None, state)
 
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
+        # Updates platform button based on platform state
+        print(state)
         if state == self.power_state:
             self.gate_widget_on_power(self.power_state, self.platform_button)
         elif state == self.platform_state:
