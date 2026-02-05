@@ -19,7 +19,7 @@ from ..accessory_registry import (
 from ..accessory_type import AccessoryType
 
 """
-Freight Depot / Station accessory definition (GUI-agnostic).
+Freight/Passenger Station accessory definition (GUI-agnostic).
 
 Ports / operations:
   - power: latch (on/off)
@@ -34,8 +34,8 @@ Load/unload images:
 """
 
 FLAVOR_FREIGHT = "freight"
-_FLAVOR_PASSENGER = "passenger"
-_FLAVOR_BREWING = "brewing"
+FLAVOR_PASSENGER = "passenger"
+FLAVOR_BREWING = "brewing"
 
 # Source data you provided
 _VARIANTS = {
@@ -106,7 +106,7 @@ def _aliases_from_legacy(legacy: str) -> tuple[str, ...]:
         return (s,)
 
     pn = parts[-1]  # e.g. 30-9161
-    name_tokens = parts[:-1]  # e.g. adolph coors brewing co
+    name_tokens = parts[:-1]  # e.g., adolph coors brewing co
 
     progressive = [" ".join(name_tokens[:i]) for i in range(1, len(name_tokens) + 1)]
 
@@ -124,9 +124,9 @@ def _aliases_from_legacy(legacy: str) -> tuple[str, ...]:
 
 def _flavor_for_image(filename: str) -> str:
     if filename in _BREWING_IMAGES:
-        return _FLAVOR_BREWING
+        return FLAVOR_BREWING
     if filename in _PASSENGER_IMAGES:
-        return _FLAVOR_PASSENGER
+        return FLAVOR_PASSENGER
     if filename in _FREIGHT_IMAGES:
         return FLAVOR_FREIGHT
     # Defensive default
@@ -134,9 +134,9 @@ def _flavor_for_image(filename: str) -> str:
 
 
 def _load_on_image_for_flavor(flavor: str) -> str:
-    if flavor == _FLAVOR_BREWING:
+    if flavor == FLAVOR_BREWING:
         return "brews-waiting.png"
-    if flavor == _FLAVOR_PASSENGER:
+    if flavor == FLAVOR_PASSENGER:
         return "passengers-waiting.png"
     return "freight-waiting.jpg"
 
@@ -192,7 +192,7 @@ def register_freight_station(registry: AccessoryRegistry) -> None:
                     )
                 ),
                 operation_images={
-                    "depart": {"off": "loaded.png", "arrive": load_on},
+                    "depart": {"off": "loaded.png", "on": load_on},
                 },
             )
         )
@@ -214,7 +214,7 @@ if __name__ == "__main__":  # pragma: no cover
 
     register_freight_station(reg)
 
-    d_spec = reg.get_spec("freight_depot")  # or AccessoryType.FREIGHT_DEPOT
+    d_spec = reg.get_spec("freight_station")  # or AccessoryType.FREIGHT_STATION
     print(f"{d_spec.type} variants: {len(d_spec.variants)}")
     for v in d_spec.variants:
         print(f"- key={v.key!r} flavor={getattr(v, 'flavor', None)!r}")
