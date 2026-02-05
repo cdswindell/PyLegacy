@@ -133,8 +133,7 @@ class FreightStationGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self.platform_button:
-            print(f"Platform inactive: {self.get_boxed_button_label(widget)}")
-            # self._platform_text.value = "Depart"
+            self.set_boxed_button_label(widget, "Depart")
             self.platform_button.image = self._empty_image
             self.platform_button.height = self.platform_button.width = self.s_72
         else:
@@ -145,8 +144,7 @@ class FreightStationGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self.platform_button:
-            print(f"Platform active: {self.get_boxed_button_label(widget)}")
-            # self._platform_text.value = "Arrive"
+            self.set_boxed_button_label(widget, "Arrive")
             self.platform_button.image = self._full_image
             self.platform_button.height = self.platform_button.width = self.s_72
         else:

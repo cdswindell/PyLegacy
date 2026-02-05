@@ -458,6 +458,15 @@ class AccessoryBase(Thread, Generic[S], ABC):
                 return child.value
         return None
 
+    @staticmethod
+    def set_boxed_button_label(widget: Widget, label: str):
+        """Extracts label from boxed button widget"""
+        if widget is None:
+            return
+        for child in widget.master.children:
+            if isinstance(child, Text):
+                child.value = label
+
     def on_combo_change(self, option: str) -> None:
         if option == self.title:
             return  # Noop
