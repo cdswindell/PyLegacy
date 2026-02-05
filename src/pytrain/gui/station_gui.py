@@ -77,7 +77,6 @@ class StationGui(AccessoryBase):
         # Pre-resolve action image (platform empty)
         self._empty_image = find_file(self.config.off_image_for("platform", "loaded.png"))
         self._full_image = find_file(self.config.on_image_for("platform"))
-        print(f"Platform images: {self._empty_image}, {self._full_image}")
 
     def get_target_states(self) -> list[S]:
         assert self.config is not None
@@ -113,8 +112,10 @@ class StationGui(AccessoryBase):
         max_text_len = max(len(power_label), len("Depart")) + 2
 
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
+
         self.platform_button = self.make_power_button(self.platform_state, "Depart", 1, max_text_len, box)
         self.platform_button.update_command(self.when_platform_button_pressed)
+
         self.after_state_change(None, self.platform_state)
         self.after_state_change(None, self.power_state)
 
