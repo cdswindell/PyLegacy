@@ -75,8 +75,9 @@ class FreightStationGui(AccessoryBase):
         )
 
         # Pre-resolve action image (platform empty)
-        self._empty_image = find_file(self.config.off_image_for("platform", "loaded.png"))
-        self._full_image = find_file(self.config.on_image_for("platform"))
+        self._empty_image = find_file(self.config.off_image_for("flavor", "loaded.png"))
+        self._full_image = find_file(self.config.on_image_for("flavor"))
+        print(f"Platform images: {self._empty_image}, {self._full_image}")
 
     def get_target_states(self) -> list[S]:
         assert self.config is not None

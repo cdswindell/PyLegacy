@@ -192,7 +192,7 @@ def register_freight_station(registry: AccessoryRegistry) -> None:
                     )
                 ),
                 operation_images={
-                    "depart": {"off": "loaded.png", "on": load_on},
+                    "flavor": {"off": "loaded.png", "on": load_on},
                 },
             )
         )
