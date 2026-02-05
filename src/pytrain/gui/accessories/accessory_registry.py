@@ -65,12 +65,9 @@ class VariantSpec:
       - Optional per-variant overrides for specific operation images
 
     operation_labels:
-      - Optional per-variant overrides for specific operation labels
-      - operation_labels is static per variant, not per-state
-      - state-dependent label switching is a GUI behavior
-
-        {"motion": "Swing"}
-        {"platform": "Depart"} # etc.
+    # Allow either a simple label override OR per-state overrides for latch buttons
+    # - {"motion": "Swing"} # always "Swing"
+    # - {"platform": {"off": "Depart", "on": "Arrive"}} # state-based
 
     NOTE:
       - operation_images affects filenames (bundled into OperationAssets)
@@ -85,7 +82,7 @@ class VariantSpec:
     flavor: str | None = None
     default: bool = False
     operation_images: dict[str, object] | None = None  # see docstring
-    operation_labels: dict[str, str] | None = None  # NEW
+    operation_labels: dict[str, object] | None = None  # NEW
 
 
 @dataclass(frozen=True)
@@ -254,7 +251,7 @@ class AccessoryRegistry:
         if variant is None:
             return op.label
 
-        ov = self._variant_operation_label_override(variant, op.key)
+        ov = self.variant_operation_label_override(variant, op.key)
         return ov if ov is not None else op.label
 
     def operation_labels(self, definition: AccessoryDefinition) -> dict[str, str]:
@@ -263,6 +260,39 @@ class AccessoryRegistry:
         """
         spec = self.get_spec(definition.type)
         return {op.key: self.get_operation_label(spec, op.key, variant=definition.variant) for op in spec.operations}
+
+    def get_operation_label_for_state(
+        self,
+        spec: AccessoryTypeSpec,
+        key: str,
+        *,
+        variant: VariantSpec | None = None,
+        is_on: bool | None = None,
+    ) -> str:
+        """
+        Resolve an operation label, optionally state-aware.
+
+        - If override is a string -> return it
+        - If override is dict -> expects {"off": "...", "on": "..."}; uses is_on
+        - Otherwise -> OperationSpec.label
+        """
+        op = self.get_operation(spec, key)
+        if variant is None:
+            return op.label
+
+        ov = self.variant_operation_label_override(variant, op.key)
+        if isinstance(ov, str):
+            return ov
+
+        if isinstance(ov, dict):
+            if is_on is None:
+                # caller didn't provide state; fall back to base label
+                return op.label
+            k = "on" if is_on else "off"
+            v = ov.get(k)
+            return v if isinstance(v, str) else op.label
+
+        return op.label
 
     # -------------------------------------------------------------------------
     # Spec helpers
@@ -318,10 +348,7 @@ class AccessoryRegistry:
     # Internal helpers
     # -------------------------------------------------------------------------
     @staticmethod
-    def _variant_operation_label_override(variant: VariantSpec, op_key: str) -> str | None:
-        """
-        Return a per-variant label override for an operation key.
-        """
+    def variant_operation_label_override(variant: VariantSpec, op_key: str) -> object | None:
         if not variant.operation_labels:
             return None
         k = " ".join(op_key.strip().lower().split())

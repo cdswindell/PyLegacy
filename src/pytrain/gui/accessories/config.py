@@ -40,6 +40,11 @@ class ConfiguredOperation:
     off_image: str | None = None  # latch
     on_image: str | None = None  # latch
 
+    # resolved labels
+    label: str
+    off_label: str | None = None
+    on_label: str | None = None
+
     # UI sizing hints
     width: int | None = None
     height: int | None = None
@@ -191,11 +196,18 @@ def configure_accessory(
                 )
 
         label = registry.get_operation_label(spec, key, variant=definition.variant)
+        off_label = on_label = None
+        ov = registry.variant_operation_label_override(definition.variant, key)
+        if isinstance(ov, dict):
+            off_label = ov.get("off") if isinstance(ov.get("off"), str) else None
+            on_label = ov.get("on") if isinstance(ov.get("on"), str) else None
 
         ops.append(
             ConfiguredOperation(
                 key=key,
                 label=label,
+                on_label=on_label,
+                off_label=off_label,
                 behavior=op_assets.behavior,
                 tmcc_id=int(tmcc_ids[key]),
                 image=image,

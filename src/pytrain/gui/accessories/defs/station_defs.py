@@ -198,6 +198,9 @@ def register_station(registry: AccessoryRegistry) -> None:
                 operation_images={
                     "platform": {"off": "loaded.png", "on": load_on},
                 },
+                operation_labels={
+                    "platform": {"off": "Depart", "on": "Arrive"},
+                },
             )
         )
 
@@ -228,3 +231,7 @@ if __name__ == "__main__":  # pragma: no cover
         print(f"  image={v.image!r}")
         print(f"  aliases={v.aliases}")
         print(f"  op images={v.operation_images}")
+        if isinstance(v.operation_labels, dict):
+            print(f"  op labels={v.operation_labels}")
+        elif isinstance(v.operation_labels, str):
+            print(f"  op label={v.operation_labels!r}")
