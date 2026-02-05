@@ -130,7 +130,7 @@ class FreightStationGui(AccessoryBase):
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
         print(f"set_button_inactive: {widget} pl: {self.platform_button == widget}")
-        if widget == self.platform_button:
+        if widget and widget == self.platform_button:
             # self._platform_text.value = "Depart"
             print(f"Platform inactive: {self.config.off_image_for('platform', 'loaded.png')}")
             self.platform_button.image = self.config.off_image_for("platform", "loaded.png")
@@ -138,7 +138,7 @@ class FreightStationGui(AccessoryBase):
 
     # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
-        if widget == self.platform_button:
+        if widget and widget == self.platform_button:
             # self._platform_text.value = "Arrive"
             print(f"Platform active: {self.config.on_image_for('platform', 'loaded.png')}")
             self.platform_button.image = self.config.on_image_for("platform")
