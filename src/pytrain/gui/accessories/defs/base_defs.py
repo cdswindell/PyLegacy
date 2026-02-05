@@ -59,3 +59,27 @@ def dedup_preserve_order(items: Iterable[str]) -> tuple[str, ...]:
         if x not in out:
             out.append(x)
     return tuple(out)
+
+
+def print_registry_entry(spec: str):
+    from ..accessory_registry import AccessoryRegistry
+
+    reg = AccessoryRegistry.get()
+
+    d_spec = reg.get_spec(spec)  # or AccessoryType.FREIGHT
+    print(f"{d_spec.type} variants: {len(d_spec.variants)}")
+    for v in d_spec.variants:
+        print(f"- key={v.key!r} flavor={getattr(v, 'flavor', None)!r}")
+        print(f"  display={v.display!r}")
+        print(f"  title={v.title!r}")
+        print(f"  default={v.default!r}")
+        print(f"  image={v.image!r}")
+        print(f"  aliases={v.aliases}")
+        if isinstance(v.operation_images, dict):
+            print(f"  op images={v.operation_images}")
+        elif isinstance(v.operation_images, str):
+            print(f"  op images={v.operation_images!r}")
+        if isinstance(v.operation_labels, dict):
+            print(f"  op labels={v.operation_labels}")
+        elif isinstance(v.operation_labels, str):
+            print(f"  op label={v.operation_labels!r}")

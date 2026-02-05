@@ -59,6 +59,9 @@ class StationGui(AccessoryBase):
         self._image: str | None = None
         self._empty_image: str | None = None
         self._full_image: str | None = None
+        self._empty_label: str | None = None
+        self._full_label: str | None = None
+
         super().__init__(self._title, self._image, aggregator=aggregator)
 
     def bind_variant(self) -> None:
@@ -76,7 +79,10 @@ class StationGui(AccessoryBase):
 
         # Pre-resolve action image (platform empty)
         self._empty_image = find_file(self.config.off_image_for("platform", "loaded.png"))
+        self._empty_label = self.config.off_label_for("platform", "Depart")
+
         self._full_image = find_file(self.config.on_image_for("platform"))
+        self._full_label = self.config.on_label_for("platform", "Arrive")
 
     def get_target_states(self) -> list[S]:
         assert self.config is not None
@@ -109,11 +115,11 @@ class StationGui(AccessoryBase):
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
         power_label, _ = self.config.labels_for("power", "platform")
-        max_text_len = max(len(power_label), len("Depart")) + 2
+        max_text_len = max(len(power_label), len(self._empty_label), len(self._full_label)) + 2
 
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
 
-        self.platform_button = self.make_power_button(self.platform_state, "Depart", 1, max_text_len, box)
+        self.platform_button = self.make_power_button(self.platform_state, self._empty_label, 1, max_text_len, box)
         self.platform_button.update_command(self.when_platform_button_pressed)
 
         self.after_state_change(None, self.platform_state)
@@ -135,7 +141,7 @@ class StationGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self.platform_button:
-            self.set_boxed_button_label(widget, "Depart")
+            self.set_boxed_button_label(widget, self._empty_label)
             self.platform_button.image = self._empty_image
             self.platform_button.height = self.platform_button.width = self.s_72
         else:
@@ -146,7 +152,7 @@ class StationGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self.platform_button:
-            self.set_boxed_button_label(widget, "Arrive")
+            self.set_boxed_button_label(widget, self._full_label)
             self.platform_button.image = self._full_image
             self.platform_button.height = self.platform_button.width = self.s_72
         else:

@@ -92,6 +92,18 @@ class ConfiguredAccessory:
         """
         return self.operation(key).label
 
+    def off_label_for(self, key: str, default: str | None = None) -> str:
+        """
+        Convenience: return label for the given operation key.
+        """
+        return self.operation(key).off_label or self.operation(key).label or default
+
+    def on_label_for(self, key: str, default: str | None = None) -> str:
+        """
+        Convenience: return label for the given operation key.
+        """
+        return self.operation(key).on_label or self.operation(key).label or default
+
     def image_for(self, key: str, default: str | None = None) -> str | None:
         op = self.operation(key)
         return op.image or default

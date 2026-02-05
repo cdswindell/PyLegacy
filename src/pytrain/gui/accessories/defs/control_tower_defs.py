@@ -7,6 +7,7 @@
 #
 from __future__ import annotations
 
+from .base_defs import print_registry_entry
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -146,3 +147,13 @@ def register_control_tower(registry: AccessoryRegistry) -> None:
     )
 
     registry.register(spec)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    from ..accessory_registry import AccessoryRegistry
+
+    reg = AccessoryRegistry.get()
+    reg.reset_for_tests()
+    register_control_tower(reg)
+
+    print_registry_entry("control_tower")

@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from .base_defs import print_registry_entry
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -218,20 +219,6 @@ if __name__ == "__main__":  # pragma: no cover
 
     reg = AccessoryRegistry.get()
     reg.reset_for_tests()
-
     register_station(reg)
 
-    d_spec = reg.get_spec("station")  # or AccessoryType.FREIGHT
-    print(f"{d_spec.type} variants: {len(d_spec.variants)}")
-    for v in d_spec.variants:
-        print(f"- key={v.key!r} flavor={getattr(v, 'flavor', None)!r}")
-        print(f"  display={v.display!r}")
-        print(f"  title={v.title!r}")
-        print(f"  default={v.default!r}")
-        print(f"  image={v.image!r}")
-        print(f"  aliases={v.aliases}")
-        print(f"  op images={v.operation_images}")
-        if isinstance(v.operation_labels, dict):
-            print(f"  op labels={v.operation_labels}")
-        elif isinstance(v.operation_labels, str):
-            print(f"  op label={v.operation_labels!r}")
+    print_registry_entry("station")

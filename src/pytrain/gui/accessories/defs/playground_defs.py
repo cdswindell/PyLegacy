@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from .base_defs import aliases_from_legacy_key, dedup_preserve_order, variant_key_from_filename
+from .base_defs import aliases_from_legacy_key, dedup_preserve_order, print_registry_entry, variant_key_from_filename
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -88,7 +88,7 @@ def register_playground(registry: AccessoryRegistry) -> None:
 
         # Extra helpful aliases
         base_no_ext = filename.rsplit(".", 1)[0]
-        extra_aliases = (title, title.lower(), base_no_ext.lower(), filename.lower())
+        extra_aliases = (title.lower(), base_no_ext.lower())
 
         op_images = {"motion": motion_image} if motion_image else None
         op_labels = {"motion": motion_label} if motion_label else None
@@ -122,13 +122,10 @@ if __name__ == "__main__":  # pragma: no cover
 
     register_playground(reg)
 
-    d_spec = reg.get_spec("playground")
-    print(f"{d_spec.type} variants: {len(d_spec.variants)}")
-    for v in d_spec.variants:
-        print(f"- key={v.key!r} default={getattr(v, 'default', False)!r}")
-        print(f"  display={v.display!r}")
-        print(f"  title={v.title!r}")
-        print(f"  image={v.image!r}")
-        print(f"  aliases={v.aliases}")
-        print(f"  op images={v.operation_images}")
-        print(f"  op labels={v.operation_labels}")
+    from ..accessory_registry import AccessoryRegistry
+
+    reg = AccessoryRegistry.get()
+    reg.reset_for_tests()
+    register_playground(reg)
+
+    print_registry_entry("playground")
