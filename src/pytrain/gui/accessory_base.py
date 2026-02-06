@@ -451,9 +451,16 @@ class AccessoryBase(Thread, Generic[S], ABC):
             b = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
             t = Text(b, text=label, align="top", size=self.s_16, underline=True)
             t.width = text_len
+            btn = button_cls(b, image=image, align="top", width=width or self.s_72, height=height or self.s_72)
         else:
-            b = container
-        btn = button_cls(b, image=image, align="top", width=width or self.s_72, height=height or self.s_72)
+            btn = button_cls(
+                container,
+                image=image,
+                align="top",
+                grid=[col, 0],
+                width=width or self.s_72,
+                height=height or self.s_72,
+            )
         if is_momentary:
             btn.when_left_button_pressed = self.when_pressed
             btn.when_left_button_released = self.when_released
