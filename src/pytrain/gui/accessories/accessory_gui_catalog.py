@@ -100,3 +100,6 @@ class AccessoryGuiCatalog:
                 return entry
 
         raise ValueError(f"Invalid GUI key: {key}")
+
+    def keys(self) -> tuple[str, ...]:
+        return tuple(sorted(self._entries.keys()))
