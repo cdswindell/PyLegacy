@@ -7,31 +7,23 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-from guizero import Box, PushButton, Text
+from guizero import Box, PushButton
 
-from ..db.accessory_state import AccessoryState
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from ..utils.path_utils import find_file
+from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
-
-VARIANTS = {
-    "k lineville freight depot k-42418": "K-Lineville-Freight-Depot-K-42418.jpg",
-}
-
-TITLES = {
-    "K-Lineville-Freight-Depot-K-42418.jpg": "Lineville Freight Depot",
-}
+from ..db.accessory_state import AccessoryState
+from ..utils.path_utils import find_file
 
 
 class FreightDepotGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.FREIGHT_DEPOT
+
     def __init__(
         self,
         power: int,
         conveyor: int,
-        eject: int,
+        load: int,
         variant: str = None,
         *,
         aggregator: AccessoryGui = None,
@@ -43,81 +35,86 @@ class FreightDepotGui(AccessoryBase):
             TMCC ID of the ACS2 port used to power the freight depot.
 
         :param int conveyor:
-            TMCC ID of the ACS2 port used to control the conveyor belt.
+            TMCC ID of the ACS2 port is used to control the conveyor belt.
 
-        :param int eject:
-            TMCC ID of the ACS2 port used to eject a package.
+        :param int load:
+            TMCC ID of the ACS2 port used to load a package.
 
         :param str variant:
             Optional; Specifies the variant (K-line, etc.).
         """
 
         # identify the accessory
-        self._title, self._image = self.get_variant(variant)
-        self._power = power
-        self._conveyor = conveyor
-        self._eject = eject
+        self._power = int(power)
+        self._conveyor = int(conveyor)
+        self._load = int(load)
         self._variant = variant
-        self.power_button = self.conveyor_button = self.eject_button = None
-        self.power_state = self.conveyor_state = self.eject_state = None
-        self.eject_image = find_file("Man-With-Handcart.png")
+
+        self.power_button = self.conveyor_button = self.load_button = None
+        self.power_state = self.conveyor_state = self.load_state = None
+
+        # Main title + image + load image (resolved in bind_variant)
+        self._title: str | None = None
+        self._image: str | None = None
+
         super().__init__(self._title, self._image, aggregator=aggregator)
 
-    @staticmethod
-    def get_variant(variant) -> tuple[str, str]:
-        if variant is None:
-            variant = "K Line"
-        variant = FreightDepotGui.normalize(variant)
-        for k, v in VARIANTS.items():
-            if variant in k:
-                title = TITLES[v]
-                return title, find_file(v)
-        raise ValueError(f"Unsupported freight depot: {variant}")
+    def bind_variant(self) -> None:
+        """
+        Resolve all metadata (title, main image, op images) via registry + configure_accessory().
+
+        This keeps the public constructor signature stable while moving all metadata
+        to your centralized registry/config pipeline.
+        """
+        self.configure_from_registry(
+            self.ACCESSORY_TYPE,
+            self._variant,
+            tmcc_ids={"power": self._power, "conveyor": self._conveyor, "load": self._load},
+        )
 
     def get_target_states(self) -> list[S]:
-        self.power_state = self._state_store.get_state(CommandScope.ACC, self._power)
-        self.conveyor_state = self._state_store.get_state(CommandScope.ACC, self._conveyor)
-        self.eject_state = self._state_store.get_state(CommandScope.ACC, self._eject)
+        """
+        Bind GUI to AccessoryState objects. TMCC ids are sourced from ConfiguredAccessory.
+        """
+        assert self.config is not None
+
+        self.power_state = self.state_for("power")
+        self.conveyor_state = self.state_for("conveyor")
+        self.load_state = self.state_for("load")
         return [
             self.power_state,
             self.conveyor_state,
-            self.eject_state,
+            self.load_state,
         ]
 
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
+        if state == self.load_state:
+            return  # Eject is momentary (press/release handlers)
         with self._cv:
-            if state == self.eject_state:
-                pass
-            elif state.is_aux_on:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
-                    self.queue_message(lambda: self.eject_button.disable())
-            else:
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
-                if state == self.power_state:
-                    self.queue_message(lambda: self.eject_button.enable())
+            # LATCH behavior for power / conveyor
+            self.toggle_latch(state)
+            self.after_state_change(None, self.power_state)
+
+    def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
+        if state == self.power_state:
+            self.gate_widget_on_power(self.power_state, self.load_button)
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len("Conveyor") + 2
-        self.power_button = self.make_power_button(self.power_state, "Power", 0, max_text_len, box)
-        self.conveyor_button = self.make_power_button(self.conveyor_state, "Conveyor", 1, max_text_len, box)
+        power_label, belt_label, load_label = self.config.labels_for("power", "conveyor", "load")
+        max_text_len = max(len(power_label), len(belt_label), len(load_label)) + 2
 
-        eject_box = Box(box, layout="auto", border=2, grid=[2, 0], align="top")
-        tb = Text(eject_box, text="Eject", align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-        self.eject_button = PushButton(
-            eject_box,
-            image=self.eject_image,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
+        self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
+        self.conveyor_button = self.make_power_button(self.conveyor_state, belt_label, 1, max_text_len, box)
+
+        self.load_button = self.make_push_button(
+            box,
+            state=self.load_state,
+            label=load_label,
+            col=2,
+            text_len=max_text_len,
+            image=find_file(self.config.image_for("load")),
         )
-        self.eject_button.bg = "white"
-        self.eject_button.when_left_button_pressed = self.when_pressed
-        self.eject_button.when_left_button_released = self.when_released
-        self.register_widget(self.eject_state, self.eject_button)
-        if not self.is_active(self.power_state):
-            self.eject_button.disable()
+        self.after_state_change(None, self.power_state)

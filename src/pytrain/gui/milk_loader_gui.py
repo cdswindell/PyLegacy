@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from guizero import Box, PushButton, Text
+from guizero import Box, PushButton
 
 from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
@@ -117,21 +117,12 @@ class MilkLoaderGui(AccessoryBase):
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
         self.conveyor_button = self.make_power_button(self.conveyor_state, conveyor_label, 1, max_text_len, box)
 
-        eject_box = Box(box, layout="auto", border=2, grid=[2, 0], align="top")
-        tb = Text(eject_box, text=eject_label, align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-
-        height, width = self.config.size_for("eject", self.s_72)
-        self.eject_button = PushButton(
-            eject_box,
-            image=self._eject_image,
-            align="top",
-            height=height,
-            width=width,
+        self.eject_button = self.make_push_button(
+            box,
+            state=self.eject_state,
+            label=eject_label,
+            col=2,
+            text_len=max_text_len,
+            image=find_file(self.config.image_for("eject")),
         )
-        self.eject_button.when_left_button_pressed = self.when_pressed
-        self.eject_button.when_left_button_released = self.when_released
-        self.register_widget(self.eject_state, self.eject_button)
-
-        # Robust initial gating
         self.after_state_change(None, self.power_state)

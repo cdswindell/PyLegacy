@@ -53,12 +53,11 @@ class AccessoryGuiCatalog:
 
         # ---- Legacy GUIs (no AccessoryType required; still have get_variant) ----
         self.register(GuiCatalogEntry("backhoe", ".backhoe_gui", "BackhoeGui"))
-        self.register(GuiCatalogEntry("depot", ".freight_depot_gui", "FreightDepotGui"))
-        # self.register(GuiCatalogEntry("smoke", ".smoke_fluid_loader_gui", "SmokeFluidLoaderGui"))
 
         # ---- Registry-backed GUIs (AccessoryType present; no get_variant needed) ----
         self.register(GuiCatalogEntry("control", ".control_tower_gui", "ControlTowerGui", AccessoryType.CONTROL_TOWER))
         self.register(GuiCatalogEntry("culvert", ".culvert_gui", "CulvertGui", AccessoryType.CULVERT_HANDLER))
+        self.register(GuiCatalogEntry("depot", ".freight_depot_gui", "FreightDepotGui", AccessoryType.FREIGHT_DEPOT))
         self.register(GuiCatalogEntry("fire", ".fire_station_gui", "FireStationGui", AccessoryType.FIRE_STATION))
         self.register(GuiCatalogEntry("gas", ".gas_station_gui", "GasStationGui", AccessoryType.GAS_STATION))
         self.register(GuiCatalogEntry("hobby", ".hobby_shop_gui", "HobbyShopGui", AccessoryType.HOBBY_SHOP))
