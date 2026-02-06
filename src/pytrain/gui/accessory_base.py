@@ -294,6 +294,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
         # build state buttons
         self.acc_box = acc_box = Box(self.app, border=2, align="bottom", layout="grid")
+        print("calling build_accessory_controls")
         self.build_accessory_controls(acc_box)
 
     def destroy_gui(self):
