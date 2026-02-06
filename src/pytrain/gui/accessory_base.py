@@ -410,8 +410,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
                     self._state_buttons[state.tmcc_id] = contents
                 elif isinstance(contents, set) and widget not in contents:
                     contents.add(widget)
-                if isinstance(contents, set):
-                    log.warning(f"TMCC ID {state.tmcc_id} state registered to multiple widgets: {contents}")
             else:
                 self._state_buttons[state.tmcc_id] = widget
             widget.component_state = state
