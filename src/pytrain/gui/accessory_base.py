@@ -9,11 +9,9 @@
 
 from __future__ import annotations
 
-import atexit
 import logging
 import re
 from abc import ABC, ABCMeta, abstractmethod
-from queue import Queue
 from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar
 
@@ -96,7 +94,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self.alarm_off_image = find_file("red_light_off.jpg")
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
-        self._message_queue = Queue()
 
         # States
         self._states = dict[int, S]()
@@ -107,8 +104,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self._cfg: ConfiguredAccessory | None = None
         self._registry: AccessoryRegistry | None = None
 
-        # Important: don't call tkinter from atexit; only signal
-        atexit.register(lambda: self._shutdown_flag.set())
         print("Initializing accessory base")
         self.init_complete()
 

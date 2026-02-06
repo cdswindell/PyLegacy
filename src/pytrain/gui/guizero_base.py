@@ -8,6 +8,7 @@
 #
 from __future__ import annotations
 
+import atexit
 import io
 import logging
 from abc import ABC, ABCMeta, abstractmethod
@@ -141,11 +142,12 @@ class GuiZeroBase(Thread, ABC):
         self._state_store = ComponentStateStore.get()
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if self._sync_state and self._sync_state.is_synchronized is True:
-            self._sync_watcher = None
-            self._on_initial_sync()
-        else:
-            self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
+        # if self._sync_state and self._sync_state.is_synchronized is True:
+        #     self._sync_watcher = None
+        #     self._on_initial_sync()
+        # else:
+        self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
+        atexit.register(lambda: self._shutdown_flag.set())
 
     @abstractmethod
     def build_gui(self) -> None: ...
