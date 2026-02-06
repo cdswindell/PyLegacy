@@ -52,9 +52,37 @@ def register_smoke_fluid_loader(registry: AccessoryRegistry) -> None:
     """
     operations = (
         OperationSpec(
-            key="tmcc_id",
-            label="TMCC ID",
+            key="lights",
+            label="Lights",
             behavior=PortBehavior.COMMAND,
+            off_image="off_button.jpg",
+            on_image="on_button.jpg",
+            width=72,
+            height=72,
+        ),
+        OperationSpec(
+            key="boom_left",
+            label="Boom Left",
+            image="left_arrow.jpg",
+            behavior=PortBehavior.COMMAND,
+            width=72,
+            height=72,
+        ),
+        OperationSpec(
+            key="boom_right",
+            label="Boom Right",
+            image="right_arrow.jpg",
+            behavior=PortBehavior.COMMAND,
+            width=72,
+            height=72,
+        ),
+        OperationSpec(
+            key="dispense",
+            label="Dispense",
+            image="smoke-fluid.png",
+            behavior=PortBehavior.COMMAND,
+            width=72,
+            height=72,
         ),
     )
 
