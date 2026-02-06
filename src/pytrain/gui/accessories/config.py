@@ -111,6 +111,9 @@ class ConfiguredAccessory:
         op = self.operation(key)
         return op.image or default
 
+    def images_for(self, *keys: str, default: str | None = None) -> tuple[str, ...]:
+        return tuple(self.operation(k).image or default for k in keys)
+
     def off_image_for(self, key: str, default: str | None = None) -> str | None:
         op = self.operation(key)
         return op.off_image or default

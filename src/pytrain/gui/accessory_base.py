@@ -27,6 +27,7 @@ from .accessories.accessory_registry import AccessoryRegistry
 from .accessories.accessory_type import AccessoryType
 from .accessories.config import ConfiguredAccessory, configure_accessory
 from .accessory_gui import AccessoryGui
+from .hold_button import HoldButton
 from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
 from ..db.component_state import ComponentState
@@ -190,10 +191,11 @@ class AccessoryBase(Thread, Generic[S], ABC):
         accessory_type: AccessoryType,
         variant: str | None,
         *,
-        tmcc_ids: dict[str, int],
+        tmcc_ids: dict[str, int] | None = None,
         operation_images: dict[str, str] | None = None,
         instance_id: str | None = None,
         display_name: str | None = None,
+        tmcc_id: int | None = None,
     ) -> ConfiguredAccessory:
         definition = self.registry.get_definition(accessory_type, variant)
         cfg = configure_accessory(
@@ -202,6 +204,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
             operation_images=operation_images,
             instance_id=instance_id,
             display_name=display_name,
+            tmcc_id=tmcc_id,
         )
 
         self.title = cfg.title
@@ -216,6 +219,10 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     def states_for(self, *keys: str, scope: CommandScope = CommandScope.ACC) -> list[S]:
         return [self.state_for(k, scope) for k in keys]
+
+    def state_for_accessory(self, scope: CommandScope = CommandScope.ACC) -> S:
+        assert self._cfg is not None
+        return self._state_store.get_state(scope, self._cfg.tmcc_id)
 
     def gate_widget_on_power(
         self,
@@ -426,25 +433,33 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.register_widget(state, button)
         return button
 
-    def make_momentary_button(
+    def make_push_button(
         self,
         container: Box,
         *,
         state: S,
-        label: str,
+        label: str | None,
         col: int,
-        text_len: int,
-        image: str,
+        text_len: int | None = None,
+        image: str | None = None,
         width: int | None = None,
         height: int | None = None,
-        button_cls=PushButton,
+        button_cls=HoldButton,
+        is_momentary: bool = True,
     ) -> PushButton:
-        b = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
-        t = Text(b, text=label, align="top", size=self.s_16, underline=True)
-        t.width = text_len
+        if label:
+            b = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
+            t = Text(b, text=label, align="top", size=self.s_16, underline=True)
+            t.width = text_len
+        else:
+            b = container
         btn = button_cls(b, image=image, align="top", width=width or self.s_72, height=height or self.s_72)
-        btn.when_left_button_pressed = self.when_pressed
-        btn.when_left_button_released = self.when_released
+        if is_momentary:
+            btn.when_left_button_pressed = self.when_pressed
+            btn.when_left_button_released = self.when_released
+        else:
+            btn.when_left_button_pressed = None
+            btn.when_left_button_released = None
         self.register_widget(state, btn)
         return btn
 

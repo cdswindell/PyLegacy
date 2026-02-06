@@ -99,7 +99,7 @@ class FireStationGui(AccessoryBase):
         max_text_len = max(len(power_label), len(alarm_label)) + 2
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
 
-        self.alarm_button = self.make_momentary_button(
+        self.alarm_button = self.make_push_button(
             box,
             state=self.alarm_state,
             label=alarm_label,

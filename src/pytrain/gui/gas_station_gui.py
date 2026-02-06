@@ -99,7 +99,7 @@ class GasStationGui(AccessoryBase):
         max_text_len = max(len(power_label), len(action_label)) + 2
 
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
-        self.action_button = self.make_momentary_button(
+        self.action_button = self.make_push_button(
             box,
             state=self.action_state,
             label=action_label,

@@ -82,7 +82,7 @@ class PlaygroundGui(AccessoryBase):
         motion_label = self.config.label_for("motion")
         max_text_len = len(motion_label) + 2
 
-        self._motion_button = self.make_momentary_button(
+        self._motion_button = self.make_push_button(
             box,
             state=self._motion_state,
             label=motion_label,

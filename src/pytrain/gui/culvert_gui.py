@@ -81,16 +81,15 @@ class CulvertGui(AccessoryBase):
         assert self.config is not None
         max_text_len = len(self._action_label) + 2
 
-        self._action_button = ab = self.make_momentary_button(
+        self._action_button = ab = self.make_push_button(
             box,
             state=self._action_state,
             label=self._action_label,
             image=self._action_image,
             col=1,
             text_len=max_text_len,
+            is_momentary=False,
         )
-        ab.when_left_button_pressed = None
-        ab.when_left_button_released = None
         ab.update_command(self.on_action)
 
     def on_action(self) -> None:

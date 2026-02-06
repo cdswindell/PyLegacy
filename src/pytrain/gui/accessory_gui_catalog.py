@@ -54,7 +54,7 @@ class AccessoryGuiCatalog:
         # ---- Legacy GUIs (no AccessoryType required; still have get_variant) ----
         self.register(GuiCatalogEntry("backhoe", ".backhoe_gui", "BackhoeGui"))
         self.register(GuiCatalogEntry("depot", ".freight_depot_gui", "FreightDepotGui"))
-        self.register(GuiCatalogEntry("smoke", ".smoke_fluid_loader_gui", "SmokeFluidLoaderGui"))
+        # self.register(GuiCatalogEntry("smoke", ".smoke_fluid_loader_gui", "SmokeFluidLoaderGui"))
 
         # ---- Registry-backed GUIs (AccessoryType present; no get_variant needed) ----
         self.register(GuiCatalogEntry("control", ".control_tower_gui", "ControlTowerGui", AccessoryType.CONTROL_TOWER))
@@ -64,14 +64,14 @@ class AccessoryGuiCatalog:
         self.register(GuiCatalogEntry("hobby", ".hobby_shop_gui", "HobbyShopGui", AccessoryType.HOBBY_SHOP))
         self.register(GuiCatalogEntry("milk", ".milk_loader_gui", "MilkLoaderGui", AccessoryType.MILK_LOADER))
         self.register(GuiCatalogEntry("playground", ".playground_gui", "PlaygroundGui", AccessoryType.PLAYGROUND))
-        # self.register(
-        #     GuiCatalogEntry(
-        #         "smoke",
-        #         ".smoke_fluid_loader_gui",
-        #         "SmokeFluidLoaderGui",
-        #         AccessoryType.SMOKE_FLUID_LOADER,
-        #     )
-        # )
+        self.register(
+            GuiCatalogEntry(
+                "smoke",
+                ".smoke_fluid_loader_gui",
+                "SmokeFluidLoaderGui",
+                AccessoryType.SMOKE_FLUID_LOADER,
+            )
+        )
         self.register(GuiCatalogEntry("station", ".station_gui", "StationGui", AccessoryType.STATION))
 
     def register(self, entry: GuiCatalogEntry) -> None:
