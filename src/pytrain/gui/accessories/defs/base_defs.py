@@ -190,9 +190,21 @@ def print_registry_entry(spec: str):
     from ..accessory_registry import AccessoryRegistry
 
     reg = AccessoryRegistry.get()
+    d_spec = reg.get_spec(spec)
 
-    d_spec = reg.get_spec(spec)  # or AccessoryType.FREIGHT
-    print(f"{d_spec.type} variants: {len(d_spec.variants)}")
+    print(f"{d_spec.type} operations: {len(d_spec.operations)} variants: {len(d_spec.variants)}")
+    print("Operations:")
+    for o in d_spec.operations:
+        print(f"- key={o.key!r}")
+        print(f"  label={o.label!r}")
+        print(f"  behavior={o.behavior.name!r}")
+        if o.image:
+            print(f"  image={o.image}")
+        if o.on_image:
+            print(f"  image={o.on_image}")
+        if o.off_image:
+            print(f"  image={o.off_image}")
+    print("\nVariants:")
     for v in d_spec.variants:
         print(f"- key={v.key!r} flavor={getattr(v, 'flavor', None)!r}")
         print(f"  display={v.display!r}")
