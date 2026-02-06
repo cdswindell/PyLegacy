@@ -6,51 +6,49 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+
 from typing import cast
 
-from guizero import Box, PushButton
+from guizero import Box
 
-from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
-from ..db.accessory_state import AccessoryState
-from ..utils.path_utils import find_file
+from .accessory_type import AccessoryType
+from ...db.accessory_state import AccessoryState
+from ...utils.path_utils import find_file
 
 
-class ControlTowerGui(AccessoryBase):
-    ACCESSORY_TYPE = AccessoryType.CONTROL_TOWER
+class ConstructionGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.CONSTRUCTION
 
     def __init__(
         self,
-        power: int,
         action: int,
         variant: str = None,
         *,
         aggregator: AccessoryGui = None,
     ):
         """
-        Create a GUI to control a Lionel Control Tower.
-
-        :param int power:
-            TMCC ID of the ACS2 port used for lights/power.
+        Create a GUI to control a K-Line Backhoe Construction Scene.
 
         :param int action:
-            TMCC ID of the ACS2 port used to trigger motion.
+            TMCC ID of the culvert loader/unloader.
 
         :param str variant:
-            Optional; Specifies the variant (NASA, Yellow, Orange, Red, Radio, etc.).
+            Optional; Specifies the variant (Backhoe).
         """
+
         # identify the accessory
-        self._power = power
         self._action = action
         self._variant = variant
-        self.power_button = self.action_button = None
-        self.power_state = self.action_state = None
+        self._action_button = None
+        self._action_state = None
 
         # Main title + image + eject image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
         self._action_image: str | None = None
+        self._action_label: str | None = None
 
         super().__init__(self._title, self._image, aggregator=aggregator)
 
@@ -64,56 +62,38 @@ class ControlTowerGui(AccessoryBase):
         self.configure_from_registry(
             self.ACCESSORY_TYPE,
             self._variant,
-            tmcc_ids={"power": self._power, "action": self._action},
+            tmcc_ids={"action": self._action},
         )
 
         # Pre-resolve action image (momentary)
-        self._action_image = find_file(self.config.image_for("action", "loaded.png"))
+        self._action_image = find_file(self.config.image_for("action"))
+        self._action_label = self.config.label_for("action")
 
     def get_target_states(self) -> list[S]:
-        assert self.config is not None
-
-        self.power_state = self.state_for("power")
-        self.action_state = self.state_for("action")
-        return [
-            self.power_state,
-            self.action_state,
-        ]
+        self._action_state = self.state_for("action")
+        return [self._action_state]
 
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
-        if state == self.action_state:
-            return  # Action is momentary (press/release handlers)
-        with self._cv:
-            self.toggle_latch(state)
-            self.after_state_change(None, state)
-
-    def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
-        if state == self.power_state:
-            self.gate_widget_on_power(self.power_state, self.action_button)
+        pass
 
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
-        power_label, action_label = self.config.labels_for("power", "action")
+        action_label = self.config.label_for("action")
+        max_text_len = len(action_label) + 2
 
-        max_text_len = max(len(power_label), len(action_label)) + 2
-        self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
-
-        self.action_button = self.make_push_button(
+        self._action_button = self.make_push_button(
             box,
-            state=self.action_state,
+            state=self._action_state,
             label=action_label,
             col=1,
             text_len=max_text_len,
             image=self._action_image,
             button_cls=AnimatedButton,
         )
-        cast(AnimatedButton, self.action_button).stop_animation()
-
-        # Robust initial gating
-        self.after_state_change(None, self.power_state)
+        cast(AnimatedButton, self._action_button).stop_animation()
 
     def set_button_active(self, button: AnimatedButton) -> None:
         with self._cv:

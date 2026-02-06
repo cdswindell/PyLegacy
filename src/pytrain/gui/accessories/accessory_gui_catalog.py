@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Optional
 
-from .accessories.accessory_type import AccessoryType
+from .accessory_type import AccessoryType
 
 
 def _norm(s: str) -> str:

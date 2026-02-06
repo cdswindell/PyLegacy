@@ -9,15 +9,14 @@
 
 from guizero import Box, PushButton
 
-from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
-from ..db.accessory_state import AccessoryState
-from ..utils.path_utils import find_file
+from .accessory_type import AccessoryType
+from ...db.accessory_state import AccessoryState
 
 
-class GasStationGui(AccessoryBase):
-    ACCESSORY_TYPE = AccessoryType.GAS_STATION
+class HobbyShopGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.HOBBY_SHOP
 
     def __init__(
         self,
@@ -28,17 +27,18 @@ class GasStationGui(AccessoryBase):
         aggregator: AccessoryGui = None,
     ):
         """
-        Create a GUI to control a MTH Gas Station.
+        Create a GUI to control a Lionel Hobby Shop.
 
         :param int power:
-            TMCC ID of the ACS2 port used to power the station.
+            TMCC ID of the ACS2 port used to power the hobby shop.
 
         :param int action:
-            TMCC ID of the ACS2 port used to trigger the Animation.
+            TMCC ID of the ACS2 port used to control the action.
 
         :param str variant:
-            Optional; Specifies the variant (Sinclair, Texaco, etc.).
+            Optional; Specifies the variant (Lionelville, Madison, Midtown).
         """
+
         # identify the accessory
         self._power = int(power)
         self._action = int(action)
@@ -49,7 +49,6 @@ class GasStationGui(AccessoryBase):
         # Main title + image + eject image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
-        self._action_image: str | None = None
 
         super().__init__(self._title, self._image, aggregator=aggregator)
 
@@ -66,9 +65,6 @@ class GasStationGui(AccessoryBase):
             tmcc_ids={"power": self._power, "action": self._action},
         )
 
-        # Pre-resolve action image (momentary)
-        self._action_image = find_file(self.config.image_for("action", "gas-station-car.png"))
-
     def get_target_states(self) -> list[S]:
         assert self.config is not None
 
@@ -80,11 +76,9 @@ class GasStationGui(AccessoryBase):
         ]
 
     def is_active(self, state: AccessoryState) -> bool:
-        return state.is_aux_on
+        return state.is_aux2_on
 
     def switch_state(self, state: AccessoryState) -> None:
-        if state == self.action_state:
-            return  # Action is momentary (press/release handlers)
         with self._cv:
             self.toggle_latch(state)
             self.after_state_change(None, state)
@@ -99,14 +93,7 @@ class GasStationGui(AccessoryBase):
         max_text_len = max(len(power_label), len(action_label)) + 2
 
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
-        self.action_button = self.make_push_button(
-            box,
-            state=self.action_state,
-            label=action_label,
-            col=1,
-            text_len=max_text_len,
-            image=self._action_image,
-        )
+        self.action_button = self.make_power_button(self.action_state, action_label, 1, max_text_len, box)
 
         # Robust initial gating
         self.after_state_change(None, self.power_state)

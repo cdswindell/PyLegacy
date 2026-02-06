@@ -20,21 +20,21 @@ from guizero import Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
 from guizero.event import EventData
 
-from .accessories.accessory_registry import AccessoryRegistry
-from .accessories.accessory_type import AccessoryType
-from .accessories.config import ConfiguredAccessory, configure_accessory
 from .accessory_gui import AccessoryGui
-from .components.hold_button import HoldButton
-from .guizero_base import GuiZeroBase
-from ..db.accessory_state import AccessoryState
-from ..db.component_state import ComponentState
-from ..db.state_watcher import StateWatcher
-from ..pdi.asc2_req import Asc2Req
-from ..pdi.constants import Asc2Action, PdiCommand
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from ..utils.path_utils import find_file
+from .accessory_registry import AccessoryRegistry
+from .accessory_type import AccessoryType
+from .config import ConfiguredAccessory, configure_accessory
+from ..components.hold_button import HoldButton
+from ..guizero_base import GuiZeroBase
+from ...db.accessory_state import AccessoryState
+from ...db.component_state import ComponentState
+from ...db.state_watcher import StateWatcher
+from ...pdi.asc2_req import Asc2Req
+from ...pdi.constants import Asc2Action, PdiCommand
+from ...protocol.command_req import CommandReq
+from ...protocol.constants import CommandScope
+from ...protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)

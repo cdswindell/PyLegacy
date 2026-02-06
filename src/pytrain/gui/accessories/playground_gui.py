@@ -1,19 +1,21 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
+
 from typing import cast
 
 from guizero import Box
 
-from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, AnimatedButton, S
 from .accessory_gui import AccessoryGui
-from ..db.accessory_state import AccessoryState
-from ..utils.path_utils import find_file
+from .accessory_type import AccessoryType
+from ...db.accessory_state import AccessoryState
+from ...utils.path_utils import find_file
 
 
 class PlaygroundGui(AccessoryBase):

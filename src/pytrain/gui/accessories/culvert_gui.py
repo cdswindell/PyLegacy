@@ -6,19 +6,26 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-from typing import cast
 
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#
+#
+#  SPDX-License-Identifier: LPGL
+#
 from guizero import Box
 
-from .accessories.accessory_type import AccessoryType
-from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
+from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
-from ..db.accessory_state import AccessoryState
-from ..utils.path_utils import find_file
+from .accessory_type import AccessoryType
+from ...db.accessory_state import AccessoryState
+from ...protocol.command_req import CommandReq
+from ...protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ...utils.path_utils import find_file
 
 
-class ConstructionGui(AccessoryBase):
-    ACCESSORY_TYPE = AccessoryType.CONSTRUCTION
+class CulvertGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.CULVERT_HANDLER
 
     def __init__(
         self,
@@ -28,13 +35,13 @@ class ConstructionGui(AccessoryBase):
         aggregator: AccessoryGui = None,
     ):
         """
-        Create a GUI to control a K-Line Backhoe Construction Scene.
+        Create a GUI to control a Lionel Command Control Culvert Loader/Unloader.
 
         :param int action:
             TMCC ID of the culvert loader/unloader.
 
         :param str variant:
-            Optional; Specifies the variant (Backhoe).
+            Optional; Specifies the variant (Moose Pond, Dairymen's League, Mountain View).
         """
 
         # identify the accessory
@@ -42,12 +49,12 @@ class ConstructionGui(AccessoryBase):
         self._variant = variant
         self._action_button = None
         self._action_state = None
+        self._action_image = None
+        self._action_label = None
 
         # Main title + image + eject image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
-        self._action_image: str | None = None
-        self._action_label: str | None = None
 
         super().__init__(self._title, self._image, aggregator=aggregator)
 
@@ -64,7 +71,7 @@ class ConstructionGui(AccessoryBase):
             tmcc_ids={"action": self._action},
         )
 
-        # Pre-resolve action image (momentary)
+        # Pre-resolve action image
         self._action_image = find_file(self.config.image_for("action"))
         self._action_label = self.config.label_for("action")
 
@@ -73,39 +80,25 @@ class ConstructionGui(AccessoryBase):
         return [self._action_state]
 
     def is_active(self, state: AccessoryState) -> bool:
-        return state.is_aux_on
+        return False
 
     def switch_state(self, state: AccessoryState) -> None:
         pass
 
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
-        action_label = self.config.label_for("action")
-        max_text_len = len(action_label) + 2
+        max_text_len = len(self._action_label) + 2
 
-        self._action_button = self.make_push_button(
+        self._action_button = ab = self.make_push_button(
             box,
             state=self._action_state,
-            label=action_label,
+            label=self._action_label,
+            image=self._action_image,
             col=1,
             text_len=max_text_len,
-            image=self._action_image,
-            button_cls=AnimatedButton,
+            is_momentary=False,
         )
-        cast(AnimatedButton, self._action_button).stop_animation()
+        ab.update_command(self.on_action)
 
-    def set_button_active(self, button: AnimatedButton) -> None:
-        with self._cv:
-            if isinstance(button, PowerButton):
-                super().set_button_active(button)
-            else:
-                button.start_animation()
-
-    def set_button_inactive(self, button: AnimatedButton) -> None:
-        with self._cv:
-            if isinstance(button, PowerButton):
-                super().set_button_inactive(button)
-            else:
-                button.image = self._action_image
-                button.height = button.width = self.s_72
-                button.stop_animation()
+    def on_action(self) -> None:
+        CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._action).send()

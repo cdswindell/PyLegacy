@@ -7,56 +7,55 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-from __future__ import annotations
-
 from guizero import Box, PushButton
 
-from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
-from ..db.accessory_state import AccessoryState
-from ..utils.path_utils import find_file
+from .accessory_type import AccessoryType
+from ...db.accessory_state import AccessoryState
+from ...utils.path_utils import find_file
 
 
-class MilkLoaderGui(AccessoryBase):
-    ACCESSORY_TYPE = AccessoryType.MILK_LOADER
+class FreightDepotGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.FREIGHT_DEPOT
 
     def __init__(
         self,
         power: int,
         conveyor: int,
-        eject: int,
-        variant: str | None = None,
+        load: int,
+        variant: str = None,
         *,
-        aggregator: AccessoryGui | None = None,
+        aggregator: AccessoryGui = None,
     ):
         """
-        Create a GUI to control a K-Line/Lionel Milk Loader.
+        Create a GUI to control a K-Line Freight Depot.
 
         :param int power:
-            TMCC ID of the ASC2 port used to power the milk loader.
+            TMCC ID of the ACS2 port used to power the freight depot.
 
         :param int conveyor:
-            TMCC ID of the ASC2 port used to control the conveyor belt.
+            TMCC ID of the ACS2 port is used to control the conveyor belt.
 
-        :param int eject:
-            TMCC ID of the ASC2 port used to eject a milk can.
+        :param int load:
+            TMCC ID of the ACS2 port used to load a package.
 
         :param str variant:
-            Optional; Specifies the variant (stable key preferred, but aliases accepted).
+            Optional; Specifies the variant (K-line, etc.).
         """
+
+        # identify the accessory
         self._power = int(power)
         self._conveyor = int(conveyor)
-        self._eject = int(eject)
+        self._load = int(load)
         self._variant = variant
 
-        self.power_button = self.conveyor_button = self.eject_button = None
-        self.power_state = self.conveyor_state = self.eject_state = None
+        self.power_button = self.conveyor_button = self.load_button = None
+        self.power_state = self.conveyor_state = self.load_state = None
 
-        # Main title + image + eject image (resolved in bind_variant)
+        # Main title + image + load image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
-        self._eject_image: str | None = None
 
         super().__init__(self._title, self._image, aggregator=aggregator)
 
@@ -70,11 +69,8 @@ class MilkLoaderGui(AccessoryBase):
         self.configure_from_registry(
             self.ACCESSORY_TYPE,
             self._variant,
-            tmcc_ids={"power": self._power, "conveyor": self._conveyor, "eject": self._eject},
+            tmcc_ids={"power": self._power, "conveyor": self._conveyor, "load": self._load},
         )
-
-        # Pre-resolve eject image (momentary)
-        self._eject_image = find_file(self.config.image_for("eject", "depot-milk-can-eject.jpeg"))
 
     def get_target_states(self) -> list[S]:
         """
@@ -84,18 +80,18 @@ class MilkLoaderGui(AccessoryBase):
 
         self.power_state = self.state_for("power")
         self.conveyor_state = self.state_for("conveyor")
-        self.eject_state = self.state_for("eject")
+        self.load_state = self.state_for("load")
         return [
             self.power_state,
             self.conveyor_state,
-            self.eject_state,
+            self.load_state,
         ]
 
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
-        if state == self.eject_state:
+        if state == self.load_state:
             return  # Eject is momentary (press/release handlers)
         with self._cv:
             # LATCH behavior for power / conveyor
@@ -104,25 +100,21 @@ class MilkLoaderGui(AccessoryBase):
 
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
         if state == self.power_state:
-            self.gate_widget_on_power(self.power_state, self.eject_button)
+            self.gate_widget_on_power(self.power_state, self.load_button)
 
     def build_accessory_controls(self, box: Box) -> None:
-        """
-        Build controls using labels from configured operations.
-        """
-        assert self.config is not None
-        power_label, conveyor_label, eject_label = self.config.labels_for("power", "conveyor", "eject")
+        power_label, belt_label, load_label = self.config.labels_for("power", "conveyor", "load")
+        max_text_len = max(len(power_label), len(belt_label), len(load_label)) + 2
 
-        max_text_len = max(len(power_label), len(conveyor_label), len(eject_label)) + 2
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
-        self.conveyor_button = self.make_power_button(self.conveyor_state, conveyor_label, 1, max_text_len, box)
+        self.conveyor_button = self.make_power_button(self.conveyor_state, belt_label, 1, max_text_len, box)
 
-        self.eject_button = self.make_push_button(
+        self.load_button = self.make_push_button(
             box,
-            state=self.eject_state,
-            label=eject_label,
+            state=self.load_state,
+            label=load_label,
             col=2,
             text_len=max_text_len,
-            image=find_file(self.config.image_for("eject")),
+            image=find_file(self.config.image_for("load")),
         )
         self.after_state_change(None, self.power_state)
