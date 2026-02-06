@@ -7,7 +7,6 @@
 #  This work is licensed under the terms of the LPGL license.
 #  SPDX-License-Identifier: LPGL
 #
-#
 
 from guizero import Box, Text
 from guizero.event import EventData
