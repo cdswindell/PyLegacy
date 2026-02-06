@@ -8,13 +8,13 @@
 #
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
+from ..components.checkbox_group import CheckBoxGroup
+from ..components.hold_button import HoldButton
+from ..guizero_base import GuiZeroBase
 from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
-from ..checkbox_group import CheckBoxGroup
-from ..guizero_base import GuiZeroBase
-from ..hold_button import HoldButton
 
 SCOPE_OPTS = [
     ["Local", 0],

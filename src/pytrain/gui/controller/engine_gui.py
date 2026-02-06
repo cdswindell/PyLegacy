@@ -20,37 +20,6 @@ from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, T
 from guizero.base import Widget
 from guizero.event import EventData
 
-from ...db.accessory_state import AccessoryState
-from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
-from ...db.engine_state import EngineState, TrainState
-from ...db.irda_state import IrdaState
-from ...db.prod_info import ProdInfo
-from ...db.state_watcher import StateWatcher
-from ...pdi.asc2_req import Asc2Req
-from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
-from ...pdi.irda_req import IrdaReq, IrdaSequence
-from ...protocol.command_def import CommandDefEnum
-from ...protocol.command_req import CommandReq
-from ...protocol.constants import PROGRAM_NAME, CommandScope, EngineType
-from ...protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ...protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
-from ...protocol.sequence.sequence_constants import SequenceCommandEnum
-from ...protocol.tmcc1.tmcc1_constants import (
-    TMCC1EngineCommandEnum,
-    TMCC1RRSpeedsEnum,
-)
-from ...protocol.tmcc2.tmcc2_constants import (
-    TMCC2EngineCommandEnum,
-    TMCC2EngineOpsEnum,
-    TMCC2RRSpeedsEnum,
-)
-from ...utils.image_utils import center_text_on_image
-from ...utils.path_utils import find_file
-from ...utils.unique_deque import UniqueDeque
-from ..guizero_base import LIONEL_BLUE, GuiZeroBase
-from ..hold_button import HoldButton
-from ..scrolling_text import ScrollingText
-from ..swipe_detector import SwipeDetector
 from .admin_panel import AdminPanel
 from .catalog_panel import CatalogPanel
 from .engine_gui_conf import (
@@ -76,8 +45,8 @@ from .engine_gui_conf import (
     HALT_KEY,
     KEY_TO_COMMAND,
     LIONEL_ORANGE,
-    MOM_TB,
     MOMENTUM,
+    MOM_TB,
     PLAY_KEY,
     PLAY_PAUSE_KEY,
     REPEAT_EXCEPTIONS,
@@ -98,6 +67,37 @@ from .engine_gui_conf import (
     send_lcs_on_command,
 )
 from .state_info_overlay import StateInfoOverlay
+from ..components.hold_button import HoldButton
+from ..components.scrolling_text import ScrollingText
+from ..components.swipe_detector import SwipeDetector
+from ..guizero_base import GuiZeroBase, LIONEL_BLUE
+from ...db.accessory_state import AccessoryState
+from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
+from ...db.engine_state import EngineState, TrainState
+from ...db.irda_state import IrdaState
+from ...db.prod_info import ProdInfo
+from ...db.state_watcher import StateWatcher
+from ...pdi.asc2_req import Asc2Req
+from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
+from ...pdi.irda_req import IrdaReq, IrdaSequence
+from ...protocol.command_def import CommandDefEnum
+from ...protocol.command_req import CommandReq
+from ...protocol.constants import CommandScope, EngineType, PROGRAM_NAME
+from ...protocol.multibyte.multibyte_constants import TMCC2EffectsControl
+from ...protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
+from ...protocol.sequence.sequence_constants import SequenceCommandEnum
+from ...protocol.tmcc1.tmcc1_constants import (
+    TMCC1EngineCommandEnum,
+    TMCC1RRSpeedsEnum,
+)
+from ...protocol.tmcc2.tmcc2_constants import (
+    TMCC2EngineCommandEnum,
+    TMCC2EngineOpsEnum,
+    TMCC2RRSpeedsEnum,
+)
+from ...utils.image_utils import center_text_on_image
+from ...utils.path_utils import find_file
+from ...utils.unique_deque import UniqueDeque
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)

@@ -10,10 +10,10 @@
 #
 from guizero import Box, Text, TitleBox
 
+from ..components.checkbox_group import CheckBoxGroup
+from ..components.touch_list_box import TouchListBox
+from ..guizero_base import GuiZeroBase, LIONEL_BLUE, LIONEL_ORANGE
 from ...protocol.constants import CommandScope
-from ..checkbox_group import CheckBoxGroup
-from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE, GuiZeroBase
-from ..touch_list_box import TouchListBox
 
 SORT_OPTS = [
     ["Name", 0],

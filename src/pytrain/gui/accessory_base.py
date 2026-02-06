@@ -24,8 +24,8 @@ from .accessories.accessory_registry import AccessoryRegistry
 from .accessories.accessory_type import AccessoryType
 from .accessories.config import ConfiguredAccessory, configure_accessory
 from .accessory_gui import AccessoryGui
+from .components.hold_button import HoldButton
 from .guizero_base import GuiZeroBase
-from .hold_button import HoldButton
 from ..db.accessory_state import AccessoryState
 from ..db.component_state import ComponentState
 from ..db.state_watcher import StateWatcher
