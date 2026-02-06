@@ -169,7 +169,7 @@ def configure_accessory(
 
     for op_assets in definition.operations:
         key = op_assets.key
-        if key not in tmcc_ids:
+        if tmcc_ids and key not in tmcc_ids:
             raise ValueError(f"Missing TMCC id for operation '{key}' ({definition.type})")
 
         # Start from pre-bundled (variant-resolved) assets
@@ -228,7 +228,7 @@ def configure_accessory(
                 on_label=on_label,
                 off_label=off_label,
                 behavior=op_assets.behavior,
-                tmcc_id=int(tmcc_ids[key]),
+                tmcc_id=int(tmcc_ids[key]) if tmcc_ids else None,
                 image=image,
                 off_image=off_image,
                 on_image=on_image,
