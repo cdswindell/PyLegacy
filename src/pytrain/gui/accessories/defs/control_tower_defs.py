@@ -7,7 +7,7 @@
 #
 from __future__ import annotations
 
-from .base_defs import print_registry_entry
+from .base_defs import print_registry_entry, prune_non_unique_variant_aliases
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -138,6 +138,9 @@ def register_control_tower(registry: AccessoryRegistry) -> None:
             ),
         ),
     )
+
+    # make sure aliases are unique across variants
+    variants = prune_non_unique_variant_aliases(variants)
 
     spec = AccessoryTypeSpec(
         type=AccessoryType.CONTROL_TOWER,

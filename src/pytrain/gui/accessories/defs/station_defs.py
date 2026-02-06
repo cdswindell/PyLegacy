@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from .base_defs import print_registry_entry
+from .base_defs import print_registry_entry, prune_non_unique_variant_aliases
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -205,11 +205,14 @@ def register_station(registry: AccessoryRegistry) -> None:
             )
         )
 
+    # make sure aliases are unique across variants
+    variants_t = prune_non_unique_variant_aliases(variants)
+
     spec = AccessoryTypeSpec(
         type=AccessoryType.STATION,
         display_name="Station",
         operations=operations,
-        variants=tuple(variants),
+        variants=variants_t,
     )
     registry.register(spec)
 

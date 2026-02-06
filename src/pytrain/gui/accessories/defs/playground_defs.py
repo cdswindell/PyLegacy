@@ -9,7 +9,13 @@
 
 from __future__ import annotations
 
-from .base_defs import aliases_from_legacy_key, dedup_preserve_order, print_registry_entry, variant_key_from_filename
+from .base_defs import (
+    aliases_from_legacy_key,
+    dedup_preserve_order,
+    print_registry_entry,
+    prune_non_unique_variant_aliases,
+    variant_key_from_filename,
+)
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -106,11 +112,14 @@ def register_playground(registry: AccessoryRegistry) -> None:
             )
         )
 
+    # make sure aliases are unique across variants
+    variants_t = prune_non_unique_variant_aliases(variants)
+
     spec = AccessoryTypeSpec(
         type=AccessoryType.PLAYGROUND,
         display_name="Playground",
         operations=operations,
-        variants=tuple(variants),
+        variants=variants_t,
     )
 
     registry.register(spec)

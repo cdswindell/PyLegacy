@@ -5,44 +5,23 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
-from guizero import Box, PushButton, Text
+from guizero import Box
 
-from ..db.accessory_state import AccessoryState
-from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope
-from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from ..utils.path_utils import find_file
+from .accessories.accessory_type import AccessoryType
 from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
-
-VARIANTS = {
-    "lionelville culvert loader 6-82029": "Lionelville-Culvert-Loader-6-82029.jpg",
-    "lionelville culvert unloader 6-82030": "Lionelville-Culvert-Unloader-6-82030.jpg",
-}
-
-TITLES = {
-    "Lionelville-Culvert-Loader-6-82029.jpg": "Lionelville Culvert Loader",
-    "Lionelville-Culvert-Unloader-6-82030.jpg": "Lionelville Culvert Unloader",
-}
-
-LOADERS = {
-    "Lionelville-Culvert-Loader-6-82029.jpg",
-}
-
-UNLOADERS = {
-    "Lionelville-Culvert-Unloader-6-82030.jpg",
-}
-
-USE_AUX2 = {
-    "Lionelville-Culvert-Loader-6-82029.jpg",
-    "Lionelville-Culvert-Unloader-6-82030.jpg",
-}
+from ..db.accessory_state import AccessoryState
+from ..protocol.command_req import CommandReq
+from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ..utils.path_utils import find_file
 
 
 class CulvertGui(AccessoryBase):
+    ACCESSORY_TYPE = AccessoryType.CULVERT_HANDLER
+
     def __init__(
         self,
-        tmcc_id: int,
+        action: int,
         variant: str = None,
         *,
         aggregator: AccessoryGui = None,
@@ -50,7 +29,7 @@ class CulvertGui(AccessoryBase):
         """
         Create a GUI to control a Lionel Command Control Culvert Loader/Unloader.
 
-        :param int tmcc_id:
+        :param int action:
             TMCC ID of the culvert loader/unloader.
 
         :param str variant:
@@ -58,31 +37,39 @@ class CulvertGui(AccessoryBase):
         """
 
         # identify the accessory
-        self._title, self.image_key = self.get_variant(variant)
-        image = find_file(self.image_key)
-        self._tmcc_id = tmcc_id
-        self.culvert_state = None
-
+        self._action = action
         self._variant = variant
-        self.action_button = None
-        self.load_image = find_file("load_culvert.png")
-        self.unload_image = find_file("unload_culvert.png")
-        super().__init__(self._title, image, aggregator=aggregator)
+        self._action_button = None
+        self._action_state = None
+        self._action_image = None
+        self._action_label = None
 
-    @staticmethod
-    def get_variant(variant) -> tuple[str, str]:
-        if variant is None:
-            variant = "culvert unloader"
-        variant = CulvertGui.normalize(variant)
-        for k, v in VARIANTS.items():
-            if variant in k:
-                title = TITLES[v]
-                return title, v
-        raise ValueError(f"Unsupported culvert loader/unloader: {variant}")
+        # Main title + image + eject image (resolved in bind_variant)
+        self._title: str | None = None
+        self._image: str | None = None
+
+        super().__init__(self._title, self._image, aggregator=aggregator)
+
+    def bind_variant(self) -> None:
+        """
+        Resolve all metadata (title, main image, op images) via registry + configure_accessory().
+
+        This keeps the public constructor signature stable while moving all metadata
+        to your centralized registry/config pipeline.
+        """
+        self.configure_from_registry(
+            self.ACCESSORY_TYPE,
+            self._variant,
+            tmcc_ids={"action": self._action},
+        )
+
+        # Pre-resolve action image
+        self._action_image = find_file(self.config.image_for("action"))
+        self._action_label = self.config.label_for("action")
 
     def get_target_states(self) -> list[S]:
-        self.culvert_state = self._state_store.get_state(CommandScope.ACC, self._tmcc_id)
-        return [self.culvert_state]
+        self._action_state = self.state_for("action")
+        return [self._action_state]
 
     def is_active(self, state: AccessoryState) -> bool:
         return False
@@ -91,44 +78,20 @@ class CulvertGui(AccessoryBase):
         pass
 
     def build_accessory_controls(self, box: Box) -> None:
-        max_text_len = len("Unload") + 2
-        col = 0
-        button_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")
-        col += 1
-        label = "Load" if self.is_loader else "Unload"
-        tb = Text(button_box, text=label, align="top", size=self.s_16, underline=True)
-        tb.width = max_text_len
-        self.action_button = action = PushButton(
-            button_box,
-            image=self.action_image,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
-            command=self.on_action,
+        assert self.config is not None
+        max_text_len = len(self._action_label) + 2
+
+        self._action_button = ab = self.make_momentary_button(
+            box,
+            state=self._action_state,
+            label=self._action_label,
+            image=self._action_image,
+            col=1,
+            text_len=max_text_len,
         )
-        action.tk.config(borderwidth=0)
-        self.register_widget(self.culvert_state, action)
+        ab.when_left_button_pressed = None
+        ab.when_left_button_released = None
+        ab.update_command(self.on_action)
 
     def on_action(self) -> None:
-        if self.is_use_aux2:
-            CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._tmcc_id).send()
-
-    @property
-    def action_image(self) -> str:
-        if self.is_loader:
-            return self.load_image
-        elif self.is_unloader:
-            return self.unload_image
-        raise ValueError(f"Unsupported image: {self.image_key}")
-
-    @property
-    def is_loader(self) -> bool:
-        return self.image_key in LOADERS
-
-    @property
-    def is_unloader(self) -> bool:
-        return self.image_key in UNLOADERS
-
-    @property
-    def is_use_aux2(self) -> bool:
-        return self.image_key in USE_AUX2
+        CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._action).send()
