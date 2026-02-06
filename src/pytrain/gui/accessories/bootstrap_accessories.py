@@ -21,6 +21,7 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     """
     # Local imports prevent circular import issues during module import time.
 
+    from .defs.construction_defs import register_construction
     from .defs.control_tower_defs import register_control_tower
     from .defs.culvert_handler_defs import register_culvert_handler
     from .defs.fire_station_defs import register_fire_station
@@ -32,6 +33,7 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     from .defs.smoke_fluid_loader_defs import register_smoke_fluid_loader
     from .defs.station_defs import register_station
 
+    register_construction(registry)
     register_control_tower(registry)
     register_culvert_handler(registry)
     register_fire_station(registry)

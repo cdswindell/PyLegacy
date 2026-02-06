@@ -29,6 +29,7 @@ class AccessoryType(Mixins):
     consistency and reducing duplication of hardcoded values.
 
     Attributes:
+        CONSTRUCTION (str): Represents the construction accessory type.
         CONTROL_TOWER (str): Represents the control tower accessory type.
         CULVERT_HANDLER (str): Represents the culvert handler accessory type.
         FIRE_STATION (str): Represents the fire station accessory type.
@@ -41,6 +42,7 @@ class AccessoryType(Mixins):
         STATION (str): Represents the freight/passenger station accessory type.
     """
 
+    CONSTRUCTION = "construction"
     CONTROL_TOWER = "control_tower"
     CULVERT_HANDLER = "culvert_handler"
     FIRE_STATION = "fire_station"

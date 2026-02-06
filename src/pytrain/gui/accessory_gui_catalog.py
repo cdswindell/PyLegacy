@@ -52,9 +52,11 @@ class AccessoryGuiCatalog:
         self._entries: dict[str, GuiCatalogEntry] = {}
 
         # ---- Legacy GUIs (no AccessoryType required; still have get_variant) ----
-        self.register(GuiCatalogEntry("backhoe", ".backhoe_gui", "BackhoeGui"))
 
         # ---- Registry-backed GUIs (AccessoryType present; no get_variant needed) ----
+        self.register(
+            GuiCatalogEntry("construction", ".construction_gui", "ConstructionGui", AccessoryType.CONSTRUCTION)
+        )
         self.register(GuiCatalogEntry("control", ".control_tower_gui", "ControlTowerGui", AccessoryType.CONTROL_TOWER))
         self.register(GuiCatalogEntry("culvert", ".culvert_gui", "CulvertGui", AccessoryType.CULVERT_HANDLER))
         self.register(GuiCatalogEntry("depot", ".freight_depot_gui", "FreightDepotGui", AccessoryType.FREIGHT_DEPOT))

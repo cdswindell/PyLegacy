@@ -582,6 +582,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
 
     def after_state_change(self, button: PushButton, state: S) -> None: ...
 
+    @abstractmethod
     def bind_variant(self) -> None: ...
 
     @abstractmethod

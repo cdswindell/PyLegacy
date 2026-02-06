@@ -97,6 +97,7 @@ class AccessoryGui(Thread):
         scale_by: float = 1.0,
         initial: str = None,
     ) -> None:
+        """Initializes GUI thread; prepares registry; selects initial GUI"""
         super().__init__(daemon=True)
         self._ev = Event()
         self._catalog = AccessoryGuiCatalog()
@@ -203,7 +204,7 @@ class AccessoryGui(Thread):
 
         entry = self._catalog.resolve(gui[0])
         gui_class = entry.load_class()
-        gui_type = entry.accessory_type  # may be None for legacy
+        gui_type = entry.accessory_type  # can be None for legacy
 
         gui_args: list[Any] = []
         gui_kwargs: dict[str, Any] = {}

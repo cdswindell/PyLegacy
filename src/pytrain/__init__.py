@@ -49,8 +49,8 @@ from .gpio.switch import Switch  # noqa: F401
 from .gpio.sys_admin import SystemAdmin  # noqa: F401
 from .gui.accessories_gui import AccessoriesGui  # noqa: F401
 from .gui.accessory_gui import AccessoryGui  # noqa: F401
-from .gui.backhoe_gui import BackhoeGui  # noqa: F401
 from .gui.component_state_gui import ComponentStateGui  # noqa: F401
+from .gui.construction_gui import ConstructionGui  # noqa: F401
 from .gui.control_tower_gui import ControlTowerGui  # noqa: F401
 from .gui.controller.engine_gui import EngineGui  # noqa: F401
 from .gui.culvert_gui import CulvertGui  # noqa: F401
