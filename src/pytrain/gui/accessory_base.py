@@ -13,13 +13,12 @@ import atexit
 import logging
 import re
 from abc import ABC, ABCMeta, abstractmethod
-from queue import Empty, Queue
-from threading import Condition, Event, RLock, Thread, get_ident
-from tkinter import TclError
+from queue import Queue
+from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar
 
 from PIL import Image
-from guizero import App, Box, Combo, Picture, PushButton, Text
+from guizero import Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
 from guizero.event import EventData
 
@@ -27,13 +26,11 @@ from .accessories.accessory_registry import AccessoryRegistry
 from .accessories.accessory_type import AccessoryType
 from .accessories.config import ConfiguredAccessory, configure_accessory
 from .accessory_gui import AccessoryGui
+from .guizero_base import GuiZeroBase
 from .hold_button import HoldButton
-from ..comm.command_listener import CommandDispatcher
 from ..db.accessory_state import AccessoryState
 from ..db.component_state import ComponentState
-from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
-from ..gpio.gpio_handler import GpioHandler
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import Asc2Action, PdiCommand
 from ..protocol.command_req import CommandReq
@@ -48,7 +45,7 @@ HYPHEN_CLEANUP = re.compile(r"(?<=[A-Za-z])-+(?=[A-Za-z])")
 SPACE_CLEANUP = re.compile(r"\s{2,}")
 
 
-class AccessoryBase(Thread, Generic[S], ABC):
+class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     __metaclass__ = ABCMeta
 
     @classmethod
@@ -71,40 +68,27 @@ class AccessoryBase(Thread, Generic[S], ABC):
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
     ) -> None:
-        Thread.__init__(self, daemon=True, name=f"{title} GUI")
-        self._cv = Condition(RLock())
-        self._ev = Event()
-        if width is None or height is None:
-            try:
-                from tkinter import Tk
-
-                root = Tk()
-                self.width = root.winfo_screenwidth()
-                self.height = root.winfo_screenheight()
-                root.destroy()
-            except Exception as e:
-                log.exception("Error determining window size", exc_info=e)
-        else:
-            self.width = width
-            self.height = height
-        self.title = title
+        GuiZeroBase.__init__(
+            self,
+            title=title,
+            scale_by=scale_by,
+            width=width,
+            height=height,
+            enabled_bg=enabled_bg,
+            disabled_bg=disabled_bg,
+            enabled_text=enabled_text,
+            disabled_text=disabled_text,
+        )
         self.image_file = image_file
         self._image = None
         self._aggregator = aggregator
-        self._scale_by = scale_by
         self._max_image_width = max_image_width
         if self.height > 320 and max_image_height == 0.45:
             max_image_height = 0.55
         self._max_image_height = max_image_height
         self._text_size: int = 24
-        self.s_72 = self.scale(72, 0.7)
-        self.s_16 = self.scale(16, 0.7)
 
-        self._enabled_bg = enabled_bg
-        self._disabled_bg = disabled_bg
-        self._enabled_text = enabled_text
-        self._disabled_text = disabled_text
-        self.app = self.box = self.acc_box = self.y_offset = None
+        self.box = self.acc_box = self.y_offset = None
         self.aggregator_combo = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
@@ -123,33 +107,8 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._cfg: ConfiguredAccessory | None = None
         self._registry: AccessoryRegistry | None = None
 
-        # Thread-aware shutdown signaling
-        self._tk_thread_id: int | None = None
-        self._is_closed = False
-        self._shutdown_flag = Event()
-
-        # listen for state changes
-        self._dispatcher = CommandDispatcher.get()
-        self._state_store = ComponentStateStore.get()
-        self._synchronized = False
-        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if self._sync_state and self._sync_state.is_synchronized is True:
-            self._sync_watcher = None
-            self.on_sync()
-        else:
-            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-
         # Important: don't call tkinter from atexit; only signal
         atexit.register(lambda: self._shutdown_flag.set())
-
-    def close(self) -> None:
-        # Only signal shutdown here; actual tkinter destroy happens on the GUI thread
-        if not self._is_closed:
-            self._is_closed = True
-            self._shutdown_flag.set()
-
-    def reset(self) -> None:
-        self.close()
 
     @property
     def destroy_complete(self) -> Event:
@@ -158,33 +117,6 @@ class AccessoryBase(Thread, Generic[S], ABC):
     @property
     def registry(self) -> AccessoryRegistry:
         return self._registry
-
-    # noinspection PyTypeChecker
-    def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
-            if self._sync_watcher:
-                self._sync_watcher.shutdown()
-                self._sync_watcher = None
-            self._synchronized = True
-
-            # initialize registry
-            self._registry = AccessoryRegistry.instance()
-            self._registry.bootstrap()
-
-            assert self._registry is not None
-            assert self._registry.is_bootstrapped
-
-            # bind variant to gui
-            self.bind_variant()
-
-            # get all target states; watch for state changes
-            accs = self.get_target_states()
-            for acc in accs:
-                self._states[acc.tmcc_id] = acc
-                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc.tmcc_id))
-
-            # start GUI
-            self.start()
 
     def configure_from_registry(
         self,
@@ -297,44 +229,32 @@ class AccessoryBase(Thread, Generic[S], ABC):
         text = SPACE_CLEANUP.sub(" ", text)
         return text
 
+    def calc_image_box_size(self) -> tuple[int, int | Any]:
+        pass
+
     # noinspection PyTypeChecker
-    def run(self) -> None:
-        self._shutdown_flag.clear()
-        self._ev.clear()
-        self._tk_thread_id = get_ident()
-        GpioHandler.cache_handler(self)
-        self.app = app = App(title=self.title, width=self.width, height=self.height)
-        app.full_screen = True
-        app.when_closed = self.close
+    def build_gui(self) -> None:
+        # initialize registry
+        self._registry = AccessoryRegistry.instance()
+        self._registry.bootstrap()
 
-        # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        def _poll_shutdown():
-            if self._shutdown_flag.is_set():
-                try:
-                    app.destroy()
-                except TclError:
-                    pass  # ignore, we're shutting down
-                return None
-            else:
-                try:
-                    message = self._message_queue.get_nowait()
-                    if isinstance(message, tuple):
-                        if message[1] and len(message[1]) > 0:
-                            message[0](*message[1])
-                        else:
-                            message[0]()
-                except Empty:
-                    pass
-            return None
+        assert self._registry is not None
+        assert self._registry.is_bootstrapped
 
-        app.repeat(20, _poll_shutdown)
+        # bind variant to gui
+        self.bind_variant()
 
+        # get all target states; watch for state changes
+        accs = self.get_target_states()
+        for acc in accs:
+            if isinstance(acc, ComponentState):  # helps eliminate pycharm warning
+                self._states[acc.tmcc_id] = acc
+                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc.tmcc_id))
         # clear any existing state buttons
         if self._state_buttons:
             self._reset_state_buttons()
 
-        self.box = box = Box(app, layout="grid")
-        app.bg = box.bg = "white"
+        self.box = box = Box(self.app, layout="grid")
 
         # ts = self._text_size
         row_num = 0
@@ -368,7 +288,7 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self._image = None
         if self.image_file:
             iw, ih = self.get_scaled_jpg_size(self.image_file)
-            self._image = Picture(app, image=self.image_file, width=iw, height=ih)
+            self._image = Picture(self.app, image=self.image_file, width=iw, height=ih)
 
         self.app.update()
 
@@ -376,26 +296,18 @@ class AccessoryBase(Thread, Generic[S], ABC):
         self.acc_box = acc_box = Box(self.app, border=2, align="bottom", layout="grid")
         self.build_accessory_controls(acc_box)
 
-        # Display GUI and start event loop; call blocks
-        try:
-            app.display()
-        except TclError:
-            # If Tcl is already tearing down, ignore
-            pass
-        finally:
-            # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            if self._aggregator:
-                for sw in self._state_watchers.values():
-                    sw.shutdown()
-                self._state_watchers.clear()
-            self.aggregator_combo = None
-            self.box = None
-            self.acc_box = None
-            self._image = None
-            self._state_buttons.clear()
-            self._state_buttons = None
-            self.app = None
-            self._ev.set()
+    def destroy_gui(self):
+        # Explicitly drop references to tkinter/guizero objects on the Tk thread
+        if self._aggregator:
+            for sw in self._state_watchers.values():
+                sw.shutdown()
+            self._state_watchers.clear()
+        self.aggregator_combo = None
+        self.box = None
+        self.acc_box = None
+        self._image = None
+        self._state_buttons.clear()
+        self._state_buttons = None
 
     # noinspection PyTypeChecker
     def register_widget(self, state: S, widget: Widget) -> None:

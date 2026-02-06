@@ -18,11 +18,10 @@ from threading import Condition, Event, RLock, Thread, get_ident
 from tkinter import TclError
 from typing import Any, Callable, TypeVar
 
-from guizero import App
-from guizero.base import Widget
-
 # noinspection PyPackageRequirements
 from PIL import Image, ImageOps, ImageTk
+from guizero import App
+from guizero.base import Widget
 
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
@@ -33,7 +32,7 @@ from ..db.sync_state import SyncState
 from ..gpio.gpio_handler import GpioHandler
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import PROGRAM_NAME, CommandScope
+from ..protocol.constants import CommandScope, PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 E = TypeVar("E", bound=CommandDefEnum)
@@ -142,7 +141,11 @@ class GuiZeroBase(Thread, ABC):
         self._state_store = ComponentStateStore.get()
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
+        if self._sync_state and self._sync_state.is_synchronized is True:
+            self._sync_watcher = None
+            self._on_initial_sync()
+        else:
+            self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
 
     @abstractmethod
     def build_gui(self) -> None: ...
