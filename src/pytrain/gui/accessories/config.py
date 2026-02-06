@@ -70,6 +70,9 @@ class ConfiguredAccessory:
     # Original TMCC mapping (handy for serialization/debugging)
     tmcc_ids: Mapping[str, int] | None = None
 
+    # TMCC ID of the accessory, if it has one
+    tmcc_id: int | None = None
+
     def operation(self, key: str) -> ConfiguredOperation:
         """
         Look up a configured operation by key (case/space-insensitive).
@@ -147,6 +150,7 @@ def configure_accessory(
     operation_images: Mapping[str, Any] | None = None,
     instance_id: str | None = None,
     display_name: str | None = None,
+    tmcc_id: int | None = None,
 ) -> ConfiguredAccessory:
     """
     Bind TMCC ids and per-instance image overrides to a definition.
@@ -236,4 +240,5 @@ def configure_accessory(
         display_name=display_name,
         operations=tuple(ops),
         tmcc_ids=tmcc_ids,
+        tmcc_id=tmcc_id,
     )

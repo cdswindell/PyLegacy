@@ -26,11 +26,13 @@ class PortBehavior(Mixins):
     - LATCH: on/off toggle (stateful)
     - MOMENTARY_HOLD: press=on, release=off
     - MOMENTARY_PULSE: press triggers an action (no release behavior)
+    - COMMAND: tmcc command
     """
 
     LATCH = "latch"
     MOMENTARY_HOLD = "momentary_hold"
     MOMENTARY_PULSE = "momentary_pulse"
+    COMMAND = "command"
 
 
 @dataclass(frozen=True)

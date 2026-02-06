@@ -28,6 +28,8 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     from .defs.hobby_shop_defs import register_hobby_shop
     from .defs.milk_loader_defs import register_milk_loader
     from .defs.playground_defs import register_playground
+
+    # from .defs.smoke_fluid_loader_defs import register_smoke_fluid_loader
     from .defs.station_defs import register_station
 
     register_control_tower(registry)
@@ -37,4 +39,5 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     register_hobby_shop(registry)
     register_milk_loader(registry)
     register_playground(registry)
+    # register_smoke_fluid_loader(registry)
     register_station(registry)
