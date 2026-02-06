@@ -165,6 +165,7 @@ class AccessoryGui(Thread):
 
     def run(self) -> None:
         # create the initially requested gui
+        print(f"Creating GUI: {self.requested_gui}")
         gui = self._guis[self.requested_gui]
         gui[2]["aggregator"] = self
         self._gui = instantiate(gui[0], gui[1], gui[2])

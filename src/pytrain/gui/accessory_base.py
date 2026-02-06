@@ -109,6 +109,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
         # Important: don't call tkinter from atexit; only signal
         atexit.register(lambda: self._shutdown_flag.set())
+        self.init_complete()
 
     @property
     def destroy_complete(self) -> Event:
