@@ -18,6 +18,7 @@ from .accessory_gui import AccessoryGui
 from ..db.accessory_state import AccessoryState
 from ..protocol.command_req import CommandReq
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+from ..utils.path_utils import find_file
 
 
 class SmokeFluidLoaderGui(AccessoryBase):
@@ -99,7 +100,9 @@ class SmokeFluidLoaderGui(AccessoryBase):
         lights_label, dispense_label = self.config.labels_for("lights", "dispense")
         max_text_len = max(len(lights_label), len(dispense_label)) + 2
 
-        bl_image, br_image, dispense_image = self.config.images_for("boom_left", "boom_right", "dispense")
+        bl_image, br_image, dispense_image = (
+            find_file(x) for x in self.config.images_for("boom_left", "boom_right", "dispense")
+        )
 
         col = 0
         self._lights_button = self.make_power_button(self._state, "Lights", col, max_text_len, box)
