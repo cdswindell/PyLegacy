@@ -232,7 +232,7 @@ def _entry_type(entry: Any) -> AccessoryType:
 
 def prompt_accessory(catalog: AccessoryGuiCatalog, registry: AccessoryRegistry) -> AccessoryConfig:
     entries = _catalog_entries(catalog)
-    labels = [f"{_entry_key(e)}  ({_entry_type(e).name})" for e in entries]
+    labels = [f"{_entry_type(e).clean_title}" for e in entries]
 
     print("\nAccessory type:")
     for i, lab in enumerate(labels, start=1):
@@ -365,30 +365,34 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Accessory Configurator")
     print("Press Ctrl+C to quit at any prompt.\n")
+    try:
+        while True:
+            cfg = prompt_accessory(catalog, registry)
 
-    while True:
-        cfg = prompt_accessory(catalog, registry)
+            if cfg.instance_id in seen_instance_ids:
+                print(f"Error: duplicate instance_id: {cfg.instance_id}")
+                print("Pick a different variant/IDs or edit the JSON later.\n")
+                continue
 
-        if cfg.instance_id in seen_instance_ids:
-            print(f"Error: duplicate instance_id: {cfg.instance_id}")
-            print("Pick a different variant/IDs or edit the JSON later.\n")
-            continue
+            seen_instance_ids.add(cfg.instance_id)
+            accessories.append(cfg)
 
-        seen_instance_ids.add(cfg.instance_id)
-        accessories.append(cfg)
-
-        more = _ask("Add another accessory? (y/n)", default="y")
-        if _norm(more) not in ("y", "yes"):
-            break
+            more = _ask("Add another accessory? (y/n)", default="y")
+            if _norm(more) not in ("y", "yes"):
+                break
+    except (KeyboardInterrupt, EOFError):
+        pass
 
     payload = {
         "schema": "pytrain.accessory_config.v1",
         "accessories": [*existing, *(a.to_dict() for a in accessories)],
     }
-
-    out_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    print(f"\nWrote: {out_path.resolve()}")
-    print(f"Accessories: {len(payload['accessories'])}")
+    if accessories:
+        out_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        print(f"\nWrote: {out_path.resolve()}")
+        print(f"Accessories: {len(payload['accessories'])}")
+    else:
+        print("\nNo accessories configured.")
     return 0
 
 

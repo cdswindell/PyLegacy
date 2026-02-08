@@ -75,6 +75,11 @@ class AccessoryGuiCatalog:
         )
         self.register(GuiCatalogEntry("station", ".station_gui", "StationGui", AccessoryType.STATION))
 
+    def entries(self) -> list[GuiCatalogEntry]:
+        li = list(self._entries.values())
+        li.sort(key=lambda e: e.accessory_type.clean_title)
+        return li
+
     def register(self, entry: GuiCatalogEntry) -> None:
         nk = _norm(entry.key)
         if nk in self._entries:

@@ -146,6 +146,10 @@ class Mixins(Enum):
         return self.name.title()
 
     @property
+    def clean_title(self) -> str:
+        return self.name.title().replace("_", " ")
+
+    @property
     def label(self) -> str:
         return self.name.capitalize()
 
