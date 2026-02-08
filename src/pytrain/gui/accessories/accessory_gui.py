@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 import inspect
+import json
 import logging
+from pathlib import Path
 from threading import Event, Thread
 from typing import Any
 
@@ -21,20 +23,11 @@ from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 
-
-def validate_constructor_args(cls, args=(), kwargs=None):
-    kwargs = kwargs or {}
-    sig = inspect.signature(cls.__init__)
-    try:
-        b = sig.bind(None, *args, **kwargs)
-        b.apply_defaults()
-        return True, None
-    except TypeError as e:
-        return False, f"{cls.__name__}{sig}: {e}"
+DEFAULT_CONFIG_FILE = "accessory_config.json"
 
 
 def instantiate(
-    cls,
+    cls: type,
     args: tuple[Any, ...] = (),
     kwargs: dict[str, Any] | None = None,
     *,
@@ -49,39 +42,49 @@ def instantiate(
     kwargs = kwargs or {}
 
     sig = inspect.signature(cls.__init__)
-    # Pretend `self` is supplied; bind the rest
     try:
         # noinspection PyArgumentList
         binder = (sig.bind_partial if allow_partial else sig.bind)(None, *args, **kwargs)
     except TypeError as e:
-        # Produce a friendly message that shows the signature
         raise TypeError(f"{cls.__name__}{sig}: {e}") from None
 
     if apply_defaults:
         binder.apply_defaults()
 
-    # Drop the fake self
-    bound_args = list(binder.args)[1:]  # skip the placeholder for self
+    bound_args = list(binder.args)[1:]  # drop fake self
     bound_kwargs = dict(binder.kwargs)
-
-    # Now actually construct
     return cls(*bound_args, **bound_kwargs)
 
 
-def coerce_value(value: str) -> Any:
-    if value.isdecimal():
-        value = int(value)
-    elif value.lower() == "true":
-        value = True
-    elif value.lower() == "false":
-        value = False
-    else:
-        try:
-            value = float(value)
-            return int(value) if value.is_integer() else value
-        except ValueError:
-            pass
-    return value
+def _norm(s: str) -> str:
+    return " ".join(str(s).strip().lower().split())
+
+
+def _filter_kwargs_for_ctor(cls: type, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Filter kwargs down to only those accepted by cls.__init__ (excluding self).
+    This lets config JSON include optional fields without breaking older GUIs.
+    """
+    sig = inspect.signature(cls.__init__)
+    params = sig.parameters
+    accepts_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+    if accepts_kwargs:
+        return dict(kwargs)
+
+    allowed = {name for name in params.keys() if name != "self"}
+    return {k: v for k, v in kwargs.items() if k in allowed}
+
+
+def _load_accessory_config(path: str | Path) -> list[dict[str, Any]]:
+    p = Path(path)
+    obj = json.loads(p.read_text(encoding="utf-8"))
+
+    if isinstance(obj, dict) and isinstance(obj.get("accessories"), list):
+        return list(obj["accessories"])
+    if isinstance(obj, list):
+        return list(obj)
+
+    raise ValueError(f"Unsupported accessory config JSON shape in {p!s}")
 
 
 class AccessoryGui(Thread):
@@ -91,13 +94,18 @@ class AccessoryGui(Thread):
 
     def __init__(
         self,
-        *args,
-        width: int = None,
-        height: int = None,
+        *,
+        width: int | None = None,
+        height: int | None = None,
         scale_by: float = 1.0,
-        initial: str = None,
+        initial: str | None = None,
+        config_file: str | Path = DEFAULT_CONFIG_FILE,
     ) -> None:
-        """Initializes GUI thread; prepares registry; selects initial GUI"""
+        """
+        Aggregator that builds its GUI list from an EngineGui accessory JSON file.
+
+        config_file is REQUIRED.
+        """
         super().__init__(daemon=True)
         self._ev = Event()
         self._catalog = AccessoryGuiCatalog()
@@ -105,30 +113,24 @@ class AccessoryGui(Thread):
         self._registry = AccessoryRegistry.instance()
         self._registry.bootstrap()
 
-        # look for tuples in args; they define the guis we want
-        self._guis = {}
-        for gui in args:
-            if isinstance(gui, tuple):
-                gui_class, gui_type, gui_args, gui_kwargs = self._parse_tuple(gui)
-                variant_arg = gui_kwargs.get("variant", None)
-                title, _ = self._resolve_variant(gui_class, gui_type, variant_arg)
-                if title in self._guis:
-                    raise ValueError(f"Duplicate GUI variant: {gui[0]}: {title}")
-                self._guis[title] = (gui_class, gui_args, gui_kwargs)
+        self._guis: dict[str, tuple[type, tuple[Any, ...], dict[str, Any]]] = {}
+        self._load_from_config(config_file)
+
+        if not self._guis:
+            raise ValueError("AccessoryGui: no GUIs configured")
 
         self._sorted_guis = sorted(self._guis.keys(), key=lambda s: s.lower())
 
         # verify requested GUI exists:
         if initial:
-            # look for partial match
             for key in self._guis.keys():
                 if initial.lower() in key.lower():
                     initial = key
                     break
-            if initial not in self._guis.keys():
+            if initial not in self._guis:
                 raise ValueError(f"Invalid initial GUI: {initial}")
         else:
-            initial = list(self._guis.keys())[0]
+            initial = self._sorted_guis[0]
 
         if width is None or height is None:
             try:
@@ -140,57 +142,133 @@ class AccessoryGui(Thread):
                 root.destroy()
             except Exception as e:
                 log.exception("Error determining window size", exc_info=e)
+                # sensible fallback if Tk isn't available
+                self.width = width or 1024
+                self.height = height or 600
         else:
             self.width = width
             self.height = height
+
         self._scale_by = scale_by
         self._gui = None
         self.requested_gui = initial
 
         self.start()
 
-    def _resolve_variant(self, gui_class, gui_type, variant: str | None) -> tuple[str, str]:
-        # New-style registry-backed accessory
+    # -------------------------------------------------------------------------
+    # Config-file path
+    # -------------------------------------------------------------------------
+
+    def _load_from_config(self, config_file: str | Path) -> None:
+        """
+        Build self._guis from the EngineGui accessory JSON.
+
+        Expected per-item keys (from your CLI tool):
+          - gui (catalog key, e.g. "milk")
+          - variant (variant key)
+          - tmcc_ids (dict op_key -> int) [ASC2-style]
+          - tmcc_id (int) [overall ID for command-style accessories, optional]
+          - instance_id (string, optional but recommended)
+          - display_name (optional)
+        """
+        items = _load_accessory_config(config_file)
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+
+            gui_key = item.get("gui")
+            if not gui_key:
+                raise ValueError(f"Accessory config entry missing 'gui': {item!r}")
+
+            entry = self._catalog.resolve(str(gui_key))
+            gui_class = entry.load_class()
+            gui_type = entry.accessory_type
+
+            variant = item.get("variant")
+            instance_id = item.get("instance_id") or None
+            display_name = item.get("display_name") or None
+
+            # Registry supplies stable title/image for menu identity
+            title, _ = self._resolve_variant(gui_class, gui_type, variant)
+
+            # Prefer display_name for menu label; disambiguate duplicates
+            label = display_name or title
+            if label in self._guis:
+                if instance_id:
+                    label = f"{label} ({instance_id})"
+                else:
+                    base = label
+                    n = 2
+                    while label in self._guis:
+                        label = f"{base} ({n})"
+                        n += 1
+
+            ctor_kwargs: dict[str, Any] = {}
+            if variant is not None:
+                ctor_kwargs["variant"] = variant
+
+            tmcc_ids = item.get("tmcc_ids")
+            if isinstance(tmcc_ids, dict):
+                # Pass operation keys as kwargs (power=..., alarm=..., etc.)
+                for k, v in tmcc_ids.items():
+                    try:
+                        ctor_kwargs[str(k)] = int(v)
+                    except Exception:
+                        raise ValueError(f"Invalid tmcc_ids value for {k!r}: {v!r}")
+
+            tmcc_id_overall = item.get("tmcc_id")
+            if tmcc_id_overall is not None:
+                ctor_kwargs["tmcc_id"] = int(tmcc_id_overall)
+
+            # Optional metadata (only used if GUI ctors accept them)
+            if instance_id:
+                ctor_kwargs["instance_id"] = instance_id
+            if display_name:
+                ctor_kwargs["display_name"] = display_name
+
+            ctor_kwargs = _filter_kwargs_for_ctor(gui_class, ctor_kwargs)
+            self._guis[label] = (gui_class, (), ctor_kwargs)
+
+    # -------------------------------------------------------------------------
+    # Variant resolution (menu title / image)
+    # -------------------------------------------------------------------------
+
+    def _resolve_variant(self, gui_class: type, gui_type, variant: str | None) -> tuple[str, str]:
         if gui_type is not None:
             definition = self._registry.get_definition(gui_type, variant)
             title = definition.variant.title
             image = find_file(definition.variant.image)
             return title, image
 
-        # Legacy fallback
-        if hasattr(gui_class, "get_variant"):
-            return gui_class.get_variant(variant)
+        # At this point you said legacy is gone; keep a hard error so problems show early.
+        raise TypeError(f"{gui_class.__name__}: missing AccessoryType; legacy tuple mode removed")
 
-        raise TypeError(f"{gui_class.__name__} does not define get_variant() and no AccessoryType was provided")
+    # -------------------------------------------------------------------------
+    # Thread loop
+    # -------------------------------------------------------------------------
 
     def run(self) -> None:
-        # create the initially requested gui
         print(f"Creating GUI: {self.requested_gui}")
         gui = self._guis[self.requested_gui]
         gui[2]["aggregator"] = self
         self._gui = instantiate(gui[0], gui[1], gui[2])
 
-        # wait for user to request a different GUI
         while True:
-            # Wait for request to change GUI
             self._ev.wait()
             self._ev.clear()
 
-            # Close/destroy previous GUI
             GpioHandler.release_handler(self._gui)
 
-            # wait for Gui to be destroyed
             self._gui.destroy_complete.wait(10)
             self._gui.join()
-            # clean up state
             self._gui = None
 
-            # create and display new gui
             gui = self._guis[self.requested_gui]
             gui[2]["aggregator"] = self
             self._gui = instantiate(gui[0], gui[1], gui[2])
 
-    def cycle_gui(self, gui: str):
+    def cycle_gui(self, gui: str) -> None:
         if gui in self._guis:
             self.requested_gui = gui
             self._ev.set()
@@ -198,32 +276,3 @@ class AccessoryGui(Thread):
     @property
     def guis(self) -> list[str]:
         return self._sorted_guis
-
-    def _parse_tuple(self, gui: tuple) -> tuple[Any, Any, tuple, dict]:
-        if len(gui) < 2:
-            raise ValueError(f"Invalid GUI tuple: {gui}")
-
-        entry = self._catalog.resolve(gui[0])
-        gui_class = entry.load_class()
-        gui_type = entry.accessory_type  # can be None for legacy
-
-        gui_args: list[Any] = []
-        gui_kwargs: dict[str, Any] = {}
-
-        for arg in gui[1:]:
-            if isinstance(arg, str):
-                last_arg = arg.strip().split("=")
-                if len(last_arg) == 1:
-                    gui_args.append(last_arg[0])
-                elif len(last_arg) == 2 and isinstance(last_arg[0], str):
-                    gui_kwargs[last_arg[0]] = coerce_value(last_arg[1])
-                else:
-                    raise ValueError(f"Invalid variant argument format: {arg}")
-            else:
-                gui_args.append(arg)
-
-            if gui_args and isinstance(gui_args[-1], str) and "variant" not in gui_kwargs:
-                gui_kwargs["variant"] = gui_args[-1]
-                gui_args = gui_args[:-1]
-
-        return gui_class, gui_type, tuple(gui_args), gui_kwargs

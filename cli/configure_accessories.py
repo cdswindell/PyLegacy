@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+from src.pytrain.gui.accessories.accessory_gui import DEFAULT_CONFIG_FILE
 from src.pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
 from src.pytrain.gui.accessories.accessory_registry import AccessoryRegistry, PortBehavior
 from src.pytrain.gui.accessories.accessory_type import AccessoryType
@@ -324,7 +325,7 @@ def prompt_accessory(catalog: AccessoryGuiCatalog, registry: AccessoryRegistry) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    default = "accessory_config.json"
+    default = DEFAULT_CONFIG_FILE
     ap = argparse.ArgumentParser(
         description="Interactive builder for accessory config (JSON).",
     )
