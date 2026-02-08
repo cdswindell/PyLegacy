@@ -76,7 +76,7 @@ def _filter_kwargs_for_ctor(cls: type, kwargs: dict[str, Any]) -> dict[str, Any]
 
 
 def _load_accessory_config(path: str | Path) -> list[dict[str, Any]]:
-    p = Path(path)
+    p = Path(find_file(path))
     obj = json.loads(p.read_text(encoding="utf-8"))
 
     if isinstance(obj, dict) and isinstance(obj.get("accessories"), list):
