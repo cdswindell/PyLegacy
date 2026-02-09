@@ -47,7 +47,7 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
     register_fns: list[Callable[[AccessoryRegistry], None]] = [None] * len(items)  # type: ignore[list-item]
 
     # Parallelize only the import/lookup work. Keep registry mutations sequential.
-    max_workers = min(8, max(1, len(items)))
+    max_workers = min(10, max(1, len(items)))
 
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         fut_to_idx: dict[Any, int] = {}

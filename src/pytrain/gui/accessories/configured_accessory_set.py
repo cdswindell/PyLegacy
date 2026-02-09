@@ -10,14 +10,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
-from .accessory_gui import DEFAULT_CONFIG_FILE
 from .accessory_registry import AccessoryRegistry
 from .accessory_type import AccessoryType
 from ...utils.path_utils import find_file
 from ...utils.singleton import singleton
+
+log = logging.getLogger(__name__)
 
 
 @singleton
@@ -107,27 +109,74 @@ class ConfiguredAccessorySet:
         self._by_tmcc_id.clear()
 
         for acc in self._raw:
-            instance_id = acc["instance_id"]
-            self._by_instance_id[instance_id] = acc
-
-            # Type index
-            try:
-                acc_type = AccessoryType[acc["type"].upper()]
-            except Exception:
+            # Defensive: only index dict-shaped records
+            if not isinstance(acc, dict):
+                log.warning("Skipping accessory entry: not a dict (%r)", acc)
                 continue
 
-            self._by_type.setdefault(acc_type, []).append(acc)
+            instance_id = acc.get("instance_id")
+            if not isinstance(instance_id, str) or not instance_id.strip():
+                log.warning("Skipping accessory with invalid or missing instance_id: %r", acc)
+                continue
 
+            self._by_instance_id[instance_id] = acc
+
+            # ------------------------------------------------------------------
+            # Type index
+            # ------------------------------------------------------------------
+            type_val = acc.get("type")
+            if not isinstance(type_val, str) or not type_val.strip():
+                log.warning(
+                    "Accessory %s has missing or invalid 'type'; type indexing skipped",
+                    instance_id,
+                )
+            else:
+                key = type_val.strip().upper()
+                try:
+                    acc_type = AccessoryType[key]
+                except KeyError:
+                    log.warning(
+                        "Accessory %s has unknown AccessoryType %r; type indexing skipped",
+                        instance_id,
+                        type_val,
+                    )
+                else:
+                    self._by_type.setdefault(acc_type, []).append(acc)
+
+            # ------------------------------------------------------------------
             # TMCC ID index (overall)
-            if isinstance(acc.get("tmcc_id"), int):
-                self._by_tmcc_id.setdefault(acc["tmcc_id"], []).append(acc)
+            # ------------------------------------------------------------------
+            tmcc_id = acc.get("tmcc_id")
+            if tmcc_id is not None and not isinstance(tmcc_id, int):
+                log.warning(
+                    "Accessory %s has non-integer tmcc_id %r; ignoring",
+                    instance_id,
+                    tmcc_id,
+                )
+            elif isinstance(tmcc_id, int):
+                self._by_tmcc_id.setdefault(tmcc_id, []).append(acc)
 
+            # ------------------------------------------------------------------
             # TMCC IDs per operation
+            # ------------------------------------------------------------------
             tmcc_ids = acc.get("tmcc_ids")
-            if isinstance(tmcc_ids, dict):
-                for v in tmcc_ids.values():
-                    if isinstance(v, int):
-                        self._by_tmcc_id.setdefault(v, []).append(acc)
+            if tmcc_ids is not None and not isinstance(tmcc_ids, dict):
+                log.warning(
+                    "Accessory %s has invalid tmcc_ids (expected dict, got %r); ignoring",
+                    instance_id,
+                    type(tmcc_ids).__name__,
+                )
+            elif isinstance(tmcc_ids, dict):
+                for op_key, v in tmcc_ids.items():
+                    if not isinstance(v, int):
+                        log.warning(
+                            "Accessory %s operation %r has non-integer TMCC id %r; ignoring",
+                            instance_id,
+                            op_key,
+                            v,
+                        )
+                        continue
+                    self._by_tmcc_id.setdefault(v, []).append(acc)
 
     # ------------------------------------------------------------------
     # Public query API
@@ -167,3 +216,6 @@ class ConfiguredAccessorySet:
             f"types={len(self._by_type)}, "
             f"tmcc_ids={len(self._by_tmcc_id)})"
         )
+
+
+DEFAULT_CONFIG_FILE = "accessory_config.json"

@@ -19,10 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from src.pytrain.gui.accessories.accessory_gui import DEFAULT_CONFIG_FILE
 from src.pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
 from src.pytrain.gui.accessories.accessory_registry import AccessoryRegistry, PortBehavior
 from src.pytrain.gui.accessories.accessory_type import AccessoryType
+from src.pytrain.gui.accessories.configured_accessory_set import DEFAULT_CONFIG_FILE
 from src.pytrain.utils.path_utils import find_file  # <-- adjust if needed
 
 

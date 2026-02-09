@@ -18,12 +18,11 @@ from typing import Any
 
 from .accessory_gui_catalog import AccessoryGuiCatalog
 from .accessory_registry import AccessoryRegistry
+from .configured_accessory_set import DEFAULT_CONFIG_FILE
 from ...gpio.gpio_handler import GpioHandler
 from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
-
-DEFAULT_CONFIG_FILE = "accessory_config.json"
 
 
 def instantiate(
