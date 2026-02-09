@@ -15,6 +15,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar
 
+# noinspection PyPackageRequirements
 from PIL import Image
 from guizero import Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
