@@ -7,7 +7,13 @@
 #
 from __future__ import annotations
 
-from .base_defs import print_registry_entry, prune_non_unique_variant_aliases
+from .base_defs import (
+    aliases_from_legacy_key,
+    dedup_preserve_order,
+    print_registry_entry,
+    prune_non_unique_variant_aliases,
+    variant_key_from_filename,
+)
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -20,34 +26,59 @@ from ..accessory_type import AccessoryType
 """
 Control Tower accessory definition (GUI-agnostic).
 
-This module registers:
-  - required operations (ports) and their behaviors
-  - supported variants (title + primary image)
+Ports / operations:
+  - power:  latch (on/off)
+  - action: momentary_pulse (press triggers an action)
+
+This file uses the “interpret legacy dicts” pattern: keep the original VARIANTS/TITLES
+data and transform it into VariantSpec entries at registration time.
+
+Alias policy:
+  - aliases_from_legacy_key() provides a strong baseline
+  - ALIASES is only for extra synonyms you had in the old hand-written tuples that
+    the legacy-key parser would NOT naturally produce (e.g., colors like "yellow",
+    "orange", "radio", "nasa", "railroad", etc.)
+  - prune_non_unique_variant_aliases() removes aliases that collide across variants
 """
 
+# -----------------------------------------------------------------------------
+# Source data (easy to extend)
+# -----------------------------------------------------------------------------
 
-def _variant_key_from_title(title: str) -> str:
-    """
-    Generate a stable variant key from a display title.
+_VARIANTS = {
+    "192 yellow control tower 6-37996": "192-Control-Tower-6-37996.jpg",
+    "192 orange control tower 6-82014": "192-Control-Tower-6-82014.jpg",
+    "192r red railroad control tower 6-32988": "192R-Railroad-Control-Tower-6-32988.jpg",
+    "nasa mission control tower 2229040": "NASA-Mission-Control-Tower-2229040.jpg",
+    "radio control tower 6-24153": "Radio-Control-Tower-6-24153.jpg",
+}
 
-    Example:
-        "NASA Mission Control Tower" -> "nasa_mission_control"
-    """
-    t = title.strip().lower()
-    if t.endswith(" control tower"):
-        t = t[: -len(" control tower")]
-    return "_".join(t.replace("-", " ").split())
+_TITLES = {
+    "192-Control-Tower-6-37996.jpg": "Yellow Control Tower",
+    "192-Control-Tower-6-82014.jpg": "Orange Control Tower",
+    "192R-Railroad-Control-Tower-6-32988.jpg": "Railroad Control Tower",
+    "NASA-Mission-Control-Tower-2229040.jpg": "NASA Mission Control",
+    "Radio-Control-Tower-6-24153.jpg": "Radio Control Tower",
+}
+
+# Optional extras that existed in the old tuples but may not be produced by
+# aliases_from_legacy_key(). Keep these intentionally small and “real”.
+ALIASES: dict[str, set[str]] = {
+    # Keying can be by legacy name OR by filename (match is normalized).
+    "192 yellow control tower 6-37996": {"yellow"},
+    "192 orange control tower 6-82014": {"orange"},
+    "192r red railroad control tower 6-32988": {"railroad", "red railroad", "red"},
+    "nasa mission control tower 2229040": {"mission control", "mission control tower"},
+    "radio control tower 6-24153": {"radio"},
+}
+
+DEFAULT_CONTROL_TOWER = "NASA-Mission-Control-Tower-2229040.jpg"
 
 
 def register_control_tower(registry: AccessoryRegistry) -> None:
     """
-    Register the Control Tower accessory type metadata.
-
-    NOTE:
-      - Control towers typically have a single power/light operation.
-      - Additional operations can be added later if needed.
+    Register Control Tower accessory type metadata.
     """
-
     operations = (
         OperationSpec(
             key="power",
@@ -64,99 +95,47 @@ def register_control_tower(registry: AccessoryRegistry) -> None:
         ),
     )
 
-    variants = (
-        VariantSpec(
-            key="yellow_192",
-            display="192 Yellow Control Tower",
-            title="Control Tower",
-            image="192-Control-Tower-6-37996.jpg",
-            aliases=(
-                "192 yellow control tower 6-37996",
-                "192 yellow control tower",
-                "6-37996",
-                "637996",
-                "37996",
-                "yellow",
-            ),
-        ),
-        VariantSpec(
-            key="orange_192",
-            display="192 Orange Control Tower",
-            title="Control Tower",
-            image="192-Control-Tower-6-82014.jpg",
-            aliases=(
-                "192 orange control tower 6-82014",
-                "192 orange control tower",
-                "6-82014",
-                "682014",
-                "82014",
-                "orange",
-            ),
-        ),
-        VariantSpec(
-            key="railroad_192r",
-            display="192R Railroad Control Tower",
-            title="Railroad Control Tower",
-            image="192R-Railroad-Control-Tower-6-32988.jpg",
-            aliases=(
-                "192r red railroad control tower 6-32988",
-                "192r railroad control tower",
-                "railroad control tower",
-                "6-32988",
-                "632988",
-                "32988",
-                "red railroad",
-                "railroad",
-                "red",
-            ),
-        ),
-        VariantSpec(
-            key=_variant_key_from_title("NASA Mission Control Tower"),
-            display="NASA Mission Control",
-            title="NASA Mission Control",
-            image="NASA-Mission-Control-Tower-2229040.jpg",
-            aliases=(
-                "nasa mission control tower 2229040",
-                "nasa mission control tower",
-                "2229040",
-                "nasa",
-            ),
-            default=True,
-        ),
-        VariantSpec(
-            key=_variant_key_from_title("Radio Control Tower"),
-            display="Radio Control Tower",
-            title="Radio Control Tower",
-            image="Radio-Control-Tower-6-24153.jpg",
-            aliases=(
-                "radio control tower 6-24153",
-                "radio control tower",
-                "6-24153",
-                "624153",
-                "24153",
-                "radio",
-            ),
-        ),
-    )
+    variants: list[VariantSpec] = []
+    for legacy_name, filename in _VARIANTS.items():
+        title = _TITLES.get(filename, filename.rsplit(".", 1)[0])
 
-    # make sure aliases are unique across variants
+        legacy_aliases = aliases_from_legacy_key(legacy_name) if " " in legacy_name else (legacy_name.strip().lower(),)
+
+        base_no_ext = filename.rsplit(".", 1)[0]
+        extra_aliases = (title.lower(), base_no_ext.lower(), filename.lower())
+
+        # add ALIASES (by legacy key OR by filename)
+        extras = ALIASES.get(legacy_name, set()) | ALIASES.get(filename, set())
+        extra2 = tuple(sorted(extras)) if extras else ()
+
+        variants.append(
+            VariantSpec(
+                key=variant_key_from_filename(filename),
+                display=title,
+                title=title,
+                image=filename,
+                default=(filename == DEFAULT_CONTROL_TOWER),
+                aliases=dedup_preserve_order((*legacy_aliases, *extra_aliases, *extra2)),
+            )
+        )
+
+    # ensure aliases are unique across variants (drop collisions from all)
+    # noinspection PyTypeChecker
     variants = prune_non_unique_variant_aliases(variants)
 
     spec = AccessoryTypeSpec(
         type=AccessoryType.CONTROL_TOWER,
         display_name="Control Tower",
         operations=operations,
-        variants=variants,
+        variants=tuple(variants),
     )
 
     registry.register(spec)
 
 
 if __name__ == "__main__":  # pragma: no cover
-    from ..accessory_registry import AccessoryRegistry
-
     reg = AccessoryRegistry.get()
     reg.reset_for_tests()
-    register_control_tower(reg)
 
+    register_control_tower(reg)
     print_registry_entry("control_tower")
