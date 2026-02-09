@@ -59,11 +59,14 @@ class GuiZeroBase(Thread, ABC):
         inactive_bg: str = "white",
         scale_by: float = 1.5,
         repeat: int = 2,
+        stand_alone: bool = True,  # if True, launch GUI, if False, being called by another GUI
     ) -> None:
         Thread.__init__(self, daemon=True, name=title)
         self._cv = Condition(RLock())
         self._ev = Event()
-        if width is None or height is None:
+        self._stand_alone = stand_alone
+        # Determines screen dimensions when width/height unspecified
+        if stand_alone and (width is None or height is None):
             try:
                 from tkinter import Tk
 
@@ -141,9 +144,12 @@ class GuiZeroBase(Thread, ABC):
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
         self._state_store = ComponentStateStore.get()
-        self._synchronized = False
-        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
+        if stand_alone:
+            self._synchronized = False
+            self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+            self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
+        else:
+            self._synchronized = self._sync_state = self._sync_watcher = None
         atexit.register(lambda: self._shutdown_flag.set())
 
     @abstractmethod
@@ -193,6 +199,7 @@ class GuiZeroBase(Thread, ABC):
         self._init_complete_flag.set()
 
     def _on_initial_sync(self) -> None:
+        """Handles initial synchronization; starts GUI thread"""
         if self._sync_state.is_synchronized:
             if self._sync_watcher:
                 self._sync_watcher.shutdown()

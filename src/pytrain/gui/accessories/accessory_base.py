@@ -65,6 +65,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         scale_by: float = 1.0,
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
+        stand_alone: bool = True,  # if True, launch GUI, if False, being called by another GUI
     ) -> None:
         GuiZeroBase.__init__(
             self,
@@ -76,6 +77,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             disabled_bg=disabled_bg,
             enabled_text=enabled_text,
             disabled_text=disabled_text,
+            stand_alone=stand_alone,
         )
         self.image_file = image_file
         self._image = None
