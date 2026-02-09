@@ -51,12 +51,6 @@ class StationGui(AccessoryBase):
         self.power_button = self.platform_button = None
         self.power_state = self.platform_state = None
 
-        # self._platform_text = None
-        # self.brews_image = find_file("brews-waiting.png")
-        # self.freight_image = find_file("freight-waiting.jpg")
-        # self.people_image = find_file("passengers-waiting.png")
-        # self.empty_image = find_file("loaded.png")
-        # Main title + image + eject image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
         self._empty_image: str | None = None

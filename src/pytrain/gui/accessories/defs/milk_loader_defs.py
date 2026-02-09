@@ -5,8 +5,10 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+
 from __future__ import annotations
 
+from .base_defs import aliases_from_legacy_key, dedup_preserve_order, print_registry_entry, variant_key_from_filename
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -19,102 +21,99 @@ from ..accessory_type import AccessoryType
 """
 Milk Loader accessory definition (GUI-agnostic).
 
-This module registers:
-  - required operations (ports) and their behaviors
-  - supported variants (title + primary image)
-  - default operation images (and any per-variant overrides)
+Ports / operations:
+  - power:    latch (on/off)
+  - conveyor: latch (on/off)
+  - eject:    momentary_hold (press=on, release=off)
 
-IMPORTANT:
-  - No GUI imports here.
-  - Only registry metadata lives in this module.
+This file uses the “interpret legacy dicts” pattern: keep the original VARIANTS/TITLES
+data and transform it into VariantSpec entries at registration time.
 """
+
+# -----------------------------------------------------------------------------
+# Source data (easy to extend)
+# -----------------------------------------------------------------------------
+
+_VARIANTS = {
+    "moose pond creamery 6-22660": "Moose-Pond-Creamery-6-22660.jpg",
+    "dairymens league 6-14291": "Dairymens-League-6-14291.jpg",
+    "mountain view creamery 6-21675": "Mountain-View-Creamery-6-21675.jpg",
+}
+
+_TITLES = {
+    "Moose-Pond-Creamery-6-22660.jpg": "Moose Pond Creamery",
+    "Dairymens-League-6-14291.jpg": "Dairymen's League",
+    "Mountain-View-Creamery-6-21675.jpg": "Mountain View Creamery",
+}
+
+DEFAULT_MILK_LOADER = "Moose-Pond-Creamery-6-22660.jpg"
+
+
+# -----------------------------------------------------------------------------
+# Registration
+# -----------------------------------------------------------------------------
 
 
 def register_milk_loader(registry: AccessoryRegistry) -> None:
     """
-    Register the Milk Loader accessory type metadata.
-
-    Operations / ports:
-      - power: latch (on/off) -> uses default power off/on images unless overridden
-      - conveyor: latch (on/off) -> uses default latch off/on images unless overridden
-      - eject: momentary_hold (press/release) with default icon
-
-    Variants:
-      - Moose Pond Creamery (6-22660)
-      - Dairymen's League (6-14291)
-      - Mountain View Creamery (6-21675)
+    Register Milk Loader accessory type metadata.
     """
+    operations = (
+        OperationSpec(
+            key="power",
+            label="Power",
+            behavior=PortBehavior.LATCH,
+        ),
+        OperationSpec(
+            key="conveyor",
+            label="Conveyor",
+            behavior=PortBehavior.LATCH,
+        ),
+        OperationSpec(
+            key="eject",
+            label="Eject",
+            behavior=PortBehavior.MOMENTARY_HOLD,
+            image="depot-milk-can-eject.jpeg",
+            width=72,
+            height=72,
+        ),
+    )
+
+    variants: list[VariantSpec] = []
+    for legacy_name, filename in _VARIANTS.items():
+        title = _TITLES.get(filename, filename.rsplit(".", 1)[0])
+
+        # “legacy key style” aliases (handles numbers etc.)
+        legacy_aliases = aliases_from_legacy_key(legacy_name) if " " in legacy_name else (legacy_name.strip().lower(),)
+
+        # extra helpful aliases
+        base_no_ext = filename.rsplit(".", 1)[0]
+        extra_aliases = (title.lower(), base_no_ext.lower(), filename.lower())
+
+        variants.append(
+            VariantSpec(
+                key=variant_key_from_filename(filename),
+                display=title,
+                title=title,
+                image=filename,
+                default=(filename == DEFAULT_MILK_LOADER),
+                aliases=dedup_preserve_order((*legacy_aliases, *extra_aliases)),
+            )
+        )
 
     spec = AccessoryTypeSpec(
         type=AccessoryType.MILK_LOADER,
         display_name="Milk Loader",
-        operations=(
-            OperationSpec(
-                key="power",
-                label="Power",
-                behavior=PortBehavior.LATCH,
-            ),
-            OperationSpec(
-                key="conveyor",
-                label="Conveyor",
-                behavior=PortBehavior.LATCH,
-                # Same idea: defaults handled by GUI layer unless overridden here.
-            ),
-            OperationSpec(
-                key="eject",
-                label="Eject",
-                behavior=PortBehavior.MOMENTARY_HOLD,
-                image="depot-milk-can-eject.jpeg",
-                width=72,
-                height=72,
-            ),
-        ),
-        variants=(
-            VariantSpec(
-                key="moose_pond",
-                display="Moose Pond Creamery",
-                title="Moose Pond Creamery",
-                image="Moose-Pond-Creamery-6-22660.jpg",
-                aliases=(
-                    "moose pond creamery 6-22660",
-                    "6-22660",
-                    "622660",
-                    "moose pond",
-                    "moose pond creamery",
-                    "moose",
-                ),
-                default=True,
-            ),
-            VariantSpec(
-                key="dairymens_league",
-                display="Dairymen's League",
-                title="Dairymen's League",
-                image="Dairymens-League-6-14291.jpg",
-                aliases=(
-                    "dairymens league 6-14291",
-                    "dairymen's league 6-14291",
-                    "6-14291",
-                    "614291",
-                    "dairymens league",
-                    "dairymen's league",
-                    "dairymen",
-                ),
-            ),
-            VariantSpec(
-                key="mountain_view",
-                display="Mountain View Creamery",
-                title="Mountain View Creamery",
-                image="Mountain-View-Creamery-6-21675.jpg",
-                aliases=(
-                    "mountain view creamery 6-21675",
-                    "6-21675",
-                    "621675",
-                    "mountain view",
-                    "mountain view creamery",
-                    "mountain",
-                ),
-            ),
-        ),
+        operations=operations,
+        variants=tuple(variants),
     )
 
     registry.register(spec)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    reg = AccessoryRegistry.get()
+    reg.reset_for_tests()
+
+    register_milk_loader(reg)
+    print_registry_entry("milk_loader")
