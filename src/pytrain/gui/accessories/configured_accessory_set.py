@@ -175,24 +175,39 @@ class ConfiguredAccessorySet:
     # Indexing
     # ------------------------------------------------------------------
 
-    def _rebuild_indexes(self, *, validate: bool = True, verify: bool = False) -> None:
-        self._by_instance_id.clear()
-        self._by_type.clear()
-        self._by_tmcc_id.clear()
+    @staticmethod
+    def _build_indexes(
+        raw: list[dict[str, Any]],
+        *,
+        validate: bool,
+        issues_out: list[str] | None,
+    ) -> tuple[
+        dict[str, dict[str, Any]],
+        dict[AccessoryType, list[dict[str, Any]]],
+        dict[int, list[dict[str, Any]]],
+    ]:
+        """
+        Build indexes from raw accessory dicts.
 
-        # Optional verification bookkeeping
-        issues: list[str] = []
+        If validate=True, warnings are logged.
+        If issues_out is provided, all warnings are also appended as formatted strings.
+        """
+        by_instance_id: dict[str, dict[str, Any]] = {}
+        by_type: dict[AccessoryType, list[dict[str, Any]]] = {}
+        by_tmcc_id: dict[int, list[dict[str, Any]]] = {}
 
-        def _warn(v_msg: str, *args) -> None:
+        def _warn(msg: str, *args) -> None:
             if validate:
-                log.warning(v_msg, *args)
-            if verify:
-                issues.append(v_msg % args)
+                log.warning(msg, *args)
+            if issues_out is not None:
+                try:
+                    # Normal %-formatting path
+                    issues_out.append(msg % args)
+                except (TypeError, ValueError):
+                    # Defensive fallback if formatting arguments don't match
+                    issues_out.append(f"{msg} {args!r}")
 
-        for acc in self._raw:
-            # --------------------------------------------------------------
-            # Shape check
-            # --------------------------------------------------------------
+        for acc in raw:
             if not isinstance(acc, dict):
                 _warn("Skipping accessory entry: not a dict (%r)", acc)
                 continue
@@ -202,46 +217,29 @@ class ConfiguredAccessorySet:
                 _warn("Skipping accessory with invalid or missing instance_id: %r", acc)
                 continue
 
-            self._by_instance_id[instance_id] = acc
+            by_instance_id[instance_id] = acc
 
-            # --------------------------------------------------------------
             # Type index
-            # --------------------------------------------------------------
             type_val = acc.get("type")
             if not isinstance(type_val, str) or not type_val.strip():
-                _warn(
-                    "Accessory %s has missing or invalid 'type'; type indexing skipped",
-                    instance_id,
-                )
+                _warn("Accessory %s has missing or invalid 'type'; type indexing skipped", instance_id)
             else:
                 key = type_val.strip().upper()
                 try:
                     acc_type = AccessoryType[key]
                 except KeyError:
-                    _warn(
-                        "Accessory %s has unknown AccessoryType %r; type indexing skipped",
-                        instance_id,
-                        type_val,
-                    )
+                    _warn("Accessory %s has unknown AccessoryType %r; type indexing skipped", instance_id, type_val)
                 else:
-                    self._by_type.setdefault(acc_type, []).append(acc)
+                    by_type.setdefault(acc_type, []).append(acc)
 
-            # --------------------------------------------------------------
             # TMCC ID index (overall)
-            # --------------------------------------------------------------
             tmcc_id = acc.get("tmcc_id")
             if tmcc_id is not None and not isinstance(tmcc_id, int):
-                _warn(
-                    "Accessory %s has non-integer tmcc_id %r; ignoring",
-                    instance_id,
-                    tmcc_id,
-                )
+                _warn("Accessory %s has non-integer tmcc_id %r; ignoring", instance_id, tmcc_id)
             elif isinstance(tmcc_id, int):
-                self._by_tmcc_id.setdefault(tmcc_id, []).append(acc)
+                by_tmcc_id.setdefault(tmcc_id, []).append(acc)
 
-            # --------------------------------------------------------------
             # TMCC IDs per operation
-            # --------------------------------------------------------------
             tmcc_ids = acc.get("tmcc_ids")
             if tmcc_ids is not None and not isinstance(tmcc_ids, dict):
                 _warn(
@@ -259,11 +257,23 @@ class ConfiguredAccessorySet:
                             v,
                         )
                         continue
-                    self._by_tmcc_id.setdefault(v, []).append(acc)
+                    by_tmcc_id.setdefault(v, []).append(acc)
 
-        # --------------------------------------------------------------
-        # Verification summary
-        # --------------------------------------------------------------
+        return by_instance_id, by_type, by_tmcc_id
+
+    def _rebuild_indexes(self, *, validate: bool = True, verify: bool = False) -> None:
+        issues: list[str] | None = [] if verify else None
+
+        by_instance_id, by_type, by_tmcc_id = self._build_indexes(
+            self._raw,
+            validate=validate,
+            issues_out=issues,
+        )
+
+        self._by_instance_id = by_instance_id
+        self._by_type = by_type
+        self._by_tmcc_id = by_tmcc_id
+
         if verify and issues:
             log.warning("Accessory config verification found %d issue(s)", len(issues))
             for msg in issues[:10]:
@@ -303,36 +313,21 @@ class ConfiguredAccessorySet:
         Verify the currently loaded accessory configuration.
 
         - Does NOT modify self._raw
-        - Does NOT rebuild indexes permanently
+        - Does NOT rebuild indexes on the instance
         - Returns a structured summary of issues
         """
-
-        # Snapshot current state
+        issues: list[str] = []
         raw_snapshot = list(self._raw)
 
-        issues: list[str] = []
-
-        # Temporarily wrap logging to capture messages
-        def _collect_warning(msg: str, *args) -> None:
-            issues.append(msg % args)
-
-        # Monkey-patch log.warning locally
-        original_warning = log.warning
-        try:
-            log.warning = _collect_warning  # type: ignore[assignment]
-
-            # Run rebuild in verification mode
-            self._rebuild_indexes(validate=True, verify=True)
-
-        finally:
-            log.warning = original_warning
-
-            # Restore raw data and indexes to pre-verify state
-            self._raw = raw_snapshot
-            self._rebuild_indexes(validate=False, verify=False)
+        # Build indexes purely, collecting issues without logging unless you want it.
+        self._build_indexes(
+            raw_snapshot,
+            validate=False,  # don't log during verify_config()
+            issues_out=issues,  # collect issues into the list
+        )
 
         return ConfigVerificationResult(
-            valid=not issues,
+            valid=(len(issues) == 0),
             issue_count=len(issues),
             issues=tuple(issues),
         )
