@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,15 @@ from ...utils.path_utils import find_file
 from ...utils.singleton import singleton
 
 log = logging.getLogger(__name__)
+
+DEFAULT_CONFIG_FILE = "accessory_config.json"
+
+
+@dataclass(frozen=True)
+class ConfigVerificationResult:
+    valid: bool
+    issue_count: int
+    issues: tuple[str, ...]
 
 
 @singleton
@@ -47,7 +57,12 @@ class ConfiguredAccessorySet:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_file(cls, path: str | Path | None = None) -> ConfiguredAccessorySet:
+    def from_file(
+        cls,
+        path: str | Path | None = None,
+        validate: bool = True,
+        verify: bool = False,
+    ) -> ConfiguredAccessorySet:
         """
         Load accessory configuration from JSON and return the singleton instance.
 
@@ -56,15 +71,37 @@ class ConfiguredAccessorySet:
           - resolve via find_file if necessary
         """
         inst = cls()
-        inst._load(path)
+        inst._load(path, validate=validate, verify=verify)
         return inst
 
-    def _load(self, path: str | Path | None) -> None:
-        """Loads accessory configuration from file or default path"""
+    def _load(
+        self,
+        path: str | Path | None,
+        *,
+        validate: bool = True,
+        verify: bool = False,
+    ) -> None:
+        """
+        Load accessory configuration from JSON.
+
+        Rules:
+          - Missing file → valid empty configuration
+          - Existing file must be valid JSON
+          - JSON must be:
+              * dict with 'accessories': list[dict], OR
+              * list[dict]
+          - Each accessory entry must minimally contain:
+              * instance_id (str)
+              * type (str)
+
+        Any violation raises immediately.
+        """
         registry = AccessoryRegistry.get()
         registry.bootstrap()
 
+        # ------------------------------------------------------------------
         # Resolve path
+        # ------------------------------------------------------------------
         if path is None:
             path = DEFAULT_CONFIG_FILE
 
@@ -74,59 +111,105 @@ class ConfiguredAccessorySet:
         else:
             self._path = path
 
+        # ------------------------------------------------------------------
+        # Missing file → valid empty state
+        # ------------------------------------------------------------------
         if not self._path.exists():
-            # Valid empty state
             self._raw = []
-            self._rebuild_indexes()
+            self._rebuild_indexes(validate=validate, verify=verify)
             return
 
+        # ------------------------------------------------------------------
+        # Parse JSON (strict)
+        # ------------------------------------------------------------------
         try:
-            obj = json.loads(self._path.read_text(encoding="utf-8"))
-        except Exception as e:
-            raise RuntimeError(f"Failed to read accessory config: {self._path}: {e}") from e
+            text = self._path.read_text(encoding="utf-8")
+            obj = json.loads(text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in accessory config '{self._path}': {e.msg} (line {e.lineno})") from e
+        except OSError as e:
+            raise RuntimeError(f"Failed to read accessory config '{self._path}': {e}") from e
 
+        # ------------------------------------------------------------------
+        # Normalize top-level shape
+        # ------------------------------------------------------------------
         if isinstance(obj, dict):
-            accessories = obj.get("accessories", [])
+            accessories = obj.get("accessories")
+            if accessories is None:
+                raise ValueError(f"{self._path}: missing required key 'accessories'")
             if not isinstance(accessories, list):
-                raise ValueError("accessory_config.json: 'accessories' must be a list")
+                raise ValueError(f"{self._path}: 'accessories' must be a list")
         elif isinstance(obj, list):
             accessories = obj
         else:
-            raise ValueError("accessory_config.json: invalid JSON shape")
+            raise ValueError(f"{self._path}: top-level JSON must be an object or list")
 
-        # Minimal structural filtering (deeper validation can come later)
-        self._raw = [a for a in accessories if isinstance(a, dict) and "instance_id" in a and "type" in a]
+        # ------------------------------------------------------------------
+        # Validate each accessory entry (structure only)
+        # ------------------------------------------------------------------
+        raw: list[dict[str, Any]] = []
 
-        self._rebuild_indexes()
+        # Validates accessory structure; accumulates raw entries
+        for i, acc in enumerate(accessories):
+            if not isinstance(acc, dict):
+                raise ValueError(f"{self._path}: accessories[{i}] must be an object")
+
+            instance_id = acc.get("instance_id")
+            acc_type = acc.get("type")
+
+            if not isinstance(instance_id, str) or not instance_id.strip():
+                raise ValueError(f"{self._path}: accessories[{i}].instance_id must be a non-empty string")
+
+            if not isinstance(acc_type, str) or not acc_type.strip():
+                raise ValueError(f"{self._path}: accessories[{i}].type must be a non-empty string")
+
+            raw.append(acc)
+
+        # ------------------------------------------------------------------
+        # Commit + index
+        # ------------------------------------------------------------------
+        self._raw = raw
+        self._rebuild_indexes(validate=validate, verify=verify)
 
     # ------------------------------------------------------------------
     # Indexing
     # ------------------------------------------------------------------
 
-    def _rebuild_indexes(self) -> None:
+    def _rebuild_indexes(self, *, validate: bool = True, verify: bool = False) -> None:
         self._by_instance_id.clear()
         self._by_type.clear()
         self._by_tmcc_id.clear()
 
+        # Optional verification bookkeeping
+        issues: list[str] = []
+
+        def _warn(v_msg: str, *args) -> None:
+            if validate:
+                log.warning(v_msg, *args)
+            if verify:
+                issues.append(msg % args)
+
         for acc in self._raw:
-            # Defensive: only index dict-shaped records
+            # --------------------------------------------------------------
+            # Shape check
+            # --------------------------------------------------------------
             if not isinstance(acc, dict):
-                log.warning("Skipping accessory entry: not a dict (%r)", acc)
+                _warn("Skipping accessory entry: not a dict (%r)", acc)
                 continue
 
             instance_id = acc.get("instance_id")
             if not isinstance(instance_id, str) or not instance_id.strip():
-                log.warning("Skipping accessory with invalid or missing instance_id: %r", acc)
+                _warn("Skipping accessory with invalid or missing instance_id: %r", acc)
                 continue
 
             self._by_instance_id[instance_id] = acc
 
-            # ------------------------------------------------------------------
+            # --------------------------------------------------------------
             # Type index
-            # ------------------------------------------------------------------
+            # --------------------------------------------------------------
             type_val = acc.get("type")
             if not isinstance(type_val, str) or not type_val.strip():
-                log.warning(
+                _warn(
                     "Accessory %s has missing or invalid 'type'; type indexing skipped",
                     instance_id,
                 )
@@ -135,7 +218,7 @@ class ConfiguredAccessorySet:
                 try:
                     acc_type = AccessoryType[key]
                 except KeyError:
-                    log.warning(
+                    _warn(
                         "Accessory %s has unknown AccessoryType %r; type indexing skipped",
                         instance_id,
                         type_val,
@@ -143,12 +226,12 @@ class ConfiguredAccessorySet:
                 else:
                     self._by_type.setdefault(acc_type, []).append(acc)
 
-            # ------------------------------------------------------------------
+            # --------------------------------------------------------------
             # TMCC ID index (overall)
-            # ------------------------------------------------------------------
+            # --------------------------------------------------------------
             tmcc_id = acc.get("tmcc_id")
             if tmcc_id is not None and not isinstance(tmcc_id, int):
-                log.warning(
+                _warn(
                     "Accessory %s has non-integer tmcc_id %r; ignoring",
                     instance_id,
                     tmcc_id,
@@ -156,20 +239,20 @@ class ConfiguredAccessorySet:
             elif isinstance(tmcc_id, int):
                 self._by_tmcc_id.setdefault(tmcc_id, []).append(acc)
 
-            # ------------------------------------------------------------------
+            # --------------------------------------------------------------
             # TMCC IDs per operation
-            # ------------------------------------------------------------------
+            # --------------------------------------------------------------
             tmcc_ids = acc.get("tmcc_ids")
             if tmcc_ids is not None and not isinstance(tmcc_ids, dict):
-                log.warning(
-                    "Accessory %s has invalid tmcc_ids (expected dict, got %r); ignoring",
+                _warn(
+                    "Accessory %s has invalid tmcc_ids (expected dict, got %s); ignoring",
                     instance_id,
                     type(tmcc_ids).__name__,
                 )
             elif isinstance(tmcc_ids, dict):
                 for op_key, v in tmcc_ids.items():
                     if not isinstance(v, int):
-                        log.warning(
+                        _warn(
                             "Accessory %s operation %r has non-integer TMCC id %r; ignoring",
                             instance_id,
                             op_key,
@@ -177,6 +260,16 @@ class ConfiguredAccessorySet:
                         )
                         continue
                     self._by_tmcc_id.setdefault(v, []).append(acc)
+
+        # --------------------------------------------------------------
+        # Verification summary
+        # --------------------------------------------------------------
+        if verify and issues:
+            log.warning("Accessory config verification found %d issue(s)", len(issues))
+            for msg in issues[:10]:
+                log.warning("  - %s", msg)
+            if len(issues) > 10:
+                log.warning("  ... %d more", len(issues) - 10)
 
     # ------------------------------------------------------------------
     # Public query API
@@ -205,6 +298,45 @@ class ConfiguredAccessorySet:
     def has_any(self) -> bool:
         return bool(self._raw)
 
+    def verify_config(self) -> ConfigVerificationResult:
+        """
+        Verify the currently loaded accessory configuration.
+
+        - Does NOT modify self._raw
+        - Does NOT rebuild indexes permanently
+        - Returns a structured summary of issues
+        """
+
+        # Snapshot current state
+        raw_snapshot = list(self._raw)
+
+        issues: list[str] = []
+
+        # Temporarily wrap logging to capture messages
+        def _collect_warning(msg: str, *args) -> None:
+            issues.append(msg % args)
+
+        # Monkey-patch log.warning locally
+        original_warning = log.warning
+        try:
+            log.warning = _collect_warning  # type: ignore[assignment]
+
+            # Run rebuild in verification mode
+            self._rebuild_indexes(validate=True, verify=True)
+
+        finally:
+            log.warning = original_warning
+
+            # Restore raw data and indexes to pre-verify state
+            self._raw = raw_snapshot
+            self._rebuild_indexes(validate=False, verify=False)
+
+        return ConfigVerificationResult(
+            valid=not issues,
+            issue_count=len(issues),
+            issues=tuple(issues),
+        )
+
     # ------------------------------------------------------------------
     # Debug / introspection
     # ------------------------------------------------------------------
@@ -216,6 +348,3 @@ class ConfiguredAccessorySet:
             f"types={len(self._by_type)}, "
             f"tmcc_ids={len(self._by_tmcc_id)})"
         )
-
-
-DEFAULT_CONFIG_FILE = "accessory_config.json"
