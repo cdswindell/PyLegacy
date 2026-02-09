@@ -674,8 +674,7 @@ def prompt_accessory(catalog: AccessoryGuiCatalog, registry: AccessoryRegistry) 
         tmcc_ids[op.key] = _ask_int(f"TMCC ID for operation '{op.key}' ({op.label})")
 
     default_display_name = vs.title
-    print(f"Default display name: {default_display_name}")
-    display_name = _ask("Display name override (leave blank to use default)", default="").strip()
+    display_name = _ask("Display name override (leave blank to use default)", default=default_display_name).strip()
 
     if not display_name or display_name == default_display_name:
         display_name = None
@@ -686,8 +685,6 @@ def prompt_accessory(catalog: AccessoryGuiCatalog, registry: AccessoryRegistry) 
         tmcc_ids=tmcc_ids if tmcc_ids else None,
         tmcc_id=tmcc_id_overall,
     )
-
-    print(f"instance_id -> {instance_id}")
 
     return AccessoryConfig(
         gui=gui_key,
