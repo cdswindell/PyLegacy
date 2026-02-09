@@ -23,6 +23,14 @@ from ...gpio.gpio_handler import GpioHandler
 log = logging.getLogger(__name__)
 
 
+class StandAloneGui:
+    """
+    Standalone accessory GUI for running accessory GUIs by themselves.
+    """
+
+    pass
+
+
 def instantiate(
     cls: type,
     args: tuple[Any, ...] = (),
@@ -67,7 +75,7 @@ def _filter_kwargs_for_ctor(cls: type, kwargs: dict[str, Any]) -> dict[str, Any]
     return {k: v for k, v in kwargs.items() if k in allowed}
 
 
-class AccessoryGui(Thread):
+class AccessoryGui(Thread, StandAloneGui):
     @classmethod
     def name(cls) -> str:
         return cls.__name__

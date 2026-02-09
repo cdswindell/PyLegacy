@@ -21,7 +21,7 @@ from guizero import Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
 from guizero.event import EventData
 
-from .accessory_gui import AccessoryGui
+from .accessory_gui import AccessoryGui, StandAloneGui
 from .accessory_registry import AccessoryRegistry
 from .accessory_type import AccessoryType
 from .config import ConfiguredAccessory, configure_accessory
@@ -66,7 +66,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         scale_by: float = 1.0,
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
-        stand_alone: bool = True,  # if True, launch GUI, if False, being called by another GUI
     ) -> None:
         GuiZeroBase.__init__(
             self,
@@ -78,7 +77,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             disabled_bg=disabled_bg,
             enabled_text=enabled_text,
             disabled_text=disabled_text,
-            stand_alone=stand_alone,
+            stand_alone=aggregator is None or isinstance(aggregator, StandAloneGui),
         )
         self.image_file = image_file
         self._image = None
@@ -127,6 +126,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         display_name: str | None = None,
         tmcc_id: int | None = None,
     ) -> ConfiguredAccessory:
+        """Configures accessory from registry; returns configured accessory"""
         definition = self.registry.get_definition(accessory_type, variant)
         cfg = configure_accessory(
             definition,
@@ -161,6 +161,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         on_enable: Callable = None,
         on_disable: Callable = None,
     ) -> None:
+        """Enables/disables widget based on power state"""
         if widget is None:
             return
         on_enable = on_enable or widget.enable
