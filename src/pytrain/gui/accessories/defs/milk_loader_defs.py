@@ -8,7 +8,13 @@
 
 from __future__ import annotations
 
-from .base_defs import aliases_from_legacy_key, dedup_preserve_order, print_registry_entry, variant_key_from_filename
+from .base_defs import (
+    aliases_from_legacy_key,
+    dedup_preserve_order,
+    extra_aliases_from_module,
+    print_registry_entry,
+    variant_key_from_filename,
+)
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -44,6 +50,16 @@ _TITLES = {
     "Moose-Pond-Creamery-6-22660.jpg": "Moose Pond Creamery",
     "Dairymens-League-6-14291.jpg": "Dairymen's League",
     "Mountain-View-Creamery-6-21675.jpg": "Mountain View Creamery",
+}
+
+ALIASES = {
+    "dairymens league 6-14291": {
+        "dairymen's",
+        "dairymens'",
+        "dairymen's league",
+        "dairymens' league",
+        "league",
+    },
 }
 
 DEFAULT_MILK_LOADER = "Moose-Pond-Creamery-6-22660.jpg"
@@ -90,6 +106,13 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
         base_no_ext = filename.rsplit(".", 1)[0]
         extra_aliases = (title.lower(), base_no_ext.lower(), filename.lower())
 
+        extra2 = extra_aliases_from_module(
+            globals(),
+            legacy_key=legacy_name,
+            filename=filename,
+            title=title,
+        )
+
         variants.append(
             VariantSpec(
                 key=variant_key_from_filename(filename),
@@ -97,7 +120,7 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
                 title=title,
                 image=filename,
                 default=(filename == DEFAULT_MILK_LOADER),
-                aliases=dedup_preserve_order((*legacy_aliases, *extra_aliases)),
+                aliases=dedup_preserve_order((*legacy_aliases, *extra_aliases, *extra2)),
             )
         )
 
