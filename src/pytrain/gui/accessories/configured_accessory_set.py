@@ -187,7 +187,7 @@ class ConfiguredAccessorySet:
             if validate:
                 log.warning(v_msg, *args)
             if verify:
-                issues.append(msg % args)
+                issues.append(v_msg % args)
 
         for acc in self._raw:
             # --------------------------------------------------------------
