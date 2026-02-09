@@ -12,9 +12,10 @@ from __future__ import annotations
 import logging
 import math
 import tkinter as tk
+from contextlib import contextmanager
 from io import BytesIO
 from tkinter import TclError
-from typing import Any, Callable, Generic, TypeVar, cast
+from typing import Any, Callable, Generic, TypeVar, cast, Iterator
 
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
@@ -66,6 +67,7 @@ from .engine_gui_conf import (
     send_lcs_off_command,
     send_lcs_on_command,
 )
+from .popup_manager import PopupManager
 from .state_info_overlay import StateInfoOverlay
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
@@ -182,7 +184,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._active_engine_state = self._active_train_state = None
         self._actual_current_engine_id = 0
         self.reset_on_keystroke = False
-        self._current_popup = None
+
         self._state_info = None  # Init later in run()
         self._sensor_track_watcher = None
         self._sensor_track_state = None
@@ -251,8 +253,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
         self._admin_panel = self._admin_overlay = None
         self._catalog_panel = self._catalog_overlay = None
-        self._on_close_show = None
-        self._restore_image_box = False
         self.engine_ops_cells = {}
 
         # callbacks
@@ -265,8 +265,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
             CommandScope.IRDA: self.on_sensor_track_update,
         }
 
+        # delete after refactor
+        # self._current_popup = None
+        # self._restore_image_box = False
+        # self._on_close_show = None
+
+        # helpers to reduce code
+        self._popup = PopupManager(self)
+
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
+
+    @contextmanager
+    def locked(self) -> Iterator[None]:
+        with self._cv:
+            yield
 
     # noinspection PyTypeChecker
     @property
@@ -1139,7 +1152,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if self._state_info is None:
                 self._state_info = StateInfoOverlay(self)
             if self.info_overlay is None:
-                self.info_overlay = self.create_popup(self.version, self._state_info.build)
+                self.info_overlay = self._popup.create_popup(self.version, self._state_info.build)
 
         # show/hide fields in the overlay
         state = self.active_state
@@ -1153,12 +1166,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_rr_speed(self) -> None:
         if self.rr_speed_overlay is None:
-            self.rr_speed_overlay = self.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
+            self.rr_speed_overlay = self._popup.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
         self.show_popup(self.rr_speed_overlay)
 
     def on_lights(self) -> None:
         if self.lights_overlay is None:
-            self.lights_overlay = self.create_popup("Lighting", self.build_lights_body)
+            self.lights_overlay = self._popup.create_popup("Lighting", self.build_lights_body)
         if self.active_engine_state:
             state = self.active_engine_state
         else:
@@ -1174,37 +1187,37 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_tower_dialog(self) -> None:
         if self._tower_overlay is None:
-            self._tower_overlay = self.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
+            self._tower_overlay = self._popup.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
         self.show_popup(self._tower_overlay, "TOWER_CHATTER", "e")
 
     def on_crew_dialog(self) -> None:
         if self._crew_overlay is None:
-            self._crew_overlay = self.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
+            self._crew_overlay = self._popup.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
         self.show_popup(self._crew_overlay, "ENGINEER_CHATTER", "e")
 
     def on_conductor_actions(self) -> None:
         if self.conductor_overlay is None:
-            self.conductor_overlay = self.create_popup("Conductor Actions", self.build_conductor_actions_body)
+            self.conductor_overlay = self._popup.create_popup("Conductor Actions", self.build_conductor_actions_body)
         self.show_popup(self.conductor_overlay, "ENGINEER_CHATTER", "p")
 
     def on_station_dialogs(self) -> None:
         if self.station_overlay is None:
-            self.station_overlay = self.create_popup("Station Dialogs", self.build_station_dialogs_body)
+            self.station_overlay = self._popup.create_popup("Station Dialogs", self.build_station_dialogs_body)
         self.show_popup(self.station_overlay, "TOWER_CHATTER", "p")
 
     def on_steward_dialogs(self) -> None:
         if self.steward_overlay is None:
-            self.steward_overlay = self.create_popup("Steward Dialogs", self.build_steward_dialogs_body)
+            self.steward_overlay = self._popup.create_popup("Steward Dialogs", self.build_steward_dialogs_body)
         self.show_popup(self.steward_overlay, "STEWARD_CHATTER", "p")
 
     def on_bell_horn_options(self) -> None:
         if self.bell_overlay is None:
-            self.bell_overlay = self.create_popup("Bell/Horn Options", self.build_bell_horn_body)
+            self.bell_overlay = self._popup.create_popup("Bell/Horn Options", self.build_bell_horn_body)
         self.show_popup(self.bell_overlay, "RING_BELL", "e")
 
     def on_bell_horn_options_fs(self) -> None:
         if self.bell_overlay is None:
-            self.bell_overlay = self.create_popup("Bell/Horn Options", self.build_bell_horn_body)
+            self.bell_overlay = self._popup.create_popup("Bell/Horn Options", self.build_bell_horn_body)
         self.show_popup(self.bell_overlay, button=self._bell_btn)
 
     def show_popup(
@@ -1216,48 +1229,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
         position: tuple = None,
         hide_image_box: bool = False,
     ):
-        with self._cv:
-            if self._current_popup:
-                self._current_popup.hide()
-
-            if button:
-                button.restore_color_state()
-            elif op:
-                key = (op, modifier) if modifier else op
-                _, btn = self.engine_ops_cells[key]
-                btn.restore_color_state()
-
-            # Automatically hide active UI elements and remember what to show later
-            for box in [self.controller_box, self.keypad_box, self.sensor_track_box]:
-                if box and box.visible:
-                    box.hide()
-                    self._on_close_show = box
-
-            if hide_image_box and self.image_box.visible:
-                self.image_box.hide()
-                self._restore_image_box = True
-            else:
-                self._restore_image_box = False
-
-            self._current_popup = overlay
-            position = position if position else self.popup_position
-            x, y = position
-            overlay.tk.place(x=x, y=y)
-            overlay.show()
+        self._popup.show(
+            overlay=overlay,
+            op=op,
+            modifier=modifier,
+            button=button,
+            position=position,
+            hide_image_box=hide_image_box,
+        )
 
     def close_popup(self, overlay: Widget = None):
-        with self._cv:
-            overlay = overlay or self._current_popup
-            self._current_popup = None
-            if overlay:
-                overlay.hide()
-                overlay.tk.place_forget()
-            if self._restore_image_box and not self.image_box.visible:
-                self.image_box.show()
-            self._restore_image_box = False
-            if self._on_close_show:
-                self._on_close_show.show()
-                self._on_close_show = None
+        self._popup.close(overlay=overlay)
 
     def show_horn_control(self) -> None:
         for loco_type in ["d", "s", "l"]:
@@ -1407,7 +1389,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if self._admin_panel is None:
                 self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
             if self._admin_overlay is None:
-                self._admin_overlay = self.create_popup(self._admin_title, self._admin_panel.build)
+                self._admin_overlay = self._popup.create_popup(self._admin_title, self._admin_panel.build)
         self.show_popup(self._admin_overlay, hide_image_box=True)
 
     def on_recents(self, value: str):
@@ -1728,7 +1710,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self, width=self.emergency_box_width, height=int(3 * self.height / 4)
                 )
             if self._catalog_overlay is None:
-                self._catalog_overlay = self.create_popup("Catalog", self._catalog_panel.build)
+                self._catalog_overlay = self._popup.create_popup("Catalog", self._catalog_panel.build)
             self._catalog_panel.update(pb.scope)
             self._catalog_overlay.title.value = self._catalog_panel.title
         self.show_popup(self._catalog_overlay, hide_image_box=True)
@@ -2461,6 +2443,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._rr_speed_box.show()
         self.toggle_momentum_train_brake(show_btn="brake")
 
+    # noinspection PyUnresolvedReferences
     @property
     def is_engine_or_train(self) -> bool:
         return (
@@ -2473,6 +2456,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             )
         )
 
+    # noinspection PyUnresolvedReferences
     @property
     def is_accessory_or_bpc2(self) -> bool:
         return self.scope == CommandScope.ACC or (
@@ -2612,6 +2596,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.image.image = None
         self.image_box.hide()
 
+    # noinspection PyUnresolvedReferences
     def update_component_image(
         self,
         tmcc_id: int = None,
