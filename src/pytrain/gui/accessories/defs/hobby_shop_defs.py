@@ -8,7 +8,7 @@
 #
 from __future__ import annotations
 
-from .base_defs import prune_non_unique_variant_aliases
+from .base_defs import print_registry_entry, prune_non_unique_variant_aliases
 from ..accessory_registry import (
     AccessoryRegistry,
     AccessoryTypeSpec,
@@ -113,3 +113,12 @@ def register_hobby_shop(registry: AccessoryRegistry) -> None:
     )
 
     registry.register(spec)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    reg = AccessoryRegistry.get()
+    reg.reset_for_tests()
+
+    register_hobby_shop(reg)
+
+    print_registry_entry("hobby_shop")
