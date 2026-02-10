@@ -22,6 +22,7 @@ from guizero.base import Widget
 from guizero.event import EventData
 
 from .admin_panel import ADMIN_TITLE, AdminPanel
+from .bell_horn_panel import BellHornPanel
 from .catalog_panel import CatalogPanel
 from .engine_gui_conf import (
     AC_OFF_KEY,
@@ -32,7 +33,6 @@ from .engine_gui_conf import (
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
-    CYCLE_KEY,
     ENGINE_OFF_KEY,
     ENGINE_OPS_LAYOUT,
     ENGINE_TYPE_TO_IMAGE,
@@ -45,8 +45,6 @@ from .engine_gui_conf import (
     LIONEL_ORANGE,
     MOMENTUM,
     MOM_TB,
-    PLAY_KEY,
-    PLAY_PAUSE_KEY,
     REPEAT_EXCEPTIONS,
     SCOPE_TO_SET_ENUM,
     SENSOR_TRACK_OPTS,
@@ -247,7 +245,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._catalog_panel = None
         self._lighting_panel = None
         self._rr_speed_panel = None
-        self._state_info = None  # Init later in run()
+        self._state_info = None
+        self._bell_horn_panel = None
         self.engine_ops_cells = {}
 
         # callbacks
@@ -852,102 +851,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             cb.select_default()
 
-    def build_bell_horn_body(self, body: Box):
-        cs = self.button_size
-        height = int(2.5 * cs)
-        opts_box = Box(
-            body,
-            layout="grid",
-            align="top",
-            border=1,
-            height=height,
-            width=6 * cs,
-        )
-
-        bt = Text(opts_box, text="Bell: ", grid=[0, 0], align="left")
-        bt.text_size = self.s_20
-        bt.text_bold = True
-
-        _, bc = self.make_keypad_button(
-            opts_box,
-            CYCLE_KEY,
-            0,
-            1,
-            align="left",
-            command=self.on_engine_command,
-            args=["CYCLE_BELL_TONE"],
-        )
-        _, bp = self.make_keypad_button(
-            opts_box,
-            PLAY_PAUSE_KEY,
-            0,
-            2,
-            align="left",
-            command=self.on_engine_command,
-            args=["RING_BELL"],
-        )
-        _, bon = self.make_keypad_button(
-            opts_box,
-            "On",
-            0,
-            3,
-            align="left",
-            command=self.on_engine_command,
-            args=["BELL_ON"],
-        )
-        _, boff = self.make_keypad_button(
-            opts_box,
-            "Off",
-            0,
-            4,
-            align="left",
-            command=self.on_engine_command,
-            args=["BELL_OFF"],
-        )
-        self.cache(bt)
-        self.cache(bc)
-        self.cache(bp)
-        self.cache(bon)
-        self.cache(boff)
-
-        ht = Text(opts_box, text="Horn: ", grid=[0, 1])
-        ht.text_size = self.s_20
-        ht.text_bold = True
-
-        _, hc = self.make_keypad_button(
-            opts_box,
-            CYCLE_KEY,
-            1,
-            1,
-            align="left",
-            command=self.on_engine_command,
-            args=["CYCLE_HORN_TONE"],
-        )
-        _, hp = self.make_keypad_button(
-            opts_box,
-            PLAY_KEY,
-            1,
-            2,
-            align="left",
-            command=self.on_engine_command,
-            args=["BLOW_HORN_ONE"],
-        )
-        _, hrc = self.make_keypad_button(
-            opts_box,
-            "",
-            1,
-            3,
-            image=find_file("rail_crossing.jpg"),
-            align="left",
-            command=self.on_engine_command,
-            args=["GRADE_CROSSING_SEQ"],
-        )
-
-        self.cache(ht)
-        self.cache(hc)
-        self.cache(hp)
-        self.cache(hrc)
-
     def on_info(self) -> None:
         state = self.active_state
         if state is None:
@@ -1004,11 +907,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, "STEWARD_CHATTER", "p")
 
     def on_bell_horn_options(self) -> None:
-        overlay = self._popup.get_or_create("bell_overlay", "Bell/Horn Options", self.build_bell_horn_body)
+        with self._cv:
+            if self._bell_horn_panel is None:
+                self._bell_horn_panel = BellHornPanel(self)
+        overlay = self._bell_horn_panel.overlay
         self.show_popup(overlay, "RING_BELL", "e")
 
     def on_bell_horn_options_fs(self) -> None:
-        overlay = self._popup.get_or_create("bell_overlay", "Bell/Horn Options", self.build_bell_horn_body)
+        with self._cv:
+            if self._bell_horn_panel is None:
+                self._bell_horn_panel = BellHornPanel(self)
+        overlay = self._bell_horn_panel.overlay
         self.show_popup(overlay, button=self._bell_btn)
 
     def show_popup(
