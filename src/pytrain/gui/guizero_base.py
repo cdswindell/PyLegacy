@@ -22,7 +22,7 @@ from typing import Any, Callable, TypeVar
 
 # noinspection PyPackageRequirements
 from PIL import Image, ImageOps, ImageTk
-from guizero import App
+from guizero import App, Box
 from guizero.base import Widget
 
 from ..comm.command_listener import CommandDispatcher
@@ -186,7 +186,7 @@ class GuiZeroBase(Thread, ABC):
     def state_store(self) -> ComponentStateStore:
         return self._state_store
 
-    def cache(self, widget: Widget) -> None:
+    def cache(self, widget: Widget | Box) -> None:
         self._elements.add(widget)
 
     # noinspection PyUnresolvedReferences

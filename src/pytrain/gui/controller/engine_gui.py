@@ -644,7 +644,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # spacer box
         sp_size = int(horn_size * 0.1)
         sp = Box(btn_row, grid=[1, 0], height=sp_size, width=sp_size)
-        self._elements.add(sp)
+        self.cache(sp)
 
         # Horn button
         horn_cell = Box(btn_row, grid=[0, 0], border=0, align="bottom")
@@ -779,13 +779,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return momentum_box, cell, momentum_level, momentum
 
     def build_tower_dialogs_body(self, body: Box):
-        self._elements.add(self.make_combo_panel(body, TOWER_DIALOGS))
+        self.cache(self.make_combo_panel(body, TOWER_DIALOGS))
 
     def build_crew_dialogs_body(self, body: Box):
-        self._elements.add(self.make_combo_panel(body, CREW_DIALOGS))
+        self.cache(self.make_combo_panel(body, CREW_DIALOGS))
 
     def build_conductor_actions_body(self, body: Box):
-        self._elements.add(self.make_combo_panel(body, CONDUCTOR_ACTIONS))
+        self.cache(self.make_combo_panel(body, CONDUCTOR_ACTIONS))
 
     def build_station_dialogs_body(self, body: Box):
         self.station_dialog_box = self._popup.build_button_panel(body, STATION_DIALOGS)
@@ -824,7 +824,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if "menu" in cb.tk.children:
                 menu = cb.tk.children["menu"]
                 menu.config(activebackground="lightgrey")
-            self._elements.add(cb)
+            self.cache(cb)
         return combo_box
 
     def make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
@@ -904,11 +904,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
             command=self.on_engine_command,
             args=["BELL_OFF"],
         )
-        self._elements.add(bt)
-        self._elements.add(bc)
-        self._elements.add(bp)
-        self._elements.add(bon)
-        self._elements.add(boff)
+        self.cache(bt)
+        self.cache(bc)
+        self.cache(bp)
+        self.cache(bon)
+        self.cache(boff)
 
         ht = Text(opts_box, text="Horn: ", grid=[0, 1])
         ht.text_size = self.s_20
@@ -943,10 +943,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
             args=["GRADE_CROSSING_SEQ"],
         )
 
-        self._elements.add(ht)
-        self._elements.add(hc)
-        self._elements.add(hp)
-        self._elements.add(hrc)
+        self.cache(ht)
+        self.cache(hc)
+        self.cache(hp)
+        self.cache(hrc)
 
     def on_info(self) -> None:
         state = self.active_state
