@@ -48,7 +48,6 @@ from .engine_gui_conf import (
     PLAY_KEY,
     PLAY_PAUSE_KEY,
     REPEAT_EXCEPTIONS,
-    RR_SPEED_LAYOUT,
     SCOPE_TO_SET_ENUM,
     SENSOR_TRACK_OPTS,
     SET_KEY,
@@ -65,6 +64,7 @@ from .engine_gui_conf import (
 )
 from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
+from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
@@ -221,7 +221,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.horn_overlay = None
-        self.rr_speed_btns = set()
+
         self._acela_btns = set()
         self._crane_btns = set()
         self._diesel_btns = set()
@@ -247,6 +247,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._admin_panel = None
         self._catalog_panel = None
         self._lighting_panel = None
+        self._rr_speed_panel = None
         self.engine_ops_cells = {}
 
         # callbacks
@@ -260,6 +261,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         }
 
         # delete after refactor
+        # self.rr_speed_btns = set()
 
         # helpers to reduce code
         self._popup = PopupManager(self)
@@ -946,48 +948,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._elements.add(hp)
         self._elements.add(hrc)
 
-    def build_rr_speed_body(self, body: Box):
-        keypad_box = Box(body, layout="grid", border=1)
-        width = int(3 * self.button_size)
-
-        for r, kr in enumerate(RR_SPEED_LAYOUT):
-            for c, op in enumerate(kr):
-                label = ""
-                dialog = None
-
-                if isinstance(op, tuple):
-                    if op[1].startswith("Emergency"):
-                        label = op[1]
-                        dialog = "EMERGENCY_CONTEXT_DEPENDENT"
-                    else:
-                        label = op[1] + ("\nSpeed" if op[0] != "SPEED_STOP_HOLD" else "")
-                        dialog = "TOWER_" + op[0]
-
-                cell, nb = self.make_keypad_button(
-                    keypad_box,
-                    label,
-                    r,
-                    c,
-                    bolded=True,
-                    size=self.s_18,
-                    command=self.on_speed_command,
-                    args=[op[0]],
-                )
-                nb.hold_threshold = 0.5
-
-                cell.tk.config(width=width)
-                nb.tk.config(width=width)
-
-                if label.startswith("Emergency"):
-                    nb.text_color = "white"
-                    nb.bg = "red"
-                else:
-                    self.rr_speed_btns.add(nb)
-                    nb.rr_speed = op[0]
-
-                if dialog:
-                    nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
-
     def on_info(self) -> None:
         state = self.active_state
         if state is None:
@@ -1007,7 +967,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay)
 
     def on_rr_speed(self) -> None:
-        overlay = self._popup.get_or_create("rr_speed", "Official Rail Road Speeds", self.build_rr_speed_body)
+        with self._cv:
+            if self._rr_speed_panel is None:
+                self._rr_speed_panel = RrSpeedPanel(self)
+        overlay = self._rr_speed_panel.overlay
+        self._rr_speed_panel.configure(self.active_engine_state)
         self.show_popup(overlay)
 
     # noinspection PyUnresolvedReferences
@@ -1329,7 +1293,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if not self._rr_speed_btn.enabled:
                     self._rr_speed_btn.enable()
                 self.speed.value = f"{throttle_state.speed:03d}"
-                self.update_rr_speed_buttons(throttle_state)
+                if self._rr_speed_panel:
+                    self._rr_speed_panel.configure(throttle_state)
                 if self.throttle.tk.focus_displayof() != self.throttle.tk:
                     self.throttle.value = throttle_state.target_speed
                 if throttle_state.speed != throttle_state.target_speed:
@@ -1416,14 +1381,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._train_linked_queue.clear()
         self._active_train_state = None
         self.rebuild_options()
-
-    def update_rr_speed_buttons(self, state: EngineState) -> None:
-        rr_speed = state.rr_speed
-        for btn in self.rr_speed_btns:
-            if rr_speed and btn.rr_speed.endswith(rr_speed.name):
-                btn.bg = "green"
-            else:
-                btn.bg = "white"
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
