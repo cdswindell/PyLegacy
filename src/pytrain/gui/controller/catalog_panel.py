@@ -106,6 +106,9 @@ class CatalogPanel:
         )  # pixels
 
     def update(self, scope: CommandScope) -> None:
+        assert self.overlay  # force creation of panel
+
+        # Updates catalog entries based on sort order
         if self._scope != scope:
             sort_order = self._scoped_sort_order[scope] if scope in self._scoped_sort_order else 0
             self._set_sort_order_widget(sort_order)
