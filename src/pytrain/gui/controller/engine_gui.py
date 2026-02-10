@@ -15,27 +15,24 @@ import tkinter as tk
 from contextlib import contextmanager
 from io import BytesIO
 from tkinter import TclError
-from typing import Any, Callable, Generic, TypeVar, cast, Iterator
+from typing import Any, Callable, Generic, Iterator, TypeVar, cast
 
 from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 
-from .admin_panel import AdminPanel, ADMIN_TITLE
+from .admin_panel import ADMIN_TITLE, AdminPanel
 from .catalog_panel import CatalogPanel
 from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
     AUX1_KEY,
-    AUX2_KEY,
     BELL_KEY,
-    CAB_KEY,
     CLEAR_KEY,
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
     CYCLE_KEY,
-    DIESEL_LIGHTS,
     ENGINE_OFF_KEY,
     ENGINE_OPS_LAYOUT,
     ENGINE_TYPE_TO_IMAGE,
@@ -58,7 +55,6 @@ from .engine_gui_conf import (
     SMOKE_OFF,
     SMOKE_ON,
     STATION_DIALOGS,
-    STEAM_LIGHTS,
     STEWARD_DIALOGS,
     SWITCH_OUT_KEY,
     SWITCH_THRU_KEY,
@@ -67,7 +63,8 @@ from .engine_gui_conf import (
     send_lcs_off_command,
     send_lcs_on_command,
 )
-from .popup_manager import PopupManager, LightingOverlay
+from .lighting_panel import LightingPanel
+from .popup_manager import PopupManager
 from .state_info_overlay import StateInfoOverlay
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
@@ -249,6 +246,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._isd = None  # swipe detector for engine image field
         self._admin_panel = None
         self._catalog_panel = None
+        self._lighting_panel = None
         self.engine_ops_cells = {}
 
         # callbacks
@@ -793,85 +791,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def build_steward_dialogs_body(self, body: Box):
         self.steward_dialog_box = self._popup.build_button_panel(body, STEWARD_DIALOGS)
 
-    def build_lights_body(self, body: Box):
-        # cab light
-        master_box = Box(body, layout="grid", border=1)
-        cell = Box(master_box, layout="auto", grid=[0, 0], align="bottom", visible=True)
-        cell.tk.configure(
-            width=self.button_size,
-            height=self.button_size,
-        )
-        cell.tk.pack_propagate(False)
-        master_box.tk.grid_columnconfigure(0, weight=1, minsize=self.button_size + 20)
-
-        btn = HoldButton(
-            cell,
-            text=AUX2_KEY,
-            text_size=self.s_18,
-            text_bold=True,
-            command=self.on_engine_command,
-            args=["AUX2_OPTION_ONE"],
-        )
-        btn.tk.config(
-            height=self.button_size,
-            width=self.button_size,
-            borderwidth=1,
-            compound="center",
-            anchor="center",
-            padx=0,
-            pady=0,
-            bd=1,
-            relief="solid",
-            highlightthickness=1,
-        )
-        self._elements.add(btn)
-
-        cell = Box(master_box, layout="auto", grid=[1, 0], align="bottom", visible=True)
-        cell.tk.configure(
-            width=self.button_size,
-            height=self.button_size,
-        )
-        cell.tk.pack_propagate(False)
-        _ = Text(cell, text=" ")
-
-        cell = Box(master_box, layout="auto", grid=[2, 0], align="bottom", visible=True)
-        cell.tk.configure(
-            width=self.button_size,
-            height=self.button_size,
-        )
-        cell.tk.pack_propagate(False)
-        master_box.tk.grid_columnconfigure(2, weight=1, minsize=self.button_size + 20)
-
-        btn = HoldButton(
-            cell,
-            text=CAB_KEY,
-            text_size=self.s_18,
-            text_bold=True,
-            command=self.on_engine_command,
-            args=[("CAB_AUTO", "AUX2_OPT_ONE")],
-        )
-
-        btn.tk.config(
-            height=self.button_size,
-            width=self.button_size,
-            borderwidth=1,
-            compound="center",
-            anchor="center",
-            padx=0,
-            pady=0,
-            bd=1,
-            relief="solid",
-            highlightthickness=1,
-        )
-        self._elements.add(btn)
-
-        # diesel options
-        body.master.diesel_lights = self.make_combo_panel(body, DIESEL_LIGHTS)
-
-        # steam options
-        body.master.steam_lights = self.make_combo_panel(body, STEAM_LIGHTS)
-        body.master.steam_lights.hide()
-
     def make_combo_panel(self, body: Box, options: dict, min_width: int = 12) -> Box:
         combo_box = Box(body, layout="grid", border=1)
 
@@ -1099,21 +1018,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnresolvedReferences
     def on_lights(self) -> None:
-        overlay = self._popup.get_or_create("lighting", "Lighting", self.build_lights_body)
-
-        if self.active_engine_state:
-            state = self.active_engine_state
-        else:
-            state = self.active_state
-
-        lo = cast(LightingOverlay, cast(object, overlay))
-        if state.is_steam:
-            lo.steam_lights.show()
-            lo.diesel_lights.hide()
-        else:
-            lo.steam_lights.hide()
-            lo.diesel_lights.show()
-        # make sure button is reset, as popup prevents normal handling
+        with self._cv:
+            if self._lighting_panel is None:
+                self._lighting_panel = LightingPanel(self)
+        overlay = self._state_info.overlay
+        overlay.configure(self.active_engine_state)
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
     def on_tower_dialog(self) -> None:
