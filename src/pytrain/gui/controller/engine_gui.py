@@ -262,15 +262,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         }
 
         # delete after refactor
-        # self._current_popup = None
-        # self._restore_image_box = False
-        # self._on_close_show = None
-        # self.diesel_lights_box = self.steam_lights_box = None
-        # self._tower_overlay = self._crew_overlay = None
-        # self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
-        # self._admin_overlay = None
-        # self._catalog_overlay = None
-        # self.rr_speed_overlay = self.lights_overlay = self.info_overlay = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
