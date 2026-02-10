@@ -259,9 +259,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         }
 
         # delete after refactor
-        # self.rr_speed_btns = set()
-        # self.can_hack_combo = False
-        # self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
