@@ -19,6 +19,7 @@ from ...db.engine_state import EngineState
 from ...db.prod_info import ProdInfo
 from ...protocol.constants import CommandScope, EngineType
 from ...utils.image_utils import center_text_on_image
+from ...utils.path_utils import find_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -31,6 +32,10 @@ class ImagePresenter:
         self._host = host
         self.avail_image_height: int | None = None
         self.avail_image_width: int | None = None
+        self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
+        self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
+        self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
+        self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
 
     def clear(self) -> None:
         self._host.image.image = None
@@ -203,13 +208,13 @@ class ImagePresenter:
                 img = host._image_cache.get((host.scope, tmcc_id), None)
                 if img is None:
                     if isinstance(state, AccessoryState) and state.is_asc2:
-                        img = host.get_image(host.asc2_image, inverse=False, scale=True, preserve_height=True)
+                        img = host.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
                     elif state.is_bpc2:
-                        img = host.get_image(host.bpc2_image, inverse=False, scale=True, preserve_height=True)
+                        img = host.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
                     elif isinstance(state, AccessoryState) and state.is_amc2:
-                        img = host.get_image(host.amc2_image, inverse=False, scale=True, preserve_height=True)
+                        img = host.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
                     elif isinstance(state, AccessoryState) and state.is_sensor_track:
-                        img = host.get_scaled_image(host.sensor_track_image, force_lionel=True)
+                        img = host.get_scaled_image(self.sensor_track_image, force_lionel=True)
                     if img:
                         host._image_cache[(host.scope, tmcc_id)] = img
                     else:

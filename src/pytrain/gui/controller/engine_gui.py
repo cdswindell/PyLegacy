@@ -152,10 +152,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.box = self.acc_box = self.y_offset = None
         self.turn_on_image = find_file("on_button.jpg")
         self.turn_off_image = find_file("off_button.jpg")
-        self.asc2_image = find_file("LCS-ASC2-6-81639.jpg")
-        self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
-        self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
-        self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.power_off_path = find_file("bulb-power-off.png")
         self.power_on_path = find_file("bulb-power-on.png")
         self._in_entry_mode = True
