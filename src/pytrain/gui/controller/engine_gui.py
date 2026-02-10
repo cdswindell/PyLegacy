@@ -867,11 +867,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._elements.add(btn)
 
         # diesel options
-        body.diesel_lights = self.make_combo_panel(body, DIESEL_LIGHTS)
+        body.master.diesel_lights = self.make_combo_panel(body, DIESEL_LIGHTS)
 
         # steam options
-        body.steam_lights = self.make_combo_panel(body, STEAM_LIGHTS)
-        body.steam_lights.hide()
+        body.master.steam_lights = self.make_combo_panel(body, STEAM_LIGHTS)
+        body.master.steam_lights.hide()
 
     def make_combo_panel(self, body: Box, options: dict, min_width: int = 12) -> Box:
         combo_box = Box(body, layout="grid", border=1)
