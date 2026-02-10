@@ -12,36 +12,31 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
-from tkinter import TclError
 from typing import Any, Callable, Generic, Iterator, TypeVar, cast
 
-from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, Text, TitleBox
+from guizero import App, Box, ButtonGroup, Combo, Picture, Text, TitleBox
 from guizero.base import Widget
 from guizero.event import EventData
 
 from .admin_panel import ADMIN_TITLE, AdminPanel
 from .bell_horn_panel import BellHornPanel
 from .catalog_panel import CatalogPanel
+from .controller_view import ControllerView
 from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
     AUX1_KEY,
-    BELL_KEY,
     CLEAR_KEY,
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
     ENGINE_OFF_KEY,
-    ENGINE_OPS_LAYOUT,
     ENTER_KEY,
     ENTRY_LAYOUT,
     FIRE_ROUTE_KEY,
     FONT_SIZE_EXCEPTIONS,
     HALT_KEY,
     KEY_TO_COMMAND,
-    LIONEL_ORANGE,
-    MOMENTUM,
-    MOM_TB,
     REPEAT_EXCEPTIONS,
     SCOPE_TO_SET_ENUM,
     SENSOR_TRACK_OPTS,
@@ -53,7 +48,6 @@ from .engine_gui_conf import (
     SWITCH_OUT_KEY,
     SWITCH_THRU_KEY,
     TOWER_DIALOGS,
-    TRAIN_BRAKE,
     send_lcs_off_command,
     send_lcs_on_command,
 )
@@ -211,25 +205,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.horn_overlay = None
 
-        self._acela_btns = set()
-        self._crane_btns = set()
-        self._diesel_btns = set()
-        self._electric_btns = set()
-        self._engine_btns = set()
-        self._freight_btns = set()
-        self._passenger_btns = set()
-        self._passenger_freight_btns = set()
-        self._steam_btns = set()
-        self._transformer_btns = set()
-        self._vol_btns = set()
-        self._smoke_btns = set()
-        self._cplr_btns = set()
-        self._bos_brk_btns = set()
-        self._common_btns = set()
-        self._all_engine_btns = set()
-        self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._last_engine_type = None
-        self._quill_after_id = None
 
         # don't ask
         self._isd = None  # swipe detector for engine image field
@@ -252,10 +228,29 @@ class EngineGui(GuiZeroBase, Generic[S]):
         }
 
         # delete after refactor
+        # self._acela_btns = set()
+        # self._crane_btns = set()
+        # self._diesel_btns = set()
+        # self._electric_btns = set()
+        # self._engine_btns = set()
+        # self._freight_btns = set()
+        # self._passenger_btns = set()
+        # self._passenger_freight_btns = set()
+        # self._steam_btns = set()
+        # self._transformer_btns = set()
+        # self._vol_btns = set()
+        # self._smoke_btns = set()
+        # self._cplr_btns = set()
+        # self._bos_brk_btns = set()
+        # self._common_btns = set()
+        # self._all_engine_btns = set()
+        # self._engine_type_key_map: dict[str, set[Widget]] = {}
+        # self._quill_after_id = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
         self._image_presenter = ImagePresenter(self)
+        self._controller_view = ControllerView(self)
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -331,7 +326,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.make_keypad(app)
 
         # make engine/train make_controller
-        self.make_controller(app)
+        self._controller_view.build(app)
 
         # make scope buttons
         self.make_scope(app)
@@ -364,410 +359,350 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._image = None
 
     # noinspection PyTypeChecker
-    def make_controller(self, app):
-        if self.controller_box is not None:
-            return
-        self.controller_box = controller_box = Box(
-            app,
-            border=2,
-            align="top",
-            visible=False,
-        )
-        self.ops_cells.add(controller_box)
+    # def make_controller(self, app):
+    #     if self.controller_box is not None:
+    #         return
+    #     self.controller_box = controller_box = Box(
+    #         app,
+    #         border=2,
+    #         align="top",
+    #         visible=False,
+    #     )
+    #     self.ops_cells.add(controller_box)
+    #
+    #     # different engine types have different features
+    #     # define the common keys first
+    #     self.controller_keypad_box = keypad_keys = Box(
+    #         controller_box,
+    #         layout="grid",
+    #         border=0,
+    #         align="left",
+    #     )
+    #     row = 0
+    #     for r, kr in enumerate(ENGINE_OPS_LAYOUT):
+    #         for c, button_info in enumerate(kr):
+    #             if button_info is None:
+    #                 continue
+    #             if isinstance(button_info, tuple):
+    #                 ops = [button_info]
+    #             elif isinstance(button_info, list):
+    #                 ops = button_info
+    #             else:
+    #                 raise AttributeError(f"Invalid engine op: {button_info}")
+    #             for op in ops:
+    #                 image = label = title_text = None
+    #                 if len(op) > 1 and op[1]:
+    #                     image = find_file(op[1])
+    #                 if len(op) > 2 and op[2]:
+    #                     label = str(op[2])
+    #                 if len(op) > 3 and op[3]:
+    #                     title_text = str(op[3])
+    #                 cmd = op[0]
+    #
+    #                 # make the key button and it's surrounding cell
+    #                 cell, nb = self.make_keypad_button(
+    #                     keypad_keys,
+    #                     label,
+    #                     row,
+    #                     c,
+    #                     visible=True,
+    #                     bolded=True,
+    #                     command=self.on_engine_command,
+    #                     args=[cmd],
+    #                     image=image,
+    #                     titlebox_text=title_text,
+    #                 )
+    #
+    #                 # if the key is marked as engine type-specific, save as appropriate
+    #                 if len(op) > 4 and op[4]:
+    #                     if op[4] == "e":
+    #                         self._engine_btns.add(cell)
+    #                     elif op[4] == "c":
+    #                         self._common_btns.add(cell)
+    #                     elif op[4] == "a":
+    #                         self._acela_btns.add(cell)
+    #                     elif op[4] == "d":
+    #                         self._diesel_btns.add(cell)
+    #                     elif op[4] == "f":
+    #                         self._freight_btns.add(cell)
+    #                     elif op[4] == "l":
+    #                         self._electric_btns.add(cell)
+    #                     elif op[4] == "p":
+    #                         self._passenger_btns.add(cell)
+    #                     elif op[4] == "pf":
+    #                         self._passenger_freight_btns.add(cell)
+    #                     elif op[4] == "s":
+    #                         self._steam_btns.add(cell)
+    #                     elif op[4] == "t":
+    #                         self._transformer_btns.add(cell)
+    #
+    #                     elif op[4] == "vo":
+    #                         self._vol_btns.add(cell)
+    #                     elif op[4] == "sm":
+    #                         self._smoke_btns.add(cell)
+    #                     elif op[4] == "cp":
+    #                         self._cplr_btns.add(cell)
+    #                     elif op[4] == "bs":
+    #                         self._bos_brk_btns.add(cell)
+    #                     key = (cmd, op[4])
+    #                 else:
+    #                     key = cmd
+    #
+    #                 if key in self.engine_ops_cells:
+    #                     print(f"Duplicate engine op: {key}: {op}")
+    #                 self.engine_ops_cells[key] = (key, nb)
+    #         row += 1
+    #
+    #     # Postprocess some buttons
+    #     self._setup_controller_behaviors()
+    #
+    #     # assemble key maps
+    #     self._all_engine_btns = (
+    #         self._engine_btns
+    #         | self._common_btns
+    #         | self._acela_btns
+    #         | self._crane_btns
+    #         | self._diesel_btns
+    #         | self._electric_btns
+    #         | self._freight_btns
+    #         | self._passenger_btns
+    #         | self._passenger_freight_btns
+    #         | self._steam_btns
+    #         | self._transformer_btns
+    #         | self._bos_brk_btns
+    #         | self._cplr_btns
+    #         | self._smoke_btns
+    #         | self._vol_btns
+    #     )
+    #     self._common_btns |= self._vol_btns | self._cplr_btns
+    #     self._engine_type_key_map = {
+    #         "a": self._vol_btns | self._engine_btns | self._bos_brk_btns | self._diesel_btns | self._acela_btns,
+    #         "d": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._diesel_btns,
+    #         "f": self._common_btns | self._passenger_freight_btns | self._freight_btns,
+    #         "l": self._common_btns | self._engine_btns | self._electric_btns,
+    #         "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
+    #         "s": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._steam_btns,
+    #         "t": self._transformer_btns,
+    #     }
+    #
+    #     # used to make sure brake and throttle get focus when needed
+    #     self.controller_box.visible = True
+    #     self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
+    #     focus_sink.place(x=-9999, y=-9999, width=1, height=1)
+    #
+    #     sliders = Box(
+    #         controller_box,
+    #         border=1,
+    #         align="right",
+    #         layout="grid",
+    #     )
+    #     sliders.tk.pack(fill="y", expand=True)
+    #
+    #     # throttle
+    #     self.throttle_box = throttle_box = Box(
+    #         sliders,
+    #         border=1,
+    #         grid=[1, 0],
+    #     )
+    #
+    #     cell = TitleBox(throttle_box, "Speed", align="top", border=1)
+    #     cell.text_size = self.s_10
+    #     self.speed = speed = Text(
+    #         cell,
+    #         text="000",
+    #         color="black",
+    #         align="top",
+    #         bold=True,
+    #         size=self.s_18,
+    #         width=4,
+    #         font="DigitalDream",
+    #     )
+    #     speed.bg = "black"
+    #     speed.text_color = "white"
+    #
+    #     self.throttle = throttle = Slider(
+    #         throttle_box,
+    #         align="top",
+    #         horizontal=False,
+    #         step=1,
+    #         width=int(self.button_size / 2),
+    #         height=self.slider_height,
+    #         command=self.on_throttle,
+    #     )
+    #     throttle.after_id = None  # used to debounce slider updates
+    #     throttle.text_color = "black"
+    #     throttle.tk.config(
+    #         from_=195,
+    #         to=0,
+    #         takefocus=0,
+    #         troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
+    #         activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
+    #         bg="lightgrey",  # darker navy background
+    #         highlightthickness=1,
+    #         highlightbackground=LIONEL_ORANGE,  # subtle orange outline
+    #         width=int(self.button_size / 2),
+    #         sliderlength=int(self.slider_height / 6),
+    #     )
+    #     throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
+    #     throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
+    #     throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+    #
+    #     # brake
+    #     self.brake_box, _, self.brake_level, self.brake = self.make_slider(
+    #         sliders, "Brake", self.on_train_brake, frm=0, to=7
+    #     )
+    #
+    #     # Allow Tk to compute geometry
+    #     self.app.tk.update_idletasks()
+    #
+    #     # Momentum
+    #     self.momentum_box, _, self.momentum_level, self.momentum = self.make_slider(
+    #         sliders, "Moment", self.on_momentum, frm=0, to=7, visible=False
+    #     )
+    #
+    #     # Horn
+    #     self.horn_box, self.horn_title_box, self.horn_level, self.horn = self.make_slider(
+    #         sliders, "Horn", self.on_horn, frm=0, to=15, visible=False
+    #     )
+    #
+    #     # compute rr speed button size
+    #     w = sliders.tk.winfo_width()
+    #     h = (5 * self.button_size) - (self.brake.tk.winfo_height() + self.brake_level.tk.winfo_height()) - 5
+    #
+    #     # RR Speeds button
+    #     self._rr_speed_box = rr_box = Box(
+    #         sliders,
+    #         grid=[0, 1, 2, 1],  # spans two columns under sliders
+    #         align="top",
+    #     )
+    #
+    #     # RR Speeds button
+    #     self._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=self.on_rr_speed)
+    #     rr_btn.tk.pack(fill="both", expand=True)
+    #
+    #     img, inverted_img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
+    #     rr_btn.tk.config(
+    #         image=img,
+    #         compound="center",
+    #         width=w,
+    #         height=h,
+    #         padx=3,  # small padding
+    #         pady=3,
+    #         borderwidth=2,  # light border
+    #         relief="ridge",  # gives pressable button feel
+    #         highlightthickness=0,
+    #     )
+    #     rr_btn.images = (img, inverted_img)
+    #
+    #     # Bell/horn buttons for freight sounds
+    #     self._freight_sounds_bell_horn_box = pair_cell = Box(
+    #         sliders,
+    #         grid=[0, 1, 2, 1],
+    #         border=0,
+    #         align="top",
+    #     )
+    #     # Inner container to hold the two buttons side-by-side
+    #     btn_row = Box(pair_cell, align="top", layout="grid")  # uses pack internally
+    #     btn_row.tk.pack(expand=True)  # Center the *pair* within the TitleBox
+    #
+    #     bell_box = TitleBox(
+    #         btn_row,
+    #         "Bell/Horn...",
+    #         grid=[2, 0],
+    #         align="bottom",
+    #     )
+    #     self._bell_btn = bell_btn = HoldButton(
+    #         bell_box,
+    #         BELL_KEY,
+    #         align="bottom",
+    #         text_size=self.s_24,
+    #         text_bold=True,
+    #         command=self.on_engine_command,
+    #         args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
+    #     )
+    #     bell_btn.tk.pack(fill="both", expand=True)
+    #     bell_btn.on_hold = self.on_bell_horn_options_fs
+    #
+    #     # Allow Tk to compute geometry
+    #     self.app.tk.update_idletasks()
+    #     horn_size = int(bell_box.tk.winfo_height() * 0.85)
+    #
+    #     # spacer box
+    #     sp_size = int(horn_size * 0.1)
+    #     sp = Box(btn_row, grid=[1, 0], height=sp_size, width=sp_size)
+    #     self.cache(sp)
+    #
+    #     # Horn button
+    #     horn_cell = Box(btn_row, grid=[0, 0], border=0, align="bottom")
+    #     horn_pad = Box(horn_cell)
+    #     horn_pad.tk.pack(padx=(1, 1), pady=(1, 0))
+    #     self._horn_btn = horn_btn = HoldButton(
+    #         horn_pad,
+    #         "",
+    #         align="bottom",
+    #         command=self.on_engine_command,
+    #         args=["BLOW_HORN_ONE"],
+    #     )
+    #     image = find_file("horn.jpg")
+    #     horn_btn.image = image
+    #     horn_btn.images = self.get_image(image, size=horn_size)
+    #     horn_btn.tk.config(
+    #         borderwidth=2,
+    #         compound="center",
+    #         width=horn_size,
+    #         height=horn_size,
+    #     )
+    #     self._freight_sounds_bell_horn_box.hide()
+    #
+    #     # --- HIDE IT AGAIN after sizing is complete ---
+    #     self.controller_box.visible = False
 
-        # different engine types have different features
-        # define the common keys first
-        self.controller_keypad_box = keypad_keys = Box(
-            controller_box,
-            layout="grid",
-            border=0,
-            align="left",
-        )
-        row = 0
-        for r, kr in enumerate(ENGINE_OPS_LAYOUT):
-            for c, button_info in enumerate(kr):
-                if button_info is None:
-                    continue
-                if isinstance(button_info, tuple):
-                    ops = [button_info]
-                elif isinstance(button_info, list):
-                    ops = button_info
-                else:
-                    raise AttributeError(f"Invalid engine op: {button_info}")
-                for op in ops:
-                    image = label = title_text = None
-                    if len(op) > 1 and op[1]:
-                        image = find_file(op[1])
-                    if len(op) > 2 and op[2]:
-                        label = str(op[2])
-                    if len(op) > 3 and op[3]:
-                        title_text = str(op[3])
-                    cmd = op[0]
-
-                    # make the key button and it's surrounding cell
-                    cell, nb = self.make_keypad_button(
-                        keypad_keys,
-                        label,
-                        row,
-                        c,
-                        visible=True,
-                        bolded=True,
-                        command=self.on_engine_command,
-                        args=[cmd],
-                        image=image,
-                        titlebox_text=title_text,
-                    )
-
-                    # if the key is marked as engine type-specific, save as appropriate
-                    if len(op) > 4 and op[4]:
-                        if op[4] == "e":
-                            self._engine_btns.add(cell)
-                        elif op[4] == "c":
-                            self._common_btns.add(cell)
-                        elif op[4] == "a":
-                            self._acela_btns.add(cell)
-                        elif op[4] == "d":
-                            self._diesel_btns.add(cell)
-                        elif op[4] == "f":
-                            self._freight_btns.add(cell)
-                        elif op[4] == "l":
-                            self._electric_btns.add(cell)
-                        elif op[4] == "p":
-                            self._passenger_btns.add(cell)
-                        elif op[4] == "pf":
-                            self._passenger_freight_btns.add(cell)
-                        elif op[4] == "s":
-                            self._steam_btns.add(cell)
-                        elif op[4] == "t":
-                            self._transformer_btns.add(cell)
-
-                        elif op[4] == "vo":
-                            self._vol_btns.add(cell)
-                        elif op[4] == "sm":
-                            self._smoke_btns.add(cell)
-                        elif op[4] == "cp":
-                            self._cplr_btns.add(cell)
-                        elif op[4] == "bs":
-                            self._bos_brk_btns.add(cell)
-                        key = (cmd, op[4])
-                    else:
-                        key = cmd
-
-                    if key in self.engine_ops_cells:
-                        print(f"Duplicate engine op: {key}: {op}")
-                    self.engine_ops_cells[key] = (key, nb)
-            row += 1
-
-        # Postprocess some buttons
-        self._setup_controller_behaviors()
-
-        # assemble key maps
-        self._all_engine_btns = (
-            self._engine_btns
-            | self._common_btns
-            | self._acela_btns
-            | self._crane_btns
-            | self._diesel_btns
-            | self._electric_btns
-            | self._freight_btns
-            | self._passenger_btns
-            | self._passenger_freight_btns
-            | self._steam_btns
-            | self._transformer_btns
-            | self._bos_brk_btns
-            | self._cplr_btns
-            | self._smoke_btns
-            | self._vol_btns
-        )
-        self._common_btns |= self._vol_btns | self._cplr_btns
-        self._engine_type_key_map = {
-            "a": self._vol_btns | self._engine_btns | self._bos_brk_btns | self._diesel_btns | self._acela_btns,
-            "d": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._diesel_btns,
-            "f": self._common_btns | self._passenger_freight_btns | self._freight_btns,
-            "l": self._common_btns | self._engine_btns | self._electric_btns,
-            "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
-            "s": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._steam_btns,
-            "t": self._transformer_btns,
-        }
-
-        # used to make sure brake and throttle get focus when needed
-        self.controller_box.visible = True
-        self.focus_widget = focus_sink = tk.Frame(app.tk, takefocus=1)
-        focus_sink.place(x=-9999, y=-9999, width=1, height=1)
-
-        sliders = Box(
-            controller_box,
-            border=1,
-            align="right",
-            layout="grid",
-        )
-        sliders.tk.pack(fill="y", expand=True)
-
-        # throttle
-        self.throttle_box = throttle_box = Box(
-            sliders,
-            border=1,
-            grid=[1, 0],
-        )
-
-        cell = TitleBox(throttle_box, "Speed", align="top", border=1)
-        cell.text_size = self.s_10
-        self.speed = speed = Text(
-            cell,
-            text="000",
-            color="black",
-            align="top",
-            bold=True,
-            size=self.s_18,
-            width=4,
-            font="DigitalDream",
-        )
-        speed.bg = "black"
-        speed.text_color = "white"
-
-        self.throttle = throttle = Slider(
-            throttle_box,
-            align="top",
-            horizontal=False,
-            step=1,
-            width=int(self.button_size / 2),
-            height=self.slider_height,
-            command=self.on_throttle,
-        )
-        throttle.after_id = None  # used to debounce slider updates
-        throttle.text_color = "black"
-        throttle.tk.config(
-            from_=195,
-            to=0,
-            takefocus=0,
-            troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
-            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-            bg="lightgrey",  # darker navy background
-            highlightthickness=1,
-            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-            width=int(self.button_size / 2),
-            sliderlength=int(self.slider_height / 6),
-        )
-        throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-        throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
-
-        # brake
-        self.brake_box, _, self.brake_level, self.brake = self.make_slider(
-            sliders, "Brake", self.on_train_brake, frm=0, to=7
-        )
-
-        # Allow Tk to compute geometry
-        self.app.tk.update_idletasks()
-
-        # Momentum
-        self.momentum_box, _, self.momentum_level, self.momentum = self.make_slider(
-            sliders, "Moment", self.on_momentum, frm=0, to=7, visible=False
-        )
-
-        # Horn
-        self.horn_box, self.horn_title_box, self.horn_level, self.horn = self.make_slider(
-            sliders, "Horn", self.on_horn, frm=0, to=15, visible=False
-        )
-
-        # compute rr speed button size
-        w = sliders.tk.winfo_width()
-        h = (5 * self.button_size) - (self.brake.tk.winfo_height() + self.brake_level.tk.winfo_height()) - 5
-
-        # RR Speeds button
-        self._rr_speed_box = rr_box = Box(
-            sliders,
-            grid=[0, 1, 2, 1],  # spans two columns under sliders
-            align="top",
-        )
-
-        # RR Speeds button
-        self._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=self.on_rr_speed)
-        rr_btn.tk.pack(fill="both", expand=True)
-
-        img, inverted_img = self.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
-        rr_btn.tk.config(
-            image=img,
-            compound="center",
-            width=w,
-            height=h,
-            padx=3,  # small padding
-            pady=3,
-            borderwidth=2,  # light border
-            relief="ridge",  # gives pressable button feel
-            highlightthickness=0,
-        )
-        rr_btn.images = (img, inverted_img)
-
-        # Bell/horn buttons for freight sounds
-        self._freight_sounds_bell_horn_box = pair_cell = Box(
-            sliders,
-            grid=[0, 1, 2, 1],
-            border=0,
-            align="top",
-        )
-        # Inner container to hold the two buttons side-by-side
-        btn_row = Box(pair_cell, align="top", layout="grid")  # uses pack internally
-        btn_row.tk.pack(expand=True)  # Center the *pair* within the TitleBox
-
-        bell_box = TitleBox(
-            btn_row,
-            "Bell/Horn...",
-            grid=[2, 0],
-            align="bottom",
-        )
-        self._bell_btn = bell_btn = HoldButton(
-            bell_box,
-            BELL_KEY,
-            align="bottom",
-            text_size=self.s_24,
-            text_bold=True,
-            command=self.on_engine_command,
-            args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
-        )
-        bell_btn.tk.pack(fill="both", expand=True)
-        bell_btn.on_hold = self.on_bell_horn_options_fs
-
-        # Allow Tk to compute geometry
-        self.app.tk.update_idletasks()
-        horn_size = int(bell_box.tk.winfo_height() * 0.85)
-
-        # spacer box
-        sp_size = int(horn_size * 0.1)
-        sp = Box(btn_row, grid=[1, 0], height=sp_size, width=sp_size)
-        self.cache(sp)
-
-        # Horn button
-        horn_cell = Box(btn_row, grid=[0, 0], border=0, align="bottom")
-        horn_pad = Box(horn_cell)
-        horn_pad.tk.pack(padx=(1, 1), pady=(1, 0))
-        self._horn_btn = horn_btn = HoldButton(
-            horn_pad,
-            "",
-            align="bottom",
-            command=self.on_engine_command,
-            args=["BLOW_HORN_ONE"],
-        )
-        image = find_file("horn.jpg")
-        horn_btn.image = image
-        horn_btn.images = self.get_image(image, size=horn_size)
-        horn_btn.tk.config(
-            borderwidth=2,
-            compound="center",
-            width=horn_size,
-            height=horn_size,
-        )
-        self._freight_sounds_bell_horn_box.hide()
-
-        # --- HIDE IT AGAIN after sizing is complete ---
-        self.controller_box.visible = False
-
-    def _setup_controller_behaviors(self):
-        """Configures specific button behaviors like repeats, holds, and special toggles."""
-
-        # Helper to get the HoldButton widget from the dictionary
-        def get_btn(k):
-            return self.engine_ops_cells[k][1]
-
-        # 1. Toggle Momentum/Train Brake
-        mom_tb_btn = get_btn((MOM_TB, "e"))
-        mom_tb_btn.text_size = self.s_12
-        mom_tb_btn.update_command(self.toggle_momentum_train_brake, [mom_tb_btn])
-
-        # 2. Setup Repeating Commands
-        # Logic: Assign current on_press to on_repeat and set the interval
-        repeats = [
-            (("AUX1_OPTION_ONE", "e"), 0.2),  # Standard repeat
-            (("BOOST_SPEED", "bs"), 0.3),
-            (("BOOST_SPEED", "t"), 0.3),
-            (("BOOST_SPEED", "l"), 0.3),
-            (("BRAKE_SPEED", "bs"), 0.3),
-            (("BRAKE_SPEED", "t"), 0.3),
-            (("BRAKE_SPEED", "l"), 0.3),
-            (("WATER_INJECTOR", "s"), 0.2),
-            (("LET_OFF_LONG", "s"), 0.2),
-        ]
-        for key, interval in repeats:
-            btn = get_btn(key)
-            btn.on_repeat = btn.on_press
-            btn.repeat_interval = interval
-
-        # 3. Setup Hold behaviors (Popups)
-        holds = [
-            (("AUX2_OPTION_ONE", "e"), self.on_lights),
-            (("TOWER_CHATTER", "e"), self.on_tower_dialog),
-            (("ENGINEER_CHATTER", "e"), self.on_crew_dialog),
-            (("ENGINEER_CHATTER", "p"), self.on_conductor_actions),
-            (("TOWER_CHATTER", "p"), self.on_station_dialogs),
-            (("STEWARD_CHATTER", "p"), self.on_steward_dialogs),
-            (("RING_BELL", "e"), self.on_bell_horn_options),
-        ]
-        for key, callback in holds:
-            get_btn(key).on_hold = callback
-
-        # 4. Loco-specific Horn/Whistle control holds
-        for loco in ["d", "s", "l"]:
-            get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
-
-    def make_slider(
-        self,
-        sliders: Box,
-        title: str,
-        command: Callable,
-        frm: int,
-        to: int,
-        step: int = 1,
-        visible: bool = True,
-    ) -> tuple[Box, TitleBox, Text, Slider]:
-        momentum_box = Box(
-            sliders,
-            border=1,
-            grid=[0, 0],
-            visible=visible,
-        )
-
-        cell = TitleBox(momentum_box, title, align="top", border=1)
-        cell.text_size = self.s_10
-        momentum_level = Text(
-            cell,
-            text="00",
-            color="black",
-            align="top",
-            bold=True,
-            size=self.s_18,
-            width=3,
-            font="DigitalDream",
-        )
-        momentum_level.bg = "black"
-        momentum_level.text_color = "white"
-
-        momentum = Slider(
-            momentum_box,
-            align="top",
-            horizontal=False,
-            step=step,
-            width=int(self.button_size / 3),
-            height=self.slider_height,
-            command=command,
-        )
-        momentum.text_color = "black"
-        momentum.tk.config(
-            from_=frm,
-            to=to,
-            takefocus=0,
-            troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
-            activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-            bg="lightgrey",  # darker navy background
-            highlightthickness=1,
-            highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-            width=int(self.button_size / 3),
-            sliderlength=int(self.slider_height / 6),
-        )
-        momentum.tk.bind("<Button-1>", lambda e: momentum.tk.focus_set())
-        momentum.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-        momentum.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
-
-        return momentum_box, cell, momentum_level, momentum
+    # def _setup_controller_behaviors(self):
+    #     """Configures specific button behaviors like repeats, holds, and special toggles."""
+    #
+    #     # Helper to get the HoldButton widget from the dictionary
+    #     def get_btn(k):
+    #         return self.engine_ops_cells[k][1]
+    #
+    #     # 1. Toggle Momentum/Train Brake
+    #     mom_tb_btn = get_btn((MOM_TB, "e"))
+    #     mom_tb_btn.text_size = self.s_12
+    #     mom_tb_btn.update_command(self.toggle_momentum_train_brake, [mom_tb_btn])
+    #
+    #     # 2. Setup Repeating Commands
+    #     # Logic: Assign current on_press to on_repeat and set the interval
+    #     repeats = [
+    #         (("AUX1_OPTION_ONE", "e"), 0.2),  # Standard repeat
+    #         (("BOOST_SPEED", "bs"), 0.3),
+    #         (("BOOST_SPEED", "t"), 0.3),
+    #         (("BOOST_SPEED", "l"), 0.3),
+    #         (("BRAKE_SPEED", "bs"), 0.3),
+    #         (("BRAKE_SPEED", "t"), 0.3),
+    #         (("BRAKE_SPEED", "l"), 0.3),
+    #         (("WATER_INJECTOR", "s"), 0.2),
+    #         (("LET_OFF_LONG", "s"), 0.2),
+    #     ]
+    #     for key, interval in repeats:
+    #         btn = get_btn(key)
+    #         btn.on_repeat = btn.on_press
+    #         btn.repeat_interval = interval
+    #
+    #     # 3. Setup Hold behaviors (Popups)
+    #     holds = [
+    #         (("AUX2_OPTION_ONE", "e"), self.on_lights),
+    #         (("TOWER_CHATTER", "e"), self.on_tower_dialog),
+    #         (("ENGINEER_CHATTER", "e"), self.on_crew_dialog),
+    #         (("ENGINEER_CHATTER", "p"), self.on_conductor_actions),
+    #         (("TOWER_CHATTER", "p"), self.on_station_dialogs),
+    #         (("STEWARD_CHATTER", "p"), self.on_steward_dialogs),
+    #         (("RING_BELL", "e"), self.on_bell_horn_options),
+    #     ]
+    #     for key, callback in holds:
+    #         get_btn(key).on_hold = callback
+    #
+    #     # 4. Loco-specific Horn/Whistle control holds
+    #     for loco in ["d", "s", "l"]:
+    #         get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
 
     def build_tower_dialogs_body(self, body: Box):
         self._popup.make_combo_panel(body, TOWER_DIALOGS)
@@ -875,148 +810,147 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def close_popup(self, overlay: Widget = None):
         self._popup.close(overlay=overlay)
 
-    def show_horn_control(self) -> None:
-        for loco_type in ["d", "s", "l"]:
-            _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
-            btn.on_hold = self.toggle_momentum_train_brake
-        self.momentum_box.hide()
-        self.brake_box.hide()
-        self.horn_box.show()
+    # def show_horn_control(self) -> None:
+    #     for loco_type in ["d", "s", "l"]:
+    #         _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
+    #         btn.on_hold = self.toggle_momentum_train_brake
+    #     self.momentum_box.hide()
+    #     self.brake_box.hide()
+    #     self.horn_box.show()
+    # def toggle_momentum_train_brake(self, btn: PushButton = None, show_btn: str = None) -> None:
+    #     if self.horn_box.visible:
+    #         # hide the horn box
+    #         self.horn_box.hide()
+    #     if show_btn:
+    #         _, btn = self.engine_ops_cells[(MOM_TB, "e")]
+    #         if show_btn == "brake":
+    #             btn.text = MOMENTUM
+    #             self.momentum_box.visible = False
+    #             self.brake_box.visible = True
+    #         else:
+    #             btn.text = TRAIN_BRAKE
+    #             self.brake_box.visible = False
+    #             self.momentum_box.visible = True
+    #     elif btn is None:  # called from horn handler
+    #         # restore what was there before; if the swaped button says "Momentum"
+    #         # then show Train Brake, and vice versa
+    #         _, btn = self.engine_ops_cells[(MOM_TB, "e")]
+    #         if btn.text == MOMENTUM:
+    #             self.momentum_box.visible = False
+    #             self.brake_box.visible = True
+    #         else:
+    #             self.brake_box.visible = False
+    #             self.momentum_box.visible = True
+    #     else:
+    #         if btn.text == MOMENTUM:
+    #             btn.text = TRAIN_BRAKE
+    #             self.brake_box.visible = False
+    #             self.momentum_box.visible = True
+    #         else:
+    #             btn.text = MOMENTUM
+    #             self.momentum_box.visible = False
+    #             self.brake_box.visible = True
+    #
+    #     # restore the on_hold handler
+    #     for loco_type in ["d", "s", "l"]:
+    #         _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
+    #         btn.on_hold = self.show_horn_control
 
-    def toggle_momentum_train_brake(self, btn: PushButton = None, show_btn: str = None) -> None:
-        if self.horn_box.visible:
-            # hide the horn box
-            self.horn_box.hide()
-        if show_btn:
-            _, btn = self.engine_ops_cells[(MOM_TB, "e")]
-            if show_btn == "brake":
-                btn.text = MOMENTUM
-                self.momentum_box.visible = False
-                self.brake_box.visible = True
-            else:
-                btn.text = TRAIN_BRAKE
-                self.brake_box.visible = False
-                self.momentum_box.visible = True
-        elif btn is None:  # called from horn handler
-            # restore what was there before; if the swaped button says "Momentum"
-            # then show Train Brake, and vice versa
-            _, btn = self.engine_ops_cells[(MOM_TB, "e")]
-            if btn.text == MOMENTUM:
-                self.momentum_box.visible = False
-                self.brake_box.visible = True
-            else:
-                self.brake_box.visible = False
-                self.momentum_box.visible = True
-        else:
-            if btn.text == MOMENTUM:
-                btn.text = TRAIN_BRAKE
-                self.brake_box.visible = False
-                self.momentum_box.visible = True
-            else:
-                btn.text = MOMENTUM
-                self.momentum_box.visible = False
-                self.brake_box.visible = True
+    # # noinspection PyUnusedLocal
+    # def clear_focus(self, e=None):
+    #     """
+    #     Touchscreen-safe focus clearing for throttle slider.
+    #     Ensures focus moves off the Scale after finger release
+    #     and forces a redraw so the grab handle deactivates.
+    #     """
+    #     if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk, self.momentum.tk, self.horn.tk}:
+    #         if self.app.tk.focus_get() == self.horn.tk:
+    #             self._stop_quill()
+    #         self.app.tk.after_idle(self._do_clear_focus)
+    #
+    # def _stop_quill(self):
+    #     with self._cv:
+    #         # cancel pending after() call if exists
+    #         if self._quill_after_id is not None:
+    #             try:
+    #                 self.app.tk.after_cancel(self._quill_after_id)
+    #             except (TclError, AttributeError):
+    #                 pass
+    #             self._quill_after_id = None
+    #         # reset slider
+    #         self.horn.value = 0
 
-        # restore the on_hold handler
-        for loco_type in ["d", "s", "l"]:
-            _, btn = self.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
-            btn.on_hold = self.show_horn_control
+    # def _do_clear_focus(self):
+    #     self.focus_widget.focus_set()
+    #     self.throttle.tk.event_generate("<Leave>")
+    #     self.brake.tk.event_generate("<Leave>")
+    #     self.momentum.tk.event_generate("<Leave>")
+    #     self.horn.tk.event_generate("<Leave>")
+    #
+    # def on_throttle(self, value):
+    #     if self.throttle.after_id is not None:
+    #         self.throttle.tk.after_cancel(self.throttle.after_id)
+    #     # schedule new callback in 150 ms
+    #     self.throttle.after_id = self.throttle.tk.after(200, self.on_throttle_released, int(value))
+    #
+    # def on_throttle_released(self, value: int) -> None:
+    #     self.throttle.after_id = None
+    #     if self.app.tk.focus_get() == self.throttle.tk:
+    #         # make sure we're still holding the throttle
+    #         self.throttle.after_id = self.throttle.tk.after(200, self.on_throttle_released, int(value))
+    #     else:
+    #         self.on_speed_command(value)
+    #
+    # def on_train_brake(self, value):
+    #     if self.app.tk.focus_get() == self.brake.tk:
+    #         value = int(value)
+    #         self.brake_level.value = f"{value:02d}"
+    #         self.on_engine_command("TRAIN_BRAKE", data=value)
+    #
+    # def on_horn(self, value: int = None) -> None:
+    #     value = int(value) if value else self.horn.value
+    #     self.horn_level.value = f"{value:02d}"
+    #     with self._cv:
+    #         if self._quill_after_id is not None:
+    #             try:
+    #                 self.app.tk.after_cancel(self._quill_after_id)
+    #             except (TclError, AttributeError):
+    #                 pass
+    #             self._quill_after_id = None
+    #     if value > 0:
+    #         self.do_quilling_horn(value)
 
-    # noinspection PyUnusedLocal
-    def clear_focus(self, e=None):
-        """
-        Touchscreen-safe focus clearing for throttle slider.
-        Ensures focus moves off the Scale after finger release
-        and forces a redraw so the grab handle deactivates.
-        """
-        if self.app.tk.focus_get() in {self.throttle.tk, self.brake.tk, self.momentum.tk, self.horn.tk}:
-            if self.app.tk.focus_get() == self.horn.tk:
-                self._stop_quill()
-            self.app.tk.after_idle(self._do_clear_focus)
+    # def do_quilling_horn(self, value: int):
+    #     self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
+    #     # make sure we still have focus
+    #     with self._cv:
+    #         if self.app.tk.focus_get() == self.horn.tk:
+    #             self._quill_after_id = self.app.tk.after(500, self.do_quilling_horn, value)
+    #         else:
+    #             self._stop_quill()
 
-    def _stop_quill(self):
-        with self._cv:
-            # cancel pending after() call if exists
-            if self._quill_after_id is not None:
-                try:
-                    self.app.tk.after_cancel(self._quill_after_id)
-                except (TclError, AttributeError):
-                    pass
-                self._quill_after_id = None
-            # reset slider
-            self.horn.value = 0
-
-    def _do_clear_focus(self):
-        self.focus_widget.focus_set()
-        self.throttle.tk.event_generate("<Leave>")
-        self.brake.tk.event_generate("<Leave>")
-        self.momentum.tk.event_generate("<Leave>")
-        self.horn.tk.event_generate("<Leave>")
-
-    def on_throttle(self, value):
-        if self.throttle.after_id is not None:
-            self.throttle.tk.after_cancel(self.throttle.after_id)
-        # schedule new callback in 150 ms
-        self.throttle.after_id = self.throttle.tk.after(200, self.on_throttle_released, int(value))
-
-    def on_throttle_released(self, value: int) -> None:
-        self.throttle.after_id = None
-        if self.app.tk.focus_get() == self.throttle.tk:
-            # make sure we're still holding the throttle
-            self.throttle.after_id = self.throttle.tk.after(200, self.on_throttle_released, int(value))
-        else:
-            self.on_speed_command(value)
-
-    def on_train_brake(self, value):
-        if self.app.tk.focus_get() == self.brake.tk:
-            value = int(value)
-            self.brake_level.value = f"{value:02d}"
-            self.on_engine_command("TRAIN_BRAKE", data=value)
-
-    def on_horn(self, value: int = None) -> None:
-        value = int(value) if value else self.horn.value
-        self.horn_level.value = f"{value:02d}"
-        with self._cv:
-            if self._quill_after_id is not None:
-                try:
-                    self.app.tk.after_cancel(self._quill_after_id)
-                except (TclError, AttributeError):
-                    pass
-                self._quill_after_id = None
-        if value > 0:
-            self.do_quilling_horn(value)
-
-    def do_quilling_horn(self, value: int):
-        self.on_engine_command(["QUILLING_HORN", "BLOW_HORN_ONE"], data=value)
-        # make sure we still have focus
-        with self._cv:
-            if self.app.tk.focus_get() == self.horn.tk:
-                self._quill_after_id = self.app.tk.after(500, self.do_quilling_horn, value)
-            else:
-                self._stop_quill()
-
-    def on_momentum(self, value):
-        if self.app.tk.focus_get() == self.momentum.tk:
-            # we need state info for this
-            if self.active_engine_state:
-                state = self.active_engine_state
-            else:
-                state = self.active_state
-            if isinstance(state, EngineState):
-                value = int(value)
-                if state.is_legacy:
-                    self.on_engine_command("MOMENTUM", data=value)
-                else:
-                    if value in {0, 1}:
-                        value = 0
-                        self.on_engine_command("MOMENTUM_LOW", data=value)
-                    elif value in {2, 3, 4}:
-                        value = 3
-                        self.on_engine_command("MOMENTUM_MEDIUM")
-                    else:
-                        value = 7
-                        self.on_engine_command("MOMENTUM_HIGH")
-                self.momentum_level.value = f"{value:02d}"
+    # def on_momentum(self, value):
+    #     if self.app.tk.focus_get() == self.momentum.tk:
+    #         # we need state info for this
+    #         if self.active_engine_state:
+    #             state = self.active_engine_state
+    #         else:
+    #             state = self.active_state
+    #         if isinstance(state, EngineState):
+    #             value = int(value)
+    #             if state.is_legacy:
+    #                 self.on_engine_command("MOMENTUM", data=value)
+    #             else:
+    #                 if value in {0, 1}:
+    #                     value = 0
+    #                     self.on_engine_command("MOMENTUM_LOW", data=value)
+    #                 elif value in {2, 3, 4}:
+    #                     value = 3
+    #                     self.on_engine_command("MOMENTUM_MEDIUM")
+    #                 else:
+    #                     value = 7
+    #                     self.on_engine_command("MOMENTUM_HIGH")
+    #             self.momentum_level.value = f"{value:02d}"
 
     def on_admin_panel(self) -> None:
         with self._cv:
@@ -2012,62 +1946,62 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             self.set_btn.show()
 
-    def scope_engine_keys(self, btns: set[Widget]):
-        self._freight_sounds_bell_horn_box.hide()
-        self._rr_speed_box.hide()
-        for btn in btns:
-            btn.show()
-        for btn in self._all_engine_btns - btns:
-            btn.hide()
-
-    def show_diesel_keys(self) -> None:
-        if self._last_engine_type != "d":
-            self.scope_engine_keys(self._engine_type_key_map["d"])
-            self._last_engine_type = "d"
-        self._rr_speed_box.show()
-        self.horn_title_box.text = "Horn"
-
-    def show_steam_keys(self) -> None:
-        if self._last_engine_type != "s":
-            self.scope_engine_keys(self._engine_type_key_map["s"])
-            self._last_engine_type = "s"
-        self._rr_speed_box.show()
-        self.horn_title_box.text = "Whistle"
-
-    def show_acela_keys(self) -> None:
-        if self._last_engine_type != "a":
-            self.scope_engine_keys(self._engine_type_key_map["a"])
-            self._last_engine_type = "a"
-        self._rr_speed_box.show()
-        self.horn_title_box.text = "Horn"
-
-    def show_electric_keys(self) -> None:
-        if self._last_engine_type != "l":
-            self.scope_engine_keys(self._engine_type_key_map["l"])
-            self._last_engine_type = "l"
-        self._rr_speed_box.show()
-        self.horn_title_box.text = "Horn"
-
-    def show_passenger_keys(self) -> None:
-        if self._last_engine_type != "p":
-            self.scope_engine_keys(self._engine_type_key_map["p"])
-            self._last_engine_type = "p"
-        self._rr_speed_box.show()
-
-    def show_freight_keys(self) -> None:
-        if self._last_engine_type != "f":
-            self.scope_engine_keys(self._engine_type_key_map["f"])
-            self._last_engine_type = "f"
-        self._freight_sounds_bell_horn_box.show()
-        self.horn_title_box.text = "Horn"
-        self.show_horn_control()
-
-    def show_transformer_keys(self) -> None:
-        if self._last_engine_type != "t":
-            self.scope_engine_keys(self._engine_type_key_map["t"])
-            self._last_engine_type = "t"
-        self._rr_speed_box.show()
-        self.toggle_momentum_train_brake(show_btn="brake")
+    # def scope_engine_keys(self, btns: set[Widget]):
+    #     self._freight_sounds_bell_horn_box.hide()
+    #     self._rr_speed_box.hide()
+    #     for btn in btns:
+    #         btn.show()
+    #     for btn in self._all_engine_btns - btns:
+    #         btn.hide()
+    #
+    # def show_diesel_keys(self) -> None:
+    #     if self._last_engine_type != "d":
+    #         self.scope_engine_keys(self._engine_type_key_map["d"])
+    #         self._last_engine_type = "d"
+    #     self._rr_speed_box.show()
+    #     self.horn_title_box.text = "Horn"
+    #
+    # def show_steam_keys(self) -> None:
+    #     if self._last_engine_type != "s":
+    #         self.scope_engine_keys(self._engine_type_key_map["s"])
+    #         self._last_engine_type = "s"
+    #     self._rr_speed_box.show()
+    #     self.horn_title_box.text = "Whistle"
+    #
+    # def show_acela_keys(self) -> None:
+    #     if self._last_engine_type != "a":
+    #         self.scope_engine_keys(self._engine_type_key_map["a"])
+    #         self._last_engine_type = "a"
+    #     self._rr_speed_box.show()
+    #     self.horn_title_box.text = "Horn"
+    #
+    # def show_electric_keys(self) -> None:
+    #     if self._last_engine_type != "l":
+    #         self.scope_engine_keys(self._engine_type_key_map["l"])
+    #         self._last_engine_type = "l"
+    #     self._rr_speed_box.show()
+    #     self.horn_title_box.text = "Horn"
+    #
+    # def show_passenger_keys(self) -> None:
+    #     if self._last_engine_type != "p":
+    #         self.scope_engine_keys(self._engine_type_key_map["p"])
+    #         self._last_engine_type = "p"
+    #     self._rr_speed_box.show()
+    #
+    # def show_freight_keys(self) -> None:
+    #     if self._last_engine_type != "f":
+    #         self.scope_engine_keys(self._engine_type_key_map["f"])
+    #         self._last_engine_type = "f"
+    #     self._freight_sounds_bell_horn_box.show()
+    #     self.horn_title_box.text = "Horn"
+    #     self.show_horn_control()
+    #
+    # def show_transformer_keys(self) -> None:
+    #     if self._last_engine_type != "t":
+    #         self.scope_engine_keys(self._engine_type_key_map["t"])
+    #         self._last_engine_type = "t"
+    #     self._rr_speed_box.show()
+    #     self.toggle_momentum_train_brake(show_btn="brake")
 
     # noinspection PyUnresolvedReferences
     @property
@@ -2114,22 +2048,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.on_new_engine(state, ops_mode_setup=True)
 
             if state:  # Display motive-appropriate control keys
-                if state.is_diesel:
-                    self.show_diesel_keys()
-                elif state.is_steam:
-                    self.show_steam_keys()
-                elif state.is_passenger:
-                    self.show_passenger_keys()
-                elif state.is_freight:
-                    self.show_freight_keys()
-                elif state.is_acela:
-                    self.show_acela_keys()
-                elif state.is_electric:
-                    self.show_electric_keys()
-                elif state.is_transformer:
-                    self.show_transformer_keys()
-                else:
-                    self.show_diesel_keys()
+                self._controller_view.apply_engine_type(state)
             if not self.controller_keypad_box.visible:
                 self.controller_keypad_box.show()
             if not self.controller_box.visible:
