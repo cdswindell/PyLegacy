@@ -925,37 +925,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             cb.select_default()
 
-    # def build_button_panel(
-    #     self,
-    #     body: Box,
-    #     buttons: list[list[tuple]],
-    # ) -> Box:
-    #     button_box = Box(body, layout="grid", border=1)
-    #     width = int(3 * self.button_size)
-    #
-    #     for r, kr in enumerate(buttons):
-    #         for c, button in enumerate(kr):
-    #             if isinstance(button, tuple):
-    #                 op = button[0]
-    #                 label = button[1]
-    #             else:
-    #                 raise ValueError(f"Invalid button: {button} ({type(button)})")
-    #             cell, nb = self.make_keypad_button(
-    #                 button_box,
-    #                 label,
-    #                 r,
-    #                 c,
-    #                 bolded=True,
-    #                 size=self.s_18,
-    #                 command=self.on_engine_command,
-    #                 args=[op],
-    #             )
-    #             cell.tk.config(width=width)
-    #             nb.tk.config(width=width)
-    #             self._elements.add(nb)
-    #
-    #     return button_box
-
     def build_station_dialogs_body(self, body: Box):
         self.station_dialog_box = self._popup.build_button_panel(body, STATION_DIALOGS)
 
@@ -1104,22 +1073,24 @@ class EngineGui(GuiZeroBase, Generic[S]):
         with self._cv:
             if self._state_info is None:
                 self._state_info = StateInfoOverlay(self)
-            self._state_info.update(self.active_state)
+        self._state_info.update(self.active_state)
 
     def on_info(self) -> None:
+        state = self.active_state
+        if state is None:
+            return  # this should never be the case...
+
         with self._cv:
             if self._state_info is None:
                 self._state_info = StateInfoOverlay(self)
         overlay = self._state_info.overlay
 
-        # show/hide fields in the overlay
-        state = self.active_state
-        if state is None:
-            return  # this should never be the case...
         scope = CommandScope.ACC if isinstance(state, LcsProxyState) and state.is_lcs else state.scope
         is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
-        self._state_info.refresh_visibility(scope, is_lcs_proxy=is_lcs)
-        self.update_state_info()
+
+        # show/hide fields in the overlay
+        self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs)
+        self._state_info.update(state)
         self.show_popup(overlay)
 
     def on_rr_speed(self) -> None:

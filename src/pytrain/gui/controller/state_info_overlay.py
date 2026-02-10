@@ -183,7 +183,7 @@ class StateInfoOverlay:
         if key in self.details:
             self.details[key][1].value = value
 
-    def refresh_visibility(self, scope, is_lcs_proxy=False):
+    def reset_visibility(self, scope, is_lcs_proxy=False):
         """Hides or shows fields based on the context."""
         current_scope = CommandScope.ACC if is_lcs_proxy else scope
         for tb, _ in self.details.values():
