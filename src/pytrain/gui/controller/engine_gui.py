@@ -1022,7 +1022,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if self._lighting_panel is None:
                 self._lighting_panel = LightingPanel(self)
         overlay = self._lighting_panel.overlay
-        overlay.configure(self.active_engine_state)
+        self._lighting_panel.configure(self.active_engine_state)
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
     def on_tower_dialog(self) -> None:
