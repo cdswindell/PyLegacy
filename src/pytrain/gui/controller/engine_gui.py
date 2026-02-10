@@ -226,7 +226,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
         self._tower_overlay = self._crew_overlay = None
-        self.diesel_lights_box = self.steam_lights_box = None
         self.rr_speed_btns = set()
         self._acela_btns = set()
         self._crane_btns = set()
@@ -269,6 +268,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # self._current_popup = None
         # self._restore_image_box = False
         # self._on_close_show = None
+        # self.diesel_lights_box = self.steam_lights_box = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
@@ -867,11 +867,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._elements.add(btn)
 
         # diesel options
-        self.diesel_lights_box = self.make_combo_panel(body, DIESEL_LIGHTS)
+        body.diesel_lights = self.make_combo_panel(body, DIESEL_LIGHTS)
 
         # steam options
-        self.steam_lights_box = self.make_combo_panel(body, STEAM_LIGHTS)
-        self.steam_lights_box.hide()
+        body.steam_lights = self.make_combo_panel(body, STEAM_LIGHTS)
+        body.steam_lights.hide()
 
     def make_combo_panel(self, body: Box, options: dict, min_width: int = 12) -> Box:
         combo_box = Box(body, layout="grid", border=1)
@@ -1135,20 +1135,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay)
 
     def on_lights(self) -> None:
-        if self.lights_overlay is None:
-            self.lights_overlay = self._popup.create_popup("Lighting", self.build_lights_body)
+        overlay = self._popup.get_or_create("lighting", "Lighting", self.build_lights_body)
+
         if self.active_engine_state:
             state = self.active_engine_state
         else:
             state = self.active_state
         if state.is_steam:
-            self.steam_lights_box.show()
-            self.diesel_lights_box.hide()
+            overlay.steam_lights.show()
+            overlay.diesel_lights.hide()
         else:
-            self.steam_lights_box.hide()
-            self.diesel_lights_box.show()
+            overlay.steam_lights.hide()
+            overlay.diesel_lights.show()
         # make sure button is reset, as popup prevents normal handling
-        self.show_popup(self.lights_overlay, "AUX2_OPTION_ONE", "e")
+        self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
     def on_tower_dialog(self) -> None:
         if self._tower_overlay is None:
