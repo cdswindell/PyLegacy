@@ -9,28 +9,26 @@
 
 from __future__ import annotations
 
+import logging
+import math
 from dataclasses import dataclass
 from tkinter import TclError
-from typing import Callable, TYPE_CHECKING, Any, Optional, Protocol
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
-from guizero import Box, PushButton, Text
-from guizero.base import Widget
+from guizero import Box, Combo, PushButton, Text
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
     from ..components.hold_button import HoldButton
 
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class PopupState:
-    current_popup: Widget | None = None
-    on_close_show: Widget | None = None
+    current_popup: Box | None = None
+    on_close_show: Box | None = None
     restore_image_box: bool = False
-
-
-class LightingOverlay(Protocol):
-    steam_lights: Box
-    diesel_lights: Box
 
 
 class PopupManager:
@@ -41,6 +39,7 @@ class PopupManager:
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
         self._state = PopupState()
+        self._combo_hackable: bool = False
         self._overlays: dict[str, Box] = {}
 
     # ------------------------------------------------------------------
@@ -48,11 +47,13 @@ class PopupManager:
     # ------------------------------------------------------------------
 
     def get_or_create(self, key: str, title: str, build_body: Callable[[Box], None]) -> Box:
-        existing = self._overlays.get(key)
-        if isinstance(existing, Box) and getattr(existing, "overlay_key", None) == key:
-            return existing
+        with self._host.locked():
+            existing = self._overlays.get(key)
+            if isinstance(existing, Box):
+                return existing
+
         overlay = self.create_popup(title, build_body)
-        overlay.overlay_key = key
+        setattr(overlay, "overlay_key", key)
         self._overlays[key] = overlay
         return overlay
 
@@ -64,6 +65,7 @@ class PopupManager:
 
         title_row = Box(
             overlay,
+            align="top",
             width=host.emergency_box_width,
             height=host.button_size // 3,
         )
@@ -71,9 +73,9 @@ class PopupManager:
 
         title = Text(title_row, text=title_text, bold=True, size=host.s_18)
         title.bg = "lightgrey"
-        overlay.title = title
+        setattr(overlay, "title", title)
 
-        body = Box(overlay, layout="auto")
+        body = Box(overlay, align="top", layout="auto")
         build_body(body)
 
         btn = PushButton(
@@ -102,6 +104,14 @@ class PopupManager:
     # ------------------------------------------------------------------
     # API
     # ------------------------------------------------------------------
+
+    @property
+    def is_combo_hackable(self) -> bool:
+        return self._combo_hackable
+
+    @is_combo_hackable.setter
+    def is_combo_hackable(self, value: bool) -> None:
+        self._combo_hackable = value
 
     def build_button_panel(
         self,
@@ -132,9 +142,76 @@ class PopupManager:
                 )
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
-                host.cache(nb)
-
+                host.cache(cell, nb)
+        host.cache(button_box)
         return button_box
+
+    def make_combo_panel(self, body: Box, options: dict, min_width: int = 12) -> Box:
+        host = self._host
+        combo_box = Box(body, layout="grid", border=1)
+
+        # How many combo boxes do we have; display them in 2 columns:
+        boxes_per_column = int(math.ceil(len(options) / 2))
+        width = max(max(map(len, options.keys())) - 1, min_width)
+
+        for idx, (title, values) in enumerate(options.items()):
+            # place 4 per column
+            row = idx % boxes_per_column
+            col = idx // boxes_per_column
+
+            # combo contents and mapping
+            if self.is_combo_hackable:
+                select_ops = [v[0] for v in values]
+            else:
+                select_ops = [title] + [v[0] for v in values]
+            od = {v[0]: v[1] for v in values}
+
+            slot = Box(combo_box, grid=[col, row])
+            cb = Combo(slot, options=select_ops, selected=title)
+            self._rebuild_combo(cb, od, title)
+
+            cb.update_command(self._make_combo_callback(cb, od, title))
+            cb.tk.config(width=width)
+            cb.text_size = host.s_20
+            cb.tk.pack_configure(padx=6, pady=15)
+            # set the hover color of the element the curser is over when selecting an item
+            if "menu" in cb.tk.children:
+                menu = cb.tk.children["menu"]
+                menu.config(activebackground="lightgrey")
+            host.cache(slot, cb)
+        host.cache(combo_box)
+        return combo_box
+
+    # ------------------------------------------------------------------
+    # Combo box internals
+    # ------------------------------------------------------------------
+
+    def _make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
+        def func(selected: str):
+            self._on_combo_select(cb, od, title, selected)
+
+        return func
+
+    def _on_combo_select(self, cb: Combo, od: dict, title: str, selected: str) -> None:
+        cmd = od.get(selected, None)
+        if isinstance(cmd, str):
+            self._host.on_engine_command(cmd)
+        # rebuild combo
+        self._rebuild_combo(cb, od, title)
+
+    # noinspection PyProtectedMember
+    def _rebuild_combo(self, cb: Combo, od: dict, title: str):
+        cb.clear()
+        if not self.is_combo_hackable:
+            cb.append(title)
+
+        for option in od.keys():
+            cb.append(option)
+
+        if self.is_combo_hackable:
+            cb._selected.set(title)
+        else:
+            cb.select_default()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -142,7 +219,7 @@ class PopupManager:
 
     def show(
         self,
-        overlay: Widget,
+        overlay: Box,
         *,
         op: str | None = None,
         modifier: str | None = None,
@@ -161,8 +238,8 @@ class PopupManager:
                 except (AttributeError, RuntimeError, TclError):
                     pass
                 self._state.current_popup = None
-
-            self._restore_button_state(op=op, modifier=modifier, button=button)
+            # set this overlay as current
+            self._state.current_popup = overlay
 
             # Hide active content box
             self._state.on_close_show = None
@@ -178,13 +255,30 @@ class PopupManager:
                 host.image_box.hide()
                 self._state.restore_image_box = True
 
-            self._state.current_popup = overlay
-
+        try:
             x, y = position if position else host.popup_position
             overlay.tk.place(x=x, y=y)
             overlay.show()
+        except (AttributeError, RuntimeError, TclError):
+            log.warning(f"Failed to place/show overlay: {overlay}")
+            with host.locked():
+                if self._state.current_popup is overlay:
+                    self._state.current_popup = None
+                    # restore image box
+                if self._state.restore_image_box and host.image_box and not host.image_box.visible:
+                    host.image_box.show()
+                self._state.restore_image_box = False
+                # restore content box
+                if self._state.on_close_show:
+                    try:
+                        self._state.on_close_show.show()
+                    except (AttributeError, RuntimeError):
+                        pass
+                    self._state.on_close_show = None
+        finally:
+            self._restore_button_state(op=op, modifier=modifier, button=button)
 
-    def close(self, overlay: Widget | None = None) -> None:
+    def close(self, overlay: Box | None = None) -> None:
         host = self._host
 
         with host.locked():
@@ -221,8 +315,8 @@ class PopupManager:
         modifier: str | None,
         button: Optional["HoldButton"] = None,
     ) -> None:
+        """Restores button color state by operator or button"""
         host = self._host
-
         if button is not None:
             try:
                 button.restore_color_state()

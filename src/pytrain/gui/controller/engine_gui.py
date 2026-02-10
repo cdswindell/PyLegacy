@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import tkinter as tk
 from contextlib import contextmanager
 from io import BytesIO
@@ -238,8 +237,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._last_engine_type = None
         self._quill_after_id = None
-        self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
-        self.can_hack_combo = False  # don't ask
+
+        # don't ask
         self._isd = None  # swipe detector for engine image field
         self._admin_panel = None
         self._catalog_panel = None
@@ -261,6 +260,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # delete after refactor
         # self.rr_speed_btns = set()
+        # self.can_hack_combo = False
+        # self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
@@ -327,7 +328,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # determine if we can set the "selected" value directly;
         # will be used for other combo boxes
-        self.can_hack_combo = hasattr(cb, "_selected")
+        self._popup.is_combo_hackable = hasattr(cb, "_selected")
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(app)
@@ -778,80 +779,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return momentum_box, cell, momentum_level, momentum
 
     def build_tower_dialogs_body(self, body: Box):
-        self.cache(self.make_combo_panel(body, TOWER_DIALOGS))
+        self._popup.make_combo_panel(body, TOWER_DIALOGS)
 
     def build_crew_dialogs_body(self, body: Box):
-        self.cache(self.make_combo_panel(body, CREW_DIALOGS))
+        self._popup.make_combo_panel(body, CREW_DIALOGS)
 
     def build_conductor_actions_body(self, body: Box):
-        self.cache(self.make_combo_panel(body, CONDUCTOR_ACTIONS))
+        self._popup.make_combo_panel(body, CONDUCTOR_ACTIONS)
 
     def build_station_dialogs_body(self, body: Box):
-        self.station_dialog_box = self._popup.build_button_panel(body, STATION_DIALOGS)
+        self._popup.build_button_panel(body, STATION_DIALOGS)
 
     def build_steward_dialogs_body(self, body: Box):
-        self.steward_dialog_box = self._popup.build_button_panel(body, STEWARD_DIALOGS)
-
-    def make_combo_panel(self, body: Box, options: dict, min_width: int = 12) -> Box:
-        combo_box = Box(body, layout="grid", border=1)
-
-        # How many combo boxes do we have; display them in 2 columns:
-        boxes_per_column = int(math.ceil(len(options) / 2))
-        width = max(max(map(len, options.keys())) - 1, min_width)
-
-        for idx, (title, values) in enumerate(options.items()):
-            # place 4 per column
-            row = idx % boxes_per_column
-            col = idx // boxes_per_column
-
-            # combo contents and mapping
-            if self.can_hack_combo:
-                select_ops = [v[0] for v in values]
-            else:
-                select_ops = [title] + [v[0] for v in values]
-            od = {v[0]: v[1] for v in values}
-
-            slot = Box(combo_box, grid=[col, row])
-            cb = Combo(slot, options=select_ops, selected=title)
-            self.rebuild_combo(cb, od, title)
-
-            cb.update_command(self.make_combo_callback(cb, od, title))
-            cb.tk.config(width=width)
-            cb.text_size = self.s_20
-            cb.tk.pack_configure(padx=6, pady=15)
-            # set the hover color of the element the curser is over when selecting an item
-            if "menu" in cb.tk.children:
-                menu = cb.tk.children["menu"]
-                menu.config(activebackground="lightgrey")
-            self.cache(cb)
-        return combo_box
-
-    def make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
-        def func(selected: str):
-            self.on_combo_select(cb, od, title, selected)
-
-        return func
-
-    def on_combo_select(self, cb: Combo, od: dict, title: str, selected: str) -> None:
-        cmd = od.get(selected, None)
-        if isinstance(cmd, str):
-            self.on_engine_command(cmd)
-        # rebuild combo
-        self.rebuild_combo(cb, od, title)
-
-    # noinspection PyProtectedMember
-    def rebuild_combo(self, cb: Combo, od: dict, title: str):
-        cb.clear()
-        if not self.can_hack_combo:
-            cb.append(title)
-        for option in od.keys():
-            cb.append(option)
-        if self.can_hack_combo:
-            cb._selected.set(title)
-        else:
-            cb.select_default()
+        self._popup.build_button_panel(body, STEWARD_DIALOGS)
 
     def on_info(self) -> None:
+        """Shows state information in popup overlay"""
         state = self.active_state
         if state is None:
             return  # this should never be the case...

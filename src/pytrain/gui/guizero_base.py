@@ -186,8 +186,11 @@ class GuiZeroBase(Thread, ABC):
     def state_store(self) -> ComponentStateStore:
         return self._state_store
 
-    def cache(self, widget: Widget | Box) -> None:
-        self._elements.add(widget)
+    def cache(self, *widgets: Widget | Box) -> None:
+        if not widgets:
+            return
+        for widget in widgets:
+            self._elements.add(widget)
 
     # noinspection PyUnresolvedReferences
     def init_complete(self) -> None:
