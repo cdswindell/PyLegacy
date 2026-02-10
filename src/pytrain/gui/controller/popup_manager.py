@@ -100,6 +100,43 @@ class PopupManager:
         return overlay
 
     # ------------------------------------------------------------------
+    # API
+    # ------------------------------------------------------------------
+
+    def build_button_panel(
+        self,
+        body: Box,
+        buttons: list[list[tuple]],
+    ) -> Box:
+        host = self._host
+        button_box = Box(body, layout="grid", border=1)
+        width = int(3 * host.button_size)
+
+        # Iterates button definitions; creates and configures each button
+        for r, kr in enumerate(buttons):
+            for c, button in enumerate(kr):
+                if isinstance(button, tuple):
+                    op = button[0]
+                    label = button[1]
+                else:
+                    raise ValueError(f"Invalid button: {button} ({type(button)})")
+                cell, nb = host.make_keypad_button(
+                    button_box,
+                    label,
+                    r,
+                    c,
+                    bolded=True,
+                    size=host.s_18,
+                    command=host.on_engine_command,
+                    args=[op],
+                )
+                cell.tk.config(width=width)
+                nb.tk.config(width=width)
+                host.cache(nb)
+
+        return button_box
+
+    # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 

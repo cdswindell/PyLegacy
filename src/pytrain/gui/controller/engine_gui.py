@@ -925,42 +925,42 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             cb.select_default()
 
-    def build_button_panel(
-        self,
-        body: Box,
-        buttons: list[list[tuple]],
-    ) -> Box:
-        button_box = Box(body, layout="grid", border=1)
-        width = int(3 * self.button_size)
-
-        for r, kr in enumerate(buttons):
-            for c, button in enumerate(kr):
-                if isinstance(button, tuple):
-                    op = button[0]
-                    label = button[1]
-                else:
-                    raise ValueError(f"Invalid button: {button} ({type(button)})")
-                cell, nb = self.make_keypad_button(
-                    button_box,
-                    label,
-                    r,
-                    c,
-                    bolded=True,
-                    size=self.s_18,
-                    command=self.on_engine_command,
-                    args=[op],
-                )
-                cell.tk.config(width=width)
-                nb.tk.config(width=width)
-                self._elements.add(nb)
-
-        return button_box
+    # def build_button_panel(
+    #     self,
+    #     body: Box,
+    #     buttons: list[list[tuple]],
+    # ) -> Box:
+    #     button_box = Box(body, layout="grid", border=1)
+    #     width = int(3 * self.button_size)
+    #
+    #     for r, kr in enumerate(buttons):
+    #         for c, button in enumerate(kr):
+    #             if isinstance(button, tuple):
+    #                 op = button[0]
+    #                 label = button[1]
+    #             else:
+    #                 raise ValueError(f"Invalid button: {button} ({type(button)})")
+    #             cell, nb = self.make_keypad_button(
+    #                 button_box,
+    #                 label,
+    #                 r,
+    #                 c,
+    #                 bolded=True,
+    #                 size=self.s_18,
+    #                 command=self.on_engine_command,
+    #                 args=[op],
+    #             )
+    #             cell.tk.config(width=width)
+    #             nb.tk.config(width=width)
+    #             self._elements.add(nb)
+    #
+    #     return button_box
 
     def build_station_dialogs_body(self, body: Box):
-        self.station_dialog_box = self.build_button_panel(body, STATION_DIALOGS)
+        self.station_dialog_box = self._popup.build_button_panel(body, STATION_DIALOGS)
 
     def build_steward_dialogs_body(self, body: Box):
-        self.steward_dialog_box = self.build_button_panel(body, STEWARD_DIALOGS)
+        self.steward_dialog_box = self._popup.build_button_panel(body, STEWARD_DIALOGS)
 
     def build_bell_horn_body(self, body: Box):
         cs = self.button_size
