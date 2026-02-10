@@ -36,6 +36,7 @@ class LightingPanel:
             self._diesel_opts.show()
             self._steam_opts.hide()
 
+    # noinspection PyProtectedMember
     def build(self, body: Box):
         host = self._gui
 
@@ -114,8 +115,8 @@ class LightingPanel:
         host.cache(btn)
 
         # diesel options
-        self._diesel_opts = host.make_combo_panel(body, DIESEL_LIGHTS)
+        self._diesel_opts = host._popup.make_combo_panel(body, DIESEL_LIGHTS)
 
         # steam options
-        self._steam_opts = host.make_combo_panel(body, STEAM_LIGHTS)
+        self._steam_opts = host._popup.make_combo_panel(body, STEAM_LIGHTS)
         self._steam_opts.hide()
