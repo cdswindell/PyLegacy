@@ -225,7 +225,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
-        self._tower_overlay = self._crew_overlay = None
         self.rr_speed_btns = set()
         self._acela_btns = set()
         self._crane_btns = set()
@@ -249,7 +248,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
-        self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
         self._admin_panel = self._admin_overlay = None
         self._catalog_panel = self._catalog_overlay = None
         self.engine_ops_cells = {}
@@ -269,6 +267,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # self._restore_image_box = False
         # self._on_close_show = None
         # self.diesel_lights_box = self.steam_lights_box = None
+        # self._tower_overlay = self._crew_overlay = None
+        # self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
@@ -1154,39 +1154,32 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
     def on_tower_dialog(self) -> None:
-        if self._tower_overlay is None:
-            self._tower_overlay = self._popup.create_popup("Tower Dialogs", self.build_tower_dialogs_body)
-        self.show_popup(self._tower_overlay, "TOWER_CHATTER", "e")
+        overlay = self._popup.get_or_create("tower_dialog", "Tower Dialogs", self.build_tower_dialogs_body)
+        self.show_popup(overlay, "TOWER_CHATTER", "e")
 
     def on_crew_dialog(self) -> None:
-        if self._crew_overlay is None:
-            self._crew_overlay = self._popup.create_popup("Engineer & Crew Dialogs", self.build_crew_dialogs_body)
-        self.show_popup(self._crew_overlay, "ENGINEER_CHATTER", "e")
+        overlay = self._popup.get_or_create("crew_dialog", "Engineer & Crew Dialogs", self.build_crew_dialogs_body)
+        self.show_popup(overlay, "ENGINEER_CHATTER", "e")
 
     def on_conductor_actions(self) -> None:
-        if self.conductor_overlay is None:
-            self.conductor_overlay = self._popup.create_popup("Conductor Actions", self.build_conductor_actions_body)
-        self.show_popup(self.conductor_overlay, "ENGINEER_CHATTER", "p")
+        overlay = self._popup.get_or_create("conductor_action", "Conductor Actions", self.build_conductor_actions_body)
+        self.show_popup(overlay, "ENGINEER_CHATTER", "p")
 
     def on_station_dialogs(self) -> None:
-        if self.station_overlay is None:
-            self.station_overlay = self._popup.create_popup("Station Dialogs", self.build_station_dialogs_body)
-        self.show_popup(self.station_overlay, "TOWER_CHATTER", "p")
+        overlay = self._popup.get_or_create("station_dialog", "Station Dialogs", self.build_station_dialogs_body)
+        self.show_popup(overlay, "TOWER_CHATTER", "p")
 
     def on_steward_dialogs(self) -> None:
-        if self.steward_overlay is None:
-            self.steward_overlay = self._popup.create_popup("Steward Dialogs", self.build_steward_dialogs_body)
-        self.show_popup(self.steward_overlay, "STEWARD_CHATTER", "p")
+        overlay = self._popup.get_or_create("steward_dialog", "Steward Dialogs", self.build_steward_dialogs_body)
+        self.show_popup(overlay, "STEWARD_CHATTER", "p")
 
     def on_bell_horn_options(self) -> None:
-        if self.bell_overlay is None:
-            self.bell_overlay = self._popup.create_popup("Bell/Horn Options", self.build_bell_horn_body)
-        self.show_popup(self.bell_overlay, "RING_BELL", "e")
+        overlay = self._popup.get_or_create("bell_overlay", "Bell/Horn Options", self.build_bell_horn_body)
+        self.show_popup(overlay, "RING_BELL", "e")
 
     def on_bell_horn_options_fs(self) -> None:
-        if self.bell_overlay is None:
-            self.bell_overlay = self._popup.create_popup("Bell/Horn Options", self.build_bell_horn_body)
-        self.show_popup(self.bell_overlay, button=self._bell_btn)
+        overlay = self._popup.get_or_create("bell_overlay", "Bell/Horn Options", self.build_bell_horn_body)
+        self.show_popup(overlay, button=self._bell_btn)
 
     def show_popup(
         self,
