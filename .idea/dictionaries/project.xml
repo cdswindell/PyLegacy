@@ -26,6 +26,7 @@
       <w>etype</w>
       <w>extendleft</w>
       <w>hexid</w>
+      <w>hpad</w>
       <w>lcsser</w>
       <w>lineville</w>
       <w>lionelbase</w>
@@ -53,6 +54,7 @@
       <w>unsel</w>
       <w>userhome</w>
       <w>valids</w>
+      <w>vpad</w>
       <w>weakref</w>
     </words>
   </dictionary>

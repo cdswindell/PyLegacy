@@ -415,6 +415,7 @@ class GuiZeroBase(Thread, ABC):
 
     def get_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:
         prod_info = self._prod_info_cache.get(tmcc_id, None)
+        # Attempts to retrieve or schedule production info
         if prod_info is None and bt_id:
             if tmcc_id not in self._pending_prod_infos:
                 future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id)

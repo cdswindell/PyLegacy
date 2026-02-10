@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
-from io import BytesIO
 from tkinter import TclError
 from typing import Any, Callable, Generic, Iterator, TypeVar, cast
 
@@ -34,7 +33,6 @@ from .engine_gui_conf import (
     CREW_DIALOGS,
     ENGINE_OFF_KEY,
     ENGINE_OPS_LAYOUT,
-    ENGINE_TYPE_TO_IMAGE,
     ENTER_KEY,
     ENTRY_LAYOUT,
     FIRE_ROUTE_KEY,
@@ -59,6 +57,7 @@ from .engine_gui_conf import (
     send_lcs_off_command,
     send_lcs_on_command,
 )
+from .image_presenter import ImagePresenter
 from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
@@ -71,14 +70,13 @@ from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
-from ...db.prod_info import ProdInfo
 from ...db.state_watcher import StateWatcher
 from ...pdi.asc2_req import Asc2Req
 from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
 from ...pdi.irda_req import IrdaReq, IrdaSequence
 from ...protocol.command_def import CommandDefEnum
 from ...protocol.command_req import CommandReq
-from ...protocol.constants import CommandScope, EngineType
+from ...protocol.constants import CommandScope
 from ...protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ...protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
 from ...protocol.sequence.sequence_constants import SequenceCommandEnum
@@ -91,7 +89,6 @@ from ...protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineOpsEnum,
     TMCC2RRSpeedsEnum,
 )
-from ...utils.image_utils import center_text_on_image
 from ...utils.path_utils import find_file
 from ...utils.unique_deque import UniqueDeque
 
@@ -262,6 +259,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # helpers to reduce code
         self._popup = PopupManager(self)
+        self._image_presenter = ImagePresenter(self)
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -343,7 +341,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.make_scope(app)
 
         # Finally, resize image box
-        available_height, available_width = self.calc_image_box_size()
+        available_height, available_width = self._image_presenter.calc_box_size()
         self.image_box.tk.config(height=available_height, width=available_width)
 
         # ONE geometry pass at the end
@@ -2213,203 +2211,118 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
             self.name_text.value = ""
             state = None
-            self.clear_image()
+            self._image_presenter.clear()
         self.monitor_state()
         # use the callback to update ops button state
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
             if update_button_state:
                 # noinspection PyTypeChecker
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            self.update_component_image(tmcc_id)
+            self._image_presenter.update(tmcc_id)
         else:
             self.image_box.hide()
 
-    def clear_image(self):
-        self.image.image = None
-        self.image_box.hide()
-
     # noinspection PyUnresolvedReferences
-    def update_component_image(
-        self,
-        tmcc_id: int = None,
-        key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
-    ) -> None:
-        if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
-            # routes and switches don't use images
-            return
-        if key:
-            scope = key[0]
-            tmcc_id = key[1]
-            train_id = key[2] if len(key) > 2 else None
-        else:
-            scope = self.scope
-            if tmcc_id is None:
-                tmcc_id = self._scope_tmcc_ids[self.scope]
-            train_id = None
-        img = None
-
-        # for Trains, use the image of the lead engine
-        if scope == CommandScope.TRAIN and self.active_state and not self.active_state.is_power_district and tmcc_id:
-            img = self._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
-            if img is None:
-                train_state = self.active_state
-                train_id = tmcc_id
-                head_id = train_state.head_tmcc_id
-                img = self._image_cache.get((CommandScope.ENGINE, head_id), None)
-                if img is None:
-                    self.update_component_image(key=(CommandScope.ENGINE, head_id, train_id))
-                    return
-                else:
-                    self._image_cache[(CommandScope.TRAIN, train_id)] = img
-        elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
-            with self._cv:
-                state = self._state_store.get_state(scope, tmcc_id, False)
-                prod_info = self.get_prod_info(state.bt_id if state else None, self.update_component_image, tmcc_id)
-
-                if prod_info is None:
-                    return
-
-                if isinstance(prod_info, ProdInfo):
-                    # Image should have been cached by fetch_prod_indo
-                    img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                    if img is None:
-                        img = self.get_scaled_image(BytesIO(prod_info.image_content))
-                        self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                    if train_id:
-                        self._image_cache[(CommandScope.TRAIN, train_id)] = img
-                        tmcc_id = train_id
-                        scope = CommandScope.TRAIN
-                else:
-                    if isinstance(state, EngineState):
-                        img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                        if img is None:
-                            et_enum = (
-                                state.engine_type_enum if state.engine_type_enum is not None else EngineType.DIESEL
-                            )
-                            source = ENGINE_TYPE_TO_IMAGE.get(et_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL])
-                            img = self._image_cache.get(source, None)
-                            if img is None:
-                                img = self.get_scaled_image(source, force_lionel=True)
-                                img = center_text_on_image(img, et_enum.label(), styled=True)
-                                self._image_cache[source] = img
-                                self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                                self._image_cache[source] = img
-                            self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                            if train_id:
-                                self._image_cache[(CommandScope.ENGINE, train_id)] = img
-                                tmcc_id = train_id
-                                scope = CommandScope.TRAIN
-                    else:
-                        self.clear_image()
-        elif self.scope in {CommandScope.ACC, CommandScope.TRAIN} and tmcc_id != 0:
-            state = self._state_store.get_state(self.scope, tmcc_id, False)
-            if state:
-                img = self._image_cache.get((self.scope, tmcc_id), None)
-                if img is None:
-                    if isinstance(state, AccessoryState) and state.is_asc2:
-                        img = self.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif state.is_bpc2:
-                        img = self.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif isinstance(state, AccessoryState) and state.is_amc2:
-                        img = self.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif isinstance(state, AccessoryState) and state.is_sensor_track:
-                        img = self.get_scaled_image(self.sensor_track_image, force_lionel=True)
-                    if img:
-                        self._image_cache[(self.scope, tmcc_id)] = img
-                    else:
-                        self.clear_image()
-        if img is None:
-            self.clear_image()
-        if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
-            available_height, available_width = self.calc_image_box_size()
-            self.image_box.tk.config(width=available_width, height=available_height)
-            self.image.tk.config(image=img)
-            self.image_box.show()
+    # def update_component_image(
+    #     self,
+    #     tmcc_id: int = None,
+    #     key: tuple[CommandScope, int] | tuple[CommandScope, int, int] = None,
+    # ) -> None:
+    #     if key is None and self.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+    #         # routes and switches don't use images
+    #         return
+    #     if key:
+    #         scope = key[0]
+    #         tmcc_id = key[1]
+    #         train_id = key[2] if len(key) > 2 else None
+    #     else:
+    #         scope = self.scope
+    #         if tmcc_id is None:
+    #             tmcc_id = self._scope_tmcc_ids[self.scope]
+    #         train_id = None
+    #     img = None
+    #
+    #     # for Trains, use the image of the lead engine
+    #     if scope == CommandScope.TRAIN and self.active_state and not self.active_state.is_power_district and tmcc_id:
+    #         img = self._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
+    #         if img is None:
+    #             train_state = self.active_state
+    #             train_id = tmcc_id
+    #             head_id = train_state.head_tmcc_id
+    #             img = self._image_cache.get((CommandScope.ENGINE, head_id), None)
+    #             if img is None:
+    #                 self.update_component_image(key=(CommandScope.ENGINE, head_id, train_id))
+    #                 return
+    #             else:
+    #                 self._image_cache[(CommandScope.TRAIN, train_id)] = img
+    #     elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
+    #         with self._cv:
+    #             state = self._state_store.get_state(scope, tmcc_id, False)
+    #             prod_info = self.get_prod_info(state.bt_id if state else None, self.update_component_image, tmcc_id)
+    #
+    #             if prod_info is None:
+    #                 return
+    #
+    #             if isinstance(prod_info, ProdInfo):
+    #                 # Image should have been cached by fetch_prod_indo
+    #                 img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+    #                 if img is None:
+    #                     img = self.get_scaled_image(BytesIO(prod_info.image_content))
+    #                     self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+    #                 if train_id:
+    #                     self._image_cache[(CommandScope.TRAIN, train_id)] = img
+    #                     tmcc_id = train_id
+    #                     scope = CommandScope.TRAIN
+    #             else:
+    #                 if isinstance(state, EngineState):
+    #                     img = self._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+    #                     if img is None:
+    #                         et_enum = (
+    #                             state.engine_type_enum if state.engine_type_enum is not None else EngineType.DIESEL
+    #                         )
+    #                         source = ENGINE_TYPE_TO_IMAGE.get(et_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL])
+    #                         img = self._image_cache.get(source, None)
+    #                         if img is None:
+    #                             img = self.get_scaled_image(source, force_lionel=True)
+    #                             img = center_text_on_image(img, et_enum.label(), styled=True)
+    #                             self._image_cache[source] = img
+    #                             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+    #                             self._image_cache[source] = img
+    #                         self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+    #                         if train_id:
+    #                             self._image_cache[(CommandScope.ENGINE, train_id)] = img
+    #                             tmcc_id = train_id
+    #                             scope = CommandScope.TRAIN
+    #                 else:
+    #                     self._image_presenter.clear()
+    #     elif self.scope in {CommandScope.ACC, CommandScope.TRAIN} and tmcc_id != 0:
+    #         state = self._state_store.get_state(self.scope, tmcc_id, False)
+    #         if state:
+    #             img = self._image_cache.get((self.scope, tmcc_id), None)
+    #             if img is None:
+    #                 if isinstance(state, AccessoryState) and state.is_asc2:
+    #                     img = self.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
+    #                 elif state.is_bpc2:
+    #                     img = self.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
+    #                 elif isinstance(state, AccessoryState) and state.is_amc2:
+    #                     img = self.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
+    #                 elif isinstance(state, AccessoryState) and state.is_sensor_track:
+    #                     img = self.get_scaled_image(self.sensor_track_image, force_lionel=True)
+    #                 if img:
+    #                     self._image_cache[(self.scope, tmcc_id)] = img
+    #                 else:
+    #                     self._image_presenter.clear()
+    #     if img is None:
+    #         self._image_presenter.clear()
+    #     # Updates image if scope and ID match current
+    #     if img and scope == self.scope and tmcc_id == self._scope_tmcc_ids[self.scope]:
+    #         available_height, available_width = self.calc_image_box_size()
+    #         self.image_box.tk.config(width=available_width, height=available_height)
+    #         self.image.tk.config(image=img)
+    #         self.image_box.show()
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
-        # force geometry layout
-        self.app.tk.update_idletasks()
-
-        # Get the heights of fixed elements
-        if self.header not in self.size_cache:
-            _, header_height = self.size_cache[self.header] = (
-                self.header.tk.winfo_reqwidth(),
-                self.header.tk.winfo_reqheight(),
-            )
-        else:
-            _, header_height = self.size_cache[self.header]
-
-        if self.emergency_box not in self.size_cache:
-            emergency_width, emergency_height = self.size_cache[self.emergency_box] = (
-                self.emergency_box.tk.winfo_reqwidth(),
-                self.emergency_box_height or self.emergency_box.tk.winfo_reqheight(),
-            )
-        else:
-            emergency_width, emergency_height = self.size_cache[self.emergency_box]
-
-        if self.info_box not in self.size_cache:
-            _, info_height = self.size_cache[self.info_box] = (
-                self.info_box.tk.winfo_reqwidth(),
-                self.info_box.tk.winfo_reqheight(),
-            )
-        else:
-            _, info_height = self.size_cache[self.info_box]
-
-        if self.scope_box not in self.size_cache:
-            _, scope_height = self.size_cache[self.scope_box] = (
-                self.scope_box.tk.winfo_reqwidth(),
-                self.scope_box.tk.winfo_reqheight(),
-            )
-        else:
-            _, scope_height = self.size_cache[self.scope_box]
-
-        if self.keypad_box.visible:
-            if self.keypad_box not in self.size_cache:
-                _, keypad_height = self.size_cache[self.keypad_box] = (
-                    self.keypad_box.tk.winfo_reqwidth(),
-                    self.keypad_box.tk.winfo_reqheight(),
-                )
-            else:
-                _, keypad_height = self.size_cache[self.keypad_box]
-            variable_content = keypad_height
-        elif self.controller_box.visible:
-            if self.controller_box not in self.size_cache:
-                _, controller_height = self.size_cache[self.controller_box] = (
-                    self.controller_box.tk.winfo_reqwidth(),
-                    self.controller_box.tk.winfo_reqheight(),
-                )
-            else:
-                _, controller_height = self.size_cache[self.controller_box]
-            variable_content = controller_height
-        elif self.sensor_track_box.visible:
-            if self.sensor_track_box not in self.size_cache:
-                _, sensor_height = self.size_cache[self.sensor_track_box] = (
-                    self.sensor_track_box.tk.winfo_reqwidth(),
-                    self.sensor_track_box.tk.winfo_reqheight(),
-                )
-            else:
-                _, sensor_height = self.size_cache[self.sensor_track_box]
-            variable_content = sensor_height
-        else:
-            variable_content = 0
-            if self.avail_image_height is None:
-                print("*********** No Variable Content *******")
-
-        # Calculate remaining vertical space
-        if self.avail_image_height is None:
-            avail_image_height = (
-                self.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
-            )
-            self.avail_image_height = avail_image_height
-        else:
-            avail_image_height = self.avail_image_height
-
-        if self.avail_image_width is None:
-            # use width of emergency height box as standard
-            self.avail_image_width = avail_image_width = emergency_width
-        else:
-            avail_image_width = self.avail_image_width
-        return avail_image_height, avail_image_width
+        return self._image_presenter.calc_box_size()
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
