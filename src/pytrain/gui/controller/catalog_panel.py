@@ -105,7 +105,7 @@ class CatalogPanel:
             highlightbackground=LIONEL_ORANGE,
         )  # pixels
 
-    def update(self, scope: CommandScope) -> None:
+    def configure(self, scope: CommandScope) -> None:
         assert self.overlay  # force creation of panel
 
         # Updates catalog entries based on sort order
@@ -147,7 +147,7 @@ class CatalogPanel:
             return
         scope = self._scope
         self._scope = None
-        self.update(scope)
+        self.configure(scope)
 
     def _set_sort_order_widget(self, sort_order: int) -> None:
         try:
