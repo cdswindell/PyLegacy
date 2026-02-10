@@ -36,10 +36,20 @@ class PopupManager:
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
         self._state = PopupState()
+        self._overlays: dict[str, Box] = {}
 
     # ------------------------------------------------------------------
     # Construction
     # ------------------------------------------------------------------
+
+    def get_or_create(self, key: str, title: str, build_body: Callable[[Box], None]) -> Box:
+        existing = self._overlays.get(key)
+        if isinstance(existing, Box) and getattr(existing, "overlay_key", None) == key:
+            return existing
+        overlay = self.create_popup(title, build_body)
+        overlay.overlay_key = key
+        self._overlays[key] = overlay
+        return overlay
 
     def create_popup(self, title_text: str, build_body: Callable[[Box], None]) -> Box:
         host = self._host

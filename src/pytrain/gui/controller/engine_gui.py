@@ -785,40 +785,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         return momentum_box, cell, momentum_level, momentum
 
-    def create_popup(self, title_text: str, build_body: Callable[[Box], None]):
-        """
-        Create a top-level overlay popup with a title, custom body, and close button.
-        """
-        overlay = Box(self.app, align="top", border=2, visible=False)
-        overlay.bg = "white"
-
-        # Title row
-        title_row = Box(overlay, width=self.emergency_box_width, height=self.button_size // 3)
-        title_row.bg = "lightgrey"
-        overlay.title = title = Text(title_row, text=title_text, bold=True, size=self.s_18)
-        title.bg = "lightgrey"
-        # Body container (the caller populates this)
-        body = Box(overlay, layout="auto")
-        build_body(body)
-
-        # Close button
-        btn = PushButton(overlay, text="Close", align="bottom", command=self.close_popup, args=[overlay])
-        btn.text_size = self.s_20
-        btn.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
-        btn.tk.pack_configure(padx=20, pady=20)
-        overlay.hide()
-
-        return overlay
-
     def build_tower_dialogs_body(self, body: Box):
         self._elements.add(self.make_combo_panel(body, TOWER_DIALOGS))
 
@@ -1165,9 +1131,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(self.info_overlay)
 
     def on_rr_speed(self) -> None:
-        if self.rr_speed_overlay is None:
-            self.rr_speed_overlay = self._popup.create_popup("Official Rail Road Speeds", self.build_rr_speed_body)
-        self.show_popup(self.rr_speed_overlay)
+        overlay = self._popup.get_or_create("rr_speed", "Official Rail Road Speeds", self.build_rr_speed_body)
+        self.show_popup(overlay)
 
     def on_lights(self) -> None:
         if self.lights_overlay is None:
