@@ -21,7 +21,7 @@ from guizero import App, Box, ButtonGroup, Combo, Picture, PushButton, Slider, T
 from guizero.base import Widget
 from guizero.event import EventData
 
-from .admin_panel import AdminPanel
+from .admin_panel import AdminPanel, ADMIN_TITLE
 from .catalog_panel import CatalogPanel
 from .engine_gui_conf import (
     AC_OFF_KEY,
@@ -84,7 +84,7 @@ from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
 from ...pdi.irda_req import IrdaReq, IrdaSequence
 from ...protocol.command_def import CommandDefEnum
 from ...protocol.command_req import CommandReq
-from ...protocol.constants import CommandScope, EngineType, PROGRAM_NAME
+from ...protocol.constants import CommandScope, EngineType
 from ...protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ...protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
 from ...protocol.sequence.sequence_constants import SequenceCommandEnum
@@ -215,7 +215,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.ac_aux1_cell = self.ac_aux1_btn = None
 
         # controller
-        self._admin_title = f"Manage {PROGRAM_NAME}"
         self._separator = None
         self.controller_box = self.controller_keypad_box = None
         self.brake_box = self.brake_level = self.brake = self.focus_widget = None
@@ -248,8 +247,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.conductor_actions_box = self.station_dialog_box = self.steward_dialog_box = None
         self.can_hack_combo = False  # don't ask
         self._isd = None  # swipe detector for engine image field
-        self._admin_panel = self._admin_overlay = None
-        self._catalog_panel = self._catalog_overlay = None
+        self._admin_panel = None
+        self._catalog_panel = None
         self.engine_ops_cells = {}
 
         # callbacks
@@ -269,6 +268,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # self.diesel_lights_box = self.steam_lights_box = None
         # self._tower_overlay = self._crew_overlay = None
         # self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
+        # self._admin_overlay = None
+        # self._catalog_overlay = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
@@ -1349,13 +1350,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         with self._cv:
             if self._admin_panel is None:
                 self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
-            if self._admin_overlay is None:
-                self._admin_overlay = self._popup.create_popup(self._admin_title, self._admin_panel.build)
-        self.show_popup(self._admin_overlay, hide_image_box=True)
+        overlay = self._admin_panel.overlay
+        self.show_popup(overlay, hide_image_box=True)
 
     def on_recents(self, value: str):
+        # Updates component info if selected state is valid
         if value not in {self.title, self._separator}:
-            if value == self._admin_title:
+            if value == ADMIN_TITLE:
                 self.on_admin_panel()
             else:
                 state = self._options_to_state[value]
@@ -1398,7 +1399,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     options.append(name)
                     self._options_to_state[name] = state
         options.append(self._separator)
-        options.append(self._admin_title)
+        options.append(ADMIN_TITLE)
         return options
 
     def monitor_state(self):
@@ -1670,11 +1671,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._catalog_panel = CatalogPanel(
                     self, width=self.emergency_box_width, height=int(3 * self.height / 4)
                 )
-            if self._catalog_overlay is None:
-                self._catalog_overlay = self._popup.create_popup("Catalog", self._catalog_panel.build)
-            self._catalog_panel.update(pb.scope)
-            self._catalog_overlay.title.value = self._catalog_panel.title
-        self.show_popup(self._catalog_overlay, hide_image_box=True)
+        self._catalog_panel.update(pb.scope)
+        overlay = self._catalog_panel.overlay
+        overlay.title.value = self._catalog_panel.title
+        self.show_popup(overlay, hide_image_box=True)
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:

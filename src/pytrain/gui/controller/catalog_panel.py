@@ -34,6 +34,14 @@ class CatalogPanel:
         self._scoped_sort_order = {}
         self._skip_update = False
         self._entry_state_map = {}
+        self._overlay = None
+
+    @property
+    def overlay(self) -> Box:
+        if self._overlay is None:
+            # noinspection PyProtectedMember, PyUnresolvedReferences
+            self._overlay = self._gui._popup.create_popup("Catalog", self.build)
+        return self._overlay
 
     def build(self, body: Box) -> None:
         catalog_box = Box(body, border=1, align="top")

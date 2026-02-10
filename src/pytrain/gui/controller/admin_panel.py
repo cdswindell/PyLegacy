@@ -16,6 +16,8 @@ from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
+ADMIN_TITLE = f"Manage {PROGRAM_NAME}"
+
 SCOPE_OPTS = [
     ["Local", 0],
     ["All", 1],
@@ -36,6 +38,14 @@ class AdminPanel:
         self._debug_btn = None
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
+        self._overlay = None
+
+    @property
+    def overlay(self) -> Box:
+        if self._overlay is None:
+            # noinspection PyProtectedMember
+            self._overlay = self._gui._popup.create_popup(ADMIN_TITLE, self.build)
+        return self._overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
