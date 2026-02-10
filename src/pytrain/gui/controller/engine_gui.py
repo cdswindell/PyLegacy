@@ -67,7 +67,7 @@ from .engine_gui_conf import (
     send_lcs_off_command,
     send_lcs_on_command,
 )
-from .popup_manager import PopupManager
+from .popup_manager import PopupManager, LightingOverlay
 from .state_info_overlay import StateInfoOverlay
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
@@ -1134,6 +1134,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._popup.get_or_create("rr_speed", "Official Rail Road Speeds", self.build_rr_speed_body)
         self.show_popup(overlay)
 
+    # noinspection PyUnresolvedReferences
     def on_lights(self) -> None:
         overlay = self._popup.get_or_create("lighting", "Lighting", self.build_lights_body)
 
@@ -1141,12 +1142,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             state = self.active_engine_state
         else:
             state = self.active_state
+
+        lo = cast(LightingOverlay, cast(object, overlay))
         if state.is_steam:
-            overlay.steam_lights.show()
-            overlay.diesel_lights.hide()
+            lo.steam_lights.show()
+            lo.diesel_lights.hide()
         else:
-            overlay.steam_lights.hide()
-            overlay.diesel_lights.show()
+            lo.steam_lights.hide()
+            lo.diesel_lights.show()
         # make sure button is reset, as popup prevents normal handling
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 

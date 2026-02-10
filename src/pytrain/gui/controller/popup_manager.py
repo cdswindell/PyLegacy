@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from tkinter import TclError
-from typing import Callable, TYPE_CHECKING, Any, Optional
+from typing import Callable, TYPE_CHECKING, Any, Optional, Protocol
 
 from guizero import Box, PushButton, Text
 from guizero.base import Widget
@@ -26,6 +26,11 @@ class PopupState:
     current_popup: Widget | None = None
     on_close_show: Widget | None = None
     restore_image_box: bool = False
+
+
+class LightingOverlay(Protocol):
+    steam_lights: Box
+    diesel_lights: Box
 
 
 class PopupManager:
