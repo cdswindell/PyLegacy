@@ -1021,7 +1021,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         with self._cv:
             if self._lighting_panel is None:
                 self._lighting_panel = LightingPanel(self)
-        overlay = self._state_info.overlay
+        overlay = self._lighting_panel.overlay
         overlay.configure(self.active_engine_state)
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
