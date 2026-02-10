@@ -787,6 +787,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def build_conductor_actions_body(self, body: Box):
         self._elements.add(self.make_combo_panel(body, CONDUCTOR_ACTIONS))
 
+    def build_station_dialogs_body(self, body: Box):
+        self.station_dialog_box = self._popup.build_button_panel(body, STATION_DIALOGS)
+
+    def build_steward_dialogs_body(self, body: Box):
+        self.steward_dialog_box = self._popup.build_button_panel(body, STEWARD_DIALOGS)
+
     def build_lights_body(self, body: Box):
         # cab light
         master_box = Box(body, layout="grid", border=1)
@@ -924,12 +930,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             cb._selected.set(title)
         else:
             cb.select_default()
-
-    def build_station_dialogs_body(self, body: Box):
-        self.station_dialog_box = self._popup.build_button_panel(body, STATION_DIALOGS)
-
-    def build_steward_dialogs_body(self, body: Box):
-        self.steward_dialog_box = self._popup.build_button_panel(body, STEWARD_DIALOGS)
 
     def build_bell_horn_body(self, body: Box):
         cs = self.button_size
