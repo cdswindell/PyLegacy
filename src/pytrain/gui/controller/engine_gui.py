@@ -988,12 +988,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if dialog:
                     nb.on_hold = (self.on_speed_command, [f"{dialog}, {op[0]}"])
 
-    def update_state_info(self) -> None:
-        with self._cv:
-            if self._state_info is None:
-                self._state_info = StateInfoOverlay(self)
-        self._state_info.update(self.active_state)
-
     def on_info(self) -> None:
         state = self.active_state
         if state is None:
@@ -1381,7 +1375,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:
-            self.update_state_info()
+            self._state_info.update(state)
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
         if state and state != self._active_train_state:
