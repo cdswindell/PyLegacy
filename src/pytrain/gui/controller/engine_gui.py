@@ -2622,7 +2622,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 # dispatch directly to on_engine_command for processing
                 if state:
                     state.is_ramping = False
-                self.on_engine_command(speed_req, state=state, scope=CommandScope.TRAIN)
+                self.on_engine_command(speed_req, state=state, scope=state.scope)
                 return
         else:
             do_dialog = False
