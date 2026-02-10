@@ -127,7 +127,7 @@ class StateInfoOverlay:
             # Reusing the existing make_info_field logic from the main GUI
             self.details[key] = self.make_field(info_box, title, grid, scope=scope)
 
-    def update(self, state):
+    def configure(self, state):
         """Populates the fields with data from the current state."""
         if not state or not self.details:
             return

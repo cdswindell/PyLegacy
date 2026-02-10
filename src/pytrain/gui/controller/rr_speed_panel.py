@@ -27,13 +27,12 @@ class RrSpeedPanel:
         return self._overlay
 
     def configure(self, state: EngineState):
-        if state:
-            rr_speed = state.rr_speed
-            for btn in self._rr_speed_btns:
-                if rr_speed and btn.rr_speed.endswith(rr_speed.name):
-                    btn.bg = "green"
-                else:
-                    btn.bg = "white"
+        rr_speed = state.rr_speed if state else ""
+        for btn in self._rr_speed_btns:
+            if rr_speed and btn.rr_speed.endswith(rr_speed.name):
+                btn.bg = "green"
+            else:
+                btn.bg = "white"
 
     def build(self, body: Box):
         host = self._gui

@@ -182,7 +182,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._actual_current_engine_id = 0
         self.reset_on_keystroke = False
 
-        self._state_info = None  # Init later in run()
         self._sensor_track_watcher = None
         self._sensor_track_state = None
 
@@ -248,6 +247,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._catalog_panel = None
         self._lighting_panel = None
         self._rr_speed_panel = None
+        self._state_info = None  # Init later in run()
         self.engine_ops_cells = {}
 
         # callbacks
@@ -963,7 +963,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # show/hide fields in the overlay
         self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs)
-        self._state_info.update(state)
+        self._state_info.configure(state)
         self.show_popup(overlay)
 
     def on_rr_speed(self) -> None:
@@ -1340,7 +1340,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:
-            self._state_info.update(state)
+            self._state_info.configure(state)
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
         if state and state != self._active_train_state:
