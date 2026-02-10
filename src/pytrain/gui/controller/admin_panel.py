@@ -47,9 +47,6 @@ class AdminPanel:
             self._overlay = self._gui._popup.create_popup(ADMIN_TITLE, self.build)
         return self._overlay
 
-    def configure(self):
-        pass
-
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
