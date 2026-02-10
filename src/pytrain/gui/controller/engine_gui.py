@@ -223,7 +223,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._freight_sounds_bell_horn_box = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
-        self.rr_speed_overlay = self.lights_overlay = self.horn_overlay = self.info_overlay = None
+        self.horn_overlay = None
         self.rr_speed_btns = set()
         self._acela_btns = set()
         self._crane_btns = set()
@@ -270,6 +270,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # self.conductor_overlay = self.steward_overlay = self.station_overlay = self.bell_overlay = None
         # self._admin_overlay = None
         # self._catalog_overlay = None
+        # self.rr_speed_overlay = self.lights_overlay = self.info_overlay = None
 
         # helpers to reduce code
         self._popup = PopupManager(self)
@@ -1118,8 +1119,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         with self._cv:
             if self._state_info is None:
                 self._state_info = StateInfoOverlay(self)
-            if self.info_overlay is None:
-                self.info_overlay = self._popup.create_popup(self.version, self._state_info.build)
+        overlay = self._state_info.overlay
 
         # show/hide fields in the overlay
         state = self.active_state
@@ -1129,7 +1129,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
         self._state_info.refresh_visibility(scope, is_lcs_proxy=is_lcs)
         self.update_state_info()
-        self.show_popup(self.info_overlay)
+        self.show_popup(overlay)
 
     def on_rr_speed(self) -> None:
         overlay = self._popup.get_or_create("rr_speed", "Official Rail Road Speeds", self.build_rr_speed_body)
@@ -1509,7 +1509,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             btn.bg = self._active_bg if state.is_reverse else self._inactive_bg
 
         # update info detail popup, if its visible
-        if self.info_overlay and self.info_overlay.visible:
+        if self._state_info and self._state_info.visible:
             self.update_state_info()
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:

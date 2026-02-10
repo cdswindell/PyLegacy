@@ -21,8 +21,20 @@ log = logging.getLogger(__name__)
 
 class StateInfoOverlay:
     def __init__(self, gui):
-        self.gui = gui
+        self._gui = gui
         self.details = {}
+        self._overlay = None
+
+    @property
+    def overlay(self) -> Box:
+        if self._overlay is None:
+            # noinspection PyProtectedMember, PyUnresolvedReferences
+            self._overlay = self._gui._popup.create_popup(self._gui.version, self.build)
+        return self._overlay
+
+    @property
+    def visible(self) -> bool:
+        return self._overlay is not None and self._overlay.visible
 
     def make_field(
         self,
@@ -33,7 +45,7 @@ class StateInfoOverlay:
         scope: CommandScope = None,
     ) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
-        aw, _ = self.gui.calc_image_box_size()
+        aw, _ = self._gui.calc_image_box_size()
         if len(grid) >= 4:
             col, row, colspan, rowspan = grid
             aw = colspan * int(aw / max_cols)
@@ -52,7 +64,7 @@ class StateInfoOverlay:
             width="fill",
             align="left",
         )
-        tb.text_size = self.gui.s_10
+        tb.text_size = self._gui.s_10
         tb.display_scope = scope
 
         # Now tell Tk this one actually spans columns/rows
@@ -65,7 +77,7 @@ class StateInfoOverlay:
 
         # Value field inside the TitleBox
         tf = Text(tb, grid=[0, 0], width="fill", height=1)
-        tf.text_size = self.gui.s_18
+        tf.text_size = self._gui.s_18
         tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
 
         return tb, tf
@@ -76,7 +88,7 @@ class StateInfoOverlay:
         for i in range(4):
             info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
 
-        aw, _ = self.gui.calc_image_box_size()
+        aw, _ = self._gui.calc_image_box_size()
         info_box.tk.config(width=aw)
 
         # Config: [Key, Title, Grid, Scope]
@@ -126,7 +138,7 @@ class StateInfoOverlay:
         if isinstance(state, (EngineState, TrainState)):
             tmcc_id = state.tmcc_id if isinstance(state, EngineState) else state.head_tmcc_id
             # noinspection PyProtectedMember
-            p_info = self.gui._prod_info_cache.get(tmcc_id)
+            p_info = self._gui._prod_info_cache.get(tmcc_id)
 
             etype = state.engine_type_label
             if isinstance(p_info, ProdInfo) and p_info.engine_type:
