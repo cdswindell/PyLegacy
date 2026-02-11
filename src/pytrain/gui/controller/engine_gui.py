@@ -43,6 +43,7 @@ from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
+from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector
@@ -96,6 +97,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         tmcc_id: int = None,
         scope: CommandScope = CommandScope.ENGINE,
         auto_scroll: bool = True,
+        config_file: str = DEFAULT_CONFIG_FILE,
     ) -> None:
         # have to call parent init after all variables are set up
         GuiZeroBase.__init__(
@@ -217,6 +219,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._image_presenter: ImagePresenter = ImagePresenter(self)
         self._controller_view: ControllerView = ControllerView(self)
         self._keypad_view: KeypadView = KeypadView(self)
+
+        # get set of configured accessories
+        self._configured_accessories = ConfiguredAccessorySet.from_file(config_file, verify=True)
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
