@@ -7,7 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import logging
-from typing import TYPE_CHECKING
+from typing import Generic, TYPE_CHECKING, TypeVar
 
 from guizero import App, Box, ButtonGroup, TitleBox
 from guizero.event import EventData
@@ -27,7 +27,7 @@ from .engine_gui_conf import (
     SWITCH_THRU_KEY,
 )
 from ...db.accessory_state import AccessoryState
-from ...db.component_state import LcsProxyState
+from ...db.component_state import ComponentState, LcsProxyState
 from ...db.engine_state import TrainState
 from ...pdi.asc2_req import Asc2Req
 from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
@@ -40,8 +40,10 @@ log = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
+S = TypeVar("S", bound=ComponentState)
 
-class KeypadView:
+
+class KeypadView(Generic[S]):
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
         self._reset_on_keystroke = False
@@ -379,6 +381,71 @@ class KeypadView:
             host.reset_btn.enable()
         else:
             host.reset_btn.disable()
+
+    def enter_ops_mode_base(self) -> None:
+        """
+        Common ops-mode transition work that is purely keypad/view state:
+          - flip entry-mode flag
+          - hide entry/ops cells (caller will selectively re-show ops cells)
+        """
+        host = self._host
+        self.is_entry_mode = False
+
+        for cell in host.entry_cells:
+            if cell.visible:
+                cell.hide()
+
+        for cell in host.ops_cells:
+            if cell.visible:
+                cell.hide()
+
+    def apply_ops_mode_ui_non_engine(self, state: S | None = None) -> None:
+        """
+        All non-engine/train ops-mode UI decisions.
+        EngineGui should call this only when NOT engine/train.
+        """
+        host = self._host
+
+        # reset is only meaningful for engine/train
+        if host.reset_btn.enabled:
+            host.reset_btn.disable()
+
+        if host.scope == CommandScope.ROUTE:
+            host.on_new_route()
+            host.fire_route_cell.show()
+            if not host.keypad_box.visible:
+                host.keypad_box.show()
+            return
+
+        if host.scope == CommandScope.SWITCH:
+            host.on_new_switch()
+            host.switch_thru_cell.show()
+            host.switch_out_cell.show()
+            if not host.keypad_box.visible:
+                host.keypad_box.show()
+            return
+
+        if self.is_accessory_or_bpc2:
+            if state is None:
+                state = host.active_state
+
+            host.on_new_accessory(state)
+            show_keypad = True
+
+            if state:
+                if isinstance(state, AccessoryState) and state.is_sensor_track:
+                    host.sensor_track_box.show()
+                    host.keypad_box.hide()
+                    show_keypad = False
+                elif state.is_bpc2 or (isinstance(state, AccessoryState) and state.is_asc2):
+                    host.ac_off_cell.show()
+                    host.ac_status_cell.show()
+                    host.ac_on_cell.show()
+                    if isinstance(state, AccessoryState) and state.is_asc2:
+                        host.ac_aux1_cell.show()
+
+            if show_keypad and not host.keypad_box.visible:
+                host.keypad_box.show()
 
     # noinspection PyProtectedMember
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
