@@ -22,7 +22,7 @@ from guizero.base import Widget
 from .engine_gui_conf import BELL_KEY, ENGINE_OPS_LAYOUT, MOMENTUM, MOM_TB, TRAIN_BRAKE
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
-from ...db.engine_state import EngineState, TrainState
+from ...db.engine_state import EngineState
 from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
@@ -68,19 +68,17 @@ class ControllerView:
     # -----------------------------
 
     # noinspection PyProtectedMember
-    def update_from_state(
-        self, state: EngineState | TrainState | None, throttle_state: EngineState | TrainState | None
-    ):
+    def update_from_state(self, state: EngineState | None, throttle_state: EngineState | None):
         """
         Paint throttle/brake/momentum + direction buttons from the given state.
 
         `state` is the active engine state (for brake/momentum/direction).
         `throttle_state` is whichever state is allowed to control throttle (engine vs. train vs. None).
         """
-        host = self._host
         if not isinstance(state, EngineState):
             return
 
+        host = self._host
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
@@ -128,7 +126,7 @@ class ControllerView:
             # --- Momentum ---
             momentum = state.momentum if state.momentum is not None else 0
             host.momentum_level.value = f"{momentum:02d}"
-            if host.app.tk.focus_get() != host.momentum.tk:
+            if host.momentum.tk.focus_displayof() != host.momentum.tk:
                 host.momentum.value = momentum
 
             if state.is_legacy:
@@ -137,11 +135,12 @@ class ControllerView:
                 host.momentum.tk.config(resolution=4, showvalue=False)
 
             # --- Direction buttons ---
-            _, fwd_btn = host.engine_ops_cells[("FORWARD_DIRECTION", "e")]
-            fwd_btn.bg = host._active_bg if state.is_forward else host._inactive_bg
+            if host.engine_ops_cells:
+                _, fwd_btn = host.engine_ops_cells[("FORWARD_DIRECTION", "e")]
+                fwd_btn.bg = host._active_bg if state.is_forward else host._inactive_bg
 
-            _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
-            rev_btn.bg = host._active_bg if state.is_reverse else host._inactive_bg
+                _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
+                rev_btn.bg = host._active_bg if state.is_reverse else host._inactive_bg
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
@@ -500,7 +499,7 @@ class ControllerView:
             get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
 
     # noinspection PyProtectedMember
-    def apply_engine_type(self, state: EngineState | TrainState | None) -> None:
+    def apply_engine_type(self, state: EngineState | None) -> None:
         """
         Show/hide controller op keys + aux widgets based on motive type.
         Called from EngineGui.ops_mode() after state is resolved.
@@ -513,7 +512,7 @@ class ControllerView:
         if host._rr_speed_box:
             host._rr_speed_box.hide()
 
-        if not isinstance(state, (EngineState, TrainState)):
+        if not isinstance(state, EngineState):
             # If unknown, show diesel-ish defaults
             self._show_keys_for_type("d")
             if host._rr_speed_box:
@@ -641,6 +640,8 @@ class ControllerView:
         # actual speed command is sent from _on_throttle_release_event
 
     def _on_throttle_release_event(self, e=None) -> None:
+        if self._updating_from_state:
+            return
         host = self._host
         # If a debounced callback is pending, cancel it and send immediately.
         after_id = getattr(host.throttle, "after_id", None)
@@ -698,15 +699,14 @@ class ControllerView:
             return
 
     def _on_momentum_release_event(self, e=None) -> None:
-        host = self._host
-
-        try:
-            value = int(host.momentum.value)
-        except (TypeError, ValueError):
+        if self._updating_from_state:
             return
-
-        self._send_momentum(value)
-        self.clear_focus(e)
+        try:
+            value = int(self._host.momentum.value)
+            self._send_momentum(value)
+            self.clear_focus(e)
+        except (TypeError, ValueError):
+            pass
 
     def _send_momentum(self, value: int) -> None:
         host = self._host
