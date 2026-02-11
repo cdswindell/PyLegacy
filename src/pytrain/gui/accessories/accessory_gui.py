@@ -74,8 +74,10 @@ class AccessoryGui(Thread):
 
             for acc in self._accessories:
                 label = acc.label
-                if counts.get(label, 0) > 1 and acc.instance_id:
-                    label = f"{label} ({acc.instance_id})"
+                if counts.get(label, 0) > 1:
+                    dis = acc.label_disambiguator()
+                    if dis:
+                        label = f"{label} ({dis})"
                 # first one wins if still collides (shouldn’t, but be defensive)
                 self._acc_by_label.setdefault(label, acc)
         else:
@@ -132,7 +134,10 @@ class AccessoryGui(Thread):
 
         try:
             # New path: ConfiguredAccessory owns ctor logic (and filters ctor kwargs).
-            self._gui = acc.create_gui(aggregator=self)
+            self._gui = acc.create_gui(
+                aggregator=self,
+                extra_kwargs={"display_name": label},
+            )
         except TypeError as e:
             raise TypeError(f"Failed to instantiate accessory GUI '{label}': {e}") from None
 

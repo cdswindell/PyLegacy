@@ -69,6 +69,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         # these instance variables must be defined before calling super().__init__()
         self._stand_alone = aggregator is None or not isinstance(aggregator, GuiZeroBase)
         self._aggregator = aggregator
+        self._menu_label: str | None = None
         """Defines abstract accessory base class for GUI elements"""
         GuiZeroBase.__init__(
             self,
@@ -135,6 +136,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         return self.host._app
 
     @property
+    def menu_label(self) -> str:
+        return self._menu_label or self.title
+
+    @property
     def destroy_complete(self) -> Event:
         return self._ev
 
@@ -170,7 +175,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                     tmcc_id=tmcc_id,
                 )
 
-                print(cfg)
+                if display_name:
+                    self._menu_label = display_name
                 self.title = cfg.title
                 self.image_file = find_file(cfg.definition.variant.image)
                 self._cfg = cfg
@@ -301,7 +307,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             cb = self.aggregator_combo = Combo(
                 box,
                 options=self._aggregator.guis,
-                selected=self.title,
+                selected=self.menu_label,
                 grid=[0, row_num],
                 command=self.on_combo_change,
             )
@@ -312,8 +318,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             # customize label
             cb = Combo(
                 box,
-                options=[self.title],
-                selected=self.title,
+                options=[self.menu_label],
+                selected=self.menu_label,
                 grid=[0, row_num],
             )
             cb.text_size = ats
