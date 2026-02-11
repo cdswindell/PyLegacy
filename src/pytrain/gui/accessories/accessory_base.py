@@ -139,6 +139,9 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     @property
     def registry(self) -> AccessoryRegistry:
+        if self._registry is None:
+            self._registry = AccessoryRegistry.instance()
+            self._registry.bootstrap()
         return self._registry
 
     def configure_from_registry(
@@ -260,11 +263,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     # noinspection PyTypeChecker
     def build_gui(self) -> None:
         # initialize registry
-        self._registry = AccessoryRegistry.instance()
-        self._registry.bootstrap()
-
-        assert self._registry is not None
-        assert self._registry.is_bootstrapped
+        assert self.registry is not None
+        assert self.registry.is_bootstrapped
 
         # bind variant to gui
         self.bind_variant()
