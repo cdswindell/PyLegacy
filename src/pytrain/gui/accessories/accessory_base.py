@@ -170,6 +170,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                     tmcc_id=tmcc_id,
                 )
 
+                print(cfg)
                 self.title = cfg.title
                 self.image_file = find_file(cfg.definition.variant.image)
                 self._cfg = cfg
