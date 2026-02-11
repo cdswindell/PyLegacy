@@ -88,6 +88,9 @@ def instantiate_gui(spec: GuiCtorSpec, *, extra_kwargs: Mapping[str, Any] | None
     if extra_kwargs:
         kwargs.update(extra_kwargs)
 
+    # ✅ NEW: filter again after merging extra kwargs (width/height/etc. may be injected)
+    kwargs = _filter_kwargs_for_ctor(spec.gui_class, kwargs)
+
     # Validate signature before calling (cleaner errors)
     sig = inspect.signature(spec.gui_class.__init__)
     try:
