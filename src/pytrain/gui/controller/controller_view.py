@@ -198,55 +198,6 @@ class ControllerView:
         sliders.tk.pack(fill="y", expand=True)
 
         # throttle
-        # host.throttle_box = throttle_box = Box(
-        #     sliders,
-        #     border=1,
-        #     grid=[1, 0],
-        # )
-        #
-        # cell = TitleBox(throttle_box, "Speed", align="top", border=1)
-        # cell.text_size = host.s_10
-        # host.speed = speed = Text(
-        #     cell,
-        #     text="000",
-        #     color="black",
-        #     align="top",
-        #     bold=True,
-        #     size=host.s_18,
-        #     width=4,
-        #     font="DigitalDream",
-        # )
-        # speed.bg = "black"
-        # speed.text_color = "white"
-        #
-        # host.throttle = throttle = Slider(
-        #     throttle_box,
-        #     align="top",
-        #     horizontal=False,
-        #     step=1,
-        #     width=int(host.button_size / 2),
-        #     height=host.slider_height,
-        #     command=self.on_throttle,
-        # )
-        # throttle.after_id = None  # used to debounce slider updates
-        # throttle.text_color = "black"
-        # throttle.tk.config(
-        #     from_=195,
-        #     to=0,
-        #     takefocus=0,
-        #     troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
-        #     activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-        #     bg="lightgrey",  # darker navy background
-        #     highlightthickness=1,
-        #     highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-        #     width=int(host.button_size / 2),
-        #     sliderlength=int(host.slider_height / 6),
-        # )
-        # throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        # throttle.tk.bind("<ButtonRelease-1>", self._on_throttle_release_event, add="+")
-        # throttle.tk.bind("<ButtonRelease>", self._on_throttle_release_event, add="+")
-
-        # throttle (FULLY via _make_slider)
         host.throttle_box, host.throttle_title_box, host.speed, host.throttle = self._make_slider(
             sliders,
             title="Speed",
@@ -706,6 +657,7 @@ class ControllerView:
             return
 
         if state.is_legacy:
+            print(f"*** Setting Momentum to: {value}")
             host.on_engine_command("MOMENTUM", data=value)
         else:
             if value in {0, 1}:
@@ -719,30 +671,6 @@ class ControllerView:
                 value = 7
 
         host.momentum_level.value = f"{value:02d}"
-
-    # def on_momentum(self, value) -> None:
-    #     host = self._host
-    #     if host.app.tk.focus_get() == host.momentum.tk:
-    #         # we need state info for this
-    #         if host.active_engine_state:
-    #             state = host.active_engine_state
-    #         else:
-    #             state = host.active_state
-    #         if isinstance(state, EngineState):
-    #             value = int(value)
-    #             if state.is_legacy:
-    #                 host.on_engine_command("MOMENTUM", data=value)
-    #             else:
-    #                 if value in {0, 1}:
-    #                     value = 0
-    #                     host.on_engine_command("MOMENTUM_LOW", data=value)
-    #                 elif value in {2, 3, 4}:
-    #                     value = 3
-    #                     host.on_engine_command("MOMENTUM_MEDIUM")
-    #                 else:
-    #                     value = 7
-    #                     host.on_engine_command("MOMENTUM_HIGH")
-    #             host.momentum_level.value = f"{value:02d}"
 
     def show_horn_control(self) -> None:
         host = self._host
@@ -900,65 +828,3 @@ class ControllerView:
             s.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         return box, tb, level, s
-
-    # def _make_slider(
-    #     self,
-    #     sliders: Box,
-    #     title: str,
-    #     command: Callable,
-    #     frm: int,
-    #     to: int,
-    #     step: int = 1,
-    #     visible: bool = True,
-    # ) -> tuple[Box, TitleBox, Text, Slider]:
-    #     host = self._host
-    #
-    #     momentum_box = Box(
-    #         sliders,
-    #         border=1,
-    #         grid=[0, 0],
-    #         visible=visible,
-    #     )
-    #
-    #     cell = TitleBox(momentum_box, title, align="top", border=1)
-    #     cell.text_size = host.s_10
-    #     momentum_level = Text(
-    #         cell,
-    #         text="00",
-    #         color="black",
-    #         align="top",
-    #         bold=True,
-    #         size=host.s_18,
-    #         width=3,
-    #         font="DigitalDream",
-    #     )
-    #     momentum_level.bg = "black"
-    #     momentum_level.text_color = "white"
-    #
-    #     momentum = Slider(
-    #         momentum_box,
-    #         align="top",
-    #         horizontal=False,
-    #         step=step,
-    #         width=int(host.button_size / 3),
-    #         height=host.slider_height,
-    #         command=command,
-    #     )
-    #     momentum.text_color = "black"
-    #     momentum.tk.config(
-    #         from_=frm,
-    #         to=to,
-    #         takefocus=0,
-    #         troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
-    #         activebackground=LIONEL_ORANGE,  # bright Lionel orange for the handle
-    #         bg="lightgrey",  # darker navy background
-    #         highlightthickness=1,
-    #         highlightbackground=LIONEL_ORANGE,  # subtle orange outline
-    #         width=int(host.button_size / 3),
-    #         sliderlength=int(host.slider_height / 6),
-    #     )
-    #     momentum.tk.bind("<Button-1>", lambda e: momentum.tk.focus_set())
-    #     momentum.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-    #     momentum.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
-    #
-    #     return momentum_box, cell, momentum_level, momentum
