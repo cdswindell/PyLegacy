@@ -16,23 +16,19 @@ from typing import Any, Callable, Generic, Iterator, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, Text, TitleBox
 from guizero.base import Widget
-from guizero.event import EventData
 
 from .admin_panel import ADMIN_TITLE, AdminPanel
 from .bell_horn_panel import BellHornPanel
 from .catalog_panel import CatalogPanel
 from .controller_view import ControllerView
 from .engine_gui_conf import (
-    CLEAR_KEY,
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
-    ENTER_KEY,
     HALT_KEY,
     KEY_TO_COMMAND,
     REPEAT_EXCEPTIONS,
     SCOPE_TO_SET_ENUM,
-    SET_KEY,
     SMOKE_OFF,
     SMOKE_ON,
     STATION_DIALOGS,
@@ -56,9 +52,6 @@ from ...db.component_state import ComponentState, LcsProxyState, RouteState, Swi
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
 from ...db.state_watcher import StateWatcher
-from ...pdi.asc2_req import Asc2Req
-from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
-from ...pdi.irda_req import IrdaReq, IrdaSequence
 from ...protocol.command_def import CommandDefEnum
 from ...protocol.command_req import CommandReq
 from ...protocol.constants import CommandScope
@@ -139,7 +132,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.turn_off_image = find_file("off_button.jpg")
         self.power_off_path = find_file("bulb-power-off.png")
         self.power_on_path = find_file("bulb-power-on.png")
-        self._in_entry_mode = True
+
         self._btn_images = []
         self._dim_cache = {}
         self._scope_buttons = {}
@@ -155,7 +148,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.initial = tmcc_id
         self._active_engine_state = self._active_train_state = None
         self._actual_current_engine_id = 0
-        self.reset_on_keystroke = False
 
         self._sensor_track_watcher = None
         self._sensor_track_state = None
@@ -263,7 +255,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.on_scope(scope)
             if tmcc_id != self._scope_tmcc_ids[scope]:
                 self.update_component_info(tmcc_id)
-            elif self._in_entry_mode:
+            elif self._keypad_view.is_entry_mode:
                 self.ops_mode()
 
     # noinspection PyTypeChecker
@@ -742,7 +734,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if not held:
                     # pressing the same scope button again returns to entry mode with current
                     # component active
-                    if self._in_entry_mode:
+                    if self._keypad_view.is_entry_mode:
                         self.ops_mode(update_info=False)
                     else:
                         force_entry_mode = True
@@ -757,7 +749,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
         self.scope_box.show()
-        self.scope_keypad(force_entry_mode, clear_info)
+        self._keypad_view.scope_keypad(force_entry_mode, clear_info)
 
     def display_most_recent(self, scope: CommandScope) -> None:
         """
@@ -827,23 +819,23 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.header.append(option)
         self.header.select_default()
 
-    def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
-        # if tmcc_id associated with scope is 0, then we are in entry mode;
-        # show keypad with appropriate buttons
-        tmcc_id = self._scope_tmcc_ids[self.scope]
-        if tmcc_id == 0 or force_entry_mode:
-            self.entry_mode(clear_info=clear_info)
-            self.scope_power_btns()
-            if not self.keypad_box.visible:
-                self.keypad_box.show()
-
-    def scope_power_btns(self):
-        if self.is_engine_or_train:
-            self.on_key_cell.show()
-            self.off_key_cell.show()
-        else:
-            self.on_key_cell.hide()
-            self.off_key_cell.hide()
+    # def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
+    #     # if tmcc_id associated with scope is 0, then we are in entry mode;
+    #     # show keypad with appropriate buttons
+    #     tmcc_id = self._scope_tmcc_ids[self.scope]
+    #     if tmcc_id == 0 or force_entry_mode:
+    #         self.entry_mode(clear_info=clear_info)
+    #         self.scope_power_btns()
+    #         if not self.keypad_box.visible:
+    #             self.keypad_box.show()
+    #
+    # def scope_power_btns(self):
+    #     if self.is_engine_or_train:
+    #         self.on_key_cell.show()
+    #         self.off_key_cell.show()
+    #     else:
+    #         self.on_key_cell.hide()
+    #         self.off_key_cell.hide()
 
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, layout="left", border=2, align="top")
@@ -913,10 +905,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._isd.on_swipe_left = self.show_next_component
         self.image_box.hide()
 
-    def on_sensor_track_change(self) -> None:
-        tmcc_id = self._scope_tmcc_ids[self.scope]
-        st_seq = IrdaSequence.by_value(int(self.sensor_track_buttons.value))
-        IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
+    # def on_sensor_track_change(self) -> None:
+    #     tmcc_id = self._scope_tmcc_ids[self.scope]
+    #     st_seq = IrdaSequence.by_value(int(self.sensor_track_buttons.value))
+    #     IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
         self,
@@ -968,39 +960,45 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         return cell, nb
 
-    def on_keypress(self, key: str) -> None:
-        num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
-        tmcc_id = self.tmcc_id_text.value
-        if key.isdigit():
-            if int(tmcc_id) and self.reset_on_keystroke:
-                self.update_component_info(0)
-                tmcc_id = "0" * num_chars
-            tmcc_id = tmcc_id[1:] + key
-            self.tmcc_id_text.value = tmcc_id
-        elif key == CLEAR_KEY:
-            self.reset_on_keystroke = False
-            tmcc_id = "0" * num_chars
-            self.tmcc_id_text.value = tmcc_id
-            self.entry_mode()
-        elif key == SET_KEY:
-            self.reset_on_keystroke = False
-            tmcc_id = int(self.tmcc_id_text.value)
-            self.on_set_key(self.scope, tmcc_id)
-        elif key == ENTER_KEY:
-            # if a valid (existing) entry was entered, go to ops mode,
-            # otherwise, stay in entry mode
-            self.reset_on_keystroke = False
-            if self.make_recent(self.scope, int(tmcc_id)):
-                self.ops_mode()
-            else:
-                self.entry_mode(clear_info=False)
-        else:
-            self.do_command(key)
+    def on_keypress(self, key):
+        """Convenience wrapper; heavy lifting done in KeypadView"""
+        return self._keypad_view.on_keypress(key)
 
-        # update information immediately if not in entry mode
-        if not self._in_entry_mode and key.isdigit():
-            log.debug("on_keypress calling update_component_info...")
-            self.update_component_info(int(tmcc_id), "")
+    #
+    # def on_keypress(self, key: str) -> None:
+    #     num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
+    #     tmcc_id = self.tmcc_id_text.value
+    #     # Updates TMCC ID based on key press
+    #     if key.isdigit():
+    #         if int(tmcc_id) and self.reset_on_keystroke:
+    #             self.update_component_info(0)
+    #             tmcc_id = "0" * num_chars
+    #         tmcc_id = tmcc_id[1:] + key
+    #         self.tmcc_id_text.value = tmcc_id
+    #     elif key == CLEAR_KEY:
+    #         self.reset_on_keystroke = False
+    #         tmcc_id = "0" * num_chars
+    #         self.tmcc_id_text.value = tmcc_id
+    #         self._keypad_view.entry_mode()
+    #     elif key == SET_KEY:
+    #         self.reset_on_keystroke = False
+    #         tmcc_id = int(self.tmcc_id_text.value)
+    #         self.on_set_key(self.scope, tmcc_id)
+    #     elif key == ENTER_KEY:
+    #         # if a valid (existing) entry was entered, go to ops mode,
+    #         # otherwise, stay in entry mode
+    #         self.reset_on_keystroke = False
+    #         if self.make_recent(self.scope, int(tmcc_id)):
+    #             self.ops_mode()
+    #         else:
+    #             self._keypad_view.entry_mode(clear_info=False)
+    #     else:
+    #         self.do_command(key)
+    #
+    #     # update information immediately if not in entry mode
+    #     if not self._in_entry_mode and key.isdigit():
+    #         log.debug("on_keypress calling update_component_info...")
+    #         self.update_component_info(int(tmcc_id), "")
 
     def on_set_key(self, scope: CommandScope, tmcc_id: int) -> None:
         # Fire the set address command; only valid for switches, accessories, and engines
@@ -1014,7 +1012,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 print(f"Set: {cmd}")
                 cmd.send(repeat=self.repeat)
         else:
-            self.entry_mode(clear_info=False)
+            self._keypad_view.entry_mode(clear_info=False)
 
     def do_command(self, key: str) -> None:
         cmd = KEY_TO_COMMAND.get(key, None)
@@ -1039,63 +1037,64 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             print(f"Unknown key: {key}")
 
-    def entry_mode(self, clear_info: bool = True) -> None:
-        if clear_info:
-            self.update_component_info(0)
-        else:
-            self.reset_on_keystroke = True
-            self.image_box.hide()
-        self._in_entry_mode = True
-        for cell in self.entry_cells:
-            if not cell.visible:
-                cell.show()
-        for cell in self.ops_cells:
-            if cell.visible:
-                cell.hide()
-        self.scope_power_btns()
-        self.scope_set_btn()
-        if not self.keypad_box.visible:
-            self.keypad_box.show()
-        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self._scope_tmcc_ids[self.scope]:
-            self.reset_btn.enable()
-        else:
-            self.reset_btn.disable()
+    # def entry_mode(self, clear_info: bool = True) -> None:
+    #     if clear_info:
+    #         self.update_component_info(0)
+    #     else:
+    #         self.reset_on_keystroke = True
+    #         self.image_box.hide()
+    #     self._in_entry_mode = True
+    #     for cell in self.entry_cells:
+    #         if not cell.visible:
+    #             cell.show()
+    #     for cell in self.ops_cells:
+    #         if cell.visible:
+    #             cell.hide()
+    #     self.scope_power_btns()
+    #     self.scope_set_btn()
+    #     if not self.keypad_box.visible:
+    #         self.keypad_box.show()
+    #     if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self._scope_tmcc_ids[self.scope]:
+    #         self.reset_btn.enable()
+    #     else:
+    #         self.reset_btn.disable()
 
-    def scope_set_btn(self) -> None:
-        if self.scope in {CommandScope.ROUTE}:
-            self.set_btn.hide()
-        else:
-            self.set_btn.show()
-
-    # noinspection PyUnresolvedReferences
-    @property
-    def is_engine_or_train(self) -> bool:
-        return (
-            self.scope == CommandScope.ENGINE
-            or (self.scope == CommandScope.TRAIN and self.active_state is None)
-            or (
-                self.scope == CommandScope.TRAIN
-                and isinstance(self.active_state, TrainState)
-                and not self.active_state.is_power_district
-            )
-        )
+    # def scope_set_btn(self) -> None:
+    #     if self.scope in {CommandScope.ROUTE}:
+    #         self.set_btn.hide()
+    #     else:
+    #         self.set_btn.show()
 
     # noinspection PyUnresolvedReferences
-    @property
-    def is_accessory_or_bpc2(self) -> bool:
-        return self.scope == CommandScope.ACC or (
-            isinstance(self.active_state, LcsProxyState) and self.active_state.is_power_district
-        )
+    # @property
+    # def is_engine_or_train(self) -> bool:
+    #     return (
+    #         self.scope == CommandScope.ENGINE
+    #         or (self.scope == CommandScope.TRAIN and self.active_state is None)
+    #         or (
+    #             self.scope == CommandScope.TRAIN
+    #             and isinstance(self.active_state, TrainState)
+    #             and not self.active_state.is_power_district
+    #         )
+    #     )
+
+    # # noinspection PyUnresolvedReferences
+    # @property
+    # def is_accessory_or_bpc2(self) -> bool:
+    #     return self.scope == CommandScope.ACC or (
+    #         isinstance(self.active_state, LcsProxyState) and self.active_state.is_power_district
+    #     )
 
     def ops_mode(self, update_info: bool = True, state: S = None) -> None:
-        self._in_entry_mode = False
+        self._keypad_view.is_entry_mode = False
         for cell in self.entry_cells:
             if cell.visible:
                 cell.hide()
         for cell in self.ops_cells:
             if cell.visible:
                 cell.hide()
-        if self.is_engine_or_train:
+        # Hides/shows UI elements based on engine/train or command scope
+        if self._keypad_view.is_engine_or_train:
             if self.controller_box.visible:
                 self.controller_box.hide()
             if self.keypad_box.visible:
@@ -1131,7 +1130,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.switch_out_cell.show()
                 if not self.keypad_box.visible:
                     self.keypad_box.show()
-            elif self.is_accessory_or_bpc2:
+            elif self._keypad_view.is_accessory_or_bpc2:
                 if state is None:
                     state = self.active_state
                 self.on_new_accessory(state)
@@ -1184,9 +1183,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 name = not_found_value
             self.name_text.value = name
         else:
-            if self.reset_on_keystroke:
+            if self._keypad_view.reset_on_keystroke:
                 self._scope_tmcc_ids[self.scope] = 0
-                self.reset_on_keystroke = False
+                self._keypad_view.reset_on_keystroke = False
             self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
             self.name_text.value = ""
             state = None
@@ -1347,10 +1346,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                 repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
                 cmd.send(repeat=repeat, delay=delay)
-                if do_ops is True and self._in_entry_mode is True:
+                if do_ops is True and self._keypad_view.is_entry_mode is True:
                     self.ops_mode(update_info=True)
-                elif do_entry and self._in_entry_mode is False:
-                    self.entry_mode(clear_info=False)
+                elif do_entry and self._keypad_view.is_entry_mode is False:
+                    self._keypad_view.entry_mode(clear_info=False)
                 sent_command = True
                 break
             else:
@@ -1379,21 +1378,3 @@ class EngineGui(GuiZeroBase, Generic[S]):
             elif cur_smoke == TMCC2EffectsControl.SMOKE_HIGH:
                 return TMCC2EffectsControl.SMOKE_MEDIUM
         return None
-
-    def when_pressed(self, event: EventData) -> None:
-        pb = event.widget
-        if pb.enabled:
-            scope = self.scope
-            tmcc_id = self._scope_tmcc_ids[scope]
-            state = self._state_store.get_state(scope, tmcc_id, False)
-            if isinstance(state, AccessoryState) and state.is_asc2:
-                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
-
-    def when_released(self, event: EventData) -> None:
-        pb = event.widget
-        if pb.enabled:
-            scope = self.scope
-            tmcc_id = self._scope_tmcc_ids[scope]
-            state = self._state_store.get_state(scope, tmcc_id, False)
-            if isinstance(state, AccessoryState) and state.is_asc2:
-                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()

@@ -10,6 +10,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from guizero import App, Box, ButtonGroup, TitleBox
+from guizero.event import EventData
 
 from .engine_gui_conf import (
     AC_OFF_KEY,
@@ -25,6 +26,13 @@ from .engine_gui_conf import (
     SWITCH_OUT_KEY,
     SWITCH_THRU_KEY,
 )
+from ...db.accessory_state import AccessoryState
+from ...db.component_state import LcsProxyState
+from ...db.engine_state import TrainState
+from ...pdi.asc2_req import Asc2Req
+from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
+from ...pdi.irda_req import IrdaReq, IrdaSequence
+from ...protocol.constants import CommandScope
 from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
@@ -36,6 +44,46 @@ if TYPE_CHECKING:  # pragma: no cover
 class KeypadView:
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
+        self._reset_on_keystroke = False
+        self._entry_mode = True
+
+    @property
+    def reset_on_keystroke(self) -> bool:
+        return self._reset_on_keystroke
+
+    @reset_on_keystroke.setter
+    def reset_on_keystroke(self, value: bool) -> None:
+        self._reset_on_keystroke = value
+
+    @property
+    def is_entry_mode(self) -> bool:
+        return self._entry_mode
+
+    @is_entry_mode.setter
+    def is_entry_mode(self, value: bool) -> None:
+        self._entry_mode = value
+
+    # noinspection PyUnresolvedReferences
+    @property
+    def is_engine_or_train(self) -> bool:
+        host = self._host
+        return (
+            host.scope == CommandScope.ENGINE
+            or (host.scope == CommandScope.TRAIN and host.active_state is None)
+            or (
+                host.scope == CommandScope.TRAIN
+                and isinstance(host.active_state, TrainState)
+                and not host.active_state.is_power_district
+            )
+        )
+
+    # noinspection PyUnresolvedReferences
+    @property
+    def is_accessory_or_bpc2(self) -> bool:
+        host = self._host
+        return host.scope == CommandScope.ACC or (
+            isinstance(host.active_state, LcsProxyState) and host.active_state.is_power_district
+        )
 
     def build(self, app: App = None):
         host = self._host
@@ -70,7 +118,7 @@ class KeypadView:
                     size=host.s_22 if label.isdigit() else host.s_24,
                     visible=True,
                     bolded=True,
-                    command=host.on_keypress,
+                    command=self.on_keypress,
                     args=[label],
                     image=image,
                     hover=True,
@@ -123,7 +171,7 @@ class KeypadView:
             size=host.s_16,
             visible=True,
             bolded=True,
-            command=host.on_keypress,
+            command=self.on_keypress,
             args=[SET_KEY],
             is_entry=True,
             hover=True,
@@ -170,7 +218,7 @@ class KeypadView:
             align="top",
             options=SENSOR_TRACK_OPTS,
             width=host.emergency_box_width,
-            command=host.on_sensor_track_change,
+            command=self.on_sensor_track_change,
         )
         bg.text_size = host.s_20
 
@@ -245,8 +293,8 @@ class KeypadView:
             is_ops=True,
             command=False,
         )
-        host.ac_aux1_btn.when_left_button_pressed = host.when_pressed
-        host.ac_aux1_btn.when_left_button_released = host.when_released
+        host.ac_aux1_btn.when_left_button_pressed = self.when_pressed
+        host.ac_aux1_btn.when_left_button_released = self.when_released
 
         # --- set minimum size but allow expansion ---
         # --- Enforce minimum keypad size, but allow expansion ---
@@ -269,3 +317,124 @@ class KeypadView:
         min_total_height = num_rows * min_cell_height
         min_total_width = num_cols * min_cell_width
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
+
+    def on_keypress(self, key: str) -> None:
+        host = self._host
+
+        num_chars = 4 if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
+        tmcc_id = host.tmcc_id_text.value
+        # Updates TMCC ID based on key press
+        if key.isdigit():
+            if int(tmcc_id) and self._reset_on_keystroke:
+                host.update_component_info(0)
+                tmcc_id = "0" * num_chars
+            tmcc_id = tmcc_id[1:] + key
+            host.tmcc_id_text.value = tmcc_id
+        elif key == CLEAR_KEY:
+            self._reset_on_keystroke = False
+            tmcc_id = "0" * num_chars
+            host.tmcc_id_text.value = tmcc_id
+            self.entry_mode()
+        elif key == SET_KEY:
+            self._reset_on_keystroke = False
+            tmcc_id = int(host.tmcc_id_text.value)
+            host.on_set_key(host.scope, tmcc_id)
+        elif key == ENTER_KEY:
+            # if a valid (existing) entry was entered, go to ops mode,
+            # otherwise, stay in entry mode
+            self._reset_on_keystroke = False
+            if host.make_recent(host.scope, int(tmcc_id)):
+                host.ops_mode()
+            else:
+                self.entry_mode(clear_info=False)
+        else:
+            host.do_command(key)
+
+        # update information immediately if not in entry mode
+        if not self._entry_mode and key.isdigit():
+            log.debug("on_keypress calling update_component_info...")
+            host.update_component_info(int(tmcc_id), "")
+
+    # noinspection PyProtectedMember
+    def entry_mode(self, clear_info: bool = True) -> None:
+        """Manages entry mode keypad display and button states"""
+        host = self._host
+        if clear_info:
+            host.update_component_info(0)
+        else:
+            self._reset_on_keystroke = True
+            host.image_box.hide()
+        self._entry_mode = True
+        for cell in host.entry_cells:
+            if not cell.visible:
+                cell.show()
+        for cell in host.ops_cells:
+            if cell.visible:
+                cell.hide()
+        self.scope_power_btns()
+        self.scope_set_btn()
+        if not host.keypad_box.visible:
+            host.keypad_box.show()
+        if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and host._scope_tmcc_ids[host.scope]:
+            host.reset_btn.enable()
+        else:
+            host.reset_btn.disable()
+
+    # noinspection PyProtectedMember
+    def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
+        host = self._host
+        # if tmcc_id associated with scope is 0, then we are in entry mode;
+        # show keypad with appropriate buttons
+        tmcc_id = host._scope_tmcc_ids[host.scope]
+        if tmcc_id == 0 or force_entry_mode:
+            self.entry_mode(clear_info=clear_info)
+            self.scope_power_btns()
+            if not host.keypad_box.visible:
+                host.keypad_box.show()
+
+    def scope_power_btns(self):
+        host = self._host
+        if self.is_engine_or_train:
+            host.on_key_cell.show()
+            host.off_key_cell.show()
+        else:
+            host.on_key_cell.hide()
+            host.off_key_cell.hide()
+
+    def scope_set_btn(self) -> None:
+        host = self._host
+        if host.scope in {CommandScope.ROUTE}:
+            host.set_btn.hide()
+        else:
+            host.set_btn.show()
+
+    # noinspection PyProtectedMember
+    def on_sensor_track_change(self) -> None:
+        host = self._host
+        tmcc_id = host._scope_tmcc_ids[host.scope]
+        st_seq = IrdaSequence.by_value(int(host.sensor_track_buttons.value))
+        IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=host.repeat)
+
+    # noinspection PyProtectedMember
+    def when_pressed(self, event: EventData) -> None:
+        """Sends `Asc2` control command when button pressed"""
+        host = self._host
+        pb = event.widget
+        if pb.enabled:
+            scope = host.scope
+            tmcc_id = host._scope_tmcc_ids[scope]
+            state = host.state_store.get_state(scope, tmcc_id, False)
+            if isinstance(state, AccessoryState) and state.is_asc2:
+                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
+
+    # noinspection PyProtectedMember
+    def when_released(self, event: EventData) -> None:
+        """Sends `Asc2` release command when button released"""
+        host = self._host
+        pb = event.widget
+        if pb.enabled:
+            scope = host.scope
+            tmcc_id = host._scope_tmcc_ids[scope]
+            state = host.state_store.get_state(scope, tmcc_id, False)
+            if isinstance(state, AccessoryState) and state.is_asc2:
+                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
