@@ -7,16 +7,8 @@ from typing import Dict, Tuple, cast
 from range_key_dict import RangeKeyDict
 
 from ..command_def import CommandDef, CommandDefEnum
-from ..constants import (
-    DEFAULT_ADDRESS,
-    DEFAULT_ENGINE_LABOR,
-    RELATIVE_SPEED_MAP,
-    CommandPrefix,
-    CommandScope,
-    CommandSyntax,
-    OfficialRRSpeeds,
-    all_descendants,
-)
+from ..constants import (CommandPrefix, CommandScope, CommandSyntax, DEFAULT_ADDRESS, DEFAULT_ENGINE_LABOR,
+                         OfficialRRSpeeds, RELATIVE_SPEED_MAP, all_descendants)
 
 LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: int = 0xFA
 LEGACY_MULTIBYTE_COMMAND_PREFIX: int = 0xFB
@@ -339,7 +331,7 @@ class TMCC2EngineCommandEnum(TMCC2Enum, TMCC2EngineOpsEnum):
     FRONT_COUPLER = TMCC2CommandDef(TMCC2_OPEN_FRONT_COUPLER_COMMAND)
     LET_OFF = TMCC2CommandDef(TMCC2_ENG_LET_OFF_SOUND_COMMAND)
     LET_OFF_LONG = TMCC2CommandDef(TMCC2_ENG_LET_OFF_LONG_SOUND_COMMAND)
-    MOMENTUM = TMCC2CommandDef(TMCC2_SET_MOMENTUM_COMMAND, d_max=7)
+    MOMENTUM = TMCC2CommandDef(TMCC2_SET_MOMENTUM_COMMAND, d_max=7, filtered=True)
     MOMENTUM_HIGH = TMCC2CommandDef(TMCC2_SET_MOMENTUM_HIGH_COMMAND)
     MOMENTUM_LOW = TMCC2CommandDef(TMCC2_SET_MOMENTUM_LOW_COMMAND)
     MOMENTUM_MEDIUM = TMCC2CommandDef(TMCC2_SET_MOMENTUM_MEDIUM_COMMAND)

@@ -643,7 +643,6 @@ class ControllerView:
             return
 
         if state.is_legacy:
-            print(f"*** Setting Momentum to: {value}")
             host.on_engine_command("MOMENTUM", data=value)
         else:
             if value in {0, 1}:
