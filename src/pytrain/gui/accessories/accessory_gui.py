@@ -137,7 +137,6 @@ class AccessoryGui(Thread):
             raise TypeError(f"Failed to instantiate accessory GUI '{label}': {e}") from None
 
     def run(self) -> None:
-        print(f"Creating GUI: {self.requested_gui}")
         self._create_gui(self.requested_gui)
 
         while True:

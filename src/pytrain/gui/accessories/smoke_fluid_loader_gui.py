@@ -52,7 +52,6 @@ class SmokeFluidLoaderGui(AccessoryBase):
         self._image: str | None = None
         self._repeat_interval = 100  # milliseconds
 
-        print(f"Creating GUI for {self.ACCESSORY_TYPE.name} {tmcc_id}")
         super().__init__(self._title, self._image, aggregator=aggregator)
 
     def bind_variant(self) -> None:
