@@ -1,4 +1,3 @@
-#
 #  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
 #  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
@@ -13,12 +12,7 @@ import logging
 from pathlib import Path
 from threading import Event, Thread
 
-from .configured_accessory import (
-    ConfiguredAccessorySet,
-    DEFAULT_CONFIG_FILE,
-    GuiCtorSpec,
-    instantiate_gui,
-)
+from .configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
 from ...gpio.gpio_handler import GpioHandler
 
 log = logging.getLogger(__name__)
@@ -53,13 +47,43 @@ class AccessoryGui(Thread):
             verify=verify_config,
         )
 
-        # Build GUI ctor specs (labels are already disambiguated if needed)
-        self._specs: list[GuiCtorSpec] = self._configured.gui_specs()
-        if not self._specs:
+        # Build configured accessories (labels are already disambiguated in ConfiguredAccessorySet.gui_specs())
+        # but for the standalone aggregator we want "label -> ConfiguredAccessory".
+        self._accessories: list[ConfiguredAccessory] = self._configured.configured_all()
+        if not self._accessories:
             raise ValueError("AccessoryGui: no GUIs configured")
 
-        self._spec_by_label: dict[str, GuiCtorSpec] = {s.label: s for s in self._specs}
-        self._sorted_guis: list[str] = [s.label for s in self._specs]  # already sorted in gui_specs()
+        # Build label order using the same logic as gui_specs(), so menu ordering matches.
+        # (gui_specs() is already sorted and disambiguated.)
+        specs = self._configured.gui_specs()
+        self._sorted_guis: list[str] = [s.label for s in specs]
+
+        # Map label -> configured accessory (must be 1:1 with specs labels).
+        by_label: dict[str, list] = {lbl: [] for lbl in self._sorted_guis}
+        for acc in self._accessories:
+            by_label.setdefault(acc.label, []).append(acc)
+
+        # If duplicates exist, gui_specs() disambiguates with instance_id.
+        # Rebuild label->acc using the same disambiguation rule.
+        self._acc_by_label: dict[str, ConfiguredAccessory] = {}
+        if any(len(v) > 1 for v in by_label.values()):
+            # Count base labels
+            counts: dict[str, int] = {}
+            for acc in self._accessories:
+                counts[acc.label] = counts.get(acc.label, 0) + 1
+
+            for acc in self._accessories:
+                label = acc.label
+                if counts.get(label, 0) > 1 and acc.instance_id:
+                    label = f"{label} ({acc.instance_id})"
+                # first one wins if still collides (shouldn’t, but be defensive)
+                self._acc_by_label.setdefault(label, acc)
+        else:
+            for acc in self._accessories:
+                self._acc_by_label[acc.label] = acc
+
+        if not self._acc_by_label:
+            raise ValueError("AccessoryGui: no GUIs configured")
 
         # resolve initial selection (substring match like old behavior)
         if initial:
@@ -102,17 +126,14 @@ class AccessoryGui(Thread):
     # -------------------------------------------------------------------------
 
     def _create_gui(self, label: str) -> None:
-        spec = self._spec_by_label[label]
-
-        # Most accessory GUIs already accept these args; extras are filtered inside spec.kwargs,
-        extra_kwargs = {
-            "aggregator": self,
-        }
+        acc = self._acc_by_label.get(label)
+        if acc is None:
+            raise ValueError(f"Invalid GUI label: {label}")
 
         try:
-            self._gui = instantiate_gui(spec, extra_kwargs=extra_kwargs)
+            # New path: ConfiguredAccessory owns ctor logic (and filters ctor kwargs).
+            self._gui = acc.create_gui(aggregator=self)
         except TypeError as e:
-            # Keep error readable and include which GUI label failed.
             raise TypeError(f"Failed to instantiate accessory GUI '{label}': {e}") from None
 
     def run(self) -> None:
@@ -134,7 +155,7 @@ class AccessoryGui(Thread):
             self._create_gui(self.requested_gui)
 
     def cycle_gui(self, gui: str) -> None:
-        if gui in self._spec_by_label:
+        if gui in self._acc_by_label:
             self.requested_gui = gui
             self._ev.set()
 
