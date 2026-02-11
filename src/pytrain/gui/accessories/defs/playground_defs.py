@@ -55,7 +55,7 @@ _MOTION_IMAGE = {
     "Tire-Swing-6-82105.jpg": "tire-swing-child.jpg",
     "Tug-of-War-6-82107.jpg": "tug-of-war.jpg",
     "Playground-6-82104.jpg": "motion.gif",
-    "Swing-6-14199.jpg": "swing.gif",
+    "Swing-6-14199.jpg": "swinging-child.jpg",
 }
 
 _MOTION_TEXT = {
