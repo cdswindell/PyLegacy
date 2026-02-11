@@ -133,8 +133,8 @@ def test_loads_config_and_disambiguates_labels(tmp_path: Path) -> None:
     labels = gui.guis
     assert len(labels) == 2
     # New behavior: both duplicates get suffixed (because both have instance_id)
-    assert "Gas Station (A)" in labels
-    assert "Gas Station (B)" in labels
+    assert "Gas Station (7)" in labels
+    assert "Gas Station (8)" in labels
     assert "Gas Station" not in labels
 
 

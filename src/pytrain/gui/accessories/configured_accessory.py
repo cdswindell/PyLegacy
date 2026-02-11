@@ -726,3 +726,51 @@ class ConfiguredAccessorySet:
             f"types={len(self._by_type)}, "
             f"tmcc_ids={len(self._by_tmcc_id)})"
         )
+
+    def preview(self) -> list[dict[str, Any]]:
+        """
+        Returns a fully resolved preview of configured accessories,
+        including final label disambiguation and ctor specs.
+        """
+        previews: list[dict[str, Any]] = []
+
+        specs = self.gui_specs()
+
+        for spec in specs:
+            previews.append(
+                {
+                    "label": spec.label,
+                    "title": spec.title,
+                    "image_path": spec.image_path,
+                    "gui_class": spec.gui_class.__name__,
+                    "accessory_type": spec.accessory_type.name,
+                    "variant": spec.variant,
+                    "instance_id": spec.instance_id,
+                    "ctor_kwargs": dict(spec.kwargs),
+                }
+            )
+
+        return previews
+
+    def debug_dump(self) -> str:
+        lines: list[str] = []
+        specs = self.gui_specs()
+
+        for spec in specs:
+            lines.append(
+                f"label: {spec.label}\n"
+                f"  title: {spec.title}\n"
+                f"  type: {spec.accessory_type.name}\n"
+                f"  instance_id: {spec.instance_id}\n"
+                f"  variant: {spec.variant}\n"
+                f"  image: {spec.image_path}\n"
+                f"  gui: {spec.gui_class.__name__}\n"
+                f"  ctor kwargs: {spec.kwargs}\n"
+            )
+
+        return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    cs = ConfiguredAccessorySet.from_file()
+    print(cs.debug_dump())
