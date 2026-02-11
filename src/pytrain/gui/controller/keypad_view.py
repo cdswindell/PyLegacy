@@ -7,7 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import logging
-from typing import Generic, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 from guizero import App, Box, ButtonGroup, TitleBox
 from guizero.event import EventData
@@ -40,14 +40,16 @@ log = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
-S = TypeVar("S", bound=ComponentState)
 
-
-class KeypadView(Generic[S]):
+class KeypadView:
     def __init__(self, host: "EngineGui") -> None:
-        self._host = host
+        self._host: "EngineGui" = host
         self._reset_on_keystroke = False
         self._entry_mode = True
+
+    @property
+    def active_state(self) -> ComponentState | None:
+        return self._host.active_state
 
     @property
     def reset_on_keystroke(self) -> bool:
@@ -71,11 +73,11 @@ class KeypadView(Generic[S]):
         host = self._host
         return (
             host.scope == CommandScope.ENGINE
-            or (host.scope == CommandScope.TRAIN and host.active_state is None)
+            or (host.scope == CommandScope.TRAIN and self.active_state is None)
             or (
                 host.scope == CommandScope.TRAIN
-                and isinstance(host.active_state, TrainState)
-                and not host.active_state.is_power_district
+                and isinstance(self.active_state, TrainState)
+                and not self.active_state.is_power_district
             )
         )
 
@@ -84,7 +86,7 @@ class KeypadView(Generic[S]):
     def is_accessory_or_bpc2(self) -> bool:
         host = self._host
         return host.scope == CommandScope.ACC or (
-            isinstance(host.active_state, LcsProxyState) and host.active_state.is_power_district
+            isinstance(self.active_state, LcsProxyState) and self.active_state.is_power_district
         )
 
     def build(self, app: App = None):
@@ -399,7 +401,30 @@ class KeypadView(Generic[S]):
             if cell.visible:
                 cell.hide()
 
-    def apply_ops_mode_ui_non_engine(self, state: S | None = None) -> None:
+    def apply_ops_mode_ui_engine_shell(self) -> None:
+        """
+        Ops-mode UI changes for engine/train scope that are purely view concerns:
+          - hide keypad area (so controller can take over)
+          - ensure controller container(s) are visible
+          - enable Reset
+        """
+        host = self._host
+
+        # Hide keypad/controller boxes appropriately
+        if host.controller_box.visible:
+            host.controller_box.hide()
+        if host.keypad_box.visible:
+            host.keypad_box.hide()
+
+        host.reset_btn.enable()
+
+        # Show controller UI
+        if not host.controller_keypad_box.visible:
+            host.controller_keypad_box.show()
+        if not host.controller_box.visible:
+            host.controller_box.show()
+
+    def apply_ops_mode_ui_non_engine(self, state: ComponentState | None = None) -> None:
         """
         All non-engine/train ops-mode UI decisions.
         EngineGui should call this only when NOT engine/train.
@@ -427,7 +452,7 @@ class KeypadView(Generic[S]):
 
         if self.is_accessory_or_bpc2:
             if state is None:
-                state = host.active_state
+                state = self.active_state
 
             host.on_new_accessory(state)
             show_keypad = True

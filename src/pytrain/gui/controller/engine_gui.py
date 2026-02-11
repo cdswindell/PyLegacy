@@ -213,10 +213,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # delete after refactor
 
         # helpers to reduce code
-        self._popup = PopupManager(self)
-        self._image_presenter = ImagePresenter(self)
-        self._controller_view = ControllerView(self)
-        self._keypad_view = KeypadView(self)
+        self._popup: PopupManager = PopupManager(self)
+        self._image_presenter: ImagePresenter = ImagePresenter(self)
+        self._controller_view: ControllerView = ControllerView(self)
+        self._keypad_view: KeypadView = KeypadView(self)
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -983,42 +983,31 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             print(f"Unknown key: {key}")
 
-    def ops_mode(self, update_info: bool = True, state: S = None) -> None:
+    def ops_mode(self, update_info: bool = True, state: ComponentState | None = None) -> None:
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
 
-        # 2) Engine/train path (stay here; it orchestrates state + controller)
+        # 2) Engine/train path
         if self._keypad_view.is_engine_or_train:
-            # Hide keypad/controller boxes appropriately
-            if self.controller_box.visible:
-                self.controller_box.hide()
-            if self.keypad_box.visible:
-                self.keypad_box.hide()
+            # pure UI shell now lives in KeypadView
+            self._keypad_view.apply_ops_mode_ui_engine_shell()
 
-            self.reset_btn.enable()
-
-            # Resolve state (still belongs to EngineGui)
+            # Resolve state (EngineGui responsibility)
             if not isinstance(state, EngineState):
-                self._active_engine_state = state = self._state_store.get_state(
+                self._active_engine_state = state = self.state_store.get_state(
                     self.scope, self._scope_tmcc_ids[self.scope], False
                 )
 
-            # Apply model changes (still belongs to EngineGui)
+            # Apply model changes (EngineGui responsibility)
             if isinstance(state, TrainState):
                 self.on_new_train(state, ops_mode_setup=True)
             else:
                 self.on_new_engine(state, ops_mode_setup=True)
 
-            # Show controller UI (still belongs to EngineGui)
-            if not self.controller_keypad_box.visible:
-                self.controller_keypad_box.show()
-            if not self.controller_box.visible:
-                self.controller_box.show()
-
             self._last_engine_type = None
             self._controller_view.apply_engine_type(state)
 
-        # 3) Non-engine path (moved)
+        # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
 
