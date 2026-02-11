@@ -298,6 +298,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         row_num += 1
         ats = int(round(23 * self._scale_by))
         if self._aggregator:
+            print(self.title, self._aggregator.guis)
             # customize label
             cb = self.aggregator_combo = Combo(
                 box,
