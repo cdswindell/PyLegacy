@@ -12,6 +12,7 @@ from __future__ import annotations
 import atexit
 import io
 import logging
+import tkinter as tk
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
@@ -22,9 +23,11 @@ from typing import Any, Callable, TypeVar
 
 # noinspection PyPackageRequirements
 from PIL import Image, ImageOps, ImageTk
-from guizero import App, Box
+from guizero import App, Box, TitleBox
 from guizero.base import Widget
 
+from .components.hold_button import HoldButton
+from .controller.engine_gui_conf import FONT_SIZE_EXCEPTIONS
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state_store import ComponentStateStore
@@ -111,6 +114,7 @@ class GuiZeroBase(Thread, ABC):
 
         self.text_pad_x = 20
         self.text_pad_y = 20
+        self.grid_pad_by = 2
 
         # standard widget sizes
         self.button_size = int(round(self.width / 6))
@@ -181,6 +185,10 @@ class GuiZeroBase(Thread, ABC):
     @property
     def sync_state(self) -> SyncState:
         return self._sync_state
+
+    @property
+    def scale_by(self) -> float:
+        return self._scale_by
 
     @property
     def state_store(self) -> ComponentStateStore:
@@ -272,6 +280,124 @@ class GuiZeroBase(Thread, ABC):
             self.destroy_gui()
             self.app = None
             self._ev.set()
+
+    def _build_keypad_button(
+        self,
+        keypad_box: Box | TitleBox,
+        label: str,
+        row: int,
+        col: int,
+        size: int | None = None,
+        image: str = None,
+        visible: bool = True,
+        bolded: bool = True,
+        titlebox_text: str = None,
+        align: str = "bottom",
+        hover: bool = False,
+        command: Any = None,
+        args: list = None,
+    ):
+        """Builds keypad button with image or text label"""
+        if size is None and label:
+            size = self.s_30 if label in FONT_SIZE_EXCEPTIONS else self.s_18
+
+        # ------------------------------------------------------------
+        #  Create cell container (either TitleBox or Box)
+        # ------------------------------------------------------------
+        if titlebox_text:
+            cell = TitleBox(
+                keypad_box,
+                titlebox_text,
+                layout="auto",
+                align="bottom",
+                grid=[col, row],
+                visible=True,
+            )
+            cell.tk.configure(width=self.button_size, height=self.button_size)
+            cell.text_size = self.s_10
+            button_size = self.titled_button_size
+            grid_pad_by = 0
+            # Force TitleBox label to top-left
+            try:
+                lf = cell.tk  # The underlying tk.LabelFrame inside your TitleBox
+                lf.configure(labelanchor="nw", padx=0, pady=0)
+                lf.update_idletasks()
+            except (tk.TclError, AttributeError) as e:
+                log.exception(f"Warning adjusting LabelFrame padding: {e}", exc_info=e)
+        else:
+            cell = Box(keypad_box, layout="auto", grid=[col, row], align=align, visible=True)
+            button_size = self.button_size
+            grid_pad_by = self.grid_pad_by
+
+        # ------------------------------------------------------------
+        #  Fix cell size (allowing slight flex for TitleBoxes)
+        # ------------------------------------------------------------
+        if titlebox_text:
+            # Force the cell to standard button size
+            cell.tk.configure(
+                width=self.button_size,
+                height=self.button_size,
+            )
+        else:
+            cell.tk.configure(
+                width=self.button_size,
+                height=self.button_size,
+            )
+        # don't let push button grow cell size
+        cell.tk.pack_propagate(False)
+
+        # ensure the keypad grid expands uniformly and fills the box height
+        extra_pad = max(2, grid_pad_by)
+        keypad_box.tk.grid_rowconfigure(row, weight=1, minsize=self.button_size + (2 * extra_pad))
+        keypad_box.tk.grid_columnconfigure(col, weight=1, minsize=self.button_size + (2 * extra_pad))
+
+        # ------------------------------------------------------------
+        #  Create PushButton
+        # ------------------------------------------------------------
+        nb = HoldButton(
+            cell,
+            align="bottom",
+            args=args,
+            hold_threshold=1.0,
+            repeat_interval=0.2,
+            on_press=command,
+        )
+        nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
+
+        # ------------------------------------------------------------
+        #  Image vs text button behavior
+        # ------------------------------------------------------------
+        if image:
+            nb.image = image
+            nb.images = self.get_titled_image(image)
+        else:
+            # Make tk.Button fill the entire cell and draw full border
+            # only do this for text buttons
+            nb.text = label
+            nb.text_size = size
+            nb.text_bold = bolded
+            nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
+            if hover:
+                nb.tk.config(
+                    borderwidth=3,
+                    relief="raised",
+                    highlightthickness=1,
+                    highlightbackground="black",
+                    activebackground="#e0e0e0",
+                    background="#f7f7f7",
+                )
+        # ------------------------------------------------------------
+        #  Grid spacing & uniform sizing
+        # ------------------------------------------------------------
+        nb.tk.config(width=button_size, height=button_size)
+        nb.tk.config(padx=0, pady=0, borderwidth=1, highlightthickness=1)
+
+        if titlebox_text and image is None and label:
+            nb.tk.config(bd=0, borderwidth=0, highlightthickness=0)
+            nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.73)
+
+        cell.visible = visible
+        return cell, nb
 
     @staticmethod
     def do_tmcc_request(command: E, address: int = None, data: int = None, scope: CommandScope = None) -> None:
