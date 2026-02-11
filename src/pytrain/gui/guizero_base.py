@@ -224,10 +224,12 @@ class GuiZeroBase(Thread, ABC):
                 self._sync_watcher = None
             self._synchronized = True
             self._base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
-            if isinstance(self._base_state, BaseState):
-                self.title = self._base_state.base_name
-            else:
-                self.title = "My Layout"
+            with self._cv:
+                if self.title is None:
+                    if isinstance(self._base_state, BaseState):
+                        self.title = self._base_state.base_name
+                    else:
+                        self.title = "My Layout"
 
             # start GUI; heavy lifting done in run()
             self._init_complete_flag.wait()

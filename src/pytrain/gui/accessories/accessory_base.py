@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import re
-import threading
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar, cast
@@ -68,7 +67,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         max_image_height: float = 0.45,
     ) -> None:
         # these instance variables must be defined before calling super().__init__()
-        self._cv = threading.Condition(threading.RLock())
         self._stand_alone = aggregator is None or not isinstance(aggregator, GuiZeroBase)
         self._aggregator = aggregator
         """Defines abstract accessory base class for GUI elements"""
