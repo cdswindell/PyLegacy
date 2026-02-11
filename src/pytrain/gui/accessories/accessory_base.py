@@ -441,7 +441,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 child.value = label
 
     def on_combo_change(self, option: str) -> None:
-        if option == self.title:
+        if option == self.menu_label:
             return  # Noop
         else:
             self._aggregator.cycle_gui(option)
