@@ -822,9 +822,7 @@ class ControllerView:
 
         if on_release is not None:
             s.tk.bind("<ButtonRelease-1>", on_release, add="+")
-            s.tk.bind("<ButtonRelease>", on_release, add="+")
         elif clear_focus_on_release:
             s.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-            s.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
 
         return box, tb, level, s
