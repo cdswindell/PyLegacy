@@ -556,8 +556,7 @@ class ControllerView:
 
     # noinspection PyUnusedLocal
     def on_throttle_released(self, value: int) -> None:
-        host = self._host
-        host.throttle.after_id = None
+        self._host.throttle.after_id = None
         # actual speed command is sent from _on_throttle_release_event
 
     def _on_throttle_release_event(self, e=None) -> None:
@@ -607,26 +606,13 @@ class ControllerView:
 
     def on_momentum(self, value) -> None:
         host = self._host
-
-        # Always update the UI immediately
         try:
             value = int(value)
         except (TypeError, ValueError):
             return
 
+        # UI feedback only
         host.momentum_level.value = f"{value:02d}"
-
-        # Cancel any pending send
-        if self._momentum_after_id is not None:
-            try:
-                host.app.tk.after_cancel(self._momentum_after_id)
-            except TclError:
-                pass
-            self._momentum_after_id = None
-
-        # Only debounce while the slider has focus (i.e. user is interacting)
-        if host.app.tk.focus_get() == host.momentum.tk:
-            self._momentum_after_id = host.app.tk.after(250, self._send_momentum, value)
 
     def _on_momentum_release_event(self, e=None) -> None:
         host = self._host
