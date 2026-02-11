@@ -13,15 +13,14 @@ import logging
 import re
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Event, Thread
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar, cast
 
 # noinspection PyPackageRequirements
 from PIL import Image
-from guizero import Box, Combo, Picture, PushButton, Text
+from guizero import App, Box, Combo, Picture, PushButton, Text
 from guizero.base import Widget
 from guizero.event import EventData
 
-from .accessory_gui import AccessoryGui, StandAloneGui
 from .accessory_registry import AccessoryRegistry
 from .accessory_type import AccessoryType
 from .config import ConfiguredAccessory, configure_accessory
@@ -58,7 +57,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         image_file: str = None,
         width: int = None,
         height: int = None,
-        aggregator: AccessoryGui = None,
+        aggregator: Any = None,
         enabled_bg: str = "green",
         disabled_bg: str = "black",
         enabled_text: str = "black",
@@ -77,7 +76,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             disabled_bg=disabled_bg,
             enabled_text=enabled_text,
             disabled_text=disabled_text,
-            stand_alone=aggregator is None or isinstance(aggregator, StandAloneGui),
+            stand_alone=aggregator is None or not isinstance(aggregator, GuiZeroBase),
         )
         self.image_file = image_file
         self._image = None
@@ -106,6 +105,26 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self._cfg: ConfiguredAccessory | None = None
         self._registry: AccessoryRegistry | None = None
         self.init_complete()
+
+    # noinspection PyUnnecessaryCast
+    @property
+    def host(self) -> GuiZeroBase:
+        """
+        The GuiZeroBase that should service base-level calls.
+
+        - If embedded inside EngineGui: host == EngineGui
+        - If standalone: host == self
+        """
+        agg = self._aggregator
+        if agg is None or not isinstance(agg, GuiZeroBase):
+            print("Aggrigator None or not GuiZeroBase:")
+            return self
+        else:
+            return cast(GuiZeroBase, agg)
+
+    @property
+    def app(self) -> App:
+        return self.host._app
 
     @property
     def destroy_complete(self) -> Event:
@@ -145,14 +164,14 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def state_for(self, key: str, scope: CommandScope = CommandScope.ACC) -> S:
         assert self._cfg is not None
         tmcc_id = self._cfg.tmcc_id_for(key)
-        return self._state_store.get_state(scope, tmcc_id)
+        return self.host.state_store.get_state(scope, tmcc_id)
 
     def states_for(self, *keys: str, scope: CommandScope = CommandScope.ACC) -> list[S]:
         return [self.state_for(k, scope) for k in keys]
 
     def state_for_accessory(self, scope: CommandScope = CommandScope.ACC) -> S:
         assert self._cfg is not None
-        return self._state_store.get_state(scope, self._cfg.tmcc_id)
+        return self.host.state_store.get_state(scope, self._cfg.tmcc_id)
 
     def gate_widget_on_power(
         self,
@@ -219,7 +238,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         return upd
 
     def queue_message(self, message: Callable, *args: Any) -> None:
-        self._message_queue.put((message, args))
+        self.host._message_queue.put((message, args))
 
     @staticmethod
     def normalize(text: str) -> str:
@@ -253,7 +272,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if self._state_buttons:
             self._reset_state_buttons()
 
-        self.box = box = Box(self.app, layout="grid")
+        self.box = box = Box(self.host.app, layout="grid")
 
         # ts = self._text_size
         row_num = 0
@@ -287,12 +306,12 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self._image = None
         if self.image_file:
             iw, ih = self.get_scaled_jpg_size(self.image_file)
-            self._image = Picture(self.app, image=self.image_file, width=iw, height=ih)
+            self._image = Picture(self.host.app, image=self.image_file, width=iw, height=ih)
 
-        self.app.update()
+        self.host.app.update()
 
         # build state buttons
-        self.acc_box = acc_box = Box(self.app, border=2, align="bottom", layout="grid")
+        self.acc_box = acc_box = Box(self.host.app, border=2, align="bottom", layout="grid")
         self.build_accessory_controls(acc_box)
 
     def destroy_gui(self):

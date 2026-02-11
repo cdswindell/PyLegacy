@@ -135,7 +135,7 @@ class GuiZeroBase(Thread, ABC):
         self._image_cache = {}
 
         # queue task for gui main thread
-        self.app = None
+        self._app = None
         self._app_counter = 0
         self._message_queue = Queue()
 
@@ -194,6 +194,10 @@ class GuiZeroBase(Thread, ABC):
     def state_store(self) -> ComponentStateStore:
         return self._state_store
 
+    @property
+    def app(self) -> App:
+        return self._app
+
     def cache(self, *widgets: Widget | Box) -> None:
         if not widgets:
             return
@@ -237,7 +241,7 @@ class GuiZeroBase(Thread, ABC):
         self._ev.clear()
         self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
-        self.app = app = App(title=self.title, width=self.width, height=self.height)
+        self._app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = True
         app.when_closed = self.close
         app.bg = "white"
@@ -278,7 +282,7 @@ class GuiZeroBase(Thread, ABC):
             pass
         finally:
             self.destroy_gui()
-            self.app = None
+            self._app = None
             self._ev.set()
 
     def _build_keypad_button(

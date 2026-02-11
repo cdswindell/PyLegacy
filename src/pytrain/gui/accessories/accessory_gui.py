@@ -24,15 +24,7 @@ from ...gpio.gpio_handler import GpioHandler
 log = logging.getLogger(__name__)
 
 
-class StandAloneGui:
-    """
-    Standalone accessory GUI for running accessory GUIs by themselves.
-    """
-
-    pass
-
-
-class AccessoryGui(Thread, StandAloneGui):
+class AccessoryGui(Thread):
     @classmethod
     def name(cls) -> str:
         return cls.__name__
