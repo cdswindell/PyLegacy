@@ -335,6 +335,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             app.after(100, self.update_component_info, [self.initial])
 
     def destroy_gui(self) -> None:
+        self.clear_cache()
+        self.engine_ops_cells.clear()
         self.box = None
         self.acc_box = None
         self._image = None

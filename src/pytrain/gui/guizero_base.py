@@ -192,6 +192,9 @@ class GuiZeroBase(Thread, ABC):
         for widget in widgets:
             self._elements.add(widget)
 
+    def clear_cache(self) -> None:
+        self._elements.clear()
+
     # noinspection PyUnresolvedReferences
     def init_complete(self) -> None:
         if isinstance(self._sync_state, SyncState):
