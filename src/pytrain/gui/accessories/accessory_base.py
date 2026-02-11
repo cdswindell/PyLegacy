@@ -66,6 +66,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
     ) -> None:
+        """Defines abstract accessory base class for GUI elements"""
         GuiZeroBase.__init__(
             self,
             title=title,
@@ -117,7 +118,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         """
         agg = self._aggregator
         if agg is None or not isinstance(agg, GuiZeroBase):
-            print("Aggrigator None or not GuiZeroBase:")
             return self
         else:
             return cast(GuiZeroBase, agg)

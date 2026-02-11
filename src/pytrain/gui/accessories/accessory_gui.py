@@ -105,12 +105,8 @@ class AccessoryGui(Thread):
         spec = self._spec_by_label[label]
 
         # Most accessory GUIs already accept these args; extras are filtered inside spec.kwargs,
-        # but extra_kwargs are *not* filtered, so only pass things you know they accept.
         extra_kwargs = {
             "aggregator": self,
-            "width": self.width,
-            "height": self.height,
-            "scale_by": self._scale_by,
         }
 
         try:
