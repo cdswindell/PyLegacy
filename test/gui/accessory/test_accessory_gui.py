@@ -1,4 +1,3 @@
-#
 #  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
 #  Copyright (c) 2024-2026 Dave Swindell
@@ -16,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 
 import src.pytrain.gui.accessories.accessory_gui as mod
+import src.pytrain.gui.accessories.configured_accessory as ca_mod
 from src.pytrain.gui.accessories.accessory_type import AccessoryType
 
 
@@ -54,7 +54,7 @@ class DummyRegistry:
     # noinspection PyUnusedLocal
     @staticmethod
     def get_definition(gui_type, variant):
-        # title must be identical for both entries so AccessoryGui disambiguates labels
+        # Force identical title/image so duplicate-label disambiguation is exercised.
         return SimpleNamespace(variant=SimpleNamespace(title="Gas Station", image="gas.png"))
 
 
@@ -75,30 +75,24 @@ def _isolate(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _patch_catalog_and_registry(monkeypatch):
+def _patch_registry_and_catalog(monkeypatch):
     """
-    Patch catalog plus registry in BOTH modules that use them:
-      - accessory_gui (menu building)
-      - configured_accessory_set (strict loader calls AccessoryRegistry.get().bootstrap())
+    Patch the *actual* symbols used by configured_accessory.py (no broad exceptions).
+
+    - ConfiguredAccessorySet constructs AccessoryRegistry.get() and calls bootstrap()
+    - ConfiguredAccessory calls catalog.resolve(gui_key).load_class()
     """
+    # AccessoryRegistry.get() used inside configured_accessory.py
+    monkeypatch.setattr(ca_mod.AccessoryRegistry, "get", classmethod(lambda cls: DummyRegistry()), raising=True)
+
     dummy_entry = DummyEntry()
 
-    # Catalog resolve
+    # AccessoryGuiCatalog.resolve() used inside configured_accessory.py
     # noinspection PyUnusedLocal
     def fake_resolve(self, key: str):
         return dummy_entry
 
-    monkeypatch.setattr(mod.AccessoryGuiCatalog, "resolve", fake_resolve, raising=True)
-
-    # AccessoryGui uses AccessoryRegistry.get()
-    monkeypatch.setattr(mod.AccessoryRegistry, "get", classmethod(lambda cls: DummyRegistry()), raising=True)
-
-    # ConfiguredAccessorySet imports AccessoryRegistry too; patch it there as well
-    monkeypatch.setattr(
-        "src.pytrain.gui.accessories.configured_accessory_set.AccessoryRegistry.get",
-        classmethod(lambda cls: DummyRegistry()),
-        raising=True,
-    )
+    monkeypatch.setattr(ca_mod.AccessoryGuiCatalog, "resolve", fake_resolve, raising=True)
 
     yield
 
@@ -111,7 +105,7 @@ def _patch_catalog_and_registry(monkeypatch):
 def test_loads_config_and_disambiguates_labels(tmp_path: Path) -> None:
     """
     When two configured accessories resolve to the same registry title,
-    AccessoryGui should disambiguate using instance_id.
+    ConfiguredAccessorySet.gui_specs() disambiguates duplicates using instance_id.
     """
     config = [
         {
@@ -138,14 +132,15 @@ def test_loads_config_and_disambiguates_labels(tmp_path: Path) -> None:
 
     labels = gui.guis
     assert len(labels) == 2
-    assert "Gas Station" in labels
+    # New behavior: both duplicates get suffixed (because both have instance_id)
+    assert "Gas Station (A)" in labels
     assert "Gas Station (B)" in labels
-    assert "Gas Station (A)" not in labels  # current behavior: first stays plain
+    assert "Gas Station" not in labels
 
 
 def test_uses_display_name_override(tmp_path: Path) -> None:
     """
-    If display_name is provided, it becomes the menu label (no disambiguation needed).
+    If display_name is provided, it becomes the menu label.
     """
     config = [
         {
@@ -168,8 +163,8 @@ def test_uses_display_name_override(tmp_path: Path) -> None:
 
 def test_missing_gui_raises(tmp_path: Path) -> None:
     """
-    Entries missing 'gui' should raise a ValueError from AccessoryGui.
-    (ConfiguredAccessorySet will load it fine as long as instance_id/type exist.)
+    Entries missing 'gui' should raise a ValueError when building GUI specs.
+    (The loader only requires instance_id/type; GUI construction requires 'gui'.)
     """
     config = [
         {
@@ -182,7 +177,7 @@ def test_missing_gui_raises(tmp_path: Path) -> None:
     path = tmp_path / "accessory_config.json"
     path.write_text(json.dumps(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="missing/invalid 'gui'"):
+    with pytest.raises(ValueError, match=r"missing required 'gui'"):
         mod.AccessoryGui(width=100, height=100, config_file=path)
 
 
