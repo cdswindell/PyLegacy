@@ -134,10 +134,8 @@ class AccessoryGui(Thread):
 
         try:
             # New path: ConfiguredAccessory owns ctor logic (and filters ctor kwargs).
-            self._gui = acc.create_gui(
-                aggregator=self,
-                extra_kwargs={"display_name": label},
-            )
+            self._gui = acc.create_gui(aggregator=self)
+            self._gui._menu_label = label
         except TypeError as e:
             raise TypeError(f"Failed to instantiate accessory GUI '{label}': {e}") from None
 
