@@ -335,16 +335,32 @@ class ConfiguredAccessory:
             instance_id=self.instance_id,
         )
 
-    def create_gui(self, *, aggregator: Any, extra_kwargs: Mapping[str, Any] | None = None, bind: bool = True) -> Any:
+    def label_disambiguator(self) -> str | None:
+        """
+        Prefer readable TMCC operation ids, e.g. "power=7, conveyor=8".
+        Fallback to tmcc_id, then instance_id.
+        """
+        tmcc_ids = self.raw.get("tmcc_ids")
+        if isinstance(tmcc_ids, dict) and tmcc_ids:
+            parts: list[str] = []
+            for k, v in tmcc_ids.items():
+                if isinstance(k, str) and isinstance(v, int):
+                    parts.append(f"{v}")
+            if parts:
+                return "/".join(parts)
+
+        if isinstance(self.tmcc_id, int):
+            return f"{self.tmcc_id}"
+
+        return self.instance_id or None
+
+    def create_gui(self, *, aggregator: Any, extra_kwargs: Mapping[str, Any] | None = None) -> Any:
         spec = self.build_gui_spec()
         # IMPORTANT: only pass kwargs that GUI ctors accept (you already filter spec.kwargs)
         merged = {"aggregator": aggregator}
         if extra_kwargs:
             merged.update(extra_kwargs)
-        gui = instantiate_gui(spec, extra_kwargs=merged)
-        if bind and hasattr(gui, "bind_variant"):
-            gui.bind_variant()
-        return gui
+        return instantiate_gui(spec, extra_kwargs=merged)
 
 
 # -----------------------------------------------------------------------------
@@ -377,6 +393,7 @@ class ConfiguredAccessorySet:
         self._configured_all: list[ConfiguredAccessory] = []
         self._configured_by_instance_id: dict[str, ConfiguredAccessory] = {}
         self._configured_by_label: dict[str, list[ConfiguredAccessory]] = {}
+        self._configured_by_tmcc_id: dict[int, list[ConfiguredAccessory]]
 
     # ------------------------------------------------------------------
     # Construction / loading
@@ -564,6 +581,7 @@ class ConfiguredAccessorySet:
 
         by_instance: dict[str, ConfiguredAccessory] = {}
         by_label: dict[str, list[ConfiguredAccessory]] = {}
+        by_tmcc: dict[int, list[ConfiguredAccessory]] = {}
 
         for a in accs:
             iid = a.instance_id
@@ -572,9 +590,12 @@ class ConfiguredAccessorySet:
 
             lk = self._norm_label(a.label)
             by_label.setdefault(lk, []).append(a)
+            for tid in a.tmcc_ids:
+                by_tmcc.setdefault(tid, []).append(a)
 
         self._configured_by_instance_id = by_instance
         self._configured_by_label = by_label
+        self._configured_by_tmcc_id = by_tmcc
 
         if verify and issues:
             log.warning("Accessory config verification found %d issue(s)", len(issues))
@@ -611,14 +632,17 @@ class ConfiguredAccessorySet:
     # ------------------------------------------------------------------
 
     def configured_all(self) -> list[ConfiguredAccessory]:
-        return [ConfiguredAccessory(r, self._registry, self._catalog) for r in self._raw]
+        return list(self._configured_all)
 
     def configured_by_instance_id(self, instance_id: str) -> ConfiguredAccessory | None:
-        raw = self.by_instance_id(instance_id)
-        return ConfiguredAccessory(raw, self._registry, self._catalog) if raw else None
+        if not isinstance(instance_id, str) or not instance_id.strip():
+            return None
+        return self._configured_by_instance_id.get(instance_id)
 
     def configured_by_tmcc_id(self, tmcc_id: int) -> list[ConfiguredAccessory]:
-        return [ConfiguredAccessory(r, self._registry, self._catalog) for r in self.by_tmcc_id(tmcc_id)]
+        if not isinstance(tmcc_id, int):
+            return []
+        return list(self._configured_by_tmcc_id.get(tmcc_id, ()))
 
     def configured_by_type(self, acc_type: AccessoryType) -> list[ConfiguredAccessory]:
         return [ConfiguredAccessory(r, self._registry, self._catalog) for r in self.by_type(acc_type)]
@@ -668,7 +692,7 @@ class ConfiguredAccessorySet:
         for a in accs:
             disambig: str | None = None
             if counts.get(a.label, 0) > 1:
-                disambig = a.instance_id or None
+                disambig = a.label_disambiguator()
             specs.append(a.build_gui_spec(disambiguate_with=disambig))
 
         # Stable sort for menus
