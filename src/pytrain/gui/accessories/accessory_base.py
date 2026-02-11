@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar, cast
@@ -66,6 +67,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
     ) -> None:
+        self._cv = threading.Condition(threading.RLock())
         # these instance variables must be defined before calling super().__init__()
         self._stand_alone = aggregator is None or not isinstance(aggregator, GuiZeroBase)
         self._aggregator = aggregator
@@ -139,9 +141,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     @property
     def registry(self) -> AccessoryRegistry:
-        if self._registry is None:
-            self._registry = AccessoryRegistry.instance()
-            self._registry.bootstrap()
+        with self._cv:
+            if self._registry is None:
+                self._registry = AccessoryRegistry.instance()
+                self._registry.bootstrap()
         return self._registry
 
     def configure_from_registry(
@@ -155,21 +158,23 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         display_name: str | None = None,
         tmcc_id: int | None = None,
     ) -> ConfiguredAccessory:
-        """Configures accessory from registry; returns configured accessory"""
-        definition = self.registry.get_definition(accessory_type, variant)
-        cfg = configure_accessory(
-            definition,
-            tmcc_ids=tmcc_ids,
-            operation_images=operation_images,
-            instance_id=instance_id,
-            display_name=display_name,
-            tmcc_id=tmcc_id,
-        )
+        with self._cv:
+            if self._cfg is not None:
+                """Configures accessory from registry; returns configured accessory"""
+                definition = self.registry.get_definition(accessory_type, variant)
+                cfg = configure_accessory(
+                    definition,
+                    tmcc_ids=tmcc_ids,
+                    operation_images=operation_images,
+                    instance_id=instance_id,
+                    display_name=display_name,
+                    tmcc_id=tmcc_id,
+                )
 
-        self.title = cfg.title
-        self.image_file = find_file(cfg.definition.variant.image)
-        self._cfg = cfg
-        return cfg
+                self.title = cfg.title
+                self.image_file = find_file(cfg.definition.variant.image)
+                self._cfg = cfg
+        return self._cfg
 
     def state_for(self, key: str, scope: CommandScope = CommandScope.ACC) -> S:
         assert self._cfg is not None
@@ -261,7 +266,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         pass
 
     # noinspection PyTypeChecker
-    def build_gui(self) -> None:
+    def build_gui(self, container: Box = None) -> None:
         # initialize registry
         assert self.registry is not None
         assert self.registry.is_bootstrapped
@@ -279,7 +284,12 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if self._state_buttons:
             self._reset_state_buttons()
 
-        self.box = box = Box(self.host.app, layout="grid")
+        if container:
+            assert container.layout == "grid"
+            self.box = box = container
+        else:
+            assert self._stand_alone
+            self.box = box = Box(self.host.app, layout="grid")
 
         # ts = self._text_size
         row_num = 0
