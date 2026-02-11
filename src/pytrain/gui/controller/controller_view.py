@@ -242,8 +242,8 @@ class ControllerView:
             sliderlength=int(host.slider_height / 6),
         )
         throttle.tk.bind("<Button-1>", lambda e: throttle.tk.focus_set())
-        throttle.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
-        throttle.tk.bind("<ButtonRelease>", self.clear_focus, add="+")
+        throttle.tk.bind("<ButtonRelease-1>", self._on_throttle_release_event, add="+")
+        throttle.tk.bind("<ButtonRelease>", self._on_throttle_release_event, add="+")
 
         # brake
         host.brake_box, _, host.brake_level, host.brake = self._make_slider(
@@ -551,13 +551,28 @@ class ControllerView:
             host.throttle.tk.after_cancel(host.throttle.after_id)
         host.throttle.after_id = host.throttle.tk.after(200, self.on_throttle_released, int(value))
 
+    # noinspection PyUnusedLocal
     def on_throttle_released(self, value: int) -> None:
         host = self._host
         host.throttle.after_id = None
-        if host.app.tk.focus_get() == host.throttle.tk:
-            host.throttle.after_id = host.throttle.tk.after(200, self.on_throttle_released, int(value))
-        else:
-            host.on_speed_command(value)
+        # actual speed command is sent from _on_throttle_release_event
+
+    def _on_throttle_release_event(self, e=None) -> None:
+        host = self._host
+        # If a debounced callback is pending, cancel it and send immediately.
+        after_id = getattr(host.throttle, "after_id", None)
+        if after_id is not None:
+            try:
+                host.throttle.tk.after_cancel(after_id)
+            except (TclError, AttributeError):
+                pass
+            finally:
+                host.throttle.after_id = None
+        # send speed command
+        host.on_speed_command(host.throttle.value)
+
+        # Now clear focus so the handle deactivates visually.
+        self.clear_focus(e)
 
     def on_train_brake(self, value) -> None:
         host = self._host
