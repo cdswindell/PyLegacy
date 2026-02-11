@@ -66,6 +66,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
     ) -> None:
+        self._stand_alone = aggregator is None or not isinstance(aggregator, GuiZeroBase)
         """Defines abstract accessory base class for GUI elements"""
         GuiZeroBase.__init__(
             self,
@@ -77,15 +78,19 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             disabled_bg=disabled_bg,
             enabled_text=enabled_text,
             disabled_text=disabled_text,
-            stand_alone=aggregator is None or not isinstance(aggregator, GuiZeroBase),
+            stand_alone=self._stand_alone,
         )
         self.image_file = image_file
         self._image = None
         self._aggregator = aggregator
-        self._max_image_width = max_image_width
-        if self.height > 320 and max_image_height == 0.45:
-            max_image_height = 0.55
-        self._max_image_height = max_image_height
+        if self._stand_alone:
+            self._max_image_width = max_image_width
+            if self.height > 320 and max_image_height == 0.45:
+                max_image_height = 0.55
+            self._max_image_height = max_image_height
+        else:
+            self._max_image_width = 1.0
+            self._max_image_height = 1.0
         self._text_size: int = 24
 
         self.box = self.acc_box = self.y_offset = None
@@ -441,8 +446,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
-        value = max(orig_value, int(value * self.width / 480))
-        if factor is not None and self.width > 480:
+        value = max(orig_value, int(value * self.host.width / 480))
+        if factor is not None and self.host.width > 480:
             value = max(orig_value, int(factor * value))
         return value
 
@@ -473,8 +478,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         iw, ih = self.get_jpg_size(image_file)
         if iw is None or ih is None:
             return None, None
-        max_width = int(round(self.width * self._max_image_width))
-        max_height = int(round(self.height * self._max_image_height))
+        max_width = int(round(self.host.width * self._max_image_width))
+        max_height = int(round(self.host.height * self._max_image_height))
         if ih > iw:
             scaled_height = max_height
             scale_factor = max_height / ih
@@ -484,7 +489,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             scale_factor = max_width / iw
             scaled_height = int(round(ih * scale_factor))
             # if the image takes up too much height, do more scaling
-            if (scaled_height / self.height) > self._max_image_height:
+            if (scaled_height / self.host.height) > self._max_image_height:
                 scaled_height = int(round(self.height * self._max_image_height))
                 scale_factor = scaled_height / ih
                 scaled_width = int(round(iw * scale_factor))
