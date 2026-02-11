@@ -557,59 +557,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
             # UI painting lives in ControllerView now
             self._controller_view.update_from_state(state=state, throttle_state=throttle_state)
-            #
-            # if throttle_state:
-            #     if not self.speed.enabled:
-            #         self.speed.enable()
-            #     if not self.throttle.enabled:
-            #         self.throttle.enable()
-            #     if not self._rr_speed_btn.enabled:
-            #         self._rr_speed_btn.enable()
-            #     self.speed.value = f"{throttle_state.speed:03d}"
-            #     if self._rr_speed_panel:
-            #         self._rr_speed_panel.configure(throttle_state)
-            #     if self.throttle.tk.focus_displayof() != self.throttle.tk:
-            #         self.throttle.value = throttle_state.target_speed
-            #     if throttle_state.speed != throttle_state.target_speed:
-            #         self.throttle.tk.config(
-            #             troughcolor="#4C96C5",
-            #         )
-            #     else:
-            #         self.throttle.tk.config(
-            #             troughcolor=LIONEL_BLUE,  # deep Lionel blue for the track,
-            #         )
-            #
-            #     if throttle_state and throttle_state.is_legacy:
-            #         self.throttle.tk.config(from_=195, to=0)
-            #     else:
-            #         self.throttle.tk.config(from_=31, to=0)
-            # else:
-            #     if self.speed.enabled:
-            #         self.speed.disable()
-            #     if self.throttle.enabled:
-            #         self.throttle.disable()
-            #     if self._rr_speed_btn.enabled:
-            #         self._rr_speed_btn.disable()
-            #
-            # brake = state.train_brake if state.train_brake is not None else 0
-            # self.brake_level.value = f"{brake:02d}"
-            # if self.brake.tk.focus_displayof() != self.brake.tk:
-            #     self.brake.value = brake
-            #
-            # momentum = state.momentum if state.momentum is not None else 0
-            # self.momentum_level.value = f"{momentum:02d}"
-            # if self.app.tk.focus_get() != self.momentum.tk:
-            #     self.momentum.value = momentum
-            #
-            # if state.is_legacy:
-            #     self.momentum.tk.config(resolution=1, showvalue=True)
-            # else:
-            #     self.momentum.tk.config(resolution=4, showvalue=False)
-            #
-            # _, btn = self.engine_ops_cells[("FORWARD_DIRECTION", "e")]
-            # btn.bg = self._active_bg if state.is_forward else self._inactive_bg
-            # _, btn = self.engine_ops_cells[("REVERSE_DIRECTION", "e")]
-            # btn.bg = self._active_bg if state.is_reverse else self._inactive_bg
 
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:
