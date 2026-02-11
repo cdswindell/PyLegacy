@@ -67,18 +67,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         max_image_width: float = 0.80,
         max_image_height: float = 0.45,
     ) -> None:
-        self._cv = threading.Condition(threading.RLock())
         # these instance variables must be defined before calling super().__init__()
+        self._cv = threading.Condition(threading.RLock())
         self._stand_alone = aggregator is None or not isinstance(aggregator, GuiZeroBase)
         self._aggregator = aggregator
-        if self._stand_alone:
-            self._max_image_width = max_image_width
-            if self.height > 320 and max_image_height == 0.45:
-                max_image_height = 0.55
-            self._max_image_height = max_image_height
-        else:
-            self._max_image_width = 1.0
-            self._max_image_height = 1.0
         """Defines abstract accessory base class for GUI elements"""
         GuiZeroBase.__init__(
             self,
@@ -92,6 +84,15 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             disabled_text=disabled_text,
             stand_alone=self._stand_alone,
         )
+
+        if self._stand_alone:
+            self._max_image_width = max_image_width
+            if self.height > 320 and max_image_height == 0.45:
+                max_image_height = 0.55
+            self._max_image_height = max_image_height
+        else:
+            self._max_image_width = 1.0
+            self._max_image_height = 1.0
 
         self.image_file = image_file
         self._image = None
