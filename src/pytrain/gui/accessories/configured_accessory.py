@@ -344,7 +344,7 @@ class ConfiguredAccessory:
         gui = instantiate_gui(spec, extra_kwargs=merged)
         if bind and hasattr(gui, "bind_variant"):
             gui.bind_variant()
-        return instantiate_gui(spec, extra_kwargs=merged)
+        return gui
 
 
 # -----------------------------------------------------------------------------
