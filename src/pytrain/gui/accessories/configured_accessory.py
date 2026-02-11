@@ -122,6 +122,48 @@ class ConfiguredAccessory:
     registry: AccessoryRegistry
     catalog: AccessoryGuiCatalog
 
+    def __repr__(self) -> str:
+        # Resolve accessory type safely (may raise ValueError if misconfigured)
+        try:
+            acc_type = self.accessory_type.name
+        except ValueError:
+            acc_type = "<?>"
+
+        # Resolve title safely (may raise ValueError via registry lookup)
+        try:
+            title = self.title
+        except ValueError:
+            title = "<?>"
+
+        gui_key = self.gui_key
+        variant = self.variant
+        instance_id = self.instance_id
+        display_name = self.display_name
+        tmcc_id = self.tmcc_id
+
+        # tmcc_ids property is deterministic and should not raise,
+        # so we do NOT blanket-catch here.
+        tmcc_ids = self.tmcc_ids
+
+        parts: list[str] = [
+            f"type={acc_type}",
+            f"gui={gui_key!r}",
+            f"title={title!r}",
+        ]
+
+        if variant is not None:
+            parts.append(f"variant={variant!r}")
+        if instance_id is not None:
+            parts.append(f"instance_id={instance_id!r}")
+        if display_name is not None:
+            parts.append(f"display_name={display_name!r}")
+        if tmcc_id is not None:
+            parts.append(f"tmcc_id={tmcc_id}")
+        if tmcc_ids:
+            parts.append(f"tmcc_ids={tmcc_ids!r}")
+
+        return f"ConfiguredAccessory({', '.join(parts)})"
+
     @staticmethod
     def _get_str(d: Mapping[str, Any], key: str) -> str | None:
         v = d.get(key)
