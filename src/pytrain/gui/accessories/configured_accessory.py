@@ -374,6 +374,9 @@ class ConfiguredAccessorySet:
         self._by_instance_id: dict[str, dict[str, Any]] = {}
         self._by_type: dict[AccessoryType, list[dict[str, Any]]] = {}
         self._by_tmcc_id: dict[int, list[dict[str, Any]]] = {}
+        self._configured_all: list[ConfiguredAccessory] = []
+        self._configured_by_instance_id: dict[str, ConfiguredAccessory] = {}
+        self._configured_by_label: dict[str, list[ConfiguredAccessory]] = {}
 
     # ------------------------------------------------------------------
     # Construction / loading
@@ -459,6 +462,11 @@ class ConfiguredAccessorySet:
     # ------------------------------------------------------------------
     # Indexing
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _norm_label(s: str) -> str:
+        # stable, case-insensitive, collapses whitespace
+        return " ".join(str(s).strip().lower().split())
 
     @staticmethod
     def _build_indexes(
@@ -550,6 +558,23 @@ class ConfiguredAccessorySet:
         self._by_instance_id = by_instance_id
         self._by_type = by_type
         self._by_tmcc_id = by_tmcc_id
+        # ---- Typed indexes (ConfiguredAccessory) ----
+        accs = [ConfiguredAccessory(r, self._registry, self._catalog) for r in self._raw]
+        self._configured_all = accs
+
+        by_instance: dict[str, ConfiguredAccessory] = {}
+        by_label: dict[str, list[ConfiguredAccessory]] = {}
+
+        for a in accs:
+            iid = a.instance_id
+            if iid:
+                by_instance[iid] = a
+
+            lk = self._norm_label(a.label)
+            by_label.setdefault(lk, []).append(a)
+
+        self._configured_by_instance_id = by_instance
+        self._configured_by_label = by_label
 
         if verify and issues:
             log.warning("Accessory config verification found %d issue(s)", len(issues))
@@ -597,6 +622,35 @@ class ConfiguredAccessorySet:
 
     def configured_by_type(self, acc_type: AccessoryType) -> list[ConfiguredAccessory]:
         return [ConfiguredAccessory(r, self._registry, self._catalog) for r in self.by_type(acc_type)]
+
+    def configured_by_instance_id_map(self) -> Mapping[str, ConfiguredAccessory]:
+        return self._configured_by_instance_id
+
+    def configured_by_label(self, label: str) -> list[ConfiguredAccessory]:
+        """Returns configured accessories matching normalized label"""
+        if not isinstance(label, str) or not label.strip():
+            return []
+        return list(self._configured_by_label.get(self._norm_label(label), ()))
+
+    def configured_by_label_contains(self, text: str) -> list[ConfiguredAccessory]:
+        """
+        Case-insensitive substring match against the *label* (display_name-or-title).
+        Returns results in stable order (config order).
+        """
+        if not isinstance(text, str) or not text.strip():
+            return []
+        needle = self._norm_label(text)
+
+        # If the user typed an exact label, use the index fast-path
+        exact = self._configured_by_label.get(needle)
+        if exact:
+            return list(exact)
+
+        out: list[ConfiguredAccessory] = []
+        for a in self._configured_all:
+            if needle in self._norm_label(a.label):
+                out.append(a)
+        return out
 
     def gui_specs(self) -> list[GuiCtorSpec]:
         """
