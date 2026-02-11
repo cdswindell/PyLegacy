@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from contextlib import contextmanager
 from tkinter import TclError
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
 from guizero import Box, Slider, Text, TitleBox
 from guizero.base import Widget
@@ -52,11 +53,95 @@ class ControllerView:
         self._all_engine_btns = set()
         self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._quill_after_id = None
-        self._momentum_after_id = None
+        self._updating_from_state = False
+
+    @contextmanager
+    def __updating(self) -> Iterator[None]:
+        self._updating_from_state = True
+        try:
+            yield
+        finally:
+            self._updating_from_state = False
 
     # -----------------------------
     # Public API used by EngineGui
     # -----------------------------
+
+    # noinspection PyProtectedMember
+    def update_from_state(
+        self, state: EngineState | TrainState | None, throttle_state: EngineState | TrainState | None
+    ):
+        """
+        Paint throttle/brake/momentum + direction buttons from the given state.
+
+        `state` is the active engine state (for brake/momentum/direction).
+        `throttle_state` is whichever state is allowed to control throttle (engine vs. train vs. None).
+        """
+        host = self._host
+        if not isinstance(state, EngineState):
+            return
+
+        with self.__updating():
+            # --- Throttle / Speed ---
+            if throttle_state:
+                if not host.speed.enabled:
+                    host.speed.enable()
+                if not host.throttle.enabled:
+                    host.throttle.enable()
+                if host._rr_speed_btn and not host._rr_speed_btn.enabled:
+                    host._rr_speed_btn.enable()
+
+                host.speed.value = f"{throttle_state.speed:03d}"
+
+                if host._rr_speed_panel:
+                    host._rr_speed_panel.configure(throttle_state)
+
+                # don't fight the user while dragging
+                if host.throttle.tk.focus_displayof() != host.throttle.tk:
+                    host.throttle.value = throttle_state.target_speed
+
+                # trough color indicates actual vs target
+                if throttle_state.speed != throttle_state.target_speed:
+                    host.throttle.tk.config(troughcolor="#4C96C5")
+                else:
+                    host.throttle.tk.config(troughcolor=LIONEL_BLUE)
+
+                # legacy vs tmcc throttle range
+                if throttle_state.is_legacy:
+                    host.throttle.tk.config(from_=195, to=0)
+                else:
+                    host.throttle.tk.config(from_=31, to=0)
+            else:
+                if host.speed.enabled:
+                    host.speed.disable()
+                if host.throttle.enabled:
+                    host.throttle.disable()
+                if host._rr_speed_btn and host._rr_speed_btn.enabled:
+                    host._rr_speed_btn.disable()
+
+            # --- Brake ---
+            brake = state.train_brake if state.train_brake is not None else 0
+            host.brake_level.value = f"{brake:02d}"
+            if host.brake.tk.focus_displayof() != host.brake.tk:
+                host.brake.value = brake
+
+            # --- Momentum ---
+            momentum = state.momentum if state.momentum is not None else 0
+            host.momentum_level.value = f"{momentum:02d}"
+            if host.app.tk.focus_get() != host.momentum.tk:
+                host.momentum.value = momentum
+
+            if state.is_legacy:
+                host.momentum.tk.config(resolution=1, showvalue=True)
+            else:
+                host.momentum.tk.config(resolution=4, showvalue=False)
+
+            # --- Direction buttons ---
+            _, fwd_btn = host.engine_ops_cells[("FORWARD_DIRECTION", "e")]
+            fwd_btn.bg = host._active_bg if state.is_forward else host._inactive_bg
+
+            _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
+            rev_btn.bg = host._active_bg if state.is_reverse else host._inactive_bg
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
@@ -505,12 +590,6 @@ class ControllerView:
         if host.controller_box and host.controller_box.visible:
             host.controller_box.hide()
 
-    def update_from_state(self, state: EngineState | TrainState | None) -> None:
-        """Update throttle/brake/momentum UI based on the active state."""
-        # Optionally move the relevant chunk of EngineGui.on_new_engine here.
-        # Keep behavior identical; call into host for engine command sending if needed.
-        pass
-
     # -----------------------------
     # Event handlers (moved over)
     # -----------------------------
@@ -549,6 +628,8 @@ class ControllerView:
         host.horn.value = 0
 
     def on_throttle(self, value) -> None:
+        if self._updating_from_state:
+            return
         host = self._host
         if host.throttle.after_id is not None:
             host.throttle.tk.after_cancel(host.throttle.after_id)
@@ -577,6 +658,8 @@ class ControllerView:
         self.clear_focus(e)
 
     def on_train_brake(self, value) -> None:
+        if self._updating_from_state:
+            return
         host = self._host
         if host.app.tk.focus_get() == host.brake.tk:
             value = int(value)
@@ -605,25 +688,17 @@ class ControllerView:
             self._stop_quill()
 
     def on_momentum(self, value) -> None:
-        host = self._host
+        if self._updating_from_state:
+            return
         try:
+            # UI feedback only
             value = int(value)
+            self._host.momentum_level.value = f"{value:02d}"
         except (TypeError, ValueError):
             return
 
-        # UI feedback only
-        host.momentum_level.value = f"{value:02d}"
-
     def _on_momentum_release_event(self, e=None) -> None:
         host = self._host
-
-        # Cancel pending debounce and send immediately
-        if self._momentum_after_id is not None:
-            try:
-                host.app.tk.after_cancel(self._momentum_after_id)
-            except TclError:
-                pass
-            self._momentum_after_id = None
 
         try:
             value = int(host.momentum.value)
@@ -635,7 +710,6 @@ class ControllerView:
 
     def _send_momentum(self, value: int) -> None:
         host = self._host
-        self._momentum_after_id = None
 
         # Resolve state
         state = host.active_engine_state or host.active_state
