@@ -160,7 +160,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         tmcc_id: int | None = None,
     ) -> ConfiguredAccessory:
         with self._cv:
-            if self._cfg is not None:
+            if self._cfg is None:
                 """Configures accessory from registry; returns configured accessory"""
                 definition = self.registry.get_definition(accessory_type, variant)
                 cfg = configure_accessory(

@@ -335,12 +335,15 @@ class ConfiguredAccessory:
             instance_id=self.instance_id,
         )
 
-    def create_gui(self, *, aggregator: Any, extra_kwargs: Mapping[str, Any] | None = None) -> Any:
+    def create_gui(self, *, aggregator: Any, extra_kwargs: Mapping[str, Any] | None = None, bind: bool = True) -> Any:
         spec = self.build_gui_spec()
         # IMPORTANT: only pass kwargs that GUI ctors accept (you already filter spec.kwargs)
         merged = {"aggregator": aggregator}
         if extra_kwargs:
             merged.update(extra_kwargs)
+        gui = instantiate_gui(spec, extra_kwargs=merged)
+        if bind and hasattr(gui, "bind_variant"):
+            gui.bind_variant()
         return instantiate_gui(spec, extra_kwargs=merged)
 
 
