@@ -474,6 +474,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
     @property
     def active_state(self) -> S | None:
         if self.scope and self._scope_tmcc_ids.get(self.scope, None):
+            return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
+        else:
+            return None
+
+    def active_state_or_acc(self) -> S | None:
+        if self.scope and self._scope_tmcc_ids.get(self.scope, None):
             tmcc_id = self._scope_tmcc_ids.get(self.scope)
             if self.scope == CommandScope.ACC and tmcc_id in self._acc_tmcc_to_adapter:
                 return self._acc_tmcc_to_adapter[tmcc_id]
@@ -1057,7 +1063,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
-            state = conf_acc or self.active_state
+            state = conf_acc or self.active_state_or_acc
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
