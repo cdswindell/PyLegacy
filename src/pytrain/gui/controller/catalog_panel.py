@@ -160,8 +160,9 @@ class CatalogPanel:
             if self._gui.configured_accessories.has_any():
                 for k, v in self._gui.configured_accessories.configured_by_label_map().items():
                     if k and v:
-                        self._configured_acc_labels.append(k)
-                        self._configured_acc_dict[k] = v[0] if isinstance(v, list) else v
+                        v = v[0] if isinstance(v, list) else v
+                        self._configured_acc_labels.append(v.label)
+                        self._configured_acc_dict[k] = v
 
     @property
     def title(self) -> str:
