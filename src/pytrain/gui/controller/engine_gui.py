@@ -222,11 +222,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # get set of configured accessories
         self._configured_accessories = ConfiguredAccessorySet.from_file(config_file, verify=True)
-        if self._configured_accessories.has_any():
-            accs = self._configured_accessories.configured_by_instance_id_map().values()
-            self._accessories_labels = [a.label for a in accs].sort()
-        else:
-            self._accessories_labels = []
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -235,6 +230,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def locked(self) -> Iterator[None]:
         with self._cv:
             yield
+
+    @property
+    def configured_accessories(self) -> ConfiguredAccessorySet:
+        return self._configured_accessories
+
+    @property
+    def configured_accessory_labels(self) -> list[str]:
+        return self._configured_accessories.configured_labels()
 
     @property
     def active_engine_state(self) -> EngineState | None:

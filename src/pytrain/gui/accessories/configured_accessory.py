@@ -393,7 +393,7 @@ class ConfiguredAccessorySet:
         self._configured_all: list[ConfiguredAccessory] = []
         self._configured_by_instance_id: dict[str, ConfiguredAccessory] = {}
         self._configured_by_label: dict[str, list[ConfiguredAccessory]] = {}
-        self._configured_by_tmcc_id: dict[int, list[ConfiguredAccessory]]
+        self._configured_by_tmcc_id: dict[int, list[ConfiguredAccessory]] = {}
 
     # ------------------------------------------------------------------
     # Construction / loading
@@ -634,6 +634,9 @@ class ConfiguredAccessorySet:
     def configured_all(self) -> list[ConfiguredAccessory]:
         return list(self._configured_all)
 
+    def configured_labels(self) -> list[str]:
+        return sorted([a.label for a in self._configured_all])
+
     def configured_by_instance_id(self, instance_id: str) -> ConfiguredAccessory | None:
         if not isinstance(instance_id, str) or not instance_id.strip():
             return None
@@ -649,6 +652,9 @@ class ConfiguredAccessorySet:
 
     def configured_by_instance_id_map(self) -> Mapping[str, ConfiguredAccessory]:
         return self._configured_by_instance_id
+
+    def configured_by_label_map(self) -> Mapping[str, list[ConfiguredAccessory]]:
+        return self._configured_by_label
 
     def configured_by_label(self, label: str) -> list[ConfiguredAccessory]:
         """Returns configured accessories matching normalized label"""

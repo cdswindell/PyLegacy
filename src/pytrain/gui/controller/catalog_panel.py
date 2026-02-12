@@ -8,12 +8,17 @@
 #
 #
 #
+from typing import TYPE_CHECKING
+
 from guizero import Box, Text, TitleBox
 
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
-from ..guizero_base import GuiZeroBase, LIONEL_BLUE, LIONEL_ORANGE
+from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 from ...protocol.constants import CommandScope
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .engine_gui import EngineGui
 
 SORT_OPTS = [
     ["Name", 0],
@@ -23,7 +28,7 @@ SORT_OPTS = [
 
 
 class CatalogPanel:
-    def __init__(self, gui: GuiZeroBase, width: int, height: int):
+    def __init__(self, gui: "EngineGui", width: int, height: int):
         self._gui = gui
         self._width = width
         self._height = height
@@ -113,6 +118,12 @@ class CatalogPanel:
             sort_order = self._scoped_sort_order[scope] if scope in self._scoped_sort_order else 0
             self._set_sort_order_widget(sort_order)
             self._catalog.clear()
+            self._entry_state_map.clear()
+            if scope == CommandScope.ACC:
+                if self._gui.configured_accessories.has_any():
+                    for label in self._gui.configured_accessories.configured_labels():
+                        self._catalog.append(label)
+                    self._catalog.append("-" * 20)
             states = self._state_store.get_all(scope)
             if sort_order == 0:
                 states.sort(key=lambda x: x.name)
