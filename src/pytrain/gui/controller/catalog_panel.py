@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from guizero import Box, Text, TitleBox
 
-from ..accessories.config import ConfiguredAccessory
+from ..accessories.configured_accessory import ConfiguredAccessory
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
@@ -189,7 +189,7 @@ class CatalogPanel:
         from ...db.component_state import ComponentState
 
         state = self._entry_state_map.get(item, None)
-        print(isinstance(state, ConfiguredAccessory))
+
         if isinstance(state, ComponentState):
             self._gui.update_component_info(state.address)
         elif isinstance(state, ConfiguredAccessory):
