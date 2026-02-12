@@ -195,4 +195,4 @@ class CatalogPanel:
         elif isinstance(state, ConfiguredAccessory):
             print(state)
         else:
-            print(f"Unknown state: {state}")
+            print(f"Unknown state {type(state)}: {state}")
