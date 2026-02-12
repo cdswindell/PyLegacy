@@ -43,7 +43,7 @@ from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
-from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
+from ..accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector
@@ -1033,6 +1033,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         tmcc_id: int = None,
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
+        conf_acc: ConfiguredAccessory = None,
     ) -> None:
         self.close_popup()
         if tmcc_id is None:
@@ -1058,7 +1059,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self.ops_mode(update_info=False)
             else:
                 name = not_found_value
-            self.name_text.value = name
+            self.name_text.value = conf_acc.label if conf_acc else name
         else:
             if self._keypad_view.reset_on_keystroke:
                 self._scope_tmcc_ids[self.scope] = 0
@@ -1073,7 +1074,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if update_button_state:
                 # noinspection PyTypeChecker
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            self._image_presenter.update(tmcc_id)
+            self._image_presenter.update(tmcc_id, conf_acc)
         else:
             self.image_box.hide()
 

@@ -14,6 +14,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 
 from .engine_gui_conf import ENGINE_TYPE_TO_IMAGE
+from ..accessories.configured_accessory import ConfiguredAccessory
 from ...db.accessory_state import AccessoryState
 from ...db.engine_state import EngineState
 from ...db.prod_info import ProdInfo
@@ -131,7 +132,10 @@ class ImagePresenter:
 
     # noinspection PyProtectedMember
     def update(
-        self, tmcc_id: int | None = None, key: tuple[CommandScope, int] | tuple[CommandScope, int, int] | None = None
+        self,
+        tmcc_id: int | None = None,
+        key: tuple[CommandScope, int] | tuple[CommandScope, int, int] | None = None,
+        conf_acc: ConfiguredAccessory = None,
     ) -> None:
         host = self._host
 
@@ -207,14 +211,24 @@ class ImagePresenter:
             if state:
                 img = host._image_cache.get((host.scope, tmcc_id), None)
                 if img is None:
-                    if isinstance(state, AccessoryState) and state.is_asc2:
-                        img = host.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif state.is_bpc2:
-                        img = host.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif isinstance(state, AccessoryState) and state.is_amc2:
-                        img = host.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
-                    elif isinstance(state, AccessoryState) and state.is_sensor_track:
-                        img = host.get_scaled_image(self.sensor_track_image, force_lionel=True)
+                    if conf_acc:
+                        img = host.get_image(
+                            find_file(conf_acc.image_path),
+                            inverse=False,
+                            scale=True,
+                            preserve_height=True,
+                        )
+                    else:
+                        # Selects image based on accessory state properties
+                        if isinstance(state, AccessoryState) and state.is_asc2:
+                            img = host.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
+                        elif state.is_bpc2:
+                            img = host.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
+                        elif isinstance(state, AccessoryState) and state.is_amc2:
+                            img = host.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
+                        elif isinstance(state, AccessoryState) and state.is_sensor_track:
+                            img = host.get_scaled_image(self.sensor_track_image, force_lionel=True)
+
                     if img:
                         host._image_cache[(host.scope, tmcc_id)] = img
                     else:

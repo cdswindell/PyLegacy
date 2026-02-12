@@ -193,4 +193,4 @@ class CatalogPanel:
         if isinstance(state, ComponentState):
             self._gui.update_component_info(state.address)
         elif isinstance(state, ConfiguredAccessory):
-            print(state)
+            self._gui.update_component_info(state.tmcc_ids[0], conf_acc=state)
