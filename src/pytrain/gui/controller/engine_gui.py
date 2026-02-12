@@ -892,18 +892,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         app.tk.after(10, adjust_road_name_box)
 
         # add a picture placeholder here, we may not use it
-        self.image_box = image_box = Box(app, border=2, align="top")
+        self.image_box = image_box = Box(app, border=0, align="top")
         self.image = Picture(image_box, align="top")
         self._isd = SwipeDetector(self.image)
         self._isd.on_long_press = self.on_info
         self._isd.on_swipe_right = self.show_previous_component
         self._isd.on_swipe_left = self.show_next_component
         self.image_box.hide()
-
-    # def on_sensor_track_change(self) -> None:
-    #     tmcc_id = self._scope_tmcc_ids[self.scope]
-    #     st_seq = IrdaSequence.by_value(int(self.sensor_track_buttons.value))
-    #     IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self.repeat)
 
     def make_keypad_button(
         self,
