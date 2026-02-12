@@ -222,7 +222,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._controller_view: ControllerView = ControllerView(self)
         self._keypad_view: KeypadView = KeypadView(self)
 
-        # get set of configured accessories
+        # get configured accessories
         self._caa = ConfiguredAccessorySet.from_file(config_file, verify=True)
         self._caap = ConfiguredAccessoryAdapterProvider(self._caa, self)
 
@@ -788,6 +788,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if tmcc_id > 0:
             if state is None:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
+                if self.scope == CommandScope.ACC:
+                    accs = self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
+                    if accs and len(accs) >= 1:
+                        state = accs[0]
+                        state.activate_tmcc_id(tmcc_id)
+                        # TODO: Handle case where multiple accessories are configured for same tmcc_id
             if state:
                 # add to scope queue
                 if state in self._train_linked_queue:
