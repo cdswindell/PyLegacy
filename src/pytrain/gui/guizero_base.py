@@ -549,19 +549,24 @@ class GuiZeroBase(Thread, ABC):
         return prod_info
 
     def get_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:
-        prod_info = self._prod_info_cache.get(tmcc_id, None)
+        with self._cv:
+            prod_info = self._prod_info_cache.get(tmcc_id, None)
         # Attempts to retrieve or schedule production info
         if prod_info is None and bt_id:
-            if tmcc_id not in self._pending_prod_infos:
-                future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id)
-                self._prod_info_cache[tmcc_id] = future
+            with self._cv:
+                if tmcc_id not in self._pending_prod_infos:
+                    future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id)
+                    self._prod_info_cache[tmcc_id] = future
         elif isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
-            prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
-            self._pending_prod_infos.discard(tmcc_id)
+            with self._cv:
+                prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
+                self._pending_prod_infos.discard(tmcc_id)
         elif isinstance(prod_info, ProdInfo):
             pass
         else:
             prod_info = "N/A"
             if bt_id is None:
-                self._prod_info_cache[tmcc_id] = prod_info
+                with self._cv:
+                    self._prod_info_cache[tmcc_id] = prod_info
+                    self._pending_prod_infos.discard(tmcc_id)
         return prod_info
