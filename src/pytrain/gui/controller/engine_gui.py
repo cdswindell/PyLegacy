@@ -478,6 +478,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             return None
 
+    @property
     def active_state_or_acc(self) -> S | None:
         if self.scope and self._scope_tmcc_ids.get(self.scope, None):
             tmcc_id = self._scope_tmcc_ids.get(self.scope)
