@@ -174,7 +174,21 @@ class ConfiguredAccessoryAdapter:
 
     @property
     def instance_id(self) -> str:
-        return self.cfg.instance_id
+        iid = self.cfg.instance_id
+        if not self.cfg.instance_id:
+            raise ValueError("ConfiguredAccessoryAdapter requires cfg.instance_id")
+        return iid
+
+    def __hash__(self) -> int:
+        # Stable identity for hashing / de-duping in UniqueDeque
+        return hash(self.instance_id)
+
+    def __eq__(self, other: object) -> bool:
+        if other is self:
+            return True
+        if not isinstance(other, ConfiguredAccessoryAdapter):
+            return NotImplemented
+        return self.instance_id == other.instance_id
 
     def __repr__(self) -> str:
         # Keep it readable in logs/recents debugging
