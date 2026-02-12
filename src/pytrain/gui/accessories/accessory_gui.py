@@ -35,72 +35,49 @@ class AccessoryGui(Thread):
         verify_config: bool = False,
     ) -> None:
         """
-        Aggregator that builds its GUI list from accessory_config.json via ConfiguredAccessorySet.
+        Standalone accessory GUI aggregator that builds its menu from accessory_config.json
+        via ConfiguredAccessorySet.
+
+        NOTE: ConfiguredAccessorySet now assigns each ConfiguredAccessory a resolved, unique,
+        user-facing label (stored on _label). AccessoryGui uses that directly.
         """
         super().__init__(daemon=True)
         self._ev = Event()
 
-        # Load + index configured accessories
         self._configured = ConfiguredAccessorySet.from_file(
             config_file,
             validate=validate_config,
             verify=verify_config,
         )
 
-        # Build configured accessories (labels are already disambiguated in ConfiguredAccessorySet.gui_specs())
-        # but for the standalone aggregator we want "label -> ConfiguredAccessory".
         self._accessories: list[ConfiguredAccessory] = self._configured.configured_all()
         if not self._accessories:
             raise ValueError("AccessoryGui: no GUIs configured")
 
-        # Build label order using the same logic as gui_specs(), so menu ordering matches.
-        # (gui_specs() is already sorted and disambiguated.)
-        specs = self._configured.gui_specs()
-        self._sorted_guis: list[str] = [s.label for s in specs]
+        # Labels are already resolved + unique (via ConfiguredAccessorySet._rebuild_indexes)
+        self._sorted_guis: list[str] = sorted([a.label for a in self._accessories])
 
-        # Map label -> configured accessory (must be 1:1 with specs labels).
-        by_label: dict[str, list] = {lbl: [] for lbl in self._sorted_guis}
-        for acc in self._accessories:
-            by_label.setdefault(acc.label, []).append(acc)
-
-        # If duplicates exist, gui_specs() disambiguates with instance_id.
-        # Rebuild label->acc using the same disambiguation rule.
+        # Map label -> accessory (should be 1:1). Be defensive in case uniqueness breaks.
         self._acc_by_label: dict[str, ConfiguredAccessory] = {}
-        if any(len(v) > 1 for v in by_label.values()):
-            # Count base labels
-            counts: dict[str, int] = {}
-            for acc in self._accessories:
-                counts[acc.label] = counts.get(acc.label, 0) + 1
+        for a in self._accessories:
+            lbl = a.label
+            if lbl in self._acc_by_label:
+                # This should not happen if _rebuild_indexes ensures uniqueness.
+                # Keep it readable if it does.
+                raise ValueError(f"AccessoryGui: duplicate resolved label {lbl!r} in config")
+            self._acc_by_label[lbl] = a
 
-            for acc in self._accessories:
-                label = acc.label
-                if counts.get(label, 0) > 1:
-                    dis = acc.label_disambiguator()
-                    if dis:
-                        label = f"{label} ({dis})"
-                # first one wins if still collides (shouldn’t, but be defensive)
-                self._acc_by_label.setdefault(label, acc)
-        else:
-            for acc in self._accessories:
-                self._acc_by_label[acc.label] = acc
-
-        if not self._acc_by_label:
-            raise ValueError("AccessoryGui: no GUIs configured")
-
-        # resolve initial selection (substring match like old behavior)
+        # Resolve initial selection (substring match like old behavior)
         if initial:
-            chosen = None
-            for label in self._sorted_guis:
-                if initial.lower() in label.lower():
-                    chosen = label
-                    break
+            needle = initial.lower()
+            chosen = next((lbl for lbl in self._sorted_guis if needle in lbl.lower()), None)
             if chosen is None:
-                raise ValueError(f"Invalid initial GUI: {initial}")
+                raise ValueError(f"Invalid initial GUI: '{initial}'")
             initial = chosen
         else:
             initial = self._sorted_guis[0]
 
-        # window size (unchanged behavior)
+        # Window size (unchanged behavior)
         if width is None or height is None:
             try:
                 from tkinter import Tk
@@ -109,7 +86,7 @@ class AccessoryGui(Thread):
                 self.width = root.winfo_screenwidth()
                 self.height = root.winfo_screenheight()
                 root.destroy()
-            except Exception as e:
+            except (ImportError, RuntimeError) as e:
                 log.exception("Error determining window size", exc_info=e)
                 self.width = width or 1024
                 self.height = height or 600
@@ -133,9 +110,10 @@ class AccessoryGui(Thread):
             raise ValueError(f"Invalid GUI label: {label}")
 
         try:
-            # New path: ConfiguredAccessory owns ctor logic (and filters ctor kwargs).
+            # ConfiguredAccessory owns ctor logic (and filters ctor kwargs).
             self._gui = acc.create_gui(aggregator=self)
-            self._gui._menu_label = label
+            self._gui.menu_label = acc.label
+            # TODO: clean this up by moving
         except TypeError as e:
             raise TypeError(f"Failed to instantiate accessory GUI '{label}': {e}") from None
 

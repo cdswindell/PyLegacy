@@ -177,8 +177,8 @@ def test_missing_gui_raises(tmp_path: Path) -> None:
     path = tmp_path / "accessory_config.json"
     path.write_text(json.dumps(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"missing required 'gui'"):
-        mod.AccessoryGui(width=100, height=100, config_file=path)
+    with pytest.raises(ValueError, match=r"Invalid initial GUI: 'foo'"):
+        mod.AccessoryGui(width=100, height=100, config_file=path, initial="foo")
 
 
 def test_empty_config_raises(tmp_path: Path) -> None:

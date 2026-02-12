@@ -139,6 +139,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def menu_label(self) -> str:
         return self._menu_label or (self.title or "")
 
+    @menu_label.setter
+    def menu_label(self, value: str):
+        self._menu_label = value
+
     @property
     def destroy_complete(self) -> Event:
         return self._ev
