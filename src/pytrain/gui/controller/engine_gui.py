@@ -1175,7 +1175,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """
         repeat = repeat if repeat else self.repeat
         scope = scope or self.scope
-        tmcc_id = state.address if state else self._scope_tmcc_ids[scope]
+        tmcc_id = state.tmcc_id if state else self._scope_tmcc_ids[scope]
         if tmcc_id == 0:
             tmcc_id = int(self.tmcc_id_text.value)
             self._scope_tmcc_ids[scope] = tmcc_id

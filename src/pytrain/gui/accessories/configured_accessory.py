@@ -122,6 +122,8 @@ class ConfiguredAccessory:
     registry: AccessoryRegistry
     catalog: AccessoryGuiCatalog
 
+    _label: str | None = None  # computed/disambiguated by ConfiguredAccessorySet
+
     def __repr__(self) -> str:
         # Resolve accessory type safely (may raise ValueError if misconfigured)
         try:
@@ -264,7 +266,7 @@ class ConfiguredAccessory:
 
     @property
     def label(self) -> str:
-        return self.display_name or self.title
+        return self._label or self.display_name or self.title
 
     def build_gui_spec(self, *, disambiguate_with: str | None = None) -> GuiCtorSpec:
         """
@@ -575,21 +577,54 @@ class ConfiguredAccessorySet:
         self._by_instance_id = by_instance_id
         self._by_type = by_type
         self._by_tmcc_id = by_tmcc_id
+
         # ---- Typed indexes (ConfiguredAccessory) ----
         accs = [ConfiguredAccessory(r, self._registry, self._catalog) for r in self._raw]
         self._configured_all = accs
 
+        # Count *base* labels (NOT resolved labels) so we know when to disambiguate
+        counts: dict[str, int] = {}
+        for a in accs:
+            base = a.display_name or a.title
+            counts[base] = counts.get(base, 0) + 1
+
         by_instance: dict[str, ConfiguredAccessory] = {}
         by_label: dict[str, list[ConfiguredAccessory]] = {}
         by_tmcc: dict[int, list[ConfiguredAccessory]] = {}
+
+        seen_labels: set[str] = set()
 
         for a in accs:
             iid = a.instance_id
             if iid:
                 by_instance[iid] = a
 
-            lk = self._norm_label(a.label)
+            base = a.display_name or a.title
+
+            # Compute resolved label:
+            resolved_label = base
+            if counts.get(base, 0) > 1:
+                dis = a.label_disambiguator()  # e.g. "30/33/34" or "29"
+                if dis:
+                    resolved_label = f"{base} ({dis})"
+
+            # If it still collides (same display name + same disambiguator),
+            # suffix with stable numeric counter. No instance_id exposed.
+            if resolved_label in seen_labels:
+                base2 = resolved_label
+                n = 2
+                while resolved_label in seen_labels:
+                    resolved_label = f"{base2} #{n}"
+                    n += 1
+
+            seen_labels.add(resolved_label)
+
+            # ✅ actually store it on the frozen dataclass
+            object.__setattr__(a, "_label", resolved_label)
+
+            lk = self._norm_label(resolved_label)
             by_label.setdefault(lk, []).append(a)
+
             for tid in a.tmcc_ids:
                 by_tmcc.setdefault(tid, []).append(a)
 
