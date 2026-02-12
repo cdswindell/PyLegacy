@@ -33,7 +33,7 @@ class ConfiguredAccessoryAdapterProvider:
           * tmcc_id -> list[instance_id]
     """
 
-    def __init__(self, configured_set: ConfiguredAccessorySet, *, host) -> None:
+    def __init__(self, configured_set: ConfiguredAccessorySet, host) -> None:
         """
         Args:
             configured_set: already-loaded ConfiguredAccessorySet
