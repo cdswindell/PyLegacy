@@ -20,6 +20,8 @@ from guizero.base import Widget
 from .admin_panel import ADMIN_TITLE, AdminPanel
 from .bell_horn_panel import BellHornPanel
 from .catalog_panel import CatalogPanel
+from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from .configured_accessory_adapter_provider import ConfiguredAccessoryAdapterProvider
 from .controller_view import ControllerView
 from .engine_gui_conf import (
     COMMAND_FALLBACKS,
@@ -43,7 +45,7 @@ from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
-from ..accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
+from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector
@@ -72,7 +74,7 @@ from ...utils.path_utils import find_file
 from ...utils.unique_deque import UniqueDeque
 
 log = logging.getLogger(__name__)
-S = TypeVar("S", bound=ComponentState)
+S = TypeVar("S", ComponentState, ConfiguredAccessoryAdapter)
 
 
 class EngineGui(GuiZeroBase, Generic[S]):
@@ -221,7 +223,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._keypad_view: KeypadView = KeypadView(self)
 
         # get set of configured accessories
-        self._configured_accessories = ConfiguredAccessorySet.from_file(config_file, verify=True)
+        self._caa = ConfiguredAccessorySet.from_file(config_file, verify=True)
+        self._caap = ConfiguredAccessoryAdapterProvider(self._caa, self)
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -232,12 +235,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
             yield
 
     @property
-    def configured_accessories(self) -> ConfiguredAccessorySet:
-        return self._configured_accessories
+    def accessories(self) -> ConfiguredAccessorySet:
+        return self._caa
 
     @property
-    def configured_accessory_labels(self) -> list[str]:
-        return self._configured_accessories.configured_labels()
+    def accessory_provider(self) -> ConfiguredAccessoryAdapterProvider:
+        return self._caap
+
+    @property
+    def accessory_labels(self) -> list[str]:
+        return self._caa.configured_labels()
 
     @property
     def active_engine_state(self) -> EngineState | None:
@@ -1028,7 +1035,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         tmcc_id: int = None,
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
-        conf_acc: ConfiguredAccessory = None,
+        conf_acc: ConfiguredAccessoryAdapter = None,
     ) -> None:
         self.close_popup()
         if tmcc_id is None:
@@ -1038,7 +1045,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
-            state = self.active_state
+            state = conf_acc or self.active_state
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
@@ -1054,7 +1061,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self.ops_mode(update_info=False)
             else:
                 name = not_found_value
-            self.name_text.value = conf_acc.label if conf_acc else name
+            self.name_text.value = name
         else:
             if self._keypad_view.reset_on_keystroke:
                 self._scope_tmcc_ids[self.scope] = 0

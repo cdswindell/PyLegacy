@@ -15,6 +15,7 @@
       <w>baudrates</w>
       <w>btid</w>
       <w>btns</w>
+      <w>caap</w>
       <w>citgo</w>
       <w>cplr</w>
       <w>ctors</w>
@@ -53,6 +54,7 @@
       <w>rnum</w>
       <w>setsid</w>
       <w>sunoco</w>
+      <w>tids</w>
       <w>titlebox</w>
       <w>tmcc</w>
       <w>unsel</w>

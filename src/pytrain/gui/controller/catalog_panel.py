@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from guizero import Box, Text, TitleBox
 
-from ..accessories.configured_accessory import ConfiguredAccessory
+from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
@@ -42,7 +42,7 @@ class CatalogPanel:
         self._entry_state_map = {}
         self._overlay = None
         self._configured_acc_labels: list[str] | None = None
-        self._configured_acc_dict: dict[str, ConfiguredAccessory] | None = None
+        self._configured_acc_dict: dict[str, ConfiguredAccessoryAdapter] | None = None
 
     @property
     def overlay(self) -> Box:
@@ -157,12 +157,12 @@ class CatalogPanel:
         if self._configured_acc_labels is None:
             self._configured_acc_labels = []
             self._configured_acc_dict = {}
-            if self._gui.configured_accessories.has_any():
-                for k, v in self._gui.configured_accessories.configured_by_label_map().items():
+            if self._gui.accessories.has_any():
+                for k, v in self._gui.accessories.configured_by_label_map().items():
                     if k and v:
                         v = v[0] if isinstance(v, list) else v
                         self._configured_acc_labels.append(v.label)
-                        self._configured_acc_dict[v.label] = v
+                        self._configured_acc_dict[v.label] = self._gui.accessory_provider.get(v)
                 self._configured_acc_labels.sort()
 
     @property
@@ -192,5 +192,5 @@ class CatalogPanel:
 
         if isinstance(state, ComponentState):
             self._gui.update_component_info(state.address)
-        elif isinstance(state, ConfiguredAccessory):
-            self._gui.update_component_info(state.tmcc_ids[0], conf_acc=state)
+        elif isinstance(state, ConfiguredAccessoryAdapter):
+            self._gui.update_component_info(state.tmcc_id, conf_acc=state)

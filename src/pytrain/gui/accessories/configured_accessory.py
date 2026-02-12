@@ -244,6 +244,41 @@ class ConfiguredAccessory:
 
         return tuple(sorted(out))
 
+    def tmcc_id_for(self, op_key: str) -> int:
+        """
+        Return the TMCC id for a given operation key (e.g. 'power', 'eject').
+
+        Case-insensitive match against configured tmcc_ids.
+        Falls back to overall tmcc_id if no per-operation mapping exists
+        and op_key matches 'accessory' or 'default'.
+
+        Raises:
+            KeyError  – if operation not found
+            ValueError – if TMCC id is not properly configured
+        """
+        if not isinstance(op_key, str) or not op_key.strip():
+            raise ValueError("tmcc_id_for requires a non-empty operation key")
+
+        needle = op_key.strip().lower()
+
+        # Per-operation TMCC IDs
+        tmcc_ids = self.raw.get("tmcc_ids")
+        if isinstance(tmcc_ids, dict):
+            for key, value in tmcc_ids.items():
+                if isinstance(key, str) and key.strip().lower() == needle:
+                    if not isinstance(value, int):
+                        raise ValueError(f"{self.label}: TMCC id for operation '{key}' is not an int")
+                    return value
+
+        # Optional fallback to overall tmcc_id
+        if isinstance(self.tmcc_id, int):
+            if needle in ("accessory", "default", "main"):
+                return self.tmcc_id
+
+        available = ", ".join(tmcc_ids.keys()) if isinstance(tmcc_ids, dict) and tmcc_ids else "none"
+
+        raise KeyError(f"{self.label}: operation '{op_key}' not found (available: {available})")
+
     @property
     def definition(self):
         """
