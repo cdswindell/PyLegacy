@@ -1065,6 +1065,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
             state = conf_acc or self.active_state_or_acc
+            if isinstance(state, ConfiguredAccessoryAdapter) and conf_acc is None:
+                conf_acc = state
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
