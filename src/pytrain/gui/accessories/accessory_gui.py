@@ -113,7 +113,7 @@ class AccessoryGui(Thread):
             # ConfiguredAccessory owns ctor logic (and filters ctor kwargs).
             self._gui = acc.create_gui(aggregator=self)
             self._gui.menu_label = acc.label
-            # TODO: clean this up by moving
+            # TODO: clean this up by moving gui creation into this module
         except TypeError as e:
             raise TypeError(f"Failed to instantiate accessory GUI '{label}': {e}") from None
 
