@@ -23,7 +23,7 @@ from guizero.event import EventData
 
 from .accessory_registry import AccessoryRegistry
 from .accessory_type import AccessoryType
-from .config import ConfiguredAccessory, configure_accessory
+from .config import ConcreteAccessory, configure_accessory
 from ..components.hold_button import HoldButton
 from ..guizero_base import GuiZeroBase
 from ...db.accessory_state import AccessoryState
@@ -112,7 +112,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self._state_watchers = dict[int, StateWatcher]()
 
         # New: configured model (definition + resolved assets + tmcc wiring)
-        self._cfg: ConfiguredAccessory | None = None
+        self._cfg: ConcreteAccessory | None = None
         self._registry: AccessoryRegistry | None = None
         self.init_complete()
 
@@ -161,7 +161,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         instance_id: str | None = None,
         display_name: str | None = None,
         tmcc_id: int | None = None,
-    ) -> ConfiguredAccessory:
+    ) -> ConcreteAccessory:
         with self._cv:
             if self._cfg is None:
                 """Configures accessory from registry; returns configured accessory"""
@@ -212,7 +212,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             self.queue_message(on_disable)
 
     @property
-    def config(self) -> ConfiguredAccessory:
+    def config(self) -> ConcreteAccessory:
         return self._cfg
 
     # noinspection PyTypeChecker

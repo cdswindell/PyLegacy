@@ -41,7 +41,6 @@ class ConfiguredOperation:
     on_image: str | None = None  # latch
 
     # resolved labels
-    label: str
     off_label: str | None = None
     on_label: str | None = None
 
@@ -51,7 +50,7 @@ class ConfiguredOperation:
 
 
 @dataclass(frozen=True)
-class ConfiguredAccessory:
+class ConcreteAccessory:
     """
     A concrete accessory instance: definition + TMCC wiring + optional per-instance overrides.
 
@@ -154,7 +153,7 @@ def configure_accessory(
     instance_id: str | None = None,
     display_name: str | None = None,
     tmcc_id: int | None = None,
-) -> ConfiguredAccessory:
+) -> ConcreteAccessory:
     """
     Bind TMCC ids and per-instance image overrides to a definition.
 
@@ -237,7 +236,7 @@ def configure_accessory(
             )
         )
 
-    return ConfiguredAccessory(
+    return ConcreteAccessory(
         definition=definition,
         instance_id=instance_id,
         display_name=display_name,

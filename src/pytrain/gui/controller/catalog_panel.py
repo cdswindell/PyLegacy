@@ -194,5 +194,3 @@ class CatalogPanel:
             self._gui.update_component_info(state.address)
         elif isinstance(state, ConfiguredAccessory):
             print(state)
-        else:
-            print(f"Unknown state {type(state)}: {state}")
