@@ -221,7 +221,7 @@ class ImagePresenter:
                     else:
                         # Selects image based on accessory state properties
                         if isinstance(state, AccessoryState) and state.is_asc2:
-                            img = host.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
+                            img = host.get_scaled_image(self.asc2_image, force_lionel=True)
                         elif state.is_bpc2:
                             img = host.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
                         elif isinstance(state, AccessoryState) and state.is_amc2:
