@@ -127,7 +127,7 @@ class CatalogPanel:
                 if self._configured_acc_labels:
                     for label in self._configured_acc_labels:
                         self._catalog.append(label)
-                        self._entry_state_map[label] = self._configured_acc_dict[label]
+                    self._entry_state_map.update(self._configured_acc_dict)
                     self._catalog.append("-" * 30)
             states = self._state_store.get_all(scope)
             if sort_order == 0:
@@ -163,6 +163,7 @@ class CatalogPanel:
                         v = v[0] if isinstance(v, list) else v
                         self._configured_acc_labels.append(v.label)
                         self._configured_acc_dict[v.label] = v
+                self._configured_acc_labels.sort()
 
     @property
     def title(self) -> str:
@@ -193,3 +194,5 @@ class CatalogPanel:
             self._gui.update_component_info(state.address)
         elif isinstance(state, ConfiguredAccessory):
             print(state)
+        else:
+            print(f"Unknown state: {state}")
