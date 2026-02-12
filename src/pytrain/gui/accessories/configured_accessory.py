@@ -240,7 +240,7 @@ class ConfiguredAccessory:
                     out.append(int(v))
                     seen.add(int(v))
 
-        return tuple(out)
+        return tuple(sorted(out))
 
     @property
     def definition(self):

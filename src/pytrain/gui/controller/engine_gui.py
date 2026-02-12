@@ -1074,7 +1074,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if update_button_state:
                 # noinspection PyTypeChecker
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            self._image_presenter.update(tmcc_id, conf_acc)
+            self._image_presenter.update(tmcc_id, conf_acc=conf_acc)
         else:
             self.image_box.hide()
 
