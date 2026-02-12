@@ -225,6 +225,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # get configured accessories
         self._caa = ConfiguredAccessorySet.from_file(config_file, verify=True)
         self._caap = ConfiguredAccessoryAdapterProvider(self._caa, self)
+        self._acc_tmcc_to_adapter: dict[int, ConfiguredAccessoryAdapter] = {}
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -473,6 +474,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
     @property
     def active_state(self) -> S | None:
         if self.scope and self._scope_tmcc_ids.get(self.scope, None):
+            tmcc_id = self._scope_tmcc_ids.get(self.scope)
+            if self.scope == CommandScope.ACC and tmcc_id in self._acc_tmcc_to_adapter:
+                return self._acc_tmcc_to_adapter[tmcc_id]
             return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
         else:
             return None
@@ -790,10 +794,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
                 if self.scope == CommandScope.ACC:
                     accs = self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
-                    print(accs)
                     if accs and len(accs) >= 1:
                         state = accs[0]
                         state.activate_tmcc_id(tmcc_id)
+                        self._acc_tmcc_to_adapter[tmcc_id] = state
                         # TODO: Handle case where multiple accessories are configured for same tmcc_id
             if state:
                 # add to scope queue
