@@ -162,7 +162,7 @@ class CatalogPanel:
                     if k and v:
                         v = v[0] if isinstance(v, list) else v
                         self._configured_acc_labels.append(v.label)
-                        self._configured_acc_dict[k] = v
+                        self._configured_acc_dict[v.label] = v
 
     @property
     def title(self) -> str:
