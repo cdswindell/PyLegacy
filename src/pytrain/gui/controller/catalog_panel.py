@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from guizero import Box, Text, TitleBox
 
+from ..accessories.config import ConfiguredAccessory
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
@@ -40,6 +41,8 @@ class CatalogPanel:
         self._skip_update = False
         self._entry_state_map = {}
         self._overlay = None
+        self._configured_acc_labels: list[str] | None = None
+        self._configured_acc_dict: dict[str, ConfiguredAccessory] | None = None
 
     @property
     def overlay(self) -> Box:
@@ -120,10 +123,12 @@ class CatalogPanel:
             self._catalog.clear()
             self._entry_state_map.clear()
             if scope == CommandScope.ACC:
-                if self._gui.configured_accessories.has_any():
-                    for label in self._gui.configured_accessories.configured_labels():
+                self._harvest_configured_accessories()
+                if self._configured_acc_labels:
+                    for label in self._configured_acc_labels:
                         self._catalog.append(label)
-                    self._catalog.append("-" * 20)
+                        self._entry_state_map[label] = self._configured_acc_dict[label]
+                    self._catalog.append("-" * 30)
             states = self._state_store.get_all(scope)
             if sort_order == 0:
                 states.sort(key=lambda x: x.name)
@@ -148,6 +153,16 @@ class CatalogPanel:
                     self._catalog.append(entry)
             self._scope = scope
 
+    def _harvest_configured_accessories(self) -> None:
+        if self._configured_acc_labels is None:
+            self._configured_acc_labels = []
+            self._configured_acc_dict = {}
+            if self._gui.configured_accessories.has_any():
+                for k, v in self._gui.configured_accessories.configured_by_label_map().items():
+                    if k and v:
+                        self._configured_acc_labels.append(k)
+                        self._configured_acc_dict[k] = v[0] if isinstance(v, list) else v
+
     @property
     def title(self) -> str:
         return self._scope.plural if self._scope else "N/A"
@@ -170,9 +185,10 @@ class CatalogPanel:
     # noinspection PyUnusedLocal
     def on_select(self, idx: int, item: str) -> None:
         from ...db.component_state import ComponentState
-        from .engine_gui import EngineGui
 
         state = self._entry_state_map.get(item, None)
 
-        if isinstance(state, ComponentState) and isinstance(self._gui, EngineGui):
+        if isinstance(state, ComponentState):
             self._gui.update_component_info(state.address)
+        elif isinstance(state, ConfiguredAccessory):
+            print(state)
