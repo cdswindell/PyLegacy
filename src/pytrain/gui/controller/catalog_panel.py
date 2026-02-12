@@ -189,7 +189,7 @@ class CatalogPanel:
         from ...db.component_state import ComponentState
 
         state = self._entry_state_map.get(item, None)
-
+        print(isinstance(state, ConfiguredAccessory))
         if isinstance(state, ComponentState):
             self._gui.update_component_info(state.address)
         elif isinstance(state, ConfiguredAccessory):
