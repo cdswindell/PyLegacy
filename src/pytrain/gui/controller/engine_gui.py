@@ -790,6 +790,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
                 if self.scope == CommandScope.ACC:
                     accs = self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
+                    print(accs)
                     if accs and len(accs) >= 1:
                         state = accs[0]
                         state.activate_tmcc_id(tmcc_id)
