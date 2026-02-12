@@ -100,6 +100,10 @@ class ConfiguredAccessoryAdapter:
     def title(self) -> str:
         return self.name
 
+    @property
+    def image_path(self) -> str:
+        return self.cfg.image_path
+
     # ---------------------------------------------------------------------
     # Access to the underlying current state (when you need it)
     # ---------------------------------------------------------------------
