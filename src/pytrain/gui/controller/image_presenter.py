@@ -13,8 +13,8 @@ import logging
 from io import BytesIO
 from typing import TYPE_CHECKING
 
+from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import ENGINE_TYPE_TO_IMAGE
-from ..accessories.configured_accessory import ConfiguredAccessory
 from ...db.accessory_state import AccessoryState
 from ...db.engine_state import EngineState
 from ...db.prod_info import ProdInfo
@@ -135,7 +135,7 @@ class ImagePresenter:
         self,
         tmcc_id: int | None = None,
         key: tuple[CommandScope, int] | tuple[CommandScope, int, int] | None = None,
-        conf_acc: ConfiguredAccessory = None,
+        conf_acc: ConfiguredAccessoryAdapter = None,
     ) -> None:
         host = self._host
 
@@ -210,33 +210,23 @@ class ImagePresenter:
             state = host._state_store.get_state(host.scope, tmcc_id, False)
             if state:
                 img = host._image_cache.get((host.scope, tmcc_id), None)
+                # Attempts to load and cache image from state
                 if img is None:
-                    if conf_acc:
-                        img = host.get_image(
-                            find_file(conf_acc.image_path),
-                            inverse=False,
-                            scale=True,
-                            preserve_height=True,
-                        )
-                    else:
+                    img_path = None
+                    if isinstance(conf_acc, ConfiguredAccessoryAdapter):
+                        img_path = find_file(conf_acc.image_path)
+                    elif isinstance(state, AccessoryState):
                         # Selects image based on accessory state properties
-                        if isinstance(state, AccessoryState) and state.is_asc2:
-                            # img = host.get_scaled_image(self.asc2_image, force_lionel=True)
-                            img = host.get_image(self.asc2_image, inverse=False, scale=True, preserve_height=True)
+                        if state.is_asc2:
+                            img_path = self.asc2_image
                         elif state.is_bpc2:
-                            # img = host.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
-                            img = host.get_image(self.bpc2_image, inverse=False, scale=True, preserve_height=True)
-                        elif isinstance(state, AccessoryState) and state.is_amc2:
-                            img = host.get_image(self.amc2_image, inverse=False, scale=True, preserve_height=True)
-                        elif isinstance(state, AccessoryState) and state.is_sensor_track:
-                            # img = host.get_scaled_image(self.sensor_track_image, force_lionel=True)
-                            img = host.get_image(
-                                self.sensor_track_image,
-                                inverse=False,
-                                scale=True,
-                                preserve_height=True,
-                            )
-
+                            img_path = self.bpc2_image
+                        elif state.is_amc2:
+                            img_path = self.amc2_image
+                        elif state.is_sensor_track:
+                            img_path = self.sensor_track_image
+                    if img_path:
+                        img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
                     if img:
                         host._image_cache[(host.scope, tmcc_id)] = img
                     else:
