@@ -476,8 +476,7 @@ class KeypadView(Generic[S]):
                             self.enable_acc_view(acc_state)
                 else:
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
-                        host.ac_op_cell.show()
-                        host.ac_op_btn.enable()
+                        self.enable_acc_view(acc_state)
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
