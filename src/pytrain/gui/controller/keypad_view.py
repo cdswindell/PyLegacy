@@ -9,7 +9,7 @@
 import logging
 from typing import TYPE_CHECKING
 
-from guizero import App, Box, ButtonGroup, TitleBox
+from guizero import App, Box, TitleBox
 from guizero.event import EventData
 
 from .engine_gui_conf import (
@@ -226,15 +226,16 @@ class KeypadView:
         )
 
         host.ops_cells.add(cell)
-        host.sensor_track_buttons = bg = ButtonGroup(
+        host.sensor_track_buttons = CheckBoxGroup(
             cell,
-            align="top",
-            options=SENSOR_TRACK_OPTS,
+            size=host.s_19,
             width=host.emergency_box_width,
+            align="top",
+            pady=5,
+            style="radio",
+            options=SENSOR_TRACK_OPTS,
             command=self.on_sensor_track_change,
         )
-        bg.text_size = host.s_19
-        CheckBoxGroup.decorate_checkbox(bg, size=host.s_19, width=host.width, pady=5)
         # # Make radio buttons larger and add spacing
         # indicator_size = int(20 * host.scale_by)
         # for widget in bg.tk.winfo_children():
