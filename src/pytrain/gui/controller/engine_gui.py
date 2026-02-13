@@ -1096,7 +1096,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 # noinspection PyTypeChecker
                 self.make_recent(self.scope, tmcc_id, state)
                 if not in_ops_mode:
-                    self.ops_mode(update_info=False)
+                    self.ops_mode(update_info=False, state=conf_acc)
             else:
                 name = not_found_value
             self.name_text.value = name
