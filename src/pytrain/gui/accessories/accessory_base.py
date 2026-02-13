@@ -340,6 +340,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def _create_state_watchers(self):
         # get all target states; watch for state changes
         accs = self.get_target_states()
+        print(f"Creating state watchers for {len(accs)} states ({accs})")
         for acc in accs:
             if isinstance(acc, ComponentState):  # helps eliminate pycharm warning
                 self._states[acc.tmcc_id] = acc
