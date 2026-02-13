@@ -211,7 +211,7 @@ class ImagePresenter:
             if state:
                 img = host._image_cache.get((host.scope, tmcc_id), None)
                 # Attempts to load and cache image from state
-                if img is None:
+                if img is None or isinstance(conf_acc, ConfiguredAccessoryAdapter):
                     img_path = None
                     if isinstance(conf_acc, ConfiguredAccessoryAdapter):
                         img_path = find_file(conf_acc.image_path)
