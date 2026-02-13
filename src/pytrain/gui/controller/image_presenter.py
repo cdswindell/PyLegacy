@@ -213,6 +213,7 @@ class ImagePresenter:
                 # Attempts to load and cache image from state
                 if img is None:
                     img_path = None
+                    preserve_height = True
                     if isinstance(conf_acc, ConfiguredAccessoryAdapter):
                         img_path = find_file(conf_acc.image_path)
                     elif isinstance(state, AccessoryState):
@@ -224,9 +225,10 @@ class ImagePresenter:
                         elif state.is_amc2:
                             img_path = self.amc2_image
                         elif state.is_sensor_track:
+                            preserve_height = False
                             img_path = self.sensor_track_image
                     if img_path:
-                        img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
+                        img = host.get_image(img_path, inverse=False, scale=True, preserve_height=preserve_height)
                     if img:
                         host._image_cache[(host.scope, tmcc_id)] = img
                     else:
