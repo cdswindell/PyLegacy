@@ -234,15 +234,15 @@ class KeypadView:
             width=host.emergency_box_width,
             command=self.on_sensor_track_change,
         )
-        bg.text_size = host.s_20
+        bg.text_size = host.s_19
 
         # Make radio buttons larger and add spacing
-        indicator_size = int(22 * host.scale_by)
+        indicator_size = int(20 * host.scale_by)
         for widget in bg.tk.winfo_children():
             widget.config(
                 font=("TkDefaultFont", host.s_20),
                 padx=18,  # Horizontal padding inside each radio button
-                pady=6,  # Vertical padding inside each radio button
+                pady=5,  # Vertical padding inside each radio button
                 anchor="w",
             )
             # Increase the size of the radio button indicator

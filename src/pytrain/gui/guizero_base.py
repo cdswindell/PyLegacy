@@ -101,6 +101,7 @@ class GuiZeroBase(Thread, ABC):
         self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))
         self.s_20: int = int(round(20 * scale_by))
+        self.s_19: int = int(round(19 * scale_by))
         self.s_18: int = int(round(18 * scale_by))
         self.s_16: int = int(round(16 * scale_by))
         self.s_14: int = int(round(14 * scale_by))
