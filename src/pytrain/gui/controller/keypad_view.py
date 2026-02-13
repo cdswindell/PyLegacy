@@ -217,6 +217,7 @@ class KeypadView:
         host.sensor_track_box = cell = TitleBox(app, "Sequence", layout="auto", align="top", visible=False, border=1)
         cell.text_size = host.s_10
         cell.tk.config(pady=0)
+        cell.tk.configure(padx=2, pady=0)
         host.ops_cells.add(cell)
         host.sensor_track_buttons = bg = ButtonGroup(
             cell,
