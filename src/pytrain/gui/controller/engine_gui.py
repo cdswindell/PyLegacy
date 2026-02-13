@@ -998,7 +998,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     cmd = CommandReq.build(TMCC2EngineCommandEnum.SET_ADDRESS, address=tmcc_id, scope=scope)
                 else:
                     cmd = CommandReq.build(cmd_enum, address=tmcc_id, scope=scope)
-                print(f"Set: {cmd}")
                 cmd.send(repeat=self.repeat)
         else:
             self._keypad_view.entry_mode(clear_info=False)
@@ -1024,7 +1023,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     if state:
                         cmd(state)
         else:
-            print(f"Unknown key: {key}")
+            log.warning(f"Unknown key: {key}")
 
     def ops_mode(self, update_info: bool = True, state: ComponentState | None = None) -> None:
         # 1) Common UI transition (moved)
@@ -1076,7 +1075,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             state = conf_acc or self.active_state_or_acc
             if isinstance(state, ConfiguredAccessoryAdapter) and conf_acc is None:
                 conf_acc = state
-                print(f"Activating TMCC_ID {tmcc_id} for ACC {conf_acc.name}")
                 conf_acc.activate_tmcc_id(tmcc_id)
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
