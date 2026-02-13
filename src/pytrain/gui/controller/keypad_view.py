@@ -222,6 +222,8 @@ class KeypadView:
 
         # Remove any pack padding / internal pad
         cell.tk.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
+        for child in cell.tk.winfo_children():
+            child.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
 
         # Remove padding on the *inner* container that holds children
         if hasattr(cell, "master") and hasattr(cell.master, "tk"):
