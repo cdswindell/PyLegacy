@@ -225,7 +225,6 @@ class ImagePresenter:
                             img_path = self.amc2_image
                         elif state.is_sensor_track:
                             img_path = self.sensor_track_image
-                            # img = host.get_scaled_image(self.sensor_track_image, force_lionel=True)
                     if img_path:
                         img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
                     if img:
