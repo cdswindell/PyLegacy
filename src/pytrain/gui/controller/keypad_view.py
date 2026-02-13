@@ -448,11 +448,11 @@ class KeypadView(Generic[S]):
                     host.sensor_track_box.show()
                     host.keypad_box.hide()
                     show_keypad = False
-                elif state.is_bpc2 or (isinstance(state, AccessoryState) and state.is_asc2):
+                elif isinstance(state, AccessoryState) and (state.is_bpc2 or state.is_asc2):
                     host.ac_off_cell.show()
                     host.ac_status_cell.show()
                     host.ac_on_cell.show()
-                    if isinstance(state, AccessoryState) and state.is_asc2:
+                    if state.is_asc2:
                         host.ac_aux1_cell.show()
 
             if show_keypad and not host.keypad_box.visible:
