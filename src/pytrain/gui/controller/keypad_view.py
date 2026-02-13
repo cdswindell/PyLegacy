@@ -491,7 +491,7 @@ class KeypadView(Generic[S]):
 
         acc = acc[0]
         acc.activate_tmcc_id(state.tmcc_id)
-        host.ac_op_btn.update_command(host.on_configured_accessory, acc)
+        host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
 
         host.ac_op_btn.enable()
         host.ac_op_cell.show()
