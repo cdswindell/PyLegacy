@@ -226,6 +226,7 @@ class KeypadView:
         # Remove padding on the *inner* container that holds children
         if hasattr(cell, "master") and hasattr(cell.master, "tk"):
             cell.master.tk.configure(padx=0, pady=0)
+        cell.bg = "blue"
 
         host.ops_cells.add(cell)
         host.sensor_track_buttons = bg = ButtonGroup(
