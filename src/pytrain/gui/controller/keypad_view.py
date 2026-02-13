@@ -435,6 +435,7 @@ class KeypadView(Generic[S]):
                 host.keypad_box.show()
             return
 
+        # Handles accessory or BPC2 state and UI visibility
         if self.is_accessory_or_bpc2:
             if state is None:
                 state = self.active_state
@@ -442,17 +443,18 @@ class KeypadView(Generic[S]):
             host.on_new_accessory(state)
             show_keypad = True
 
-            if state:
+            acc_state = state.state if isinstance(state, ConfiguredAccessoryAdapter) else state
+            if acc_state:
                 # Shows accessory controls based on accessory state
-                if isinstance(state, AccessoryState) and state.is_sensor_track:
+                if isinstance(acc_state, AccessoryState) and acc_state.is_sensor_track:
                     host.sensor_track_box.show()
                     host.keypad_box.hide()
                     show_keypad = False
-                elif isinstance(state, AccessoryState) and (state.is_bpc2 or state.is_asc2):
+                elif isinstance(acc_state, AccessoryState) and (acc_state.is_bpc2 or acc_state.is_asc2):
                     host.ac_off_cell.show()
                     host.ac_status_cell.show()
                     host.ac_on_cell.show()
-                    if state.is_asc2:
+                    if acc_state.is_asc2:
                         host.ac_aux1_cell.show()
 
             if show_keypad and not host.keypad_box.visible:
