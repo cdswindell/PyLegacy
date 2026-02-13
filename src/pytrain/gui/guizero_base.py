@@ -263,7 +263,7 @@ class GuiZeroBase(Thread, ABC):
                 try:
                     message = self._message_queue.get_nowait()
                     if isinstance(message, tuple):
-                        if message[1] and len(message[1]) > 0:
+                        if len(message) > 1 and message[1] and len(message[1]) > 0:
                             message[0](*message[1])
                         else:
                             message[0]()
