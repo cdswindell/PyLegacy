@@ -456,6 +456,7 @@ class GuiZeroBase(Thread, ABC):
         scaled_width, scaled_height = self._calc_scaled_image_size(
             orig_width, orig_height, preserve_height, force_lionel
         )
+        print(f"{source} scaled to {scaled_width}x{scaled_height} = {orig_width}x{orig_height}")
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
         return img
 
