@@ -473,7 +473,7 @@ class KeypadView(Generic[S]):
                     if acc_state.is_asc2:
                         host.ac_aux1_cell.show()
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
-                            host.ac_op_cell.show()
+                            self.enable_acc_view(acc_state)
                 else:
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         host.ac_op_cell.show()
@@ -481,7 +481,20 @@ class KeypadView(Generic[S]):
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
-                host.ac_op_btn.enable()
+
+    # noinspection PyTypeChecker
+    def enable_acc_view(self, state: S):
+        host = self._host
+        acc = host.accessory_provider.adapters_for_tmcc_id(state.tmcc_id)
+        if acc is None:
+            return
+
+        acc = acc[0]
+        acc.activate_tmcc_id(state.tmcc_id)
+        host.ac_op_btn.update_command(host.on_configured_accessory, acc)
+
+        host.ac_op_btn.enable()
+        host.ac_op_cell.show()
 
     # noinspection PyProtectedMember
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):

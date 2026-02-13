@@ -17,6 +17,7 @@ from threading import Condition, Event, RLock
 from time import time
 from typing import Any, Dict, List, Self, Set, TypeVar
 
+from .comp_data import CompData, CompDataMixin
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.constants import PdiCommand
 from ..pdi.d4_req import D4Req
@@ -31,12 +32,8 @@ from ..protocol.constants import (
     CommandScope,
     CommandSyntax,
 )
-from ..protocol.tmcc1.tmcc1_constants import (
-    TMCC1HaltCommandEnum,
-)
-from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
+from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum as Switch
 from ..utils.text_utils import title
-from .comp_data import CompData, CompDataMixin
 
 log = logging.getLogger(__name__)
 
@@ -182,6 +179,7 @@ class ComponentState(ABC, CompDataMixin):
 
         return ComponentStateStore.is_state_synchronizing()
 
+    # noinspection PyTypeChecker
     @abstractmethod
     def update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
