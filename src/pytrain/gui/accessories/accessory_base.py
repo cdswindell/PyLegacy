@@ -259,7 +259,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
-                self.queue_message(self.update_button, (tmcc_id,))
+                self.queue_message(self.update_button, tmcc_id)
 
         return upd
 
