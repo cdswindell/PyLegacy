@@ -86,25 +86,26 @@ class PopupManager:
             body = Box(overlay, align="top", layout="auto")
             build_body(body)
 
-        btn = PushButton(
-            overlay,
-            text="Close",
-            align="bottom",
-            command=self.close,
-            args=[overlay],
-        )
-        btn.text_size = host.s_20
-        btn.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
-        btn.tk.pack_configure(padx=20, pady=20)
+            # show explicit close button
+            btn = PushButton(
+                overlay,
+                text="Close",
+                align="bottom",
+                command=self.close,
+                args=[overlay],
+            )
+            btn.text_size = host.s_20
+            btn.tk.config(
+                borderwidth=3,
+                relief="raised",
+                highlightthickness=1,
+                highlightbackground="black",
+                padx=6,
+                pady=4,
+                activebackground="#e0e0e0",
+                background="#f7f7f7",
+            )
+            btn.tk.pack_configure(padx=20, pady=20)
 
         overlay.hide()
         return overlay

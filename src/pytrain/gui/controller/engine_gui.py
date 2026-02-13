@@ -1080,7 +1080,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
-            state = conf_acc or self.active_state_or_acc
+            state = conf_acc or self.active_state
             if isinstance(state, ConfiguredAccessoryAdapter) and conf_acc is None:
                 conf_acc = state
                 conf_acc.activate_tmcc_id(tmcc_id)
