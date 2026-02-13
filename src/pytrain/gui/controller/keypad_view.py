@@ -26,6 +26,7 @@ from .engine_gui_conf import (
     SWITCH_OUT_KEY,
     SWITCH_THRU_KEY,
 )
+from ..components.checkbox_group import CheckBoxGroup
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState
 from ...db.engine_state import TrainState
@@ -224,8 +225,6 @@ class KeypadView:
             relief="flat",  # or "solid"
         )
 
-        cell.bg = "blue"
-
         host.ops_cells.add(cell)
         host.sensor_track_buttons = bg = ButtonGroup(
             cell,
@@ -235,29 +234,29 @@ class KeypadView:
             command=self.on_sensor_track_change,
         )
         bg.text_size = host.s_19
-
-        # Make radio buttons larger and add spacing
-        indicator_size = int(20 * host.scale_by)
-        for widget in bg.tk.winfo_children():
-            widget.config(
-                font=("TkDefaultFont", host.s_20),
-                padx=18,  # Horizontal padding inside each radio button
-                pady=5,  # Vertical padding inside each radio button
-                anchor="w",
-            )
-            # Increase the size of the radio button indicator
-            widget.tk.eval(f"""
-                image create photo radio_unsel_{id(widget)} -width {indicator_size} -height {indicator_size}
-                image create photo radio_sel_{id(widget)} -width {indicator_size} -height {indicator_size}
-                radio_unsel_{id(widget)} put white -to 0 0 {indicator_size} {indicator_size}
-                radio_sel_{id(widget)} put green -to 0 0 {indicator_size} {indicator_size}
-            """)
-            widget.config(
-                image=f"radio_unsel_{id(widget)}",
-                selectimage=f"radio_sel_{id(widget)}",
-                compound="left",
-                indicatoron=False,
-            )
+        CheckBoxGroup.decorate_checkbox(bg, size=host.s_19, width=host.width, pady=5)
+        # # Make radio buttons larger and add spacing
+        # indicator_size = int(20 * host.scale_by)
+        # for widget in bg.tk.winfo_children():
+        #     widget.config(
+        #         font=("TkDefaultFont", host.s_20),
+        #         padx=18,  # Horizontal padding inside each radio button
+        #         pady=5,  # Vertical padding inside each radio button
+        #         anchor="w",
+        #     )
+        #     # Increase the size of the radio button indicator
+        #     widget.tk.eval(f"""
+        #         image create photo radio_unsel_{id(widget)} -width {indicator_size} -height {indicator_size}
+        #         image create photo radio_sel_{id(widget)} -width {indicator_size} -height {indicator_size}
+        #         radio_unsel_{id(widget)} put white -to 0 0 {indicator_size} {indicator_size}
+        #         radio_sel_{id(widget)} put green -to 0 0 {indicator_size} {indicator_size}
+        #     """)
+        #     widget.config(
+        #         image=f"radio_unsel_{id(widget)}",
+        #         selectimage=f"radio_sel_{id(widget)}",
+        #         compound="left",
+        #         indicatoron=False,
+        #     )
 
         # BPC2/ASC2 Buttons
         host.ac_on_cell, host.ac_on_btn = host.make_keypad_button(
