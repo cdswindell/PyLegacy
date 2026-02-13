@@ -214,20 +214,16 @@ class KeypadView:
         )
 
         # Sensor Track Buttons
-        host.sensor_track_box = cell = TitleBox(app, "Sequence", layout="auto", align="top", visible=False, border=1)
+        host.sensor_track_box = cell = TitleBox(app, "Sequence", layout="auto", align="top", visible=False, border=0)
         cell.text_size = host.s_10
 
         # LabelFrame options
         cell.tk.configure(labelanchor="nw")
+        cell.tk.configure(
+            borderwidth=1,
+            relief="flat",  # or "solid"
+        )
 
-        # Remove any pack padding / internal pad
-        cell.tk.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
-        for child in cell.tk.winfo_children():
-            child.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
-
-        # Remove padding on the *inner* container that holds children
-        if hasattr(cell, "master") and hasattr(cell.master, "tk"):
-            cell.master.tk.configure(padx=0, pady=0)
         cell.bg = "blue"
 
         host.ops_cells.add(cell)
