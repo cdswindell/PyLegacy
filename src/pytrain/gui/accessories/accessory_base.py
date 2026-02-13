@@ -353,8 +353,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self._create_state_watchers()
 
         if container:
-            assert container.layout == "grid"
-            self.box = box = container
+            if container.layout == "grid":
+                self.box = box = container
+            else:
+                self.box = box = Box(container, layout="grid")
         else:
             assert self._stand_alone
             self.box = box = Box(self.host.app, layout="grid")
