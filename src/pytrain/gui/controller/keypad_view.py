@@ -221,10 +221,10 @@ class KeypadView:
         host.ops_cells.add(cell)
         host.sensor_track_buttons = CheckBoxGroup(
             cell,
-            size=host.s_19,
+            size=host.s_20,
             width=host.emergency_box_width,
             align="top",
-            pady=5,
+            pady=6,
             style="radio",
             options=SENSOR_TRACK_OPTS,
             command=self.on_sensor_track_change,
