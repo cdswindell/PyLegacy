@@ -138,6 +138,7 @@ class ConfiguredAccessoryAdapterProvider:
                 raise KeyError(f"Unknown accessory instance_id: {instance_id!r}")
 
             adapter = ConfiguredAccessoryAdapter(cfg=acc, host=self._host)
+
             self._adapters[instance_id] = adapter
             return adapter
 

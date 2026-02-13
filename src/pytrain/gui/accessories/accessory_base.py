@@ -24,6 +24,7 @@ from guizero.event import EventData
 from .accessory_registry import AccessoryRegistry
 from .accessory_type import AccessoryType
 from .config import ConcreteAccessory, configure_accessory
+from .configured_accessory import ConfiguredAccessory
 from ..components.hold_button import HoldButton
 from ..guizero_base import GuiZeroBase
 from ...db.accessory_state import AccessoryState
@@ -276,13 +277,15 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         pass
 
     # noinspection PyTypeChecker
-    def build_gui(self, container: Box = None) -> None:
+    def build_gui(self, container: Box = None, *, acc: ConfiguredAccessory = None) -> None:
         # initialize registry
         assert self.registry is not None
         assert self.registry.is_bootstrapped
 
         # bind variant to gui
         self.bind_variant()
+        if acc:
+            self.menu_label = acc.label
 
         # get all target states; watch for state changes
         accs = self.get_target_states()
