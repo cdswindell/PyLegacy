@@ -401,6 +401,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
         overlay = self._popup.get_or_create(acc.instance_id, "", acc)
+        self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], conf_acc=acc)
         self.show_popup(overlay)
 
     def on_tower_dialog(self) -> None:
