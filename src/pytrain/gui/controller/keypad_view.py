@@ -218,6 +218,7 @@ class KeypadView:
         cell.text_size = host.s_10
         cell.tk.config(pady=0)
         cell.tk.configure(padx=2, pady=0)
+        cell.bg = "blue"
         host.ops_cells.add(cell)
         host.sensor_track_buttons = bg = ButtonGroup(
             cell,
