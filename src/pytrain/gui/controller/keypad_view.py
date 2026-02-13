@@ -218,14 +218,14 @@ class KeypadView:
         cell.text_size = host.s_10
 
         # LabelFrame options
-        cell.tk.configure(labelanchor="n")
+        cell.tk.configure(labelanchor="nw")
 
         # Remove any pack padding / internal pad
         cell.tk.pack_configure(padx=0, pady=0, ipadx=0, ipady=0)
 
         # Remove padding on the *inner* container that holds children
-        if hasattr(cell, "_container") and hasattr(cell._container, "tk"):
-            cell._container.tk.configure(padx=0, pady=0)
+        if hasattr(cell, "master") and hasattr(cell.master, "tk"):
+            cell.master.tk.configure(padx=0, pady=0)
 
         host.ops_cells.add(cell)
         host.sensor_track_buttons = bg = ButtonGroup(
