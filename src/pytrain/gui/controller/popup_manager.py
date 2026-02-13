@@ -17,6 +17,8 @@ from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from guizero import Box, Combo, PushButton, Text
 
+from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
     from ..components.hold_button import HoldButton
@@ -46,7 +48,9 @@ class PopupManager:
     # Construction
     # ------------------------------------------------------------------
 
-    def get_or_create(self, key: str, title: str, build_body: Callable[[Box], None]) -> Box:
+    def get_or_create(
+        self, key: str, title: str, build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter
+    ) -> Box:
         with self._host.locked():
             existing = self._overlays.get(key)
             if isinstance(existing, Box):
@@ -57,26 +61,29 @@ class PopupManager:
         self._overlays[key] = overlay
         return overlay
 
-    def create_popup(self, title_text: str, build_body: Callable[[Box], None]) -> Box:
+    def create_popup(self, title_text: str, build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter) -> Box:
         host = self._host
 
         overlay = Box(host.app, align="top", border=2, visible=False)
         overlay.bg = "white"
+        if title_text:
+            title_row = Box(
+                overlay,
+                align="top",
+                width=host.emergency_box_width,
+                height=host.button_size // 3,
+            )
+            title_row.bg = "lightgrey"
 
-        title_row = Box(
-            overlay,
-            align="top",
-            width=host.emergency_box_width,
-            height=host.button_size // 3,
-        )
-        title_row.bg = "lightgrey"
+            title = Text(title_row, text=title_text, bold=True, size=host.s_18)
+            title.bg = "lightgrey"
+            setattr(overlay, "title", title)
 
-        title = Text(title_row, text=title_text, bold=True, size=host.s_18)
-        title.bg = "lightgrey"
-        setattr(overlay, "title", title)
-
-        body = Box(overlay, align="top", layout="auto")
-        build_body(body)
+        if isinstance(build_body, ConfiguredAccessoryAdapter):
+            build_body.gui.mount_gui(overlay)
+        else:
+            body = Box(overlay, align="top", layout="auto")
+            build_body(body)
 
         btn = PushButton(
             overlay,
@@ -241,7 +248,7 @@ class PopupManager:
             # set this overlay as current
             self._state.current_popup = overlay
 
-            # Hide active content box
+            # Hide the active content box
             self._state.on_close_show = None
             for box in (host.controller_box, host.keypad_box, host.sensor_track_box):
                 if box and getattr(box, "visible", False):

@@ -278,6 +278,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     # noinspection PyTypeChecker
     def build_gui(self, container: Box = None, *, acc: ConfiguredAccessory = None) -> None:
+        # TODO: refactor this method into AccessoryGui
         # initialize registry
         assert self.registry is not None
         assert self.registry.is_bootstrapped
@@ -287,15 +288,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if acc:
             self.menu_label = acc.label
 
-        # get all target states; watch for state changes
-        accs = self.get_target_states()
-        for acc in accs:
-            if isinstance(acc, ComponentState):  # helps eliminate pycharm warning
-                self._states[acc.tmcc_id] = acc
-                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc.tmcc_id))
-        # clear any existing state buttons
-        if self._state_buttons:
-            self._reset_state_buttons()
+        self._create_state_watchers()
 
         if container:
             assert container.layout == "grid"
@@ -343,6 +336,28 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         # build state buttons
         self.acc_box = acc_box = Box(self.host.app, border=2, align="bottom", layout="grid")
         self.build_accessory_controls(acc_box)
+
+    def _create_state_watchers(self):
+        # get all target states; watch for state changes
+        accs = self.get_target_states()
+        for acc in accs:
+            if isinstance(acc, ComponentState):  # helps eliminate pycharm warning
+                self._states[acc.tmcc_id] = acc
+                self._state_watchers[acc.tmcc_id] = StateWatcher(acc, self.on_state_change_action(acc.tmcc_id))
+        # clear any existing state buttons
+        if self._state_buttons:
+            self._reset_state_buttons()
+
+    def mount_gui(self, container: Box = None) -> None:
+        self._create_state_watchers()
+
+        if container:
+            assert container.layout == "grid"
+            self.box = box = container
+        else:
+            assert self._stand_alone
+            self.box = box = Box(self.host.app, layout="grid")
+        self.build_accessory_controls(box)
 
     def destroy_gui(self):
         # Explicitly drop references to tkinter/guizero objects on the Tk thread

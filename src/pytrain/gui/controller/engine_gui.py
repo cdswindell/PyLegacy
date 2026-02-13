@@ -397,6 +397,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._lighting_panel.configure(self.active_engine_state)
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
+    def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
+        overlay = self._popup.get_or_create(acc.instance_id, "", acc)
+        self.show_popup(overlay)
+
     def on_tower_dialog(self) -> None:
         overlay = self._popup.get_or_create("tower_dialog", "Tower Dialogs", self.build_tower_dialogs_body)
         self.show_popup(overlay, "TOWER_CHATTER", "e")
@@ -1025,11 +1029,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             log.warning(f"Unknown key: {key}")
 
-    def ops_mode(self, update_info: bool = True, state: ComponentState | None = None) -> None:
+    def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
 
         # 2) Engine/train path
+        conf_acc = None
         if self._keypad_view.is_engine_or_train:
             # pure UI shell now lives in KeypadView
             self._keypad_view.apply_ops_mode_ui_engine_shell()
@@ -1052,10 +1057,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
+            if self.scope == CommandScope.ACC and isinstance(state, ConfiguredAccessoryAdapter):
+                conf_acc = state
+                self._popup
 
         # 4) Preserve existing behavior
         if update_info:
-            self.update_component_info(in_ops_mode=True)
+            self.update_component_info(in_ops_mode=True, conf_acc=conf_acc)
 
     def update_component_info(
         self,

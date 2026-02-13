@@ -7,11 +7,12 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import logging
-from typing import TYPE_CHECKING
+from typing import Generic, TYPE_CHECKING, TypeVar
 
 from guizero import App, Box, TitleBox
 from guizero.event import EventData
 
+from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
@@ -41,8 +42,10 @@ log = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
+S = TypeVar("S", ComponentState, ConfiguredAccessoryAdapter)
 
-class KeypadView:
+
+class KeypadView(Generic[S]):
     def __init__(self, host: "EngineGui") -> None:
         self._host: "EngineGui" = host
         self._reset_on_keystroke = False
@@ -406,7 +409,7 @@ class KeypadView:
         if not host.controller_box.visible:
             host.controller_box.show()
 
-    def apply_ops_mode_ui_non_engine(self, state: ComponentState | None = None) -> None:
+    def apply_ops_mode_ui_non_engine(self, state: S | None = None) -> None:
         """
         All non-engine/train ops-mode UI decisions.
         EngineGui should call this only when NOT engine/train.
