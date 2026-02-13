@@ -353,6 +353,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self._create_state_watchers()
 
         if container:
+            container.border = 0
             if container.layout == "grid":
                 if bool(add_spacer):
                     spacer = Box(container, layout="auto")
