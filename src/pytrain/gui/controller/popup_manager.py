@@ -80,6 +80,7 @@ class PopupManager:
             setattr(overlay, "title", title)
 
         if isinstance(build_body, ConfiguredAccessoryAdapter):
+            build_body.ensure_gui(aggregator=self._host)
             build_body.gui.mount_gui(overlay)
         else:
             body = Box(overlay, align="top", layout="auto")

@@ -160,7 +160,6 @@ class ConfiguredAccessoryAdapter:
         """
         if self.gui is None:
             self.gui = self.cfg.create_gui(aggregator=aggregator, extra_kwargs=extra_kwargs or {})
-            self.gui.bind_variant()
             self.gui.menu_label = self.cfg.label
         return self.gui
 

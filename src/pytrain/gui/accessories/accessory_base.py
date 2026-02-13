@@ -349,6 +349,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             self._reset_state_buttons()
 
     def mount_gui(self, container: Box = None) -> None:
+        self.bind_variant()
         self._create_state_watchers()
 
         if container:
