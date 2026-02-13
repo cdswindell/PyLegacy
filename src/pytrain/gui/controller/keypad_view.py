@@ -477,9 +477,11 @@ class KeypadView(Generic[S]):
                 else:
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         host.ac_op_cell.show()
+                        host.ac_op_btn.enable()
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
+                host.ac_op_btn.enable()
 
     # noinspection PyProtectedMember
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
