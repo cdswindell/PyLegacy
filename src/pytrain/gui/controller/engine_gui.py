@@ -482,6 +482,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def active_state_or_acc(self) -> S | None:
         if self.scope and self._scope_tmcc_ids.get(self.scope, None):
             tmcc_id = self._scope_tmcc_ids.get(self.scope)
+            print(f"active_state_or_acc: tmcc_id={tmcc_id}")
             if self.scope == CommandScope.ACC and tmcc_id in self._acc_tmcc_to_adapter:
                 return self._acc_tmcc_to_adapter[tmcc_id]
             return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)

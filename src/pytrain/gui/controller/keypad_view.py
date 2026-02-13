@@ -356,8 +356,9 @@ class KeypadView:
 
         # update information immediately if not in entry mode
         if not self._entry_mode and key.isdigit():
-            log.debug("on_keypress calling update_component_info...")
-            host.update_component_info(int(tmcc_id), "")
+            tmcc_id = int(tmcc_id)
+            log.debug(f"on_keypress calling update_component_info; TMCC ID: {tmcc_id}")
+            host.update_component_info(tmcc_id, not_found_value="")
 
     # noinspection PyProtectedMember
     def entry_mode(self, clear_info: bool = True) -> None:
@@ -458,6 +459,7 @@ class KeypadView:
             show_keypad = True
 
             if state:
+                # Shows accessory controls based on accessory state
                 if isinstance(state, AccessoryState) and state.is_sensor_track:
                     host.sensor_track_box.show()
                     host.keypad_box.hide()
