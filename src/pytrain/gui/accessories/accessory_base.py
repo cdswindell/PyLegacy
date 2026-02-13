@@ -348,7 +348,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if self._state_buttons:
             self._reset_state_buttons()
 
-    def mount_gui(self, container: Box = None) -> None:
+    def mount_gui(self, container: Box = None, *, add_spacer: bool = True) -> None:
         self.bind_variant()
         self._create_state_watchers()
 
@@ -356,7 +356,9 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             if container.layout == "grid":
                 self.box = box = container
             else:
-                self.box = box = Box(container, align="bottom", layout="grid")
+                self.box = box = Box(container, layout="grid")
+            if bool(add_spacer):
+                box.tk.pack_configure(pady=(40, 0))
         else:
             assert self._stand_alone
             self.box = box = Box(self.host.app, layout="grid")
