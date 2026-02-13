@@ -215,7 +215,6 @@ class ImagePresenter:
                     img_path = None
                     if isinstance(conf_acc, ConfiguredAccessoryAdapter):
                         img_path = find_file(conf_acc.image_path)
-                        print(f"tmcc id: {tmcc_id} Image path: {img_path}")
                     elif isinstance(state, AccessoryState):
                         # Selects image based on accessory state properties
                         if state.is_asc2:
