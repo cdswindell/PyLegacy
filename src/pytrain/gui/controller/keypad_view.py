@@ -460,18 +460,23 @@ class KeypadView(Generic[S]):
             show_keypad = True
 
             acc_state = state.state if isinstance(state, ConfiguredAccessoryAdapter) else state
-            if acc_state:
+            if isinstance(acc_state, AccessoryState):
                 # Shows accessory controls based on accessory state
-                if isinstance(acc_state, AccessoryState) and acc_state.is_sensor_track:
+                if acc_state.is_sensor_track:
                     host.sensor_track_box.show()
                     host.keypad_box.hide()
                     show_keypad = False
-                elif isinstance(acc_state, AccessoryState) and (acc_state.is_bpc2 or acc_state.is_asc2):
+                elif acc_state.is_bpc2 or acc_state.is_asc2:
                     host.ac_off_cell.show()
                     host.ac_status_cell.show()
                     host.ac_on_cell.show()
                     if acc_state.is_asc2:
                         host.ac_aux1_cell.show()
+                        if host.accessories.configured_by_tmcc_id(state.tmcc_id):
+                            host.ac_op_cell.show()
+                else:
+                    if host.accessories.configured_by_tmcc_id(state.tmcc_id):
+                        host.ac_op_cell.show()
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
