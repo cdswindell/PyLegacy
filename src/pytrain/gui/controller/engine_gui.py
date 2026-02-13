@@ -1059,7 +1059,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
             if self.scope == CommandScope.ACC and isinstance(state, ConfiguredAccessoryAdapter):
                 conf_acc = state
-                self._popup
+                self.on_configured_accessory(conf_acc)
 
         # 4) Preserve existing behavior
         if update_info:
