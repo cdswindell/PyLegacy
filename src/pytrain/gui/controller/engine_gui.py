@@ -136,6 +136,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.turn_off_image = find_file("off_button.jpg")
         self.power_off_path = find_file("bulb-power-off.png")
         self.power_on_path = find_file("bulb-power-on.png")
+        self.op_acc_image = find_file("op-acc.jpg")
 
         self._btn_images = []
         self._dim_cache = {}
@@ -180,6 +181,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.ac_on_cell = self.ac_off_cell = self.ac_status_cell = None
         self.ac_off_btn = self.ac_on_btn = self.ac_status_btn = None
         self.ac_aux1_cell = self.ac_aux1_btn = None
+        self.ac_op_cell = self.ac_op_btn = None
 
         # controller
         self._separator = None

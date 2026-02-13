@@ -284,6 +284,22 @@ class KeypadView(Generic[S]):
         host.ac_aux1_btn.when_left_button_pressed = self.when_pressed
         host.ac_aux1_btn.when_left_button_released = self.when_released
 
+        # operating accessory controls key
+        host.ac_op_cell, host.ac_op_btn = host.make_keypad_button(
+            keypad_keys,
+            None,
+            row - 1,
+            2,
+            0,
+            image=host.op_acc_image,
+            visible=False,
+            is_ops=True,
+            command=False,
+        )
+        host.ac_op_btn.disable()
+        host.ac_op_btn.when_left_button_pressed = self.when_pressed
+        host.ac_op_btn.when_left_button_released = self.when_released
+
         # --- set minimum size but allow expansion ---
         # --- Enforce minimum keypad size, but allow expansion ---
         num_rows = 5
