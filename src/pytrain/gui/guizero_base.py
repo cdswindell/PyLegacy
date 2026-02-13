@@ -415,6 +415,12 @@ class GuiZeroBase(Thread, ABC):
         except Exception as e:
             log.exception(f"Error sending command {command}", exc_info=e)
 
+    # noinspection PyTypeChecker
+    def add_vspace(self, parent: Box, pixels: int) -> None:
+        sp = Box(parent, height=pixels, width="fill", align="top")
+        sp.tk.pack_propagate(False)
+        self.cache(sp)
+
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
         value = max(orig_value, int(value * self.width / 480))

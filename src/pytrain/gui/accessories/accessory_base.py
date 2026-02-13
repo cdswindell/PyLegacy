@@ -355,11 +355,15 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if container:
             if container.layout == "grid":
                 if bool(add_spacer):
-                    container.tk.grid_configure(pady=(40, 0))
+                    spacer = Box(container, layout="auto")
+                    spacer.tk.grid(column=0, row=container.tk.grid_size()[1], sticky="nsew")
+                    spacer.tk.configure(height=40)
+                    spacer.tk.grid_propagate(False)
+                    self.cache(spacer)
                 self.box = box = container
             else:
                 if bool(add_spacer):
-                    container.tk.pack_configure(pady=(40, 0))
+                    self.add_vspace(container, 40)
                 self.box = box = Box(container, layout="grid")
         else:
             assert self._stand_alone
