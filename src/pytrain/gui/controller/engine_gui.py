@@ -400,8 +400,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
-        overlay = self._popup.get_or_create(acc.instance_id, "", acc)
+        tmcc_id = self._scope_tmcc_ids[self.scope]
+        acc.activate_tmcc_id(tmcc_id)
         self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], conf_acc=acc)
+        self.name_text = acc.name
+        overlay = self._popup.get_or_create(acc.instance_id, "", acc)
         self.show_popup(overlay)
 
     def on_tower_dialog(self) -> None:
