@@ -1075,6 +1075,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if self.keypad_box.visible:
                     self.keypad_box.hide()
                 self.on_configured_accessory(conf_acc)
+                update_info = False
 
         # 4) Preserve existing behavior
         if update_info:
