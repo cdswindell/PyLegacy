@@ -348,7 +348,7 @@ class KeypadView(Generic[S]):
             self._reset_on_keystroke = False
             if host.make_recent(host.scope, int(tmcc_id)):
                 prefer_acc = True
-                host.ops_mode()
+                host.ops_mode(prefer_acc=prefer_acc)
             else:
                 self.entry_mode(clear_info=False)
         else:
