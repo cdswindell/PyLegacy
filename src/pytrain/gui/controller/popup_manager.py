@@ -108,7 +108,8 @@ class PopupManager:
         on_close: Callable[..., Any] | None,
         overlay: Box,
     ):
-        bs = int(host.button_size * 1.1)
+        host.add_vspace(overlay, 40)
+        bs = int(host.button_size * 1.0)
         if acc.state.is_asc2:
             img, inverted_img = host.get_image(find_file("raw-acs2.jpg"), size=(bs, bs))
         else:
