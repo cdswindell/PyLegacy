@@ -73,7 +73,7 @@ from ...utils.path_utils import find_file
 from ...utils.unique_deque import UniqueDeque
 
 log = logging.getLogger(__name__)
-S = TypeVar("S", ComponentState, ConfiguredAccessoryAdapter)
+S = TypeVar("S", bound=ComponentState)
 
 
 class EngineGui(GuiZeroBase, Generic[S]):
@@ -203,6 +203,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._rr_speed_panel = None
         self._state_info = None
         self._bell_horn_panel = None
+        self._accessory_view: dict[int, Box | None] = {}
         self.engine_ops_cells = {}
 
         # callbacks
@@ -247,6 +248,46 @@ class EngineGui(GuiZeroBase, Generic[S]):
     @property
     def accessory_labels(self) -> list[str]:
         return self._caa.configured_labels()
+
+    def is_accessory_view(self, tmcc_id: int) -> bool:
+        return tmcc_id in self._accessory_view
+
+    def get_accessory_view(self, tmcc_id: int) -> Box | None:
+        """
+        By default, we prefer to display the configured accessory view, if available.
+        If the tmcc id isn't in the dict, we create a view, if possible
+        """
+        with self._cv:
+            if tmcc_id not in self._accessory_view:
+                acc = self.get_configured_accessory(tmcc_id)
+                self.set_accessory_view(tmcc_id, acc)
+        return self._accessory_view.get(tmcc_id, None)
+
+    def set_accessory_view(self, tmcc_id: int, acc: ConfiguredAccessoryAdapter | None):
+        acc.activate_tmcc_id(tmcc_id)
+        if acc is None:
+            self._accessory_view[tmcc_id] = None
+        else:
+            with self._cv:
+                if acc.overlay is None:
+                    self._create_accessory_view(acc)
+            self._accessory_view[tmcc_id] = acc.overlay
+
+    def get_configured_accessory(self, tmcc_id: int) -> ConfiguredAccessoryAdapter | None:
+        """
+        By default, we prefer to display the configured accessory view, if available.
+        If the tmcc id isn't in the dict, we create a view, if possible
+        """
+        with self._cv:
+            if tmcc_id not in self._acc_tmcc_to_adapter:
+                acc = None
+                accs = self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
+                if accs and len(accs) >= 1:
+                    acc = accs[0]
+                    acc.activate_tmcc_id(tmcc_id)
+                    # TODO: what if there is more than one?
+                self._acc_tmcc_to_adapter[tmcc_id] = acc
+        return self._acc_tmcc_to_adapter[tmcc_id]
 
     @property
     def active_engine_state(self) -> EngineState | None:
@@ -433,17 +474,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, button=self._bell_btn)
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
-        tmcc_id = self._scope_tmcc_ids[self.scope]
-        acc.activate_tmcc_id(tmcc_id)
-        self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], conf_acc=acc)
-        self.name_text.value = acc.name
-        overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
-        setattr(overlay, "caa", acc)
+        overlay = self._create_accessory_view(acc)
         if self.keypad_box.visible:
             self.keypad_box.hide()
         if not overlay.visible:
             overlay.show()
-        # self.show_popup(overlay)
+
+    def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
+        tmcc_id = self._scope_tmcc_ids[self.scope]
+        acc.activate_tmcc_id(tmcc_id)
+        self.name_text.value = acc.name
+        overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
+        setattr(overlay, "caa", acc)
+        self.set_accessory_view(tmcc_id, acc)
+        self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope])
+        return overlay
 
     def show_popup(
         self,
@@ -466,9 +511,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def restore_accessory_info(self, overlay: Box = None):
         acc = getattr(overlay, "caa", None) if overlay else None
         if isinstance(acc, ConfiguredAccessoryAdapter):
-            self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], force_image_refresh=True)
+            self.set_accessory_view(acc.tmcc_id, None)
+            self._image_presenter.update(tmcc_id=acc.tmcc_id)
             self.name_text.value = self.active_state.name
-        self._popup.close(overlay=overlay)
+        overlay.hide()
         if not self.keypad_box.visible:
             self.keypad_box.show()
 
@@ -487,8 +533,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             else:
                 state = self._options_to_state[value]
                 if state and state not in {self._active_engine_state, self._active_train_state}:
-                    conf_acc = state if isinstance(state, ConfiguredAccessoryAdapter) else None
-                    self.update_component_info(tmcc_id=state.tmcc_id, conf_acc=conf_acc)
+                    self.update_component_info(tmcc_id=state.tmcc_id)
         self.header.select_default()
 
     @property
@@ -499,7 +544,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return None
 
     @property
-    def active_state_or_acc(self) -> S | None:
+    def active_state_or_acc(self) -> S | ConfiguredAccessoryAdapter | None:
         if self.scope and self._scope_tmcc_ids.get(self.scope, None):
             tmcc_id = self._scope_tmcc_ids.get(self.scope)
 
@@ -1046,12 +1091,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             log.warning(f"Unknown key: {key}")
 
+    # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
 
         # 2) Engine/train path
-        conf_acc = None
         if self._keypad_view.is_engine_or_train:
             # pure UI shell now lives in KeypadView
             self._keypad_view.apply_ops_mode_ui_engine_shell()
@@ -1074,23 +1119,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-            if self.scope == CommandScope.ACC and isinstance(state, ConfiguredAccessoryAdapter):
-                conf_acc = state
-                if self.keypad_box.visible:
-                    self.keypad_box.hide()
-                self.on_configured_accessory(conf_acc)
-                update_info = False
+            tmcc_id = state.tmcc_id
+            if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
+                view = self.get_accessory_view(tmcc_id)
+                acc = getattr(view, "caa", None)
+                self.on_configured_accessory(acc)
 
         # 4) Preserve existing behavior
         if update_info:
-            self.update_component_info(in_ops_mode=True, conf_acc=conf_acc)
+            self.update_component_info(in_ops_mode=True)
 
+    # noinspection PyTypeChecker
     def update_component_info(
         self,
         tmcc_id: int = None,
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
-        conf_acc: ConfiguredAccessoryAdapter = None,
     ) -> None:
         self._popup.close()
         if tmcc_id is None:
@@ -1100,25 +1144,27 @@ class EngineGui(GuiZeroBase, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
-            state = conf_acc or self.active_state
-            if isinstance(state, ConfiguredAccessoryAdapter) and conf_acc is None:
-                conf_acc = state
-                conf_acc.activate_tmcc_id(tmcc_id)
+            state = self.active_state
+            name = not_found_value
             if state:
                 # Make sure ID field shows TMCC ID, not just road number
                 if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
                     tmcc_id = state.tmcc_id
                     self._scope_tmcc_ids[self.scope] = tmcc_id
                     self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
-                name = state.name
-                name = name if name and name != "NA" else not_found_value
+                if isinstance(state, AccessoryState) and self.get_accessory_view(tmcc_id):
+                    view = self.get_accessory_view(tmcc_id)
+                    acc = getattr(view, "caa", None)
+                    if acc:
+                        name = acc.name
+                        acc.activate_tmcc_id(tmcc_id)
+                elif state:
+                    name = state.name
+                    name = name if name and name != "NA" else not_found_value
                 update_button_state = False
-                # noinspection PyTypeChecker
                 self.make_recent(self.scope, tmcc_id, state)
                 if not in_ops_mode:
-                    self.ops_mode(update_info=False, state=conf_acc)
-            else:
-                name = not_found_value
+                    self.ops_mode(update_info=False)
             self.name_text.value = name
         else:
             if self._keypad_view.reset_on_keystroke:
@@ -1134,7 +1180,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if update_button_state:
                 # noinspection PyTypeChecker
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            self._image_presenter.update(tmcc_id, conf_acc=conf_acc)
+            self._image_presenter.update(tmcc_id)
         else:
             self.image_box.hide()
 

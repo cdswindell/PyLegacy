@@ -158,6 +158,7 @@ class CatalogPanel:
             self._configured_acc_labels = []
             self._configured_acc_dict = {}
             if self._gui.accessories.has_any():
+                # Maps configured accessory labels to accessory instances
                 for k, v in self._gui.accessories.configured_by_label_map().items():
                     if k and v:
                         v = v[0] if isinstance(v, list) else v
@@ -189,8 +190,7 @@ class CatalogPanel:
         from ...db.component_state import ComponentState
 
         state = self._entry_state_map.get(item, None)
-
         if isinstance(state, ComponentState):
             self._gui.update_component_info(state.address)
         elif isinstance(state, ConfiguredAccessoryAdapter):
-            self._gui.update_component_info(state.tmcc_id, conf_acc=state)
+            self._gui.update_component_info(state.tmcc_id)

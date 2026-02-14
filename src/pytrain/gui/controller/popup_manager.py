@@ -93,6 +93,7 @@ class PopupManager:
             body_src.ensure_gui(aggregator=self._host)
             body_src.gui.mount_gui(overlay)
             self.add_close_acc_btn(host, body_src, on_close, overlay)
+            body_src.attach_overlay(overlay)
         else:
             body = Box(overlay, align="top", layout="auto")
             body_src(body)

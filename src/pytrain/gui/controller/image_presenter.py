@@ -135,8 +135,6 @@ class ImagePresenter:
         self,
         tmcc_id: int | None = None,
         key: tuple[CommandScope, int] | tuple[CommandScope, int, int] | None = None,
-        conf_acc: ConfiguredAccessoryAdapter = None,
-        force_image_refresh: bool = False,
     ) -> None:
         host = self._host
 
@@ -210,13 +208,18 @@ class ImagePresenter:
         elif host.scope in {CommandScope.ACC, CommandScope.TRAIN} and tmcc_id != 0:
             state = host._state_store.get_state(host.scope, tmcc_id, False)
             if state:
-                if not force_image_refresh:
-                    img = host._image_cache.get((host.scope, tmcc_id), None)
+                key = (host.scope, tmcc_id)
+                if isinstance(state, AccessoryState):
+                    view = host.get_accessory_view(tmcc_id)
+                    if view and hasattr(view, "acc"):
+                        key = (host.scope, tmcc_id, getattr(view, "acc"))
+                img = host._image_cache.get(key, None)
                 # Attempts to load and cache image from state
-                if img is None or isinstance(conf_acc, ConfiguredAccessoryAdapter):
+                if img is None:
                     img_path = None
-                    if isinstance(conf_acc, ConfiguredAccessoryAdapter):
-                        img_path = find_file(conf_acc.image_path)
+                    if len(key) > 2 and isinstance(key[2], ConfiguredAccessoryAdapter):
+                        acc = key[2]
+                        img_path = find_file(acc.image_path)
                     elif isinstance(state, AccessoryState):
                         # Selects image based on accessory state properties
                         if state.is_asc2:
@@ -230,7 +233,7 @@ class ImagePresenter:
                     if img_path:
                         img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
                     if img:
-                        host._image_cache[(host.scope, tmcc_id)] = img
+                        host._image_cache[key] = img
                     else:
                         self.clear()
         if img is None:
