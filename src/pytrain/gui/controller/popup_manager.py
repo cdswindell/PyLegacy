@@ -18,11 +18,11 @@ import math
 from guizero import Box, Combo, PushButton, Text
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from ..components.hold_button import HoldButton
 from ...utils.path_utils import find_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
-    from ..components.hold_button import HoldButton
 
 log = logging.getLogger(__name__)
 
