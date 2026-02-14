@@ -136,6 +136,7 @@ class ImagePresenter:
         tmcc_id: int | None = None,
         key: tuple[CommandScope, int] | tuple[CommandScope, int, int] | None = None,
         conf_acc: ConfiguredAccessoryAdapter = None,
+        force_image_refresh: bool = False,
     ) -> None:
         host = self._host
 
@@ -209,7 +210,8 @@ class ImagePresenter:
         elif host.scope in {CommandScope.ACC, CommandScope.TRAIN} and tmcc_id != 0:
             state = host._state_store.get_state(host.scope, tmcc_id, False)
             if state:
-                img = host._image_cache.get((host.scope, tmcc_id), None)
+                if not force_image_refresh:
+                    img = host._image_cache.get((host.scope, tmcc_id), None)
                 # Attempts to load and cache image from state
                 if img is None or isinstance(conf_acc, ConfiguredAccessoryAdapter):
                     img_path = None

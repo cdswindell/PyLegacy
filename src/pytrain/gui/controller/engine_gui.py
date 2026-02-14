@@ -405,6 +405,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], conf_acc=acc)
         self.name_text.value = acc.name
         overlay = self._popup.get_or_create(acc.instance_id, "", acc)
+        setattr(overlay, "caa", acc)
         self.show_popup(overlay)
 
     def on_tower_dialog(self) -> None:
@@ -460,6 +461,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         )
 
     def close_popup(self, overlay: Widget = None):
+        acc = getattr(overlay, "caa", None) if overlay else None
+        if isinstance(acc, ConfiguredAccessoryAdapter):
+            self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], force_image_refresh=True)
+            self.name_text.value = self.active_state.name
         self._popup.close(overlay=overlay)
 
     def on_admin_panel(self) -> None:
