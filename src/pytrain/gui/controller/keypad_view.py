@@ -414,6 +414,8 @@ class KeypadView(Generic[S]):
             host.controller_box.hide()
         if host.keypad_box.visible:
             host.keypad_box.hide()
+        if host.acc_overlay and host.acc_overlay.visible:
+            host.acc_overlay.hide()
 
         host.reset_btn.enable()
 
@@ -433,6 +435,10 @@ class KeypadView(Generic[S]):
         # reset is only meaningful for engine/train
         if host.reset_btn.enabled:
             host.reset_btn.disable()
+
+        if host.scope == CommandScope.ACC and host.acc_overlay and host.acc_overlay.visible:
+            host.acc_overlay.hide()
+            host.acc_overlay = None
 
         if host.scope == CommandScope.ROUTE:
             host.on_new_route()

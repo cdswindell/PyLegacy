@@ -170,6 +170,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.name_text = self.titlebar_height = self.popup_position = None
         self.on_key_cell = self.off_key_cell = None
         self.image = None
+        self.acc_overlay = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
         self.switch_thru_cell = self.switch_out_cell = None
 
@@ -476,7 +477,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, button=self._bell_btn)
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
-        overlay = self._create_accessory_view(acc)
+        self.acc_overlay = overlay = self._create_accessory_view(acc)
         if self.keypad_box.visible:
             self.keypad_box.hide()
         if not overlay.visible:
@@ -518,6 +519,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._image_presenter.update(tmcc_id=acc.tmcc_id)
             self.name_text.value = self.active_state.name
         overlay.hide()
+        self.acc_overlay = None
         if not self.keypad_box.visible:
             self.keypad_box.show()
 
