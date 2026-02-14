@@ -484,7 +484,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 state = self._options_to_state[value]
                 if state and state not in {self._active_engine_state, self._active_train_state}:
                     conf_acc = state if isinstance(state, ConfiguredAccessoryAdapter) else None
-                    self.update_component_info(tmcc_id=state.tmcc_id, conf_acc=conf_acc, prefer_acc=True)
+                    self.update_component_info(tmcc_id=state.tmcc_id, conf_acc=conf_acc, prefer_acc=False)
         self.header.select_default()
 
     @property
