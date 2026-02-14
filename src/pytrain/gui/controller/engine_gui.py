@@ -465,6 +465,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], force_image_refresh=True)
             self.name_text.value = self.active_state.name
         self._popup.close(overlay=overlay)
+        if not self.keypad_box.visible:
+            self.keypad_box.show()
 
     def on_admin_panel(self) -> None:
         with self._cv:
