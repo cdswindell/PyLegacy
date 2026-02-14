@@ -211,6 +211,7 @@ class ImagePresenter:
                 key = (host.scope, tmcc_id)
                 if isinstance(state, AccessoryState):
                     view = host.get_accessory_view(tmcc_id)
+                    print(view)
                     if view and hasattr(view, "acc"):
                         key = (host.scope, tmcc_id, getattr(view, "acc"))
                 print(f"Key: {key}")

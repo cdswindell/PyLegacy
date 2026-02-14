@@ -287,7 +287,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     acc.activate_tmcc_id(tmcc_id)
                     # TODO: what if there is more than one?
                 self._acc_tmcc_to_adapter[tmcc_id] = acc
-        return self._acc_tmcc_to_adapter[tmcc_id]
+            print(f"get_configured_accessory({tmcc_id}) = {acc}")
+            return self._acc_tmcc_to_adapter[tmcc_id]
 
     @property
     def active_engine_state(self) -> EngineState | None:
