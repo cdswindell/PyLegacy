@@ -814,7 +814,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """
         recents = self._recents_queue.get(scope, None)
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            state = cast(ComponentState, cast(object, recents[0]))
+            state = recents[0]
             self._scope_tmcc_ids[scope] = state.tmcc_id
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
