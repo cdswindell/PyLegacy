@@ -1040,7 +1040,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             log.warning(f"Unknown key: {key}")
 
-    def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
+    def ops_mode(self, update_info: bool = True, state: S | None = None, prefer_acc: bool = False) -> None:
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
 
@@ -1068,6 +1068,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
+            if state is None and prefer_acc and isinstance(self.active_state_or_acc, ConfiguredAccessoryAdapter):
+                conf_acc = state = self.active_state_or_acc
             if self.scope == CommandScope.ACC and isinstance(state, ConfiguredAccessoryAdapter):
                 conf_acc = state
                 self.on_configured_accessory(conf_acc)
