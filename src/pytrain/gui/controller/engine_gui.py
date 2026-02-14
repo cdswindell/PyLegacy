@@ -15,7 +15,6 @@ from contextlib import contextmanager
 from typing import Any, Callable, Generic, Iterator, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, Text, TitleBox
-from guizero.base import Widget
 
 from .admin_panel import ADMIN_TITLE, AdminPanel
 from .bell_horn_panel import BellHornPanel
@@ -460,8 +459,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             hide_image_box=hide_image_box,
         )
 
-    def close_popup(self, overlay: Widget = None):
+    def close_popup(self, overlay: Box = None):
         acc = getattr(overlay, "caa", None) if overlay else None
+        print(acc, dir(acc))
         if isinstance(acc, ConfiguredAccessoryAdapter):
             self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], force_image_refresh=True)
             self.name_text.value = self.active_state.name
