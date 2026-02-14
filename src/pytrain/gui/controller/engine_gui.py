@@ -487,7 +487,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
         setattr(overlay, "caa", acc)
         self.set_accessory_view(tmcc_id, acc)
-        self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope])
+        self._image_presenter.update(tmcc_id=tmcc_id)
         return overlay
 
     def show_popup(
@@ -511,7 +511,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def restore_accessory_info(self, overlay: Box = None):
         acc = getattr(overlay, "caa", None) if overlay else None
         if isinstance(acc, ConfiguredAccessoryAdapter):
-            self.set_accessory_view(acc.tmcc_id, None)
+            self.set_accessory_view(acc.state.tmcc_id, None)
             self._image_presenter.update(tmcc_id=acc.tmcc_id)
             self.name_text.value = self.active_state.name
         overlay.hide()

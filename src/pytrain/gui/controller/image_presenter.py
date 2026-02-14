@@ -206,13 +206,14 @@ class ImagePresenter:
                     else:
                         host._image_presenter.clear()
         elif host.scope in {CommandScope.ACC, CommandScope.TRAIN} and tmcc_id != 0:
-            state = host._state_store.get_state(host.scope, tmcc_id, False)
+            state = host.state_store.get_state(host.scope, tmcc_id, False)
             if state:
                 key = (host.scope, tmcc_id)
                 if isinstance(state, AccessoryState):
                     view = host.get_accessory_view(tmcc_id)
                     if view and hasattr(view, "acc"):
                         key = (host.scope, tmcc_id, getattr(view, "acc"))
+                        print(key)
                 img = host._image_cache.get(key, None)
                 # Attempts to load and cache image from state
                 if img is None:
