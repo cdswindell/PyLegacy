@@ -271,7 +271,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 acc.activate_tmcc_id(tmcc_id)
                 if acc.overlay is None:
                     self._create_accessory_view(acc)
-            self._accessory_view[tmcc_id] = acc.overlay
+                assert acc.overlay
+                self._accessory_view[tmcc_id] = acc.overlay
 
     def get_configured_accessory(self, tmcc_id: int) -> ConfiguredAccessoryAdapter | None:
         """
