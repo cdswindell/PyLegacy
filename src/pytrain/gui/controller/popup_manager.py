@@ -10,11 +10,11 @@
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass
 from tkinter import TclError
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
+import math
 from guizero import Box, Combo, PushButton, Text
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
@@ -49,19 +49,28 @@ class PopupManager:
     # ------------------------------------------------------------------
 
     def get_or_create(
-        self, key: str, title: str, build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter
+        self,
+        key: str,
+        title: str,
+        build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter,
+        on_close: Callable = None,
     ) -> Box:
         with self._host.locked():
             existing = self._overlays.get(key)
             if isinstance(existing, Box):
                 return existing
 
-        overlay = self.create_popup(title, build_body)
+        overlay = self.create_popup(title, build_body, on_close)
         setattr(overlay, "overlay_key", key)
         self._overlays[key] = overlay
         return overlay
 
-    def create_popup(self, title_text: str, build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter) -> Box:
+    def create_popup(
+        self,
+        title_text: str,
+        build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter,
+        on_close: Callable = None,
+    ) -> Box:
         host = self._host
 
         overlay = Box(host.app, align="top", border=2, visible=False)
@@ -91,7 +100,7 @@ class PopupManager:
             overlay,
             text="Close",
             align="bottom",
-            command=self.close,
+            command=on_close or self.close,
             args=[overlay],
         )
         btn.text_size = host.s_20

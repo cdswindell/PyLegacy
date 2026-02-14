@@ -398,15 +398,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._lighting_panel.configure(self.active_engine_state)
         self.show_popup(overlay, "AUX2_OPTION_ONE", "e")
 
-    def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
-        tmcc_id = self._scope_tmcc_ids[self.scope]
-        acc.activate_tmcc_id(tmcc_id)
-        self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], conf_acc=acc)
-        self.name_text.value = acc.name
-        overlay = self._popup.get_or_create(acc.instance_id, "", acc)
-        setattr(overlay, "caa", acc)
-        self.show_popup(overlay)
-
     def on_tower_dialog(self) -> None:
         overlay = self._popup.get_or_create("tower_dialog", "Tower Dialogs", self.build_tower_dialogs_body)
         self.show_popup(overlay, "TOWER_CHATTER", "e")
@@ -441,6 +432,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._bell_horn_panel.overlay
         self.show_popup(overlay, button=self._bell_btn)
 
+    def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
+        tmcc_id = self._scope_tmcc_ids[self.scope]
+        acc.activate_tmcc_id(tmcc_id)
+        self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], conf_acc=acc)
+        self.name_text.value = acc.name
+        overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
+        setattr(overlay, "caa", acc)
+        self.show_popup(overlay)
+
     def show_popup(
         self,
         overlay,
@@ -459,9 +459,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             hide_image_box=hide_image_box,
         )
 
-    def close_popup(self, overlay: Box = None):
+    def restore_accessory_info(self, overlay: Box = None):
         acc = getattr(overlay, "caa", None) if overlay else None
-        print(acc, dir(acc))
         if isinstance(acc, ConfiguredAccessoryAdapter):
             self._image_presenter.update(tmcc_id=self._scope_tmcc_ids[self.scope], force_image_refresh=True)
             self.name_text.value = self.active_state.name
@@ -796,7 +795,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         force_entry_mode = True
                         clear_info = False
         # update display
-        self.close_popup()
+        self._popup.close()
         self.update_component_info()
         # force entry mode if scoped tmcc_id is 0
         if self._scope_tmcc_ids[scope] == 0:
@@ -817,7 +816,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._scope_tmcc_ids[scope] = state.tmcc_id
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
-        self.close_popup()
+        self._popup.close()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id > 0:
@@ -851,7 +850,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return False
 
     def show_next_component(self) -> None:
-        self.close_popup()
+        self._popup.close()
         if self.scope == CommandScope.ENGINE and self._train_linked_queue:
             recents = self._train_linked_queue
         else:
@@ -865,7 +864,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.header.select_default()
 
     def show_previous_component(self) -> None:
-        self.close_popup()
+        self._popup.close()
         if self.scope == CommandScope.ENGINE and self._train_linked_queue:
             recents = self._train_linked_queue
         else:
@@ -1083,7 +1082,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         in_ops_mode: bool = False,
         conf_acc: ConfiguredAccessoryAdapter = None,
     ) -> None:
-        self.close_popup()
+        self._popup.close()
         if tmcc_id is None:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
         # update the tmcc_id associated with current scope
