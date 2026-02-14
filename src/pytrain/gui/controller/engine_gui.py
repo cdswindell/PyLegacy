@@ -822,6 +822,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if tmcc_id > 0:
             if state is None:
                 state = self._state_store.get_state(self.scope, tmcc_id, False)
+                # Uses accessory adapter when available for ACC scope
                 if self.scope == CommandScope.ACC:
                     accs = self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
                     if accs and len(accs) >= 1:
@@ -1081,6 +1082,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
         conf_acc: ConfiguredAccessoryAdapter = None,
+        prefer_acc: bool = False,
     ) -> None:
         self._popup.close()
         if tmcc_id is None:
@@ -1090,7 +1092,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
-            state = conf_acc or self.active_state
+            if prefer_acc:
+                state = conf_acc or self.active_state_or_acc
+            else:
+                state = conf_acc or self.active_state
             if isinstance(state, ConfiguredAccessoryAdapter) and conf_acc is None:
                 conf_acc = state
                 conf_acc.activate_tmcc_id(tmcc_id)
