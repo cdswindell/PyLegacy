@@ -439,7 +439,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.name_text.value = acc.name
         overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
         setattr(overlay, "caa", acc)
-        self.show_popup(overlay)
+        if self.keypad_box.visible:
+            self.keypad_box.hide()
+        if not overlay.visible:
+            overlay.show()
+        # self.show_popup(overlay)
 
     def show_popup(
         self,
@@ -484,7 +488,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 state = self._options_to_state[value]
                 if state and state not in {self._active_engine_state, self._active_train_state}:
                     conf_acc = state if isinstance(state, ConfiguredAccessoryAdapter) else None
-                    self.update_component_info(tmcc_id=state.tmcc_id, conf_acc=conf_acc, prefer_acc=False)
+                    self.update_component_info(tmcc_id=state.tmcc_id, conf_acc=conf_acc)
         self.header.select_default()
 
     @property
@@ -1042,7 +1046,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             log.warning(f"Unknown key: {key}")
 
-    def ops_mode(self, update_info: bool = True, state: S | None = None, prefer_acc: bool = False) -> None:
+    def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
 
@@ -1070,8 +1074,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-            if state is None and prefer_acc and isinstance(self.active_state_or_acc, ConfiguredAccessoryAdapter):
-                conf_acc = state = self.active_state_or_acc
             if self.scope == CommandScope.ACC and isinstance(state, ConfiguredAccessoryAdapter):
                 conf_acc = state
                 if self.keypad_box.visible:
@@ -1089,7 +1091,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
         conf_acc: ConfiguredAccessoryAdapter = None,
-        prefer_acc: bool = False,
     ) -> None:
         self._popup.close()
         if tmcc_id is None:
@@ -1099,10 +1100,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
-            if prefer_acc:
-                state = conf_acc or self.active_state_or_acc
-            else:
-                state = conf_acc or self.active_state
+            state = conf_acc or self.active_state
             if isinstance(state, ConfiguredAccessoryAdapter) and conf_acc is None:
                 conf_acc = state
                 conf_acc.activate_tmcc_id(tmcc_id)

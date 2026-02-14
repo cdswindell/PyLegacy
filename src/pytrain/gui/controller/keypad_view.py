@@ -325,7 +325,6 @@ class KeypadView(Generic[S]):
 
         num_chars = 4 if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         tmcc_id = host.tmcc_id_text.value
-        prefer_acc = False
         # Updates TMCC ID based on key press
         if key.isdigit():
             if int(tmcc_id) and self._reset_on_keystroke:
@@ -347,8 +346,7 @@ class KeypadView(Generic[S]):
             # otherwise, stay in entry mode
             self._reset_on_keystroke = False
             if host.make_recent(host.scope, int(tmcc_id)):
-                prefer_acc = True
-                host.ops_mode(prefer_acc=prefer_acc)
+                host.ops_mode()
             else:
                 self.entry_mode(clear_info=False)
         else:
@@ -358,7 +356,7 @@ class KeypadView(Generic[S]):
         if not self._entry_mode and key.isdigit():
             tmcc_id = int(tmcc_id)
             log.debug(f"on_keypress calling update_component_info; TMCC ID: {tmcc_id}")
-            host.update_component_info(tmcc_id, not_found_value="", prefer_acc=prefer_acc)
+            host.update_component_info(tmcc_id, not_found_value="")
 
     # noinspection PyProtectedMember
     def entry_mode(self, clear_info: bool = True) -> None:

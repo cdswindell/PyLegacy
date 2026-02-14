@@ -53,7 +53,7 @@ class PopupManager:
         self,
         key: str,
         title: str,
-        build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter,
+        body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter,
         on_close: Callable = None,
     ) -> Box:
         with self._host.locked():
@@ -61,7 +61,7 @@ class PopupManager:
             if isinstance(existing, Box):
                 return existing
 
-        overlay = self.create_popup(title, build_body, on_close)
+        overlay = self.create_popup(title, body_src, on_close)
         setattr(overlay, "overlay_key", key)
         self._overlays[key] = overlay
         return overlay
@@ -69,7 +69,7 @@ class PopupManager:
     def create_popup(
         self,
         title_text: str,
-        build_body: Callable[[Box], None] | ConfiguredAccessoryAdapter,
+        body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter,
         on_close: Callable = None,
     ) -> Box:
         host = self._host
@@ -89,13 +89,13 @@ class PopupManager:
             title.bg = "lightgrey"
             setattr(overlay, "title", title)
 
-        if isinstance(build_body, ConfiguredAccessoryAdapter):
-            build_body.ensure_gui(aggregator=self._host)
-            build_body.gui.mount_gui(overlay)
-            self.add_close_acc_btn(host, build_body, on_close, overlay)
+        if isinstance(body_src, ConfiguredAccessoryAdapter):
+            body_src.ensure_gui(aggregator=self._host)
+            body_src.gui.mount_gui(overlay)
+            self.add_close_acc_btn(host, body_src, on_close, overlay)
         else:
             body = Box(overlay, align="top", layout="auto")
-            build_body(body)
+            body_src(body)
             self.add_close_btn(host, on_close, overlay)
 
         overlay.hide()
