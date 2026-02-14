@@ -264,11 +264,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return self._accessory_view.get(tmcc_id, None)
 
     def set_accessory_view(self, tmcc_id: int, acc: ConfiguredAccessoryAdapter | None):
-        acc.activate_tmcc_id(tmcc_id)
         if acc is None:
             self._accessory_view[tmcc_id] = None
         else:
             with self._cv:
+                acc.activate_tmcc_id(tmcc_id)
                 if acc.overlay is None:
                     self._create_accessory_view(acc)
             self._accessory_view[tmcc_id] = acc.overlay
@@ -282,7 +282,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if tmcc_id not in self._acc_tmcc_to_adapter:
                 acc = None
                 accs = self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
-                if accs and len(accs) >= 1:
+                if accs and len(accs) >= 1 and accs[0]:
                     acc = accs[0]
                     acc.activate_tmcc_id(tmcc_id)
                     # TODO: what if there is more than one?
@@ -481,6 +481,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             overlay.show()
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
+        assert acc
         tmcc_id = self._scope_tmcc_ids[self.scope]
         acc.activate_tmcc_id(tmcc_id)
         self.name_text.value = acc.name
@@ -872,15 +873,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id > 0:
             if state is None:
-                state = self._state_store.get_state(self.scope, tmcc_id, False)
-                # Uses accessory adapter when available for ACC scope
-                if self.scope == CommandScope.ACC:
-                    accs = self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
-                    if accs and len(accs) >= 1:
-                        state = accs[0]
-                        state.activate_tmcc_id(tmcc_id)
-                        self._acc_tmcc_to_adapter[tmcc_id] = state
-                        # TODO: Handle case where multiple accessories are configured for same tmcc_id
+                state = self.state_store.get_state(self.scope, tmcc_id, False)
             if state:
                 # add to scope queue
                 if state in self._train_linked_queue:
