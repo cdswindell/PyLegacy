@@ -168,6 +168,8 @@ class ConfiguredAccessoryAdapter:
         Store the overlay handle created by PopupManager.get_or_create(...).
         """
         self.overlay = overlay
+        if self.overlay:
+            setattr(self.overlay, "acc", self)
 
     # ---------------------------------------------------------------------
     # Identity / debugging
