@@ -510,6 +510,9 @@ class KeypadView(Generic[S]):
             self.scope_power_btns()
             if not host.keypad_box.visible:
                 host.keypad_box.show()
+        if host.scope != CommandScope.ACC and host.acc_overlay and host.acc_overlay.visible:
+            host.acc_overlay.hide()
+            host.acc_overlay = None
 
     def scope_power_btns(self):
         host = self._host
