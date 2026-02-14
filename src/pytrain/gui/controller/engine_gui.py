@@ -1072,6 +1072,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 conf_acc = state = self.active_state_or_acc
             if self.scope == CommandScope.ACC and isinstance(state, ConfiguredAccessoryAdapter):
                 conf_acc = state
+                if self.keypad_box.visible:
+                    self.keypad_box.hide()
                 self.on_configured_accessory(conf_acc)
 
         # 4) Preserve existing behavior
