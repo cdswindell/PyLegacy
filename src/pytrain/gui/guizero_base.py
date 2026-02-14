@@ -475,6 +475,7 @@ class GuiZeroBase(Thread, ABC):
         scale: bool = False,
         preserve_height: bool = False,
     ):
+        # Returns cached or newly created image data
         if path not in self._image_cache:
             img = None
             if scale:

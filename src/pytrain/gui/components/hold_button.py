@@ -26,8 +26,8 @@ from guizero import PushButton
 class HoldButton(PushButton):
     """
     A PushButton subclass that adds:
-      - on_press  → single short tap, or fired when held if no hold/repeat defined
-      - on_hold   → single fire after hold_threshold seconds
+      - on_press → single short tap, or fired when held if no hold/repeat defined
+      - on_hold → single fire after hold_threshold seconds
       - on_repeat → continuous fire while held
 
     Each callback can be:
@@ -43,7 +43,7 @@ class HoldButton(PushButton):
 
     Hover behavior:
       - We implement hover via <Enter>/<Leave> bindings that explicitly set the tk Button background
-        to its activebackground and then restore to normal background.
+        to its activebackground and then restore to normal backgrounds.
       - This keeps hover working even after the overlay is shown/hidden.
     """
 

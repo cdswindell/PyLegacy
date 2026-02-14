@@ -18,6 +18,7 @@ import math
 from guizero import Box, Combo, PushButton, Text
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from ...utils.path_utils import find_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -91,10 +92,37 @@ class PopupManager:
         if isinstance(build_body, ConfiguredAccessoryAdapter):
             build_body.ensure_gui(aggregator=self._host)
             build_body.gui.mount_gui(overlay)
+            self.add_close_acc_btn(host, build_body, on_close, overlay)
         else:
             body = Box(overlay, align="top", layout="auto")
             build_body(body)
+            self.add_close_btn(host, on_close, overlay)
 
+        overlay.hide()
+        return overlay
+
+    def add_close_acc_btn(
+        self,
+        host: EngineGui,
+        acc: ConfiguredAccessoryAdapter,
+        on_close: Callable[..., Any] | None,
+        overlay: Box,
+    ):
+        if acc.state.is_asc2:
+            img, inverted_img = host.get_image(find_file("raw-acs2.jpg"))
+        else:
+            img, inverted_img = host.get_image(find_file("raw-acc.jpg"))
+        btn = HoldButton(
+            overlay,
+            text="Close",
+            image=None,
+            command=on_close or self.close,
+            args=[overlay],
+        )
+        btn.images = img, inverted_img
+        host.cache(btn)
+
+    def add_close_btn(self, host: EngineGui, on_close: Callable[..., Any] | None, overlay: Box):
         # show explicit close button
         btn = PushButton(
             overlay,
@@ -115,9 +143,7 @@ class PopupManager:
             background="#f7f7f7",
         )
         btn.tk.pack_configure(padx=20, pady=20)
-
-        overlay.hide()
-        return overlay
+        host.cache(btn)
 
     # ------------------------------------------------------------------
     # API

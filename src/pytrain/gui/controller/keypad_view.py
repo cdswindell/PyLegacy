@@ -297,8 +297,6 @@ class KeypadView(Generic[S]):
             command=False,
         )
         host.ac_op_btn.disable()
-        host.ac_op_btn.when_left_button_pressed = self.when_pressed
-        host.ac_op_btn.when_left_button_released = self.when_released
 
         # --- set minimum size but allow expansion ---
         # --- Enforce minimum keypad size, but allow expansion ---
