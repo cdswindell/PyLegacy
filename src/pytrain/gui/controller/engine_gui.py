@@ -849,6 +849,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     else:
                         force_entry_mode = True
                         clear_info = False
+                        if self.acc_overlay and self.acc_overlay.visible:
+                            self.acc_overlay.hide()
         # update display
         self._popup.close()
         self.update_component_info()
