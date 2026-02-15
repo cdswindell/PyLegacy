@@ -61,6 +61,7 @@ from ...protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ...protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
 from ...protocol.sequence.sequence_constants import SequenceCommandEnum
 from ...protocol.tmcc1.tmcc1_constants import (
+    TMCC1AuxCommandEnum,
     TMCC1EngineCommandEnum,
     TMCC1RRSpeedsEnum,
 )
@@ -1375,3 +1376,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
             elif cur_smoke == TMCC2EffectsControl.SMOKE_HIGH:
                 return TMCC2EffectsControl.SMOKE_MEDIUM
         return None
+
+    def on_acc_command(self, target: str, data: int | None = None) -> None:
+        state = self.active_state
+        if isinstance(state, AccessoryState):
+            acc_enum = TMCC1AuxCommandEnum.by_name(target)
+            if acc_enum:
+                tmcc_id = state.tmcc_id
+                CommandReq.build(acc_enum, tmcc_id, data).send()
