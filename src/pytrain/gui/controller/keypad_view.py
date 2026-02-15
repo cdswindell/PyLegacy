@@ -157,7 +157,7 @@ class KeypadView(Generic[S]):
             command=False,
         )
         host.aux_cells.add(cell)
-        btn.on_press = (host.on_acc_command, "FRONT_COUPLER")
+        btn.on_press = (host.on_acc_command, ["FRONT_COUPLER"])
         btn.on_hold = btn.on_press
 
         cell, _ = host.make_keypad_button(
@@ -173,7 +173,7 @@ class KeypadView(Generic[S]):
             command=False,
         )
         host.aux_cells.add(cell)
-        btn.on_press = (host.on_acc_command, "REAR_COUPLER")
+        btn.on_press = (host.on_acc_command, ["REAR_COUPLER"])
         btn.on_hold = btn.on_press
 
         cell, btn = host.make_keypad_button(
@@ -189,7 +189,7 @@ class KeypadView(Generic[S]):
             command=False,
         )
         host.aux_cells.add(cell)
-        btn.on_press = (host.on_acc_command, "BOOST_SPEED")
+        btn.on_press = (host.on_acc_command, ["BOOST_SPEED"])
         btn.on_hold = btn.on_press
 
         cell, _ = host.make_keypad_button(
@@ -205,7 +205,7 @@ class KeypadView(Generic[S]):
             command=False,
         )
         host.aux_cells.add(cell)
-        btn.on_press = (host.on_acc_command, "Brake")
+        btn.on_press = (host.on_acc_command, ["BRAKE_SPEED"])
         btn.on_hold = btn.on_press
 
         # ASC2/BPC2 keys
