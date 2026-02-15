@@ -32,6 +32,7 @@ class PopupState:
     current_popup: Box | None = None
     on_close_show: Box | None = None
     restore_image_box: bool = False
+    restore_acc_box: bool = False
 
 
 class PopupManager:
@@ -302,6 +303,12 @@ class PopupManager:
                 host.image_box.hide()
                 self._state.restore_image_box = True
 
+            # Accessory popup
+            self._state.restore_acc_box = False
+            if host.acc_overlay and host.acc_overlay.visible:
+                host.acc_overlay.hide()
+                self._state.restore_acc_box = True
+
         try:
             x, y = position if position else host.popup_position
             overlay.tk.place(x=x, y=y)
@@ -343,6 +350,11 @@ class PopupManager:
                 if not host.image_box.visible:
                     host.image_box.show()
             self._state.restore_image_box = False
+
+            if self._state.restore_acc_box and host.acc_overlay:
+                if not host.acc_overlay.visible:
+                    host.acc_overlay.show()
+            self._state.restore_acc_box = False
 
             if self._state.on_close_show:
                 try:
