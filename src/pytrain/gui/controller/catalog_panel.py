@@ -101,7 +101,7 @@ class CatalogPanel:
         lb.bg = "#f7f7f7"
 
         tk_listbox = lb.children[0].tk
-        tk_listbox.config(width=21, height=10)
+        tk_listbox.config(width=30, height=10)
 
         tk_scrollbar = lb.children[1].tk
         tk_scrollbar.config(
