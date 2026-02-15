@@ -11,6 +11,7 @@ import logging
 
 from guizero import Box, Text, TitleBox
 
+from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
 from ...db.prod_info import ProdInfo
@@ -183,15 +184,18 @@ class StateInfoOverlay:
         if host.active_accessory:
             acc = host.active_accessory
             self._set_val("name", acc.name)
-            self._set_val("type", acc.accessory_type.title)
+            self._set_val("type", acc.accessory_type.clean_title)
 
     def _set_val(self, key, value):
         if key in self.details:
             self.details[key][1].value = value
 
-    def reset_visibility(self, scope, is_lcs_proxy=False):
+    def reset_visibility(self, scope, is_lcs_proxy=False, accessory: ConfiguredAccessoryAdapter = None):
         """Hides or shows fields based on the context."""
         current_scope = CommandScope.ACC if is_lcs_proxy else scope
+        current_scope = (
+            CommandScope.CONFIGURED if current_scope == CommandScope.ACC and accessory is not None else current_scope
+        )
         for tb, _ in self.details.values():
             field_scope = getattr(tb, "display_scope", None)
             if field_scope is None or field_scope == current_scope:

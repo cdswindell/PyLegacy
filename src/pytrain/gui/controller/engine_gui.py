@@ -430,7 +430,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         is_lcs = isinstance(state, LcsProxyState) and state.is_lcs
 
         # show/hide fields in the overlay
-        self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs)
+        self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs, accessory=self.active_accessory)
         self._state_info.update(state)
         self.show_popup(overlay)
 

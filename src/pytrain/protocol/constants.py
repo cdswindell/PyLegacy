@@ -203,6 +203,7 @@ class CommandScope(Mixins):
     BASE = 12
     SYNC = 13
     BLOCK = 14
+    CONFIGURED = 15  # Configured Accessories
 
     @classmethod
     def by_prefix(cls, name: str, raise_exception: bool = False) -> Self | None:
