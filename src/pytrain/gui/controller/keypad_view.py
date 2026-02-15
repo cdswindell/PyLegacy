@@ -383,6 +383,7 @@ class KeypadView(Generic[S]):
             host.reset_btn.enable()
         else:
             host.reset_btn.disable()
+        print(f"Entry Mode: {self.is_entry_mode}  overlay.visible: {host.acc_overlay and host.acc_overlay.visible}")
 
     def enter_ops_mode_base(self) -> None:
         """

@@ -481,7 +481,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.keypad_box.hide()
         if not overlay.visible:
             overlay.show()
-        print(f"Entry Mode: {self._keypad_view.is_entry_mode}  overlay.visible: {overlay.visible}")
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
         assert acc
