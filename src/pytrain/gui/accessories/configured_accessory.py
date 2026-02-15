@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .accessory_gui_catalog import AccessoryGuiCatalog
-from .accessory_registry import AccessoryRegistry
+from .accessory_registry import AccessoryRegistry, OperationAssets
 from .accessory_type import AccessoryType
 from ...utils.path_utils import find_file
 from ...utils.singleton import singleton
@@ -285,6 +285,18 @@ class ConfiguredAccessory:
         Registry definition for this accessory type and optional variant.
         """
         return self.registry.get_definition(self.accessory_type, self.variant)
+
+    @property
+    def operation_assets(self) -> list[OperationAssets]:
+        return list(self.definition.operations)
+
+    @property
+    def configured_operations(self) -> dict[int, OperationAssets]:
+        co: dict[int, OperationAssets] = {}
+        for op in self.operation_assets:
+            tmcc_id = self.tmcc_id_for(op.key)
+            co[tmcc_id] = op
+        return co
 
     @property
     def title(self) -> str:
