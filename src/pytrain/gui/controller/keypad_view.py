@@ -234,7 +234,7 @@ class KeypadView(Generic[S]):
         )
 
         # accessory keys
-        host.make_keypad_button(
+        cell, _ = host.make_keypad_button(
             keypad_keys,
             None,
             row,
@@ -247,7 +247,9 @@ class KeypadView(Generic[S]):
             command=host.on_acc_command,
             args=["FRONT_COUPLER"],
         )
-        host.make_keypad_button(
+        host.aux_cells.add(cell)
+
+        cell, _ = host.make_keypad_button(
             keypad_keys,
             None,
             row + 1,
@@ -260,6 +262,7 @@ class KeypadView(Generic[S]):
             command=host.on_acc_command,
             args=["REAR_COUPLER"],
         )
+        host.aux_cells.add(cell)
 
         # BPC2/ASC2 Buttons
         host.ac_on_cell, host.ac_on_btn = host.make_keypad_button(
@@ -509,6 +512,9 @@ class KeypadView(Generic[S]):
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                             self.enable_acc_view(acc_state)
                 else:
+                    for cell in host.aux_cells:
+                        if cell and not cell.visible:
+                            cell.show()
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         self.enable_acc_view(acc_state)
 
