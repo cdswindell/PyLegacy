@@ -90,7 +90,7 @@ class StateInfoOverlay:
             )
             tf.text_size = self._gui.s_18
             tk_listbox = tf.children[0].tk
-            tk_listbox.config(width=30, height=5, bd=0, highlightthickness=0)
+            tk_listbox.config(width=36, height=5, bd=0, highlightthickness=0)
         else:
             tf = Text(tb, grid=[0, 0], width="fill", height=1)
             tf.text_size = self._gui.s_18
@@ -136,7 +136,7 @@ class StateInfoOverlay:
             ("parent", "Parent", [1, 2], CommandScope.ACC),
             ("port", "Port", [2, 2], CommandScope.ACC),
             ("firmware", "Firmware", [3, 2], CommandScope.ACC),
-            ("operations", "Operations", [0, 2, 4, 1], CommandScope.CONFIGURED),
+            ("operations", "Operations/TMCC IDs", [0, 2, 4, 1], CommandScope.CONFIGURED),
         ]
 
         for key, title, grid, scope in layouts:
