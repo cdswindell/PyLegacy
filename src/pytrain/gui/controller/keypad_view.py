@@ -377,13 +377,14 @@ class KeypadView(Generic[S]):
                 cell.hide()
         self.scope_power_btns()
         self.scope_set_btn()
+        if host.acc_overlay and host.acc_overlay.visible:
+            host.acc_overlay.hide()
         if not host.keypad_box.visible:
             host.keypad_box.show()
         if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and host._scope_tmcc_ids[host.scope]:
             host.reset_btn.enable()
         else:
             host.reset_btn.disable()
-        print(f"Entry Mode: {self.is_entry_mode}  overlay.visible: {host.acc_overlay and host.acc_overlay.visible}")
 
     def enter_ops_mode_base(self) -> None:
         """
