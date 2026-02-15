@@ -142,6 +142,37 @@ class KeypadView(Generic[S]):
                     host.set_key_cell = cell
             row += 1
 
+        # accessory keys
+        cell, btn = host.make_keypad_button(
+            keypad_keys,
+            None,
+            row,
+            0,
+            size=0,
+            image=find_file("front-coupler.jpg"),
+            visible=False,
+            is_ops=True,
+            hover=True,
+        )
+        host.aux_cells.add(cell)
+        btn.on_press = (host.on_acc_command, ["FRONT_COUPLER"])
+        btn.on_hold = btn.on_press
+
+        cell, _ = host.make_keypad_button(
+            keypad_keys,
+            None,
+            row + 1,
+            0,
+            size=0,
+            image=find_file("rear-coupler.jpg"),
+            visible=False,
+            is_ops=True,
+            hover=True,
+        )
+        host.aux_cells.add(cell)
+        btn.on_press = (host.on_acc_command, ["REAR_COUPLER"])
+        btn.on_hold = btn.on_press
+
         # fill in last row; contents depends on scope
         host.on_key_cell, host.on_btn = host.make_keypad_button(
             keypad_keys,
@@ -232,37 +263,6 @@ class KeypadView(Generic[S]):
             options=SENSOR_TRACK_OPTS,
             command=self.on_sensor_track_change,
         )
-
-        # accessory keys
-        cell, _ = host.make_keypad_button(
-            keypad_keys,
-            None,
-            row,
-            0,
-            size=0,
-            image=find_file("front-coupler.jpg"),
-            visible=False,
-            is_ops=True,
-            hover=True,
-            command=host.on_acc_command,
-            args=["FRONT_COUPLER"],
-        )
-        host.aux_cells.add(cell)
-
-        cell, _ = host.make_keypad_button(
-            keypad_keys,
-            None,
-            row + 1,
-            0,
-            size=0,
-            image=find_file("rear-coupler.jpg"),
-            visible=False,
-            is_ops=True,
-            hover=True,
-            command=host.on_acc_command,
-            args=["REAR_COUPLER"],
-        )
-        host.aux_cells.add(cell)
 
         # BPC2/ASC2 Buttons
         host.ac_on_cell, host.ac_on_btn = host.make_keypad_button(
