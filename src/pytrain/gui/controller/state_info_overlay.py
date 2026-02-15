@@ -90,7 +90,13 @@ class StateInfoOverlay:
             )
             tf.text_size = self._gui.s_18
             tk_listbox = tf.children[0].tk
-            tk_listbox.config(width=36, height=5, bd=0, highlightthickness=0)
+            tk_listbox.config(
+                bd=0,
+                height=6,
+                highlightthickness=0,
+                selectbackground=tf.bg,
+                width=36,
+            )
         else:
             tf = Text(tb, grid=[0, 0], width="fill", height=1)
             tf.text_size = self._gui.s_18
