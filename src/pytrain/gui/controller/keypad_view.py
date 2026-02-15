@@ -142,11 +142,12 @@ class KeypadView(Generic[S]):
                     host.set_key_cell = cell
             row += 1
 
+        # fill in last row; contents depends on scope
         # accessory keys
         cell, btn = host.make_keypad_button(
             keypad_keys,
             None,
-            row,
+            row - 1,
             0,
             size=0,
             image=find_file("front-coupler.jpg"),
@@ -155,13 +156,13 @@ class KeypadView(Generic[S]):
             hover=True,
         )
         host.aux_cells.add(cell)
-        btn.on_press = (host.on_acc_command, ["FRONT_COUPLER"])
+        btn.on_press = (host.on_acc_command, "FRONT_COUPLER")
         btn.on_hold = btn.on_press
 
         cell, _ = host.make_keypad_button(
             keypad_keys,
             None,
-            row + 1,
+            row,
             0,
             size=0,
             image=find_file("rear-coupler.jpg"),
@@ -170,10 +171,10 @@ class KeypadView(Generic[S]):
             hover=True,
         )
         host.aux_cells.add(cell)
-        btn.on_press = (host.on_acc_command, ["REAR_COUPLER"])
+        btn.on_press = (host.on_acc_command, "REAR_COUPLER")
         btn.on_hold = btn.on_press
 
-        # fill in last row; contents depends on scope
+        # ASC2/BPC2 keys
         host.on_key_cell, host.on_btn = host.make_keypad_button(
             keypad_keys,
             None,
