@@ -176,6 +176,38 @@ class KeypadView(Generic[S]):
         btn.on_press = (host.on_acc_command, "REAR_COUPLER")
         btn.on_hold = btn.on_press
 
+        cell, btn = host.make_keypad_button(
+            keypad_keys,
+            None,
+            row - 1,
+            2,
+            size=0,
+            image=find_file("boost.jpg"),
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.aux_cells.add(cell)
+        btn.on_press = (host.on_acc_command, "BOOST_SPEED")
+        btn.on_hold = btn.on_press
+
+        cell, _ = host.make_keypad_button(
+            keypad_keys,
+            None,
+            row,
+            2,
+            size=0,
+            image=find_file("brake.jpg"),
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.aux_cells.add(cell)
+        btn.on_press = (host.on_acc_command, "Brake")
+        btn.on_hold = btn.on_press
+
         # ASC2/BPC2 keys
         host.on_key_cell, host.on_btn = host.make_keypad_button(
             keypad_keys,
