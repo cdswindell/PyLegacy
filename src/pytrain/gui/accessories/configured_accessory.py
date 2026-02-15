@@ -272,7 +272,7 @@ class ConfiguredAccessory:
 
         # Optional fallback to overall tmcc_id
         if isinstance(self.tmcc_id, int):
-            if needle in ("accessory", "default", "main"):
+            if needle in ("accessory", "default", "main") or needle in [k.key.lower() for k in self.operation_assets]:
                 return self.tmcc_id
 
         available = ", ".join(tmcc_ids.keys()) if isinstance(tmcc_ids, dict) and tmcc_ids else "none"
@@ -291,7 +291,7 @@ class ConfiguredAccessory:
         return list(self.definition.operations)
 
     @property
-    def configured_operations(self) -> dict[int, OperationAssets]:
+    def configured_operation_assets(self) -> dict[int, OperationAssets]:
         co: dict[int, OperationAssets] = {}
         for op in self.operation_assets:
             tmcc_id = self.tmcc_id_for(op.key)
