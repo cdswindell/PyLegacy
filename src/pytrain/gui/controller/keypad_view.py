@@ -154,6 +154,7 @@ class KeypadView(Generic[S]):
             visible=False,
             is_ops=True,
             hover=True,
+            command=False,
         )
         host.aux_cells.add(cell)
         btn.on_press = (host.on_acc_command, "FRONT_COUPLER")
@@ -169,6 +170,7 @@ class KeypadView(Generic[S]):
             visible=False,
             is_ops=True,
             hover=True,
+            command=False,
         )
         host.aux_cells.add(cell)
         btn.on_press = (host.on_acc_command, "REAR_COUPLER")
