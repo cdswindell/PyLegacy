@@ -111,16 +111,16 @@ class ConfiguredAccessoryAdapter:
         return self.cfg.configured_operation_assets
 
     @property
-    def configured_operations_legend(self) -> str:
+    def configured_operations_legend(self) -> list[str]:
         co_map = {}
         for tmcc_id, co in self.configured_operations.items():
             if isinstance(co, OperationAssets):
                 co_map[co.key.lower()] = tmcc_id
             elif isinstance(co, list):
                 for op in co:
-                    co_map[op.key.lower()] = tmcc_id
+                    co_map[op.key.lower().replace("_", " ")] = tmcc_id
         cos = [f"{k}: {v}" for k, v in dict(sorted(co_map.items())).items()]
-        return ", ".join(cos)
+        return cos
 
     @property
     def image_path(self) -> str:

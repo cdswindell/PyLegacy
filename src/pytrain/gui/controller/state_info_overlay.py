@@ -8,8 +8,9 @@
 #
 
 import logging
+from typing import cast
 
-from guizero import Box, Text, TitleBox
+from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ...db.accessory_state import AccessoryState
@@ -45,6 +46,7 @@ class StateInfoOverlay:
         grid: list[int],
         max_cols: int = 4,
         scope: CommandScope = None,
+        is_list: bool = False,
     ) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
         aw, _ = self._gui.calc_image_box_size()
@@ -78,7 +80,16 @@ class StateInfoOverlay:
         tb.tk.grid_columnconfigure(0, weight=1)
 
         # Value field inside the TitleBox
-        tf = Text(tb, grid=[0, 0], width="fill", height=1)
+        if is_list:
+            # noinspection PyTypeChecker
+            tf = ListBox(
+                tb,
+                items=None,
+                grid=[0, 0],
+                width="fill",
+            )
+        else:
+            tf = Text(tb, grid=[0, 0], width="fill", height=1)
         tf.text_size = self._gui.s_18
         tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)  # borderless
 
@@ -128,7 +139,8 @@ class StateInfoOverlay:
 
         for key, title, grid, scope in layouts:
             # Reusing the existing make_info_field logic from the main GUI
-            self.details[key] = self.make_field(info_box, title, grid, scope=scope)
+            is_list = key in {"operations"}
+            self.details[key] = self.make_field(info_box, title, grid, scope=scope, is_list=is_list)
 
     def update(self, state):
         """Populates the fields with data from the current state."""
@@ -191,7 +203,13 @@ class StateInfoOverlay:
 
     def _set_val(self, key, value):
         if key in self.details:
-            self.details[key][1].value = value
+            if isinstance(value, list):
+                field = cast(ListBox, self.details[key][1])
+                field.clear()
+                for item in value:
+                    field.append(item)
+            else:
+                self.details[key][1].value = value
 
     def reset_visibility(self, scope, is_lcs_proxy=False, accessory: ConfiguredAccessoryAdapter = None):
         """Hides or shows fields based on the context."""
