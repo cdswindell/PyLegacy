@@ -67,9 +67,9 @@ class KeypadView(Generic[S]):
     def is_entry_mode(self) -> bool:
         return self._entry_mode
 
-    @is_entry_mode.setter
-    def is_entry_mode(self, value: bool) -> None:
-        self._entry_mode = value
+    # @is_entry_mode.setter
+    # def is_entry_mode(self, value: bool) -> None:
+    #     self._entry_mode = value
 
     # noinspection PyUnresolvedReferences
     @property
@@ -362,6 +362,7 @@ class KeypadView(Generic[S]):
     def entry_mode(self, clear_info: bool = True) -> None:
         """Manages entry mode keypad display and button states"""
         host = self._host
+        self._entry_mode = True
         if clear_info:
             host.update_component_info(0)
         else:
@@ -390,7 +391,7 @@ class KeypadView(Generic[S]):
           - hide entry/ops cells (caller will selectively re-show ops cells)
         """
         host = self._host
-        self.is_entry_mode = False
+        self._entry_mode = False
 
         for cell in host.entry_cells:
             if cell.visible:
