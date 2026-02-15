@@ -12,6 +12,7 @@ import logging
 from guizero import Box, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from ...db.accessory_state import AccessoryState
 from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
 from ...db.prod_info import ProdInfo
@@ -181,7 +182,7 @@ class StateInfoOverlay:
             self._set_val("firmware", state.firmware)
 
         # handle case where accessory has a configuration
-        if host.active_accessory:
+        if isinstance(state, AccessoryState) and host.active_accessory:
             acc = host.active_accessory
             self._set_val("name", acc.name)
             self._set_val("type", acc.accessory_type.clean_title)
