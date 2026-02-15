@@ -88,14 +88,13 @@ class StateInfoOverlay:
                 grid=[0, 0],
                 width="fill",
             )
+            tf.text_size = self._gui.s_18
+            tk_listbox = tf.children[0].tk
+            tk_listbox.config(width=21, height=5, bd=0, highlightthickness=0)
         else:
             tf = Text(tb, grid=[0, 0], width="fill", height=1)
-        tf.text_size = self._gui.s_18
-        if is_list:
-            tf.tk.config(bd=0, highlightthickness=0, width=aw)
-        else:
+            tf.text_size = self._gui.s_18
             tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)
-
         return tb, tf
 
     def build(self, body: Box):
