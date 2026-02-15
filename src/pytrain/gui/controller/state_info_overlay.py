@@ -127,10 +127,11 @@ class StateInfoOverlay:
             # Reusing the existing make_info_field logic from the main GUI
             self.details[key] = self.make_field(info_box, title, grid, scope=scope)
 
-    def configure(self, state):
+    def update(self, state):
         """Populates the fields with data from the current state."""
         if not state or not self.details:
             return
+        host = self._gui
 
         self._set_val("number", state.road_number)
         self._set_val("name", state.road_name)
@@ -171,13 +172,18 @@ class StateInfoOverlay:
                 self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
                 self._set_val("train pos", f"{state.train_unit.position if state.train_unit else 'NA'}")
                 self._set_val("train dir", f"{state.train_unit.direction if state.train_unit else 'NA'}")
-
         elif isinstance(state, LcsProxyState):
             self._set_val("type", state.accessory_type)
             self._set_val("mode", state.mode)
             self._set_val("parent", state.parent_id)
             self._set_val("port", state.port)
             self._set_val("firmware", state.firmware)
+
+        # handle case where accessory has a configuration
+        if host.active_accessory:
+            acc = host.active_accessory
+            self._set_val("name", acc.name)
+            self._set_val("type", acc.accessory_type.title)
 
     def _set_val(self, key, value):
         if key in self.details:

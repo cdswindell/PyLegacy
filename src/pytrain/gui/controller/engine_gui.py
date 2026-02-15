@@ -170,7 +170,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.name_text = self.titlebar_height = self.popup_position = None
         self.on_key_cell = self.off_key_cell = None
         self.image = None
-        self.acc_overlay = None
+        self._acc_overlay = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
         self.switch_thru_cell = self.switch_out_cell = None
 
@@ -249,6 +249,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
     @property
     def accessory_labels(self) -> list[str]:
         return self._caa.configured_labels()
+
+    @property
+    def acc_overlay(self) -> Box | None:
+        return self._acc_overlay
+
+    @property
+    def active_accessory(self) -> ConfiguredAccessoryAdapter | None:
+        if self._acc_overlay:
+            return getattr(self._acc_overlay, "caa", None)
+        return None
 
     def is_accessory_view(self, tmcc_id: int) -> bool:
         return tmcc_id in self._accessory_view
@@ -421,7 +431,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # show/hide fields in the overlay
         self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs)
-        self._state_info.configure(state)
+        self._state_info.update(state)
         self.show_popup(overlay)
 
     def on_rr_speed(self) -> None:
@@ -476,7 +486,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, button=self._bell_btn)
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
-        self.acc_overlay = overlay = self._create_accessory_view(acc)
+        self._acc_overlay = overlay = self._create_accessory_view(acc)
         if self.keypad_box.visible:
             self.keypad_box.hide()
         if not overlay.visible:
@@ -518,7 +528,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._image_presenter.update(tmcc_id=acc.tmcc_id)
             self.name_text.value = self.active_state.name
         overlay.hide()
-        self.acc_overlay = None
+        self._acc_overlay = None
         if not self.keypad_box.visible:
             self.keypad_box.show()
 
@@ -656,7 +666,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:
-            self._state_info.configure(state)
+            self._state_info.update(state)
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
         if state and state != self._active_train_state:

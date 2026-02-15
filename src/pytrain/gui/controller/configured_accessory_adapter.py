@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol, TYPE_CHECKING, runtime_checkable
 
+from ..accessories.accessory_type import AccessoryType
 from ..accessories.configured_accessory import ConfiguredAccessory
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState
@@ -99,6 +100,10 @@ class ConfiguredAccessoryAdapter:
     @property
     def title(self) -> str:
         return self.name
+
+    @property
+    def accessory_type(self) -> AccessoryType:
+        return self.cfg.accessory_type
 
     @property
     def image_path(self) -> str:
