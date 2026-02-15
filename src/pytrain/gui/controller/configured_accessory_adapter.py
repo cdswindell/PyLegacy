@@ -107,8 +107,20 @@ class ConfiguredAccessoryAdapter:
         return self.cfg.accessory_type
 
     @property
-    def configured_operations(self) -> dict[int, OperationAssets]:
-        return self.cfg.configured_operations
+    def configured_operations(self) -> dict[int, OperationAssets | list[OperationAssets]]:
+        return self.cfg.configured_operation_assets
+
+    @property
+    def configured_operations_legend(self) -> str:
+        co_map = {}
+        for tmcc_id, co in self.configured_operations.items():
+            if isinstance(co, OperationAssets):
+                co_map[co.key.lower()] = tmcc_id
+            elif isinstance(co, list):
+                for op in co:
+                    co_map[op.key.lower()] = tmcc_id
+        cos = [f"{k}: {v}" for k, v in dict(sorted(co_map.items())).items()]
+        return ", ".join(cos)
 
     @property
     def image_path(self) -> str:

@@ -123,6 +123,7 @@ class StateInfoOverlay:
             ("parent", "Parent", [1, 2], CommandScope.ACC),
             ("port", "Port", [2, 2], CommandScope.ACC),
             ("firmware", "Firmware", [3, 2], CommandScope.ACC),
+            ("operations", "Operations", [0, 2, 4, 1], CommandScope.CONFIGURED),
         ]
 
         for key, title, grid, scope in layouts:
@@ -186,6 +187,7 @@ class StateInfoOverlay:
             acc = host.active_accessory
             self._set_val("name", acc.name)
             self._set_val("type", acc.accessory_type.clean_title)
+            self._set_val("operations", acc.configured_operations_legend)
 
     def _set_val(self, key, value):
         if key in self.details:

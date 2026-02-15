@@ -291,11 +291,17 @@ class ConfiguredAccessory:
         return list(self.definition.operations)
 
     @property
-    def configured_operation_assets(self) -> dict[int, OperationAssets]:
-        co: dict[int, OperationAssets] = {}
+    def configured_operation_assets(self) -> dict[int, OperationAssets | list[OperationAssets]]:
+        co: dict[int, OperationAssets | list[OperationAssets]] = {}
         for op in self.operation_assets:
             tmcc_id = self.tmcc_id_for(op.key)
-            co[tmcc_id] = op
+            if tmcc_id in co:
+                if isinstance(co[tmcc_id], list):
+                    co[tmcc_id].append(op)
+                else:
+                    co[tmcc_id] = [co[tmcc_id], op]
+            else:
+                co[tmcc_id] = op
         return co
 
     @property
