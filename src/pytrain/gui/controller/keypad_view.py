@@ -439,9 +439,8 @@ class KeypadView(Generic[S]):
         if host.reset_btn.enabled:
             host.reset_btn.disable()
 
-        if host.scope == CommandScope.ACC and host.acc_overlay and host.acc_overlay.visible:
-            host.acc_overlay.hide()
-            host.acc_overlay = None
+        if host.scope == CommandScope.ACC:
+            host.reset_acc_overlay()
 
         if host.scope == CommandScope.ROUTE:
             host.on_new_route()
@@ -514,8 +513,7 @@ class KeypadView(Generic[S]):
             if not host.keypad_box.visible:
                 host.keypad_box.show()
         if host.scope != CommandScope.ACC and host.acc_overlay and host.acc_overlay.visible:
-            host.acc_overlay.hide()
-            host.acc_overlay = None
+            host.reset_acc_overlay()
 
     def scope_power_btns(self):
         host = self._host

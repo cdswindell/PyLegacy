@@ -254,6 +254,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def acc_overlay(self) -> Box | None:
         return self._acc_overlay
 
+    def reset_acc_overlay(self) -> None:
+        if self._acc_overlay and self._acc_overlay.visible:
+            self._acc_overlay.hide()
+        self._acc_overlay = None
+
     @property
     def active_accessory(self) -> ConfiguredAccessoryAdapter | None:
         if self._acc_overlay:
