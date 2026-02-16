@@ -214,32 +214,32 @@ class KeypadView(Generic[S]):
             AUX1_KEY,
             row - 1,
             2,
-            size=host.s_20,
+            size=host.s_18,
             visible=False,
             is_ops=True,
             hover=True,
             command=False,
         )
         host.aux_cells.add(cell)
+        setattr(cell, "render_col", 3)
         btn.on_press = (host.on_acc_command, ["AUX1_OPT_ONE"])
         btn.on_repeat = btn.on_press
-        cell.hide()
 
         cell, btn = host.make_keypad_button(
             keypad_keys,
             AUX2_KEY,
             row,
             2,
-            size=host.s_20,
+            size=host.s_18,
             visible=False,
             is_ops=True,
             hover=True,
             command=False,
         )
         host.aux_cells.add(cell)
+        setattr(cell, "render_col", 3)
         btn.on_press = (host.on_acc_command, ["AUX2_OPT_ONE"])
         btn.on_repeat = btn.on_press
-        cell.hide()
 
         # ASC2/BPC2 keys
         host.on_key_cell, host.on_btn = host.make_keypad_button(
@@ -457,6 +457,24 @@ class KeypadView(Generic[S]):
             log.debug(f"on_keypress calling update_component_info; TMCC ID: {tmcc_id}")
             host.update_component_info(tmcc_id, not_found_value="")
 
+    def _collapse_acc_aux_cells(self) -> None:
+        """Hides accelerator and auxiliary keys when not in ops mode"""
+        host = self._host
+        for cell in host.aux_cells:
+            if getattr(cell, "render_col", False):
+                grid = cell.grid
+                grid[0] = 2
+                cell.grid = grid
+
+    def _expand_acc_aux_cells(self) -> None:
+        """Hides accelerator and auxiliary keys when not in ops mode"""
+        host = self._host
+        for cell in host.aux_cells:
+            if getattr(cell, "render_col", False):
+                grid = cell.grid
+                grid[0] = int(getattr(cell, "render_col"))
+                cell.grid = grid
+
     # noinspection PyProtectedMember
     def entry_mode(self, clear_info: bool = True) -> None:
         """Manages entry mode keypad display and button states"""
@@ -474,6 +492,7 @@ class KeypadView(Generic[S]):
         for cell in host.ops_cells:
             if cell.visible:
                 cell.hide()
+        self._collapse_acc_aux_cells()
         self.scope_power_btns()
         self.scope_set_btn()
         if host.acc_overlay and host.acc_overlay.visible:
@@ -501,6 +520,8 @@ class KeypadView(Generic[S]):
         for cell in host.ops_cells:
             if cell.visible:
                 cell.hide()
+
+        self._collapse_acc_aux_cells()
 
     def apply_ops_mode_ui_engine_shell(self) -> None:
         """
@@ -586,6 +607,7 @@ class KeypadView(Generic[S]):
                             cell.show()
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         host.ac_op_cell.grid = [1, 4]
+                        self._expand_acc_aux_cells()
                         self.enable_acc_view(acc_state)
 
             if show_keypad and not host.keypad_box.visible:
