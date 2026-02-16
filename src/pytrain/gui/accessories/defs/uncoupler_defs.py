@@ -46,7 +46,7 @@ ALIASES: dict[str, set[str]] = {
     "uncoupling track 6-12020": {"uncoupler", "uncoupler track"},
 }
 
-DEFAULT_CONSTRUCTION = "Fastrack-Uncoupling-6-12020.jpg"
+DEFAULT = "Fastrack-Uncoupling-6-12020.jpg"
 
 
 def register_uncoupler(registry: AccessoryRegistry) -> None:
@@ -81,7 +81,7 @@ def register_uncoupler(registry: AccessoryRegistry) -> None:
                 display=title,
                 title=title,
                 image=filename,
-                default=(filename == DEFAULT_CONSTRUCTION),
+                default=(filename == DEFAULT),
                 aliases=dedup_preserve_order((*legacy_aliases, *extra_aliases)),
                 operation_images=op_images,
             )
