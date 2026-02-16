@@ -92,6 +92,7 @@ def register_uncoupler(registry: AccessoryRegistry) -> None:
         display_name="Uncoupler Track",
         operations=operations,
         variants=tuple(variants),
+        op_btn_image="op-uncoupler.jpg",
     )
 
     registry.register(spec)
