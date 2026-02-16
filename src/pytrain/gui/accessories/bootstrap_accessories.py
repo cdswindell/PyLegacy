@@ -42,6 +42,7 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
         (".defs.playground_defs", "register_playground"),
         (".defs.smoke_fluid_loader_defs", "register_smoke_fluid_loader"),
         (".defs.station_defs", "register_station"),
+        (".defs.uncoupler_defs", "register_uncoupler"),
     )
 
     register_fns: list[Callable[[AccessoryRegistry], None]] = [None] * len(items)  # type: ignore[list-item]

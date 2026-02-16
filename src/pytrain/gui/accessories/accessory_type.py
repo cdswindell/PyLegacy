@@ -40,6 +40,7 @@ class AccessoryType(Mixins):
         PLAYGROUND (str): Represents the playground accessory type.
         SMOKE_FLUID_LOADER (str): Represents the smoke fluid loader accessory type.
         STATION (str): Represents the freight/passenger station accessory type.
+        UNCOUPLER (str): Represents the uncoupler track accessory type.
     """
 
     CONSTRUCTION = "construction"
@@ -53,3 +54,4 @@ class AccessoryType(Mixins):
     PLAYGROUND = "playground"
     SMOKE_FLUID_LOADER = "smoke_fluid_loader"
     STATION = "station"
+    UNCOUPLER = "uncoupler"

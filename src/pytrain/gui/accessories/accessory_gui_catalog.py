@@ -65,6 +65,7 @@ class AccessoryGuiCatalog:
         self.register(GuiCatalogEntry("hobby", ".hobby_shop_gui", "HobbyShopGui", AccessoryType.HOBBY_SHOP))
         self.register(GuiCatalogEntry("milk", ".milk_loader_gui", "MilkLoaderGui", AccessoryType.MILK_LOADER))
         self.register(GuiCatalogEntry("playground", ".playground_gui", "PlaygroundGui", AccessoryType.PLAYGROUND))
+        self.register(GuiCatalogEntry("uncoupler", ".uncoupler_gui", "UncouplerGui", AccessoryType.UNCOUPLER))
         self.register(
             GuiCatalogEntry(
                 "smoke",
