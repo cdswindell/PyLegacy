@@ -566,10 +566,9 @@ class KeypadView(Generic[S]):
         acc = acc[0]
         acc.activate_tmcc_id(state.tmcc_id)
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
-
         host.ac_op_btn.enable()
-        print(f"TMCC ID: {state.tmcc_id} Grid: {host.ac_op_btn.grid} Entry Mode: {self._entry_mode}")
         host.ac_op_cell.show()
+        print(f"TMCC ID: {state.tmcc_id} Grid: {host.ac_op_cell.grid} {host.ac_op_cell}")
 
     # noinspection PyProtectedMember
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
