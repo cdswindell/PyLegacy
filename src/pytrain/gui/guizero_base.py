@@ -483,6 +483,8 @@ class GuiZeroBase(Thread, ABC):
             else:
                 img = Image.open(path)
                 if size:
+                    if isinstance(size, int):
+                        size = (size, size)
                     img = img.resize(size)
                 normal_tk = ImageTk.PhotoImage(img)
             if inverse and img:
