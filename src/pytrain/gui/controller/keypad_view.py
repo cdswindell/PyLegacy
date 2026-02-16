@@ -461,7 +461,7 @@ class KeypadView(Generic[S]):
         """Hides accelerator and auxiliary keys when not in ops mode"""
         for cell in self._host.aux_cells:
             if getattr(cell, "render_col", False):
-                print(cell, cell.children(), cell.grid)
+                print(cell, cell.children, cell.grid)
                 grid = cell.grid
                 if grid and len(grid) > 1:
                     grid[0] = 2
