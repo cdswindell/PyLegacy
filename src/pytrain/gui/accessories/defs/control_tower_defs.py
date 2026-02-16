@@ -128,6 +128,7 @@ def register_control_tower(registry: AccessoryRegistry) -> None:
         display_name="Control Tower",
         operations=operations,
         variants=tuple(variants),
+        op_btn_image="op-control-tower.jpg",
     )
 
     registry.register(spec)

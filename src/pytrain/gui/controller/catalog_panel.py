@@ -193,4 +193,13 @@ class CatalogPanel:
         if isinstance(state, ComponentState):
             self._gui.update_component_info(state.address)
         elif isinstance(state, ConfiguredAccessoryAdapter):
+            # we want to make sure we activate *this* accessory; if the configured
+            # accessory's activated TMCC ID maps to multiple accessories, like a
+            # master power button would, choose another
+            activated_tmcc_id = state.tmcc_id
+            accs = self._gui.accessory_provider.adapters_for_tmcc_id(activated_tmcc_id)
+            # Selects alternate TMCC ID if multiple accessories exist
+            if accs and len(accs) > 1:
+                if len(state.tmcc_ids) > 1:
+                    state.activate_tmcc_id(state.tmcc_ids[-1])
             self._gui.update_component_info(state.tmcc_id)

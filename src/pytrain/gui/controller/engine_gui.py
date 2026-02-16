@@ -565,25 +565,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             return None
 
-    @property
-    def active_state_or_acc(self) -> S | ConfiguredAccessoryAdapter | None:
-        if self.scope and self._scope_tmcc_ids.get(self.scope, None):
-            tmcc_id = self._scope_tmcc_ids.get(self.scope)
-
-            if self.scope == CommandScope.ACC and (
-                tmcc_id in self._acc_tmcc_to_adapter or self._caap.instance_ids_for_tmcc_id(tmcc_id)
-            ):
-                if tmcc_id not in self._acc_tmcc_to_adapter:
-                    accs = self._caap.adapters_for_tmcc_id(tmcc_id)
-                    # accs should have been returned
-                    assert accs
-                    self._acc_tmcc_to_adapter[tmcc_id] = accs[0]
-                    # TODO: what if there is more than one?
-                return self._acc_tmcc_to_adapter[tmcc_id]
-            return self._state_store.get_state(self.scope, self._scope_tmcc_ids[self.scope], False)
-        else:
-            return None
-
     def get_options(self) -> list[str]:
         if self._separator is None:
             self._separator = "-" * int(3 * len(self.title) / 2)
