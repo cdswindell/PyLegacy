@@ -437,7 +437,6 @@ class ControllerView:
             width=horn_size,
             height=horn_size,
         )
-        print(f"Horn Size: {horn_size}")
         host._freight_sounds_bell_horn_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---

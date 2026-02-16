@@ -116,6 +116,7 @@ def register_smoke_fluid_loader(registry: AccessoryRegistry) -> None:
         display_name="Smoke Fluid Loader",
         operations=operations,
         variants=tuple(variants),
+        op_btn_image="op-smoke-fluid.jpg",
     )
 
     registry.register(spec)
