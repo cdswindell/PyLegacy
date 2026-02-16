@@ -148,9 +148,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._options_to_state = {}
 
         self.entry_cells = set()
-        self.numeric_cells = {}
         self.ops_cells = set()
         self.aux_cells = set()
+        self.numeric_btns = {}
         self.scope = scope if scope else CommandScope.ENGINE
         self.initial = tmcc_id
         self._active_engine_state = self._active_train_state = None

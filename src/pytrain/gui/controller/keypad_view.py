@@ -51,6 +51,7 @@ class KeypadView(Generic[S]):
         self._host: "EngineGui" = host
         self._reset_on_keystroke = False
         self._entry_mode = True
+        self._numeric_keys = True
 
     @property
     def active_state(self) -> ComponentState | None:
@@ -142,8 +143,8 @@ class KeypadView(Generic[S]):
                 elif label == SET_KEY:
                     host.set_key_cell = cell
                 elif label.isdigit():
-                    assert int(label) not in host.numeric_cells
-                    host.numeric_cells[int(label)] = cell
+                    assert int(label) not in host.numeric_btns
+                    host.numeric_btns[int(label)] = nb
             row += 1
 
         # fill in last row; contents depends on scope
@@ -477,6 +478,22 @@ class KeypadView(Generic[S]):
             if grid:
                 cell.grid = grid
 
+    def activate_numeric_keys(self) -> None:
+        host = self._host
+        with host.locked():
+            if not self._numeric_keys:
+                for btn in host.numeric_btns:
+                    btn.update_command(host.on_keypress, [btn.label])
+                self._numeric_keys = True
+
+    def activate_accessory_keys(self) -> None:
+        host = self._host
+        with host.locked():
+            if self._numeric_keys:
+                for btn in host.numeric_btns:
+                    btn.update_command(host.on_acc_command, [int(btn.label)])
+                self._numeric_keys = False
+
     # noinspection PyProtectedMember
     def entry_mode(self, clear_info: bool = True) -> None:
         """Manages entry mode keypad display and button states"""
@@ -495,6 +512,7 @@ class KeypadView(Generic[S]):
             if cell.visible:
                 cell.hide()
         self._collapse_acc_aux_cells()
+        self.activate_numeric_keys()
         self.scope_power_btns()
         self.scope_set_btn()
         if host.acc_overlay and host.acc_overlay.visible:
@@ -524,6 +542,7 @@ class KeypadView(Generic[S]):
                 cell.hide()
 
         self._collapse_acc_aux_cells()
+        self.activate_numeric_keys()
 
     def apply_ops_mode_ui_engine_shell(self) -> None:
         """
@@ -610,6 +629,7 @@ class KeypadView(Generic[S]):
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         host.ac_op_cell.grid = [1, 4]
                         self._expand_acc_aux_cells()
+                        self.activate_accessory_keys()
                         self.enable_acc_view(acc_state)
 
             if show_keypad and not host.keypad_box.visible:
