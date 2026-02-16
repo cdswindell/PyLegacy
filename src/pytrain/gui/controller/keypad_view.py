@@ -483,7 +483,7 @@ class KeypadView(Generic[S]):
         with host.locked():
             if not self._numeric_keys:
                 for btn in host.numeric_btns:
-                    btn.update_command(host.on_keypress, [btn.label])
+                    btn.on_press = (host.on_keypress, [btn.label])
                 self._numeric_keys = True
 
     def activate_accessory_keys(self) -> None:
@@ -491,7 +491,7 @@ class KeypadView(Generic[S]):
         with host.locked():
             if self._numeric_keys:
                 for btn in host.numeric_btns:
-                    btn.update_command(host.on_acc_command, [int(btn.label)])
+                    btn.on_press = (host.on_acc_command, [int(btn.label)])
                 self._numeric_keys = False
 
     # noinspection PyProtectedMember
