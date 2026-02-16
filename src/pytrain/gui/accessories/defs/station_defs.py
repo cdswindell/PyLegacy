@@ -213,6 +213,7 @@ def register_station(registry: AccessoryRegistry) -> None:
         display_name="Station",
         operations=operations,
         variants=variants_t,
+        op_btn_image="op-station.jpg",
     )
     registry.register(spec)
 
