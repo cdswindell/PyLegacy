@@ -323,7 +323,7 @@ class ConfiguredAccessory:
         img = spec.op_btn_image
         if isinstance(img, str) and img.strip():
             return img
-        return None
+        return "op-acc.jpg"
 
     @property
     def label(self) -> str:

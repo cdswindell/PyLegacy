@@ -644,8 +644,17 @@ class KeypadView(Generic[S]):
 
         acc = acc[0]
         acc.activate_tmcc_id(state.tmcc_id)
-        print(acc.cfg.op_btn_image_path, acc.op_btn_image_path)
-        host.ac_op_btn.image = find_file(acc.op_btn_image_path)
+
+        image = find_file(acc.op_btn_image_path)
+        host.ac_op_btn.image = image
+        host.ac_op_btn.images = host.get_image(image, size=host.button_size)
+        host.ac_op_btn.tk.config(
+            borderwidth=2,
+            compound="center",
+            width=host.button_size,
+            height=host.button_size,
+        )
+
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
         host.ac_op_btn.enable()
         host.ac_op_cell.show()
