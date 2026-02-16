@@ -221,7 +221,8 @@ class KeypadView(Generic[S]):
             command=False,
         )
         host.aux_cells.add(cell)
-        setattr(cell, "render_col", 3)
+        setattr(cell, "render_grid", [3, row - 1])
+        setattr(cell, "reset_grid", [2, row - 1])
         btn.on_press = (host.on_acc_command, ["AUX1_OPT_ONE"])
         btn.on_repeat = btn.on_press
 
@@ -237,7 +238,8 @@ class KeypadView(Generic[S]):
             command=False,
         )
         host.aux_cells.add(cell)
-        setattr(cell, "render_col", 3)
+        setattr(cell, "render_grid", [3, row])
+        setattr(cell, "reset_grid", [2, row])
         btn.on_press = (host.on_acc_command, ["AUX2_OPT_ONE"])
         btn.on_repeat = btn.on_press
 
@@ -460,20 +462,17 @@ class KeypadView(Generic[S]):
     def _collapse_acc_aux_cells(self) -> None:
         """Hides accelerator and auxiliary keys when not in ops mode"""
         for cell in self._host.aux_cells:
-            if getattr(cell, "render_col", False):
-                print(cell, cell.children, cell.grid)
-                grid = cell.grid
-                if grid and len(grid) > 1:
-                    grid[0] = 2
-                    cell.grid = grid
+            grid = getattr(cell, "reset_grid", False)
+            if grid:
+                print(cell, cell.children, cell.grid, grid)
+                cell.grid = grid
 
     def _expand_acc_aux_cells(self) -> None:
         """Hides accelerator and auxiliary keys when not in ops mode"""
         host = self._host
         for cell in host.aux_cells:
-            if getattr(cell, "render_col", False):
-                grid = cell.grid
-                grid[0] = int(getattr(cell, "render_col"))
+            grid = getattr(cell, "render_grid", False)
+            if grid:
                 cell.grid = grid
 
     # noinspection PyProtectedMember
