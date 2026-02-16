@@ -579,13 +579,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 add_sep = True
             for i, state in enumerate(self._train_linked_queue):
                 queue.insert(i, state)
+        # Adds formatted options from recent states queue
         if isinstance(queue, UniqueDeque):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             for state in queue:
                 if add_sep and self._train_linked_queue and state not in self._train_linked_queue:
                     options.append(self._separator)
                     add_sep = False
-                name = f"{state.tmcc_id:0{num_chars}d}: {state.road_name}"
+                if self.scope == CommandScope.ACC and state.tmcc_id in self._acc_tmcc_to_adapter:
+                    road_name = self._acc_tmcc_to_adapter[state.tmcc_id].name
+                else:
+                    road_name = state.road_name
+                name = f"{state.tmcc_id:0{num_chars}d}: {road_name}"
                 road_number = state.road_number
                 if road_number and road_number.isnumeric() and int(road_number) != state.tmcc_id:
                     name += f" #{int(road_number)}"
