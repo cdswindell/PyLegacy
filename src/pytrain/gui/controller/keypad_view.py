@@ -568,6 +568,7 @@ class KeypadView(Generic[S]):
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
 
         host.ac_op_btn.enable()
+        print(f"TMCC ID: {state.tmcc_id} Grid: {host.ac_op_btn.grid} Entry Mode: {self._entry_mode}")
         host.ac_op_cell.show()
 
     # noinspection PyProtectedMember
