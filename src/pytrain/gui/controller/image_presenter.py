@@ -210,9 +210,10 @@ class ImagePresenter:
             if state:
                 key = (host.scope, tmcc_id)
                 if isinstance(state, AccessoryState):
-                    view = host.get_accessory_view(tmcc_id)
-                    if view and hasattr(view, "acc"):
-                        key = (host.scope, tmcc_id, getattr(view, "acc"))
+                    if host.is_accessory_view(tmcc_id):
+                        view = host.get_accessory_view(tmcc_id)
+                        if view and hasattr(view, "acc"):
+                            key = (host.scope, tmcc_id, getattr(view, "acc"))
                     elif host.get_configured_accessory(tmcc_id):
                         key = (host.scope, tmcc_id, host.get_configured_accessory(tmcc_id))
                 img = host._image_cache.get(key, None)
