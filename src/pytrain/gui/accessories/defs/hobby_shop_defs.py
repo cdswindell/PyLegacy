@@ -110,6 +110,7 @@ def register_hobby_shop(registry: AccessoryRegistry) -> None:
         display_name="Hobby Shop",
         operations=operations,
         variants=variants,
+        op_btn_image="op-hobby-shop.jpg",
     )
 
     registry.register(spec)
