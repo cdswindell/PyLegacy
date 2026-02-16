@@ -39,7 +39,7 @@ _TITLES = {
 }
 
 _MOTION_IMAGE = {
-    "Fastrack-Uncoupling-6-12020.jpg": "animated_backhoe.gif",
+    "Fastrack-Uncoupling-6-12020.jpg": "uncouple-motion.jpg",
 }
 
 ALIASES: dict[str, set[str]] = {
