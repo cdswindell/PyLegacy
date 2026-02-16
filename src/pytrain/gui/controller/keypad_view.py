@@ -459,12 +459,13 @@ class KeypadView(Generic[S]):
 
     def _collapse_acc_aux_cells(self) -> None:
         """Hides accelerator and auxiliary keys when not in ops mode"""
-        host = self._host
-        for cell in host.aux_cells:
+        for cell in self._host.aux_cells:
             if getattr(cell, "render_col", False):
+                print(cell, cell.children(), cell.grid)
                 grid = cell.grid
-                grid[0] = 2
-                cell.grid = grid
+                if grid and len(grid) > 1:
+                    grid[0] = 2
+                    cell.grid = grid
 
     def _expand_acc_aux_cells(self) -> None:
         """Hides accelerator and auxiliary keys when not in ops mode"""
