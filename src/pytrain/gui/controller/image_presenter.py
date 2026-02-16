@@ -233,6 +233,10 @@ class ImagePresenter:
                             img_path = self.amc2_image
                         elif state.is_sensor_track:
                             img_path = self.sensor_track_image
+                        if img_path is None and host.get_configured_accessory(tmcc_id):
+                            acc = host.get_configured_accessory(tmcc_id)
+                            key = (host.scope, tmcc_id, acc)
+                            img_path = find_file(acc.image_path)
                     if img_path:
                         img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
                     if img:
