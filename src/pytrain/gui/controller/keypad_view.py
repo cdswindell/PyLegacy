@@ -464,7 +464,6 @@ class KeypadView(Generic[S]):
         for cell in self._host.aux_cells:
             grid = getattr(cell, "reset_grid", False)
             if grid:
-                print(cell, cell.children, cell.grid, grid)
                 cell.grid = grid
 
     def _expand_acc_aux_cells(self) -> None:
