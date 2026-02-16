@@ -192,6 +192,7 @@ def print_registry_entry(spec: str):
     reg = AccessoryRegistry.get()
     d_spec = reg.get_spec(spec)
 
+    print(f"Accessory: {d_spec.display_name} Op Btn: {d_spec.op_btn_image}")
     print(f"{d_spec.type} operations: {len(d_spec.operations)} variants: {len(d_spec.variants)}")
     print("Operations:")
     for o in d_spec.operations:

@@ -251,6 +251,7 @@ def register_gas_station(registry: AccessoryRegistry) -> None:
         display_name="Gas Station",
         operations=operations,
         variants=variants,
+        op_btn_image="op-gas-station.jpg",
     )
 
     registry.register(spec)

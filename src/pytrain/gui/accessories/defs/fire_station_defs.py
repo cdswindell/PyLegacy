@@ -99,6 +99,7 @@ def register_fire_station(registry: AccessoryRegistry) -> None:
         display_name="Fire Station",
         operations=operations,
         variants=tuple(variants),
+        op_btn_image="op-fire-station.jpg",
     )
 
     registry.register(spec)

@@ -97,6 +97,7 @@ class AccessoryTypeSpec:
     display_name: str
     operations: tuple[OperationSpec, ...]
     variants: tuple[VariantSpec, ...]
+    op_btn_image: str | None = "op-acc.jpg"
 
 
 @dataclass(frozen=True)

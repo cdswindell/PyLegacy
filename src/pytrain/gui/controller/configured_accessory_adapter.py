@@ -126,6 +126,10 @@ class ConfiguredAccessoryAdapter:
     def image_path(self) -> str:
         return self.cfg.image_path
 
+    @property
+    def op_btn_image_path(self) -> str | None:
+        return self.cfg.op_btn_image_path
+
     # ---------------------------------------------------------------------
     # Access to the underlying current state (when you need it)
     # ---------------------------------------------------------------------

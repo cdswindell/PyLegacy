@@ -318,6 +318,15 @@ class ConfiguredAccessory:
         return None
 
     @property
+    def op_btn_image_path(self) -> str | None:
+        # Use whatever your definition exposes. Adjust if your API differs.
+        # Common patterns: definition.variant.image or definition.variant.primary_image
+        img = self._get_str(self.raw, "op_btn_image")
+        if isinstance(img, str) and img.strip():
+            return img
+        return None
+
+    @property
     def label(self) -> str:
         return self._label or self.display_name or self.title
 

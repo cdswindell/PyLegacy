@@ -129,6 +129,7 @@ def register_milk_loader(registry: AccessoryRegistry) -> None:
         display_name="Milk Loader",
         operations=operations,
         variants=tuple(variants),
+        op_btn_image="op-milk-loader.jpg",
     )
 
     registry.register(spec)
