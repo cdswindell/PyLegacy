@@ -120,6 +120,7 @@ def register_playground(registry: AccessoryRegistry) -> None:
         display_name="Playground",
         operations=operations,
         variants=variants_t,
+        op_btn_image="op-playground.jpg",
     )
 
     registry.register(spec)
