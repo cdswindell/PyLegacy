@@ -17,6 +17,7 @@ from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
     AUX1_KEY,
+    AUX2_KEY,
     CLEAR_KEY,
     ENGINE_OFF_KEY,
     ENTER_KEY,
@@ -206,6 +207,36 @@ class KeypadView(Generic[S]):
         )
         host.aux_cells.add(cell)
         btn.on_press = (host.on_acc_command, ["BRAKE"])
+        btn.on_repeat = btn.on_press
+
+        cell, btn = host.make_keypad_button(
+            keypad_keys,
+            AUX1_KEY,
+            row - 1,
+            3,
+            size=0,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.aux_cells.add(cell)
+        btn.on_press = (host.on_acc_command, ["AUX1_OPT_ONE"])
+        btn.on_repeat = btn.on_press
+
+        cell, btn = host.make_keypad_button(
+            keypad_keys,
+            AUX2_KEY,
+            row,
+            3,
+            size=0,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.aux_cells.add(cell)
+        btn.on_press = (host.on_acc_command, ["AUX2_OPT_ONE"])
         btn.on_repeat = btn.on_press
 
         # ASC2/BPC2 keys
@@ -570,7 +601,6 @@ class KeypadView(Generic[S]):
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
         host.ac_op_btn.enable()
         host.ac_op_cell.show()
-        print(f"TMCC ID: {state.tmcc_id} Grid: {host.ac_op_cell.grid} {host.ac_op_cell}")
 
     # noinspection PyProtectedMember
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
