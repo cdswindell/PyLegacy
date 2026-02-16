@@ -545,14 +545,14 @@ class KeypadView(Generic[S]):
                     if acc_state.is_asc2:
                         host.ac_aux1_cell.show()
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
-                            host.ac.op_cell.grid = [2, 3]
+                            host.ac_op_cell.grid = [2, 3]
                             self.enable_acc_view(acc_state)
                 else:
                     for cell in host.aux_cells:
                         if cell and not cell.visible:
                             cell.show()
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
-                        host.ac.op_cell.grid = [1, 4]
+                        host.ac_op_cell.grid = [1, 4]
                         self.enable_acc_view(acc_state)
 
             if show_keypad and not host.keypad_box.visible:
@@ -569,7 +569,6 @@ class KeypadView(Generic[S]):
         acc.activate_tmcc_id(state.tmcc_id)
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
         host.ac_op_btn.enable()
-        #
         host.ac_op_cell.show()
         print(f"TMCC ID: {state.tmcc_id} Grid: {host.ac_op_cell.grid} {host.ac_op_cell}")
 
