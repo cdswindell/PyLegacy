@@ -141,6 +141,9 @@ class KeypadView(Generic[S]):
                     host.enter_key_cell = cell
                 elif label == SET_KEY:
                     host.set_key_cell = cell
+                elif label.isdigit():
+                    assert int(label) not in host.numeric_cells
+                    host.numeric_cells[int(label)] = cell
             row += 1
 
         # fill in last row; contents depends on scope

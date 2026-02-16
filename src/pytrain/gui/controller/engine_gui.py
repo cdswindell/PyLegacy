@@ -148,6 +148,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._options_to_state = {}
 
         self.entry_cells = set()
+        self.numeric_cells = {}
         self.ops_cells = set()
         self.aux_cells = set()
         self.scope = scope if scope else CommandScope.ENGINE
