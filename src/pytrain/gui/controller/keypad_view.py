@@ -214,7 +214,7 @@ class KeypadView(Generic[S]):
             AUX1_KEY,
             row - 1,
             3,
-            size=0,
+            size=host.s_22,
             visible=False,
             is_ops=True,
             hover=True,
@@ -223,13 +223,14 @@ class KeypadView(Generic[S]):
         host.aux_cells.add(cell)
         btn.on_press = (host.on_acc_command, ["AUX1_OPT_ONE"])
         btn.on_repeat = btn.on_press
+        cell.hide()
 
         cell, btn = host.make_keypad_button(
             keypad_keys,
             AUX2_KEY,
             row,
             3,
-            size=0,
+            size=host.s_22,
             visible=False,
             is_ops=True,
             hover=True,
@@ -238,6 +239,7 @@ class KeypadView(Generic[S]):
         host.aux_cells.add(cell)
         btn.on_press = (host.on_acc_command, ["AUX2_OPT_ONE"])
         btn.on_repeat = btn.on_press
+        cell.hide()
 
         # ASC2/BPC2 keys
         host.on_key_cell, host.on_btn = host.make_keypad_button(
