@@ -35,17 +35,20 @@ data and transform it into VariantSpec entries at registration time.
 # -----------------------------------------------------------------------------
 
 _VARIANTS = {
-    "mth fire station 30-9157": "Fire-Station-MTH-30-9157.jpg",
+    "engine company 49 fire station 30-9157": "Fire-Station-MTH-30-9157.jpg",
+    "mth fire station 30-9112": "Gray-Fire-Station-MTH-30-9112.jpg",
 }
 
 _TITLES = {
-    "Fire-Station-MTH-30-9157.jpg": "MTH Fire Station",
+    "Fire-Station-MTH-30-9157.jpg": "Engine Company 49",
+    "Gray-Fire-Station-MTH-30-9112.jpg": "MTH Fire Station",
 }
 
 # If you later discover old hand-written tuple aliases that aren't naturally
 # produced by aliases_from_legacy_key(), add them here.
 ALIASES: dict[str, set[str]] = {
-    "mth fire station 30-9157": {"Fire Station", "Station", "Fire"},
+    "engine company 49 fire station 30-9157": {"Red Fire Station", "Red Station", "Company 49"},
+    "mth fire station 30-9112": {"Gray Fire Station", "Gray Station", "Grey"},
 }
 
 DEFAULT_FIRE_STATION = "Fire-Station-MTH-30-9157.jpg"
