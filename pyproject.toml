@@ -73,10 +73,10 @@ install = ["*.template", "*.jpg", "*.png", "*.ttf"]
 
 [project.scripts]
 pytrain = "pytrain:main"
-piconfig = "pytrain.cli.piconfig:main"
+configure = "pytrain.cli.configure:main"
 make_gui = "pytrain.cli.make_gui:main"
 make_service = "pytrain.cli.make_service:main"
-configure = "pytrain.cli.configure:main"
+piconfig = "pytrain.cli.piconfig:main"
 
 [project.urls]
 Homepage = "https://github.com/cdswindell/PyLegacy"

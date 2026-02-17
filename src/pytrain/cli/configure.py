@@ -702,96 +702,90 @@ def prompt_accessory(catalog: AccessoryGuiCatalog, registry: AccessoryRegistry) 
 # -----------------------------------------------------------------------------
 
 
-def configure(argv: list[str] | None = None) -> int:
-    default = DEFAULT_CONFIG_FILE
-    ap = argparse.ArgumentParser(
-        description="Interactive builder for accessory config (JSON).",
-    )
-    ap.add_argument(
-        "-o",
-        "--out",
-        default=default,
-        help=f"Output JSON path (default: {default!r})",
-    )
-    ap.add_argument(
-        "--append",
-        action="store_true",
-        help="Default to 'append' when an existing file is found.",
-    )
-    ap.add_argument(
-        "--verify-existing",
-        action="store_true",
-        help="Validate existing file and report malformed entries (does not modify file).",
-    )
-    ap.add_argument(
-        "--clean-existing",
-        action="store_true",
-        help="Validate existing file, remove malformed entries, and write cleaned file before continuing.",
-    )
-    ap.add_argument(
-        "--clean-only",
-        action="store_true",
-        help="Clean existing file (like --clean-existing) and exit.",
-    )
-    args = ap.parse_args(argv)
+class Configure:
+    def __init__(self, argv: list[str] | None = None) -> None:
+        default = DEFAULT_CONFIG_FILE
+        ap = argparse.ArgumentParser(
+            description="Interactive builder for accessory config (JSON).",
+        )
+        ap.add_argument(
+            "-o",
+            "--out",
+            default=default,
+            help=f"Output JSON path (default: {default!r})",
+        )
+        ap.add_argument(
+            "--append",
+            action="store_true",
+            help="Default to 'append' when an existing file is found.",
+        )
+        ap.add_argument(
+            "--verify-existing",
+            action="store_true",
+            help="Validate existing file and report malformed entries (does not modify file).",
+        )
+        ap.add_argument(
+            "--clean-existing",
+            action="store_true",
+            help="Validate existing file, remove malformed entries, and write cleaned file before continuing.",
+        )
+        ap.add_argument(
+            "--clean-only",
+            action="store_true",
+            help="Clean existing file (like --clean-existing) and exit.",
+        )
+        args = ap.parse_args(argv)
 
-    if args.clean_only:
-        args.clean_existing = True
+        if args.clean_only:
+            args.clean_existing = True
 
-    out_path = Path(args.out)
+        out_path = Path(args.out)
 
-    catalog = AccessoryGuiCatalog()
-    registry = AccessoryRegistry.get()
-    registry.bootstrap()
+        catalog = AccessoryGuiCatalog()
+        registry = AccessoryRegistry.get()
+        registry.bootstrap()
 
-    resolved_path, existing = _startup_existing_file_flow(
-        out_path,
-        default_choice="append" if args.append else None,
-        verify_existing=args.verify_existing,
-        clean_existing=args.clean_existing,
-        clean_only=args.clean_only,
-    )
+        resolved_path, existing = _startup_existing_file_flow(
+            out_path,
+            default_choice="append" if args.append else None,
+            verify_existing=args.verify_existing,
+            clean_existing=args.clean_existing,
+            clean_only=args.clean_only,
+        )
 
-    accessories: list[AccessoryConfig] = []
-    seen_instance_ids = {a.get("instance_id") for a in existing if isinstance(a, dict)}
+        accessories: list[AccessoryConfig] = []
+        seen_instance_ids = {a.get("instance_id") for a in existing if isinstance(a, dict)}
 
-    print("\nAccessory Configurator")
-    print("Press Ctrl+C to quit at any prompt.\n")
+        print("\nAccessory Configurator")
+        print("Press Ctrl+C to quit at any prompt.\n")
 
-    try:
-        while True:
-            cfg = prompt_accessory(catalog, registry)
+        try:
+            while True:
+                cfg = prompt_accessory(catalog, registry)
 
-            if cfg.instance_id in seen_instance_ids:
-                print(f"Error: duplicate instance_id: {cfg.instance_id}")
-                print("Pick a different variant/IDs or edit the JSON later.\n")
-                continue
+                if cfg.instance_id in seen_instance_ids:
+                    print(f"Error: duplicate instance_id: {cfg.instance_id}")
+                    print("Pick a different variant/IDs or edit the JSON later.\n")
+                    continue
 
-            seen_instance_ids.add(cfg.instance_id)
-            accessories.append(cfg)
+                seen_instance_ids.add(cfg.instance_id)
+                accessories.append(cfg)
 
-            more = _ask("Add another accessory? (y/n)", default="y")
-            if _norm(more) not in ("y", "yes"):
-                break
-    except (KeyboardInterrupt, EOFError):
-        pass
+                more = _ask("Add another accessory? (y/n)", default="y")
+                if _norm(more) not in ("y", "yes"):
+                    break
+        except (KeyboardInterrupt, EOFError):
+            pass
 
-    payload_accessories = [*existing, *(a.to_dict() for a in accessories)]
-    payload = {
-        "schema": "pytrain.accessory_config.v1",
-        "accessories": payload_accessories,
-    }
+        payload_accessories = [*existing, *(a.to_dict() for a in accessories)]
+        payload = {
+            "schema": "pytrain.accessory_config.v1",
+            "accessories": payload_accessories,
+        }
 
-    if accessories or existing:
-        resolved_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-        print(f"\nWrote: {resolved_path.resolve()}")
-        print(f"Accessories: {len(payload['accessories'])}")
-    else:
-        print("\nNo accessories configured.")
-    return 0
-
-
-#
-#
-# if __name__ == "__main__":
-#     raise SystemExit(configure())
+        if accessories or existing:
+            resolved_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+            print(f"\nWrote: {resolved_path.resolve()}")
+            print(f"Accessories: {len(payload['accessories'])}")
+        else:
+            print("\nNo accessories configured.")
