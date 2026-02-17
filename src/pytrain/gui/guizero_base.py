@@ -552,6 +552,11 @@ class GuiZeroBase(Thread, ABC):
             self._pending_prod_infos.discard(tmcc_id)
             # now get image
             if isinstance(prod_info, ProdInfo):
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(
+                        f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
+                        f"Requesting image for tmcc_id {tmcc_id}"
+                    )
                 img = self.get_scaled_image(BytesIO(prod_info.image_content))
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
         # Schedule the UI update on the main thread

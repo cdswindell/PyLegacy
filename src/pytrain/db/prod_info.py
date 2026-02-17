@@ -8,12 +8,15 @@
 #
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import ClassVar
 
 import requests
 from dotenv import find_dotenv, load_dotenv
+
+log = logging.getLogger(__name__)
 
 # Load environment variables that drive behavior
 load_dotenv(find_dotenv())
@@ -53,6 +56,7 @@ class ProdInfo:
                 self._image_content = response.content
             else:
                 msg = f"Request for product image on {self.pid} failed with status code {response.status_code}"
+                log.warning(msg)
                 raise requests.RequestException(msg)
         return self._image_content
 
