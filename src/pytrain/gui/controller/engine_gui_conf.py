@@ -324,7 +324,7 @@ STATION_DIALOGS = [
 ]
 
 EXTRA_FUNCTIONS = [
-    [("SMOKE_OFF", "", "smoke-down.jpg"), ("SMOKE_ON", "", "smoke-up.jpg")],
+    [(SMOKE_OFF, "", "smoke-down.jpg"), (SMOKE_ON, "", "smoke-up.jpg")],
 ]
 
 REPEAT_EXCEPTIONS = {
