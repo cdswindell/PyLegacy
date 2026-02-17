@@ -78,6 +78,7 @@ class UncouplerGui(AccessoryBase):
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
         motion_label = self.config.label_for("uncouple")
+        size = self.config.size_for("uncouple")
         max_text_len = len(motion_label) + 2
 
         self._uncouple_button = self.make_push_button(
@@ -87,4 +88,6 @@ class UncouplerGui(AccessoryBase):
             col=1,
             text_len=max_text_len,
             image=self._uncouple_image,
+            height=size[0],
+            width=size[1],
         )
