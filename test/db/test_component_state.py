@@ -8,6 +8,7 @@
 
 import time
 from collections import defaultdict
+from typing import Any, Generator
 from unittest import mock
 
 # noinspection PyPackageRequirements
@@ -35,7 +36,7 @@ from ..test_base import TestBase
 
 
 @pytest.fixture(autouse=True)
-def run_before_and_after_tests(tmpdir) -> None:
+def run_before_and_after_tests(tmpdir) -> Generator[None, Any, None]:
     """
     Fixture to execute asserts before and after a test is run
     """
