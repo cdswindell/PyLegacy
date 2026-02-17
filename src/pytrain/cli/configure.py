@@ -29,6 +29,9 @@ from ..utils.path_utils import find_file  # <-- adjust if needed
 def _clean_accessory_list(
     raw: Any,
     *,
+    registry: AccessoryRegistry | None = None,
+    validate_variants: bool = False,
+    fix_variants: bool = False,
     drop_unknown_keys: bool = False,
 ) -> tuple[list[dict[str, Any]], list[tuple[Any, str]]]:
     """
@@ -43,6 +46,11 @@ def _clean_accessory_list(
       - must have: gui (str), type (str), variant (str), instance_id (str)
       - optional: tmcc_ids (dict[str, int-like]), tmcc_id (int-like), display_name (str)
       - if drop_unknown_keys=True, unknown keys are removed from kept entries
+
+    Variant validation:
+      - if validate_variants=True, (type, variant) is validated against AccessoryRegistry
+      - aliases/non-canonical variant names are resolved via registry.resolve_variant_key(...)
+      - if fix_variants=True, the JSON variant value is rewritten to the resolved canonical key
     """
     if raw is None:
         return [], []
@@ -137,16 +145,49 @@ def _clean_accessory_list(
                 if out_ids:
                     normalized["tmcc_ids"] = out_ids
 
+        # Variant validation + canonicalization
+        if validate_variants:
+            try:
+                acc_type = AccessoryType[normalized["type"].strip().upper()]
+            except KeyError:
+                removed.append((original, f"unknown type {normalized['type']!r}"))
+                continue
+
+            if registry is None:
+                removed.append((original, "internal error: registry not provided for variant validation"))
+                continue
+
+            try:
+                resolved_key = registry.resolve_variant_key(acc_type, normalized["variant"])
+            except ValueError as e:
+                # resolve_variant_key should raise ValueError with a good message
+                removed.append((original, str(e)))
+                continue
+
+            if fix_variants and resolved_key != normalized["variant"]:
+                normalized["variant"] = resolved_key
+
+        # Operation identifier validation (tmcc_ids keys)
+        acc_type = AccessoryType[normalized["type"].strip().upper()]
+        spec = registry.get_spec(acc_type)
+        allowed_ops = {op.key for op in spec.operations if op.behavior != PortBehavior.COMMAND}
+
+        tmcc_ids_norm = normalized.get("tmcc_ids")
+        if tmcc_ids_norm is not None:
+            # tmcc_ids_norm should already be a dict[str, int] at this point
+            bad_ops = [k for k in tmcc_ids_norm.keys() if k not in allowed_ops]
+            if bad_ops:
+                bad_list = ", ".join(repr(k) for k in bad_ops)
+                removed.append((original, f"unknown operation id(s) {bad_list} for type {acc_type.name}"))
+                continue
+
         # Optionally drop unknown keys
         if not drop_unknown_keys:
-            # Preserve any other keys verbatim (future-proofing), but only if JSON-serializable is your problem
-            # If you prefer strictness, enable drop_unknown_keys=True.
             for k, v in entry.items():
                 if k in normalized:
                     continue
                 if k in optional_keys:
                     continue
-                # keep it
                 normalized[k] = v
 
         kept.append(normalized)
@@ -262,7 +303,6 @@ def _make_instance_id(
     if tmcc_id is not None:
         nums.append(str(tmcc_id))
 
-    # Append sorted TMCC IDs to numeric parts
     if tmcc_ids:
         for _, v in sorted(tmcc_ids.items(), key=lambda kv: int(kv[1])):
             nums.append(str(int(v)))
@@ -334,93 +374,6 @@ def _load_existing_payload(path: Path) -> tuple[list[Any], dict[str, Any] | None
     return [], None
 
 
-def _as_int(value: Any) -> int | None:
-    if isinstance(value, int):
-        return value
-    if isinstance(value, str) and value.strip().lstrip("-").isdecimal():
-        try:
-            return int(value.strip())
-        except ValueError:
-            return None
-    return None
-
-
-def _validate_and_normalize_entry(entry: Any) -> tuple[dict[str, Any] | None, str | None]:
-    """
-    Returns (clean_entry, error_reason).
-    If invalid, clean_entry is None and error_reason is a short string.
-
-    Normalizations:
-      - trims required strings
-      - coerces tmcc_id to int (if int-like)
-      - coerces tmcc_ids values to int (if int-like)
-      - drops unknown keys to keep file clean
-    """
-    if not isinstance(entry, dict):
-        return None, "not a dict"
-
-    def _req_str(ke: str) -> str | None:
-        ve = entry.get(ke)
-        if not isinstance(ve, str):
-            return None
-        v2 = ve.strip()
-        return v2 if v2 else None
-
-    gui = _req_str("gui")
-    typ = _req_str("type")
-    variant = _req_str("variant")
-    instance_id = _req_str("instance_id")
-
-    if not gui:
-        return None, "missing/invalid 'gui'"
-    if not typ:
-        return None, "missing/invalid 'type'"
-    if not variant:
-        return None, "missing/invalid 'variant'"
-    if not instance_id:
-        return None, "missing/invalid 'instance_id'"
-
-    tmcc_id_raw = entry.get("tmcc_id", None)
-    tmcc_id = _as_int(tmcc_id_raw) if tmcc_id_raw is not None else None
-    if tmcc_id_raw is not None and tmcc_id is None:
-        return None, "invalid 'tmcc_id' (must be int)"
-
-    tmcc_ids_clean: dict[str, int] | None = None
-    if "tmcc_ids" in entry and entry["tmcc_ids"] is not None:
-        raw_tmcc_ids = entry.get("tmcc_ids")
-        if not isinstance(raw_tmcc_ids, dict):
-            return None, "invalid 'tmcc_ids' (must be dict)"
-        out: dict[str, int] = {}
-        for k, v in raw_tmcc_ids.items():
-            if not isinstance(k, str) or not k.strip():
-                return None, "invalid tmcc_ids key (must be non-empty str)"
-            iv = _as_int(v)
-            if iv is None:
-                return None, f"invalid tmcc_ids[{k!r}] (must be int)"
-            out[k.strip()] = int(iv)
-        tmcc_ids_clean = out or None
-
-    display_name = entry.get("display_name")
-    if display_name is not None and not isinstance(display_name, str):
-        return None, "invalid 'display_name' (must be str)"
-
-    # Keep only known keys (easy to change if you'd rather preserve extras)
-    clean: dict[str, Any] = {
-        "gui": gui,
-        "type": typ,
-        "variant": variant,
-        "instance_id": instance_id,
-    }
-    if tmcc_ids_clean:
-        clean["tmcc_ids"] = tmcc_ids_clean
-    if tmcc_id is not None:
-        clean["tmcc_id"] = tmcc_id
-    if display_name:
-        clean["display_name"] = display_name.strip() or display_name
-
-    return clean, None
-
-
 def _write_payload(path: Path, accessories: list[dict[str, Any]]) -> None:
     payload = {
         "schema": "pytrain.accessory_config.v1",
@@ -453,6 +406,7 @@ def _open_in_editor(path: Path) -> None:
 def _startup_existing_file_flow(
     out_path: Path,
     *,
+    registry: AccessoryRegistry,
     default_choice: str | None = None,
     verify_existing: bool = False,
     clean_existing: bool = False,
@@ -462,6 +416,11 @@ def _startup_existing_file_flow(
     If an existing file is present:
       - If it's empty / has no accessories, do NOT prompt; treat as empty and proceed.
       - Otherwise, optionally verify/clean before the normal Clear/Edit/Append prompt.
+
+    IMPORTANT CHANGE:
+      - Variant validation/canonicalization happens ONLY in _clean_accessory_list(...)
+      - We DO NOT do the second-pass _validate_variants_in_entries(...) anymore.
+        That second pass was redundant and could disagree with the canonicalization pass.
 
     Returns:
       (resolved_path, existing_accessories)
@@ -473,9 +432,17 @@ def _startup_existing_file_flow(
 
     raw_accessories, _payload = _load_existing_payload(resolved)
 
-    kept, removed = _clean_accessory_list(raw_accessories)
+    do_validate = verify_existing or clean_existing or clean_only
+    do_fix = clean_existing or clean_only
 
-    if verify_existing or clean_existing or clean_only:
+    kept, removed = _clean_accessory_list(
+        raw_accessories,
+        registry=registry,
+        validate_variants=do_validate,
+        fix_variants=do_fix,
+    )
+
+    if do_validate:
         if removed:
             print(f"\nExisting config validation: {resolved}")
             print(f"  Total entries: {len(raw_accessories)}")
@@ -489,7 +456,7 @@ def _startup_existing_file_flow(
         else:
             print(f"\nExisting config validation: {resolved} (all entries look valid)")
 
-        if clean_existing or clean_only:
+        if do_fix:
             _write_payload(resolved, kept)
             print(f"Cleaned file written: {resolved} (accessories={len(kept)})")
 
@@ -524,9 +491,15 @@ def _startup_existing_file_flow(
                 _open_in_editor(resolved)
 
                 raw2, _ = _load_existing_payload(resolved)
-                kept2, removed2 = _clean_accessory_list(raw2)
+                kept2, removed2 = _clean_accessory_list(
+                    raw2,
+                    registry=registry,
+                    validate_variants=True,
+                    fix_variants=do_fix,  # canonicalize on edit if we're in a clean flow
+                )
+
                 if removed2:
-                    print(f"Note: after edit, {len(removed2)} malformed entries were ignored.")
+                    print(f"Note: after edit, {len(removed2)} malformed/invalid entries were ignored.")
                 if len(kept2) == 0:
                     return resolved, []
                 print(f"Reloaded accessories: {len(kept2)}")
@@ -722,12 +695,12 @@ class Configure:
         ap.add_argument(
             "--verify-existing",
             action="store_true",
-            help="Validate existing file and report malformed entries (does not modify file).",
+            help="Validate existing file and report malformed/invalid entries (does not modify file).",
         )
         ap.add_argument(
             "--clean-existing",
             action="store_true",
-            help="Validate existing file, remove malformed entries, and write cleaned file before continuing.",
+            help="Validate existing file, remove malformed/invalid entries, and write cleaned file before continuing.",
         )
         ap.add_argument(
             "--clean-only",
@@ -747,6 +720,7 @@ class Configure:
 
         resolved_path, existing = _startup_existing_file_flow(
             out_path,
+            registry=registry,
             default_choice="append" if args.append else None,
             verify_existing=args.verify_existing,
             clean_existing=args.clean_existing,
@@ -798,5 +772,4 @@ def main(args: list[str] | None = None) -> int:
         Configure(args)
         return 0
     except Exception as e:
-        # Output anything else nicely formatted on stderr and exit code 1
         sys.exit(f"{__file__}: error: {e}\n")

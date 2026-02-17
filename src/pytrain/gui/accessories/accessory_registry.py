@@ -10,13 +10,21 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 from .accessory_type import AccessoryType
 from ...protocol.constants import Mixins
 from ...utils.singleton import singleton
 
+_NORM_TOKEN_RE = re.compile(r"[^a-z0-9]+")
+
 log = logging.getLogger(__name__)
+
+
+def _variant_norm(s: str) -> str:
+    # Treat underscores/hyphens/spaces/punct as equivalent separators
+    return _NORM_TOKEN_RE.sub(" ", str(s).strip().lower()).strip()
 
 
 class PortBehavior(Mixins):
@@ -207,6 +215,56 @@ class AccessoryRegistry:
 
     def all_specs(self) -> list[AccessoryTypeSpec]:
         return sorted(self._specs.values(), key=lambda s: str(s.type))
+
+    def resolve_variant_key(self, acc_type: "AccessoryType", variant: str) -> str:
+        """
+        Resolve a user-provided variant string to the canonical VariantSpec.key.
+
+        Accepts:
+          - exact key
+          - alias (normalized)
+          - unique prefix of a key (normalized), e.g. "dairymens_league" -> "dairymens_league_6_14291"
+
+        Raises:
+          ValueError if unknown or ambiguous.
+        """
+        raw = str(variant).strip() if variant is not None else ""
+        if not raw:
+            raise ValueError("empty variant")
+
+        spec = self.get_spec(acc_type)
+
+        # 1) exact key
+        for vs in spec.variants:
+            if vs.key == raw:
+                return vs.key
+
+        v_norm = _variant_norm(raw)
+
+        # 2) alias match
+        for vs in spec.variants:
+            aliases = getattr(vs, "aliases", None)
+            if not aliases:
+                continue
+            for a in aliases:
+                if _variant_norm(a) == v_norm:
+                    return vs.key
+
+        # 3) unique prefix match on key
+        matches = [vs.key for vs in spec.variants if _variant_norm(vs.key).startswith(v_norm)]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise ValueError(f"ambiguous variant {variant!r} for type {acc_type.name}: {matches}")
+
+        raise ValueError(f"unknown variant {variant!r} for type {acc_type.name}")
+
+    def is_valid_variant(self, acc_type: "AccessoryType", variant: str) -> bool:
+        try:
+            _ = self.resolve_variant_key(acc_type, variant)
+            return True
+        except ValueError:
+            return False
 
     # -------------------------------------------------------------------------
     # Definition retrieval (GUI-agnostic)
