@@ -44,7 +44,7 @@ class AdminPanel:
     def overlay(self) -> Box:
         if self._overlay is None:
             # noinspection PyProtectedMember
-            self._overlay = self._gui._popup.create_popup(ADMIN_TITLE, self.build)
+            self._overlay = self._gui._popup.create_popup(ADMIN_TITLE + "\n" + self._gui.version, self.build)
         return self._overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
