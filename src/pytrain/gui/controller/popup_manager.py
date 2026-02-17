@@ -177,6 +177,9 @@ class PopupManager:
                 if isinstance(button, tuple):
                     op = button[0]
                     label = button[1]
+                    image = find_file(button[2]) if len(button) > 2 else None
+                    if image:
+                        width = host.button_size
                 else:
                     raise ValueError(f"Invalid button: {button} ({type(button)})")
                 cell, nb = host.make_keypad_button(
@@ -184,6 +187,7 @@ class PopupManager:
                     label,
                     r,
                     c,
+                    image=image,
                     bolded=True,
                     size=host.s_18,
                     command=host.on_engine_command,

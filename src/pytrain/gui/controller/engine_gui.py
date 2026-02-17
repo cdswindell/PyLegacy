@@ -26,6 +26,7 @@ from .engine_gui_conf import (
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
+    EXTRA_FUNCTIONS,
     HALT_KEY,
     KEY_TO_COMMAND,
     REPEAT_EXCEPTIONS,
@@ -423,6 +424,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def build_steward_dialogs_body(self, body: Box):
         self._popup.build_button_panel(body, STEWARD_DIALOGS)
 
+    def build_extra_functions_body(self, body: Box):
+        self._popup.build_button_panel(body, EXTRA_FUNCTIONS)
+
     def on_info(self) -> None:
         """Shows state information in popup overlay"""
         state = self.active_state
@@ -492,6 +496,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._bell_horn_panel = BellHornPanel(self)
         overlay = self._bell_horn_panel.overlay
         self.show_popup(overlay, button=self._bell_btn)
+
+    def on_extra(self) -> None:
+        overlay = self._popup.get_or_create("extra_functions", "Additional Options", self.build_steward_dialogs_body)
+        self.show_popup(overlay, "AUX3_OPT_ONE", "l")
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
         self._acc_overlay = overlay = self._create_accessory_view(acc)

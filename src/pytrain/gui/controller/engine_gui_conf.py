@@ -322,6 +322,11 @@ STATION_DIALOGS = [
     [("STATION_ARRIVING", "Arriving"), ("STATION_ARRIVED", "Arrived")],
     [("STATION_BOARDING", "Boarding"), ("STATION_DEPARTING", "Departing")],
 ]
+
+EXTRA_FUNCTIONS = [
+    [("SMOKE_OFF", "", "smoke-down.jpg"), ("SMOKE_ON", "", "smoke-up.jpg")],
+]
+
 REPEAT_EXCEPTIONS = {
     TMCC1EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,

@@ -98,13 +98,13 @@ class ControllerView:
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
 
-                # trough color indicates actual vs target
+                # trough color indicates actual vs. target
                 if throttle_state.speed != throttle_state.target_speed:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
 
-                # legacy vs tmcc throttle range
+                # legacy vs. tmcc throttle range
                 if throttle_state.is_legacy:
                     host.throttle.tk.config(from_=195, to=0)
                 else:
@@ -484,12 +484,13 @@ class ControllerView:
         # 3. Setup Hold behaviors (Popups)
         holds = [
             (("AUX2_OPTION_ONE", "e"), host.on_lights),
-            (("TOWER_CHATTER", "e"), host.on_tower_dialog),
+            (("AUX3_OPTION_ONE", "l"), host.on_extra),
             (("ENGINEER_CHATTER", "e"), host.on_crew_dialog),
             (("ENGINEER_CHATTER", "p"), host.on_conductor_actions),
-            (("TOWER_CHATTER", "p"), host.on_station_dialogs),
-            (("STEWARD_CHATTER", "p"), host.on_steward_dialogs),
             (("RING_BELL", "e"), host.on_bell_horn_options),
+            (("STEWARD_CHATTER", "p"), host.on_steward_dialogs),
+            (("TOWER_CHATTER", "e"), host.on_tower_dialog),
+            (("TOWER_CHATTER", "p"), host.on_station_dialogs),
         ]
         for key, callback in holds:
             get_btn(key).on_hold = callback
@@ -521,7 +522,7 @@ class ControllerView:
                 host.horn_title_box.text = "Horn"
             return
 
-        # Determine engine type key (must match your engine_gui_conf tags)
+        # Determine the engine type key (must match your engine_gui_conf tags)
         if getattr(state, "is_diesel", False):
             t = "d"
         elif getattr(state, "is_steam", False):
