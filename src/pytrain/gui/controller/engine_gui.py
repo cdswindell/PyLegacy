@@ -586,7 +586,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if add_sep and self._train_linked_queue and state not in self._train_linked_queue:
                     options.append(self._separator)
                     add_sep = False
-                if self.scope == CommandScope.ACC and state.tmcc_id in self._acc_tmcc_to_adapter:
+                if (
+                    self.scope == CommandScope.ACC
+                    and state.tmcc_id in self._acc_tmcc_to_adapter
+                    and self._acc_tmcc_to_adapter[state.tmcc_id]
+                ):
                     road_name = self._acc_tmcc_to_adapter[state.tmcc_id].name
                 else:
                     road_name = state.road_name
