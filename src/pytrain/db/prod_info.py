@@ -51,7 +51,7 @@ class ProdInfo:
     @property
     def image_content(self) -> bytes:
         if self._image_content is None:
-            response = requests.get(self.image_url)
+            response = requests.get(self.image_url, timeout=30.0)
             if response.status_code == 200:
                 self._image_content = response.content
             else:
