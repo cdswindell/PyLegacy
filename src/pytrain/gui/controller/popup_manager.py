@@ -10,11 +10,11 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from tkinter import TclError
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
-import math
 from guizero import Box, Combo, PushButton, Text
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
@@ -77,12 +77,13 @@ class PopupManager:
 
         overlay = Box(host.app, align="top", border=2, visible=False)
         overlay.bg = "white"
+        height = (title_text.count("\n") + 1) * host.button_size // 3 if title_text else host.button_size // 3
         if title_text:
             title_row = Box(
                 overlay,
                 align="top",
                 width=host.emergency_box_width,
-                height=host.button_size // 3,
+                height=height,
             )
             title_row.bg = "lightgrey"
 
