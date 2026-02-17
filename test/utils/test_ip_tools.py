@@ -8,8 +8,9 @@
 
 # test/utils/test_ip_tools.py
 import socket
+import subprocess
 
-from src.pytrain.utils.ip_tools import find_base_address, get_ip_address, is_base_address
+from src.pytrain.utils.ip_tools import find_base_address, get_ip_address, is_base_address, get_ip_from_command
 
 
 class DummyCompleted:
@@ -60,12 +61,21 @@ def test_get_ip_address_non_linux_retries_until_success(monkeypatch):
 
     calls = {"count": 0}
 
+    try:
+        get_ip_from_command()
+    except subprocess.CalledProcessError:
+        pass
+
+    def noop_get_ip_from_command():
+        raise subprocess.CalledProcessError(1, "ipconfig")
+
     def flaky_gethostbyname_ex(hostname):
         calls["count"] += 1
         if calls["count"] < 3:
             raise socket.gaierror("temporary failure in name resolution")
         return hostname, [], ["10.1.2.3"]
 
+    monkeypatch.setattr("src.pytrain.utils.ip_tools.get_ip_from_command", noop_get_ip_from_command, raising=True)
     monkeypatch.setattr("socket.gethostbyname_ex", flaky_gethostbyname_ex, raising=True)
 
     ips = get_ip_address(max_attempts=5)

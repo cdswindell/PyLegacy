@@ -12,8 +12,20 @@ import subprocess
 from multiprocessing import Pool, cpu_count
 from typing import List
 
-
 from ..protocol.constants import DEFAULT_BASE_PORT
+
+
+def get_ip_from_command():
+    try:
+        # The specific interface might vary (e.g., en0, en1, etc.)
+        # en0 is often the default Ethernet or Wi-Fi interface
+        command = "ipconfig getifaddr en0"
+        result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+        # Decode the bytes to a string and strip whitespace
+        ip_address = result.decode("utf-8").strip()
+        return ip_address
+    except subprocess.CalledProcessError as e:
+        raise e
 
 
 def get_ip_address(max_attempts: int = 32) -> List[str]:
@@ -31,7 +43,7 @@ def get_ip_address(max_attempts: int = 32) -> List[str]:
     hostname = socket.gethostname()
     hostname = hostname if hostname.endswith(".local") else hostname + ".local"
 
-    # Step 2: Get a list of IP addresses associated with the hostname
+    # Step 3: Get a list of IP addresses associated with the hostname
     ip_addresses = []
     attempts = 0
     while len(ip_addresses) == 0 and attempts <= max_attempts:
@@ -45,6 +57,12 @@ def get_ip_address(max_attempts: int = 32) -> List[str]:
             attempts += 1
             if attempts > max_attempts:
                 raise he
+        # try another approach
+        if len(ip_addresses) == 0:
+            try:
+                ip_addresses = [get_ip_from_command()]
+            except subprocess.CalledProcessError:
+                pass
 
     filtered_ips = {ip for ip in ip_addresses if not ip.startswith("127.")}
     return list(filtered_ips)

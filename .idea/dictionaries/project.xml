@@ -31,6 +31,9 @@
       <w>esso</w>
       <w>etype</w>
       <w>extendleft</w>
+      <w>gethostbyname</w>
+      <w>gethostname</w>
+      <w>getifaddr</w>
       <w>hexid</w>
       <w>hpad</w>
       <w>lcsser</w>
@@ -40,6 +43,7 @@
       <w>lpgl</w>
       <w>maxlen</w>
       <w>mome</w>
+      <w>myhost</w>
       <w>nodash</w>
       <w>ntum</w>
       <w>oled</w>
@@ -52,8 +56,11 @@
       <w>pytraininfo</w>
       <w>quilling</w>
       <w>respbcasts</w>
+      <w>retryhost</w>
+      <w>returncode</w>
       <w>rnum</w>
       <w>setsid</w>
+      <w>settimeout</w>
       <w>sunoco</w>
       <w>tids</w>
       <w>titlebox</w>
