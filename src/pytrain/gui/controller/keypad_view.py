@@ -626,10 +626,10 @@ class KeypadView(Generic[S]):
                     for cell in host.aux_cells:
                         if cell and not cell.visible:
                             cell.show()
+                    self.activate_accessory_keys()
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         host.ac_op_cell.grid = [1, 4]
                         self._expand_acc_aux_cells()
-                        self.activate_accessory_keys()
                         self.enable_acc_view(acc_state)
 
             if show_keypad and not host.keypad_box.visible:
