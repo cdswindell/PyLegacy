@@ -169,7 +169,8 @@ class ImagePresenter:
             with host.locked():
                 state = host._state_store.get_state(scope, tmcc_id, False)
                 prod_info = host.get_prod_info(state.bt_id if state else None, self.update, tmcc_id)
-                log.debug(f"Requested image for TMCC ID: {tmcc_id}  bt: {state.bt_id} prod_info: {prod_info}")
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Requested image for TMCC ID: {tmcc_id}  bt: {state.bt_id} prod_info: {prod_info}")
 
                 if prod_info is None:
                     return
