@@ -498,7 +498,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, button=self._bell_btn)
 
     def on_extra(self) -> None:
-        overlay = self._popup.get_or_create("extra_functions", "Additional Options", self.build_steward_dialogs_body)
+        overlay = self._popup.get_or_create("extra_functions", "Additional Options", self.build_extra_functions_body)
         self.show_popup(overlay, "AUX3_OPT_ONE", "l")
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
