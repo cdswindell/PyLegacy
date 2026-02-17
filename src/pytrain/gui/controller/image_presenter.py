@@ -169,6 +169,7 @@ class ImagePresenter:
             with host.locked():
                 state = host._state_store.get_state(scope, tmcc_id, False)
                 prod_info = host.get_prod_info(state.bt_id if state else None, self.update, tmcc_id)
+                log.debug(f"Requested image for TMCC ID: {tmcc_id}  bt: {state.bt_id} prod_info: {prod_info}")
 
                 if prod_info is None:
                     return
@@ -186,6 +187,7 @@ class ImagePresenter:
                 else:
                     if isinstance(state, EngineState):
                         img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                        # Retrieves or generates cached engine image; caches by type
                         if img is None:
                             et_enum = (
                                 state.engine_type_enum if state.engine_type_enum is not None else EngineType.DIESEL
