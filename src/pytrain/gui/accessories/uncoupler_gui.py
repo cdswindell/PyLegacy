@@ -45,7 +45,6 @@ class UncouplerGui(AccessoryBase):
         # Main title + image + eject image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
-        self._uncouple_image: str | None = None
 
         super().__init__(self._title, self._image, aggregator=aggregator)
 
@@ -61,9 +60,6 @@ class UncouplerGui(AccessoryBase):
             self._variant,
             tmcc_ids={"uncouple": self._uncouple},
         )
-
-        # Pre-resolve action image (momentary)
-        self._uncouple_image = find_file(self.config.image_for("uncouple"))
 
     def get_target_states(self) -> list[S]:
         self._uncouple_state = self.state_for("uncouple")
@@ -87,7 +83,7 @@ class UncouplerGui(AccessoryBase):
             label=motion_label,
             col=1,
             text_len=max_text_len,
-            image=self._uncouple_image,
+            image=find_file(self.config.image_for("uncouple")),
             height=size[0],
             width=size[1],
         )

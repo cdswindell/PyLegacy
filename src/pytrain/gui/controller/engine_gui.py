@@ -782,9 +782,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._btn_images.append(img)
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
             scope = CommandScope.by_prefix(scope_abbrev)
-            # Create a PhotoImage to enforce button size
-            # img = tk.PhotoImage(width=self.scope_size, height=button_height)
-            # self._btn_images.append(img)
             pb = HoldButton(
                 scope_box,
                 text=scope_abbrev,
