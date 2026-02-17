@@ -548,8 +548,9 @@ class GuiZeroBase(Thread, ABC):
                 do_request_prod_info = True  # don't hold lock for long
         if do_request_prod_info:
             prod_info = self._request_prod_info(bt_id)
-            self._prod_info_cache[tmcc_id] = prod_info
-            self._pending_prod_infos.discard(tmcc_id)
+            with self._cv:
+                self._prod_info_cache[tmcc_id] = prod_info
+                self._pending_prod_infos.discard(tmcc_id)
             # now get image
             if isinstance(prod_info, ProdInfo):
                 if log.isEnabledFor(logging.DEBUG):
@@ -584,6 +585,7 @@ class GuiZeroBase(Thread, ABC):
                     self._prod_info_cache[tmcc_id] = future
         elif isinstance(prod_info, Future):
             with self._cv:
+                # Updates cache with result or requeues message
                 if prod_info.done() and isinstance(prod_info.result(), ProdInfo):
                     prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
                     self._pending_prod_infos.discard(tmcc_id)

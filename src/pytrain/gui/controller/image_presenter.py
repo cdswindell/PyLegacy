@@ -168,27 +168,29 @@ class ImagePresenter:
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
             with host.locked():
                 state = host._state_store.get_state(scope, tmcc_id, False)
-                prod_info = host.get_prod_info(state.bt_id if state else None, self.update, tmcc_id)
                 if log.isEnabledFor(logging.DEBUG):
-                    log.debug(
-                        f"Requested image for TMCC ID: {tmcc_id}  bt: {state.bt_id} "
-                        f"prod_info: {prod_info.road_name if prod_info else 'NA'}"
-                    )
+                    log.debug(f"Requested product info for TMCC ID: {tmcc_id}  bt: {state.bt_id}...")
+                prod_info = host.get_prod_info(state.bt_id if state else None, self.update, tmcc_id)
 
                 if prod_info is None:
                     return
 
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'}")
+
                 if isinstance(prod_info, ProdInfo):
                     # Image should have been cached by fetch_prod_indo
-                    img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                    if img is None:
+                    with host.locked():
+                        img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                    if img is None and prod_info.image_content:
                         img = host.get_scaled_image(BytesIO(prod_info.image_content))
                         host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                    if train_id:
+                    if img and train_id:
                         host._image_cache[(CommandScope.TRAIN, train_id)] = img
                         tmcc_id = train_id
                         scope = CommandScope.TRAIN
                 else:
+                    print(f"***** Prod_info: {prod_info}")
                     if isinstance(state, EngineState):
                         img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
                         # Retrieves or generates cached engine image; caches by type
