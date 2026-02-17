@@ -43,7 +43,10 @@ class ImagePresenter:
         self._host.image_box.hide()
 
     def calc_box_size(self) -> tuple[int, int]:
-        """Calculates available image box size based on layout"""
+        """
+        Calculates available image box size based on layout
+        Can only call from the main gui thread!
+        """
         host = self._host
 
         # force geometry layout

@@ -563,34 +563,38 @@ class GuiZeroBase(Thread, ABC):
             with self._cv:
                 self._prod_info_cache[tmcc_id] = prod_info
                 self._pending_prod_infos.discard(tmcc_id)
-            # now get image
-            if isinstance(prod_info, ProdInfo):
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(
-                        f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
-                        f"Requesting image for tmcc_id {tmcc_id}"
-                    )
-                content = prod_info.image_content
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(f"Content is {len(content) if content else 0} bytes for tmcc_id: {tmcc_id}...")
-                content = BytesIO(content)
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(f"Scaling content for tmcc_id: {tmcc_id}...")
-                img = self.get_scaled_image(content)
-                self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(
-                        f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
-                        f"Image retrieved for tmcc_id {tmcc_id}"
-                    )
         # Schedule the UI update on the main thread
+        self.queue_message(self.process_prod_image, prod_info, tmcc_id, callback)
+        return prod_info
+
+    def process_prod_image(self, prod_info: ProdInfo | None, tmcc_id: int, callback: Callable):
+        # now get image
+        if isinstance(prod_info, ProdInfo):
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(
+                    f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
+                    f"Requesting image for tmcc_id {tmcc_id}"
+                )
+            content = prod_info.image_content
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Content is {len(content) if content else 0} bytes for tmcc_id: {tmcc_id}...")
+            content = BytesIO(content)
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Scaling content for tmcc_id: {tmcc_id}...")
+            img = self.get_scaled_image(content)
+            self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(
+                    f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
+                    f"Image retrieved for tmcc_id {tmcc_id}"
+                )
         if log.isEnabledFor(logging.DEBUG):
             log.debug(
                 f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
                 f"Scheduling UI update for tmcc_id {tmcc_id}"
             )
-        self.queue_message(callback, tmcc_id)
-        return prod_info
+        # we're in the main thread, update the UI
+        callback(tmcc_id)
 
     def get_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:
         with self._cv:
