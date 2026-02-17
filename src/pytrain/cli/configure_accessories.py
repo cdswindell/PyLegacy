@@ -19,11 +19,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from src.pytrain.gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
-from src.pytrain.gui.accessories.accessory_registry import AccessoryRegistry, PortBehavior
-from src.pytrain.gui.accessories.accessory_type import AccessoryType
-from src.pytrain.gui.accessories.configured_accessory import DEFAULT_CONFIG_FILE
-from src.pytrain.utils.path_utils import find_file  # <-- adjust if needed
+from ..gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
+from ..gui.accessories.accessory_registry import AccessoryRegistry, PortBehavior
+from ..gui.accessories.accessory_type import AccessoryType
+from ..gui.accessories.configured_accessory import DEFAULT_CONFIG_FILE
+from ..utils.path_utils import find_file  # <-- adjust if needed
 
 
 def _clean_accessory_list(
@@ -510,7 +510,7 @@ def _startup_existing_file_flow(
 
     try:
         while True:
-            choice = _ask("Use existing file? (C)lear / (E)dit / (A)ppend / (Q)uit", default=dflt).strip().lower()
+            choice = _ask("Use existing file? (C)lear / (E)dit / (A)append / (Q)uit", default=dflt).strip().lower()
 
             if choice in ("a", "append", ""):
                 return resolved, existing
@@ -702,7 +702,7 @@ def prompt_accessory(catalog: AccessoryGuiCatalog, registry: AccessoryRegistry) 
 # -----------------------------------------------------------------------------
 
 
-def main(argv: list[str] | None = None) -> int:
+def configure(argv: list[str] | None = None) -> int:
     default = DEFAULT_CONFIG_FILE
     ap = argparse.ArgumentParser(
         description="Interactive builder for accessory config (JSON).",
@@ -791,5 +791,7 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+#
+#
+# if __name__ == "__main__":
+#     raise SystemExit(configure())
