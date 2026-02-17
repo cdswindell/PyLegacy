@@ -555,7 +555,11 @@ class GuiZeroBase(Thread, ABC):
                 img = self.get_scaled_image(BytesIO(prod_info.image_content))
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
         # Schedule the UI update on the main thread
-        log.debug(f"get_prod_info: Scheduling UI update for tmcc_id {tmcc_id}")
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
+                f"Scheduling UI update for tmcc_id {tmcc_id}"
+            )
         self.queue_message(callback, tmcc_id)
         return prod_info
 
@@ -568,10 +572,13 @@ class GuiZeroBase(Thread, ABC):
                 if tmcc_id not in self._pending_prod_infos:
                     future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id)
                     self._prod_info_cache[tmcc_id] = future
-        elif isinstance(prod_info, Future) and prod_info.done() and isinstance(prod_info.result(), ProdInfo):
+        elif isinstance(prod_info, Future):
             with self._cv:
-                prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
-                self._pending_prod_infos.discard(tmcc_id)
+                if prod_info.done() and isinstance(prod_info.result(), ProdInfo):
+                    prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
+                    self._pending_prod_infos.discard(tmcc_id)
+                else:
+                    self.queue_message(callback, tmcc_id)
         elif isinstance(prod_info, ProdInfo):
             pass
         else:
