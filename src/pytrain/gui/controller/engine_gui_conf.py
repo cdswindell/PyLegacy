@@ -170,6 +170,7 @@ ENGINE_OPS_LAYOUT = [
         ],
         [
             ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "c"),
+            ("AUX3_OPTION_ONE", "", AUX3_KEY, "More...", "l"),
             ("AUX3_OPTION_ONE", "", AUX3_KEY, "Arcing", "a"),
             ("POWERMASTER_OFF", "off_button.jpg", "", "", "t"),
         ],
