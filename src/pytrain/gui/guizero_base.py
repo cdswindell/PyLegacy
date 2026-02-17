@@ -558,7 +558,10 @@ class GuiZeroBase(Thread, ABC):
                         f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
                         f"Requesting image for tmcc_id {tmcc_id}"
                     )
-                img = self.get_scaled_image(BytesIO(prod_info.image_content))
+                content = prod_info.image_content
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Content is {len(content) if content else 0} bytes for tmcc_id: {tmcc_id} ")
+                img = self.get_scaled_image(BytesIO(content))
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(
