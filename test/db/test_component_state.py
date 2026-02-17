@@ -425,7 +425,7 @@ class TestComponentState(TestBase):
         """
         ComponentStateDict saves system state for engines, trains, switches, and accessories
         as determined by the TMCC command stream. CommandScope-appropriate dicts are
-        constructed by SystemStateDict as needed, using the defailtdict mechanism.
+        constructed by SystemStateDict as needed, using the defaultdict mechanism.
 
         ComponentStateDict keys themselves are ints between 1 and 99 inclusive.
         Except for the command base itself, which has an ID of 0
