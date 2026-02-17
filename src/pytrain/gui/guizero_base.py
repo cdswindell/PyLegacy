@@ -458,24 +458,16 @@ class GuiZeroBase(Thread, ABC):
         preserve_height: bool = False,
         force_lionel: bool = False,
     ) -> ImageTk.PhotoImage:
-        import threading
-
         if isinstance(source, io.BytesIO) and hasattr(source, "seek"):
             source.seek(0)
-        log.debug("About to Open on thread=%s", threading.current_thread().name)
         pil_img = Image.open(source)
-
-        log.debug("About to Load on thread=%s", threading.current_thread().name)
         pil_img.load()  # force decode NOW (still pure PIL)
         orig_width, orig_height = pil_img.size
 
-        log.debug("About to Calc on thread=%s", threading.current_thread().name)
         scaled_width, scaled_height = self._calc_scaled_image_size(
             orig_width, orig_height, preserve_height, force_lionel
         )
         # print(f"{source} scaled to {scaled_width}x{scaled_height} = {orig_width}x{orig_height}")
-
-        log.debug("About to PhotoImage on thread=%s", threading.current_thread().name)
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
         return img
 
@@ -575,13 +567,7 @@ class GuiZeroBase(Thread, ABC):
                     f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
                     f"Requesting image for tmcc_id {tmcc_id}"
                 )
-            content = prod_info.image_content
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug(f"Content is {len(content) if content else 0} bytes for tmcc_id: {tmcc_id}...")
-            content = BytesIO(content)
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug(f"Scaling content for tmcc_id: {tmcc_id}...")
-            img = self.get_scaled_image(content)
+            img = self.get_scaled_image(BytesIO(prod_info.image_content))
             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(

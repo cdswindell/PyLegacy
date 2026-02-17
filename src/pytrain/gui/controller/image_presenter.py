@@ -193,7 +193,6 @@ class ImagePresenter:
                         tmcc_id = train_id
                         scope = CommandScope.TRAIN
                 else:
-                    print(f"***** Prod_info: {prod_info}")
                     if isinstance(state, EngineState):
                         img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
                         # Retrieves or generates cached engine image; caches by type
