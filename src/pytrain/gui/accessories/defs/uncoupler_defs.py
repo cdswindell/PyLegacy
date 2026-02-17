@@ -58,7 +58,7 @@ def register_uncoupler(registry: AccessoryRegistry) -> None:
             key="uncouple",
             label="Uncouple",
             behavior=PortBehavior.MOMENTARY_HOLD,
-            width=72,
+            width=140,
             height=72,
         ),
     )
