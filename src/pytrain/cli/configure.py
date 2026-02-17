@@ -789,3 +789,14 @@ class Configure:
             print(f"Accessories: {len(payload['accessories'])}")
         else:
             print("\nNo accessories configured.")
+
+
+def main(args: list[str] | None = None) -> int:
+    if args is None:
+        args = sys.argv[1:]
+    try:
+        Configure(args)
+        return 0
+    except Exception as e:
+        # Output anything else nicely formatted on stderr and exit code 1
+        sys.exit(f"{__file__}: error: {e}\n")
