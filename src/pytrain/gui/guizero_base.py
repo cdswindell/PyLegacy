@@ -560,8 +560,11 @@ class GuiZeroBase(Thread, ABC):
                     )
                 content = prod_info.image_content
                 if log.isEnabledFor(logging.DEBUG):
-                    log.debug(f"Content is {len(content) if content else 0} bytes for tmcc_id: {tmcc_id} ")
-                img = self.get_scaled_image(BytesIO(content))
+                    log.debug(f"Content is {len(content) if content else 0} bytes for tmcc_id: {tmcc_id}...")
+                content = BytesIO(content)
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Scaling content for tmcc_id: {tmcc_id}...")
+                img = self.get_scaled_image(content)
                 self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(
