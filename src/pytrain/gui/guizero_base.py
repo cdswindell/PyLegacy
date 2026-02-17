@@ -467,6 +467,9 @@ class GuiZeroBase(Thread, ABC):
             orig_width, orig_height, preserve_height, force_lionel
         )
         # print(f"{source} scaled to {scaled_width}x{scaled_height} = {orig_width}x{orig_height}")
+        import threading
+
+        log.debug("About to PhotoImage on thread=%s", threading.current_thread().name)
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
         return img
 
