@@ -170,7 +170,10 @@ class ImagePresenter:
                 state = host._state_store.get_state(scope, tmcc_id, False)
                 prod_info = host.get_prod_info(state.bt_id if state else None, self.update, tmcc_id)
                 if log.isEnabledFor(logging.DEBUG):
-                    log.debug(f"Requested image for TMCC ID: {tmcc_id}  bt: {state.bt_id} prod_info: {prod_info}")
+                    log.debug(
+                        f"Requested image for TMCC ID: {tmcc_id}  bt: {state.bt_id} "
+                        f"prod_info: {prod_info.road_name if prod_info else 'NA'}"
+                    )
 
                 if prod_info is None:
                     return
