@@ -458,7 +458,10 @@ class GuiZeroBase(Thread, ABC):
         preserve_height: bool = False,
         force_lionel: bool = False,
     ) -> ImageTk.PhotoImage:
+        if isinstance(source, io.BytesIO) and hasattr(source, "seek"):
+            source.seek(0)
         pil_img = Image.open(source)
+        pil_img.load()  # force decode NOW (still pure PIL)
         orig_width, orig_height = pil_img.size
         scaled_width, scaled_height = self._calc_scaled_image_size(
             orig_width, orig_height, preserve_height, force_lionel
