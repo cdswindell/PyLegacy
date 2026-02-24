@@ -228,8 +228,13 @@ class StateInfoOverlay:
         for tb, _ in self.details.values():
             field_scope = getattr(tb, "display_scope", None)
             if field_scope is None or field_scope == current_scope:
-                tb.visible = True
+                if hasattr(tb, "show"):
+                    tb.show()
             elif current_scope == CommandScope.TRAIN and field_scope == CommandScope.ENGINE:
-                tb.visible = True
+                if hasattr(tb, "show"):
+                    tb.show()
+                else:
+                    print(f"No show method for {tb}")
             else:
-                tb.visible = False
+                if hasattr(tb, "hide"):
+                    tb.hide()
