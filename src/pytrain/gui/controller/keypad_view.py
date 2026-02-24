@@ -658,7 +658,6 @@ class KeypadView(Generic[S]):
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
         host.ac_op_btn.enable()
         host.ac_op_cell.show()
-        print(host.ac_op_btn.image)
 
     # noinspection PyProtectedMember
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
