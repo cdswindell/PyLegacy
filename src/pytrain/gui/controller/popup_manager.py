@@ -293,30 +293,29 @@ class PopupManager:
                 self._state.current_popup = overlay
                 # don't reset restore logic, as we are transitioning from
                 # one overlay/popup to another
-                return
-            # set this overlay as current
-            self._state.current_popup = overlay
+            else:
+                # set this overlay as current
+                self._state.current_popup = overlay
 
-            # Hide the active content box
-            self._state.on_close_show = None
-            for box in (host.controller_box, host.keypad_box, host.sensor_track_box):
-                if box and getattr(box, "visible", True):
-                    box.hide()
-                    self._state.on_close_show = box
-                    break
+                # Hide the active content box
+                self._state.on_close_show = None
+                for box in (host.controller_box, host.keypad_box, host.sensor_track_box):
+                    if box and getattr(box, "visible", True):
+                        box.hide()
+                        self._state.on_close_show = box
+                        break
 
-            # Hide image box if requested
-            self._state.restore_image_box = False
-            if hide_image_box and host.image_box and host.image_box.visible:
-                host.image_box.hide()
-                self._state.restore_image_box = True
+                # Hide image box if requested
+                self._state.restore_image_box = False
+                if hide_image_box and host.image_box and host.image_box.visible:
+                    host.image_box.hide()
+                    self._state.restore_image_box = True
 
-            # Accessory popup
-            self._state.restore_acc_box = False
-            if host.acc_overlay and host.acc_overlay.visible:
-                host.acc_overlay.hide()
-                self._state.restore_acc_box = True
-
+                # Accessory popup
+                self._state.restore_acc_box = False
+                if host.acc_overlay and host.acc_overlay.visible:
+                    host.acc_overlay.hide()
+                    self._state.restore_acc_box = True
         try:
             x, y = position if position else host.popup_position
             overlay.tk.place(x=x, y=y)
