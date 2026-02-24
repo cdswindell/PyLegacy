@@ -290,7 +290,10 @@ class PopupManager:
                     self._state.current_popup.tk.place_forget()
                 except (AttributeError, RuntimeError, TclError):
                     pass
-                self._state.current_popup = None
+                self._state.current_popup = overlay
+                # don't reset restore logic, as we are transitioning from
+                # one overlay/popup to another
+                return
             # set this overlay as current
             self._state.current_popup = overlay
 
