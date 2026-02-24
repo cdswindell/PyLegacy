@@ -27,6 +27,18 @@ from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
+from .acc import AccCli
+from .amc2 import Amc2Cli
+from .asc2 import Asc2Cli
+from .bpc2 import Bpc2Cli
+from .dialogs import DialogsCli
+from .effects import EffectsCli
+from .engine import EngineCli
+from .halt import HaltCli
+from .lighting import LightingCli
+from .route import RouteCli
+from .sounds import SoundEffectsCli
+from .switch import SwitchCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -67,18 +79,6 @@ from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpForm
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import find_base_address, get_ip_address
 from ..utils.singleton import singleton
-from .acc import AccCli
-from .amc2 import Amc2Cli
-from .asc2 import Asc2Cli
-from .bpc2 import Bpc2Cli
-from .dialogs import DialogsCli
-from .effects import EffectsCli
-from .engine import EngineCli
-from .halt import HaltCli
-from .lighting import LightingCli
-from .route import RouteCli
-from .sounds import SoundEffectsCli
-from .switch import SwitchCli
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
@@ -814,7 +814,7 @@ class PyTrain:
     def register_service(self, ser2, base3, server_port) -> ServiceInfo:
         port = server_port
         properties = {
-            "version": "1.0",
+            "version": f"{self.version}",
             "Ser2": "1" if ser2 is True else "0",
             "Base3": "1" if base3 is True else "0",
         }
