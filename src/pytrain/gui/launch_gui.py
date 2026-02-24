@@ -508,7 +508,8 @@ class LaunchGui(Thread):
                     self.message.value = "** Launch Aborted **"
                 else:
                     self.message.value = "** Self Destruct **"
-                self.message.visible = True
+                if hasattr(self.message, "show"):
+                    self.message.show()
                 self.message.repeat(500, self.flash_message)
             else:
                 self.reset_req.send()

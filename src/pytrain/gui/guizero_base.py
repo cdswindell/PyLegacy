@@ -403,7 +403,8 @@ class GuiZeroBase(Thread, ABC):
             nb.tk.config(bd=0, borderwidth=0, highlightthickness=0)
             nb.tk.place_configure(x=0, y=0, relwidth=1, relheight=0.73)
 
-        cell.visible = visible
+        if hasattr(cell, "visible"):
+            cell.visible = visible
         return cell, nb
 
     @staticmethod
