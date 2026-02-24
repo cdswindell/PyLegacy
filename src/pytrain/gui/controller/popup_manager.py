@@ -291,6 +291,8 @@ class PopupManager:
                 except (AttributeError, RuntimeError, TclError):
                     pass
                 self._state.current_popup = overlay
+
+                self._hide_image_box(hide_image_box, host)
                 # don't reset restore logic, as we are transitioning from
                 # one overlay/popup to another
             else:
@@ -305,11 +307,8 @@ class PopupManager:
                         self._state.on_close_show = box
                         break
 
-                # Hide image box if requested
-                self._state.restore_image_box = False
-                if hide_image_box and host.image_box and host.image_box.visible:
-                    host.image_box.hide()
-                    self._state.restore_image_box = True
+                # manage image box
+                self._hide_image_box(hide_image_box, host)
 
                 # Accessory popup
                 self._state.restore_acc_box = False
@@ -338,6 +337,13 @@ class PopupManager:
                     self._state.on_close_show = None
         finally:
             self._restore_button_state(op=op, modifier=modifier, button=button)
+
+    def _hide_image_box(self, hide_image_box: bool, host: EngineGui):
+        # Hide image box if requested
+        self._state.restore_image_box = False
+        if hide_image_box and host.image_box and host.image_box.visible:
+            host.image_box.hide()
+            self._state.restore_image_box = True
 
     def close(self, overlay: Box | None = None) -> None:
         host = self._host
