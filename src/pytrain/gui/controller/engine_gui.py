@@ -380,6 +380,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # make engine/train make_controller
         self._controller_view.build(app)
+        self._popup.get_or_create("extra_functions", "Additional Options", self.build_extra_functions_body)
 
         # make scope buttons
         self.make_scope(app)
