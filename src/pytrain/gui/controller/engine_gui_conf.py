@@ -183,16 +183,19 @@ ENGINE_OPS_LAYOUT = [
 
 EXTRA_FUNCTIONS = [
     [
-        ("ENGINEER_FUEL_LEVEL", "", "fuel-level.jpg", "", "c"),
-        (SMOKE_OFF, "", "smoke-down.jpg", "", "l"),
-    ],
-    [
-        ("ENGINEER_WATER_LEVEL", "", "water-level.jpg", "", "s"),
-        (SMOKE_ON, "", "smoke-up.jpg", "", "l"),
-    ],
-    [
-        ("SPEED_ROLL", "", "roll-speed.jpg", "", "e"),
-    ],
+        [
+            ("ENGINEER_FUEL_LEVEL", "", "fuel-level.jpg", "", "d"),
+            ("ENGINEER_FUEL_LEVEL", "", "fuel-level.jpg", "", "s"),
+            (SMOKE_OFF, "", "smoke-down.jpg", "", "l"),
+        ],
+        [
+            ("ENGINEER_WATER_LEVEL", "", "water-level.jpg", "", "s"),
+            (SMOKE_ON, "", "smoke-up.jpg", "", "l"),
+        ],
+        [
+            ("SPEED_ROLL", "", "roll-speed.jpg", "", "e"),
+        ],
+    ]
 ]
 
 RR_SPEED_LAYOUT = [
