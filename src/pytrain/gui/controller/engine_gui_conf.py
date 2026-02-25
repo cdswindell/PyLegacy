@@ -180,6 +180,17 @@ ENGINE_OPS_LAYOUT = [
         ],
     ],
 ]
+
+EXTRA_FUNCTIONS = [
+    [
+        ("ENGINEER_FUEL_LEVEL", "", "fuel-level.jpg", "", "c"),
+        ("ENGINEER_WATER_LEVEL", "", "water-level.jpg", "", "s"),
+        (SMOKE_OFF, "", "smoke-down.jpg", "", "l"),
+        (SMOKE_ON, "", "smoke-up.jpg", "", "l"),
+        ("SPEED_ROLL", "", "roll-speed.jpg", "", "e"),
+    ],
+]
+
 RR_SPEED_LAYOUT = [
     [("SPEED_STOP_HOLD", "Normal\nStop"), ("EMERGENCY_STOP", "Emergency\nStop")],
     [("SPEED_RESTRICTED", "Restricted"), ("SPEED_SLOW", "Slow")],
@@ -322,14 +333,6 @@ STEWARD_DIALOGS = [
 STATION_DIALOGS = [
     [("STATION_ARRIVING", "Arriving"), ("STATION_ARRIVED", "Arrived")],
     [("STATION_BOARDING", "Boarding"), ("STATION_DEPARTING", "Departing")],
-]
-
-EXTRA_FUNCTIONS = [
-    [
-        (SMOKE_OFF, "", "smoke-down.jpg", "", "l"),
-        (SMOKE_ON, "", "smoke-up.jpg", "", "l"),
-        ("SPEED_ROLL", "", "roll-speed.jpg", "", "e"),
-    ],
 ]
 
 REPEAT_EXCEPTIONS = {
