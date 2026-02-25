@@ -430,7 +430,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._popup.build_button_panel(body, STEWARD_DIALOGS)
 
     def build_extra_functions_body(self, body: Box):
-        self._popup.build_button_panel(body, EXTRA_FUNCTIONS)
+        self.controller_view.populate_keypad(EXTRA_FUNCTIONS, body)
+        self.controller_view.regen_engine_keys_map()
 
     def on_info(self) -> None:
         """Shows state information in popup overlay"""

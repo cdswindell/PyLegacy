@@ -170,7 +170,6 @@ class PopupManager:
         host = self._host
         button_box = Box(body, layout="grid", border=1)
         width = int(3 * host.button_size)
-        regen_needed = False
 
         # Iterates button definitions; creates and configures each button
         for r, kr in enumerate(buttons):
@@ -196,16 +195,9 @@ class PopupManager:
                 )
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
+                host.cache(cell, nb)
 
-                if len(button) > 4 and button[4]:
-                    # for scoped buttons, assign them per their scope
-                    host.controller_view.scope_key(cell, nb, op, button)
-                    regen_needed = True
-                else:
-                    host.cache(cell, nb)
         host.cache(button_box)
-        if regen_needed:
-            host.controller_view.regen_engine_keys_map()
         return button_box
 
     def make_combo_panel(self, body: Box, options: dict, min_width: int = 12) -> Box:

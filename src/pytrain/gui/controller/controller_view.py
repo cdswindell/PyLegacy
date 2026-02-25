@@ -163,44 +163,7 @@ class ControllerView:
             border=0,
             align="left",
         )
-        row = 0
-        for r, kr in enumerate(ENGINE_OPS_LAYOUT):
-            for c, button_info in enumerate(kr):
-                if button_info is None:
-                    continue
-                if isinstance(button_info, tuple):
-                    ops = [button_info]
-                elif isinstance(button_info, list):
-                    ops = button_info
-                else:
-                    raise AttributeError(f"Invalid engine op: {button_info}")
-                for op in ops:
-                    image = label = title_text = None
-                    if len(op) > 1 and op[1]:
-                        image = find_file(op[1])
-                    if len(op) > 2 and op[2]:
-                        label = str(op[2])
-                    if len(op) > 3 and op[3]:
-                        title_text = str(op[3])
-                    cmd = op[0]
-
-                    # make the key button and it's surrounding cell
-                    cell, nb = host.make_keypad_button(
-                        keypad_keys,
-                        label,
-                        row,
-                        c,
-                        visible=True,
-                        bolded=True,
-                        command=host.on_engine_command,
-                        args=[cmd],
-                        image=image,
-                        titlebox_text=title_text,
-                    )
-
-                    # if the key is marked as engine type-specific, save as appropriate
-                    self.scope_key(cell, nb, cmd, op)
-            row += 1
+        self.populate_keypad(ENGINE_OPS_LAYOUT, keypad_keys)
 
         # Postprocess some buttons
         self._setup_controller_behaviors()
@@ -387,6 +350,47 @@ class ControllerView:
 
         # keep host.focus_widget used elsewhere, if you want
         host.focus_widget = self._focus_widget
+
+    def populate_keypad(self, keys: list, keypad_box: Box):
+        host = self._host
+        row = 0
+        for r, kr in enumerate(keys):
+            for c, button_info in enumerate(kr):
+                if button_info is None:
+                    continue
+                if isinstance(button_info, tuple):
+                    ops = [button_info]
+                elif isinstance(button_info, list):
+                    ops = button_info
+                else:
+                    raise AttributeError(f"Invalid button: {button_info}")
+                for op in ops:
+                    image = label = title_text = None
+                    if len(op) > 1 and op[1]:
+                        image = find_file(op[1])
+                    if len(op) > 2 and op[2]:
+                        label = str(op[2])
+                    if len(op) > 3 and op[3]:
+                        title_text = str(op[3])
+                    cmd = op[0]
+
+                    # make the key button and it's surrounding cell
+                    cell, nb = host.make_keypad_button(
+                        keypad_box,
+                        label,
+                        row,
+                        c,
+                        visible=True,
+                        bolded=True,
+                        command=host.on_engine_command,
+                        args=[cmd],
+                        image=image,
+                        titlebox_text=title_text,
+                    )
+
+                    # if the key is marked as engine type-specific, save as appropriate
+                    self.scope_key(cell, nb, cmd, op)
+            row += 1
 
     def regen_engine_keys_map(self):
         # assemble key maps
