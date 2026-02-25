@@ -199,43 +199,7 @@ class ControllerView:
                     )
 
                     # if the key is marked as engine type-specific, save as appropriate
-                    if len(op) > 4 and op[4]:
-                        if op[4] == "e":
-                            self._engine_btns.add(cell)
-                        elif op[4] == "c":
-                            self._common_btns.add(cell)
-                        elif op[4] == "a":
-                            self._acela_btns.add(cell)
-                        elif op[4] == "d":
-                            self._diesel_btns.add(cell)
-                        elif op[4] == "f":
-                            self._freight_btns.add(cell)
-                        elif op[4] == "l":
-                            self._electric_btns.add(cell)
-                        elif op[4] == "p":
-                            self._passenger_btns.add(cell)
-                        elif op[4] == "pf":
-                            self._passenger_freight_btns.add(cell)
-                        elif op[4] == "s":
-                            self._steam_btns.add(cell)
-                        elif op[4] == "t":
-                            self._transformer_btns.add(cell)
-
-                        elif op[4] == "vo":
-                            self._vol_btns.add(cell)
-                        elif op[4] == "sm":
-                            self._smoke_btns.add(cell)
-                        elif op[4] == "cp":
-                            self._cplr_btns.add(cell)
-                        elif op[4] == "bs":
-                            self._bos_brk_btns.add(cell)
-                        key = (cmd, op[4])
-                    else:
-                        key = cmd
-
-                    if key in host.engine_ops_cells:
-                        log.warning("Duplicate engine op: %r: %r", key, op)
-                    host.engine_ops_cells[key] = (key, nb)
+                    self.scope_key(cell, nb, cmd, op)
             row += 1
 
         # Postprocess some buttons
@@ -449,6 +413,46 @@ class ControllerView:
 
         # keep host.focus_widget used elsewhere, if you want
         host.focus_widget = self._focus_widget
+
+    def scope_key(self, cell: TitleBox | Box, nb: HoldButton, cmd: str, op: tuple):
+        host = self._host
+        if len(op) > 4 and op[4]:
+            btn_scope = op[4]
+            if btn_scope == "e":
+                self._engine_btns.add(cell)
+            elif btn_scope == "c":
+                self._common_btns.add(cell)
+            elif btn_scope == "a":
+                self._acela_btns.add(cell)
+            elif btn_scope == "d":
+                self._diesel_btns.add(cell)
+            elif btn_scope == "f":
+                self._freight_btns.add(cell)
+            elif btn_scope == "l":
+                self._electric_btns.add(cell)
+            elif btn_scope == "p":
+                self._passenger_btns.add(cell)
+            elif btn_scope == "pf":
+                self._passenger_freight_btns.add(cell)
+            elif btn_scope == "s":
+                self._steam_btns.add(cell)
+            elif btn_scope == "t":
+                self._transformer_btns.add(cell)
+            elif btn_scope == "vo":
+                self._vol_btns.add(cell)
+            elif btn_scope == "sm":
+                self._smoke_btns.add(cell)
+            elif btn_scope == "cp":
+                self._cplr_btns.add(cell)
+            elif btn_scope == "bs":
+                self._bos_brk_btns.add(cell)
+            key = (cmd, op[4])
+        else:
+            key = cmd
+
+        if key in host.engine_ops_cells:
+            log.warning("Duplicate engine op: %r: %r", key, op)
+        host.engine_ops_cells[key] = (key, nb)
 
     def _setup_controller_behaviors(self):
         """Configures specific button behaviors like repeats, holds, and special toggles."""

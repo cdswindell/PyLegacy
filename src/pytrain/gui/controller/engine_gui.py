@@ -311,6 +311,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return self._acc_tmcc_to_adapter[tmcc_id]
 
     @property
+    def controller_view(self) -> ControllerView:
+        return self._controller_view
+
+    @property
     def active_engine_state(self) -> EngineState | None:
         if self.scope in (CommandScope.ENGINE, CommandScope.TRAIN):
             if (

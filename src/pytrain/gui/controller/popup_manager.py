@@ -195,7 +195,12 @@ class PopupManager:
                 )
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
-                host.cache(cell, nb)
+
+                if len(button) > 4 and button[4]:
+                    # for scoped buttons, assign them per their scope
+                    host.controller_view.scope_key(cell, nb, op, button)
+                else:
+                    host.cache(cell, nb)
         host.cache(button_box)
         return button_box
 

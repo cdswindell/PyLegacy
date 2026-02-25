@@ -338,6 +338,8 @@ STATION_DIALOGS = [
 REPEAT_EXCEPTIONS = {
     TMCC1EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
+    TMCC2EngineCommandEnum.ENGINEER_FUEL_LEVEL: 1,
+    TMCC2EngineCommandEnum.ENGINEER_WATER_LEVEL: 1,
     TMCC2EngineCommandEnum.MOMENTUM: 1,
     TMCC2LightingControl.CAB_AUTO: 1,
     TMCC2LightingControl.CAB_OFF: 1,
