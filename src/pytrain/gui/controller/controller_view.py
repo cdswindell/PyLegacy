@@ -484,7 +484,8 @@ class ControllerView:
         # 3. Setup Hold behaviors (Popups)
         holds = [
             (("AUX2_OPTION_ONE", "e"), host.on_lights),
-            (("AUX3_OPTION_ONE", "l"), host.on_extra),
+            # (("AUX3_OPTION_ONE", "l"), host.on_extra),
+            (("AUX3_OPTION_ONE", "e"), host.on_extra),
             (("ENGINEER_CHATTER", "e"), host.on_crew_dialog),
             (("ENGINEER_CHATTER", "p"), host.on_conductor_actions),
             (("RING_BELL", "e"), host.on_bell_horn_options),

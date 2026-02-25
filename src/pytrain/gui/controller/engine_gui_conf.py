@@ -169,8 +169,9 @@ ENGINE_OPS_LAYOUT = [
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "pf"),
         ],
         [
-            ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "c"),
-            ("AUX3_OPTION_ONE", "", AUX3_KEY, "More...", "l"),
+            ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "pf"),
+            ("AUX3_OPTION_ONE", "", AUX3_KEY, "More...", "e"),
+            # ("AUX3_OPTION_ONE", "", AUX3_KEY, "More...", "l"),
             ("AUX3_OPTION_ONE", "", AUX3_KEY, "Arcing", "a"),
             ("POWERMASTER_OFF", "off_button.jpg", "", "", "t"),
         ],
@@ -327,7 +328,7 @@ EXTRA_FUNCTIONS = [
     [
         (SMOKE_OFF, "", "smoke-down.jpg", "", "l"),
         (SMOKE_ON, "", "smoke-up.jpg", "", "l"),
-        ("SPEED_ROLL", "", "roll-speed.jpg", "", "l"),
+        ("SPEED_ROLL", "", "roll-speed.jpg", "", "e"),
     ],
 ]
 
