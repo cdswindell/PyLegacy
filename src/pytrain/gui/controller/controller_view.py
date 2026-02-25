@@ -205,34 +205,8 @@ class ControllerView:
         # Postprocess some buttons
         self._setup_controller_behaviors()
 
-        # assemble key maps
-        self._all_engine_btns = (
-            self._engine_btns
-            | self._common_btns
-            | self._acela_btns
-            | self._crane_btns
-            | self._diesel_btns
-            | self._electric_btns
-            | self._freight_btns
-            | self._passenger_btns
-            | self._passenger_freight_btns
-            | self._steam_btns
-            | self._transformer_btns
-            | self._bos_brk_btns
-            | self._cplr_btns
-            | self._smoke_btns
-            | self._vol_btns
-        )
-        self._common_btns |= self._vol_btns | self._cplr_btns
-        self._engine_type_key_map = {
-            "a": self._vol_btns | self._engine_btns | self._bos_brk_btns | self._diesel_btns | self._acela_btns,
-            "d": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._diesel_btns,
-            "f": self._common_btns | self._passenger_freight_btns | self._freight_btns,
-            "l": self._common_btns | self._engine_btns | self._electric_btns,
-            "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
-            "s": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._steam_btns,
-            "t": self._transformer_btns,
-        }
+        # generate key maps
+        self.regen_engine_keys_map()
 
         # used to make sure brake and throttle get focus when needed
         host.controller_box.show()
@@ -413,6 +387,36 @@ class ControllerView:
 
         # keep host.focus_widget used elsewhere, if you want
         host.focus_widget = self._focus_widget
+
+    def regen_engine_keys_map(self):
+        # assemble key maps
+        self._all_engine_btns = (
+            self._engine_btns
+            | self._common_btns
+            | self._acela_btns
+            | self._crane_btns
+            | self._diesel_btns
+            | self._electric_btns
+            | self._freight_btns
+            | self._passenger_btns
+            | self._passenger_freight_btns
+            | self._steam_btns
+            | self._transformer_btns
+            | self._bos_brk_btns
+            | self._cplr_btns
+            | self._smoke_btns
+            | self._vol_btns
+        )
+        self._common_btns |= self._vol_btns | self._cplr_btns
+        self._engine_type_key_map = {
+            "a": self._vol_btns | self._engine_btns | self._bos_brk_btns | self._diesel_btns | self._acela_btns,
+            "d": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._diesel_btns,
+            "f": self._common_btns | self._passenger_freight_btns | self._freight_btns,
+            "l": self._common_btns | self._engine_btns | self._electric_btns,
+            "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
+            "s": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._steam_btns,
+            "t": self._transformer_btns,
+        }
 
     def scope_key(self, cell: TitleBox | Box, nb: HoldButton, cmd: str, op: tuple):
         host = self._host
