@@ -281,7 +281,6 @@ class PopupManager:
         hide_image_box: bool = False,
     ) -> None:
         host = self._host
-
         with host.locked():
             # Close any existing popup
             self.close()
@@ -328,13 +327,6 @@ class PopupManager:
         finally:
             self._restore_button_state(op=op, modifier=modifier, button=button)
 
-    def _hide_image_box(self, hide_image_box: bool, host: EngineGui):
-        # Hide image box if requested
-        self._state.restore_image_box = False
-        if hide_image_box and host.image_box and host.image_box.visible:
-            host.image_box.hide()
-            self._state.restore_image_box = True
-
     def close(self, overlay: Box | None = None) -> None:
         host = self._host
 
@@ -369,6 +361,13 @@ class PopupManager:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    def _hide_image_box(self, hide_image_box: bool, host: EngineGui):
+        # Hide image box if requested
+        self._state.restore_image_box = False
+        if hide_image_box and host.image_box and host.image_box.visible:
+            host.image_box.hide()
+            self._state.restore_image_box = True
 
     def _restore_button_state(
         self,
