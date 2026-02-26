@@ -359,11 +359,10 @@ STATION_DIALOGS = [
 
 REPEAT_EXCEPTIONS = {
     TMCC1EngineCommandEnum.AUX2_OPTION_ONE: 1,
+    TMCC1EngineCommandEnum.NUMERIC: 1,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.MOMENTUM: 1,
     TMCC2EngineCommandEnum.NUMERIC: 1,
-    TMCC2RailSoundsDialogControl.ENGINEER_FUEL_LEVEL: 1,
-    TMCC2RailSoundsDialogControl.ENGINEER_WATER_LEVEL: 1,
     TMCC2LightingControl.CAB_AUTO: 1,
     TMCC2LightingControl.CAB_OFF: 1,
     TMCC2LightingControl.CAB_ON: 1,
@@ -396,6 +395,8 @@ REPEAT_EXCEPTIONS = {
     TMCC2LightingControl.WORK_AUTO: 1,
     TMCC2LightingControl.WORK_OFF: 1,
     TMCC2LightingControl.WORK_ON: 1,
+    TMCC2RailSoundsDialogControl.ENGINEER_FUEL_LEVEL: 1,
+    TMCC2RailSoundsDialogControl.ENGINEER_WATER_LEVEL: 1,
 }
 FONT_SIZE_EXCEPTIONS = {
     CYCLE_KEY,
