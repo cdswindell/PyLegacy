@@ -3,12 +3,12 @@ from __future__ import annotations
 import abc
 from abc import ABC
 
-from ...db.component_state_store import ComponentStateStore
-from ...db.engine_state import EngineState
-from ..constants import DEFAULT_ADDRESS, CommandScope
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq
+from ..constants import DEFAULT_ADDRESS, CommandScope
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from ...db.component_state_store import ComponentStateStore
+from ...db.engine_state import EngineState
 
 
 class LaborEffectBase(SequenceReq, ABC):
@@ -61,10 +61,10 @@ class LaborEffectUpReq(LaborEffectBase):
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(SequenceCommandEnum.LABOR_EFFECT_UP_SEQ, address, scope, data, 1)
+        super().__init__(SequenceCommandEnum.LABOR_EFFECT_UP, address, scope, data, 1)
 
 
-SequenceCommandEnum.LABOR_EFFECT_UP_SEQ.value.register_cmd_class(LaborEffectUpReq)
+SequenceCommandEnum.LABOR_EFFECT_UP.value.register_cmd_class(LaborEffectUpReq)
 
 
 class LaborEffectDownReq(LaborEffectBase):
@@ -74,7 +74,7 @@ class LaborEffectDownReq(LaborEffectBase):
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
-        super().__init__(SequenceCommandEnum.LABOR_EFFECT_DOWN_SEQ, address, scope, data, -1)
+        super().__init__(SequenceCommandEnum.LABOR_EFFECT_DOWN, address, scope, data, -1)
 
 
-SequenceCommandEnum.LABOR_EFFECT_DOWN_SEQ.value.register_cmd_class(LaborEffectDownReq)
+SequenceCommandEnum.LABOR_EFFECT_DOWN.value.register_cmd_class(LaborEffectDownReq)

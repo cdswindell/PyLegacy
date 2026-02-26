@@ -202,6 +202,9 @@ EXTRA_FUNCTIONS = [
         [
             ("AUX_NUMBER_1", "blend-up.jpg", "", "", "e"),
         ],
+        [
+            ("LABOR_EFFECT_UP", "effect-up.jpg", "", "", "e"),
+        ],
     ],
     [
         [
@@ -209,6 +212,9 @@ EXTRA_FUNCTIONS = [
         ],
         [
             ("AUX_NUMBER_4", "blend-down.jpg", "", "", "e"),
+        ],
+        [
+            ("LABOR_EFFECT_DOWN", "effect-down.jpg", "", "", "e"),
         ],
     ],
 ]
