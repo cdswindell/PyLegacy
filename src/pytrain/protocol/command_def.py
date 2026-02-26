@@ -43,6 +43,7 @@ class CommandDef(ABC):
         alias: str = None,
         data: int = None,
         filtered: bool = False,
+        aux1: bool = False,
         interval: int = None,
     ) -> None:
         self._command_bits: int = command_bits
@@ -60,6 +61,7 @@ class CommandDef(ABC):
         elif d_map is not None:
             self._d_bits = math.ceil(math.log2(max(d_map.values())))
         self._filtered = filtered
+        self._aux1 = aux1
         self._interval = interval
 
     def __repr__(self) -> str:
@@ -91,7 +93,7 @@ class CommandDef(ABC):
 
     @property
     def is_aux1_prefixed(self) -> bool:
-        return False
+        return self._aux1
 
     def is_valid_data(self, candidate: int, from_bytes: bool = False) -> bool:
         """

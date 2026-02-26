@@ -200,10 +200,16 @@ EXTRA_FUNCTIONS = [
         [
             ("VOLUME_UP", "master-up.jpg", "", "", "e"),
         ],
+        [
+            ("AUX_NUMBER_1", "blend-up.jpg", "", "", "e"),
+        ],
     ],
     [
         [
             ("VOLUME_DOWN", "master-down.jpg", "", "", "e"),
+        ],
+        [
+            ("AUX_NUMBER_4", "blend-down.jpg", "", "", "e"),
         ],
     ],
 ]

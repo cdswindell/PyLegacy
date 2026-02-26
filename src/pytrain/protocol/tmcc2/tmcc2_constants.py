@@ -71,7 +71,7 @@ class TMCC2EngineOpsEnum(CommandDefEnum):
 
 
 # All Legacy/TMCC2 commands begin with one of the following 1 byte sequences
-# Engine/Train/Parameter 2 digit address is first 7 bits of first byte
+# Engine/Train/Parameter 2-digit address is first 7 bits of first byte
 
 
 @unique
@@ -105,6 +105,7 @@ class TMCC2CommandDef(CommandDef):
         alias: str = None,
         data: int = None,
         filtered=False,
+        aux1: bool = False,
         interval: int = None,
         d4_broadcast: bool = False,  # if True, command is broadcast from Base 3 for D4 engines
     ) -> None:
@@ -117,6 +118,7 @@ class TMCC2CommandDef(CommandDef):
             alias=alias,
             data=data,
             filtered=filtered,
+            aux1=aux1,
             interval=interval,
         )
         self._scope = scope
@@ -417,6 +419,16 @@ class TMCC2EngineCommandEnum(TMCC2Enum, TMCC2EngineOpsEnum):
     NUMBER_8 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8)
     NUMBER_9 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9)
     NUMBER_0 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0)
+    AUX_NUMBER_1 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 1, alias="NUMERIC", data=1, aux1=True)
+    AUX_NUMBER_2 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 2, alias="NUMERIC", data=2, aux1=True)
+    AUX_NUMBER_3 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3, aux1=True)
+    AUX_NUMBER_4 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 4, alias="NUMERIC", data=4, aux1=True)
+    AUX_NUMBER_5 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5, aux1=True)
+    AUX_NUMBER_6 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 6, alias="NUMERIC", data=6, aux1=True)
+    AUX_NUMBER_7 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 7, alias="NUMERIC", data=7, aux1=True)
+    AUX_NUMBER_8 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8, aux1=True)
+    AUX_NUMBER_9 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9, aux1=True)
+    AUX_NUMBER_0 = TMCC2CommandDef(TMCC2_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0, aux1=True)
 
 
 # map dereferenced commands to their aliases
