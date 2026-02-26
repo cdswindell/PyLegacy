@@ -1321,13 +1321,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     @staticmethod
     def get_repeats(cmd: CommandDefEnum, repeat: int) -> int:
-        print(f"get_repeats: {cmd} {cmd.name} alias: {cmd.is_alias} {cmd.alias} {repeat}")
+        print(f"get_repeats: {cmd} {cmd.name} alias: {cmd.is_alias} {cmd.alias_enum} {repeat}")
         if cmd in REPEAT_EXCEPTIONS:
             return REPEAT_EXCEPTIONS.get(cmd)
-        print(f"get_repeats: alias: {cmd.is_alias} {cmd.alias.name} {cmd.alias in REPEAT_EXCEPTIONS}")
-        if cmd.is_alias and cmd.alias in REPEAT_EXCEPTIONS:
-            print(f"Alias: {cmd.alias} {cmd.alias.name}")
-            return REPEAT_EXCEPTIONS.get(cmd.alias)
+        print(f"get_repeats: alias: {cmd.is_alias} {cmd.alias_enum.name} {cmd.alias_enum in REPEAT_EXCEPTIONS}")
+        if cmd.is_alias and cmd.alias_enum in REPEAT_EXCEPTIONS:
+            print(f"Alias: {cmd.alias_enum} {cmd.alias_enum.name}")
+            return REPEAT_EXCEPTIONS.get(cmd.alias_enum)
         return repeat
 
     def do_engine_command(

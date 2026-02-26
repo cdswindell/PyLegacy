@@ -279,5 +279,14 @@ class CommandDefEnum(CommandDefMixins, Enum):
         return self.command_def.alias
 
     @property
+    def alias_enum(self) -> E | None:
+        if self.is_alias:
+            if isinstance(self.alias, tuple):
+                return self.alias[0]
+            else:
+                return self.alias
+        return None
+
+    @property
     def as_bytes(self) -> bytes:
         return self.value.as_bytes
