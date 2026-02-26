@@ -221,12 +221,18 @@ class CommandReq:
         )
 
         if request and request.command_def.is_aux1_prefixed is True:
-            cmd_enum = (
-                TMCC1AuxCommandEnum.AUX1_OPT_ONE
-                if request.scope == CommandScope.ACC
-                else TMCC1EngineCommandEnum.AUX1_OPTION_ONE
-            )
+            if request.scope == CommandScope.ACC:
+                cmd_enum = TMCC1AuxCommandEnum.AUX1_OPT_ONE
+            elif request.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                cmd_enum = (
+                    TMCC1EngineCommandEnum.AUX1_OPTION_ONE
+                    if isinstance(request.command_def, TMCC1CommandDef)
+                    else TMCC2EngineCommandEnum.AUX1_OPTION_ONE
+                )
+            else:
+                raise ValueError(f"Invalid scope: {request.scope}")
             prefix_bytes = CommandReq(cmd_enum, address=request.address, scope=request.scope).as_bytes
+            repeat = 1
         else:
             prefix_bytes = None
 
