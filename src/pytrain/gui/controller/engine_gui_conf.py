@@ -195,7 +195,17 @@ EXTRA_FUNCTIONS = [
         [
             ("SPEED_ROLL", "roll-speed.jpg", "", "", "e"),
         ],
-    ]
+    ],
+    [
+        [
+            ("VOLUME_UP", "master-up.jpg", "", "", "e"),
+        ],
+    ],
+    [
+        [
+            ("VOLUME_DOWN", "master-down.jpg", "", "", "e"),
+        ],
+    ],
 ]
 
 RR_SPEED_LAYOUT = [
