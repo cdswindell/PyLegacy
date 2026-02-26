@@ -1319,6 +1319,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             else:
                 self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state, delay)
 
+    @staticmethod
+    def get_repeats(cmd: CommandDefEnum, repeat: int) -> int:
+        if cmd in REPEAT_EXCEPTIONS:
+            return REPEAT_EXCEPTIONS.get(cmd)
+        if cmd.is_alias and cmd.alias in REPEAT_EXCEPTIONS:
+            return REPEAT_EXCEPTIONS.get(cmd.alias)
+        return repeat
+
     def do_engine_command(
         self,
         tmcc_id: int | Any,
@@ -1347,7 +1355,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 cmd_enum = TMCC1EngineCommandEnum.by_name(target)
             if cmd_enum:
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
-                repeat = REPEAT_EXCEPTIONS.get(cmd_enum, repeat)
+                repeat = self.get_repeats(cmd_enum, repeat)
                 cmd.send(repeat=repeat, delay=delay)
                 if do_ops is True and self._keypad_view.is_entry_mode is True:
                     self.ops_mode(update_info=True)

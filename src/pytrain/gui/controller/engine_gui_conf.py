@@ -361,6 +361,7 @@ REPEAT_EXCEPTIONS = {
     TMCC1EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE: 1,
     TMCC2EngineCommandEnum.MOMENTUM: 1,
+    TMCC2EngineCommandEnum.NUMERIC: 1,
     TMCC2RailSoundsDialogControl.ENGINEER_FUEL_LEVEL: 1,
     TMCC2RailSoundsDialogControl.ENGINEER_WATER_LEVEL: 1,
     TMCC2LightingControl.CAB_AUTO: 1,
