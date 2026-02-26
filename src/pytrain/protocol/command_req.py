@@ -231,10 +231,12 @@ class CommandReq:
                 )
             else:
                 raise ValueError(f"Invalid scope: {request.scope}")
-            prefix_bytes = CommandReq(cmd_enum, address=request.address, scope=request.scope).as_bytes
+            # prefix command is sent twice
+            prefix = CommandReq(cmd_enum, address=request.address, scope=request.scope).as_bytes
+            prefix_bytes = [prefix] * 2
             repeat = 1
         else:
-            prefix_bytes = None
+            prefix_bytes = []
 
         # send command to comm buffer
         if buffer is None:
@@ -244,8 +246,8 @@ class CommandReq:
         delay = 0 if delay is None else delay
         duration = 0 if duration is None else duration
         for rep_no in range(repeat):
-            if prefix_bytes:
-                buffer.enqueue_command(prefix_bytes, delay)
+            for prefix in prefix_bytes:
+                buffer.enqueue_command(prefix, delay)
             # send the command to the Lionel Base 3 (or Ser 2)
             if request:
                 buffer.enqueue_command(request, delay)
