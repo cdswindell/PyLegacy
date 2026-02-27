@@ -366,7 +366,6 @@ class ControllerView:
         if label not in self._gauges:
             self._gauges[label] = []
         self._gauges[label].append(gauge)
-        print(f"register_gauge: {label}: {gauge}")
 
     def populate_keypad(self, keys: list, keypad_box: Box):
         host = self._host
