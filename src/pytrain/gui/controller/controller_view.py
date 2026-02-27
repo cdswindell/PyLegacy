@@ -145,7 +145,7 @@ class ControllerView:
 
             # --- Gauges ---
             for gauge_type in ["fuel", "water"]:
-                gauges = self._gauges.get("fuel", [])
+                gauges = self._gauges.get(gauge_type, [])
                 for gauge in gauges:
                     if gauge_type == "fuel":
                         gauge.set_value(state.fuel_level_pct)
@@ -538,7 +538,7 @@ class ControllerView:
 
         # 5. Gauge commands
         for gauge_type in ["fuel", "water"]:
-            gauges = self._gauges.get("fuel", [])
+            gauges = self._gauges.get(gauge_type, [])
             for gauge in gauges:
                 gauge.command = host.on_engine_command
                 if gauge_type == "fuel":
