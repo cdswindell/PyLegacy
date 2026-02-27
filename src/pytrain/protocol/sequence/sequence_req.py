@@ -6,8 +6,8 @@ from collections.abc import Sequence
 from time import sleep
 from typing import Callable, List, Tuple, TypeVar
 
-from ...pdi.pdi_req import PdiReq
 from ..multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
+from ...pdi.pdi_req import PdiReq
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -45,6 +45,7 @@ class SequenceReq(CommandReq, Sequence):
     ) -> Self:
         if command.value.cmd_class is None:
             raise ValueError(f"Sequence Command {command} does not have a command class registered")
+        print(f"SequenceReq.build: {command} {address} {data} {scope}")
         return command.value.cmd_class(address, data, scope)
 
     def __init__(

@@ -27,7 +27,7 @@ class LaborEffectBase(SequenceReq, ABC):
         self._scope = scope
         self._data = data
         self._state = None
-        self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, scope=CommandScope.ENGINE)
+        self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, scope=scope)
 
     @property
     def scope(self) -> CommandScope | None:
@@ -61,6 +61,7 @@ class LaborEffectUpReq(LaborEffectBase):
         data: int = 0,
         scope: CommandScope = CommandScope.ENGINE,
     ) -> None:
+        print(f"LaborEffectUpReq: {address} {data} {scope}")
         super().__init__(SequenceCommandEnum.LABOR_EFFECT_UP, address, scope, data, 1)
 
 
