@@ -20,6 +20,7 @@ from guizero import Box, Slider, Text, TitleBox
 from guizero.base import Widget
 
 from .engine_gui_conf import BELL_KEY, ENGINE_OPS_LAYOUT, MOMENTUM, MOM_TB, TRAIN_BRAKE
+from ..components.analog_gauge import AnalogGaugeWidget
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 from ...db.engine_state import EngineState
@@ -466,6 +467,11 @@ class ControllerView:
             log.warning("Duplicate engine op: %r: %r", key, op)
         host.engine_ops_cells[key] = (key, nb)
 
+        # handle gauges
+        if isinstance(nb, AnalogGaugeWidget):
+            print(f"Adding gauge: {nb.label}")
+            host.register_gauge(nb.label, nb)
+
     def _setup_controller_behaviors(self):
         """Configures specific button behaviors like repeats, holds, and special toggles."""
         host = self._host
@@ -500,7 +506,6 @@ class ControllerView:
         # 3. Setup Hold behaviors (Popups)
         holds = [
             (("AUX2_OPTION_ONE", "e"), host.on_lights),
-            # (("AUX3_OPTION_ONE", "l"), host.on_extra),
             (("AUX3_OPTION_ONE", "e"), host.on_extra),
             (("ENGINEER_CHATTER", "e"), host.on_crew_dialog),
             (("ENGINEER_CHATTER", "p"), host.on_conductor_actions),

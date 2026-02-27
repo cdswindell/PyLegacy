@@ -46,6 +46,7 @@ from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
 from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
+from ..components.analog_gauge import AnalogGaugeWidget
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector
@@ -328,6 +329,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 return self._active_engine_state
         else:
             return None
+
+    def register_gauge(self, label: str, gauge: AnalogGaugeWidget) -> None:
+        print(f"register_gauge: {label}: {gauge}")
 
     def on_sensor_track_update(self, state: IrdaState) -> None:
         if state.last_train_id:

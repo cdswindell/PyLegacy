@@ -189,7 +189,7 @@ EXTRA_FUNCTIONS = [
             (SMOKE_OFF, "smoke-down.jpg", "", "", "l"),
         ],
         [
-            ("ENGINEER_WATER_LEVEL", "water-level.jpg", "", "", "s"),
+            ("ENGINEER_WATER_LEVEL", AnalogGaugeWidget, "Water", "", "s"),
             (SMOKE_ON, "smoke-up.jpg", "", "", "l"),
         ],
         [
