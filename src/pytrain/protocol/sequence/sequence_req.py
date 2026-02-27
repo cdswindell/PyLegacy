@@ -64,6 +64,7 @@ class SequenceReq(CommandReq, Sequence):
         # have to get state before calling parent constructor
         self._state = ComponentStateStore.get_state(scope, address, create=False)
         super().__init__(command, address, 0, scope)
+        print(f"SequenceReq.__init__: {command} {address} {scope} {self}")
         self._repeat = repeat
         self._delay = delay
 
@@ -125,7 +126,11 @@ class SequenceReq(CommandReq, Sequence):
         index: int = None,
     ) -> None:
         if isinstance(request, CommandDefEnum):
+            print(
+                f"SequenceReq.add: adding CommandDefEnum {request} with address {address}, data {data}, scope {scope}"
+            )
             request = CommandReq.build(request, address=address, data=data, scope=scope)
+            print(f"Request: {request}")
         elif isinstance(request, CommandReq) or isinstance(request, PdiReq):
             pass
         elif request is None:
