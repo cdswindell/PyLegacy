@@ -17,7 +17,7 @@ class AnalogGaugeWidget(Box):
     A guizero widget (Box) containing a Tk Canvas analog gauge.
 
     Usage:
-        g = AnalogGaugeWidget(parent, label="Fuel", size=150, on_click=...)
+        g = AnalogGaugeWidget(parent, label="Fuel", size=120, on_click=...)
         g.set_value(73)
     """
 
@@ -59,6 +59,7 @@ class AnalogGaugeWidget(Box):
             bg="white",
             highlightthickness=0,
             bd=0,
+            relief="flat",  # avoid any non-uniform Tk border
         )
         self.tk.pack_propagate(False)  # keep Box square
         self.canvas.pack(expand=True)  # center it
@@ -87,14 +88,15 @@ class AnalogGaugeWidget(Box):
     def _draw_static(self):
         s = self.size
 
-        # Move gauge up a bit and shrink it so it breathes inside a 120x120 cell
+        # Gauge center: slightly above mid to leave room for label
         cx, cy = s / 2, s * 0.50
 
+        # Radii tuned for 120x120 button cell (breathing room for E/F + label)
         r_outer = s * 0.38
         r_inner = s * 0.33
         r_tick = s * 0.30
 
-        rim_w = max(2, int(s * 0.025))  # thinner rim for 120px
+        rim_w = max(2, int(s * 0.025))  # thinner rim for small sizes
 
         # Arc bbox derived from r_outer
         x0, y0 = cx - r_outer, cy - r_outer
@@ -109,7 +111,15 @@ class AnalogGaugeWidget(Box):
 
         # Outer + inner rim arcs
         self.canvas.create_arc(
-            x0, y0, x1, y1, start=arc_start, extent=arc_extent, style="arc", width=rim_w, outline="black"
+            x0,
+            y0,
+            x1,
+            y1,
+            start=arc_start,
+            extent=arc_extent,
+            style="arc",
+            width=rim_w,
+            outline="black",
         )
 
         xi0, yi0 = cx - r_inner, cy - r_inner
@@ -142,10 +152,12 @@ class AnalogGaugeWidget(Box):
             y2t = cy - r_tick * math.sin(ang)
             self.canvas.create_line(x1t, y1t, x2t, y2t, width=tick_w, fill="black")
 
-        # --- E / F placed by angle, pulled inward so they don't touch the rim ---
+        # --- E / F: move inward + add a tiny white knockout so letters never blend into rim/ticks ---
         ef_font = ("TkDefaultFont", max(9, int(s * 0.085)), "bold")
-        ef_r = r_inner * 0.72
-        ef_margin_deg = 10.0  # keeps glyphs away from arc endpoints
+
+        # Pull letters farther inside the face and away from arc endpoints
+        ef_r = r_inner * 0.58
+        ef_margin_deg = 18.0
 
         e_ang = math.radians(self._map_value_to_deg(0) + ef_margin_deg)
         f_ang = math.radians(self._map_value_to_deg(100) - ef_margin_deg)
@@ -155,17 +167,31 @@ class AnalogGaugeWidget(Box):
         fx = cx + ef_r * math.cos(f_ang)
         fy = cy - ef_r * math.sin(f_ang)
 
-        self.canvas.create_text(ex, ey, text="E", font=ef_font, fill="black")
-        self.canvas.create_text(fx, fy, text="F", font=ef_font, fill="black")
+        e_id = self.canvas.create_text(ex, ey, text="E", font=ef_font, fill="black")
+        f_id = self.canvas.create_text(fx, fy, text="F", font=ef_font, fill="black")
+
+        pad = 2  # knockout padding
+        for tid in (e_id, f_id):
+            xk0, yk0, xk1, yk1 = self.canvas.bbox(tid)
+            self.canvas.create_rectangle(xk0 - pad, yk0 - pad, xk1 + pad, yk1 + pad, fill="white", outline="")
+            self.canvas.lift(tid)  # keep letter on top
 
         # Label tucked up into the gauge (slight overlap into the empty lower area)
         label_font = ("TkDefaultFont", max(10, int(s * 0.105)), "bold")
-        label_y = cy + r_outer * 0.72  # was 0.95; 0.70–0.78 is the sweet spot at 120px
+        label_y = cy + r_outer * 0.72
         self.canvas.create_text(cx, label_y, text=self.label, font=label_font, fill="black")
 
-        # Thin, crisp, uniform border (2px) — integer coords for even thickness
+        # ---- Button-style outer border (uniform like the Master buttons) ----
+        # Use integer coords so stroke is crisp and even on all sides.
         border_w = 2
-        self.canvas.create_rectangle(1, 1, s - 1, s - 1, outline="black", width=border_w)
+        self.canvas.create_rectangle(
+            1,
+            1,
+            s - 2,
+            s - 2,  # inset keeps the 2px stroke fully inside the canvas
+            outline="black",
+            width=border_w,
+        )
 
     def set_value(self, value_0_100: int):
         self.value = int(max(0, min(100, value_0_100)))
@@ -186,5 +212,10 @@ class AnalogGaugeWidget(Box):
 
         self._needle_id = self.canvas.create_line(cx, cy, x, y, width=5, fill="black")
         self._hub_id = self.canvas.create_oval(
-            cx - hub_r, cy - hub_r, cx + hub_r, cy + hub_r, fill="black", outline="black"
+            cx - hub_r,
+            cy - hub_r,
+            cx + hub_r,
+            cy + hub_r,
+            fill="black",
+            outline="black",
         )
