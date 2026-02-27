@@ -60,7 +60,8 @@ class AnalogGaugeWidget(Box):
             highlightthickness=0,
             bd=0,
         )
-        self.canvas.pack(fill="both", expand=True)
+        self.tk.pack_propagate(False)  # keep Box square
+        self.canvas.pack(expand=True)  # center it
 
         self._needle_id = None
         self._hub_id = None
@@ -85,11 +86,11 @@ class AnalogGaugeWidget(Box):
 
     def _draw_static(self):
         s = self.size
-        cx, cy = s / 2, s * 0.64
+        cx, cy = s / 2, s * 0.56
 
-        r_outer = s * 0.46  # USED
-        r_inner = s * 0.40
-        r_tick = s * 0.38
+        r_outer = s * 0.42
+        r_inner = s * 0.36
+        r_tick = s * 0.34
 
         rim_w = max(3, int(s * 0.035))
 
@@ -147,11 +148,22 @@ class AnalogGaugeWidget(Box):
         label_font = ("TkDefaultFont", max(12, int(s * 0.12)), "bold")
         self.canvas.create_text(cx, s * 0.91, text=self.label, font=label_font, fill="black")
 
+        # ---- Button-style outer border ----
+        border_w = 3
+        self.canvas.create_rectangle(
+            border_w / 2,
+            border_w / 2,
+            self.size - border_w / 2,
+            self.size - border_w / 2,
+            outline="black",
+            width=border_w,
+        )
+
     def set_value(self, value_0_100: int):
         self.value = int(max(0, min(100, value_0_100)))
 
         s = self.size
-        cx, cy = s / 2, s * 0.64
+        cx, cy = s / 2, s * 0.56
 
         r_needle = s * 0.33
         hub_r = max(5, int(s * 0.04))

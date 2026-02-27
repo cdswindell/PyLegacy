@@ -371,7 +371,6 @@ class ControllerView:
                             image = find_file(op[1])
                         elif isinstance(op[1], type):
                             generator = op[1]
-                            print(generator)
                     if len(op) > 2 and op[2]:
                         label = str(op[2])
                     if len(op) > 3 and op[3]:
