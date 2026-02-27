@@ -22,11 +22,9 @@ class LaborEffectBase(SequenceReq, ABC):
         data: int = 0,
         inc: int = 0,
     ) -> None:
-        super().__init__(command, address, scope)
         self._inc = inc
-        self._scope = scope
-        self._data = data
-        self._state = None
+        self._noop = data
+        super().__init__(command, address, scope)
         self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, scope=scope)
 
     @property
