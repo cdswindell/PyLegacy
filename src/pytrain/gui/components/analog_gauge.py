@@ -86,13 +86,15 @@ class AnalogGaugeWidget(Box):
 
     def _draw_static(self):
         s = self.size
-        cx, cy = s / 2, s * 0.56
 
-        r_outer = s * 0.42
-        r_inner = s * 0.36
-        r_tick = s * 0.34
+        # Move gauge up a bit and shrink it so it breathes inside a 120x120 cell
+        cx, cy = s / 2, s * 0.50
 
-        rim_w = max(3, int(s * 0.035))
+        r_outer = s * 0.38
+        r_inner = s * 0.33
+        r_tick = s * 0.30
+
+        rim_w = max(2, int(s * 0.025))  # thinner rim for 120px
 
         # Arc bbox derived from r_outer
         x0, y0 = cx - r_outer, cy - r_outer
@@ -105,7 +107,7 @@ class AnalogGaugeWidget(Box):
             arc_start = self.end_deg
             arc_extent = -arc_extent
 
-        # Outer + inner rim arcs (tight icon look)
+        # Outer + inner rim arcs
         self.canvas.create_arc(
             x0, y0, x1, y1, start=arc_start, extent=arc_extent, style="arc", width=rim_w, outline="black"
         )
@@ -120,19 +122,19 @@ class AnalogGaugeWidget(Box):
             start=arc_start,
             extent=arc_extent,
             style="arc",
-            width=max(2, rim_w - 2),
+            width=max(1, rim_w - 1),
             outline="black",
         )
 
-        # Ticks (clean at 150x150)
+        # Ticks
         majors = {0, 5, 10}
         for i in range(0, 11):
             v = i / 10.0
             ang = math.radians(self._map_value_to_deg(v * 100))
             is_major = i in majors
 
-            tick_len = s * (0.075 if is_major else 0.04)
-            tick_w = 3 if is_major else 2
+            tick_len = s * (0.060 if is_major else 0.032)
+            tick_w = 2 if is_major else 1
 
             x1t = cx + (r_tick - tick_len) * math.cos(ang)
             y1t = cy - (r_tick - tick_len) * math.sin(ang)
@@ -140,32 +142,37 @@ class AnalogGaugeWidget(Box):
             y2t = cy - r_tick * math.sin(ang)
             self.canvas.create_line(x1t, y1t, x2t, y2t, width=tick_w, fill="black")
 
-        # E/F + label (mixed case)
-        ef_font = ("TkDefaultFont", max(10, int(s * 0.10)), "bold")
-        self.canvas.create_text(s * 0.18, s * 0.68, text="E", font=ef_font, fill="black")
-        self.canvas.create_text(s * 0.82, s * 0.68, text="F", font=ef_font, fill="black")
+        # --- E / F placed by angle, pulled inward so they don't touch the rim ---
+        ef_font = ("TkDefaultFont", max(9, int(s * 0.085)), "bold")
+        ef_r = r_inner * 0.72
+        ef_margin_deg = 10.0  # keeps glyphs away from arc endpoints
 
-        label_font = ("TkDefaultFont", max(12, int(s * 0.12)), "bold")
-        self.canvas.create_text(cx, s * 0.91, text=self.label, font=label_font, fill="black")
+        e_ang = math.radians(self._map_value_to_deg(0) + ef_margin_deg)
+        f_ang = math.radians(self._map_value_to_deg(100) - ef_margin_deg)
 
-        # ---- Button-style outer border ----
-        border_w = 3
-        self.canvas.create_rectangle(
-            border_w / 2,
-            border_w / 2,
-            self.size - border_w / 2,
-            self.size - border_w / 2,
-            outline="black",
-            width=border_w,
-        )
+        ex = cx + ef_r * math.cos(e_ang)
+        ey = cy - ef_r * math.sin(e_ang)
+        fx = cx + ef_r * math.cos(f_ang)
+        fy = cy - ef_r * math.sin(f_ang)
+
+        self.canvas.create_text(ex, ey, text="E", font=ef_font, fill="black")
+        self.canvas.create_text(fx, fy, text="F", font=ef_font, fill="black")
+
+        # Label tucked up into the gauge (slight overlap into the empty lower area)
+        label_font = ("TkDefaultFont", max(10, int(s * 0.105)), "bold")
+        label_y = cy + r_outer * 0.72  # was 0.95; 0.70–0.78 is the sweet spot at 120px
+        self.canvas.create_text(cx, label_y, text=self.label, font=label_font, fill="black")
+
+        # Thin, crisp, uniform border (2px) — integer coords for even thickness
+        border_w = 2
+        self.canvas.create_rectangle(1, 1, s - 1, s - 1, outline="black", width=border_w)
 
     def set_value(self, value_0_100: int):
         self.value = int(max(0, min(100, value_0_100)))
 
         s = self.size
-        cx, cy = s / 2, s * 0.56
-
-        r_needle = s * 0.33
+        cx, cy = s / 2, s * 0.50
+        r_needle = s * 0.29
         hub_r = max(5, int(s * 0.04))
 
         ang = math.radians(self._map_value_to_deg(self.value))
