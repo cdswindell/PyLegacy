@@ -379,8 +379,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._keypad_view.build(app)
 
         # make engine/train make_controller
-        self._controller_view.build(app)
         self._popup.get_or_create("extra_functions", "Additional Options", self.build_extra_functions_body)
+        self._controller_view.build(app)
 
         # make scope buttons
         self.make_scope(app)
