@@ -69,7 +69,7 @@ class ControllerView:
     # -----------------------------
 
     # noinspection PyProtectedMember
-    def update_from_state(self, state: EngineState | None, throttle_state: EngineState | None):
+    def update(self, state: EngineState | None, throttle_state: EngineState | None):
         """
         Paint throttle/brake/momentum + direction buttons from the given state.
 
@@ -144,9 +144,13 @@ class ControllerView:
                 rev_btn.bg = host._active_bg if state.is_reverse else host._inactive_bg
 
             # --- Gauges ---
-            fuel_gauges = self._gauges.get("fuel", [])
-            for gauge in fuel_gauges:
-                gauge.set_value(state.fuel_level_pct)
+            for gauge_type in ["fuel", "water"]:
+                gauges = self._gauges.get("fuel", [])
+                for gauge in gauges:
+                    if gauge_type == "fuel":
+                        gauge.set_value(state.fuel_level_pct)
+                    elif gauge_type == "water":
+                        gauge.set_value(state.water_level_pct)
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
@@ -481,7 +485,6 @@ class ControllerView:
 
         # handle gauges
         if isinstance(nb, AnalogGaugeWidget):
-            print(f"Adding gauge: {nb.label}")
             self._register_gauge(nb.label, nb)
 
     def _setup_controller_behaviors(self):
@@ -532,6 +535,16 @@ class ControllerView:
         # 4. Loco-specific Horn/Whistle control holds
         for loco in ["d", "s", "l"]:
             get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
+
+        # 5. Gauge commands
+        for gauge_type in ["fuel", "water"]:
+            gauges = self._gauges.get("fuel", [])
+            for gauge in gauges:
+                gauge.command = host.on_engine_command
+                if gauge_type == "fuel":
+                    gauge.args = ["ENGINEER_FUEL_LEVEL"]
+                elif gauge_type == "water":
+                    gauge.args = ["ENGINEER_WATER_LEVEL"]
 
     # noinspection PyProtectedMember
     def apply_engine_type(self, state: EngineState | None) -> None:

@@ -676,7 +676,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 throttle_state = None
 
             # UI painting lives in ControllerView now
-            self._controller_view.update_from_state(state=state, throttle_state=throttle_state)
+            self._controller_view.update(state=state, throttle_state=throttle_state)
 
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:

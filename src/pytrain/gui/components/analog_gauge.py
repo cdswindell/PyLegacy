@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
-from typing import Callable
+from typing import Callable, Any
 
 from guizero import Box
 
@@ -35,6 +35,7 @@ class AnalogGaugeWidget(Box):
         label: str,
         size: int = 150,
         command: Callable | None = None,  # callable(int)->None
+        args: list[Any] | None = None,
         start_deg: float = 210.0,
         end_deg: float = -30.0,
         align=None,
@@ -55,6 +56,7 @@ class AnalogGaugeWidget(Box):
         self.size = int(size)
         self.label = label
         self._command = command
+        self._args = args
         self.start_deg = float(start_deg)
         self.end_deg = float(end_deg)
         self.value = 0
@@ -97,6 +99,14 @@ class AnalogGaugeWidget(Box):
     @command.setter
     def command(self, callback: Callable | None) -> None:
         self._command = callback
+
+    @property
+    def args(self) -> list[Any] | None:
+        return self._args
+
+    @args.setter
+    def args(self, args: list[Any] | None) -> None:
+        self._args = args
 
     def _map_value_to_deg(self, value_0_100: float) -> float:
         v = max(0.0, min(100.0, float(value_0_100)))
@@ -302,10 +312,13 @@ class AnalogGaugeWidget(Box):
     def _on_press(self, _event) -> None:
         self._inverted = True
         self._apply_theme()
+        # send command if specified
+        if callable(self._command):
+            if self._args is not None:
+                self._command(*self._args)
+            else:
+                self._command(self.value)
 
     def _on_release(self, _event) -> None:
         self._inverted = False
         self._apply_theme()
-
-        if callable(self._command):
-            self._command(self.value)
