@@ -363,7 +363,7 @@ class GuiZeroBase(Thread, ABC):
         #  Create PushButton
         # ------------------------------------------------------------
         if generator:
-            nb = generator(cell.tk, label)
+            nb = generator(cell, label)
         else:
             nb = HoldButton(
                 cell,

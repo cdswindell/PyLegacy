@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from ..components.analog_gauge import AnalogGauge
+from ..components.analog_gauge import AnalogGaugeWidget
 from ...db.accessory_state import AccessoryState
 from ...db.engine_state import TrainState
 from ...pdi.asc2_req import Asc2Req
@@ -184,8 +184,8 @@ ENGINE_OPS_LAYOUT = [
 EXTRA_FUNCTIONS = [
     [
         [
-            ("ENGINEER_FUEL_LEVEL", AnalogGauge, "Fuel", "", "d"),
-            ("ENGINEER_FUEL_LEVEL", AnalogGauge, "Fuel", "", "s"),
+            ("ENGINEER_FUEL_LEVEL", AnalogGaugeWidget, "Fuel", "", "d"),
+            ("ENGINEER_FUEL_LEVEL", AnalogGaugeWidget, "Fuel", "", "s"),
             (SMOKE_OFF, "smoke-down.jpg", "", "", "l"),
         ],
         [
