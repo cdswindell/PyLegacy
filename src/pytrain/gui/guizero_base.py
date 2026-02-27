@@ -296,6 +296,7 @@ class GuiZeroBase(Thread, ABC):
         col: int,
         size: int | None = None,
         image: str = None,
+        generator: type = None,
         visible: bool = True,
         bolded: bool = True,
         titlebox_text: str = None,
@@ -361,38 +362,41 @@ class GuiZeroBase(Thread, ABC):
         # ------------------------------------------------------------
         #  Create PushButton
         # ------------------------------------------------------------
-        nb = HoldButton(
-            cell,
-            align="bottom",
-            args=args,
-            hold_threshold=1.0,
-            repeat_interval=0.2,
-            on_press=command,
-        )
-        nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
-
-        # ------------------------------------------------------------
-        #  Image vs text button behavior
-        # ------------------------------------------------------------
-        if image:
-            nb.image = image
-            nb.images = self.get_titled_image(image)
+        if generator:
+            nb = generator(cell.tk, label)
         else:
-            # Make tk.Button fill the entire cell and draw full border
-            # only do this for text buttons
-            nb.text = label
-            nb.text_size = size
-            nb.text_bold = bolded
-            nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
-            if hover:
-                nb.tk.config(
-                    borderwidth=3,
-                    relief="raised",
-                    highlightthickness=1,
-                    highlightbackground="black",
-                    activebackground="#e0e0e0",
-                    background="#f7f7f7",
-                )
+            nb = HoldButton(
+                cell,
+                align="bottom",
+                args=args,
+                hold_threshold=1.0,
+                repeat_interval=0.2,
+                on_press=command,
+            )
+            nb.tk.configure(bd=1, relief="solid", highlightthickness=1)
+
+            # ------------------------------------------------------------
+            #  Image vs text button behavior
+            # ------------------------------------------------------------
+            if image:
+                nb.image = image
+                nb.images = self.get_titled_image(image)
+            else:
+                # Make tk.Button fill the entire cell and draw full border
+                # only do this for text buttons
+                nb.text = label
+                nb.text_size = size
+                nb.text_bold = bolded
+                nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
+                if hover:
+                    nb.tk.config(
+                        borderwidth=3,
+                        relief="raised",
+                        highlightthickness=1,
+                        highlightbackground="black",
+                        activebackground="#e0e0e0",
+                        background="#f7f7f7",
+                    )
         # ------------------------------------------------------------
         #  Grid spacing & uniform sizing
         # ------------------------------------------------------------

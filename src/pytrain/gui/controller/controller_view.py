@@ -365,9 +365,13 @@ class ControllerView:
                 else:
                     raise AttributeError(f"Invalid button: {button_info}")
                 for op in ops:
-                    image = label = title_text = None
+                    image = label = generator = title_text = None
                     if len(op) > 1 and op[1]:
-                        image = find_file(op[1])
+                        if isinstance(op[1], str):
+                            image = find_file(op[1])
+                        elif isinstance(op[1], type):
+                            generator = op[1]
+                            print(generator)
                     if len(op) > 2 and op[2]:
                         label = str(op[2])
                     if len(op) > 3 and op[3]:
@@ -385,6 +389,7 @@ class ControllerView:
                         command=host.on_engine_command,
                         args=[cmd],
                         image=image,
+                        generator=generator,
                         titlebox_text=title_text,
                     )
 
