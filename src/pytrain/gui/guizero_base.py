@@ -364,7 +364,6 @@ class GuiZeroBase(Thread, ABC):
         # ------------------------------------------------------------
         if generator:
             nb = generator(cell, label, button_size)
-            print(f"Button Size: {button_size} {nb.tk.winfo_reqwidth()} {nb.tk.winfo_reqheight()}")
         else:
             nb = HoldButton(
                 cell,

@@ -6,8 +6,10 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+
 import math
 import tkinter as tk
+from typing import Callable
 
 from guizero import Box
 
@@ -17,7 +19,7 @@ class AnalogGaugeWidget(Box):
     A guizero widget (Box) containing a Tk Canvas analog gauge.
 
     Usage:
-        g = AnalogGaugeWidget(parent, label="Fuel", size=120, on_click=...)
+        g = AnalogGaugeWidget(parent, label="Fuel", size=120, command=...)
         g.set_value(73)
     """
 
@@ -26,7 +28,7 @@ class AnalogGaugeWidget(Box):
         master,
         label: str,
         size: int = 150,
-        on_click=None,  # callable(int)->None
+        command: Callable | None = None,  # callable(int)->None
         start_deg: float = 210.0,
         end_deg: float = -30.0,
         align=None,
@@ -46,7 +48,7 @@ class AnalogGaugeWidget(Box):
 
         self.size = size
         self.label = label
-        self._on_click = on_click
+        self._command = command
         self.start_deg = start_deg
         self.end_deg = end_deg
         self.value = 0
@@ -73,12 +75,17 @@ class AnalogGaugeWidget(Box):
         # Click-to-speak
         self.canvas.bind("<Button-1>", self._handle_click)
 
-    def set_on_click(self, callback):
-        self._on_click = callback
+    @property
+    def command(self) -> Callable | None:
+        return self._command
+
+    @command.setter
+    def command(self, callback):
+        self._command = callback
 
     def _handle_click(self, _event):
-        if callable(self._on_click):
-            self._on_click(self.value)
+        if callable(self._command):
+            self._command(self.value)
 
     def _map_value_to_deg(self, value_0_100: float) -> float:
         v = max(0.0, min(100.0, float(value_0_100)))
@@ -152,12 +159,12 @@ class AnalogGaugeWidget(Box):
             y2t = cy - r_tick * math.sin(ang)
             self.canvas.create_line(x1t, y1t, x2t, y2t, width=tick_w, fill="black")
 
-        # --- E / F: move inward + add a tiny white knockout so letters never blend into rim/ticks ---
-        ef_font = ("TkDefaultFont", max(9, int(s * 0.085)), "bold")
+        # --- E / F: make them easier to read (bigger + more inward + bigger knockout) ---
+        ef_font = ("TkDefaultFont", max(10, int(s * 0.095)), "bold")
 
         # Pull letters farther inside the face and away from arc endpoints
-        ef_r = r_inner * 0.58
-        ef_margin_deg = 18.0
+        ef_r = r_inner * 0.52
+        ef_margin_deg = 22.0
 
         e_ang = math.radians(self._map_value_to_deg(0) + ef_margin_deg)
         f_ang = math.radians(self._map_value_to_deg(100) - ef_margin_deg)
@@ -170,25 +177,33 @@ class AnalogGaugeWidget(Box):
         e_id = self.canvas.create_text(ex, ey, text="E", font=ef_font, fill="black")
         f_id = self.canvas.create_text(fx, fy, text="F", font=ef_font, fill="black")
 
-        pad = 2  # knockout padding
+        # Knockout padding (bigger than before to keep ticks/rim from visually merging)
+        pad = 3
         for tid in (e_id, f_id):
             xk0, yk0, xk1, yk1 = self.canvas.bbox(tid)
-            self.canvas.create_rectangle(xk0 - pad, yk0 - pad, xk1 + pad, yk1 + pad, fill="white", outline="")
+            self.canvas.create_rectangle(
+                xk0 - pad,
+                yk0 - pad,
+                xk1 + pad,
+                yk1 + pad,
+                fill="white",
+                outline="",
+            )
             self.canvas.lift(tid)  # keep letter on top
 
-        # Label tucked up into the gauge (slight overlap into the empty lower area)
-        label_font = ("TkDefaultFont", max(10, int(s * 0.105)), "bold")
-        label_y = cy + r_outer * 0.72
+        # Label: slightly larger and a touch lower (but still close to the gauge)
+        label_font = ("TkDefaultFont", max(11, int(s * 0.115)), "bold")
+        label_y = cy + r_outer * 0.78
         self.canvas.create_text(cx, label_y, text=self.label, font=label_font, fill="black")
 
-        # ---- Button-style outer border (uniform like the Master buttons) ----
-        # Use integer coords so stroke is crisp and even on all sides.
-        border_w = 2
+        # ---- Button-style outer border (match Master buttons) ----
+        # Use a 1px stroke on half-pixel coordinates for a crisp, uniform border.
+        border_w = 1
         self.canvas.create_rectangle(
-            1,
-            1,
-            s - 2,
-            s - 2,  # inset keeps the 2px stroke fully inside the canvas
+            0.5,
+            0.5,
+            s - 0.5,
+            s - 0.5,
             outline="black",
             width=border_w,
         )
