@@ -78,6 +78,9 @@ class SequenceReq(CommandReq, Sequence):
             raise ValueError(f"Invalid value type: {type(value)}")
         self._requests[index] = value
 
+    def __len__(self) -> int:
+        return len(self._requests)
+
     @property
     def as_bytes(self) -> bytes:
         self._recalculate()
@@ -90,9 +93,6 @@ class SequenceReq(CommandReq, Sequence):
     @property
     def requests(self) -> List[SequencedReq]:
         return self._requests.copy()
-
-    def __len__(self) -> int:
-        return len(self._requests)
 
     def _apply_address(self, new_address: int = None) -> int:
         for req_wrapper in self._requests:
@@ -301,12 +301,6 @@ class SequenceReq(CommandReq, Sequence):
             engr = TMCC2RailSoundsDialogControl.by_name(f"ENGINEER_{base}")
         return tower, speed_enum, speed_int, engr
 
-    def _recalculate(self) -> None:
-        """
-        Recalculate command state before sending bytes
-        """
-        pass
-
     @property
     def state(self) -> EngineState | TrainState:
         return self._state
@@ -322,6 +316,12 @@ class SequenceReq(CommandReq, Sequence):
         if isinstance(self._state, EngineState):
             return self._state.is_legacy
         return False
+
+    def _recalculate(self) -> None:
+        """
+        Recalculate command state before sending bytes
+        """
+        pass
 
     def _on_before_send(self) -> None:
         """

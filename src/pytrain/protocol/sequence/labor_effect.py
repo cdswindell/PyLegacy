@@ -42,6 +42,9 @@ class LaborEffectBase(SequenceReq, ABC):
                     return
             raise AttributeError(f"Scope {new_scope} not supported for {self}")
 
+    def _on_before_send(self):
+        self._recalculate()
+
     def _recalculate(self):
         self._state = ComponentStateStore.get_state(self.scope, self.address, False)
         if isinstance(self._state, EngineState):
