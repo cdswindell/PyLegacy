@@ -1351,7 +1351,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     cmd_enum = TMCC2EngineOpsEnum.look_up(target)
                     if cmd_enum is None:
                         cmd_enum = SequenceCommandEnum.by_name(target)
-                print(f"do_engine_command: {tmcc_id} {target} {cmd_enum.name}")
             else:
                 cmd_enum = TMCC1EngineCommandEnum.by_name(target)
             if cmd_enum:
