@@ -314,9 +314,7 @@ class AnalogGaugeWidget(Box):
         self._apply_theme()
         # send command if specified
         if callable(self._command):
-            print(self._command)
             if self._args is not None:
-                print(self._args)
                 self._command(*self._args)
             else:
                 self._command(self.value)
