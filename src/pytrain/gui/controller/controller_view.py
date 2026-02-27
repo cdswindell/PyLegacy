@@ -6,7 +6,6 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-# controller_view.py
 
 from __future__ import annotations
 
@@ -54,6 +53,7 @@ class ControllerView:
         self._all_engine_btns = set()
         self._engine_type_key_map: dict[str, set[Widget]] = {}
         self._quill_after_id = None
+        self._gauges: dict[str, list[AnalogGaugeWidget]] = {}
         self._updating_from_state = False
 
     @contextmanager
@@ -142,6 +142,11 @@ class ControllerView:
 
                 _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
                 rev_btn.bg = host._active_bg if state.is_reverse else host._inactive_bg
+
+            # --- Gauges ---
+            fuel_gauges = self._gauges.get("fuel", [])
+            for gauge in fuel_gauges:
+                gauge.set_value(state.fuel_level_pct)
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
@@ -352,6 +357,13 @@ class ControllerView:
         # keep host.focus_widget used elsewhere, if you want
         host.focus_widget = self._focus_widget
 
+    def _register_gauge(self, label: str, gauge: AnalogGaugeWidget) -> None:
+        label = label.lower()
+        if label not in self._gauges:
+            self._gauges[label] = []
+        self._gauges[label].append(gauge)
+        print(f"register_gauge: {label}: {gauge}")
+
     def populate_keypad(self, keys: list, keypad_box: Box):
         host = self._host
         row = 0
@@ -470,7 +482,7 @@ class ControllerView:
         # handle gauges
         if isinstance(nb, AnalogGaugeWidget):
             print(f"Adding gauge: {nb.label}")
-            host.register_gauge(nb.label, nb)
+            self._register_gauge(nb.label, nb)
 
     def _setup_controller_behaviors(self):
         """Configures specific button behaviors like repeats, holds, and special toggles."""
