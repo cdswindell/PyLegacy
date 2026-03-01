@@ -315,8 +315,8 @@ SCOPE_TO_COMP_MAP = {
 }
 
 #
-# Map of Base 3 Command Requests to the corresponding Base 3 state updates
-# that must be made.
+# Map of Base 3 Command Requests to the corresponding Base 3
+# memory locations that must be updated in turn.
 #
 REQUEST_TO_UPDATES_MAP = {
     "ABSOLUTE_SPEED": [
@@ -330,6 +330,8 @@ REQUEST_TO_UPDATES_MAP = {
     ],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
+    "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
+    "ENGINEER_WATER_REFILLED": [("water_level", lambda x: 255)],
     "HALT": [
         ("speed", lambda x: 0),
         ("target_speed", lambda x: 0),
@@ -478,6 +480,7 @@ class CompData(ABC, Generic[R]):
                     update_pkgs.append(pkg)
         return update_pkgs
 
+    # noinspection PyUnnecessaryCast
     @classmethod
     def _create_update_pkg(
         cls,
@@ -517,6 +520,7 @@ class CompData(ABC, Generic[R]):
                         if address != 99:
                             log.warning(f"State not found for {scope}:{address}, continuing...")
                         return None
+                    # noinspection PyTypeChecker
                     with state.synchronizer:
                         from .engine_state import EngineState
 
@@ -659,6 +663,7 @@ class CompData(ABC, Generic[R]):
                 from .component_state_store import ComponentStateStore
 
                 state = ComponentStateStore.get_state(self.scope, self.tmcc_id, False)
+                # noinspection PyUnresolvedReferences
                 if state and state.is_lcs_component:
                     return True
             return False

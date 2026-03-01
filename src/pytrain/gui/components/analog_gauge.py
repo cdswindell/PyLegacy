@@ -5,12 +5,12 @@
 #
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
-
+#
 from __future__ import annotations
 
 import math
 import tkinter as tk
-from typing import Callable, Any
+from typing import Any, Callable
 
 from guizero import Box
 
@@ -21,11 +21,21 @@ class AnalogGaugeWidget(Box):
 
     - Black-on-white analog gauge face (optimized for 120x120).
     - set_value(0..100) updates needle.
-    - Tap/click triggers `command(current_value)` on release.
+    - Tap/click triggers `command(...)` on release.
     - Press feedback: inverts colors while pressed.
+    - Hold: triggers `on_hold(...)` after hold_threshold_ms; tap command will NOT fire after a hold.
+
+    Callback conventions (mirrors your HoldButton pattern):
+      - If args is provided, command(*args) is called (no implicit value).
+        Otherwise command(value) is called.
+      - If hold_args is provided, on_hold(*hold_args) is called (no implicit value).
+        Otherwise on_hold(value) is called.
 
     Usage:
-        g = AnalogGaugeWidget(parent, label="Fuel", size=120, command=...)
+        g = AnalogGaugeWidget(parent, label="Fuel", size=120,
+                              command=say_level,
+                              on_hold=open_detail,
+                              hold_threshold_ms=650)
         g.set_value(73)
     """
 
@@ -34,8 +44,11 @@ class AnalogGaugeWidget(Box):
         master,
         label: str,
         size: int = 150,
-        command: Callable | None = None,  # callable(int)->None
+        command: Callable | None = None,
         args: list[Any] | None = None,
+        on_hold: Callable | None = None,
+        hold_args: list[Any] | None = None,
+        hold_threshold_ms: int = 400,
         start_deg: float = 210.0,
         end_deg: float = -30.0,
         align=None,
@@ -55,13 +68,24 @@ class AnalogGaugeWidget(Box):
 
         self.size = int(size)
         self.label = label
+
         self._command = command
         self._args = args
+
+        self._on_hold = on_hold
+        self._hold_args: tuple[Any, ...] | tuple[()] = tuple(hold_args) if hold_args else ()
+        self.hold_threshold_ms = int(max(0, hold_threshold_ms))
+
         self.start_deg = float(start_deg)
         self.end_deg = float(end_deg)
         self.value = 0
 
         self._inverted = False
+
+        # hold state
+        self._hold_after_id: str | None = None
+        self._pressed = False
+        self._held = False
 
         # Track items by how they should be recolored
         self._stroke_items: list[int] = []  # arcs + border rectangles (outline)
@@ -91,7 +115,10 @@ class AnalogGaugeWidget(Box):
         # Touch/mouse behavior: invert on press, trigger on release.
         self.canvas.bind("<ButtonPress-1>", self._on_press)
         self.canvas.bind("<ButtonRelease-1>", self._on_release)
+        # If the pointer/finger slides out, cancel like a real button
+        self.canvas.bind("<Leave>", self._on_cancel)
 
+    # ---- Public properties (keeps your existing style) ----
     @property
     def command(self) -> Callable | None:
         return self._command
@@ -108,6 +135,25 @@ class AnalogGaugeWidget(Box):
     def args(self, args: list[Any] | None) -> None:
         self._args = args
 
+    @property
+    def on_hold(self) -> Callable | None:
+        return self._on_hold
+
+    @on_hold.setter
+    def on_hold(self, callback: Callable | None) -> None:
+        self._on_hold = callback
+
+    @property
+    def hold_args(self) -> list[Any] | None:
+        return list(self._hold_args)
+
+    @hold_args.setter
+    def hold_args(self, args: list[Any] | None) -> None:
+        self._hold_args = tuple(args) if args else ()
+
+    # ----------------------------
+    # Geometry helpers
+    # ----------------------------
     def _map_value_to_deg(self, value_0_100: float) -> float:
         v = max(0.0, min(100.0, float(value_0_100)))
         t = v / 100.0
@@ -151,11 +197,9 @@ class AnalogGaugeWidget(Box):
             except tk.TclError:
                 pass
 
-        # Hub: filled shape
+        # Hub/needle: dynamic
         if self._hub_id is not None:
             self.canvas.itemconfig(self._hub_id, fill=fg, outline=fg)
-
-        # Needle already in _line_items, but if recreated after theme toggle this keeps it consistent
         if self._needle_id is not None:
             self.canvas.itemconfig(self._needle_id, fill=fg)
 
@@ -229,7 +273,7 @@ class AnalogGaugeWidget(Box):
             tid = self.canvas.create_line(x1t, y1t, x2t, y2t, width=tick_w, fill="black")
             self._line_items.append(tid)
 
-        # E / F: larger, more inward, bigger knockout
+        # E / F with knockout
         ef_font = ("TkDefaultFont", max(10, int(s * 0.095)), "bold")
         ef_r = r_inner * 0.52
         ef_margin_deg = 22.0
@@ -246,13 +290,12 @@ class AnalogGaugeWidget(Box):
         f_id = self.canvas.create_text(fx, fy, text="F", font=ef_font, fill="black")
         self._text_items.extend([e_id, f_id])
 
-        # Knockout rectangles behind E/F (fill matches bg on invert)
         pad = 3
         for tid in (e_id, f_id):
             xk0, yk0, xk1, yk1 = self.canvas.bbox(tid)
             rid = self.canvas.create_rectangle(xk0 - pad, yk0 - pad, xk1 + pad, yk1 + pad, fill="white", outline="")
             self._knockout_items.append(rid)
-            self.canvas.lift(tid, rid)  # ensure letter sits above its knockout
+            self.canvas.lift(tid, rid)
 
         # Label: slightly larger and lowered a bit from the gauge
         label_font = ("TkDefaultFont", max(11, int(s * 0.115)), "bold")
@@ -302,23 +345,76 @@ class AnalogGaugeWidget(Box):
         fg = "white" if self._inverted else "black"
 
         self._needle_id = self.canvas.create_line(cx, cy, x, y, width=5, fill=fg)
-        self._line_items.append(self._needle_id)
+        # NOTE: Don't append needle to _line_items repeatedly; it’s recolored explicitly in _apply_theme().
 
         self._hub_id = self.canvas.create_oval(cx - hub_r, cy - hub_r, cx + hub_r, cy + hub_r, fill=fg, outline=fg)
 
     # ----------------------------
-    # Press / release
+    # Hold scheduling + callbacks
     # ----------------------------
-    def _on_press(self, _event) -> None:
-        self._inverted = True
-        self._apply_theme()
-        # send command if specified
+    def _cancel_hold_timer(self) -> None:
+        if self._hold_after_id is not None:
+            try:
+                self.canvas.after_cancel(self._hold_after_id)
+            except tk.TclError:
+                pass
+            self._hold_after_id = None
+
+    def _fire_hold(self) -> None:
+        self._hold_after_id = None
+        if not self._pressed:
+            return
+        if self._held:
+            return
+
+        self._held = True
+
+        if callable(self._on_hold):
+            if self._hold_args is not None:
+                self._on_hold(*self._hold_args)
+            else:
+                self._on_hold(self.value)
+
+    def _invoke_tap_command(self) -> None:
         if callable(self._command):
             if self._args is not None:
                 self._command(*self._args)
             else:
                 self._command(self.value)
 
+    # ----------------------------
+    # Press / release / cancel
+    # ----------------------------
+    def _on_press(self, _event) -> None:
+        self._pressed = True
+        self._held = False
+
+        self._inverted = True
+        self._apply_theme()
+
+        self._cancel_hold_timer()
+        if self.hold_threshold_ms > 0 and callable(self._on_hold):
+            # noinspection PyTypeChecker
+            self._hold_after_id = self.canvas.after(self.hold_threshold_ms, self._fire_hold, self._hold_args)
+
     def _on_release(self, _event) -> None:
+        # Always cancel the timer first
+        self._pressed = False
+        self._cancel_hold_timer()
+
+        self._inverted = False
+        self._apply_theme()
+
+        # Tap action only if we did NOT already fire hold
+        if not self._held:
+            self._invoke_tap_command()
+
+    def _on_cancel(self, _event) -> None:
+        # Finger/mouse slid off: cancel hold + revert visuals, no tap
+        if not self._pressed:
+            return
+        self._pressed = False
+        self._cancel_hold_timer()
+
         self._inverted = False
         self._apply_theme()
