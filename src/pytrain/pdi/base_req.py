@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Literal
 
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
@@ -514,7 +514,7 @@ class BaseReq(PdiReq, CompDataMixin):
         return self._fwd_link
 
     @property
-    def valid1(self) -> int:
+    def valid1(self) -> None | int | Literal[EngineBits.SPEED]:
         return self._valid1
 
     @property
@@ -677,7 +677,7 @@ class BaseReq(PdiReq, CompDataMixin):
         return True
 
     @property
-    def start(self) -> int:
+    def start(self) -> None | int | Literal[0]:
         return self._start
 
     @property
@@ -720,6 +720,7 @@ class BaseReq(PdiReq, CompDataMixin):
         elif self._valid1 is None and self._valid2 is None:  # ACK received
             return f"Rec # {self.record_no} flags: {f} status: {s} ACK ({self.packet})"
         else:
+            # noinspection PyTypeChecker
             v = hex(self.valid1) if self.valid1 is not None else "NA"
             if self.pdi_command in {PdiCommand.BASE_ENGINE, PdiCommand.BASE_TRAIN}:
                 tmcc = f"{self.record_no}"
