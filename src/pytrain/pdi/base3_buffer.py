@@ -251,7 +251,7 @@ class Base3Buffer(Thread):
             for tmcc_cmd in tmcc_cmds:
                 # is it a command that requires a state sync?
                 sync_reqs = BaseReq.update_eng(tmcc_cmd)
-                print(f"Post command: {tmcc_cmd}: {sync_reqs}")
+                log.debug(f"Post command: {tmcc_cmd}: {sync_reqs}")
                 if sync_reqs:
                     for sync_req in sync_reqs:
                         cls._instance.send(sync_req.as_bytes)

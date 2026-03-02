@@ -546,7 +546,7 @@ class ControllerView:
                     gauge.hold_args = ["ENGINEER_FUEL_REFILLED"]
                 elif gauge_type == "water":
                     gauge.args = ["ENGINEER_WATER_LEVEL"]
-                    gauge.hold_args = ["ENGINEER_FUEL_REFILLED"]
+                    gauge.hold_args = ["ENGINEER_WATER_REFILLED"]
 
     # noinspection PyProtectedMember
     def apply_engine_type(self, state: EngineState | None) -> None:
