@@ -395,7 +395,7 @@ class AnalogGaugeWidget(Box):
         self._cancel_hold_timer()
         if self.hold_threshold_ms > 0 and callable(self._on_hold):
             # noinspection PyTypeChecker
-            self._hold_after_id = self.canvas.after(self.hold_threshold_ms, self._fire_hold, self._hold_args)
+            self._hold_after_id = self.canvas.after(self.hold_threshold_ms, self._fire_hold)
 
     def _on_release(self, _event) -> None:
         # Always cancel the timer first
