@@ -78,7 +78,7 @@ class Base3DbRefreshManager:
         inst._ensure_started()
         if state is not None:
             inst._enqueue(state)
-            print(f"Refresh request: {state.scope}:{state.tmcc_id}")
+            log.debug(f"Refresh request: {state.scope}:{state.tmcc_id}")
 
     @classmethod
     def flush(cls, state: StateT) -> None:

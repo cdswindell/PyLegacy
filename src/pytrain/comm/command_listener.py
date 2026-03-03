@@ -713,13 +713,13 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     # noinspection PyArgumentList
     def update_base_state(self, cmd: CommandReq, update_clients: bool = False):
         if isinstance(cmd, CommandReq):
+            print(f"update_base_state: {cmd}")
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
             if isinstance(action, tuple) and len(action) >= 1:
                 action[0](cmd)
                 sync_reqs = action[0](cmd)
                 if sync_reqs and update_clients:
-                    for sync_req in sync_reqs:
-                        self.update_client_state(sync_req)
+                    BaseReq.process_sync_reqs(sync_reqs, callback=self.update_client_state)
 
     @property
     def broadcasts_enabled(self) -> bool:

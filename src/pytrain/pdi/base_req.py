@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List, Tuple, Literal
+from typing import Dict, List, Tuple, Literal, Callable
 
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from .d4_req import D4Req
@@ -255,8 +255,6 @@ class BaseReq(PdiReq, CompDataMixin):
                 if cur_state:
                     # adding state to the command que will trigger refresh request
                     cmds.append(cur_state)
-                    # Base3DbRefreshManager.request_refresh(state)
-                    # cmds.append(cls.create_base_query_request(cur_state))
         elif state.name in ENGINE_WRITE_MAP and cmd.address < 99:
             log.warning(f"********* Using old-style {state.name} for updates from {cmd}")
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
@@ -292,17 +290,27 @@ class BaseReq(PdiReq, CompDataMixin):
         return cmds
 
     @classmethod
-    def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[BaseReq]:
+    def process_sync_reqs(cls, sync_reqs: list[BaseReq], callback: Callable):
         from ..db.engine_state import EngineState
         from .base3_db_refresh_manager import Base3DbRefreshManager
 
+        for sync_req in sync_reqs:
+            if isinstance(sync_req, EngineState):
+                Base3DbRefreshManager.request_refresh(sync_req)
+            else:
+                callback(sync_req)
+
+    @classmethod
+    def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[BaseReq]:
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
         if sync_reqs:
-            for sync_req in sync_reqs:
-                if isinstance(sync_req, EngineState):
-                    Base3DbRefreshManager.request_refresh(sync_req)
-                else:
-                    sync_req.send()
+            print("do_update_eng called")
+            cls.process_sync_reqs(sync_reqs, lambda r: r.send())
+            # for sync_req in sync_reqs:
+            #     if isinstance(sync_req, EngineState):
+            #         Base3DbRefreshManager.request_refresh(sync_req)
+            #     else:
+            #         sync_req.send()
         return sync_reqs
 
     def __init__(
