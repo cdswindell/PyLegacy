@@ -76,8 +76,9 @@ class Base3DbRefreshManager:
     def request_refresh(cls, state: StateT) -> None:
         inst = cls()
         inst._ensure_started()
-        inst._enqueue(state)
-        print(f"Refresh request: {state.scope}:{state.tmcc_id}")
+        if state is not None:
+            inst._enqueue(state)
+            print(f"Refresh request: {state.scope}:{state.tmcc_id}")
 
     @classmethod
     def flush(cls, state: StateT) -> None:
@@ -197,8 +198,9 @@ class Base3DbRefreshManager:
             if to_send:
                 for state in to_send:
                     try:
-                        BaseReq.create_base_query_request(state).send()
-                        print(f"Update requested: {state.scope}:{state.tmcc_id}")
+                        if state is not None:
+                            BaseReq.create_base_query_request(state).send()
+                            log.debug(f"Update requested: {state.scope}:{state.tmcc_id}")
                     except Exception as e:
                         log.exception(f"Base3DbRefreshManager: failed to send base query request: {e}")
                 continue
