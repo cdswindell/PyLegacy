@@ -126,7 +126,7 @@ class Base3DbRefreshManager:
 
         inst._ensure_started()
         inst._enqueue(state)
-        # `reason` intentionally unused (reserved for future logging/diagnostics)
+        print(f"Base3DbRefreshManager: enqueue {state}")
 
     @classmethod
     def flush(
@@ -279,6 +279,7 @@ class Base3DbRefreshManager:
                     try:
                         req = BaseReq.create_base_query_request(state)
                         req.send()
+                        print(f"Base3DbRefreshManager: send {req}")
                     except Exception as e:
                         log.error(e)
                         pass
