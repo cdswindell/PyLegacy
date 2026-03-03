@@ -49,6 +49,7 @@ from ..protocol.constants import (
     OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum, UnitAssignment
+
 # noinspection PyPep8Naming
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import (
@@ -57,6 +58,7 @@ from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
 )
+
 # noinspection PyPep8Naming
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
