@@ -16,7 +16,9 @@ from threading import Condition, RLock, Thread
 from time import sleep
 from typing import Generic, List, Protocol, Tuple, TypeVar, cast, runtime_checkable
 
+from .comm_buffer import CommBuffer
 from ..db.component_state import ComponentState
+from ..db.engine_state import EngineState, TrainState
 from ..pdi.amc2_req import Amc2Req
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import D4Action, PdiCommand
@@ -38,7 +40,6 @@ from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2
 from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
-from .comm_buffer import CommBuffer
 
 log = logging.getLogger(__name__)
 
@@ -643,7 +644,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             from ..db.component_state_store import ComponentStateStore
             from .enqueue_proxy_requests import EnqueueProxyRequests
 
-            # send starting state sync message
+            # send starting state sync messages
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_begin_response())
             store = ComponentStateStore.get()
             for scope in store.scopes():
@@ -828,22 +829,19 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             if not self._channels[BROADCAST_TOPIC].subscribers:
                 self._broadcasts = False
 
-    # noinspection PyArgumentList
+    # noinspection PyArgumentList,PyUnnecessaryCast
     @staticmethod
     def request_command_impact(cmd: CommandReq) -> None:
+        from ..db.component_state_store import ComponentStateStore
+        from ..db.comp_data import CompData
+
         action = COMMAND_IMPACTS.get(cmd.command, None)
         if action:
-            from ..db.component_state_store import ComponentStateStore
-
             state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
             if state and action[0](state):
                 req = action[1](state, cmd)
                 req.send()
                 return
-
-        from ..db.comp_data import CompData
-        from ..db.component_state_store import ComponentStateStore
-
         """
         Engine/Train state is also impacted by states initiated and maintained by hand-held
         controllers. For example, when the throttle is moved, a target speed is set on the
@@ -867,6 +865,7 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                     )
                 else:
                     state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
+                    state = cast(EngineState, state)
                     assert state.record_no != 0xFFFF
                     pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
                     cmds.append(
@@ -881,12 +880,14 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             for query in cmds:
                 query.send()
 
+    # noinspection PyUnnecessaryCast
     def _on_clear_consist(self, tmcc_cmd: CommandReq) -> None:
         # only runs on server
         from ..db.component_state_store import ComponentStateStore
 
         if self.is_server:
             state = ComponentStateStore.get_state(CommandScope.TRAIN, tmcc_cmd.address, create=False)
+            state = cast(TrainState, state)
             if state and state.consist_components:
                 for comp in state.consist_components:
                     CommandReq.build(

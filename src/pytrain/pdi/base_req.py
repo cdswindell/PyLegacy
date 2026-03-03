@@ -200,7 +200,7 @@ class BaseReq(PdiReq, CompDataMixin):
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
-        # harvest state update pkgs based on command, unless command was numeric 3 or 6
+        # harvest state update pkgs based on command
         cmds = []
         pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
         if pkgs:
