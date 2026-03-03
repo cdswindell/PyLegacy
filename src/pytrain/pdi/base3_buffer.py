@@ -188,7 +188,6 @@ class Base3Buffer(Thread):
                         time.sleep(30 if oe.errno == 113 else 1)
 
     def _packetize_multibyte_cmds(self, data: bytes) -> bytes | None:
-        tmcc_cmd = None
         if data is None or len(data) < 9:
             return data
         from ..protocol.multibyte.multibyte_command_req import MultiByteReq
@@ -270,8 +269,10 @@ class Base3Buffer(Thread):
                         from .base3_db_refresh_manager import Base3DbRefreshManager
 
                         if isinstance(sync_req, EngineState):
+                            print("requesting refresh")
                             Base3DbRefreshManager.request_refresh(sync_req)
                         else:
+                            print(f"Sending: {sync_req}")
                             cls._instance.send(sync_req.as_bytes)
 
 
