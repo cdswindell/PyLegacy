@@ -259,10 +259,15 @@ class Base3Buffer(Thread):
             for tmcc_cmd in tmcc_cmds:
                 # is it a command that requires a state sync?
                 sync_reqs = BaseReq.update_eng(tmcc_cmd)
-                log.debug(f"Post command: {tmcc_cmd}: {sync_reqs}")
                 if sync_reqs:
                     for sync_req in sync_reqs:
-                        cls._instance.send(sync_req.as_bytes)
+                        from ..db.engine_state import EngineState
+                        from .base3_db_refresh_manager import Base3DbRefreshManager
+
+                        if isinstance(sync_req, EngineState):
+                            Base3DbRefreshManager.request_refresh(sync_req)
+                        else:
+                            cls._instance.send(sync_req.as_bytes)
 
 
 class KeepAlive(Thread):

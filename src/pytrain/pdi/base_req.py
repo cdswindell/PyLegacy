@@ -1,12 +1,3 @@
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
-#
-#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
-#
-#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
-#  SPDX-License-Identifier: LGPL-3.0-only
-#
-
 from __future__ import annotations
 
 import logging
@@ -124,10 +115,20 @@ class BaseReq(PdiReq, CompDataMixin):
     @classmethod
     def request_config(cls, state: ComponentState, cmd: CommandReq) -> BaseReq:
         if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+            from ..db.engine_state import EngineState
+            from .base3_db_refresh_manager import Base3DbRefreshManager
+
             state_changes = BaseReq.update_eng(cmd)
             for state_change in state_changes:
-                state_change.send()
+                if isinstance(state_change, EngineState):
+                    Base3DbRefreshManager.request_refresh(state_change)
+                else:
+                    state_change.send()
         return cls.create_base_query_request(state)
+
+    @classmethod
+    def send_base_query_request(cls, state: ComponentState) -> None:
+        cls.create_base_query_request(state).send()
 
     @classmethod
     def create_base_query_request(cls, state: ComponentState) -> BaseReq | D4Req:
@@ -252,7 +253,10 @@ class BaseReq(PdiReq, CompDataMixin):
                 # Append command to request current engine/train state
                 cur_state = ComponentStateStore.get_state(scope, address, False)
                 if cur_state:
-                    cmds.append(cls.create_base_query_request(cur_state))
+                    # adding state to the command que will trigger refresh request
+                    cmds.append(cur_state)
+                    # Base3DbRefreshManager.request_refresh(state)
+                    # cmds.append(cls.create_base_query_request(cur_state))
         elif state.name in ENGINE_WRITE_MAP and cmd.address < 99:
             log.warning(f"********* Using old-style {state.name} for updates from {cmd}")
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
@@ -289,10 +293,16 @@ class BaseReq(PdiReq, CompDataMixin):
 
     @classmethod
     def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[BaseReq]:
+        from ..db.engine_state import EngineState
+        from .base3_db_refresh_manager import Base3DbRefreshManager
+
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
         if sync_reqs:
             for sync_req in sync_reqs:
-                sync_req.send()
+                if isinstance(sync_req, EngineState):
+                    Base3DbRefreshManager.request_refresh(sync_req)
+                else:
+                    sync_req.send()
         return sync_reqs
 
     def __init__(
