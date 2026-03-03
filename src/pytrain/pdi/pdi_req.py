@@ -254,10 +254,10 @@ class PdiReq(ABC):
         try:
             return int(txt)
         except TypeError:
-            log.warning(f"Expected int; got: {data}")
+            log.warning(f"Expected int; got: {data.hex() if data else 'None'}")
             return 0
         except ValueError:
-            log.warning(f"Expected int; got: {data}")
+            log.warning(f"Expected int; got: {data.hex() if data else 'None'}")
             return 0
 
     @staticmethod
