@@ -184,6 +184,15 @@ ENGINE_OPS_LAYOUT = [
 EXTRA_FUNCTIONS = [
     [
         [
+            ("START_UP_IMMEDIATE", "on_button.jpg", "", "", "e"),
+        ],
+        [],
+        [
+            ("SHUTDOWN_IMMEDIATE", "off_button.jpg", "", "", "e"),
+        ],
+    ],
+    [
+        [
             ("ENGINEER_FUEL_LEVEL", AnalogGaugeWidget, "Fuel", "", "d"),
             ("ENGINEER_FUEL_LEVEL", AnalogGaugeWidget, "Fuel", "", "s"),
             (SMOKE_OFF, "smoke-down.jpg", "", "", "l"),
