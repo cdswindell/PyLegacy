@@ -15,6 +15,7 @@ from math import floor
 from typing import Dict, List, Tuple, Literal
 
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
+from .d4_req import D4Req
 from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 from ..db.comp_data import (
     SCOPE_TO_COMP_MAP,
@@ -126,7 +127,22 @@ class BaseReq(PdiReq, CompDataMixin):
             state_changes = BaseReq.update_eng(cmd)
             for state_change in state_changes:
                 state_change.send()
-        return cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
+        return cls.create_base_query_request(state)
+
+    @classmethod
+    def create_base_query_request(cls, state: ComponentState) -> BaseReq | D4Req:
+        if 1 <= state.tmcc_id <= 99:
+            return cls(state.address, pdi_command=PdiCommand.BASE_MEMORY, scope=state.scope)
+        else:
+            from .d4_req import D4Req
+
+            return D4Req(
+                state.record_no,
+                PdiCommand.D4_TRAIN if state.scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE,
+                D4Action.QUERY,
+                start=0,
+                data_length=0xC0,
+            )
 
     @classmethod
     def update_speed(cls, address: int, speed: int, scope: CommandScope = CommandScope.ENGINE) -> BaseReq:
@@ -151,6 +167,7 @@ class BaseReq(PdiReq, CompDataMixin):
         from ..db.component_state_store import ComponentStateStore
 
         pkgs = []
+
         if isinstance(cmd, CommandReq):
             state = cmd.command
             address = cmd.address
@@ -231,6 +248,11 @@ class BaseReq(PdiReq, CompDataMixin):
                             data_bytes=pkg.data_bytes,
                         )
                     )
+            if cmds:
+                # Append command to request current engine/train state
+                cur_state = ComponentStateStore.get_state(scope, address, False)
+                if cur_state:
+                    cmds.append(cls.create_base_query_request(cur_state))
         elif state.name in ENGINE_WRITE_MAP and cmd.address < 99:
             log.warning(f"********* Using old-style {state.name} for updates from {cmd}")
             bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]

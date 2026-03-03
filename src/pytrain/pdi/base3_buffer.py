@@ -140,7 +140,7 @@ class Base3Buffer(Thread):
                             for sock in readable:
                                 if sock == self._send_queue:
                                     received = None
-                                    sending = self.xxx(sock.get())
+                                    sending = self._packetize_multibyte_cmds(sock.get())
                                     if sending is not None:
                                         s.sendall(sending.hex().upper().encode())
                                         self._last_output_at = self._current_milli_time()
@@ -179,28 +179,32 @@ class Base3Buffer(Thread):
                     else:
                         time.sleep(30 if oe.errno == 113 else 1)
 
-    def xxx(self, data: bytes):
-        if data is None or len(data) < 9:
-            return data
-        from ..protocol.multibyte.multibyte_command_req import MultiByteReq
+    def _packetize_multibyte_cmds(self, data: bytes) -> bytes | None:
+        tmcc_cmd = None
+        try:
+            if data is None or len(data) < 9:
+                return data
+            from ..protocol.multibyte.multibyte_command_req import MultiByteReq
 
-        # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
-        # it down into 3-7 byte packets; this needs to be done here so sync_state
-        # in the calling layer gets a complete command
-        cmd_bytes = data[2:-2]
-        is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
-        if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
-            tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
-            # This is a legacy/tmcc2 multibyte parameter command. We have to send it
-            # as 3 byte packets, using PdiCommand.TMCC_RX
-            for packet in TmccReq.as_packets(tmcc_cmd):
-                self.send(packet)  # recursive call
-                time.sleep(0.001)
-            # do a sync_state on the complete command
-            self.sync_state(data, tmcc_cmd=tmcc_cmd)
-            return None
-        else:
-            return data
+            # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
+            # it down into 3-7 byte packets; this needs to be done here so sync_state
+            # in the calling layer gets a complete command
+            cmd_bytes = data[2:-2]
+            is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
+            if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
+                tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
+                # This is a legacy/tmcc2 multibyte parameter command. We have to send it
+                # as 3 byte packets, using PdiCommand.TMCC_RX
+                for packet in TmccReq.as_packets(tmcc_cmd):
+                    self.send(packet)  # recursive call
+                    time.sleep(0.001)
+                return None
+            else:
+                return data
+        finally:
+            if data:
+                # do a sync_state on the complete command
+                self.sync_state(data, tmcc_cmd=tmcc_cmd)
 
     def shutdown(self) -> None:
         with self._lock:
