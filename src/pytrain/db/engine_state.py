@@ -49,7 +49,6 @@ from ..protocol.constants import (
     OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum, UnitAssignment
-
 # noinspection PyPep8Naming
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import (
@@ -58,7 +57,6 @@ from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
 )
-
 # noinspection PyPep8Naming
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
@@ -187,7 +185,7 @@ class EngineState(ComponentState):
 
     def __repr__(self) -> str:
         try:
-            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = ""
+            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = fl = ""
             if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
                 dr = " FWD"
             elif self._direction in {
@@ -237,6 +235,8 @@ class EngineState(ComponentState):
                 sm = f" Smoke: {self.smoke_level.name.split('_')[-1].lower():<4}"
             if self.bt_int:
                 bt = f" BT: {self.bt_id}"
+            if self.fuel_level_pct is not None:
+                fl = f" Fuel: {self.fuel_level_pct:>3}%"
             ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
             if isinstance(self, TrainState) and self.consist_components:
                 c = "\n"
@@ -245,7 +245,7 @@ class EngineState(ComponentState):
             elif self.train_tmcc_id:
                 tr = f" Train: {self.train_tmcc_id}"
             return (
-                f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{dr}{sm}"
+                f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{fl}{dr}{sm}"
                 f"{name}{num}{lt}{ct}{yr}{bt}{ss}{tr}{nu}{aux}{c}"
             )
         except AttributeError as ae:
