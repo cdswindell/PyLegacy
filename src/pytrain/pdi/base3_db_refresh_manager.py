@@ -60,8 +60,8 @@ class Base3DbRefreshManager:
         self._thread: Optional[threading.Thread] = None
 
         # Debounce behavior
-        self._debounce_s: float = 0.35
-        self._max_delay_s: float = 1.5
+        self._debounce_s: float = 0.20
+        self._max_delay_s: float = 1.0
 
         # Cleanup to prevent unbounded growth
         self._bucket_ttl_s: float = 10.0 * 60.0  # prune idle buckets after 10 min
