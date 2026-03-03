@@ -527,6 +527,8 @@ class ControllerView:
             (("STEWARD_CHATTER", "p"), host.on_steward_dialogs),
             (("TOWER_CHATTER", "e"), host.on_tower_dialog),
             (("TOWER_CHATTER", "p"), host.on_station_dialogs),
+            (("START_UP_IMMEDIATE", "e"), (host.on_engine_command, [["START_UP_DELAYED", "START_UP_IMMEDIATE"]])),
+            (("SHUTDOWN_IMMEDIATE", "e"), (host.on_engine_command, [["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"]])),
         ]
         for key, callback in holds:
             get_btn(key).on_hold = callback

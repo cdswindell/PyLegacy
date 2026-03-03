@@ -186,7 +186,9 @@ EXTRA_FUNCTIONS = [
         [
             ("START_UP_IMMEDIATE", "on_button.jpg", "", "", "e"),
         ],
-        [],
+        [
+            ("SET_ADDRESS", "", SET_KEY, "", "e"),
+        ],
         [
             ("SHUTDOWN_IMMEDIATE", "off_button.jpg", "", "", "e"),
         ],
