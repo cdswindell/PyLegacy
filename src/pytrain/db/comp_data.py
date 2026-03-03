@@ -467,6 +467,7 @@ class CompData(ABC, Generic[R]):
 
         update_pkgs: list[UpdatePkg] = []
         cmd = req.command
+        # get a copy of the updates, as we don't want to modify the original dict
         updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, []).copy()
         if req.has_command_alias:
             for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []).copy():
