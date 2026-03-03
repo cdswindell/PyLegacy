@@ -118,17 +118,7 @@ class BaseReq(PdiReq, CompDataMixin):
         if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
             state_changes = BaseReq.update_eng(cmd)
             refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send())
-            print(f"request_config called: {state_changes} {refresh_requested}")
-            # for state_change in state_changes:
-            #     if isinstance(state_change, EngineState):
-            #         Base3DbRefreshManager.request_refresh(state_change)
-            #     else:
-            #         state_change.send()
         return None if refresh_requested else cls.create_base_query_request(state)
-
-    @classmethod
-    def send_base_query_request(cls, state: ComponentState) -> None:
-        cls.create_base_query_request(state).send()
 
     @classmethod
     def create_base_query_request(cls, state: ComponentState) -> BaseReq | D4Req:
@@ -308,7 +298,6 @@ class BaseReq(PdiReq, CompDataMixin):
     def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[BaseReq]:
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
         if sync_reqs:
-            print("do_update_eng called")
             cls.process_sync_reqs(sync_reqs, lambda r: r.send())
             # for sync_req in sync_reqs:
             #     if isinstance(sync_req, EngineState):

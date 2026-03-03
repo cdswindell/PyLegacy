@@ -724,7 +724,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         if isinstance(cmd, CommandReq):
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
             if isinstance(action, tuple) and len(action) >= 1:
-                action[0](cmd)
                 sync_reqs = action[0](cmd)
                 if sync_reqs and update_clients:
                     BaseReq.process_sync_reqs(sync_reqs, callback=self.update_client_state)
