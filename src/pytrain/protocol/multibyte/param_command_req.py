@@ -48,8 +48,17 @@ class ParameterCommandReq(MultiByteReq):
         return ParameterCommandReq(command, address, data, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
-        is_pc, _, is_d4 = cls.vet_bytes(param, "Parameter")
+    def from_bytes(
+        cls,
+        param: bytes,
+        from_tmcc_rx: bool = False,
+        is_tmcc4: bool = False,
+        vet_bytes: tuple[bool, bool, bool] = None,
+    ) -> Self:
+        if vet_bytes is not None:
+            is_pc, _, is_d4 = vet_bytes
+        else:
+            is_pc, _, is_d4 = cls.vet_bytes(param, "Parameter")
         if is_pc:
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             try:

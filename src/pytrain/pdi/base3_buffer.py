@@ -1,3 +1,12 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
 from __future__ import annotations
 
 import logging
@@ -5,10 +14,12 @@ import select
 import socket
 import threading
 import time
-
-# from signal import signal, SIGPIPE, SIG_DFL
 from threading import Condition, Thread
 
+from .base_req import BaseReq
+from .constants import KEEP_ALIVE_CMD, PDI_SOP, TMCC4_TX, TMCC_TX, PdiCommand
+from .pdi_listener import PdiListener
+from .pdi_req import PdiReq, TmccReq
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
     DEFAULT_BASE_PORT,
@@ -17,10 +28,6 @@ from ..protocol.constants import (
     CommandScope,
 )
 from ..utils.pollable_queue import PollableQueue
-from .base_req import BaseReq
-from .constants import KEEP_ALIVE_CMD, PDI_SOP, TMCC4_TX, TMCC_TX, PdiCommand
-from .pdi_listener import PdiListener
-from .pdi_req import PdiReq, TmccReq
 
 log = logging.getLogger(__name__)
 
@@ -106,26 +113,9 @@ class Base3Buffer(Thread):
 
     def send(self, data: bytes) -> None:
         if data:
-            from ..protocol.multibyte.multibyte_command_req import MultiByteReq
-
-            # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
-            # it down into 3-7 byte packets; this needs to be done here so sync_state
-            # in the calling layer gets a complete command
-            cmd_bytes = data[2:-2]
-            is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
-            if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
-                tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
-                # This is a legacy/tmcc2 multibyte parameter command. We have to send it
-                # as 3 byte packets, using PdiCommand.TMCC_RX
-                for packet in TmccReq.as_packets(tmcc_cmd):
-                    self.send(packet)  # recursive call
-                    time.sleep(0.001)
-                # do a sync_state on the complete command
-                self.sync_state(data)
-            else:
-                with self._send_cv:
-                    self._send_queue.put(data)
-                    self._send_cv.notify_all()
+            with self._send_cv:
+                self._send_queue.put(data)
+                self._send_cv.notify_all()
 
     @staticmethod
     def _current_milli_time() -> int:
@@ -150,22 +140,10 @@ class Base3Buffer(Thread):
                             for sock in readable:
                                 if sock == self._send_queue:
                                     received = None
-                                    sending = sock.get()
-                                    # millis_since_last_output = self._current_milli_time() - self._last_output_at
-                                    # if millis_since_last_output < DEFAULT_BASE_THROTTLE_DELAY:
-                                    #     time.sleep((DEFAULT_BASE_THROTTLE_DELAY - millis_since_last_output) / 1000.0)
-                                    s.sendall(sending.hex().upper().encode())
-                                    self._last_output_at = self._current_milli_time()
-                                    # update base3 with new state; required if command is a tmcc_tx
-                                    try:
-                                        self.sync_state(sending)
-                                    except ValueError as ve:
-                                        # TODO: we get exceptions here if we send a multi-byte tmcc command
-                                        # TODO: because they are packet-ized into 3-byte chunks that sync-state
-                                        # TODO cannot yet handle
-                                        log.debug(ve)
-                                    except Exception as e:
-                                        log.exception(e)
+                                    sending = self.xxx(sock.get())
+                                    if sending is not None:
+                                        s.sendall(sending.hex().upper().encode())
+                                        self._last_output_at = self._current_milli_time()
                                 else:
                                     sending = None
                                     received = bytes.fromhex(s.recv(512).decode(errors="ignore"))
@@ -201,12 +179,35 @@ class Base3Buffer(Thread):
                     else:
                         time.sleep(30 if oe.errno == 113 else 1)
 
+    def xxx(self, data: bytes):
+        if data is None or len(data) < 9:
+            return data
+        from ..protocol.multibyte.multibyte_command_req import MultiByteReq
+
+        # If we are sending a multibyte TMCC or TMCC_4D command, we have to break
+        # it down into 3-7 byte packets; this needs to be done here so sync_state
+        # in the calling layer gets a complete command
+        cmd_bytes = data[2:-2]
+        is_mfb, is_mvb, is_d4 = MultiByteReq.vet_bytes(cmd_bytes, raise_exception=False)
+        if data[1] in {TMCC_TX, TMCC4_TX} and (is_mvb or is_mfb):
+            tmcc_cmd = CommandReq.from_bytes(cmd_bytes)
+            # This is a legacy/tmcc2 multibyte parameter command. We have to send it
+            # as 3 byte packets, using PdiCommand.TMCC_RX
+            for packet in TmccReq.as_packets(tmcc_cmd):
+                self.send(packet)  # recursive call
+                time.sleep(0.001)
+            # do a sync_state on the complete command
+            self.sync_state(data, tmcc_cmd=tmcc_cmd)
+            return None
+        else:
+            return data
+
     def shutdown(self) -> None:
         with self._lock:
             self._is_running = False
 
     @classmethod
-    def sync_state(cls, data: bytes, pdi_req: PdiReq = None) -> None:
+    def sync_state(cls, data: bytes, pdi_req: PdiReq = None, tmcc_cmd: CommandReq = None) -> None:
         """
         Send State Update to Base 3 if it is available and if this
         command packet is relevant
@@ -218,13 +219,16 @@ class Base3Buffer(Thread):
             if data[0] == PDI_SOP:  # it's a Base 3 cmd, we only care about TMCC TX/TMCC4_TX
                 if len(data) > 2 and data[1] in {PdiCommand.TMCC_TX, PdiCommand.TMCC4_TX}:
                     try:
-                        if pdi_req is None:
-                            pdi_req = PdiReq.from_bytes(data)
-                        if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command in {
-                            PdiCommand.TMCC_TX,
-                            PdiCommand.TMCC4_TX,
-                        }:
-                            tmcc_cmds.append(pdi_req.tmcc_command)
+                        if isinstance(tmcc_cmd, CommandReq):
+                            tmcc_cmds.append(tmcc_cmd)
+                        else:
+                            if pdi_req is None:
+                                pdi_req = PdiReq.from_bytes(data)
+                            if isinstance(pdi_req, TmccReq) and pdi_req.pdi_command in {
+                                PdiCommand.TMCC_TX,
+                                PdiCommand.TMCC4_TX,
+                            }:
+                                tmcc_cmds.append(pdi_req.tmcc_command)
                     except NotImplementedError:
                         return  # ignore exceptions; most likely it's a multibyte cmd
             else:

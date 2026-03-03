@@ -1,5 +1,15 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
 from __future__ import annotations
 
+import logging
 import sys
 from abc import ABC, ABCMeta, abstractmethod
 from typing import TypeVar
@@ -13,6 +23,8 @@ from ..command_req import CommandReq
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2_SCOPE_TO_FIRST_BYTE_MAP
 from .multibyte_constants import TMCC2MultiByteEnum
+
+log = logging.getLogger(__name__)
 
 E = TypeVar("E", bound=TMCC2MultiByteEnum)
 
@@ -69,6 +81,7 @@ class MultiByteReq(CommandReq, ABC):
 
         # Simple 9‑byte packet with two prefix markers
         if p_len == 9 and has_prefix_at(3, 6):
+            log.debug(f"Simple 9-byte packet with two prefix markers: {param.hex(':')}")
             return True, False, False  # is_pf, not vmb, not d4
 
         # Multi‑byte (non‑D4) format: length ≥ 18, multiple of 3, and five prefix markers
@@ -88,14 +101,14 @@ class MultiByteReq(CommandReq, ABC):
 
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
-        is_pf, is_vmb, _ = cls.vet_bytes(param, "Multi-byte")
+        is_pf, is_vmb, is_d4 = cls.vet_bytes(param, "Multi-byte")
         if is_vmb or is_pf:
             index = 0x00F0 & int.from_bytes(param[1:3], byteorder="big")
             prefix = TMCCPrefixEnum.by_value(index)
             if prefix == TMCCPrefixEnum.PARAMETER:
                 from .param_command_req import ParameterCommandReq  # noqa: E402
 
-                return ParameterCommandReq.from_bytes(param, from_tmcc_rx, is_tmcc4)
+                return ParameterCommandReq.from_bytes(param, from_tmcc_rx, is_tmcc4, vet_bytes=(is_pf, is_vmb, is_d4))
             elif prefix == TMCCPrefixEnum.R4LC:
                 from .r4lc_command_req import R4LCCommandReq  # noqa: E402
 
@@ -103,7 +116,7 @@ class MultiByteReq(CommandReq, ABC):
             elif prefix == TMCCPrefixEnum.VARIABLE:
                 from .dcds_command_req import VariableCommandReq
 
-                return VariableCommandReq.from_bytes(param, from_tmcc_rx, is_tmcc4)
+                return VariableCommandReq.from_bytes(param, from_tmcc_rx, is_tmcc4, vet_bytes=(is_pf, is_vmb, is_d4))
         raise ValueError(f"Invalid multibyte command: {param.hex(':')}")
 
     def __init__(
@@ -178,11 +191,11 @@ class MultiByteReq(CommandReq, ABC):
     def checksum(cls, data: bytes = None, is_d4: bool = False) -> bytes:
         """
         Calculate the checksum of a fixed-length lionel tmcc2 multibyte command.
-        The checksum is calculated adding together the second 2 bytes of the
+        The checksum is calculated by adding together the second 2 bytes of the
         parameter index and parameter data words, and the addr byte of the checksum
         word, and returning the 1's complement of that sum mod 256.
 
-        We make use of self.command_scope to determine if the command directed at
+        We make use of self.command_scope to determine if the command is directed at
         an engine or train.
         """
         if is_d4:

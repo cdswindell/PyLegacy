@@ -31,8 +31,17 @@ class VariableCommandReq(MultiByteReq):
         return VariableCommandReq(command, address, data_bytes, scope)
 
     @classmethod
-    def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
-        _, is_mvb, is_d4 = cls.vet_bytes(param, "Variable")
+    def from_bytes(
+        cls,
+        param: bytes,
+        from_tmcc_rx: bool = False,
+        is_tmcc4: bool = False,
+        vet_bytes: tuple[bool, bool, bool] = None,
+    ) -> Self:
+        if vet_bytes:
+            _, is_mvb, is_d4 = vet_bytes
+        else:
+            _, is_mvb, is_d4 = cls.vet_bytes(param, "Variable")
         if is_mvb:
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
             if index != TMCC2_VARIABLE_INDEX:

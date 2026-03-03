@@ -8,13 +8,13 @@ from queue import Queue
 from threading import Thread
 from typing import Generic, Tuple
 
+from .base_req import BaseReq
+from .constants import PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
+from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import SYNC_COMPLETE, Channel, CommandDispatcher, Message, Subscriber, Topic
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
 from ..protocol.constants import BROADCAST_TOPIC, DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, PROGRAM_NAME, CommandScope
 from ..utils.ip_tools import get_ip_address
-from .base_req import BaseReq
-from .constants import PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
-from .pdi_req import PdiReq, TmccReq
 
 log = logging.getLogger(__name__)
 
@@ -155,7 +155,8 @@ class PdiListener(Thread):
                             dq_len -= 1
                         try:
                             if log.isEnabledFor(logging.DEBUG):
-                                log.debug(f"PDI Dispatcher offered->0x{req_bytes.hex(' ')}")
+                                if req_bytes.hex().lower() != "d129d7df":
+                                    log.debug(f"PDI Dispatcher offered->0x{req_bytes.hex(' ')}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
                         except Exception as e:
                             log.error(f"Failed to dispatch request: {req_bytes.hex(':')}")
