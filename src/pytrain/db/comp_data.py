@@ -467,10 +467,9 @@ class CompData(ABC, Generic[R]):
 
         update_pkgs: list[UpdatePkg] = []
         cmd = req.command
-        updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, [])
+        updates = REQUEST_TO_UPDATES_MAP.get(cmd.name, []).copy()
         if req.has_command_alias:
-            print(f"Command alias detected: {cmd} {req.command_alias}")
-            for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []):
+            for update in REQUEST_TO_UPDATES_MAP.get(req.command_alias.name, []).copy():
                 if update not in updates:
                     updates.append(update)
         for update in updates:
@@ -479,7 +478,6 @@ class CompData(ABC, Generic[R]):
                 pkg = cls._create_update_pkg(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
                 if pkg:
                     update_pkgs.append(pkg)
-        print(f"Cmd: {cmd} Updates: {update_pkgs}")
         return update_pkgs
 
     # noinspection PyUnnecessaryCast

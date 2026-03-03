@@ -269,10 +269,8 @@ class Base3Buffer(Thread):
                         from .base3_db_refresh_manager import Base3DbRefreshManager
 
                         if isinstance(sync_req, EngineState):
-                            print("requesting refresh")
                             Base3DbRefreshManager.request_refresh(sync_req)
                         else:
-                            print(f"Sending: {sync_req}")
                             cls._instance.send(sync_req.as_bytes)
 
 
