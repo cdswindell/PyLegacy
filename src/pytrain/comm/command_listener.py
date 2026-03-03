@@ -713,7 +713,6 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     # noinspection PyArgumentList
     def update_base_state(self, cmd: CommandReq, update_clients: bool = False):
         if isinstance(cmd, CommandReq):
-            print(f"update_base_state: {cmd}")
             action = REQUIRE_BASE_UPDATE.get(cmd.command, None)
             if isinstance(action, tuple) and len(action) >= 1:
                 action[0](cmd)
@@ -840,7 +839,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
             if state and action[0](state):
                 req = action[1](state, cmd)
-                req.send()
+                if req:
+                    req.send()
                 return
         """
         Engine/Train state is also impacted by states initiated and maintained by hand-held

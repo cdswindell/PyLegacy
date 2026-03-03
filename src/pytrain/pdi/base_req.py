@@ -113,18 +113,18 @@ SCOPE_TO_RECORD_TYPE_MAP[CommandScope.IRDA] = 3  # manually patch irda record
 class BaseReq(PdiReq, CompDataMixin):
     # noinspection PyTypeChecker,PyUnusedLocal
     @classmethod
-    def request_config(cls, state: ComponentState, cmd: CommandReq) -> BaseReq:
+    def request_config(cls, state: ComponentState, cmd: CommandReq) -> BaseReq | None:
+        refresh_requested = False
         if state.scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-            from ..db.engine_state import EngineState
-            from .base3_db_refresh_manager import Base3DbRefreshManager
-
             state_changes = BaseReq.update_eng(cmd)
-            for state_change in state_changes:
-                if isinstance(state_change, EngineState):
-                    Base3DbRefreshManager.request_refresh(state_change)
-                else:
-                    state_change.send()
-        return cls.create_base_query_request(state)
+            refresh_requested = BaseReq.process_sync_reqs(state_changes, lambda r: r.send())
+            print(f"request_config called: {state_changes} {refresh_requested}")
+            # for state_change in state_changes:
+            #     if isinstance(state_change, EngineState):
+            #         Base3DbRefreshManager.request_refresh(state_change)
+            #     else:
+            #         state_change.send()
+        return None if refresh_requested else cls.create_base_query_request(state)
 
     @classmethod
     def send_base_query_request(cls, state: ComponentState) -> None:
@@ -290,15 +290,19 @@ class BaseReq(PdiReq, CompDataMixin):
         return cmds
 
     @classmethod
-    def process_sync_reqs(cls, sync_reqs: list[BaseReq], callback: Callable):
+    def process_sync_reqs(cls, sync_reqs: list[BaseReq], callback: Callable) -> bool:
         from ..db.engine_state import EngineState
         from .base3_db_refresh_manager import Base3DbRefreshManager
 
-        for sync_req in sync_reqs:
-            if isinstance(sync_req, EngineState):
-                Base3DbRefreshManager.request_refresh(sync_req)
-            else:
-                callback(sync_req)
+        refresh_requested = False
+        if sync_reqs:
+            for sync_req in sync_reqs:
+                if isinstance(sync_req, EngineState):
+                    Base3DbRefreshManager.request_refresh(sync_req)
+                    refresh_requested = True
+                else:
+                    callback(sync_req)
+        return refresh_requested
 
     @classmethod
     def do_update_eng(cls, tmcc_cmd: CommandReq) -> list[BaseReq]:
