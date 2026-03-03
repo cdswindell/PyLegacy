@@ -37,7 +37,12 @@ from ..protocol.constants import (
     CommandScope,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2R4LCEnum
-from ..protocol.tmcc1.tmcc1_constants import SyncCommandDef, TMCC1AuxCommandEnum, TMCC1SyncCommandEnum
+from ..protocol.tmcc1.tmcc1_constants import (
+    SyncCommandDef,
+    TMCC1AuxCommandEnum,
+    TMCC1SyncCommandEnum,
+    TMCC1EngineCommandEnum,
+)
 from ..protocol.tmcc2.tmcc2_constants import LEGACY_MULTIBYTE_COMMAND_PREFIX, TMCC2EngineCommandEnum
 from ..utils.ip_tools import get_ip_address
 
@@ -59,6 +64,10 @@ COMMAND_IMPACTS = {
     TMCC1AuxCommandEnum.RELATIVE_SPEED: (lambda x: x.is_amc2, Amc2Req.request_config),
     TMCC1AuxCommandEnum.AUX1_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),
     TMCC1AuxCommandEnum.AUX2_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),
+    TMCC1EngineCommandEnum.NUMERIC: (
+        lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
+        BaseReq.request_config,
+    ),
     TMCC2EngineCommandEnum.NUMERIC: (
         lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
         BaseReq.request_config,
