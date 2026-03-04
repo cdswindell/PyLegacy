@@ -192,15 +192,15 @@ class CatalogPanel:
         if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             self._sel_box.hide()
         else:
-            for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
-                cb.value = 1
+            # for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
+            #     cb.value = 1
             if scope == CommandScope.ACC:
-                self._sel_1_btn.text = "Diesel"
-                self._sel_2_btn.text = "Steam"
-                self._sel_3_btn.text = "Other"
-            else:
                 self._sel_1_btn.text = "Op Accs"
                 self._sel_2_btn.text = "LCS"
+                self._sel_3_btn.text = "Other"
+            else:
+                self._sel_1_btn.text = "Diesel"
+                self._sel_2_btn.text = "Steam"
                 self._sel_3_btn.text = "Other"
             self._sel_box.show()
 
