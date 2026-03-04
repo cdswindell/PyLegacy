@@ -10,7 +10,7 @@
 #
 from typing import TYPE_CHECKING
 
-from guizero import Box, Text, TitleBox
+from guizero import Box, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..components.checkbox_group import CheckBoxGroup
@@ -73,8 +73,8 @@ class CatalogPanel:
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
 
-        sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        # sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
+        # sp.text_size = self._gui.s_2
         self._sort_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_18,
@@ -85,7 +85,7 @@ class CatalogPanel:
             align="top",
             width=int(self._width / 3.55),
             padx=14,
-            pady=12,
+            pady=10,
             style="radio",
             command=self.on_sort,
         )
