@@ -281,23 +281,25 @@ class PyTrain:
 
     def _load_client_state(self):
         server = f" at: {self._server}" if self._server_ips else ""
-        if not self._no_wait and not self._headless:  # wait for roster download
+        if not self._no_wait:  # wait for roster download
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
-            print(
-                f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle]}",
-                end="\r",
-                flush=True,
-            )
+            if not self._headless:
+                print(
+                    f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle]}",
+                    end="\r",
+                    flush=True,
+                )
             sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             if isinstance(sync_state, SyncState):
                 while not sync_state.is_synchronized:
                     cycle += 1
-                    print(
-                        f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle % 4]}",
-                        end="\r",
-                        flush=True,
-                    )
+                    if not self._headless:
+                        print(
+                            f"Loading layout state from {PROGRAM_NAME} server{server}... {cursor[cycle % 4]}",
+                            end="\r",
+                            flush=True,
+                        )
                     sleep(0.10)
                 print(f"Loading layout state from {PROGRAM_NAME} server{server}......Done", flush=True)
             else:
@@ -873,6 +875,8 @@ class PyTrain:
             found_at = -1
             waiting = 480
             cursor = {0: "|", 1: "\\", 2: "-", 3: "/"}
+            if self._headless:
+                log.info(f"Looking for {PROGRAM_NAME} Servers...")
             while waiting > 0:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
                 waiting -= 1
@@ -907,6 +911,11 @@ class PyTrain:
             print()
             # noinspection PyInconsistentReturns
             z.close()
+            if self._headless:
+                if an_info:
+                    log.info(f"Found {PROGRAM_NAME} Server at {an_info.server} on port {an_info.port}")
+                else:
+                    log.info(f"No {PROGRAM_NAME} Server found on local network")
         if an_info:
             return an_info.parsed_addresses()[0], an_info.port
         else:
