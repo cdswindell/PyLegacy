@@ -6,7 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-
+import logging
 import socket
 import subprocess
 import time
@@ -14,6 +14,8 @@ from multiprocessing import Pool, cpu_count
 from typing import List
 
 from ..protocol.constants import DEFAULT_BASE_PORT
+
+log = logging.getLogger(__name__)
 
 
 def get_ip_from_command():
@@ -116,7 +118,7 @@ def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
                 return True
         except OSError:
             pass
-
+        log.info("Waiting for IPv4 address...")
         time.sleep(0.25)
 
     return False
