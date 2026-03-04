@@ -19,6 +19,44 @@ from ..protocol.constants import DEFAULT_BASE_PORT
 log = logging.getLogger(__name__)
 
 
+TEST_NET_IP = ("192.0.2.1", 80)  # RFC 5737 TEST-NET-1 (non-routable on the public Internet)
+
+
+def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.connect(TEST_NET_IP)
+                ip = s.getsockname()[0]
+            finally:
+                s.close()
+
+            # Exclude loopback, link-local, and "0.0.0.0"
+            ip_obj = ipaddress.ip_address(ip)
+            if not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0"):
+                return True
+        except OSError:
+            pass
+
+        if timeout_s > 1:
+            log.debug("Waiting for IPv4 Network...")
+        time.sleep(0.5)
+
+    return False
+
+
+def wait_for_network(timeout_s: float = 30.0) -> bool:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if wait_for_ipv4(timeout_s=1.0):
+            return True
+        log.debug("Waiting for network...")
+        time.sleep(0.5)
+    return False
+
+
 def get_ip_from_command():
     try:
         # The specific interface might vary (e.g., en0, en1, etc.)
@@ -34,6 +72,8 @@ def get_ip_from_command():
 
 def get_ip_address(max_attempts: int = 32) -> List[str]:
     from .. import is_linux
+
+    wait_for_network()
 
     # if on linux, use hostname to get IP addr
     if is_linux():
@@ -100,41 +140,3 @@ def find_base_address() -> str | None:
                 p.terminate()
                 return result
     return None
-
-
-TEST_NET_IP = ("192.0.2.1", 80)  # RFC 5737 TEST-NET-1 (non-routable on the public Internet)
-
-
-def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
-    deadline = time.time() + timeout_s
-
-    while time.time() < deadline:
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                s.connect(TEST_NET_IP)
-                ip = s.getsockname()[0]
-            finally:
-                s.close()
-
-            # Exclude loopback, link-local, and "0.0.0.0"
-            ip_obj = ipaddress.ip_address(ip)
-            if not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0"):
-                return True
-
-        except OSError:
-            pass
-
-        time.sleep(0.5)
-
-    return False
-
-
-def wait_for_network(timeout_s: float = 30.0) -> bool:
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        if wait_for_ipv4(timeout_s=1.0):
-            return True
-        log.info("Waiting for network...")
-        time.sleep(0.5)
-    return False
