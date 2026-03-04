@@ -83,7 +83,7 @@ class CatalogPanel:
             align="top",
             width=int(self._width / 3.55),
             padx=14,
-            pady=10,
+            pady=8,
             style="radio",
             command=self.on_sort,
         )
