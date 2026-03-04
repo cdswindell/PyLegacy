@@ -8,7 +8,7 @@
 #
 #
 #
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from guizero import Box, TitleBox, CheckBox
 
@@ -16,6 +16,7 @@ from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
+from ... import EngineState
 from ...protocol.constants import CommandScope
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -41,7 +42,7 @@ class CatalogPanel:
         self._skip_update = False
         self._entry_state_map = {}
         self._overlay = None
-        self._width_scale_factor = 3.35
+        self._width_scale_factor = 3.375
         self._sel_1_btn = self._sel_2_btn = self._sel_3_btn = None
         self._configured_acc_labels: list[str] | None = None
         self._configured_acc_dict: dict[str, ConfiguredAccessoryAdapter] | None = None
@@ -145,18 +146,25 @@ class CatalogPanel:
 
         # Updates catalog entries based on sort order
         if self._scope != scope:
+            # configure the selection buttons and reset them to all on
+            self.configure_selection_btns(scope)
+
+            # restore sort order
             sort_order = self._scoped_sort_order[scope] if scope in self._scoped_sort_order else 0
             self._set_sort_order_widget(sort_order)
+
+            # rebuild catalog
             self._catalog.clear()
             self._entry_state_map.clear()
-            if scope == CommandScope.ACC:
+            # include configured accessories, if requested
+            if scope == CommandScope.ACC and self._sel_1_btn.value == 1:
                 self._harvest_configured_accessories()
                 if self._configured_acc_labels:
                     for label in self._configured_acc_labels:
                         self._catalog.append(label)
                     self._entry_state_map.update(self._configured_acc_dict)
                     self._catalog.append("-" * 30)
-            states = self._state_store.get_all(scope)
+            states = self.apply_selection_filter(scope, self._state_store.get_all(scope))
             if sort_order == 0:
                 states.sort(key=lambda x: x.name)
             elif sort_order == 1:
@@ -178,11 +186,23 @@ class CatalogPanel:
                 if entry:
                     self._entry_state_map[entry] = state
                     self._catalog.append(entry)
-            if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
-                self._sel_box.hide()
-            else:
-                self._sel_box.show()
             self._scope = scope
+
+    def configure_selection_btns(self, scope: CommandScope):
+        if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            self._sel_box.hide()
+        else:
+            for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
+                cb.value = 1
+            if scope == CommandScope.ACC:
+                self._sel_1_btn.text = "Diesel"
+                self._sel_2_btn.text = "Steam"
+                self._sel_3_btn.text = "Other"
+            else:
+                self._sel_1_btn.text = "Op Accs"
+                self._sel_2_btn.text = "LCS"
+                self._sel_3_btn.text = "Other"
+            self._sel_box.show()
 
     def _harvest_configured_accessories(self) -> None:
         if self._configured_acc_labels is None:
@@ -234,3 +254,22 @@ class CatalogPanel:
                 if len(state.tmcc_ids) > 1:
                     state.activate_tmcc_id(state.tmcc_ids[-1])
             self._gui.update_component_info(state.tmcc_id)
+
+    def apply_selection_filter(self, scope, states):
+        if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+            return states
+        if scope == CommandScope.ACC:
+            return states
+        else:
+            sel_diesel = self._sel_1_btn.value == 1
+            sel_steam = self._sel_2_btn.value == 1
+            sel_other = self._sel_3_btn.value == 1
+            return [
+                state
+                for state in states
+                if (
+                    (sel_diesel and cast(EngineState, state).is_diesel)
+                    or (sel_steam and cast(EngineState, state).is_steam)
+                    or (sel_other and not cast(EngineState, state).is_diesel and not cast(EngineState, state).is_steam)
+                )
+            ]
