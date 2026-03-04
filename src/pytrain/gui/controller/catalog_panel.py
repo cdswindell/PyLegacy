@@ -69,7 +69,7 @@ class CatalogPanel:
             grid=[0, 0, 2, 1],
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="nsew")
+        tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
@@ -102,7 +102,7 @@ class CatalogPanel:
             grid=[0, 0, 2, 1],
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="nsew")
+        tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
@@ -116,7 +116,7 @@ class CatalogPanel:
             CheckBoxGroup.decorate_checkbox(
                 cb,
                 self._gui.s_18,
-                padx=12,
+                padx=14,
                 pady=8,
                 width=int(self._width / 3.55),
             )
