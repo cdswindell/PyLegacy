@@ -281,7 +281,7 @@ class PyTrain:
 
     def _load_client_state(self):
         server = f" at: {self._server}" if self._server_ips else ""
-        if self._no_wait is False:  # wait for roster download
+        if self._no_wait is False or self._headless:  # wait for roster download
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
             print(
@@ -303,7 +303,7 @@ class PyTrain:
             else:
                 print("", flush=True)
         else:
-            print(f"Loading layout state {PROGRAM_NAME} from server{server}...", flush=True)
+            log.info(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
     def run(self) -> None:
         # register server so clients can connect without IP addr
