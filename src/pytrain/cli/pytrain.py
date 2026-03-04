@@ -915,8 +915,6 @@ class PyTrain:
                     elif ((found_at - waiting) / 2) > 15:
                         an_info = base3_info
                         break
-
-                log.info(f"Waiting: {waiting} found: {found_at}  {((found_at - waiting) / 2)}")
         except Exception as e:
             log.warning(e)
         finally:
@@ -945,11 +943,13 @@ class PyTrain:
         name: str,
         state_change: ServiceStateChange,
     ):
-        log.info(f"Service {name} of type {service_type} state changed: {state_change}")
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"Service {name} of type {service_type} state changed: {state_change}")
         if state_change is ServiceStateChange.Added:
             info = zeroconf.get_service_info(service_type, name)
-            if info:
-                log.info(f"Discovered {PROGRAM_NAME} Server {name} on {info.server} on port {info.port} ({name})")
+            if info and log.isEnabledFor(logging.DEBUG):
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Discovered {PROGRAM_NAME} Server {name} on {info.server} on port {info.port} ({name})")
                 self._pytrain_servers.append(info)
                 self._server_discovered.set()
 
