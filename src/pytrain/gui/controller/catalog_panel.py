@@ -66,7 +66,7 @@ class CatalogPanel:
             align="top",
             width=self._width,
             height=int(self._gui.button_size * 0.8),
-            grid=[0, 0, 2, 1],
+            grid=[0, 0, 3, 1],
         )
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="nsew")
@@ -99,7 +99,7 @@ class CatalogPanel:
             align="top",
             width=self._width,
             height=int(self._gui.button_size * 0.8),
-            grid=[0, 0, 2, 1],
+            grid=[0, 0, 3, 1],
         )
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="nsew")
