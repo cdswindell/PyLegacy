@@ -9,6 +9,7 @@
 
 import socket
 import subprocess
+import time
 from multiprocessing import Pool, cpu_count
 from typing import List
 
@@ -96,3 +97,26 @@ def find_base_address() -> str | None:
                 p.terminate()
                 return result
     return None
+
+
+def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
+    """Wait until we have a non-loopback IPv4 address."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            # This doesn't send packets; it's a common trick to learn the chosen local IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+            finally:
+                s.close()
+
+            if ip and not ip.startswith("127."):
+                return True
+        except OSError:
+            pass
+
+        time.sleep(0.25)
+
+    return False

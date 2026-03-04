@@ -25,7 +25,7 @@ from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
 
-from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
+from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf, IPVersion
 
 from .acc import AccCli
 from .amc2 import Amc2Cli
@@ -77,7 +77,7 @@ from ..protocol.constants import (
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
-from ..utils.ip_tools import find_base_address, get_ip_address
+from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_ipv4
 from ..utils.singleton import singleton
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
@@ -866,7 +866,11 @@ class PyTrain:
             the discovered service, if found and meeting criteria, or None if no suitable
             service was discovered within the waiting period.
         """
-        z = Zeroconf()
+        if not wait_for_ipv4(timeout_s=30):
+            log.warning("Network not ready for mDNS (no IPv4 address yet).")
+            return None
+
+        z = Zeroconf(ip_version=IPVersion.V4Only)
         an_info = None
         base3_info = None
         browser = None
