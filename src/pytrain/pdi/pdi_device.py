@@ -339,8 +339,11 @@ class PdiDevice(Mixins, FriendlyMixins):
     UPDATE = DeviceWrapper(BaseReq)
 
     @classmethod
-    def from_pdi_command(cls, cmd: PdiCommand) -> PdiDevice:
-        return cls(cmd.name.split("_")[0].upper())
+    def from_pdi_command(cls, cmd: PdiCommand) -> PdiDevice | None:
+        try:
+            return cls(cmd.name.split("_")[0].upper())
+        except ValueError as ve:
+            raise NotImplementedError(f"Unsupported PDI command: {cmd.name if cmd else 'unknown'}") from ve
 
     @classmethod
     def from_data(cls, data: bytes) -> PdiDevice:

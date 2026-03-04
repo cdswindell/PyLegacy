@@ -122,6 +122,7 @@ class PdiListener(Thread):
     def dispatcher(self) -> PdiDispatcher:
         return self._dispatcher
 
+    # noinspection PyUnresolvedReferences
     def run(self) -> None:
         eop_pos = -1
         while self._is_running:
@@ -158,6 +159,8 @@ class PdiListener(Thread):
                                 if req_bytes.hex().lower() != "d129d7df":
                                     log.debug(f"PDI Dispatcher offered->0x{req_bytes.hex(' ')}")
                             self._dispatcher.offer(PdiReq.from_bytes(req_bytes))
+                        except NotImplementedError as nie:
+                            log.warning(f"{nie} - {req_bytes.hex(':')}")
                         except Exception as e:
                             log.error(f"Failed to dispatch request: {req_bytes.hex(':')}")
                             log.exception(e)
