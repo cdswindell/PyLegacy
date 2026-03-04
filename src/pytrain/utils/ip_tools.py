@@ -6,6 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+import ipaddress
 import logging
 import socket
 import subprocess
@@ -101,20 +102,27 @@ def find_base_address() -> str | None:
     return None
 
 
+TEST_NET_IP = ("192.0.2.1", 80)  # RFC 5737 TEST-NET-1 (non-routable on the public Internet)
+
+
 def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
     deadline = time.time() + timeout_s
 
     while time.time() < deadline:
         try:
-            hostname = socket.gethostname()
-            addrs = socket.getaddrinfo(hostname, None, socket.AF_INET)
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.connect(TEST_NET_IP)
+                ip = s.getsockname()[0]
+            finally:
+                s.close()
 
-            for addr in addrs:
-                ip = addr[4][0]
-                if not ip.startswith("127."):
-                    return True
+            # Exclude loopback, link-local, and "0.0.0.0"
+            ip_obj = ipaddress.ip_address(ip)
+            if not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0"):
+                return True
 
-        except socket.gaierror:
+        except OSError:
             pass
 
         time.sleep(0.5)
@@ -122,10 +130,10 @@ def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
     return False
 
 
-def wait_for_network(timeout=30):
-    end = time.time() + timeout
-    while time.time() < end:
-        if wait_for_ipv4(1):
+def wait_for_network(timeout_s: float = 30.0) -> bool:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if wait_for_ipv4(timeout_s=1.0):
             return True
         log.info("Waiting for network...")
         time.sleep(0.5)
