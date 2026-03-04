@@ -64,7 +64,7 @@ class CatalogPanel:
             layout="grid",  # use grid INSIDE the TitleBox
             align="top",
             width=self._width,
-            # height=self._gui.button_size,
+            height=int(self._gui.button_size / 2),
             grid=[0, 0, 2, 1],
         )
         tb.text_size = self._gui.s_10
