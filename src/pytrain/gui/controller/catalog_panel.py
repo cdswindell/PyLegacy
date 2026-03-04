@@ -116,7 +116,7 @@ class CatalogPanel:
             CheckBoxGroup.decorate_checkbox(
                 cb,
                 self._gui.s_18,
-                padx=14,
+                padx=12,
                 pady=8,
                 width=int(self._width / 3.55),
             )
