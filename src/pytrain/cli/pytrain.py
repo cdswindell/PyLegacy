@@ -899,12 +899,13 @@ class PyTrain:
                             break
                 if found_at < 0:
                     found_at = waiting
-                if base3_info and (found_at - waiting) / 2 > 15:
+                if base3_info and ((found_at - waiting) / 2) > 15:
                     # if we found a server with a Base 3, and more than
                     # 15 seconds have passed, return it
                     an_info = base3_info
                     break
                 self._server_discovered.clear()
+                log.info(f"Waiting: {waiting} found: {found_at}  {((found_at - waiting) / 2)}")
         except Exception as e:
             log.warning(e)
         finally:
