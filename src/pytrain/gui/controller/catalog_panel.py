@@ -197,7 +197,7 @@ class CatalogPanel:
                 self._scoped_selection[scope] = (1, 1, 1)
             btn_values = self._scoped_selection[scope]
             for i, cb in enumerate((self._sel_1_btn, self._sel_2_btn, self._sel_3_btn)):
-                cb.value = btn_values(i)
+                cb.value = btn_values[i]
             if scope == CommandScope.ACC:
                 self._sel_1_btn.text = "Op Accs"
                 self._sel_2_btn.text = "LCS"
