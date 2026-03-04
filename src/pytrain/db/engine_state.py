@@ -49,7 +49,6 @@ from ..protocol.constants import (
     OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum, UnitAssignment
-
 # noinspection PyPep8Naming
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import (
@@ -58,7 +57,6 @@ from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
 )
-
 # noinspection PyPep8Naming
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
 from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
@@ -1043,6 +1041,15 @@ class TrainState(EngineState, LcsProxyState):
         return self.comp_data.consist_comps
 
     @property
+    def head(self) -> EngineState | None:
+        from .component_state_store import ComponentStateStore
+
+        head_id = self.head_tmcc_id
+        if head_id:
+            return ComponentStateStore.get_state(CommandScope.ENGINE, head_id, False)
+        return None
+
+    @property
     def head_tmcc_id(self) -> int | None:
         if self.consist_components:
             for comp in self.consist_components:
@@ -1116,6 +1123,49 @@ class TrainState(EngineState, LcsProxyState):
             return LcsProxyState.moniker.fget(self)
         else:
             return EngineState.moniker.fget(self)
+
+    @property
+    def is_rpm(self) -> bool:
+        return self.head.is_rpm if self.head else False
+
+    @property
+    def is_steam(self) -> bool:
+        return self.head.is_steam if self.head else False
+
+    @property
+    def is_electric(self) -> bool:
+        return self.head.is_electric if self.head else False
+
+    @property
+    def is_diesel(self) -> bool:
+        return self.head.is_diesel if self.head else False
+
+    @property
+    def is_crane(self) -> bool:
+        return self.head.is_crane if self.head else False
+
+    @property
+    def is_passenger(self) -> bool:
+        return self.head.is_passenger if self.head else False
+
+    @property
+    def is_freight(self) -> bool:
+        return self.head.is_freight if self.head else False
+
+    # Note: we use comp_data to determine Transformer type by
+    # deferring to the parent class
+
+    @property
+    def is_acela(self) -> bool:
+        return self.head.is_acela if self.head else False
+
+    @property
+    def has_throttle(self) -> bool:
+        return self.head.has_throttle if self.head else False
+
+    @property
+    def has_lights(self) -> bool:
+        return self.head.has_lights if self.head else False
 
     def as_bytes(self) -> list[bytes]:
         packets = []

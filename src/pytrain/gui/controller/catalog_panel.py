@@ -39,6 +39,7 @@ class CatalogPanel:
         self._catalog = None
         self._sort_btns = self._sel_btns = self._sel_box = None
         self._scoped_sort_order = {}
+        self._scoped_selection = {}
         self._skip_update = False
         self._entry_state_map = {}
         self._overlay = None
@@ -108,7 +109,7 @@ class CatalogPanel:
         self._sel_3_btn = CheckBox(tb, text="Other", grid=[2, 0])
 
         for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
-            cb.value = 1
+            cb.value = 0
             cb.update_command(self.on_sort)
             CheckBoxGroup.decorate_checkbox(
                 cb,
@@ -192,8 +193,11 @@ class CatalogPanel:
         if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             self._sel_box.hide()
         else:
-            # for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
-            #     cb.value = 1
+            if scope not in self._scoped_selection:
+                self._scoped_selection[scope] = (1, 1, 1)
+            btn_values = self._scoped_selection[scope]
+            for i, cb in enumerate((self._sel_1_btn, self._sel_2_btn, self._sel_3_btn)):
+                cb.value = btn_values(i)
             if scope == CommandScope.ACC:
                 self._sel_1_btn.text = "Op Accs"
                 self._sel_2_btn.text = "LCS"
@@ -223,6 +227,7 @@ class CatalogPanel:
 
     def on_sort(self) -> None:
         self._scoped_sort_order[self._scope] = int(self._sort_btns.value)
+        self._scoped_selection[self._scope] = (self._sel_1_btn.value, self._sel_2_btn.value, self._sel_3_btn.value)
         if self._skip_update:
             return
         scope = self._scope
@@ -258,18 +263,19 @@ class CatalogPanel:
     def apply_selection_filter(self, scope, states):
         if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             return states
+
         if scope == CommandScope.ACC:
             return states
         else:
             sel_diesel = self._sel_1_btn.value == 1
             sel_steam = self._sel_2_btn.value == 1
             sel_other = self._sel_3_btn.value == 1
-            return [
-                state
-                for state in states
-                if (
-                    (sel_diesel and cast(EngineState, state).is_diesel)
-                    or (sel_steam and cast(EngineState, state).is_steam)
-                    or (sel_other and not cast(EngineState, state).is_diesel and not cast(EngineState, state).is_steam)
+
+            def allowed(state: EngineState) -> bool:
+                return (
+                    (sel_diesel and state.is_diesel)
+                    or (sel_steam and state.is_steam)
+                    or (sel_other and not state.is_diesel and not state.is_steam)
                 )
-            ]
+
+            return [s for s in states if allowed(cast(EngineState, s))]
