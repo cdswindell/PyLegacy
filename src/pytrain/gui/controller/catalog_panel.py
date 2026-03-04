@@ -99,34 +99,38 @@ class CatalogPanel:
             grid=[0, 1, 2, 1],
         )
         tb.text_size = self._gui.s_10
-        tb.tk.grid_configure(column=0, row=1, columnspan=2, rowspan=1, sticky="nsew")
+        tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
 
-        self._sel_1_btn = cb = CheckBox(
+        self._sel_1_btn = CheckBox(
             tb,
             text="Diesel",
             grid=[0, 0],
         )
-        cb.value = 1
-        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_18, width=int(self._width / 3.3))
 
-        self._sel_2_btn = cb = CheckBox(
+        self._sel_2_btn = CheckBox(
             tb,
             text="Steam",
             grid=[1, 0],
         )
-        cb.value = 1
-        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_18, width=int(self._width / 3.3))
 
-        self._sel_3_btn = cb = CheckBox(
+        self._sel_3_btn = CheckBox(
             tb,
             text="Other",
             grid=[2, 0],
         )
-        cb.value = 1
-        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_18, width=int(self._width / 3.3))
+
+        for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
+            cb.value = 1
+            CheckBoxGroup.decorate_checkbox(
+                cb,
+                self._gui.s_18,
+                padx=14,
+                pady=8,
+                width=int(self._width / 3.55),
+            )
 
         # catalog
         self._catalog = lb = TouchListBox(
