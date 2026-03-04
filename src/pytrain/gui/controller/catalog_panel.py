@@ -41,6 +41,7 @@ class CatalogPanel:
         self._skip_update = False
         self._entry_state_map = {}
         self._overlay = None
+        self._width_scale_factor = 3.2
         self._sel_1_btn = self._sel_2_btn = self._sel_3_btn = None
         self._configured_acc_labels: list[str] | None = None
         self._configured_acc_dict: dict[str, ConfiguredAccessoryAdapter] | None = None
@@ -79,7 +80,7 @@ class CatalogPanel:
             selected=str(0),
             horizontal=True,
             align="top",
-            width=int(self._width / 3.55),
+            width=int(self._width / self._width_scale_factor),
             padx=10,
             pady=6,
             style="radio",
@@ -112,7 +113,7 @@ class CatalogPanel:
                 self._gui.s_18,
                 padx=10,
                 pady=6,
-                width=int(self._width / 3.55),
+                width=int(self._width / self._width_scale_factor),
             )
 
         # catalog
