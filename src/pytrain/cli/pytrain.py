@@ -937,6 +937,7 @@ class PyTrain:
         if state_change is ServiceStateChange.Added:
             info = zeroconf.get_service_info(service_type, name)
             if info:
+                print(f"Discovered {PROGRAM_NAME} Server {name} on {info.server} on port {info.port} ({name})")
                 self._pytrain_servers.append(info)
                 self._server_discovered.set()
 
