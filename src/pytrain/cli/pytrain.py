@@ -281,7 +281,7 @@ class PyTrain:
 
     def _load_client_state(self):
         server = f" at: {self._server}" if self._server_ips else ""
-        if self._no_wait is False or self._headless:  # wait for roster download
+        if not self._no_wait and not self._headless:  # wait for roster download
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
             print(
