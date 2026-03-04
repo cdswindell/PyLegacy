@@ -36,7 +36,7 @@ class CatalogPanel:
         self._scope = None
         self._state_store = self._gui.state_store
         self._catalog = None
-        self._sort_btns = None
+        self._sort_btns = self._sel_btns = None
         self._scoped_sort_order = {}
         self._skip_update = False
         self._entry_state_map = {}
@@ -77,7 +77,7 @@ class CatalogPanel:
         self._sort_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_18,
-            grid=[0, 1, 2, 1],
+            grid=[0, 0, 2, 1],
             options=SORT_OPTS,
             selected=str(0),
             horizontal=True,
@@ -89,7 +89,7 @@ class CatalogPanel:
             command=self.on_sort,
         )
 
-        tb = TitleBox(
+        self._sel_btns = tb = TitleBox(
             sb,
             text="Show",
             layout="grid",  # use grid INSIDE the TitleBox
