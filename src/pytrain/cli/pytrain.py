@@ -877,7 +877,7 @@ class PyTrain:
             cursor = {0: "|", 1: "\\", 2: "-", 3: "/"}
             if self._headless:
                 log.info(f"Looking for {PROGRAM_NAME} Servers...")
-            while waiting > 0:
+            while waiting > 0 and an_info is None:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
                 waiting -= 1
                 if self._server_discovered.wait(0.5):
@@ -907,11 +907,9 @@ class PyTrain:
                         found_at = waiting
                     elif ((found_at - waiting) / 2) > 15:
                         an_info = base3_info
-                        waiting = 0
                         break
                 self._server_discovered.clear()
                 log.info(f"Waiting: {waiting} found: {found_at}  {((found_at - waiting) / 2)}")
-            log.info(f"Exiting while stmt, waiting: {waiting} found: {found_at}  {((found_at - waiting) / 2)}")
         except Exception as e:
             log.warning(e)
         finally:
