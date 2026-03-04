@@ -66,13 +66,10 @@ class CatalogPanel:
             align="top",
             width=self._width,
             height=int(self._gui.button_size * 0.8),
-            # grid=[0, 0, 3, 1],
         )
         tb.text_size = self._gui.s_10
-        # tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
-        # tb.tk.grid_columnconfigure(0, weight=1)
 
         self._sort_btns = CheckBoxGroup(
             tb,
@@ -83,14 +80,13 @@ class CatalogPanel:
             horizontal=True,
             align="top",
             width=int(self._width / 3.55),
-            padx=14,
-            pady=8,
+            padx=10,
+            pady=6,
             style="radio",
             command=self.on_sort,
         )
 
         # select options
-        # sb = Box(catalog_box, layout="grid", align="top")
         sb = Box(catalog_box, align="top")
         sb.tk.config(width=self._width)
         self._sel_btns = tb = TitleBox(
@@ -100,13 +96,10 @@ class CatalogPanel:
             align="top",
             width=self._width,
             height=int(self._gui.button_size * 0.8),
-            # grid=[0, 0, 3, 1],
         )
         tb.text_size = self._gui.s_10
-        # tb.tk.grid_configure(column=0, row=0, columnspan=3, rowspan=1, sticky="nsew")
         tb.tk.config(width=self._width)
         tb.tk.pack_propagate(False)
-        # tb.tk.grid_columnconfigure(0, weight=1)
 
         self._sel_1_btn = CheckBox(tb, text="Diesel", grid=[0, 0])
         self._sel_2_btn = CheckBox(tb, text="Steam", grid=[1, 0])
@@ -117,8 +110,8 @@ class CatalogPanel:
             CheckBoxGroup.decorate_checkbox(
                 cb,
                 self._gui.s_18,
-                padx=14,
-                pady=8,
+                padx=10,
+                pady=6,
                 width=int(self._width / 3.55),
             )
 
