@@ -884,7 +884,6 @@ class PyTrain:
                     for info in self._pytrain_servers:
                         is_ser2 = False
                         is_base3 = False
-                        an_info = info
                         for prop, value in info.properties.items():
                             decoded_prop = prop.decode("utf-8")
                             decoded_value = value.decode("utf-8") if value is not None else None
@@ -896,16 +895,23 @@ class PyTrain:
                             base3_info = info
                         if is_ser2 is True and is_base3 is True:
                             waiting = 0
+                            an_info = info
                             break
-                if found_at < 0:
-                    found_at = waiting
-                if base3_info and ((found_at - waiting) / 2) > 15:
+                if an_info:
+                    # if an_info is non-null, we found a suitable server with both a Base and a Ser2
+                    break
+                if base3_info:
                     # if we found a server with a Base 3, and more than
                     # 15 seconds have passed, return it
-                    an_info = base3_info
-                    break
+                    if found_at < 0:
+                        found_at = waiting
+                    elif ((found_at - waiting) / 2) > 15:
+                        an_info = base3_info
+                        waiting = 0
+                        break
                 self._server_discovered.clear()
                 log.info(f"Waiting: {waiting} found: {found_at}  {((found_at - waiting) / 2)}")
+            log.info(f"Exiting while stmt, waiting: {waiting} found: {found_at}  {((found_at - waiting) / 2)}")
         except Exception as e:
             log.warning(e)
         finally:
