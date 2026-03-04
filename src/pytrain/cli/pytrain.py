@@ -866,7 +866,7 @@ class PyTrain:
             the discovered service, if found and meeting criteria, or None if no suitable
             service was discovered within the waiting period.
         """
-        if not wait_for_network(timeout=30):
+        if not wait_for_network(timeout_s=30):
             log.warning("Network not ready for mDNS (no IPv4 address yet).")
             return None
 
