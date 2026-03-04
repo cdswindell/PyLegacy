@@ -36,7 +36,7 @@ class CatalogPanel:
         self._scope = None
         self._state_store = self._gui.state_store
         self._catalog = None
-        self._sort_btns = self._sel_btns = None
+        self._sort_btns = self._sel_btns = self._sel_box = None
         self._scoped_sort_order = {}
         self._skip_update = False
         self._entry_state_map = {}
@@ -87,7 +87,7 @@ class CatalogPanel:
         )
 
         # select options
-        sb = Box(catalog_box, align="top")
+        self._sel_box = sb = Box(catalog_box, align="top")
         sb.tk.config(width=self._width)
         self._sel_btns = tb = TitleBox(
             sb,
@@ -176,6 +176,10 @@ class CatalogPanel:
                 if entry:
                     self._entry_state_map[entry] = state
                     self._catalog.append(entry)
+            if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+                self._sel_box.hide()
+            else:
+                self._sel_box.show()
             self._scope = scope
 
     def _harvest_configured_accessories(self) -> None:
