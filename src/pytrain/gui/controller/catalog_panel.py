@@ -41,7 +41,7 @@ class CatalogPanel:
         self._skip_update = False
         self._entry_state_map = {}
         self._overlay = None
-        self._width_scale_factor = 3.4
+        self._width_scale_factor = 3.35
         self._sel_1_btn = self._sel_2_btn = self._sel_3_btn = None
         self._configured_acc_labels: list[str] | None = None
         self._configured_acc_dict: dict[str, ConfiguredAccessoryAdapter] | None = None
@@ -108,6 +108,7 @@ class CatalogPanel:
 
         for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
             cb.value = 1
+            cb.update_command(self.on_sort)
             CheckBoxGroup.decorate_checkbox(
                 cb,
                 self._gui.s_18,
