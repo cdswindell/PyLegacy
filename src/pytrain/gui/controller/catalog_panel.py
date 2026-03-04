@@ -10,7 +10,7 @@
 #
 from typing import TYPE_CHECKING
 
-from guizero import Box, TitleBox
+from guizero import Box, TitleBox, CheckBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..components.checkbox_group import CheckBoxGroup
@@ -41,6 +41,7 @@ class CatalogPanel:
         self._skip_update = False
         self._entry_state_map = {}
         self._overlay = None
+        self._sel_1_btn = self._sel_2_btn = self._sel_3_btn = None
         self._configured_acc_labels: list[str] | None = None
         self._configured_acc_dict: dict[str, ConfiguredAccessoryAdapter] | None = None
 
@@ -87,6 +88,45 @@ class CatalogPanel:
             style="radio",
             command=self.on_sort,
         )
+
+        tb = TitleBox(
+            sb,
+            text="Show",
+            layout="grid",  # use grid INSIDE the TitleBox
+            align="top",
+            width=self._width,
+            height=int(self._gui.button_size * 0.8),
+            grid=[0, 1, 2, 1],
+        )
+        tb.text_size = self._gui.s_10
+        tb.tk.grid_configure(column=0, row=1, columnspan=2, rowspan=1, sticky="nsew")
+        tb.tk.config(width=self._width)
+        tb.tk.pack_propagate(False)
+        tb.tk.grid_columnconfigure(0, weight=1)
+
+        self._sel_1_btn = cb = CheckBox(
+            tb,
+            text="Diesel",
+            grid=[0, 0],
+        )
+        cb.value = 1
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_18, width=int(self._width / 3.3))
+
+        self._sel_2_btn = cb = CheckBox(
+            tb,
+            text="Steam",
+            grid=[1, 0],
+        )
+        cb.value = 1
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_18, width=int(self._width / 3.3))
+
+        self._sel_3_btn = cb = CheckBox(
+            tb,
+            text="Other",
+            grid=[2, 0],
+        )
+        cb.value = 1
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_18, width=int(self._width / 3.3))
 
         # catalog
         self._catalog = lb = TouchListBox(
