@@ -89,6 +89,9 @@ class CatalogPanel:
             command=self.on_sort,
         )
 
+        # select options
+        sb = Box(catalog_box, layout="grid", align="top")
+        sb.tk.config(width=self._width)
         self._sel_btns = tb = TitleBox(
             sb,
             text="Show",
@@ -96,7 +99,7 @@ class CatalogPanel:
             align="top",
             width=self._width,
             height=int(self._gui.button_size * 0.8),
-            grid=[0, 1, 2, 1],
+            grid=[0, 0, 2, 1],
         )
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=0, row=0, columnspan=2, rowspan=1, sticky="nsew")
@@ -104,23 +107,9 @@ class CatalogPanel:
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
 
-        self._sel_1_btn = CheckBox(
-            tb,
-            text="Diesel",
-            grid=[0, 0],
-        )
-
-        self._sel_2_btn = CheckBox(
-            tb,
-            text="Steam",
-            grid=[1, 0],
-        )
-
-        self._sel_3_btn = CheckBox(
-            tb,
-            text="Other",
-            grid=[2, 0],
-        )
+        self._sel_1_btn = CheckBox(tb, text="Diesel", grid=[0, 0])
+        self._sel_2_btn = CheckBox(tb, text="Steam", grid=[1, 0])
+        self._sel_3_btn = CheckBox(tb, text="Other", grid=[2, 0])
 
         for cb in (self._sel_1_btn, self._sel_2_btn, self._sel_3_btn):
             cb.value = 1
