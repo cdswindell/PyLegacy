@@ -64,7 +64,7 @@ class CatalogPanel:
             layout="grid",  # use grid INSIDE the TitleBox
             align="top",
             width=self._width,
-            height=self._gui.button_size,
+            # height=self._gui.button_size,
             grid=[0, 0, 2, 1],
         )
         tb.text_size = self._gui.s_10
@@ -73,8 +73,6 @@ class CatalogPanel:
         tb.tk.pack_propagate(False)
         tb.tk.grid_columnconfigure(0, weight=1)
 
-        # sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        # sp.text_size = self._gui.s_2
         self._sort_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_18,
