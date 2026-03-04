@@ -869,9 +869,10 @@ class PyTrain:
         z = Zeroconf()
         an_info = None
         base3_info = None
+        browser = None
         try:
             # listens for services on a background thread
-            ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
+            browser = ServiceBrowser(z, [SERVICE_TYPE], handlers=[self.on_service_state_change])
             found_at = -1
             waiting = 480
             cursor = {0: "|", 1: "\\", 2: "-", 3: "/"}
@@ -881,6 +882,8 @@ class PyTrain:
                 print(f"Looking for {PROGRAM_NAME} servers {cursor[waiting % 4]}", end="\r")
                 waiting -= 1
                 if self._server_discovered.wait(0.5):
+                    self._server_discovered.clear()
+
                     for info in self._pytrain_servers:
                         is_ser2 = False
                         is_base3 = False
@@ -908,19 +911,24 @@ class PyTrain:
                     elif ((found_at - waiting) / 2) > 15:
                         an_info = base3_info
                         break
-                self._server_discovered.clear()
+
                 log.info(f"Waiting: {waiting} found: {found_at}  {((found_at - waiting) / 2)}")
         except Exception as e:
             log.warning(e)
         finally:
-            print()
-            # noinspection PyInconsistentReturns
-            z.close()
             if self._headless:
                 if an_info:
                     log.info(f"Found {PROGRAM_NAME} Server at {an_info.server} on port {an_info.port}")
                 else:
                     log.info(f"No {PROGRAM_NAME} Server found on local network")
+            else:
+                print()
+            try:
+                if browser is not None:
+                    browser.cancel()  # polite shutdown
+            finally:
+                z.close()
+
         if an_info:
             return an_info.parsed_addresses()[0], an_info.port
         else:
