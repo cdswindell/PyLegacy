@@ -77,7 +77,7 @@ from ..protocol.constants import (
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
-from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_ipv4
+from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_network
 from ..utils.singleton import singleton
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
@@ -866,7 +866,7 @@ class PyTrain:
             the discovered service, if found and meeting criteria, or None if no suitable
             service was discovered within the waiting period.
         """
-        if not wait_for_ipv4(timeout_s=30):
+        if not wait_for_network(timeout=30):
             log.warning("Network not ready for mDNS (no IPv4 address yet).")
             return None
 

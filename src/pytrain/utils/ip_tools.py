@@ -102,23 +102,31 @@ def find_base_address() -> str | None:
 
 
 def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
-    """Wait until we have a non-loopback IPv4 address."""
     deadline = time.time() + timeout_s
+
     while time.time() < deadline:
         try:
-            # This doesn't send packets; it's a common trick to learn the chosen local IP
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                s.connect(("8.8.8.8", 80))
-                ip = s.getsockname()[0]
-            finally:
-                s.close()
+            hostname = socket.gethostname()
+            addrs = socket.getaddrinfo(hostname, None, socket.AF_INET)
 
-            if ip and not ip.startswith("127."):
-                return True
-        except OSError:
+            for addr in addrs:
+                ip = addr[4][0]
+                if not ip.startswith("127."):
+                    return True
+
+        except socket.gaierror:
             pass
-        log.info("Waiting for IPv4 address...")
-        time.sleep(0.25)
 
+        time.sleep(0.5)
+
+    return False
+
+
+def wait_for_network(timeout=30):
+    end = time.time() + timeout
+    while time.time() < end:
+        if wait_for_ipv4(1):
+            return True
+        log.info("Waiting for network...")
+        time.sleep(0.5)
     return False
