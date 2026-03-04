@@ -264,10 +264,12 @@ class PdiReq(ABC):
         try:
             return int(txt)
         except TypeError:
-            log.warning(f"Expected int; got: {'0x' + data.hex() if isinstance(data, bytes) else data}")
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Expected int; got: {'0x' + data.hex() if isinstance(data, bytes) else data}")
             return 0
         except ValueError:
-            log.warning(f"Expected int; got: {'0x' + data.hex() if isinstance(data, bytes) else data}")
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Expected int; got: {'0x' + data.hex() if isinstance(data, bytes) else data}")
             return 0
 
     @staticmethod

@@ -156,7 +156,7 @@ class PyTrain:
             if isinstance(args.base, list) and len(args.base):
                 base = args.base[0]
             else:
-                print("Looking for Lionel Base on local network...")
+                log.info("Looking for Lionel Base on local network...")
                 base = find_base_address()
                 if base is None:
                     raise AttributeError(f"{PROGRAM_NAME} could not find a Lionel Base on the local network")
@@ -202,11 +202,11 @@ class PyTrain:
             listeners.append(self._tmcc_listener)
 
             # listen for client connections; build *after* CommandListener.build
-            print(f"Listening for client requests on port {self._args.server_port}...")
+            log.info(f"Listening for client requests on port {self._args.server_port}...")
             self._receiver = EnqueueProxyRequests(self.tmcc_buffer, self._args.server_port)
 
             if self._base_addr is not None:
-                print(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
+                log.info(f"Listening for Lionel Base broadcasts on {self._base_addr}:{self._base_port}...")
                 self._pdi_buffer = PdiListener.build(self._base_addr, self._base_port)
                 listeners.append(self._pdi_buffer)
                 self.tmcc_buffer.is_use_base3 = True
@@ -215,17 +215,17 @@ class PyTrain:
                     self._receiver.base3_dispatcher = self._pdi_buffer
 
             if self._ser2 is True:
-                print("Listening for Lionel LCS Ser2 broadcasts...")
+                log.info("Listening for Lionel LCS Ser2 broadcasts...")
 
             if self._pdi_buffer or self._ser2 is False:
-                print(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
+                log.info(f"Sending commands directly to Lionel Base at {self._base_addr}:{self._base_port}...")
             else:
-                print(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
+                log.info(f"Sending commands directly to Lionel LCS Ser2 on {self._port} {self._baudrate} baud...")
         else:
-            print(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
+            log.info(f"Sending commands to {PROGRAM_NAME} server at {self._server}:{self._port}...")
             self._tmcc_listener = ClientStateListener.build()
             listeners.append(self._tmcc_listener)
-            print(f"Listening for state updates on port {self._tmcc_listener.port}...")
+            log.info(f"Listening for state updates on port {self._tmcc_listener.port}...")
             self._client_ip: str = self._tmcc_buffer.server_ip()
         # register listeners
         self._is_ser2 = args.ser2 is True
@@ -240,7 +240,7 @@ class PyTrain:
         if self._args.echo:
             self._enable_echo()
 
-        print("Registering listeners...", flush=True)
+        log.info("Registering listeners...")
         self._state_store.listen_for(CommandScope.BASE)
         self._state_store.listen_for(CommandScope.ENGINE)
         self._state_store.listen_for(CommandScope.TRAIN)
@@ -975,7 +975,7 @@ class PyTrain:
                             self._dispatcher.signal_clients()
                         elif self.is_client and len(ui_parts) > 1 and ui_parts[1] == "server":
                             # signal server to quit
-                            print(f"Sending Quit request to {PROGRAM_NAME} server...")
+                            log.info(f"Sending Quit request to {PROGRAM_NAME} server...")
                             cmd = CommandReq(ADMIN_COMMAND_TO_ACTION_MAP.get("quit"))
                             self._tmcc_buffer.enqueue_command(cmd.as_bytes)
                             return None
@@ -1155,14 +1155,14 @@ class PyTrain:
                 self._disable_debug()
 
     def _disable_debug(self):
-        print("Debug logging DISABLED...")
+        log.info("Debug logging DISABLED...")
         log.setLevel(logging.INFO)
         for handler in log.root.handlers:
             handler.setLevel(logging.INFO)
         self._debug = False
 
     def _enable_debug(self):
-        print("Debug logging ENABLED...")
+        log.info("Debug logging ENABLED...")
         log.setLevel(logging.DEBUG)
         for handler in log.root.handlers:
             handler.setLevel(logging.DEBUG)
@@ -1194,18 +1194,18 @@ class PyTrain:
 
     def _disable_echo(self):
         self._tmcc_listener.unsubscribe(self, BROADCAST_TOPIC)
-        print("TMCC command echoing DISABLED...")
+        log.info("TMCC command echoing DISABLED...")
         if self._pdi_buffer:
             self._pdi_buffer.unsubscribe(self, BROADCAST_TOPIC)
-        print("PDI command echoing DISABLED...")
+        log.info("PDI command echoing DISABLED...")
         self._echo = False
 
     def _enable_echo(self):
         self._tmcc_listener.listen_for(self, BROADCAST_TOPIC)
-        print("TMCC command echoing ENABLED...")
+        log.info("TMCC command echoing ENABLED...")
         if self._pdi_buffer:
             self._pdi_buffer.listen_for(self, BROADCAST_TOPIC)
-        print("PDI command echoing ENABLED...")
+        log.info("PDI command echoing ENABLED...")
         self._echo = True
 
     @property
@@ -1500,12 +1500,12 @@ class ButtonsFileLoader(Thread):
 
     def run(self) -> None:
         if os.path.isfile(self._buttons_file):
-            print(f"Loading buttons file: {self._buttons_file}...")
+            log.info(f"Loading buttons file: {self._buttons_file}...")
             with open(self._buttons_file, mode="r", encoding="utf-8") as script:
                 code = script.read()
                 try:
                     exec(code)
-                    print("Buttons registered...")
+                    log.info("Buttons registered...")
                 except Exception as e:
                     log.error(f"Problem loading buttons file {self._buttons_file} (see logs)")
                     log.exception(e)

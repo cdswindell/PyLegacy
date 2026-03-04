@@ -178,11 +178,11 @@ class Base3Buffer(Thread):
                             log.debug(ve)
                 except OSError as oe:
                     log.info(
-                        f"No response from Lionel Base 3 at {self._base3_addr}; is the Base 3 turned on? Retrying..."
+                        f"No response from Lionel Base 3 at {self._base3_addr}; is it turned on? Retrying...\n{oe}"
                     )
-                    log.exception(oe)
                     keep_trying -= 1
                     if keep_trying <= 0:
+                        log.exception(oe)
                         raise oe
                     else:
                         time.sleep(30 if oe.errno == 113 else 1)
