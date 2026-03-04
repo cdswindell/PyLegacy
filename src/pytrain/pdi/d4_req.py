@@ -1,10 +1,20 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+#
+
 import time
 from datetime import datetime
 
-from ..db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataHandler, CompDataMixin
-from ..protocol.constants import CommandScope
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from .pdi_req import PdiReq
+from ..db.comp_data import BASE_MEMORY_ENGINE_READ_MAP, CompData, CompDataHandler, CompDataMixin
+from ..protocol.constants import CommandScope
 
 LIONEL_EPOCH: int = 1577836800  # Midnight, Jan 1 2020 UTC
 
@@ -54,6 +64,7 @@ class D4Req(PdiReq, CompDataMixin):
                     self._data_bytes = data_bytes
                     if self.start == 0 and self.data_length == PdiReq.scope_record_length(CommandScope.ENGINE):
                         self._comp_data = CompData.from_bytes(data_bytes, self.scope)
+                        # noinspection PyUnresolvedReferences
                         self._tmcc_id = self._comp_data.tmcc_id
                         self._comp_data_record = True  # mark this req as containing a complete CompData record
                     elif isinstance(data_bytes, str):

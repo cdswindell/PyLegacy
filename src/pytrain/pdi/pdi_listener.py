@@ -1,3 +1,13 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+#
+
 from __future__ import annotations
 
 import logging
@@ -169,7 +179,7 @@ class PdiListener(Thread):
                         continue  # with while dq_len > 0 loop
                 # pop this byte and continue; we either received unparsable input
                 # or started receiving data mid-command
-                log.warning(f"PdiListener Ignoring {hex(self._deque.popleft())}")
+                log.warning(f"PdiListener - ignoring: {hex(self._deque.popleft())}")
                 dq_len -= 1
                 eop_pos = -1
         # shut down the dispatcher

@@ -1,3 +1,13 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+#
+
 from __future__ import annotations
 
 import abc
@@ -7,7 +17,6 @@ from collections import defaultdict
 from enum import unique
 from typing import List, TypeVar
 
-from ..protocol.constants import CommandScope, Mixins
 from .amc2_req import Amc2Req
 from .asc2_req import Asc2Req
 from .bpc2_req import Bpc2Req
@@ -28,6 +37,7 @@ from .constants import (
 from .irda_req import IrdaReq
 from .pdi_req import PdiReq
 from .stm2_req import Stm2Req
+from ..protocol.constants import CommandScope, Mixins
 
 T = TypeVar("T", bound=PdiReq)
 

@@ -1,18 +1,20 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
 #
 
 from __future__ import annotations
 
+from .constants import PDI_EOP, PDI_SOP, PdiCommand, Stm2Action
+from .lcs_req import LcsReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 from ..utils.validations import Validations
-from .constants import PDI_EOP, PDI_SOP, PdiCommand, Stm2Action
-from .lcs_req import LcsReq
 
 
 class Stm2Req(LcsReq):
