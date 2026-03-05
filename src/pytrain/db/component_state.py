@@ -403,6 +403,9 @@ class TmccState(ComponentState, ABC):
     def is_lcs(self) -> bool:
         return False
 
+    def update(self, command: L | P) -> None:
+        super().update(command)
+
     def as_dict(self) -> Dict[str, Any]:
         return super()._as_dict()
 
