@@ -16,7 +16,8 @@ from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
-from ... import EngineState
+from ...db.accessory_state import AccessoryState
+from ...db.engine_state import EngineState
 from ...protocol.constants import CommandScope
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -265,7 +266,14 @@ class CatalogPanel:
             return states
 
         if scope == CommandScope.ACC:
-            return states
+            sel_lcs = self._sel_2_btn.value == 1
+            sel_other = self._sel_3_btn.value == 1
+
+            def allowed(state: AccessoryState) -> bool:
+                print((sel_lcs and state.is_lcs) or (sel_other and not state.is_lcs))
+                return (sel_lcs and state.is_lcs) or (sel_other and not state.is_lcs)
+
+            return [s for s in states if allowed(cast(AccessoryState, s))]
         else:
             sel_diesel = self._sel_1_btn.value == 1
             sel_steam = self._sel_2_btn.value == 1
