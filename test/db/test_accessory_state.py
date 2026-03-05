@@ -160,9 +160,11 @@ class TestAccessoryState:
         acc.update(CommandReq.build(Aux.AUX1_ON, acc.address))
         acc.update(CommandReq.build(Aux.AUX2_OFF, acc.address))
 
+        assert acc.is_lcs is False
+
         bs = acc.as_bytes()
         assert isinstance(bs, (bytes, bytearray))
-        # It should include TMCC3-byte packets for aux1/aux2 after the comp_data pdi block
+        # It should include TMCC 3-byte packets for aux1/aux2 after the comp_data pdi block
         # Check presence by building expected command bytes
         aux1_bytes = CommandReq.build(Aux.AUX1_ON, acc.address).as_bytes
         aux2_bytes = CommandReq.build(Aux.AUX2_OFF, acc.address).as_bytes

@@ -12,10 +12,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
 from ..pdi.constants import IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.constants import CommandScope, Direction
-from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
 
 
 class IrdaState(LcsState):
@@ -124,6 +124,10 @@ class IrdaState(LcsState):
                                 command.tmcc_id = orig_tmcc_id
                     self.changed.set()
                     self._cv.notify_all()
+
+    @property
+    def is_lcs(self) -> bool:
+        return True
 
     @property
     def sequence(self) -> IrdaSequence:

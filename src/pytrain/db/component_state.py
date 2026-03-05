@@ -353,6 +353,14 @@ class ComponentState(ABC, CompDataMixin):
         }
 
     @property
+    def is_lcs(self) -> bool:
+        if hasattr(self, "_parent") and self._parent:
+            return self._parent.is_lcs
+        if hasattr(self, "_pdi_source"):
+            return self._pdi_source
+        return False
+
+    @property
     @abstractmethod
     def is_tmcc(self) -> bool:
         """
@@ -365,14 +373,6 @@ class ComponentState(ABC, CompDataMixin):
     def is_legacy(self) -> bool:
         """
         Returns True if the component responds to Legacy/TMCC2 protocol, False otherwise.
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def is_lcs(self) -> bool:
-        """
-        Returns True if the component is an LCS device, False otherwise.
         """
         ...
 
@@ -397,10 +397,6 @@ class TmccState(ComponentState, ABC):
 
     @property
     def is_legacy(self) -> bool:
-        return False
-
-    @property
-    def is_lcs(self) -> bool:
         return False
 
     def update(self, command: L | P) -> None:
@@ -454,9 +450,10 @@ class LcsState(ComponentState, ABC):
     def is_legacy(self) -> bool:
         return True
 
-    @property
-    def is_lcs(self) -> bool:
-        return True
+    #
+    # @property
+    # def is_lcs(self) -> bool:
+    #     return True
 
     @property
     def firmware(self) -> str:
@@ -559,6 +556,10 @@ class LcsProxyState(LcsState, ABC):
         )
 
     @property
+    def is_lcs_component(self) -> bool:
+        return self.is_lcs
+
+    @property
     def parent_id(self) -> int | None:
         if self._config_req:
             return self.address
@@ -569,14 +570,6 @@ class LcsProxyState(LcsState, ABC):
     @property
     def parent(self) -> Self:
         return self._parent
-
-    @property
-    def is_lcs_component(self) -> bool:
-        return self._pdi_source
-
-    @property
-    def is_lcs(self) -> bool:
-        return self._pdi_source
 
     @property
     def firmware(self) -> str:
