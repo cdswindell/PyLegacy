@@ -268,13 +268,8 @@ class CatalogPanel:
         if scope == CommandScope.ACC:
             sel_lcs = self._sel_2_btn.value == 1
             sel_other = self._sel_3_btn.value == 1
-            print(f"LCS: {sel_lcs}, Other: {sel_other}")
 
             def allowed(state: AccessoryState) -> bool:
-                print(
-                    f"is lcs: {state.is_lcs} other: {not state.is_lcs} "
-                    f"{(sel_lcs and state.is_lcs) or (sel_other and not state.is_lcs)}"
-                )
                 return (sel_lcs and state.is_lcs) or (sel_other and not state.is_lcs)
 
             return [s for s in states if allowed(cast(AccessoryState, s))]
