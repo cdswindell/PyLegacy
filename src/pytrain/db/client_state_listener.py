@@ -1,9 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 #
 
@@ -103,7 +104,7 @@ class ClientStateListener(threading.Thread):
         # if the version of the server is newer, we want to update the client
         self._tmcc_buffer.server_version_available().wait()
         server_version = self._tmcc_buffer.server_version
-        client_version = get_version_tuple()  # only interested in major and minor version
+        client_version = get_version_tuple()  # only interested in major and minor versions
         if server_version is None or server_version > client_version:
             if do_upgrade:
                 cv = f"{get_version()}"

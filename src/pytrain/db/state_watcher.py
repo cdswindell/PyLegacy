@@ -1,9 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 #
 
@@ -12,8 +13,8 @@ from queue import Queue
 from threading import Thread
 from typing import Callable
 
-from ..protocol.constants import PROGRAM_NAME
 from .component_state import ComponentState
+from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 

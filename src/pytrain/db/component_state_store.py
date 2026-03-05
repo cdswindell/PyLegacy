@@ -1,9 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 #
 
@@ -15,6 +16,14 @@ import threading
 from collections import defaultdict
 from typing import Generic, List, Set, Tuple, TypeVar, cast
 
+from .comp_data import CompDataMixin
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    ComponentStateDict,
+    RequestConfigurationException,
+    SystemStateDict,
+)
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
@@ -28,14 +37,6 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
-from .comp_data import CompDataMixin
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    ComponentStateDict,
-    RequestConfigurationException,
-    SystemStateDict,
-)
 
 log = logging.getLogger(__name__)
 

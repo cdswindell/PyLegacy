@@ -7,7 +7,7 @@
 #  This work is licensed under the terms of the LPGL license.
 #  SPDX-License-Identifier: LPGL
 #
-#
+
 from __future__ import annotations
 
 import logging

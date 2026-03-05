@@ -1,9 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 #
 
@@ -11,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from .comp_data import CompDataMixin
+from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
 from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
@@ -19,8 +22,6 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
-from .comp_data import CompDataMixin
-from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
 
 
 class AccessoryState(TmccState, LcsProxyState):

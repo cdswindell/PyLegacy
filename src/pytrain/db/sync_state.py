@@ -1,9 +1,10 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 #
 
@@ -11,10 +12,10 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from .component_state import SCOPE_TO_STATE_MAP, ComponentState, L, P
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
-from .component_state import SCOPE_TO_STATE_MAP, ComponentState, L, P
 
 
 class SyncState(ComponentState):
