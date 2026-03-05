@@ -16,6 +16,7 @@ from ..db.comp_data import (
 )
 from ..db.component_state import ComponentState
 from ..db.components import ConsistComponent
+from ..db.engine_state import EngineState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CONTROL_TYPE, LOCO_CLASS, LOCO_TYPE, SOUND_TYPE, CommandScope, Mixins
@@ -170,37 +171,38 @@ class BaseReq(PdiReq, CompDataMixin):
             # otherwise, get state
             cur_state = ComponentStateStore.get_state(scope, address, False)
 
-            # special case numeric commands
-            if state.name == "NUMERIC":
-                if data in {3, 6}:  # RPM up/down
-                    if cur_state and cur_state.rpm is not None:
-                        cur_rpm = cur_state.rpm
-                        cur_labor = cur_state.labor if cur_state.labor else 12
-                        if data == 6:  # RPM Down
-                            cur_rpm = max(cur_rpm - 1, 0)
-                        elif data == 3:  # RPM Up
-                            cur_rpm = min(cur_rpm + 1, 7)
-                        pkgs.append(CompData.rpm_labor_to_pkg(cur_rpm, cur_labor))
-                elif data == 5 and cur_state.speed == 0:  # Shutdown Delayed
-                    pkgs.extend(
-                        CompData.request_to_updates(
-                            CommandReq(
-                                TMCC2EngineCommandEnum.SHUTDOWN_DELAYED,
-                                address,
-                                scope=scope,
+            if isinstance(cur_state, EngineState):
+                # special case numeric commands
+                if state.name == "NUMERIC":
+                    if data in {3, 6}:  # RPM up/down
+                        if cur_state and cur_state.rpm is not None:
+                            cur_rpm = cur_state.rpm
+                            cur_labor = cur_state.labor if cur_state.labor else 12
+                            if data == 6:  # RPM Down
+                                cur_rpm = max(cur_rpm - 1, 0)
+                            elif data == 3:  # RPM Up
+                                cur_rpm = min(cur_rpm + 1, 7)
+                            pkgs.append(CompData.rpm_labor_to_pkg(cur_rpm, cur_labor))
+                    elif data == 5 and cur_state.speed == 0:  # Shutdown Delayed
+                        pkgs.extend(
+                            CompData.request_to_updates(
+                                CommandReq(
+                                    TMCC2EngineCommandEnum.SHUTDOWN_DELAYED,
+                                    address,
+                                    scope=scope,
+                                )
                             )
                         )
-                    )
-                elif data == 0:  # Reset
-                    pkgs.extend(
-                        CompData.request_to_updates(
-                            CommandReq(
-                                TMCC2EngineCommandEnum.RESET,
-                                address,
-                                scope=scope,
+                    elif data == 0:  # Reset
+                        pkgs.extend(
+                            CompData.request_to_updates(
+                                CommandReq(
+                                    TMCC2EngineCommandEnum.RESET,
+                                    address,
+                                    scope=scope,
+                                )
                             )
                         )
-                    )
         elif isinstance(cmd, CommandDefEnum):
             state = cmd
             cur_state = ComponentStateStore.build().get_state(scope, address, False)
