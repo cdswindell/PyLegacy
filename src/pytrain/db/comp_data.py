@@ -648,7 +648,10 @@ class CompData(ABC, Generic[R]):
         # load the data from the byte string
         if data:
             if len(data) != PdiReq.scope_record_length(self.scope):
-                log.warning(f"Invalid data length for {self.scope}: {len(data)}")
+                log.warning(
+                    f"Received malformed packet from Base for {self.scope}: "
+                    f"got {len(data)} bytes, expected {PdiReq.scope_record_length(self.scope)}"
+                )
             self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
 
     def is_active(self) -> bool:

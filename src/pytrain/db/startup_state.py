@@ -34,16 +34,22 @@ class StartupState(Thread):
         listener: PdiListener,
         dispatcher: CommandDispatcher,
         pdi_state_store: PdiStateStore,
+        force_sync: bool = False,
+        no_d4: bool = False,
     ) -> None:
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Startup State Sniffer")
         self.pdi_listener = listener
         self.pdi_dispatcher = listener.dispatcher if listener else None
         self.pdi_state_store = pdi_state_store
+        self._force_sync = force_sync
+        self._no_d4 = no_d4
         self._cv = Condition()
         self._ev = Event()
         self._waiting_for = dict()
         self._processed_configs = set()
         self._sync_state = ComponentStateStore.get_state(CommandScope.SYNC, 99)
+        self._sync_complete = False
+        self._show_elapsed = True
         self._dispatcher = dispatcher
         self._dispatcher.offer(SYNCING)
         self.start()
@@ -71,6 +77,7 @@ class StartupState(Thread):
             elif isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
                 if cmd.scope == CommandScope.TRAIN and cmd.tmcc_id == 98:
                     self._dispatcher.offer(SYNC_COMPLETE)
+                    self._sync_complete = True
                 # send a request to the base to get the next engine/train/acc/switch/route record (0x26)
                 if cmd.tmcc_id < 98 and cmd.data_length == PdiReq.scope_record_length(cmd.scope):
                     req = BaseReq(cmd.tmcc_id + 1, PdiCommand.BASE_MEMORY, scope=cmd.scope)
@@ -136,11 +143,14 @@ class StartupState(Thread):
         self.pdi_listener.subscribe_any(self)
         self.pdi_listener.enqueue_command(AllReq())
         self.pdi_listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
-        for pdi_command in [PdiCommand.D4_ENGINE]:  # TODO: , PdiCommand.D4_TRAIN
-            req = D4Req(0, pdi_command, D4Action.COUNT)
-            with self._cv:
-                self._waiting_for[req.as_key] = req
-            self.pdi_listener.enqueue_command(req)
+        if not self._no_d4:
+            for pdi_command in [PdiCommand.D4_ENGINE]:  # TODO: , PdiCommand.D4_TRAIN
+                req = D4Req(0, pdi_command, D4Action.COUNT)
+                with self._cv:
+                    self._waiting_for[req.as_key] = req
+                self.pdi_listener.enqueue_command(req)
+        else:
+            log.info("Omitting 4-digit engines and trains...")
         # Request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw/Route then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity
@@ -159,21 +169,27 @@ class StartupState(Thread):
         # now wait for all responses; this will not track LCS devices reporting their config
         # because of the AllReq
         total_time = 0
-        now = time.time()
+        started_at = time.time()
         ev_set = False
         while total_time < 120:  # only listen for 2 minutes
             self._ev.wait(0.25)
-            if self._ev.is_set() or (ev_set is True):
+            elapsed = round(time.time() - started_at)
+            if self._ev.is_set() or (ev_set is True) or len(self._waiting_for) == 0:
                 self._ev.clear()
                 ev_set = True
-                if round(time.time() - now) >= 0:
-                    log.info(f"Initial state loaded from Base 3: {time.time() - now:.2f} seconds elapsed.")
+                if elapsed >= 0 and self._show_elapsed:
+                    log.info(f"Initial state loaded from Lionel Base: {elapsed:.2f} seconds elapsed.")
                     break
+            elif elapsed >= 10 and self._force_sync and not self._sync_complete:
+                log.warning("Forcing sync complete...")
+                self._dispatcher.offer(SYNC_COMPLETE)
+                self._show_elapsed = False
+                self._sync_complete = True
             total_time += 0.25
         # register handlers for special cases where additional processing
         # is required to process state
         _ = Amc2StateSync(self.pdi_listener)
         # print out any stragglers; this is an error we should address
         for k, v in self._waiting_for.items():
-            log.info(f"Failed to receive {k} state: {v}")
+            log.info(f"No initial state loaded for {k.as_label}")
         self.pdi_listener.unsubscribe_any(self)

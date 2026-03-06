@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging.config
 import os
 import readline
@@ -103,7 +104,8 @@ class PyTrain:
     @classmethod
     def current(cls) -> "PyTrain":
         if cls._current is None:
-            raise RuntimeError("PyTrain.current() called before PyTrain was created")
+            pn = PROGRAM_NAME
+            raise RuntimeError(f"{pn}.current() called before {pn} was created")
         return cls._current
 
     def __init__(self, cmd_line: List[str] = None) -> None:
@@ -119,6 +121,8 @@ class PyTrain:
         self._replay_file = args.replay_file
         self._baudrate = args.baudrate
         self._port = args.port
+        self._force_sync = args.force_sync
+        self._no_d4 = args.no_d4
         self._listener: CommandListener | ClientStateListener
         self._receiver = None
         self._state_store = None
@@ -521,6 +525,8 @@ class PyTrain:
         misc_opts.add_argument(
             "-headless", action="store_true", help="Do not prompt for user input (run in background),"
         )
+        misc_opts.add_argument("-force_sync", action="store_true", help=argparse.SUPPRESS)
+        misc_opts.add_argument("-no_d4", action="store_true", help="Do not load 4-digit engines and trains")
         misc_opts.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
         misc_opts.add_argument(
             "-replay_file",
@@ -1092,7 +1098,13 @@ class PyTrain:
         from the Lionel Base 3
         """
         sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        self._startup_state = StartupState(self._pdi_buffer, self._dispatcher, self._pdi_state_store)
+        self._startup_state = StartupState(
+            self._pdi_buffer,
+            self._dispatcher,
+            self._pdi_state_store,
+            force_sync=self._force_sync,
+            no_d4=self._no_d4,
+        )
         if is_startup is False or self._no_wait is False:  # wait for roster download
             cycle = 0
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
@@ -1106,7 +1118,7 @@ class PyTrain:
             else:
                 print("")
         else:
-            print(f"Loading roster from Lionel Base at {self._base_addr}...")
+            log.info(f"Loading roster from Lionel Base at {self._base_addr}...")
 
     def _get_engine_info(self, param) -> None:
         try:

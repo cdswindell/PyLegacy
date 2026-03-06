@@ -513,8 +513,12 @@ class BaseReq(PdiReq, CompDataMixin):
         return False
 
     @property
-    def as_key(self):
+    def as_key(self) -> tuple:
         return self.record_no, self.pdi_command, self.action, self.scope
+
+    @property
+    def as_label(self) -> str:
+        return f"{self.scope.title} - {self.record_no}"
 
     @property
     def record_no(self) -> int:
