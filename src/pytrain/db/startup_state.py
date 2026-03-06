@@ -180,7 +180,7 @@ class StartupState(Thread):
                 if elapsed >= 0 and self._show_elapsed:
                     log.info(f"Initial state loaded from Lionel Base: {elapsed:.2f} seconds elapsed.")
                     break
-            elif elapsed >= 10 and self._force_sync and not self._sync_complete:
+            elif elapsed >= 30 and self._force_sync and not self._sync_complete:
                 log.warning("Forcing sync complete...")
                 self._dispatcher.offer(SYNC_COMPLETE)
                 self._show_elapsed = False
