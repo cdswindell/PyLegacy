@@ -9,7 +9,7 @@
 
 from typing import TYPE_CHECKING, cast
 
-from guizero import Box, TitleBox, CheckBox
+from guizero import Box, CheckBox, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..components.checkbox_group import CheckBoxGroup
@@ -158,13 +158,14 @@ class CatalogPanel:
             self._catalog.clear()
             self._entry_state_map.clear()
             # include configured accessories, if requested
+            need_separator = False
             if scope == CommandScope.ACC and self._sel_1_btn.value == 1:
                 self._harvest_configured_accessories()
                 if self._configured_acc_labels:
                     for label in self._configured_acc_labels:
                         self._catalog.append(label)
                     self._entry_state_map.update(self._configured_acc_dict)
-                    self._catalog.append("-" * 30)
+                    need_separator = True
             states = self.apply_selection_filter(scope, self._state_store.get_all(scope))
             if sort_order == 0:
                 states.sort(key=lambda x: x.name)
@@ -185,6 +186,9 @@ class CatalogPanel:
                 else:
                     entry = None
                 if entry:
+                    if need_separator:
+                        self._catalog.append("-" * 30)
+                        need_separator = False
                     self._entry_state_map[entry] = state
                     self._catalog.append(entry)
             self._scope = scope
