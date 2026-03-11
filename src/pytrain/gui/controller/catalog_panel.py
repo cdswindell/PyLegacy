@@ -16,6 +16,7 @@ from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 from ...db.accessory_state import AccessoryState
+from ...db.component_state import RouteState, SwitchState
 from ...db.engine_state import EngineState
 from ...protocol.constants import CommandScope
 
@@ -212,7 +213,7 @@ class CatalogPanel:
             self._sel_3_btn.text = "Unknown"
         elif scope == CommandScope.ROUTE:
             self._sel_1_btn.text = "Aligned"
-            self._sel_2_btn.text = "Misalgn"
+            self._sel_2_btn.text = "Misalignd"
             self._sel_3_btn.text = "Unknown"
         else:
             self._sel_1_btn.text = "Diesel"
@@ -284,6 +285,28 @@ class CatalogPanel:
                 return (sel_lcs and state.is_lcs) or (sel_other and not state.is_lcs)
 
             return [s for s in states if allowed(cast(AccessoryState, s))]
+        elif scope == CommandScope.SWITCH:
+            sel_thru = self._sel_1_btn.value == 1
+            sel_out = self._sel_2_btn.value == 1
+            sel_other = self._sel_3_btn.value == 1
+
+            def allowed(state: SwitchState) -> bool:
+                return (sel_thru and state.is_thru) or (sel_out and state.is_out) or (sel_other and state.is_unknown)
+
+            return [s for s in states if allowed(cast(SwitchState, s))]
+        elif scope == CommandScope.ROUTE:
+            sel_aligned = self._sel_1_btn.value == 1
+            sel_not_aligned = self._sel_2_btn.value == 1
+            sel_other = self._sel_3_btn.value == 1
+
+            def allowed(state: RouteState) -> bool:
+                return (
+                    (sel_aligned and state.is_active)
+                    or (sel_not_aligned and state.is_not_active)
+                    or (sel_other and state.is_unknown)
+                )
+
+            return [s for s in states if allowed(cast(RouteState, s))]
         else:
             sel_diesel = self._sel_1_btn.value == 1
             sel_steam = self._sel_2_btn.value == 1

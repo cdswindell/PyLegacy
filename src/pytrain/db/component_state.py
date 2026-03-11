@@ -668,6 +668,10 @@ class SwitchState(TmccState):
         return self._state == Switch.OUT
 
     @property
+    def is_unknown(self) -> bool:
+        return not self.is_through and not self.is_out
+
+    @property
     def is_lcs_component(self) -> bool:
         return self._pdi_source
 
@@ -732,6 +736,7 @@ class RouteState(TmccState):
                         from .component_state_store import ComponentStateStore
 
                         store = ComponentStateStore.get()
+                        # Updates route state from switch and route components via store
                         for comp in comps:
                             self._signature.update(comp.as_signature)
                             if comp.is_switch:
@@ -768,6 +773,15 @@ class RouteState(TmccState):
     @property
     def is_active(self) -> bool:
         return self._signature == self._current_state
+
+    @property
+    def is_not_active(self) -> bool:
+        return not self.is_active and not self.is_unknown
+
+    @property
+    def is_unknown(self) -> bool:
+        with self.synchronizer:
+            return any(v is None for v in self._current_state.values())
 
     @property
     def as_signature(self) -> dict[str, bool]:

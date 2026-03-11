@@ -15,23 +15,24 @@ from unittest import mock
 import pytest
 
 from src.pytrain import AccessoryState, EngineState, TrainState
-
 # noinspection PyProtectedMember
 from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener, Message
 from src.pytrain.db.component_state import (
-    SCOPE_TO_STATE_MAP,
     ComponentState,
     ComponentStateDict,
+    RouteState,
+    SCOPE_TO_STATE_MAP,
     SwitchState,
     SystemStateDict,
 )
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Acc
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
+from src.pytrain.protocol.tmcc1.tmcc1_constants import (
+    TMCC1AuxCommandEnum as Acc,
+    TMCC1HaltCommandEnum,
+    TMCC1SwitchCommandEnum as Switch,
+)
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2RouteCommandEnum
-
 from ..test_base import TestBase
 
 
@@ -194,6 +195,67 @@ class TestComponentState(TestBase):
         assert ss.is_known is True
         assert ss.is_out is True
         assert ss.is_through is False
+
+    def test_route_state_is_known_and_activity(self) -> None:
+        route = RouteState()
+        assert route.scope == CommandScope.ROUTE
+        assert route.is_known is False
+
+        # Route consisting of switches only
+        route._is_known = True
+        route._signature = {"S1": True, "S2": False}
+        route._current_state = {"S1": None, "S2": None}
+        assert route.is_active is False
+        assert route.is_not_active is False
+
+        sw1 = SwitchState()
+        sw1._address = 1
+        sw1._state = Switch.THRU
+        route.update_switch_state(sw1)
+
+        sw2 = SwitchState()
+        sw2._address = 2
+        sw2._state = Switch.THRU
+        route.update_switch_state(sw2)
+        assert route.is_active is False
+        assert route.is_not_active is True
+
+        sw2._state = Switch.OUT
+        route.update_switch_state(sw2)
+        assert route.is_active is True
+        assert route.is_not_active is False
+
+        # Route consisting of switches and subroutes
+        complex_route = RouteState()
+        complex_route._is_known = True
+        complex_route._signature = {"S3": True, "R5": True}
+        complex_route._current_state = {"S3": None, "R5": None}
+        assert complex_route.is_active is False
+        assert complex_route.is_not_active is False
+
+        sw3 = SwitchState()
+        sw3._address = 3
+        sw3._state = Switch.THRU
+        complex_route.update_switch_state(sw3)
+
+        subroute = RouteState()
+        subroute._address = 5
+        subroute._is_known = False
+        complex_route.update_route_state(subroute)
+        assert complex_route.is_active is False
+        assert complex_route.is_not_active is False
+
+        subroute._is_known = True
+        subroute._signature = {"S10": True}
+        subroute._current_state = {"S10": False}
+        complex_route.update_route_state(subroute)
+        assert complex_route.is_active is False
+        assert complex_route.is_not_active is True
+
+        subroute._current_state = {"S10": True}
+        complex_route.update_route_state(subroute)
+        assert complex_route.is_active is True
+        assert complex_route.is_not_active is False
 
     def test_accessory_state(self) -> None:
         """
