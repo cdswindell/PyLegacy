@@ -209,8 +209,8 @@ class CatalogPanel:
             self._sel_2_btn.text = "Out"
             self._sel_3_btn.text = "Unknown"
         elif scope == CommandScope.ROUTE:
-            self._sel_1_btn.text = "Active"
-            self._sel_2_btn.text = "Inactive"
+            self._sel_1_btn.text = "Aligned"
+            self._sel_2_btn.text = "Misalignd"
             self._sel_3_btn.text = "Unknown"
         else:
             self._sel_1_btn.text = "Diesel"
