@@ -194,23 +194,31 @@ class CatalogPanel:
             self._scope = scope
 
     def configure_selection_btns(self, scope: CommandScope):
-        if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
-            self._sel_box.hide()
+        # if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
+        #     self._sel_box.hide()
+        # else:
+        if scope not in self._scoped_selection:
+            self._scoped_selection[scope] = (1, 1, 1)
+        btn_values = self._scoped_selection[scope]
+        for i, cb in enumerate((self._sel_1_btn, self._sel_2_btn, self._sel_3_btn)):
+            cb.value = btn_values[i]
+        if scope == CommandScope.ACC:
+            self._sel_1_btn.text = "Op Accs"
+            self._sel_2_btn.text = "LCS"
+            self._sel_3_btn.text = "Other"
+        elif scope == CommandScope.SWITCH:
+            self._sel_1_btn.text = "Thru"
+            self._sel_2_btn.text = "Out"
+            self._sel_3_btn.text = "Unknown"
+        elif scope == CommandScope.ROUTE:
+            self._sel_1_btn.text = "Aligned"
+            self._sel_2_btn.text = "Misalgn"
+            self._sel_3_btn.text = "Unknown"
         else:
-            if scope not in self._scoped_selection:
-                self._scoped_selection[scope] = (1, 1, 1)
-            btn_values = self._scoped_selection[scope]
-            for i, cb in enumerate((self._sel_1_btn, self._sel_2_btn, self._sel_3_btn)):
-                cb.value = btn_values[i]
-            if scope == CommandScope.ACC:
-                self._sel_1_btn.text = "Op Accs"
-                self._sel_2_btn.text = "LCS"
-                self._sel_3_btn.text = "Other"
-            else:
-                self._sel_1_btn.text = "Diesel"
-                self._sel_2_btn.text = "Steam"
-                self._sel_3_btn.text = "Other"
-            self._sel_box.show()
+            self._sel_1_btn.text = "Diesel"
+            self._sel_2_btn.text = "Steam"
+            self._sel_3_btn.text = "Other"
+        self._sel_box.show()
 
     def _harvest_configured_accessories(self) -> None:
         if self._configured_acc_labels is None:
