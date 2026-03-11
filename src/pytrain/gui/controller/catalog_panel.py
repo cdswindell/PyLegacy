@@ -147,7 +147,7 @@ class CatalogPanel:
         assert self.overlay  # force creation of panel
 
         # Updates catalog entries based on sort order
-        if self._scope != scope:
+        if self._scope != scope or scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # configure the selection buttons and reset them to all on
             self.configure_selection_btns(scope)
 
