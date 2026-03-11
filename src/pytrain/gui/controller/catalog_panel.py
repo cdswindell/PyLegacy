@@ -7,7 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from guizero import Box, CheckBox, TitleBox
 
@@ -216,7 +216,6 @@ class CatalogPanel:
             self._sel_1_btn.text = "Diesel"
             self._sel_2_btn.text = "Steam"
             self._sel_3_btn.text = "Other"
-        # self._sel_box.show()
 
     def _harvest_configured_accessories(self) -> None:
         if self._configured_acc_labels is None:
@@ -278,8 +277,6 @@ class CatalogPanel:
 
             def allowed(state: AccessoryState) -> bool:
                 return (sel_lcs and state.is_lcs) or (sel_other and not state.is_lcs)
-
-            return [s for s in states if allowed(cast(AccessoryState, s))]
         elif scope == CommandScope.SWITCH:
             sel_thru = self._sel_1_btn.value == 1
             sel_out = self._sel_2_btn.value == 1
@@ -287,8 +284,6 @@ class CatalogPanel:
 
             def allowed(state: SwitchState) -> bool:
                 return (sel_thru and state.is_thru) or (sel_out and state.is_out) or (sel_other and state.is_unknown)
-
-            return [s for s in states if allowed(cast(SwitchState, s))]
         elif scope == CommandScope.ROUTE:
             sel_aligned = self._sel_1_btn.value == 1
             sel_not_aligned = self._sel_2_btn.value == 1
@@ -300,8 +295,6 @@ class CatalogPanel:
                     or (sel_not_aligned and state.is_not_active)
                     or (sel_other and state.is_unknown)
                 )
-
-            return [s for s in states if allowed(cast(RouteState, s))]
         else:
             sel_diesel = self._sel_1_btn.value == 1
             sel_steam = self._sel_2_btn.value == 1
@@ -314,4 +307,5 @@ class CatalogPanel:
                     or (sel_other and not state.is_diesel and not state.is_steam)
                 )
 
-            return [s for s in states if allowed(cast(EngineState, s))]
+        # apply the appropriate "allowed" filter to the list of states
+        return [s for s in states if allowed(s)]
