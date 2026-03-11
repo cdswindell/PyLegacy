@@ -201,7 +201,7 @@ class CatalogPanel:
         for i, cb in enumerate((self._sel_1_btn, self._sel_2_btn, self._sel_3_btn)):
             cb.value = btn_values[i]
         if scope == CommandScope.ACC:
-            self._sel_1_btn.text = "Op Accs"
+            self._sel_1_btn.text = "Oper Acc"
             self._sel_2_btn.text = "LCS"
             self._sel_3_btn.text = "Other"
         elif scope == CommandScope.SWITCH:
@@ -209,8 +209,8 @@ class CatalogPanel:
             self._sel_2_btn.text = "Out"
             self._sel_3_btn.text = "Unknown"
         elif scope == CommandScope.ROUTE:
-            self._sel_1_btn.text = "Aligned"
-            self._sel_2_btn.text = "Misalignd"
+            self._sel_1_btn.text = "Active"
+            self._sel_2_btn.text = "Inactive"
             self._sel_3_btn.text = "Unknown"
         else:
             self._sel_1_btn.text = "Diesel"
@@ -272,7 +272,6 @@ class CatalogPanel:
 
     def apply_selection_filter(self, scope, states):
         # Filters states by scope-specific button-selected categories
-        print(f"apply_selection_filter: {scope} ")
         if scope == CommandScope.ACC:
             sel_lcs = self._sel_2_btn.value == 1
             sel_other = self._sel_3_btn.value == 1
