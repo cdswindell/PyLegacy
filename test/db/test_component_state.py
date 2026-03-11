@@ -11,11 +11,9 @@ from collections import defaultdict
 from typing import Any, Generator
 from unittest import mock
 
-# noinspection PyPackageRequirements
 import pytest
 
 from src.pytrain import AccessoryState, EngineState, TrainState
-# noinspection PyProtectedMember
 from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener, Message
 from src.pytrain.db.component_state import (
     ComponentState,
