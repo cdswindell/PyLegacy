@@ -195,9 +195,6 @@ class CatalogPanel:
             self._scope = scope
 
     def configure_selection_btns(self, scope: CommandScope):
-        # if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
-        #     self._sel_box.hide()
-        # else:
         if scope not in self._scoped_selection:
             self._scoped_selection[scope] = (1, 1, 1)
         btn_values = self._scoped_selection[scope]
@@ -219,7 +216,7 @@ class CatalogPanel:
             self._sel_1_btn.text = "Diesel"
             self._sel_2_btn.text = "Steam"
             self._sel_3_btn.text = "Other"
-        self._sel_box.show()
+        # self._sel_box.show()
 
     def _harvest_configured_accessories(self) -> None:
         if self._configured_acc_labels is None:
@@ -274,9 +271,7 @@ class CatalogPanel:
             self._gui.update_component_info(state.tmcc_id)
 
     def apply_selection_filter(self, scope, states):
-        if scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
-            return states
-
+        # Filters states by scope-specific button-selected categories
         if scope == CommandScope.ACC:
             sel_lcs = self._sel_2_btn.value == 1
             sel_other = self._sel_3_btn.value == 1
