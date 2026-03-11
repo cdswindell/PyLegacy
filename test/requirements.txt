@@ -7,4 +7,5 @@ pytest>=9.0.2
 ruff>=0.15.4
 tox>=4.47.2
 twine>=6.2.0
-ipython>=9.8.0; python_version>="3.11"
+ipython>=9.11.0; python_version>="3.12"
+ipython>=9.10.0; python_version=="3.11"
