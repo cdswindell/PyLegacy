@@ -187,7 +187,7 @@ class CatalogPanel:
                     entry = None
                 if entry:
                     if need_separator:
-                        self._catalog.append("-" * 40)
+                        self._catalog.append("-" * 38)
                         need_separator = False
                     self._entry_state_map[entry] = state
                     self._catalog.append(entry)
