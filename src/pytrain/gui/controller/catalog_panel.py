@@ -272,6 +272,7 @@ class CatalogPanel:
 
     def apply_selection_filter(self, scope, states):
         # Filters states by scope-specific button-selected categories
+        print(f"apply_selection_filter: {scope} ")
         if scope == CommandScope.ACC:
             sel_lcs = self._sel_2_btn.value == 1
             sel_other = self._sel_3_btn.value == 1
