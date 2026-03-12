@@ -97,7 +97,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             if acc is None:
                 continue
             if self._exclude_unnamed and not acc.is_name:
-                print(f"Skipping unnamed state {acc}")
                 continue
             # noinspection PyUnresolvedReferences
             if acc.road_name and "unused" in acc.road_name.lower():
@@ -116,8 +115,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                     self.set_button_active(pb)
                 else:
                     self.set_button_inactive(pb)
-            else:
-                log.warning(f"update_button: state {state} not found")
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
@@ -131,7 +128,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
     def on_state_change_action(self, state: S) -> Callable:
         def upd():
-            if not self._shutdown_flag.is_set():
+            if not self._shutdown_flag.is_set() and state in self._state_buttons:
                 self._message_queue.put((self.update_button, [state]))
 
         return upd
