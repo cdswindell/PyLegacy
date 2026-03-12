@@ -224,7 +224,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         sort_btn_height = self.by_number.tk.winfo_height()
         self.left_scroll_btn = PushButton(
             box,
-            grid=[0, 1, 1, 2],
+            grid=[0, 1, 1, 2] if self.width > 480 else [1, 1, 2, 2],
             enabled=False,
             image=self.left_arrow,
             height=sort_btn_height * 2,
@@ -234,7 +234,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         )
         self.right_scroll_btn = PushButton(
             box,
-            grid=[5, 1, 1, 2],
+            grid=[5, 1, 1, 2] if self.width > 480 else [4, 1, 2, 2],
             enabled=False,
             image=self.right_arrow,
             height=sort_btn_height * 2,

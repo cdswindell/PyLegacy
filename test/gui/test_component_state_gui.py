@@ -4,7 +4,6 @@ from threading import Event
 import pytest
 
 import src.pytrain.gui.component_state_gui
-# Target module
 from src.pytrain.gui import (
     guizero_base as mod,
     power_district_gui as pd_mod,
