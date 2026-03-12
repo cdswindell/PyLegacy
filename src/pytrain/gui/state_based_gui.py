@@ -50,6 +50,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
     ) -> None:
         # remember user-assigned title, if one provided
         self.title = title
+        print(f"**************** Title: {title} Label: {label}")
         GuiZeroBase.__init__(
             self,
             title=f"{title} GUI",
