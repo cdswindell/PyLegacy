@@ -59,7 +59,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             disabled_text=disabled_text,
             scale_by=scale_by,
         )
-        print(f"**************** Title: {title} Label: {label}")
         self.title = title
         self.label = label
         self._aggregator = aggregator
@@ -98,6 +97,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             if acc is None:
                 continue
             if self._exclude_unnamed and not acc.is_name:
+                print(f"Skipping unnamed state {acc}")
                 continue
             # noinspection PyUnresolvedReferences
             if acc.road_name and "unused" in acc.road_name.lower():
@@ -110,12 +110,14 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
     # noinspection PyTypeChecker
     def update_button(self, state: S) -> None:
         with self._cv:
-            # pd: S = self._states[tmcc_id]
-            pb = self._state_buttons[state]
-            if self.is_active(state):
-                self.set_button_active(pb)
+            if state in self._state_buttons:
+                pb = self._state_buttons[state]
+                if self.is_active(state):
+                    self.set_button_active(pb)
+                else:
+                    self.set_button_inactive(pb)
             else:
-                self.set_button_inactive(pb)
+                log.warning(f"update_button: state {state} not found")
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
@@ -190,7 +192,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             # customize label
             label = f"{self.label}: {self.title}" if self.label else self.title
             tb = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
-            print(f"**************** Label: {label}")
             self.cache(tb)
         _ = Text(box, text="    ", grid=[4, 1], size=ts)
         self.by_number = PushButton(
