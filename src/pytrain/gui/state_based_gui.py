@@ -48,12 +48,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
     ) -> None:
-        # remember user-assigned title, if one provided
-        self.title = title
-        print(f"**************** Title: {title} Label: {label}")
         GuiZeroBase.__init__(
             self,
-            title=f"{title} GUI",
+            title=f"{title if title else 'Component'} GUI",
             width=width,
             height=height,
             enabled_bg=enabled_bg,
@@ -62,7 +59,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             disabled_text=disabled_text,
             scale_by=scale_by,
         )
-
+        print(f"**************** Title: {title} Label: {label}")
+        self.title = title
         self.label = label
         self._aggregator = aggregator
         self._scale_by = scale_by
