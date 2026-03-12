@@ -4,12 +4,13 @@ from threading import Event
 import pytest
 
 import src.pytrain.gui.component_state_gui
-from src.pytrain.gui import power_district_gui as pd_mod
-from src.pytrain.gui import routes_gui as ro_mod
-
 # Target module
-from src.pytrain.gui import state_based_gui as mod
-from src.pytrain.gui import switches_gui as sw_mod
+from src.pytrain.gui import (
+    guizero_base as mod,
+    power_district_gui as pd_mod,
+    routes_gui as ro_mod,
+    switches_gui as sw_mod,
+)
 
 
 class DummyGui:

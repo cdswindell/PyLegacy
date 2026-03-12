@@ -86,6 +86,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         # Signal parent init is complete
         self.init_complete()
 
+    def calc_image_box_size(self) -> tuple[int, int | Any]:
+        pass
+
     # noinspection PyTypeChecker
     def _get_target_states(self) -> None:
         # get all target states; watch for state changes
