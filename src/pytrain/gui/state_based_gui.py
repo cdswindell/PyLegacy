@@ -227,8 +227,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             grid=[0, 1, 1, 2] if self.width > 480 else [2, 3, 1, 1],
             enabled=False,
             image=self.left_arrow,
-            height=sort_btn_height * 2,
-            width=sort_btn_height * 2,
+            height=sort_btn_height * (2 if self.width > 480 else 1),
+            width=sort_btn_height * (2 if self.width > 480 else 1),
             align="left",
             command=self.scroll_left,
         )
@@ -237,8 +237,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             grid=[5, 1, 1, 2] if self.width > 480 else [3, 3, 1, 1],
             enabled=False,
             image=self.right_arrow,
-            height=sort_btn_height * 2 if self.width > 480 else 1,
-            width=sort_btn_height * 2 if self.width > 480 else 1,
+            height=sort_btn_height * (2 if self.width > 480 else 1),
+            width=sort_btn_height * (2 if self.width > 480 else 1),
             align="right",
             command=self.scroll_right,
         )
