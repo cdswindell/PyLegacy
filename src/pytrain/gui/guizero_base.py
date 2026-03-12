@@ -82,6 +82,7 @@ class GuiZeroBase(Thread, ABC):
         else:
             self.width = width
             self.height = height
+        print(f"width={self.width}, height={self.height}")
 
         self.title = None
         self._scale_by = scale_by
