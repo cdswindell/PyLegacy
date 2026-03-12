@@ -48,6 +48,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
     ) -> None:
+        # remember user-assigned title, if one provided
+        self.title = title
         GuiZeroBase.__init__(
             self,
             title=f"{title} GUI",
