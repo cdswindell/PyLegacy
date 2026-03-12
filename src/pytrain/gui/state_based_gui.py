@@ -7,31 +7,26 @@
 #
 from __future__ import annotations
 
-import atexit
 import logging
 from abc import ABC, ABCMeta, abstractmethod
-from queue import Empty, Queue
-from threading import Condition, Event, RLock, Thread, get_ident
-from tkinter import TclError
+from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar
 
-from guizero import App, Box, Combo, PushButton, Text
+from guizero import Box, Combo, PushButton, Text
 from guizero.base import Widget
 
-from ..comm.command_listener import CommandDispatcher
+from .component_state_gui import ComponentStateGui
+from .guizero_base import GuiZeroBase
 from ..db.component_state import ComponentState
-from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
-from ..gpio.gpio_handler import GpioHandler
 from ..protocol.constants import CommandScope
 from ..utils.path_utils import find_file
-from .component_state_gui import ComponentStateGui
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
 
 
-class StateBasedGui(Thread, Generic[S], ABC):
+class StateBasedGui(GuiZeroBase, Generic[S], ABC):
     __metaclass__ = ABCMeta
 
     @classmethod
@@ -53,111 +48,60 @@ class StateBasedGui(Thread, Generic[S], ABC):
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
     ) -> None:
-        Thread.__init__(self, daemon=True, name=f"{title} GUI")
-        self._cv = Condition(RLock())
-        self._ev = Event()
-        if width is None or height is None:
-            try:
-                from tkinter import Tk
+        GuiZeroBase.__init__(
+            self,
+            title=f"{title} GUI",
+            width=width,
+            height=height,
+            enabled_bg=enabled_bg,
+            disabled_bg=disabled_bg,
+            enabled_text=enabled_text,
+            disabled_text=disabled_text,
+            scale_by=scale_by,
+        )
 
-                root = Tk()
-                self.width = root.winfo_screenwidth()
-                self.height = root.winfo_screenheight()
-                root.destroy()
-            except Exception as e:
-                log.exception("Error determining window size", exc_info=e)
-        else:
-            self.width = width
-            self.height = height
-        self.title = title
         self.label = label
         self._aggregator = aggregator
         self._scale_by = scale_by
         self._exclude_unnamed = exclude_unnamed
         self._text_size: int = 24
-        self._button_pad_x = 20
-        self._button_pad_y = 10
         self._button_text_pad_x = 10
         self._button_text_pad_y = 12
 
-        self._enabled_bg = enabled_bg
-        self._disabled_bg = disabled_bg
-        self._enabled_text = enabled_text
-        self._disabled_text = disabled_text
         self.left_arrow = find_file("left_arrow.jpg")
         self.right_arrow = find_file("right_arrow.jpg")
-        self.app = self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
+        self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
         self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
         self.aggregator_combo = None
         self._max_name_len = 0
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
         self.sort_func = None
-        self._app_counter = 0
-        self._message_queue = Queue()
 
         # States
         self._states = dict[tuple[int, CommandScope], S]()
         self._state_buttons = dict[S, PushButton]()
         self._state_watchers = dict[S, StateWatcher]()
 
-        # Thread-aware shutdown signaling
-        self._tk_thread_id: int | None = None
-        self._is_closed = False
-        self._shutdown_flag = Event()
-
-        # listen for state changes
-        self._dispatcher = CommandDispatcher.get()
-        self._state_store = ComponentStateStore.get()
-        self._synchronized = False
-        self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if self._sync_state and self._sync_state.is_synchronized is True:
-            self._sync_watcher = None
-            self.on_sync()
-        else:
-            self._sync_watcher = StateWatcher(self._sync_state, self.on_sync)
-
-        # Important: don't call tkinter from atexit; only signal
-        atexit.register(lambda: self._shutdown_flag.set())
-
-    def close(self) -> None:
-        # Only signal shutdown here; actual tkinter destroy happens on the GUI thread
-        if not self._is_closed:
-            self._is_closed = True
-            self._shutdown_flag.set()
-
-    def reset(self) -> None:
-        self.close()
-
-    @property
-    def destroy_complete(self) -> Event:
-        return self._ev
+        # Signal parent init is complete
+        self.init_complete()
 
     # noinspection PyTypeChecker
-    def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
-            if self._sync_watcher:
-                self._sync_watcher.shutdown()
-                self._sync_watcher = None
-            self._synchronized = True
-
-            # get all target states; watch for state changes
-            accs = self.get_target_states()
-            for acc in accs:
-                if acc is None:
-                    continue
-                if self._exclude_unnamed and not acc.is_name:
-                    continue
-                # noinspection PyUnresolvedReferences
-                if acc.road_name and "unused" in acc.road_name.lower():
-                    continue
-                nl = len(acc.road_name)
-                self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
-                self._states[(acc.tmcc_id, acc.scope)] = acc
-                self._state_watchers[acc] = StateWatcher(acc, self.on_state_change_action(acc))
-
-            # start GUI
-            self.start()
+    def _get_target_states(self) -> None:
+        # get all target states; watch for state changes
+        accs = self.get_target_states()
+        for acc in accs:
+            if acc is None:
+                continue
+            if self._exclude_unnamed and not acc.is_name:
+                continue
+            # noinspection PyUnresolvedReferences
+            if acc.road_name and "unused" in acc.road_name.lower():
+                continue
+            nl = len(acc.road_name)
+            self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
+            self._states[(acc.tmcc_id, acc.scope)] = acc
+            self._state_watchers[acc] = StateWatcher(acc, self.on_state_change_action(acc))
 
     # noinspection PyTypeChecker
     def update_button(self, state: S) -> None:
@@ -187,35 +131,10 @@ class StateBasedGui(Thread, Generic[S], ABC):
         return upd
 
     # noinspection PyTypeChecker
-    def run(self) -> None:
-        self._shutdown_flag.clear()
-        self._ev.clear()
-        self._tk_thread_id = get_ident()
-        GpioHandler.cache_handler(self)
-        self.app = app = App(title=self.title, width=self.width, height=self.height)
-        app.full_screen = True
-        app.when_closed = self.close
+    def build_gui(self) -> None:
+        self._get_target_states()
 
-        # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
-        def _poll_shutdown():
-            self._app_counter += 1
-            if self._shutdown_flag.is_set():
-                try:
-                    app.destroy()
-                except TclError:
-                    pass  # ignore, we're shutting down
-                return None
-            else:
-                try:
-                    message = self._message_queue.get_nowait()
-                    if isinstance(message, tuple):
-                        message[0](*message[1])
-                except Empty:
-                    pass
-            return None
-
-        app.repeat(25, _poll_shutdown)
-
+        app = self.app
         self.box = box = Box(app, layout="grid")
         app.bg = box.bg = "white"
 
@@ -320,7 +239,7 @@ class StateBasedGui(Thread, Generic[S], ABC):
             command=self.scroll_right,
         )
 
-        self.app.update()
+        app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         # put the buttons in a separate box
@@ -329,29 +248,21 @@ class StateBasedGui(Thread, Generic[S], ABC):
         # Order by tmcc_id
         self.sort_by_number()
 
-        # Display GUI and start event loop; call blocks
-        try:
-            app.display()
-        except TclError:
-            # If Tcl is already tearing down, ignore
-            pass
-        finally:
-            # Explicitly drop references to tkinter/guizero objects on the Tk thread
-            if self._aggregator:
-                for sw in self._state_watchers.values():
-                    sw.shutdown()
-                self._state_watchers.clear()
-            self.aggregator_combo = None
-            self.left_scroll_btn = None
-            self.right_scroll_btn = None
-            self.by_name = None
-            self.by_number = None
-            self.btn_box = None
-            self.box = None
-            self._state_buttons.clear()
-            self._state_buttons = None
-            self.app = None
-            self._ev.set()
+    def destroy_gui(self) -> None:
+        # Explicitly drop references to tkinter/guizero objects on the Tk thread
+        if self._aggregator:
+            for sw in self._state_watchers.values():
+                sw.shutdown()
+            self._state_watchers.clear()
+        self.aggregator_combo = None
+        self.left_scroll_btn = None
+        self.right_scroll_btn = None
+        self.by_name = None
+        self.by_number = None
+        self.btn_box = None
+        self.box = None
+        self._state_buttons.clear()
+        self._state_buttons = None
 
     def on_combo_change(self, option: str) -> None:
         if option == self.title:
