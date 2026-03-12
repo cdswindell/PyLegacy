@@ -190,7 +190,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         else:
             # customize label
             label = f"{self.label}: {self.title}" if self.label else self.title
-            _ = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
+            tb = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
+            print(f"**************** Label: {label}")
+            self.cache(tb)
         _ = Text(box, text="    ", grid=[4, 1], size=ts)
         self.by_number = PushButton(
             box,
