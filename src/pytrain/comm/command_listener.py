@@ -164,6 +164,7 @@ class CommandListener(Thread):
             from .serial_reader import SerialReader
 
             self._serial_reader = SerialReader(baudrate, port, self)
+            self._serial_reader.start()
         else:
             self._serial_reader = None
         self._ser2_receiver = ser2_receiver
