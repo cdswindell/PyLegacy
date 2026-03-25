@@ -32,12 +32,19 @@ def _run_wide_pane(
         exclude_unnamed: bool,
         x_offset: int,
         y_offset: int,
+        server_ip: str | None,
+        server_port: int | None,
 ) -> None:
+    from ..comm.comm_buffer import CommBuffer
+    from ..comm.command_listener import CommandDispatcher
+    from ..db.client_state_listener import ClientStateListener
+    from ..db.component_state_store import ComponentStateStore
     from ..gui.accessories_gui import AccessoriesGui
     from ..gui.motors_gui import MotorsGui
     from ..gui.power_district_gui import PowerDistrictsGui
     from ..gui.routes_gui import RoutesGui
     from ..gui.switches_gui import SwitchesGui
+    from ..protocol.constants import CommandScope
     from .systems_gui import SystemsGui
 
     all_guis = {
@@ -60,6 +67,26 @@ def _run_wide_pane(
 
     signal.signal(signal.SIGTERM, _on_stop)
     signal.signal(signal.SIGINT, _on_stop)
+
+    # Subprocesses do not inherit singleton initialization under "spawn".
+    # Bootstrap local dispatcher/state as a client of the running PyTrain server.
+    try:
+        _ = CommandDispatcher.get()
+    except AttributeError:
+        if not server_ip or not server_port:
+            raise RuntimeError("Wide pane could not initialize state: missing server endpoint")
+        CommBuffer.build(server=server_ip, port=str(server_port))
+        csl = ClientStateListener.build()
+        state_store = ComponentStateStore(listeners=(csl,), is_base=False, is_ser2=False)
+        state_store.listen_for(CommandScope.BASE)
+        state_store.listen_for(CommandScope.ENGINE)
+        state_store.listen_for(CommandScope.TRAIN)
+        state_store.listen_for(CommandScope.SWITCH)
+        state_store.listen_for(CommandScope.ROUTE)
+        state_store.listen_for(CommandScope.ACC)
+        state_store.listen_for(CommandScope.IRDA)
+        state_store.listen_for(CommandScope.SYNC)
+        state_store.listen_for(CommandScope.BLOCK)
 
     if len(pane_guis) == 1:
         gui_name = pane_guis[0]
@@ -120,6 +147,36 @@ class WideComponentStateGui:
         if screens:
             return max(1, screens)
         return 2
+
+    @staticmethod
+    def _resolve_server_endpoint() -> tuple[str | None, int | None]:
+        from ..comm.comm_buffer import CommBuffer, CommBufferProxy, CommBufferSingleton
+        from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
+        from ..protocol.constants import DEFAULT_SERVER_PORT
+
+        if not CommBuffer.is_built():
+            return None, None
+
+        try:
+            buffer = CommBuffer.get()
+        except Exception:
+            return None, None
+
+        if isinstance(buffer, CommBufferProxy):
+            try:
+                return CommBufferProxy.server_ip(), CommBufferProxy.server_port()
+            except Exception:
+                host = getattr(buffer, "_server", None)
+                port = getattr(buffer, "_port", None)
+                return str(host) if host else None, int(port) if port else None
+
+        if isinstance(buffer, CommBufferSingleton):
+            try:
+                return "127.0.0.1", EnqueueProxyRequests.server_port()
+            except Exception:
+                return "127.0.0.1", DEFAULT_SERVER_PORT
+
+        return None, None
 
     def __init__(
             self,
@@ -194,6 +251,7 @@ class WideComponentStateGui:
         self._pane_configs = self._normalize_pane_config(screen_components, screens, initial)
         self._panes = []
         self._pane_processes: list[BaseProcess] = []
+        self._server_ip, self._server_port = self._resolve_server_endpoint()
         self._build_panes()
         GpioHandler.cache_handler(self)
 
@@ -267,6 +325,8 @@ class WideComponentStateGui:
                         self._exclude_unnamed,
                         x_cursor,
                         self._y_offset,
+                        self._server_ip,
+                        self._server_port,
                     ),
                     daemon=True,
                 )

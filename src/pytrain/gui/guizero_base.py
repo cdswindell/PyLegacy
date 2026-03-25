@@ -282,6 +282,15 @@ class GuiZeroBase(Thread, ABC):
 
         self.build_gui()
 
+        if self._full_screen is False:
+            # Some window managers (notably on Pi/Wayland stacks) re-center on first map.
+            # Re-assert requested geometry immediately and shortly after map.
+            geometry = f"{self.width}x{self.height}+{self._x_offset}+{self._y_offset}"
+            app.tk.update_idletasks()
+            app.tk.geometry(geometry)
+            app.tk.after(50, lambda: app.tk.geometry(geometry))
+            app.tk.after(250, lambda: app.tk.geometry(geometry))
+
         # start the event watcher; look for shutdown and requests from other threads
         app.repeat(20, _poll_shutdown)
 
