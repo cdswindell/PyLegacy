@@ -170,8 +170,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self._get_target_states()
 
         app = self.app
-        parent = self._parent if self._parent is not None else app
-        self.box = box = Box(parent, layout="grid")
+        gui_parent = self._parent if self._parent is not None else app
+        self.box = box = Box(gui_parent, layout="grid")
         if self._parent is None:
             app.bg = "white"
         box.bg = "white"
@@ -250,10 +250,10 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         _ = Text(box, text=" ", grid=[0, 3, 6, 1], size=4, height=1, bold=True)
         self.app.update()
 
-        parent = self.by_number.tk.master
-        parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=40)
-        parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=40)
-        parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=10)
+        tk_parent = self.by_number.tk.master
+        tk_parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=40)
+        tk_parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=40)
+        tk_parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=10)
 
         # add scroll btns
         sort_btn_height = self.by_number.tk.winfo_height()
@@ -282,7 +282,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         # put the buttons in a separate box
-        self.btn_box = Box(parent, layout="grid")
+        self.btn_box = Box(gui_parent, layout="grid")
 
         # Order by tmcc_id
         self.sort_by_number()
