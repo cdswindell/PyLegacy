@@ -9,131 +9,152 @@ from __future__ import annotations
 
 import logging
 import os
-import signal
-import time
-from multiprocessing import get_all_start_methods, get_context
-from multiprocessing.process import BaseProcess
-from threading import Thread
-from typing import Iterable
+from typing import Any, Iterable
 
-from .component_state_gui import ComponentStateGui
-from ..gpio.gpio_handler import GpioHandler
+from guizero import App, Box, Combo, Text
+
+from .guizero_base import GuiZeroBase
 from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 
 
-def _run_wide_pane(
-    pane_guis: list[str],
-    label: str | None,
-    pane_width: int,
-    pane_height: int,
-    scale_by: float,
-    exclude_unnamed: bool,
-    x_offset: int,
-    y_offset: int,
-    server_ip: str | None,
-    server_port: int | None,
-) -> None:
-    from ..comm.comm_buffer import CommBuffer
-    from ..comm.command_listener import CommandDispatcher
-    from ..db.client_state_listener import ClientStateListener
-    from ..db.component_state_store import ComponentStateStore
-    from ..gui.accessories_gui import AccessoriesGui
-    from ..gui.motors_gui import MotorsGui
-    from ..gui.power_district_gui import PowerDistrictsGui
-    from ..gui.routes_gui import RoutesGui
-    from ..gui.switches_gui import SwitchesGui
-    from ..protocol.constants import CommandScope
-    from .systems_gui import SystemsGui
-
-    all_guis = {
-        "Accessories": AccessoriesGui,
-        "Motors": MotorsGui,
-        "Power Districts": PowerDistrictsGui,
-        "Routes": RoutesGui,
-        "Switches": SwitchesGui,
-        f"{PROGRAM_NAME} Administration": SystemsGui,
-    }
-
-    gui = None
-    stop_flag = False
-
-    def _on_stop(*_args):
-        nonlocal stop_flag
-        stop_flag = True
-        if gui and hasattr(gui, "reset"):
-            gui.reset()
-
-    signal.signal(signal.SIGTERM, _on_stop)
-    signal.signal(signal.SIGINT, _on_stop)
-
-    # Subprocesses do not inherit singleton initialization under "spawn".
-    # Bootstrap local dispatcher/state as a client of the running PyTrain server.
+def _safe_destroy(widget: Any) -> None:
+    if widget is None:
+        return
     try:
-        _ = CommandDispatcher.get()
-    except AttributeError:
-        if not server_ip or not server_port:
-            raise RuntimeError("Wide pane could not initialize state: missing server endpoint")
-        CommBuffer.build(server=server_ip, port=str(server_port))
-        csl = ClientStateListener.build()
-        state_store = ComponentStateStore(listeners=(csl,), is_base=False, is_ser2=False)
-        state_store.listen_for(CommandScope.BASE)
-        state_store.listen_for(CommandScope.ENGINE)
-        state_store.listen_for(CommandScope.TRAIN)
-        state_store.listen_for(CommandScope.SWITCH)
-        state_store.listen_for(CommandScope.ROUTE)
-        state_store.listen_for(CommandScope.ACC)
-        state_store.listen_for(CommandScope.IRDA)
-        state_store.listen_for(CommandScope.SYNC)
-        state_store.listen_for(CommandScope.BLOCK)
-
-    if len(pane_guis) == 1:
-        gui_name = pane_guis[0]
-        gui_cls = all_guis[gui_name]
-        gui = gui_cls(
-            label=label,
-            width=pane_width,
-            height=pane_height,
-            scale_by=scale_by,
-            exclude_unnamed=exclude_unnamed,
-            screens=1,
-            full_screen=False,
-            x_offset=x_offset,
-            y_offset=y_offset,
-        )
-    else:
-        pane_gui_map = {name: all_guis[name] for name in pane_guis}
-        gui = ComponentStateGui(
-            label=label,
-            initial=pane_guis[0],
-            width=pane_width,
-            height=pane_height,
-            scale_by=scale_by,
-            exclude_unnamed=exclude_unnamed,
-            screens=1,
-            guis=pane_gui_map,
-            full_screen=False,
-            x_offset=x_offset,
-            y_offset=y_offset,
-        )
-
-    while not stop_flag:
-        if hasattr(gui, "destroy_complete") and gui.destroy_complete.is_set():
-            break
-        time.sleep(0.25)
-
-    if gui and hasattr(gui, "reset"):
-        gui.reset()
+        if hasattr(widget, "hide"):
+            widget.hide()
+    except Exception:
+        pass
+    try:
+        widget.destroy()
+    except Exception:
+        pass
 
 
-class WideComponentStateGui:
+class _WidePane:
+    def __init__(
+        self,
+        app: App,
+        parent: Box,
+        all_guis: dict[str, type],
+        gui_names: list[str],
+        label: str | None,
+        pane_width: int,
+        pane_height: int,
+        scale_by: float,
+        exclude_unnamed: bool,
+        column: int,
+    ) -> None:
+        self._app = app
+        self._gui_names = list(gui_names)
+        self._guis: dict[str, Any] = {}
+        self._active_gui: str | None = None
+
+        self.container = Box(parent, layout="auto", grid=[column, 0], align="left")
+        self.container.tk.configure(width=pane_width, height=pane_height)
+        self.container.tk.pack_propagate(False)
+        parent.tk.grid_columnconfigure(column, weight=1, minsize=pane_width)
+
+        self.header = Box(self.container, layout="auto", align="top")
+        self.header.tk.configure(width=pane_width)
+
+        if len(self._gui_names) > 1:
+            if label:
+                txt = Text(self.header, text=f"{label}: ", align="left", bold=True)
+                txt.text_size = int(round(20 * scale_by))
+            self.combo = Combo(
+                self.header,
+                options=self._gui_names,
+                selected=self._gui_names[0],
+                align="right",
+                command=self._on_combo_change,
+            )
+            self.combo.text_size = int(round(20 * scale_by))
+            self.combo.text_bold = True
+        else:
+            self.combo = None
+
+        self.content = Box(self.container, layout="auto", align="top")
+        self.content.tk.configure(width=pane_width, height=pane_height)
+        self.content.tk.pack_propagate(False)
+
+        for gui_name in self._gui_names:
+            gui_cls = all_guis[gui_name]
+            gui = gui_cls(
+                label=label,
+                width=pane_width,
+                height=pane_height,
+                scale_by=scale_by,
+                exclude_unnamed=exclude_unnamed,
+                screens=1,
+                stand_alone=False,
+                parent=self.content,
+                full_screen=False,
+                x_offset=0,
+                y_offset=0,
+            )
+            if isinstance(gui, GuiZeroBase):
+                gui._app = app
+                gui.build_gui()
+                if hasattr(gui, "hide_gui"):
+                    gui.hide_gui()
+            self._guis[gui_name] = gui
+
+        self.show(self._gui_names[0])
+
+    @property
+    def gui_names(self) -> list[str]:
+        return list(self._gui_names)
+
+    def _on_combo_change(self, option: str) -> None:
+        self.show(option)
+
+    def show(self, gui_name: str) -> None:
+        if gui_name not in self._guis:
+            return
+        if self._active_gui == gui_name:
+            return
+
+        if self._active_gui is not None:
+            current = self._guis[self._active_gui]
+            if hasattr(current, "hide_gui"):
+                current.hide_gui()
+        nxt = self._guis[gui_name]
+        if hasattr(nxt, "show_gui"):
+            nxt.show_gui()
+        self._active_gui = gui_name
+
+    def pump_messages(self) -> None:
+        for gui in self._guis.values():
+            if isinstance(gui, GuiZeroBase):
+                gui.pump_messages()
+
+    def destroy(self) -> None:
+        for gui in self._guis.values():
+            if isinstance(gui, GuiZeroBase):
+                gui.teardown_embedded()
+            elif hasattr(gui, "reset"):
+                gui.reset()
+        self._guis.clear()
+        _safe_destroy(self.combo)
+        self.combo = None
+        _safe_destroy(self.content)
+        self.content = None
+        _safe_destroy(self.header)
+        self.header = None
+        _safe_destroy(self.container)
+        self.container = None
+
+
+class WideComponentStateGui(GuiZeroBase):
     """
-    Wide-display compositor for state GUIs.
+    Wide-display compositor using a single guizero App.
 
-    Each pane receives a set/list of GUI names:
+    Each pane receives a list of GUI names:
       - single item: render that GUI directly
-      - multiple items: render ComponentStateGui with a combo restricted to that set
+      - multiple items: render all screens in the pane and switch via hide/show
     """
 
     @classmethod
@@ -147,57 +168,6 @@ class WideComponentStateGui:
         if screens:
             return max(1, screens)
         return 2
-
-    @staticmethod
-    def _resolve_server_endpoint() -> tuple[str | None, int | None]:
-        from ..comm.comm_buffer import CommBuffer, CommBufferProxy, CommBufferSingleton
-        from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-        from ..protocol.constants import DEFAULT_SERVER_PORT
-
-        if not CommBuffer.is_built():
-            return None, None
-
-        try:
-            buffer = CommBuffer.get()
-        except AttributeError:
-            return None, None
-
-        if isinstance(buffer, CommBufferProxy):
-            # IMPORTANT: CommBufferProxy.server_ip() returns this node's local source IP,
-            # not the remote PyTrain server. Use the proxy's configured remote endpoint.
-            host = getattr(buffer, "_server", None)
-            port = getattr(buffer, "_port", None)
-            host_value = str(host) if host else None
-            if port is None:
-                return host_value, None
-            try:
-                port_value = int(port)
-            except (TypeError, ValueError):
-                port_value = None
-            return host_value, port_value
-
-        if isinstance(buffer, CommBufferSingleton):
-            try:
-                port = EnqueueProxyRequests.server_port()
-            except AttributeError:
-                port = DEFAULT_SERVER_PORT
-            try:
-                return "127.0.0.1", int(port)
-            except (TypeError, ValueError):
-                return "127.0.0.1", DEFAULT_SERVER_PORT
-
-        return None, None
-
-    @staticmethod
-    def _resolve_process_start_method() -> str:
-        methods = set(get_all_start_methods())
-        if os.name == "posix" and "fork" in methods:
-            return "fork"
-        if "spawn" in methods:
-            return "spawn"
-        if methods:
-            return next(iter(methods))
-        return "spawn"
 
     def __init__(
         self,
@@ -213,6 +183,7 @@ class WideComponentStateGui:
         y_offset: int = 0,
         use_subprocesses: bool = True,
         process_start_method: str | None = None,
+        auto_start: bool = True,
     ) -> None:
         from ..gui.accessories_gui import AccessoriesGui
         from ..gui.motors_gui import MotorsGui
@@ -229,53 +200,56 @@ class WideComponentStateGui:
             "Switches": SwitchesGui,
             f"{PROGRAM_NAME} Administration": SystemsGui,
         }
-        self.label = label.title() if label is not None else None
-        self._scale_by = scale_by
-        self._exclude_unnamed = exclude_unnamed
-        self._x_offset = x_offset
-        self._y_offset = y_offset
-        self._use_subprocesses = use_subprocesses
-        self._process_start_method = process_start_method or self._resolve_process_start_method()
+
+        if use_subprocesses or process_start_method:
+            log.info("Wide GUI now uses a single guizero App; subprocess options are ignored")
 
         pane_hint = self._pane_count_hint(screen_components, screens)
         fallback_width = 800 * pane_hint
         fallback_height = 480
 
         if width is None or height is None:
-            self.width = width
-            self.height = height
+            resolved_width = width
+            resolved_height = height
             display = os.environ.get("DISPLAY")
             if display:
                 try:
                     from tkinter import Tk
 
                     root = Tk()
-                    if self.width is None:
-                        self.width = root.winfo_screenwidth()
-                    if self.height is None:
-                        self.height = root.winfo_screenheight()
+                    if resolved_width is None:
+                        resolved_width = root.winfo_screenwidth()
+                    if resolved_height is None:
+                        resolved_height = root.winfo_screenheight()
                     root.destroy()
                 except Exception as e:
                     log.exception("Error determining window size", exc_info=e)
             else:
-                log.warning("DISPLAY is not set; falling back to configured/default pane dimensions")
-
-            if self.width is None:
-                self.width = fallback_width
-            if self.height is None:
-                self.height = fallback_height
+                log.warning("DISPLAY is not set; falling back to default pane dimensions")
+            self.width = resolved_width if resolved_width is not None else fallback_width
+            self.height = resolved_height if resolved_height is not None else fallback_height
         else:
             self.width = width
             self.height = height
 
-        if self.width is None or self.height is None:
-            raise ValueError("Unable to determine GUI dimensions; provide width and height explicitly")
+        GuiZeroBase.__init__(
+            self,
+            title=f"{PROGRAM_NAME} Wide Component State",
+            width=self.width,
+            height=self.height,
+            scale_by=scale_by,
+            stand_alone=auto_start,
+            full_screen=False,
+            x_offset=x_offset,
+            y_offset=y_offset,
+        )
+        self.label = label.title() if label is not None else None
+        self._exclude_unnamed = exclude_unnamed
+        self._root: Box | None = None
+        self._panes: list[_WidePane] = []
 
         self._pane_configs = self._normalize_pane_config(screen_components, screens, initial)
-        self._panes = []
-        self._pane_processes: list[BaseProcess] = []
-        self._server_ip, self._server_port = self._resolve_server_endpoint()
-        self._build_panes()
+        self.init_complete()
 
     @property
     def panes(self) -> list[object]:
@@ -322,90 +296,68 @@ class WideComponentStateGui:
             raise ValueError(f"screens ({screens}) does not match number of screen sets ({len(panes)})")
         return panes
 
-    def _build_panes(self) -> None:
+    def _create_pane(
+        self,
+        app: App,
+        root: Box,
+        pane_guis: list[str],
+        pane_width: int,
+        pane_height: int,
+        column: int,
+    ) -> _WidePane:
+        return _WidePane(
+            app=app,
+            parent=root,
+            all_guis=self._all_guis,
+            gui_names=pane_guis,
+            label=self.label,
+            pane_width=pane_width,
+            pane_height=pane_height,
+            scale_by=self._scale_by,
+            exclude_unnamed=self._exclude_unnamed,
+            column=column,
+        )
+
+    def _build_panes(self, app: App, root: Box) -> None:
         pane_count = len(self._pane_configs)
-        if pane_count == 0:
+        if pane_count < 1:
             return
-        if self.width is None or self.height is None:
-            raise ValueError("Invalid window dimensions; width/height must be non-null")
 
         pane_width = self.width // pane_count
         remainder = self.width % pane_count
-        x_cursor = self._x_offset
 
         for idx, pane_guis in enumerate(self._pane_configs):
             this_width = pane_width + (1 if idx < remainder else 0)
-            if self._use_subprocesses:
-                ctx = get_context(self._process_start_method)
-                process_factory = getattr(ctx, "Process")
-                proc = process_factory(
-                    target=_run_wide_pane,
-                    args=(
-                        pane_guis,
-                        self.label,
-                        this_width,
-                        self.height,
-                        self._scale_by,
-                        self._exclude_unnamed,
-                        x_cursor,
-                        self._y_offset,
-                        self._server_ip,
-                        self._server_port,
-                    ),
-                    daemon=True,
-                )
-                proc.start()
-                self._pane_processes.append(proc)
-            else:
-                if len(pane_guis) == 1:
-                    gui_name = pane_guis[0]
-                    gui_cls = self._all_guis[gui_name]
-                    pane = gui_cls(
-                        label=self.label,
-                        width=this_width,
-                        height=self.height,
-                        scale_by=self._scale_by,
-                        exclude_unnamed=self._exclude_unnamed,
-                        screens=1,
-                        full_screen=False,
-                        x_offset=x_cursor,
-                        y_offset=self._y_offset,
-                    )
-                else:
-                    pane_gui_map = {name: self._all_guis[name] for name in pane_guis}
-                    pane = ComponentStateGui(
-                        label=self.label,
-                        initial=pane_guis[0],
-                        width=this_width,
-                        height=self.height,
-                        scale_by=self._scale_by,
-                        exclude_unnamed=self._exclude_unnamed,
-                        screens=1,
-                        guis=pane_gui_map,
-                        full_screen=False,
-                        x_offset=x_cursor,
-                        y_offset=self._y_offset,
-                    )
-                self._panes.append(pane)
-            x_cursor += this_width
+            pane = self._create_pane(
+                app=app,
+                root=root,
+                pane_guis=pane_guis,
+                pane_width=this_width,
+                pane_height=self.height,
+                column=idx,
+            )
+            self._panes.append(pane)
 
-    def close(self) -> None:
-        for proc in self._pane_processes:
-            if proc.is_alive():
-                proc.terminate()
-                proc.join(10)
-        self._pane_processes.clear()
+    def _destroy_panes(self) -> None:
+        while self._panes:
+            pane = self._panes.pop()
+            pane.destroy()
+        _safe_destroy(self._root)
+        self._root = None
 
+    def _pump_panes(self) -> None:
         for pane in self._panes:
-            if pane is None:
-                continue
-            if hasattr(pane, "reset"):
-                pane.reset()
-            if hasattr(pane, "destroy_complete"):
-                pane.destroy_complete.wait(10)
-            if isinstance(pane, Thread) and pane.is_alive():
-                pane.join(10)
-            GpioHandler.release_handler(pane)
+            pane.pump_messages()
 
-    def reset(self) -> None:
-        self.close()
+    def build_gui(self) -> None:
+        app = self.app
+        app.bg = "white"
+        self._root = root = Box(app, layout="grid")
+        self._build_panes(app, root)
+        app.repeat(20, self._pump_panes)
+
+    def destroy_gui(self) -> None:
+        self._destroy_panes()
+
+    def calc_image_box_size(self) -> tuple[int, int]:
+        return self.height, self.width

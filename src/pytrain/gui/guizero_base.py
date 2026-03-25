@@ -247,12 +247,37 @@ class GuiZeroBase(Thread, ABC):
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
 
+    def pump_messages(self, max_messages: int = 50) -> int:
+        processed = 0
+        while processed < max_messages:
+            try:
+                message = self._message_queue.get_nowait()
+            except Empty:
+                break
+            if isinstance(message, tuple):
+                if len(message) > 1 and message[1] and len(message[1]) > 0:
+                    message[0](*message[1])
+                else:
+                    message[0]()
+            processed += 1
+        return processed
+
     def _clear_message_queue(self) -> None:
         while True:
             try:
                 self._message_queue.get_nowait()
             except Empty:
                 break
+
+    def teardown_embedded(self) -> None:
+        self.destroy_gui()
+        self._clear_message_queue()
+        if self._collect_gc_on_destroy:
+            # Some guizero widgets form cycles which hold tkinter Variable refs.
+            # Collecting on the GUI thread prevents __del__ thread errors.
+            gc.collect()
+        self._app = None
+        self._ev.set()
 
     def run(self) -> None:
         self._shutdown_flag.clear()
@@ -290,17 +315,7 @@ class GuiZeroBase(Thread, ABC):
                     pass  # ignore, we're shutting down
                 return None
             else:
-                # Process pending messages in the queue
-                try:
-                    message = self._message_queue.get_nowait()
-                    if isinstance(message, tuple):
-                        if len(message) > 1 and message[1] and len(message[1]) > 0:
-                            message[0](*message[1])
-                        else:
-                            message[0]()
-                        # app.tk.update_idletasks()
-                except Empty:
-                    pass
+                self.pump_messages()
             return None
 
         self.build_gui()

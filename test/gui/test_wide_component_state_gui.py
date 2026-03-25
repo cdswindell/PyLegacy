@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 import src.pytrain.gui.accessories_gui as ac_mod
-import src.pytrain.gui.component_state_gui as comp_mod
+import src.pytrain.gui.guizero_base as base_mod
 import src.pytrain.gui.motors_gui as mo_mod
 import src.pytrain.gui.power_district_gui as pd_mod
 import src.pytrain.gui.routes_gui as ro_mod
@@ -14,88 +14,97 @@ import src.pytrain.gui.systems_gui as sy_mod
 import src.pytrain.gui.wide_component_state_gui as wide_mod
 
 
-class DummyPane:
-    instances: list["DummyPane"] = []
-
+class DummyGui:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
-        DummyPane.instances.append(self)
 
-    def reset(self) -> None:
+
+class BuiltPane:
+    def __init__(self, **kwargs: Any) -> None:
+        self.kwargs = kwargs
+
+    def pump_messages(self) -> None:
         return
 
-
-class DummyAggregator:
-    instances: list["DummyAggregator"] = []
-
-    def __init__(self, **kwargs: Any) -> None:
-        self.kwargs = kwargs
-        DummyAggregator.instances.append(self)
-
-    def reset(self) -> None:
+    def destroy(self) -> None:
         return
 
 
 @pytest.fixture(autouse=True)
 def _patch_classes(monkeypatch):
-    DummyPane.instances.clear()
-    DummyAggregator.instances.clear()
-
-    monkeypatch.setattr(ac_mod, "AccessoriesGui", DummyPane, raising=True)
-    monkeypatch.setattr(mo_mod, "MotorsGui", DummyPane, raising=True)
-    monkeypatch.setattr(pd_mod, "PowerDistrictsGui", DummyPane, raising=True)
-    monkeypatch.setattr(ro_mod, "RoutesGui", DummyPane, raising=True)
-    monkeypatch.setattr(sw_mod, "SwitchesGui", DummyPane, raising=True)
-    monkeypatch.setattr(sy_mod, "SystemsGui", DummyPane, raising=True)
-    monkeypatch.setattr(wide_mod, "ComponentStateGui", DummyAggregator, raising=True)
-    monkeypatch.setattr(comp_mod, "ComponentStateGui", DummyAggregator, raising=False)
-    yield
-    DummyPane.instances.clear()
-    DummyAggregator.instances.clear()
+    monkeypatch.setattr(ac_mod, "AccessoriesGui", DummyGui, raising=True)
+    monkeypatch.setattr(mo_mod, "MotorsGui", DummyGui, raising=True)
+    monkeypatch.setattr(pd_mod, "PowerDistrictsGui", DummyGui, raising=True)
+    monkeypatch.setattr(ro_mod, "RoutesGui", DummyGui, raising=True)
+    monkeypatch.setattr(sw_mod, "SwitchesGui", DummyGui, raising=True)
+    monkeypatch.setattr(sy_mod, "SystemsGui", DummyGui, raising=True)
+    monkeypatch.setattr(base_mod.CommandDispatcher, "get", staticmethod(lambda: object()), raising=True)
+    monkeypatch.setattr(base_mod.ComponentStateStore, "get", staticmethod(lambda: object()), raising=True)
 
 
-def test_direct_single_gui_per_pane_builds_without_combo() -> None:
+def test_direct_single_gui_per_pane_builds_without_combo(monkeypatch) -> None:
+    created: list[BuiltPane] = []
+
+    def fake_create_pane(self, app, root, pane_guis, pane_width, pane_height, column):
+        pane = BuiltPane(
+            app=app,
+            root=root,
+            pane_guis=pane_guis,
+            pane_width=pane_width,
+            pane_height=pane_height,
+            column=column,
+        )
+        created.append(pane)
+        return pane
+
+    monkeypatch.setattr(wide_mod.WideComponentStateGui, "_create_pane", fake_create_pane, raising=True)
+
     gui = wide_mod.WideComponentStateGui(
         width=1920,
         height=480,
         screen_components=[["Routes"], ["Power Districts"]],
-        use_subprocesses=False,
+        auto_start=False,
     )
+    gui._build_panes(app=None, root=None)  # type: ignore[arg-type]
 
     assert len(gui.panes) == 2
-    assert len(DummyPane.instances) == 2
-    assert len(DummyAggregator.instances) == 0
-
-    first, second = DummyPane.instances
-    assert first.kwargs["width"] == 960
-    assert second.kwargs["width"] == 960
-    assert first.kwargs["x_offset"] == 0
-    assert second.kwargs["x_offset"] == 960
-    assert first.kwargs["full_screen"] is False
-    assert second.kwargs["full_screen"] is False
+    assert len(created) == 2
+    assert created[0].kwargs["pane_width"] == 960
+    assert created[1].kwargs["pane_width"] == 960
+    assert created[0].kwargs["column"] == 0
+    assert created[1].kwargs["column"] == 1
+    assert created[0].kwargs["pane_guis"] == ["Routes"]
+    assert created[1].kwargs["pane_guis"] == ["Power Districts"]
 
 
-def test_multi_gui_set_builds_combo_limited_aggregator() -> None:
-    _ = wide_mod.WideComponentStateGui(
+def test_multi_gui_set_creates_expected_panes(monkeypatch) -> None:
+    created: list[BuiltPane] = []
+
+    def fake_create_pane(self, app, root, pane_guis, pane_width, pane_height, column):
+        pane = BuiltPane(
+            pane_guis=pane_guis,
+            pane_width=pane_width,
+            pane_height=pane_height,
+            column=column,
+        )
+        created.append(pane)
+        return pane
+
+    monkeypatch.setattr(wide_mod.WideComponentStateGui, "_create_pane", fake_create_pane, raising=True)
+
+    gui = wide_mod.WideComponentStateGui(
         width=1920,
         height=480,
         screen_components=[["Routes", "Power Districts"], ["Switches"]],
-        use_subprocesses=False,
+        auto_start=False,
     )
+    gui._build_panes(app=None, root=None)  # type: ignore[arg-type]
 
-    assert len(DummyAggregator.instances) == 1
-    assert len(DummyPane.instances) == 1
-
-    combo_pane = DummyAggregator.instances[0]
-    assert combo_pane.kwargs["initial"] == "Routes"
-    assert set(combo_pane.kwargs["guis"].keys()) == {"Routes", "Power Districts"}
-    assert combo_pane.kwargs["screens"] == 1
-    assert combo_pane.kwargs["x_offset"] == 0
-    assert combo_pane.kwargs["width"] == 960
-
-    direct_pane = DummyPane.instances[0]
-    assert direct_pane.kwargs["x_offset"] == 960
-    assert direct_pane.kwargs["width"] == 960
+    assert len(created) == 2
+    assert created[0].kwargs["pane_guis"] == ["Routes", "Power Districts"]
+    assert created[1].kwargs["pane_guis"] == ["Switches"]
+    assert created[0].kwargs["pane_width"] == 960
+    assert created[1].kwargs["pane_width"] == 960
 
 
 def test_invalid_gui_name_raises_value_error() -> None:
@@ -104,5 +113,18 @@ def test_invalid_gui_name_raises_value_error() -> None:
             width=800,
             height=480,
             screen_components=[["Not A Real GUI"]],
-            use_subprocesses=False,
+            auto_start=False,
         )
+
+
+def test_subprocess_options_are_accepted_and_ignored() -> None:
+    gui = wide_mod.WideComponentStateGui(
+        width=800,
+        height=480,
+        screen_components=[["Routes"]],
+        use_subprocesses=True,
+        process_start_method="fork",
+        auto_start=False,
+    )
+    assert gui.width == 800
+    assert gui.height == 480

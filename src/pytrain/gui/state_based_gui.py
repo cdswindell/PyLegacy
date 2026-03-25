@@ -51,6 +51,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
         screens: int | None = None,
+        stand_alone: bool = True,
+        parent: Box | None = None,
         full_screen: bool = True,
         x_offset: int = 0,
         y_offset: int = 0,
@@ -65,6 +67,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             enabled_text=enabled_text,
             disabled_text=disabled_text,
             scale_by=scale_by,
+            stand_alone=stand_alone,
             full_screen=full_screen,
             x_offset=x_offset,
             y_offset=y_offset,
@@ -78,6 +81,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self._aggregator = aggregator
         self._scale_by = scale_by
         self._exclude_unnamed = exclude_unnamed
+        self._parent = parent
         self._text_size: int = 24
         self._button_text_pad_x = 10
         self._button_text_pad_y = 12
@@ -166,8 +170,11 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self._get_target_states()
 
         app = self.app
-        self.box = box = Box(app, layout="grid")
-        app.bg = box.bg = "white"
+        parent = self._parent if self._parent is not None else app
+        self.box = box = Box(parent, layout="grid")
+        if self._parent is None:
+            app.bg = "white"
+        box.bg = "white"
 
         ts = self._text_size
         _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
@@ -275,7 +282,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
 
         # put the buttons in a separate box
-        self.btn_box = Box(app, layout="grid")
+        self.btn_box = Box(parent, layout="grid")
 
         # Order by tmcc_id
         self.sort_by_number()
@@ -319,10 +326,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                 pass
 
         # Explicitly drop references to tkinter/guizero objects on the Tk thread
-        if self._aggregator:
-            for sw in self._state_watchers.values():
-                sw.shutdown()
-            self._state_watchers.clear()
+        for sw in self._state_watchers.values():
+            sw.shutdown()
+        self._state_watchers.clear()
         safe_disconnect(self.aggregator_combo)
         safe_disconnect(self.left_scroll_btn)
         safe_disconnect(self.right_scroll_btn)
@@ -347,6 +353,18 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.box = None
         self._state_buttons.clear()
         self._state_buttons = None
+
+    def hide_gui(self) -> None:
+        if self.box:
+            self.box.hide()
+        if self.btn_box:
+            self.btn_box.hide()
+
+    def show_gui(self) -> None:
+        if self.box:
+            self.box.show()
+        if self.btn_box:
+            self.btn_box.show()
 
     def on_combo_change(self, option: str) -> None:
         if option == self.title:

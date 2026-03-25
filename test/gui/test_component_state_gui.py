@@ -41,7 +41,9 @@ class DummyGui:
         self.height = height
         self.aggregator = aggregator
         self.destroy_complete = Event()
+        self.app = object()
         self._closed = False
+        self._queue_calls = 0
         self._scale_by = scale_by
         self._exclude_unnamed = exclude_unnamed
         self._screens = screens
@@ -55,6 +57,10 @@ class DummyGui:
         DummyGui.closed.append(self)
         # Simulate fast teardown
         self.destroy_complete.set()
+
+    def queue_message(self, callback, *args):
+        self._queue_calls += 1
+        callback(*args)
 
     def join(self, timeout=None):
         return
@@ -81,7 +87,7 @@ def patch_gui_classes(monkeypatch):
     # Ensure switching calls actually close our DummyGui
     def fake_release_handler(handler):
         # Simulate the effect we need in tests
-        if hasattr(handler, "close"):
+        if hasattr(handler, "close") and not getattr(handler, "_closed", False):
             handler.close()
 
     monkeypatch.setattr(mod.GpioHandler, "release_handler", staticmethod(fake_release_handler), raising=True)
@@ -169,6 +175,30 @@ def test_cycle_gui_ignores_unknown_key():
     time.sleep(0.1)
     assert len(DummyGui.instances) == 1
     assert comp._gui is DummyGui.instances[0]
+
+
+def test_cycle_gui_switch_back_and_forth_uses_gui_thread_close_path():
+    comp = src.pytrain.gui.component_state_gui.ComponentStateGui(width=640, height=480)
+    assert wait_for(lambda: len(DummyGui.instances) == 1)
+
+    first = DummyGui.instances[0]
+    comp.cycle_gui("Routes")
+    assert wait_for(lambda: len(DummyGui.instances) == 2)
+
+    second = DummyGui.instances[1]
+    comp.cycle_gui("Switches")
+    assert wait_for(lambda: len(DummyGui.instances) == 3)
+
+    third = DummyGui.instances[2]
+
+    # Regression coverage for repeated switching: both prior screens must close cleanly.
+    assert first._closed is True
+    assert second._closed is True
+    assert third._closed is False
+
+    # close should be requested via queue_message (GUI-thread-safe path).
+    assert first._queue_calls >= 1
+    assert second._queue_calls >= 1
 
 
 def test_guis_property_lists_expected_entries():
