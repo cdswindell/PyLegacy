@@ -59,6 +59,7 @@ def test_direct_single_gui_per_pane_builds_without_combo() -> None:
         width=1920,
         height=480,
         screen_components=[["Routes"], ["Power Districts"]],
+        use_subprocesses=False,
     )
 
     assert len(gui.panes) == 2
@@ -79,6 +80,7 @@ def test_multi_gui_set_builds_combo_limited_aggregator() -> None:
         width=1920,
         height=480,
         screen_components=[["Routes", "Power Districts"], ["Switches"]],
+        use_subprocesses=False,
     )
 
     assert len(DummyAggregator.instances) == 1
@@ -102,4 +104,5 @@ def test_invalid_gui_name_raises_value_error() -> None:
             width=800,
             height=480,
             screen_components=[["Not A Real GUI"]],
+            use_subprocesses=False,
         )
