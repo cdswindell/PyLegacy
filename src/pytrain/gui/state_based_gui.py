@@ -277,6 +277,30 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.sort_by_number()
 
     def destroy_gui(self) -> None:
+        def safe_disconnect(widget: Widget | Box | Combo | None) -> None:
+            if widget is None:
+                return
+            try:
+                if hasattr(widget, "update_command"):
+                    widget.update_command(None)
+            except Exception:
+                pass
+            try:
+                if hasattr(widget, "command"):
+                    widget.command = None
+            except Exception:
+                pass
+            try:
+                if hasattr(widget, "when_left_button_pressed"):
+                    widget.when_left_button_pressed = None
+            except Exception:
+                pass
+            try:
+                if hasattr(widget, "when_left_button_released"):
+                    widget.when_left_button_released = None
+            except Exception:
+                pass
+
         def safe_destroy(widget: Widget | Box | Combo | None) -> None:
             if widget is None:
                 return
@@ -295,6 +319,13 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             for sw in self._state_watchers.values():
                 sw.shutdown()
             self._state_watchers.clear()
+        safe_disconnect(self.aggregator_combo)
+        safe_disconnect(self.left_scroll_btn)
+        safe_disconnect(self.right_scroll_btn)
+        safe_disconnect(self.by_name)
+        safe_disconnect(self.by_number)
+        if self._state_buttons:
+            self._reset_state_buttons()
         safe_destroy(self.aggregator_combo)
         safe_destroy(self.left_scroll_btn)
         safe_destroy(self.right_scroll_btn)
@@ -325,14 +356,24 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             if not isinstance(pdb, list):
                 pdb = [pdb]
             for widget in pdb:
+                if hasattr(widget, "update_command"):
+                    widget.update_command(None)
+                if hasattr(widget, "command"):
+                    widget.command = None
                 if hasattr(widget, "component_state"):
                     widget.component_state = None
                 if hasattr(widget, "when_left_button_pressed"):
                     widget.when_left_button_pressed = None
                 if hasattr(widget, "when_left_button_released"):
                     widget.when_left_button_released = None
-                widget.hide()
-                widget.destroy()
+                try:
+                    widget.hide()
+                except Exception:
+                    pass
+                try:
+                    widget.destroy()
+                except Exception:
+                    pass
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker

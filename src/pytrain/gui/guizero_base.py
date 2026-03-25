@@ -245,6 +245,13 @@ class GuiZeroBase(Thread, ABC):
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
 
+    def _clear_message_queue(self) -> None:
+        while True:
+            try:
+                self._message_queue.get_nowait()
+            except Empty:
+                break
+
     def run(self) -> None:
         self._shutdown_flag.clear()
         self._ev.clear()
@@ -264,6 +271,7 @@ class GuiZeroBase(Thread, ABC):
                 return
             gui_destroyed = True
             self.destroy_gui()
+            self._clear_message_queue()
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
