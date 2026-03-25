@@ -122,13 +122,20 @@ class ComponentStateGui(Thread):
     def _close_current_gui(self) -> None:
         if self._gui is None:
             return
-        GpioHandler.release_handler(self._gui)
+        # Request close from the GUI thread when possible.
+        if hasattr(self._gui, "queue_message") and getattr(self._gui, "app", None) is not None:
+            self._gui.queue_message(self._gui.close)
+        elif hasattr(self._gui, "close"):
+            self._gui.close()
+        else:
+            GpioHandler.release_handler(self._gui)
         if hasattr(self._gui, "destroy_complete"):
             self._gui.destroy_complete.wait(10)
         if isinstance(self._gui, Thread) and self._gui.is_alive():
             self._gui.join(10)
         elif hasattr(self._gui, "join"):
             self._gui.join()
+        GpioHandler.release_handler(self._gui)
         self._gui = None
 
     def run(self) -> None:

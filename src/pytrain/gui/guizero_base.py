@@ -249,6 +249,7 @@ class GuiZeroBase(Thread, ABC):
         self._shutdown_flag.clear()
         self._ev.clear()
         self._tk_thread_id = get_ident()
+        gui_destroyed = False
         GpioHandler.cache_handler(self)
         self._app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = self._full_screen
@@ -257,10 +258,18 @@ class GuiZeroBase(Thread, ABC):
         app.when_closed = self.close
         app.bg = "white"
 
+        def _destroy_gui_once() -> None:
+            nonlocal gui_destroyed
+            if gui_destroyed:
+                return
+            gui_destroyed = True
+            self.destroy_gui()
+
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
             self._app_counter += 1
             if self._shutdown_flag.is_set():
+                _destroy_gui_once()
                 try:
                     app.destroy()
                 except TclError:
@@ -301,7 +310,7 @@ class GuiZeroBase(Thread, ABC):
             # If Tcl is already tearing down, ignore
             pass
         finally:
-            self.destroy_gui()
+            _destroy_gui_once()
             self._app = None
             self._ev.set()
 
