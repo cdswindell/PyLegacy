@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import atexit
+import gc
 import io
 import logging
 import tkinter as tk
@@ -145,6 +146,7 @@ class GuiZeroBase(Thread, ABC):
         self._app = None
         self._app_counter = 0
         self._message_queue = Queue()
+        self._collect_gc_on_destroy = False
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -272,6 +274,10 @@ class GuiZeroBase(Thread, ABC):
             gui_destroyed = True
             self.destroy_gui()
             self._clear_message_queue()
+            if self._collect_gc_on_destroy:
+                # guizero widgets can form reference cycles that include tk.Variable
+                # objects; collect on the Tk thread so Variable.__del__ is thread-safe.
+                gc.collect()
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():

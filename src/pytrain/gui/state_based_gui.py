@@ -69,6 +69,10 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             x_offset=x_offset,
             y_offset=y_offset,
         )
+        # State-based screens create/destroy many guizero widgets while switching.
+        # Collect cyclic garbage on Tk thread during shutdown to avoid tk.Variable
+        # finalizers running on non-GUI threads.
+        self._collect_gc_on_destroy = True
         self.title = title
         self.label = label
         self._aggregator = aggregator
