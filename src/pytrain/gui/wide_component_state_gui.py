@@ -57,10 +57,11 @@ class _WidePane:
         self.container.tk.pack_propagate(False)
         parent.tk.grid_columnconfigure(column, weight=1, minsize=pane_width)
 
-        self.header = Box(self.container, layout="auto", align="top")
-        self.header.tk.configure(width=pane_width)
+        self.header = None
 
         if len(self._gui_names) > 1:
+            self.header = Box(self.container, layout="auto", align="top")
+            self.header.tk.configure(width=pane_width)
             if label:
                 txt = Text(self.header, text=f"{label}: ", align="left", bold=True)
                 txt.text_size = int(round(20 * scale_by))
@@ -76,8 +77,14 @@ class _WidePane:
         else:
             self.combo = None
 
+        app.tk.update_idletasks()
+        header_height = self.header.tk.winfo_height() if self.header else 0
+        content_height = max(1, pane_height - header_height)
+        # Reserve a small bottom margin so state grid overflow checks remain conservative.
+        inner_gui_height = max(1, content_height - max(4, int(round(6 * scale_by))))
+
         self.content = Box(self.container, layout="auto", align="top")
-        self.content.tk.configure(width=pane_width, height=pane_height)
+        self.content.tk.configure(width=pane_width, height=content_height)
         self.content.tk.pack_propagate(False)
 
         for gui_name in self._gui_names:
@@ -85,7 +92,7 @@ class _WidePane:
             gui = gui_cls(
                 label=label,
                 width=pane_width,
-                height=pane_height,
+                height=inner_gui_height,
                 scale_by=scale_by,
                 exclude_unnamed=exclude_unnamed,
                 screens=1,
