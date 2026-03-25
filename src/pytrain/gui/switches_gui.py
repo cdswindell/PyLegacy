@@ -28,6 +28,7 @@ class SwitchesGui(StateBasedGui):
         aggregator: ComponentStateGui = None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
+        screens: int | None = None,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -39,6 +40,7 @@ class SwitchesGui(StateBasedGui):
             disabled_bg="red",
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
+            screens=screens,
         )
 
     def get_target_states(self) -> list[SwitchState]:

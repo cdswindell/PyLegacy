@@ -67,6 +67,7 @@ from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401
 from .gui.routes_gui import RoutesGui  # noqa: F401
 from .gui.switches_gui import SwitchesGui  # noqa: F401
 from .gui.systems_gui import SystemsGui  # noqa: F401
+from .gui.wide_component_state_gui import WideComponentStateGui  # noqa: F401
 from .protocol.command_def import CommandDefEnum  # noqa: F401
 from .protocol.command_req import CommandReq  # noqa: F401
 from .protocol.constants import (

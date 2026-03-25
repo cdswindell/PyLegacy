@@ -28,7 +28,8 @@ from ..gui.power_district_gui import PowerDistrictsGui
 from ..gui.routes_gui import RoutesGui
 from ..gui.switches_gui import SwitchesGui
 from ..gui.systems_gui import SystemsGui
-from ..protocol.constants import PROGRAM_BASE, PROGRAM_NAME, CommandScope
+from ..gui.wide_component_state_gui import WideComponentStateGui
+from ..protocol.constants import CommandScope, PROGRAM_BASE, PROGRAM_NAME
 from ..utils.argument_parser import IntRange, PyTrainArgumentParser, UniqueChoice
 from ..utils.path_utils import find_dir, find_file
 
@@ -50,6 +51,9 @@ GUI_ARG_TO_CLASS = {
     "ro": RoutesGui,
     "routes": RoutesGui,
     "state": ComponentStateGui,
+    "wco": WideComponentStateGui,
+    "wide_component_state": WideComponentStateGui,
+    "wide_state": WideComponentStateGui,
     "sw": SwitchesGui,
     "switches": SwitchesGui,
     "sy": SystemsGui,
@@ -61,7 +65,9 @@ CLASS_TO_TEMPLATE = {
     AccessoriesGui: f"{AccessoriesGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
     " exclude_unnamed=__EXCLUDE_UNNAMED__)",
     ComponentStateGui: f"{ComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__, scale_by=__SCALE_BY__,"
-    " exclude_unnamed=__EXCLUDE_UNNAMED__)",
+    " exclude_unnamed=__EXCLUDE_UNNAMED__, screens=__SCREENS__)",
+    WideComponentStateGui: f"{WideComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__,"
+    " scale_by=__SCALE_BY__, exclude_unnamed=__EXCLUDE_UNNAMED__, screens=__SCREENS__)",
     LaunchGui: f"{LaunchGui.__name__}(tmcc_id=__TMCC_ID__, track_id=__TRACK_ID__)",
     MotorsGui: f"{MotorsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
@@ -276,6 +282,47 @@ class MakeGui(_MakeBase):
             type=float,
             default=1.0,
             help="Text Scale Factor (default: 1.0)",
+        )
+        comp.add_argument(
+            "-screens",
+            type=IntRange(1, 3),
+            default=None,
+            metavar="",
+            help="Virtual 800x480 screens to render side-by-side (1-3, default: auto by width)",
+        )
+
+        # Wide Component State GUI
+        wcomp = sp.add_parser(
+            "wide_component_state",
+            aliases=["wco", "wide_state"],
+            allow_abbrev=True,
+            help="Wide Component State GUI (2-3 screens side-by-side)",
+        )
+        wcomp.add_argument(
+            "-initial",
+            type=UniqueChoice(CHOICES),
+            nargs="?",
+            const="power districts",
+            default="power districts",
+            help=f"Initial Display (default: Power Districts, choices: {CHOICES_HELP})",
+        )
+        wcomp.add_argument(
+            "-label",
+            type=str,
+            help="Layout Name",
+        )
+        wcomp.add_argument(
+            "-scale_by",
+            type=float,
+            default=1.0,
+            help="Text Scale Factor (default: 1.0)",
+        )
+        wcomp.add_argument(
+            "-screens",
+            type=IntRange(1, 3),
+            default=2,
+            metavar="",
+            help="Virtual 800x480 screens to render side-by-side (default: 2)",
         )
 
         # Accessories GUI
@@ -514,6 +561,8 @@ class MakeGui(_MakeBase):
             self._gui_config["__LABEL__"] = f"'{self._args.label}'" if self._args.label else "None"
         if hasattr(self._args, "scale_by"):
             self._gui_config["__SCALE_BY__"] = str(self._args.scale_by)
+        if hasattr(self._args, "screens"):
+            self._gui_config["__SCREENS__"] = str(self._args.screens)
         if hasattr(self._args, "press_for"):
             self._gui_config["__PRESS_FOR__"] = str(self._args.press_for)
         if hasattr(self._args, "track_id"):

@@ -16,7 +16,7 @@ class DummyGui:
     """
     Minimal stand-in for the concrete GUI classes used by ComponentStateGui.
     It avoids any tkinter/guizero usage but mimics the required interface:
-      - __init__(label, width, height, aggregator=None)
+      - __init__(label, width, height, aggregator=None, screens=None)
       - close()
       - destroy_complete: Event that becomes set after close() is called
     """
@@ -33,6 +33,8 @@ class DummyGui:
         aggregator=None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
+        screens: int | None = None,
+        **kwargs,
     ):
         self.label = label
         self.width = width
@@ -42,6 +44,8 @@ class DummyGui:
         self._closed = False
         self._scale_by = scale_by
         self._exclude_unnamed = exclude_unnamed
+        self._screens = screens
+        self._extra_kwargs = kwargs
 
         # track instance lifecycle for tests
         DummyGui.instances.append(self)
@@ -120,6 +124,13 @@ def test_initial_gui_is_created_and_aggregator_set():
     assert inst.label == "My Label"
     assert inst.width == 320
     assert inst.height == 240
+
+
+def test_screens_option_is_forwarded_to_gui_instances():
+    comp = src.pytrain.gui.component_state_gui.ComponentStateGui(width=1920, height=480, screens=3)
+    assert comp
+    assert wait_for(lambda: len(DummyGui.instances) == 1), "Initial GUI instance was not created"
+    assert DummyGui.instances[0]._screens == 3
 
 
 # noinspection PyTypeHints

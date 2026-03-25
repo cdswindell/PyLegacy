@@ -31,6 +31,7 @@ class ComponentStateGui(Thread):
         height: int = None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
+        screens: int | None = None,
     ) -> None:
         from ..gui.accessories_gui import AccessoriesGui
         from ..gui.motors_gui import MotorsGui
@@ -79,6 +80,7 @@ class ComponentStateGui(Thread):
         self._scale_by = scale_by
         self._gui = None
         self._exclude_unnamed = exclude_unnamed
+        self._screens = screens
         self.requested_gui = initial
 
         self.start()
@@ -92,6 +94,7 @@ class ComponentStateGui(Thread):
             aggregator=self,
             scale_by=self._scale_by,
             exclude_unnamed=self._exclude_unnamed,
+            screens=self._screens,
         )
 
         # wait for user to request a different GUI
@@ -118,6 +121,7 @@ class ComponentStateGui(Thread):
                 aggregator=self,
                 scale_by=self._scale_by,
                 exclude_unnamed=self._exclude_unnamed,
+                screens=self._screens,
             )
 
     def cycle_gui(self, gui: str):

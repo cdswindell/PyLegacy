@@ -33,6 +33,7 @@ class AccessoriesGui(StateBasedGui):
         aggregator: ComponentStateGui = None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
+        screens: int | None = None,
     ) -> None:
         self._is_momentary = set()
         self._released_events = dict[int, Event]()
@@ -45,6 +46,7 @@ class AccessoriesGui(StateBasedGui):
             aggregator,
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
+            screens=screens,
         )
 
     def _post_process_state_buttons(self) -> None:

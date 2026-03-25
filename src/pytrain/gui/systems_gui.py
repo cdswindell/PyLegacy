@@ -19,7 +19,7 @@ from ..db.sync_state import SyncState
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.state_based_gui import StateBasedGui
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import PROGRAM_NAME, CommandScope
+from ..protocol.constants import CommandScope, PROGRAM_NAME
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 
@@ -33,6 +33,7 @@ class SystemsGui(StateBasedGui):
         scale_by: float = 1.0,
         press_for: int = 5,
         exclude_unnamed: bool = True,
+        screens: int | None = None,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -44,6 +45,7 @@ class SystemsGui(StateBasedGui):
             enabled_bg="red",
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
+            screens=screens,
         )
         self._press_for = press_for
 

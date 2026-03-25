@@ -28,6 +28,9 @@ S = TypeVar("S", bound=ComponentState)
 
 class StateBasedGui(GuiZeroBase, Generic[S], ABC):
     __metaclass__ = ABCMeta
+    _MAX_VIRTUAL_SCREENS = 3
+    _COLS_PER_SCREEN = 2
+    _AUTO_SCREEN_WIDTH = 800
 
     @classmethod
     def name(cls) -> str:
@@ -47,6 +50,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         disabled_text: str = "lightgrey",
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
+        screens: int | None = None,
     ) -> None:
         GuiZeroBase.__init__(
             self,
@@ -77,6 +81,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self._max_button_rows = self._max_button_cols = None
         self._first_button_col = 0
         self.sort_func = None
+        self._screens = self._resolve_screens(screens)
+        self._visible_button_cols = max(1, self._screens * self._COLS_PER_SCREEN)
 
         # States
         self._states = dict[tuple[int, CommandScope], S]()
@@ -85,6 +91,18 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
         # Signal parent init is complete
         self.init_complete()
+
+    @classmethod
+    def _clamp_screens(cls, screens: int) -> int:
+        return max(1, min(cls._MAX_VIRTUAL_SCREENS, screens))
+
+    def _resolve_screens(self, screens: int | None) -> int:
+        if screens is not None:
+            return self._clamp_screens(int(screens))
+        if self.width:
+            auto = int(self.width // self._AUTO_SCREEN_WIDTH)
+            return self._clamp_screens(auto if auto > 0 else 1)
+        return 1
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         pass
@@ -293,9 +311,13 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
     # noinspection PyTypeChecker
     def _make_state_buttons(self, states: list[S] = None) -> None:
         with self._cv:
+            if states is None:
+                states = []
             if self._state_buttons:
                 self._reset_state_buttons()
-            active_cols = {self._first_button_col, self._first_button_col + 1}
+            active_col_start = self._first_button_col
+            active_col_end = active_col_start + self._visible_button_cols - 1
+            active_cols = set(range(active_col_start, active_col_end + 1))
             row = 4
             col = 0
 
@@ -320,14 +342,19 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                 else:
                     btn_y += btn_h
                 row += 1
+
+            self._max_button_cols = col + 1 if states else 0
+
             # logic to hide/disable/enable scroll buttons
-            if col <= 1:
+            if col <= active_col_end:
                 self.right_scroll_btn.hide()
                 self.left_scroll_btn.hide()
             else:
-                if max(active_cols) < col:
+                self.right_scroll_btn.show()
+                self.left_scroll_btn.show()
+                if active_col_end < col:
                     self.right_scroll_btn.enable()
-                if max(active_cols) > 1:
+                if active_col_start > 0:
                     self.left_scroll_btn.enable()
 
             # call post process handler
@@ -344,7 +371,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             self.btn_box,
             text=f"{pd.tmcc_id}) {pd.road_name}",
             grid=[col, row],
-            width=int(round(self.width / 2 / (13 * self._scale_by))),
+            width=max(8, int(round(self.width / self._visible_button_cols / (13 * self._scale_by)))),
             command=self.switch_state,
             args=[pd],
             padx=0,
@@ -385,12 +412,13 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self._make_state_buttons(states)
 
     def scroll_left(self) -> None:
-        self._first_button_col -= 1
+        self._first_button_col = max(0, self._first_button_col - 1)
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
 
     def scroll_right(self) -> None:
-        self._first_button_col += 1
+        max_first_col = max(0, self._max_button_cols - self._visible_button_cols) if self._max_button_cols else 0
+        self._first_button_col = min(self._first_button_col + 1, max_first_col)
         states = sorted(self._states.values(), key=self.sort_func)
         self._make_state_buttons(states)
 

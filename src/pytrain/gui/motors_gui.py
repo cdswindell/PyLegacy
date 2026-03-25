@@ -14,6 +14,7 @@ from typing import cast
 from guizero import PushButton, Slider, Text
 from guizero.base import Widget
 
+from .state_based_gui import S
 from ..db.accessory_state import AccessoryState
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.state_based_gui import StateBasedGui
@@ -22,7 +23,6 @@ from ..pdi.constants import Amc2Action, PdiCommand
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
-from .state_based_gui import S
 
 
 class MotorsGui(StateBasedGui):
@@ -34,6 +34,7 @@ class MotorsGui(StateBasedGui):
         aggregator: ComponentStateGui = None,
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
+        screens: int | None = None,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -44,6 +45,7 @@ class MotorsGui(StateBasedGui):
             aggregator,
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
+            screens=screens,
         )
         self._making_buttons = True
 
