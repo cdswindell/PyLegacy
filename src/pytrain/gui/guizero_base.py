@@ -63,11 +63,17 @@ class GuiZeroBase(Thread, ABC):
         scale_by: float = 1.5,
         repeat: int = 2,
         stand_alone: bool = True,  # if True, launch GUI, if False, being called by another GUI
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         Thread.__init__(self, daemon=True, name=title)
         self._cv = Condition(RLock())
         self._ev = Event()
         self._stand_alone = stand_alone
+        self._full_screen = full_screen
+        self._x_offset = x_offset
+        self._y_offset = y_offset
         # Determines screen dimensions when width/height unspecified
         if stand_alone and (width is None or height is None):
             try:
@@ -245,7 +251,9 @@ class GuiZeroBase(Thread, ABC):
         self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
         self._app = app = App(title=self.title, width=self.width, height=self.height)
-        app.full_screen = True
+        app.full_screen = self._full_screen
+        if self._full_screen is False:
+            app.tk.geometry(f"{self.width}x{self.height}+{self._x_offset}+{self._y_offset}")
         app.when_closed = self.close
         app.bg = "white"
 

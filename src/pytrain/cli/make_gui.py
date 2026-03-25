@@ -11,10 +11,11 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
 
 from .make_base import _MakeBase
@@ -51,6 +52,7 @@ GUI_ARG_TO_CLASS = {
     "ro": RoutesGui,
     "routes": RoutesGui,
     "state": ComponentStateGui,
+    "wide": WideComponentStateGui,
     "wco": WideComponentStateGui,
     "wide_component_state": WideComponentStateGui,
     "wide_state": WideComponentStateGui,
@@ -67,7 +69,8 @@ CLASS_TO_TEMPLATE = {
     ComponentStateGui: f"{ComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__, scale_by=__SCALE_BY__,"
     " exclude_unnamed=__EXCLUDE_UNNAMED__, screens=__SCREENS__)",
     WideComponentStateGui: f"{WideComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__,"
-    " scale_by=__SCALE_BY__, exclude_unnamed=__EXCLUDE_UNNAMED__, screens=__SCREENS__)",
+    " scale_by=__SCALE_BY__, exclude_unnamed=__EXCLUDE_UNNAMED__, screens=__SCREENS__,"
+    " screen_components=__SCREEN_COMPONENTS__)",
     LaunchGui: f"{LaunchGui.__name__}(tmcc_id=__TMCC_ID__, track_id=__TRACK_ID__)",
     MotorsGui: f"{MotorsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
@@ -93,6 +96,34 @@ CHOICES = [
 ]
 
 CHOICES_HELP = ", ".join([x.title() for x in CHOICES]).replace(PROGRAM_NAME.title(), PROGRAM_NAME)
+
+WIDE_COMPONENT_ALIASES = {
+    "accessories": "Accessories",
+    "accessory": "Accessories",
+    "ac": "Accessories",
+    "motors": "Motors",
+    "motor": "Motors",
+    "mo": "Motors",
+    "power districts": "Power Districts",
+    "power district": "Power Districts",
+    "power_districts": "Power Districts",
+    "power_district": "Power Districts",
+    "pd": "Power Districts",
+    "po": "Power Districts",
+    "routes": "Routes",
+    "route": "Routes",
+    "ro": "Routes",
+    "switches": "Switches",
+    "switch": "Switches",
+    "sw": "Switches",
+    f"{PROGRAM_NAME} administration".lower(): f"{PROGRAM_NAME} Administration",
+    "administration": f"{PROGRAM_NAME} Administration",
+    "admin": f"{PROGRAM_NAME} Administration",
+    "systems": f"{PROGRAM_NAME} Administration",
+    "system": f"{PROGRAM_NAME} Administration",
+    "sy": f"{PROGRAM_NAME} Administration",
+    "pa": f"{PROGRAM_NAME} Administration",
+}
 
 SCOPES = [
     "accessory",
@@ -143,7 +174,37 @@ class MakeGui(_MakeBase):
         self._fonts_path = Path(self._home, ".fonts")
         self._imports = f"from {PROGRAM_BASE if is_package() else 'src.' + PROGRAM_BASE} import *"
         self._gui_class = GUI_ARG_TO_CLASS.get(self._args.gui)
+        if self._gui_class is WideComponentStateGui and self._args.screen_components:
+            screen_sets = len(self._args.screen_components)
+            if screen_sets > 3:
+                self._parser.error("wide supports at most 3 -show entries")
+            if self._args.screens is not None and self._args.screens != screen_sets:
+                self._parser.error(
+                    f"-screens ({self._args.screens}) must match number of -show entries ({screen_sets})"
+                )
+            if self._args.screens is None:
+                self._args.screens = screen_sets
         self.harvest_gui_config()
+
+    @staticmethod
+    def _normalize_wide_component_name(value: str) -> str:
+        key = value.strip().lower().replace("-", " ").replace("_", " ")
+        key = " ".join(key.split())
+        if key in WIDE_COMPONENT_ALIASES:
+            return WIDE_COMPONENT_ALIASES[key]
+        raise ArgumentTypeError(f"Invalid screen component '{value}'")
+
+    @classmethod
+    def _parse_wide_screen_set(cls, value: str) -> list[str]:
+        tokens = [token.strip() for token in re.split(r"[,+|/]", value) if token.strip()]
+        if not tokens:
+            raise ArgumentTypeError("Each -show must include at least one GUI name")
+        gui_names = []
+        for token in tokens:
+            canonical = cls._normalize_wide_component_name(token)
+            if canonical not in gui_names:
+                gui_names.append(canonical)
+        return gui_names
 
     def postprocess_config(self) -> None:
         self._config["___IMPORTS___"] = self._imports
@@ -293,8 +354,8 @@ class MakeGui(_MakeBase):
 
         # Wide Component State GUI
         wcomp = sp.add_parser(
-            "wide_component_state",
-            aliases=["wco", "wide_state"],
+            "wide",
+            aliases=["wco", "wide_state", "wide_component_state"],
             allow_abbrev=True,
             help="Wide Component State GUI (2-3 screens side-by-side)",
         )
@@ -320,9 +381,18 @@ class MakeGui(_MakeBase):
         wcomp.add_argument(
             "-screens",
             type=IntRange(1, 3),
-            default=2,
+            default=None,
             metavar="",
-            help="Virtual 800x480 screens to render side-by-side (default: 2)",
+            help="Virtual screens (1-3). Default: 2 when -show omitted, else count of -show entries",
+        )
+        wcomp.add_argument(
+            "-show",
+            "-screen_set",
+            dest="screen_components",
+            action="append",
+            type=self._parse_wide_screen_set,
+            metavar="",
+            help="One screen's GUI set (repeat once per screen), comma-separated names; e.g. 'routes,power_districts'",
         )
 
         # Accessories GUI
@@ -563,6 +633,10 @@ class MakeGui(_MakeBase):
             self._gui_config["__SCALE_BY__"] = str(self._args.scale_by)
         if hasattr(self._args, "screens"):
             self._gui_config["__SCREENS__"] = str(self._args.screens)
+        if hasattr(self._args, "screen_components"):
+            self._gui_config["__SCREEN_COMPONENTS__"] = (
+                repr(self._args.screen_components) if self._args.screen_components else "None"
+            )
         if hasattr(self._args, "press_for"):
             self._gui_config["__PRESS_FOR__"] = str(self._args.press_for)
         if hasattr(self._args, "track_id"):

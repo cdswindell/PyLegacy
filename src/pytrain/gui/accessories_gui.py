@@ -34,6 +34,9 @@ class AccessoriesGui(StateBasedGui):
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
         screens: int | None = None,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         self._is_momentary = set()
         self._released_events = dict[int, Event]()
@@ -47,6 +50,9 @@ class AccessoriesGui(StateBasedGui):
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
             screens=screens,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
         )
 
     def _post_process_state_buttons(self) -> None:

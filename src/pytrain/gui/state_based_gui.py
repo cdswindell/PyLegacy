@@ -51,6 +51,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
         screens: int | None = None,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         GuiZeroBase.__init__(
             self,
@@ -62,6 +65,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             enabled_text=enabled_text,
             disabled_text=disabled_text,
             scale_by=scale_by,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
         )
         self.title = title
         self.label = label

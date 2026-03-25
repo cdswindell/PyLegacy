@@ -29,6 +29,9 @@ class SwitchesGui(StateBasedGui):
         scale_by: float = 1.0,
         exclude_unnamed: bool = False,
         screens: int | None = None,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -41,6 +44,9 @@ class SwitchesGui(StateBasedGui):
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
             screens=screens,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
         )
 
     def get_target_states(self) -> list[SwitchState]:

@@ -34,6 +34,9 @@ class SystemsGui(StateBasedGui):
         press_for: int = 5,
         exclude_unnamed: bool = True,
         screens: int | None = None,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -46,6 +49,9 @@ class SystemsGui(StateBasedGui):
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
             screens=screens,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
         )
         self._press_for = press_for
 
