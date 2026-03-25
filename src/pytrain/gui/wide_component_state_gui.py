@@ -163,12 +163,11 @@ class WideComponentStateGui:
             return None, None
 
         if isinstance(buffer, CommBufferProxy):
-            try:
-                return CommBufferProxy.server_ip(), CommBufferProxy.server_port()
-            except Exception:
-                host = getattr(buffer, "_server", None)
-                port = getattr(buffer, "_port", None)
-                return str(host) if host else None, int(port) if port else None
+            # IMPORTANT: CommBufferProxy.server_ip() returns this node's local source IP,
+            # not the remote PyTrain server. Use the proxy's configured remote endpoint.
+            host = getattr(buffer, "_server", None)
+            port = getattr(buffer, "_port", None)
+            return str(host) if host else None, int(port) if port else None
 
         if isinstance(buffer, CommBufferSingleton):
             try:
