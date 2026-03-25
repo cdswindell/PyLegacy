@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from threading import Thread
 from typing import Iterable
 
@@ -30,6 +31,14 @@ class WideComponentStateGui:
     @classmethod
     def name(cls) -> str:
         return cls.__name__
+
+    @staticmethod
+    def _pane_count_hint(screen_components: list[str | Iterable[str]] | None, screens: int | None) -> int:
+        if screen_components:
+            return max(1, len(screen_components))
+        if screens:
+            return max(1, screens)
+        return 2
 
     def __init__(
             self,
@@ -65,21 +74,39 @@ class WideComponentStateGui:
         self._x_offset = x_offset
         self._y_offset = y_offset
 
-        if width is None or height is None:
-            try:
-                from tkinter import Tk
+        pane_hint = self._pane_count_hint(screen_components, screens)
+        fallback_width = 800 * pane_hint
+        fallback_height = 480
 
-                root = Tk()
-                self.width = root.winfo_screenwidth()
-                self.height = root.winfo_screenheight()
-                root.destroy()
-            except Exception as e:
-                log.exception("Error determining window size", exc_info=e)
-                self.width = width
-                self.height = height
+        if width is None or height is None:
+            self.width = width
+            self.height = height
+            display = os.environ.get("DISPLAY")
+            if display:
+                try:
+                    from tkinter import Tk
+
+                    root = Tk()
+                    if self.width is None:
+                        self.width = root.winfo_screenwidth()
+                    if self.height is None:
+                        self.height = root.winfo_screenheight()
+                    root.destroy()
+                except Exception as e:
+                    log.exception("Error determining window size", exc_info=e)
+            else:
+                log.warning("DISPLAY is not set; falling back to configured/default pane dimensions")
+
+            if self.width is None:
+                self.width = fallback_width
+            if self.height is None:
+                self.height = fallback_height
         else:
             self.width = width
             self.height = height
+
+        if self.width is None or self.height is None:
+            raise ValueError("Unable to determine GUI dimensions; provide width and height explicitly")
 
         self._pane_configs = self._normalize_pane_config(screen_components, screens, initial)
         self._panes = []
@@ -134,6 +161,8 @@ class WideComponentStateGui:
         pane_count = len(self._pane_configs)
         if pane_count == 0:
             return
+        if self.width is None or self.height is None:
+            raise ValueError("Invalid window dimensions; width/height must be non-null")
 
         pane_width = self.width // pane_count
         remainder = self.width % pane_count
