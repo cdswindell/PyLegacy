@@ -11,7 +11,7 @@ import logging
 import os
 import signal
 import time
-from multiprocessing import get_context
+from multiprocessing import get_all_start_methods, get_context
 from multiprocessing.process import BaseProcess
 from threading import Thread
 from typing import Iterable
@@ -24,16 +24,16 @@ log = logging.getLogger(__name__)
 
 
 def _run_wide_pane(
-        pane_guis: list[str],
-        label: str | None,
-        pane_width: int,
-        pane_height: int,
-        scale_by: float,
-        exclude_unnamed: bool,
-        x_offset: int,
-        y_offset: int,
-        server_ip: str | None,
-        server_port: int | None,
+    pane_guis: list[str],
+    label: str | None,
+    pane_width: int,
+    pane_height: int,
+    scale_by: float,
+    exclude_unnamed: bool,
+    x_offset: int,
+    y_offset: int,
+    server_ip: str | None,
+    server_port: int | None,
 ) -> None:
     from ..comm.comm_buffer import CommBuffer
     from ..comm.command_listener import CommandDispatcher
@@ -159,7 +159,7 @@ class WideComponentStateGui:
 
         try:
             buffer = CommBuffer.get()
-        except Exception:
+        except AttributeError:
             return None, None
 
         if isinstance(buffer, CommBufferProxy):
@@ -167,29 +167,52 @@ class WideComponentStateGui:
             # not the remote PyTrain server. Use the proxy's configured remote endpoint.
             host = getattr(buffer, "_server", None)
             port = getattr(buffer, "_port", None)
-            return str(host) if host else None, int(port) if port else None
+            host_value = str(host) if host else None
+            if port is None:
+                return host_value, None
+            try:
+                port_value = int(port)
+            except (TypeError, ValueError):
+                port_value = None
+            return host_value, port_value
 
         if isinstance(buffer, CommBufferSingleton):
             try:
-                return "127.0.0.1", EnqueueProxyRequests.server_port()
-            except Exception:
+                port = EnqueueProxyRequests.server_port()
+            except AttributeError:
+                port = DEFAULT_SERVER_PORT
+            try:
+                return "127.0.0.1", int(port)
+            except (TypeError, ValueError):
                 return "127.0.0.1", DEFAULT_SERVER_PORT
 
         return None, None
 
+    @staticmethod
+    def _resolve_process_start_method() -> str:
+        methods = set(get_all_start_methods())
+        if os.name == "posix" and "fork" in methods:
+            return "fork"
+        if "spawn" in methods:
+            return "spawn"
+        if methods:
+            return next(iter(methods))
+        return "spawn"
+
     def __init__(
-            self,
-            label: str = None,
-            initial: str = "Power Districts",
-            width: int = None,
-            height: int = None,
-            scale_by: float = 1.0,
-            exclude_unnamed: bool = False,
-            screens: int | None = None,
-            screen_components: list[str | Iterable[str]] | None = None,
-            x_offset: int = 0,
-            y_offset: int = 0,
-            use_subprocesses: bool = True,
+        self,
+        label: str = None,
+        initial: str = "Power Districts",
+        width: int = None,
+        height: int = None,
+        scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
+        screens: int | None = None,
+        screen_components: list[str | Iterable[str]] | None = None,
+        x_offset: int = 0,
+        y_offset: int = 0,
+        use_subprocesses: bool = True,
+        process_start_method: str | None = None,
     ) -> None:
         from ..gui.accessories_gui import AccessoriesGui
         from ..gui.motors_gui import MotorsGui
@@ -212,6 +235,7 @@ class WideComponentStateGui:
         self._x_offset = x_offset
         self._y_offset = y_offset
         self._use_subprocesses = use_subprocesses
+        self._process_start_method = process_start_method or self._resolve_process_start_method()
 
         pane_hint = self._pane_count_hint(screen_components, screens)
         fallback_width = 800 * pane_hint
@@ -252,7 +276,6 @@ class WideComponentStateGui:
         self._pane_processes: list[BaseProcess] = []
         self._server_ip, self._server_port = self._resolve_server_endpoint()
         self._build_panes()
-        GpioHandler.cache_handler(self)
 
     @property
     def panes(self) -> list[object]:
@@ -265,10 +288,10 @@ class WideComponentStateGui:
         raise ValueError(f"Invalid GUI name: {gui_name}")
 
     def _normalize_pane_config(
-            self,
-            screen_components: list[str | Iterable[str]] | None,
-            screens: int | None,
-            initial: str,
+        self,
+        screen_components: list[str | Iterable[str]] | None,
+        screens: int | None,
+        initial: str,
     ) -> list[list[str]]:
         if screen_components is None:
             screens = 2 if screens is None else screens
@@ -313,7 +336,9 @@ class WideComponentStateGui:
         for idx, pane_guis in enumerate(self._pane_configs):
             this_width = pane_width + (1 if idx < remainder else 0)
             if self._use_subprocesses:
-                proc = get_context("spawn").Process(
+                ctx = get_context(self._process_start_method)
+                process_factory = getattr(ctx, "Process")
+                proc = process_factory(
                     target=_run_wide_pane,
                     args=(
                         pane_guis,
