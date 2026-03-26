@@ -733,7 +733,7 @@ class GpioHandler:
 
     @classmethod
     def reset_all(cls) -> None:
-        for handler in list(cls.GPIO_HANDLER_CACHE):
+        for handler in cls.GPIO_HANDLER_CACHE:
             if not hasattr(handler, "reset"):
                 log.error(f"{handler} has no 'reset' method. Skipping...")
                 continue
@@ -742,7 +742,7 @@ class GpioHandler:
                 handler.join()  # wait for thread to shut down
         cls.GPIO_HANDLER_CACHE = set()
 
-        for device in list(cls.GPIO_DEVICE_CACHE):
+        for device in cls.GPIO_DEVICE_CACHE:
             device.close()
         cls.GPIO_DEVICE_CACHE = set()
 
