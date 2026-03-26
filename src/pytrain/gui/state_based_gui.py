@@ -179,9 +179,14 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             app.bg = "white"
         box.bg = "white"
 
+        show_header_row = self._aggregator is not None or self._show_title
+        sort_row = 2 if show_header_row else 0
+        below_sort_row = sort_row + 1
+
         ts = self._text_size
-        _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
-        _ = Text(box, text="    ", grid=[1, 1], size=ts)
+        if show_header_row:
+            _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
+            _ = Text(box, text="    ", grid=[1, 1], size=ts)
         ats = int(round(23 * self._scale_by))
         if self._aggregator:
             txt_lbl = txt_spacer = None
@@ -229,11 +234,12 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                 label = f"{self.label}: {self.title}" if self.label else self.title
                 tb = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
                 self.cache(tb)
-        _ = Text(box, text="    ", grid=[4, 1], size=ts)
+        if show_header_row:
+            _ = Text(box, text="    ", grid=[4, 1], size=ts)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
-            grid=[2, 2],
+            grid=[2, sort_row],
             command=self.sort_by_number,
             padx=self._button_text_pad_x,
             pady=self._button_text_pad_y,
@@ -242,7 +248,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.by_name = PushButton(
             box,
             text="By Name",
-            grid=[3, 2],
+            grid=[3, sort_row],
             width=len("By TMCC ID"),
             command=self.sort_by_name,
             padx=self._button_text_pad_x,
@@ -251,7 +257,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.by_name.text_size = self.by_number.text_size = int(round(18 * self._scale_by))
         self.by_number.text_bold = True
 
-        _ = Text(box, text=" ", grid=[0, 3, 6, 1], size=4, height=1, bold=True)
+        _ = Text(box, text=" ", grid=[0, below_sort_row, 6, 1], size=4, height=1, bold=True)
         self.app.update()
 
         tk_parent = self.by_number.tk.master
@@ -264,7 +270,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         scroll_btn_size = sort_btn_height
         self.left_scroll_btn = PushButton(
             box,
-            grid=[0, 2] if self.width > 480 else [2, 3, 1, 1],
+            grid=[0, sort_row] if self.width > 480 else [2, below_sort_row, 1, 1],
             enabled=False,
             image=self.left_arrow,
             height=scroll_btn_size,
@@ -274,7 +280,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         )
         self.right_scroll_btn = PushButton(
             box,
-            grid=[5, 2] if self.width > 480 else [3, 3, 1, 1],
+            grid=[5, sort_row] if self.width > 480 else [3, below_sort_row, 1, 1],
             enabled=False,
             image=self.right_arrow,
             height=scroll_btn_size,

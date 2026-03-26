@@ -6,21 +6,21 @@ import time
 from threading import Thread
 from typing import Callable, Dict, Tuple, TypeVar, Union, cast
 
-from gpiozero import LED, MCP3008, MCP3208, AnalogInputDevice, Button, Device
+from gpiozero import AnalogInputDevice, Button, Device, LED, MCP3008, MCP3208
 
+from .i2c.ads_1x15 import Ads1115
+from .i2c.button_i2c import ButtonI2C
+from .i2c.led_i2c import LEDI2C
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import Message
 from ..db.component_state_store import DependencyCache
 from ..db.engine_state import EngineState
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
+from ..protocol.constants import CommandScope, DEFAULT_ADDRESS, PROGRAM_NAME
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
 )
-from .i2c.ads_1x15 import Ads1115
-from .i2c.button_i2c import ButtonI2C
-from .i2c.led_i2c import LEDI2C
 
 log = logging.getLogger(__name__)
 
@@ -733,7 +733,7 @@ class GpioHandler:
 
     @classmethod
     def reset_all(cls) -> None:
-        for handler in cls.GPIO_HANDLER_CACHE:
+        for handler in list(cls.GPIO_HANDLER_CACHE):
             if not hasattr(handler, "reset"):
                 log.error(f"{handler} has no 'reset' method. Skipping...")
                 continue
@@ -742,7 +742,7 @@ class GpioHandler:
                 handler.join()  # wait for thread to shut down
         cls.GPIO_HANDLER_CACHE = set()
 
-        for device in cls.GPIO_DEVICE_CACHE:
+        for device in list(cls.GPIO_DEVICE_CACHE):
             device.close()
         cls.GPIO_DEVICE_CACHE = set()
 
