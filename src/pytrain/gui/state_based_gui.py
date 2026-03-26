@@ -257,27 +257,28 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         tk_parent = self.by_number.tk.master
         tk_parent.grid_columnconfigure(self.by_number.tk.grid_info()["column"], pad=40)
         tk_parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=40)
-        tk_parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=10)
+        tk_parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=0)
 
         # add scroll btns
         sort_btn_height = self.by_number.tk.winfo_height()
+        scroll_btn_size = sort_btn_height
         self.left_scroll_btn = PushButton(
             box,
-            grid=[0, 1, 1, 2] if self.width > 480 else [2, 3, 1, 1],
+            grid=[0, 2] if self.width > 480 else [2, 3, 1, 1],
             enabled=False,
             image=self.left_arrow,
-            height=sort_btn_height * (2 if self.width > 480 else 1),
-            width=sort_btn_height * (2 if self.width > 480 else 1),
+            height=scroll_btn_size,
+            width=scroll_btn_size,
             align="left",
             command=self.scroll_left,
         )
         self.right_scroll_btn = PushButton(
             box,
-            grid=[5, 1, 1, 2] if self.width > 480 else [3, 3, 1, 1],
+            grid=[5, 2] if self.width > 480 else [3, 3, 1, 1],
             enabled=False,
             image=self.right_arrow,
-            height=sort_btn_height * (2 if self.width > 480 else 1),
-            width=sort_btn_height * (2 if self.width > 480 else 1),
+            height=scroll_btn_size,
+            width=scroll_btn_size,
             align="right",
             command=self.scroll_right,
         )
@@ -444,16 +445,14 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             has_left_page = active_col_start > 0
 
             if has_right_page:
-                self.right_scroll_btn.show()
                 self.right_scroll_btn.enable()
             else:
-                self.right_scroll_btn.hide()
+                self.right_scroll_btn.disable()
 
             if has_left_page:
-                self.left_scroll_btn.show()
                 self.left_scroll_btn.enable()
             else:
-                self.left_scroll_btn.hide()
+                self.left_scroll_btn.disable()
 
             # call post process handler
             self._post_process_state_buttons()

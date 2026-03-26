@@ -47,6 +47,7 @@ LIONEL_BLUE = "#003366"
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
+FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 
 
 class GuiZeroBase(Thread, ABC):
@@ -156,6 +157,7 @@ class GuiZeroBase(Thread, ABC):
         self._is_closed = False
         self._init_complete_flag = Event()
         self._shutdown_flag = Event()
+        self._atexit_callback: Callable[[], None] | None = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -164,9 +166,10 @@ class GuiZeroBase(Thread, ABC):
             self._synchronized = False
             self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
+            self._atexit_callback = self._atexit_close
+            atexit.register(self._atexit_callback)
         else:
             self._synchronized = self._sync_state = self._sync_watcher = None
-        atexit.register(self._atexit_close)
 
     @abstractmethod
     def build_gui(self) -> None: ...
@@ -191,6 +194,12 @@ class GuiZeroBase(Thread, ABC):
                 self.join(timeout=3.0)
             except RuntimeError:
                 pass
+
+    def _unregister_atexit(self) -> None:
+        if self._atexit_callback is None:
+            return
+        atexit.unregister(self._atexit_callback)
+        self._atexit_callback = None
 
     def reset(self) -> None:
         self.close()
@@ -281,14 +290,101 @@ class GuiZeroBase(Thread, ABC):
             except Empty:
                 break
 
+    @staticmethod
+    def _is_gui_object(value: Any) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, (Widget, tk.Misc, tk.Variable, ImageTk.PhotoImage)):
+            return True
+        module_name = getattr(type(value), "__module__", "")
+        return module_name.startswith("guizero") or module_name.startswith("tkinter")
+
+    @classmethod
+    def _contains_gui_reference(cls, value: Any, seen: set[int] | None = None) -> bool:
+        if cls._is_gui_object(value):
+            return True
+        if value is None:
+            return False
+        if seen is None:
+            seen = set()
+        value_id = id(value)
+        if value_id in seen:
+            return False
+        seen.add(value_id)
+        if isinstance(value, dict):
+            return any(
+                cls._contains_gui_reference(key, seen) or cls._contains_gui_reference(val, seen)
+                for key, val in value.items()
+            )
+        if isinstance(value, (list, tuple, set)):
+            return any(cls._contains_gui_reference(item, seen) for item in value)
+        module_name = getattr(type(value), "__module__", "")
+        if hasattr(value, "__dict__") and ".gui" in module_name:
+            return any(cls._contains_gui_reference(val, seen) for val in vars(value).values())
+        return False
+
+    def _drop_gui_references(self) -> None:
+        preserve_names = {
+            "_cv",
+            "_ev",
+            "_message_queue",
+            "_shutdown_flag",
+            "_init_complete_flag",
+            "_dispatcher",
+            "_state_store",
+            "_sync_state",
+            "_sync_watcher",
+            "_executor",
+            "_atexit_callback",
+            "_tk_thread_id",
+            "_synchronized",
+            "_is_closed",
+            "_stand_alone",
+            "_full_screen",
+            "_x_offset",
+            "_y_offset",
+            "_scale_by",
+            "_collect_gc_on_destroy",
+            "width",
+            "height",
+            "title",
+            "repeat",
+        }
+        for name, value in list(vars(self).items()):
+            if name in preserve_names:
+                continue
+            if not self._contains_gui_reference(value):
+                continue
+            if isinstance(value, (dict, list, set)):
+                value.clear()
+            elif isinstance(value, tuple):
+                setattr(self, name, tuple())
+            else:
+                setattr(self, name, None)
+
+    def _finalize_gui_resources(self) -> None:
+        # Break references to tkinter-backed objects while still on the GUI thread.
+        self._clear_message_queue()
+        self.clear_cache()
+        self.size_cache.clear()
+        self._image_cache.clear()
+        self._prod_info_cache.clear()
+        self._pending_prod_infos.clear()
+        try:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+        except FINALIZE_EXCEPTIONS:
+            pass
+        self._drop_gui_references()
+        # Run GC on the Tk thread so tkinter Variable finalizers are thread-safe.
+        if self._collect_gc_on_destroy or self._stand_alone:
+            gc.collect()
+
     def teardown_embedded(self) -> None:
         self.destroy_gui()
-        self._clear_message_queue()
-        if self._collect_gc_on_destroy:
-            # Some guizero widgets form cycles which hold tkinter Variable refs.
-            # Collecting on the GUI thread prevents __del__ thread errors.
-            gc.collect()
+        self._finalize_gui_resources()
         self._app = None
+        self._unregister_atexit()
+        GpioHandler.release_handler(self)
         self._ev.set()
 
     def run(self) -> None:
@@ -310,11 +406,7 @@ class GuiZeroBase(Thread, ABC):
                 return
             gui_destroyed = True
             self.destroy_gui()
-            self._clear_message_queue()
-            if self._collect_gc_on_destroy:
-                # guizero widgets can form reference cycles that include tk.Variable
-                # objects; collect on the Tk thread so Variable.__del__ is thread-safe.
-                gc.collect()
+            self._finalize_gui_resources()
 
         # poll for shutdown requests from other threads; this runs on the GuiZero/Tk thread
         def _poll_shutdown():
@@ -325,6 +417,7 @@ class GuiZeroBase(Thread, ABC):
                     app.destroy()
                 except TclError:
                     pass  # ignore, we're shutting down
+                gc.collect()
                 return None
             else:
                 self.pump_messages()
@@ -352,7 +445,10 @@ class GuiZeroBase(Thread, ABC):
             pass
         finally:
             _destroy_gui_once()
+            gc.collect()
             self._app = None
+            self._unregister_atexit()
+            GpioHandler.release_handler(self)
             self._ev.set()
 
     def _build_keypad_button(
