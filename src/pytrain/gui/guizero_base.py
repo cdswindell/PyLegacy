@@ -375,15 +375,11 @@ class GuiZeroBase(Thread, ABC):
         except FINALIZE_EXCEPTIONS:
             pass
         self._drop_gui_references()
-        # Run GC on the Tk thread so tkinter Variable finalizers are thread-safe.
-        if self._collect_gc_on_destroy or self._stand_alone:
-            pass
-            # gc.collect()
 
     def teardown_embedded(self) -> None:
         self.destroy_gui()
         self._finalize_gui_resources()
-        self._app = None
+        # self._app = None
         self._unregister_atexit()
         GpioHandler.release_handler(self)
         self._ev.set()
@@ -446,7 +442,6 @@ class GuiZeroBase(Thread, ABC):
             pass
         finally:
             _destroy_gui_once()
-            # gc.collect()
             self._app = None
             self._unregister_atexit()
             GpioHandler.release_handler(self)

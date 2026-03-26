@@ -398,6 +398,7 @@ class WideComponentStateGui(GuiZeroBase):
 
     def destroy_gui(self) -> None:
         self._destroy_panes()
+        self._app = None
 
     def calc_image_box_size(self) -> tuple[int, int]:
         return self.height, self.width
