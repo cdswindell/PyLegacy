@@ -375,6 +375,8 @@ class WideComponentStateGui(GuiZeroBase):
         while self._panes:
             pane = self._panes.pop()
             pane.destroy()
+        self._panes.clear()
+        self._pane_configs.clear()
         _safe_destroy(self._root)
         self._root = None
 
