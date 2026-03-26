@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import atexit
+import gc
 import io
 import logging
 import tkinter as tk
@@ -417,7 +418,7 @@ class GuiZeroBase(Thread, ABC):
                     app.destroy()
                 except TclError:
                     pass  # ignore, we're shutting down
-                # gc.collect()
+                gc.collect()
                 return None
             else:
                 self.pump_messages()
