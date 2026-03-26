@@ -401,7 +401,7 @@ class GuiZeroBase(Thread, ABC):
             self._executor.shutdown(wait=False, cancel_futures=True)
         except FINALIZE_EXCEPTIONS:
             pass
-        self._drop_gui_references()
+        # self._drop_gui_references()
         # Force tkinter Variable finalizers to run while we're still on Tk thread.
         gc.collect()
 

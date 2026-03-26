@@ -170,7 +170,6 @@ class _WidePane:
         for gui in child_guis:
             if isinstance(gui, GuiZeroBase):
                 # All child widget destruction happens in the parent Tk thread.
-                print(f"Destroying {gui}")
                 gui.destroy_gui()
         child_guis.clear()
         self._guis.clear()
