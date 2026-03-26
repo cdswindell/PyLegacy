@@ -133,6 +133,8 @@ class _WidePane:
                 y_offset=0,
             )
             if isinstance(gui, GuiZeroBase):
+                if has_selector and hasattr(gui, "_show_title"):
+                    gui._show_title = False
                 gui._app = app
                 gui.build_gui()
                 if hasattr(gui, "hide_gui"):
