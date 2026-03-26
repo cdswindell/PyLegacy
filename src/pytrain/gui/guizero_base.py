@@ -402,18 +402,8 @@ class GuiZeroBase(Thread, ABC):
         except FINALIZE_EXCEPTIONS:
             pass
         self._drop_gui_references()
-
-    def teardown_embedded(self) -> None:
-        self.close()
-        self.destroy_gui()
-        self._finalize_gui_resources()
-        self._app = None
-        if not self._owns_message_queue:
-            self._message_queue = Queue()
-            self._owns_message_queue = True
-        self._unregister_atexit()
-        GpioHandler.release_handler(self)
-        self._ev.set()
+        # Force tkinter Variable finalizers to run while we're still on Tk thread.
+        gc.collect()
 
     def run(self) -> None:
         self._shutdown_flag.clear()

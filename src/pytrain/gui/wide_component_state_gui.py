@@ -23,17 +23,12 @@ WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 
 
 def _safe_destroy(widget: Any) -> None:
-    if widget is None:
-        return
-    try:
-        if hasattr(widget, "hide"):
-            widget.hide()
-    except GUI_CLEANUP_EXCEPTIONS:
-        pass
-    try:
-        widget.destroy()
-    except GUI_CLEANUP_EXCEPTIONS:
-        pass
+    if widget:
+        try:
+            widget.destroy()
+        except GUI_CLEANUP_EXCEPTIONS:
+            pass
+    return None
 
 
 class _WidePane:
@@ -169,23 +164,13 @@ class _WidePane:
             nxt.show_gui()
         self._active_gui = gui_name
 
-    def pump_messages(self) -> None:
-        # Embedded GUIs share the parent queue path; parent GuiZeroBase pumps it.
-        return
-
     def destroy(self) -> None:
         """Tear down child GUIs and release pane widgets/resources."""
         child_guis = list(self._guis.values())
-        # Stop all embedded GUIs first so watcher threads cannot enqueue
-        # more callbacks while widgets are being destroyed.
         for gui in child_guis:
             if isinstance(gui, GuiZeroBase):
-                gui.close()
-            elif hasattr(gui, "reset"):
-                gui.reset()
-        for gui in child_guis:
-            if isinstance(gui, GuiZeroBase):
-                gui.teardown_embedded()
+                # All child widget destruction happens in the parent Tk thread.
+                gui.destroy_gui()
         self._guis.clear()
         _safe_destroy(self.combo)
         self.combo = None
@@ -402,6 +387,8 @@ class WideComponentStateGui(GuiZeroBase):
 
     def destroy_gui(self) -> None:
         self._destroy_panes()
+        self._root.destroy()
+        self._root = None
 
     def calc_image_box_size(self) -> tuple[int, int]:
         return self.height, self.width
