@@ -48,6 +48,7 @@ class _WidePane:
 
     def __init__(
         self,
+        owner: GuiZeroBase,
         app: App,
         parent: Box,
         all_guis: dict[str, type],
@@ -74,6 +75,7 @@ class _WidePane:
             exclude_unnamed: Passed through to child GUIs.
             column: Grid column index for pane placement.
         """
+        self._owner = owner
         self._app = app
         self._gui_names = list(gui_names)
         self._guis: dict[str, Any] = {}
@@ -133,6 +135,7 @@ class _WidePane:
                 y_offset=0,
             )
             if isinstance(gui, GuiZeroBase):
+                gui.attach_to_parent_queue(self._owner)
                 if has_selector and hasattr(gui, "_show_title"):
                     gui._show_title = False
                 gui._app = app
@@ -167,18 +170,22 @@ class _WidePane:
         self._active_gui = gui_name
 
     def pump_messages(self) -> None:
-        """Pump queued UI messages for each embedded `GuiZeroBase` child GUI."""
-        for gui in self._guis.values():
-            if isinstance(gui, GuiZeroBase):
-                gui.pump_messages()
+        # Embedded GUIs share the parent queue path; parent GuiZeroBase pumps it.
+        return
 
     def destroy(self) -> None:
         """Tear down child GUIs and release pane widgets/resources."""
-        for gui in self._guis.values():
+        child_guis = list(self._guis.values())
+        # Stop all embedded GUIs first so watcher threads cannot enqueue
+        # more callbacks while widgets are being destroyed.
+        for gui in child_guis:
             if isinstance(gui, GuiZeroBase):
-                gui.teardown_embedded()
+                gui.close()
             elif hasattr(gui, "reset"):
                 gui.reset()
+        for gui in child_guis:
+            if isinstance(gui, GuiZeroBase):
+                gui.teardown_embedded()
         self._guis.clear()
         _safe_destroy(self.combo)
         self.combo = None
@@ -347,6 +354,7 @@ class WideComponentStateGui(GuiZeroBase):
         if pane_label is None and len(pane_guis) > 1 and isinstance(self.title, str) and self.title:
             pane_label = self.title
         return _WidePane(
+            owner=self,
             app=app,
             parent=root,
             all_guis=self._all_guis,
@@ -386,19 +394,13 @@ class WideComponentStateGui(GuiZeroBase):
         _safe_destroy(self._root)
         self._root = None
 
-    def _pump_panes(self) -> None:
-        for pane in self._panes:
-            pane.pump_messages()
-
     def build_gui(self) -> None:
         app = self.app
         app.bg = "white"
         self._root = root = Box(app, layout="grid")
         self._build_panes(app, root)
-        app.repeat(20, self._pump_panes)
 
     def destroy_gui(self) -> None:
-        print("Destroying WideComponent...")
         self._destroy_panes()
 
     def calc_image_box_size(self) -> tuple[int, int]:

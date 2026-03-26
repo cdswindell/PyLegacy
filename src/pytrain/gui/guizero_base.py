@@ -150,6 +150,7 @@ class GuiZeroBase(Thread, ABC):
         self._app = None
         self._app_counter = 0
         self._message_queue = Queue()
+        self._owns_message_queue = True
         self._collect_gc_on_destroy = False
 
         # Thread-aware shutdown signaling
@@ -228,6 +229,15 @@ class GuiZeroBase(Thread, ABC):
     def app(self) -> App:
         return self._app
 
+    @property
+    def is_shutting_down(self) -> bool:
+        return self._shutdown_flag.is_set()
+
+    def attach_to_parent_queue(self, parent: GuiZeroBase) -> None:
+        """Route this GUI's queued callbacks through a parent GUI queue."""
+        self._message_queue = parent._message_queue
+        self._owns_message_queue = False
+
     def cache(self, *widgets: Widget | Box) -> None:
         if not widgets:
             return
@@ -284,6 +294,22 @@ class GuiZeroBase(Thread, ABC):
         return processed
 
     def _clear_message_queue(self) -> None:
+        if not self._owns_message_queue:
+            with self._message_queue.mutex:
+                retained = []
+                removed = 0
+                for message in self._message_queue.queue:
+                    callback = message[0] if isinstance(message, tuple) and len(message) > 0 else None
+                    if getattr(callback, "__self__", None) is self:
+                        removed += 1
+                    else:
+                        retained.append(message)
+                self._message_queue.queue.clear()
+                self._message_queue.queue.extend(retained)
+                if removed:
+                    self._message_queue.unfinished_tasks = max(0, self._message_queue.unfinished_tasks - removed)
+                    self._message_queue.all_tasks_done.notify_all()
+            return
         while True:
             try:
                 self._message_queue.get_nowait()
@@ -345,6 +371,7 @@ class GuiZeroBase(Thread, ABC):
             "_y_offset",
             "_scale_by",
             "_collect_gc_on_destroy",
+            "_owns_message_queue",
             "width",
             "height",
             "title",
@@ -377,9 +404,13 @@ class GuiZeroBase(Thread, ABC):
         self._drop_gui_references()
 
     def teardown_embedded(self) -> None:
+        self.close()
         self.destroy_gui()
         self._finalize_gui_resources()
-        # self._app = None
+        self._app = None
+        if not self._owns_message_queue:
+            self._message_queue = Queue()
+            self._owns_message_queue = True
         self._unregister_atexit()
         GpioHandler.release_handler(self)
         self._ev.set()
