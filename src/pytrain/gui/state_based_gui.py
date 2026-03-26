@@ -108,7 +108,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
         # Signal parent init is complete
         self.init_complete()
-        print("Exit StateBasedGui.__init__")
 
     @classmethod
     def _clamp_screens(cls, screens: int) -> int:
@@ -300,7 +299,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.sort_by_number()
 
     def destroy_gui(self) -> None:
-        print("calling StateBasedGui.destroy_gui()...")
 
         def safe_destroy(widget: Widget | Box | Combo | None) -> None:
             if widget is None:
