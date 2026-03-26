@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import atexit
-import gc
 import io
 import logging
 import tkinter as tk
@@ -377,7 +376,8 @@ class GuiZeroBase(Thread, ABC):
         self._drop_gui_references()
         # Run GC on the Tk thread so tkinter Variable finalizers are thread-safe.
         if self._collect_gc_on_destroy or self._stand_alone:
-            gc.collect()
+            pass
+            # gc.collect()
 
     def teardown_embedded(self) -> None:
         self.destroy_gui()
@@ -417,7 +417,7 @@ class GuiZeroBase(Thread, ABC):
                     app.destroy()
                 except TclError:
                     pass  # ignore, we're shutting down
-                gc.collect()
+                # gc.collect()
                 return None
             else:
                 self.pump_messages()
@@ -445,7 +445,7 @@ class GuiZeroBase(Thread, ABC):
             pass
         finally:
             _destroy_gui_once()
-            gc.collect()
+            # gc.collect()
             self._app = None
             self._unregister_atexit()
             GpioHandler.release_handler(self)

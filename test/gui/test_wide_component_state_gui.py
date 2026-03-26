@@ -117,13 +117,11 @@ def test_invalid_gui_name_raises_value_error() -> None:
         )
 
 
-def test_subprocess_options_are_accepted_and_ignored() -> None:
+def test_wide_gui_accepts_basic_dimensions() -> None:
     gui = wide_mod.WideComponentStateGui(
         width=800,
         height=480,
         screen_components=[["Routes"]],
-        use_subprocesses=True,
-        process_start_method="fork",
         auto_start=False,
     )
     assert gui.width == 800

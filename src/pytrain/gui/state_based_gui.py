@@ -340,13 +340,16 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         for sw in self._state_watchers.values():
             sw.shutdown()
         self._state_watchers.clear()
+        if self._state_buttons:
+            self._reset_state_buttons()
+        self._state_buttons.clear()
+        self._state_buttons = None
         safe_disconnect(self.aggregator_combo)
         safe_disconnect(self.left_scroll_btn)
         safe_disconnect(self.right_scroll_btn)
         safe_disconnect(self.by_name)
         safe_disconnect(self.by_number)
-        if self._state_buttons:
-            self._reset_state_buttons()
+
         safe_destroy(self.aggregator_combo)
         safe_destroy(self.left_scroll_btn)
         safe_destroy(self.right_scroll_btn)
@@ -362,8 +365,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.by_number = None
         self.btn_box = None
         self.box = None
-        self._state_buttons.clear()
-        self._state_buttons = None
 
     def hide_gui(self) -> None:
         if self.box:

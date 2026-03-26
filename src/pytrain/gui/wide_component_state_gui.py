@@ -223,8 +223,6 @@ class WideComponentStateGui(GuiZeroBase):
         screen_components: list[str | Iterable[str]] | None = None,
         x_offset: int = 0,
         y_offset: int = 0,
-        use_subprocesses: bool = True,
-        process_start_method: str | None = None,
         auto_start: bool = True,
     ) -> None:
         from ..gui.accessories_gui import AccessoriesGui
@@ -242,9 +240,6 @@ class WideComponentStateGui(GuiZeroBase):
             "Switches": SwitchesGui,
             f"{PROGRAM_NAME} Administration": SystemsGui,
         }
-
-        if use_subprocesses or process_start_method:
-            log.info("Wide GUI now uses a single guizero App; subprocess options are ignored")
 
         pane_hint = self._pane_count_hint(screen_components, screens)
         fallback_width = 800 * pane_hint
