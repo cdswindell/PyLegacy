@@ -435,17 +435,21 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
             self._max_button_cols = col + 1 if states else 0
 
-            # logic to hide/disable/enable scroll buttons
-            if col <= active_col_end:
-                self.right_scroll_btn.hide()
-                self.left_scroll_btn.hide()
-            else:
+            # Show/hide scroll buttons independently based on available pages.
+            has_right_page = active_col_end < col
+            has_left_page = active_col_start > 0
+
+            if has_right_page:
                 self.right_scroll_btn.show()
+                self.right_scroll_btn.enable()
+            else:
+                self.right_scroll_btn.hide()
+
+            if has_left_page:
                 self.left_scroll_btn.show()
-                if active_col_end < col:
-                    self.right_scroll_btn.enable()
-                if active_col_start > 0:
-                    self.left_scroll_btn.enable()
+                self.left_scroll_btn.enable()
+            else:
+                self.left_scroll_btn.hide()
 
             # call post process handler
             self._post_process_state_buttons()
