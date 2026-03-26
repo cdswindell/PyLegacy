@@ -166,7 +166,7 @@ class GuiZeroBase(Thread, ABC):
             self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
         else:
             self._synchronized = self._sync_state = self._sync_watcher = None
-        atexit.register(lambda: self._shutdown_flag.set())
+        atexit.register(self._atexit_close)
 
     @abstractmethod
     def build_gui(self) -> None: ...
@@ -182,6 +182,15 @@ class GuiZeroBase(Thread, ABC):
         if not self._is_closed:
             self._is_closed = True
             self._shutdown_flag.set()
+
+    def _atexit_close(self) -> None:
+        """Best-effort GUI thread shutdown before interpreter teardown."""
+        self.close()
+        if self.is_alive() and self.ident is not None and get_ident() != self.ident:
+            try:
+                self.join(timeout=3.0)
+            except RuntimeError:
+                pass
 
     def reset(self) -> None:
         self.close()

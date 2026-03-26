@@ -347,12 +347,15 @@ class WideComponentStateGui(GuiZeroBase):
         pane_height: int,
         column: int,
     ) -> _WidePane:
+        pane_label = self.label
+        if pane_label is None and len(pane_guis) > 1 and isinstance(self.title, str) and self.title:
+            pane_label = self.title
         return _WidePane(
             app=app,
             parent=root,
             all_guis=self._all_guis,
             gui_names=pane_guis,
-            label=self.label,
+            label=pane_label,
             pane_width=pane_width,
             pane_height=pane_height,
             scale_by=self._scale_by,
