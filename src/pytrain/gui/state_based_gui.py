@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Event, Thread
+from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar
 
 from guizero import Box, Combo, PushButton, Text
@@ -24,6 +25,7 @@ from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
+GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
 
 
 class StateBasedGui(GuiZeroBase, Generic[S], ABC):
@@ -294,22 +296,22 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             try:
                 if hasattr(widget, "update_command"):
                     widget.update_command(None)
-            except Exception:
+            except GUI_CLEANUP_EXCEPTIONS:
                 pass
             try:
                 if hasattr(widget, "command"):
                     widget.command = None
-            except Exception:
+            except GUI_CLEANUP_EXCEPTIONS:
                 pass
             try:
                 if hasattr(widget, "when_left_button_pressed"):
                     widget.when_left_button_pressed = None
-            except Exception:
+            except GUI_CLEANUP_EXCEPTIONS:
                 pass
             try:
                 if hasattr(widget, "when_left_button_released"):
                     widget.when_left_button_released = None
-            except Exception:
+            except GUI_CLEANUP_EXCEPTIONS:
                 pass
 
         def safe_destroy(widget: Widget | Box | Combo | None) -> None:
@@ -318,11 +320,11 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             try:
                 if hasattr(widget, "hide"):
                     widget.hide()
-            except Exception:
+            except GUI_CLEANUP_EXCEPTIONS:
                 pass
             try:
                 widget.destroy()
-            except Exception:
+            except GUI_CLEANUP_EXCEPTIONS:
                 pass
 
         # Explicitly drop references to tkinter/guizero objects on the Tk thread
@@ -390,11 +392,11 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                     widget.when_left_button_released = None
                 try:
                     widget.hide()
-                except Exception:
+                except GUI_CLEANUP_EXCEPTIONS:
                     pass
                 try:
                     widget.destroy()
-                except Exception:
+                except GUI_CLEANUP_EXCEPTIONS:
                     pass
         self._state_buttons.clear()
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from tkinter import TclError
 from typing import Any, Iterable
 
 from guizero import App, Box, Combo, Text
@@ -17,6 +18,8 @@ from .guizero_base import GuiZeroBase
 from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
+GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
+WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 
 
 def _safe_destroy(widget: Any) -> None:
@@ -25,15 +28,24 @@ def _safe_destroy(widget: Any) -> None:
     try:
         if hasattr(widget, "hide"):
             widget.hide()
-    except Exception:
+    except GUI_CLEANUP_EXCEPTIONS:
         pass
     try:
         widget.destroy()
-    except Exception:
+    except GUI_CLEANUP_EXCEPTIONS:
         pass
 
 
 class _WidePane:
+    """
+    Container for one column in `WideComponentStateGui`.
+
+    A pane owns a fixed-width Tk container, optional header controls, and one
+    instantiated child GUI per selectable screen name. All child GUIs are
+    created eagerly and switched via `hide_gui()` / `show_gui()` to avoid
+    rebuilding widgets during runtime.
+    """
+
     def __init__(
         self,
         app: App,
@@ -47,6 +59,21 @@ class _WidePane:
         exclude_unnamed: bool,
         column: int,
     ) -> None:
+        """
+        Build pane widgets and instantiate the configured child GUI screens.
+
+        Parameters:
+            app: Shared top-level guizero app used by all panes.
+            parent: Root container that owns pane columns.
+            all_guis: Registry mapping display names to GUI classes.
+            gui_names: GUI names available in this pane; first entry is default.
+            label: Optional header prefix shown before the selector.
+            pane_width: Fixed pane width in pixels.
+            pane_height: Fixed pane height in pixels.
+            scale_by: Font/layout scaling factor.
+            exclude_unnamed: Passed through to child GUIs.
+            column: Grid column index for pane placement.
+        """
         self._app = app
         self._gui_names = list(gui_names)
         self._guis: dict[str, Any] = {}
@@ -119,6 +146,7 @@ class _WidePane:
         self.show(option)
 
     def show(self, gui_name: str) -> None:
+        """Activate a child GUI by name, hiding the previously active GUI."""
         if gui_name not in self._guis:
             return
         if self._active_gui == gui_name:
@@ -134,11 +162,13 @@ class _WidePane:
         self._active_gui = gui_name
 
     def pump_messages(self) -> None:
+        """Pump queued UI messages for each embedded `GuiZeroBase` child GUI."""
         for gui in self._guis.values():
             if isinstance(gui, GuiZeroBase):
                 gui.pump_messages()
 
     def destroy(self) -> None:
+        """Tear down child GUIs and release pane widgets/resources."""
         for gui in self._guis.values():
             if isinstance(gui, GuiZeroBase):
                 gui.teardown_embedded()
@@ -229,7 +259,7 @@ class WideComponentStateGui(GuiZeroBase):
                     if resolved_height is None:
                         resolved_height = root.winfo_screenheight()
                     root.destroy()
-                except Exception as e:
+                except WINDOW_SIZE_EXCEPTIONS as e:
                     log.exception("Error determining window size", exc_info=e)
             else:
                 log.warning("DISPLAY is not set; falling back to default pane dimensions")

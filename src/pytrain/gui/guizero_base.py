@@ -44,6 +44,9 @@ log = logging.getLogger(__name__)
 E = TypeVar("E", bound=CommandDefEnum)
 LIONEL_ORANGE = "#FF6600"
 LIONEL_BLUE = "#003366"
+WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
+COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
+PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 
 
 class GuiZeroBase(Thread, ABC):
@@ -84,7 +87,7 @@ class GuiZeroBase(Thread, ABC):
                 self.width = root.winfo_screenwidth()
                 self.height = root.winfo_screenheight()
                 root.destroy()
-            except Exception as e:
+            except WINDOW_SIZE_EXCEPTIONS as e:
                 log.exception("Error determining window size", exc_info=e)
         else:
             self.width = width
@@ -287,7 +290,7 @@ class GuiZeroBase(Thread, ABC):
         GpioHandler.cache_handler(self)
         self._app = app = App(title=self.title, width=self.width, height=self.height)
         app.full_screen = self._full_screen
-        if self._full_screen is False:
+        if not self._full_screen:
             app.tk.geometry(f"{self.width}x{self.height}+{self._x_offset}+{self._y_offset}")
         app.when_closed = self.close
         app.bg = "white"
@@ -320,7 +323,7 @@ class GuiZeroBase(Thread, ABC):
 
         self.build_gui()
 
-        if self._full_screen is False:
+        if not self._full_screen:
             # Some window managers (notably on Pi/Wayland stacks) re-center on first map.
             # Re-assert requested geometry immediately and shortly after map.
             geometry = f"{self.width}x{self.height}+{self._x_offset}+{self._y_offset}"
@@ -472,7 +475,7 @@ class GuiZeroBase(Thread, ABC):
             req = CommandReq.build(command, address, data, scope)
             if req:
                 req.send()
-        except Exception as e:
+        except COMMAND_REQUEST_EXCEPTIONS as e:
             log.exception(f"Error sending command {command}", exc_info=e)
 
     # noinspection PyTypeChecker
@@ -598,7 +601,7 @@ class GuiZeroBase(Thread, ABC):
                     log.info(f"Product info for engine {state.address} ({bt_id}) is unavailable: {ve}")
                 else:
                     log.info(f"Product info for engine btid: {bt_id} is unavailable: {ve}")
-            except Exception as e:
+            except PROD_INFO_EXCEPTIONS as e:
                 log.exception(e, exc_info=e)
         return prod_info
 
