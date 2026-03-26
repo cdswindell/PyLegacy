@@ -8,24 +8,41 @@
 from __future__ import annotations
 
 import logging
+import tkinter as tk
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Event, Thread
 from tkinter import TclError
 from typing import Any, Callable, Generic, TypeVar
 
 from guizero import Box, Combo, PushButton, Text
-from guizero.base import Widget
+from guizero.base import Container, Widget
+from guizero.event import EventData
 
 from .component_state_gui import ComponentStateGui
 from .guizero_base import GuiZeroBase
 from ..db.component_state import ComponentState
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import CommandScope
-from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
 GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
+
+
+class _CanvasMaster(Container):
+    """
+    Minimal guizero container wrapper around a Tk canvas.
+
+    Child guizero widgets use this as their logical master while the canvas
+    itself manages geometry via `create_window`.
+    """
+
+    def __init__(self, master: Box, canvas: tk.Canvas) -> None:
+        super().__init__(master=master, tk=canvas, layout="auto", displayable=False)
+
+    def display_widgets(self) -> None:
+        # Canvas-managed children are positioned via canvas window items.
+        return
 
 
 class StateBasedGui(GuiZeroBase, Generic[S], ABC):
@@ -88,17 +105,32 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self._button_text_pad_x = 10
         self._button_text_pad_y = 12
 
-        self.left_arrow = find_file("left_arrow.jpg")
-        self.right_arrow = find_file("right_arrow.jpg")
         self.by_name = self.by_number = self.box = self.btn_box = self.y_offset = None
-        self.pd_button_height = self.pd_button_width = self.left_scroll_btn = self.right_scroll_btn = None
+        self.pd_button_height = self.pd_button_width = None
         self.aggregator_combo = None
         self._max_name_len = 0
-        self._max_button_rows = self._max_button_cols = None
-        self._first_button_col = 0
         self.sort_func = None
         self._screens = self._resolve_screens(screens)
         self._visible_button_cols = max(1, self._screens * self._COLS_PER_SCREEN)
+        self._scroll_box: Box | None = None
+        self._scroll_canvas: tk.Canvas | None = None
+        self._scrollbar: tk.Scrollbar | None = None
+        self._scroll_canvas_master: _CanvasMaster | None = None
+        self._btn_canvas_window: int | None = None
+        self._touch_bindtag = f"StateBasedGuiTouch_{id(self)}"
+        self._touch_widget_map: dict[tk.Misc, Widget] = {}
+        self._touch_active_widget: Widget | None = None
+        self._touch_press_widget: Widget | None = None
+        self._touch_start_x_root = 0
+        self._touch_start_y_root = 0
+        self._touch_tracking = False
+        self._touch_dragging = False
+        self._touch_press_dispatched = False
+        self._touch_press_after_id: str | None = None
+        self._touch_release_sent = False
+        self._touch_canvas_mark_x = 0
+        self._touch_canvas_mark_y = 0
+        self._touch_drag_threshold = max(6, int(round(8 * self._scale_by)))
 
         # States
         self._states = dict[tuple[int, CommandScope], S]()
@@ -257,40 +289,253 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         tk_parent.grid_columnconfigure(self.by_name.tk.grid_info()["column"], pad=40)
         tk_parent.grid_rowconfigure(self.by_number.tk.grid_info()["row"], pad=10)
 
-        # add scroll btns
-        sort_btn_height = self.by_number.tk.winfo_height()
-        self.left_scroll_btn = PushButton(
-            box,
-            grid=[0, 1, 1, 2] if self.width > 480 else [2, 3, 1, 1],
-            enabled=False,
-            image=self.left_arrow,
-            height=sort_btn_height * (2 if self.width > 480 else 1),
-            width=sort_btn_height * (2 if self.width > 480 else 1),
-            align="left",
-            command=self.scroll_left,
-        )
-        self.right_scroll_btn = PushButton(
-            box,
-            grid=[5, 1, 1, 2] if self.width > 480 else [3, 3, 1, 1],
-            enabled=False,
-            image=self.right_arrow,
-            height=sort_btn_height * (2 if self.width > 480 else 1),
-            width=sort_btn_height * (2 if self.width > 480 else 1),
-            align="right",
-            command=self.scroll_right,
-        )
-
         app.update()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
-
-        # put the buttons in a separate box
-        self.btn_box = Box(gui_parent, layout="grid")
+        self._build_scrollable_button_area(gui_parent)
 
         # Order by tmcc_id
         self.sort_by_number()
 
+    def _build_scrollable_button_area(self, gui_parent: Any) -> None:
+        available_height = self.height - self.y_offset if self.height and self.y_offset else self.height
+        viewport_height = max(1, int(available_height) if available_height is not None else int(self.height or 1))
+        self._scroll_box = Box(gui_parent, layout="auto")
+        self._scroll_box.bg = "white"
+        self._scroll_box.tk.configure(height=viewport_height, width=self.width)
+        self._scroll_box.tk.pack_propagate(False)
+        self._scroll_canvas = tk.Canvas(self._scroll_box.tk, bg="white", borderwidth=0, highlightthickness=0)
+        self._scrollbar = tk.Scrollbar(self._scroll_box.tk, orient="vertical", command=self._scroll_canvas.yview)
+        self._scroll_canvas.configure(yscrollcommand=self._scrollbar.set)
+        self._scroll_canvas.pack(side="left", fill="both", expand=True)
+        self._scrollbar.pack(side="right", fill="y")
+
+        self._scroll_canvas_master = _CanvasMaster(self._scroll_box, self._scroll_canvas)
+        self.btn_box = Box(self._scroll_canvas_master, layout="grid")
+        self.btn_box.bg = "white"
+        self._btn_canvas_window = self._scroll_canvas.create_window((0, 0), window=self.btn_box.tk, anchor="nw")
+        self._bind_touch_gesture_tag()
+
+        self._scroll_canvas.bind("<Configure>", self._on_scroll_canvas_configure, add="+")
+        self.btn_box.tk.bind("<Configure>", self._on_button_box_configure, add="+")
+        self._wire_widget_scroll(self.btn_box)
+        self._wire_widget_scroll(self._scroll_canvas)
+        self._on_button_box_configure()
+
+    def _bind_touch_gesture_tag(self) -> None:
+        app = self.app
+        app.tk.bind_class(self._touch_bindtag, "<ButtonPress-1>", self._on_touch_press, add="+")
+        app.tk.bind_class(self._touch_bindtag, "<B1-Motion>", self._on_touch_drag, add="+")
+        app.tk.bind_class(self._touch_bindtag, "<ButtonRelease-1>", self._on_touch_release, add="+")
+
+    def _on_scroll_canvas_configure(self, event: Any = None) -> None:
+        if self._scroll_canvas is None:
+            return
+        if self._btn_canvas_window is not None and event is not None:
+            self._scroll_canvas.itemconfigure(self._btn_canvas_window, width=event.width)
+        self._on_button_box_configure()
+
+    # noinspection PyUnusedLocal
+    def _on_button_box_configure(self, event: Any = None) -> None:
+        if self._scroll_canvas is None or self._scrollbar is None:
+            return
+        self._scroll_canvas.configure(scrollregion=self._scroll_canvas.bbox("all"))
+        required_height = self.btn_box.tk.winfo_reqheight() if self.btn_box else 0
+        visible_height = self._scroll_canvas.winfo_height()
+        should_show_scrollbar = required_height > visible_height + 1
+        scrollbar_visible = self._scrollbar.winfo_manager() != ""
+        if should_show_scrollbar and scrollbar_visible is False:
+            self._scrollbar.pack(side="right", fill="y")
+        elif should_show_scrollbar is False and scrollbar_visible:
+            self._scrollbar.pack_forget()
+            self._scroll_canvas.yview_moveto(0)
+
+    def _wire_widget_scroll(self, widget: Any) -> None:
+        if isinstance(widget, tk.Misc):
+            tk_widget = widget
+            gui_widget = None
+        elif hasattr(widget, "tk"):
+            tk_widget = widget.tk
+            gui_widget = widget if isinstance(widget, Widget) else None
+        else:
+            tk_widget = widget
+            gui_widget = None
+        if tk_widget is None or not hasattr(tk_widget, "bind"):
+            return
+        if gui_widget is not None:
+            self._touch_widget_map[tk_widget] = gui_widget
+        if hasattr(tk_widget, "bindtags"):
+            tags = list(tk_widget.bindtags())
+            if self._touch_bindtag not in tags:
+                tk_widget.bindtags((self._touch_bindtag, *tags))
+        tk_widget.bind("<MouseWheel>", self._on_scroll_mousewheel, add="+")
+        tk_widget.bind("<Button-4>", self._on_scroll_mousewheel, add="+")
+        tk_widget.bind("<Button-5>", self._on_scroll_mousewheel, add="+")
+
+    def _is_slider_widget(self, widget: Widget | None) -> bool:
+        return widget is not None and widget.__class__.__name__ == "Slider"
+
+    def _is_push_button_widget(self, widget: Widget | None) -> bool:
+        return isinstance(widget, PushButton)
+
+    def _is_scrollable(self) -> bool:
+        if self._scroll_canvas is None:
+            return False
+        bbox = self._scroll_canvas.bbox("all")
+        if not bbox:
+            return False
+        return (bbox[3] - bbox[1]) > self._scroll_canvas.winfo_height() + 1
+
+    def _canvas_coords_from_root(self, x_root: int, y_root: int) -> tuple[int, int]:
+        if self._scroll_canvas is None:
+            return 0, 0
+        return x_root - self._scroll_canvas.winfo_rootx(), y_root - self._scroll_canvas.winfo_rooty()
+
+    def _invoke_touch_callback(self, callback: Callable | None, widget: Widget, event: Any) -> None:
+        if callback is None:
+            return
+        try:
+            callback(EventData(widget, event))
+        except TypeError:
+            callback()
+
+    def _invoke_touch_press(self, widget: Widget, event: Any) -> None:
+        callback = getattr(widget, "when_left_button_pressed", None)
+        self._invoke_touch_callback(callback, widget, event)
+
+    def _invoke_touch_release(self, widget: Widget, event: Any) -> None:
+        callback = getattr(widget, "when_left_button_released", None)
+        self._invoke_touch_callback(callback, widget, event)
+
+    def _invoke_touch_command(self, widget: Widget) -> None:
+        if isinstance(widget, PushButton) and widget.enabled and hasattr(widget, "_command_callback"):
+            widget._command_callback()
+
+    def _cancel_pending_touch_press(self) -> None:
+        if self._touch_press_after_id is None:
+            return
+        try:
+            self.app.tk.after_cancel(self._touch_press_after_id)
+        except GUI_CLEANUP_EXCEPTIONS:
+            pass
+        self._touch_press_after_id = None
+
+    def _dispatch_touch_press(self, event: Any) -> None:
+        self._touch_press_after_id = None
+        if (
+            self._touch_tracking
+            and self._touch_dragging is False
+            and self._touch_press_widget is not None
+            and self._touch_press_dispatched is False
+        ):
+            self._invoke_touch_press(self._touch_press_widget, event)
+            self._touch_press_dispatched = True
+
+    def _schedule_touch_press(self, event: Any) -> None:
+        self._touch_press_dispatched = False
+        # Defer press callbacks slightly so drag gestures do not fire actions.
+        self._touch_press_after_id = self.app.tk.after(90, lambda e=event: self._dispatch_touch_press(e))
+
+    def _clear_touch_state(self) -> None:
+        self._cancel_pending_touch_press()
+        self._touch_active_widget = None
+        self._touch_press_widget = None
+        self._touch_tracking = False
+        self._touch_dragging = False
+        self._touch_press_dispatched = False
+        self._touch_release_sent = False
+        self._touch_start_x_root = 0
+        self._touch_start_y_root = 0
+        self._touch_canvas_mark_x = 0
+        self._touch_canvas_mark_y = 0
+
+    def _on_touch_press(self, event: Any) -> str | None:
+        widget = self._touch_widget_map.get(event.widget)
+        if self._is_slider_widget(widget):
+            self._clear_touch_state()
+            return None
+        self._touch_active_widget = widget
+        self._touch_press_widget = widget if self._is_push_button_widget(widget) else None
+        self._touch_start_x_root = event.x_root
+        self._touch_start_y_root = event.y_root
+        self._touch_tracking = True
+        self._touch_dragging = False
+        self._touch_press_dispatched = False
+        self._touch_release_sent = False
+        self._touch_canvas_mark_x, self._touch_canvas_mark_y = self._canvas_coords_from_root(event.x_root, event.y_root)
+        if self._touch_press_widget is not None:
+            self._schedule_touch_press(event)
+            return "break"
+        return "break" if self._is_scrollable() else None
+
+    def _on_touch_drag(self, event: Any) -> str | None:
+        if self._touch_tracking is False:
+            return None
+        dy_total = event.y_root - self._touch_start_y_root
+        if self._touch_dragging is False and abs(dy_total) >= self._touch_drag_threshold:
+            self._touch_dragging = True
+            self._cancel_pending_touch_press()
+            if self._scroll_canvas is not None:
+                self._scroll_canvas.scan_mark(self._touch_canvas_mark_x, self._touch_canvas_mark_y)
+            if (
+                self._touch_press_widget is not None
+                and self._touch_press_dispatched
+                and self._touch_release_sent is False
+            ):
+                self._invoke_touch_release(self._touch_press_widget, event)
+                self._touch_release_sent = True
+        if self._touch_dragging and self._is_scrollable():
+            if self._scroll_canvas is not None:
+                x, y = self._canvas_coords_from_root(event.x_root, event.y_root)
+                self._scroll_canvas.scan_dragto(x, y, gain=1)
+            return "break"
+        if self._touch_press_widget is not None:
+            return "break"
+        return None
+
+    def _on_touch_release(self, event: Any) -> str | None:
+        if self._touch_tracking is False:
+            return None
+        push_button = self._touch_press_widget
+        if push_button is not None:
+            if self._touch_dragging:
+                if self._touch_release_sent is False:
+                    if self._touch_press_dispatched:
+                        self._invoke_touch_release(push_button, event)
+                self._clear_touch_state()
+                return "break"
+            if self._touch_press_dispatched is False:
+                self._cancel_pending_touch_press()
+                self._dispatch_touch_press(event)
+            self._invoke_touch_release(push_button, event)
+            self._invoke_touch_command(push_button)
+            self._clear_touch_state()
+            return "break"
+        if self._touch_dragging:
+            self._clear_touch_state()
+            return "break"
+        self._clear_touch_state()
+        return None
+
+    def _on_scroll_mousewheel(self, event: Any) -> str | None:
+        if self._scroll_canvas is None:
+            return None
+        delta = 0
+        event_num = getattr(event, "num", None)
+        if event_num == 4:
+            delta = -1
+        elif event_num == 5:
+            delta = 1
+        else:
+            event_delta = getattr(event, "delta", 0)
+            if event_delta:
+                delta = -1 if event_delta > 0 else 1
+        if delta:
+            self._scroll_canvas.yview_scroll(delta, "units")
+            return "break"
+        return None
+
     def destroy_gui(self) -> None:
-        def safe_disconnect(widget: Widget | Box | Combo | None) -> None:
+        def safe_disconnect(widget: Any | None) -> None:
             if widget is None:
                 return
             try:
@@ -314,7 +559,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             except GUI_CLEANUP_EXCEPTIONS:
                 pass
 
-        def safe_destroy(widget: Widget | Box | Combo | None) -> None:
+        def safe_destroy(widget: Any | None) -> None:
             if widget is None:
                 return
             try:
@@ -332,26 +577,30 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             sw.shutdown()
         self._state_watchers.clear()
         safe_disconnect(self.aggregator_combo)
-        safe_disconnect(self.left_scroll_btn)
-        safe_disconnect(self.right_scroll_btn)
         safe_disconnect(self.by_name)
         safe_disconnect(self.by_number)
         if self._state_buttons:
             self._reset_state_buttons()
         safe_destroy(self.aggregator_combo)
-        safe_destroy(self.left_scroll_btn)
-        safe_destroy(self.right_scroll_btn)
         safe_destroy(self.by_name)
         safe_destroy(self.by_number)
         safe_destroy(self.btn_box)
+        safe_destroy(self._scroll_canvas)
+        safe_destroy(self._scrollbar)
+        safe_destroy(self._scroll_box)
         safe_destroy(self.box)
         self.clear_cache()
         self.aggregator_combo = None
-        self.left_scroll_btn = None
-        self.right_scroll_btn = None
         self.by_name = None
         self.by_number = None
         self.btn_box = None
+        self._scroll_box = None
+        self._scroll_canvas = None
+        self._scrollbar = None
+        self._scroll_canvas_master = None
+        self._btn_canvas_window = None
+        self._touch_widget_map.clear()
+        self._clear_touch_state()
         self.box = None
         self._state_buttons.clear()
         self._state_buttons = None
@@ -359,14 +608,14 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
     def hide_gui(self) -> None:
         if self.box:
             self.box.hide()
-        if self.btn_box:
-            self.btn_box.hide()
+        if self._scroll_box:
+            self._scroll_box.hide()
 
     def show_gui(self) -> None:
         if self.box:
             self.box.show()
-        if self.btn_box:
-            self.btn_box.show()
+        if self._scroll_box:
+            self._scroll_box.show()
 
     def on_combo_change(self, option: str) -> None:
         if option == self.title:
@@ -407,55 +656,46 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                 states = []
             if self._state_buttons:
                 self._reset_state_buttons()
-            active_col_start = self._first_button_col
-            active_col_end = active_col_start + self._visible_button_cols - 1
-            active_cols = set(range(active_col_start, active_col_end + 1))
-            row = 4
+            self._touch_widget_map.clear()
+            row = 0
             col = 0
-
-            btn_h = self.pd_button_height
-            btn_y = 0
-            self.right_scroll_btn.disable()
-            self.left_scroll_btn.disable()
             self.by_name.show()
             self.by_number.show()
+            if self._scroll_canvas:
+                self._scroll_canvas.yview_moveto(0)
+                self._wire_widget_scroll(self._scroll_canvas)
+            self._wire_widget_scroll(self.btn_box)
 
             self.btn_box.visible = False
             for pd in states:
-                if btn_h is not None and btn_y is not None and self.y_offset + btn_y + btn_h > self.height:
-                    if self._max_button_rows is None:
-                        self._max_button_rows = row - 4
-                    btn_y = 0
-                    row = 4
-                    col += 1
-                if col in active_cols:
-                    pb, btn_h, btn_y = self._make_state_button(pd, row, col)
-                    self._state_buttons[pd] = pb
-                else:
-                    btn_y += btn_h
-                row += 1
-
-            self._max_button_cols = col + 1 if states else 0
-
-            # Show/hide scroll buttons independently based on available pages.
-            has_right_page = active_col_end < col
-            has_left_page = active_col_start > 0
-
-            if has_right_page:
-                self.right_scroll_btn.show()
-                self.right_scroll_btn.enable()
-            else:
-                self.right_scroll_btn.hide()
-
-            if has_left_page:
-                self.left_scroll_btn.show()
-                self.left_scroll_btn.enable()
-            else:
-                self.left_scroll_btn.hide()
+                pb, _, _ = self._make_state_button(pd, row, col)
+                self._state_buttons[pd] = pb
+                row = self._next_grid_row(pb, row + 1)
+                for widget in self._as_widget_list(pb):
+                    self._wire_widget_scroll(widget)
 
             # call post process handler
             self._post_process_state_buttons()
             self.btn_box.visible = True
+            self._on_button_box_configure()
+
+    @staticmethod
+    def _as_widget_list(widgets: Widget | list[Widget]) -> list[Widget]:
+        return widgets if isinstance(widgets, list) else [widgets]
+
+    def _next_grid_row(self, widgets: Widget | list[Widget], fallback_row: int) -> int:
+        next_row = fallback_row
+        for widget in self._as_widget_list(widgets):
+            try:
+                info = widget.tk.grid_info()
+                row = int(info.get("row", fallback_row - 1))
+                row_span = int(info.get("rowspan", 1))
+                next_row = max(next_row, row + row_span)
+            except GUI_CLEANUP_EXCEPTIONS:
+                continue
+            except ValueError:
+                continue
+        return next_row
 
     def _make_state_button(
         self,
@@ -495,7 +735,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
         self.sort_func = lambda x: x.tmcc_id
         states = sorted(self._states.values(), key=self.sort_func)
-        self._first_button_col = 0
         self._make_state_buttons(states)
 
     def sort_by_name(self) -> None:
@@ -504,19 +743,15 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
         self.sort_func = lambda x: x.road_name.lower()
         states = sorted(self._states.values(), key=self.sort_func)
-        self._first_button_col = 0
         self._make_state_buttons(states)
 
     def scroll_left(self) -> None:
-        self._first_button_col = max(0, self._first_button_col - 1)
-        states = sorted(self._states.values(), key=self.sort_func)
-        self._make_state_buttons(states)
+        if self._scroll_canvas:
+            self._scroll_canvas.yview_scroll(-3, "units")
 
     def scroll_right(self) -> None:
-        max_first_col = max(0, self._max_button_cols - self._visible_button_cols) if self._max_button_cols else 0
-        self._first_button_col = min(self._first_button_col + 1, max_first_col)
-        states = sorted(self._states.values(), key=self.sort_func)
-        self._make_state_buttons(states)
+        if self._scroll_canvas:
+            self._scroll_canvas.yview_scroll(3, "units")
 
     def _post_process_state_buttons(self) -> None:
         pass

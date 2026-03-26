@@ -86,7 +86,10 @@ class _WidePane:
 
         self.header = None
 
-        if len(self._gui_names) > 1:
+        has_selector = len(self._gui_names) > 1
+        child_label = None if has_selector else label
+
+        if has_selector:
             self.header = Box(self.container, layout="auto", align="top")
             self.header.tk.configure(width=pane_width)
             if label:
@@ -117,7 +120,7 @@ class _WidePane:
         for gui_name in self._gui_names:
             gui_cls = all_guis[gui_name]
             gui = gui_cls(
-                label=label,
+                label=child_label,
                 width=pane_width,
                 height=inner_gui_height,
                 scale_by=scale_by,
