@@ -300,38 +300,11 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.sort_by_number()
 
     def destroy_gui(self) -> None:
-        def safe_disconnect(widget: Widget | Box | Combo | None) -> None:
-            if widget is None:
-                return
-            try:
-                if hasattr(widget, "update_command"):
-                    widget.update_command(None)
-            except GUI_CLEANUP_EXCEPTIONS:
-                pass
-            try:
-                if hasattr(widget, "command"):
-                    widget.command = None
-            except GUI_CLEANUP_EXCEPTIONS:
-                pass
-            try:
-                if hasattr(widget, "when_left_button_pressed"):
-                    widget.when_left_button_pressed = None
-            except GUI_CLEANUP_EXCEPTIONS:
-                pass
-            try:
-                if hasattr(widget, "when_left_button_released"):
-                    widget.when_left_button_released = None
-            except GUI_CLEANUP_EXCEPTIONS:
-                pass
+        print("calling StateBasedGui.destroy_gui()...")
 
         def safe_destroy(widget: Widget | Box | Combo | None) -> None:
             if widget is None:
                 return
-            try:
-                if hasattr(widget, "hide"):
-                    widget.hide()
-            except GUI_CLEANUP_EXCEPTIONS:
-                pass
             try:
                 widget.destroy()
             except GUI_CLEANUP_EXCEPTIONS:
@@ -345,12 +318,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             self._reset_state_buttons()
         self._state_buttons.clear()
         self._state_buttons = None
-        safe_disconnect(self.aggregator_combo)
-        safe_disconnect(self.left_scroll_btn)
-        safe_disconnect(self.right_scroll_btn)
-        safe_disconnect(self.by_name)
-        safe_disconnect(self.by_number)
-
         safe_destroy(self.aggregator_combo)
         safe_destroy(self.left_scroll_btn)
         safe_destroy(self.right_scroll_btn)
