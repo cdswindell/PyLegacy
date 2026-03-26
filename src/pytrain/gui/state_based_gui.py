@@ -108,6 +108,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
         # Signal parent init is complete
         self.init_complete()
+        print("Exit StateBasedGui.__init__")
 
     @classmethod
     def _clamp_screens(cls, screens: int) -> int:

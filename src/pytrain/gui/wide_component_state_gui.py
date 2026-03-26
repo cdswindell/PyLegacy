@@ -287,6 +287,7 @@ class WideComponentStateGui(GuiZeroBase):
 
         self._pane_configs = self._normalize_pane_config(screen_components, screens, initial)
         self.init_complete()
+        print("Exit WideComponentStateGui.__init__")
 
     @property
     def panes(self) -> list[object]:
@@ -397,8 +398,8 @@ class WideComponentStateGui(GuiZeroBase):
         app.repeat(20, self._pump_panes)
 
     def destroy_gui(self) -> None:
+        print("Destroying WideComponent...")
         self._destroy_panes()
-        self._app = None
 
     def calc_image_box_size(self) -> tuple[int, int]:
         return self.height, self.width

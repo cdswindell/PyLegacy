@@ -382,7 +382,7 @@ class GuiZeroBase(Thread, ABC):
         # self._app = None
         self._unregister_atexit()
         GpioHandler.release_handler(self)
-        self._ev.set()
+        # self._ev.set()
 
     def run(self) -> None:
         self._shutdown_flag.clear()
