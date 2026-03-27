@@ -333,6 +333,7 @@ class GuiZeroBase(Thread, ABC):
         self._pending_prod_infos.clear()
         try:
             self._executor.shutdown(wait=False, cancel_futures=True)
+            self._executor = None
         except FINALIZE_EXCEPTIONS:
             pass
 
@@ -395,7 +396,9 @@ class GuiZeroBase(Thread, ABC):
         finally:
             self.destroy_gui()
             self._app = None
-            print(self.__dict__)
+            for k, v in self.__dict__.items():
+                if v:
+                    print(f"{k} = {v}")
             # Force tkinter Variable finalizers to run while we're still on Tk thread.
             gc.collect()
             self._ev.set()
