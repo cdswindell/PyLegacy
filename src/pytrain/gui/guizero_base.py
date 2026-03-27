@@ -19,6 +19,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
+from time import sleep
 from tkinter import TclError
 from typing import Any, Callable, TypeVar
 
@@ -455,6 +456,7 @@ class GuiZeroBase(Thread, ABC):
             self.destroy_gui()
             self._app = None
             self._finalize_gui_resources()
+            sleep(5)
             self._ev.set()
 
     def _build_keypad_button(
