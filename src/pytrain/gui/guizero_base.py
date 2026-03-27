@@ -324,7 +324,8 @@ class GuiZeroBase(Thread, ABC):
                     log.info(e)
                     pass  # ignore, we're shutting down
                 try:
-                    app.destroy()
+                    self.safe_destroy(app)
+                    # app.destroy()
                     gc.collect()
                 except TclError as e:
                     log.info(e)
@@ -362,16 +363,16 @@ class GuiZeroBase(Thread, ABC):
         try:
             app.display()
             gc.collect()
-            print(f"GUI thread {self.ident} exiting")
+
         except TclError as te:
             log.info(te)
             pass
         finally:
             self.destroy_gui()
             self._app = None
-            for k, v in self.__dict__.items():
-                if v:
-                    print(f"{k} = {v}")
+            # for k, v in self.__dict__.items():
+            #     if v:
+            #         print(f"{k} = {v}")
             # Force tkinter Variable finalizers to run while we're still on Tk thread.
             gc.collect()
             self._ev.set()
