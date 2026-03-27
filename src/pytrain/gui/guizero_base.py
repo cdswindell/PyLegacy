@@ -423,9 +423,9 @@ class GuiZeroBase(Thread, ABC):
             if self._shutdown_flag.is_set():
                 try:
                     app.destroy()
-                except TclError:
+                except TclError as e:
+                    log.info(e)
                     pass  # ignore, we're shutting down
-                gc.collect()
                 return None
             else:
                 self.pump_messages()
@@ -453,8 +453,8 @@ class GuiZeroBase(Thread, ABC):
             pass
         finally:
             self.destroy_gui()
-            self._finalize_gui_resources()
             self._app = None
+            self._finalize_gui_resources()
             self._ev.set()
 
     def _build_keypad_button(
