@@ -280,7 +280,7 @@ class GuiZeroBase(Thread, ABC):
         if widget:
             try:
                 if self._tk_thread_id != get_ident():
-                    print(f"Warning: destroying widget {widget} on non-GUI thread")
+                    print(f"Warning: widget {widget} destroyed on non-GUI thread {get_ident()} vs {self._tk_thread_id}")
                 widget.destroy()
             except GUI_CLEANUP_EXCEPTIONS:
                 pass
@@ -326,7 +326,6 @@ class GuiZeroBase(Thread, ABC):
                 try:
                     assert app
                     self.safe_destroy(app)
-                    print("Main app destroyed")
                     # app.destroy()
                     gc.collect()
                 except TclError as e:
@@ -365,14 +364,12 @@ class GuiZeroBase(Thread, ABC):
         try:
             app.display()
             gc.collect()
-
         except TclError as te:
             log.info(te)
             pass
         finally:
             self.destroy_gui()
             self._app = app = None
-            print("App set to null")
             # for k, v in self.__dict__.items():
             #     if v:
             #         print(f"{k} = {v}")
