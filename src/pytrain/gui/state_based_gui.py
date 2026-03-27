@@ -40,24 +40,24 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
     @abstractmethod
     def __init__(
-            self,
-            title: str,
-            label: str = None,
-            width: int = None,
-            height: int = None,
-            aggregator: ComponentStateGui = None,
-            enabled_bg: str = "green",
-            disabled_bg: str = "black",
-            enabled_text: str = "black",
-            disabled_text: str = "lightgrey",
-            scale_by: float = 1.0,
-            exclude_unnamed: bool = False,
-            screens: int | None = None,
-            stand_alone: bool = True,
-            parent: Box | None = None,
-            full_screen: bool = True,
-            x_offset: int = 0,
-            y_offset: int = 0,
+        self,
+        title: str,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggregator: ComponentStateGui = None,
+        enabled_bg: str = "green",
+        disabled_bg: str = "black",
+        enabled_text: str = "black",
+        disabled_text: str = "lightgrey",
+        scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
+        screens: int | None = None,
+        stand_alone: bool = True,
+        parent: Box | None = None,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         GuiZeroBase.__init__(
             self,
@@ -433,10 +433,10 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             self.btn_box.visible = True
 
     def _make_state_button(
-            self,
-            pd: S | Any,
-            row: int,
-            col: int,
+        self,
+        pd: S | Any,
+        row: int,
+        col: int,
     ) -> tuple[PushButton | list[Widget], int, int]:
         pb = PushButton(
             self.btn_box,
@@ -497,16 +497,13 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         pass
 
     @abstractmethod
-    def get_target_states(self) -> list[S]:
-        ...
+    def get_target_states(self) -> list[S]: ...
 
     @abstractmethod
-    def is_active(self, state: S) -> bool:
-        ...
+    def is_active(self, state: S) -> bool: ...
 
     @abstractmethod
-    def switch_state(self, state: S) -> bool:
-        ...
+    def switch_state(self, state: S) -> bool: ...
 
 
 class MomentaryActionHandler(Thread, Generic[S]):
