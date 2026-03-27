@@ -75,9 +75,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             y_offset=y_offset,
         )
         # State-based screens create/destroy many guizero widgets while switching.
-        # Collect cyclic garbage on Tk thread during shutdown to avoid tk.Variable
-        # finalizers running on non-GUI threads.
-        self._collect_gc_on_destroy = True
         self.title = title
         self.label = label
         self._aggregator = aggregator
@@ -306,8 +303,16 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         if self._state_buttons:
             self._reset_state_buttons()
         self._state_buttons.clear()
-        self._state_buttons = None
-        self.clear_cache()
+        for widget in [
+            self.aggregator_combo,
+            self.by_name,
+            self.by_number,
+            self.btn_box,
+            self.box,
+            self.left_scroll_btn,
+            self.right_scroll_btn,
+        ]:
+            self.safe_destroy(widget)
         self.aggregator_combo = None
         self.left_scroll_btn = None
         self.right_scroll_btn = None
@@ -315,7 +320,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.by_number = None
         self.btn_box = None
         self.box = None
-        self._app = None
+        self._parent = self._app = None
 
     def hide_gui(self) -> None:
         if self.box:
