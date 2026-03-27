@@ -22,15 +22,6 @@ GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 
 
-def _safe_destroy(widget: Any) -> None:
-    if widget:
-        try:
-            widget.destroy()
-        except GUI_CLEANUP_EXCEPTIONS:
-            pass
-    return None
-
-
 class _WidePane:
     """
     Container for one column in `WideComponentStateGui`.
@@ -173,13 +164,9 @@ class _WidePane:
                 gui.destroy_gui()
         child_guis.clear()
         self._guis.clear()
-        _safe_destroy(self.combo)
         self.combo = None
-        _safe_destroy(self.content)
         self.content = None
-        _safe_destroy(self.header)
         self.header = None
-        _safe_destroy(self.container)
         self.container = None
 
 
@@ -378,7 +365,6 @@ class WideComponentStateGui(GuiZeroBase):
             pane.destroy()
         self._panes.clear()
         self._pane_configs.clear()
-        _safe_destroy(self._root)
         self._root = None
 
     def build_gui(self) -> None:
