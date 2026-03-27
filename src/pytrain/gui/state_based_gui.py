@@ -234,8 +234,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                 tb = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
                 self.cache(tb)
         if show_header_row:
-            hr = Text(box, text="    ", grid=[4, 1], size=ts)
-            self.cache(hr)
+            sp = Text(box, text="    ", grid=[4, 1], size=ts)
+            self.cache(sp)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",
@@ -350,7 +350,14 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             if not isinstance(pdb, list):
                 pdb = [pdb]
             for widget in pdb:
-                self.safe_destroy(widget)
+                if hasattr(widget, "component_state"):
+                    widget.component_state = None
+                if hasattr(widget, "when_left_button_pressed"):
+                    widget.when_left_button_pressed = None
+                if hasattr(widget, "when_left_button_released"):
+                    widget.when_left_button_released = None
+                widget.hide()
+                widget.destroy()
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker
