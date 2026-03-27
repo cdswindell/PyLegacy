@@ -486,14 +486,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             if not isinstance(pdb, list):
                 pdb = [pdb]
             for widget in pdb:
-                if hasattr(widget, "component_state"):
-                    widget.component_state = None
-                if hasattr(widget, "when_left_button_pressed"):
-                    widget.when_left_button_pressed = None
-                if hasattr(widget, "when_left_button_released"):
-                    widget.when_left_button_released = None
-                widget.hide()
-                widget.destroy()
+                self.safe_destroy(widget)
         self._state_buttons.clear()
 
     def scale(self, value: int, factor: float = None) -> int:

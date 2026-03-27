@@ -340,24 +340,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             if not isinstance(pdb, list):
                 pdb = [pdb]
             for widget in pdb:
-                if hasattr(widget, "update_command"):
-                    widget.update_command(None)
-                if hasattr(widget, "command"):
-                    widget.command = None
-                if hasattr(widget, "component_state"):
-                    widget.component_state = None
-                if hasattr(widget, "when_left_button_pressed"):
-                    widget.when_left_button_pressed = None
-                if hasattr(widget, "when_left_button_released"):
-                    widget.when_left_button_released = None
-                try:
-                    widget.hide()
-                except GUI_CLEANUP_EXCEPTIONS:
-                    pass
-                try:
-                    widget.destroy()
-                except GUI_CLEANUP_EXCEPTIONS:
-                    pass
+                self.safe_destroy(widget)
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker

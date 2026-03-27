@@ -19,7 +19,6 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
-from time import sleep
 from tkinter import TclError
 from typing import Any, Callable, TypeVar
 
@@ -45,6 +44,8 @@ log = logging.getLogger(__name__)
 E = TypeVar("E", bound=CommandDefEnum)
 LIONEL_ORANGE = "#FF6600"
 LIONEL_BLUE = "#003366"
+
+GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
@@ -248,6 +249,11 @@ class GuiZeroBase(Thread, ABC):
     def clear_cache(self) -> None:
         self._elements.clear()
 
+    def destroy_cache(self) -> None:
+        for e in self._elements:
+            self.safe_destroy(e)
+        self._elements.clear()
+
     # noinspection PyUnresolvedReferences
     def init_complete(self) -> None:
         if isinstance(self._sync_state, SyncState):
@@ -350,6 +356,15 @@ class GuiZeroBase(Thread, ABC):
             return any(cls._contains_gui_reference(val, seen) for val in vars(value).values())
         return False
 
+    @staticmethod
+    def safe_destroy(widget: Any) -> None:
+        if widget:
+            try:
+                widget.destroy()
+            except GUI_CLEANUP_EXCEPTIONS:
+                pass
+        return None
+
     def _drop_gui_references(self) -> None:
         preserve_names = {
             "_cv",
@@ -393,7 +408,7 @@ class GuiZeroBase(Thread, ABC):
     def _finalize_gui_resources(self) -> None:
         # Break references to tkinter-backed objects while still on the GUI thread.
         self._clear_message_queue()
-        self.clear_cache()
+        self.destroy_cache()
         self.size_cache.clear()
         self._image_cache.clear()
         self._prod_info_cache.clear()
@@ -403,8 +418,6 @@ class GuiZeroBase(Thread, ABC):
         except FINALIZE_EXCEPTIONS:
             pass
         # self._drop_gui_references()
-        # Force tkinter Variable finalizers to run while we're still on Tk thread.
-        gc.collect()
 
     def run(self) -> None:
         self._shutdown_flag.clear()
@@ -422,6 +435,12 @@ class GuiZeroBase(Thread, ABC):
         def _poll_shutdown():
             self._app_counter += 1
             if self._shutdown_flag.is_set():
+                try:
+                    self.destroy_gui()
+                    self._finalize_gui_resources()
+                except TclError as e:
+                    log.info(e)
+                    pass  # ignore, we're shutting down
                 try:
                     app.destroy()
                 except TclError as e:
@@ -453,10 +472,9 @@ class GuiZeroBase(Thread, ABC):
             # If Tcl is already tearing down, ignore
             pass
         finally:
-            self.destroy_gui()
             self._app = None
-            self._finalize_gui_resources()
-            sleep(5)
+            # Force tkinter Variable finalizers to run while we're still on Tk thread.
+            gc.collect()
             self._ev.set()
 
     def _build_keypad_button(

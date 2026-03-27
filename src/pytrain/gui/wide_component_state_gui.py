@@ -18,7 +18,6 @@ from .guizero_base import GuiZeroBase
 from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
-GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 
 
@@ -164,9 +163,13 @@ class _WidePane:
                 gui.destroy_gui()
         child_guis.clear()
         self._guis.clear()
+        self._owner.safe_destroy(self.combo)
         self.combo = None
+        self._owner.safe_destroy(self.content)
         self.content = None
+        self._owner.safe_destroy(self.header)
         self.header = None
+        self._owner.safe_destroy(self.container)
         self.container = None
 
 
@@ -363,8 +366,7 @@ class WideComponentStateGui(GuiZeroBase):
         while self._panes:
             pane = self._panes.pop()
             pane.destroy()
-        self._panes.clear()
-        self._pane_configs.clear()
+        self.safe_destroy(self._root)
         self._root = None
 
     def build_gui(self) -> None:
