@@ -276,44 +276,6 @@ class GuiZeroBase(Thread, ABC):
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
 
-    def pump_messages(self, max_messages: int = 50) -> int:
-        processed = 0
-        while processed < max_messages:
-            try:
-                message = self._message_queue.get_nowait()
-            except Empty:
-                break
-            if isinstance(message, tuple):
-                if len(message) > 1 and message[1] and len(message[1]) > 0:
-                    message[0](*message[1])
-                else:
-                    message[0]()
-            processed += 1
-        return processed
-
-    def _clear_message_queue(self) -> None:
-        if not self._owns_message_queue:
-            with self._message_queue.mutex:
-                retained = []
-                removed = 0
-                for message in self._message_queue.queue:
-                    callback = message[0] if isinstance(message, tuple) and len(message) > 0 else None
-                    if getattr(callback, "__self__", None) is self:
-                        removed += 1
-                    else:
-                        retained.append(message)
-                self._message_queue.queue.clear()
-                self._message_queue.queue.extend(retained)
-                if removed:
-                    self._message_queue.unfinished_tasks = max(0, self._message_queue.unfinished_tasks - removed)
-                    self._message_queue.all_tasks_done.notify_all()
-            return
-        while True:
-            try:
-                self._message_queue.get_nowait()
-            except Empty:
-                break
-
     @staticmethod
     def safe_destroy(widget: Any) -> None:
         if widget:
@@ -326,7 +288,7 @@ class GuiZeroBase(Thread, ABC):
     def _finalize_gui_resources(self) -> None:
         # Break references to tkinter-backed objects while still on the GUI thread.
         self.destroy_cache()
-        self._clear_message_queue()
+        # self._clear_message_queue()
         self.size_cache.clear()
         self._image_cache.clear()
         self._prod_info_cache.clear()
