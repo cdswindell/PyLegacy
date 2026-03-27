@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import atexit
-import gc
 import io
 import logging
 import tkinter as tk
@@ -423,9 +422,10 @@ class GuiZeroBase(Thread, ABC):
             # If Tcl is already tearing down, ignore
             pass
         finally:
+            self.destroy_gui()
             self._app = None
             # Force tkinter Variable finalizers to run while we're still on Tk thread.
-            gc.collect()
+            # gc.collect()
             self._ev.set()
 
     def _build_keypad_button(
