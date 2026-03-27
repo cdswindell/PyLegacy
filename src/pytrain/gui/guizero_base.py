@@ -160,7 +160,6 @@ class GuiZeroBase(Thread, ABC):
         self._is_closed = False
         self._init_complete_flag = Event()
         self._shutdown_flag = Event()
-        self._atexit_callback: Callable[[], None] | None = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -169,8 +168,7 @@ class GuiZeroBase(Thread, ABC):
             self._synchronized = False
             self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             self._sync_watcher = StateWatcher(self._sync_state, self._on_initial_sync)
-            self._atexit_callback = self._atexit_close
-            atexit.register(self._atexit_callback)
+            atexit.register(self._atexit_close)
         else:
             self._synchronized = self._sync_state = self._sync_watcher = None
 
@@ -197,12 +195,6 @@ class GuiZeroBase(Thread, ABC):
                 self.join(timeout=3.0)
             except RuntimeError:
                 pass
-
-    def _unregister_atexit(self) -> None:
-        if self._atexit_callback is None:
-            return
-        atexit.unregister(self._atexit_callback)
-        self._atexit_callback = None
 
     def reset(self) -> None:
         self.close()
@@ -365,46 +357,6 @@ class GuiZeroBase(Thread, ABC):
                 pass
         return None
 
-    def _drop_gui_references(self) -> None:
-        preserve_names = {
-            "_cv",
-            "_ev",
-            "_message_queue",
-            "_shutdown_flag",
-            "_init_complete_flag",
-            "_dispatcher",
-            "_state_store",
-            "_sync_state",
-            "_sync_watcher",
-            "_executor",
-            "_atexit_callback",
-            "_tk_thread_id",
-            "_synchronized",
-            "_is_closed",
-            "_stand_alone",
-            "_full_screen",
-            "_x_offset",
-            "_y_offset",
-            "_scale_by",
-            "_collect_gc_on_destroy",
-            "_owns_message_queue",
-            "width",
-            "height",
-            "title",
-            "repeat",
-        }
-        for name, value in list(vars(self).items()):
-            if name in preserve_names:
-                continue
-            if not self._contains_gui_reference(value):
-                continue
-            if isinstance(value, (dict, list, set)):
-                value.clear()
-            elif isinstance(value, tuple):
-                setattr(self, name, tuple())
-            else:
-                setattr(self, name, None)
-
     def _finalize_gui_resources(self) -> None:
         # Break references to tkinter-backed objects while still on the GUI thread.
         self._clear_message_queue()
@@ -417,7 +369,6 @@ class GuiZeroBase(Thread, ABC):
             self._executor.shutdown(wait=False, cancel_futures=True)
         except FINALIZE_EXCEPTIONS:
             pass
-        # self._drop_gui_references()
 
     def run(self) -> None:
         self._shutdown_flag.clear()

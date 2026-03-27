@@ -315,6 +315,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.by_number = None
         self.btn_box = None
         self.box = None
+        self._app = None
 
     def hide_gui(self) -> None:
         if self.box:
