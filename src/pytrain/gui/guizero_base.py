@@ -395,6 +395,7 @@ class GuiZeroBase(Thread, ABC):
         finally:
             self.destroy_gui()
             self._app = None
+            print(self.__dict__)
             # Force tkinter Variable finalizers to run while we're still on Tk thread.
             gc.collect()
             self._ev.set()
