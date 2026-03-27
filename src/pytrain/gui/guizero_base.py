@@ -276,11 +276,10 @@ class GuiZeroBase(Thread, ABC):
     def queue_message(self, message: Callable, *args: Any) -> None:
         self._message_queue.put((message, args))
 
-    def safe_destroy(self, widget: Any) -> None:
+    @staticmethod
+    def safe_destroy(widget: Any) -> None:
         if widget:
             try:
-                if self._tk_thread_id != get_ident():
-                    print(f"Warning: widget {widget} destroyed on non-GUI thread {get_ident()} vs {self._tk_thread_id}")
                 widget.destroy()
             except GUI_CLEANUP_EXCEPTIONS:
                 pass
