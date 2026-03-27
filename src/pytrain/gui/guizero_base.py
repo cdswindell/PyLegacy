@@ -153,7 +153,6 @@ class GuiZeroBase(Thread, ABC):
         self._app_counter = 0
         self._message_queue = Queue()
         self._owns_message_queue = True
-        self._collect_gc_on_destroy = False
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -316,39 +315,6 @@ class GuiZeroBase(Thread, ABC):
                 break
 
     @staticmethod
-    def _is_gui_object(value: Any) -> bool:
-        if value is None:
-            return False
-        if isinstance(value, (Widget, tk.Misc, tk.Variable, ImageTk.PhotoImage)):
-            return True
-        module_name = getattr(type(value), "__module__", "")
-        return module_name.startswith("guizero") or module_name.startswith("tkinter")
-
-    @classmethod
-    def _contains_gui_reference(cls, value: Any, seen: set[int] | None = None) -> bool:
-        if cls._is_gui_object(value):
-            return True
-        if value is None:
-            return False
-        if seen is None:
-            seen = set()
-        value_id = id(value)
-        if value_id in seen:
-            return False
-        seen.add(value_id)
-        if isinstance(value, dict):
-            return any(
-                cls._contains_gui_reference(key, seen) or cls._contains_gui_reference(val, seen)
-                for key, val in value.items()
-            )
-        if isinstance(value, (list, tuple, set)):
-            return any(cls._contains_gui_reference(item, seen) for item in value)
-        module_name = getattr(type(value), "__module__", "")
-        if hasattr(value, "__dict__") and ".gui" in module_name:
-            return any(cls._contains_gui_reference(val, seen) for val in vars(value).values())
-        return False
-
-    @staticmethod
     def safe_destroy(widget: Any) -> None:
         if widget:
             try:
@@ -423,9 +389,8 @@ class GuiZeroBase(Thread, ABC):
             app.display()
             gc.collect()
             print(f"GUI thread {self.ident} exiting")
-        except TclError as e:
-            # If Tcl is already tearing down, ignore
-            log.info(e)
+        except TclError as te:
+            log.info(te)
             pass
         finally:
             self.destroy_gui()
