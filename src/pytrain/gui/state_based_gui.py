@@ -311,10 +311,10 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             self.aggregator_combo,
             self.by_name,
             self.by_number,
-            self.btn_box,
-            self.box,
             self.left_scroll_btn,
             self.right_scroll_btn,
+            self.box,
+            self.btn_box,
         ]:
             self.safe_destroy(widget)
         self.aggregator_combo = None
