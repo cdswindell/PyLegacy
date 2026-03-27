@@ -368,7 +368,17 @@ class GuiZeroBase(Thread, ABC):
                     pass  # ignore, we're shutting down
                 return None
             else:
-                self.pump_messages()
+                # Process pending messages in the queue
+                try:
+                    message = self._message_queue.get_nowait()
+                    if isinstance(message, tuple):
+                        if len(message) > 1 and message[1] and len(message[1]) > 0:
+                            message[0](*message[1])
+                        else:
+                            message[0]()
+                        # app.tk.update_idletasks()
+                except Empty:
+                    pass
             return None
 
         self.build_gui()
