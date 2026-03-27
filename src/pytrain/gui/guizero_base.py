@@ -326,6 +326,7 @@ class GuiZeroBase(Thread, ABC):
                 try:
                     assert app
                     self.safe_destroy(app)
+                    print("Main app destroyed")
                     # app.destroy()
                     gc.collect()
                 except TclError as e:
@@ -370,7 +371,8 @@ class GuiZeroBase(Thread, ABC):
             pass
         finally:
             self.destroy_gui()
-            self._app = None
+            self._app = app = None
+            print("App set to null")
             # for k, v in self.__dict__.items():
             #     if v:
             #         print(f"{k} = {v}")
