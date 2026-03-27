@@ -257,7 +257,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.by_name.text_size = self.by_number.text_size = int(round(18 * self._scale_by))
         self.by_number.text_bold = True
 
-        _ = Text(box, text=" ", grid=[0, below_sort_row, 6, 1], size=4, height=1, bold=True)
+        sp = Text(box, text=" ", grid=[0, below_sort_row, 6, 1], size=4, height=1, bold=True)
+        self.cache(sp)
         self.app.update()
 
         tk_parent = self.by_number.tk.master
