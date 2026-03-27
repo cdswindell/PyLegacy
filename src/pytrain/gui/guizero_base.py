@@ -389,11 +389,13 @@ class GuiZeroBase(Thread, ABC):
                 try:
                     self.destroy_gui()
                     self._finalize_gui_resources()
+                    gc.collect()
                 except TclError as e:
                     log.info(e)
                     pass  # ignore, we're shutting down
                 try:
                     app.destroy()
+                    gc.collect()
                 except TclError as e:
                     log.info(e)
                     pass  # ignore, we're shutting down
@@ -419,6 +421,7 @@ class GuiZeroBase(Thread, ABC):
         # Display GUI and start event loop; call blocks
         try:
             app.display()
+            gc.collect()
             print(f"GUI thread {self.ident} exiting")
         except TclError as e:
             # If Tcl is already tearing down, ignore
