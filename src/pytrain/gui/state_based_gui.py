@@ -307,6 +307,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         if self._state_buttons:
             self._reset_state_buttons()
         self._state_buttons.clear()
+        self._states.clear()
+        self.sort_func = None
         for widget in [
             self.aggregator_combo,
             self.by_name,
