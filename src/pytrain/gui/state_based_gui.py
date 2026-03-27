@@ -182,8 +182,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
         ts = self._text_size
         if show_header_row:
-            _ = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
-            _ = Text(box, text="    ", grid=[1, 1], size=ts)
+            h1 = Text(box, text=" ", grid=[0, 0, 6, 1], size=6, height=1, bold=True)
+            h2 = Text(box, text="    ", grid=[1, 1], size=ts)
+            self.cache(h1, h2)
         ats = int(round(23 * self._scale_by))
         if self._aggregator:
             txt_lbl = txt_spacer = None
@@ -196,6 +197,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             # Wrap the Combo in a vertical container as well
             combo_vbox = Box(ag_box, layout="auto", align="right")
             combo_spacer = Box(combo_vbox)  # will be set after measuring
+            self.cache(txt_lbl, txt_spacer, combo_vbox, combo_spacer, ag_box)
             self.aggregator_combo = Combo(
                 combo_vbox,
                 options=self._aggregator.guis,
@@ -232,7 +234,8 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                 tb = Text(box, text=label, grid=[2, 1, 2, 1], size=ats, bold=True)
                 self.cache(tb)
         if show_header_row:
-            _ = Text(box, text="    ", grid=[4, 1], size=ts)
+            hr = Text(box, text="    ", grid=[4, 1], size=ts)
+            self.cache(hr)
         self.by_number = PushButton(
             box,
             text="By TMCC ID",

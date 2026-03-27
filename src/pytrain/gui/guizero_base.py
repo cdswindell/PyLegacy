@@ -325,8 +325,8 @@ class GuiZeroBase(Thread, ABC):
 
     def _finalize_gui_resources(self) -> None:
         # Break references to tkinter-backed objects while still on the GUI thread.
-        self._clear_message_queue()
         self.destroy_cache()
+        self._clear_message_queue()
         self.size_cache.clear()
         self._image_cache.clear()
         self._prod_info_cache.clear()

@@ -156,20 +156,16 @@ class _WidePane:
 
     def destroy(self) -> None:
         """Tear down child GUIs and release pane widgets/resources."""
-        child_guis = list(self._guis.values())
-        for gui in child_guis:
+        for gui in self._guis.values():
             if isinstance(gui, GuiZeroBase):
                 # All child widget destruction happens in the parent Tk thread.
                 gui.destroy_gui()
-        child_guis.clear()
         self._guis.clear()
-        self._owner.safe_destroy(self.combo)
+        for widget in [self.combo, self.content, self.header, self.container]:
+            self._owner.safe_destroy(widget)
         self.combo = None
-        self._owner.safe_destroy(self.content)
         self.content = None
-        self._owner.safe_destroy(self.header)
         self.header = None
-        self._owner.safe_destroy(self.container)
         self.container = None
 
 
