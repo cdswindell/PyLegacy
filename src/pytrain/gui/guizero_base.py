@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import atexit
+import gc
 import io
 import logging
 import tkinter as tk
@@ -418,14 +419,16 @@ class GuiZeroBase(Thread, ABC):
         # Display GUI and start event loop; call blocks
         try:
             app.display()
-        except TclError:
+            print(f"GUI thread {self.ident} exiting")
+        except TclError as e:
             # If Tcl is already tearing down, ignore
+            log.info(e)
             pass
         finally:
             self.destroy_gui()
             self._app = None
             # Force tkinter Variable finalizers to run while we're still on Tk thread.
-            # gc.collect()
+            gc.collect()
             self._ev.set()
 
     def _build_keypad_button(
