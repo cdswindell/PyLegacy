@@ -1,0 +1,112 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
+from __future__ import annotations
+
+from typing import Callable
+
+import pytest
+
+import src.pytrain.gui.guizero_base as mod
+
+
+class _DummyTk:
+    @staticmethod
+    def geometry(_geometry: str) -> None:
+        return
+
+    @staticmethod
+    def update_idletasks() -> None:
+        return
+
+    @staticmethod
+    def after(_delay_ms: int, _func: Callable[[], None]) -> None:
+        return
+
+
+class DummyApp:
+    last_instance: DummyApp | None = None
+
+    def __init__(self, title: str, width: int, height: int) -> None:
+        self.title = title
+        self.width = width
+        self.height = height
+        self.full_screen = False
+        self.bg = "white"
+        self.when_closed = None
+        self.tk = _DummyTk()
+        self.repeat_callbacks: list[Callable[[], None]] = []
+        self.destroy_calls = 0
+        DummyApp.last_instance = self
+
+    def repeat(self, _delay_ms: int, func: Callable[[], None]) -> None:
+        self.repeat_callbacks.append(func)
+
+    @staticmethod
+    def display() -> None:
+        return
+
+    def destroy(self) -> None:
+        self.destroy_calls += 1
+
+
+class DummyGui(mod.GuiZeroBase):
+    def __init__(self) -> None:
+        self.destroy_gui_calls = 0
+        super().__init__(
+            title="Dummy GUI",
+            width=320,
+            height=240,
+            stand_alone=False,
+            full_screen=True,
+        )
+
+    @staticmethod
+    def build_gui() -> None:
+        return
+
+    def destroy_gui(self) -> None:
+        self.destroy_gui_calls += 1
+
+    @staticmethod
+    def calc_image_box_size() -> tuple[int, int]:
+        return 0, 0
+
+
+@pytest.fixture(autouse=True)
+def _patch_runtime(monkeypatch):
+    DummyApp.last_instance = None
+    monkeypatch.setattr(mod, "App", DummyApp, raising=True)
+    monkeypatch.setattr(mod.CommandDispatcher, "get", staticmethod(lambda: object()), raising=True)
+    monkeypatch.setattr(mod.ComponentStateStore, "get", staticmethod(lambda: object()), raising=True)
+    monkeypatch.setattr(mod.GpioHandler, "cache_handler", staticmethod(lambda *_: None), raising=True)
+    yield
+    DummyApp.last_instance = None
+
+
+def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
+    gui = DummyGui()
+
+    gui.run()
+
+    assert gui.app is None
+    assert gui.destroy_gui_calls == 1
+    assert gui.destroy_complete.is_set()
+
+    app = DummyApp.last_instance
+    assert app is not None
+    assert app.repeat_callbacks
+
+    poll_shutdown = app.repeat_callbacks[0]
+    freevars = poll_shutdown.__code__.co_freevars
+    assert "app" in freevars
+    closure = poll_shutdown.__closure__
+    assert closure is not None
+    app_cell = closure[freevars.index("app")]
+    assert app_cell.cell_contents is None
