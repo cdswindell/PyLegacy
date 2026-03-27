@@ -299,16 +299,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         self.sort_by_number()
 
     def destroy_gui(self) -> None:
-
-        def safe_destroy(widget: Widget | Box | Combo | None) -> None:
-            if widget is None:
-                return
-            try:
-                widget.destroy()
-            except GUI_CLEANUP_EXCEPTIONS as e:
-                log.info(e)
-                pass
-
         # Explicitly drop references to tkinter/guizero objects on the Tk thread
         for sw in self._state_watchers.values():
             sw.shutdown()
@@ -317,13 +307,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             self._reset_state_buttons()
         self._state_buttons.clear()
         self._state_buttons = None
-        safe_destroy(self.aggregator_combo)
-        safe_destroy(self.left_scroll_btn)
-        safe_destroy(self.right_scroll_btn)
-        safe_destroy(self.by_name)
-        safe_destroy(self.by_number)
-        safe_destroy(self.btn_box)
-        safe_destroy(self.box)
         self.clear_cache()
         self.aggregator_combo = None
         self.left_scroll_btn = None
