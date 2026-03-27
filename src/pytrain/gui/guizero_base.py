@@ -324,6 +324,7 @@ class GuiZeroBase(Thread, ABC):
                     log.info(e)
                     pass  # ignore, we're shutting down
                 try:
+                    assert app
                     self.safe_destroy(app)
                     # app.destroy()
                     gc.collect()
