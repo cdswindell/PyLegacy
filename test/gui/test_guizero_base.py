@@ -68,14 +68,14 @@ class DummyGui(mod.GuiZeroBase):
         )
 
     @staticmethod
-    def build_gui() -> None:
+    def build_gui(**kwargs) -> None:
         return
 
     def destroy_gui(self) -> None:
         self.destroy_gui_calls += 1
 
     @staticmethod
-    def calc_image_box_size() -> tuple[int, int]:
+    def calc_image_box_size(**kwargs) -> tuple[int, int]:
         return 0, 0
 
 
@@ -90,6 +90,7 @@ def _patch_runtime(monkeypatch):
     DummyApp.last_instance = None
 
 
+# noinspection PyUnresolvedReferences
 def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
     gui = DummyGui()
 
