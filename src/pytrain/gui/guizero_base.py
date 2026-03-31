@@ -45,7 +45,7 @@ E = TypeVar("E", bound=CommandDefEnum)
 LIONEL_ORANGE = "#FF6600"
 LIONEL_BLUE = "#003366"
 
-GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
+GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError, ValueError)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
