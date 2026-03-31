@@ -359,8 +359,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                     widget.when_left_button_pressed = None
                 if hasattr(widget, "when_left_button_released"):
                     widget.when_left_button_released = None
-                widget.hide()
-                widget.destroy()
+                self.safe_destroy(widget)
         self._state_buttons.clear()
 
     # noinspection PyTypeChecker

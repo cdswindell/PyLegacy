@@ -9,11 +9,8 @@
 
 from __future__ import annotations
 
-from threading import Condition, RLock
-
 from guizero import Text
 from guizero.base import Widget
-from guizero.event import EventData
 
 from ..db.sync_state import SyncState
 from ..gui.component_state_gui import ComponentStateGui
@@ -89,12 +86,6 @@ class SystemsGui(StateBasedGui):
     def switch_state(self, pd: SyncState) -> None:
         pass
 
-    def set_button_active(self, widget: Widget):
-        pass
-
-    def set_button_inactive(self, widget: Widget):
-        pass
-
     def _make_state_button(self, pd: SyncState, row: int, col: int, **kwargs) -> tuple[list[Widget], int, int]:
         hold_threshold = kwargs.pop("hold_threshold", self._press_for)
         for w in {self.left_scroll_btn, self.right_scroll_btn, self.by_name, self.by_number}:
@@ -135,21 +126,21 @@ class SystemsGui(StateBasedGui):
 
         # make update button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn, btn_h, btn_y = super()._make_state_button(
+            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        )
         btn.text = f"Update {PROGRAM_NAME} Software"
-        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.UPDATE), self._press_for)
-        btn.when_left_button_pressed = safety.on_press
-        btn.when_left_button_released = safety.on_release
+        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.UPDATE).send
         self.set_button_inactive(btn)
         widgets.append(btn)
 
         # make upgrade button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn, btn_h, btn_y = super()._make_state_button(
+            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        )
         btn.text = "Upgrade Raspberry Pi Software"
-        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.UPGRADE), self._press_for)
-        btn.when_left_button_pressed = safety.on_press
-        btn.when_left_button_released = safety.on_release
+        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.UPGRADE).send
         self.set_button_inactive(btn)
         widgets.append(btn)
 
@@ -160,67 +151,24 @@ class SystemsGui(StateBasedGui):
 
         # make reboot button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn, btn_h, btn_y = super()._make_state_button(
+            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        )
         btn.text = "Reboot All Nodes"
-        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.REBOOT), self._press_for)
-        btn.when_left_button_pressed = safety.on_press
-        btn.when_left_button_released = safety.on_release
+        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.REBOOT).send
         self.set_button_inactive(btn)
         widgets.append(btn)
 
         # make shutdown button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn, btn_h, btn_y = super()._make_state_button(
+            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        )
         btn.text = "Shutdown All Nodes"
-        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.SHUTDOWN), self._press_for)
-        btn.when_left_button_pressed = safety.on_press
-        btn.when_left_button_released = safety.on_release
+        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).send
         self.set_button_inactive(btn)
         widgets.append(btn)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
         return widgets, btn_h, btn_y
-
-
-class PushButtonHoldHelper:
-    def __init__(
-        self,
-        gui: SystemsGui,
-        button: Widget,
-        command: CommandReq,
-        press_for=5,
-    ) -> None:
-        self._gui = gui
-        self._command = command
-        self._button = button
-        self._press_for = press_for * 1000
-        self._app = gui.app
-        self._tk = gui.app.tk
-        self._after_id = None
-        self._cv = Condition(RLock())
-
-    def on_press(self, event: EventData) -> None:
-        btn = event.widget
-        with self._cv:
-            # Cancel previously scheduled call if any
-            if self._after_id is not None:
-                self._tk.after_cancel(self._after_id)
-                self._after_id = None
-            # Schedule command for required hold time
-            self._gui.set_button_active(btn)
-            self._after_id = self._tk.after(self._press_for, self.fire)
-
-    def on_release(self, event: EventData) -> None:
-        with self._cv:
-            btn = event.widget
-            self._gui.set_button_inactive(btn)
-            if self._after_id is not None:
-                self._tk.after_cancel(self._after_id)
-                self._after_id = None
-
-    def fire(self):
-        with self._cv:
-            self._gui.set_button_inactive(self._button)
-            self._after_id = None
-            self._command.send()
