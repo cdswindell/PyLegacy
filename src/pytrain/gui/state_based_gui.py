@@ -424,7 +424,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         row: int,
         col: int,
         *,
-        hold_threshold: float = None,
+        hold_threshold: float = 1.0,
         show_hold_progress: bool = False,
         progress_fill_color: str = "darkgrey",
         progress_empty_color: str = "white",
