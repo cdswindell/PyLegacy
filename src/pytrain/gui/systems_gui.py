@@ -89,10 +89,16 @@ class SystemsGui(StateBasedGui):
     def switch_state(self, pd: SyncState) -> None:
         pass
 
+    def set_button_active(self, widget: Widget):
+        pass
+
+    def set_button_inactive(self, widget: Widget):
+        pass
+
     def _make_state_button(self, pd: SyncState, row: int, col: int, **kwargs) -> tuple[list[Widget], int, int]:
         hold_threshold = kwargs.pop("hold_threshold", self._press_for)
-        self.by_name.hide()
-        self.by_number.hide()
+        for w in {self.left_scroll_btn, self.right_scroll_btn, self.by_name, self.by_number}:
+            w.hide()
         widgets: list[Widget] = []
 
         # make title label
@@ -114,9 +120,6 @@ class SystemsGui(StateBasedGui):
         )
         btn.text = "Reload Base 3 State"
         btn.on_hold = CommandReq(TMCC1SyncCommandEnum.RESYNC).send
-        # safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESYNC), self._press_for)
-        # btn.when_left_button_pressed = safety.on_press
-        # btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
         widgets.append(btn)
 
@@ -127,9 +130,6 @@ class SystemsGui(StateBasedGui):
         )
         btn.text = "Restart All Nodes"
         btn.on_hold = CommandReq(TMCC1SyncCommandEnum.RESTART).send
-        # safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESTART), self._press_for)
-        # btn.when_left_button_pressed = safety.on_press
-        # btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
         widgets.append(btn)
 
