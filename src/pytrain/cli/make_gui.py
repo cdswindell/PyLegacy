@@ -494,7 +494,7 @@ class MakeGui(_MakeBase):
         # Systems GUI
         sy = sp.add_parser(
             f"{PROGRAM_NAME}_administration".lower(),
-            aliases=["pa", "sy"],
+            aliases=["pa", "sy", "admin", "ad", "py"],
             allow_abbrev=True,
             help=f"{PROGRAM_NAME} System Administration GUI",
         )

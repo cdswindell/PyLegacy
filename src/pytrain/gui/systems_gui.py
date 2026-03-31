@@ -31,7 +31,7 @@ class SystemsGui(StateBasedGui):
         height: int = None,
         aggregator: ComponentStateGui = None,
         scale_by: float = 1.0,
-        press_for: int = 5,
+        press_for: int = 3,
         exclude_unnamed: bool = True,
         screens: int | None = None,
         stand_alone: bool = True,
@@ -89,12 +89,8 @@ class SystemsGui(StateBasedGui):
     def switch_state(self, pd: SyncState) -> None:
         pass
 
-    def _make_state_button(
-        self,
-        pd: SyncState,
-        row: int,
-        col: int,
-    ) -> tuple[list[Widget], int, int]:
+    def _make_state_button(self, pd: SyncState, row: int, col: int, **kwargs) -> tuple[list[Widget], int, int]:
+        hold_threshold = kwargs.pop("hold_threshold", self._press_for)
         self.by_name.hide()
         self.by_number.hide()
         widgets: list[Widget] = []
@@ -103,7 +99,7 @@ class SystemsGui(StateBasedGui):
         ts = int(round(23 * self._scale_by))
         title = Text(
             self.btn_box,
-            text=f"Press for {self._press_for} seconds",
+            text=f"Hold for {self._press_for} seconds",
             grid=[col, row, 2, 1],
             size=ts,
             bold=True,
@@ -113,21 +109,27 @@ class SystemsGui(StateBasedGui):
 
         # make reload button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn, btn_h, btn_y = super()._make_state_button(
+            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        )
         btn.text = "Reload Base 3 State"
-        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESYNC), self._press_for)
-        btn.when_left_button_pressed = safety.on_press
-        btn.when_left_button_released = safety.on_release
+        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.RESYNC).send
+        # safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESYNC), self._press_for)
+        # btn.when_left_button_pressed = safety.on_press
+        # btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
         widgets.append(btn)
 
         # make restart button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(pd, row, col)
+        btn, btn_h, btn_y = super()._make_state_button(
+            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        )
         btn.text = "Restart All Nodes"
-        safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESTART), self._press_for)
-        btn.when_left_button_pressed = safety.on_press
-        btn.when_left_button_released = safety.on_release
+        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.RESTART).send
+        # safety = PushButtonHoldHelper(self, btn, CommandReq(TMCC1SyncCommandEnum.RESTART), self._press_for)
+        # btn.when_left_button_pressed = safety.on_press
+        # btn.when_left_button_released = safety.on_release
         self.set_button_inactive(btn)
         widgets.append(btn)
 

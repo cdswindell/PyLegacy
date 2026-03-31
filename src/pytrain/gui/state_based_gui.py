@@ -17,6 +17,7 @@ from guizero import Box, Combo, PushButton, Text
 from guizero.base import Widget
 
 from .component_state_gui import ComponentStateGui
+from .components.hold_button import HoldButton
 from .guizero_base import GuiZeroBase
 from ..db.component_state import ComponentState
 from ..db.state_watcher import StateWatcher
@@ -422,21 +423,30 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         pd: S | Any,
         row: int,
         col: int,
+        *,
+        hold_threshold: float = None,
+        show_hold_progress: bool = False,
+        progress_fill_color: str = "darkgrey",
+        progress_empty_color: str = "white",
     ) -> tuple[PushButton | list[Widget], int, int]:
-        pb = PushButton(
+        pb = HoldButton(
             self.btn_box,
-            text=f"{pd.tmcc_id}) {pd.road_name}",
             grid=[col, row],
+            text=f"{pd.tmcc_id}) {pd.road_name}",
+            text_size=int(round(15 * self._scale_by)),
             width=max(8, int(round(self.width / self._visible_button_cols / (13 * self._scale_by)))),
             command=self.switch_state,
             args=[pd],
             padx=0,
             pady=self._button_text_pad_y,
+            text_color=self._enabled_text if self.is_active(pd) else self._disabled_text,
+            bg=self._enabled_bg if self.is_active(pd) else self._disabled_bg,
+            hold_threshold=hold_threshold,
+            show_hold_progress=show_hold_progress,
+            progress_fill_color=progress_fill_color,
+            progress_empty_color=progress_empty_color,
         )
         pb.component_state = pd
-        pb.text_size = int(round(15 * self._scale_by))
-        pb.bg = self._enabled_bg if self.is_active(pd) else self._disabled_bg
-        pb.text_color = self._enabled_text if self.is_active(pd) else self._disabled_text
 
         # recalculate height
         self.app.update()

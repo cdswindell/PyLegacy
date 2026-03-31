@@ -87,6 +87,7 @@ class MotorsGui(StateBasedGui):
     def update_button(self, state: S) -> None:
         with self._cv:
             tmcc_id = state.tmcc_id
+            # noinspection PyUnnecessaryCast
             pd = cast(AccessoryState, state)
             widgets = self._state_buttons[tmcc_id]
             if isinstance(widgets, list):
@@ -158,12 +159,7 @@ class MotorsGui(StateBasedGui):
                 Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=level).send()
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
 
-    def _make_state_button(
-        self,
-        pd: AccessoryState,
-        row: int,
-        col: int,
-    ) -> tuple[list[Widget], int, int]:
+    def _make_state_button(self, pd: AccessoryState, row: int, col: int, **kwargs) -> tuple[list[Widget], int, int]:
         self._making_buttons = True
         ts = int(round(23 * self._scale_by))
         widgets: list[Widget] = []
