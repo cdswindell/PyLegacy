@@ -106,43 +106,23 @@ class SystemsGui(StateBasedGui):
 
         # make reload button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(
-            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
-        )
-        btn.text = "Reload Base 3 State"
-        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.RESYNC).send
-        self.set_button_inactive(btn)
-        widgets.append(btn)
+        self._make_button("Reload Base 3 State", TMCC1SyncCommandEnum.RESYNC, col, hold_threshold, pd, row, widgets)
 
         # make restart button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(
-            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
-        )
-        btn.text = "Restart All Nodes"
-        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.RESTART).send
-        self.set_button_inactive(btn)
-        widgets.append(btn)
+        self._make_button("Restart All Nodes", TMCC1SyncCommandEnum.RESTART, col, hold_threshold, pd, row, widgets)
 
         # make update button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(
-            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        self._make_button(
+            f"Update {PROGRAM_NAME} Software", TMCC1SyncCommandEnum.UPDATE, col, hold_threshold, pd, row, widgets
         )
-        btn.text = f"Update {PROGRAM_NAME} Software"
-        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.UPDATE).send
-        self.set_button_inactive(btn)
-        widgets.append(btn)
 
         # make upgrade button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(
-            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        self._make_button(
+            "Upgrade Raspberry Pi Software", TMCC1SyncCommandEnum.UPGRADE, col, hold_threshold, pd, row, widgets
         )
-        btn.text = "Upgrade Raspberry Pi Software"
-        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.UPGRADE).send
-        self.set_button_inactive(btn)
-        widgets.append(btn)
 
         # spacer
         row += 1
@@ -151,24 +131,24 @@ class SystemsGui(StateBasedGui):
 
         # make reboot button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(
-            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
-        )
-        btn.text = "Reboot All Nodes"
-        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.REBOOT).send
-        self.set_button_inactive(btn)
-        widgets.append(btn)
+        self._make_button("Reboot All Nodes", TMCC1SyncCommandEnum.REBOOT, col, hold_threshold, pd, row, widgets)
 
         # make shutdown button
         row += 1
-        btn, btn_h, btn_y = super()._make_state_button(
-            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        btn, btn_h, btn_y = self._make_button(
+            "Shutdown All Nodes", TMCC1SyncCommandEnum.SHUTDOWN, col, hold_threshold, pd, row, widgets
         )
-        btn.text = "Shutdown All Nodes"
-        btn.on_hold = CommandReq(TMCC1SyncCommandEnum.SHUTDOWN).send
-        self.set_button_inactive(btn)
-        widgets.append(btn)
 
         # noinspection PyTypeChecker
         self._state_buttons[pd.tmcc_id] = widgets
         return widgets, btn_h, btn_y
+
+    def _make_button(self, text, cmd, col: int, hold_threshold, pd: SyncState, row: int, widgets: list[Widget]):
+        btn, btn_h, btn_y = super()._make_state_button(
+            pd, row, col, hold_threshold=hold_threshold, show_hold_progress=True
+        )
+        btn.text = text
+        btn.on_hold = CommandReq(cmd).send
+        self.set_button_inactive(btn)
+        widgets.append(btn)
+        return btn, btn_h, btn_y
