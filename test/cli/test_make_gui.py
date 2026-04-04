@@ -24,7 +24,7 @@ def test_parse_wide_screen_set_accepts_alternate_delimiters() -> None:
 
 
 def test_parse_wide_screen_set_accepts_operating_accessories_aliases() -> None:
-    parsed = MakeGui._parse_wide_screen_set("oa,accessories")
+    parsed = MakeGui._parse_wide_screen_set("operating,lcs,oa,accessories")
     assert parsed == ["Operating Accessories", "Accessories"]
 
 

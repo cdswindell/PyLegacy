@@ -111,6 +111,8 @@ WIDE_COMPONENT_ALIASES = {
     "configured accessory": "Operating Accessories",
     "op accessories": "Operating Accessories",
     "op accessory": "Operating Accessories",
+    "operating": "Operating Accessories",
+    "lcs": "Operating Accessories",
     "oa": "Operating Accessories",
     "motors": "Motors",
     "motor": "Motors",
