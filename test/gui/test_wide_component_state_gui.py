@@ -139,24 +139,35 @@ def test_wide_gui_accepts_basic_dimensions() -> None:
     assert gui.height == 480
 
 
-def test_operating_accessories_uses_grid_slot_for_mounted_accessory(monkeypatch) -> None:
-    captured: dict[str, Any] = {}
+def test_operating_accessories_renders_image_and_mounts_controls(monkeypatch) -> None:
+    captured: dict[str, Any] = {"boxes": [], "picture": None}
 
     class DummyBox:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
-            captured["args"] = args
-            captured["kwargs"] = kwargs
+            self.args = args
+            self.kwargs = kwargs
+            captured["boxes"].append(self)
+
+    class DummyPicture:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            captured["picture"] = {"args": args, "kwargs": kwargs}
 
     class DummyMountedGui:
         def __init__(self) -> None:
             self.menu_label = None
             self.mount_calls: list[tuple[Any, bool]] = []
 
+        @staticmethod
+        def get_scaled_jpg_size(image_file: str) -> tuple[int, int]:
+            assert image_file == "/tmp/fake-image.jpg"
+            return 111, 222
+
         def mount_gui(self, container: Any, *, add_spacer: bool = True) -> None:
             self.mount_calls.append((container, add_spacer))
 
     class DummyCfg:
         label = "Accessory A"
+        image_path = "fake-image.jpg"
 
         def __init__(self, mounted_gui: DummyMountedGui) -> None:
             self._mounted_gui = mounted_gui
@@ -175,9 +186,16 @@ def test_operating_accessories_uses_grid_slot_for_mounted_accessory(monkeypatch)
     op._acc_by_label = {"Accessory A": DummyCfg(mounted)}
 
     monkeypatch.setattr(wide_mod, "Box", DummyBox, raising=True)
+    monkeypatch.setattr(wide_mod, "Picture", DummyPicture, raising=True)
+    monkeypatch.setattr(wide_mod, "find_file", lambda name: f"/tmp/{name}", raising=True)
 
     op._show_accessory("Accessory A")
 
-    assert captured["kwargs"]["grid"] == [0, 0]
+    assert len(captured["boxes"]) == 2
+    assert captured["boxes"][0].kwargs["grid"] == [0, 0]
+    assert captured["boxes"][1].kwargs["grid"] == [0, 1]
+    assert captured["picture"]["kwargs"]["grid"] == [0, 0]
+    assert captured["picture"]["kwargs"]["width"] == 111
+    assert captured["picture"]["kwargs"]["height"] == 222
     assert mounted.mount_calls
     assert mounted.mount_calls[0][1] is False

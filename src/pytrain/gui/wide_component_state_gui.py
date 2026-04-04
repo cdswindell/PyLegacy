@@ -13,10 +13,11 @@ from pathlib import Path
 from tkinter import TclError
 from typing import Any, Iterable
 
-from guizero import App, Box, Combo, Text
+from guizero import App, Box, Combo, Picture, Text
 
 from .guizero_base import GuiZeroBase
 from ..protocol.constants import PROGRAM_NAME
+from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
@@ -279,7 +280,24 @@ class _OperatingAccessoriesGui(GuiZeroBase):
 
         # Parent uses grid layout, so child must provide a stable grid slot.
         container = Box(self._content, layout="grid", grid=[0, 0], align="top")
-        gui.mount_gui(container, add_spacer=False)
+
+        img_path = cfg.image_path
+        if isinstance(img_path, str) and img_path.strip():
+            resolved_img = find_file(img_path) or img_path
+            pic_width = pic_height = None
+            if hasattr(gui, "get_scaled_jpg_size"):
+                pic_width, pic_height = gui.get_scaled_jpg_size(resolved_img)
+            pic_kwargs: dict[str, Any] = {"image": resolved_img, "grid": [0, 0], "align": "top"}
+            if isinstance(pic_width, int) and isinstance(pic_height, int):
+                pic_kwargs["width"] = pic_width
+                pic_kwargs["height"] = pic_height
+            try:
+                _ = Picture(container, **pic_kwargs)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                log.warning("Unable to render accessory image '%s' in %s", resolved_img, OPERATING_ACCESSORIES_SCREEN)
+
+        controls = Box(container, layout="grid", grid=[0, 1], align="top")
+        gui.mount_gui(controls, add_spacer=False)
 
         self._active_gui = gui
         self._active_container = container
