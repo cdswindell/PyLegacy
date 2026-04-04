@@ -280,13 +280,53 @@ class _OperatingAccessoriesGui(GuiZeroBase):
 
         # Parent uses grid layout, so child must provide a stable grid slot.
         container = Box(self._content, layout="grid", grid=[0, 0], align="top")
+        controls = Box(container, layout="grid", grid=[0, 1], align="top")
+        gui.mount_gui(controls, add_spacer=False)
 
         img_path = cfg.image_path
         if isinstance(img_path, str) and img_path.strip():
             resolved_img = find_file(img_path) or img_path
+
+            # Size image to remaining vertical space after controls.
+            self.app.tk.update_idletasks()
+            content_height = self.height
+            if hasattr(self._content, "tk"):
+                try:
+                    measured_content_height = int(self._content.tk.winfo_height())
+                    if measured_content_height > 16:
+                        content_height = measured_content_height
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    pass
+
+            controls_height = 0
+            if hasattr(controls, "tk"):
+                try:
+                    controls_height = max(int(controls.tk.winfo_reqheight()), int(controls.tk.winfo_height()))
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    controls_height = 0
+
+            available_image_height = max(1, content_height - controls_height - 8)
+            available_image_width = max(1, self.width - 8)
+
             pic_width = pic_height = None
-            if hasattr(gui, "get_scaled_jpg_size"):
+            if hasattr(gui, "get_jpg_size"):
+                try:
+                    iw, ih = gui.get_jpg_size(resolved_img)
+                    if isinstance(iw, int) and isinstance(ih, int) and iw > 0 and ih > 0:
+                        scale = min(available_image_width / iw, available_image_height / ih)
+                        scale = min(scale, 1.0) if scale > 0 else 1.0
+                        pic_width = max(1, int(round(iw * scale)))
+                        pic_height = max(1, int(round(ih * scale)))
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    pic_width = pic_height = None
+
+            if (pic_width is None or pic_height is None) and hasattr(gui, "get_scaled_jpg_size"):
                 pic_width, pic_height = gui.get_scaled_jpg_size(resolved_img)
+                if isinstance(pic_width, int) and isinstance(pic_height, int) and pic_height > available_image_height:
+                    fit = available_image_height / max(1, pic_height)
+                    pic_width = max(1, int(round(pic_width * fit)))
+                    pic_height = max(1, int(round(pic_height * fit)))
+
             pic_kwargs: dict[str, Any] = {"image": resolved_img, "grid": [0, 0], "align": "top"}
             if isinstance(pic_width, int) and isinstance(pic_height, int):
                 pic_kwargs["width"] = pic_width
@@ -295,9 +335,6 @@ class _OperatingAccessoriesGui(GuiZeroBase):
                 _ = Picture(container, **pic_kwargs)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 log.warning("Unable to render accessory image '%s' in %s", resolved_img, OPERATING_ACCESSORIES_SCREEN)
-
-        controls = Box(container, layout="grid", grid=[0, 1], align="top")
-        gui.mount_gui(controls, add_spacer=False)
 
         self._active_gui = gui
         self._active_container = container

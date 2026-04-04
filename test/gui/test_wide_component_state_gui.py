@@ -142,10 +142,20 @@ def test_wide_gui_accepts_basic_dimensions() -> None:
 def test_operating_accessories_renders_image_and_mounts_controls(monkeypatch) -> None:
     captured: dict[str, Any] = {"boxes": [], "picture": None}
 
+    class DummyTk:
+        @staticmethod
+        def winfo_reqheight() -> int:
+            return 90
+
+        @staticmethod
+        def winfo_height() -> int:
+            return 90
+
     class DummyBox:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             self.args = args
             self.kwargs = kwargs
+            self.tk = DummyTk()
             captured["boxes"].append(self)
 
     class DummyPicture:
@@ -178,12 +188,15 @@ def test_operating_accessories_renders_image_and_mounts_controls(monkeypatch) ->
 
     mounted = DummyMountedGui()
     op = wide_mod._OperatingAccessoriesGui.__new__(wide_mod._OperatingAccessoriesGui)
-    op._content = object()
+    op.height = 480
+    op.width = 320
+    op._content = type("DummyContent", (), {"tk": type("DummyContentTk", (), {"winfo_height": lambda self: 150})()})()
     op._combo = None
     op._active_label = None
     op._active_gui = None
     op._active_container = None
     op._acc_by_label = {"Accessory A": DummyCfg(mounted)}
+    op._app = type("DummyApp", (), {"tk": type("DummyAppTk", (), {"update_idletasks": lambda self: None})()})()
 
     monkeypatch.setattr(wide_mod, "Box", DummyBox, raising=True)
     monkeypatch.setattr(wide_mod, "Picture", DummyPicture, raising=True)
@@ -195,7 +208,7 @@ def test_operating_accessories_renders_image_and_mounts_controls(monkeypatch) ->
     assert captured["boxes"][0].kwargs["grid"] == [0, 0]
     assert captured["boxes"][1].kwargs["grid"] == [0, 1]
     assert captured["picture"]["kwargs"]["grid"] == [0, 0]
-    assert captured["picture"]["kwargs"]["width"] == 111
-    assert captured["picture"]["kwargs"]["height"] == 222
+    assert captured["picture"]["kwargs"]["height"] == 52
+    assert captured["picture"]["kwargs"]["width"] == 26
     assert mounted.mount_calls
     assert mounted.mount_calls[0][1] is False
