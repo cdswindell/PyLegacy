@@ -277,7 +277,8 @@ class _OperatingAccessoriesGui(GuiZeroBase):
         gui = cfg.create_gui(aggregator=self)
         gui.menu_label = cfg.label
 
-        container = Box(self._content, layout="grid", align="top")
+        # Parent uses grid layout, so child must provide a stable grid slot.
+        container = Box(self._content, layout="grid", grid=[0, 0], align="top")
         gui.mount_gui(container, add_spacer=False)
 
         self._active_gui = gui

@@ -137,3 +137,47 @@ def test_wide_gui_accepts_basic_dimensions() -> None:
     )
     assert gui.width == 800
     assert gui.height == 480
+
+
+def test_operating_accessories_uses_grid_slot_for_mounted_accessory(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class DummyBox:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+
+    class DummyMountedGui:
+        def __init__(self) -> None:
+            self.menu_label = None
+            self.mount_calls: list[tuple[Any, bool]] = []
+
+        def mount_gui(self, container: Any, *, add_spacer: bool = True) -> None:
+            self.mount_calls.append((container, add_spacer))
+
+    class DummyCfg:
+        label = "Accessory A"
+
+        def __init__(self, mounted_gui: DummyMountedGui) -> None:
+            self._mounted_gui = mounted_gui
+
+        def create_gui(self, *, aggregator: Any) -> DummyMountedGui:
+            captured["aggregator"] = aggregator
+            return self._mounted_gui
+
+    mounted = DummyMountedGui()
+    op = wide_mod._OperatingAccessoriesGui.__new__(wide_mod._OperatingAccessoriesGui)
+    op._content = object()
+    op._combo = None
+    op._active_label = None
+    op._active_gui = None
+    op._active_container = None
+    op._acc_by_label = {"Accessory A": DummyCfg(mounted)}
+
+    monkeypatch.setattr(wide_mod, "Box", DummyBox, raising=True)
+
+    op._show_accessory("Accessory A")
+
+    assert captured["kwargs"]["grid"] == [0, 0]
+    assert mounted.mount_calls
+    assert mounted.mount_calls[0][1] is False
