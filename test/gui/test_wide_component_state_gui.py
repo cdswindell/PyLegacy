@@ -117,6 +117,17 @@ def test_invalid_gui_name_raises_value_error() -> None:
         )
 
 
+def test_operating_accessories_screen_is_accepted() -> None:
+    gui = wide_mod.WideComponentStateGui(
+        width=800,
+        height=480,
+        screen_components=[["Operating Accessories"], ["Accessories"]],
+        auto_start=False,
+    )
+
+    assert gui._pane_configs == [["Operating Accessories"], ["Accessories"]]
+
+
 def test_wide_gui_accepts_basic_dimensions() -> None:
     gui = wide_mod.WideComponentStateGui(
         width=800,

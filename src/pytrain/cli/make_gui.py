@@ -94,13 +94,24 @@ CHOICES = [
     "switches",
     f"{PROGRAM_NAME} Administration".lower(),
 ]
+WIDE_CHOICES = CHOICES + ["operating accessories"]
 
 CHOICES_HELP = ", ".join([x.title() for x in CHOICES]).replace(PROGRAM_NAME.title(), PROGRAM_NAME)
+WIDE_CHOICES_HELP = ", ".join([x.title() for x in WIDE_CHOICES]).replace(PROGRAM_NAME.title(), PROGRAM_NAME)
 
 WIDE_COMPONENT_ALIASES = {
     "accessories": "Accessories",
     "accessory": "Accessories",
     "ac": "Accessories",
+    "operating accessories": "Operating Accessories",
+    "operating accessory": "Operating Accessories",
+    "operating_accessories": "Operating Accessories",
+    "operating_accessory": "Operating Accessories",
+    "configured accessories": "Operating Accessories",
+    "configured accessory": "Operating Accessories",
+    "op accessories": "Operating Accessories",
+    "op accessory": "Operating Accessories",
+    "oa": "Operating Accessories",
     "motors": "Motors",
     "motor": "Motors",
     "mo": "Motors",
@@ -361,11 +372,11 @@ class MakeGui(_MakeBase):
         )
         wcomp.add_argument(
             "-initial",
-            type=UniqueChoice(CHOICES),
+            type=UniqueChoice(WIDE_CHOICES),
             nargs="?",
             const="power districts",
             default="power districts",
-            help=f"Initial Display (default: Power Districts, choices: {CHOICES_HELP})",
+            help=f"Initial Display (default: Power Districts, choices: {WIDE_CHOICES_HELP})",
         )
         wcomp.add_argument(
             "-label",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from tkinter import TclError
 from typing import Any, Iterable
 
@@ -19,6 +20,7 @@ from ..protocol.constants import PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
+OPERATING_ACCESSORIES_SCREEN = "Operating Accessories"
 
 
 class _WidePane:
@@ -169,6 +171,172 @@ class _WidePane:
         self.container = None
 
 
+class _OperatingAccessoriesGui(GuiZeroBase):
+    """
+    Wide-screen wrapper for configured operating accessories.
+
+    Uses the same configured accessory pipeline as AccessoryGui but renders
+    inside a pane and switches selections in-process.
+    """
+
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__
+
+    def __init__(
+        self,
+        label: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        scale_by: float = 1.0,
+        screens: int | None = None,  # accepted for compatibility with pane ctor
+        stand_alone: bool = False,
+        parent: Box | None = None,
+        full_screen: bool = False,
+        x_offset: int = 0,
+        y_offset: int = 0,
+        config_file: str | Path | None = None,
+        validate_config: bool = True,
+        verify_config: bool = False,
+        **_: Any,
+    ) -> None:
+        from ..gui.accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
+
+        if config_file is None:
+            config_file = DEFAULT_CONFIG_FILE
+
+        GuiZeroBase.__init__(
+            self,
+            title=OPERATING_ACCESSORIES_SCREEN,
+            width=width,
+            height=height,
+            scale_by=scale_by,
+            stand_alone=stand_alone,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
+        )
+        _ = screens  # keep signature aligned with other pane GUIs
+        self.label = label
+        self._show_title = True
+        self._parent = parent
+        self._root: Box | None = None
+        self._combo: Combo | None = None
+        self._content: Box | None = None
+        self._active_label: str | None = None
+        self._active_gui: Any = None
+        self._active_container: Box | None = None
+
+        self._configured = ConfiguredAccessorySet.from_file(
+            config_file,
+            validate=validate_config,
+            verify=verify_config,
+        )
+        self._accessories = self._configured.configured_all()
+        if not self._accessories:
+            raise ValueError(f"{OPERATING_ACCESSORIES_SCREEN}: no GUIs configured")
+
+        self._labels: list[str] = sorted([acc.label for acc in self._accessories])
+        self._acc_by_label = {acc.label: acc for acc in self._accessories}
+        if len(self._acc_by_label) != len(self._labels):
+            raise ValueError(f"{OPERATING_ACCESSORIES_SCREEN}: duplicate configured labels detected")
+
+        self._selected_label = self._labels[0]
+        self.init_complete()
+
+    @property
+    def guis(self) -> list[str]:
+        return list(self._labels)
+
+    def _on_combo_change(self, option: str) -> None:
+        self.cycle_gui(option)
+
+    def cycle_gui(self, gui: str) -> None:
+        if gui in self._acc_by_label:
+            self._show_accessory(gui)
+
+    def _teardown_active_gui(self) -> None:
+        if isinstance(self._active_gui, GuiZeroBase):
+            self._active_gui.destroy_gui()
+        self._active_gui = None
+        self.safe_destroy(self._active_container)
+        self._active_container = None
+        self._active_label = None
+
+    def _show_accessory(self, label: str) -> None:
+        if label not in self._acc_by_label:
+            return
+        if label == self._active_label:
+            return
+        if self._content is None:
+            return
+
+        self._teardown_active_gui()
+
+        cfg = self._acc_by_label[label]
+        gui = cfg.create_gui(aggregator=self)
+        gui.menu_label = cfg.label
+
+        container = Box(self._content, layout="grid", align="top")
+        gui.mount_gui(container, add_spacer=False)
+
+        self._active_gui = gui
+        self._active_container = container
+        self._active_label = label
+        self._selected_label = label
+        if self._combo:
+            self._combo.value = label
+
+    def build_gui(self) -> None:
+        app = self.app
+        gui_parent = self._parent if self._parent is not None else app
+        self._root = root = Box(gui_parent, layout="grid")
+        root.bg = "white"
+
+        row = 0
+        if self._show_title:
+            title = self.label or self.title
+            title_text = Text(root, text=title, grid=[0, row], bold=True)
+            title_text.text_size = int(round(22 * self._scale_by))
+            row += 1
+
+        if len(self._labels) > 1:
+            self._combo = Combo(
+                root,
+                options=self._labels,
+                selected=self._selected_label,
+                grid=[0, row],
+                command=self._on_combo_change,
+            )
+            self._combo.text_size = int(round(20 * self._scale_by))
+            self._combo.text_bold = True
+            row += 1
+        else:
+            self._combo = None
+
+        self._content = Box(root, layout="grid", grid=[0, row], align="top")
+        self._show_accessory(self._selected_label)
+
+    def destroy_gui(self) -> None:
+        self._teardown_active_gui()
+        for widget in [self._combo, self._content, self._root]:
+            self.safe_destroy(widget)
+        self._combo = None
+        self._content = None
+        self._root = None
+
+    def hide_gui(self) -> None:
+        if self._root:
+            self._root.hide()
+
+    def show_gui(self) -> None:
+        if self._root:
+            self._root.show()
+
+    def calc_image_box_size(self) -> tuple[int, int]:
+        return self.height, self.width
+
+
 class WideComponentStateGui(GuiZeroBase):
     """
     Wide-display compositor using a single guizero App.
@@ -213,6 +381,7 @@ class WideComponentStateGui(GuiZeroBase):
 
         self._all_guis = {
             "Accessories": AccessoriesGui,
+            OPERATING_ACCESSORIES_SCREEN: _OperatingAccessoriesGui,
             "Motors": MotorsGui,
             "Power Districts": PowerDistrictsGui,
             "Routes": RoutesGui,

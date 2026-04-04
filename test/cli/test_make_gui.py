@@ -23,6 +23,11 @@ def test_parse_wide_screen_set_accepts_alternate_delimiters() -> None:
     assert parsed == ["PyTrain Administration", "Switches"]
 
 
+def test_parse_wide_screen_set_accepts_operating_accessories_aliases() -> None:
+    parsed = MakeGui._parse_wide_screen_set("oa,accessories")
+    assert parsed == ["Operating Accessories", "Accessories"]
+
+
 def test_parse_wide_screen_set_rejects_unknown_component() -> None:
     with pytest.raises(ArgumentTypeError):
         _ = MakeGui._parse_wide_screen_set("routes,not_real")

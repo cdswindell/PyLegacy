@@ -190,3 +190,90 @@ def test_empty_config_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="no GUIs configured"):
         mod.AccessoryGui(width=100, height=100, config_file=path)
+
+
+def test_cycle_gui_updates_selection_and_sets_event(tmp_path: Path) -> None:
+    """
+    cycle_gui should select valid labels and signal the worker loop event.
+    """
+    config = [
+        {
+            "gui": "gas",
+            "type": "gas_station",
+            "variant": "v1",
+            "tmcc_ids": {"power": 7},
+            "instance_id": "A",
+            "display_name": "Alpha",
+        },
+        {
+            "gui": "gas",
+            "type": "gas_station",
+            "variant": "v1",
+            "tmcc_ids": {"power": 8},
+            "instance_id": "B",
+            "display_name": "Beta",
+        },
+    ]
+    path = tmp_path / "accessory_config.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+
+    gui = mod.AccessoryGui(width=100, height=100, config_file=path)
+    assert gui.requested_gui == "Alpha"
+    assert gui._ev.is_set() is False
+
+    gui.cycle_gui("Beta")
+
+    assert gui.requested_gui == "Beta"
+    assert gui._ev.is_set() is True
+
+
+def test_cycle_gui_ignores_unknown_label(tmp_path: Path) -> None:
+    """
+    cycle_gui should ignore unknown labels and not signal a GUI swap.
+    """
+    config = [
+        {
+            "gui": "gas",
+            "type": "gas_station",
+            "variant": "v1",
+            "tmcc_ids": {"power": 7},
+            "instance_id": "A",
+            "display_name": "Only One",
+        }
+    ]
+    path = tmp_path / "accessory_config.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+
+    gui = mod.AccessoryGui(width=100, height=100, config_file=path)
+    gui._ev.clear()
+    before = gui.requested_gui
+
+    gui.cycle_gui("Not Present")
+
+    assert gui.requested_gui == before
+    assert gui._ev.is_set() is False
+
+
+def test_create_gui_sets_aggregator_and_menu_label(tmp_path: Path) -> None:
+    """
+    _create_gui should construct with aggregator=self and apply resolved menu label.
+    """
+    config = [
+        {
+            "gui": "gas",
+            "type": "gas_station",
+            "variant": "v1",
+            "tmcc_ids": {"power": 7},
+            "instance_id": "A",
+            "display_name": "Gas A",
+        }
+    ]
+    path = tmp_path / "accessory_config.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+
+    gui = mod.AccessoryGui(width=100, height=100, config_file=path)
+    gui._create_gui("Gas A")
+
+    assert isinstance(gui._gui, DummyGui)
+    assert gui._gui.kwargs["aggregator"] is gui
+    assert gui._gui.menu_label == "Gas A"
