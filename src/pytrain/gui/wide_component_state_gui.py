@@ -354,6 +354,11 @@ class _OperatingAccessoriesGui(GuiZeroBase):
         gui_parent = self._parent if self._parent is not None else app
         self._root = root = Box(gui_parent, layout="grid")
         root.bg = "white"
+        if hasattr(root, "tk"):
+            try:
+                root.tk.grid_columnconfigure(0, weight=1, minsize=max(1, int(self.width)))
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
 
         row = 0
         header_widgets = []
@@ -393,6 +398,7 @@ class _OperatingAccessoriesGui(GuiZeroBase):
             try:
                 self._content.tk.configure(width=self.width, height=self._content_height)
                 self._content.tk.grid_propagate(False)
+                self._content.tk.grid_columnconfigure(0, weight=1, minsize=max(1, int(self.width)))
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
         self._show_accessory(self._selected_label)
