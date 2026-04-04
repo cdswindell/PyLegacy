@@ -289,14 +289,6 @@ class _OperatingAccessoriesGui(GuiZeroBase):
 
             # Size image to remaining vertical space after controls.
             self.app.tk.update_idletasks()
-            content_height = self.height
-            if hasattr(self._content, "tk"):
-                try:
-                    measured_content_height = int(self._content.tk.winfo_height())
-                    if measured_content_height > 16:
-                        content_height = measured_content_height
-                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-                    pass
 
             controls_height = 0
             if hasattr(controls, "tk"):
@@ -305,7 +297,9 @@ class _OperatingAccessoriesGui(GuiZeroBase):
                 except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                     controls_height = 0
 
-            available_image_height = max(1, content_height - controls_height - 8)
+            # Use pane height (stable) instead of content box height, which can
+            # collapse to control-only size before the image is added.
+            available_image_height = max(1, int(self.height) - controls_height - 8)
             available_image_width = max(1, self.width - 8)
 
             pic_width = pic_height = None

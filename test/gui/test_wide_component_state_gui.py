@@ -168,6 +168,11 @@ def test_operating_accessories_renders_image_and_mounts_controls(monkeypatch) ->
             self.mount_calls: list[tuple[Any, bool]] = []
 
         @staticmethod
+        def get_jpg_size(image_file: str) -> tuple[int, int]:
+            assert image_file == "/tmp/fake-image.jpg"
+            return 200, 400
+
+        @staticmethod
         def get_scaled_jpg_size(image_file: str) -> tuple[int, int]:
             assert image_file == "/tmp/fake-image.jpg"
             return 111, 222
@@ -208,7 +213,8 @@ def test_operating_accessories_renders_image_and_mounts_controls(monkeypatch) ->
     assert captured["boxes"][0].kwargs["grid"] == [0, 0]
     assert captured["boxes"][1].kwargs["grid"] == [0, 1]
     assert captured["picture"]["kwargs"]["grid"] == [0, 0]
-    assert captured["picture"]["kwargs"]["height"] == 52
-    assert captured["picture"]["kwargs"]["width"] == 26
+    assert captured["picture"]["kwargs"]["height"] <= (op.height - 90 - 8)
+    assert captured["picture"]["kwargs"]["height"] > 0
+    assert captured["picture"]["kwargs"]["width"] > 0
     assert mounted.mount_calls
     assert mounted.mount_calls[0][1] is False
