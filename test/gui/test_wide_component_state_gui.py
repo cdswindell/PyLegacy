@@ -197,6 +197,7 @@ def test_operating_accessories_renders_image_and_mounts_controls(monkeypatch) ->
     op.width = 320
     op._content = type("DummyContent", (), {"tk": type("DummyContentTk", (), {"winfo_height": lambda self: 150})()})()
     op._combo = None
+    op._content_height = None
     op._active_label = None
     op._active_gui = None
     op._active_container = None

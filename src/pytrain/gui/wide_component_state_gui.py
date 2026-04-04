@@ -224,6 +224,7 @@ class _OperatingAccessoriesGui(GuiZeroBase):
         self._root: Box | None = None
         self._combo: Combo | None = None
         self._content: Box | None = None
+        self._content_height: int | None = None
         self._active_label: str | None = None
         self._active_gui: Any = None
         self._active_container: Box | None = None
@@ -297,9 +298,20 @@ class _OperatingAccessoriesGui(GuiZeroBase):
                 except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                     controls_height = 0
 
-            # Use pane height (stable) instead of content box height, which can
-            # collapse to control-only size before the image is added.
-            available_image_height = max(1, int(self.height) - controls_height - 8)
+            content_height = (
+                self._content_height
+                if isinstance(self._content_height, int) and self._content_height > 0
+                else int(self.height)
+            )
+            if hasattr(self._content, "tk"):
+                try:
+                    measured = int(self._content.tk.winfo_height())
+                    if measured > 8:
+                        content_height = measured
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    pass
+
+            available_image_height = max(1, content_height - controls_height - 8)
             available_image_width = max(1, self.width - 8)
 
             pic_width = pic_height = None
@@ -344,10 +356,12 @@ class _OperatingAccessoriesGui(GuiZeroBase):
         root.bg = "white"
 
         row = 0
+        header_widgets = []
         if self._show_title:
             title = self.label or self.title
             title_text = Text(root, text=title, grid=[0, row], bold=True)
             title_text.text_size = int(round(22 * self._scale_by))
+            header_widgets.append(title_text)
             row += 1
 
         if len(self._labels) > 1:
@@ -360,11 +374,27 @@ class _OperatingAccessoriesGui(GuiZeroBase):
             )
             self._combo.text_size = int(round(20 * self._scale_by))
             self._combo.text_bold = True
+            header_widgets.append(self._combo)
             row += 1
         else:
             self._combo = None
 
         self._content = Box(root, layout="grid", grid=[0, row], align="top")
+        app.tk.update_idletasks()
+        header_height = 0
+        for widget in header_widgets:
+            if hasattr(widget, "tk"):
+                try:
+                    header_height += max(int(widget.tk.winfo_height()), int(widget.tk.winfo_reqheight()))
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    continue
+        self._content_height = max(1, int(self.height) - header_height - 6)
+        if hasattr(self._content, "tk"):
+            try:
+                self._content.tk.configure(width=self.width, height=self._content_height)
+                self._content.tk.grid_propagate(False)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
         self._show_accessory(self._selected_label)
 
     def destroy_gui(self) -> None:
