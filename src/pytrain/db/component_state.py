@@ -462,15 +462,15 @@ class LcsState(ComponentState, ABC):
 
     @property
     def board_id(self) -> int | None:
-        return self._info_req if self._info_req.board_id else None
+        return self._info_req.board_id if self._info_req else None
 
     @property
     def num_ids(self) -> int | None:
-        return self._info_req if self._info_req.num_ids else None
+        return self._info_req.num_ids if self._info_req else None
 
     @property
     def model(self) -> int | None:
-        return self._info_req if self._info_req.model else None
+        return self._info_req.model if self._info_req else None
 
 
 class LcsProxyState(LcsState, ABC):
@@ -582,19 +582,19 @@ class LcsProxyState(LcsState, ABC):
     def board_id(self) -> int | None:
         if self._parent:
             return self._parent.board_id
-        return self._info_req if self._info_req.board_id else None
+        return self._info_req.board_id if self._info_req else None
 
     @property
     def num_ids(self) -> int | None:
         if self._parent:
             return self._parent.num_ids
-        return self._info_req if self._info_req.num_ids else None
+        return self._info_req.num_ids if self._info_req else None
 
     @property
     def model(self) -> int | None:
         if self._parent:
             return self._parent.model
-        return self._info_req if self._info_req.model else None
+        return self._info_req.model if self._info_req else None
 
     @property
     def mode(self) -> int:

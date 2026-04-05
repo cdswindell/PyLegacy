@@ -15,7 +15,7 @@ import logging
 from abc import ABC
 from collections import defaultdict
 from enum import unique
-from typing import List, TypeVar
+from typing import Generic, List, TYPE_CHECKING, TypeVar
 
 from .amc2_req import Amc2Req
 from .asc2_req import Asc2Req
@@ -39,17 +39,43 @@ from .pdi_req import PdiReq
 from .stm2_req import Stm2Req
 from ..protocol.constants import CommandScope, Mixins
 
+if TYPE_CHECKING:  # pragma: no cover
+    from ..db.component_state import ComponentState
+
 T = TypeVar("T", bound=PdiReq)
+S = TypeVar("S", bound="ComponentState")
 
 log = logging.getLogger(__name__)
 
 
-class PdiDeviceConfig(ABC):
+class PdiDeviceConfig(ABC, Generic[S]):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, device: PdiDevice, cmd: T) -> None:
         self._device = device
         self._tmcc_id: int = cmd.tmcc_id if cmd is not None else 0
+
+    def __repr__(self) -> str:
+        fw = pt = ""
+        state = self.state
+        if state is not None:
+            if hasattr(state, "firmware"):
+                fw = f" firmware: {state.firmware}"
+            if hasattr(state, "num_ids"):
+                pt = f" ports: {state.num_ids}"
+        return f"{self.device.label} {self.tmcc_id}:{self.payload}{pt}{fw}"
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._device.scope
+
+    @property
+    def state(self) -> S | None:
+        from ..db.component_state_store import ComponentStateStore
+
+        if self.scope in {CommandScope.ACC, CommandScope.IRDA, CommandScope.SWITCH}:
+            return ComponentStateStore.get_state(self.scope, self.tmcc_id, False)
+        return None
 
     @property
     def device(self) -> PdiDevice:
@@ -60,11 +86,16 @@ class PdiDeviceConfig(ABC):
         return self._tmcc_id
 
     @property
+    def address(self) -> int:
+        return self.tmcc_id
+
+    @property
+    def payload(self) -> str:
+        return ""
+
+    @property
     @abc.abstractmethod
     def state_requests(self) -> List[T]: ...
-
-    def __repr__(self) -> str:
-        return f"{self.device.label} {self.tmcc_id}: "
 
 
 class Acs2DeviceConfig(PdiDeviceConfig):
@@ -72,8 +103,9 @@ class Acs2DeviceConfig(PdiDeviceConfig):
         super().__init__(PdiDevice.ASC2, cmd)
         self._mode = cmd.mode
 
-    def __repr__(self) -> str:
-        return f"{super().__repr__()}mode: {self.mode}"
+    @property
+    def payload(self) -> str:
+        return f" mode: {self.mode}"
 
     @property
     def mode(self) -> int:
@@ -115,8 +147,9 @@ class Bpc2DeviceConfig(PdiDeviceConfig):
         super().__init__(PdiDevice.BPC2, cmd)
         self._mode = cmd.mode
 
-    def __repr__(self) -> str:
-        return f"{super().__repr__()}mode: {self.mode}"
+    @property
+    def payload(self) -> str:
+        return f" mode: {self.mode}"
 
     @property
     def mode(self) -> int:
@@ -151,8 +184,9 @@ class Stm2DeviceConfig(PdiDeviceConfig):
         super().__init__(PdiDevice.STM2, cmd)
         self._mode = cmd.mode
 
-    def __repr__(self) -> str:
-        return f"{super().__repr__()}mode: {self.mode}"
+    @property
+    def payload(self) -> str:
+        return f" mode: {self.mode}"
 
     @property
     def mode(self) -> int:
@@ -205,6 +239,7 @@ class DeviceWrapper:
         enums: E = None,
         dev_class: DC = None,
         common_actions: bool = True,
+        scope: CommandScope = CommandScope.SYSTEM,
     ) -> None:
         self.req_class = req_class
         self.enums = enums
@@ -214,9 +249,14 @@ class DeviceWrapper:
         self.get: PdiCommand = self._harvest_command("GET")
         self.set: PdiCommand = self._harvest_command("SET")
         self.rx: PdiCommand = self._harvest_command("RX")
+        self._scope = scope
 
     def __repr__(self) -> str:
         return f"{self.req_class.__class__.__name__}"
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._scope
 
     def build(self, data: bytes | int, action: A = None) -> T:
         if isinstance(data, bytes):
@@ -310,14 +350,20 @@ class PdiDevice(Mixins, FriendlyMixins):
     from .wifi_req import WiFiReq
 
     BASE = DeviceWrapper(BaseReq)
-    D4 = DeviceWrapper(D4Req, enums=D4Action, common_actions=False)
+    D4 = DeviceWrapper(D4Req, enums=D4Action, common_actions=False, scope=CommandScope.ENGINE)
     PING = DeviceWrapper(PingReq)
     ALL = DeviceWrapper(AllReq, PdiCommand.ALL_GET, PdiCommand.ALL_SET)
     TMCC = DeviceWrapper(TmccReq, PdiCommand.TMCC_TX, PdiCommand.TMCC_RX)
     TMCC4 = DeviceWrapper(TmccReq, PdiCommand.TMCC4_TX, PdiCommand.TMCC4_RX)
     WIFI = DeviceWrapper(WiFiReq, PdiCommand.WIFI_GET, PdiCommand.WIFI_SET, PdiCommand.WIFI_RX, enums=WiFiAction)
     SER2 = DeviceWrapper(Ser2Req, PdiCommand.SER2_GET, PdiCommand.SER2_SET, PdiCommand.SER2_RX, enums=Ser2Action)
-    BLOCK = DeviceWrapper(BlockReq, PdiCommand.BLOCK_GET, PdiCommand.BLOCK_SET, PdiCommand.BLOCK_RX)
+    BLOCK = DeviceWrapper(
+        BlockReq,
+        PdiCommand.BLOCK_GET,
+        PdiCommand.BLOCK_SET,
+        PdiCommand.BLOCK_RX,
+        scope=CommandScope.BLOCK,
+    )
     IRDA = DeviceWrapper(
         IrdaReq,
         PdiCommand.IRDA_GET,
@@ -325,6 +371,7 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.IRDA_RX,
         enums=IrdaAction,
         dev_class=IrdaDeviceConfig,
+        scope=CommandScope.IRDA,
     )
     ASC2 = DeviceWrapper(
         Asc2Req,
@@ -333,6 +380,7 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.ASC2_RX,
         enums=Asc2Action,
         dev_class=Acs2DeviceConfig,
+        scope=CommandScope.ACC,
     )
     AMC2 = DeviceWrapper(
         Amc2Req,
@@ -341,6 +389,7 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.AMC2_RX,
         enums=Amc2Action,
         dev_class=Amc2DeviceConfig,
+        scope=CommandScope.ACC,
     )
     BPC2 = DeviceWrapper(
         Bpc2Req,
@@ -349,6 +398,7 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.BPC2_RX,
         enums=Bpc2Action,
         dev_class=Bpc2DeviceConfig,
+        scope=CommandScope.ACC,
     )
     STM2 = DeviceWrapper(
         Stm2Req,
@@ -357,6 +407,7 @@ class PdiDevice(Mixins, FriendlyMixins):
         PdiCommand.STM2_RX,
         enums=Stm2Action,
         dev_class=Stm2DeviceConfig,
+        scope=CommandScope.SWITCH,
     )
     UPDATE = DeviceWrapper(BaseReq)
 
@@ -374,6 +425,10 @@ class PdiDevice(Mixins, FriendlyMixins):
     @property
     def can_build_device(self) -> bool:
         return self.value.dev_class is not None
+
+    @property
+    def scope(self) -> CommandScope:
+        return self.value.scope
 
     def build_req(self, data: bytes | int, action: A = None) -> T:
         return self.value.build(data, action)

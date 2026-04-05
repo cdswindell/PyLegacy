@@ -29,6 +29,7 @@ from ..pdi.constants import (
     PdiCommand,
     Ser2Action,
     Stm2Action,
+    WiFiAction,
 )
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
@@ -181,6 +182,7 @@ class ClientStateListener(threading.Thread):
             (PdiCommand.IRDA_RX, IrdaAction.CONFIG),
             (PdiCommand.SER2_RX, Ser2Action.CONFIG),
             (PdiCommand.STM2_RX, Stm2Action.CONFIG),
+            (PdiCommand.WIFI_RX, WiFiAction.CONFIG),
         ):
             self._pdi_listener.subscribe(self, channel=dev[0], action=dev[1])
 
