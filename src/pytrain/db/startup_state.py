@@ -14,7 +14,7 @@ import logging
 import time
 from threading import Condition, Event, Thread
 
-from ..comm.command_listener import SYNC_COMPLETE, SYNCING, CommandDispatcher
+from ..comm.command_listener import CommandDispatcher, SYNCING, SYNC_COMPLETE
 from ..db.component_state_store import ComponentStateStore
 from ..pdi.amc2_req import Amc2StateSync
 from ..pdi.base_req import BaseReq
@@ -23,7 +23,7 @@ from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import AllReq, PdiReq
 from ..pdi.pdi_state_store import PdiStateStore
-from ..protocol.constants import PROGRAM_NAME, CommandScope
+from ..protocol.constants import CommandScope, PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 
@@ -143,14 +143,14 @@ class StartupState(Thread):
         self.pdi_listener.subscribe_any(self)
         self.pdi_listener.enqueue_command(AllReq())
         self.pdi_listener.enqueue_command(BaseReq(0, PdiCommand.BASE))
-        if not self._no_d4:
+        if self._no_d4:
+            log.info("Omitting 4-digit engines and trains...")
+        else:
             for pdi_command in [PdiCommand.D4_ENGINE]:  # TODO: , PdiCommand.D4_TRAIN
                 req = D4Req(0, pdi_command, D4Action.COUNT)
                 with self._cv:
                     self._waiting_for[req.as_key] = req
                 self.pdi_listener.enqueue_command(req)
-        else:
-            log.info("Omitting 4-digit engines and trains...")
         # Request engine/sw/acc roster at startup; do this by asking for
         # Eng/Train/Acc/Sw/Route then examining the rev links returned until
         # we find one out of range; make a request for each discovered entity

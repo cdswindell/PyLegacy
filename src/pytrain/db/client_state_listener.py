@@ -18,7 +18,19 @@ from typing import cast
 
 from ..comm.comm_buffer import CommBuffer, CommBufferProxy
 from ..comm.command_listener import CommandListener, Subscriber, Topic
-from ..pdi.constants import PDI_EOP, PDI_SOP, PDI_STF
+from ..pdi.constants import (
+    Amc2Action,
+    Asc2Action,
+    Bpc2Action,
+    IrdaAction,
+    PDI_EOP,
+    PDI_SOP,
+    PDI_STF,
+    PdiCommand,
+    Ser2Action,
+    Stm2Action,
+)
+from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
 
 log = logging.getLogger(__name__)
@@ -48,8 +60,12 @@ class ClientStateListener(threading.Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} ComponentStateListener")
         self._tmcc_listener = CommandListener.build(ser2_receiver=False, base3_receiver=False)
         from ..pdi.pdi_listener import PdiListener
+        from ..pdi.pdi_state_store import PdiStateStore
 
         self._pdi_listener = PdiListener.build(build_base3_reader=False)
+        self._pdi_state_store = PdiStateStore()
+        self._register_pdi_callbacks()
+
         self._tmcc_buffer = cast(CommBufferProxy, CommBuffer.build())
         self._port = self._tmcc_buffer.server_port()
         self._is_running: bool = True
@@ -78,6 +94,11 @@ class ClientStateListener(threading.Thread):
                 ClientStateListener._instance = super(ClientStateListener, cls).__new__(cls)
                 ClientStateListener._instance._initialized = False
             return ClientStateListener._instance
+
+    def __call__(self, cmd: PdiReq) -> None:
+        if isinstance(cmd, PdiReq):
+            self._pdi_state_store.register_pdi_device(cmd)
+            log.debug(f"ClientStateListener: {cmd}")
 
     @property
     def port(self) -> int:
@@ -151,6 +172,17 @@ class ClientStateListener(threading.Thread):
     ):
         self._tmcc_listener.unsubscribe(listener, channel, address, command, data)
         self._pdi_listener.unsubscribe(listener, channel, address)
+
+    def _register_pdi_callbacks(self):
+        for dev in (
+            (PdiCommand.ASC2_RX, Asc2Action.CONFIG),
+            (PdiCommand.AMC2_RX, Amc2Action.CONFIG),
+            (PdiCommand.BPC2_RX, Bpc2Action.CONFIG),
+            (PdiCommand.IRDA_RX, IrdaAction.CONFIG),
+            (PdiCommand.SER2_RX, Ser2Action.CONFIG),
+            (PdiCommand.STM2_RX, Stm2Action.CONFIG),
+        ):
+            self._pdi_listener.subscribe(self, channel=dev[0], action=dev[1])
 
 
 class ClientStateHandler(socketserver.BaseRequestHandler):

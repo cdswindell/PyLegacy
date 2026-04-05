@@ -18,7 +18,7 @@ import signal
 import socket
 import subprocess
 import sys
-from argparse import SUPPRESS, ArgumentError, ArgumentParser
+from argparse import ArgumentError, ArgumentParser, SUPPRESS
 from datetime import datetime, timedelta
 from queue import Empty, Queue
 from threading import Event, Thread, get_native_id
@@ -26,7 +26,7 @@ from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
 
-from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf, IPVersion
+from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
 from .acc import AccCli
 from .amc2 import Amc2Cli
@@ -54,7 +54,7 @@ from ..gpio.gpio_handler import GpioHandler
 from ..pdi.amc2_req import Amc2Req, Direction
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import PDI_SOP, Asc2Action, D4Action, PdiCommand
+from ..pdi.constants import Asc2Action, D4Action, PDI_SOP, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import AllReq, PdiReq
@@ -63,17 +63,17 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
     BROADCAST_TOPIC,
+    CommandScope,
     DEFAULT_BASE_PORT,
     DEFAULT_BAUDRATE,
     DEFAULT_PORT,
     DEFAULT_QUEUE_SIZE,
     DEFAULT_SERVER_PORT,
     DEFAULT_VALID_BAUDRATES,
+    Mixins,
     PROGRAM_NAME,
     SERVICE_NAME,
     SERVICE_TYPE,
-    CommandScope,
-    Mixins,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
@@ -126,7 +126,6 @@ class PyTrain:
         self._listener: CommandListener | ClientStateListener
         self._receiver = None
         self._state_store = None
-        self._pdi_store = None
         self._debug = args.debug
         self._echo = args.echo
         self._headless = args.headless
@@ -264,9 +263,8 @@ class PyTrain:
         self._dispatcher = CommandDispatcher.get()
 
         # load roster, only if server
-        self._pdi_state_store = None
+        self._pdi_state_store = PdiStateStore()
         if self._pdi_buffer is not None:
-            self._pdi_state_store = PdiStateStore()
             self._get_system_state(is_startup=True)
 
         # a bit of a hack, but remember on the class this instance of PyTrain is the current one
@@ -1139,7 +1137,8 @@ class PyTrain:
     def _do_db(self, param) -> None:
         try:
             if len(param) >= 1:
-                scope = CommandScope.by_prefix(param[0])
+                param0 = param[0].strip().lower()
+                scope = CommandScope.by_prefix(param0)
                 if scope is not None:
                     query = None
                     if len(param) > 1:
@@ -1170,6 +1169,22 @@ class PyTrain:
                         if no_data:
                             print("No data")
                         return
+                elif param0 == "lcs":
+                    from ..pdi.pdi_device import PdiDevice
+
+                    if len(param) > 1:
+                        dev = PdiDevice.by_prefix(param[1])
+                        if dev and dev in self._pdi_state_store:
+                            for config in self._pdi_state_store.get_all(dev):
+                                print(config)
+                            return
+                    else:
+                        keys = self._pdi_state_store.keys()
+                        if keys:
+                            for key in keys:
+                                num = len(self._pdi_state_store.keys(key))
+                                print(f"{key.label}s: {num}")
+                            return
             else:
                 keys = self._state_store.keys()
                 if keys:
@@ -1383,7 +1398,7 @@ class PyTrain:
         if agr is not None:
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(f"Sending {agr}...")
-            if self.is_server:
+            if self.is_server and self._pdi_buffer is not None:
                 self._pdi_buffer.enqueue_command(agr)
             else:
                 self._tmcc_buffer.enqueue_command(agr.as_bytes)

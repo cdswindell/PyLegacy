@@ -50,8 +50,23 @@ class PdiStateStore:
             self._initialized = True
         self._pdi_devices = SystemDeviceDict()
 
+    def __contains__(self, scope: PdiDevice) -> bool:
+        return scope in self._pdi_devices
+
     def register_pdi_device(self, cmd: PdiReq) -> List[T] | None:
         return self._pdi_devices.register_pdi_device(cmd)
+
+    def keys(self, scope: PdiDevice = None) -> List[PdiDevice] | List[int]:
+        if scope is None:
+            li = list(self._pdi_devices.keys())
+            li.sort(key=lambda x: x.label)
+        elif scope in self._pdi_devices:
+            states = self.get_all(scope)
+            li = list(s.tmcc_id for s in states)
+            li.sort()
+        else:
+            li = []
+        return li
 
     def query(self, scope: PdiDevice, address: int = None) -> T | List[T] | None:
         if scope in self._pdi_devices:
@@ -64,9 +79,9 @@ class PdiStateStore:
     def get_all(self, scope: PdiDevice) -> List[T]:
         if scope in self._pdi_devices:
             # ignore dups where we store an entry for the item's road number
-            valids = {v.address for k, v in self._pdi_devices[scope].items()}
+            valids = {v.tmcc_id for k, v in self._pdi_devices[scope].items()}
             devices = [v for k, v in self._pdi_devices[scope].items() if k in valids]
-            devices.sort(key=lambda x: x.address)
+            devices.sort(key=lambda x: x.tmcc_id)
             return devices
         else:
             return []

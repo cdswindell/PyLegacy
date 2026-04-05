@@ -63,11 +63,17 @@ class PdiDeviceConfig(ABC):
     @abc.abstractmethod
     def state_requests(self) -> List[T]: ...
 
+    def __repr__(self) -> str:
+        return f"{self.device.label} {self.tmcc_id}: "
+
 
 class Acs2DeviceConfig(PdiDeviceConfig):
     def __init__(self, cmd: Asc2Req) -> None:
         super().__init__(PdiDevice.ASC2, cmd)
         self._mode = cmd.mode
+
+    def __repr__(self) -> str:
+        return f"{super().__repr__()}mode: {self.mode}"
 
     @property
     def mode(self) -> int:
@@ -109,6 +115,9 @@ class Bpc2DeviceConfig(PdiDeviceConfig):
         super().__init__(PdiDevice.BPC2, cmd)
         self._mode = cmd.mode
 
+    def __repr__(self) -> str:
+        return f"{super().__repr__()}mode: {self.mode}"
+
     @property
     def mode(self) -> int:
         return self._mode
@@ -141,6 +150,9 @@ class Stm2DeviceConfig(PdiDeviceConfig):
     def __init__(self, cmd: Stm2Req) -> None:
         super().__init__(PdiDevice.STM2, cmd)
         self._mode = cmd.mode
+
+    def __repr__(self) -> str:
+        return f"{super().__repr__()}mode: {self.mode}"
 
     @property
     def mode(self) -> int:

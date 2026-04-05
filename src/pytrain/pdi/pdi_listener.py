@@ -21,9 +21,9 @@ from typing import Generic, Tuple
 from .base_req import BaseReq
 from .constants import PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
 from .pdi_req import PdiReq, TmccReq
-from ..comm.command_listener import SYNC_COMPLETE, Channel, CommandDispatcher, Message, Subscriber, Topic
+from ..comm.command_listener import Channel, CommandDispatcher, Message, SYNC_COMPLETE, Subscriber, Topic
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-from ..protocol.constants import BROADCAST_TOPIC, DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, PROGRAM_NAME, CommandScope
+from ..protocol.constants import BROADCAST_TOPIC, CommandScope, DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, PROGRAM_NAME
 from ..utils.ip_tools import get_ip_address
 
 log = logging.getLogger(__name__)
