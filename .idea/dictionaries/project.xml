@@ -15,6 +15,7 @@
       <w>autoremove</w>
       <w>baudrate</w>
       <w>baudrates</w>
+      <w>bluealsa</w>
       <w>btid</w>
       <w>btns</w>
       <w>caap</w>
@@ -22,6 +23,7 @@
       <w>citgo</w>
       <w>cplr</w>
       <w>ctors</w>
+      <w>cupsd</w>
       <w>dairymens</w>
       <w>dcds</w>
       <w>debounces</w>
@@ -30,6 +32,8 @@
       <w>disablers</w>
       <w>disambig</w>
       <w>disambiguates</w>
+      <w>dtoverlay</w>
+      <w>dtparam</w>
       <w>dups</w>
       <w>ebuf</w>
       <w>esso</w>
@@ -38,14 +42,24 @@
       <w>gethostbyname</w>
       <w>gethostname</w>
       <w>getifaddr</w>
+      <w>gvfs</w>
+      <w>hciuart</w>
       <w>hexid</w>
       <w>hpad</w>
+      <w>labwc</w>
       <w>lcsser</w>
+      <w>libcups</w>
+      <w>libegl</w>
+      <w>libgallium</w>
+      <w>libgl</w>
+      <w>lightdm</w>
       <w>lineville</w>
       <w>lionelbase</w>
       <w>lionelville</w>
       <w>lpgl</w>
+      <w>mailcap</w>
       <w>maxlen</w>
+      <w>modemmanager</w>
       <w>mome</w>
       <w>myhost</w>
       <w>nodash</w>
@@ -54,6 +68,7 @@
       <w>padx</w>
       <w>pady</w>
       <w>pendings</w>
+      <w>piconfig</w>
       <w>powermaster</w>
       <w>pullmor</w>
       <w>pytrainhome</w>
@@ -64,9 +79,12 @@
       <w>retryhost</w>
       <w>returncode</w>
       <w>rnum</w>
+      <w>rpicam</w>
       <w>setsid</w>
       <w>settimeout</w>
+      <w>squeekboard</w>
       <w>sunoco</w>
+      <w>svsc</w>
       <w>tids</w>
       <w>titlebox</w>
       <w>tk’s</w>
@@ -75,6 +93,7 @@
       <w>userhome</w>
       <w>valids</w>
       <w>vpad</w>
+      <w>wayvnc</w>
       <w>weakref</w>
     </words>
   </dictionary>
