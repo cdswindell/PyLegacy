@@ -367,8 +367,15 @@ class MotorsGui(StateBasedGui):
         control_width: int,
     ) -> OutputWidgets:
         container = Box(parent, layout="grid", grid=[col, 0], align="top")
+        container_height = max(
+            180,
+            slider_height + max(72, int(round(88 * self._scale_by))),
+        )
         try:
-            container.tk.configure(width=control_width)
+            container.tk.configure(width=control_width, height=container_height)
+            container.tk.grid_propagate(False)
+            container.tk.grid_rowconfigure(2, weight=1)
+            container.tk.grid_columnconfigure(0, weight=1)
             container.tk.grid_configure(padx=max(2, int(round(4 * self._scale_by))))
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
@@ -456,30 +463,38 @@ class MotorsGui(StateBasedGui):
             card.tk.grid_propagate(False)
             card.tk.grid_rowconfigure(0, weight=0)
             card.tk.grid_rowconfigure(1, weight=1)
+            card.tk.grid_columnconfigure(0, weight=1)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         widgets.append(card)
 
-        title = Text(card, text=f"#{pd.tmcc_id} {pd.road_name}", grid=[0, 0, 6, 1], bold=True, size=self.s_20)
+        title = Text(card, text=f"#{pd.tmcc_id} {pd.road_name}", grid=[0, 0], align="top", bold=True, size=self.s_20)
+        try:
+            title.tk.configure(anchor="center", justify="center")
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
         widgets.append(title)
 
-        controls = Box(card, layout="grid", grid=[0, 1, 6, 1], align="top")
+        controls = Box(card, layout="grid", grid=[0, 1], align="top")
         widgets.append(controls)
 
         self.app.update()
         title_height = max(int(title.tk.winfo_reqheight()), int(title.tk.winfo_height()))
         controls_height = max(140, panel_height - title_height - int(round(14 * self._scale_by)))
-        try:
-            controls.tk.configure(height=controls_height)
-            controls.tk.grid_propagate(False)
-        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-            pass
-
-        slider_height = self._calc_slider_height_for_controls(controls_height)
         control_width = max(
             58,
             int((panel_width - int(round(12 * self._scale_by))) / len(OUTPUT_ORDER)),
         )
+        try:
+            controls.tk.configure(width=panel_width, height=controls_height)
+            controls.tk.grid_propagate(False)
+            controls.tk.grid_rowconfigure(0, weight=1)
+            for idx in range(len(OUTPUT_ORDER)):
+                controls.tk.grid_columnconfigure(idx, weight=1, minsize=control_width)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+
+        slider_height = self._calc_slider_height_for_controls(controls_height)
         by_output: dict[tuple[str, int], OutputWidgets] = {}
 
         for idx, (output_type, output_id, label) in enumerate(OUTPUT_ORDER):
