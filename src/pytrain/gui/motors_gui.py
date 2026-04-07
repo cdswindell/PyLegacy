@@ -352,6 +352,22 @@ class MotorsGui(StateBasedGui):
         overhead = max(88, int(round(94 * self._scale_by)))
         return max(120, controls_height - overhead)
 
+    def _hidden_nav_vertical_reclaim(self) -> int:
+        heights: list[int] = []
+        for widget in (self.by_name, self.by_number, self.left_scroll_btn, self.right_scroll_btn):
+            if not widget or not hasattr(widget, "tk"):
+                continue
+            try:
+                h = max(int(widget.tk.winfo_height()), int(widget.tk.winfo_reqheight()))
+                if h > 0:
+                    heights.append(h)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
+        if not heights:
+            return 0
+        # reclaim the hidden button rows plus a small spacer gap
+        return max(heights) + int(round(18 * self._scale_by))
+
     def _build_output(
         self,
         parent: Box,
@@ -454,7 +470,12 @@ class MotorsGui(StateBasedGui):
 
         widgets: list[Widget | Box] = []
         panel_width = max(360, int(self.width - int(round(20 * self._scale_by))))
-        panel_height = max(260, int(self.height - self.y_offset - int(round(8 * self._scale_by))))
+        reclaim = self._hidden_nav_vertical_reclaim()
+        panel_height = max(
+            260,
+            int(self.height - self.y_offset - int(round(8 * self._scale_by)) + reclaim),
+        )
+        panel_height = min(panel_height, int(self.height - int(round(12 * self._scale_by))))
         card = Box(self.btn_box, layout="grid", grid=[col, row], align="top", border=1)
         card.bg = "white"
         try:
