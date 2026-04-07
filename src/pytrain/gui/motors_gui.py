@@ -187,7 +187,7 @@ class MotorsGui(StateBasedGui):
     def _set_toggle_button_state(self, output: OutputWidgets, is_active: bool) -> None:
         output.toggle_btn.text = output.label
         output.toggle_btn.bg = BUTTON_ON_BG if is_active else BUTTON_OFF_BG
-        output.toggle_btn.text_color = "black"
+        output.toggle_btn.text_color = "white" if is_active else "black"
 
     def _set_level_ui(self, output: OutputWidgets, value: int) -> None:
         normalized = self._normalize_level(value)
