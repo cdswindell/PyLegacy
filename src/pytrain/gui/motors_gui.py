@@ -349,6 +349,10 @@ class MotorsGui(StateBasedGui):
         overhead = max(120, int(round(135 * self._scale_by)))
         return max(110, available - overhead)
 
+    def _calc_slider_height_for_controls(self, controls_height: int) -> int:
+        overhead = max(88, int(round(94 * self._scale_by)))
+        return max(120, controls_height - overhead)
+
     def _build_output(
         self,
         parent: Box,
@@ -365,6 +369,7 @@ class MotorsGui(StateBasedGui):
         container = Box(parent, layout="grid", grid=[col, 0], align="top")
         try:
             container.tk.configure(width=control_width)
+            container.tk.grid_configure(padx=max(2, int(round(4 * self._scale_by))))
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         toggle_btn = HoldButton(
@@ -375,7 +380,7 @@ class MotorsGui(StateBasedGui):
             padx=max(2, int(round(4 * self._scale_by))),
             pady=max(2, int(round(3 * self._scale_by))),
         )
-        toggle_btn.text_size = int(round(11 * self._scale_by))
+        toggle_btn.text_size = int(round(14 * self._scale_by))
         toggle_btn.text_bold = True
         level_box = Text(
             container,
@@ -396,7 +401,7 @@ class MotorsGui(StateBasedGui):
             align="top",
             horizontal=False,
             step=OUTPUT_STEP,
-            width=max(16, int(round(control_width * 0.36))),
+            width=max(18, int(round(control_width * 0.30))),
             height=slider_height,
             command=self._slider_change_handler(tmcc_id, output_type, output_id),
         )
@@ -442,11 +447,15 @@ class MotorsGui(StateBasedGui):
         self._making_buttons = True
 
         widgets: list[Widget | Box] = []
-        panel_width = max(320, int(self.width / max(1, self._visible_button_cols)))
+        panel_width = max(360, int(self.width - int(round(20 * self._scale_by))))
+        panel_height = max(260, int(self.height - self.y_offset - int(round(8 * self._scale_by))))
         card = Box(self.btn_box, layout="grid", grid=[col, row], align="top", border=1)
         card.bg = "white"
         try:
-            card.tk.configure(width=panel_width)
+            card.tk.configure(width=panel_width, height=panel_height)
+            card.tk.grid_propagate(False)
+            card.tk.grid_rowconfigure(0, weight=0)
+            card.tk.grid_rowconfigure(1, weight=1)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         widgets.append(card)
@@ -457,10 +466,19 @@ class MotorsGui(StateBasedGui):
         controls = Box(card, layout="grid", grid=[0, 1, 6, 1], align="top")
         widgets.append(controls)
 
-        slider_height = self._calc_slider_height()
+        self.app.update()
+        title_height = max(int(title.tk.winfo_reqheight()), int(title.tk.winfo_height()))
+        controls_height = max(140, panel_height - title_height - int(round(14 * self._scale_by)))
+        try:
+            controls.tk.configure(height=controls_height)
+            controls.tk.grid_propagate(False)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+
+        slider_height = self._calc_slider_height_for_controls(controls_height)
         control_width = max(
-            52,
-            int((panel_width - int(round(24 * self._scale_by))) / len(OUTPUT_ORDER)),
+            58,
+            int((panel_width - int(round(12 * self._scale_by))) / len(OUTPUT_ORDER)),
         )
         by_output: dict[tuple[str, int], OutputWidgets] = {}
 
