@@ -14,9 +14,10 @@ from dataclasses import dataclass
 from tkinter import TclError
 from typing import cast
 
-from guizero import Box, PushButton, Slider, Text, TitleBox
+from guizero import Box, Slider, Text
 from guizero.base import Widget
 
+from .components.hold_button import HoldButton
 from .state_based_gui import S
 from ..db.accessory_state import AccessoryState
 from ..gui.component_state_gui import ComponentStateGui
@@ -37,20 +38,22 @@ OUTPUT_ORDER: list[tuple[str, int, str]] = [
     ("lamp", 4, "Light #4"),
 ]
 OUTPUT_STEP = 5
+BUTTON_ON_BG = "green"
+BUTTON_OFF_BG = "lightgrey"
 
 
 @dataclass(slots=True)
 class OutputWidgets:
     container: Box
-    title_box: TitleBox
-    toggle_btn: PushButton
+    toggle_btn: HoldButton
     level_box: Text
     slider: Slider
     output_type: str
     output_id: int
+    label: str
 
     def widgets(self) -> list[Widget]:
-        return [self.container, self.title_box, self.toggle_btn, self.level_box, self.slider]
+        return [self.container, self.toggle_btn, self.level_box, self.slider]
 
 
 class MotorsGui(StateBasedGui):
@@ -90,7 +93,25 @@ class MotorsGui(StateBasedGui):
         self._last_non_zero_lamp_level: dict[tuple[int, int], int] = {}
         self._suspended_slider_callbacks: set[tuple[int, str, int]] = set()
 
+    def build_gui(self) -> None:
+        super().build_gui()
+        self._hide_nav_controls()
+        self.app.update()
+        self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
+        if self.sort_func:
+            states = sorted(self._states.values(), key=self.sort_func)
+            self._make_state_buttons(states)
+
+    def _hide_nav_controls(self) -> None:
+        for widget in (self.left_scroll_btn, self.right_scroll_btn, self.by_name, self.by_number):
+            if widget:
+                try:
+                    widget.hide()
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    pass
+
     def _post_process_state_buttons(self) -> None:
+        self._hide_nav_controls()
         self.app.after(150, self.clear_making_buttons)
 
     def clear_making_buttons(self) -> None:
@@ -164,11 +185,9 @@ class MotorsGui(StateBasedGui):
             pass
 
     def _set_toggle_button_state(self, output: OutputWidgets, is_active: bool) -> None:
-        output.toggle_btn.text = "On" if is_active else "Off"
-        if is_active:
-            self.set_button_active(output.toggle_btn)
-        else:
-            self.set_button_inactive(output.toggle_btn)
+        output.toggle_btn.text = output.label
+        output.toggle_btn.bg = BUTTON_ON_BG if is_active else BUTTON_OFF_BG
+        output.toggle_btn.text_color = "black"
 
     def _set_level_ui(self, output: OutputWidgets, value: int) -> None:
         normalized = self._normalize_level(value)
@@ -277,8 +296,12 @@ class MotorsGui(StateBasedGui):
                 self._last_non_zero_lamp_level[(tmcc_id, lamp)] = current_level
                 target = 0
             else:
-                remembered = self._last_non_zero_lamp_level.get((tmcc_id, lamp))
-                target = remembered if remembered and remembered > 0 else 100
+                target = 100
+            output = self._output_by_tmcc.get(tmcc_id, {}).get(("lamp", lamp))
+            if output is not None:
+                self._set_level_ui(output, target)
+                self._style_slider(output.slider, target > 0)
+                self._set_toggle_button_state(output, target > 0)
         self.set_lamp_state(tmcc_id, lamp, target)
 
     def _on_slider_change(self, tmcc_id: int, output_type: str, output_id: int, value) -> None:
@@ -315,6 +338,12 @@ class MotorsGui(StateBasedGui):
         else:
             self.set_lamp_state(tmcc_id, output_id, value)
 
+    def _slider_change_handler(self, tmcc_id: int, output_type: str, output_id: int):
+        def on_change(value):
+            self._on_slider_change(tmcc_id, output_type, output_id, value)
+
+        return on_change
+
     def _calc_slider_height(self) -> int:
         available = max(200, int(self.height - self.y_offset - int(round(16 * self._scale_by))))
         overhead = max(120, int(round(135 * self._scale_by)))
@@ -338,22 +367,19 @@ class MotorsGui(StateBasedGui):
             container.tk.configure(width=control_width)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
-        title_box = TitleBox(container, label, grid=[0, 0], align="top", border=1)
-        title_box.text_size = int(round(10 * self._scale_by))
-        try:
-            title_box.tk.configure(width=control_width)
-        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-            pass
-        toggle_btn = PushButton(
-            title_box,
-            text="Off",
+        toggle_btn = HoldButton(
+            container,
+            text=label,
+            grid=[0, 0],
             align="top",
             padx=max(2, int(round(4 * self._scale_by))),
             pady=max(2, int(round(3 * self._scale_by))),
         )
         toggle_btn.text_size = int(round(11 * self._scale_by))
+        toggle_btn.text_bold = True
         level_box = Text(
-            title_box,
+            container,
+            grid=[0, 1],
             text=self._format_level(level),
             color="black",
             align="top",
@@ -365,13 +391,14 @@ class MotorsGui(StateBasedGui):
         level_box.bg = "black"
         level_box.text_color = "white"
         slider = Slider(
-            title_box,
+            container,
+            grid=[0, 2],
             align="top",
             horizontal=False,
             step=OUTPUT_STEP,
             width=max(16, int(round(control_width * 0.36))),
             height=slider_height,
-            command=lambda v, tid=tmcc_id, t=output_type, idx=output_id: self._on_slider_change(tid, t, idx, v),
+            command=self._slider_change_handler(tmcc_id, output_type, output_id),
         )
         slider.tk.config(
             from_=100,
@@ -398,12 +425,12 @@ class MotorsGui(StateBasedGui):
 
         output = OutputWidgets(
             container=container,
-            title_box=title_box,
             toggle_btn=toggle_btn,
             level_box=level_box,
             slider=slider,
             output_type=output_type,
             output_id=output_id,
+            label=label,
         )
         self._set_level_ui(output, level)
         self._set_toggle_button_state(output, is_active)
