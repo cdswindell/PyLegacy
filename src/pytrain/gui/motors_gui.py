@@ -96,11 +96,10 @@ class MotorsGui(StateBasedGui):
     def build_gui(self) -> None:
         super().build_gui()
         self._hide_nav_controls()
-        self.app.update()
+        self.app.tk.update_idletasks()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
-        if self.sort_func:
-            states = sorted(self._states.values(), key=self.sort_func)
-            self._make_state_buttons(states)
+        # Failsafe: never leave controls non-interactive if post-process callback stalls.
+        self.app.after(2000, self.clear_making_buttons)
 
     def _hide_nav_controls(self) -> None:
         for widget in (self.left_scroll_btn, self.right_scroll_btn, self.by_name, self.by_number):
@@ -478,7 +477,7 @@ class MotorsGui(StateBasedGui):
         controls = Box(card, layout="grid", grid=[0, 1], align="top")
         widgets.append(controls)
 
-        self.app.update()
+        self.app.tk.update_idletasks()
         title_height = max(int(title.tk.winfo_reqheight()), int(title.tk.winfo_height()))
         controls_height = max(140, panel_height - title_height - int(round(14 * self._scale_by)))
         control_width = max(
@@ -526,7 +525,7 @@ class MotorsGui(StateBasedGui):
 
         self._output_by_tmcc[pd.tmcc_id] = by_output
 
-        self.app.update()
-        btn_h = card.tk.winfo_height()
+        self.app.tk.update_idletasks()
+        btn_h = max(int(card.tk.winfo_height()), int(card.tk.winfo_reqheight()))
         btn_y = card.tk.winfo_y() + btn_h
         return widgets, btn_h, btn_y
