@@ -1,28 +1,56 @@
 #
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
 #
-#  Copyright (c) 2024-2025 Dave Swindell <pytraininfo.gmail.com>
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #
-#  SPDX-License-Identifier: LPGL
-#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
 #
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from dataclasses import dataclass
+from tkinter import TclError
 from typing import cast
 
-from guizero import PushButton, Slider, Text
+from guizero import Box, PushButton, Slider, Text, TitleBox
 from guizero.base import Widget
 
 from .state_based_gui import S
 from ..db.accessory_state import AccessoryState
 from ..gui.component_state_gui import ComponentStateGui
+from ..gui.guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 from ..gui.state_based_gui import StateBasedGui
 from ..pdi.amc2_req import Amc2Req
 from ..pdi.constants import Amc2Action, PdiCommand
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+
+OUTPUT_ORDER: list[tuple[str, int, str]] = [
+    ("motor", 1, "Motor #1"),
+    ("motor", 2, "Motor #2"),
+    ("lamp", 1, "Light #1"),
+    ("lamp", 2, "Light #2"),
+    ("lamp", 3, "Light #3"),
+    ("lamp", 4, "Light #4"),
+]
+OUTPUT_STEP = 5
+
+
+@dataclass(slots=True)
+class OutputWidgets:
+    container: Box
+    title_box: TitleBox
+    toggle_btn: PushButton
+    level_box: Text
+    slider: Slider
+    output_type: str
+    output_id: int
+
+    def widgets(self) -> list[Widget]:
+        return [self.container, self.title_box, self.toggle_btn, self.level_box, self.slider]
 
 
 class MotorsGui(StateBasedGui):
@@ -58,9 +86,12 @@ class MotorsGui(StateBasedGui):
             y_offset=y_offset,
         )
         self._making_buttons = True
+        self._output_by_tmcc: dict[int, dict[tuple[str, int], OutputWidgets]] = {}
+        self._last_non_zero_lamp_level: dict[tuple[int, int], int] = {}
+        self._suspended_slider_callbacks: set[tuple[int, str, int]] = set()
 
     def _post_process_state_buttons(self) -> None:
-        self.app.after(500, self.clear_making_buttons)
+        self.app.after(150, self.clear_making_buttons)
 
     def clear_making_buttons(self) -> None:
         self._making_buttons = False
@@ -68,6 +99,11 @@ class MotorsGui(StateBasedGui):
     @property
     def is_making_buttons(self) -> bool:
         return self._making_buttons
+
+    def _reset_state_buttons(self) -> None:
+        self._output_by_tmcc.clear()
+        self._suspended_slider_callbacks.clear()
+        super()._reset_state_buttons()
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
@@ -78,222 +114,361 @@ class MotorsGui(StateBasedGui):
         return pds
 
     def is_active(self, state: AccessoryState) -> bool:
+        _ = state
         return False
 
     def switch_state(self, pd: AccessoryState) -> None:
-        pass
+        _ = pd
 
-    # noinspection PyTypeChecker
-    def update_button(self, state: S) -> None:
-        with self._cv:
-            tmcc_id = state.tmcc_id
-            # noinspection PyUnnecessaryCast
-            pd = cast(AccessoryState, state)
-            widgets = self._state_buttons[tmcc_id]
-            if isinstance(widgets, list):
-                for widget in widgets:
-                    motor = getattr(widget, "motor", None)
-                    lamp = getattr(widget, "lamp", None)
-                    if isinstance(widget, PushButton) and motor in {1, 2}:
-                        if self.is_motor_active(pd, motor):
-                            self.set_button_active(widget)
-                        else:
-                            self.set_button_inactive(widget)
-                    if isinstance(widget, PushButton) and lamp in {1, 2, 3, 4}:
-                        if self.is_lamp_active(pd, lamp):
-                            self.set_button_active(widget)
-                        else:
-                            self.set_button_inactive(widget)
-                    if isinstance(widget, Slider) and motor in {1, 2}:
-                        motor_state = pd.get_motor(motor)
-                        if widget.value != motor_state.speed if motor_state else 0:
-                            widget.value = motor_state.speed if motor_state else 0.0
-                        widget.bg = self._enabled_bg if self.is_motor_active(pd, motor) else "lightgrey"
-                    if isinstance(widget, Slider) and lamp in {1, 2, 3, 4}:
-                        lamp_state = pd.get_lamp(lamp)
-                        if widget.value != lamp_state.level if lamp_state else 0:
-                            widget.value = lamp_state.level if lamp_state else 0.0
-                        widget.bg = self._enabled_bg if self.is_lamp_active(pd, lamp) else "lightgrey"
+    @staticmethod
+    def _normalize_level(value: int | float | str) -> int:
+        try:
+            raw = int(float(value))
+        except (TypeError, ValueError):
+            return 0
+        clipped = min(100, max(0, raw))
+        remainder = clipped % OUTPUT_STEP
+        if remainder == 0:
+            return clipped
+        down = clipped - remainder
+        up = down + OUTPUT_STEP
+        return min(100, up) if (clipped - down) >= (up - clipped) else down
+
+    @staticmethod
+    def _format_level(value: int) -> str:
+        return f"{max(0, min(100, value)):03d}"
 
     @staticmethod
     def is_motor_active(state: AccessoryState, motor: int) -> bool:
-        return state.is_motor_on(state.motor2 if motor == 2 else state.motor1)
+        motor_state = state.motor2 if motor == 2 else state.motor1
+        return state.is_motor_on(motor_state)
 
     @staticmethod
     def is_lamp_active(state: AccessoryState, lamp: int) -> bool:
         lamp_state = state.get_lamp(lamp)
-        return lamp_state and lamp_state.level > 0
+        return bool(lamp_state and lamp_state.level > 0)
+
+    def _state_for_tmcc(self, tmcc_id: int) -> AccessoryState | None:
+        for state in self._states.values():
+            if isinstance(state, AccessoryState) and state.tmcc_id == tmcc_id and state.scope == CommandScope.ACC:
+                return state
+        return None
+
+    @staticmethod
+    def _style_slider(slider: Slider, is_active: bool) -> None:
+        trough = LIONEL_BLUE if is_active else "lightgrey"
+        try:
+            slider.bg = "white"
+            slider.tk.config(troughcolor=trough)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+
+    def _set_toggle_button_state(self, output: OutputWidgets, is_active: bool) -> None:
+        output.toggle_btn.text = "On" if is_active else "Off"
+        if is_active:
+            self.set_button_active(output.toggle_btn)
+        else:
+            self.set_button_inactive(output.toggle_btn)
+
+    def _set_level_ui(self, output: OutputWidgets, value: int) -> None:
+        normalized = self._normalize_level(value)
+        callback_key = (getattr(output.slider, "tmcc_id", 0), output.output_type, output.output_id)
+        if self._normalize_level(output.slider.value) != normalized:
+            # noinspection PyArgumentList
+            with self._suspend_slider_callback(callback_key):
+                output.slider.value = normalized
+        output.level_box.value = self._format_level(normalized)
+
+    @contextmanager
+    def _suspend_slider_callback(self, callback_key: tuple[int, str, int]):
+        self._suspended_slider_callbacks.add(callback_key)
+        try:
+            yield
+        finally:
+            self._suspended_slider_callbacks.discard(callback_key)
+
+    @staticmethod
+    def _is_slider_focused(slider: Slider) -> bool:
+        try:
+            return slider.tk.focus_displayof() == slider.tk
+        except (AttributeError, RuntimeError, TclError):
+            return False
+
+    # noinspection PyTypeChecker
+    def update_button(self, state: S) -> None:
+        with self._cv:
+            pd = cast(AccessoryState, state)
+            outputs = self._output_by_tmcc.get(pd.tmcc_id, {})
+            for (output_type, output_id), output in outputs.items():
+                if output_type == "motor":
+                    motor_state = pd.get_motor(output_id)
+                    level = motor_state.speed if motor_state else 0
+                    is_active = self.is_motor_active(pd, output_id)
+                else:
+                    lamp_state = pd.get_lamp(output_id)
+                    level = lamp_state.level if lamp_state else 0
+                    is_active = self.is_lamp_active(pd, output_id)
+                    if level > 0:
+                        self._last_non_zero_lamp_level[(pd.tmcc_id, output_id)] = level
+
+                self._set_toggle_button_state(output, is_active)
+                self._style_slider(output.slider, is_active)
+
+                if not self._is_slider_focused(output.slider):
+                    self._set_level_ui(output, level)
+                else:
+                    output.level_box.value = self._format_level(self._normalize_level(output.slider.value))
 
     def set_motor_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         if self._making_buttons:
             return
         with self._cv:
-            pd: AccessoryState = self._states[tmcc_id]
+            pd = self._state_for_tmcc(tmcc_id)
+            if pd is None:
+                return
+            motor_state = pd.get_motor(motor)
+            current = motor_state.speed if motor_state else 0
             if speed is None:
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
                 if self.is_motor_active(pd, motor):
                     CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
                 else:
                     CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
-            elif speed != (pd.motor1.speed if motor == 1 else pd.motor2.speed):
-                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor - 1, speed=speed).send()
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
-                if speed:
-                    CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
-                else:
-                    CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
+                return
 
-    def set_lamp_state(self, tmcc_id: int, lamp: int, level: int = None) -> None:
+            normalized = self._normalize_level(speed)
+            if current == normalized:
+                return
+            Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.MOTOR, motor=motor - 1, speed=normalized).send()
+            CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=motor).send()
+            if normalized > 0:
+                CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, tmcc_id).send()
+            else:
+                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, tmcc_id).send()
+
+    def set_lamp_state(self, tmcc_id: int, lamp: int, level: int) -> None:
         if self._making_buttons:
             return
         with self._cv:
-            pd: AccessoryState = self._states[tmcc_id]
+            pd = self._state_for_tmcc(tmcc_id)
+            if pd is None:
+                return
             lamp_state = pd.get_lamp(lamp)
-            if level is None:
-                if self.is_lamp_active(pd, lamp):
-                    Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=0).send()
-                else:
-                    Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=100).send()
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
-            elif level != lamp_state.level:
-                Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=level).send()
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
+            current = lamp_state.level if lamp_state else 0
+            normalized = self._normalize_level(level)
+            if normalized == current:
+                return
+            if normalized > 0:
+                self._last_non_zero_lamp_level[(tmcc_id, lamp)] = normalized
+            Amc2Req(tmcc_id, PdiCommand.AMC2_SET, Amc2Action.LAMP, lamp=lamp - 1, level=normalized).send()
+            CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
+
+    def toggle_motor_state(self, tmcc_id: int, motor: int) -> None:
+        self.set_motor_state(tmcc_id, motor, None)
+
+    def toggle_lamp_state(self, tmcc_id: int, lamp: int) -> None:
+        with self._cv:
+            pd = self._state_for_tmcc(tmcc_id)
+            if pd is None:
+                return
+            lamp_state = pd.get_lamp(lamp)
+            current_level = lamp_state.level if lamp_state else 0
+            if current_level > 0:
+                self._last_non_zero_lamp_level[(tmcc_id, lamp)] = current_level
+                target = 0
+            else:
+                remembered = self._last_non_zero_lamp_level.get((tmcc_id, lamp))
+                target = remembered if remembered and remembered > 0 else 100
+        self.set_lamp_state(tmcc_id, lamp, target)
+
+    def _on_slider_change(self, tmcc_id: int, output_type: str, output_id: int, value) -> None:
+        if self._making_buttons:
+            return
+        callback_key = (tmcc_id, output_type, output_id)
+        if callback_key in self._suspended_slider_callbacks:
+            return
+        normalized = self._normalize_level(value)
+        output = self._output_by_tmcc.get(tmcc_id, {}).get((output_type, output_id))
+        if output is None:
+            return
+        output.level_box.value = self._format_level(normalized)
+        self._style_slider(output.slider, normalized > 0)
+        if output_type == "lamp" and normalized > 0:
+            self._last_non_zero_lamp_level[(tmcc_id, output_id)] = normalized
+
+    def _on_slider_release(self, tmcc_id: int, output_type: str, output_id: int, _event=None) -> None:
+        if self._making_buttons:
+            return
+        callback_key = (tmcc_id, output_type, output_id)
+        if callback_key in self._suspended_slider_callbacks:
+            return
+        output = self._output_by_tmcc.get(tmcc_id, {}).get((output_type, output_id))
+        if output is None:
+            return
+        value = self._normalize_level(output.slider.value)
+        # noinspection PyArgumentList
+        with self._suspend_slider_callback(callback_key):
+            output.slider.value = value
+        output.level_box.value = self._format_level(value)
+        if output_type == "motor":
+            self.set_motor_state(tmcc_id, output_id, value)
+        else:
+            self.set_lamp_state(tmcc_id, output_id, value)
+
+    def _calc_slider_height(self) -> int:
+        available = max(200, int(self.height - self.y_offset - int(round(16 * self._scale_by))))
+        overhead = max(120, int(round(135 * self._scale_by)))
+        return max(110, available - overhead)
+
+    def _build_output(
+        self,
+        parent: Box,
+        tmcc_id: int,
+        output_type: str,
+        output_id: int,
+        label: str,
+        is_active: bool,
+        level: int,
+        col: int,
+        slider_height: int,
+        control_width: int,
+    ) -> OutputWidgets:
+        container = Box(parent, layout="grid", grid=[col, 0], align="top")
+        try:
+            container.tk.configure(width=control_width)
+            container.tk.grid_propagate(False)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        title_box = TitleBox(container, label, grid=[0, 0], align="top", border=1)
+        title_box.text_size = int(round(10 * self._scale_by))
+        try:
+            title_box.tk.configure(width=control_width)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        toggle_btn = PushButton(
+            title_box,
+            text="Off",
+            align="top",
+            padx=max(2, int(round(4 * self._scale_by))),
+            pady=max(2, int(round(3 * self._scale_by))),
+        )
+        toggle_btn.text_size = int(round(11 * self._scale_by))
+        level_box = Text(
+            title_box,
+            text=self._format_level(level),
+            color="black",
+            align="top",
+            bold=True,
+            size=self.s_18,
+            width=4,
+            font="DigitalDream",
+        )
+        level_box.bg = "black"
+        level_box.text_color = "white"
+        slider = Slider(
+            title_box,
+            align="top",
+            horizontal=False,
+            step=OUTPUT_STEP,
+            width=max(16, int(round(control_width * 0.36))),
+            height=slider_height,
+            command=lambda v, tid=tmcc_id, t=output_type, idx=output_id: self._on_slider_change(tid, t, idx, v),
+        )
+        slider.tk.config(
+            from_=100,
+            to=0,
+            takefocus=0,
+            activebackground=LIONEL_ORANGE,
+            bg="white",
+            highlightthickness=1,
+            highlightbackground=LIONEL_ORANGE,
+            sliderlength=max(18, int(slider_height / 6)),
+        )
+        slider.tk.bind(
+            "<ButtonRelease-1>",
+            lambda e, tid=tmcc_id, t=output_type, idx=output_id: self._on_slider_release(tid, t, idx, e),
+            add="+",
+        )
+        slider.tk.bind("<Button-1>", lambda e: slider.tk.focus_set(), add="+")
+        slider.tmcc_id = tmcc_id
+
+        if output_type == "motor":
+            toggle_btn.update_command(self.toggle_motor_state, args=[tmcc_id, output_id])
+        else:
+            toggle_btn.update_command(self.toggle_lamp_state, args=[tmcc_id, output_id])
+
+        output = OutputWidgets(
+            container=container,
+            title_box=title_box,
+            toggle_btn=toggle_btn,
+            level_box=level_box,
+            slider=slider,
+            output_type=output_type,
+            output_id=output_id,
+        )
+        self._set_level_ui(output, level)
+        self._set_toggle_button_state(output, is_active)
+        self._style_slider(slider, is_active)
+        return output
 
     def _make_state_button(self, pd: AccessoryState, row: int, col: int, **kwargs) -> tuple[list[Widget], int, int]:
+        _ = kwargs
         self._making_buttons = True
-        for w in {self.left_scroll_btn, self.right_scroll_btn, self.by_name, self.by_number}:
-            w.hide()
-        ts = int(round(23 * self._scale_by))
-        widgets: list[Widget] = []
-        # make title label
-        title = Text(self.btn_box, text=f"#{pd.tmcc_id} {pd.road_name}", grid=[col, row, 2, 1], size=ts, bold=True)
+
+        widgets: list[Widget | Box] = []
+        panel_width = max(320, int(self.width / max(1, self._visible_button_cols)))
+        card = Box(self.btn_box, layout="grid", grid=[col, row], align="top", border=1)
+        card.bg = "white"
+        try:
+            card.tk.configure(width=panel_width)
+            card.tk.grid_propagate(False)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        widgets.append(card)
+
+        title = Text(card, text=f"#{pd.tmcc_id} {pd.road_name}", grid=[0, 0, 6, 1], bold=True, size=self.s_20)
         widgets.append(title)
 
-        # make motor 1 on/off button
-        row += 1
-        m1_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col)
-        m1_pwr.text = "Motor #1"
-        m1_pwr.motor = 1
-        if pd.motor1.state:
-            self.set_button_active(m1_pwr)
-        m1_pwr.update_command(self.set_motor_state, args=[pd.tmcc_id, 1])
-        widgets.append(m1_pwr)
+        controls = Box(card, layout="grid", grid=[0, 1, 6, 1], align="top")
+        widgets.append(controls)
 
-        # motor 1 control
-        slider_height = int(round(btn_h * 0.9))
-        m1_ctl = Slider(
-            self.btn_box,
-            grid=[col, row + 1],
-            height=slider_height,
-            width=self.pd_button_width,
-            step=5,
+        slider_height = self._calc_slider_height()
+        control_width = max(
+            52,
+            int((panel_width - int(round(24 * self._scale_by))) / len(OUTPUT_ORDER)),
         )
-        m1_ctl.value = pd.motor1.speed
-        m1_ctl.motor = 1
-        m1_ctl.bg = self._enabled_bg if pd.motor1.state else "lightgrey"
-        m1_db = DebouncedSlider(self, pd.tmcc_id, 1, is_motor=True)
-        m1_ctl.update_command(m1_db.on_change)
-        widgets.append(m1_ctl)
+        by_output: dict[tuple[str, int], OutputWidgets] = {}
 
-        # make motor 2 on/off button
-        m2_pwr, btn_h, btn_y = super()._make_state_button(pd, row, col + 1)
-        m2_pwr.text = "Motor #2"
-        m2_pwr.motor = 2
-        if self.is_motor_active(pd, 2):
-            self.set_button_active(m2_pwr)
-        m2_pwr.update_command(self.set_motor_state, args=[pd.tmcc_id, 2])
-        widgets.append(m2_pwr)
-
-        # motor 2 control
-        m2_ctl = Slider(
-            self.btn_box,
-            grid=[col + 1, row + 1],
-            height=slider_height,
-            width=self.pd_button_width,
-            step=5,
-        )
-        m2_ctl.value = pd.motor2.speed
-        m2_ctl.motor = 2
-        m2_ctl.bg = self._enabled_bg if self.is_motor_active(pd, 2) else "lightgrey"
-        m2_db = DebouncedSlider(self, pd.tmcc_id, 2, is_motor=True)
-        m2_ctl.update_command(m2_db.on_change)
-        widgets.append(m2_ctl)
-
-        # make Lamp controls
-        for lamp_no in range(1, 5):
-            lamp = pd.get_lamp(lamp_no)
-            if lamp_no % 2 == 1:
-                row += 2
-                lamp_col = col
+        for idx, (output_type, output_id, label) in enumerate(OUTPUT_ORDER):
+            if output_type == "motor":
+                motor_state = pd.get_motor(output_id)
+                level = motor_state.speed if motor_state else 0
+                is_active = self.is_motor_active(pd, output_id)
             else:
-                lamp_col = col + 1
-            pwr, btn_h, btn_y = super()._make_state_button(pd, row, lamp_col)
-            pwr.text = f"Lamp #{lamp_no}"
-            pwr.lamp = lamp_no
-            if lamp.level:
-                self.set_button_active(pwr)
-            pwr.update_command(self.set_lamp_state, args=[pd.tmcc_id, lamp_no])
-            widgets.append(pwr)
+                lamp_state = pd.get_lamp(output_id)
+                level = lamp_state.level if lamp_state else 0
+                is_active = self.is_lamp_active(pd, output_id)
+                if level > 0:
+                    self._last_non_zero_lamp_level[(pd.tmcc_id, output_id)] = level
 
-            slider_height = int(round(btn_h * 0.9))
-            ctl = Slider(
-                self.btn_box,
-                grid=[lamp_col, row + 1],
-                height=slider_height,
-                width=self.pd_button_width,
-                step=5,
+            output = self._build_output(
+                parent=controls,
+                tmcc_id=pd.tmcc_id,
+                output_type=output_type,
+                output_id=output_id,
+                label=label,
+                is_active=is_active,
+                level=level,
+                col=idx,
+                slider_height=slider_height,
+                control_width=control_width,
             )
-            ctl.value = lamp.level
-            ctl.lamp = lamp_no
-            ctl.bg = self._enabled_bg if lamp.level else "lightgrey"
-            dbs = DebouncedSlider(self, pd.tmcc_id, lamp_no, is_lamp=True)
-            ctl.update_command(dbs.on_change)
-            widgets.append(ctl)
+            by_output[(output_type, output_id)] = output
+            widgets.extend(output.widgets())
 
-        # noinspection PyTypeChecker
-        self._state_buttons[pd.tmcc_id] = widgets
+        self._output_by_tmcc[pd.tmcc_id] = by_output
+
+        self.app.update()
+        btn_h = card.tk.winfo_height()
+        btn_y = card.tk.winfo_y() + btn_h
         return widgets, btn_h, btn_y
-
-
-class DebouncedSlider:
-    def __init__(
-        self,
-        gui: MotorsGui,
-        tmcc_id: int,
-        device: int,
-        delay_ms=500,
-        is_motor: bool = False,
-        is_lamp: bool = False,
-    ) -> None:
-        self._is_lamp = is_lamp
-        self._is_motor = is_motor
-        self._gui = gui
-        self._tmcc_id = tmcc_id
-        self._device = device
-        self._app = gui.app
-        self._tk = gui.app.tk
-        self._after_id = None
-        self._delay = delay_ms
-        self._last_value = None
-
-    def on_change(self, value):
-        if self._gui.is_making_buttons:
-            return
-        self._last_value = int(value)
-        # Cancel previously scheduled call if any
-        if self._after_id is not None:
-            self._tk.after_cancel(self._after_id)
-            self._after_id = None
-        # Schedule new call after user stops moving for delay_ms
-        self._after_id = self._tk.after(self._delay, self._fire)
-
-    def _fire(self):
-        self._after_id = None
-        self.commit(self._last_value)
-
-    def commit(self, value):
-        # Do the real work once sliding has paused
-        if self._is_motor:
-            self._gui.set_motor_state(self._tmcc_id, self._device, value)
-        elif self._is_lamp:
-            self._gui.set_lamp_state(self._tmcc_id, self._device, value)
