@@ -27,19 +27,19 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 
 class MotorsGui(StateBasedGui):
     def __init__(
-            self,
-            label: str = None,
-            width: int = None,
-            height: int = None,
-            aggregator: ComponentStateGui = None,
-            scale_by: float = 1.0,
-            exclude_unnamed: bool = False,
-            screens: int | None = None,
-            stand_alone: bool = True,
-            parent=None,
-            full_screen: bool = True,
-            x_offset: int = 0,
-            y_offset: int = 0,
+        self,
+        label: str = None,
+        width: int = None,
+        height: int = None,
+        aggregator: ComponentStateGui = None,
+        scale_by: float = 1.0,
+        exclude_unnamed: bool = False,
+        screens: int | None = None,
+        stand_alone: bool = True,
+        parent=None,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         StateBasedGui.__init__(
             self,
@@ -257,13 +257,13 @@ class MotorsGui(StateBasedGui):
 
 class DebouncedSlider:
     def __init__(
-            self,
-            gui: MotorsGui,
-            tmcc_id: int,
-            device: int,
-            delay_ms=500,
-            is_motor: bool = False,
-            is_lamp: bool = False,
+        self,
+        gui: MotorsGui,
+        tmcc_id: int,
+        device: int,
+        delay_ms=500,
+        is_motor: bool = False,
+        is_lamp: bool = False,
     ) -> None:
         self._is_lamp = is_lamp
         self._is_motor = is_motor
