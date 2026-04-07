@@ -355,10 +355,15 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             for widget in pdb:
                 if hasattr(widget, "component_state"):
                     widget.component_state = None
-                if hasattr(widget, "when_left_button_pressed"):
-                    widget.when_left_button_pressed = None
-                if hasattr(widget, "when_left_button_released"):
-                    widget.when_left_button_released = None
+                # Only HoldButton needs explicit press/release unhooking.
+                # Setting these attributes on generic guizero widgets can trigger
+                # event re-binding during teardown against invalid tk handles.
+                if isinstance(widget, HoldButton):
+                    try:
+                        widget.when_left_button_pressed = None
+                        widget.when_left_button_released = None
+                    except GUI_CLEANUP_EXCEPTIONS:
+                        pass
                 self.safe_destroy(widget)
         self._state_buttons.clear()
 

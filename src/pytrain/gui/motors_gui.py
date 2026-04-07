@@ -336,7 +336,6 @@ class MotorsGui(StateBasedGui):
         container = Box(parent, layout="grid", grid=[col, 0], align="top")
         try:
             container.tk.configure(width=control_width)
-            container.tk.grid_propagate(False)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         title_box = TitleBox(container, label, grid=[0, 0], align="top", border=1)
@@ -421,7 +420,6 @@ class MotorsGui(StateBasedGui):
         card.bg = "white"
         try:
             card.tk.configure(width=panel_width)
-            card.tk.grid_propagate(False)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         widgets.append(card)
