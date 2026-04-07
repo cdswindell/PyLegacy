@@ -183,7 +183,8 @@ class MotorsGui(StateBasedGui):
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
-    def _set_toggle_button_state(self, output: OutputWidgets, is_active: bool) -> None:
+    @staticmethod
+    def _set_toggle_button_state(output: OutputWidgets, is_active: bool) -> None:
         output.toggle_btn.text = output.label
         output.toggle_btn.bg = BUTTON_ON_BG if is_active else BUTTON_OFF_BG
         output.toggle_btn.text_color = "white" if is_active else "black"
@@ -400,7 +401,7 @@ class MotorsGui(StateBasedGui):
             grid=[0, 0],
             align="top",
             padx=max(2, int(round(4 * self._scale_by))),
-            pady=max(2, int(round(3 * self._scale_by))),
+            pady=max(3, int(round(5 * self._scale_by))),
         )
         toggle_btn.text_size = int(round(14 * self._scale_by))
         toggle_btn.text_bold = True
