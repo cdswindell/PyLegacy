@@ -161,6 +161,8 @@ class MotorsGui(StateBasedGui):
 
     def _make_state_button(self, pd: AccessoryState, row: int, col: int, **kwargs) -> tuple[list[Widget], int, int]:
         self._making_buttons = True
+        for w in {self.left_scroll_btn, self.right_scroll_btn, self.by_name, self.by_number}:
+            w.hide()
         ts = int(round(23 * self._scale_by))
         widgets: list[Widget] = []
         # make title label
