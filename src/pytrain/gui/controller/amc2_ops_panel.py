@@ -120,11 +120,15 @@ class Amc2OpsPanel:
             return
         if self._parent is not None and not self._parent.visible:
             self._parent.show()
-        self._apply_available_layout()
         if state is not None:
             self.update_from_state(state)
         if not self._root.visible:
             self._root.show()
+        self._apply_available_layout()
+        try:
+            self._host.app.tk.after(30, self._apply_available_layout)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     def hide(self) -> None:
         if self._root is not None and self._root.visible:
@@ -151,6 +155,10 @@ class Amc2OpsPanel:
             elif not should_show and output.container.visible:
                 output.container.hide()
         self._apply_available_layout()
+        try:
+            self._host.app.tk.after_idle(self._apply_available_layout)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     @staticmethod
     def _measure_widget_y(widget) -> int | None:
@@ -206,11 +214,34 @@ class Amc2OpsPanel:
             if image_top is not None and image_h is not None:
                 top = max(top, image_top + image_h)
 
-        scope_box = getattr(host, "scope_box", None)
-        scope_top = self._measure_widget_y(scope_box)
-        if scope_top is None:
+        app_tk = getattr(host.app, "tk", None)
+        if app_tk is None:
             return None
-        available = scope_top - top - 8
+        try:
+            app_top = int(app_tk.winfo_rooty())
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            app_top = 0
+
+        app_h = int(getattr(host, "height", 0) or 0)
+        for method_name in ("winfo_height", "winfo_reqheight"):
+            method = getattr(app_tk, method_name, None)
+            if method is None:
+                continue
+            try:
+                measured = int(method())
+                if measured > 0:
+                    app_h = max(app_h, measured)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
+        if app_h <= 0:
+            return None
+
+        scope_h = self._measure_widget_h(getattr(host, "scope_box", None))
+        if scope_h is None or scope_h <= 0:
+            scope_h = max(36, int(round(getattr(host, "button_size", 100) * 0.40)))
+
+        bottom = app_top + app_h - scope_h - int(round(6 * host.scale_by))
+        available = bottom - top
         return available if available > 0 else None
 
     def _apply_available_layout(self) -> None:
@@ -226,17 +257,7 @@ class Amc2OpsPanel:
         chrome = max(92, int(round(102 * sb)))
         slider_h = max(150, controls_h - chrome)
 
-        try:
-            self._root.tk.configure(height=available)
-            self._controls.tk.configure(height=controls_h)
-        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-            pass
-
         for output in self._outputs.values():
-            try:
-                output.container.tk.configure(height=controls_h)
-            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-                pass
             output.slider.height = slider_h
             try:
                 output.slider.tk.config(
