@@ -40,6 +40,7 @@ OUTPUT_ORDER: list[tuple[str, int, str]] = [
 OUTPUT_STEP = 5
 BUTTON_ON_BG = "green"
 BUTTON_OFF_BG = "lightgrey"
+LEVEL_BOX_MIN_SCREEN_HEIGHT = 500
 
 
 @dataclass(slots=True)
@@ -95,14 +96,39 @@ class MotorsGui(StateBasedGui):
         self._output_by_tmcc: dict[int, dict[tuple[str, int], OutputWidgets]] = {}
         self._last_non_zero_lamp_level: dict[tuple[int, int], int] = {}
         self._suspended_slider_callbacks: set[tuple[int, str, int]] = set()
+        self._screen_height: int | None = None
 
     def build_gui(self) -> None:
         super().build_gui()
         self._hide_nav_controls()
         self.app.tk.update_idletasks()
         self.y_offset = self.box.tk.winfo_y() + self.box.tk.winfo_height()
+        self._capture_screen_height()
         # Failsafe: never leave controls non-interactive if post-process callback stalls.
         self.app.after(2000, self.clear_making_buttons)
+
+    def _capture_screen_height(self) -> None:
+        try:
+            h = int(self.app.tk.winfo_screenheight())
+            if h > 0:
+                self._screen_height = h
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+
+    def _effective_screen_height(self) -> int:
+        if isinstance(self._screen_height, int) and self._screen_height > 0:
+            return self._screen_height
+        try:
+            h = int(self.app.tk.winfo_screenheight())
+            if h > 0:
+                self._screen_height = h
+                return h
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        return int(self.height)
+
+    def _show_level_box(self) -> bool:
+        return self._effective_screen_height() >= LEVEL_BOX_MIN_SCREEN_HEIGHT
 
     def _hide_nav_controls(self) -> None:
         for widget in (self.left_scroll_btn, self.right_scroll_btn, self.by_name, self.by_number):
@@ -288,7 +314,23 @@ class MotorsGui(StateBasedGui):
             CommandReq(TMCC1AuxCommandEnum.NUMERIC, tmcc_id, data=lamp + 2).send()
 
     def toggle_motor_state(self, tmcc_id: int, motor: int) -> None:
-        self.set_motor_state(tmcc_id, motor, None)
+        with self._cv:
+            pd = self._state_for_tmcc(tmcc_id)
+            if pd is None:
+                return
+            motor_state = pd.get_motor(motor)
+            current_level = motor_state.speed if motor_state else 0
+            is_active = self.is_motor_active(pd, motor)
+            if not is_active and current_level == 0:
+                target = 100
+                output = self._output_by_tmcc.get(tmcc_id, {}).get(("motor", motor))
+                if output is not None:
+                    self._set_level_ui(output, target)
+                    self._style_slider(output.slider, True)
+                    self._set_toggle_button_state(output, True)
+            else:
+                target = None
+        self.set_motor_state(tmcc_id, motor, target)
 
     def toggle_lamp_state(self, tmcc_id: int, lamp: int) -> None:
         with self._cv:
@@ -528,7 +570,7 @@ class MotorsGui(StateBasedGui):
         self.app.tk.update_idletasks()
         title_height = max(int(title.tk.winfo_reqheight()), int(title.tk.winfo_height()))
         controls_height = max(140, panel_height - title_height - int(round(14 * self._scale_by)))
-        show_level_box = self.height >= 500
+        show_level_box = self._show_level_box()
         control_width = max(
             58,
             int((panel_width - int(round(12 * self._scale_by))) / len(OUTPUT_ORDER)),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from threading import Condition, RLock
 from types import SimpleNamespace
 from typing import Any
 
@@ -108,7 +109,7 @@ class DummyHoldButton(_DummyWidget):
 
 class DummyApp:
     def __init__(self) -> None:
-        self.tk = SimpleNamespace(update_idletasks=lambda: None)
+        self.tk = SimpleNamespace(update_idletasks=lambda: None, winfo_screenheight=lambda: 0)
 
     @staticmethod
     def after(_delay: int, _func) -> None:
@@ -153,10 +154,12 @@ class DummyAccessoryState:
 def _new_gui(height: int) -> mod.MotorsGui:
     gui = mod.MotorsGui.__new__(mod.MotorsGui)
     gui._making_buttons = True
+    gui._cv = Condition(RLock())
     gui._output_by_tmcc = {}
     gui._last_non_zero_lamp_level = {}
     gui._suspended_slider_callbacks = set()
     gui._scale_by = 1.0
+    gui._screen_height = None
     gui.s_20 = 20
     gui.s_18 = 18
     gui.width = 800
@@ -220,3 +223,56 @@ def test_slider_height_increases_when_level_box_removed() -> None:
     tall_slider = tall_gui._output_by_tmcc[tall_state.tmcc_id][("motor", 1)].slider
 
     assert short_slider.height > tall_slider.height
+
+
+def test_toggle_motor_state_off_at_zero_sets_level_to_100() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    gui._make_state_button(state, row=4, col=0)
+    gui._state_for_tmcc = lambda tmcc_id: state if tmcc_id == state.tmcc_id else None
+    sent: list[tuple[int, int, int | None]] = []
+    gui.set_motor_state = lambda tmcc_id, motor, speed=None: sent.append((tmcc_id, motor, speed))
+
+    gui.toggle_motor_state(state.tmcc_id, 2)
+
+    assert sent == [(state.tmcc_id, 2, 100)]
+    output = gui._output_by_tmcc[state.tmcc_id][("motor", 2)]
+    assert output.slider.value == 100
+    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.level_box is not None
+    assert output.level_box.value == "100"
+
+
+def test_toggle_motor_state_on_uses_regular_toggle_behavior() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    gui._make_state_button(state, row=4, col=0)
+    gui._state_for_tmcc = lambda tmcc_id: state if tmcc_id == state.tmcc_id else None
+    sent: list[tuple[int, int, int | None]] = []
+    gui.set_motor_state = lambda tmcc_id, motor, speed=None: sent.append((tmcc_id, motor, speed))
+
+    gui.toggle_motor_state(state.tmcc_id, 1)
+
+    assert sent == [(state.tmcc_id, 1, None)]
+
+
+def test_level_box_uses_screen_height_not_container_height() -> None:
+    gui = _new_gui(height=420)
+    gui._screen_height = 600
+    state = DummyAccessoryState()
+
+    gui._make_state_button(state, row=4, col=0)
+
+    outputs = gui._output_by_tmcc[state.tmcc_id]
+    assert all(output.level_box is not None for output in outputs.values())
+
+
+def test_level_box_hidden_when_screen_height_is_below_threshold() -> None:
+    gui = _new_gui(height=600)
+    gui._screen_height = 480
+    state = DummyAccessoryState()
+
+    gui._make_state_button(state, row=4, col=0)
+
+    outputs = gui._output_by_tmcc[state.tmcc_id]
+    assert all(output.level_box is None for output in outputs.values())
