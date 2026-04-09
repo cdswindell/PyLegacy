@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from tkinter import TclError
 from typing import Iterator, TYPE_CHECKING
 
-from guizero import App, Box, Slider, Text
+from guizero import Box, Slider, Text
 
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
@@ -53,7 +53,7 @@ class OutputWidgets:
 class Amc2OpsPanel:
     def __init__(self, host: EngineGui) -> None:
         self._host = host
-        self._parent: App | None = None
+        self._parent: Box | None = None
         self._root: Box | None = None
         self._header: Box | None = None
         self._page_label: Text | None = None
@@ -67,13 +67,13 @@ class Amc2OpsPanel:
     def visible(self) -> bool:
         return bool(self._root and self._root.visible)
 
-    def build(self, parent: App) -> Box:
+    def build(self, parent: Box) -> Box:
         if self._root is not None:
             return self._root
 
         self._parent = parent
         host = self._host
-        self._root = root = Box(parent, layout="grid", border=2, align="top", visible=False)
+        self._root = root = Box(parent, layout="grid", border=2, align="top")
 
         self._header = header = Box(root, layout="grid", grid=[0, 0], align="top")
         prev_btn = HoldButton(header, text="<", grid=[0, 0], align="left", padx=6, pady=6)
@@ -124,6 +124,13 @@ class Amc2OpsPanel:
             self.update_from_state(state)
         if not self._root.visible:
             self._root.show()
+        self._apply_available_layout()
+        try:
+            self._host.app.tk.after(30, self._apply_available_layout)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+
+    def refresh_layout(self) -> None:
         self._apply_available_layout()
         try:
             self._host.app.tk.after(30, self._apply_available_layout)
@@ -207,12 +214,17 @@ class Amc2OpsPanel:
             return None
 
         image_box = getattr(host, "image_box", None)
-        image_visible = bool(image_box and getattr(image_box, "visible", False))
-        if image_visible:
-            image_top = self._measure_widget_y(image_box)
-            image_h = self._measure_widget_h(image_box)
-            if image_top is not None and image_h is not None:
-                top = max(top, image_top + image_h)
+        image_top = self._measure_widget_y(image_box)
+        image_h = self._measure_widget_h(image_box)
+        if image_top is not None and image_h is not None:
+            # Always anchor below the image-box region, even if hidden.
+            top = max(top, image_top + image_h)
+        else:
+            info_box = getattr(host, "info_box", None)
+            info_top = self._measure_widget_y(info_box)
+            info_h = self._measure_widget_h(info_box)
+            if info_top is not None and info_h is not None:
+                top = max(top, info_top + info_h)
 
         app_tk = getattr(host.app, "tk", None)
         if app_tk is None:
@@ -223,16 +235,22 @@ class Amc2OpsPanel:
             app_top = 0
 
         app_h = int(getattr(host, "height", 0) or 0)
-        for method_name in ("winfo_height", "winfo_reqheight"):
-            method = getattr(app_tk, method_name, None)
-            if method is None:
-                continue
+        method = getattr(app_tk, "winfo_height", None)
+        if method is not None:
             try:
                 measured = int(method())
                 if measured > 0:
                     app_h = max(app_h, measured)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-                continue
+                pass
+        screen_h_method = getattr(app_tk, "winfo_screenheight", None)
+        if screen_h_method is not None:
+            try:
+                screen_h = int(screen_h_method())
+                if screen_h > 0 and app_h > 0:
+                    app_h = min(app_h, screen_h)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
         if app_h <= 0:
             return None
 
@@ -254,8 +272,21 @@ class Amc2OpsPanel:
         header_h = self._measure_widget_h(self._header) or 0
         controls_h = max(140, available - header_h - 8)
         sb = self._host.scale_by
-        chrome = max(92, int(round(102 * sb)))
-        slider_h = max(150, controls_h - chrome)
+        sample = next(iter(self._outputs.values()), None)
+        if sample is not None:
+            toggle_h = self._measure_widget_h(sample.toggle_btn) or int(round(42 * sb))
+            level_h = self._measure_widget_h(sample.level_box) or int(round(34 * sb))
+        else:
+            toggle_h = int(round(42 * sb))
+            level_h = int(round(34 * sb))
+        chrome = toggle_h + level_h + int(round(18 * sb))
+        slider_h = max(130, controls_h - chrome)
+        base_slider = max(
+            int(round(self._host.button_size * 2.6)),
+            int(round(getattr(self._host, "slider_height", 300) * 0.72)),
+        )
+        slider_cap = max(170, int(round(base_slider * 1.05)))
+        slider_h = min(slider_h, slider_cap)
 
         for output in self._outputs.values():
             output.slider.height = slider_h

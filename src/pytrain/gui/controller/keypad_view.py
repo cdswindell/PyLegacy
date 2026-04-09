@@ -339,9 +339,10 @@ class KeypadView(Generic[S]):
             command=self.on_sensor_track_change,
         )
 
+        host.amc2_ops_box = Box(app, layout="auto", align="top", visible=False, border=2)
         host.amc2_ops_panel = Amc2OpsPanel(host)
-        host.amc2_ops_panel.build(app)
-        host.ops_cells.add(host.amc2_ops_panel)
+        host.amc2_ops_panel.build(host.amc2_ops_box)
+        host.ops_cells.add(host.amc2_ops_box)
 
         # BPC2/ASC2 Buttons
         host.ac_on_cell, host.ac_on_btn = host.make_keypad_button(
@@ -563,8 +564,8 @@ class KeypadView(Generic[S]):
             host.controller_box.hide()
         if host.keypad_box.visible:
             host.keypad_box.hide()
-        if host.amc2_ops_panel and host.amc2_ops_panel.visible:
-            host.amc2_ops_panel.hide()
+        if host.amc2_ops_box and host.amc2_ops_box.visible:
+            host.amc2_ops_box.hide()
         if host.acc_overlay and host.acc_overlay.visible:
             host.acc_overlay.hide()
 
@@ -589,8 +590,8 @@ class KeypadView(Generic[S]):
 
         if host.scope == CommandScope.ACC:
             host.reset_acc_overlay()
-        if host.amc2_ops_panel and host.amc2_ops_panel.visible:
-            host.amc2_ops_panel.hide()
+        if host.amc2_ops_box and host.amc2_ops_box.visible:
+            host.amc2_ops_box.hide()
 
         if host.scope == CommandScope.ROUTE:
             host.on_new_route()
@@ -624,7 +625,10 @@ class KeypadView(Generic[S]):
                     show_keypad = False
                 elif acc_state.is_amc2:
                     if host.amc2_ops_panel:
-                        host.amc2_ops_panel.show(acc_state)
+                        host.amc2_ops_panel.update_from_state(acc_state)
+                        host.amc2_ops_panel.refresh_layout()
+                    if host.amc2_ops_box and not host.amc2_ops_box.visible:
+                        host.amc2_ops_box.show()
                     host.keypad_box.hide()
                     show_keypad = False
                 elif acc_state.is_bpc2 or acc_state.is_asc2:
