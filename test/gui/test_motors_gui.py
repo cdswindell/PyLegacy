@@ -187,8 +187,8 @@ def _patch_widgets(monkeypatch):
     monkeypatch.setattr(mod, "HoldButton", DummyHoldButton, raising=True)
 
 
-def test_make_state_button_hides_level_box_below_500px() -> None:
-    gui = _new_gui(height=499)
+def test_make_state_button_hides_level_box_below_480px() -> None:
+    gui = _new_gui(height=479)
     state = DummyAccessoryState()
 
     _widgets, _btn_h, _btn_y = gui._make_state_button(state, row=4, col=0)
@@ -199,8 +199,8 @@ def test_make_state_button_hides_level_box_below_500px() -> None:
     assert all(output.slider.grid == [0, 1] for output in outputs.values())
 
 
-def test_make_state_button_keeps_level_box_at_or_above_500px() -> None:
-    gui = _new_gui(height=500)
+def test_make_state_button_keeps_level_box_at_or_above_480px() -> None:
+    gui = _new_gui(height=480)
     state = DummyAccessoryState()
 
     _widgets, _btn_h, _btn_y = gui._make_state_button(state, row=4, col=0)
@@ -212,12 +212,12 @@ def test_make_state_button_keeps_level_box_at_or_above_500px() -> None:
 
 
 def test_slider_height_increases_when_level_box_removed() -> None:
-    short_gui = _new_gui(height=499)
+    short_gui = _new_gui(height=479)
     short_state = DummyAccessoryState()
     short_gui._make_state_button(short_state, row=4, col=0)
     short_slider = short_gui._output_by_tmcc[short_state.tmcc_id][("motor", 1)].slider
 
-    tall_gui = _new_gui(height=500)
+    tall_gui = _new_gui(height=480)
     tall_state = DummyAccessoryState()
     tall_gui._make_state_button(tall_state, row=4, col=0)
     tall_slider = tall_gui._output_by_tmcc[tall_state.tmcc_id][("motor", 1)].slider
@@ -269,7 +269,7 @@ def test_level_box_uses_screen_height_not_container_height() -> None:
 
 def test_level_box_hidden_when_screen_height_is_below_threshold() -> None:
     gui = _new_gui(height=600)
-    gui._screen_height = 480
+    gui._screen_height = 479
     state = DummyAccessoryState()
 
     gui._make_state_button(state, row=4, col=0)

@@ -40,7 +40,7 @@ OUTPUT_ORDER: list[tuple[str, int, str]] = [
 OUTPUT_STEP = 5
 BUTTON_ON_BG = "green"
 BUTTON_OFF_BG = "lightgrey"
-LEVEL_BOX_MIN_SCREEN_HEIGHT = 500
+LEVEL_BOX_MIN_SCREEN_HEIGHT = 480
 
 
 @dataclass(slots=True)
