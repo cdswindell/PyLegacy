@@ -12,6 +12,7 @@ from typing import Generic, TYPE_CHECKING, TypeVar
 from guizero import App, Box, TitleBox
 from guizero.event import EventData
 
+from .amc2_ops_panel import Amc2OpsPanel
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import (
     AC_OFF_KEY,
@@ -338,6 +339,10 @@ class KeypadView(Generic[S]):
             command=self.on_sensor_track_change,
         )
 
+        host.amc2_ops_panel = Amc2OpsPanel(host)
+        host.amc2_ops_panel.build(app)
+        host.ops_cells.add(host.amc2_ops_panel)
+
         # BPC2/ASC2 Buttons
         host.ac_on_cell, host.ac_on_btn = host.make_keypad_button(
             keypad_keys,
@@ -558,6 +563,8 @@ class KeypadView(Generic[S]):
             host.controller_box.hide()
         if host.keypad_box.visible:
             host.keypad_box.hide()
+        if host.amc2_ops_panel and host.amc2_ops_panel.visible:
+            host.amc2_ops_panel.hide()
         if host.acc_overlay and host.acc_overlay.visible:
             host.acc_overlay.hide()
 
@@ -582,6 +589,8 @@ class KeypadView(Generic[S]):
 
         if host.scope == CommandScope.ACC:
             host.reset_acc_overlay()
+        if host.amc2_ops_panel and host.amc2_ops_panel.visible:
+            host.amc2_ops_panel.hide()
 
         if host.scope == CommandScope.ROUTE:
             host.on_new_route()
@@ -611,6 +620,11 @@ class KeypadView(Generic[S]):
                 # Shows accessory controls based on accessory state
                 if acc_state.is_sensor_track:
                     host.sensor_track_box.show()
+                    host.keypad_box.hide()
+                    show_keypad = False
+                elif acc_state.is_amc2:
+                    if host.amc2_ops_panel:
+                        host.amc2_ops_panel.show(acc_state)
                     host.keypad_box.hide()
                     show_keypad = False
                 elif acc_state.is_bpc2 or acc_state.is_asc2:

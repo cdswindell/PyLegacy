@@ -49,6 +49,7 @@ def _new_engine() -> mod.EngineGui:
     gui._caap = DummyProvider({})
     gui._acc_tmcc_to_adapter = {}
     gui._accessory_view = {}
+    gui._amc2_ops_panel = None
     return gui
 
 
@@ -137,3 +138,16 @@ def test_on_new_accessory_updates_sensor_track_value(monkeypatch: pytest.MonkeyP
     gui.on_new_accessory(state)
 
     assert gui.sensor_track_buttons.value == "SEQUENCE_A"
+
+
+def test_on_new_accessory_updates_amc2_panel(monkeypatch: pytest.MonkeyPatch) -> None:
+    gui = _new_engine()
+    gui._scope_tmcc_ids = {CommandScope.ACC: 35}
+    seen: list[DummyAccessoryState] = []
+    gui._amc2_ops_panel = SimpleNamespace(update_from_state=lambda state: seen.append(state))
+    monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
+
+    state = DummyAccessoryState(is_amc2=True)
+    gui.on_new_accessory(state)
+
+    assert seen == [state]

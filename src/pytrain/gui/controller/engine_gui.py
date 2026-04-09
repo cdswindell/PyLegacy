@@ -17,6 +17,7 @@ from typing import Any, Callable, Generic, Iterator, TypeVar, cast
 from guizero import App, Box, Combo, Picture, Text, TitleBox
 
 from .admin_panel import ADMIN_TITLE, AdminPanel
+from .amc2_ops_panel import Amc2OpsPanel
 from .bell_horn_panel import BellHornPanel
 from .catalog_panel import CatalogPanel
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
@@ -163,6 +164,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
         self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
+
         self.emergency_box_width = self.emergency_box_height = None
 
         # various buttons
@@ -208,6 +210,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._rr_speed_panel = None
         self._state_info = None
         self._bell_horn_panel = None
+        self._amc2_ops_panel: Amc2OpsPanel | None = None
         self._accessory_view: dict[int, Box | None] = {}
         self.engine_ops_cells = {}
 
@@ -313,6 +316,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
     @property
     def controller_view(self) -> ControllerView:
         return self._controller_view
+
+    @property
+    def amc2_ops_panel(self) -> Amc2OpsPanel | None:
+        return self._amc2_ops_panel
+
+    @amc2_ops_panel.setter
+    def amc2_ops_panel(self, panel: Amc2OpsPanel | None) -> None:
+        assert self._amc2_ops_panel is None
+        self._amc2_ops_panel = panel
 
     @property
     def active_engine_state(self) -> EngineState | None:
@@ -768,7 +780,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             elif state.is_bpc2 or state.is_asc2:
                 self.update_ac_status(state)
             elif state.is_amc2:
-                pass
+                if self._amc2_ops_panel:
+                    self._amc2_ops_panel.update_from_state(state)
         elif isinstance(state, TrainState) and state.is_power_district:
             self.update_ac_status(state)
 
