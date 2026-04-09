@@ -314,13 +314,23 @@ class Amc2OpsPanel:
         if available is None:
             return
 
+        sb = self._host.scale_by
+        visible_outputs = [output for output in self._outputs.values() if output.page_idx == self._page_index]
+        page_cols = max(1, len(visible_outputs))
+        max_cols = max(len(outputs) for _, outputs in PAGE_LAYOUT)
+
         panel_h = max(120, available)
-        panel_w = (
-            self._measure_widget_w(self._parent)
-            or self._measure_widget_w(self._root)
-            or int(getattr(self._host, "emergency_box_width", 0) or 0)
-            or int(getattr(self._host, "width", 0) or 0)
-        )
+        width_candidates = [
+            self._measure_widget_w(self._parent),
+            self._measure_widget_w(self._root),
+            self._measure_widget_w(getattr(self._host, "scope_box", None)),
+            self._measure_widget_w(getattr(self._host, "image_box", None)),
+            self._measure_widget_w(getattr(self._host, "keypad_box", None)),
+            int(getattr(self._host, "emergency_box_width", 0) or 0),
+            int(getattr(self._host, "width", 0) or 0),
+        ]
+        width_candidates = [value for value in width_candidates if value and value > 1]
+        panel_w = max(width_candidates) if width_candidates else 0
         for box in (self._parent, self._root):
             tk_widget = getattr(box, "tk", None)
             if tk_widget is None:
@@ -353,7 +363,19 @@ class Amc2OpsPanel:
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
 
-        sb = self._host.scale_by
+        if controls_tk is not None and panel_w > 0:
+            side_pad = int(round(8 * sb))
+            usable_w = max(page_cols * 60, panel_w - (side_pad * 2))
+            col_w = max(58, int(usable_w / page_cols))
+            for col in range(max_cols):
+                min_size = col_w if col < page_cols else 0
+                try:
+                    controls_tk.grid_columnconfigure(col, weight=1, minsize=min_size)
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    continue
+        else:
+            col_w = max(58, int(round(self._host.button_size * 0.9)))
+
         sample = next(iter(self._outputs.values()), None)
         if sample is not None:
             toggle_h = self._measure_widget_h(sample.toggle_btn) or int(round(42 * sb))
@@ -361,22 +383,19 @@ class Amc2OpsPanel:
         else:
             toggle_h = int(round(42 * sb))
             level_h = int(round(34 * sb))
-        chrome = toggle_h + level_h + int(round(18 * sb))
-        extra_height = int(round(getattr(self._host, "button_width", getattr(self._host, "button_size", 0))))
-        slider_h = max(130, controls_h - chrome + max(0, extra_height))
-        base_slider = max(
-            int(round(self._host.button_size * 2.6)),
-            int(round(getattr(self._host, "slider_height", 300) * 0.72)),
-        )
-        slider_cap = max(170, int(round(base_slider * 1.05)) + max(0, extra_height))
-        slider_h = min(slider_h, slider_cap)
+        chrome = toggle_h + level_h
+        slider_h = max(110, controls_h - chrome - int(round(10 * sb)))
+        slider_w = max(16, min(46, int(round(col_w * (0.38 if page_cols <= 2 else 0.30)))))
 
         for output in self._outputs.values():
             output.slider.height = slider_h
+            output.slider.width = slider_w
             try:
+                output.container.tk.config(width=col_w)
                 output.slider.tk.config(
-                    length=slider_h,
-                    sliderlength=max(16, int(slider_h / 6)),
+                    width=slider_w,
+                    length=max(80, slider_h - 4),
+                    sliderlength=max(16, int(slider_h / 8)),
                 )
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
