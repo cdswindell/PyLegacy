@@ -34,8 +34,7 @@ BUTTON_OFF_BG = "lightgrey"
 
 PAGE_LAYOUT: list[tuple[str, list[tuple[str, int, str]]]] = [
     ("Motors", [("motor", 1, "Motor #1"), ("motor", 2, "Motor #2")]),
-    ("Lights 1-2", [("lamp", 1, "Light #1"), ("lamp", 2, "Light #2")]),
-    ("Lights 3-4", [("lamp", 3, "Light #3"), ("lamp", 4, "Light #4")]),
+    ("Lights", [("lamp", 1, "Light #1"), ("lamp", 2, "Light #2"), ("lamp", 3, "Light #3"), ("lamp", 4, "Light #4")]),
 ]
 
 
@@ -94,9 +93,10 @@ class Amc2OpsPanel:
         next_btn.update_command(self.next_page)
 
         self._controls = controls = Box(root, layout="grid", grid=[0, 1], align="top")
+        max_cols = max(len(outputs) for _, outputs in PAGE_LAYOUT)
         try:
-            controls.tk.grid_columnconfigure(0, weight=1)
-            controls.tk.grid_columnconfigure(1, weight=1)
+            for col in range(max_cols):
+                controls.tk.grid_columnconfigure(col, weight=1)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
@@ -239,8 +239,9 @@ class Amc2OpsPanel:
         level_box.bg = "black"
         level_box.text_color = "white"
 
-        slider_height = max(int(round(host.button_size * 2.8)), int(round(host.slider_height * 0.8)))
-        slider_width = max(18, int(round(host.button_size / 2)))
+        page_cols = len(PAGE_LAYOUT[page_idx][1])
+        slider_height = max(int(round(host.button_size * 2.6)), int(round(host.slider_height * 0.72)))
+        slider_width = max(16, int(round(host.button_size / 2 if page_cols <= 2 else host.button_size / 3)))
         slider = Slider(
             container,
             grid=[0, 2],

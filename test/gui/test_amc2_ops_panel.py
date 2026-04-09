@@ -175,12 +175,16 @@ def test_paging_shows_two_controls_per_page() -> None:
     panel.next_page()
     assert panel._outputs[("lamp", 1)].container.visible is True
     assert panel._outputs[("lamp", 2)].container.visible is True
-    assert panel._outputs[("motor", 1)].container.visible is False
-
-    panel.next_page()
     assert panel._outputs[("lamp", 3)].container.visible is True
     assert panel._outputs[("lamp", 4)].container.visible is True
+    assert panel._outputs[("motor", 1)].container.visible is False
+
+    # wrap to first page
+    panel.next_page()
+    assert panel._outputs[("motor", 1)].container.visible is True
+    assert panel._outputs[("motor", 2)].container.visible is True
     assert panel._outputs[("lamp", 1)].container.visible is False
+    assert panel._outputs[("lamp", 3)].container.visible is False
 
 
 def test_toggle_lamp_uses_actual_state_level() -> None:
