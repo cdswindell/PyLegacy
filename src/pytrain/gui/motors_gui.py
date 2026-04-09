@@ -404,23 +404,29 @@ class MotorsGui(StateBasedGui):
             current_level = lamp_state.level if lamp_state else 0
             output = self._output_by_tmcc.get(tmcc_id, {}).get(("lamp", lamp))
             is_off_mode = self._lamp_toggle_off.get(key, False)
+            forced_on = self._lamp_force_on.get(key, False)
             displayed_level = self._normalize_level(output.slider.value) if output is not None else current_level
-            if not is_off_mode:
+            is_on = False if is_off_mode else (forced_on or current_level > 0)
+            if is_on:
                 if displayed_level > 0:
                     self._last_non_zero_lamp_level[key] = displayed_level
                 self._lamp_toggle_off[key] = True
                 self._lamp_force_on[key] = False
                 target = 0
                 if output is not None:
-                    # Preserve displayed level while sending actual level=0 to AMC2.
-                    self._set_level_ui(output, displayed_level)
+                    # If the level is max, move the UI level to zero when toggled off.
+                    ui_level = 0 if displayed_level == 100 else displayed_level
+                    self._set_level_ui(output, ui_level)
                     self._style_slider(output.slider, False)
                     self._set_toggle_button_state(output, False)
             else:
                 self._lamp_toggle_off[key] = False
                 self._lamp_force_on[key] = True
-                remembered = displayed_level if displayed_level > 0 else self._last_non_zero_lamp_level.get(key, 0)
-                target = remembered if remembered > 0 else 100
+                if displayed_level == 0:
+                    target = 100
+                else:
+                    remembered = displayed_level if displayed_level > 0 else self._last_non_zero_lamp_level.get(key, 0)
+                    target = remembered if remembered > 0 else 100
                 self._last_non_zero_lamp_level[key] = target
                 if output is not None:
                     self._set_level_ui(output, target)

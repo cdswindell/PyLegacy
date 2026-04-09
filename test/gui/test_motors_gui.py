@@ -271,6 +271,50 @@ def test_toggle_motor_state_on_uses_regular_toggle_behavior() -> None:
 
 
 # noinspection PyTypeChecker
+def test_toggle_lamp_zero_turns_on_to_100() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    state.get_lamp(2).level = 0
+    gui._make_state_button(state, row=4, col=0)
+    gui._state_for_tmcc = lambda tmcc_id: state if tmcc_id == state.tmcc_id else None
+    sent: list[tuple[int, int, int]] = []
+    gui.set_lamp_state = lambda tmcc_id, lamp, level: sent.append((tmcc_id, lamp, level))
+    output = gui._output_by_tmcc[state.tmcc_id][("lamp", 2)]
+    output.slider.value = 0
+
+    gui.toggle_lamp_state(state.tmcc_id, 2)
+
+    assert sent == [(state.tmcc_id, 2, 100)]
+    assert output.slider.value == 100
+    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.slider.tk._config["troughcolor"] == mod.LIONEL_BLUE
+
+
+# noinspection PyTypeChecker
+def test_toggle_lamp_100_off_sets_ui_to_zero_then_on_restores_100() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    state.get_lamp(1).level = 100
+    gui._make_state_button(state, row=4, col=0)
+    gui._state_for_tmcc = lambda tmcc_id: state if tmcc_id == state.tmcc_id else None
+    sent: list[tuple[int, int, int]] = []
+    gui.set_lamp_state = lambda tmcc_id, lamp, level: sent.append((tmcc_id, lamp, level))
+    output = gui._output_by_tmcc[state.tmcc_id][("lamp", 1)]
+
+    gui.toggle_lamp_state(state.tmcc_id, 1)
+
+    assert sent == [(state.tmcc_id, 1, 0)]
+    assert output.slider.value == 0
+    assert output.toggle_btn.bg == mod.BUTTON_OFF_BG
+
+    gui.toggle_lamp_state(state.tmcc_id, 1)
+
+    assert sent == [(state.tmcc_id, 1, 0), (state.tmcc_id, 1, 100)]
+    assert output.slider.value == 100
+    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+
+
+# noinspection PyTypeChecker
 def test_level_box_uses_screen_height_not_container_height() -> None:
     gui = _new_gui(height=420)
     gui._screen_height = 600
