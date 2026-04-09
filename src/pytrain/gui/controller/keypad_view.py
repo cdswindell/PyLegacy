@@ -624,11 +624,11 @@ class KeypadView(Generic[S]):
                     host.keypad_box.hide()
                     show_keypad = False
                 elif acc_state.is_amc2:
+                    if host.amc2_ops_box and not host.amc2_ops_box.visible:
+                        host.amc2_ops_box.show()
                     if host.amc2_ops_panel:
                         host.amc2_ops_panel.update_from_state(acc_state)
                         host.amc2_ops_panel.refresh_layout()
-                    if host.amc2_ops_box and not host.amc2_ops_box.visible:
-                        host.amc2_ops_box.show()
                     host.keypad_box.hide()
                     show_keypad = False
                 elif acc_state.is_bpc2 or acc_state.is_asc2:

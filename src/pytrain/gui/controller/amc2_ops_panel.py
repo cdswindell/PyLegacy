@@ -202,6 +202,20 @@ class Amc2OpsPanel:
                 continue
         return max(values) if values else None
 
+    @staticmethod
+    def _measure_widget_req_h(widget) -> int | None:
+        tk_widget = getattr(widget, "tk", None)
+        if tk_widget is None:
+            return None
+        method = getattr(tk_widget, "winfo_reqheight", None)
+        if method is None:
+            return None
+        try:
+            value = int(method())
+            return value if value > 0 else None
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            return None
+
     def _compute_available_panel_height(self) -> int | None:
         host = self._host
         try:
@@ -209,22 +223,22 @@ class Amc2OpsPanel:
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             return None
 
-        top = self._measure_widget_y(self._parent) if self._parent is not None else self._measure_widget_y(self._root)
-        if top is None:
-            return None
-
+        top = None
         image_box = getattr(host, "image_box", None)
         image_top = self._measure_widget_y(image_box)
         image_h = self._measure_widget_h(image_box)
         if image_top is not None and image_h is not None:
-            # Always anchor below the image-box region, even if hidden.
-            top = max(top, image_top + image_h)
+            top = image_top + image_h
         else:
             info_box = getattr(host, "info_box", None)
             info_top = self._measure_widget_y(info_box)
             info_h = self._measure_widget_h(info_box)
             if info_top is not None and info_h is not None:
-                top = max(top, info_top + info_h)
+                top = info_top + info_h
+        if top is None:
+            top = self._measure_widget_y(self._root) if self._parent is None else self._measure_widget_y(self._parent)
+        if top is None:
+            return None
 
         app_tk = getattr(host.app, "tk", None)
         if app_tk is None:
@@ -254,11 +268,24 @@ class Amc2OpsPanel:
         if app_h <= 0:
             return None
 
-        scope_h = self._measure_widget_h(getattr(host, "scope_box", None))
-        if scope_h is None or scope_h <= 0:
-            scope_h = max(36, int(round(getattr(host, "button_size", 100) * 0.40)))
+        app_bottom = app_top + app_h
+        scope_box = getattr(host, "scope_box", None)
+        scope_top_actual = self._measure_widget_y(scope_box)
+        scope_req_h = self._measure_widget_req_h(scope_box)
+        if scope_req_h is None:
+            scope_req_h = self._measure_widget_h(scope_box)
+        scope_top_expected = (app_bottom - scope_req_h) if scope_req_h else None
 
-        bottom = app_top + app_h - scope_h - int(round(6 * host.scale_by))
+        if scope_top_actual is not None and scope_top_expected is not None:
+            # Use the more conservative (higher) scope top to avoid feedback loops.
+            bottom = min(scope_top_actual, scope_top_expected)
+        else:
+            bottom = scope_top_actual if scope_top_actual is not None else scope_top_expected
+        if bottom is None:
+            fallback_scope_h = max(36, int(round(getattr(host, "button_size", 100) * 0.40)))
+            bottom = app_bottom - fallback_scope_h
+
+        bottom -= int(round(6 * host.scale_by))
         available = bottom - top
         return available if available > 0 else None
 
@@ -269,8 +296,33 @@ class Amc2OpsPanel:
         if available is None:
             return
 
+        panel_h = max(120, available)
+        for box in (self._parent, self._root):
+            tk_widget = getattr(box, "tk", None)
+            if tk_widget is None:
+                continue
+            try:
+                tk_widget.config(height=panel_h)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
+            for propagate_name in ("pack_propagate", "grid_propagate"):
+                propagate = getattr(tk_widget, propagate_name, None)
+                if propagate is None:
+                    continue
+                try:
+                    propagate(False)
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    continue
+
         header_h = self._measure_widget_h(self._header) or 0
-        controls_h = max(140, available - header_h - 8)
+        controls_h = max(140, panel_h - header_h - 8)
+        controls_tk = getattr(self._controls, "tk", None)
+        if controls_tk is not None:
+            try:
+                controls_tk.config(height=controls_h)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
+
         sb = self._host.scale_by
         sample = next(iter(self._outputs.values()), None)
         if sample is not None:
