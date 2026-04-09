@@ -389,14 +389,19 @@ class MotorsGui(StateBasedGui):
         col: int,
         slider_height: int,
         control_width: int,
+        controls_height: int,
         show_level_box: bool,
     ) -> OutputWidgets:
         container = Box(parent, layout="grid", grid=[col, 0], align="top")
         sb = self._scale_by
-        container_height = max(
-            160 if show_level_box else 130,
-            slider_height + (max(72, int(round(88 * sb))) if show_level_box else max(44, int(round(50 * sb)))),
-        )
+        if show_level_box:
+            container_height = max(
+                160,
+                slider_height + max(72, int(round(88 * sb))),
+            )
+        else:
+            # On short displays, use all control-column height so the slider can run to bottom.
+            container_height = max(130, int(controls_height))
         slider_row = 2 if show_level_box else 1
         try:
             container.tk.configure(width=control_width, height=container_height)
@@ -451,6 +456,14 @@ class MotorsGui(StateBasedGui):
             highlightbackground=LIONEL_ORANGE,
             sliderlength=max(18, int(slider_height / 6)),
         )
+        if not show_level_box:
+            try:
+                toggle_h = max(int(toggle_btn.tk.winfo_reqheight()), int(toggle_btn.tk.winfo_height()))
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                toggle_h = max(36, int(round(40 * sb)))
+            fill_height = max(120, container_height - toggle_h - int(round(6 * sb)))
+            slider.height = fill_height
+            slider.tk.config(length=fill_height, sliderlength=max(18, int(fill_height / 6)))
         slider.tk.bind(
             "<ButtonRelease-1>",
             lambda e, tid=tmcc_id, t=output_type, idx=output_id: self._on_slider_release(tid, t, idx, e),
@@ -555,6 +568,7 @@ class MotorsGui(StateBasedGui):
                 col=idx,
                 slider_height=slider_height,
                 control_width=control_width,
+                controls_height=controls_height,
                 show_level_box=show_level_box,
             )
             by_output[(output_type, output_id)] = output
