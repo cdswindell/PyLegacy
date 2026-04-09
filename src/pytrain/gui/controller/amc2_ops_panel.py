@@ -16,6 +16,7 @@ from typing import Iterator, TYPE_CHECKING
 
 from guizero import Box, Slider, Text
 
+from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 from ...db.accessory_state import AccessoryState
@@ -31,6 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
 OUTPUT_STEP = 5
 BUTTON_ON_BG = "green"
 BUTTON_OFF_BG = "lightgrey"
+PAGE_OPTS = [["Motors", 0], ["Lights", 1]]
 
 PAGE_LAYOUT: list[tuple[str, list[tuple[str, int, str]]]] = [
     ("Motors", [("motor", 1, "Motor #1"), ("motor", 2, "Motor #2")]),
@@ -56,7 +58,8 @@ class Amc2OpsPanel:
         self._parent: Box | None = None
         self._root: Box | None = None
         self._header: Box | None = None
-        self._page_label: Text | None = None
+        self._page_selector: CheckBoxGroup | None = None
+        self._suspend_page_selector = False
         self._controls: Box | None = None
         self._page_index = 0
         self._active_tmcc_id: int | None = None
@@ -76,21 +79,27 @@ class Amc2OpsPanel:
         self._root = root = Box(parent, layout="grid", border=2, align="top")
 
         self._header = header = Box(root, layout="grid", grid=[0, 0], align="top")
-        prev_btn = HoldButton(header, text="<", grid=[0, 0], align="left", padx=6, pady=6)
-        prev_btn.text_size = host.s_22
-        prev_btn.text_bold = True
-        prev_btn.update_command(self.previous_page)
-
-        self._page_label = Text(header, text="", grid=[1, 0], align="top", bold=True, size=host.s_18)
+        host_width = int(getattr(host, "width", 0) or max(240, int(getattr(host, "button_size", 100) * 3)))
+        selector_width = max(8, int((getattr(host, "emergency_box_width", 0) or host_width) / 2.3))
+        self._page_selector = CheckBoxGroup(
+            header,
+            size=host.s_18,
+            grid=[0, 0, 2, 1],
+            options=PAGE_OPTS,
+            selected=str(self._page_index),
+            horizontal=True,
+            align="top",
+            width=selector_width,
+            padx=10,
+            pady=max(4, int(round(6 * host.scale_by))),
+            style="radio",
+            command=self._on_page_selected,
+        )
         try:
-            header.tk.grid_columnconfigure(1, weight=1)
+            for col in range(2):
+                header.tk.grid_columnconfigure(col, weight=1)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
-
-        next_btn = HoldButton(header, text=">", grid=[2, 0], align="right", padx=6, pady=6)
-        next_btn.text_size = host.s_22
-        next_btn.text_bold = True
-        next_btn.update_command(self.next_page)
 
         self._controls = controls = Box(root, layout="grid", grid=[0, 1], align="top")
         max_cols = max(len(outputs) for _, outputs in PAGE_LAYOUT)
@@ -149,12 +158,25 @@ class Amc2OpsPanel:
     def previous_page(self) -> None:
         self._set_page(self._page_index - 1)
 
+    def _on_page_selected(self) -> None:
+        if self._suspend_page_selector or self._page_selector is None:
+            return
+        try:
+            self._set_page(int(self._page_selector.value))
+        except (AttributeError, TypeError, ValueError):
+            self._set_page(0)
+
     def _set_page(self, index: int) -> None:
         total = len(PAGE_LAYOUT)
         self._page_index = index % total
-        page_title, _ = PAGE_LAYOUT[self._page_index]
-        if self._page_label is not None:
-            self._page_label.value = f"{page_title} ({self._page_index + 1}/{total})"
+        if self._page_selector is not None:
+            selected = str(self._page_index)
+            if getattr(self._page_selector, "value", None) != selected:
+                self._suspend_page_selector = True
+                try:
+                    self._page_selector.value = selected
+                finally:
+                    self._suspend_page_selector = False
         for output in self._outputs.values():
             should_show = output.page_idx == self._page_index
             if should_show and not output.container.visible:

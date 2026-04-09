@@ -91,6 +91,13 @@ class DummyHoldButton(_DummyWidget):
         self._args = args if args is not None else []
 
 
+class DummyCheckBoxGroup(_DummyWidget):
+    def __init__(self, *_args: Any, **kwargs: Any) -> None:
+        super().__init__(*_args, **kwargs)
+        self.value = kwargs.get("selected", "0")
+        self.command = kwargs.get("command")
+
+
 class DummyMotor:
     def __init__(self, speed: int) -> None:
         self.speed = speed
@@ -146,6 +153,7 @@ def _patch_widgets(monkeypatch):
     monkeypatch.setattr(mod, "Text", DummyText, raising=True)
     monkeypatch.setattr(mod, "Slider", DummySlider, raising=True)
     monkeypatch.setattr(mod, "HoldButton", DummyHoldButton, raising=True)
+    monkeypatch.setattr(mod, "CheckBoxGroup", DummyCheckBoxGroup, raising=True)
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
 
 

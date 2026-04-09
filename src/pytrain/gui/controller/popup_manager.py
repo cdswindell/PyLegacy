@@ -291,7 +291,7 @@ class PopupManager:
 
             # Hide the active content box
             self._state.on_close_show = None
-            for box in (host.controller_box, host.keypad_box, host.sensor_track_box):
+            for box in (host.controller_box, host.keypad_box, host.amc2_ops_box, host.sensor_track_box):
                 if box and getattr(box, "visible", True):
                     box.hide()
                     self._state.on_close_show = box
