@@ -120,6 +120,7 @@ class Amc2OpsPanel:
             return
         if self._parent is not None and not self._parent.visible:
             self._parent.show()
+        self._apply_available_layout()
         if state is not None:
             self.update_from_state(state)
         if not self._root.visible:
@@ -149,6 +150,101 @@ class Amc2OpsPanel:
                 output.container.show()
             elif not should_show and output.container.visible:
                 output.container.hide()
+        self._apply_available_layout()
+
+    @staticmethod
+    def _measure_widget_y(widget) -> int | None:
+        tk_widget = getattr(widget, "tk", None)
+        if tk_widget is None:
+            return None
+        for method_name in ("winfo_rooty", "winfo_y"):
+            method = getattr(tk_widget, method_name, None)
+            if method is None:
+                continue
+            try:
+                y = int(method())
+                if y >= 0:
+                    return y
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
+        return None
+
+    @staticmethod
+    def _measure_widget_h(widget) -> int | None:
+        tk_widget = getattr(widget, "tk", None)
+        if tk_widget is None:
+            return None
+        values: list[int] = []
+        for method_name in ("winfo_height", "winfo_reqheight"):
+            method = getattr(tk_widget, method_name, None)
+            if method is None:
+                continue
+            try:
+                h = int(method())
+                if h > 0:
+                    values.append(h)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
+        return max(values) if values else None
+
+    def _compute_available_panel_height(self) -> int | None:
+        host = self._host
+        try:
+            host.app.tk.update_idletasks()
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            return None
+
+        top = self._measure_widget_y(self._parent) if self._parent is not None else self._measure_widget_y(self._root)
+        if top is None:
+            return None
+
+        image_box = getattr(host, "image_box", None)
+        image_visible = bool(image_box and getattr(image_box, "visible", False))
+        if image_visible:
+            image_top = self._measure_widget_y(image_box)
+            image_h = self._measure_widget_h(image_box)
+            if image_top is not None and image_h is not None:
+                top = max(top, image_top + image_h)
+
+        scope_box = getattr(host, "scope_box", None)
+        scope_top = self._measure_widget_y(scope_box)
+        if scope_top is None:
+            return None
+        available = scope_top - top - 8
+        return available if available > 0 else None
+
+    def _apply_available_layout(self) -> None:
+        if self._root is None or self._controls is None:
+            return
+        available = self._compute_available_panel_height()
+        if available is None:
+            return
+
+        header_h = self._measure_widget_h(self._header) or 0
+        controls_h = max(140, available - header_h - 8)
+        sb = self._host.scale_by
+        chrome = max(92, int(round(102 * sb)))
+        slider_h = max(150, controls_h - chrome)
+
+        try:
+            self._root.tk.configure(height=available)
+            self._controls.tk.configure(height=controls_h)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+
+        for output in self._outputs.values():
+            try:
+                output.container.tk.configure(height=controls_h)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
+            output.slider.height = slider_h
+            try:
+                output.slider.tk.config(
+                    length=slider_h,
+                    sliderlength=max(16, int(slider_h / 6)),
+                )
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
 
     @staticmethod
     def _normalize_level(value: int | float | str) -> int:
