@@ -196,6 +196,7 @@ def _patch_widgets(monkeypatch):
     monkeypatch.setattr(mod, "HoldButton", DummyHoldButton, raising=True)
 
 
+# noinspection PyTypeChecker
 def test_make_state_button_hides_level_box_below_480px() -> None:
     gui = _new_gui(height=479)
     state = DummyAccessoryState()
@@ -208,6 +209,7 @@ def test_make_state_button_hides_level_box_below_480px() -> None:
     assert all(output.slider.grid == [0, 1] for output in outputs.values())
 
 
+# noinspection PyTypeChecker
 def test_make_state_button_keeps_level_box_at_or_above_480px() -> None:
     gui = _new_gui(height=480)
     state = DummyAccessoryState()
@@ -220,6 +222,7 @@ def test_make_state_button_keeps_level_box_at_or_above_480px() -> None:
     assert all(output.slider.grid == [0, 2] for output in outputs.values())
 
 
+# noinspection PyTypeChecker
 def test_slider_height_increases_when_level_box_removed() -> None:
     short_gui = _new_gui(height=479)
     short_state = DummyAccessoryState()
@@ -234,6 +237,7 @@ def test_slider_height_increases_when_level_box_removed() -> None:
     assert short_slider.height > tall_slider.height
 
 
+# noinspection PyTypeChecker
 def test_toggle_motor_state_off_at_zero_sets_level_to_100() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -252,6 +256,7 @@ def test_toggle_motor_state_off_at_zero_sets_level_to_100() -> None:
     assert output.level_box.value == "100"
 
 
+# noinspection PyTypeChecker
 def test_toggle_motor_state_on_uses_regular_toggle_behavior() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -265,6 +270,7 @@ def test_toggle_motor_state_on_uses_regular_toggle_behavior() -> None:
     assert sent == [(state.tmcc_id, 1, None)]
 
 
+# noinspection PyTypeChecker
 def test_level_box_uses_screen_height_not_container_height() -> None:
     gui = _new_gui(height=420)
     gui._screen_height = 600
@@ -276,6 +282,7 @@ def test_level_box_uses_screen_height_not_container_height() -> None:
     assert all(output.level_box is not None for output in outputs.values())
 
 
+# noinspection PyTypeChecker
 def test_level_box_hidden_when_screen_height_is_below_threshold() -> None:
     gui = _new_gui(height=600)
     gui._screen_height = 479
@@ -287,6 +294,7 @@ def test_level_box_hidden_when_screen_height_is_below_threshold() -> None:
     assert all(output.level_box is None for output in outputs.values())
 
 
+# noinspection PyTypeChecker
 def test_level_box_hidden_when_screen_metric_unavailable_but_window_is_short() -> None:
     gui = _new_gui(height=600)
     gui._screen_height = None
@@ -301,6 +309,7 @@ def test_level_box_hidden_when_screen_metric_unavailable_but_window_is_short() -
     assert all(output.level_box is None for output in outputs.values())
 
 
+# noinspection PyTypeChecker
 def test_level_box_hidden_when_window_is_short_even_if_screen_reports_tall() -> None:
     gui = _new_gui(height=600)
     gui._screen_height = None
@@ -315,6 +324,7 @@ def test_level_box_hidden_when_window_is_short_even_if_screen_reports_tall() -> 
     assert all(output.level_box is None for output in outputs.values())
 
 
+# noinspection PyTypeChecker
 def test_lamp_slider_release_to_zero_sets_button_on_and_sends_value() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -333,6 +343,7 @@ def test_lamp_slider_release_to_zero_sets_button_on_and_sends_value() -> None:
     assert output.level_box.value == "000"
 
 
+# noinspection PyTypeChecker
 def test_external_lamp_change_updates_slider_even_when_focused() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -351,6 +362,7 @@ def test_external_lamp_change_updates_slider_even_when_focused() -> None:
     assert output.slider.tk._config["troughcolor"] == mod.LIONEL_BLUE
 
 
+# noinspection PyTypeChecker
 def test_external_lamp_zero_change_updates_slider_and_sets_off_color() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -369,6 +381,7 @@ def test_external_lamp_zero_change_updates_slider_and_sets_off_color() -> None:
     assert output.slider.tk._config["troughcolor"] == "lightgrey"
 
 
+# noinspection PyTypeChecker
 def test_external_motor_change_updates_slider_and_color() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -384,6 +397,7 @@ def test_external_motor_change_updates_slider_and_color() -> None:
     assert output.slider.tk._config["troughcolor"] == mod.LIONEL_BLUE
 
 
+# noinspection PyTypeChecker
 def test_state_change_callback_uses_tmcc_id_and_updates_visible_outputs() -> None:
     gui = _new_gui(height=600)
     watched_state = DummyAccessoryState()
@@ -392,9 +406,11 @@ def test_state_change_callback_uses_tmcc_id_and_updates_visible_outputs() -> Non
     latest_state = DummyAccessoryState()
     latest_state.get_lamp(1).level = 85
     gui._state_store = SimpleNamespace(
-        get_state=lambda scope, tmcc_id, create=False: latest_state
-        if scope == mod.CommandScope.ACC and tmcc_id == watched_state.tmcc_id and create is False
-        else None
+        get_state=lambda scope, tmcc_id, create=False: (
+            latest_state
+            if scope == mod.CommandScope.ACC and tmcc_id == watched_state.tmcc_id and create is False
+            else None
+        ),
     )
 
     cb = gui.on_state_change_action(watched_state)
