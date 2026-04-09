@@ -46,14 +46,17 @@ BUTTON_OFF_BG = "lightgrey"
 class OutputWidgets:
     container: Box
     toggle_btn: HoldButton
-    level_box: Text
+    level_box: Text | None
     slider: Slider
     output_type: str
     output_id: int
     label: str
 
     def widgets(self) -> list[Widget]:
-        return [self.container, self.toggle_btn, self.level_box, self.slider]
+        widgets: list[Widget] = [self.container, self.toggle_btn, self.slider]
+        if self.level_box is not None:
+            widgets.append(self.level_box)
+        return widgets
 
 
 class MotorsGui(StateBasedGui):
@@ -196,7 +199,8 @@ class MotorsGui(StateBasedGui):
             # noinspection PyArgumentList
             with self._suspend_slider_callback(callback_key):
                 output.slider.value = normalized
-        output.level_box.value = self._format_level(normalized)
+        if output.level_box is not None:
+            output.level_box.value = self._format_level(normalized)
 
     @contextmanager
     def _suspend_slider_callback(self, callback_key: tuple[int, str, int]):
@@ -236,7 +240,8 @@ class MotorsGui(StateBasedGui):
                 if not self._is_slider_focused(output.slider):
                     self._set_level_ui(output, level)
                 else:
-                    output.level_box.value = self._format_level(self._normalize_level(output.slider.value))
+                    if output.level_box is not None:
+                        output.level_box.value = self._format_level(self._normalize_level(output.slider.value))
 
     def set_motor_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         if self._making_buttons:
@@ -314,7 +319,8 @@ class MotorsGui(StateBasedGui):
         output = self._output_by_tmcc.get(tmcc_id, {}).get((output_type, output_id))
         if output is None:
             return
-        output.level_box.value = self._format_level(normalized)
+        if output.level_box is not None:
+            output.level_box.value = self._format_level(normalized)
         self._style_slider(output.slider, normalized > 0)
         if output_type == "lamp" and normalized > 0:
             self._last_non_zero_lamp_level[(tmcc_id, output_id)] = normalized
@@ -332,7 +338,8 @@ class MotorsGui(StateBasedGui):
         # noinspection PyArgumentList
         with self._suspend_slider_callback(callback_key):
             output.slider.value = value
-        output.level_box.value = self._format_level(value)
+        if output.level_box is not None:
+            output.level_box.value = self._format_level(value)
         if output_type == "motor":
             self.set_motor_state(tmcc_id, output_id, value)
         else:
@@ -349,8 +356,9 @@ class MotorsGui(StateBasedGui):
         overhead = max(120, int(round(135 * self._scale_by)))
         return max(110, available - overhead)
 
-    def _calc_slider_height_for_controls(self, controls_height: int) -> int:
-        overhead = max(88, int(round(94 * self._scale_by)))
+    def _calc_slider_height_for_controls(self, controls_height: int, show_level_box: bool) -> int:
+        sb = self._scale_by
+        overhead = max(88, int(round(94 * sb))) if show_level_box else max(64, int(round(68 * sb)))
         return max(120, controls_height - overhead)
 
     def _hidden_nav_vertical_reclaim(self) -> int:
@@ -381,16 +389,19 @@ class MotorsGui(StateBasedGui):
         col: int,
         slider_height: int,
         control_width: int,
+        show_level_box: bool,
     ) -> OutputWidgets:
         container = Box(parent, layout="grid", grid=[col, 0], align="top")
+        sb = self._scale_by
         container_height = max(
-            180,
-            slider_height + max(72, int(round(88 * self._scale_by))),
+            160 if show_level_box else 130,
+            slider_height + (max(72, int(round(88 * sb))) if show_level_box else max(44, int(round(50 * sb)))),
         )
+        slider_row = 2 if show_level_box else 1
         try:
             container.tk.configure(width=control_width, height=container_height)
             container.tk.grid_propagate(False)
-            container.tk.grid_rowconfigure(2, weight=1)
+            container.tk.grid_rowconfigure(slider_row, weight=1)
             container.tk.grid_columnconfigure(0, weight=1)
             container.tk.grid_configure(padx=max(2, int(round(4 * self._scale_by))))
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
@@ -405,22 +416,24 @@ class MotorsGui(StateBasedGui):
         )
         toggle_btn.text_size = int(round(14 * self._scale_by))
         toggle_btn.text_bold = True
-        level_box = Text(
-            container,
-            grid=[0, 1],
-            text=self._format_level(level),
-            color="black",
-            align="top",
-            bold=True,
-            size=self.s_18,
-            width=4,
-            font="DigitalDream",
-        )
-        level_box.bg = "black"
-        level_box.text_color = "white"
+        level_box = None
+        if show_level_box:
+            level_box = Text(
+                container,
+                grid=[0, 1],
+                text=self._format_level(level),
+                color="black",
+                align="top",
+                bold=True,
+                size=self.s_18,
+                width=4,
+                font="DigitalDream",
+            )
+            level_box.bg = "black"
+            level_box.text_color = "white"
         slider = Slider(
             container,
-            grid=[0, 2],
+            grid=[0, slider_row],
             align="top",
             horizontal=False,
             step=OUTPUT_STEP,
@@ -502,6 +515,7 @@ class MotorsGui(StateBasedGui):
         self.app.tk.update_idletasks()
         title_height = max(int(title.tk.winfo_reqheight()), int(title.tk.winfo_height()))
         controls_height = max(140, panel_height - title_height - int(round(14 * self._scale_by)))
+        show_level_box = self.height >= 500
         control_width = max(
             58,
             int((panel_width - int(round(12 * self._scale_by))) / len(OUTPUT_ORDER)),
@@ -515,7 +529,7 @@ class MotorsGui(StateBasedGui):
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
-        slider_height = self._calc_slider_height_for_controls(controls_height)
+        slider_height = self._calc_slider_height_for_controls(controls_height, show_level_box)
         by_output: dict[tuple[str, int], OutputWidgets] = {}
 
         for idx, (output_type, output_id, label) in enumerate(OUTPUT_ORDER):
@@ -541,6 +555,7 @@ class MotorsGui(StateBasedGui):
                 col=idx,
                 slider_height=slider_height,
                 control_width=control_width,
+                show_level_box=show_level_box,
             )
             by_output[(output_type, output_id)] = output
             widgets.extend(output.widgets())
