@@ -280,12 +280,13 @@ class Amc2OpsPanel:
             toggle_h = int(round(42 * sb))
             level_h = int(round(34 * sb))
         chrome = toggle_h + level_h + int(round(18 * sb))
-        slider_h = max(130, controls_h - chrome)
+        extra_height = int(round(getattr(self._host, "button_width", getattr(self._host, "button_size", 0))))
+        slider_h = max(130, controls_h - chrome + max(0, extra_height))
         base_slider = max(
             int(round(self._host.button_size * 2.6)),
             int(round(getattr(self._host, "slider_height", 300) * 0.72)),
         )
-        slider_cap = max(170, int(round(base_slider * 1.05)))
+        slider_cap = max(170, int(round(base_slider * 1.05)) + max(0, extra_height))
         slider_h = min(slider_h, slider_cap)
 
         for output in self._outputs.values():
