@@ -250,10 +250,11 @@ def test_toggle_motor_state_off_at_zero_sets_level_to_100() -> None:
 
     assert sent == [(state.tmcc_id, 2, 100)]
     output = gui._output_by_tmcc[state.tmcc_id][("motor", 2)]
-    assert output.slider.value == 100
-    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    # Motor visuals should be driven by external state update, not optimistic local state.
+    assert output.slider.value == 0
+    assert output.toggle_btn.bg == mod.BUTTON_OFF_BG
     assert output.level_box is not None
-    assert output.level_box.value == "100"
+    assert output.level_box.value == "000"
 
 
 # noinspection PyTypeChecker
@@ -291,7 +292,7 @@ def test_toggle_lamp_zero_turns_on_to_100() -> None:
 
 
 # noinspection PyTypeChecker
-def test_toggle_lamp_100_off_sets_ui_to_zero_then_on_restores_100() -> None:
+def test_toggle_lamp_100_off_sets_ui_to_zero_then_on_sets_100_when_state_is_zero() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
     state.get_lamp(1).level = 100
@@ -307,6 +308,8 @@ def test_toggle_lamp_100_off_sets_ui_to_zero_then_on_restores_100() -> None:
     assert output.slider.value == 0
     assert output.toggle_btn.bg == mod.BUTTON_OFF_BG
 
+    # Emulate state watcher update from external command processing.
+    state.get_lamp(1).level = 0
     gui.toggle_lamp_state(state.tmcc_id, 1)
 
     assert sent == [(state.tmcc_id, 1, 0), (state.tmcc_id, 1, 100)]
@@ -369,7 +372,7 @@ def test_level_box_hidden_when_window_is_short_even_if_screen_reports_tall() -> 
 
 
 # noinspection PyTypeChecker
-def test_lamp_slider_release_to_zero_sets_button_on_and_sends_value() -> None:
+def test_lamp_slider_release_to_zero_sets_button_off_and_sends_value() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
     gui._make_state_button(state, row=4, col=0)
@@ -382,7 +385,7 @@ def test_lamp_slider_release_to_zero_sets_button_on_and_sends_value() -> None:
     gui._on_slider_release(state.tmcc_id, "lamp", 1)
 
     assert sent == [(state.tmcc_id, 1, 0)]
-    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.toggle_btn.bg == mod.BUTTON_OFF_BG
     assert output.level_box is not None
     assert output.level_box.value == "000"
 
@@ -457,7 +460,7 @@ def test_lamp_trough_follows_actual_level_even_when_button_forced_on() -> None:
     gui.update_button(state)
 
     assert output.slider.value == 0
-    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.toggle_btn.bg == mod.BUTTON_OFF_BG
     assert output.slider.tk._config["troughcolor"] == "lightgrey"
 
 
