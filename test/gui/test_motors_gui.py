@@ -398,6 +398,26 @@ def test_external_motor_change_updates_slider_and_color() -> None:
 
 
 # noinspection PyTypeChecker
+def test_lamp_trough_follows_actual_level_even_when_button_forced_on() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    gui._make_state_button(state, row=4, col=0)
+    output = gui._output_by_tmcc[state.tmcc_id][("lamp", 2)]
+    key = (state.tmcc_id, 2)
+
+    # Simulate local slider action that temporarily forces button "On" while level is zero.
+    gui._lamp_force_on[key] = True
+    output.slider.value = 0
+    state.get_lamp(2).level = 0
+
+    gui.update_button(state)
+
+    assert output.slider.value == 0
+    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.slider.tk._config["troughcolor"] == "lightgrey"
+
+
+# noinspection PyTypeChecker
 def test_state_change_callback_uses_tmcc_id_and_updates_visible_outputs() -> None:
     gui = _new_gui(height=600)
     watched_state = DummyAccessoryState()

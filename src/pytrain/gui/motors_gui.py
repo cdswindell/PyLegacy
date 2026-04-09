@@ -321,10 +321,14 @@ class MotorsGui(StateBasedGui):
                             if output.level_box is not None:
                                 output.level_box.value = self._format_level(self._normalize_level(output.slider.value))
                             continue
-                    is_active = self._lamp_force_on.get(key, False) or self.is_lamp_active(pd, output_id)
+                    lamp_active = self.is_lamp_active(pd, output_id)
+                    is_active = self._lamp_force_on.get(key, False) or lamp_active
 
                 self._set_toggle_button_state(output, is_active)
-                self._style_slider(output.slider, is_active)
+                if output_type == "lamp":
+                    self._style_slider(output.slider, lamp_active)
+                else:
+                    self._style_slider(output.slider, is_active)
                 self._set_level_ui(output, level)
 
     def set_motor_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
