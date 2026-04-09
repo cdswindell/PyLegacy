@@ -8,10 +8,10 @@ psutil>=5.9.8
 python-dotenv>=1.2.2
 pyserial>=3.5
 range-key-dict>=1.1
-requests>=2.33.0
+requests>=2.33.1
 setuptools>=82.0.1
 setuptools_scm>=9.2.2
-smbus2>=0.6.0
+smbus2>=0.6.1
 zeroconf>=0.148.0
 rpi-lgpio>=0.6; sys_platform == 'linux'
 spidev>=3.8.0; sys_platform == 'linux'

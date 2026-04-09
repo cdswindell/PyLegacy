@@ -3,9 +3,9 @@ iniconfig>=2.3.0
 packaging>=26.0
 pluggy>=1.6.0
 pypi-cleanup>=0.1.10
-pytest>=9.0.2
-ruff>=0.15.7
-tox>=4.50.3
+pytest>=9.0.3
+ruff>=0.15.10
+tox>=4.52.1
 twine>=6.2.0
-ipython>=9.11.0; python_version>="3.12"
+ipython>=9.12.0; python_version>="3.12"
 ipython>=9.10.0; python_version=="3.11"
