@@ -203,6 +203,24 @@ class Amc2OpsPanel:
         return max(values) if values else None
 
     @staticmethod
+    def _measure_widget_w(widget) -> int | None:
+        tk_widget = getattr(widget, "tk", None)
+        if tk_widget is None:
+            return None
+        values: list[int] = []
+        for method_name in ("winfo_width", "winfo_reqwidth"):
+            method = getattr(tk_widget, method_name, None)
+            if method is None:
+                continue
+            try:
+                w = int(method())
+                if w > 1:
+                    values.append(w)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
+        return max(values) if values else None
+
+    @staticmethod
     def _measure_widget_req_h(widget) -> int | None:
         tk_widget = getattr(widget, "tk", None)
         if tk_widget is None:
@@ -297,12 +315,21 @@ class Amc2OpsPanel:
             return
 
         panel_h = max(120, available)
+        panel_w = (
+            self._measure_widget_w(self._parent)
+            or self._measure_widget_w(self._root)
+            or int(getattr(self._host, "emergency_box_width", 0) or 0)
+            or int(getattr(self._host, "width", 0) or 0)
+        )
         for box in (self._parent, self._root):
             tk_widget = getattr(box, "tk", None)
             if tk_widget is None:
                 continue
             try:
-                tk_widget.config(height=panel_h)
+                cfg = {"height": panel_h}
+                if panel_w > 0:
+                    cfg["width"] = panel_w
+                tk_widget.config(**cfg)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
             for propagate_name in ("pack_propagate", "grid_propagate"):
@@ -319,7 +346,10 @@ class Amc2OpsPanel:
         controls_tk = getattr(self._controls, "tk", None)
         if controls_tk is not None:
             try:
-                controls_tk.config(height=controls_h)
+                cfg = {"height": controls_h}
+                if panel_w > 0:
+                    cfg["width"] = panel_w
+                controls_tk.config(**cfg)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
 
