@@ -157,6 +157,8 @@ def _new_gui(height: int) -> mod.MotorsGui:
     gui._cv = Condition(RLock())
     gui._output_by_tmcc = {}
     gui._last_non_zero_lamp_level = {}
+    gui._lamp_toggle_off = {}
+    gui._lamp_force_on = {}
     gui._suspended_slider_callbacks = set()
     gui._scale_by = 1.0
     gui._screen_height = None
@@ -276,3 +278,38 @@ def test_level_box_hidden_when_screen_height_is_below_threshold() -> None:
 
     outputs = gui._output_by_tmcc[state.tmcc_id]
     assert all(output.level_box is None for output in outputs.values())
+
+
+def test_lamp_slider_release_to_zero_sets_button_on_and_sends_value() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    gui._make_state_button(state, row=4, col=0)
+    gui._making_buttons = False
+    sent: list[tuple[int, int, int]] = []
+    gui.set_lamp_state = lambda tmcc_id, lamp, level: sent.append((tmcc_id, lamp, level))
+    output = gui._output_by_tmcc[state.tmcc_id][("lamp", 1)]
+
+    output.slider.value = 0
+    gui._on_slider_release(state.tmcc_id, "lamp", 1)
+
+    assert sent == [(state.tmcc_id, 1, 0)]
+    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.level_box is not None
+    assert output.level_box.value == "000"
+
+
+def test_external_lamp_change_updates_slider_even_when_focused() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    gui._make_state_button(state, row=4, col=0)
+    output = gui._output_by_tmcc[state.tmcc_id][("lamp", 1)]
+
+    output.slider.value = 10
+    output.slider.tk.focus_displayof = lambda: output.slider.tk
+    state.get_lamp(1).level = 65
+
+    gui.update_button(state)
+
+    assert output.slider.value == 65
+    assert output.level_box is not None
+    assert output.level_box.value == "065"

@@ -95,6 +95,8 @@ class MotorsGui(StateBasedGui):
         self._making_buttons = True
         self._output_by_tmcc: dict[int, dict[tuple[str, int], OutputWidgets]] = {}
         self._last_non_zero_lamp_level: dict[tuple[int, int], int] = {}
+        self._lamp_toggle_off: dict[tuple[int, int], bool] = {}
+        self._lamp_force_on: dict[tuple[int, int], bool] = {}
         self._suspended_slider_callbacks: set[tuple[int, str, int]] = set()
         self._screen_height: int | None = None
 
@@ -151,6 +153,8 @@ class MotorsGui(StateBasedGui):
 
     def _reset_state_buttons(self) -> None:
         self._output_by_tmcc.clear()
+        self._lamp_toggle_off.clear()
+        self._lamp_force_on.clear()
         self._suspended_slider_callbacks.clear()
         super()._reset_state_buttons()
 
@@ -236,13 +240,6 @@ class MotorsGui(StateBasedGui):
         finally:
             self._suspended_slider_callbacks.discard(callback_key)
 
-    @staticmethod
-    def _is_slider_focused(slider: Slider) -> bool:
-        try:
-            return slider.tk.focus_displayof() == slider.tk
-        except (AttributeError, RuntimeError, TclError):
-            return False
-
     # noinspection PyTypeChecker
     def update_button(self, state: S) -> None:
         with self._cv:
@@ -254,20 +251,30 @@ class MotorsGui(StateBasedGui):
                     level = motor_state.speed if motor_state else 0
                     is_active = self.is_motor_active(pd, output_id)
                 else:
+                    key = (pd.tmcc_id, output_id)
                     lamp_state = pd.get_lamp(output_id)
                     level = lamp_state.level if lamp_state else 0
-                    is_active = self.is_lamp_active(pd, output_id)
                     if level > 0:
-                        self._last_non_zero_lamp_level[(pd.tmcc_id, output_id)] = level
+                        self._last_non_zero_lamp_level[key] = level
+
+                    # Emulated off mode: keep displayed level while actual lamp is commanded to zero.
+                    if self._lamp_toggle_off.get(key, False):
+                        if level > 0:
+                            # External controller turned light back on; exit emulated off mode.
+                            self._lamp_toggle_off[key] = False
+                            self._lamp_force_on[key] = True
+                        else:
+                            is_active = False
+                            self._set_toggle_button_state(output, is_active)
+                            self._style_slider(output.slider, is_active)
+                            if output.level_box is not None:
+                                output.level_box.value = self._format_level(self._normalize_level(output.slider.value))
+                            continue
+                    is_active = self._lamp_force_on.get(key, False) or self.is_lamp_active(pd, output_id)
 
                 self._set_toggle_button_state(output, is_active)
                 self._style_slider(output.slider, is_active)
-
-                if not self._is_slider_focused(output.slider):
-                    self._set_level_ui(output, level)
-                else:
-                    if output.level_box is not None:
-                        output.level_box.value = self._format_level(self._normalize_level(output.slider.value))
+                self._set_level_ui(output, level)
 
     def set_motor_state(self, tmcc_id: int, motor: int, speed: int = None) -> None:
         if self._making_buttons:
@@ -337,18 +344,33 @@ class MotorsGui(StateBasedGui):
             pd = self._state_for_tmcc(tmcc_id)
             if pd is None:
                 return
+            key = (tmcc_id, lamp)
             lamp_state = pd.get_lamp(lamp)
             current_level = lamp_state.level if lamp_state else 0
-            if current_level > 0:
-                self._last_non_zero_lamp_level[(tmcc_id, lamp)] = current_level
-                target = 0
-            else:
-                target = 100
             output = self._output_by_tmcc.get(tmcc_id, {}).get(("lamp", lamp))
-            if output is not None:
-                self._set_level_ui(output, target)
-                self._style_slider(output.slider, target > 0)
-                self._set_toggle_button_state(output, target > 0)
+            is_off_mode = self._lamp_toggle_off.get(key, False)
+            displayed_level = self._normalize_level(output.slider.value) if output is not None else current_level
+            if not is_off_mode:
+                if displayed_level > 0:
+                    self._last_non_zero_lamp_level[key] = displayed_level
+                self._lamp_toggle_off[key] = True
+                self._lamp_force_on[key] = False
+                target = 0
+                if output is not None:
+                    # Preserve displayed level while sending actual level=0 to AMC2.
+                    self._set_level_ui(output, displayed_level)
+                    self._style_slider(output.slider, False)
+                    self._set_toggle_button_state(output, False)
+            else:
+                self._lamp_toggle_off[key] = False
+                self._lamp_force_on[key] = True
+                remembered = displayed_level if displayed_level > 0 else self._last_non_zero_lamp_level.get(key, 0)
+                target = remembered if remembered > 0 else 100
+                self._last_non_zero_lamp_level[key] = target
+                if output is not None:
+                    self._set_level_ui(output, target)
+                    self._style_slider(output.slider, True)
+                    self._set_toggle_button_state(output, True)
         self.set_lamp_state(tmcc_id, lamp, target)
 
     def _on_slider_change(self, tmcc_id: int, output_type: str, output_id: int, value) -> None:
@@ -363,9 +385,16 @@ class MotorsGui(StateBasedGui):
             return
         if output.level_box is not None:
             output.level_box.value = self._format_level(normalized)
-        self._style_slider(output.slider, normalized > 0)
-        if output_type == "lamp" and normalized > 0:
-            self._last_non_zero_lamp_level[(tmcc_id, output_id)] = normalized
+        if output_type == "lamp":
+            key = (tmcc_id, output_id)
+            self._lamp_toggle_off[key] = False
+            self._lamp_force_on[key] = True
+            self._set_toggle_button_state(output, True)
+            self._style_slider(output.slider, True)
+            if normalized > 0:
+                self._last_non_zero_lamp_level[key] = normalized
+        else:
+            self._style_slider(output.slider, normalized > 0)
 
     def _on_slider_release(self, tmcc_id: int, output_type: str, output_id: int, _event=None) -> None:
         if self._making_buttons:
@@ -385,6 +414,13 @@ class MotorsGui(StateBasedGui):
         if output_type == "motor":
             self.set_motor_state(tmcc_id, output_id, value)
         else:
+            key = (tmcc_id, output_id)
+            self._lamp_toggle_off[key] = False
+            self._lamp_force_on[key] = True
+            self._set_toggle_button_state(output, True)
+            self._style_slider(output.slider, True)
+            if value > 0:
+                self._last_non_zero_lamp_level[key] = value
             self.set_lamp_state(tmcc_id, output_id, value)
 
     def _slider_change_handler(self, tmcc_id: int, output_type: str, output_id: int):
