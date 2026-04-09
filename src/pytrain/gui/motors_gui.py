@@ -143,16 +143,20 @@ class MotorsGui(StateBasedGui):
         return None
 
     def _effective_screen_height(self) -> int:
-        # Re-query each time so compact/full layout follows the actual display.
-        measured = self._query_screen_height()
-        if measured is not None:
-            self._screen_height = measured
-            return measured
+        # Re-query each time so compact/full layout follows actual display geometry.
+        measured_screen = self._query_screen_height()
+        measured_window = self._query_window_height()
+        if measured_screen is not None and measured_window is not None:
+            self._screen_height = measured_screen
+            # Window height can be lower than reported screen height on some stacks.
+            return min(measured_screen, measured_window)
+        if measured_screen is not None:
+            self._screen_height = measured_screen
+            return measured_screen
+        if measured_window is not None:
+            return measured_window
         if isinstance(self._screen_height, int) and self._screen_height > 0:
             return self._screen_height
-        fallback = self._query_window_height()
-        if fallback is not None:
-            return fallback
         return int(self.height) if int(self.height) > 0 else LEVEL_BOX_MIN_SCREEN_HEIGHT
 
     def _show_level_box(self) -> bool:
@@ -198,6 +202,22 @@ class MotorsGui(StateBasedGui):
 
     def switch_state(self, pd: AccessoryState) -> None:
         _ = pd
+
+    def on_state_change_action(self, state: S):
+        tmcc_id = getattr(state, "tmcc_id", None)
+
+        def upd():
+            if self._shutdown_flag.is_set() or tmcc_id is None:
+                return
+            if tmcc_id not in self._output_by_tmcc:
+                return
+            latest = self._state_store.get_state(CommandScope.ACC, tmcc_id, False)
+            if latest is None:
+                latest = self._state_for_tmcc(tmcc_id) or state
+            if latest is not None:
+                self._message_queue.put((self.update_button, [latest]))
+
+        return upd
 
     @staticmethod
     def _normalize_level(value: int | float | str) -> int:

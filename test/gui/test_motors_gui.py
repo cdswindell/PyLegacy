@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from threading import Condition, RLock
+from queue import Queue
+from threading import Condition, Event, RLock
 from types import SimpleNamespace
 from typing import Any
 
@@ -159,6 +160,8 @@ def _new_gui(height: int) -> mod.MotorsGui:
     gui = mod.MotorsGui.__new__(mod.MotorsGui)
     gui._making_buttons = True
     gui._cv = Condition(RLock())
+    gui._shutdown_flag = Event()
+    gui._message_queue = Queue()
     gui._output_by_tmcc = {}
     gui._last_non_zero_lamp_level = {}
     gui._lamp_toggle_off = {}
@@ -298,6 +301,20 @@ def test_level_box_hidden_when_screen_metric_unavailable_but_window_is_short() -
     assert all(output.level_box is None for output in outputs.values())
 
 
+def test_level_box_hidden_when_window_is_short_even_if_screen_reports_tall() -> None:
+    gui = _new_gui(height=600)
+    gui._screen_height = None
+    gui._app.tk.winfo_screenheight = lambda: 1080
+    gui._app.tk.winfo_vrootheight = lambda: 1080
+    gui._app.tk.winfo_height = lambda: 470
+    state = DummyAccessoryState()
+
+    gui._make_state_button(state, row=4, col=0)
+
+    outputs = gui._output_by_tmcc[state.tmcc_id]
+    assert all(output.level_box is None for output in outputs.values())
+
+
 def test_lamp_slider_release_to_zero_sets_button_on_and_sends_value() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -364,4 +381,30 @@ def test_external_motor_change_updates_slider_and_color() -> None:
 
     assert output.slider.value == 80
     assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.slider.tk._config["troughcolor"] == mod.LIONEL_BLUE
+
+
+def test_state_change_callback_uses_tmcc_id_and_updates_visible_outputs() -> None:
+    gui = _new_gui(height=600)
+    watched_state = DummyAccessoryState()
+    gui._make_state_button(watched_state, row=4, col=0)
+    # Simulate a replaced state object in the store (same TMCC ID, different values).
+    latest_state = DummyAccessoryState()
+    latest_state.get_lamp(1).level = 85
+    gui._state_store = SimpleNamespace(
+        get_state=lambda scope, tmcc_id, create=False: latest_state
+        if scope == mod.CommandScope.ACC and tmcc_id == watched_state.tmcc_id and create is False
+        else None
+    )
+
+    cb = gui.on_state_change_action(watched_state)
+    cb()
+
+    message, args = gui._message_queue.get_nowait()
+    assert message == gui.update_button
+    assert args == [latest_state]
+
+    message(*args)
+    output = gui._output_by_tmcc[watched_state.tmcc_id][("lamp", 1)]
+    assert output.slider.value == 85
     assert output.slider.tk._config["troughcolor"] == mod.LIONEL_BLUE
