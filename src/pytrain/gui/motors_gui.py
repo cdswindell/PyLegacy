@@ -110,24 +110,50 @@ class MotorsGui(StateBasedGui):
         self.app.after(2000, self.clear_making_buttons)
 
     def _capture_screen_height(self) -> None:
-        try:
-            h = int(self.app.tk.winfo_screenheight())
-            if h > 0:
-                self._screen_height = h
-        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-            pass
+        h = self._query_screen_height()
+        if h is not None:
+            self._screen_height = h
 
-    def _effective_screen_height(self) -> int:
-        if isinstance(self._screen_height, int) and self._screen_height > 0:
-            return self._screen_height
+    def _query_screen_height(self) -> int | None:
+        tk_root = getattr(self.app, "tk", None)
+        if tk_root is None:
+            return None
+        for method_name in ("winfo_screenheight", "winfo_vrootheight"):
+            method = getattr(tk_root, method_name, None)
+            if method is None:
+                continue
+            try:
+                h = int(method())
+                if h > 0:
+                    return h
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
+        return None
+
+    def _query_window_height(self) -> int | None:
+        tk_root = getattr(self.app, "tk", None)
+        if tk_root is None:
+            return None
         try:
-            h = int(self.app.tk.winfo_screenheight())
+            h = int(tk_root.winfo_height())
             if h > 0:
-                self._screen_height = h
                 return h
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-            pass
-        return int(self.height)
+            return None
+        return None
+
+    def _effective_screen_height(self) -> int:
+        # Re-query each time so compact/full layout follows the actual display.
+        measured = self._query_screen_height()
+        if measured is not None:
+            self._screen_height = measured
+            return measured
+        if isinstance(self._screen_height, int) and self._screen_height > 0:
+            return self._screen_height
+        fallback = self._query_window_height()
+        if fallback is not None:
+            return fallback
+        return int(self.height) if int(self.height) > 0 else LEVEL_BOX_MIN_SCREEN_HEIGHT
 
     def _show_level_box(self) -> bool:
         return self._effective_screen_height() >= LEVEL_BOX_MIN_SCREEN_HEIGHT
@@ -254,8 +280,13 @@ class MotorsGui(StateBasedGui):
                     key = (pd.tmcc_id, output_id)
                     lamp_state = pd.get_lamp(output_id)
                     level = lamp_state.level if lamp_state else 0
+                    display_level = self._normalize_level(output.slider.value)
                     if level > 0:
                         self._last_non_zero_lamp_level[key] = level
+
+                    # If state changed from another controller, drop temporary forced-on styling.
+                    if self._lamp_force_on.get(key, False) and self._normalize_level(level) != display_level:
+                        self._lamp_force_on[key] = False
 
                     # Emulated off mode: keep displayed level while actual lamp is commanded to zero.
                     if self._lamp_toggle_off.get(key, False):

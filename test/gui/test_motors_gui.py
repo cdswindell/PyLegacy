@@ -109,7 +109,11 @@ class DummyHoldButton(_DummyWidget):
 
 class DummyApp:
     def __init__(self) -> None:
-        self.tk = SimpleNamespace(update_idletasks=lambda: None, winfo_screenheight=lambda: 0)
+        self.tk = SimpleNamespace(
+            update_idletasks=lambda: None,
+            winfo_screenheight=lambda: 0,
+            winfo_height=lambda: 0,
+        )
 
     @staticmethod
     def after(_delay: int, _func) -> None:
@@ -280,6 +284,20 @@ def test_level_box_hidden_when_screen_height_is_below_threshold() -> None:
     assert all(output.level_box is None for output in outputs.values())
 
 
+def test_level_box_hidden_when_screen_metric_unavailable_but_window_is_short() -> None:
+    gui = _new_gui(height=600)
+    gui._screen_height = None
+    gui._app.tk.winfo_screenheight = lambda: 0
+    gui._app.tk.winfo_vrootheight = lambda: 0
+    gui._app.tk.winfo_height = lambda: 470
+    state = DummyAccessoryState()
+
+    gui._make_state_button(state, row=4, col=0)
+
+    outputs = gui._output_by_tmcc[state.tmcc_id]
+    assert all(output.level_box is None for output in outputs.values())
+
+
 def test_lamp_slider_release_to_zero_sets_button_on_and_sends_value() -> None:
     gui = _new_gui(height=600)
     state = DummyAccessoryState()
@@ -313,3 +331,37 @@ def test_external_lamp_change_updates_slider_even_when_focused() -> None:
     assert output.slider.value == 65
     assert output.level_box is not None
     assert output.level_box.value == "065"
+    assert output.slider.tk._config["troughcolor"] == mod.LIONEL_BLUE
+
+
+def test_external_lamp_zero_change_updates_slider_and_sets_off_color() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    gui._make_state_button(state, row=4, col=0)
+    output = gui._output_by_tmcc[state.tmcc_id][("lamp", 1)]
+    key = (state.tmcc_id, 1)
+    gui._lamp_force_on[key] = True
+
+    output.slider.value = 55
+    state.get_lamp(1).level = 0
+
+    gui.update_button(state)
+
+    assert output.slider.value == 0
+    assert output.toggle_btn.bg == mod.BUTTON_OFF_BG
+    assert output.slider.tk._config["troughcolor"] == "lightgrey"
+
+
+def test_external_motor_change_updates_slider_and_color() -> None:
+    gui = _new_gui(height=600)
+    state = DummyAccessoryState()
+    gui._make_state_button(state, row=4, col=0)
+    output = gui._output_by_tmcc[state.tmcc_id][("motor", 2)]
+
+    state.get_motor(2).speed = 80
+
+    gui.update_button(state)
+
+    assert output.slider.value == 80
+    assert output.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert output.slider.tk._config["troughcolor"] == mod.LIONEL_BLUE
