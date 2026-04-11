@@ -321,7 +321,7 @@ def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytes
     assert gui._isd.on_long_press is None
     assert gui._shown_overlay is overlay
 
-    gui._on_state_info_closed(overlay)
+    gui.on_state_info_closed(overlay)
 
     assert gui._isd.on_long_press == gui.on_info
 

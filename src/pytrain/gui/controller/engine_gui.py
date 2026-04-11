@@ -460,7 +460,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if self._isd:
             self._isd.on_long_press = None
 
-    def _on_state_info_closed(self, _overlay: Box | None = None) -> None:
+    def on_state_info_closed(self, _overlay: Box | None = None) -> None:
         self._bind_image_long_press()
 
     def on_info(self) -> None:
