@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-from io import BytesIO
 from typing import TYPE_CHECKING
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
@@ -169,11 +168,18 @@ class ImagePresenter:
                 else:
                     host._image_cache[(CommandScope.TRAIN, train_id)] = img
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
+            available_height, available_width = self.calc_box_size()
             with host.locked():
                 state = host._state_store.get_state(scope, tmcc_id, False)
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"Requested product info for TMCC ID: {tmcc_id}  bt: {state.bt_id}...")
-                prod_info = host.get_prod_info(state.bt_id if state else None, self.update, tmcc_id)
+                prod_info = host.get_prod_info(
+                    state.bt_id if state else None,
+                    self.update,
+                    tmcc_id,
+                    available_width=available_width,
+                    available_height=available_height,
+                )
 
                 if prod_info is None:
                     return
@@ -185,9 +191,6 @@ class ImagePresenter:
                     # Image should have been cached by fetch_prod_indo
                     with host.locked():
                         img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                    if img is None and prod_info.image_content:
-                        img = host.get_scaled_image(BytesIO(prod_info.image_content))
-                        host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                     if img and train_id:
                         host._image_cache[(CommandScope.TRAIN, train_id)] = img
                         tmcc_id = train_id

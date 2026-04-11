@@ -619,6 +619,36 @@ class GuiZeroBase(Thread, ABC):
                 scaled_height = int(orig_height * scale)
         return scaled_width, scaled_height
 
+    def _prepare_scaled_pil_image(
+        self,
+        source: bytes | io.BytesIO | str,
+        *,
+        available_width: int,
+        available_height: int,
+        preserve_height: bool = False,
+        force_lionel: bool = False,
+    ) -> Image.Image:
+        if isinstance(source, bytes):
+            source = BytesIO(source)
+        if isinstance(source, io.BytesIO) and hasattr(source, "seek"):
+            source.seek(0)
+        pil_img = Image.open(source)
+        pil_img.load()
+        orig_width, orig_height = pil_img.size
+        if force_lionel:
+            scaled_width, scaled_height = self._calc_scaled_image_size(300, 100)
+        else:
+            width_scale = available_width / orig_width
+            height_scale = available_height / orig_height
+            scale = min(width_scale, height_scale)
+            if preserve_height:
+                scaled_width = int(orig_width * scale)
+                scaled_height = int(orig_height * height_scale)
+            else:
+                scaled_width = int(orig_width * width_scale)
+                scaled_height = int(orig_height * scale)
+        return pil_img.resize((scaled_width, scaled_height))
+
     def _request_prod_info(self, bt_id: str) -> ProdInfo | None:
         prod_info = "N/A"
         if bt_id:
@@ -635,9 +665,17 @@ class GuiZeroBase(Thread, ABC):
                 log.exception(e, exc_info=e)
         return prod_info
 
-    def _fetch_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:
+    def _fetch_prod_info(
+        self,
+        bt_id: str,
+        callback: Callable,
+        tmcc_id: int,
+        available_width: int,
+        available_height: int,
+    ) -> ProdInfo | None:
         """Fetch product info in a background thread, then schedule UI update."""
         prod_info = None
+        prepared_image = None
         do_request_prod_info = False
         with self._cv:
             if tmcc_id not in self._pending_prod_infos:
@@ -645,22 +683,34 @@ class GuiZeroBase(Thread, ABC):
                 do_request_prod_info = True  # don't hold lock for long
         if do_request_prod_info:
             prod_info = self._request_prod_info(bt_id)
+            if isinstance(prod_info, ProdInfo) and prod_info.image_content:
+                prepared_image = self._prepare_scaled_pil_image(
+                    prod_info.image_content,
+                    available_width=available_width,
+                    available_height=available_height,
+                )
             with self._cv:
                 self._prod_info_cache[tmcc_id] = prod_info
                 self._pending_prod_infos.discard(tmcc_id)
         # Schedule the UI update on the main thread
-        self.queue_message(self.process_prod_image, prod_info, tmcc_id, callback)
+        self.queue_message(self.process_prod_image, prod_info, prepared_image, tmcc_id, callback)
         return prod_info
 
-    def process_prod_image(self, prod_info: ProdInfo | None, tmcc_id: int, callback: Callable):
-        # now get image
-        if isinstance(prod_info, ProdInfo):
+    def process_prod_image(
+        self,
+        prod_info: ProdInfo | None,
+        prepared_image: Image.Image | None,
+        tmcc_id: int,
+        callback: Callable,
+    ):
+        # Only create the Tk image and update widgets on the GUI thread.
+        if isinstance(prod_info, ProdInfo) and prepared_image is not None:
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(
                     f"get_prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'} "
                     f"Requesting image for tmcc_id {tmcc_id}"
                 )
-            img = self.get_scaled_image(BytesIO(prod_info.image_content))
+            img = ImageTk.PhotoImage(prepared_image)
             self._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(
@@ -675,14 +725,28 @@ class GuiZeroBase(Thread, ABC):
         # we're in the main thread, update the UI
         callback(tmcc_id)
 
-    def get_prod_info(self, bt_id: str, callback: Callable, tmcc_id: int) -> ProdInfo | None:
+    def get_prod_info(
+        self,
+        bt_id: str,
+        callback: Callable,
+        tmcc_id: int,
+        available_width: int,
+        available_height: int,
+    ) -> ProdInfo | None:
         with self._cv:
             prod_info = self._prod_info_cache.get(tmcc_id, None)
         # Attempts to retrieve or schedule production info
         if prod_info is None and bt_id:
             with self._cv:
                 if tmcc_id not in self._pending_prod_infos:
-                    future = self._executor.submit(self._fetch_prod_info, bt_id, callback, tmcc_id)
+                    future = self._executor.submit(
+                        self._fetch_prod_info,
+                        bt_id,
+                        callback,
+                        tmcc_id,
+                        available_width,
+                        available_height,
+                    )
                     self._prod_info_cache[tmcc_id] = future
         elif isinstance(prod_info, Future):
             with self._cv:
