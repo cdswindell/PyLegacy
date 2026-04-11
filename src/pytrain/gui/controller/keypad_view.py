@@ -415,6 +415,7 @@ class KeypadView(Generic[S]):
         )
         host.ac_op_btn.disable()
 
+        accessory_slider_rows = len(ENTRY_LAYOUT) + 1
         host.acc_throttle_box, host.acc_throttle_title_box, host.acc_throttle_level, host.acc_throttle = (
             host.controller_view.make_slider(
                 keypad_keys,
@@ -423,7 +424,7 @@ class KeypadView(Generic[S]):
                 frm=ACCESSORY_THROTTLE_MAX,
                 to=ACCESSORY_THROTTLE_MIN,
                 visible=False,
-                grid=(4, row - 1),
+                grid=(4, 0),
                 box_border=1,
                 title_border=1,
                 level_text="0",
@@ -438,7 +439,8 @@ class KeypadView(Generic[S]):
             )
         )
         host.ops_cells.add(host.acc_throttle_box)
-        host.acc_throttle_box.grid = [4, row - 1, 1, 2]
+        host.acc_throttle_box.grid = [4, 0, 1, accessory_slider_rows]
+        host.acc_throttle_box.tk.grid_configure(sticky="n")
         host.acc_throttle.tk.config(resolution=1, showvalue=False)
         host.acc_throttle.text_color = "black"
 
