@@ -421,7 +421,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._sensor_track_watcher = StateWatcher(state, action)
 
         if self.initial:
-            app.tk.after_idle(lambda: self.update_component_info(self.initial))
+            app.after(100, self.update_component_info, [self.initial])
 
     def destroy_gui(self) -> None:
         self.clear_cache()
