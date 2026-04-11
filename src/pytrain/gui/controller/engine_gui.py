@@ -395,6 +395,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # make selection box and keypad
         self._keypad_view.build(app)
 
+        # make engine/train controller UI
+        self._controller_view.build(app)
+
         # make scope buttons
         self.make_scope(app)
 
@@ -1164,7 +1167,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # 2) Engine/train path
         if self._keypad_view.is_engine_or_train:
-            self._controller_view.build(self.app)
             # pure UI shell now lives in KeypadView
             self._keypad_view.apply_ops_mode_ui_engine_shell()
 
