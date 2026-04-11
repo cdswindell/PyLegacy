@@ -33,6 +33,7 @@ class StateInfoOverlay:
         if self._overlay is None:
             # noinspection PyProtectedMember, PyUnresolvedReferences
             self._overlay = self._gui._popup.create_popup(self._gui.version, self.build)
+            setattr(self._overlay, "on_popup_closed", self._gui._on_state_info_closed)
         return self._overlay
 
     @property

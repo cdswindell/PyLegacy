@@ -452,6 +452,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.controller_view.populate_keypad(EXTRA_FUNCTIONS, body)
         self.controller_view.regen_engine_keys_map()
 
+    def _bind_image_long_press(self) -> None:
+        if self._isd:
+            self._isd.on_long_press = self.on_info
+
+    def _unbind_image_long_press(self) -> None:
+        if self._isd:
+            self._isd.on_long_press = None
+
+    def _on_state_info_closed(self, _overlay: Box | None = None) -> None:
+        self._bind_image_long_press()
+
     def on_info(self) -> None:
         """Shows state information in popup overlay"""
         state = self.active_state
@@ -469,6 +480,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # show/hide fields in the overlay
         self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs, accessory=self.active_accessory)
         self._state_info.update(state)
+        self._unbind_image_long_press()
         self.show_popup(overlay)
 
     def on_rr_speed(self) -> None:
@@ -1052,7 +1064,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.image_box = image_box = Box(app, border=0, align="top")
         self.image = Picture(image_box, align="top")
         self._isd = SwipeDetector(self.image)
-        self._isd.on_long_press = self.on_info
+        self._bind_image_long_press()
         self._isd.on_swipe_right = self.show_previous_component
         self._isd.on_swipe_left = self.show_next_component
         self.image_box.hide()

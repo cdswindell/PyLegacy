@@ -10,11 +10,13 @@
 from __future__ import annotations
 
 from concurrent.futures import Future
+from types import SimpleNamespace
 from typing import Callable
 
 import pytest
 
 import src.pytrain.gui.guizero_base as mod
+import src.pytrain.gui.controller.popup_manager as popup_mod
 
 
 class _DummyTk:
@@ -136,3 +138,31 @@ def test_request_prod_info_returns_na_when_lookup_unavailable(monkeypatch) -> No
     result = gui._request_prod_info("BEEF")
 
     assert result == "N/A"
+
+
+def test_popup_manager_close_invokes_overlay_close_hook() -> None:
+    host = SimpleNamespace(
+        locked=lambda: _NullContext(),
+        image_box=None,
+        acc_overlay=None,
+    )
+    manager = popup_mod.PopupManager(host)
+    seen: list[object] = []
+    overlay = SimpleNamespace(
+        hide=lambda: seen.append("hide"),
+        tk=SimpleNamespace(place_forget=lambda: seen.append("forget")),
+        on_popup_closed=lambda ov: seen.append(ov),
+    )
+    manager._state.current_popup = overlay
+
+    manager.close()
+
+    assert seen == ["hide", "forget", overlay]
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False

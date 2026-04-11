@@ -299,6 +299,33 @@ def test_on_new_engine_marks_train_scope_when_train_linked_engine_is_active(
     assert gui._scope_buttons[CommandScope.TRAIN].bg == "lightgreen"
 
 
+def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytest.MonkeyPatch) -> None:
+    gui = _new_engine(CommandScope.ENGINE)
+    state = DummyState(tmcc_id=34, name="Hudson")
+    overlay = SimpleNamespace(visible=False)
+    gui._scope_tmcc_ids[CommandScope.ENGINE] = 34
+    gui._state_store = SimpleNamespace(
+        get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ENGINE, 34) else None
+    )
+    gui._isd = SimpleNamespace(on_long_press=gui.on_info)
+    gui.show_popup = lambda shown_overlay: setattr(gui, "_shown_overlay", shown_overlay)
+    gui._state_info = SimpleNamespace(
+        overlay=overlay,
+        reset_visibility=lambda *args, **kwargs: setattr(gui, "_info_reset", True),
+        update=lambda updated_state: setattr(gui, "_info_state", updated_state),
+    )
+    monkeypatch.setattr(mod, "LcsProxyState", type("DummyLcsProxyState", (), {}), raising=True)
+
+    gui.on_info()
+
+    assert gui._isd.on_long_press is None
+    assert gui._shown_overlay is overlay
+
+    gui._on_state_info_closed(overlay)
+
+    assert gui._isd.on_long_press == gui.on_info
+
+
 def test_update_component_info_same_selection_skips_redundant_ops_mode_and_image_refresh() -> None:
     gui = _new_engine()
     state = DummyState(tmcc_id=34, name="Hudson")

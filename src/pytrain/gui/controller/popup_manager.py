@@ -341,6 +341,12 @@ class PopupManager:
                     overlay.tk.place_forget()
                 except (AttributeError, RuntimeError, TclError):
                     pass
+                try:
+                    on_popup_closed = getattr(overlay, "on_popup_closed", None)
+                    if callable(on_popup_closed):
+                        on_popup_closed(overlay)
+                except (AttributeError, RuntimeError, TclError):
+                    pass
 
             if self._state.restore_image_box and host.image_box:
                 if not host.image_box.visible:
