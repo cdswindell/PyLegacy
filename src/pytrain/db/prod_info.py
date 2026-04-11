@@ -24,6 +24,8 @@ log = logging.getLogger(__name__)
 load_dotenv(find_dotenv())
 API_KEY = os.environ.get("LIONEL_API_KEY")
 PROD_INFO_URL = os.environ.get("PROD_INFO_URL")
+PROD_INFO_CONNECT_TIMEOUT = float(os.environ.get("PROD_INFO_CONNECT_TIMEOUT", "10.0"))
+PROD_INFO_READ_TIMEOUT = float(os.environ.get("PROD_INFO_READ_TIMEOUT", "20.0"))
 
 
 # noinspection PyTypeChecker
@@ -44,11 +46,13 @@ class ProdInfo:
 
     # class variables
     _bt_cache: ClassVar[dict[str, ProdInfo]] = {}
+    _failed_bt_cache: ClassVar[set[str]] = set()
 
     def __post_init__(self):
         self._image_content = None
         self._image = None
         ProdInfo._bt_cache[self.ble_hexid] = self
+        ProdInfo._failed_bt_cache.discard(self.ble_hexid)
 
     @property
     def image_content(self) -> bytes:
@@ -66,10 +70,18 @@ class ProdInfo:
     def by_btid(cls, bt_id: str) -> ProdInfo | None:
         if bt_id in cls._bt_cache:
             return cls._bt_cache[bt_id]
-        prod_json = cls.get_info(bt_id)
+        if bt_id in cls._failed_bt_cache:
+            return None
+        try:
+            prod_json = cls.get_info(bt_id)
+        except (requests.RequestException, ValueError) as e:
+            cls._failed_bt_cache.add(bt_id)
+            log.warning("Product info lookup failed for %s: %s", bt_id, e)
+            return None
         if prod_json:
             return cls.from_dict(prod_json)
         else:
+            cls._failed_bt_cache.add(bt_id)
             return None
 
     @classmethod
@@ -77,7 +89,11 @@ class ProdInfo:
         if PROD_INFO_URL is None or API_KEY is None:
             raise ValueError("Missing required environment variables")
         header = {"LionelApiKey": API_KEY}
-        response = requests.get(PROD_INFO_URL.format(bt_id), headers=header)
+        response = requests.get(
+            PROD_INFO_URL.format(bt_id),
+            headers=header,
+            timeout=(PROD_INFO_CONNECT_TIMEOUT, PROD_INFO_READ_TIMEOUT),
+        )
         if response.status_code == 200:
             return response.json()
         else:
