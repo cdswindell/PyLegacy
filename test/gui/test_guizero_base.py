@@ -116,6 +116,47 @@ def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
     assert app_cell.cell_contents is None
 
 
+def test_poll_shutdown_processes_up_to_five_messages_per_tick() -> None:
+    gui = DummyGui()
+    handled: list[int] = []
+
+    for i in range(7):
+        gui.queue_message(lambda value=i: handled.append(value))
+
+    gui.run()
+
+    app = DummyApp.last_instance
+    assert app is not None
+    poll_shutdown = app.repeat_callbacks[0]
+    poll_shutdown()
+
+    assert handled == [0, 1, 2, 3, 4]
+    assert gui._message_queue.qsize() == 2
+
+
+def test_poll_shutdown_logs_callback_exception_and_continues(caplog) -> None:
+    gui = DummyGui()
+    handled: list[str] = []
+
+    def boom() -> None:
+        raise RuntimeError("boom")
+
+    gui.queue_message(boom)
+    gui.queue_message(lambda: handled.append("ok"))
+
+    gui.run()
+
+    app = DummyApp.last_instance
+    assert app is not None
+    poll_shutdown = app.repeat_callbacks[0]
+
+    with caplog.at_level("ERROR"):
+        poll_shutdown()
+
+    assert handled == ["ok"]
+    assert "Error processing GUI message callback" in caplog.text
+
+
 def test_get_prod_info_does_not_requeue_callback_while_future_pending() -> None:
     gui = DummyGui()
     future = Future()
@@ -151,8 +192,8 @@ def test_popup_manager_close_invokes_overlay_close_hook() -> None:
     overlay = SimpleNamespace(
         hide=lambda: seen.append("hide"),
         tk=SimpleNamespace(place_forget=lambda: seen.append("forget")),
-        on_popup_closed=lambda ov: seen.append(ov),
     )
+    manager._overlay_close_hooks[id(overlay)] = lambda ov: seen.append(ov)
     manager._state.current_popup = overlay
 
     manager.close()

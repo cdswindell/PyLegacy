@@ -50,6 +50,7 @@ WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
+MAX_GUI_MESSAGES_PER_POLL = 5
 
 
 class GuiZeroBase(Thread, ABC):
@@ -333,16 +334,19 @@ class GuiZeroBase(Thread, ABC):
                 return None
             else:
                 # Process pending messages in the queue
-                try:
-                    message = self._message_queue.get_nowait()
-                    if isinstance(message, tuple):
-                        if len(message) > 1 and message[1] and len(message[1]) > 0:
-                            message[0](*message[1])
-                        else:
-                            message[0]()
-                        # app.tk.update_idletasks()
-                except Empty:
-                    pass
+                for _ in range(MAX_GUI_MESSAGES_PER_POLL):
+                    try:
+                        message = self._message_queue.get_nowait()
+                    except Empty:
+                        break
+                    try:
+                        if isinstance(message, tuple):
+                            if len(message) > 1 and message[1] and len(message[1]) > 0:
+                                message[0](*message[1])
+                            else:
+                                message[0]()
+                    except Exception as e:
+                        log.exception("Error processing GUI message callback", exc_info=e)
             return None
 
         self.build_gui()

@@ -460,7 +460,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if self._isd:
             self._isd.on_long_press = None
 
-    def on_state_info_closed(self, _overlay: Box | None = None) -> None:
+    def _on_state_info_closed(self, _overlay: Box | None = None) -> None:
         self._bind_image_long_press()
 
     def on_info(self) -> None:
@@ -1198,8 +1198,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 4) Preserve existing behavior
         if update_info:
             self.update_component_info(in_ops_mode=True)
-
-        return 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
 
     def _resolve_component_state(self, tmcc_id: int) -> tuple[int, S | None]:
         state = self.active_state
