@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import Future
 from typing import Callable
 
 import pytest
@@ -111,3 +112,17 @@ def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
     assert closure is not None
     app_cell = closure[freevars.index("app")]
     assert app_cell.cell_contents is None
+
+
+def test_get_prod_info_does_not_requeue_callback_while_future_pending() -> None:
+    gui = DummyGui()
+    future = Future()
+    queued: list[tuple[Callable, tuple]] = []
+
+    gui._prod_info_cache[44] = future
+    gui.queue_message = lambda callback, *args: queued.append((callback, args))
+
+    result = gui.get_prod_info("BEEF", lambda *_args: None, 44, available_width=100, available_height=50)
+
+    assert result is future
+    assert queued == []

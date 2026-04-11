@@ -754,8 +754,6 @@ class GuiZeroBase(Thread, ABC):
                 if prod_info.done() and isinstance(prod_info.result(), ProdInfo):
                     prod_info = self._prod_info_cache[tmcc_id] = prod_info.result()
                     self._pending_prod_infos.discard(tmcc_id)
-                else:
-                    self.queue_message(callback, tmcc_id)
         elif isinstance(prod_info, ProdInfo):
             pass
         else:

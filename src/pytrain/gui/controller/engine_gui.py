@@ -1164,6 +1164,64 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if update_info:
             self.update_component_info(in_ops_mode=True)
 
+        return 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
+
+    def _resolve_component_state(self, tmcc_id: int) -> tuple[int, S | None]:
+        state = self.active_state
+        if state and tmcc_id != state.tmcc_id:
+            tmcc_id = state.tmcc_id
+            self._scope_tmcc_ids[self.scope] = tmcc_id
+        return tmcc_id, state
+
+    def _apply_component_labels(
+        self,
+        tmcc_id: int,
+        state: S | None,
+        not_found_value: str,
+        num_chars: int,
+    ) -> tuple[str, bool]:
+        name = not_found_value
+        update_button_state = True
+        if state:
+            if tmcc_id != int(self.tmcc_id_text.value):
+                self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
+            if isinstance(state, AccessoryState) and self.get_accessory_view(tmcc_id):
+                view = self.get_accessory_view(tmcc_id)
+                acc = getattr(view, "caa", None)
+                if acc:
+                    name = acc.name
+                    acc.activate_tmcc_id(tmcc_id)
+            else:
+                name = state.name
+                name = name if name and name != "NA" else not_found_value
+            update_button_state = False
+        self.name_text.value = name
+        return name, update_button_state
+
+    def _update_recent_selection(self, tmcc_id: int, state: S | None, in_ops_mode: bool) -> None:
+        if state:
+            self.make_recent(self.scope, tmcc_id, state)
+            if not in_ops_mode:
+                self.ops_mode(update_info=False)
+
+    def _clear_component_display(self, tmcc_id: int, num_chars: int) -> None:
+        if self._keypad_view.reset_on_keystroke:
+            self._scope_tmcc_ids[self.scope] = 0
+            self._keypad_view.reset_on_keystroke = False
+        self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
+        self.name_text.value = ""
+        self._image_presenter.clear()
+
+    def _refresh_component_view(self, state: S | None, update_button_state: bool, tmcc_id: int) -> None:
+        self.monitor_state()
+        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
+            if update_button_state:
+                # noinspection PyTypeChecker
+                self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
+            self._image_presenter.update(tmcc_id)
+        else:
+            self.image_box.hide()
+
     # noinspection PyTypeChecker
     def update_component_info(
         self,
@@ -1179,45 +1237,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         update_button_state = True
         num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
         if tmcc_id:
-            state = self.active_state
-            name = not_found_value
-            if state:
-                # Make sure ID field shows TMCC ID, not just road number
-                if tmcc_id != state.tmcc_id or tmcc_id != int(self.tmcc_id_text.value):
-                    tmcc_id = state.tmcc_id
-                    self._scope_tmcc_ids[self.scope] = tmcc_id
-                    self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
-                if isinstance(state, AccessoryState) and self.get_accessory_view(tmcc_id):
-                    view = self.get_accessory_view(tmcc_id)
-                    acc = getattr(view, "caa", None)
-                    if acc:
-                        name = acc.name
-                        acc.activate_tmcc_id(tmcc_id)
-                elif state:
-                    name = state.name
-                    name = name if name and name != "NA" else not_found_value
-                update_button_state = False
-                self.make_recent(self.scope, tmcc_id, state)
-                if not in_ops_mode:
-                    self.ops_mode(update_info=False)
-            self.name_text.value = name
+            tmcc_id, state = self._resolve_component_state(tmcc_id)
+            _, update_button_state = self._apply_component_labels(tmcc_id, state, not_found_value, num_chars)
+            self._update_recent_selection(tmcc_id, state, in_ops_mode)
         else:
-            if self._keypad_view.reset_on_keystroke:
-                self._scope_tmcc_ids[self.scope] = 0
-                self._keypad_view.reset_on_keystroke = False
-            self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
-            self.name_text.value = ""
             state = None
-            self._image_presenter.clear()
-        self.monitor_state()
-        # use the callback to update ops button state
-        if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
-            if update_button_state:
-                # noinspection PyTypeChecker
-                self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            self._image_presenter.update(tmcc_id)
-        else:
-            self.image_box.hide()
+            self._clear_component_display(tmcc_id, num_chars)
+        self._refresh_component_view(state, update_button_state, tmcc_id)
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         return self._image_presenter.calc_box_size()
