@@ -786,7 +786,7 @@ class PyTrain:
         # if we're a client, we need to give the server time to respond, otherwise, we
         # will connect to it as it is shutting down
         if self.is_client is True and delay is True:
-            sleep(random.randint(8, 14))
+            sleep(random.randint(6, 12))
         # are we running in API mode? if so, send signal
         if self.is_api:
             self._exit_status = exit_status
