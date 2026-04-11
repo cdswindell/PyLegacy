@@ -1233,7 +1233,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     ) -> None:
         if state and selection_changed:
             self.make_recent(self.scope, tmcc_id, state)
-            if not in_ops_mode and self._keypad_view.is_entry_mode:
+            if not in_ops_mode:
                 self.ops_mode(update_info=False)
 
     def _clear_component_display(self, tmcc_id: int, num_chars: int) -> None:

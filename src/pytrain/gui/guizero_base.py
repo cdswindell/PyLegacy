@@ -653,7 +653,8 @@ class GuiZeroBase(Thread, ABC):
         prod_info = "N/A"
         if bt_id:
             try:
-                prod_info = ProdInfo.by_btid(bt_id)
+                retrieved = ProdInfo.by_btid(bt_id)
+                prod_info = retrieved if retrieved is not None else "N/A"
                 log.debug(f"ProdInfo.by_btid returned {prod_info}")
             except ValueError as ve:
                 state = self._state_store.by_bluetooth_id(int(bt_id, 16))

@@ -283,6 +283,22 @@ def test_on_scope_switches_between_engine_and_train_without_forcing_entry_mode()
     assert gui._scope_keypad_args == (False, True)
 
 
+def test_on_new_engine_marks_train_scope_when_train_linked_engine_is_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gui = _new_engine(CommandScope.ENGINE)
+    linked_engine = DummyState(tmcc_id=5, name="Car 1", scope=CommandScope.ENGINE)
+    train_state = DummyTrainState(tmcc_id=9, linked_ids=[5], name="Empire")
+    gui._active_train_state = train_state
+    gui._train_linked_queue.append(linked_engine)
+    gui._scope_buttons[CommandScope.TRAIN] = SimpleNamespace(bg="white", text_color="black")
+    monkeypatch.setattr(mod, "EngineState", DummyState, raising=True)
+
+    gui.on_new_engine(linked_engine, is_engine=True)
+
+    assert gui._scope_buttons[CommandScope.TRAIN].bg == "lightgreen"
+
+
 def test_update_component_info_same_selection_skips_redundant_ops_mode_and_image_refresh() -> None:
     gui = _new_engine()
     state = DummyState(tmcc_id=34, name="Hudson")

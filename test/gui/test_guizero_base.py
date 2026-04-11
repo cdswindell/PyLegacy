@@ -126,3 +126,13 @@ def test_get_prod_info_does_not_requeue_callback_while_future_pending() -> None:
 
     assert result is future
     assert queued == []
+
+
+def test_request_prod_info_returns_na_when_lookup_unavailable(monkeypatch) -> None:
+    gui = DummyGui()
+
+    monkeypatch.setattr(mod.ProdInfo, "by_btid", classmethod(lambda cls, _bt_id: None), raising=True)
+
+    result = gui._request_prod_info("BEEF")
+
+    assert result == "N/A"
