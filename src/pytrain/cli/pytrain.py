@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import logging.config
 import os
-import readline
+import random
 import signal
 import socket
 import subprocess
@@ -26,6 +26,7 @@ from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
 
+import readline
 from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
 from .acc import AccCli
@@ -785,7 +786,7 @@ class PyTrain:
         # if we're a client, we need to give the server time to respond, otherwise, we
         # will connect to it as it is shutting down
         if self.is_client is True and delay is True:
-            sleep(10)
+            sleep(random.randint(8, 14))
         # are we running in API mode? if so, send signal
         if self.is_api:
             self._exit_status = exit_status
