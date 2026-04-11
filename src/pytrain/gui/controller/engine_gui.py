@@ -395,6 +395,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # make selection box and keypad
         self._keypad_view.build(app)
 
+        # precreate extra functions popup
+        self._popup.get_or_create("extra_functions", "Additional Options", self.build_extra_functions_body)
+
         # make engine/train controller UI
         self._controller_view.build(app)
 
