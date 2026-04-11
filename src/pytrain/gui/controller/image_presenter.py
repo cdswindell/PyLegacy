@@ -93,7 +93,7 @@ class ImagePresenter:
             else:
                 _, keypad_height = host.size_cache[host.keypad_box]
             variable_content = keypad_height
-        elif host.controller_box.visible:
+        elif host.controller_box and host.controller_box.visible:
             if host.controller_box not in host.size_cache:
                 _, controller_height = host.size_cache[host.controller_box] = (
                     host.controller_box.tk.winfo_reqwidth(),
@@ -102,7 +102,7 @@ class ImagePresenter:
             else:
                 _, controller_height = host.size_cache[host.controller_box]
             variable_content = controller_height
-        elif host.sensor_track_box.visible:
+        elif host.sensor_track_box and host.sensor_track_box.visible:
             if host.sensor_track_box not in host.size_cache:
                 _, sensor_height = host.size_cache[host.sensor_track_box] = (
                     host.sensor_track_box.tk.winfo_reqwidth(),

@@ -395,10 +395,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # make selection box and keypad
         self._keypad_view.build(app)
 
-        # make engine/train make_controller
-        self._popup.get_or_create("extra_functions", "Additional Options", self.build_extra_functions_body)
-        self._controller_view.build(app)
-
         # make scope buttons
         self.make_scope(app)
 
@@ -422,7 +418,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._sensor_track_watcher = StateWatcher(state, action)
 
         if self.initial:
-            app.after(100, self.update_component_info, [self.initial])
+            app.tk.after_idle(lambda: self.update_component_info(self.initial))
 
     def destroy_gui(self) -> None:
         self.clear_cache()
@@ -1168,6 +1164,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # 2) Engine/train path
         if self._keypad_view.is_engine_or_train:
+            self._controller_view.build(self.app)
             # pure UI shell now lives in KeypadView
             self._keypad_view.apply_ops_mode_ui_engine_shell()
 
