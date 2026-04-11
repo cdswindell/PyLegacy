@@ -214,6 +214,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._amc2_ops_panel: Amc2OpsPanel | None = None
         self._accessory_view: dict[int, Box | None] = {}
         self.engine_ops_cells = {}
+        self._transition_depth = 0
+        self._options_rebuild_pending = False
+        self._last_displayed_scope: CommandScope | None = None
+        self._last_displayed_tmcc_id: int | None = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -713,7 +717,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             else:
                 self._tear_down_link_gui()
             self._active_train_state = state
-            self.rebuild_options()
+            self._request_options_rebuild()
         elif state is None:
             self._tear_down_link_gui()
         if self.scope == CommandScope.TRAIN and state == self._active_train_state and self._train_linked_queue:
@@ -733,7 +737,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
         self._active_train_state = None
-        self.rebuild_options()
+        self._request_options_rebuild()
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
@@ -851,52 +855,56 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
-        self.scope_box.hide()
-        force_entry_mode = False
-        clear_info = True
-        # self._last_engine_type = None
-        for k, v in self._scope_buttons.items():
-            if k == scope:
-                v.bg = self._enabled_bg
-                v.text_color = self._enabled_text
+        self._begin_transition()
+        try:
+            self.scope_box.hide()
+            force_entry_mode = False
+            clear_info = True
+            # self._last_engine_type = None
+            for k, v in self._scope_buttons.items():
+                if k == scope:
+                    v.bg = self._enabled_bg
+                    v.text_color = self._enabled_text
+                else:
+                    v.bg = "white"
+                    v.text_color = "black"
+            # if new scope selected, display most recent scoped component, if one existed
+            if scope != self.scope:
+                self.tmcc_id_box.text = f"{scope.title} ID"
+                self.scope = scope
+                # if scoped TMCC_ID is 0, take the first item on the recents queue
+                if self._scope_tmcc_ids[scope] == 0:
+                    self.display_most_recent(scope)
             else:
-                v.bg = "white"
-                v.text_color = "black"
-        # if new scope selected, display most recent scoped component, if one existed
-        if scope != self.scope:
-            self.tmcc_id_box.text = f"{scope.title} ID"
-            self.scope = scope
-            # if scoped TMCC_ID is 0, take the first item on the recents queue
+                # if the pressed scope button is the same as the current scope,
+                # return to entry mode or pop an element from the recents queue,
+                # based on whether the current scope TMCC_ID is 0 or not
+                if self._scope_tmcc_ids[scope] == 0:
+                    self.display_most_recent(scope)
+                else:
+                    if not held:
+                        # pressing the same scope button again returns to entry mode with current
+                        # component active
+                        if self._keypad_view.is_entry_mode:
+                            self.ops_mode(update_info=False)
+                        else:
+                            force_entry_mode = True
+                            clear_info = False
+                            if self.acc_overlay and self.acc_overlay.visible:
+                                self.acc_overlay.hide()
+            # update display
+            self._popup.close()
+            self.update_component_info()
+            # force entry mode if scoped tmcc_id is 0
             if self._scope_tmcc_ids[scope] == 0:
-                self.display_most_recent(scope)
-        else:
-            # if the pressed scope button is the same as the current scope,
-            # return to entry mode or pop an element from the recents queue,
-            # based on whether the current scope TMCC_ID is 0 or not
-            if self._scope_tmcc_ids[scope] == 0:
-                self.display_most_recent(scope)
-            else:
-                if not held:
-                    # pressing the same scope button again returns to entry mode with current
-                    # component active
-                    if self._keypad_view.is_entry_mode:
-                        self.ops_mode(update_info=False)
-                    else:
-                        force_entry_mode = True
-                        clear_info = False
-                        if self.acc_overlay and self.acc_overlay.visible:
-                            self.acc_overlay.hide()
-        # update display
-        self._popup.close()
-        self.update_component_info()
-        # force entry mode if scoped tmcc_id is 0
-        if self._scope_tmcc_ids[scope] == 0:
-            force_entry_mode = True
-        self.rebuild_options()
-        num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
-        self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
-        self.scope_box.show()
-        self._keypad_view.scope_keypad(force_entry_mode, clear_info)
+                force_entry_mode = True
+            self._request_options_rebuild()
+            num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
+            self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
+            self.scope_box.show()
+            self._keypad_view.scope_keypad(force_entry_mode, clear_info)
+        finally:
+            self._end_transition()
 
     def display_most_recent(self, scope: CommandScope) -> None:
         """
@@ -930,7 +938,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         queue = UniqueDeque[S](maxlen=self.num_recents)
                         self._recents_queue[self.scope] = queue
                 queue.appendleft(state)
-                self.rebuild_options()
+                self._request_options_rebuild()
                 return True
         return False
 
@@ -965,6 +973,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
         for option in self.get_options():
             self.header.append(option)
         self.header.select_default()
+
+    def _begin_transition(self) -> None:
+        self._transition_depth += 1
+
+    def _end_transition(self) -> None:
+        self._transition_depth = max(0, self._transition_depth - 1)
+        if self._transition_depth == 0 and self._options_rebuild_pending:
+            self._options_rebuild_pending = False
+            self.rebuild_options()
+
+    def _request_options_rebuild(self) -> None:
+        if self._transition_depth > 0:
+            self._options_rebuild_pending = True
+        else:
+            self.rebuild_options()
 
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, layout="left", border=2, align="top")
@@ -1173,6 +1196,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._scope_tmcc_ids[self.scope] = tmcc_id
         return tmcc_id, state
 
+    def _is_same_display_selection(self, tmcc_id: int) -> bool:
+        return self._last_displayed_scope == self.scope and self._last_displayed_tmcc_id == tmcc_id
+
     def _apply_component_labels(
         self,
         tmcc_id: int,
@@ -1198,10 +1224,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.name_text.value = name
         return name, update_button_state
 
-    def _update_recent_selection(self, tmcc_id: int, state: S | None, in_ops_mode: bool) -> None:
-        if state:
+    def _update_recent_selection(
+        self,
+        tmcc_id: int,
+        state: S | None,
+        in_ops_mode: bool,
+        selection_changed: bool,
+    ) -> None:
+        if state and selection_changed:
             self.make_recent(self.scope, tmcc_id, state)
-            if not in_ops_mode:
+            if not in_ops_mode and self._keypad_view.is_entry_mode:
                 self.ops_mode(update_info=False)
 
     def _clear_component_display(self, tmcc_id: int, num_chars: int) -> None:
@@ -1212,15 +1244,25 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.name_text.value = ""
         self._image_presenter.clear()
 
-    def _refresh_component_view(self, state: S | None, update_button_state: bool, tmcc_id: int) -> None:
-        self.monitor_state()
+    def _refresh_component_view(
+        self,
+        state: S | None,
+        update_button_state: bool,
+        tmcc_id: int,
+        selection_changed: bool,
+    ) -> None:
+        if selection_changed:
+            self.monitor_state()
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
             if update_button_state:
                 # noinspection PyTypeChecker
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            self._image_presenter.update(tmcc_id)
+            if selection_changed:
+                self._image_presenter.update(tmcc_id)
         else:
             self.image_box.hide()
+        self._last_displayed_scope = self.scope
+        self._last_displayed_tmcc_id = tmcc_id
 
     # noinspection PyTypeChecker
     def update_component_info(
@@ -1229,21 +1271,27 @@ class EngineGui(GuiZeroBase, Generic[S]):
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
     ) -> None:
-        self._popup.close()
-        if tmcc_id is None:
-            tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
-        # update the tmcc_id associated with current scope
-        self._scope_tmcc_ids[self.scope] = tmcc_id
-        update_button_state = True
-        num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
-        if tmcc_id:
-            tmcc_id, state = self._resolve_component_state(tmcc_id)
-            _, update_button_state = self._apply_component_labels(tmcc_id, state, not_found_value, num_chars)
-            self._update_recent_selection(tmcc_id, state, in_ops_mode)
-        else:
-            state = None
-            self._clear_component_display(tmcc_id, num_chars)
-        self._refresh_component_view(state, update_button_state, tmcc_id)
+        self._begin_transition()
+        try:
+            self._popup.close()
+            if tmcc_id is None:
+                tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
+            # update the tmcc_id associated with current scope
+            self._scope_tmcc_ids[self.scope] = tmcc_id
+            update_button_state = True
+            num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
+            if tmcc_id:
+                tmcc_id, state = self._resolve_component_state(tmcc_id)
+                selection_changed = not self._is_same_display_selection(tmcc_id)
+                _, update_button_state = self._apply_component_labels(tmcc_id, state, not_found_value, num_chars)
+                self._update_recent_selection(tmcc_id, state, in_ops_mode, selection_changed)
+            else:
+                state = None
+                selection_changed = not self._is_same_display_selection(tmcc_id)
+                self._clear_component_display(tmcc_id, num_chars)
+            self._refresh_component_view(state, update_button_state, tmcc_id, selection_changed)
+        finally:
+            self._end_transition()
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         return self._image_presenter.calc_box_size()

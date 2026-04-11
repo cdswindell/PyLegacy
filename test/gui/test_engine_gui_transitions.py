@@ -74,7 +74,7 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui.image_box = SimpleNamespace(hide=lambda: None)
     gui._keypad_view = SimpleNamespace(
         reset_on_keystroke=False,
-        is_entry_mode=False,
+        is_entry_mode=True,
         scope_keypad=lambda force_entry_mode, clear_info: setattr(
             gui, "_scope_keypad_args", (force_entry_mode, clear_info)
         ),
@@ -86,6 +86,10 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui._active_train_state = None
     gui._active_engine_state = None
     gui._state_info = None
+    gui._transition_depth = 0
+    gui._options_rebuild_pending = False
+    gui._last_displayed_scope = None
+    gui._last_displayed_tmcc_id = None
     gui._state_store = SimpleNamespace(get_state=lambda *_args, **_kwargs: None)
     gui._image_updates: list[int] = []
     gui._image_clears = 0
@@ -277,3 +281,45 @@ def test_on_scope_switches_between_engine_and_train_without_forcing_entry_mode()
     assert gui.tmcc_id_box.text == "Engine ID"
     assert gui.tmcc_id_text.value == "0005"
     assert gui._scope_keypad_args == (False, True)
+
+
+def test_update_component_info_same_selection_skips_redundant_ops_mode_and_image_refresh() -> None:
+    gui = _new_engine()
+    state = DummyState(tmcc_id=34, name="Hudson")
+    gui._scope_tmcc_ids[CommandScope.ENGINE] = 34
+    gui.tmcc_id_text.value = "0034"
+    gui.name_text.value = "Hudson"
+    gui._active_engine_state = state
+    gui._last_displayed_scope = CommandScope.ENGINE
+    gui._last_displayed_tmcc_id = 34
+    gui._keypad_view.is_entry_mode = False
+    gui._state_store = SimpleNamespace(
+        get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ENGINE, 34) else None
+    )
+
+    gui.update_component_info(34)
+
+    assert gui._recent_calls == []
+    assert gui._ops_mode_calls == []
+    assert gui._image_updates == []
+
+
+def test_on_scope_rebuilds_options_once_for_scope_transition() -> None:
+    gui = _new_engine(CommandScope.ENGINE)
+    engine_state = DummyState(tmcc_id=5, name="Hudson", scope=CommandScope.ENGINE)
+    train_state = DummyTrainState(tmcc_id=9, linked_ids=[5], name="Empire")
+    gui._recents_queue[CommandScope.ENGINE] = UniqueDeque([engine_state])
+    gui._recents_queue[CommandScope.TRAIN] = UniqueDeque([train_state])
+    gui._state_store = SimpleNamespace(
+        get_state=lambda scope, tmcc_id, include=False: {
+            (CommandScope.ENGINE, 5): engine_state,
+            (CommandScope.TRAIN, 9): train_state,
+        }.get((scope, tmcc_id))
+    )
+    gui._scope_tmcc_ids[CommandScope.ENGINE] = 5
+    gui._scope_tmcc_ids[CommandScope.TRAIN] = 0
+    gui.monitor_state = lambda: None
+
+    gui.on_scope(CommandScope.TRAIN)
+
+    assert gui._rebuild_options_calls == 1
