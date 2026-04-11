@@ -41,6 +41,10 @@ from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
 
+ACCESSORY_THROTTLE_MIN = -5
+ACCESSORY_THROTTLE_MAX = 5
+ACCESSORY_THROTTLE_REPEAT_MS = 100
+
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
@@ -53,6 +57,8 @@ class KeypadView(Generic[S]):
         self._reset_on_keystroke = False
         self._entry_mode = True
         self._numeric_keys = True
+        self._accessory_throttle_after_id: int | None = None
+        self._accessory_throttle_value = 0
 
     @property
     def active_state(self) -> ComponentState | None:
@@ -409,10 +415,37 @@ class KeypadView(Generic[S]):
         )
         host.ac_op_btn.disable()
 
+        host.acc_throttle_box, host.acc_throttle_title_box, host.acc_throttle_level, host.acc_throttle = (
+            host.controller_view.make_slider(
+                keypad_keys,
+                title="Speed",
+                command=self.on_accessory_throttle_change,
+                frm=ACCESSORY_THROTTLE_MAX,
+                to=ACCESSORY_THROTTLE_MIN,
+                visible=False,
+                grid=(4, row - 1),
+                box_border=1,
+                title_border=1,
+                level_text="0",
+                level_width=3,
+                level_font="DigitalDream",
+                level_size=host.s_18,
+                title_text_size=host.s_10,
+                slider_width=int(host.button_size / 2),
+                slider_height=host.slider_height,
+                on_release=self.on_accessory_throttle_release,
+                clear_focus_on_release=False,
+            )
+        )
+        host.ops_cells.add(host.acc_throttle_box)
+        host.acc_throttle_box.grid = [4, row - 1, 1, 2]
+        host.acc_throttle.tk.config(resolution=1, showvalue=False)
+        host.acc_throttle.text_color = "black"
+
         # --- set minimum size but allow expansion ---
         # --- Enforce minimum keypad size, but allow expansion ---
         num_rows = 5
-        num_cols = 3
+        num_cols = 5
         min_cell_height = host.button_size + (2 * host.grid_pad_by)
         min_cell_width = host.button_size + (2 * host.grid_pad_by)
 
@@ -499,6 +532,80 @@ class KeypadView(Generic[S]):
                 for digit, btn in host.numeric_btns.items():
                     btn.on_press = (host.on_acc_command, ["NUMERIC", int(digit)])
                 self._numeric_keys = False
+
+    @staticmethod
+    def _format_accessory_throttle(value: int) -> str:
+        if value > 0:
+            return f"+{value}"
+        return str(value)
+
+    def _cancel_accessory_throttle_repeat(self) -> None:
+        host = self._host
+        if self._accessory_throttle_after_id is not None and host.acc_throttle is not None:
+            host.acc_throttle.tk.after_cancel(self._accessory_throttle_after_id)
+            self._accessory_throttle_after_id = None
+
+    def _schedule_accessory_throttle_repeat(self) -> None:
+        host = self._host
+        self._cancel_accessory_throttle_repeat()
+        if host.acc_throttle is None or self._accessory_throttle_value == 0:
+            return
+        self._accessory_throttle_after_id = host.acc_throttle.tk.after(
+            ACCESSORY_THROTTLE_REPEAT_MS, self._repeat_accessory_throttle
+        )
+
+    def _send_accessory_throttle(self, value: int) -> None:
+        self._host.on_acc_command("RELATIVE_SPEED", value)
+
+    def _set_accessory_throttle_display(self, value: int, update_slider: bool = False) -> None:
+        host = self._host
+        if host.acc_throttle_level is not None:
+            host.acc_throttle_level.value = self._format_accessory_throttle(value)
+        if update_slider and host.acc_throttle is not None and host.acc_throttle.value != value:
+            host.acc_throttle.value = value
+
+    def _repeat_accessory_throttle(self) -> None:
+        self._accessory_throttle_after_id = None
+        if self._accessory_throttle_value == 0:
+            return
+        self._send_accessory_throttle(self._accessory_throttle_value)
+        self._schedule_accessory_throttle_repeat()
+
+    def on_accessory_throttle_change(self, value) -> None:
+        host = self._host
+        if host.acc_throttle is None:
+            return
+        try:
+            speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(float(value))))
+        except (TypeError, ValueError):
+            return
+
+        self._accessory_throttle_value = speed
+        self._set_accessory_throttle_display(speed)
+        if speed != 0:
+            self._send_accessory_throttle(speed)
+            self._schedule_accessory_throttle_repeat()
+        else:
+            self._cancel_accessory_throttle_repeat()
+
+    def on_accessory_throttle_release(self, _event: EventData = None) -> None:
+        self._cancel_accessory_throttle_repeat()
+        self._accessory_throttle_value = 0
+        self._set_accessory_throttle_display(0, update_slider=True)
+        self._send_accessory_throttle(0)
+
+    def update_accessory_throttle_from_state(self, state: AccessoryState | None) -> None:
+        host = self._host
+        if host.acc_throttle is None:
+            return
+        speed = 0
+        if isinstance(state, AccessoryState) and not (
+            state.is_sensor_track or state.is_amc2 or state.is_bpc2 or state.is_asc2
+        ):
+            speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(state.relative_speed)))
+        self._set_accessory_throttle_display(speed)
+        if host.acc_throttle.tk.focus_displayof() != host.acc_throttle.tk and host.acc_throttle.value != speed:
+            host.acc_throttle.value = speed
 
     # noinspection PyProtectedMember
     def entry_mode(self, clear_info: bool = True) -> None:
@@ -646,6 +753,9 @@ class KeypadView(Generic[S]):
                             cell.show()
                     self.activate_accessory_keys()
                     self._expand_acc_aux_cells()
+                    self.update_accessory_throttle_from_state(acc_state)
+                    if host.acc_throttle_box and not host.acc_throttle_box.visible:
+                        host.acc_throttle_box.show()
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         host.ac_op_cell.grid = [1, 4]
                         self.enable_acc_view(acc_state)

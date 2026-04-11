@@ -52,6 +52,19 @@ class TestAccessoryState:
         # is_known reflects the presence of aux/number
         assert acc.is_known is True
 
+    def test_relative_speed_updates_and_halt_resets(self):
+        acc = self._new_acc(13)
+
+        acc.update(CommandReq.build(Aux.RELATIVE_SPEED, acc.address, data=4))
+        assert acc.relative_speed == 4
+
+        acc.update(CommandReq.build(Aux.RELATIVE_SPEED, acc.address, data=-3))
+        assert acc.relative_speed == -3
+
+        halt = CommandReq.build(TMCC1HaltCommandEnum.HALT, acc.address)
+        acc.update(halt)
+        assert acc.relative_speed == 0
+
     def test_bpc2_control3_sets_block_power_and_on_off(self):
         acc = self._new_acc(15)
         # First PDI packet establishes LCS source and power-district behavior

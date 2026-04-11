@@ -35,6 +35,7 @@ class AccessoryState(TmccState, LcsProxyState):
         self._aux2_state: Aux | None = None
         self._aux_state: Aux | None = None
         self._number: int | None = None
+        self._relative_speed: int = 0
 
     @property
     def payload(self) -> str:
@@ -89,6 +90,7 @@ class AccessoryState(TmccState, LcsProxyState):
                             self._aux2_state = Aux.AUX2_OFF
                             self._aux_state = Aux.AUX2_OPT_ONE
                             self._number = None
+                            self._relative_speed = 0
                         else:
                             if not self._pdi_source:
                                 if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
@@ -119,6 +121,8 @@ class AccessoryState(TmccState, LcsProxyState):
                                     self._last_aux2_opt1 = self.last_updated
                             if command.command == Aux.NUMERIC:
                                 self._number = command.data
+                            elif command.command == Aux.RELATIVE_SPEED:
+                                self._relative_speed = max(-5, min(5, int(command.data or 0)))
                             if self.is_amc2:
                                 self.extract_state_from_req(command)
                 elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
@@ -181,6 +185,10 @@ class AccessoryState(TmccState, LcsProxyState):
     @property
     def number(self) -> int:
         return self._number
+
+    @property
+    def relative_speed(self) -> int:
+        return self._relative_speed
 
     @property
     def motor1(self) -> Amc2Motor:

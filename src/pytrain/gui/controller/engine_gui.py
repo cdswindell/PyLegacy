@@ -189,6 +189,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.ac_off_btn = self.ac_on_btn = self.ac_status_btn = None
         self.ac_aux1_cell = self.ac_aux1_btn = None
         self.ac_op_cell = self.ac_op_btn = None
+        self.acc_throttle_box = self.acc_throttle_title_box = None
+        self.acc_throttle_level = self.acc_throttle = None
 
         # controller
         self._separator = None
@@ -790,6 +792,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         state = state if state else self.active_state
         tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
         if isinstance(state, AccessoryState):
+            keypad_view = getattr(self, "_keypad_view", None)
+            if keypad_view and hasattr(keypad_view, "update_accessory_throttle_from_state"):
+                keypad_view.update_accessory_throttle_from_state(state)
             if state.is_sensor_track:
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
                 if isinstance(st_state, IrdaState):

@@ -193,7 +193,7 @@ class ControllerView:
         sliders.tk.pack(fill="y", expand=True)
 
         # throttle
-        host.throttle_box, host.throttle_title_box, host.speed, host.throttle = self._make_slider(
+        host.throttle_box, host.throttle_title_box, host.speed, host.throttle = self.make_slider(
             sliders,
             title="Speed",
             command=self.on_throttle,  # debounced send handled by on_throttle/_on_throttle_release_event
@@ -228,7 +228,7 @@ class ControllerView:
         # host.throttle.tk.bind("<Button-1>", lambda e: host.throttle.tk.focus_set())
 
         # brake
-        host.brake_box, _, host.brake_level, host.brake = self._make_slider(
+        host.brake_box, _, host.brake_level, host.brake = self.make_slider(
             sliders,
             "Brake",
             self.on_train_brake,
@@ -240,7 +240,7 @@ class ControllerView:
         host.app.tk.update_idletasks()
 
         # Momentum
-        host.momentum_box, _, host.momentum_level, host.momentum = self._make_slider(
+        host.momentum_box, _, host.momentum_level, host.momentum = self.make_slider(
             sliders,
             "Moment",
             self.on_momentum,  # debounces internally
@@ -251,7 +251,7 @@ class ControllerView:
         )
 
         # Horn
-        host.horn_box, host.horn_title_box, host.horn_level, host.horn = self._make_slider(
+        host.horn_box, host.horn_title_box, host.horn_level, host.horn = self.make_slider(
             sliders,
             "Horn",
             self.on_horn,  # quilling loop logic
@@ -835,7 +835,7 @@ class ControllerView:
     # type alias for tk config dict
     TkCfg = dict[str, Any]
 
-    def _make_slider(
+    def make_slider(
         self,
         parent: Box,
         title: str,
