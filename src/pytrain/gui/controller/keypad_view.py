@@ -438,7 +438,7 @@ class KeypadView(Generic[S]):
             )
         )
         host.ops_cells.add(host.acc_throttle_box)
-        host.acc_throttle_box.grid = [4, row - 1, 1, 2]
+        host.acc_throttle_box.grid = [4, 0, 1, 5]
         host.acc_throttle.tk.config(resolution=1, showvalue=False)
         host.acc_throttle.text_color = "black"
 
