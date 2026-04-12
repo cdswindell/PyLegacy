@@ -449,7 +449,28 @@ class KeypadView(Generic[S]):
         host.acc_throttle.tk.config(resolution=1, showvalue=False)
         host.acc_throttle.text_color = "black"
 
-        self._configure_keypad_grid(expanded=False)
+        # --- set minimum size but allow expansion ---
+        # --- Enforce minimum keypad size, but allow expansion ---
+        num_rows = 5
+        num_cols = 5
+        min_cell_height = host.button_size + (2 * host.grid_pad_by)
+        min_cell_width = host.button_size + (2 * host.grid_pad_by)
+
+        # Keep the keypad grid fixed to 5 rows x 5 columns so taller children
+        # such as the accessory throttle do not add extra space above row 0.
+        keypad_keys.tk.grid_propagate(False)
+
+        # Apply minsize for each row/column
+        for r in range(num_rows):
+            keypad_keys.tk.grid_rowconfigure(r, weight=1, minsize=min_cell_height)
+
+        for c in range(num_cols):
+            keypad_keys.tk.grid_columnconfigure(c, weight=1, minsize=min_cell_width)
+
+        # (Optional) overall bounding box minimum size
+        min_total_height = num_rows * min_cell_height
+        min_total_width = num_cols * min_cell_width
+        keypad_keys.tk.configure(width=min_total_width, height=min_total_height)
 
     def on_keypress(self, key: str) -> None:
         host = self._host
@@ -544,35 +565,6 @@ class KeypadView(Generic[S]):
     def _send_accessory_throttle(self, value: int) -> None:
         self._host.on_acc_command("RELATIVE_SPEED", value)
 
-    def _configure_keypad_grid(self, *, expanded: bool) -> None:
-        host = self._host
-        keypad_keys = host.keypad_keys
-        if keypad_keys is None:
-            return
-
-        num_rows = len(ENTRY_LAYOUT) + 1
-        max_cols = 5
-        entry_cols = len(ENTRY_LAYOUT[0])
-        min_cell_height = host.button_size + (2 * host.grid_pad_by)
-        min_cell_width = host.button_size + (2 * host.grid_pad_by)
-
-        for r in range(num_rows):
-            keypad_keys.tk.grid_rowconfigure(r, weight=1, minsize=min_cell_height)
-
-        for c in range(max_cols):
-            is_active_col = expanded or c < entry_cols
-            keypad_keys.tk.grid_columnconfigure(
-                c,
-                weight=1 if is_active_col else 0,
-                minsize=min_cell_width if is_active_col else 0,
-            )
-
-        keypad_keys.tk.grid_propagate(not expanded)
-        keypad_keys.tk.configure(
-            width=(max_cols if expanded else entry_cols) * min_cell_width,
-            height=num_rows * min_cell_height,
-        )
-
     def _fit_accessory_throttle_height(self) -> None:
         host = self._host
         if (
@@ -654,7 +646,6 @@ class KeypadView(Generic[S]):
         """Manages entry mode keypad display and button states"""
         host = self._host
         self._entry_mode = True
-        self._configure_keypad_grid(expanded=False)
         if clear_info:
             host.update_component_info(0)
         else:
@@ -733,7 +724,6 @@ class KeypadView(Generic[S]):
         EngineGui should call this only when NOT engine/train.
         """
         host = self._host
-        self._configure_keypad_grid(expanded=False)
 
         # reset is only meaningful for engine/train
         if host.reset_btn.enabled:
@@ -792,7 +782,6 @@ class KeypadView(Generic[S]):
                             host.ac_op_cell.grid = [2, 3]
                             self.enable_acc_view(acc_state)
                 else:
-                    self._configure_keypad_grid(expanded=True)
                     for cell in host.aux_cells:
                         if cell and not cell.visible:
                             cell.show()
