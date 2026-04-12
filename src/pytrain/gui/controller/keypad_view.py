@@ -434,13 +434,13 @@ class KeypadView(Generic[S]):
                 slider_width=int(host.button_size / 2),
                 slider_height=host.slider_height,
                 on_release=self.on_accessory_throttle_release,
-                clear_focus_on_release=False,
+                clear_focus_on_release=True,
             )
         )
 
         host.ops_cells.add(host.acc_throttle_box)
+        # host.acc_throttle_box.grid = [4, 0, 1, 5],
         host.acc_throttle_box.tk.config(
-            grid=[4, 0, 1, 5],
             height=(5 * host.button_size) + (4 * host.grid_pad_by),
         )
 

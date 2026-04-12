@@ -880,6 +880,7 @@ class ControllerView:
             border=box_border,
             grid=list(grid),
             visible=visible,
+            align="top",
         )
 
         tb = TitleBox(box, title, align="top", border=title_border)
