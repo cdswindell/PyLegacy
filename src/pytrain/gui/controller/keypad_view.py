@@ -608,7 +608,6 @@ class KeypadView(Generic[S]):
     def update_accessory_throttle_from_state(self, state: AccessoryState | None) -> None:
         host = self._host
         # don't fight the user; if throttle has focus, ignore state changes
-        print(f"Throttle focus? {host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk}")
         if host.acc_throttle is None or host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk:
             return
         speed = 0
@@ -785,7 +784,7 @@ class KeypadView(Generic[S]):
                             cell.show()
                     self.activate_accessory_keys()
                     self._expand_acc_aux_cells()
-                    self.update_accessory_throttle_from_state(acc_state)
+                    # self.update_accessory_throttle_from_state(acc_state)
                     if host.acc_throttle_box and not host.acc_throttle_box.visible:
                         host.acc_throttle_box.show()
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
