@@ -609,13 +609,12 @@ class KeypadView(Generic[S]):
         if host.acc_throttle is None or host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk:
             return
         speed = 0
+        print(f"Setting accessory throttle display to {state}")
         if isinstance(state, AccessoryState) and not (
             state.is_sensor_track or state.is_amc2 or state.is_bpc2 or state.is_asc2
         ):
             speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(state.relative_speed)))
-        self._set_accessory_throttle_display(speed)
-        if host.acc_throttle.value != speed:
-            host.acc_throttle.value = speed
+        self._set_accessory_throttle_display(speed, update_slider=True)
 
     # noinspection PyProtectedMember
     def entry_mode(self, clear_info: bool = True) -> None:
