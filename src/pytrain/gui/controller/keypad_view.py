@@ -7,6 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import logging
+from tkinter import TclError
 from typing import Generic, TYPE_CHECKING, TypeVar
 
 from guizero import App, Box, TitleBox
@@ -602,6 +603,7 @@ class KeypadView(Generic[S]):
         self._accessory_throttle_value = 0
         self._set_accessory_throttle_display(0, update_slider=True)
         self._send_accessory_throttle(0)
+        self.clear_focus(_event)
 
     def update_accessory_throttle_from_state(self, state: AccessoryState | None) -> None:
         host = self._host
@@ -615,6 +617,27 @@ class KeypadView(Generic[S]):
         ):
             speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(state.relative_speed)))
         self._set_accessory_throttle_display(speed, update_slider=True)
+
+    # noinspection PyUnusedLocal
+    def clear_focus(self, e=None) -> None:
+        host = self._host
+        # Clears focus from host widgets after idle time
+        focus = host.app.tk.focus_get()
+        widgets = {getattr(host, n, None) for n in ("acc_throttle",)}
+        tks = {w.tk for w in widgets if w is not None}
+        if focus in tks:
+            host.app.tk.after_idle(self._do_clear_focus)
+
+    def _do_clear_focus(self) -> None:
+        host = self._host
+        if host.focus_widget is not None:
+            host.focus_widget.focus_set()
+        for w in (host.acc_throttle,):
+            try:
+                if w is not None:
+                    w.tk.event_generate("<Leave>")
+            except (TclError, AttributeError):
+                pass
 
     # noinspection PyProtectedMember
     def entry_mode(self, clear_info: bool = True) -> None:
