@@ -59,6 +59,7 @@ class KeypadView(Generic[S]):
         self._numeric_keys = True
         self._accessory_throttle_after_id: int | None = None
         self._accessory_throttle_value = 0
+        self._accessory_throttle_total_height = 0
 
     @property
     def active_state(self) -> ComponentState | None:
@@ -417,6 +418,8 @@ class KeypadView(Generic[S]):
 
         accessory_slider_rows = len(ENTRY_LAYOUT) + 1
         accessory_total_height = accessory_slider_rows * (host.button_size + (2 * host.grid_pad_by))
+        self._accessory_throttle_total_height = accessory_total_height
+        bootstrap_slider_height = max(host.button_size, accessory_total_height - int(round(host.button_size * 0.9)))
         host.acc_throttle_box, host.acc_throttle_title_box, host.acc_throttle_level, host.acc_throttle = (
             host.controller_view.make_slider(
                 keypad_keys,
@@ -434,7 +437,7 @@ class KeypadView(Generic[S]):
                 level_size=host.s_18,
                 title_text_size=host.s_10,
                 slider_width=int(host.button_size / 2),
-                slider_height=accessory_total_height,
+                slider_height=bootstrap_slider_height,
                 on_release=self.on_accessory_throttle_release,
                 clear_focus_on_release=False,
             )
@@ -572,11 +575,11 @@ class KeypadView(Generic[S]):
             return
 
         host.app.tk.update_idletasks()
-        total_height = max(
-            int(host.acc_throttle_box.tk.winfo_height()),
-            int(host.acc_throttle_box.tk.winfo_reqheight()),
-            (len(ENTRY_LAYOUT) + 1) * (host.button_size + (2 * host.grid_pad_by)),
+        total_height = self._accessory_throttle_total_height or (
+            (len(ENTRY_LAYOUT) + 1) * (host.button_size + (2 * host.grid_pad_by))
         )
+        host.acc_throttle_box.tk.configure(height=total_height)
+        host.acc_throttle_box.tk.pack_propagate(False)
         title_height = max(
             int(host.acc_throttle_title_box.tk.winfo_height()),
             int(host.acc_throttle_title_box.tk.winfo_reqheight()),
