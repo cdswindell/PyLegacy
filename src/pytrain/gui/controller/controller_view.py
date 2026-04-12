@@ -845,7 +845,7 @@ class ControllerView:
         *,
         step: int = 1,
         visible: bool = True,
-        grid: list[int] | tuple[int, int] = (0, 0),
+        grid: list[int] | tuple[int, int] | tuple[int, int, int, int] = (0, 0),
         box_border: int = 1,
         title_border: int = 1,
         title_text_size: int | None = None,

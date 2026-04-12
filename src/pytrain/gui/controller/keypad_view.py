@@ -423,7 +423,7 @@ class KeypadView(Generic[S]):
                 frm=ACCESSORY_THROTTLE_MAX,
                 to=ACCESSORY_THROTTLE_MIN,
                 visible=False,
-                grid=(4, row - 1),
+                grid=(4, 0, 1, 5),
                 box_border=1,
                 title_border=1,
                 level_text="0",
