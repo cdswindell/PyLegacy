@@ -567,18 +567,11 @@ class KeypadView(Generic[S]):
                 minsize=min_cell_width if is_active_col else 0,
             )
 
-        if expanded:
-            keypad_keys.tk.grid_propagate(False)
-            keypad_keys.tk.configure(
-                width=max_cols * min_cell_width,
-                height=num_rows * min_cell_height,
-            )
-        else:
-            keypad_keys.tk.grid_propagate(True)
-            keypad_keys.tk.configure(
-                width=entry_cols * min_cell_width,
-                height=1,
-            )
+        keypad_keys.tk.grid_propagate(not expanded)
+        keypad_keys.tk.configure(
+            width=(max_cols if expanded else entry_cols) * min_cell_width,
+            height=num_rows * min_cell_height,
+        )
 
     def _fit_accessory_throttle_height(self) -> None:
         host = self._host
@@ -715,19 +708,14 @@ class KeypadView(Generic[S]):
           - enable Reset
         """
         host = self._host
-        self._configure_keypad_grid(expanded=False)
 
         # Hide keypad/controller boxes appropriately
         if host.controller_box.visible:
             host.controller_box.hide()
         if host.keypad_box.visible:
             host.keypad_box.hide()
-        if host.acc_throttle_box and host.acc_throttle_box.visible:
-            host.acc_throttle_box.hide()
         if host.amc2_ops_box and host.amc2_ops_box.visible:
             host.amc2_ops_box.hide()
-        if host.sensor_track_box and host.sensor_track_box.visible:
-            host.sensor_track_box.hide()
         if host.acc_overlay and host.acc_overlay.visible:
             host.acc_overlay.hide()
 
@@ -746,12 +734,6 @@ class KeypadView(Generic[S]):
         """
         host = self._host
         self._configure_keypad_grid(expanded=False)
-        if host.controller_box and host.controller_box.visible:
-            host.controller_box.hide()
-        if host.sensor_track_box and host.sensor_track_box.visible:
-            host.sensor_track_box.hide()
-        if host.acc_throttle_box and host.acc_throttle_box.visible:
-            host.acc_throttle_box.hide()
 
         # reset is only meaningful for engine/train
         if host.reset_btn.enabled:
