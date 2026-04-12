@@ -415,6 +415,7 @@ class KeypadView(Generic[S]):
         )
         host.ac_op_btn.disable()
 
+        acc_throttle_height = (5 * host.button_size) + (4 * host.grid_pad_by)
         host.acc_throttle_box, host.acc_throttle_title_box, host.acc_throttle_level, host.acc_throttle = (
             host.controller_view.make_slider(
                 keypad_keys,
@@ -434,17 +435,19 @@ class KeypadView(Generic[S]):
                 slider_width=int(host.button_size / 2),
                 slider_height=host.slider_height,
                 on_release=self.on_accessory_throttle_release,
-                clear_focus_on_release=True,
+                clear_focus_on_release=False,
             )
         )
 
         host.ops_cells.add(host.acc_throttle_box)
-        # host.acc_throttle_box.grid = [4, 0, 1, 5],
         host.acc_throttle_box.tk.config(
-            height=(5 * host.button_size) + (4 * host.grid_pad_by),
+            height=acc_throttle_height,
         )
 
-        host.acc_throttle.tk.config(resolution=1, showvalue=False)
+        host.app.tk.update_idletasks()
+        title_height = host.acc_throttle_title_box.tk.winfo_reqheight()
+        slider_height = max(host.button_size, acc_throttle_height - title_height - 2)
+        host.acc_throttle.tk.config(resolution=1, showvalue=False, height=slider_height)
         host.acc_throttle.text_color = "black"
 
         # --- set minimum size but allow expansion ---
@@ -587,8 +590,8 @@ class KeypadView(Generic[S]):
 
         self._accessory_throttle_value = speed
         self._set_accessory_throttle_display(speed)
+        self._send_accessory_throttle(speed)
         if speed != 0:
-            self._send_accessory_throttle(speed)
             self._schedule_accessory_throttle_repeat()
         else:
             self._cancel_accessory_throttle_repeat()
