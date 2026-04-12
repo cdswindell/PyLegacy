@@ -584,8 +584,6 @@ class KeypadView(Generic[S]):
         host = self._host
         if host.acc_throttle is None:
             return  # don't fight the user while dragging
-        if host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk:
-            return
         try:
             speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(float(value))))
         except (TypeError, ValueError):
@@ -607,7 +605,8 @@ class KeypadView(Generic[S]):
 
     def update_accessory_throttle_from_state(self, state: AccessoryState | None) -> None:
         host = self._host
-        if host.acc_throttle is None:
+        # don't fight the user; if throttle has focus, ignore state changes
+        if host.acc_throttle is None or host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk:
             return
         speed = 0
         if isinstance(state, AccessoryState) and not (
@@ -615,7 +614,7 @@ class KeypadView(Generic[S]):
         ):
             speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(state.relative_speed)))
         self._set_accessory_throttle_display(speed)
-        if host.acc_throttle.tk.focus_displayof() != host.acc_throttle.tk and host.acc_throttle.value != speed:
+        if host.acc_throttle.value != speed:
             host.acc_throttle.value = speed
 
     # noinspection PyProtectedMember
