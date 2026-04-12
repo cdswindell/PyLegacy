@@ -108,6 +108,8 @@ class ControllerView:
                 # legacy vs. tmcc throttle range
                 if throttle_state.is_legacy:
                     host.throttle.tk.config(from_=195, to=0)
+                elif throttle_state.is_cab1:
+                    host.throttle.tk.config(from_=-5, to=5)
                 else:
                     host.throttle.tk.config(from_=31, to=0)
             else:

@@ -14,14 +14,7 @@ import logging
 from typing import Any, Dict, List, TypeVar
 
 from .comp_data import CompDataHandler, CompDataMixin
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    L,
-    LcsProxyState,
-    P,
-    log,
-)
+from .component_state import ComponentState, L, LcsProxyState, P, SCOPE_TO_STATE_MAP, log
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
@@ -29,39 +22,42 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
     ACELA_TYPE,
+    CAB1_CONTROL_TYPE,
     CONTROL_TYPE,
     CRANE_TYPE,
+    CommandScope,
     DIESEL_TYPE,
     ELECTRIC_TYPE,
+    EngineType,
     FREIGHT_TYPE,
     LEGACY_CONTROL_TYPE,
     LOCO_CLASS,
     LOCO_TRACK_CRANE,
     LOCO_TYPE,
+    OfficialRRSpeeds,
     PASSENGER_TYPE,
     RPM_TYPE,
     SOUND_TYPE,
     STEAM_TYPE,
     THROTTLE_TYPE,
     TRANSFORMER_TYPE,
-    CommandScope,
-    EngineType,
-    OfficialRRSpeeds,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum, UnitAssignment
-
 # noinspection PyPep8Naming
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from ..protocol.tmcc1.tmcc1_constants import (
-    TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1EngineCommandEnum,
+    TMCC1EngineCommandEnum as TMCC1,
     TMCC1HaltCommandEnum,
     TMCC1RRSpeedsEnum,
+    TMCC1_COMMAND_TO_ALIAS_MAP,
 )
-
 # noinspection PyPep8Naming
-from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
-from ..protocol.tmcc2.tmcc2_constants import TMCC2_COMMAND_TO_ALIAS_MAP, TMCC2EngineCommandEnum, TMCC2RRSpeedsEnum
+from ..protocol.tmcc2.tmcc2_constants import (
+    TMCC2EngineCommandEnum,
+    TMCC2EngineCommandEnum as TMCC2,
+    TMCC2RRSpeedsEnum,
+    TMCC2_COMMAND_TO_ALIAS_MAP,
+)
 
 DIRECTIONS_SET = {
     TMCC1EngineCommandEnum.FORWARD_DIRECTION,
@@ -933,6 +929,10 @@ class EngineState(ComponentState):
     @property
     def record_no(self) -> int:
         return self._d4_rec_no
+
+    @property
+    def is_cab1(self) -> bool:
+        return self.comp_data and self.comp_data.control_type == CAB1_CONTROL_TYPE
 
     @property
     def is_tmcc(self) -> bool:
