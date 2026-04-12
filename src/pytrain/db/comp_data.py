@@ -16,7 +16,7 @@ from typing import Any, Callable, Generic, TypeVar, cast
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
+from ..protocol.constants import CommandScope, LEGACY_CONTROL_TYPE
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
@@ -47,18 +47,6 @@ def default_from_func(t: bytes) -> int:
 
 def default_to_func(t: int) -> bytes:
     return t.to_bytes(1, byteorder="little")
-
-
-def to_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
-    if not is_legacy:
-        speed = min(max(int(round(speed * 31 / 199)), 0), 31)
-    return speed
-
-
-def from_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
-    if not is_legacy:
-        speed = min(max(int(round(speed * 199 / 31)), 0), 199)
-    return speed
 
 
 class CompDataHandler:
@@ -396,10 +384,6 @@ CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
         lambda x: x,
         lambda rpm, labor: ((labor - 12 if labor >= 12 else 20 + labor) << 3) | rpm & 0b111,
     ),
-    "target_speed": (
-        lambda speed, is_legacy: to_tmcc_speed(speed, is_legacy),
-        lambda speed, is_legacy: from_tmcc_speed(speed, is_legacy),
-    ),
 }
 
 C = TypeVar("C", bound="CompData")
@@ -712,9 +696,6 @@ class CompData(ABC, Generic[R]):
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
     def __setattr__(self, name: str, value: Any) -> None:
-        # hack for target_speed; have to scale it if not legacy
-        # if value and not self.is_legacy and "target_speed" in name:
-        #     value = int(round(value * 0.15577889))  # scale by 31/199
         if name.startswith("_"):
             super().__setattr__(name, value)
             return
@@ -733,8 +714,6 @@ class CompData(ABC, Generic[R]):
             elif name == "smoke" and isinstance(self, EngineData):
                 map_dict = TMCC2_TO_BASE_SMOKE_MAP if self.is_legacy is True else TMCC1_TO_BASE_SMOKE_MAP
                 self.__dict__["_" + name] = tpl[1](map_dict, value) if value is not None else value
-            elif name in {"target_speed"}:
-                self.__dict__["_" + name] = tpl[1](value, self.is_legacy) if value is not None else value
             else:
                 # For RPM or Labor, we have to pass the 2 raw values to the conversion function
                 # as a tuple, thus requiring the isinstance check below.
