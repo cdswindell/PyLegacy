@@ -447,7 +447,8 @@ class KeypadView(Generic[S]):
         host.app.tk.update_idletasks()
         title_height = host.acc_throttle_title_box.tk.winfo_reqheight()
         slider_height = max(host.button_size, acc_throttle_height - title_height - 2)
-        host.acc_throttle.tk.config(resolution=1, showvalue=False, height=slider_height)
+        host.acc_throttle.height = slider_height
+        host.acc_throttle.tk.config(resolution=1, showvalue=False)
         host.acc_throttle.text_color = "black"
 
         # --- set minimum size but allow expansion ---
