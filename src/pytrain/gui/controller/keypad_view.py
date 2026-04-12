@@ -456,20 +456,21 @@ class KeypadView(Generic[S]):
         min_cell_height = host.button_size + (2 * host.grid_pad_by)
         min_cell_width = host.button_size + (2 * host.grid_pad_by)
 
-        # Allow dynamic expansion if children exceed minsize
-        keypad_box.tk.grid_propagate(True)
+        # Keep the keypad grid fixed to 5 rows x 5 columns so taller children
+        # such as the accessory throttle do not add extra space above row 0.
+        keypad_keys.tk.grid_propagate(False)
 
         # Apply minsize for each row/column
         for r in range(num_rows):
-            keypad_box.tk.grid_rowconfigure(r, weight=1, minsize=min_cell_height)
+            keypad_keys.tk.grid_rowconfigure(r, weight=1, minsize=min_cell_height)
 
         for c in range(num_cols):
-            keypad_box.tk.grid_columnconfigure(c, weight=1, minsize=min_cell_width)
+            keypad_keys.tk.grid_columnconfigure(c, weight=1, minsize=min_cell_width)
 
         # (Optional) overall bounding box minimum size
         min_total_height = num_rows * min_cell_height
         min_total_width = num_cols * min_cell_width
-        keypad_box.tk.configure(width=min_total_width, height=min_total_height)
+        keypad_keys.tk.configure(width=min_total_width, height=min_total_height)
 
     def on_keypress(self, key: str) -> None:
         host = self._host
@@ -579,7 +580,6 @@ class KeypadView(Generic[S]):
             (len(ENTRY_LAYOUT) + 1) * (host.button_size + (2 * host.grid_pad_by))
         )
         host.acc_throttle_box.tk.configure(height=total_height)
-        host.acc_throttle_box.tk.pack_propagate(False)
         title_height = max(
             int(host.acc_throttle_title_box.tk.winfo_height()),
             int(host.acc_throttle_title_box.tk.winfo_reqheight()),
