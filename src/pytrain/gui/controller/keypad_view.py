@@ -557,7 +557,7 @@ class KeypadView(Generic[S]):
     def _schedule_accessory_throttle_repeat(self) -> None:
         host = self._host
         self._cancel_accessory_throttle_repeat()
-        if host.acc_throttle is None or self._accessory_throttle_value == 0:
+        if host.acc_throttle is None or host.acc_throttle.value == 0:
             return
         self._accessory_throttle_after_id = host.acc_throttle.tk.after(
             ACCESSORY_THROTTLE_REPEAT_MS, self._repeat_accessory_throttle
@@ -575,14 +575,16 @@ class KeypadView(Generic[S]):
 
     def _repeat_accessory_throttle(self) -> None:
         self._accessory_throttle_after_id = None
-        if self._accessory_throttle_value == 0:
+        if self._host.acc_throttle.value == 0:
             return
-        self._send_accessory_throttle(self._accessory_throttle_value)
+        self._send_accessory_throttle(self._host.acc_throttle.value)
         self._schedule_accessory_throttle_repeat()
 
     def on_accessory_throttle_change(self, value) -> None:
         host = self._host
         if host.acc_throttle is None:
+            return  # don't fight the user while dragging
+        if host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk:
             return
         try:
             speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(float(value))))
