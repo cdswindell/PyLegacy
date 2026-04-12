@@ -90,7 +90,13 @@ class ControllerView:
                 if host._rr_speed_btn and not host._rr_speed_btn.enabled:
                     host._rr_speed_btn.enable()
 
-                host.speed.value = f"{throttle_state.speed:03d}"
+                if throttle_state.is_cab1:
+                    if host.throttle.value > 1:
+                        host.speed.value = f" +{host.throttle.value}"
+                    else:
+                        host.speed.value = f" {host.throttle.value:3d}"
+                else:
+                    host.speed.value = f"{throttle_state.speed:03d}"
 
                 if host._rr_speed_panel:
                     host._rr_speed_panel.configure(throttle_state)
@@ -716,7 +722,6 @@ class ControllerView:
         # Now clear focus so the handle deactivates visually.
         self.clear_focus(e)
         if state.is_cab1:
-            print("Resetting cab1 throttle...")
             host.throttle.value = 0
 
     def on_train_brake(self, value) -> None:
