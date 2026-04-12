@@ -436,7 +436,7 @@ class KeypadView(Generic[S]):
                 slider_width=int(host.button_size / 2),
                 slider_height=host.slider_height,
                 on_release=self.on_accessory_throttle_release,
-                clear_focus_on_release=True,
+                clear_focus_on_release=False,
             )
         )
 
