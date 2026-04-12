@@ -60,6 +60,16 @@ class DummyTk:
     def grid_propagate(_value: bool) -> None:
         return
 
+    @staticmethod
+    def update_idletasks() -> None:
+        return
+
+    def winfo_reqheight(self) -> int:
+        return int(self._config.get("height", 0))
+
+    def winfo_height(self) -> int:
+        return self.winfo_reqheight()
+
 
 class DummyWidget:
     def __init__(self, *_args: Any, **kwargs: Any) -> None:
@@ -189,7 +199,7 @@ def _new_host() -> SimpleNamespace:
         yield
 
     host = SimpleNamespace()
-    host.app = SimpleNamespace()
+    host.app = SimpleNamespace(tk=DummyTk())
     host.scope = CommandScope.ACC
     host._scope_tmcc_ids = {CommandScope.ACC: 19}
     host.active_state = DummyAccessoryState()
@@ -220,7 +230,7 @@ def _new_host() -> SimpleNamespace:
     host.numeric_btns = {}
     host.locked = locked
     host.make_keypad_button = lambda *_args, **kwargs: (DummyBox(visible=kwargs.get("visible", True)), DummyButton())
-    host.on_acc_command_calls: list[tuple[str, int | None]] = []
+    host.on_acc_command_calls = []
     host.on_acc_command = lambda target, data=None: host.on_acc_command_calls.append((target, data))
     host.on_engine_command = lambda *_args, **_kwargs: None
     host.on_keypress = lambda *_args, **_kwargs: None
@@ -262,6 +272,7 @@ def test_accessory_throttle_repeats_until_release() -> None:
     host.active_state = DummyAccessoryState(relative_speed=0)
     view.build()
 
+    host.acc_throttle.value = 4
     view.on_accessory_throttle_change("4")
 
     assert host.acc_throttle_level.value == "+4"
