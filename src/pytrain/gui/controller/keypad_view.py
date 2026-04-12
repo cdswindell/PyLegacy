@@ -437,12 +437,15 @@ class KeypadView(Generic[S]):
                 clear_focus_on_release=False,
             )
         )
+
         host.ops_cells.add(host.acc_throttle_box)
-        host.acc_throttle_box.grid = [4, 0, 1, 5]
+        host.acc_throttle_box.tk.config(
+            grid=[4, 0, 1, 5],
+            height=(5 * host.button_size) + (4 * host.grid_pad_by),
+        )
+
         host.acc_throttle.tk.config(resolution=1, showvalue=False)
         host.acc_throttle.text_color = "black"
-        # host.acc_throttle_box.height = (5 * host.button_size) + (4 * host.grid_pad_by)
-        # host.acc_throttle.height = "fill"
 
         # --- set minimum size but allow expansion ---
         # --- Enforce minimum keypad size, but allow expansion ---
