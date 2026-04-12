@@ -442,20 +442,7 @@ class KeypadView(Generic[S]):
         host.ops_cells.add(host.acc_throttle_box)
         host.acc_throttle_box.grid = [4, 0, 1, accessory_slider_rows]
         host.acc_throttle_box.tk.grid_configure(sticky="ns")
-        host.acc_throttle_box.tk.configure(height=accessory_total_height)
-        host.acc_throttle_box.tk.pack_propagate(False)
-
-        host.app.tk.update_idletasks()
-        title_height = max(
-            int(host.acc_throttle_title_box.tk.winfo_reqheight()),
-            int(host.acc_throttle_title_box.tk.winfo_height()),
-        )
-        accessory_slider_fill_height = max(host.button_size, accessory_total_height - title_height - 2)
-        host.acc_throttle.height = accessory_slider_fill_height
-        host.acc_throttle.tk.config(
-            length=accessory_slider_fill_height,
-            sliderlength=max(16, int(accessory_slider_fill_height / 6)),
-        )
+        host.app.tk.after_idle(self._fit_accessory_throttle_height)
         host.acc_throttle.tk.config(resolution=1, showvalue=False)
         host.acc_throttle.text_color = "black"
 
@@ -573,6 +560,33 @@ class KeypadView(Generic[S]):
 
     def _send_accessory_throttle(self, value: int) -> None:
         self._host.on_acc_command("RELATIVE_SPEED", value)
+
+    def _fit_accessory_throttle_height(self) -> None:
+        host = self._host
+        if (
+            host.acc_throttle_box is None
+            or host.acc_throttle is None
+            or host.acc_throttle_title_box is None
+            or not host.acc_throttle_box.visible
+        ):
+            return
+
+        host.app.tk.update_idletasks()
+        total_height = max(
+            int(host.acc_throttle_box.tk.winfo_height()),
+            int(host.acc_throttle_box.tk.winfo_reqheight()),
+            (len(ENTRY_LAYOUT) + 1) * (host.button_size + (2 * host.grid_pad_by)),
+        )
+        title_height = max(
+            int(host.acc_throttle_title_box.tk.winfo_height()),
+            int(host.acc_throttle_title_box.tk.winfo_reqheight()),
+        )
+        slider_height = max(host.button_size, total_height - title_height - 2)
+        host.acc_throttle.height = slider_height
+        host.acc_throttle.tk.config(
+            length=slider_height,
+            sliderlength=max(16, int(slider_height / 6)),
+        )
 
     def _set_accessory_throttle_display(self, value: int, update_slider: bool = False) -> None:
         host = self._host
@@ -773,6 +787,7 @@ class KeypadView(Generic[S]):
                     self.update_accessory_throttle_from_state(acc_state)
                     if host.acc_throttle_box and not host.acc_throttle_box.visible:
                         host.acc_throttle_box.show()
+                    host.app.tk.after_idle(self._fit_accessory_throttle_height)
                     if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                         host.ac_op_cell.grid = [1, 4]
                         self.enable_acc_view(acc_state)
