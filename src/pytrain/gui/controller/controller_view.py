@@ -95,6 +95,15 @@ class ControllerView:
                 if host._rr_speed_panel:
                     host._rr_speed_panel.configure(throttle_state)
 
+                # legacy vs. tmcc throttle range
+                if throttle_state.is_legacy:
+                    host.throttle.tk.config(from_=195, to=0)
+                elif throttle_state.is_cab1:
+                    host.throttle.tk.config(from_=5, to=-5)
+                    host.throttle.value = 0
+                else:
+                    host.throttle.tk.config(from_=31, to=0)
+
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
@@ -105,13 +114,6 @@ class ControllerView:
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
 
-                # legacy vs. tmcc throttle range
-                if throttle_state.is_legacy:
-                    host.throttle.tk.config(from_=195, to=0)
-                elif throttle_state.is_cab1:
-                    host.throttle.tk.config(from_=5, to=-5)
-                else:
-                    host.throttle.tk.config(from_=31, to=0)
             else:
                 if host.speed.enabled:
                     host.speed.disable()
