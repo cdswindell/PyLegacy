@@ -606,11 +606,10 @@ class KeypadView(Generic[S]):
     def update_accessory_throttle_from_state(self, state: AccessoryState | None) -> None:
         host = self._host
         # don't fight the user; if throttle has focus, ignore state changes
-        print(f"Updating accessory throttle from state: {host.acc_throttle.tk.focus_displayof()}")
+        print(f"Throttle focus? {host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk}")
         if host.acc_throttle is None or host.acc_throttle.tk.focus_displayof() == host.acc_throttle.tk:
             return
         speed = 0
-        print(f"Setting accessory throttle display to {state}")
         if isinstance(state, AccessoryState) and not (
             state.is_sensor_track or state.is_amc2 or state.is_bpc2 or state.is_asc2
         ):
