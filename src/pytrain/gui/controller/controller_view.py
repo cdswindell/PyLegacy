@@ -716,6 +716,7 @@ class ControllerView:
         # Now clear focus so the handle deactivates visually.
         self.clear_focus(e)
         if state.is_cab1:
+            print("Resetting cab1 throttle...")
             host.throttle.value = 0
 
     def on_train_brake(self, value) -> None:
