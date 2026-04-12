@@ -582,8 +582,8 @@ class KeypadView(Generic[S]):
 
     def on_accessory_throttle_change(self, value) -> None:
         host = self._host
-        if host.acc_throttle is None:
-            return  # don't fight the user while dragging
+        if host.acc_throttle is None or host.acc_throttle.tk.focus_displayof() != host.acc_throttle.tk:
+            return  # don't schedule repeats unless our throttle has focus
         try:
             speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(float(value))))
         except (TypeError, ValueError):
