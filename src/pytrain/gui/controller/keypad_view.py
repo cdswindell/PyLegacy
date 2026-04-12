@@ -416,7 +416,7 @@ class KeypadView(Generic[S]):
         host.ac_op_btn.disable()
 
         accessory_slider_rows = len(ENTRY_LAYOUT) + 1
-        accessory_slider_height = host.button_size * accessory_slider_rows
+        accessory_total_height = accessory_slider_rows * (host.button_size + (2 * host.grid_pad_by))
         host.acc_throttle_box, host.acc_throttle_title_box, host.acc_throttle_level, host.acc_throttle = (
             host.controller_view.make_slider(
                 keypad_keys,
@@ -434,7 +434,7 @@ class KeypadView(Generic[S]):
                 level_size=host.s_18,
                 title_text_size=host.s_10,
                 slider_width=int(host.button_size / 2),
-                slider_height=accessory_slider_height,
+                slider_height=accessory_total_height,
                 on_release=self.on_accessory_throttle_release,
                 clear_focus_on_release=False,
             )
@@ -442,6 +442,20 @@ class KeypadView(Generic[S]):
         host.ops_cells.add(host.acc_throttle_box)
         host.acc_throttle_box.grid = [4, 0, 1, accessory_slider_rows]
         host.acc_throttle_box.tk.grid_configure(sticky="ns")
+        host.acc_throttle_box.tk.configure(height=accessory_total_height)
+        host.acc_throttle_box.tk.pack_propagate(False)
+
+        host.app.tk.update_idletasks()
+        title_height = max(
+            int(host.acc_throttle_title_box.tk.winfo_reqheight()),
+            int(host.acc_throttle_title_box.tk.winfo_height()),
+        )
+        accessory_slider_fill_height = max(host.button_size, accessory_total_height - title_height - 2)
+        host.acc_throttle.height = accessory_slider_fill_height
+        host.acc_throttle.tk.config(
+            length=accessory_slider_fill_height,
+            sliderlength=max(16, int(accessory_slider_fill_height / 6)),
+        )
         host.acc_throttle.tk.config(resolution=1, showvalue=False)
         host.acc_throttle.text_color = "black"
 
