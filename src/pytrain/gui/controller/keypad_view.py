@@ -59,7 +59,6 @@ class KeypadView(Generic[S]):
         self._entry_mode = True
         self._numeric_keys = True
         self._accessory_throttle_after_id: int | None = None
-        self._accessory_throttle_value = 0
 
     @property
     def active_state(self) -> ComponentState | None:
@@ -590,7 +589,6 @@ class KeypadView(Generic[S]):
         except (TypeError, ValueError):
             return
 
-        self._accessory_throttle_value = speed
         self._set_accessory_throttle_display(speed)
         self._send_accessory_throttle(speed)
         if speed != 0:
@@ -600,7 +598,6 @@ class KeypadView(Generic[S]):
 
     def on_accessory_throttle_release(self, _event: EventData = None) -> None:
         self._cancel_accessory_throttle_repeat()
-        self._accessory_throttle_value = 0
         self._set_accessory_throttle_display(0, update_slider=True)
         self._send_accessory_throttle(0)
         self.clear_focus(_event)

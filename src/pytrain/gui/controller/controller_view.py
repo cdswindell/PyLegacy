@@ -55,6 +55,7 @@ class ControllerView:
         self._quill_after_id = None
         self._gauges: dict[str, list[AnalogGaugeWidget]] = {}
         self._updating_from_state = False
+        self._last_state = self._last_throttle_state = None
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
@@ -83,12 +84,13 @@ class ControllerView:
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
-                if not host.speed.enabled:
-                    host.speed.enable()
-                if not host.throttle.enabled:
-                    host.throttle.enable()
-                if host._rr_speed_btn and not host._rr_speed_btn.enabled:
-                    host._rr_speed_btn.enable()
+                if throttle_state != self._last_throttle_state:
+                    if not host.speed.enabled:
+                        host.speed.enable()
+                    if not host.throttle.enabled:
+                        host.throttle.enable()
+                    if host._rr_speed_btn and not host._rr_speed_btn.enabled:
+                        host._rr_speed_btn.enable()
 
                 if throttle_state.is_cab1:
                     if host.throttle.value > 1:
@@ -102,19 +104,21 @@ class ControllerView:
                     host._rr_speed_panel.configure(throttle_state)
 
                 # legacy vs. tmcc throttle range
-                if throttle_state.is_legacy:
-                    host.throttle.tk.config(from_=195, to=0)
-                elif throttle_state.is_cab1:
-                    host.throttle.tk.config(from_=5, to=-5)
-                    host.throttle.value = 0
-                else:
-                    host.throttle.tk.config(from_=31, to=0)
+                if throttle_state != self._last_throttle_state:
+                    if throttle_state.is_legacy:
+                        host.throttle.tk.config(from_=195, to=0)
+                    elif throttle_state.is_cab1:
+                        host.throttle.tk.config(from_=5, to=-5)
+                        host.throttle.value = 0
+                    else:
+                        host.throttle.tk.config(from_=31, to=0)
 
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
 
                 # trough color indicates actual vs. target
+                print(f"throttle_state.speed: {throttle_state.speed} target: {throttle_state.target_speed}")
                 if throttle_state.speed != throttle_state.target_speed:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:
@@ -139,10 +143,11 @@ class ControllerView:
             if host.momentum.tk.focus_displayof() != host.momentum.tk:
                 host.momentum.value = momentum
 
-            if state.is_legacy:
-                host.momentum.tk.config(resolution=1, showvalue=True)
-            else:
-                host.momentum.tk.config(resolution=4, showvalue=False)
+            if state != self._last_state:
+                if state.is_legacy:
+                    host.momentum.tk.config(resolution=1, showvalue=True)
+                else:
+                    host.momentum.tk.config(resolution=4, showvalue=False)
 
             # --- Direction buttons ---
             if host.engine_ops_cells:
@@ -160,6 +165,8 @@ class ControllerView:
                         gauge.set_value(state.fuel_level_pct)
                     elif gauge_type == "water":
                         gauge.set_value(state.water_level_pct)
+            self._last_throttle_state = throttle_state
+            self._last_state = state
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:

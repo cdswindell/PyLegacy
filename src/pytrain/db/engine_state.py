@@ -43,6 +43,7 @@ from ..protocol.constants import (
     TRANSFORMER_TYPE,
 )
 from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum, UnitAssignment
+
 # noinspection PyPep8Naming
 from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1EngineCommandEnum,
@@ -51,6 +52,7 @@ from ..protocol.tmcc1.tmcc1_constants import (
     TMCC1RRSpeedsEnum,
     TMCC1_COMMAND_TO_ALIAS_MAP,
 )
+
 # noinspection PyPep8Naming
 from ..protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum,
@@ -158,6 +160,18 @@ CANCEL_PENDINGS_ON_ENQUEUE = RESET_SET | {TMCC2EngineCommandEnum.STOP_IMMEDIATE}
 CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
 
 R = TypeVar("R", bound=OfficialRRSpeeds)
+
+
+def to_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+    if not is_legacy:
+        speed = min(max(int(round(speed * 31 / 199)), 0), 31)
+    return speed
+
+
+def from_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+    if not is_legacy:
+        speed = min(max(int(round(speed * 199 / 31)), 0), 199)
+    return speed
 
 
 class EngineState(ComponentState):
