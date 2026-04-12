@@ -113,7 +113,6 @@ class ControllerView:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
-
             else:
                 if host.speed.enabled:
                     host.speed.disable()
@@ -708,11 +707,16 @@ class ControllerView:
                 pass
             finally:
                 host.throttle.after_id = None
+        state = host.active_engine_state or host.active_state
+        if not isinstance(state, EngineState):
+            return
         # send speed command
         host.on_speed_command(host.throttle.value)
 
         # Now clear focus so the handle deactivates visually.
         self.clear_focus(e)
+        if state.is_cab1:
+            host.throttle.value = 0
 
     def on_train_brake(self, value) -> None:
         if self._updating_from_state:
