@@ -41,6 +41,18 @@ BASE_TO_TMCC1_SMOKE_MAP = {
 TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
 
+def decode_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+    if not is_legacy:
+        speed = min(max(int(round(speed * 31 / 199)), 0), 31)
+    return speed
+
+
+def encode_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+    if not is_legacy:
+        speed = min(max(int(round(speed * 199 / 31)), 0), 199)
+    return speed
+
+
 def default_from_func(t: bytes) -> int:
     return int.from_bytes(t, byteorder="little")
 
@@ -307,15 +319,9 @@ SCOPE_TO_COMP_MAP = {
 # memory locations that must be updated in turn.
 #
 REQUEST_TO_UPDATES_MAP = {
-    "ABSOLUTE_SPEED": [
-        ("speed",),
-    ],
-    "SPEED": [
-        ("speed",),
-    ],
-    "TARGET_SPEED": [
-        ("target_speed",),
-    ],
+    "ABSOLUTE_SPEED": [("speed", encode_tmcc_speed)],
+    "SPEED": [("speed", encode_tmcc_speed)],
+    "TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -528,7 +534,11 @@ class CompData(ABC, Generic[R]):
             else:
                 base_value = data
         else:
-            base_value = transform(0)
+            if transform == encode_tmcc_speed:
+                base_value = transform(data, is_legacy)
+                print(f"Speed: {data} encoded speed: {base_value} legacy: {is_legacy}")
+            else:
+                base_value = transform(data)
         data_bytes = handler.to_bytes(base_value)
         if len(data_bytes) < handler.length:
             data_bytes += b"\xff" * (handler.length - len(data_bytes))
@@ -672,6 +682,10 @@ class CompData(ABC, Generic[R]):
         if name in self.__dict__:
             return self.__dict__[name]
         if "_" + name in self.__dict__:
+            if isinstance(self, EngineData) and not self.is_legacy and name in {"speed", "target_speed"}:
+                value = self.__dict__["_" + name]
+                value = decode_tmcc_speed(value, self.is_legacy)
+                return value
             return self.__dict__["_" + name]
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
             name = name.replace("_tmcc", "")
@@ -700,6 +714,10 @@ class CompData(ABC, Generic[R]):
             super().__setattr__(name, value)
             return
         if "_" + name in self.__dict__:
+            if isinstance(self, EngineData) and not self.is_legacy and name in {"speed", "target_speed"}:
+                # ov = value
+                value = encode_tmcc_speed(value, self.is_legacy)
+                # print(f"Setting {name} to {ov} ({value})")
             self.__dict__["_" + name] = value
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
             name = name.replace("_tmcc", "")

@@ -162,18 +162,6 @@ CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
 R = TypeVar("R", bound=OfficialRRSpeeds)
 
 
-def to_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
-    if not is_legacy:
-        speed = min(max(int(round(speed * 31 / 199)), 0), 31)
-    return speed
-
-
-def from_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
-    if not is_legacy:
-        speed = min(max(int(round(speed * 199 / 31)), 0), 199)
-    return speed
-
-
 class EngineState(ComponentState):
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:

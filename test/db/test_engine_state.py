@@ -197,6 +197,7 @@ class TestEngineStateBehavior:
         t.initialize(CommandScope.TRAIN, tmcc_id=105)
         t._address = 105  # type: ignore[attr-defined]
         t.comp_data._speed = 25
+        t.comp_data._control_type = LEGACY_CONTROL_TYPE
         t.comp_data._road_name = t._road_name = "abc road"
         t.comp_data._road_number = t._road_number = "123"
         # Add some consist components
