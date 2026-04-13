@@ -319,7 +319,10 @@ SCOPE_TO_COMP_MAP = {
 # memory locations that must be updated in turn.
 #
 REQUEST_TO_UPDATES_MAP = {
-    "ABSOLUTE_SPEED": [("speed", encode_tmcc_speed)],
+    "ABSOLUTE_SPEED": [
+        ("speed", encode_tmcc_speed),
+        ("target_speed", encode_tmcc_speed),
+    ],
     "SPEED": [("speed", encode_tmcc_speed)],
     "TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
     "DIESEL_RPM": [("rpm",)],

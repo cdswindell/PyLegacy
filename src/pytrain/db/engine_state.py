@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, TypeVar
 
-from .comp_data import CompDataHandler, CompDataMixin
+from .comp_data import CompDataHandler, CompDataMixin, decode_tmcc_speed, encode_tmcc_speed
 from .component_state import ComponentState, L, LcsProxyState, P, SCOPE_TO_STATE_MAP, log
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
@@ -433,14 +433,14 @@ class EngineState(ComponentState):
 
                 # handle speed
                 if command.command in SPEED_SET:
-                    self.comp_data.speed = command.data
+                    self.comp_data.speed = encode_tmcc_speed(command.data, self.is_legacy)
                     self.update_target_speed()
                 elif self.is_synchronized() and cmd_effects & SPEED_SET:
                     # ignore impact of direction command while synchronizing state
                     # it is only in command stream to set initial state
                     speed = self._harvest_effect(cmd_effects & SPEED_SET)
                     if isinstance(speed, tuple) and len(speed) > 1:
-                        self.comp_data.speed = speed[1]
+                        self.comp_data.speed = encode_tmcc_speed(speed[1], self.is_legacy)
                     else:
                         if log.isEnabledFor(logging.DEBUG):
                             log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
@@ -652,7 +652,7 @@ class EngineState(ComponentState):
     @property
     def speed(self) -> int:
         if self.comp_data:
-            return self.comp_data.speed
+            return decode_tmcc_speed(self.comp_data.speed, self.comp_data.is_legacy)
         else:
             # noinspection PyTypeChecker
             return None
@@ -670,11 +670,7 @@ class EngineState(ComponentState):
 
     @property
     def target_speed(self) -> int:
-        # TODO: figure out target speed for TMCC engines
-        if self.comp_data.is_legacy:
-            return self.comp_data.target_speed
-        else:
-            return self.comp_data.target_speed
+        return decode_tmcc_speed(self.comp_data.target_speed, self.comp_data.is_legacy)
 
     @property
     def speed_limit(self) -> int:
