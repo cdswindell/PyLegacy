@@ -534,9 +534,10 @@ class CompData(ABC, Generic[R]):
             else:
                 base_value = data
         else:
+            # print(f"Speed: {data} transform: {transform} legacy: {is_legacy}")
             if transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
-                print(f"Speed: {data} encoded speed: {base_value} legacy: {is_legacy}")
+                # print(f"Speed: {data} encoded speed: {base_value} legacy: {is_legacy}")
             else:
                 base_value = transform(data)
         data_bytes = handler.to_bytes(base_value)
@@ -682,10 +683,6 @@ class CompData(ABC, Generic[R]):
         if name in self.__dict__:
             return self.__dict__[name]
         if "_" + name in self.__dict__:
-            if isinstance(self, EngineData) and not self.is_legacy and name in {"speed", "target_speed"}:
-                value = self.__dict__["_" + name]
-                value = decode_tmcc_speed(value, self.is_legacy)
-                return value
             return self.__dict__["_" + name]
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
             name = name.replace("_tmcc", "")
@@ -714,10 +711,6 @@ class CompData(ABC, Generic[R]):
             super().__setattr__(name, value)
             return
         if "_" + name in self.__dict__:
-            if isinstance(self, EngineData) and not self.is_legacy and name in {"speed", "target_speed"}:
-                # ov = value
-                value = encode_tmcc_speed(value, self.is_legacy)
-                # print(f"Setting {name} to {ov} ({value})")
             self.__dict__["_" + name] = value
         elif name.endswith("_tmcc") and name.replace("_tmcc", "") in CONVERSIONS:
             name = name.replace("_tmcc", "")
