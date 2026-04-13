@@ -160,7 +160,6 @@ class BaseReq(PdiReq, CompDataMixin):
 
         pkgs = []
 
-        print(cmd)
         if isinstance(cmd, CommandReq):
             state = cmd.command
             address = cmd.address
