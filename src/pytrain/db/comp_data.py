@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, Callable, Generic, TypeVar, cast
+from typing import Any, Callable, Generic, TYPE_CHECKING, TypeVar, cast
 
 from ..pdi.constants import D4Action, PdiCommand
 from ..pdi.pdi_req import PdiReq
@@ -40,17 +40,30 @@ BASE_TO_TMCC1_SMOKE_MAP = {
 
 TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
+if TYPE_CHECKING:  # pragma: no cover
+    from .component_state_store import ComponentStateStore
+    from .engine_state import EngineState
 
-def decode_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+
+def decode_tmcc_speed(speed: int, is_legacy: bool) -> int:
     if not is_legacy:
         speed = min(max(int(round(speed * 31 / 199)), 0), 31)
     return speed
 
 
-def encode_tmcc_speed(speed: int, is_legacy: bool = False) -> int:
+def encode_tmcc_speed(speed: int, is_legacy: bool) -> int:
     if not is_legacy:
         speed = min(max(int(round(speed * 199 / 31)), 0), 199)
     return speed
+
+
+def encode_target_speed(speed: int, is_legacy: bool, state: "EngineState") -> int | None:
+    if not is_legacy:
+        speed = min(max(int(round(speed * 199 / 31)), 0), 199)
+    if state and state.is_ramping:
+        return None
+    else:
+        return speed
 
 
 def default_from_func(t: bytes) -> int:
@@ -59,6 +72,10 @@ def default_from_func(t: bytes) -> int:
 
 def default_to_func(t: int) -> bytes:
     return t.to_bytes(1, byteorder="little")
+
+
+C = TypeVar("C", bound="CompData")
+R = TypeVar("R", bound=CommandReq)
 
 
 class CompDataHandler:
@@ -165,6 +182,67 @@ class UpdatePkg(QueryPkg):
                 data_length=self.length,
                 data_bytes=self.data_bytes,
             )
+
+
+class CompDataMixin(Generic[C]):
+    """
+    Provides a mixin class for managing component-related data and
+    recording state in generic types.
+
+    This mixin class is designed to extend the functionality of a
+    base class by adding attributes for component-related data
+    and a recording state flag. The generic type `C` is used to
+    allow flexibility in the type of component data stored.
+    The mixin includes properties to access the component data
+    and determine whether the recording state is set.
+
+    Attributes:
+        _comp_data: A generic component-related data attribute
+            of type `C`. Defaults to None.
+        _comp_data_record: A flag indicating whether component
+            data recording is active. Defaults to False.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._comp_data: C | None = None
+        self._comp_data_record: bool = False
+
+    @property
+    def comp_data(self) -> C:
+        return self._comp_data
+
+    @property
+    def is_comp_data_record(self) -> bool:
+        return self._comp_data is not None and self._comp_data_record is True
+
+    def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
+        data_len = PdiReq.scope_record_length(scope)
+        if scope == CommandScope.SWITCH:
+            # noinspection PyTypeChecker
+            self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)
+        elif scope == CommandScope.ENGINE:
+            self._comp_data = EngineData(b"\xff" * data_len, tmcc_id)
+            self._init_engine_data()
+        elif scope == CommandScope.TRAIN:
+            self._comp_data = TrainData(b"\xff" * data_len, tmcc_id)
+            self._init_engine_data()
+        elif scope == CommandScope.ROUTE:
+            self._comp_data = RouteData(b"\xff" * data_len, tmcc_id)
+        elif scope == CommandScope.ACC:
+            self._comp_data = AccessoryData(b"\xff" * data_len, tmcc_id)
+        else:
+            raise NotImplementedError(f"Unknown scope {scope.name}")
+        self._comp_data_record = True
+
+    def _init_engine_data(self) -> None:
+        self._comp_data._engine_type = 0  # Diesel
+        self._comp_data._control_type = 1  # TMCC
+        self._comp_data._sound_type = 0  # None
+        self._comp_data._engine_class = 0  # Locomotive
+        self._comp_data._momentum = 0
+        self._comp_data._rpm_labor = 0
+        self._comp_data._train_brake = 0
 
 
 #
@@ -321,10 +399,10 @@ SCOPE_TO_COMP_MAP = {
 REQUEST_TO_UPDATES_MAP = {
     "ABSOLUTE_SPEED": [
         ("speed", encode_tmcc_speed),
-        ("target_speed", encode_tmcc_speed),
+        ("target_speed", encode_target_speed),
     ],
     "SPEED": [("speed", encode_tmcc_speed)],
-    "TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
+    "TARGET_SPEED": [("target_speed", encode_target_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -395,9 +473,6 @@ CONVERSIONS: dict[str, tuple[Callable, Callable]] = {
     ),
 }
 
-C = TypeVar("C", bound="CompData")
-R = TypeVar("R", bound=CommandReq)
-
 
 class CompData(ABC, Generic[R]):
     """
@@ -417,6 +492,16 @@ class CompData(ABC, Generic[R]):
     """
 
     __metaclass__ = ABCMeta
+
+    _state_store = None
+
+    @classmethod
+    def state_store(cls) -> "ComponentStateStore":
+        from ..db.component_state_store import ComponentStateStore
+
+        if cls._state_store is None:
+            cls._state_store = ComponentStateStore.build()
+        return cls._state_store
 
     @classmethod
     def from_bytes(cls, data: bytes, scope: CommandScope, tmcc_id: int = None) -> C:
@@ -507,9 +592,7 @@ class CompData(ABC, Generic[R]):
             if conv_tpl:
                 # more special case handling for rpm/labor
                 if sub_field != field and field == "rpm_labor":
-                    from ..db.component_state_store import ComponentStateStore
-
-                    state = ComponentStateStore.build().get_state(scope, address, False)
+                    state = cls.state_store().get_state(scope, address, False)
                     if state is None:
                         if address != 99:
                             log.warning(f"State not found for {scope}:{address}, continuing...")
@@ -540,9 +623,13 @@ class CompData(ABC, Generic[R]):
             # print(f"Speed: {data} transform: {transform} legacy: {is_legacy}")
             if transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
-                # print(f"Speed: {data} encoded speed: {base_value} legacy: {is_legacy}")
+            elif transform == encode_target_speed:
+                state = cls.state_store().get_state(scope, address, False)
+                base_value = transform(data, is_legacy, state)
             else:
                 base_value = transform(data)
+        if base_value is None:
+            return None
         data_bytes = handler.to_bytes(base_value)
         if len(data_bytes) < handler.length:
             data_bytes += b"\xff" * (handler.length - len(data_bytes))
@@ -662,9 +749,7 @@ class CompData(ABC, Generic[R]):
             # do one more check; if this is an accessory or a switch, check if associated state
             # has recorded any LCS activity, which would indicate activity
             if self.scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}:
-                from .component_state_store import ComponentStateStore
-
-                state = ComponentStateStore.get_state(self.scope, self.tmcc_id, False)
+                state = self.state_store().get_state(self.scope, self.tmcc_id, False)
                 # noinspection PyUnresolvedReferences
                 if state and state.is_lcs_component:
                     return True
@@ -912,64 +997,3 @@ class RouteData(CompData):
                     sw += f"{sep}{c.tmcc_id:>2} [{state}]"
                     sep = ", "
         return (" ".join([ro, sw])).strip()
-
-
-class CompDataMixin(Generic[C]):
-    """
-    Provides a mixin class for managing component-related data and
-    recording state in generic types.
-
-    This mixin class is designed to extend the functionality of a
-    base class by adding attributes for component-related data
-    and a recording state flag. The generic type `C` is used to
-    allow flexibility in the type of component data stored.
-    The mixin includes properties to access the component data
-    and determine whether the recording state is set.
-
-    Attributes:
-        _comp_data: A generic component-related data attribute
-            of type `C`. Defaults to None.
-        _comp_data_record: A flag indicating whether component
-            data recording is active. Defaults to False.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self._comp_data: C | None = None
-        self._comp_data_record: bool = False
-
-    @property
-    def comp_data(self) -> C:
-        return self._comp_data
-
-    @property
-    def is_comp_data_record(self) -> bool:
-        return self._comp_data is not None and self._comp_data_record is True
-
-    def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
-        data_len = PdiReq.scope_record_length(scope)
-        if scope == CommandScope.SWITCH:
-            # noinspection PyTypeChecker
-            self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)
-        elif scope == CommandScope.ENGINE:
-            self._comp_data = EngineData(b"\xff" * data_len, tmcc_id)
-            self._init_engine_data()
-        elif scope == CommandScope.TRAIN:
-            self._comp_data = TrainData(b"\xff" * data_len, tmcc_id)
-            self._init_engine_data()
-        elif scope == CommandScope.ROUTE:
-            self._comp_data = RouteData(b"\xff" * data_len, tmcc_id)
-        elif scope == CommandScope.ACC:
-            self._comp_data = AccessoryData(b"\xff" * data_len, tmcc_id)
-        else:
-            raise NotImplementedError(f"Unknown scope {scope.name}")
-        self._comp_data_record = True
-
-    def _init_engine_data(self) -> None:
-        self._comp_data._engine_type = 0  # Diesel
-        self._comp_data._control_type = 1  # TMCC
-        self._comp_data._sound_type = 0  # None
-        self._comp_data._engine_class = 0  # Locomotive
-        self._comp_data._momentum = 0
-        self._comp_data._rpm_labor = 0
-        self._comp_data._train_brake = 0
