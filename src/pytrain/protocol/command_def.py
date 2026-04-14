@@ -45,7 +45,7 @@ class CommandDef(ABC):
         filtered: bool = False,
         aux1: bool = False,
         interval: int = None,
-            noop: bool = False,
+        noop: bool = False,
     ) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
