@@ -118,7 +118,6 @@ class ControllerView:
                     host.throttle.value = throttle_state.target_speed
 
                 # trough color indicates actual vs. target
-                print(f"throttle_state.speed: {throttle_state.speed} target: {throttle_state.target_speed}")
                 if throttle_state.speed != throttle_state.target_speed:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:

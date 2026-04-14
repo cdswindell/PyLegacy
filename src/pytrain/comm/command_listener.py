@@ -36,7 +36,7 @@ from ..protocol.constants import (
     PROGRAM_NAME,
     CommandScope,
 )
-from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2R4LCEnum
+from ..protocol.multibyte.multibyte_constants import TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX, TMCC2R4LCEnum
 from ..protocol.tmcc1.tmcc1_constants import (
     SyncCommandDef,
     TMCC1AuxCommandEnum,
@@ -222,7 +222,7 @@ class CommandListener(Thread):
                     and self._deque[14] == LEGACY_MULTIBYTE_COMMAND_PREFIX
                 ):
                     # if dq_len > 9 and byte 3 is the Variable Command marker, go for more
-                    if dq_len >= 9 and self._deque[2] == TMCC2_VARIABLE_INDEX:
+                    if dq_len >= 9 and self._deque[2] == TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX:
                         # byte 5 contains the data word count
                         data_words = int(self._deque[5])
                         command_bytes = (5 + data_words) * 3

@@ -15,6 +15,7 @@ from typing import List
 from ..protocol.constants import BROADCAST_ADDRESS, CommandScope, CommandSyntax
 from ..protocol.multibyte.multibyte_constants import (
     TMCC2EffectsControl,
+    TMCC2EngineCommandEnumEx,
     TMCC2LightingControl,
     TMCC2MultiByteEnum,
     TMCC2RailSoundsDialogControl,
@@ -756,6 +757,7 @@ class EngineCli(CliBaseTMCC):
         else:
             enum_classes = [
                 TMCC2EngineCommandEnum,
+                TMCC2EngineCommandEnumEx,
                 TMCC2RailSoundsDialogControl,
                 TMCC2RailSoundsEffectsControl,
                 TMCC2EffectsControl,

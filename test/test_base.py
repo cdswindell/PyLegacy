@@ -56,6 +56,7 @@ class TestBase:
             TMCC2RouteCommandEnum,
             TMCC2EngineCommandEnum,
             TMCC2RailSoundsDialogControl,
+            TMCC2EngineCommandEnumEx,
             TMCC2EffectsControl,
             TMCC2LightingControl,
         ]

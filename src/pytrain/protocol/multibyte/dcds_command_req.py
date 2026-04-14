@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2_VARIABLE_INDEX, TMCC2VariableEnum, VolumeCode
+from .multibyte_constants import TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX, TMCC2VariableEnum, VolumeCode
 
 if sys.version_info >= (3, 11):
     from typing import List, Self
@@ -44,7 +44,7 @@ class VariableCommandReq(MultiByteReq):
             _, is_mvb, is_d4 = cls.vet_bytes(param, "Variable")
         if is_mvb:
             index = 0x00FF & int.from_bytes(param[1:3], byteorder="big")
-            if index != TMCC2_VARIABLE_INDEX:
+            if index != TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX:
                 raise ValueError(f"Invalid Variable byte command: {param.hex(':')}")
             pkt_len = 7 if is_d4 else 3
             num_data_words = int(param[pkt_len + 2])
@@ -143,7 +143,7 @@ class VariableCommandReq(MultiByteReq):
         else:
             raise ValueError(f"Invalid command type: {type(self.command)}")
         byte_str = bytes()
-        # first word is encoded address and 0x6F byte denoting variable byte packet
+        # first word is encoded address and 0x6F byte denoting variable byte packets
         byte_str += TMCC2_SCOPE_TO_FIRST_BYTE_MAP[self.scope].to_bytes(1, byteorder="big") + self._word_1
         # Word 2: number of data bytes/words
         byte_str += self.word_prefix + len(self.data_bytes).to_bytes(1, byteorder="big")
@@ -172,7 +172,7 @@ class VariableCommandReq(MultiByteReq):
 
     @property
     def index_byte(self) -> bytes:
-        return TMCC2_VARIABLE_INDEX.to_bytes(1, byteorder="big")
+        return TMCC2_VARIABLE_LENGTH_PARAMETER_INDEX.to_bytes(1, byteorder="big")
 
     @property
     def data_byte(self) -> bytes:

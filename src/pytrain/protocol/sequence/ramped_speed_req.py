@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, ABCMeta
 
-from ...db.comp_data import CompData, encode_tmcc_speed
+from ..multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
 from ...db.engine_state import EngineState
 from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -36,6 +36,7 @@ def labor_delta(cur_speed: int, new_speed: int, cur_labor: int) -> int:
 class RampedSpeedReqBase(SequenceReq, ABC):
     __metaclass__ = ABCMeta
 
+    # noinspection PyUnreachableCode
     def __init__(
         self,
         command: SequenceCommandEnum,
@@ -56,13 +57,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
         # set the target speed value
         self._target_speed = speed_req
-        self.add(
-            CompData.generate_update_req(
-                "target_speed",
-                encode_tmcc_speed(speed_req, self.state.is_legacy),
-                self.state,
-            )
-        )
 
         # if there is no state information, treat this as an ABSOLUTE_SPEED req
         if address == DEFAULT_ADDRESS or not isinstance(self.state, EngineState) or self.state.speed is None:
@@ -87,6 +81,11 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     rpm = tmcc2_speed_to_rpm(speed_req)
                     self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
         else:
+            target_enum = (
+                TMCC2EngineCommandEnumEx.TARGET_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.TARGET_SPEED
+            )
+            self.add(target_enum, address, self._target_speed, scope)
+
             speed_enum = (
                 TMCC2EngineCommandEnum.ABSOLUTE_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
             )
@@ -158,7 +157,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             from ...comm.comm_buffer import CommBuffer
 
             CommBuffer.cancel_delayed_requests(self.state, requests=CANCELABLE_REQUESTS)
-            self.state.comp_data.target_speed = encode_tmcc_speed(self._target_speed, self.state.is_legacy)
             self.state.is_ramping = True
 
 

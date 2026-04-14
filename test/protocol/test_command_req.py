@@ -415,13 +415,14 @@ class TestCommandReq(TestBase):
         Build all the Parameter CommandReqs and verify that their command bytes
         map back to the sane request
         """
-        scopes = [None, CommandScope.TRAIN]
+        scopes = [None, CommandScope.ENGINE, CommandScope.TRAIN]
         for tmcc_enums in [
             TMCC2RailSoundsDialogControl,
             TMCC2RailSoundsEffectsControl,
             TMCC2EffectsControl,
             TMCC2LightingControl,
-            TMCC2MultiByteEnum,
+            TMCC2MaskingControl,
+            # TMCC2EngineCommandEnumEx,
         ]:
             for tmcc_enum in tmcc_enums:
                 for scope in scopes:

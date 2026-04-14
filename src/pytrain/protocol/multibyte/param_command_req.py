@@ -12,7 +12,6 @@ import sys
 from typing import Dict
 
 from .multibyte_command_req import MultiByteReq
-from .multibyte_constants import TMCC2MaskingControl, TMCC2ParameterEnum
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -22,7 +21,10 @@ from ..constants import DEFAULT_ADDRESS, CommandScope
 from ..tmcc2.tmcc2_constants import LEGACY_TRAIN_COMMAND_PREFIX
 from .multibyte_constants import (
     TMCC2EffectsControl,
+    TMCC2EngineCommandEnumEx,
     TMCC2LightingControl,
+    TMCC2MaskingControl,
+    TMCC2ParameterEnum,
     TMCC2ParameterIndex,
     TMCC2RailSoundsDialogControl,
     TMCC2RailSoundsEffectsControl,
@@ -30,11 +32,12 @@ from .multibyte_constants import (
 
 # noinspection PyTypeChecker
 PARAMETER_ENUM_TO_INDEX_MAP: Dict[TMCC2ParameterEnum, TMCC2ParameterIndex] = {
+    TMCC2EffectsControl: TMCC2ParameterIndex.EFFECTS_CONTROLS,
+    TMCC2EngineCommandEnumEx: TMCC2ParameterIndex.TARGET_SPEED,
+    TMCC2LightingControl: TMCC2ParameterIndex.LIGHTING_CONTROLS,
+    TMCC2MaskingControl: TMCC2ParameterIndex.MASKING_CONTROLS,
     TMCC2RailSoundsDialogControl: TMCC2ParameterIndex.DIALOG_TRIGGERS,
     TMCC2RailSoundsEffectsControl: TMCC2ParameterIndex.EFFECTS_TRIGGERS,
-    TMCC2MaskingControl: TMCC2ParameterIndex.MASKING_CONTROLS,
-    TMCC2EffectsControl: TMCC2ParameterIndex.EFFECTS_CONTROLS,
-    TMCC2LightingControl: TMCC2ParameterIndex.LIGHTING_CONTROLS,
 }
 
 PARAMETER_INDEX_TO_ENUM_MAP = {s: p for p, s in PARAMETER_ENUM_TO_INDEX_MAP.items()}

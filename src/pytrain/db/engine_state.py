@@ -42,7 +42,12 @@ from ..protocol.constants import (
     THROTTLE_TYPE,
     TRANSFORMER_TYPE,
 )
-from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl, TMCC2R4LCEnum, UnitAssignment
+from ..protocol.multibyte.multibyte_constants import (
+    TMCC2EffectsControl,
+    TMCC2EngineCommandEnumEx,
+    TMCC2R4LCEnum,
+    UnitAssignment,
+)
 
 # noinspection PyPep8Naming
 from ..protocol.tmcc1.tmcc1_constants import (
@@ -83,6 +88,10 @@ SPEED_SET = {
     TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
     (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 0),
     (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 0),
+}
+TARGET_SPEED_SET = {
+    TMCC1EngineCommandEnum.TARGET_SPEED,
+    TMCC2EngineCommandEnumEx.TARGET_SPEED,
 }
 RPM_SET = {
     TMCC2EngineCommandEnum.DIESEL_RPM,
@@ -435,6 +444,8 @@ class EngineState(ComponentState):
                 if command.command in SPEED_SET:
                     self.comp_data.speed = encode_tmcc_speed(command.data, self.is_legacy)
                     self.update_target_speed()
+                elif command.command in TARGET_SPEED_SET:
+                    self.update_target_speed(target_speed=command.data)
                 elif self.is_synchronized() and cmd_effects & SPEED_SET:
                     # ignore impact of direction command while synchronizing state
                     # it is only in command stream to set initial state
@@ -531,13 +542,17 @@ class EngineState(ComponentState):
             self.changed.set()
             self._cv.notify_all()
 
-    def update_target_speed(self):
-        if self._ramping:
-            if self.speed == self.target_speed:
-                self._ramping = False
+    def update_target_speed(self, target_speed: int = None):
+        if target_speed is None:
+            if self._ramping:
+                if self.speed == self.target_speed:
+                    self._ramping = False
+            else:
+                # if this PyTrain instance isn't ramping speed, set the target speed to match
+                self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
         else:
-            # if this PyTrain instance isn't ramping speed, set the target speed to match
-            self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
+            self._ramping = target_speed != self.speed
+            self.comp_data.target_speed = encode_tmcc_speed(target_speed, self.comp_data.is_legacy)
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:

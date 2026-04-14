@@ -108,6 +108,7 @@ class TMCC2CommandDef(CommandDef):
         aux1: bool = False,
         interval: int = None,
         d4_broadcast: bool = False,  # if True, command is broadcast from Base 3 for D4 engines
+        noop: bool = False,
     ) -> None:
         super().__init__(
             command_bits,
@@ -120,6 +121,7 @@ class TMCC2CommandDef(CommandDef):
             filtered=filtered,
             aux1=aux1,
             interval=interval,
+            noop=noop,
         )
         self._scope = scope
         self._d4_broadcast = d4_broadcast

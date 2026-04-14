@@ -84,6 +84,7 @@ from .protocol.multibyte.multibyte_constants import (
     TMCC2R4LCEnum,  # noqa: F401
     TMCC2RailSoundsDialogControl,  # noqa: F401
     TMCC2RailSoundsEffectsControl,  # noqa: F401
+    TMCC2EngineCommandEnumEx,  # noqa: F401
     TMCC2VariableEnum,  # noqa: F401
     UnitAssignment,  # noqa: F401
 )
