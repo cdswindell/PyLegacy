@@ -45,6 +45,7 @@ class CommandDef(ABC):
         filtered: bool = False,
         aux1: bool = False,
         interval: int = None,
+            noop: bool = False,
     ) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
@@ -63,6 +64,7 @@ class CommandDef(ABC):
         self._filtered = filtered
         self._aux1 = aux1
         self._interval = interval
+        self._noop = noop
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} 0x{self.bits:04x}: {self.num_data_bits} data bits"
@@ -90,6 +92,10 @@ class CommandDef(ABC):
     @property
     def interval(self) -> int:
         return self._interval
+
+    @property
+    def is_noop(self) -> bool:
+        return self._noop
 
     @property
     def is_aux1_prefixed(self) -> bool:

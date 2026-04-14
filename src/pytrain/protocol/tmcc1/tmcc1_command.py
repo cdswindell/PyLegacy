@@ -5,7 +5,6 @@ from ..command_base import CommandBase
 from ..command_def import CommandDefEnum
 from ..command_req import CommandReq
 from ..constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
-from .tmcc1_constants import TMCC1_COMMAND_PREFIX
 
 
 # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -35,7 +34,8 @@ class TMCC1Command(CommandBase, ABC):
         return self._encode_command((self.address << 7) | command_op)
 
     def _command_prefix(self) -> bytes:
-        return TMCC1_COMMAND_PREFIX.to_bytes(1, "big")
+        return self._command.value.first_byte
+        # return TMCC1_COMMAND_PREFIX.to_bytes(1, "big")
 
     def _build_command(self) -> bytes:
         return self._command_req.as_bytes

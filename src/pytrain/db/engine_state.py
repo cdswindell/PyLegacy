@@ -934,6 +934,8 @@ class EngineState(ComponentState):
 
     @property
     def is_tmcc(self) -> bool:
+        if self.comp_data:
+            return self.comp_data.is_legacy is False
         return self._is_legacy is False or self._is_legacy is None
 
     @property

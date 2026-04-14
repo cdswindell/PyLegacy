@@ -191,5 +191,5 @@ class StartupState(Thread):
         _ = Amc2StateSync(self.pdi_listener)
         # print out any stragglers; this is an error we should address
         for k, v in self._waiting_for.items():
-            log.info(f"No initial state loaded for {k.as_label}")
+            log.info(f"No initial state loaded for {k.as_key if hasattr(k, 'as_key') else k}: {v}")
         self.pdi_listener.unsubscribe_any(self)

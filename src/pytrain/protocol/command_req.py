@@ -29,6 +29,7 @@ from .constants import (
     CommandSyntax,
 )
 from .tmcc1.tmcc1_constants import (
+    TMCC1_ALT_COMMAND_PREFIX,
     TMCC1_COMMAND_PREFIX,
     TMCC1_COMMAND_TO_ALIAS_MAP,
     TMCC1_TRAIN_COMMAND_MODIFIER,
@@ -162,7 +163,8 @@ class CommandReq:
         # otherwise, we need to figure out if we're returning a
         # TMCC1-style or TMCC2-style command prefix
         if isinstance(command, TMCC1CommandDef):
-            return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+            return command.first_byte
+            # return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder="big")
         elif isinstance(command, TMCC2CommandDef):
             validated_scope = cls._validate_requested_scope(command, scope)
             return TMCC2CommandPrefix(validated_scope.name).as_bytes
@@ -496,6 +498,10 @@ class CommandReq:
         return self.command_def.is_filtered is True and self.is_tmcc_rx is False
 
     @property
+    def is_noop(self) -> bool:
+        return isinstance(self.command_def, TMCC1CommandDef) and self.command_def.is_noop is True
+
+    @property
     def is_force_state_update(self) -> bool:
         """
         For the most part, the Base 3 doesn't broadcast received commands to other receivers.
@@ -649,17 +655,21 @@ class CommandReq:
     # noinspection PyUnresolvedReferences
     @classmethod
     def build_tmcc1_command_req(cls, param: bytes) -> Self:
+        prefix = param[0]
         value = int.from_bytes(param[1:3], byteorder="big")
         for tmcc_enum in [
             TMCC1HaltCommandEnum,
+            TMCC1EngineCommandEnum,
             TMCC1SwitchCommandEnum,
             TMCC1AuxCommandEnum,
             TMCC1RouteCommandEnum,
-            TMCC1EngineCommandEnum,
             TMCC1SyncCommandEnum,
         ]:
             scope = None
-            cmd_enum = tmcc_enum.by_value(value)
+            if tmcc_enum == TMCC1EngineCommandEnum:
+                cmd_enum = tmcc_enum.by_value(value, prefix=prefix)
+            else:
+                cmd_enum = tmcc_enum.by_value(value)
             if (
                 cmd_enum is None
                 and tmcc_enum == TMCC1EngineCommandEnum
@@ -667,7 +677,10 @@ class CommandReq:
             ):
                 # check if this is a TRAIN command and if so, clear out the
                 # train bits and look again; only do this for engine commands
-                cmd_enum = tmcc_enum.by_value(value & TMCC1_TRAIN_COMMAND_PURIFIER)
+                if tmcc_enum == TMCC1EngineCommandEnum:
+                    cmd_enum = tmcc_enum.by_value(value & TMCC1_TRAIN_COMMAND_PURIFIER, prefix=prefix)
+                else:
+                    cmd_enum = tmcc_enum.by_value(value & TMCC1_TRAIN_COMMAND_PURIFIER)
                 if cmd_enum:
                     scope = CommandScope.TRAIN
             if cmd_enum:
@@ -715,6 +728,7 @@ TMCC4_FIRST_BYTE_TO_INTERPRETER = {
 
 TMCC_FIRST_BYTE_TO_INTERPRETER = {
     TMCC1_COMMAND_PREFIX: CommandReq.build_tmcc1_command_req,
+    TMCC1_ALT_COMMAND_PREFIX: CommandReq.build_tmcc1_command_req,
     LEGACY_ENGINE_COMMAND_PREFIX: CommandReq.build_tmcc2_command_req,
     LEGACY_TRAIN_COMMAND_PREFIX: CommandReq.build_tmcc2_command_req,
     LEGACY_EXTENDED_BLOCK_COMMAND_PREFIX: CommandReq.build_tmcc2_command_req,

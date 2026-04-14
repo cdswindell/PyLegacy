@@ -515,6 +515,13 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             help="Set relative speed (-5 to 5)",
         )
+        speed_group.add_argument(
+            "-target",
+            action="store_const",
+            const="TARGET_SPEED",
+            dest="option",
+            help="Set target speed",
+        )
         speed_group.set_defaults(option="RAMPED_SPEED_SEQ")
 
         volume = sp.add_parser("volume", aliases=["vo"], help="Volume Operations", parent=engine_parser)

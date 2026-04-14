@@ -980,6 +980,14 @@ class PyTrain:
         # call _handle_command to do the command parsing
         return self._handle_command(command_line, parse_only=True)
 
+    @staticmethod
+    def _is_int(s: str) -> bool:
+        try:
+            int(s)
+            return True
+        except ValueError:
+            return False
+
     def _handle_command(self, ui: str, parse_only: bool = False) -> str | CommandReq | None:
         """
         Parse the user's input, reusing the individual CLI command parsers.
@@ -1060,20 +1068,45 @@ class PyTrain:
                     # if the user entered "tr...", treat this as a train command
                     # normally, this is done by adding the "-train" token after the tmcc_id but
                     # before any subparsers
+                    is_train_cmd = is_engine_cmd = False
                     if "train".startswith(ui_parts[0].strip().lower()) and len(ui_parts) > 2:
                         has_train_arg = False
                         for token in ui_parts[2:]:
                             if token.startswith("-"):
                                 if "-train".startswith(token.lower()):
-                                    has_train_arg = True
+                                    is_train_cmd = has_train_arg = True
                                     break
                             else:
                                 break  # we're into a subparser
                         if not has_train_arg:
+                            is_train_cmd = True
                             ui_parts.insert(2, "-train")
+                    elif "engine".startswith(ui_parts[0].strip().lower()) and len(ui_parts) > 2:
+                        is_engine_cmd = True
+
                     if parse_only is True and isinstance(ui_parser, PyTrainArgumentParser):
                         # TODO: provide tool to get usage text
                         ui_parser.clear_exit_on_error()
+
+                    # if this is a train or engine command, check for tmcc mode
+                    if (is_train_cmd or is_engine_cmd) and self._is_int(ui_parts[1]):
+                        tmcc_id = int(ui_parts[1])
+                        state = self._state_store.get_state(
+                            CommandScope.ENGINE if is_engine_cmd else CommandScope.TRAIN, tmcc_id, False
+                        )
+                        if state.is_tmcc if isinstance(state, EngineState) else True:
+                            has_tmcc_arg = False
+                            for token in ui_parts[2:]:
+                                if token.startswith("-"):
+                                    if "-tmcc".startswith(token.lower()):
+                                        has_tmcc_arg = True
+                                        break
+                                else:
+                                    break  # we're into a subparser
+                            if not has_tmcc_arg:
+                                ui_parts.insert(2, "-tmcc")
+
+                    # parse command line with the appropriate parser
                     cli_cmd = args.command(ui_parser, ui_parts[1:], False)
                     if cli_cmd.command is None:
                         raise ArgumentError(None, f"'{ui}' is not a valid command")

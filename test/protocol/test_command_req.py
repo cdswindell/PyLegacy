@@ -1,3 +1,18 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#
+#
+
 import re
 from unittest import mock
 
@@ -326,7 +341,7 @@ class TestCommandReq(TestBase):
                                 alias_enum = alias_enum[0]
                                 alias_data = tmcc_enum.command_def.alias[1]
                             else:
-                                alias_data = None
+                                alias_data = req_from_bytes.data
                             assert req_from_bytes.command == alias_enum
                             assert req_from_bytes.command_def == alias_enum.command_def
                             assert req_from_bytes.num_data_bits == alias_enum.command_def.num_data_bits

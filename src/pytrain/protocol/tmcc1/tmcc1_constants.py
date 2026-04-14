@@ -13,7 +13,7 @@ TMCC1 Constants
 from __future__ import annotations
 
 from enum import unique
-from typing import Dict, Tuple
+from typing import Any, Dict, Self, Tuple
 
 from ..command_def import CommandDef, CommandDefEnum
 from ..constants import (
@@ -39,6 +39,7 @@ class TMCC1Enum(CommandDefEnum):
     TMCC1 Protocol Constants
 """
 TMCC1_COMMAND_PREFIX: int = 0xFE
+TMCC1_ALT_COMMAND_PREFIX: int = 0xFD
 
 
 @unique
@@ -98,6 +99,8 @@ class TMCC1CommandDef(CommandDef):
         filtered: bool = False,
         aux1: bool = False,
         interval: int = None,
+        noop: bool = False,
+        command_prefix: int = TMCC1_COMMAND_PREFIX,
     ) -> None:
         super().__init__(
             command_bits,
@@ -112,8 +115,17 @@ class TMCC1CommandDef(CommandDef):
             filtered=filtered,
             aux1=aux1,
             interval=interval,
+            noop=noop,
         )
+        assert command_prefix
         self._command_ident = command_ident
+        self._command_prefix = command_prefix
+
+    @property
+    def is_noop(self) -> bool:
+        if self._command_prefix != TMCC1_COMMAND_PREFIX:
+            return True
+        return super().is_noop
 
     @property
     def syntax(self) -> CommandSyntax:
@@ -125,7 +137,11 @@ class TMCC1CommandDef(CommandDef):
 
     @property
     def first_byte(self) -> bytes:
-        return TMCC1_COMMAND_PREFIX.to_bytes(1, byteorder="big")
+        return self._command_prefix.to_bytes(1, byteorder="big")
+
+    @property
+    def command_prefix(self) -> int:
+        return self._command_prefix
 
     @property
     def scope(self) -> CommandScope:
@@ -323,6 +339,7 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
 TMCC1_TRAIN_COMMAND_MODIFIER: int = 0xC800  # Logically OR with engine command to make train command
 TMCC1_TRAIN_COMMAND_PURIFIER: int = 0x07FF  # Logically AND with engine command to reset engine bits
 TMCC1_ENG_ABSOLUTE_SPEED_COMMAND: int = 0x0060  # Absolute speed 0-31 encoded in last 5-bits
+TMCC1_ENG_TARGET_SPEED_COMMAND: int = 0x0060  # Target speed 0-31 encoded in last 5-bits
 TMCC1_ENG_RELATIVE_SPEED_COMMAND: int = 0x0040  # Relative Speed -5 - 5 encoded in last 4-bits (offset by 5)
 TMCC1_ENG_FORWARD_DIRECTION_COMMAND: int = 0x0000
 TMCC1_ENG_TOGGLE_DIRECTION_COMMAND: int = 0x0001
@@ -423,7 +440,41 @@ class TMCC1RRSpeedsEnum(OfficialRRSpeeds):
 
 @unique
 class TMCC1EngineCommandEnum(TMCC1Enum):
+    @classmethod
+    def by_value(
+        cls,
+        value: Any,
+        raise_exception: bool = False,
+        prefix: int = TMCC1_COMMAND_PREFIX,
+    ) -> Self | None:
+        """
+        We redefine by_value to allow handling of command defs
+        """
+        for _, member in cls.__members__.items():
+            m_value = member.value
+            if m_value == value:
+                return member
+            if isinstance(member, TMCC1CommandDef) and m_value.bits == value and m_value.command_prefix == prefix:
+                return member
+            if isinstance(value, int) and m_value.command_prefix == prefix and not member.value.is_alias:
+                cd = member.value  # CommandDef
+                if cd.is_data is True:
+                    data = 0xFFFF & (~cd.data_mask & value)
+                    if value & cd.address_mask & cd.data_mask == member.value.bits and cd.is_valid_data(
+                        data, from_bytes=True
+                    ):
+                        return member
+                elif value & cd.address_mask == member.value.bits:
+                    return member
+        if raise_exception:
+            raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+        else:
+            return None
+
     ABSOLUTE_SPEED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31, filtered=True)
+    TARGET_SPEED = TMCC1CommandDef(
+        TMCC1_ENG_TARGET_SPEED_COMMAND, command_prefix=TMCC1_ALT_COMMAND_PREFIX, noop=True, d_max=31
+    )
     ASSIGN_TRAIN = TMCC1CommandDef(TMCC1_ENG_ASSIGN_TRAIN_COMMAND, d_max=10)
     AUX1_OFF = TMCC1CommandDef(TMCC1_ENG_AUX1_OFF_COMMAND)
     AUX1_ON = TMCC1CommandDef(TMCC1_ENG_AUX1_ON_COMMAND)
