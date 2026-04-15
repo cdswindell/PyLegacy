@@ -71,6 +71,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("ENGINEER_CHATTER", "walkie_talkie.jpg", "", "Crew...", "e"),
             ("NUMBER_3", "sound-on.jpg", "", "", "pf"),
+            ("NUMBER_9", "sound-on.jpg", "", "", "r"),
         ],
         [
             ("RPM_UP", "rpm-up.jpg", "", "", "d"),
@@ -96,6 +97,7 @@ ENGINE_OPS_LAYOUT = [
         [
             ("TOWER_CHATTER", "tower.jpg", "", "Tower...", "e"),
             ("NUMBER_5", "sound-off.jpg", "", "", "pf"),
+            ("NUMBER_8", "sound-off.jpg", "", "", "r"),
         ],
         [
             ("RPM_DOWN", "rpm-down.jpg", "", "", "d"),
@@ -116,7 +118,6 @@ ENGINE_OPS_LAYOUT = [
             ("FRONT_COUPLER", "front-coupler.jpg", "", "", "cp"),
             ("REAR_COUPLER", "rear-coupler.jpg", "", "", "t"),
             ("PANTO_BOTH_DOWN", "panto-down-a.jpg", "", "", "a"),
-            ("VOLUME_DOWN", "vol-down.jpg", "", "", "vo"),
         ],
         [
             ("PANTO_BOTH_UP", "panto-up-a.jpg", "", "", "a"),
