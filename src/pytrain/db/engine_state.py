@@ -298,8 +298,7 @@ class EngineState(ComponentState):
                     self._is_legacy = True
                     self._d4_rec_no = command.record_no
                     self._is_d4 = True
-                if self.speed and self.target_speed == 0:
-                    self._ramping = False
+                if self.speed and self.target_speed == 0 and not self.is_ramping:
                     self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
                     print(f"Setting Target Speed to: {self.speed} (A)")
 
