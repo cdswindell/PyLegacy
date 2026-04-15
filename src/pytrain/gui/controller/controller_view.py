@@ -476,6 +476,8 @@ class ControllerView:
                 self._passenger_btns.add(cell)
             elif btn_scope == "pf":
                 self._passenger_freight_btns.add(cell)
+            elif btn_scope == "r":
+                self._crane_btns.add(cell)
             elif btn_scope == "s":
                 self._steam_btns.add(cell)
             elif btn_scope == "t":
@@ -600,6 +602,8 @@ class ControllerView:
             t = "a"
         elif getattr(state, "is_electric", False):
             t = "l"
+        elif getattr(state, "is_crane", False):
+            t = "r"
         elif getattr(state, "is_transformer", False):
             t = "t"
         else:
@@ -608,7 +612,7 @@ class ControllerView:
         self._show_keys_for_type(t)
 
         # Per-type aux behavior
-        if t in {"d", "s", "a", "l", "p", "t"}:
+        if t in {"d", "s", "a", "l", "p", "r", "t"}:
             if host._rr_speed_box:
                 host._rr_speed_box.show()
 
