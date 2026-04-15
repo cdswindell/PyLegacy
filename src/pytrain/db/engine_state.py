@@ -299,6 +299,7 @@ class EngineState(ComponentState):
                     self._d4_rec_no = command.record_no
                     self._is_d4 = True
                 if self.speed and self.target_speed == 0:
+                    self._ramping = False
                     self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
 
             elif isinstance(command, CommandReq):
@@ -444,8 +445,6 @@ class EngineState(ComponentState):
                 if command.command in SPEED_SET:
                     self.comp_data.speed = encode_tmcc_speed(command.data, self.is_legacy)
                     self.update_target_speed()
-                elif command.command in TARGET_SPEED_SET:
-                    self.update_target_speed(target_speed=command.data)
                 elif self.is_synchronized() and cmd_effects & SPEED_SET:
                     # ignore impact of direction command while synchronizing state
                     # it is only in command stream to set initial state
@@ -457,6 +456,9 @@ class EngineState(ComponentState):
                             log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
                         self.comp_data.speed = 0
                     self.update_target_speed()
+
+                if command.command in TARGET_SPEED_SET:
+                    self.update_target_speed(target_speed=command.data)
 
                 # handle momentum
                 if command.command in MOMENTUM_SET:
@@ -547,6 +549,8 @@ class EngineState(ComponentState):
             if self._ramping:
                 if self.speed == self.target_speed:
                     self._ramping = False
+                    self.comp_data.speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
+                    self.comp_data.target_speed = encode_tmcc_speed(self.target_speed, self.comp_data.is_legacy)
             else:
                 # if this PyTrain instance isn't ramping speed, set the target speed to match
                 self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
