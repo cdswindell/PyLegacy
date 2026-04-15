@@ -42,6 +42,7 @@ TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
 if TYPE_CHECKING:  # pragma: no cover
     from .component_state_store import ComponentStateStore
+    from .engine_state import EngineState
 
 
 def decode_tmcc_speed(speed: int, is_legacy: bool) -> int:
@@ -56,7 +57,11 @@ def encode_tmcc_speed(speed: int, is_legacy: bool) -> int:
     return speed
 
 
-def encode_target_speed(speed: int, is_legacy: bool) -> int | None:
+def encode_target_speed(speed: int, is_legacy: bool, state: "EngineState") -> int | None:
+    from .engine_state import EngineState
+
+    if isinstance(state, EngineState) and state.is_ramping:
+        return None
     if not is_legacy:
         speed = min(max(int(round(speed * 199 / 31)), 0), 199)
     return speed
@@ -393,9 +398,12 @@ SCOPE_TO_COMP_MAP = {
 # memory locations that must be updated in turn.
 #
 REQUEST_TO_UPDATES_MAP = {
-    "ABSOLUTE_SPEED": [("speed", encode_tmcc_speed)],
+    "ABSOLUTE_SPEED": [
+        ("speed", encode_tmcc_speed),
+        ("target_speed", encode_target_speed),
+    ],
     "SPEED": [("speed", encode_tmcc_speed)],
-    "TARGET_SPEED": [("target_speed", encode_target_speed)],
+    "TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -611,12 +619,13 @@ class CompData(ABC, Generic[R]):
             else:
                 base_value = data
         else:
-            # print(f"Speed: {data} transform: {transform} legacy: {is_legacy}")
             if transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
+                print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
             elif transform == encode_target_speed:
-                base_value = transform(data, is_legacy)
-                print(f"Target Speed: {data} transformed to: {base_value} legacy: {is_legacy}")
+                state = cls.state_store().get_state(scope, address, False)
+                base_value = transform(data, is_legacy, state)
+                print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
             else:
                 base_value = transform(data)
         if base_value is None:
