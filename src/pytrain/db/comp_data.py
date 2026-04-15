@@ -42,7 +42,6 @@ TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
 if TYPE_CHECKING:  # pragma: no cover
     from .component_state_store import ComponentStateStore
-    from .engine_state import EngineState
 
 
 def decode_tmcc_speed(speed: int, is_legacy: bool) -> int:
@@ -57,13 +56,10 @@ def encode_tmcc_speed(speed: int, is_legacy: bool) -> int:
     return speed
 
 
-def encode_target_speed(speed: int, is_legacy: bool, state: "EngineState") -> int | None:
+def encode_target_speed(speed: int, is_legacy: bool) -> int | None:
     if not is_legacy:
         speed = min(max(int(round(speed * 199 / 31)), 0), 199)
-    if state and state.is_ramping:
-        return None
-    else:
-        return speed
+    return speed
 
 
 def default_from_func(t: bytes) -> int:
@@ -619,8 +615,7 @@ class CompData(ABC, Generic[R]):
             if transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
             elif transform == encode_target_speed:
-                state = cls.state_store().get_state(scope, address, False)
-                base_value = transform(data, is_legacy, state)
+                base_value = transform(data, is_legacy)
                 print(f"Target Speed: {data} transformed to: {base_value} legacy: {is_legacy}")
             else:
                 base_value = transform(data)
