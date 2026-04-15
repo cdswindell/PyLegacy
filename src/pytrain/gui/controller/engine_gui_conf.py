@@ -161,7 +161,7 @@ ENGINE_OPS_LAYOUT = [
             ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
             ("NUMBER_8", "car-lights-off.jpg", "", "", "p"),
             ("NUMBER_8", "lights-off.jpg", "", "", "f"),
-            ("TOGGLE_DIRECTION", "", "toggle.jpg", "", "r"),
+            ("TOGGLE_DIRECTION", "toggle.jpg", "", "", "r"),
         ],
     ],
     [
