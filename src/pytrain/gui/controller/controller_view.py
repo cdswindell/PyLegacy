@@ -104,6 +104,12 @@ class ControllerView:
                     else:
                         host.throttle.tk.config(from_=31, to=0)
 
+                    if host._rr_speed_btn:
+                        if throttle_state.is_cab1:
+                            host._rr_speed_btn.hide()
+                        else:
+                            host._rr_speed_btn.show()
+
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
