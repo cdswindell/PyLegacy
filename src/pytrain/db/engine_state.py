@@ -446,7 +446,6 @@ class EngineState(ComponentState):
                     self.update_target_speed()
                 elif command.command in TARGET_SPEED_SET:
                     self.update_target_speed(target_speed=command.data)
-                    print(f"Target speed: {self.target_speed} {command} {self._ramping}")
                 elif self.is_synchronized() and cmd_effects & SPEED_SET:
                     # ignore impact of direction command while synchronizing state
                     # it is only in command stream to set initial state
