@@ -30,6 +30,8 @@ log = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
+CAB_1_THROTTLE_REPEAT_MS = 100
+
 
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
@@ -97,6 +99,8 @@ class ControllerView:
                     elif throttle_state.is_cab1:
                         host.throttle.tk.config(from_=5, to=-5)
                         host.throttle.value = 0
+                        if host._rr_speed_btn and host._rr_speed_btn.enabled:
+                            host._rr_speed_btn.disable()
                     else:
                         host.throttle.tk.config(from_=31, to=0)
 
@@ -206,7 +210,7 @@ class ControllerView:
         host.throttle_box, host.throttle_title_box, host.speed, host.throttle = self.make_slider(
             sliders,
             title="Speed",
-            command=self.on_throttle,  # debounced send handled by on_throttle/_on_throttle_release_event
+            command=self.on_throttle_change,
             frm=195,
             to=0,
             step=1,
@@ -688,35 +692,50 @@ class ControllerView:
             self._quill_after_id = None
         host.horn.value = 0
 
-    def on_throttle(self, value) -> None:
+    def on_throttle_change(self, value) -> None:
         host = self._host
         state = host.active_engine_state or host.active_state
         if self._updating_from_state or not state.is_cab1:
             return
-        self._set_cab1_speed()
-        if host.throttle.after_id is not None:
-            host.throttle.tk.after_cancel(host.throttle.after_id)
-        host.throttle.after_id = host.throttle.tk.after(200, self.on_throttle_released, int(value))
-
-    def _set_cab1_speed(self):
-        host = self._host
-        if host.throttle.value > 1:
-            host.speed.value = f"+{host.throttle.value:2d}"
-        elif host.throttle.value < 0:
-            host.speed.value = f"-{-host.throttle.value:2d}"
-        else:
-            host.speed.value = f" {host.throttle.value:2d}"
-
-    # noinspection PyUnusedLocal
-    def on_throttle_released(self, value: int) -> None:
-        self._host.throttle.after_id = None
-        # actual speed command is sent from _on_throttle_release_event
-
-    def _on_throttle_release_event(self, e=None) -> None:
-        if self._updating_from_state:
+        if host.throttle is None or host.throttle.tk.focus_displayof() != host.throttle.tk:
             return
+
+        rel_speed = int(float(value))
+        self._set_cab1_speed(rel_speed)
+        host.on_speed_command(rel_speed)
+
+        if rel_speed != 0:
+            self._schedule_cab_1_throttle_repeat()
+        else:
+            self._cancel_cab_1_throttle_repeat()
+
+    def _set_cab1_speed(self, speed: int = None):
         host = self._host
-        # If a debounced callback is pending, cancel it and send immediately.
+        speed = speed if speed is not None else host.throttle.value
+        if speed > 1:
+            host.speed.value = f"+{speed:2d}"
+        elif speed < 0:
+            host.speed.value = f"-{-speed:2d}"
+        else:
+            host.speed.value = f" {speed:2d}"
+
+    def _schedule_cab_1_throttle_repeat(self) -> None:
+        host = self._host
+        self._cancel_cab_1_throttle_repeat()
+        if host.throttle is None or host.throttle.value == 0:
+            return
+        host.throttle.after_id = host.throttle.tk.after(CAB_1_THROTTLE_REPEAT_MS, self._repeat_cab_1_throttle)
+
+    def _repeat_cab_1_throttle(self) -> None:
+        host = self._host
+        host.throttle.after_id = None
+        if host.throttle.value == 0:
+            return
+        host.on_speed_command(host.throttle.value)
+        self._schedule_cab_1_throttle_repeat()
+
+    def _cancel_cab_1_throttle_repeat(self) -> None:
+        host = self._host
         after_id = getattr(host.throttle, "after_id", None)
         if after_id is not None:
             try:
@@ -725,6 +744,13 @@ class ControllerView:
                 pass
             finally:
                 host.throttle.after_id = None
+
+    def _on_throttle_release_event(self, e=None) -> None:
+        if self._updating_from_state:
+            return
+        host = self._host
+        self._cancel_cab_1_throttle_repeat()
+
         state = host.active_engine_state or host.active_state
         if not isinstance(state, EngineState):
             return
