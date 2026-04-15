@@ -107,7 +107,6 @@ ENGINE_OPS_LAYOUT = [
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "t"),
-            ("TOGGLE_DIRECTION", "", DIR_KEY, "", "r"),
         ],
         [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
@@ -160,6 +159,7 @@ ENGINE_OPS_LAYOUT = [
             ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
             ("NUMBER_8", "car-lights-off.jpg", "", "", "p"),
             ("NUMBER_8", "lights-off.jpg", "", "", "f"),
+            ("TOGGLE_DIRECTION", "", "toggle.jpg", "", "r"),
         ],
     ],
     [
