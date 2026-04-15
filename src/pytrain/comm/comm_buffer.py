@@ -477,7 +477,6 @@ class CommBufferSingleton(CommBuffer, Thread):
 
         tmcc_cmd = CommandReq.from_bytes(data)
         if tmcc_cmd.is_noop:
-            print(f"NOOP: {tmcc_cmd}")
             # noop commands are not sent to the base, but they do
             # convey state that must be sent to clients
             self._tmcc_dispatcher.offer(tmcc_cmd)
@@ -601,8 +600,6 @@ class CommBufferProxy(CommBuffer):
                 if isinstance(command, CommandReq):
                     self._cancel_delayed_requests_on_enqueue(request=command, delay_handler=self._scheduler)
                 command = command.as_bytes
-            if command[0] != 0xFE and command[1] != 0xF0:
-                print(f"Sending {CommandReq.from_bytes(command)}...")
             while True:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
