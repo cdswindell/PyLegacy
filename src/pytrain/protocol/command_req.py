@@ -499,7 +499,7 @@ class CommandReq:
 
     @property
     def is_noop(self) -> bool:
-        return isinstance(self.command_def, TMCC1CommandDef) and self.command_def.is_noop is True
+        return self.command_def.is_noop is True
 
     @property
     def is_force_state_update(self) -> bool:
