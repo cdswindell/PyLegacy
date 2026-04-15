@@ -88,6 +88,7 @@ ENGINE_OPS_LAYOUT = [
             ("BLOW_HORN_ONE", "whistle.jpg", "", "Whistle...", "s"),
             ("CONDUCTOR_NEXT_STOP", "next-stop.jpg", "", "", "p"),
             ("NUMBER_6", "unload.jpg", "", "", "f"),
+            ("NUMBER_1", "boom.jpg", "", "", "r"),
         ],
     ],
     [
@@ -113,6 +114,7 @@ ENGINE_OPS_LAYOUT = [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
             ("STOCK_WHEEL_ON", "flat-wheel-on.jpg", "", "", "f"),
+            ("NUMBER_2", "main-hook.jpg", "", "", "r"),
         ],
     ],
     [
@@ -138,6 +140,7 @@ ENGINE_OPS_LAYOUT = [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
             ("NUMBER_9", "car-lights-on.jpg", "", "", "p"),
             ("NUMBER_9", "lights-on.jpg", "", "", "f"),
+            ("NUMBER_3", "aux-hook.jpg", "", "", "r"),
         ],
     ],
     [
