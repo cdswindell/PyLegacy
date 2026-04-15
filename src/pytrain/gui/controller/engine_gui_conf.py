@@ -116,6 +116,7 @@ ENGINE_OPS_LAYOUT = [
             ("FRONT_COUPLER", "front-coupler.jpg", "", "", "cp"),
             ("REAR_COUPLER", "rear-coupler.jpg", "", "", "t"),
             ("PANTO_BOTH_DOWN", "panto-down-a.jpg", "", "", "a"),
+            ("VOLUME_DOWN", "vol-down.jpg", "", "", "vo"),
         ],
         [
             ("PANTO_BOTH_UP", "panto-up-a.jpg", "", "", "a"),
@@ -161,17 +162,20 @@ ENGINE_OPS_LAYOUT = [
     [
         [
             ("AUX1_OPTION_ONE", "", AUX1_KEY, "Sequence", "e"),
+            ("AUX1_OPTION_ONE", "", AUX1_KEY, "", "r"),
             ("AUX1_OPTION_ONE", "", AUX1_KEY, "", "pf"),
             ("POWERMASTER_ON", "on_button.jpg", "", "", "t"),
         ],
         [
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "Lights...", "e"),
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "a"),
+            ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "r"),
             ("AUX2_OPTION_ONE", "", AUX2_KEY, "", "pf"),
         ],
         [
             ("AUX3_OPTION_ONE", "", AUX3_KEY, "", "pf"),
             ("AUX3_OPTION_ONE", "", AUX3_KEY, "More...", "e"),
+            ("AUX3_OPTION_ONE", "", AUX3_KEY, "More...", "r"),
             ("AUX3_OPTION_ONE", "", AUX3_KEY, "Arcing", "a"),
             ("POWERMASTER_OFF", "off_button.jpg", "", "", "t"),
         ],

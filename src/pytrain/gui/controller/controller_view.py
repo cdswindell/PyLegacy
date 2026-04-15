@@ -453,6 +453,7 @@ class ControllerView:
             "l": self._common_btns | self._engine_btns | self._electric_btns,
             "p": self._common_btns | self._passenger_freight_btns | self._passenger_btns,
             "s": self._common_btns | self._engine_btns | self._bos_brk_btns | self._smoke_btns | self._steam_btns,
+            "r": self._common_btns | self._crane_btns,
             "t": self._transformer_btns,
         }
 
