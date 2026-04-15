@@ -422,7 +422,7 @@ class TestCommandReq(TestBase):
             TMCC2EffectsControl,
             TMCC2LightingControl,
             TMCC2MaskingControl,
-            # TMCC2EngineCommandEnumEx,
+            TMCC2EngineCommandEnumEx,
         ]:
             for tmcc_enum in tmcc_enums:
                 for scope in scopes:

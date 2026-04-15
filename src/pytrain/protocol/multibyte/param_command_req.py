@@ -80,7 +80,10 @@ class ParameterCommandReq(MultiByteReq):
                     if int(param[0]) == LEGACY_TRAIN_COMMAND_PREFIX:
                         scope = CommandScope.TRAIN
                     # build_req the request and return
-                    data = 0
+                    if cmd_enum.is_data:
+                        data = 0xFFFF & command & cmd_enum.data_mask_bits
+                    else:
+                        data = 0
                     address = cmd_enum.value.address_from_bytes(param[1:7] if is_d4 else param[1:3])
                     cmd_req = ParameterCommandReq.build(cmd_enum, address, data, scope)
                     cmd_req._is_tmcc_rx = from_tmcc_rx
@@ -104,4 +107,7 @@ class ParameterCommandReq(MultiByteReq):
 
     @property
     def data_byte(self) -> bytes:
-        return self.command_def.bits.to_bytes(1, byteorder="big")
+        byte_str = self.command_def.bits.to_bytes(1, byteorder="big")
+        if self.command_def.is_data:
+            byte_str = self.data.to_bytes(1, byteorder="big")
+        return byte_str

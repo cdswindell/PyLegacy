@@ -83,7 +83,30 @@ class CommandDef(ABC):
 
     @property
     def is_data(self) -> bool:
-        return self.num_data_bits != 0
+        return self._d_bits != 0
+
+    @property
+    def num_data_bits(self) -> int:
+        if self.is_data:
+            return self._d_bits
+        return 0
+
+    @property
+    def data_mask_bits(self) -> int:
+        if self.is_data:
+            return 2**self._d_bits - 1
+        else:
+            return 0
+
+    @property
+    def data_mask(self) -> int:
+        """
+        Remove the data bits from the command bits, leaving only the command_bits
+        """
+        if self.is_data:
+            return 0xFFFF & ~(2**self.num_data_bits - 1)
+        else:
+            return 0xFFFF
 
     @property
     def is_filtered(self) -> bool:
@@ -135,19 +158,11 @@ class CommandDef(ABC):
         return self._alias is not None
 
     @property
-    def num_data_bits(self) -> int:
-        return self._d_bits
-
-    @property
     def num_address_bits(self) -> int:
         if self.is_addressable:
             return self._num_address_bits
         else:
             return 0
-
-    @property
-    def data_mask(self) -> int:
-        return 0xFFFF & ~(2**self.num_data_bits - 1)
 
     @property
     def data_min(self) -> int:
@@ -267,6 +282,24 @@ class CommandDefEnum(CommandDefMixins, Enum):
     @property
     def is_legacy(self) -> bool:
         return self.command_def.is_tmcc2
+
+    @property
+    def is_data(self) -> bool:
+        return self.command_def.is_data
+
+    @property
+    def num_data_bits(self) -> int:
+        if self.is_data:
+            return self.command_def.num_data_bits
+        return 0
+
+    @property
+    def data_mask_bits(self) -> int:
+        return self.command_def.data_mask_bits
+
+    @property
+    def data_mask(self) -> int:
+        return self.command_def.data_mask
 
     @property
     def bits(self) -> int:
