@@ -107,12 +107,12 @@ ENGINE_OPS_LAYOUT = [
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "t"),
+            ("NUMBER_6", "outriggers.jpg", "", "", "r"),
         ],
         [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
             ("STOCK_WHEEL_ON", "flat-wheel-on.jpg", "", "", "f"),
-            ("NUMBER_6", "outriggers.jpg", "", "", "r"),
         ],
     ],
     [
@@ -126,13 +126,13 @@ ENGINE_OPS_LAYOUT = [
             ("PANTO_FRONT_UP_CAB2", "panto-up-f.jpg", "", "", "l"),
             ("STOCK_OPTION_ONE_ON", "stock-a-on.jpg", "", "", "pf"),
             (SMOKE_ON, "smoke-up.jpg", "", "", "sm"),
+            ("NUMBER_4", "front-lamp.jpg", "", "", "r"),
         ],
         [
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "bs"),
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "t"),
             ("PANTO_REAR_UP_CAB2", "panto-up-r.jpg", "", "", "l"),
             ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
-            ("NUMBER_4", "front-lamp.jpg", "", "", "r"),
         ],
         [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
