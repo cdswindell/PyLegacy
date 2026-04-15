@@ -135,6 +135,7 @@ ENGINE_OPS_LAYOUT = [
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "t"),
             ("PANTO_REAR_UP_CAB2", "panto-up-r.jpg", "", "", "l"),
             ("STOCK_OPTION_TWO_ON", "stock-b-on.jpg", "", "", "pf"),
+            ("BOOST_SPEED", "boost.jpg", "", "Up", "r"),
         ],
         [
             ("FORWARD_DIRECTION", "", FWD_KEY, "", "e"),
@@ -160,6 +161,7 @@ ENGINE_OPS_LAYOUT = [
             ("BRAKE_SPEED", "brake.jpg", "", "Brake", "bs"),
             ("PANTO_REAR_DOWN_CAB2", "panto-down-r.jpg", "", "", "l"),
             ("STOCK_OPTION_TWO_OFF", "stock-b-off.jpg", "", "", "pf"),
+            ("BRAKE_SPEED", "brake.jpg", "", "Down", "r"),
         ],
         [
             ("REVERSE_DIRECTION", "", REV_KEY, "", "e"),
