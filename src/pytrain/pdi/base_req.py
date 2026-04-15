@@ -171,7 +171,7 @@ class BaseReq(PdiReq, CompDataMixin):
             # otherwise, get state
             cur_state = ComponentStateStore.get_state(scope, address, False)
 
-            if isinstance(cur_state, EngineState):
+            if isinstance(cur_state, EngineState) and not cur_state.is_cab1:
                 # special case numeric commands
                 if state.name == "NUMERIC":
                     if data in {3, 6}:  # RPM up/down
