@@ -65,7 +65,7 @@ COMMAND_IMPACTS = {
     TMCC1AuxCommandEnum.AUX1_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),
     TMCC1AuxCommandEnum.AUX2_OPT_ONE: (lambda x: x.is_amc2, Amc2Req.request_config),
     TMCC1EngineCommandEnum.NUMERIC: (
-        lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE,
+        lambda x: 1 <= x.address <= 99 and x.engine_type != LOCO_TRACK_CRANE and not x.is_cab1,
         BaseReq.request_config,
     ),
     TMCC2EngineCommandEnum.NUMERIC: (
@@ -847,15 +847,11 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         # Executes immediate command impact action if state qualifies; sends resulting request
         if action:
             state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
-            if isinstance(state, EngineState) and state.is_cab1:
-                # don't request state updates for cab1 devices
-                pass
-            else:
-                if state and action[0](state):
-                    req = action[1](state, cmd)
-                    if req:
-                        req.send()
-                    return
+            if state and action[0](state):
+                req = action[1](state, cmd)
+                if req:
+                    req.send()
+                return
         """
         Engine/Train state is also impacted by states initiated and maintained by hand-held
         controllers. For example, when the throttle is moved, a target speed is set on the
