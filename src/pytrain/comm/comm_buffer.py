@@ -471,18 +471,24 @@ class CommBufferSingleton(CommBuffer, Thread):
             log.exception(se)
 
     def base3_send(self, data: bytes):
+        from ..pdi.base3_buffer import Base3Buffer
         from ..pdi.constants import PdiCommand
         from ..pdi.pdi_req import TmccReq
 
         tmcc_cmd = CommandReq.from_bytes(data)
-        if tmcc_cmd.address > 99:
-            pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC4_TX)
+        if tmcc_cmd.is_noop:
+            # noop commands are not sent to the base, but they do
+            # convey state that must be sent to clients
+            Base3Buffer.sync_state(data, tmcc_cmd=tmcc_cmd)
         else:
-            pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
-        self._base3.send(pdi_cmd.as_bytes)
-        # also inform CommandDispatcher to update system state
-        if self.is_ser2 is False or tmcc_cmd.is_force_state_update:
-            self._tmcc_dispatcher.offer(tmcc_cmd)
+            if tmcc_cmd.address > 99:
+                pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC4_TX)
+            else:
+                pdi_cmd = TmccReq(tmcc_cmd, PdiCommand.TMCC_TX)
+            self._base3.send(pdi_cmd.as_bytes)
+            # also inform CommandDispatcher to update system state
+            if self.is_ser2 is False or tmcc_cmd.is_force_state_update:
+                self._tmcc_dispatcher.offer(tmcc_cmd)
 
 
 COMM_ERROR_CODES: Dict[int, str] = {
