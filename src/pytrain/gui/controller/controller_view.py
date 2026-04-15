@@ -551,7 +551,7 @@ class ControllerView:
             get_btn(key).on_hold = callback
 
         # 4. Loco-specific Horn/Whistle control holds
-        for loco in ["d", "s", "l", "r"]:
+        for loco in ["d", "s", "l"]:
             get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
 
         # 5. Gauge commands
@@ -886,7 +886,7 @@ class ControllerView:
                 host.brake_box.show()
 
         # restore the on_hold handler
-        for loco_type in ["d", "s", "l", "r"]:
+        for loco_type in ["d", "s", "l"]:
             _, btn = host.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
             btn.on_hold = self.show_horn_control
 
