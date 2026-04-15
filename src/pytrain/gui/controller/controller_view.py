@@ -692,7 +692,9 @@ class ControllerView:
         host.horn.value = 0
 
     def on_throttle(self, value) -> None:
-        if self._updating_from_state:
+        host = self._host
+        state = host.active_engine_state or host.active_state
+        if self._updating_from_state or not state.is_cab1:
             return
         host = self._host
         if host.throttle.after_id is not None:
