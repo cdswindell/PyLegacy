@@ -108,13 +108,13 @@ ENGINE_OPS_LAYOUT = [
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "t"),
-            ("NUMBER_6", "outriggers.jpg", "", "Main/Roll", "r"),
+            ("NUMBER_6", "outriggers.jpg", "", "", "r"),
         ],
         [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
             ("STEWARD_CHATTER", "steward.jpg", "", "Steward...", "p"),
             ("STOCK_WHEEL_ON", "flat-wheel-on.jpg", "", "", "f"),
-            ("NUMBER_2", "main-hook.jpg", "", "", "r"),
+            ("NUMBER_2", "main-hook.jpg", "", "Main/Roll", "r"),
         ],
     ],
     [
