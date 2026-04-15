@@ -153,7 +153,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             from ...comm.comm_buffer import CommBuffer
 
             CommBuffer.cancel_delayed_requests(self.state, requests=CANCELABLE_REQUESTS)
-
             target_enum = (
                 TMCC2EngineCommandEnumEx.TARGET_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.TARGET_SPEED
             )
