@@ -551,7 +551,7 @@ class ControllerView:
             get_btn(key).on_hold = callback
 
         # 4. Loco-specific Horn/Whistle control holds
-        for loco in ["d", "s", "l"]:
+        for loco in ["d", "s", "l", "r"]:
             get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
 
         # 5. Gauge commands
@@ -623,7 +623,7 @@ class ControllerView:
             else:
                 host.horn_title_box.text = "Horn"
 
-        if t == "f":
+        if t in {"f", "r"}:
             if host._freight_sounds_bell_horn_box:
                 host._freight_sounds_bell_horn_box.show()
             # Freight uses the horn-control popup behavior
@@ -886,7 +886,7 @@ class ControllerView:
                 host.brake_box.show()
 
         # restore the on_hold handler
-        for loco_type in ["d", "s", "l"]:
+        for loco_type in ["d", "s", "l", "r"]:
             _, btn = host.engine_ops_cells[("BLOW_HORN_ONE", loco_type)]
             btn.on_hold = self.show_horn_control
 
