@@ -5,7 +5,7 @@ pluggy>=1.6.0
 pypi-cleanup>=0.1.10
 pytest>=9.0.3
 ruff>=0.15.10
-tox>=4.52.1
+tox>=4.53.0
 twine>=6.2.0
 ipython>=9.12.0; python_version>="3.12"
 ipython>=9.10.0; python_version=="3.11"
