@@ -105,10 +105,7 @@ class ControllerView:
                     host.throttle.value = throttle_state.target_speed
 
                 if throttle_state.is_cab1:
-                    if host.throttle.value > 1:
-                        host.speed.value = f"+{host.throttle.value:2d}"
-                    else:
-                        host.speed.value = f"{host.throttle.value:3d}"
+                    self._set_cab1_speed()
                 else:
                     host.speed.value = f"{throttle_state.speed:03d}"
 
@@ -696,13 +693,19 @@ class ControllerView:
         state = host.active_engine_state or host.active_state
         if self._updating_from_state or not state.is_cab1:
             return
-        if host.throttle.value > 1:
-            host.speed.value = f"+{host.throttle.value:2d}"
-        else:
-            host.speed.value = f"{host.throttle.value:3d}"
+        self._set_cab1_speed()
         if host.throttle.after_id is not None:
             host.throttle.tk.after_cancel(host.throttle.after_id)
         host.throttle.after_id = host.throttle.tk.after(200, self.on_throttle_released, int(value))
+
+    def _set_cab1_speed(self):
+        host = self._host
+        if host.throttle.value > 1:
+            host.speed.value = f"+{host.throttle.value:2d}"
+        elif host.throttle.value < 0:
+            host.speed.value = f"-{-host.throttle.value:2d}"
+        else:
+            host.speed.value = f" {host.throttle.value:2d}"
 
     # noinspection PyUnusedLocal
     def on_throttle_released(self, value: int) -> None:
