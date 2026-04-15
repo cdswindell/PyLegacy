@@ -1381,7 +1381,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         if state:
             if state.is_cab1:
-                req = CommandReq.build(TMCC1EngineCommandEnum.RELATIVE_SPEED, data=rr_speed, scope=state.scope)
+                req = CommandReq.build(
+                    TMCC1EngineCommandEnum.RELATIVE_SPEED, state.tmcc_id, data=rr_speed, scope=state.scope
+                )
             else:
                 if do_dialog:
                     req = RampedSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
