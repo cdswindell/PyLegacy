@@ -98,7 +98,7 @@ class ControllerView:
                     else:
                         host.speed.value = f" {host.throttle.value:3d}"
                 else:
-                    host.speed.value = f"{throttle_state.speed:03d}"
+                    host.speed.value = f"{throttle_state.target_speed:03d}"
 
                 if host._rr_speed_panel:
                     host._rr_speed_panel.configure(throttle_state)
@@ -115,7 +115,7 @@ class ControllerView:
 
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
-                    host.throttle.value = throttle_state.target_speed
+                    host.throttle.value = throttle_state.speed
 
                 # trough color indicates actual vs. target
                 if throttle_state.speed != throttle_state.target_speed:
