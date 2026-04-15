@@ -80,6 +80,7 @@ ENGINE_OPS_LAYOUT = [
             ("ENGINEER_CHATTER", "conductor.jpg", "", "Conductor...", "p"),
             ("NUMBER_3", "load.jpg", "", "", "f"),
             ("RING_BELL", "bell.jpg", "", "", "t"),
+            ("NUMBER_7", "walkie_talkie.jpg", "", "", "r"),
         ],
         [
             ("BLOW_HORN_ONE", "horn.jpg", "", "Horn...", "d"),
@@ -106,6 +107,7 @@ ENGINE_OPS_LAYOUT = [
             ("TOWER_CHATTER", "station.jpg", "", "Station...", "p"),
             ("TOWER_CHATTER", "tower.jpg", "", "", "f"),
             ("BOOST_SPEED", "boost.jpg", "", "Boost", "t"),
+            ("TOGGLE_DIRECTION", "", DIR_KEY, "", "r"),
         ],
         [
             ("RING_BELL", "bell.jpg", "", "Bell/Horn...", "e"),
