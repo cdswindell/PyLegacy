@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 from abc import ABC, ABCMeta
 
-from ..multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
-from ...db.engine_state import EngineState
-from ..constants import DEFAULT_ADDRESS, CommandScope
-from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
 from .sequence_constants import SequenceCommandEnum
 from .sequence_req import SequenceReq, T
+from ..command_req import CommandReq
+from ..constants import CommandScope, DEFAULT_ADDRESS
+from ..multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
+from ..tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from ..tmcc2.tmcc2_constants import TMCC2EngineCommandEnum, tmcc2_speed_to_rpm
+from ...db.engine_state import EngineState
 
 log = logging.getLogger(__name__)
 
@@ -81,11 +82,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     rpm = tmcc2_speed_to_rpm(speed_req)
                     self.add(TMCC2EngineCommandEnum.DIESEL_RPM, address, data=rpm, scope=scope, delay=0.2)
         else:
-            target_enum = (
-                TMCC2EngineCommandEnumEx.TARGET_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.TARGET_SPEED
-            )
-            self.add(target_enum, address, self._target_speed, scope)
-
             speed_enum = (
                 TMCC2EngineCommandEnum.ABSOLUTE_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.ABSOLUTE_SPEED
             )
@@ -95,7 +91,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 self.add(tower, address, scope=scope)
             # use current speed and momentum to build up or down speed
             cs = self.state.speed
-            delay = 0.0
+            delay = 0.100
             inc = 3 if self.is_tmcc2 else 1
             c_rpm = self.state.rpm
             init_labor = self.state.labor
@@ -157,7 +153,12 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             from ...comm.comm_buffer import CommBuffer
 
             CommBuffer.cancel_delayed_requests(self.state, requests=CANCELABLE_REQUESTS)
+
+            target_enum = (
+                TMCC2EngineCommandEnumEx.TARGET_SPEED if self.state.is_legacy else TMCC1EngineCommandEnum.TARGET_SPEED
+            )
             self.state.is_ramping = True
+            CommandReq.build(target_enum, self.address, self._target_speed, self.scope).send()
 
 
 class RampedSpeedReq(RampedSpeedReqBase):
