@@ -300,7 +300,6 @@ class EngineState(ComponentState):
                     self._is_d4 = True
                 if self.speed and self.target_speed == 0 and not self.is_ramping:
                     self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
-                    print(f"Setting Target Speed to: {self.speed} (A)")
 
             elif isinstance(command, CommandReq):
                 if command.is_tmcc2 is True or self.address > 99:
@@ -551,17 +550,12 @@ class EngineState(ComponentState):
                     self._ramping = False
                     self.comp_data.speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
                     self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
-                    print(f"Setting Target Speed to: {self.speed} (B)")
             else:
                 # if this PyTrain instance isn't ramping speed, set the target speed to match
                 self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
-                print(f"Setting Target Speed to: {self.speed} (C)")
         else:
             self._ramping = target_speed != self.speed
             self.comp_data.target_speed = encode_tmcc_speed(target_speed, self.comp_data.is_legacy)
-            print(f"Setting Target Speed to: {target_speed} (D)")
-
-        log.info(f"Target Speed: {self.target_speed}  Speed: {self.speed}  Ramping: {self.is_ramping}")
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
