@@ -92,19 +92,6 @@ class ControllerView:
                     if host._rr_speed_btn and not host._rr_speed_btn.enabled:
                         host._rr_speed_btn.enable()
 
-                if throttle_state.is_cab1:
-                    if host.throttle.value > 1:
-                        host.speed.value = f" +{host.throttle.value}"
-                    else:
-                        host.speed.value = f" {host.throttle.value:3d}"
-                else:
-                    host.speed.value = f"{throttle_state.speed:03d}"
-
-                if host._rr_speed_panel:
-                    host._rr_speed_panel.configure(throttle_state)
-
-                # legacy vs. tmcc throttle range
-                if throttle_state != self._last_throttle_state:
                     if throttle_state.is_legacy:
                         host.throttle.tk.config(from_=195, to=0)
                     elif throttle_state.is_cab1:
@@ -117,11 +104,22 @@ class ControllerView:
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
 
+                if throttle_state.is_cab1:
+                    if host.throttle.value > 1:
+                        host.speed.value = f" +{host.throttle.value}"
+                    else:
+                        host.speed.value = f" {host.throttle.value:3d}"
+                else:
+                    host.speed.value = f"{throttle_state.speed:03d}"
+
                 # trough color indicates actual vs. target
                 if throttle_state.speed != throttle_state.target_speed:
                     host.throttle.tk.config(troughcolor="#4C96C5")
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
+
+                if host._rr_speed_panel:
+                    host._rr_speed_panel.configure(throttle_state)
             else:
                 if host.speed.enabled:
                     host.speed.disable()
