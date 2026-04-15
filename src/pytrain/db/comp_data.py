@@ -621,11 +621,11 @@ class CompData(ABC, Generic[R]):
         else:
             if transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
-                print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
+                # print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
             elif transform == encode_target_speed:
                 state = cls.state_store().get_state(scope, address, False)
                 base_value = transform(data, is_legacy, state)
-                print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
+                # print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
             else:
                 base_value = transform(data)
         if base_value is None:
