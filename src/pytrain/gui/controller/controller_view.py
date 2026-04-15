@@ -106,9 +106,9 @@ class ControllerView:
 
                 if throttle_state.is_cab1:
                     if host.throttle.value > 1:
-                        host.speed.value = f" +{host.throttle.value}"
+                        host.speed.value = f"+{host.throttle.value:2d}"
                     else:
-                        host.speed.value = f" {host.throttle.value:3d}"
+                        host.speed.value = f"{host.throttle.value:3d}"
                 else:
                     host.speed.value = f"{throttle_state.speed:03d}"
 
@@ -696,7 +696,10 @@ class ControllerView:
         state = host.active_engine_state or host.active_state
         if self._updating_from_state or not state.is_cab1:
             return
-        host = self._host
+        if host.throttle.value > 1:
+            host.speed.value = f"+{host.throttle.value:2d}"
+        else:
+            host.speed.value = f"{host.throttle.value:3d}"
         if host.throttle.after_id is not None:
             host.throttle.tk.after_cancel(host.throttle.after_id)
         host.throttle.after_id = host.throttle.tk.after(200, self.on_throttle_released, int(value))
