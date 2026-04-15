@@ -97,7 +97,7 @@ class ControllerView:
                     if throttle_state.is_legacy:
                         host.throttle.tk.config(from_=195, to=0)
                     elif throttle_state.is_cab1:
-                        host.throttle.tk.config(from_=5, to=-5)
+                        host.throttle.tk.config(from_=3, to=-3)
                         host.throttle.value = 0
                         if host._rr_speed_btn:
                             host._rr_speed_btn.hide()
