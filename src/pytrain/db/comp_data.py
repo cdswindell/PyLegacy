@@ -397,10 +397,7 @@ SCOPE_TO_COMP_MAP = {
 # memory locations that must be updated in turn.
 #
 REQUEST_TO_UPDATES_MAP = {
-    "ABSOLUTE_SPEED": [
-        ("speed", encode_tmcc_speed),
-        ("target_speed", encode_target_speed),
-    ],
+    "ABSOLUTE_SPEED": [("speed", encode_tmcc_speed)],
     "SPEED": [("speed", encode_tmcc_speed)],
     "TARGET_SPEED": [("target_speed", encode_target_speed)],
     "DIESEL_RPM": [("rpm",)],
@@ -613,8 +610,6 @@ class CompData(ABC, Generic[R]):
                         base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, data)
                     else:
                         base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, data)
-                elif sub_field in {"target_speed"}:
-                    base_value = conv_tpl[1](data, is_legacy)
                 else:
                     base_value = conv_tpl[1](data)
             else:
@@ -626,6 +621,7 @@ class CompData(ABC, Generic[R]):
             elif transform == encode_target_speed:
                 state = cls.state_store().get_state(scope, address, False)
                 base_value = transform(data, is_legacy, state)
+                print(f"Target Speed: {data} transformed to: {base_value} legacy: {is_legacy}")
             else:
                 base_value = transform(data)
         if base_value is None:
