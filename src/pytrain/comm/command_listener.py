@@ -844,13 +844,18 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         from ..db.comp_data import CompData
 
         action = COMMAND_IMPACTS.get(cmd.command, None)
+        # Executes immediate command impact action if state qualifies; sends resulting request
         if action:
             state = ComponentStateStore.get_state(cmd.scope, cmd.address, create=False)
-            if state and action[0](state):
-                req = action[1](state, cmd)
-                if req:
-                    req.send()
-                return
+            if isinstance(state, EngineState) and state.is_cab1:
+                # don't request state updates for cab1 devices
+                pass
+            else:
+                if state and action[0](state):
+                    req = action[1](state, cmd)
+                    if req:
+                        req.send()
+                    return
         """
         Engine/Train state is also impacted by states initiated and maintained by hand-held
         controllers. For example, when the throttle is moved, a target speed is set on the
