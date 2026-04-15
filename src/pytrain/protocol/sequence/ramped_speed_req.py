@@ -136,9 +136,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                 # make sure the final speed is requested
                 self.add(speed_enum, address, speed_req, scope, delay=delay)
                 if self.state.is_legacy:
-                    self.add(
-                        TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=init_labor, scope=scope, delay=delay
-                    )
+                    self.add(TMCC2EngineCommandEnum.ENGINE_LABOR, address, data=init_labor, scope=scope, delay=delay)
                     if self.state.is_rpm:
                         rpm = tmcc2_speed_to_rpm(speed_req)
                         if rpm != c_rpm:
