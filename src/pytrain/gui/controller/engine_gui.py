@@ -1278,7 +1278,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if update_button_state:
                 # noinspection PyTypeChecker
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
-            if selection_changed:
+            refresh_image = selection_changed
+            if (
+                not refresh_image
+                and tmcc_id != 0
+                and state is not None
+                and not self._keypad_view.is_entry_mode
+                and not getattr(self.image_box, "visible", False)
+            ):
+                # Returning from entry mode to ops mode can hide the image without changing
+                # TMCC selection; force a repaint in that case.
+                refresh_image = True
+            if refresh_image:
                 self._image_presenter.update(tmcc_id)
         else:
             self.image_box.hide()

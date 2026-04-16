@@ -71,7 +71,8 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui.tmcc_id_text = SimpleNamespace(value="0000")
     gui.tmcc_id_box = SimpleNamespace(text=f"{scope.title} ID")
     gui.name_text = SimpleNamespace(value="")
-    gui.image_box = SimpleNamespace(hide=lambda: None)
+    gui.image_box = image_box = SimpleNamespace(visible=True)
+    gui.image_box.hide = lambda: setattr(image_box, "visible", False)
     gui._keypad_view = SimpleNamespace(
         reset_on_keystroke=False,
         is_entry_mode=True,
@@ -161,6 +162,26 @@ def test_update_component_info_without_state_uses_not_found_and_scoped_callback(
     assert gui.name_text.value == "Missing"
     assert gui._scoped_callback_calls == [("Engine", None)]
     assert gui._image_updates == [88]
+
+
+def test_update_component_info_repaints_hidden_image_when_returning_to_ops_mode() -> None:
+    gui = _new_engine()
+    state = DummyState(tmcc_id=34, name="Hudson")
+    gui._scope_tmcc_ids[CommandScope.ENGINE] = 34
+    gui.tmcc_id_text.value = "0034"
+    gui._last_displayed_scope = CommandScope.ENGINE
+    gui._last_displayed_tmcc_id = 34
+    gui.image_box = SimpleNamespace(visible=False, hide=lambda: None)
+    gui._keypad_view.is_entry_mode = False
+    gui._state_store = SimpleNamespace(
+        get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ENGINE, 34) else None
+    )
+
+    gui.update_component_info(34)
+
+    assert gui._recent_calls == []
+    assert gui._ops_mode_calls == []
+    assert gui._image_updates == [34]
 
 
 def test_update_component_info_zero_clears_image_and_resets_keystroke_flag() -> None:
