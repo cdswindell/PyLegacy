@@ -279,6 +279,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return getattr(self._acc_overlay, "caa", None)
         return None
 
+    def scope_tmcc_id(self, scope: CommandScope | None = None) -> int:
+        scoped = scope or self.scope
+        return self._scope_tmcc_ids.get(scoped, 0)
+
     def is_accessory_view(self, tmcc_id: int) -> bool:
         return tmcc_id in self._accessory_view
 
