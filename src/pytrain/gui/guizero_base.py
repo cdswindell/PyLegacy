@@ -480,7 +480,6 @@ class GuiZeroBase(Thread, ABC):
                 nb.text_size = size
                 nb.text_bold = bolded
                 nb.tk.config(compound="center", anchor="center", padx=0, pady=0)
-                nb.do_flash()
                 if hover:
                     nb.tk.config(
                         borderwidth=3,

@@ -391,7 +391,7 @@ class HoldButton(PushButton):
             return
         self._handled_flash = True
 
-        pressed_bg = "darkgrey"
+        pressed_bg = "black"
         pressed_fg = "white"
 
         def on_press(_event):
