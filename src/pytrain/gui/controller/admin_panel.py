@@ -61,19 +61,41 @@ class AdminPanel:
         admin_box.tk.config(width=self._width)
 
         row = 0
+        ssid, strength, signal_color, ip_address = self._wifi_status()
         tb = self._titlebox(
             admin_box,
             text="WiFi",
             grid=[0, row, 2, 1],
             height=self._gui.button_size,
         )
-        _ = Text(
+        tb.tk.grid_columnconfigure(0, weight=4)
+        tb.tk.grid_columnconfigure(1, weight=3)
+        tb.tk.grid_columnconfigure(2, weight=3)
+
+        self._wifi_field(
             tb,
-            text=self._wifi_summary(),
-            grid=[0, 0, 2, 1],
-            align="left",
-            bold=True,
-            size=self._gui.s_12,
+            grid=[0, 0],
+            label="SSID",
+            value=ssid,
+            box_width=int(self._width * 0.40),
+            value_width=12,
+        )
+        self._wifi_field(
+            tb,
+            grid=[1, 0],
+            label="",
+            value=ip_address,
+            box_width=int(self._width * 0.32),
+            value_width=15,
+        )
+        self._wifi_field(
+            tb,
+            grid=[2, 0],
+            label="Signal",
+            value=strength,
+            box_width=int(self._width * 0.22),
+            value_width=13,
+            value_color=signal_color,
         )
 
         row += 1
@@ -239,17 +261,51 @@ class AdminPanel:
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
-    def _wifi_summary(self) -> str:
+    def _wifi_status(self) -> tuple[str, str, str, str]:
         snapshot = self._wifi_info.query()
-        ssid = snapshot.ssid or "Unavailable"
-        if snapshot.quality is not None:
-            strength = f"{snapshot.quality}% {snapshot.quality_label}"
+        quality = snapshot.quality
+        ssid = self._truncate(snapshot.ssid or "Unavailable", 12)
+        if quality is not None:
+            strength = self._truncate(f"{quality}% {snapshot.quality_label}", 13)
         elif snapshot.signal_dbm is not None:
             strength = f"{int(snapshot.signal_dbm)} dBm"
+            quality = WiFiInfo.dbm_to_quality(snapshot.signal_dbm)
         else:
             strength = "Unavailable"
         ip_address = self._current_ip_address()
-        return f"SSID: {ssid}   Signal: {strength}   IP: {ip_address}"
+        return ssid, strength, self._signal_color(quality), ip_address
+
+    def _wifi_field(
+        self,
+        parent: Box,
+        grid: list[int],
+        label: str,
+        value: str,
+        box_width: int,
+        value_width: int,
+        value_color: str = "black",
+    ) -> Box:
+        field = Box(parent, grid=grid, layout="grid", align="left", width=box_width)
+        field.tk.grid_propagate(False)
+        _ = Text(
+            field,
+            text=f"{label}: " if label else "",
+            grid=[0, 0],
+            align="left",
+            bold=True,
+            size=self._gui.s_8,
+        )
+        value_text = Text(
+            field,
+            text=value,
+            grid=[1, 0],
+            align="left",
+            bold=True,
+            size=self._gui.s_8,
+            width=value_width,
+        )
+        value_text.text_color = value_color
+        return field
 
     @staticmethod
     def _current_ip_address() -> str:
@@ -267,6 +323,23 @@ class AdminPanel:
             return ip
         except OSError:
             return "Unavailable"
+
+    @staticmethod
+    def _signal_color(quality: int | None) -> str:
+        if quality is None:
+            return "dim gray"
+        quality = max(0, min(100, quality))
+        red = int(round(255 * (100 - quality) / 100))
+        green = int(round(255 * quality / 100))
+        return f"#{red:02x}{green:02x}00"
+
+    @staticmethod
+    def _truncate(value: str, max_len: int) -> str:
+        if len(value) <= max_len:
+            return value
+        if max_len <= 3:
+            return value[:max_len]
+        return value[: max_len - 3] + "..."
 
     def _on_echo(self) -> None:
         self._pytrain.echo = bool(self._echo_btn.value)
