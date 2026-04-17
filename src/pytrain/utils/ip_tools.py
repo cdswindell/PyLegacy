@@ -24,7 +24,7 @@ TEST_NET_IP = ("192.0.2.1", 80)  # RFC 5737 TEST-NET-1 (non-routable on the publ
 
 def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
     deadline = time.time() + timeout_s
-    while time.time() < deadline:
+    while time.time() <= deadline:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
@@ -35,6 +35,7 @@ def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
 
             # Exclude loopback, link-local, and "0.0.0.0"
             ip_obj = ipaddress.ip_address(ip)
+            print(f"IP: {ip_obj} {ip_obj.is_loopback} {ip_obj.is_link_local}")
             if not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0"):
                 return True
         except OSError:
@@ -47,9 +48,10 @@ def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
     return False
 
 
-def wait_for_network(timeout_s: float = 30.0) -> bool:
+def wait_for_network(timeout_s: float = 60.0) -> bool:
+    """Polls IPv4 readiness within timeout; returns success or false"""
     deadline = time.time() + timeout_s
-    while time.time() < deadline:
+    while time.time() <= deadline:
         if wait_for_ipv4(timeout_s=1.0):
             return True
         log.debug("Waiting for network...")
