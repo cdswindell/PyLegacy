@@ -36,8 +36,8 @@ def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
             # Exclude loopback, link-local, and "0.0.0.0"
             ip_obj = ipaddress.ip_address(ip)
             status = not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0")
-            log.info(f"Status: {status} IP: {ip_obj} {ip_obj.is_loopback} {ip_obj.is_link_local}")
-            if status:
+            if not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0"):
+                log.info(f"Status: {status} IP: {ip_obj} {ip_obj.is_loopback} {ip_obj.is_link_local}")
                 return True
         except OSError:
             pass
