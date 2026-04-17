@@ -79,6 +79,9 @@ class HoldButton(PushButton):
         # canonical colors/images for restore
         self._normal_bg: str | None = None
         self._normal_fg: str | None = None
+        self._normal_text_bg: str | None = None
+        self._normal_text_fg: str | None = None
+
         self._normal_img = None
         self._inverted_img = None
 
@@ -127,9 +130,9 @@ class HoldButton(PushButton):
 
         # apply base properties (guizero-level)
         if bg:
-            self._normal_bg = self.bg = bg
+            self._normal_bg = self._normal_text_bg = self.bg = bg
         if text_color:
-            self._normal_fg = self.text_color = text_color
+            self._normal_fg = self.text_color = self._normal_text_fg = text_color
         if text_size is not None:
             self.text_size = text_size
         if text_bold is not None:
@@ -391,20 +394,18 @@ class HoldButton(PushButton):
             return
         self._handled_flash = True
 
-        pressed_bg = "darkgrey"
-        pressed_fg = "white"
-
         def on_press(_event):
             with self._cv:
                 # snapshot from tk so it respects hb.tk.config(background=...)
                 self._snapshot_tk_normals()
 
                 # Apply pressed colors at tk-level to match your helper usage
+                pressed_bg = "dark_grey"
                 try:
                     if self.text:
                         # self.tk.config(background=pressed_bg, foreground=pressed_fg)
-                        self.bg = "black"
-                        self.text_color = "white"
+                        self.bg = self._normal_text_fg if self._normal_text_fg else "black"
+                        self.text_color = self._normal_text_fg if self._normal_text_bg else "white"
                     else:
                         # even if text is blanked, keep bg feedback if desired
                         self.tk.config(background=pressed_bg)
@@ -427,8 +428,13 @@ class HoldButton(PushButton):
         with self._cv:
             # restore colors using tk-configured "normals" to match hb.tk.config(...)
             try:
+                if self.text:
+                    self.bg = self._normal_text_bg if self._normal_text_bg else "white"
+                    self.text_color = self._normal_text_fg if self._normal_text_fg else "black"
+
                 if self._normal_bg is not None:
                     self.tk.config(background=self._normal_bg)
+
                 if self._normal_fg is not None:
                     self.tk.config(foreground=self._normal_fg)
             except TclError:
