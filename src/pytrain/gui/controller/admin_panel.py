@@ -94,13 +94,10 @@ class AdminPanel:
             label="Signal",
             value=strength,
             box_width=int(self._width * 0.22),
-            value_width=13,
-            value_color=signal_color,
+            value_width=9,
+            value_color=self._signal_text_color(signal_color),
+            value_bg=signal_color,
         )
-
-        row += 1
-        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
 
         row += 1
         # noinspection PyTypeChecker
@@ -266,7 +263,7 @@ class AdminPanel:
         quality = snapshot.quality
         ssid = self._truncate(snapshot.ssid or "Unavailable", 12)
         if quality is not None:
-            strength = self._truncate(f"{quality}% {snapshot.quality_label}", 13)
+            strength = f"{quality}%"
         elif snapshot.signal_dbm is not None:
             strength = f"{int(snapshot.signal_dbm)} dBm"
             quality = WiFiInfo.dbm_to_quality(snapshot.signal_dbm)
@@ -284,6 +281,7 @@ class AdminPanel:
         box_width: int,
         value_width: int,
         value_color: str = "black",
+        value_bg: str | None = None,
     ) -> Box:
         field = Box(parent, grid=grid, layout="grid", align="left", width=box_width)
         field.tk.grid_propagate(False)
@@ -293,7 +291,7 @@ class AdminPanel:
             grid=[0, 0],
             align="left",
             bold=True,
-            size=self._gui.s_8,
+            size=self._gui.s_10,
         )
         value_text = Text(
             field,
@@ -301,10 +299,12 @@ class AdminPanel:
             grid=[1, 0],
             align="left",
             bold=True,
-            size=self._gui.s_8,
+            size=self._gui.s_12,
             width=value_width,
         )
         value_text.text_color = value_color
+        if value_bg is not None:
+            value_text.bg = value_bg
         return field
 
     @staticmethod
@@ -332,6 +332,16 @@ class AdminPanel:
         red = int(round(255 * (100 - quality) / 100))
         green = int(round(255 * quality / 100))
         return f"#{red:02x}{green:02x}00"
+
+    @staticmethod
+    def _signal_text_color(color: str) -> str:
+        if not color.startswith("#") or len(color) != 7:
+            return "white"
+        red = int(color[1:3], 16)
+        green = int(color[3:5], 16)
+        blue = int(color[5:7], 16)
+        luminance = (0.299 * red) + (0.587 * green) + (0.114 * blue)
+        return "black" if luminance >= 140 else "white"
 
     @staticmethod
     def _truncate(value: str, max_len: int) -> str:
