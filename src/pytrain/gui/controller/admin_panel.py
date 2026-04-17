@@ -61,38 +61,20 @@ class AdminPanel:
         admin_box.tk.config(width=self._width)
 
         row = 0
-        ssid, strength, signal_color, ip_address = self._wifi_status()
+        ssid, ip_address, strength, signal_color = self._wifi_status()
         tb = self._titlebox(
             admin_box,
             text="WiFi",
             grid=[0, row, 2, 1],
             height=self._gui.button_size,
         )
-        tb.tk.grid_columnconfigure(0, weight=4)
-        tb.tk.grid_columnconfigure(1, weight=3)
-        tb.tk.grid_columnconfigure(2, weight=3)
+        tb.tk.grid_columnconfigure(0, minsize=int(self._width * 0.42), weight=0)
+        tb.tk.grid_columnconfigure(1, minsize=int(self._width * 0.28), weight=0)
+        tb.tk.grid_columnconfigure(2, minsize=int(self._width * 0.18), weight=1)
 
-        self._wifi_text_field(
-            tb,
-            grid=[0, 0],
-            text=f"SSID: {ssid}",
-            box_width=int(self._width * 0.40),
-        )
-        self._wifi_text_field(
-            tb,
-            grid=[1, 0],
-            text=ip_address,
-            box_width=int(self._width * 0.32),
-        )
-        self._wifi_badge_field(
-            tb,
-            grid=[2, 0],
-            label="Signal",
-            value=strength,
-            box_width=int(self._width * 0.22),
-            badge_width=int(self._width * 0.14),
-            badge_color=signal_color,
-        )
+        self._wifi_text(tb, grid=[0, 0], text=f"SSID: {ssid}")
+        self._wifi_text(tb, grid=[1, 0], text=ip_address)
+        self._wifi_signal_badge(tb, grid=[2, 0], text=strength, badge_color=signal_color)
 
         row += 1
         # noinspection PyTypeChecker
@@ -256,80 +238,40 @@ class AdminPanel:
     def _wifi_status(self) -> tuple[str, str, str, str]:
         snapshot = self._wifi_info.query()
         quality = snapshot.quality
-        ssid = self._truncate(snapshot.ssid or "Unavailable", 12)
-        if quality is not None:
-            strength = f"{quality}%"
-        elif snapshot.signal_dbm is not None:
-            strength = f"{int(snapshot.signal_dbm)} dBm"
+        ssid = self._truncate(snapshot.ssid or "Unavailable", 14)
+        if quality is None and snapshot.signal_dbm is not None:
             quality = WiFiInfo.dbm_to_quality(snapshot.signal_dbm)
-        else:
-            strength = "Unavailable"
+        strength = f"{quality}%" if quality is not None else "N/A"
         ip_address = self._current_ip_address()
-        return ssid, strength, self._signal_color(quality), ip_address
+        return ssid, ip_address, strength, self._signal_color(quality)
 
-    def _wifi_text_field(
-        self,
-        parent: Box,
-        grid: list[int],
-        text: str,
-        box_width: int,
-    ) -> Box:
-        field = Box(parent, grid=grid, layout="auto", align="left", width=box_width)
-        field.tk.grid_propagate(False)
-        _ = Text(
-            field,
+    def _wifi_text(self, parent: Box, grid: list[int], text: str) -> Text:
+        field = Text(
+            parent,
             text=text,
+            grid=grid,
             align="left",
             bold=True,
             size=self._gui.s_12,
         )
+        field.tk.grid_configure(sticky="w", padx=(0, 4))
         return field
 
-    def _wifi_badge_field(
-        self,
-        parent: Box,
-        grid: list[int],
-        label: str,
-        value: str,
-        box_width: int,
-        badge_width: int,
-        badge_color: str,
-    ) -> Box:
-        field = Box(parent, grid=grid, layout="grid", align="left", width=box_width)
-        field.tk.grid_propagate(False)
-        _ = Text(
-            field,
-            text=f"{label}:",
-            grid=[0, 0],
+    def _wifi_signal_badge(self, parent: Box, grid: list[int], text: str, badge_color: str) -> Text:
+        badge = Text(
+            parent,
+            text=text,
+            grid=grid,
             align="left",
             bold=True,
-            size=self._gui.s_10,
-        )
-        badge = Box(
-            field,
-            grid=[1, 0],
-            layout="grid",
-            align="left",
-            width=badge_width,
-            height=max(self._gui.s_20, int(self._gui.s_18 * 1.35)),
+            size=self._gui.s_12,
+            width=max(6, len(text) + 1),
         )
         badge.bg = badge_color
-        badge.tk.grid_propagate(False)
-        badge.tk.configure(highlightthickness=0, bd=0)
-        value_text = Text(
-            badge,
-            text=value,
-            grid=[0, 0],
-            align="left",
-            bold=True,
-            size=self._gui.s_12,
-        )
-        value_text.text_color = self._signal_text_color(badge_color)
-        value_text.bg = badge_color
-        badge.tk.grid_columnconfigure(0, weight=1)
-        badge.tk.grid_rowconfigure(0, weight=1)
-        value_text.tk.grid_configure(sticky="nsew")
-        return field
+        badge.text_color = self._signal_text_color(badge_color)
+        badge.tk.configure(anchor="center", padx=8, pady=4, borderwidth=1, relief="flat")
+        badge.tk.grid_configure(sticky="w")
+        return badge
 
     @staticmethod
     def _current_ip_address() -> str:
