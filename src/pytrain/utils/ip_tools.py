@@ -51,11 +51,8 @@ def wait_for_network(timeout_s: float = 60.0) -> bool:
     """Polls IPv4 readiness within timeout; returns success or false"""
     deadline = time.time() + timeout_s
     while time.time() <= deadline:
-        log.info("Waiting for network...")
         if wait_for_ipv4(timeout_s=1.0):
             return True
-        else:
-            log.info("Network not ready...")
         log.debug("Waiting for network...")
         time.sleep(0.5)
     return False
@@ -127,6 +124,7 @@ def is_base_address(address, base3_port: int = DEFAULT_BASE_PORT) -> str | None:
 
 
 def find_base_address() -> str | None:
+    """Discovers Base 3 address by parallel port scanning local network"""
     num_cpus = cpu_count() - 1
     possible_ips = list()
     local_ips = get_ip_address()
