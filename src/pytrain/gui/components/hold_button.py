@@ -391,7 +391,7 @@ class HoldButton(PushButton):
             return
         self._handled_flash = True
 
-        pressed_bg = "black"
+        pressed_bg = "darkgrey"
         pressed_fg = "white"
 
         def on_press(_event):
@@ -402,7 +402,9 @@ class HoldButton(PushButton):
                 # Apply pressed colors at tk-level to match your helper usage
                 try:
                     if self.text:
-                        self.tk.config(background=pressed_bg, foreground=pressed_fg)
+                        # self.tk.config(background=pressed_bg, foreground=pressed_fg)
+                        self.bg = "black"
+                        self.text_color = "white"
                     else:
                         # even if text is blanked, keep bg feedback if desired
                         self.tk.config(background=pressed_bg)
