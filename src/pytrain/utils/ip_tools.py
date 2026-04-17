@@ -51,7 +51,7 @@ def wait_for_network(timeout_s: float = 60.0) -> bool:
     """Polls IPv4 readiness within timeout; returns success or false"""
     deadline = time.time() + timeout_s
     while time.time() <= deadline:
-        print("Waiting for network...")
+        log.info("Waiting for network...")
         if wait_for_ipv4(timeout_s=1.0):
             return True
         log.debug("Waiting for network...")
