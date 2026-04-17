@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
-CAB_1_THROTTLE_REPEAT_MS = 100
+CAB_1_THROTTLE_REPEAT_MS = 200
 
 
 class ControllerView:
@@ -368,6 +368,8 @@ class ControllerView:
             width=horn_size,
             height=horn_size,
         )
+        horn_btn.repeat_interval = 0.2
+        horn_btn.on_repeat = horn_btn.on_press
         host._freight_sounds_bell_horn_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
@@ -529,9 +531,11 @@ class ControllerView:
             (("BOOST_SPEED", "bs"), 0.3),
             (("BOOST_SPEED", "t"), 0.3),
             (("BOOST_SPEED", "l"), 0.3),
+            (("BOOST_SPEED", "r"), 0.3),
             (("BRAKE_SPEED", "bs"), 0.3),
             (("BRAKE_SPEED", "t"), 0.3),
             (("BRAKE_SPEED", "l"), 0.3),
+            (("BRAKE_SPEED", "r"), 0.3),
             (("WATER_INJECTOR", "s"), 0.2),
             (("LET_OFF_LONG", "s"), 0.2),
         ]

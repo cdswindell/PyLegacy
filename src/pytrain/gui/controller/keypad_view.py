@@ -44,7 +44,7 @@ log = logging.getLogger(__name__)
 
 ACCESSORY_THROTTLE_MIN = -5
 ACCESSORY_THROTTLE_MAX = 5
-ACCESSORY_THROTTLE_REPEAT_MS = 100
+ACCESSORY_THROTTLE_REPEAT_MS = 200
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
