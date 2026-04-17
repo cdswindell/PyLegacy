@@ -35,9 +35,7 @@ def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
 
             # Exclude loopback, link-local, and "0.0.0.0"
             ip_obj = ipaddress.ip_address(ip)
-            status = not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0")
             if not (ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0"):
-                log.info(f"Status: {status} IP: {ip_obj} {ip_obj.is_loopback} {ip_obj.is_link_local}")
                 return True
         except OSError:
             pass
@@ -53,6 +51,7 @@ def wait_for_network(timeout_s: float = 60.0) -> bool:
     """Polls IPv4 readiness within timeout; returns success or false"""
     deadline = time.time() + timeout_s
     while time.time() <= deadline:
+        print("Waiting for network...")
         if wait_for_ipv4(timeout_s=1.0):
             return True
         log.debug("Waiting for network...")
