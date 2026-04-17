@@ -368,8 +368,8 @@ class ControllerView:
             width=horn_size,
             height=horn_size,
         )
-        horn_btn.repeat_interval = 0.2
         horn_btn.on_repeat = horn_btn.on_press
+        horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
         host._freight_sounds_bell_horn_box.hide()
 
         # --- HIDE IT AGAIN after sizing is complete ---
@@ -542,7 +542,7 @@ class ControllerView:
         for key, interval in repeats:
             btn = get_btn(key)
             btn.on_repeat = btn.on_press
-            btn.repeat_interval = interval
+            btn.repeat_interval = btn.hold_threshold = interval
 
         # 3. Setup Hold behaviors (Popups)
         holds = [
