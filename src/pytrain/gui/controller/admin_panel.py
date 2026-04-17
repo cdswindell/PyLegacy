@@ -72,31 +72,26 @@ class AdminPanel:
         tb.tk.grid_columnconfigure(1, weight=3)
         tb.tk.grid_columnconfigure(2, weight=3)
 
-        self._wifi_field(
+        self._wifi_text_field(
             tb,
             grid=[0, 0],
-            label="SSID",
-            value=ssid,
+            text=f"SSID: {ssid}",
             box_width=int(self._width * 0.40),
-            value_width=12,
         )
-        self._wifi_field(
+        self._wifi_text_field(
             tb,
             grid=[1, 0],
-            label="",
-            value=ip_address,
+            text=ip_address,
             box_width=int(self._width * 0.32),
-            value_width=15,
         )
-        self._wifi_field(
+        self._wifi_badge_field(
             tb,
             grid=[2, 0],
             label="Signal",
             value=strength,
             box_width=int(self._width * 0.22),
-            value_width=9,
-            value_color=self._signal_text_color(signal_color),
-            value_bg=signal_color,
+            badge_width=int(self._width * 0.14),
+            badge_color=signal_color,
         )
 
         row += 1
@@ -272,39 +267,68 @@ class AdminPanel:
         ip_address = self._current_ip_address()
         return ssid, strength, self._signal_color(quality), ip_address
 
-    def _wifi_field(
+    def _wifi_text_field(
+        self,
+        parent: Box,
+        grid: list[int],
+        text: str,
+        box_width: int,
+    ) -> Box:
+        field = Box(parent, grid=grid, layout="auto", align="left", width=box_width)
+        field.tk.grid_propagate(False)
+        _ = Text(
+            field,
+            text=text,
+            align="left",
+            bold=True,
+            size=self._gui.s_12,
+        )
+        return field
+
+    def _wifi_badge_field(
         self,
         parent: Box,
         grid: list[int],
         label: str,
         value: str,
         box_width: int,
-        value_width: int,
-        value_color: str = "black",
-        value_bg: str | None = None,
+        badge_width: int,
+        badge_color: str,
     ) -> Box:
         field = Box(parent, grid=grid, layout="grid", align="left", width=box_width)
         field.tk.grid_propagate(False)
         _ = Text(
             field,
-            text=f"{label}: " if label else "",
+            text=f"{label}:",
             grid=[0, 0],
             align="left",
             bold=True,
             size=self._gui.s_10,
         )
-        value_text = Text(
+        badge = Box(
             field,
-            text=value,
             grid=[1, 0],
+            layout="grid",
+            align="left",
+            width=badge_width,
+            height=max(self._gui.s_20, int(self._gui.s_18 * 1.35)),
+        )
+        badge.bg = badge_color
+        badge.tk.grid_propagate(False)
+        badge.tk.configure(highlightthickness=0, bd=0)
+        value_text = Text(
+            badge,
+            text=value,
+            grid=[0, 0],
             align="left",
             bold=True,
             size=self._gui.s_12,
-            width=value_width,
         )
-        value_text.text_color = value_color
-        if value_bg is not None:
-            value_text.bg = value_bg
+        value_text.text_color = self._signal_text_color(badge_color)
+        value_text.bg = badge_color
+        badge.tk.grid_columnconfigure(0, weight=1)
+        badge.tk.grid_rowconfigure(0, weight=1)
+        value_text.tk.grid_configure(sticky="nsew")
         return field
 
     @staticmethod
