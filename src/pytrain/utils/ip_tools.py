@@ -54,6 +54,8 @@ def wait_for_network(timeout_s: float = 60.0) -> bool:
         log.info("Waiting for network...")
         if wait_for_ipv4(timeout_s=1.0):
             return True
+        else:
+            log.info("Network not ready...")
         log.debug("Waiting for network...")
         time.sleep(0.5)
     return False
