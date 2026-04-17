@@ -7,3 +7,4 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
+from .wifi_info import WiFiInfo, WiFiSnapshot  # noqa: F401

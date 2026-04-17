@@ -6,6 +6,9 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+import ipaddress
+import socket
+
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
 from ..components.checkbox_group import CheckBoxGroup
@@ -15,6 +18,9 @@ from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from ...utils import WiFiInfo
+
+TEST_NET_IP = ("192.0.2.1", 80)
 
 ADMIN_TITLE = f"Manage {PROGRAM_NAME}"
 
@@ -36,6 +42,7 @@ class AdminPanel:
         self._scope_btns = None
         self._echo_btn = None
         self._debug_btn = None
+        self._wifi_info = WiFiInfo()
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
         self._overlay = None
@@ -54,11 +61,32 @@ class AdminPanel:
         admin_box.tk.config(width=self._width)
 
         row = 0
+        tb = self._titlebox(
+            admin_box,
+            text="WiFi",
+            grid=[0, row, 2, 1],
+            height=self._gui.button_size,
+        )
+        _ = Text(
+            tb,
+            text=self._wifi_summary(),
+            grid=[0, 0, 2, 1],
+            align="left",
+            bold=True,
+            size=self._gui.s_12,
+        )
+
+        row += 1
+        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_4
+
+        row += 1
         # noinspection PyTypeChecker
         tb = self._titlebox(
             admin_box,
             text="Base 3 Database",
             grid=[0, row, 2, 1],
+            height=self._gui.button_size,
         )
 
         self._sync_state = pb = PushButton(
@@ -210,6 +238,35 @@ class AdminPanel:
             grid=[1, 5],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
+
+    def _wifi_summary(self) -> str:
+        snapshot = self._wifi_info.query()
+        ssid = snapshot.ssid or "Unavailable"
+        if snapshot.quality is not None:
+            strength = f"{snapshot.quality}% {snapshot.quality_label}"
+        elif snapshot.signal_dbm is not None:
+            strength = f"{int(snapshot.signal_dbm)} dBm"
+        else:
+            strength = "Unavailable"
+        ip_address = self._current_ip_address()
+        return f"SSID: {ssid}   Signal: {strength}   IP: {ip_address}"
+
+    @staticmethod
+    def _current_ip_address() -> str:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                sock.connect(TEST_NET_IP)
+                ip = sock.getsockname()[0]
+            finally:
+                sock.close()
+
+            ip_obj = ipaddress.ip_address(ip)
+            if ip_obj.is_loopback or ip_obj.is_link_local or ip == "0.0.0.0":
+                return "Unavailable"
+            return ip
+        except OSError:
+            return "Unavailable"
 
     def _on_echo(self) -> None:
         self._pytrain.echo = bool(self._echo_btn.value)
