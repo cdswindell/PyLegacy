@@ -376,6 +376,10 @@ class HoldButton(PushButton):
     # Helper: snapshot tk "normal" colors (matches hb.tk.config usage)
     # ───────────────────────────────
     def _snapshot_tk_normals(self) -> None:
+        if self.text:
+            self._normal_text_bg = self.bg
+            self._normal_text_fg = self.text_color
+
         try:
             self._normal_bg = str(self.tk.cget("background"))
         except TclError:
@@ -403,9 +407,8 @@ class HoldButton(PushButton):
                 pressed_bg = "dark_grey"
                 try:
                     if self.text:
-                        # self.tk.config(background=pressed_bg, foreground=pressed_fg)
                         self.bg = self._normal_text_fg if self._normal_text_fg else "black"
-                        self.text_color = self._normal_text_fg if self._normal_text_bg else "white"
+                        self.text_color = self._normal_text_bg if self._normal_text_bg else "white"
                     else:
                         # even if text is blanked, keep bg feedback if desired
                         self.tk.config(background=pressed_bg)
