@@ -307,7 +307,7 @@ class AdminPanel:
     def _ensure_wifi_refresh(self) -> None:
         if self._overlay is None or self._wifi_refresh_after_id is not None:
             return
-        self._wifi_refresh_after_id = self._overlay.tk.after(10_000, self._refresh_wifi_if_visible)
+        self._wifi_refresh_after_id = self._overlay.tk.after(5_000, self._refresh_wifi_if_visible)
 
     def _refresh_wifi_if_visible(self) -> None:
         self._wifi_refresh_after_id = None
