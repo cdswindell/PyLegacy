@@ -71,7 +71,7 @@ class AdminPanel:
         """Builds the 2-column grid layout for the admin popup."""
         self._wifi_box = wifi_box = TitleBox(
             body,
-            text="WiFi",
+            text="Network",
             layout="grid",
             align="top",
             width=self._width,
@@ -257,21 +257,22 @@ class AdminPanel:
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
-    def _wifi_status(self) -> tuple[str | None, str, str | None, str]:
+    def _wifi_status(self) -> tuple[str, str | None, str, str | None, str]:
         snapshot = self._wifi_info.query()
         ip_address = self._current_ip_address()
         quality = snapshot.quality
-        show_wifi_details = bool(
+        is_wifi_active = bool(
             snapshot.connected
             and snapshot.ssid
             and snapshot.interface
             and self._ip_belongs_to_interface(ip_address, snapshot.interface)
         )
-        ssid = self._truncate(snapshot.ssid, 14) if show_wifi_details and snapshot.ssid else None
+        title = "WiFi" if is_wifi_active else "Ethernet"
+        ssid = self._truncate(snapshot.ssid, 14) if is_wifi_active and snapshot.ssid else None
         if quality is None and snapshot.signal_dbm is not None:
             quality = WiFiInfo.dbm_to_quality(snapshot.signal_dbm)
-        strength = f"{quality}%" if show_wifi_details and quality is not None else None
-        return ssid, ip_address, strength, self._signal_color(quality)
+        strength = f"{quality}%" if is_wifi_active and quality is not None else None
+        return title, ssid, ip_address, strength, self._signal_color(quality)
 
     def _wifi_text(self, parent: Box, grid: list[int], text: str) -> Text:
         field = Text(
@@ -305,8 +306,9 @@ class AdminPanel:
     def _refresh_wifi_display(self) -> None:
         if self._wifi_box is None or self._wifi_ssid is None or self._wifi_ip is None or self._wifi_signal is None:
             return
-        ssid, ip_address, strength, signal_color = self._wifi_status()
+        title, ssid, ip_address, strength, signal_color = self._wifi_status()
         show_wifi_details = bool(ssid and strength)
+        self._wifi_box.text = title
         self._wifi_ssid.value = f"SSID: {ssid}" if ssid else ""
         self._wifi_ip.value = ip_address
         self._wifi_signal.value = strength or ""
