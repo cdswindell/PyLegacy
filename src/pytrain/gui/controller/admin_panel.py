@@ -66,6 +66,7 @@ class AdminPanel:
             admin_box,
             text="WiFi",
             grid=[0, row, 2, 1],
+            width=self._width,
             height=self._gui.button_size,
         )
         tb.tk.grid_rowconfigure(0, weight=1)
