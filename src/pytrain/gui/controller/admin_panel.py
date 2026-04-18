@@ -43,6 +43,10 @@ class AdminPanel:
         self._echo_btn = None
         self._debug_btn = None
         self._wifi_info = WiFiInfo()
+        self._wifi_ssid = None
+        self._wifi_ip = None
+        self._wifi_signal = None
+        self._wifi_refresh_after_id = None
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
         self._overlay = None
@@ -51,7 +55,13 @@ class AdminPanel:
     def overlay(self) -> Box:
         if self._overlay is None:
             # noinspection PyProtectedMember
-            self._overlay = self._gui._popup.create_popup(ADMIN_TITLE + "\n" + self._gui.version, self.build)
+            self._overlay = self._gui._popup.create_popup(
+                ADMIN_TITLE + "\n" + self._gui.version,
+                self.build,
+                on_popup_close=self._on_popup_close,
+            )
+        self._refresh_wifi_display()
+        self._ensure_wifi_refresh()
         return self._overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -75,16 +85,16 @@ class AdminPanel:
         wifi_box.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
         wifi_box.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
 
-        self._wifi_text(wifi_box, grid=[0, 0], text=f"SSID: {ssid}")
-        self._wifi_text(wifi_box, grid=[1, 0], text=ip_address)
-        self._wifi_signal_badge(wifi_box, grid=[2, 0], text=strength, badge_color=signal_color)
+        self._wifi_ssid = self._wifi_text(wifi_box, grid=[0, 0], text=f"SSID: {ssid}")
+        self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text=ip_address)
+        self._wifi_signal = self._wifi_signal_badge(wifi_box, grid=[2, 0], text=strength, badge_color=signal_color)
+
+        sp = Text(body, text=" ", height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_4
 
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
         admin_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
-
-        sp = Text(body, text=" ", height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
 
         row = 0
         # noinspection PyTypeChecker
@@ -283,6 +293,38 @@ class AdminPanel:
         badge.tk.configure(anchor="center", padx=8, pady=3, borderwidth=1, relief="flat")
         badge.tk.grid_configure(sticky="e", padx=0, pady=(1, 5))
         return badge
+
+    def _refresh_wifi_display(self) -> None:
+        if self._wifi_ssid is None or self._wifi_ip is None or self._wifi_signal is None:
+            return
+        ssid, ip_address, strength, signal_color = self._wifi_status()
+        self._wifi_ssid.value = f"SSID: {ssid}"
+        self._wifi_ip.value = ip_address
+        self._wifi_signal.value = strength
+        self._wifi_signal.bg = signal_color
+        self._wifi_signal.text_color = self._signal_text_color(signal_color)
+
+    def _ensure_wifi_refresh(self) -> None:
+        if self._overlay is None or self._wifi_refresh_after_id is not None:
+            return
+        self._wifi_refresh_after_id = self._overlay.tk.after(10_000, self._refresh_wifi_if_visible)
+
+    def _refresh_wifi_if_visible(self) -> None:
+        self._wifi_refresh_after_id = None
+        if self._overlay is None or not self._overlay.visible:
+            return
+        self._refresh_wifi_display()
+        self._ensure_wifi_refresh()
+
+    def _on_popup_close(self, _overlay: Box | None = None) -> None:
+        if self._overlay is None or self._wifi_refresh_after_id is None:
+            self._wifi_refresh_after_id = None
+            return
+        try:
+            self._overlay.tk.after_cancel(self._wifi_refresh_after_id)
+        except (AttributeError, RuntimeError, ValueError):
+            pass
+        self._wifi_refresh_after_id = None
 
     @staticmethod
     def _current_ip_address() -> str:
