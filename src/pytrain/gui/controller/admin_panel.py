@@ -64,7 +64,7 @@ class AdminPanel:
             layout="grid",
             align="top",
             width=self._width,
-            height=int(2 * self._gui.button_size / 3),
+            height=self._gui.button_size // 2,
         )
         wifi_box.tk.config(width=self._width)
         wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
@@ -82,6 +82,9 @@ class AdminPanel:
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
         admin_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
+
+        sp = Text(body, text=" ", height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_4
 
         row = 0
         # noinspection PyTypeChecker
