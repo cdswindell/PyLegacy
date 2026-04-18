@@ -63,6 +63,7 @@ class AdminPanel:
             text="WiFi",
             layout="grid",
             align="top",
+            width=self._width,
         )
         wifi_box.tk.config(width=self._width)
         wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
