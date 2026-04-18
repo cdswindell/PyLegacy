@@ -9,6 +9,7 @@
 import ipaddress
 import socket
 
+import psutil
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
 from ..components.checkbox_group import CheckBoxGroup
@@ -258,13 +259,18 @@ class AdminPanel:
 
     def _wifi_status(self) -> tuple[str | None, str, str | None, str]:
         snapshot = self._wifi_info.query()
+        ip_address = self._current_ip_address()
         quality = snapshot.quality
-        show_wifi_details = bool(snapshot.connected and snapshot.ssid)
+        show_wifi_details = bool(
+            snapshot.connected
+            and snapshot.ssid
+            and snapshot.interface
+            and self._ip_belongs_to_interface(ip_address, snapshot.interface)
+        )
         ssid = self._truncate(snapshot.ssid, 14) if show_wifi_details and snapshot.ssid else None
         if quality is None and snapshot.signal_dbm is not None:
             quality = WiFiInfo.dbm_to_quality(snapshot.signal_dbm)
         strength = f"{quality}%" if show_wifi_details and quality is not None else None
-        ip_address = self._current_ip_address()
         return ssid, ip_address, strength, self._signal_color(quality)
 
     def _wifi_text(self, parent: Box, grid: list[int], text: str) -> Text:
@@ -339,6 +345,16 @@ class AdminPanel:
         except (AttributeError, RuntimeError, ValueError):
             pass
         self._wifi_refresh_after_id = None
+
+    @staticmethod
+    def _ip_belongs_to_interface(ip_address: str, interface: str) -> bool:
+        if ip_address == "Unavailable" or not interface:
+            return False
+        try:
+            addrs = psutil.net_if_addrs().get(interface, [])
+        except OSError:
+            return False
+        return any(addr.family == socket.AF_INET and addr.address == ip_address for addr in addrs)
 
     @staticmethod
     def _current_ip_address() -> str:
