@@ -64,6 +64,7 @@ class AdminPanel:
             layout="grid",
             align="top",
         )
+        wifi_box.tk.config(width=self._width)
         wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
         wifi_box.tk.pack_propagate(False)
         wifi_box.text_size = self._gui.s_10
