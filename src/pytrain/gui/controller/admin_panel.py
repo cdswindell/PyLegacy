@@ -57,29 +57,33 @@ class AdminPanel:
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        admin_box = Box(body, border=1, align="top", layout="grid")
-        admin_box.tk.config(width=self._width)
-
-        row = 0
         ssid, ip_address, strength, signal_color = self._wifi_status()
-        tb = self._titlebox(
-            admin_box,
+        wifi_box = TitleBox(
+            body,
             text="WiFi",
-            grid=[0, row, 2, 1],
+            layout="grid",
+            align="top",
             width=self._width,
             height=self._gui.button_size,
         )
-        tb.tk.config(width=self._width)
-        tb.tk.grid_rowconfigure(0, weight=1)
-        tb.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
-        tb.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
-        tb.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
+        wifi_box.tk.config(width=self._width)
+        wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
+        wifi_box.tk.pack_propagate(False)
+        wifi_box.text_size = self._gui.s_10
+        wifi_box.tk.grid_rowconfigure(0, weight=1)
+        wifi_box.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
+        wifi_box.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
+        wifi_box.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
 
-        self._wifi_text(tb, grid=[0, 0], text=f"SSID: {ssid}")
-        self._wifi_text(tb, grid=[1, 0], text=ip_address)
-        self._wifi_signal_badge(tb, grid=[2, 0], text=strength, badge_color=signal_color)
+        self._wifi_text(wifi_box, grid=[0, 0], text=f"SSID: {ssid}")
+        self._wifi_text(wifi_box, grid=[1, 0], text=ip_address)
+        self._wifi_signal_badge(wifi_box, grid=[2, 0], text=strength, badge_color=signal_color)
 
-        row += 1
+        admin_box = Box(body, border=1, align="top", layout="grid")
+        admin_box.tk.config(width=self._width)
+        admin_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
+
+        row = 0
         # noinspection PyTypeChecker
         tb = self._titlebox(
             admin_box,
@@ -258,7 +262,7 @@ class AdminPanel:
             size=self._gui.s_12,
         )
         field.tk.configure(anchor="w")
-        field.tk.grid_configure(sticky="ew", padx=0, pady=(2, 3))
+        field.tk.grid_configure(sticky="ew", padx=0, pady=(2, 4))
         return field
 
     def _wifi_signal_badge(self, parent: Box, grid: list[int], text: str, badge_color: str) -> Text:
@@ -273,8 +277,8 @@ class AdminPanel:
         )
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
-        badge.tk.configure(anchor="center", padx=8, pady=2, borderwidth=1, relief="flat")
-        badge.tk.grid_configure(sticky="e", padx=0, pady=(2, 4))
+        badge.tk.configure(anchor="center", padx=8, pady=3, borderwidth=1, relief="flat")
+        badge.tk.grid_configure(sticky="e", padx=0, pady=(1, 5))
         return badge
 
     @staticmethod
