@@ -69,6 +69,7 @@ class AdminPanel:
             width=self._width,
             height=self._gui.button_size,
         )
+        tb.tk.config(width=self._width)
         tb.tk.grid_rowconfigure(0, weight=1)
         tb.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
         tb.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
