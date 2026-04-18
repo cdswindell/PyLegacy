@@ -81,9 +81,9 @@ class AdminPanel:
         wifi_box.tk.pack_propagate(False)
         wifi_box.text_size = self._gui.s_10
         wifi_box.tk.grid_rowconfigure(0, weight=1)
-        wifi_box.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
-        wifi_box.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
-        wifi_box.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
+        # wifi_box.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
+        # wifi_box.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
+        # wifi_box.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
 
         self._wifi_ssid = self._wifi_text(wifi_box, grid=[0, 0], text=f"SSID: {ssid}")
         self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text=ip_address)
