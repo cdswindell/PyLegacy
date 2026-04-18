@@ -25,8 +25,8 @@ def _completed(stdout: str = "", returncode: int = 0) -> subprocess.CompletedPro
 def test_dbm_to_quality_clamps_to_zero_and_one_hundred():
     assert WiFiInfo.dbm_to_quality(-120) == 0
     assert WiFiInfo.dbm_to_quality(-100) == 0
-    assert WiFiInfo.dbm_to_quality(-75) == 50
-    assert WiFiInfo.dbm_to_quality(-50) == 100
+    assert WiFiInfo.dbm_to_quality(-75) == 38
+    assert WiFiInfo.dbm_to_quality(-35) == 100
     assert WiFiInfo.dbm_to_quality(-20) == 100
 
 
@@ -59,7 +59,7 @@ def test_linux_iw_uses_discovered_interface_not_wlan0(monkeypatch: MonkeyPatch) 
     assert snapshot.bssid == "11:22:33:44:55:66"
     assert snapshot.signal_dbm == -61
     assert snapshot.frequency_mhz == 5180
-    assert snapshot.quality == 78
+    assert snapshot.quality == 60
     assert snapshot.quality_label == "Very Good"
 
 
@@ -133,7 +133,7 @@ def test_linux_procfs_fallback_reads_signal_from_proc_net_wireless(monkeypatch: 
     assert snapshot.ssid == "Fallback WiFi"
     assert snapshot.signal_dbm == -42
     assert snapshot.noise_dbm == -92
-    assert snapshot.quality == 100
+    assert snapshot.quality == 89
     assert snapshot.quality_label == "Excellent"
 
 
@@ -169,4 +169,4 @@ def test_macos_airport_output_is_parsed(monkeypatch: MonkeyPatch) -> None:
     assert snapshot.signal_dbm == -67
     assert snapshot.noise_dbm == -92
     assert snapshot.channel == "149,1"
-    assert snapshot.quality == 66
+    assert snapshot.quality == 51

@@ -9,15 +9,11 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 import os
 import platform
 import re
 import subprocess
-
-
-log = logging.getLogger(__name__)
 
 MACOS_AIRPORT = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
 PROC_NET_WIFI_FILES = ("/proc/net/wifi", "/proc/net/wireless")
@@ -59,14 +55,16 @@ class WiFiInfo:
 
     @staticmethod
     def dbm_to_quality(signal_dbm: float | int | None) -> int | None:
-        log.info(f"Raw signal: {signal_dbm}")
         if signal_dbm is None:
             return None
-        if signal_dbm <= -100:
+        best_signal_dbm = -35.0
+        worst_signal_dbm = -100.0
+        if signal_dbm <= worst_signal_dbm:
             return 0
-        if signal_dbm >= -50:
+        if signal_dbm >= best_signal_dbm:
             return 100
-        return int(round((float(signal_dbm) + 100.0) * 2.0))
+        quality = ((float(signal_dbm) - worst_signal_dbm) / (best_signal_dbm - worst_signal_dbm)) * 100.0
+        return int(round(quality))
 
     @staticmethod
     def quality_label(quality: int | None) -> str:
