@@ -42,6 +42,7 @@ class AdminPanel:
         self._scope_btns = None
         self._echo_btn = None
         self._debug_btn = None
+        self._wifi_box = None
         self._wifi_info = WiFiInfo()
         self._wifi_ssid = None
         self._wifi_ip = None
@@ -67,8 +68,7 @@ class AdminPanel:
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        ssid, ip_address, strength, signal_color = self._wifi_status()
-        wifi_box = TitleBox(
+        self._wifi_box = wifi_box = TitleBox(
             body,
             text="WiFi",
             layout="grid",
@@ -81,13 +81,14 @@ class AdminPanel:
         wifi_box.tk.pack_propagate(False)
         wifi_box.text_size = self._gui.s_10
         wifi_box.tk.grid_rowconfigure(0, weight=1)
-        # wifi_box.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
-        # wifi_box.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
-        # wifi_box.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
+        wifi_box.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
+        wifi_box.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
+        wifi_box.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
 
-        self._wifi_ssid = self._wifi_text(wifi_box, grid=[0, 0], text=f"SSID: {ssid}")
-        self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text=ip_address)
-        self._wifi_signal = self._wifi_signal_badge(wifi_box, grid=[2, 0], text=strength, badge_color=signal_color)
+        self._wifi_ssid = self._wifi_text(wifi_box, grid=[0, 0], text="")
+        self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text="")
+        self._wifi_signal = self._wifi_signal_badge(wifi_box, grid=[2, 0], text="N/A", badge_color="dim gray")
+        self._refresh_wifi_display()
 
         sp = Text(body, text=" ", height=1, bold=True, align="top")
         sp.text_size = self._gui.s_4
@@ -255,13 +256,14 @@ class AdminPanel:
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
-    def _wifi_status(self) -> tuple[str, str, str, str]:
+    def _wifi_status(self) -> tuple[str | None, str, str | None, str]:
         snapshot = self._wifi_info.query()
         quality = snapshot.quality
-        ssid = self._truncate(snapshot.ssid or "Unavailable", 14)
+        show_wifi_details = bool(snapshot.connected and snapshot.ssid)
+        ssid = self._truncate(snapshot.ssid, 14) if show_wifi_details and snapshot.ssid else None
         if quality is None and snapshot.signal_dbm is not None:
             quality = WiFiInfo.dbm_to_quality(snapshot.signal_dbm)
-        strength = f"{quality}%" if quality is not None else "N/A"
+        strength = f"{quality}%" if show_wifi_details and quality is not None else None
         ip_address = self._current_ip_address()
         return ssid, ip_address, strength, self._signal_color(quality)
 
@@ -295,14 +297,26 @@ class AdminPanel:
         return badge
 
     def _refresh_wifi_display(self) -> None:
-        if self._wifi_ssid is None or self._wifi_ip is None or self._wifi_signal is None:
+        if self._wifi_box is None or self._wifi_ssid is None or self._wifi_ip is None or self._wifi_signal is None:
             return
         ssid, ip_address, strength, signal_color = self._wifi_status()
-        self._wifi_ssid.value = f"SSID: {ssid}"
+        show_wifi_details = bool(ssid and strength)
+        self._wifi_ssid.value = f"SSID: {ssid}" if ssid else ""
         self._wifi_ip.value = ip_address
-        self._wifi_signal.value = strength
-        self._wifi_signal.bg = signal_color
-        self._wifi_signal.text_color = self._signal_text_color(signal_color)
+        self._wifi_signal.value = strength or ""
+
+        if show_wifi_details:
+            self._wifi_ssid.show()
+            self._wifi_signal.show()
+            self._wifi_ip.tk.grid_configure(column=1, columnspan=1, sticky="ew")
+            self._wifi_ip.tk.configure(anchor="w")
+            self._wifi_signal.bg = signal_color
+            self._wifi_signal.text_color = self._signal_text_color(signal_color)
+        else:
+            self._wifi_ssid.hide()
+            self._wifi_signal.hide()
+            self._wifi_ip.tk.grid_configure(column=0, columnspan=3, sticky="ew")
+            self._wifi_ip.tk.configure(anchor="center")
 
     def _ensure_wifi_refresh(self) -> None:
         if self._overlay is None or self._wifi_refresh_after_id is not None:
