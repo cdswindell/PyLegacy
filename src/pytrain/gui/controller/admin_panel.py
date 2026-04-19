@@ -82,12 +82,11 @@ class AdminPanel:
         wifi_box.tk.pack_propagate(False)
         wifi_box.text_size = self._gui.s_10
         wifi_box.tk.grid_rowconfigure(0, weight=1)
-        # wifi_box.tk.grid_columnconfigure(0, weight=5, uniform="wifi")
-        # wifi_box.tk.grid_columnconfigure(1, weight=3, uniform="wifi")
-        # wifi_box.tk.grid_columnconfigure(2, weight=2, uniform="wifi")
+        for column in range(3):
+            wifi_box.tk.grid_columnconfigure(column, weight=1, uniform="wifi")
 
-        self._wifi_ssid = self._wifi_text(wifi_box, grid=[0, 0], text="")
-        self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text="")
+        self._wifi_ssid = self._wifi_text(wifi_box, grid=[0, 0], text="", anchor="w", sticky="w")
+        self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text="", anchor="center")
         self._wifi_signal = self._wifi_signal_badge(wifi_box, grid=[2, 0], text="N/A", badge_color="dim gray")
         self._refresh_wifi_display()
 
@@ -274,7 +273,7 @@ class AdminPanel:
         strength = f"{quality}%" if is_wifi_active and quality is not None else None
         return title, ssid, ip_address, strength, self._signal_color(quality)
 
-    def _wifi_text(self, parent: Box, grid: list[int], text: str) -> Text:
+    def _wifi_text(self, parent: Box, grid: list[int], text: str, anchor: str = "w", sticky: str = "nsew") -> Text:
         field = Text(
             parent,
             text=text,
@@ -283,8 +282,8 @@ class AdminPanel:
             bold=True,
             size=self._gui.s_12,
         )
-        field.tk.configure(anchor="w")
-        field.tk.grid_configure(sticky="nwse", padx=0, pady=(2, 4))
+        field.tk.configure(anchor=anchor)
+        field.tk.grid_configure(sticky=sticky, padx=0, pady=(2, 4))
         return field
 
     def _wifi_signal_badge(self, parent: Box, grid: list[int], text: str, badge_color: str) -> Text:
@@ -299,8 +298,8 @@ class AdminPanel:
         )
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
-        badge.tk.configure(anchor="center", padx=8, pady=3, borderwidth=1, relief="flat")
-        badge.tk.grid_configure(sticky="nwse", padx=0, pady=(1, 5))
+        badge.tk.configure(padx=8, pady=3, borderwidth=1, relief="flat", anchor="e")
+        badge.tk.grid_configure(sticky="e", padx=0, pady=(1, 5))
         return badge
 
     def _refresh_wifi_display(self) -> None:
@@ -316,15 +315,11 @@ class AdminPanel:
         if show_wifi_details:
             self._wifi_ssid.show()
             self._wifi_signal.show()
-            self._wifi_ip.tk.grid_configure(column=1, columnspan=1, sticky="nwse")
-            self._wifi_ip.tk.configure(anchor="w")
             self._wifi_signal.bg = signal_color
             self._wifi_signal.text_color = self._signal_text_color(signal_color)
         else:
             self._wifi_ssid.hide()
             self._wifi_signal.hide()
-            self._wifi_ip.tk.grid_configure(column=0, columnspan=3, sticky="nwse")
-            self._wifi_ip.tk.configure(anchor="center")
 
     def _ensure_wifi_refresh(self) -> None:
         if self._overlay is None or self._wifi_refresh_after_id is not None:
