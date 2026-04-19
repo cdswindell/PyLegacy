@@ -54,6 +54,44 @@ def _widget_trace_name(widget: Widget) -> str:
     return type(widget).__name__
 
 
+def _widget_visible(widget: object | None) -> bool | None:
+    if widget is None:
+        return None
+    return bool(getattr(widget, "visible", False))
+
+
+def _widget_value(widget: object | None) -> object | None:
+    if widget is None:
+        return None
+    return getattr(widget, "value", None)
+
+
+def _widget_has_focus(widget: object | None) -> bool | None:
+    tk_widget = getattr(widget, "tk", None)
+    if tk_widget is None:
+        return None
+    focus_displayof = getattr(tk_widget, "focus_displayof", None)
+    if not callable(focus_displayof):
+        return None
+    try:
+        return focus_displayof() == tk_widget
+    except (AttributeError, RuntimeError, TypeError, ValueError):
+        return None
+
+
+def _tk_config_value(widget: object | None, key: str) -> object | None:
+    tk_widget = getattr(widget, "tk", None)
+    if tk_widget is None:
+        return None
+    cget = getattr(tk_widget, "cget", None)
+    if not callable(cget):
+        return None
+    try:
+        return cget(key)
+    except (AttributeError, RuntimeError, TypeError, ValueError):
+        return None
+
+
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
@@ -105,10 +143,12 @@ class ControllerView:
 
         host = self._host
         started = time.perf_counter()
+        throttle_state_changed = throttle_state != self._last_throttle_state
+        state_changed = state != self._last_state
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
-                if throttle_state != self._last_throttle_state:
+                if throttle_state_changed:
                     if not host.speed.enabled:
                         host.speed.enable()
                     if not host.throttle.enabled:
@@ -202,6 +242,18 @@ class ControllerView:
             force=elapsed_ms >= slow_ms,
             state_tmcc_id=state.tmcc_id,
             throttle_tmcc_id=throttle_state.tmcc_id if throttle_state else None,
+            state_changed=state_changed,
+            throttle_state_changed=throttle_state_changed,
+            throttle_has_focus=_widget_has_focus(getattr(host, "throttle", None)),
+            throttle_widget_value=_widget_value(getattr(host, "throttle", None)),
+            throttle_speed=throttle_state.speed if throttle_state else None,
+            throttle_target_speed=throttle_state.target_speed if throttle_state else None,
+            speed_label_value=_widget_value(getattr(host, "speed", None)),
+            rr_speed_btn_visible=_widget_visible(getattr(host, "_rr_speed_btn", None)),
+            rr_speed_box_visible=_widget_visible(getattr(host, "_rr_speed_box", None)),
+            freight_box_visible=_widget_visible(getattr(host, "_freight_sounds_bell_horn_box", None)),
+            throttle_box_visible=_widget_visible(getattr(host, "throttle_box", None)),
+            throttle_troughcolor=_tk_config_value(getattr(host, "throttle", None), "troughcolor"),
             elapsed_ms=round(elapsed_ms, 2),
         )
         for k, v in host._scope_buttons.items():
@@ -659,6 +711,7 @@ class ControllerView:
         prior_state = self._last_state
         prior_state_tmcc_id = getattr(prior_state, "tmcc_id", None)
         prior_state_engine_type = self._engine_type_key_for_state(prior_state)
+        last_throttle_tmcc_id = getattr(self._last_throttle_state, "tmcc_id", None)
         self._trace_scope_button_state("controller.apply_engine_type:start")
 
         # default hide/show aux widgets
@@ -685,6 +738,16 @@ class ControllerView:
                 force=elapsed_ms >= _slow_ms(host),
                 state_tmcc_id=getattr(state, "tmcc_id", None),
                 engine_type="d",
+                prior_engine_type=prior_engine_type,
+                prior_state_tmcc_id=prior_state_tmcc_id,
+                prior_state_engine_type=prior_state_engine_type,
+                last_throttle_tmcc_id=last_throttle_tmcc_id,
+                throttle_has_focus=_widget_has_focus(getattr(host, "throttle", None)),
+                throttle_widget_value=_widget_value(getattr(host, "throttle", None)),
+                rr_speed_btn_visible=_widget_visible(getattr(host, "_rr_speed_btn", None)),
+                rr_speed_box_visible=_widget_visible(getattr(host, "_rr_speed_box", None)),
+                freight_box_visible=_widget_visible(getattr(host, "_freight_sounds_bell_horn_box", None)),
+                throttle_box_visible=_widget_visible(getattr(host, "throttle_box", None)),
                 shown_count=shown_count,
                 hidden_count=hidden_count,
                 skipped=skipped,
@@ -731,6 +794,13 @@ class ControllerView:
             prior_engine_type=prior_engine_type,
             prior_state_tmcc_id=prior_state_tmcc_id,
             prior_state_engine_type=prior_state_engine_type,
+            last_throttle_tmcc_id=last_throttle_tmcc_id,
+            throttle_has_focus=_widget_has_focus(getattr(host, "throttle", None)),
+            throttle_widget_value=_widget_value(getattr(host, "throttle", None)),
+            rr_speed_btn_visible=_widget_visible(getattr(host, "_rr_speed_btn", None)),
+            rr_speed_box_visible=_widget_visible(getattr(host, "_rr_speed_box", None)),
+            freight_box_visible=_widget_visible(getattr(host, "_freight_sounds_bell_horn_box", None)),
+            throttle_box_visible=_widget_visible(getattr(host, "throttle_box", None)),
             shown_count=shown_count,
             hidden_count=hidden_count,
             skipped=skipped,
