@@ -936,6 +936,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:
             self._state_info.update(state)
+        for k, v in self._scope_buttons.items():
+            if k == self.scope:
+                log.warning(f"on_scope: {k} {v.bg} {v.text_color}")
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
         if state and state != self._active_train_state:
@@ -1126,7 +1129,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 else:
                     v.bg = "white"
                     v.text_color = "black"
-                    log.warning(f"on_scope: {k} {v.bg} {v.text_color}")
             # if new scope selected, display most recent scoped component, if one existed
             if scope != self.scope:
                 self.tmcc_id_box.text = f"{scope.title} ID"
@@ -1172,8 +1174,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             )
             for k, v in self._scope_buttons.items():
                 if k == scope:
-                    v.bg = self._enabled_bg
-                    v.text_color = self._enabled_text
                     log.error(f"on_scope: {k} {v.bg} {v.text_color}")
 
     def display_most_recent(self, scope: CommandScope) -> None:
