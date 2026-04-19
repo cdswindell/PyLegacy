@@ -1126,6 +1126,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 else:
                     v.bg = "white"
                     v.text_color = "black"
+                    log.warning(f"on_scope: {k} {v.bg} {v.text_color}")
             # if new scope selected, display most recent scoped component, if one existed
             if scope != self.scope:
                 self.tmcc_id_box.text = f"{scope.title} ID"
