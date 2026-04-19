@@ -7,6 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import logging
+import time
 from tkinter import TclError
 from typing import Generic, TYPE_CHECKING, TypeVar
 
@@ -686,6 +687,7 @@ class KeypadView(Generic[S]):
           - flip entry-mode flag
           - hide entry/ops cells (caller will selectively re-show ops cells)
         """
+        started = time.perf_counter()
         host = self._host
         self._entry_mode = False
 
@@ -699,7 +701,16 @@ class KeypadView(Generic[S]):
 
         self._collapse_acc_aux_cells()
         self.activate_numeric_keys()
-        _trace_phase(host, "enter_ops_mode_base", scope=host.scope.label)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        slow_ms = float(getattr(host, "gui_trace_slow_ms", 350.0))
+        _trace_phase(
+            host,
+            "enter_ops_mode_base",
+            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
+            force=elapsed_ms >= slow_ms,
+            scope=host.scope.label,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         _trace_visibility(host, "keypad.enter_ops_mode_base")
 
     def apply_ops_mode_ui_engine_shell(self) -> None:
@@ -709,6 +720,7 @@ class KeypadView(Generic[S]):
           - ensure controller container(s) are visible
           - enable Reset
         """
+        started = time.perf_counter()
         host = self._host
 
         # Hide keypad/controller boxes appropriately
@@ -728,6 +740,16 @@ class KeypadView(Generic[S]):
             host.controller_keypad_box.show()
         if not host.controller_box.visible:
             host.controller_box.show()
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        slow_ms = float(getattr(host, "gui_trace_slow_ms", 350.0))
+        _trace_phase(
+            host,
+            "apply_ops_mode_ui_engine_shell",
+            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
+            force=elapsed_ms >= slow_ms,
+            scope=host.scope.label,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         _trace_visibility(host, "keypad.apply_ops_mode_ui_engine_shell")
 
     def apply_ops_mode_ui_non_engine(self, state: S | None = None) -> None:

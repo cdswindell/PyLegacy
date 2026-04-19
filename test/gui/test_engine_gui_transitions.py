@@ -16,6 +16,7 @@ class DummyState:
         self.address = tmcc_id
         self.name = name
         self.scope = scope
+        self.has_throttle = scope in {CommandScope.ENGINE, CommandScope.TRAIN}
 
     def __repr__(self) -> str:
         return f"{self.scope.name}:{self.tmcc_id}"
@@ -86,6 +87,7 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui._accessory_view = {}
     gui._active_train_state = None
     gui._active_engine_state = None
+    gui._in_train_link_mode = False
     gui._state_info = None
     gui._transition_depth = 0
     gui._options_rebuild_pending = False
@@ -266,6 +268,7 @@ def test_on_new_train_builds_train_link_queue_and_sets_engine_scope_tmcc() -> No
     assert list(gui._train_linked_queue) == [linked_1, linked_2]
     assert gui._scope_tmcc_ids[CommandScope.ENGINE] == 11
     assert gui._active_train_state is train_state
+    assert gui._in_train_link_mode is True
     assert gui._scope_buttons[CommandScope.ENGINE].bg == "lightgreen"
     assert gui._rebuild_options_calls == 1
 
@@ -318,6 +321,41 @@ def test_on_new_engine_marks_train_scope_when_train_linked_engine_is_active(
     gui.on_new_engine(linked_engine, is_engine=True)
 
     assert gui._scope_buttons[CommandScope.TRAIN].bg == "lightgreen"
+
+
+def test_on_new_engine_skips_train_link_teardown_when_flag_is_not_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gui = _new_engine(CommandScope.ENGINE)
+    state = DummyState(tmcc_id=18, name="Diesel", scope=CommandScope.ENGINE)
+    gui._in_train_link_mode = False
+    gui._tear_down_calls = 0
+
+    def tear_down() -> None:
+        gui._tear_down_calls += 1
+
+    gui._tear_down_link_gui = tear_down
+    monkeypatch.setattr(mod, "EngineState", DummyState, raising=True)
+
+    gui.on_new_engine(state, is_engine=True)
+
+    assert gui._tear_down_calls == 0
+
+
+def test_tear_down_link_gui_resets_train_link_mode_and_clears_train_linked_state() -> None:
+    gui = _new_engine(CommandScope.ENGINE)
+    linked_engine = DummyState(tmcc_id=11, name="Car 1", scope=CommandScope.ENGINE)
+    gui._train_linked_queue.append(linked_engine)
+    gui._scope_tmcc_ids[CommandScope.ENGINE] = 11
+    gui._active_train_state = DummyTrainState(tmcc_id=9, linked_ids=[11], name="Empire")
+    gui._in_train_link_mode = True
+
+    mod.EngineGui._tear_down_link_gui(gui)
+
+    assert gui._in_train_link_mode is False
+    assert gui._active_train_state is None
+    assert list(gui._train_linked_queue) == []
+    assert gui._scope_tmcc_ids[CommandScope.ENGINE] == 0
 
 
 def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytest.MonkeyPatch) -> None:

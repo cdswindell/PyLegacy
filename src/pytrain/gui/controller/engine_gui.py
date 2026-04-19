@@ -203,6 +203,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.horn_overlay = None
+        self._in_train_link_mode = False
 
         self._last_engine_type = None
 
@@ -281,6 +282,26 @@ class EngineGui(GuiZeroBase, Generic[S]):
         suffix = self._format_trace_fields(**fields)
         log.log(level, f"{prefix} {suffix}".rstrip())
 
+    def _trace_elapsed_phase(
+        self,
+        phase: str,
+        started: float,
+        *,
+        force: bool | None = None,
+        **fields: Any,
+    ) -> float:
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        slow = elapsed_ms >= self.gui_trace_slow_ms
+        if self.gui_trace_enabled or slow:
+            self.trace_transition_phase(
+                phase,
+                level=logging.INFO if slow else logging.DEBUG,
+                force=slow if force is None else force,
+                elapsed_ms=round(elapsed_ms, 2),
+                **fields,
+            )
+        return elapsed_ms
+
     def _next_transition_id(self) -> str:
         seq = getattr(self, "_transition_seq", 0) + 1
         self._transition_seq = seq
@@ -326,6 +347,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
             **visibility,
             **fields,
         )
+
+    def _close_popup(self, source: str) -> None:
+        started = time.perf_counter()
+        self._popup.close()
+        self._trace_elapsed_phase("popup_close", started, source=source)
 
     @contextmanager
     def _display_transition(self, cause: str | None = None, **fields: Any) -> Iterator[None]:
@@ -780,16 +806,28 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return options
 
     def monitor_state(self):
+        started = time.perf_counter()
         with self._cv:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
             watcher = self._scope_watchers.get(self.scope, None)
             if isinstance(watcher, StateWatcher) and watcher.tmcc_id == tmcc_id:
                 # we're good, return
+                self._trace_elapsed_phase(
+                    "monitor_state",
+                    started,
+                    scope=self._scope_label(),
+                    tmcc_id=tmcc_id,
+                    action="reuse",
+                    watcher_type=type(watcher).__name__,
+                )
                 return
+            shut_down_existing = False
             if isinstance(watcher, StateWatcher):
                 # close existing watcher
                 watcher.shutdown()
                 self._scope_watchers[self.scope] = None
+                shut_down_existing = True
+            created = False
             if tmcc_id:
                 # create a new state watcher to monitor state of scoped entity
                 state = self.active_state
@@ -797,6 +835,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if state:
                     action = self.on_state_changed_action(state)
                     self._scope_watchers[self.scope] = StateWatcher(state, action)
+                    created = True
+            self._trace_elapsed_phase(
+                "monitor_state",
+                started,
+                scope=self._scope_label(),
+                tmcc_id=tmcc_id,
+                action="replace" if shut_down_existing else "create" if created else "noop",
+                shut_down_existing=shut_down_existing,
+                created=created,
+                watcher_type=type(self._scope_watchers.get(self.scope)).__name__
+                if self._scope_watchers.get(self.scope) is not None
+                else None,
+            )
 
     def on_state_changed_action(self, state: S) -> Callable:
         action = self._scoped_callbacks.get(state.scope, lambda s: log.info(f"** No action callback for {s}"))
@@ -850,6 +901,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 same_tmcc_id=state.tmcc_id == current_tmcc_id,
                 ops_mode_setup=ops_mode_setup,
                 is_engine=is_engine,
+                in_train_link_mode=self._in_train_link_mode,
             )
         self._active_engine_state = state
         if isinstance(state, EngineState):
@@ -857,11 +909,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
                 self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
+                self._in_train_link_mode = True
             elif is_engine:
                 # otherwise, indicate we are in "Engine": mode and tear down the
                 # train-linked gui components
-                self._tear_down_link_gui()
-                self._scope_buttons[CommandScope.TRAIN].bg = "white"
+                if self._in_train_link_mode:
+                    self._tear_down_link_gui()
+                    self._scope_buttons[CommandScope.TRAIN].bg = "white"
+                    self._in_train_link_mode = False
 
             # only set throttle/brake/momentum value if we are not in the middle of setting it
             # and if the engine is not a passenger or freight sounds car
@@ -910,17 +965,28 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def _setup_train_link_gui(self, state: TrainState) -> None:
         # self._actual_current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
         self._active_train_state = state
+        self._in_train_link_mode = True
         self._scope_tmcc_ids[CommandScope.ENGINE] = self._train_linked_queue[0].tmcc_id
 
     def _tear_down_link_gui(self) -> None:
+        started = time.perf_counter()
         if self.scope != CommandScope.ENGINE:
             self._scope_buttons[CommandScope.ENGINE].bg = "white"
         current_engine_id = self._scope_tmcc_ids.get(CommandScope.ENGINE, 0)
         if current_engine_id and current_engine_id in {x.tmcc_id for x in self._train_linked_queue}:
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
+        prior_len = len(self._train_linked_queue)
         self._train_linked_queue.clear()
         self._active_train_state = None
+        self._in_train_link_mode = False
         self._request_options_rebuild()
+        self._trace_elapsed_phase(
+            "tear_down_link_gui",
+            started,
+            scope=self._scope_label(),
+            prior_len=prior_len,
+            current_engine_id=current_engine_id,
+        )
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
@@ -1084,7 +1150,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                             if self.acc_overlay and self.acc_overlay.visible:
                                 self.acc_overlay.hide()
             # update display
-            self._popup.close()
+            self._close_popup("on_scope")
             self.update_component_info()
             # force entry mode if scoped tmcc_id is 0
             if self._scope_tmcc_ids[scope] == 0:
@@ -1114,7 +1180,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         started = time.perf_counter()
-        self._popup.close()
+        self._close_popup("make_recent")
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
         if tmcc_id > 0:
@@ -1164,7 +1230,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def show_next_component(self) -> None:
         with self._display_transition("show_next_component", scope=self._scope_label()):
-            self._popup.close()
+            self._close_popup("show_next_component")
             if self.scope == CommandScope.ENGINE and self._train_linked_queue:
                 recents = self._train_linked_queue
             else:
@@ -1188,7 +1254,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def show_previous_component(self) -> None:
         with self._display_transition("show_previous_component", scope=self._scope_label()):
-            self._popup.close()
+            self._close_popup("show_previous_component")
             if self.scope == CommandScope.ENGINE and self._train_linked_queue:
                 recents = self._train_linked_queue
             else:
@@ -1513,10 +1579,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.update_component_info(in_ops_mode=True)
 
     def _resolve_component_state(self, tmcc_id: int) -> tuple[int, S | None]:
+        requested_tmcc_id = tmcc_id
+        started = time.perf_counter()
         state = self.active_state
         if state and tmcc_id != state.tmcc_id:
             tmcc_id = state.tmcc_id
             self._scope_tmcc_ids[self.scope] = tmcc_id
+        self._trace_elapsed_phase(
+            "resolve_component_state",
+            started,
+            scope=self._scope_label(),
+            requested_tmcc_id=requested_tmcc_id,
+            resolved_tmcc_id=state.tmcc_id if state else tmcc_id,
+            state_type=type(state).__name__ if state is not None else None,
+        )
         return tmcc_id, state
 
     def _is_same_display_selection(self, tmcc_id: int) -> bool:
@@ -1529,6 +1605,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         not_found_value: str,
         num_chars: int,
     ) -> tuple[str, bool]:
+        started = time.perf_counter()
         name = not_found_value
         update_button_state = True
         if state:
@@ -1545,6 +1622,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 name = name if name and name != "NA" else not_found_value
             update_button_state = False
         self.name_text.value = name
+        self._trace_elapsed_phase(
+            "apply_component_labels",
+            started,
+            scope=self._scope_label(),
+            tmcc_id=tmcc_id,
+            state_type=type(state).__name__ if state is not None else None,
+            update_button_state=update_button_state,
+        )
         return name, update_button_state
 
     def _update_recent_selection(
@@ -1575,12 +1660,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
         tmcc_id: int,
         selection_changed: bool,
     ) -> None:
+        started = time.perf_counter()
+        monitor_state_ms = None
+        callback_ms = None
+        refresh_image = False
         if selection_changed:
+            monitor_started = time.perf_counter()
             self.monitor_state()
+            monitor_state_ms = round((time.perf_counter() - monitor_started) * 1000, 2)
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ACC}:
             if update_button_state:
                 # noinspection PyTypeChecker
+                callback_started = time.perf_counter()
                 self._scoped_callbacks.get(self.scope, lambda s: print(f"from uci: {s}"))(state)
+                callback_ms = round((time.perf_counter() - callback_started) * 1000, 2)
             refresh_image = selection_changed
             if (
                 not refresh_image
@@ -1610,6 +1703,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.trace_visibility_state("refresh_component_view:image_hide", scope=self._scope_label(), tmcc_id=tmcc_id)
         self._last_displayed_scope = self.scope
         self._last_displayed_tmcc_id = tmcc_id
+        self._trace_elapsed_phase(
+            "refresh_component_view",
+            started,
+            scope=self._scope_label(),
+            tmcc_id=tmcc_id,
+            selection_changed=selection_changed,
+            update_button_state=update_button_state,
+            refresh_image=refresh_image,
+            monitor_state_ms=monitor_state_ms,
+            callback_ms=callback_ms,
+            state_type=type(state).__name__ if state is not None else None,
+        )
 
     # noinspection PyTypeChecker
     def update_component_info(
@@ -1624,7 +1729,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             scope=self._scope_label(),
             in_ops_mode=in_ops_mode,
         ):
-            self._popup.close()
+            self._close_popup("update_component_info")
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
             # update the tmcc_id associated with current scope
