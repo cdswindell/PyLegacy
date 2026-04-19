@@ -466,7 +466,7 @@ class HoldButton(PushButton):
 
         top = self.tk.winfo_toplevel()
 
-        canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
+        canvas_bg = self._progress_fill_color or self._normal_bg or self._safe_tk_bg() or "white"
         self._progress_canvas = tk.Canvas(
             top,
             highlightthickness=0,
@@ -523,7 +523,6 @@ class HoldButton(PushButton):
             return
 
         top = self._progress_canvas.master  # toplevel
-
         try:
             bx = int(self.tk.winfo_rootx())
             by = int(self.tk.winfo_rooty())
@@ -543,7 +542,7 @@ class HoldButton(PushButton):
         canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
         try:
             self._progress_canvas.config(background=canvas_bg)
-            self._progress_canvas.itemconfig(self._progress_bg_rect, fill="red")
+            self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
             self._progress_canvas.coords(self._progress_bg_rect, 0, 0, bw, bh)
         except TclError:
             return
