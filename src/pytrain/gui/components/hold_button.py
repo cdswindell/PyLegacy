@@ -466,7 +466,7 @@ class HoldButton(PushButton):
 
         top = self.tk.winfo_toplevel()
 
-        canvas_bg = self._progress_fill_color or self._normal_bg or self._safe_tk_bg() or "white"
+        canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
         self._progress_canvas = tk.Canvas(
             top,
             highlightthickness=0,
@@ -480,7 +480,7 @@ class HoldButton(PushButton):
             0,
             0,
             outline="",
-            fill=canvas_bg,
+            fill=self._progress_fill_color,
         )
 
         self._progress_rect = self._progress_canvas.create_rectangle(
