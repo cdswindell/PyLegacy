@@ -68,7 +68,7 @@ class HoldButton(PushButton):
         show_hold_progress: bool = False,
         progress_update_ms: int = 40,
         progress_fill_color: str = "darkgrey",
-        progress_empty_color: str | None = "red",  # None => uses current button bg
+        progress_empty_color: str | None = None,  # None => uses current button bg
         progress_keep_full_until_release: bool = True,
         cancel_on_leave: bool = False,
         **kwargs,
@@ -543,7 +543,7 @@ class HoldButton(PushButton):
         canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
         try:
             self._progress_canvas.config(background=canvas_bg)
-            self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
+            self._progress_canvas.itemconfig(self._progress_bg_rect, fill="red")
             self._progress_canvas.coords(self._progress_bg_rect, 0, 0, bw, bh)
         except TclError:
             return
