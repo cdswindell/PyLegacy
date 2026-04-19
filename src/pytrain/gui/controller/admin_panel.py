@@ -274,7 +274,7 @@ class AdminPanel:
         strength = f"{quality}%" if is_wifi_active and quality is not None else None
         return title, ssid, ip_address, strength, self._signal_color(quality)
 
-    def _wifi_text(self, parent: Box, grid: list[int], text: str, anchor: str = "w", sticky: str = "nsew") -> Text:
+    def _wifi_text(self, parent: Box, grid: list[int], text: str, anchor: str, sticky: str = "nsew") -> Text:
         field = Text(
             parent,
             text=text,
@@ -284,7 +284,7 @@ class AdminPanel:
             size=self._gui.s_12,
         )
         field.tk.configure(anchor=anchor)
-        field.tk.grid_configure(sticky=sticky, padx=0, pady=(2, 4))
+        field.tk.grid_configure(sticky=sticky, padx=0, pady=(2, 2))
         return field
 
     def _wifi_signal_badge(self, parent: Box, grid: list[int], text: str, badge_color: str) -> Text:
@@ -300,7 +300,7 @@ class AdminPanel:
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
         badge.tk.configure(padx=3, pady=3, borderwidth=1, relief="flat", anchor="e")
-        badge.tk.grid_configure(sticky="e", padx=0, pady=2)
+        badge.tk.grid_configure(sticky="e", padx=0, pady=0)
         return badge
 
     def _refresh_wifi_display(self) -> None:
