@@ -196,7 +196,7 @@ class ControllerView:
         )
         for k, v in host._scope_buttons.items():
             if k == host.scope:
-                log.warning(f"on_scope: {k} {v.bg} {v.text_color}")
+                log.warning(f"controller on_scope: {k} {v.bg} {v.text_color}")
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
