@@ -186,6 +186,29 @@ def test_update_component_info_repaints_hidden_image_when_returning_to_ops_mode(
     assert gui._image_updates == [34]
 
 
+def test_ops_mode_preserves_last_engine_type_for_controller_fast_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gui = _new_engine()
+    state = DummyState(tmcc_id=34, name="Hudson")
+    gui._scope_tmcc_ids[CommandScope.ENGINE] = 34
+    gui._keypad_view.is_engine_or_train = True
+    gui._keypad_view.enter_ops_mode_base = lambda: None
+    gui._keypad_view.apply_ops_mode_ui_engine_shell = lambda: None
+    gui._last_engine_type = "s"
+    recorded_engine_types: list[str | None] = []
+    gui._controller_view = SimpleNamespace(
+        update=lambda **_kwargs: None,
+        apply_engine_type=lambda _state: recorded_engine_types.append(gui._last_engine_type),
+    )
+    monkeypatch.setattr(mod, "EngineState", DummyState, raising=True)
+
+    mod.EngineGui.ops_mode(gui, update_info=False, state=state)
+
+    assert recorded_engine_types == ["s"]
+    assert gui._last_engine_type == "s"
+
+
 def test_update_component_info_zero_clears_image_and_resets_keystroke_flag() -> None:
     gui = _new_engine()
     gui._keypad_view.reset_on_keystroke = True

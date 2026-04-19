@@ -1632,7 +1632,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 else:
                     self.on_new_engine(state, ops_mode_setup=True)
 
-                self._last_engine_type = None
                 self._controller_view.apply_engine_type(state)
 
             # 3) Non-engine path (already moved)
