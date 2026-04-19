@@ -434,6 +434,7 @@ class GuiZeroBase(Thread, ABC):
                     try:
                         if isinstance(message, _QueuedGuiMessage):
                             queue_lag_ms = (time.perf_counter() - message.enqueued_at) * 1000
+                            transition_depth = getattr(self, "_transition_depth", None)
                             if self.gui_trace_enabled or queue_lag_ms >= self.gui_trace_slow_ms:
                                 self.trace_gui(
                                     "queue_dequeue",
@@ -443,10 +444,30 @@ class GuiZeroBase(Thread, ABC):
                                     callback=getattr(message.callback, "__name__", repr(message.callback)),
                                     queue_lag_ms=round(queue_lag_ms, 2),
                                     queue_size=self._message_queue.qsize(),
+                                    transition_depth=transition_depth,
+                                    in_transition=bool(transition_depth),
                                     trace_event=message.trace_event,
                                     **message.trace_fields,
                                 )
+                            callback_started = time.perf_counter()
                             message.callback(*message.args)
+                            callback_elapsed_ms = (time.perf_counter() - callback_started) * 1000
+                            if self.gui_trace_enabled or callback_elapsed_ms >= self.gui_trace_slow_ms:
+                                self.trace_gui(
+                                    "queue_callback_complete",
+                                    level=logging.INFO
+                                    if callback_elapsed_ms >= self.gui_trace_slow_ms
+                                    else logging.DEBUG,
+                                    force=callback_elapsed_ms >= self.gui_trace_slow_ms,
+                                    transition_id=message.transition_id,
+                                    callback=getattr(message.callback, "__name__", repr(message.callback)),
+                                    callback_elapsed_ms=round(callback_elapsed_ms, 2),
+                                    queue_size=self._message_queue.qsize(),
+                                    transition_depth=getattr(self, "_transition_depth", None),
+                                    in_transition=bool(getattr(self, "_transition_depth", 0)),
+                                    trace_event=message.trace_event,
+                                    **message.trace_fields,
+                                )
                         elif isinstance(message, tuple):
                             if len(message) > 1 and message[1] and len(message[1]) > 0:
                                 message[0](*message[1])

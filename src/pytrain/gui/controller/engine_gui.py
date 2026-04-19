@@ -62,6 +62,7 @@ from ...protocol.command_req import CommandReq
 from ...protocol.constants import CommandScope
 from ...protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ...protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
+from ...protocol.sequence.sequence_req import SequenceReq
 from ...protocol.sequence.sequence_constants import SequenceCommandEnum
 from ...protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
@@ -893,6 +894,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     current_tmcc_id=current_tmcc_id,
                     is_relevant=is_relevant,
                     state_type=type(state).__name__,
+                    watched_speed=getattr(state, "speed", None),
+                    watched_target_speed=getattr(state, "target_speed", None),
+                    watched_is_ramping=getattr(state, "is_ramping", None),
                 )
                 self.queue_message(
                     action,
@@ -907,6 +911,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         "same_tmcc_id": same_tmcc_id,
                         "is_relevant": is_relevant,
                         "state_type": type(state).__name__,
+                        "watched_speed": getattr(state, "speed", None),
+                        "watched_target_speed": getattr(state, "target_speed", None),
+                        "watched_is_ramping": getattr(state, "is_ramping", None),
                     },
                 )
 
@@ -926,6 +933,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 ops_mode_setup=ops_mode_setup,
                 is_engine=is_engine,
                 in_train_link_mode=self._in_train_link_mode,
+                speed=getattr(state, "speed", None),
+                target_speed=getattr(state, "target_speed", None),
+                is_ramping=getattr(state, "is_ramping", None),
             )
         self._active_engine_state = state
         if isinstance(state, EngineState):
@@ -1903,6 +1913,54 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             tmcc_id = self._scope_tmcc_ids[self.scope]
             req = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, tmcc_id, scope=self.scope, data=rr_speed)
+
+        sequence_count = None
+        sequence_max_delay = None
+        sequence_speed_cmds = None
+        sequence_labor_cmds = None
+        sequence_rpm_cmds = None
+        if isinstance(req, SequenceReq):
+            wrapped_requests = req.requests
+            sequence_count = len(wrapped_requests)
+            if wrapped_requests:
+                sequence_max_delay = round(max((wr.delay or 0.0) for wr in wrapped_requests), 3)
+                sequence_speed_cmds = sum(
+                    1
+                    for wr in wrapped_requests
+                    if getattr(getattr(wr, "request", None), "command", None)
+                    in {
+                        TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
+                        TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+                    }
+                )
+                sequence_labor_cmds = sum(
+                    1
+                    for wr in wrapped_requests
+                    if getattr(getattr(wr, "request", None), "command", None) == TMCC2EngineCommandEnum.ENGINE_LABOR
+                )
+                sequence_rpm_cmds = sum(
+                    1
+                    for wr in wrapped_requests
+                    if getattr(getattr(wr, "request", None), "command", None) == TMCC2EngineCommandEnum.DIESEL_RPM
+                )
+
+        self.trace_transition_phase(
+            "speed_command_dispatch",
+            scope=self._scope_label(state.scope if state else self.scope),
+            state_tmcc_id=getattr(state, "tmcc_id", None),
+            rr_speed=rr_speed,
+            speed_req=speed_req,
+            do_dialog=do_dialog,
+            state_speed=getattr(state, "speed", None),
+            state_target_speed=getattr(state, "target_speed", None),
+            state_is_ramping=getattr(state, "is_ramping", None),
+            request_type=type(req).__name__,
+            sequence_count=sequence_count,
+            sequence_max_delay=sequence_max_delay,
+            sequence_speed_cmds=sequence_speed_cmds,
+            sequence_labor_cmds=sequence_labor_cmds,
+            sequence_rpm_cmds=sequence_rpm_cmds,
+        )
 
         # dispatch command
         req.send()
