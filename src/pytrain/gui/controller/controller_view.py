@@ -220,6 +220,28 @@ class ControllerView:
             active_text_color=getattr(active_button, "text_color", None),
         )
 
+    @staticmethod
+    def _engine_type_key_for_state(state: EngineState | None) -> str | None:
+        if not isinstance(state, EngineState):
+            return None
+        if getattr(state, "is_diesel", False):
+            return "d"
+        if getattr(state, "is_steam", False):
+            return "s"
+        if getattr(state, "is_passenger", False):
+            return "p"
+        if getattr(state, "is_freight", False):
+            return "f"
+        if getattr(state, "is_acela", False):
+            return "a"
+        if getattr(state, "is_electric", False):
+            return "l"
+        if getattr(state, "is_crane", False):
+            return "r"
+        if getattr(state, "is_transformer", False):
+            return "t"
+        return "d"
+
     # noinspection PyProtectedMember
     def build(self, app) -> None:
         """Create controller widgets if not already built."""
@@ -633,6 +655,10 @@ class ControllerView:
         """
         host = self._host
         started = time.perf_counter()
+        prior_engine_type = getattr(host, "_last_engine_type", None)
+        prior_state = self._last_state
+        prior_state_tmcc_id = getattr(prior_state, "tmcc_id", None)
+        prior_state_engine_type = self._engine_type_key_for_state(prior_state)
         self._trace_scope_button_state("controller.apply_engine_type:start")
 
         # default hide/show aux widgets
@@ -667,25 +693,7 @@ class ControllerView:
             )
             return
 
-        # Determine the engine type key (must match your engine_gui_conf tags)
-        if getattr(state, "is_diesel", False):
-            t = "d"
-        elif getattr(state, "is_steam", False):
-            t = "s"
-        elif getattr(state, "is_passenger", False):
-            t = "p"
-        elif getattr(state, "is_freight", False):
-            t = "f"
-        elif getattr(state, "is_acela", False):
-            t = "a"
-        elif getattr(state, "is_electric", False):
-            t = "l"
-        elif getattr(state, "is_crane", False):
-            t = "r"
-        elif getattr(state, "is_transformer", False):
-            t = "t"
-        else:
-            t = "d"
+        t = self._engine_type_key_for_state(state) or "d"
 
         show_keys_started = time.perf_counter()
         shown_count, hidden_count, skipped = self._show_keys_for_type(t)
@@ -720,6 +728,9 @@ class ControllerView:
             force=elapsed_ms >= _slow_ms(host),
             state_tmcc_id=state.tmcc_id,
             engine_type=t,
+            prior_engine_type=prior_engine_type,
+            prior_state_tmcc_id=prior_state_tmcc_id,
+            prior_state_engine_type=prior_state_engine_type,
             shown_count=shown_count,
             hidden_count=hidden_count,
             skipped=skipped,
