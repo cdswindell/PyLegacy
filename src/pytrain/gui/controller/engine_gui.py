@@ -272,6 +272,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
     ) -> None:
         if not (force or self.gui_trace_enabled):
             return
+        if self.gui_trace_enabled and level == logging.DEBUG:
+            level = logging.INFO
         tid = self.current_transition_id
         prefix = f"GUI_TRACE {phase}"
         if tid:

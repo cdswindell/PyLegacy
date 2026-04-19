@@ -286,6 +286,8 @@ class GuiZeroBase(Thread, ABC):
     ) -> None:
         if not (force or self.gui_trace_enabled):
             return
+        if self.gui_trace_enabled and level == logging.DEBUG:
+            level = logging.INFO
         tid = transition_id if transition_id is not None else self.current_transition_id
         prefix = f"GUI_TRACE {event}"
         if tid:
