@@ -7,6 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import ipaddress
+import logging
 import socket
 
 import psutil
@@ -20,6 +21,9 @@ from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ...utils import WiFiInfo
+
+
+log = logging.getLogger(__name__)
 
 TEST_NET_IP = ("192.0.2.1", 80)
 
@@ -263,6 +267,7 @@ class AdminPanel:
 
     def _wifi_status(self) -> tuple[str, str | None, str, str | None, str]:
         snapshot = self._wifi_info.query()
+        log.info("WiFi snapshot: %s", snapshot)
         ip_address = self._current_ip_address()
         quality = snapshot.quality
         is_wifi_active = bool(
