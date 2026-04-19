@@ -90,6 +90,8 @@ class AdminPanel:
         self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text="", anchor="center")
         self._wifi_signal = self._wifi_signal_badge(wifi_box, grid=[2, 0], text="N/A", badge_color="dim gray")
         self._refresh_wifi_display()
+        sp = Text(wifi_box, text=" ", grid=[0, 1, 3, 1], height=1, align="bottom")
+        sp.text_size = self._gui.s_2
 
         sp = Text(body, text=" ", height=1, bold=True, align="top")
         sp.text_size = self._gui.s_4
