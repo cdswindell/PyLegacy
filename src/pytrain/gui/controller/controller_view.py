@@ -198,6 +198,18 @@ class ControllerView:
             if k == host.scope:
                 log.warning(f"controller on_scope: {k} {v.bg} {v.text_color}")
 
+    def _trace_scope_button_state(self, source: str) -> None:
+        host = self._host
+        active_button = host._scope_buttons.get(host.scope) if getattr(host, "_scope_buttons", None) else None
+        _trace_phase(
+            host,
+            "scope_button_state",
+            source=source,
+            active_scope=host.scope.label if host.scope else None,
+            active_bg=getattr(active_button, "bg", None),
+            active_text_color=getattr(active_button, "text_color", None),
+        )
+
     # noinspection PyProtectedMember
     def build(self, app) -> None:
         """Create controller widgets if not already built."""
@@ -610,6 +622,8 @@ class ControllerView:
         Called from EngineGui.ops_mode() after state is resolved.
         """
         host = self._host
+        started = time.perf_counter()
+        self._trace_scope_button_state("controller.apply_engine_type:start")
 
         # default hide/show aux widgets
         if host._freight_sounds_bell_horn_box:
@@ -619,11 +633,28 @@ class ControllerView:
 
         if not isinstance(state, EngineState):
             # If unknown, show diesel-ish defaults
-            self._show_keys_for_type("d")
+            show_keys_started = time.perf_counter()
+            shown_count, hidden_count, skipped = self._show_keys_for_type("d")
+            show_keys_ms = round((time.perf_counter() - show_keys_started) * 1000, 2)
             if host._rr_speed_box:
                 host._rr_speed_box.show()
             if host.horn_title_box:
                 host.horn_title_box.text = "Horn"
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            self._trace_scope_button_state("controller.apply_engine_type:end")
+            _trace_phase(
+                host,
+                "controller.apply_engine_type",
+                level=logging.INFO if elapsed_ms >= _slow_ms(host) else logging.DEBUG,
+                force=elapsed_ms >= _slow_ms(host),
+                state_tmcc_id=getattr(state, "tmcc_id", None),
+                engine_type="d",
+                shown_count=shown_count,
+                hidden_count=hidden_count,
+                skipped=skipped,
+                show_keys_ms=show_keys_ms,
+                elapsed_ms=round(elapsed_ms, 2),
+            )
             return
 
         # Determine the engine type key (must match your engine_gui_conf tags)
@@ -646,7 +677,9 @@ class ControllerView:
         else:
             t = "d"
 
-        self._show_keys_for_type(t)
+        show_keys_started = time.perf_counter()
+        shown_count, hidden_count, skipped = self._show_keys_for_type(t)
+        show_keys_ms = round((time.perf_counter() - show_keys_started) * 1000, 2)
 
         # Per-type aux behavior
         if t in {"d", "s", "a", "l", "p", "r", "t"}:
@@ -668,23 +701,59 @@ class ControllerView:
         if t == "t":
             # Transformer mode wants brake shown
             self.toggle_momentum_train_brake(show_btn="brake")
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        self._trace_scope_button_state("controller.apply_engine_type:end")
+        _trace_phase(
+            host,
+            "controller.apply_engine_type",
+            level=logging.INFO if elapsed_ms >= _slow_ms(host) else logging.DEBUG,
+            force=elapsed_ms >= _slow_ms(host),
+            state_tmcc_id=state.tmcc_id,
+            engine_type=t,
+            shown_count=shown_count,
+            hidden_count=hidden_count,
+            skipped=skipped,
+            show_keys_ms=show_keys_ms,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
 
-    def _show_keys_for_type(self, t: str) -> None:
+    def _show_keys_for_type(self, t: str) -> tuple[int, int, bool]:
         """Internal: show keys for a controller type key."""
         host = self._host
 
         # Avoid rework if type unchanged
         if getattr(host, "_last_engine_type", None) == t:
-            return
+            _trace_phase(
+                host,
+                "controller.show_keys_for_type",
+                engine_type=t,
+                shown_count=0,
+                hidden_count=0,
+                skipped=True,
+            )
+            return 0, 0, True
 
         btns = self._engine_type_key_map.get(t, set())
+        shown_count = 0
         for cell in btns:
             cell.show()
+            shown_count += 1
 
+        hidden_count = 0
         for cell in self._all_engine_btns - btns:
             cell.hide()
+            hidden_count += 1
 
         host._last_engine_type = t
+        _trace_phase(
+            host,
+            "controller.show_keys_for_type",
+            engine_type=t,
+            shown_count=shown_count,
+            hidden_count=hidden_count,
+            skipped=False,
+        )
+        return shown_count, hidden_count, False
 
     def show(self) -> None:
         host = self._host
