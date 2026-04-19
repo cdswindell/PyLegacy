@@ -26,8 +26,22 @@ class DummyCell:
 
 def test_show_keys_for_type_traces_show_hide_timings() -> None:
     events: list[tuple[str, dict[str, object]]] = []
+    keypad_box = SimpleNamespace(
+        visible=True,
+        hide_calls=0,
+        show_calls=0,
+    )
+    keypad_box.hide = lambda: (
+        setattr(keypad_box, "hide_calls", keypad_box.hide_calls + 1),
+        setattr(keypad_box, "visible", False),
+    )
+    keypad_box.show = lambda: (
+        setattr(keypad_box, "show_calls", keypad_box.show_calls + 1),
+        setattr(keypad_box, "visible", True),
+    )
     host = SimpleNamespace(
         _last_engine_type=None,
+        controller_keypad_box=keypad_box,
         gui_trace_slow_ms=10_000,
         trace_transition_phase=lambda phase, **fields: events.append((phase, fields)),
     )
@@ -45,7 +59,10 @@ def test_show_keys_for_type_traces_show_hide_timings() -> None:
     assert trace["engine_type"] == "s"
     assert trace["shown_count"] == 2
     assert trace["hidden_count"] == 1
+    assert trace["batched_container_hidden"] is True
     assert trace["show_ms"] >= 0
     assert trace["hide_ms"] >= 0
     assert trace["slowest_show_widget"] in {"slow-show", "fast-show"}
     assert trace["slowest_hide_widget"] == "slow-hide"
+    assert keypad_box.hide_calls == 1
+    assert keypad_box.show_calls == 1

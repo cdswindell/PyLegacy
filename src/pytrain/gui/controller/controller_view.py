@@ -834,6 +834,9 @@ class ControllerView:
                 engine_type=t,
                 shown_count=0,
                 hidden_count=0,
+                batched_container_hidden=False,
+                container_hide_ms=None,
+                container_show_ms=None,
                 idletasks_before_ms=_update_idletasks_ms(host),
                 idletasks_after_show_ms=None,
                 idletasks_after_hide_ms=None,
@@ -848,36 +851,50 @@ class ControllerView:
             return 0, 0, True
 
         btns = self._engine_type_key_map.get(t, set())
+        container = getattr(host, "controller_keypad_box", None)
+        batched_container_hidden = bool(container is not None and getattr(container, "visible", False))
+        container_hide_ms = None
+        container_show_ms = None
+        if batched_container_hidden and callable(getattr(container, "hide", None)):
+            container_hide_started = time.perf_counter()
+            container.hide()
+            container_hide_ms = round((time.perf_counter() - container_hide_started) * 1000, 2)
         idletasks_before_ms = _update_idletasks_ms(host)
-        shown_count = 0
-        show_started = time.perf_counter()
-        slowest_show_ms = 0.0
-        slowest_show_widget = None
-        for cell in btns:
-            cell_started = time.perf_counter()
-            cell.show()
-            cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
-            if cell_elapsed_ms > slowest_show_ms:
-                slowest_show_ms = cell_elapsed_ms
-                slowest_show_widget = _widget_trace_name(cell)
-            shown_count += 1
-        show_ms = (time.perf_counter() - show_started) * 1000
-        idletasks_after_show_ms = _update_idletasks_ms(host)
+        try:
+            shown_count = 0
+            show_started = time.perf_counter()
+            slowest_show_ms = 0.0
+            slowest_show_widget = None
+            for cell in btns:
+                cell_started = time.perf_counter()
+                cell.show()
+                cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
+                if cell_elapsed_ms > slowest_show_ms:
+                    slowest_show_ms = cell_elapsed_ms
+                    slowest_show_widget = _widget_trace_name(cell)
+                shown_count += 1
+            show_ms = (time.perf_counter() - show_started) * 1000
+            idletasks_after_show_ms = _update_idletasks_ms(host)
 
-        hidden_count = 0
-        hide_started = time.perf_counter()
-        slowest_hide_ms = 0.0
-        slowest_hide_widget = None
-        for cell in self._all_engine_btns - btns:
-            cell_started = time.perf_counter()
-            cell.hide()
-            cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
-            if cell_elapsed_ms > slowest_hide_ms:
-                slowest_hide_ms = cell_elapsed_ms
-                slowest_hide_widget = _widget_trace_name(cell)
-            hidden_count += 1
-        hide_ms = (time.perf_counter() - hide_started) * 1000
-        idletasks_after_hide_ms = _update_idletasks_ms(host)
+            hidden_count = 0
+            hide_started = time.perf_counter()
+            slowest_hide_ms = 0.0
+            slowest_hide_widget = None
+            for cell in self._all_engine_btns - btns:
+                cell_started = time.perf_counter()
+                cell.hide()
+                cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
+                if cell_elapsed_ms > slowest_hide_ms:
+                    slowest_hide_ms = cell_elapsed_ms
+                    slowest_hide_widget = _widget_trace_name(cell)
+                hidden_count += 1
+            hide_ms = (time.perf_counter() - hide_started) * 1000
+            idletasks_after_hide_ms = _update_idletasks_ms(host)
+        finally:
+            if batched_container_hidden and callable(getattr(container, "show", None)):
+                container_show_started = time.perf_counter()
+                container.show()
+                container_show_ms = round((time.perf_counter() - container_show_started) * 1000, 2)
 
         host._last_engine_type = t
         _trace_phase(
@@ -886,6 +903,9 @@ class ControllerView:
             engine_type=t,
             shown_count=shown_count,
             hidden_count=hidden_count,
+            batched_container_hidden=batched_container_hidden,
+            container_hide_ms=container_hide_ms,
+            container_show_ms=container_show_ms,
             idletasks_before_ms=idletasks_before_ms,
             idletasks_after_show_ms=idletasks_after_show_ms,
             idletasks_after_hide_ms=idletasks_after_hide_ms,
