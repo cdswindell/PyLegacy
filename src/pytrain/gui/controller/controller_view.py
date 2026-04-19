@@ -92,6 +92,20 @@ def _tk_config_value(widget: object | None, key: str) -> object | None:
         return None
 
 
+def _update_idletasks_ms(host: object) -> float | None:
+    app = getattr(host, "app", None)
+    tk_root = getattr(app, "tk", None)
+    update_idletasks = getattr(tk_root, "update_idletasks", None)
+    if not callable(update_idletasks):
+        return None
+    started = time.perf_counter()
+    try:
+        update_idletasks()
+    except (AttributeError, RuntimeError, TypeError, ValueError):
+        return None
+    return round((time.perf_counter() - started) * 1000, 2)
+
+
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
@@ -820,6 +834,9 @@ class ControllerView:
                 engine_type=t,
                 shown_count=0,
                 hidden_count=0,
+                idletasks_before_ms=_update_idletasks_ms(host),
+                idletasks_after_show_ms=None,
+                idletasks_after_hide_ms=None,
                 show_ms=0.0,
                 hide_ms=0.0,
                 slowest_show_ms=0.0,
@@ -831,6 +848,7 @@ class ControllerView:
             return 0, 0, True
 
         btns = self._engine_type_key_map.get(t, set())
+        idletasks_before_ms = _update_idletasks_ms(host)
         shown_count = 0
         show_started = time.perf_counter()
         slowest_show_ms = 0.0
@@ -844,6 +862,7 @@ class ControllerView:
                 slowest_show_widget = _widget_trace_name(cell)
             shown_count += 1
         show_ms = (time.perf_counter() - show_started) * 1000
+        idletasks_after_show_ms = _update_idletasks_ms(host)
 
         hidden_count = 0
         hide_started = time.perf_counter()
@@ -858,6 +877,7 @@ class ControllerView:
                 slowest_hide_widget = _widget_trace_name(cell)
             hidden_count += 1
         hide_ms = (time.perf_counter() - hide_started) * 1000
+        idletasks_after_hide_ms = _update_idletasks_ms(host)
 
         host._last_engine_type = t
         _trace_phase(
@@ -866,6 +886,9 @@ class ControllerView:
             engine_type=t,
             shown_count=shown_count,
             hidden_count=hidden_count,
+            idletasks_before_ms=idletasks_before_ms,
+            idletasks_after_show_ms=idletasks_after_show_ms,
+            idletasks_after_hide_ms=idletasks_after_hide_ms,
             show_ms=round(show_ms, 2),
             hide_ms=round(hide_ms, 2),
             slowest_show_ms=round(slowest_show_ms, 2),
