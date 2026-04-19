@@ -1603,11 +1603,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # 3) Non-engine path (already moved)
             else:
                 self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-                tmcc_id = self.active_state.tmcc_id
-                if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
-                    view = self.get_accessory_view(tmcc_id)
-                    acc = getattr(view, "caa", None)
-                    self.on_configured_accessory(acc)
+                if self.active_state:
+                    tmcc_id = self.active_state.tmcc_id
+                    if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
+                        view = self.get_accessory_view(tmcc_id)
+                        acc = getattr(view, "caa", None)
+                        self.on_configured_accessory(acc)
 
             # 4) Preserve existing behavior
             if update_info:
