@@ -92,6 +92,8 @@ class AdminPanel:
         self._refresh_wifi_display()
         sp = Text(wifi_box, text=" ", grid=[0, 1, 3, 1], height=1, align="bottom")
         sp.text_size = self._gui.s_1
+        sp.tk.config(padx=0, pady=0)
+        sp.tk.grid_configure(sticky="nse", padx=0, pady=0)
 
         sp = Text(body, text=" ", height=1, bold=True, align="top")
         sp.text_size = self._gui.s_4
