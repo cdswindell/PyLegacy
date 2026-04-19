@@ -67,7 +67,7 @@ class HoldButton(PushButton):
         # ── Progress fill options ──
         show_hold_progress: bool = False,
         progress_update_ms: int = 40,
-        progress_fill_color: str = "darkgrey",
+        progress_fill_color: str = "red",  # "darkgrey",
         progress_empty_color: str | None = None,  # None => uses current button bg
         progress_keep_full_until_release: bool = True,
         cancel_on_leave: bool = False,

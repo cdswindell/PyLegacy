@@ -75,7 +75,7 @@ class AdminPanel:
             layout="grid",
             align="top",
             width=self._width,
-            height=self._gui.button_size // 2,
+            height=int(2 * self._gui.button_size / 3),
         )
         wifi_box.tk.config(width=self._width)
         wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
