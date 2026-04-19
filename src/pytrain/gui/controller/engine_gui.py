@@ -913,9 +913,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             elif is_engine:
                 # otherwise, indicate we are in "Engine": mode and tear down the
                 # train-linked gui components
+                self._scope_buttons[CommandScope.TRAIN].bg = "white"
                 if self._in_train_link_mode:
                     self._tear_down_link_gui()
-                    self._scope_buttons[CommandScope.TRAIN].bg = "white"
                     self._in_train_link_mode = False
 
             # only set throttle/brake/momentum value if we are not in the middle of setting it
