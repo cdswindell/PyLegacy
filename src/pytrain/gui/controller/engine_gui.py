@@ -914,9 +914,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
-        for k, v in self._scope_buttons.items():
-            if k == self.scope:
-                log.warning(f"on_scope: {k} {v.bg} {v.text_color}")
         if isinstance(state, EngineState):
             current_tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
             self.trace_transition_phase(
