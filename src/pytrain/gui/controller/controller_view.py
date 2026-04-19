@@ -194,6 +194,9 @@ class ControllerView:
             throttle_tmcc_id=throttle_state.tmcc_id if throttle_state else None,
             elapsed_ms=round(elapsed_ms, 2),
         )
+        for k, v in host._scope_buttons.items():
+            if k == host.scope:
+                log.warning(f"on_scope: {k} {v.bg} {v.text_color}")
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
