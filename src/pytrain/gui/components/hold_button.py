@@ -480,7 +480,7 @@ class HoldButton(PushButton):
             0,
             0,
             outline="",
-            fill=self._progress_fill_color,
+            fill=canvas_bg,
         )
 
         self._progress_rect = self._progress_canvas.create_rectangle(
