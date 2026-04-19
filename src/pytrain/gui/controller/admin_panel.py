@@ -301,8 +301,8 @@ class AdminPanel:
         )
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
-        badge.tk.configure(padx=3, pady=3, borderwidth=1, relief="flat", anchor="e")
-        badge.tk.grid_configure(sticky="e", padx=0, pady=(1, 10))
+        badge.tk.configure(padx=3, pady=30, borderwidth=1, relief="flat", anchor="e")
+        badge.tk.grid_configure(sticky="e", padx=0, pady=2)
         return badge
 
     def _refresh_wifi_display(self) -> None:
