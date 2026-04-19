@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
@@ -27,6 +28,22 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 
+def _trace_phase(host: object, phase: str, **fields) -> None:
+    trace = getattr(host, "trace_transition_phase", None)
+    if callable(trace):
+        trace(phase, **fields)
+
+
+def _trace_visibility(host: object, source: str, **fields) -> None:
+    trace = getattr(host, "trace_visibility_state", None)
+    if callable(trace):
+        trace(source, **fields)
+
+
+def _slow_ms(host: object) -> float:
+    return float(getattr(host, "gui_trace_slow_ms", 350.0))
+
+
 class ImagePresenter:
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
@@ -40,6 +57,7 @@ class ImagePresenter:
     def clear(self) -> None:
         self._host.image.image = None
         self._host.image_box.hide()
+        _trace_visibility(self._host, "image_presenter.clear")
 
     def calc_box_size(self) -> tuple[int, int]:
         """
@@ -47,6 +65,7 @@ class ImagePresenter:
         Can only call from the main gui thread!
         """
         host = self._host
+        started = time.perf_counter()
 
         # force geometry layout
         host.app.tk.update_idletasks()
@@ -130,6 +149,18 @@ class ImagePresenter:
             host.avail_image_width = avail_image_width = emergency_width
         else:
             avail_image_width = host.avail_image_width
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        slow_ms = _slow_ms(host)
+        _trace_phase(
+            host,
+            "image_calc_box_size",
+            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
+            force=elapsed_ms >= slow_ms,
+            available_height=avail_image_height,
+            available_width=avail_image_width,
+            variable_content=variable_content,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return avail_image_height, avail_image_width
 
     def _is_relevant_update(self, scope: CommandScope, tmcc_id: int | None, train_id: int | None = None) -> bool:
@@ -158,6 +189,8 @@ class ImagePresenter:
         key: tuple[CommandScope, int] | tuple[CommandScope, int, int] | None = None,
     ) -> None:
         host = self._host
+        started = time.perf_counter()
+        slow_ms = _slow_ms(host)
 
         if key is None and host.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
@@ -173,25 +206,44 @@ class ImagePresenter:
             if tmcc_id is None:
                 tmcc_id = host.scope_tmcc_id(host.scope)
             train_id = None
+        _trace_phase(
+            host,
+            "image_update_start",
+            scope=scope.label if scope else None,
+            tmcc_id=tmcc_id,
+            train_id=train_id,
+        )
         img = None
         box_size: tuple[int, int] | None = None
+        image_source = None
 
         # for Trains, use the image of the lead engine
         if scope == CommandScope.TRAIN and host.active_state and not host.active_state.is_power_district and tmcc_id:
             img = host._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
+            image_source = "train_cache" if img is not None else None
             if img is None:
                 train_state = host.active_state
                 train_id = tmcc_id
                 head_id = train_state.head_tmcc_id
                 img = host._image_cache.get((CommandScope.ENGINE, head_id), None)
                 if img is None:
+                    _trace_phase(
+                        host,
+                        "image_update_train_miss",
+                        scope=scope.label,
+                        tmcc_id=tmcc_id,
+                        train_id=train_id,
+                        head_id=head_id,
+                    )
                     self.update(key=(CommandScope.ENGINE, head_id, train_id))
                     return
                 else:
                     host._image_cache[(CommandScope.TRAIN, train_id)] = img
+                    image_source = "head_engine_cache"
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
             img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
             if img is not None:
+                image_source = "engine_cache"
                 if train_id:
                     host._image_cache[(CommandScope.TRAIN, train_id)] = img
                     tmcc_id = train_id
@@ -213,6 +265,12 @@ class ImagePresenter:
                     )
 
                     if prod_info is None:
+                        _trace_phase(
+                            host,
+                            "image_update_prod_info_pending",
+                            tmcc_id=tmcc_id,
+                            bt_id=state.bt_id if state else None,
+                        )
                         return
 
                     if log.isEnabledFor(logging.DEBUG):
@@ -222,6 +280,7 @@ class ImagePresenter:
                         # Image should have been cached by fetch_prod_indo
                         with host.locked():
                             img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                        image_source = "prod_info_cache" if img is not None else "prod_info_missing_image"
                         if img and train_id:
                             host._image_cache[(CommandScope.TRAIN, train_id)] = img
                             tmcc_id = train_id
@@ -242,6 +301,9 @@ class ImagePresenter:
                                     host._image_cache[source] = img
                                     host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                                     host._image_cache[source] = img
+                                    image_source = "engine_type_generated"
+                                else:
+                                    image_source = "engine_type_cache"
                                 host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                                 if train_id:
                                     host._image_cache[(CommandScope.TRAIN, train_id)] = img
@@ -261,6 +323,7 @@ class ImagePresenter:
                     elif host.get_configured_accessory(tmcc_id):
                         key = (host.scope, tmcc_id, host.get_configured_accessory(tmcc_id))
                 img = host._image_cache.get(key, None)
+                image_source = "accessory_cache" if img is not None else None
                 # Attempts to load and cache image from state
                 if img is None:
                     img_path = None
@@ -283,6 +346,7 @@ class ImagePresenter:
                             img_path = find_file(acc.image_path)
                     if img_path:
                         img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
+                        image_source = f"accessory_image:{img_path}"
                     if img:
                         host._image_cache[key] = img
                     else:
@@ -300,3 +364,23 @@ class ImagePresenter:
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
             host.image_box.show()
+            _trace_visibility(
+                host,
+                "image_presenter.show",
+                scope=scope.label if scope else None,
+                tmcc_id=tmcc_id,
+                image_source=image_source,
+            )
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        _trace_phase(
+            host,
+            "image_update_end",
+            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
+            force=elapsed_ms >= slow_ms,
+            scope=scope.label if scope else None,
+            tmcc_id=tmcc_id,
+            train_id=train_id,
+            image_source=image_source,
+            image_found=img is not None,
+            elapsed_ms=round(elapsed_ms, 2),
+        )

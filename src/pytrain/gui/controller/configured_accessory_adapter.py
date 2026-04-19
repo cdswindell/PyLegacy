@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol, TYPE_CHECKING, runtime_checkable
 
@@ -20,6 +22,16 @@ from ...protocol.constants import CommandScope
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
+
+
+def _trace_phase(host: object, phase: str, **fields) -> None:
+    trace = getattr(host, "trace_transition_phase", None)
+    if callable(trace):
+        trace(phase, **fields)
+
+
+def _slow_ms(host: object) -> float:
+    return float(getattr(host, "gui_trace_slow_ms", 350.0))
 
 
 @runtime_checkable
@@ -184,9 +196,24 @@ class ConfiguredAccessoryAdapter:
         """
         Lazily instantiate the accessory GUI (configured_accessory owns ctor filtering).
         """
+        started = time.perf_counter()
+        created = False
         if self.gui is None:
             self.gui = self.cfg.create_gui(aggregator=aggregator, extra_kwargs=extra_kwargs or {})
             self.gui.menu_label = self.cfg.label
+            created = True
+        host = self.host
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        slow_ms = _slow_ms(host)
+        _trace_phase(
+            host,
+            "configured_accessory.ensure_gui",
+            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
+            force=elapsed_ms >= slow_ms,
+            accessory=self.instance_id,
+            created=created,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return self.gui
 
     def attach_overlay(self, overlay: Any) -> None:

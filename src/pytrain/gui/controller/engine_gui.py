@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+import time
 from contextlib import contextmanager
 from typing import Any, Callable, Generic, Iterator, TypeVar, cast
 
@@ -220,6 +221,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._options_rebuild_pending = False
         self._last_displayed_scope: CommandScope | None = None
         self._last_displayed_tmcc_id: int | None = None
+        self._transition_seq = 0
+        self._active_transition: dict[str, Any] | None = None
+        self._blank_started_at: float | None = None
 
         # callbacks
         self._scoped_callbacks = {
@@ -251,6 +255,83 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def locked(self) -> Iterator[None]:
         with self._cv:
             yield
+
+    @property
+    def current_transition_id(self) -> str | None:
+        if getattr(self, "_active_transition", None):
+            return self._active_transition.get("id")
+        return None
+
+    def trace_transition_phase(
+        self,
+        phase: str,
+        *,
+        level: int = logging.DEBUG,
+        force: bool = False,
+        **fields: Any,
+    ) -> None:
+        if not (force or self.gui_trace_enabled):
+            return
+        tid = self.current_transition_id
+        prefix = f"GUI_TRACE {phase}"
+        if tid:
+            prefix += f" transition_id={tid}"
+        suffix = self._format_trace_fields(**fields)
+        log.log(level, f"{prefix} {suffix}".rstrip())
+
+    def _next_transition_id(self) -> str:
+        seq = getattr(self, "_transition_seq", 0) + 1
+        self._transition_seq = seq
+        return f"gui-{seq:05d}"
+
+    def _scope_label(self, scope: CommandScope | None = None) -> str | None:
+        scoped = scope or self.scope
+        return scoped.label if scoped else None
+
+    def _primary_visibility_state(self) -> dict[str, bool]:
+        return {
+            "keypad": bool(getattr(getattr(self, "keypad_box", None), "visible", False)),
+            "controller": bool(getattr(getattr(self, "controller_box", None), "visible", False)),
+            "image": bool(getattr(getattr(self, "image_box", None), "visible", False)),
+            "acc_overlay": bool(getattr(self.acc_overlay, "visible", False)),
+            "amc2_ops": bool(getattr(getattr(self, "amc2_ops_box", None), "visible", False)),
+            "sensor_track": bool(getattr(getattr(self, "sensor_track_box", None), "visible", False)),
+            "scope_box": bool(getattr(getattr(self, "scope_box", None), "visible", False)),
+        }
+
+    def trace_visibility_state(self, source: str, **fields: Any) -> None:
+        visibility = self._primary_visibility_state()
+        any_primary_visible = any(
+            visibility[name] for name in ("keypad", "controller", "image", "acc_overlay", "amc2_ops", "sensor_track")
+        )
+        now = time.perf_counter()
+        blank_interval_ms = None
+        if any_primary_visible:
+            blank_started_at = getattr(self, "_blank_started_at", None)
+            if blank_started_at is not None:
+                blank_interval_ms = round((now - blank_started_at) * 1000, 2)
+                self._blank_started_at = None
+        elif getattr(self, "_blank_started_at", None) is None:
+            self._blank_started_at = now
+        level = logging.INFO if blank_interval_ms and blank_interval_ms >= self.gui_trace_slow_ms else logging.DEBUG
+        self.trace_transition_phase(
+            "visibility",
+            level=level,
+            force=bool(blank_interval_ms and blank_interval_ms >= self.gui_trace_slow_ms),
+            source=source,
+            blank=not any_primary_visible,
+            blank_interval_ms=blank_interval_ms,
+            **visibility,
+            **fields,
+        )
+
+    @contextmanager
+    def _display_transition(self, cause: str | None = None, **fields: Any) -> Iterator[None]:
+        self._begin_transition(cause=cause, **fields)
+        try:
+            yield
+        finally:
+            self._end_transition()
 
     @property
     def accessories(self) -> ConfiguredAccessorySet:
@@ -547,14 +628,27 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.show_popup(overlay, "AUX3_OPT_ONE", "l")
 
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
-        self._acc_overlay = overlay = self._create_accessory_view(acc)
-        if self.keypad_box.visible:
-            self.keypad_box.hide()
-        if not overlay.visible:
-            overlay.show()
+        with self._display_transition("configured_accessory", accessory=acc.instance_id, tmcc_id=acc.tmcc_id):
+            started = time.perf_counter()
+            self._acc_overlay = overlay = self._create_accessory_view(acc)
+            if self.keypad_box.visible:
+                self.keypad_box.hide()
+                self.trace_visibility_state("on_configured_accessory:keypad_hide")
+            if not overlay.visible:
+                overlay.show()
+                self.trace_visibility_state("on_configured_accessory:overlay_show", overlay=acc.instance_id)
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            self.trace_transition_phase(
+                "configured_accessory_complete",
+                level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+                force=elapsed_ms >= self.gui_trace_slow_ms,
+                accessory=acc.instance_id,
+                elapsed_ms=round(elapsed_ms, 2),
+            )
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
         assert acc
+        started = time.perf_counter()
         tmcc_id = self._scope_tmcc_ids[self.scope]
         acc.activate_tmcc_id(tmcc_id)
         self.name_text.value = acc.name
@@ -562,6 +656,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
         setattr(overlay, "caa", acc)
         self.set_accessory_view(tmcc_id, acc)
         self._image_presenter.update(tmcc_id=tmcc_id)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        self.trace_transition_phase(
+            "create_accessory_view",
+            level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+            force=elapsed_ms >= self.gui_trace_slow_ms,
+            accessory=acc.instance_id,
+            tmcc_id=tmcc_id,
+            overlay_cached=overlay is acc.overlay,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return overlay
 
     def show_popup(
@@ -583,15 +687,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
         )
 
     def restore_accessory_info(self, overlay: Box = None):
-        acc = getattr(overlay, "caa", None) if overlay else None
-        if isinstance(acc, ConfiguredAccessoryAdapter):
-            self.set_accessory_view(acc.state.tmcc_id, None)
-            self._image_presenter.update(tmcc_id=acc.tmcc_id)
-            self.name_text.value = self.active_state.name
-        overlay.hide()
-        self._acc_overlay = None
-        if not self.keypad_box.visible:
-            self.keypad_box.show()
+        with self._display_transition("restore_accessory_info"):
+            acc = getattr(overlay, "caa", None) if overlay else None
+            if isinstance(acc, ConfiguredAccessoryAdapter):
+                self.set_accessory_view(acc.state.tmcc_id, None)
+                self._image_presenter.update(tmcc_id=acc.tmcc_id)
+                self.name_text.value = self.active_state.name
+            if overlay:
+                overlay.hide()
+            self._acc_overlay = None
+            if not self.keypad_box.visible:
+                self.keypad_box.show()
+            self.trace_visibility_state("restore_accessory_info")
 
     def on_admin_panel(self) -> None:
         with self._cv:
@@ -878,9 +985,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
-        self._begin_transition()
-        try:
+        with self._display_transition(
+            "scope_select",
+            requested_scope=self._scope_label(scope),
+            previous_scope=self._scope_label(),
+            held=held,
+        ):
             self.scope_box.hide()
+            self.trace_visibility_state("on_scope:scope_box_hide")
             force_entry_mode = False
             clear_info = True
             # self._last_engine_type = None
@@ -925,9 +1037,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
             self.scope_box.show()
+            self.trace_visibility_state("on_scope:scope_box_show")
             self._keypad_view.scope_keypad(force_entry_mode, clear_info)
-        finally:
-            self._end_transition()
+            self.trace_transition_phase(
+                "scope_select_complete",
+                scope=self._scope_label(),
+                tmcc_id=self._scope_tmcc_ids.get(self.scope, 0),
+                force_entry_mode=force_entry_mode,
+                clear_info=clear_info,
+            )
 
     def display_most_recent(self, scope: CommandScope) -> None:
         """
@@ -966,30 +1084,32 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return False
 
     def show_next_component(self) -> None:
-        self._popup.close()
-        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
-            recents = self._train_linked_queue
-        else:
-            recents = self._recents_queue.get(self.scope, None)
-        if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            current = recents[0]
-            state = cast(ComponentState, cast(object, recents.next()))
-            recents.append(current)
-            self._scope_tmcc_ids[self.scope] = state.tmcc_id
-            self.update_component_info(tmcc_id=state.tmcc_id)
-            self.header.select_default()
+        with self._display_transition("show_next_component", scope=self._scope_label()):
+            self._popup.close()
+            if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+                recents = self._train_linked_queue
+            else:
+                recents = self._recents_queue.get(self.scope, None)
+            if isinstance(recents, UniqueDeque) and len(recents) > 0:
+                current = recents[0]
+                state = cast(ComponentState, cast(object, recents.next()))
+                recents.append(current)
+                self._scope_tmcc_ids[self.scope] = state.tmcc_id
+                self.update_component_info(tmcc_id=state.tmcc_id)
+                self.header.select_default()
 
     def show_previous_component(self) -> None:
-        self._popup.close()
-        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
-            recents = self._train_linked_queue
-        else:
-            recents = self._recents_queue.get(self.scope, None)
-        if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            state = cast(ComponentState, cast(object, recents.previous()))
-            self._scope_tmcc_ids[self.scope] = state.tmcc_id
-            self.update_component_info(tmcc_id=state.tmcc_id)
-            self.header.select_default()
+        with self._display_transition("show_previous_component", scope=self._scope_label()):
+            self._popup.close()
+            if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+                recents = self._train_linked_queue
+            else:
+                recents = self._recents_queue.get(self.scope, None)
+            if isinstance(recents, UniqueDeque) and len(recents) > 0:
+                state = cast(ComponentState, cast(object, recents.previous()))
+                self._scope_tmcc_ids[self.scope] = state.tmcc_id
+                self.update_component_info(tmcc_id=state.tmcc_id)
+                self.header.select_default()
 
     def rebuild_options(self):
         self.header.clear()
@@ -997,14 +1117,60 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.header.append(option)
         self.header.select_default()
 
-    def _begin_transition(self) -> None:
+    def _begin_transition(self, cause: str | None = None, **fields: Any) -> None:
         self._transition_depth += 1
+        active_transition = getattr(self, "_active_transition", None)
+        if self._transition_depth == 1 or active_transition is None:
+            transition_id = self._next_transition_id()
+            self._active_transition = {
+                "id": transition_id,
+                "cause": cause or "unspecified",
+                "started_at": time.perf_counter(),
+                "root_fields": dict(fields),
+            }
+            start_fields = {
+                "cause": cause or "unspecified",
+                "scope": self._scope_label(),
+                "tmcc_id": self._scope_tmcc_ids.get(self.scope, 0),
+                "entry_mode": self._keypad_view.is_entry_mode if self._keypad_view else None,
+            }
+            start_fields.update(fields)
+            self.trace_transition_phase(
+                "transition_start",
+                level=logging.INFO,
+                force=False,
+                **start_fields,
+            )
+            self.trace_visibility_state("transition_start")
+        elif cause and self.gui_trace_enabled:
+            self.trace_transition_phase("transition_nested", cause=cause, depth=self._transition_depth, **fields)
 
     def _end_transition(self) -> None:
         self._transition_depth = max(0, self._transition_depth - 1)
         if self._transition_depth == 0 and self._options_rebuild_pending:
             self._options_rebuild_pending = False
             self.rebuild_options()
+        active_transition = getattr(self, "_active_transition", None)
+        if self._transition_depth == 0 and active_transition is not None:
+            transition = self._active_transition
+            elapsed_ms = (time.perf_counter() - transition["started_at"]) * 1000
+            self.trace_visibility_state("transition_end")
+            end_fields = {
+                "cause": transition["cause"],
+                "scope": self._scope_label(),
+                "tmcc_id": self._scope_tmcc_ids.get(self.scope, 0),
+                "entry_mode": self._keypad_view.is_entry_mode if self._keypad_view else None,
+                "elapsed_ms": round(elapsed_ms, 2),
+                "slow": elapsed_ms >= self.gui_trace_slow_ms,
+            }
+            end_fields.update(transition.get("root_fields", {}))
+            self.trace_transition_phase(
+                "transition_end",
+                level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+                force=elapsed_ms >= self.gui_trace_slow_ms,
+                **end_fields,
+            )
+            self._active_transition = None
 
     def _request_options_rebuild(self) -> None:
         if self._transition_depth > 0:
@@ -1174,41 +1340,47 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
-        # 1) Common UI transition (moved)
-        self._keypad_view.enter_ops_mode_base()
+        with self._display_transition(
+            "ops_mode",
+            scope=self._scope_label(),
+            tmcc_id=self._scope_tmcc_ids.get(self.scope, 0),
+            update_info=update_info,
+        ):
+            # 1) Common UI transition (moved)
+            self._keypad_view.enter_ops_mode_base()
 
-        # 2) Engine/train path
-        if self._keypad_view.is_engine_or_train:
-            # pure UI shell now lives in KeypadView
-            self._keypad_view.apply_ops_mode_ui_engine_shell()
+            # 2) Engine/train path
+            if self._keypad_view.is_engine_or_train:
+                # pure UI shell now lives in KeypadView
+                self._keypad_view.apply_ops_mode_ui_engine_shell()
 
-            # Resolve state (EngineGui responsibility)
-            if not isinstance(state, EngineState):
-                self._active_engine_state = state = self.state_store.get_state(
-                    self.scope, self._scope_tmcc_ids[self.scope], False
-                )
+                # Resolve state (EngineGui responsibility)
+                if not isinstance(state, EngineState):
+                    self._active_engine_state = state = self.state_store.get_state(
+                        self.scope, self._scope_tmcc_ids[self.scope], False
+                    )
 
-            # Apply model changes (EngineGui responsibility)
-            if isinstance(state, TrainState):
-                self.on_new_train(state, ops_mode_setup=True)
+                # Apply model changes (EngineGui responsibility)
+                if isinstance(state, TrainState):
+                    self.on_new_train(state, ops_mode_setup=True)
+                else:
+                    self.on_new_engine(state, ops_mode_setup=True)
+
+                self._last_engine_type = None
+                self._controller_view.apply_engine_type(state)
+
+            # 3) Non-engine path (already moved)
             else:
-                self.on_new_engine(state, ops_mode_setup=True)
+                self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
+                tmcc_id = self.active_state.tmcc_id
+                if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
+                    view = self.get_accessory_view(tmcc_id)
+                    acc = getattr(view, "caa", None)
+                    self.on_configured_accessory(acc)
 
-            self._last_engine_type = None
-            self._controller_view.apply_engine_type(state)
-
-        # 3) Non-engine path (already moved)
-        else:
-            self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-            tmcc_id = self.active_state.tmcc_id
-            if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
-                view = self.get_accessory_view(tmcc_id)
-                acc = getattr(view, "caa", None)
-                self.on_configured_accessory(acc)
-
-        # 4) Preserve existing behavior
-        if update_info:
-            self.update_component_info(in_ops_mode=True)
+            # 4) Preserve existing behavior
+            if update_info:
+                self.update_component_info(in_ops_mode=True)
 
     def _resolve_component_state(self, tmcc_id: int) -> tuple[int, S | None]:
         state = self.active_state
@@ -1264,6 +1436,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
         self.name_text.value = ""
         self._image_presenter.clear()
+        self.trace_visibility_state("clear_component_display", tmcc_id=tmcc_id)
 
     def _refresh_component_view(
         self,
@@ -1290,9 +1463,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 # TMCC selection; force a repaint in that case.
                 refresh_image = True
             if refresh_image:
+                started = time.perf_counter()
                 self._image_presenter.update(tmcc_id)
+                elapsed_ms = (time.perf_counter() - started) * 1000
+                self.trace_transition_phase(
+                    "refresh_component_image",
+                    level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+                    force=elapsed_ms >= self.gui_trace_slow_ms,
+                    scope=self._scope_label(),
+                    tmcc_id=tmcc_id,
+                    selection_changed=selection_changed,
+                    elapsed_ms=round(elapsed_ms, 2),
+                )
         else:
             self.image_box.hide()
+            self.trace_visibility_state("refresh_component_view:image_hide", scope=self._scope_label(), tmcc_id=tmcc_id)
         self._last_displayed_scope = self.scope
         self._last_displayed_tmcc_id = tmcc_id
 
@@ -1303,8 +1488,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         not_found_value: str = "Not Configured",
         in_ops_mode: bool = False,
     ) -> None:
-        self._begin_transition()
-        try:
+        with self._display_transition(
+            "update_component_info",
+            requested_tmcc_id=tmcc_id,
+            scope=self._scope_label(),
+            in_ops_mode=in_ops_mode,
+        ):
             self._popup.close()
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
@@ -1322,8 +1511,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 selection_changed = not self._is_same_display_selection(tmcc_id)
                 self._clear_component_display(tmcc_id, num_chars)
             self._refresh_component_view(state, update_button_state, tmcc_id, selection_changed)
-        finally:
-            self._end_transition()
+            self.trace_transition_phase(
+                "update_component_info_complete",
+                scope=self._scope_label(),
+                tmcc_id=tmcc_id,
+                selection_changed=selection_changed,
+                state_type=type(state).__name__ if state is not None else None,
+            )
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         return self._image_presenter.calc_box_size()

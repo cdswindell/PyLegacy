@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+import time
 from contextlib import contextmanager
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
@@ -31,6 +32,16 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 CAB_1_THROTTLE_REPEAT_MS = 200
+
+
+def _trace_phase(host: object, phase: str, **fields) -> None:
+    trace = getattr(host, "trace_transition_phase", None)
+    if callable(trace):
+        trace(phase, **fields)
+
+
+def _slow_ms(host: object) -> float:
+    return float(getattr(host, "gui_trace_slow_ms", 350.0))
 
 
 class ControllerView:
@@ -83,6 +94,7 @@ class ControllerView:
             return
 
         host = self._host
+        started = time.perf_counter()
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
@@ -171,6 +183,17 @@ class ControllerView:
                         gauge.set_value(state.water_level_pct)
             self._last_throttle_state = throttle_state
             self._last_state = state
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        slow_ms = _slow_ms(host)
+        _trace_phase(
+            host,
+            "controller.update",
+            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
+            force=elapsed_ms >= slow_ms,
+            state_tmcc_id=state.tmcc_id,
+            throttle_tmcc_id=throttle_state.tmcc_id if throttle_state else None,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
