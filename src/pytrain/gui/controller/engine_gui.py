@@ -728,6 +728,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return None
 
     def get_options(self) -> list[str]:
+        started = time.perf_counter()
         if self._separator is None:
             self._separator = "-" * int(3 * len(self.title) / 2)
         options = [self.title]
@@ -765,6 +766,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self._options_to_state[name] = state
         options.append(self._separator)
         options.append(ADMIN_TITLE)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        self.trace_transition_phase(
+            "get_options",
+            level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+            force=elapsed_ms >= self.gui_trace_slow_ms,
+            scope=self._scope_label(),
+            queue_size=len(queue) if isinstance(queue, UniqueDeque) else None,
+            options_count=len(options),
+            train_linked_count=len(self._train_linked_queue),
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return options
 
     def monitor_state(self):
@@ -1101,6 +1113,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._scope_tmcc_ids[scope] = state.tmcc_id
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
+        started = time.perf_counter()
         self._popup.close()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         self._scope_tmcc_ids[self.scope] = tmcc_id
@@ -1124,7 +1137,29 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         self._recents_queue[self.scope] = queue
                 queue.appendleft(state)
                 self._request_options_rebuild()
+                elapsed_ms = (time.perf_counter() - started) * 1000
+                self.trace_transition_phase(
+                    "make_recent",
+                    level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+                    force=elapsed_ms >= self.gui_trace_slow_ms,
+                    scope=scope.label if scope else None,
+                    tmcc_id=tmcc_id,
+                    queue_type=type(queue).__name__,
+                    queue_len=len(queue),
+                    elapsed_ms=round(elapsed_ms, 2),
+                )
                 return True
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        self.trace_transition_phase(
+            "make_recent",
+            level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+            force=elapsed_ms >= self.gui_trace_slow_ms,
+            scope=scope.label if scope else None,
+            tmcc_id=tmcc_id,
+            queue_type=None,
+            queue_len=0,
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return False
 
     def show_next_component(self) -> None:
@@ -1140,7 +1175,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 recents.append(current)
                 self._scope_tmcc_ids[self.scope] = state.tmcc_id
                 self.update_component_info(tmcc_id=state.tmcc_id)
+                started = time.perf_counter()
                 self.header.select_default()
+                elapsed_ms = (time.perf_counter() - started) * 1000
+                self.trace_transition_phase(
+                    "header_select_default",
+                    level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+                    force=elapsed_ms >= self.gui_trace_slow_ms,
+                    source="show_next_component",
+                    elapsed_ms=round(elapsed_ms, 2),
+                )
 
     def show_previous_component(self) -> None:
         with self._display_transition("show_previous_component", scope=self._scope_label()):
@@ -1153,13 +1197,49 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 state = cast(ComponentState, cast(object, recents.previous()))
                 self._scope_tmcc_ids[self.scope] = state.tmcc_id
                 self.update_component_info(tmcc_id=state.tmcc_id)
+                started = time.perf_counter()
                 self.header.select_default()
+                elapsed_ms = (time.perf_counter() - started) * 1000
+                self.trace_transition_phase(
+                    "header_select_default",
+                    level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+                    force=elapsed_ms >= self.gui_trace_slow_ms,
+                    source="show_previous_component",
+                    elapsed_ms=round(elapsed_ms, 2),
+                )
 
     def rebuild_options(self):
+        started = time.perf_counter()
+        clear_started = time.perf_counter()
         self.header.clear()
-        for option in self.get_options():
+        clear_ms = (time.perf_counter() - clear_started) * 1000
+
+        options_started = time.perf_counter()
+        options = self.get_options()
+        options_ms = (time.perf_counter() - options_started) * 1000
+
+        append_started = time.perf_counter()
+        for option in options:
             self.header.append(option)
+        append_ms = (time.perf_counter() - append_started) * 1000
+
+        select_started = time.perf_counter()
         self.header.select_default()
+        select_ms = (time.perf_counter() - select_started) * 1000
+
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        self.trace_transition_phase(
+            "rebuild_options",
+            level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+            force=elapsed_ms >= self.gui_trace_slow_ms,
+            scope=self._scope_label(),
+            options_count=len(options),
+            clear_ms=round(clear_ms, 2),
+            get_options_ms=round(options_ms, 2),
+            append_ms=round(append_ms, 2),
+            select_default_ms=round(select_ms, 2),
+            elapsed_ms=round(elapsed_ms, 2),
+        )
 
     def _begin_transition(self, cause: str | None = None, **fields: Any) -> None:
         self._transition_depth += 1
@@ -1217,6 +1297,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._active_transition = None
 
     def _request_options_rebuild(self) -> None:
+        self.trace_transition_phase(
+            "request_options_rebuild",
+            scope=self._scope_label(),
+            transition_depth=self._transition_depth,
+            pending=self._options_rebuild_pending,
+        )
         if self._transition_depth > 0:
             self._options_rebuild_pending = True
         else:
