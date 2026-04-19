@@ -387,6 +387,7 @@ class AdminPanel:
         quality = max(0, min(100, quality))
         red = int(round(255 * (100 - quality) / 100))
         green = int(round(255 * quality / 100))
+        log.info("Signal quality: %d%% (%d, %d)", quality, red, green)
         return f"#{red:02x}{green:02x}00"
 
     @staticmethod
