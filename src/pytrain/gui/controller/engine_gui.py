@@ -302,6 +302,30 @@ class EngineGui(GuiZeroBase, Generic[S]):
             )
         return elapsed_ms
 
+    def _trace_scope_button_assignment(
+        self,
+        *,
+        source: str,
+        button_scope: CommandScope,
+        requested_scope: CommandScope,
+        old_bg: str | None,
+        old_text_color: str | None,
+    ) -> None:
+        button = self._scope_buttons.get(button_scope)
+        self.trace_transition_phase(
+            "scope_button_assign",
+            source=source,
+            button_scope=self._scope_label(button_scope),
+            active_scope=self._scope_label(),
+            requested_scope=self._scope_label(requested_scope),
+            enabled_bg=self._enabled_bg,
+            enabled_text=self._enabled_text,
+            old_bg=old_bg,
+            new_bg=getattr(button, "bg", None),
+            old_text_color=old_text_color,
+            new_text_color=getattr(button, "text_color", None),
+        )
+
     def _next_transition_id(self) -> str:
         seq = getattr(self, "_transition_seq", 0) + 1
         self._transition_seq = seq
@@ -1122,12 +1146,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
             clear_info = True
             # self._last_engine_type = None
             for k, v in self._scope_buttons.items():
+                old_bg = getattr(v, "bg", None)
+                old_text_color = getattr(v, "text_color", None)
                 if k == scope:
                     v.bg = self._enabled_bg
                     v.text_color = self._enabled_text
                 else:
                     v.bg = "white"
                     v.text_color = "black"
+                self._trace_scope_button_assignment(
+                    source="on_scope",
+                    button_scope=k,
+                    requested_scope=scope,
+                    old_bg=old_bg,
+                    old_text_color=old_text_color,
+                )
             # if new scope selected, display most recent scoped component, if one existed
             if scope != self.scope:
                 self.tmcc_id_box.text = f"{scope.title} ID"

@@ -44,6 +44,16 @@ def _slow_ms(host: object) -> float:
     return float(getattr(host, "gui_trace_slow_ms", 350.0))
 
 
+def _widget_trace_name(widget: Widget) -> str:
+    text = getattr(widget, "text", None)
+    if isinstance(text, str) and text:
+        return text
+    value = getattr(widget, "value", None)
+    if isinstance(value, str) and value:
+        return value
+    return type(widget).__name__
+
+
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
         self._host = host
@@ -729,20 +739,44 @@ class ControllerView:
                 engine_type=t,
                 shown_count=0,
                 hidden_count=0,
+                show_ms=0.0,
+                hide_ms=0.0,
+                slowest_show_ms=0.0,
+                slowest_show_widget=None,
+                slowest_hide_ms=0.0,
+                slowest_hide_widget=None,
                 skipped=True,
             )
             return 0, 0, True
 
         btns = self._engine_type_key_map.get(t, set())
         shown_count = 0
+        show_started = time.perf_counter()
+        slowest_show_ms = 0.0
+        slowest_show_widget = None
         for cell in btns:
+            cell_started = time.perf_counter()
             cell.show()
+            cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
+            if cell_elapsed_ms > slowest_show_ms:
+                slowest_show_ms = cell_elapsed_ms
+                slowest_show_widget = _widget_trace_name(cell)
             shown_count += 1
+        show_ms = (time.perf_counter() - show_started) * 1000
 
         hidden_count = 0
+        hide_started = time.perf_counter()
+        slowest_hide_ms = 0.0
+        slowest_hide_widget = None
         for cell in self._all_engine_btns - btns:
+            cell_started = time.perf_counter()
             cell.hide()
+            cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
+            if cell_elapsed_ms > slowest_hide_ms:
+                slowest_hide_ms = cell_elapsed_ms
+                slowest_hide_widget = _widget_trace_name(cell)
             hidden_count += 1
+        hide_ms = (time.perf_counter() - hide_started) * 1000
 
         host._last_engine_type = t
         _trace_phase(
@@ -751,6 +785,12 @@ class ControllerView:
             engine_type=t,
             shown_count=shown_count,
             hidden_count=hidden_count,
+            show_ms=round(show_ms, 2),
+            hide_ms=round(hide_ms, 2),
+            slowest_show_ms=round(slowest_show_ms, 2),
+            slowest_show_widget=slowest_show_widget,
+            slowest_hide_ms=round(slowest_hide_ms, 2),
+            slowest_hide_widget=slowest_hide_widget,
             skipped=False,
         )
         return shown_count, hidden_count, False

@@ -307,6 +307,34 @@ def test_on_scope_switches_between_engine_and_train_without_forcing_entry_mode()
     assert gui._scope_keypad_args == (False, True)
 
 
+def test_on_scope_traces_scope_button_assignments() -> None:
+    gui = _new_engine(CommandScope.ENGINE)
+    gui._scope_tmcc_ids[CommandScope.ENGINE] = 5
+    gui._scope_tmcc_ids[CommandScope.TRAIN] = 9
+    gui.update_component_info = lambda *args, **kwargs: None
+    gui._close_popup = lambda _source: None
+    gui._request_options_rebuild = lambda: None
+    gui.trace_visibility_state = lambda *_args, **_kwargs: None
+    events: list[tuple[str, dict[str, object]]] = []
+    gui.trace_transition_phase = lambda phase, **fields: events.append((phase, fields))
+
+    gui.on_scope(CommandScope.TRAIN)
+
+    assign_events = [fields for phase, fields in events if phase == "scope_button_assign"]
+
+    assert any(
+        fields["button_scope"] == "Train"
+        and fields["requested_scope"] == "Train"
+        and fields["enabled_bg"] == "green"
+        and fields["new_bg"] == "green"
+        for fields in assign_events
+    )
+    assert any(
+        fields["button_scope"] == "Engine" and fields["requested_scope"] == "Train" and fields["new_bg"] == "white"
+        for fields in assign_events
+    )
+
+
 def test_on_new_engine_marks_train_scope_when_train_linked_engine_is_active(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
