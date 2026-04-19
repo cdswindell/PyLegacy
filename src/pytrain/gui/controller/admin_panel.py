@@ -91,7 +91,7 @@ class AdminPanel:
         self._wifi_signal = self._wifi_signal_badge(wifi_box, grid=[2, 0], text="N/A", badge_color="dim gray")
         self._refresh_wifi_display()
         sp = Text(wifi_box, text=" ", grid=[0, 1, 3, 1], height=1, align="bottom")
-        sp.text_size = self._gui.s_2
+        sp.text_size = self._gui.s_1
 
         sp = Text(body, text=" ", height=1, bold=True, align="top")
         sp.text_size = self._gui.s_4
@@ -301,8 +301,8 @@ class AdminPanel:
         )
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
-        badge.tk.configure(padx=3, pady=15, borderwidth=1, relief="flat", anchor="e")
-        badge.tk.grid_configure(sticky="e", padx=2, pady=2)
+        badge.tk.configure(padx=8, pady=3, borderwidth=1, relief="flat", anchor="center")
+        badge.tk.grid_configure(sticky="nse", padx=2, pady=2)
         return badge
 
     def _refresh_wifi_display(self) -> None:
