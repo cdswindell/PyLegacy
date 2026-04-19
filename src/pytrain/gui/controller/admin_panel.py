@@ -292,7 +292,7 @@ class AdminPanel:
             parent,
             text=text,
             grid=grid,
-            align="left",
+            align="right",
             bold=True,
             size=self._gui.s_12,
             width=max(6, len(text) + 1),
