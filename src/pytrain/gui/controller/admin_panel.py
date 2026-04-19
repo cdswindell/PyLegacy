@@ -309,21 +309,21 @@ class AdminPanel:
         title, ssid, ip_address, strength, signal_color = self._wifi_status()
         show_wifi_details = bool(ssid and strength)
         self._wifi_box.text = title
-        self._wifi_ssid.value = f"SSID: {ssid}" if ssid else ""
+        self._wifi_ssid.value = ssid if ssid else ""
         self._wifi_ip.value = ip_address
         self._wifi_signal.value = strength or ""
 
         if show_wifi_details:
             self._wifi_ssid.show()
             self._wifi_signal.show()
-            self._wifi_ip.tk.grid_configure(column=1, columnspan=1, sticky="ew")
+            self._wifi_ip.tk.grid_configure(column=1, columnspan=1, sticky="nwse")
             self._wifi_ip.tk.configure(anchor="w")
             self._wifi_signal.bg = signal_color
             self._wifi_signal.text_color = self._signal_text_color(signal_color)
         else:
             self._wifi_ssid.hide()
             self._wifi_signal.hide()
-            self._wifi_ip.tk.grid_configure(column=0, columnspan=3, sticky="ew")
+            self._wifi_ip.tk.grid_configure(column=0, columnspan=3, sticky="nwse")
             self._wifi_ip.tk.configure(anchor="center")
 
     def _ensure_wifi_refresh(self) -> None:
