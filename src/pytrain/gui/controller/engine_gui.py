@@ -789,12 +789,54 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         def upd():
             if not self._shutdown_flag.is_set():
-                self._message_queue.put((action, [state]))
+                current_scope = self.scope
+                current_tmcc_id = self._scope_tmcc_ids.get(current_scope, 0) if current_scope else 0
+                watched_scope = state.scope
+                watched_tmcc_id = state.tmcc_id
+                same_scope = watched_scope == current_scope
+                same_tmcc_id = watched_tmcc_id == current_tmcc_id
+                is_relevant = same_scope and same_tmcc_id
+                self.trace_transition_phase(
+                    "watcher_state_enqueue",
+                    watched_scope=watched_scope.label if watched_scope else None,
+                    watched_tmcc_id=watched_tmcc_id,
+                    current_scope=current_scope.label if current_scope else None,
+                    current_tmcc_id=current_tmcc_id,
+                    is_relevant=is_relevant,
+                    state_type=type(state).__name__,
+                )
+                self.queue_message(
+                    action,
+                    state,
+                    trace_event="watcher_state_update",
+                    trace_fields={
+                        "watched_scope": watched_scope.label if watched_scope else None,
+                        "watched_tmcc_id": watched_tmcc_id,
+                        "current_scope": current_scope.label if current_scope else None,
+                        "current_tmcc_id": current_tmcc_id,
+                        "same_scope": same_scope,
+                        "same_tmcc_id": same_tmcc_id,
+                        "is_relevant": is_relevant,
+                        "state_type": type(state).__name__,
+                    },
+                )
 
         return upd
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
+        if isinstance(state, EngineState):
+            current_tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
+            self.trace_transition_phase(
+                "on_new_engine",
+                state_tmcc_id=state.tmcc_id,
+                current_scope=self._scope_label(),
+                current_tmcc_id=current_tmcc_id,
+                same_scope=state.scope == self.scope,
+                same_tmcc_id=state.tmcc_id == current_tmcc_id,
+                ops_mode_setup=ops_mode_setup,
+                is_engine=is_engine,
+            )
         self._active_engine_state = state
         if isinstance(state, EngineState):
             if self._active_train_state and state in self._active_train_state:

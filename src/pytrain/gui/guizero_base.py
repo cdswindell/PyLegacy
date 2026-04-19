@@ -65,6 +65,8 @@ class _QueuedGuiMessage:
     enqueued_at: float
     transition_id: str | None
     queue_size: int
+    trace_event: str | None
+    trace_fields: dict[str, Any]
 
 
 class GuiZeroBase(Thread, ABC):
@@ -338,13 +340,22 @@ class GuiZeroBase(Thread, ABC):
             self._init_complete_flag.wait()
             self.start()
 
-    def queue_message(self, message: Callable, *args: Any) -> None:
+    def queue_message(
+        self,
+        message: Callable,
+        *args: Any,
+        trace_event: str | None = None,
+        trace_fields: dict[str, Any] | None = None,
+        transition_id: str | None = None,
+    ) -> None:
         wrapped = _QueuedGuiMessage(
             callback=message,
             args=tuple(args),
             enqueued_at=time.perf_counter(),
-            transition_id=self.current_transition_id,
+            transition_id=transition_id if transition_id is not None else self.current_transition_id,
             queue_size=self._message_queue.qsize(),
+            trace_event=trace_event,
+            trace_fields=dict(trace_fields or {}),
         )
         self._message_queue.put(wrapped)
         self.trace_gui(
@@ -352,6 +363,8 @@ class GuiZeroBase(Thread, ABC):
             transition_id=wrapped.transition_id,
             callback=getattr(message, "__name__", repr(message)),
             queue_size=wrapped.queue_size,
+            trace_event=wrapped.trace_event,
+            **wrapped.trace_fields,
         )
 
     @staticmethod
@@ -428,6 +441,8 @@ class GuiZeroBase(Thread, ABC):
                                     callback=getattr(message.callback, "__name__", repr(message.callback)),
                                     queue_lag_ms=round(queue_lag_ms, 2),
                                     queue_size=self._message_queue.qsize(),
+                                    trace_event=message.trace_event,
+                                    **message.trace_fields,
                                 )
                             message.callback(*message.args)
                         elif isinstance(message, tuple):
@@ -816,7 +831,20 @@ class GuiZeroBase(Thread, ABC):
                 self._prod_info_cache[tmcc_id] = prod_info
                 self._pending_prod_infos.discard(tmcc_id)
         # Schedule the UI update on the main thread
-        self.queue_message(self.process_prod_image, prod_info, prepared_image, tmcc_id, callback)
+        self.queue_message(
+            self.process_prod_image,
+            prod_info,
+            prepared_image,
+            tmcc_id,
+            callback,
+            trace_event="prod_info_image_ready",
+            trace_fields={
+                "tmcc_id": tmcc_id,
+                "bt_id": bt_id,
+                "prepared_image": prepared_image is not None,
+                "prod_info_type": type(prod_info).__name__ if prod_info is not None else None,
+            },
+        )
         elapsed_ms = (time.perf_counter() - started) * 1000
         if self.gui_trace_enabled or elapsed_ms >= self.gui_trace_slow_ms:
             self.trace_gui(
