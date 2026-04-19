@@ -284,7 +284,7 @@ class AdminPanel:
             size=self._gui.s_12,
         )
         field.tk.configure(anchor="w")
-        field.tk.grid_configure(sticky="ew", padx=0, pady=(2, 4))
+        field.tk.grid_configure(sticky="nwse", padx=0, pady=(2, 4))
         return field
 
     def _wifi_signal_badge(self, parent: Box, grid: list[int], text: str, badge_color: str) -> Text:
@@ -300,7 +300,7 @@ class AdminPanel:
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
         badge.tk.configure(anchor="center", padx=8, pady=3, borderwidth=1, relief="flat")
-        badge.tk.grid_configure(sticky="e", padx=0, pady=(1, 5))
+        badge.tk.grid_configure(sticky="nwse", padx=0, pady=(1, 5))
         return badge
 
     def _refresh_wifi_display(self) -> None:
