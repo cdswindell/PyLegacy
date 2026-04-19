@@ -167,6 +167,11 @@ class ControllerView:
         throttle_state_changed = throttle_state != self._last_throttle_state
         state_changed = state != self._last_state
         diag_skip_flags = _diag_skip_speed_ui_flags()
+        _trace_phase(
+            host,
+            "controller.update_diag",
+            diag_skip_flags=sorted(diag_skip_flags) if diag_skip_flags else [],
+        )
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
