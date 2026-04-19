@@ -39,30 +39,36 @@ def test_show_keys_for_type_traces_show_hide_timings() -> None:
         setattr(keypad_box, "show_calls", keypad_box.show_calls + 1),
         setattr(keypad_box, "visible", True),
     )
+    shared = DummyCell("shared", delay_s=0.001)
+    added = DummyCell("added")
+    removed = DummyCell("removed", delay_s=0.001)
     host = SimpleNamespace(
-        _last_engine_type=None,
+        _last_engine_type="d",
         controller_keypad_box=keypad_box,
         gui_trace_slow_ms=10_000,
         trace_transition_phase=lambda phase, **fields: events.append((phase, fields)),
     )
-    slow_show = DummyCell("slow-show", delay_s=0.001)
-    fast_show = DummyCell("fast-show")
-    slow_hide = DummyCell("slow-hide", delay_s=0.001)
     view = ControllerView(host)
-    view._engine_type_key_map = {"s": {slow_show, fast_show}}
-    view._all_engine_btns = {slow_show, fast_show, slow_hide}
+    view._engine_type_key_map = {
+        "d": {shared, removed},
+        "s": {shared, added},
+    }
+    view._all_engine_btns = {shared, added, removed}
 
     shown_count, hidden_count, skipped = view._show_keys_for_type("s")
 
-    assert (shown_count, hidden_count, skipped) == (2, 1, False)
+    assert (shown_count, hidden_count, skipped) == (1, 1, False)
     trace = [fields for phase, fields in events if phase == "controller.show_keys_for_type"][-1]
     assert trace["engine_type"] == "s"
-    assert trace["shown_count"] == 2
+    assert trace["previous_engine_type"] == "d"
+    assert trace["shown_count"] == 1
     assert trace["hidden_count"] == 1
     assert trace["batched_container_hidden"] is True
     assert trace["show_ms"] >= 0
     assert trace["hide_ms"] >= 0
-    assert trace["slowest_show_widget"] in {"slow-show", "fast-show"}
-    assert trace["slowest_hide_widget"] == "slow-hide"
+    assert trace["slowest_show_widget"] == "added"
+    assert trace["slowest_hide_widget"] == "removed"
     assert keypad_box.hide_calls == 1
     assert keypad_box.show_calls == 1
+    assert shared.show_calls == 0
+    assert shared.hide_calls == 0

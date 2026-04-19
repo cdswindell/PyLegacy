@@ -825,13 +825,15 @@ class ControllerView:
     def _show_keys_for_type(self, t: str) -> tuple[int, int, bool]:
         """Internal: show keys for a controller type key."""
         host = self._host
+        previous_engine_type = getattr(host, "_last_engine_type", None)
 
         # Avoid rework if type unchanged
-        if getattr(host, "_last_engine_type", None) == t:
+        if previous_engine_type == t:
             _trace_phase(
                 host,
                 "controller.show_keys_for_type",
                 engine_type=t,
+                previous_engine_type=previous_engine_type,
                 shown_count=0,
                 hidden_count=0,
                 batched_container_hidden=False,
@@ -851,6 +853,9 @@ class ControllerView:
             return 0, 0, True
 
         btns = self._engine_type_key_map.get(t, set())
+        previous_btns = self._engine_type_key_map.get(previous_engine_type, set()) if previous_engine_type else set()
+        cells_to_show = btns - previous_btns
+        cells_to_hide = previous_btns - btns if previous_engine_type else self._all_engine_btns - btns
         container = getattr(host, "controller_keypad_box", None)
         batched_container_hidden = bool(container is not None and getattr(container, "visible", False))
         container_hide_ms = None
@@ -865,7 +870,7 @@ class ControllerView:
             show_started = time.perf_counter()
             slowest_show_ms = 0.0
             slowest_show_widget = None
-            for cell in btns:
+            for cell in cells_to_show:
                 cell_started = time.perf_counter()
                 cell.show()
                 cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
@@ -880,7 +885,7 @@ class ControllerView:
             hide_started = time.perf_counter()
             slowest_hide_ms = 0.0
             slowest_hide_widget = None
-            for cell in self._all_engine_btns - btns:
+            for cell in cells_to_hide:
                 cell_started = time.perf_counter()
                 cell.hide()
                 cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
@@ -901,6 +906,7 @@ class ControllerView:
             host,
             "controller.show_keys_for_type",
             engine_type=t,
+            previous_engine_type=previous_engine_type,
             shown_count=shown_count,
             hidden_count=hidden_count,
             batched_container_hidden=batched_container_hidden,
