@@ -301,8 +301,7 @@ class AdminPanel:
         )
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
-        badge.tk.config(pady=20)
-        badge.tk.configure(padx=3, pady=3, borderwidth=1, relief="flat", anchor="e")
+        badge.tk.configure(padx=10, pady=3, borderwidth=1, relief="flat", anchor="e")
         badge.tk.grid_configure(sticky="e", padx=2, pady=2)
         return badge
 
