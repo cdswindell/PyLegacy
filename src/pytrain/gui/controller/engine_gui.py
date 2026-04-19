@@ -1309,6 +1309,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def _begin_transition(self, cause: str | None = None, **fields: Any) -> None:
         self._transition_depth += 1
+        transition_stack = getattr(self, "_transition_stack", None)
+        if not isinstance(transition_stack, list):
+            transition_stack = []
+            self._transition_stack = transition_stack
         active_transition = getattr(self, "_active_transition", None)
         if self._transition_depth == 1 or active_transition is None:
             transition_id = self._next_transition_id()
@@ -1334,9 +1338,39 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.trace_visibility_state("transition_start")
         elif cause and self.gui_trace_enabled:
             self.trace_transition_phase("transition_nested", cause=cause, depth=self._transition_depth, **fields)
+        transition_stack.append(
+            {
+                "cause": cause or "unspecified",
+                "depth": self._transition_depth,
+                "started_at": time.perf_counter(),
+                "fields": dict(fields),
+            }
+        )
 
     def _end_transition(self) -> None:
+        transition_stack = getattr(self, "_transition_stack", None)
+        transition = transition_stack.pop() if isinstance(transition_stack, list) and transition_stack else None
         self._transition_depth = max(0, self._transition_depth - 1)
+        if transition is not None:
+            elapsed_ms = (time.perf_counter() - transition["started_at"]) * 1000
+            complete_fields = {
+                "cause": transition["cause"],
+                "scope": self._scope_label(),
+                "tmcc_id": self._scope_tmcc_ids.get(self.scope, 0),
+                "entry_mode": self._keypad_view.is_entry_mode if self._keypad_view else None,
+                "depth": transition["depth"],
+                "elapsed_ms": round(elapsed_ms, 2),
+                "slow": elapsed_ms >= self.gui_trace_slow_ms,
+            }
+            complete_fields.update(transition.get("fields", {}))
+            if transition["depth"] == 1:
+                complete_fields["pending_rebuild"] = self._options_rebuild_pending
+            self.trace_transition_phase(
+                "transition_complete",
+                level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
+                force=elapsed_ms >= self.gui_trace_slow_ms,
+                **complete_fields,
+            )
         if self._transition_depth == 0 and self._options_rebuild_pending:
             self._options_rebuild_pending = False
             self.rebuild_options()

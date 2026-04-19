@@ -358,6 +358,33 @@ def test_tear_down_link_gui_resets_train_link_mode_and_clears_train_linked_state
     assert gui._scope_tmcc_ids[CommandScope.ENGINE] == 0
 
 
+def test_display_transition_traces_nested_completion() -> None:
+    gui = _new_engine(CommandScope.ENGINE)
+    gui._gui_trace_enabled = True
+    gui._gui_trace_slow_ms = 10_000
+    events: list[tuple[str, dict[str, object]]] = []
+
+    def trace_transition_phase(phase: str, **fields: object) -> None:
+        events.append((phase, fields))
+
+    def trace_visibility_state(source: str, **fields: object) -> None:
+        events.append(("visibility", {"source": source, **fields}))
+
+    gui.trace_transition_phase = trace_transition_phase
+    gui.trace_visibility_state = trace_visibility_state
+
+    with gui._display_transition("outer", scope=gui._scope_label()):
+        with gui._display_transition("inner", requested_tmcc_id=12):
+            pass
+
+    complete_events = [fields for phase, fields in events if phase == "transition_complete"]
+
+    assert [fields["cause"] for fields in complete_events] == ["inner", "outer"]
+    assert [fields["depth"] for fields in complete_events] == [2, 1]
+    assert complete_events[-1]["pending_rebuild"] is False
+    assert [phase for phase, _fields in events].count("transition_end") == 1
+
+
 def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytest.MonkeyPatch) -> None:
     gui = _new_engine(CommandScope.ENGINE)
     state = DummyState(tmcc_id=34, name="Hudson")
