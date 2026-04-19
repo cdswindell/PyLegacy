@@ -1170,6 +1170,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 force_entry_mode=force_entry_mode,
                 clear_info=clear_info,
             )
+            for k, v in self._scope_buttons.items():
+                if k == scope:
+                    v.bg = self._enabled_bg
+                    v.text_color = self._enabled_text
+                    log.error(f"on_scope: {k} {v.bg} {v.text_color}")
 
     def display_most_recent(self, scope: CommandScope) -> None:
         """
