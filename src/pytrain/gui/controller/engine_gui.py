@@ -1122,6 +1122,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if k == scope:
                     v.bg = self._enabled_bg
                     v.text_color = self._enabled_text
+                    log.error(f"on_scope: {k} {v.bg} {v.text_color}")
                 else:
                     v.bg = "white"
                     v.text_color = "black"
