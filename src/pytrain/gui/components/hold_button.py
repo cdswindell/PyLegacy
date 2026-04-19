@@ -230,6 +230,34 @@ class HoldButton(PushButton):
     def on_repeat(self, func):
         self._on_repeat = func
 
+    @property
+    def progress_fill_color(self) -> str:
+        return self._progress_fill_color
+
+    @progress_fill_color.setter
+    def progress_fill_color(self, value: str) -> None:
+        self._progress_fill_color = str(value)
+        if self._progress_canvas is not None and self._progress_rect is not None:
+            try:
+                self._progress_canvas.itemconfig(self._progress_rect, fill=self._progress_fill_color)
+            except TclError:
+                pass
+
+    @property
+    def progress_empty_color(self) -> str | None:
+        return self._progress_empty_color
+
+    @progress_empty_color.setter
+    def progress_empty_color(self, value: str | None) -> None:
+        self._progress_empty_color = None if value is None else str(value)
+        if self._progress_canvas is not None and self._progress_bg_rect is not None:
+            canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
+            try:
+                self._progress_canvas.config(background=canvas_bg)
+                self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
+            except TclError:
+                pass
+
     # ───────────────────────────────
     # Internal event handlers
     # ───────────────────────────────
@@ -523,6 +551,7 @@ class HoldButton(PushButton):
             return
 
         top = self._progress_canvas.master  # toplevel
+
         try:
             bx = int(self.tk.winfo_rootx())
             by = int(self.tk.winfo_rooty())
@@ -543,6 +572,7 @@ class HoldButton(PushButton):
         try:
             self._progress_canvas.config(background=canvas_bg)
             self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
+            self._progress_canvas.itemconfig(self._progress_rect, fill=self._progress_fill_color)
             self._progress_canvas.coords(self._progress_bg_rect, 0, 0, bw, bh)
         except TclError:
             return

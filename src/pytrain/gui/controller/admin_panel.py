@@ -461,8 +461,8 @@ class AdminPanel:
             text_bold=text_bold,
             hold_threshold=hold_threshold,
             show_hold_progress=True,
-            progress_fill_color="darkgrey",
-            progress_empty_color="white",
+            progress_fill_color="red",
+            progress_empty_color="lightgrey",
             **kwargs,
         )
         self._gui.add_hover_action(hb)
