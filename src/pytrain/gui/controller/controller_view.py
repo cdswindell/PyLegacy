@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import tkinter as tk
 import time
 from contextlib import contextmanager
@@ -32,6 +33,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 CAB_1_THROTTLE_REPEAT_MS = 200
+DIAG_SKIP_SPEED_UI_ENV = "PYTRAIN_GUI_DIAG_SKIP_SPEED_UI"
 
 
 def _trace_phase(host: object, phase: str, **fields) -> None:
@@ -42,6 +44,11 @@ def _trace_phase(host: object, phase: str, **fields) -> None:
 
 def _slow_ms(host: object) -> float:
     return float(getattr(host, "gui_trace_slow_ms", 350.0))
+
+
+def _diag_skip_speed_ui_flags() -> frozenset[str]:
+    raw = os.environ.get(DIAG_SKIP_SPEED_UI_ENV, "")
+    return frozenset(part.strip().lower() for part in raw.split(",") if part.strip())
 
 
 def _widget_trace_name(widget: Widget) -> str:
@@ -159,57 +166,65 @@ class ControllerView:
         started = time.perf_counter()
         throttle_state_changed = throttle_state != self._last_throttle_state
         state_changed = state != self._last_state
+        diag_skip_flags = _diag_skip_speed_ui_flags()
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
                 if throttle_state_changed:
-                    if not host.speed.enabled:
-                        host.speed.enable()
-                    if not host.throttle.enabled:
-                        host.throttle.enable()
-                    if host._rr_speed_btn and not host._rr_speed_btn.enabled:
-                        host._rr_speed_btn.enable()
+                    if "enable_disable" not in diag_skip_flags:
+                        if not host.speed.enabled:
+                            host.speed.enable()
+                        if not host.throttle.enabled:
+                            host.throttle.enable()
+                        if host._rr_speed_btn and not host._rr_speed_btn.enabled:
+                            host._rr_speed_btn.enable()
 
-                    if throttle_state.is_legacy:
-                        host.throttle.tk.config(from_=195, to=0)
-                    elif throttle_state.is_cab1:
-                        host.throttle.tk.config(from_=3, to=-3)
+                    if "range_config" not in diag_skip_flags:
+                        if throttle_state.is_legacy:
+                            host.throttle.tk.config(from_=195, to=0)
+                        elif throttle_state.is_cab1:
+                            host.throttle.tk.config(from_=3, to=-3)
+                        else:
+                            host.throttle.tk.config(from_=31, to=0)
+                    if throttle_state.is_cab1 and "throttle_sync" not in diag_skip_flags:
                         host.throttle.value = 0
-                        if host._rr_speed_btn:
-                            host._rr_speed_btn.hide()
-                    else:
-                        host.throttle.tk.config(from_=31, to=0)
+                    if throttle_state.is_cab1 and host._rr_speed_btn and "rr_speed_visibility" not in diag_skip_flags:
+                        host._rr_speed_btn.hide()
 
-                    if host._rr_speed_btn:
+                    if host._rr_speed_btn and "rr_speed_visibility" not in diag_skip_flags:
                         if throttle_state.is_cab1:
                             host._rr_speed_btn.hide()
                         else:
                             host._rr_speed_btn.show()
 
                 # don't fight the user while dragging
-                if host.throttle.tk.focus_displayof() != host.throttle.tk:
+                if "throttle_sync" not in diag_skip_flags and host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
 
                 if throttle_state.is_cab1:
-                    self._set_cab1_speed()
+                    if "speed_label" not in diag_skip_flags:
+                        self._set_cab1_speed()
                 else:
-                    host.speed.value = f"{throttle_state.speed:03d}"
+                    if "speed_label" not in diag_skip_flags:
+                        host.speed.value = f"{throttle_state.speed:03d}"
 
                 # trough color indicates actual vs. target
-                if throttle_state.speed != throttle_state.target_speed:
-                    host.throttle.tk.config(troughcolor="#4C96C5")
-                else:
-                    host.throttle.tk.config(troughcolor=LIONEL_BLUE)
+                if "troughcolor" not in diag_skip_flags:
+                    if throttle_state.speed != throttle_state.target_speed:
+                        host.throttle.tk.config(troughcolor="#4C96C5")
+                    else:
+                        host.throttle.tk.config(troughcolor=LIONEL_BLUE)
 
-                if host._rr_speed_panel:
+                if host._rr_speed_panel and "rr_speed_panel" not in diag_skip_flags:
                     host._rr_speed_panel.configure(throttle_state)
             else:
-                if host.speed.enabled:
-                    host.speed.disable()
-                if host.throttle.enabled:
-                    host.throttle.disable()
-                if host._rr_speed_btn and host._rr_speed_btn.enabled:
-                    host._rr_speed_btn.disable()
+                if "enable_disable" not in diag_skip_flags:
+                    if host.speed.enabled:
+                        host.speed.disable()
+                    if host.throttle.enabled:
+                        host.throttle.disable()
+                    if host._rr_speed_btn and host._rr_speed_btn.enabled:
+                        host._rr_speed_btn.disable()
 
             # --- Brake ---
             brake = state.train_brake if state.train_brake is not None else 0
@@ -258,6 +273,7 @@ class ControllerView:
             throttle_tmcc_id=throttle_state.tmcc_id if throttle_state else None,
             state_changed=state_changed,
             throttle_state_changed=throttle_state_changed,
+            diag_skip_flags=sorted(diag_skip_flags) if diag_skip_flags else None,
             throttle_has_focus=_widget_has_focus(getattr(host, "throttle", None)),
             throttle_widget_value=_widget_value(getattr(host, "throttle", None)),
             throttle_speed=throttle_state.speed if throttle_state else None,
