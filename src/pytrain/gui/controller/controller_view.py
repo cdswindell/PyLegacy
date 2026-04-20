@@ -720,7 +720,8 @@ class ControllerView:
         for w in (host.throttle, host.brake, host.momentum, host.horn):
             try:
                 if w is not None:
-                    w.tk.event_generate("<Leave>")
+                    pass
+                    # w.tk.event_generate("<Leave>")
             except (TclError, AttributeError):
                 pass
 
