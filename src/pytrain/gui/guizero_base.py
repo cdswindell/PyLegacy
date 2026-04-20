@@ -16,6 +16,7 @@ import logging
 import tkinter as tk
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -36,6 +37,7 @@ from ..db.prod_info import ProdInfo
 from ..db.state_watcher import StateWatcher
 from ..db.sync_state import SyncState
 from ..gpio.gpio_handler import GpioHandler
+from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope, PROGRAM_NAME
@@ -51,6 +53,13 @@ COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, 
 PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
+
+
+@dataclass(frozen=True)
+class _QueuedSendRequest:
+    request: CommandReq | PdiReq
+    repeat: int = 1
+    delay: float = 0.0
 
 
 class GuiZeroBase(Thread, ABC):
@@ -154,6 +163,14 @@ class GuiZeroBase(Thread, ABC):
         self._app_counter = 0
         self._message_queue = Queue()
         self._owns_message_queue = True
+        self._request_queue: Queue[_QueuedSendRequest | None] = Queue()
+        self._request_queue_shutdown = Event()
+        self._request_worker = Thread(
+            target=self._process_request_queue,
+            daemon=True,
+            name=f"{title} Request Queue",
+        )
+        self._request_worker.start()
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -185,6 +202,7 @@ class GuiZeroBase(Thread, ABC):
         # Only signal shutdown here; actual tkinter destroy happens on the GUI thread
         if not self._is_closed:
             self._is_closed = True
+            self._shutdown_request_queue()
             self._shutdown_flag.set()
 
     def _atexit_close(self) -> None:
@@ -195,6 +213,7 @@ class GuiZeroBase(Thread, ABC):
                 self.join(timeout=3.0)
             except RuntimeError:
                 pass
+        self._join_request_worker(timeout=1.0)
 
     def reset(self) -> None:
         self.close()
@@ -231,6 +250,17 @@ class GuiZeroBase(Thread, ABC):
         """Route this GUI's queued callbacks through a parent GUI queue."""
         self._message_queue = parent._message_queue
         self._owns_message_queue = False
+
+    def submit_request(self, request: CommandReq | PdiReq, repeat: int = 1, delay: float = 0.0) -> None:
+        if not isinstance(request, (CommandReq, PdiReq)):
+            raise TypeError("request must be a CommandReq or PdiReq")
+        if self._request_queue_shutdown.is_set():
+            log.debug("Ignoring queued request during shutdown: %s", request)
+            return
+        self._request_queue.put(_QueuedSendRequest(request=request, repeat=repeat, delay=delay))
+
+    def enqueue_request(self, request: CommandReq | PdiReq, repeat: int = 1, delay: float = 0.0) -> None:
+        self.submit_request(request, repeat=repeat, delay=delay)
 
     def cache(self, *widgets: Widget | Box) -> None:
         if not widgets:
@@ -288,6 +318,7 @@ class GuiZeroBase(Thread, ABC):
 
     def _finalize_gui_resources(self) -> None:
         # Break references to tkinter-backed objects while still on the GUI thread.
+        self._shutdown_request_queue()
         self.destroy_cache()
         # self._clear_message_queue()
         self.size_cache.clear()
@@ -299,6 +330,38 @@ class GuiZeroBase(Thread, ABC):
             self._executor = None
         except FINALIZE_EXCEPTIONS:
             pass
+        self._join_request_worker()
+
+    def _shutdown_request_queue(self) -> None:
+        if self._request_queue_shutdown.is_set():
+            return
+        self._request_queue_shutdown.set()
+        self._request_queue.put(None)
+
+    def _join_request_worker(self, timeout: float = 0.5) -> None:
+        if self._request_worker.is_alive() and get_ident() != self._request_worker.ident:
+            try:
+                self._request_worker.join(timeout=timeout)
+            except RuntimeError:
+                pass
+
+    def _process_request_queue(self) -> None:
+        while True:
+            try:
+                queued_request = self._request_queue.get(timeout=0.1)
+            except Empty:
+                if self._request_queue_shutdown.is_set():
+                    break
+                continue
+
+            try:
+                if queued_request is None:
+                    break
+                queued_request.request.send(repeat=queued_request.repeat, delay=queued_request.delay)
+            except Exception as e:
+                log.exception("Error sending queued GUI request", exc_info=e)
+            finally:
+                self._request_queue.task_done()
 
     def run(self) -> None:
         self._shutdown_flag.clear()

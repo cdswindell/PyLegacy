@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from concurrent.futures import Future
+from threading import Event, get_ident
 from types import SimpleNamespace
 from typing import Callable
 
@@ -17,6 +18,7 @@ import pytest
 
 import src.pytrain.gui.guizero_base as mod
 import src.pytrain.gui.controller.popup_manager as popup_mod
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 
 
 class _DummyTk:
@@ -155,6 +157,33 @@ def test_poll_shutdown_logs_callback_exception_and_continues(caplog) -> None:
 
     assert handled == ["ok"]
     assert "Error processing GUI message callback" in caplog.text
+
+
+def test_submit_request_sends_on_worker_thread_with_repeat_and_delay(monkeypatch) -> None:
+    gui = DummyGui()
+    req = mod.CommandReq(TMCC1HaltCommandEnum.HALT)
+    sent = Event()
+    seen: dict[str, int | float] = {}
+    caller_thread = get_ident()
+
+    def fake_send(*, repeat: int = 1, delay: float = 0.0, **_kwargs) -> None:
+        seen["repeat"] = repeat
+        seen["delay"] = delay
+        seen["thread_id"] = get_ident()
+        sent.set()
+
+    monkeypatch.setattr(req, "send", fake_send, raising=False)
+
+    try:
+        gui.submit_request(req, repeat=3, delay=0.25)
+
+        assert sent.wait(1.0)
+        assert seen["repeat"] == 3
+        assert seen["delay"] == pytest.approx(0.25)
+        assert seen["thread_id"] != caller_thread
+    finally:
+        gui.close()
+        gui._join_request_worker(timeout=1.0)
 
 
 def test_get_prod_info_does_not_requeue_callback_while_future_pending() -> None:

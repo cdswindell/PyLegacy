@@ -1410,7 +1410,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             req = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, tmcc_id, scope=self.scope, data=rr_speed)
 
         # dispatch command
-        req.send()
+        self.submit_request(req)
 
     def on_engine_command(
         self,
