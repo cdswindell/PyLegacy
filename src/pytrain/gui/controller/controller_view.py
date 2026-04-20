@@ -645,17 +645,23 @@ class ControllerView:
 
     def _show_keys_for_type(self, t: str) -> None:
         """Internal: show keys for a controller type key."""
+        """Only modify buttons that have to be changed"""
         host = self._host
+        previous_engine_type = getattr(host, "_last_engine_type", None)
 
         # Avoid rework if type unchanged
-        if getattr(host, "_last_engine_type", None) == t:
+        if previous_engine_type == t:
             return
 
         btns = self._engine_type_key_map.get(t, set())
-        for cell in btns:
+        previous_btns = self._engine_type_key_map.get(previous_engine_type, set()) if previous_engine_type else set()
+        cells_to_show = btns - previous_btns
+        cells_to_hide = previous_btns - btns if previous_engine_type else self._all_engine_btns - btns
+
+        for cell in cells_to_show:
             cell.show()
 
-        for cell in self._all_engine_btns - btns:
+        for cell in cells_to_hide:
             cell.hide()
 
         host._last_engine_type = t
