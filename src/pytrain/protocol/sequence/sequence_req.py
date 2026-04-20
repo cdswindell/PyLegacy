@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
-from time import sleep
 from typing import Callable, List, Tuple, TypeVar
 
 from ..multibyte.multibyte_constants import TMCC2RailSoundsDialogControl
@@ -172,7 +171,7 @@ class SequenceReq(CommandReq, Sequence):
                 port=port,
                 server=server,
             )
-            sleep(0.001)
+            # sleep(0.001)
 
     def fire(
         self,
