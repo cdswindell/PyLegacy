@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
+from time import perf_counter
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
@@ -233,26 +234,19 @@ class ControllerView:
             slider_width=int(host.button_size / 2),
             slider_height=host.slider_height,
             # We want OUR release handler (which clears focus) instead of default clear_focus binding:
-            on_release=self._on_throttle_release_event,
-            clear_focus_on_release=False,
+            # on_release=self._on_throttle_release_event,
+            # clear_focus_on_release=False,
         )
 
         # throttle extras (debounce bookkeeping + any per-slider styling)
         host.throttle.after_id = None  # used to debounce slider updates
         host.throttle.text_color = "black"
 
-        # If you still want takefocus=0 explicitly or any other special Scale options:
-        host.throttle.tk.config(takefocus=0)
-
-        # (Optional) If you *still* want an explicit focus_set on press, the helper already binds it,
-        # but it doesn't hurt to leave it out. No need to add:
-        # host.throttle.tk.bind("<Button-1>", lambda e: host.throttle.tk.focus_set())
-
         # brake
         host.brake_box, _, host.brake_level, host.brake = self.make_slider(
             sliders,
-            "Brake",
-            self.on_train_brake,
+            title="Brake",
+            command=self.on_train_brake,
             frm=0,
             to=7,
         )
@@ -430,7 +424,7 @@ class ControllerView:
                         generator=generator,
                         titlebox_text=title_text,
                     )
-                    cell.button_info = op
+                    cell.bi = op
 
                     # if the key is marked as engine type-specific, save as appropriate
                     self.scope_key(cell, nb, cmd, op)
@@ -663,10 +657,14 @@ class ControllerView:
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
 
         for cell in cells_to_hide:
+            t0 = perf_counter()
             cell.hide()
+            log.info(f"ControllerView: Hiding button {cell.bi} in {perf_counter() - t0:.3f}s")
 
         for cell in cells_to_show:
+            t0 = perf_counter()
             cell.show()
+            log.info(f"ControllerView: Showing button {cell.bi} in {perf_counter() - t0:.3f}s")
 
         self._last_engine_type = t
 
