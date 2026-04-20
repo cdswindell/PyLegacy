@@ -84,11 +84,9 @@ class ControllerView:
             return
 
         host = self._host
-        log.warning(f"Updating engine/train state for: {state.tmcc_id}")
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
-                log.warning(f"Updating throttle state for: {throttle_state.tmcc_id}")
                 if throttle_state != self._last_throttle_state:
                     if not host.speed.enabled:
                         host.speed.enable()
@@ -97,7 +95,6 @@ class ControllerView:
                     if host._rr_speed_btn and not host._rr_speed_btn.enabled:
                         host._rr_speed_btn.enable()
 
-                    log.warning(f"Config throttle state range: {throttle_state.tmcc_id}")
                     if throttle_state.is_legacy:
                         host.throttle.tk.config(from_=195, to=0)
                     elif throttle_state.is_cab1:
@@ -107,26 +104,21 @@ class ControllerView:
                             host._rr_speed_btn.hide()
                     else:
                         host.throttle.tk.config(from_=31, to=0)
-                    log.warning("Config throttle state range done")
 
                     if host._rr_speed_btn:
-                        log.warning(f"Show/hide rr_speed buttons: {throttle_state.tmcc_id}")
                         if throttle_state.is_cab1:
                             host._rr_speed_btn.hide()
                         else:
                             host._rr_speed_btn.show()
-                    log.warning("Show/hide rr_speed buttons done")
 
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
 
-                log.warning(f"Set speed value: {throttle_state.tmcc_id}")
                 if throttle_state.is_cab1:
                     self._set_cab1_speed()
                 else:
                     host.speed.value = f"{throttle_state.speed:03d}"
-                log.warning("Set speed value done")
 
                 # trough color indicates actual vs. target
                 if throttle_state.speed != throttle_state.target_speed:
@@ -135,9 +127,7 @@ class ControllerView:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
 
                 if host._rr_speed_panel and not host._rr_speed_panel.is_hidden():
-                    log.warning("Updating rr speed panel...")
                     host._rr_speed_panel.configure(throttle_state)
-                    log.warning("...Done")
             else:
                 if host.speed.enabled:
                     host.speed.disable()
@@ -182,7 +172,6 @@ class ControllerView:
                         gauge.set_value(state.water_level_pct)
             self._last_throttle_state = throttle_state
             self._last_state = state
-            log.warning("Updating engine/train state done")
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
