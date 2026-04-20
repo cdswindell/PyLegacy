@@ -58,6 +58,7 @@ class ControllerView:
         self._gauges: dict[str, list[AnalogGaugeWidget]] = {}
         self._updating_from_state = False
         self._last_state = self._last_throttle_state = None
+        self._last_engine_type = None
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
@@ -664,18 +665,17 @@ class ControllerView:
         Internal: show keys for a controller type key.
         Only modify buttons that have to be changed.
         """
-        host = self._host
-        previous_engine_type = getattr(host, "_last_engine_type", None)
-        log.warning(f"****** apply_engine_type...previous_engine_type: {previous_engine_type} this: {t} ******")
+        last_type = self._last_engine_type
+        log.warning(f"****** apply_engine_type...previous_engine_type: {last_type} this: {t} ******")
 
         # Avoid rework if type unchanged
-        if previous_engine_type == t:
+        if self._last_engine_type == t:
             return
 
         btns = self._engine_type_key_map.get(t, set())
-        previous_btns = self._engine_type_key_map.get(previous_engine_type, set()) if previous_engine_type else set()
+        previous_btns = self._engine_type_key_map.get(last_type, set()) if last_type else set()
         cells_to_show = {cell for cell in (btns - previous_btns) if not cell.visible}
-        cells_to_hide = previous_btns - btns if previous_engine_type else self._all_engine_btns - btns
+        cells_to_hide = previous_btns - btns if last_type else self._all_engine_btns - btns
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
         log.warning("apply_engine_type...cells_to_show/hide")
 
@@ -687,7 +687,7 @@ class ControllerView:
             cell.hide()
         logging.warning("apply_engine_type...cells_to_hide: %d", len(cells_to_hide))
 
-        host._last_engine_type = t
+        self._last_engine_type = t
 
     def show(self) -> None:
         host = self._host
