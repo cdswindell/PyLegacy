@@ -706,6 +706,8 @@ class ControllerView:
                     w.tk.event_generate("<Leave>")
             except (TclError, AttributeError):
                 pass
+        grab = host.app.tk.grab_current()
+        log.info("*** grab_current=%r", grab)
 
     def _stop_quill(self) -> None:
         host = self._host
