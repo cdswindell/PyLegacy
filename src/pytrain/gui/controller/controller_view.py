@@ -670,11 +670,11 @@ class ControllerView:
 
         for cell in cells_to_show:
             cell.show()
-        logging.warning("apply_engine_type...cells_to_show: %d", len(cells_to_show))
+        log.warning("apply_engine_type...cells_to_show: %d", len(cells_to_show))
 
         for cell in cells_to_hide:
             cell.hide()
-        logging.warning("apply_engine_type...cells_to_hide: %d", len(cells_to_hide))
+        log.warning("apply_engine_type...cells_to_hide: %d", len(cells_to_hide))
 
         self._last_engine_type = t
 
