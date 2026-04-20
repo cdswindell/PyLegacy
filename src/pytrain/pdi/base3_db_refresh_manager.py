@@ -107,6 +107,7 @@ class Base3DbRefreshManager:
             self._thread.start()
 
     def _enqueue(self, state: StateT) -> None:
+        """Enqueues state into time‑tracked bucket; wakes processing thread"""
         now = time.monotonic()
         key = self._key(state)
 
