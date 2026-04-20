@@ -1185,11 +1185,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
+        log.info("ops_mode...enter_ops_mode_base")
 
         # 2) Engine/train path
         if self._keypad_view.is_engine_or_train:
             # pure UI shell now lives in KeypadView
             self._keypad_view.apply_ops_mode_ui_engine_shell()
+            log.info("ops_mode...apply_ops_mode_ui_engine_shell")
 
             # Resolve state (EngineGui responsibility)
             if not isinstance(state, EngineState):
@@ -1200,11 +1202,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # Apply model changes (EngineGui responsibility)
             if isinstance(state, TrainState):
                 self.on_new_train(state, ops_mode_setup=True)
+                log.info("ops_mode...on_new_train")
             else:
                 self.on_new_engine(state, ops_mode_setup=True)
+                log.info("ops_mode...on_new_engine")
 
             self._last_engine_type = None
             self._controller_view.apply_engine_type(state)
+            log.info("ops_mode...apply_engine_type")
 
         # 3) Non-engine path (already moved)
         else:
@@ -1218,6 +1223,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 4) Preserve existing behavior
         if update_info:
             self.update_component_info(in_ops_mode=True)
+            log.info("ops_mode...update_component_info")
 
     def _resolve_component_state(self, tmcc_id: int) -> tuple[int, S | None]:
         state = self.active_state
