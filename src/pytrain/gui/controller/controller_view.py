@@ -217,7 +217,7 @@ class ControllerView:
         host.throttle_box, host.throttle_title_box, host.speed, host.throttle = self.make_slider(
             sliders,
             title="Speed",
-            command=self.on_throttle_change,
+            # command=self.on_throttle_change,
             frm=195,
             to=0,
             step=1,
