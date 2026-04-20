@@ -57,18 +57,18 @@ def test_show_keys_for_type_traces_show_hide_timings() -> None:
 
     shown_count, hidden_count, skipped = view._show_keys_for_type("s")
 
-    assert (shown_count, hidden_count, skipped) == (1, 1, False)
+    assert (shown_count, hidden_count, skipped) == (2, 1, False)
     trace = [fields for phase, fields in events if phase == "controller.show_keys_for_type"][-1]
     assert trace["engine_type"] == "s"
     assert trace["previous_engine_type"] == "d"
-    assert trace["shown_count"] == 1
+    assert trace["shown_count"] == 2
     assert trace["hidden_count"] == 1
     assert trace["batched_container_hidden"] is True
     assert trace["show_ms"] >= 0
     assert trace["hide_ms"] >= 0
-    assert trace["slowest_show_widget"] == "added"
+    assert trace["slowest_show_widget"] in {"shared", "added"}
     assert trace["slowest_hide_widget"] == "removed"
     assert keypad_box.hide_calls == 1
     assert keypad_box.show_calls == 1
-    assert shared.show_calls == 0
+    assert shared.show_calls == 1
     assert shared.hide_calls == 0

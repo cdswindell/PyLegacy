@@ -874,9 +874,8 @@ class ControllerView:
             return 0, 0, True
 
         btns = self._engine_type_key_map.get(t, set())
-        previous_btns = self._engine_type_key_map.get(previous_engine_type, set()) if previous_engine_type else set()
-        cells_to_show = btns - previous_btns
-        cells_to_hide = previous_btns - btns if previous_engine_type else self._all_engine_btns - btns
+        cells_to_show = btns
+        cells_to_hide = self._all_engine_btns - btns
         container = getattr(host, "controller_keypad_box", None)
         batched_container_hidden = bool(container is not None and getattr(container, "visible", False))
         container_hide_ms = None
