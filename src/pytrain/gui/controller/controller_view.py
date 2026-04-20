@@ -233,9 +233,7 @@ class ControllerView:
             title_text_size=host.s_10,
             slider_width=int(host.button_size / 2),
             slider_height=host.slider_height,
-            # We want OUR release handler (which clears focus) instead of default clear_focus binding:
             on_release=self._on_throttle_release_event,
-            # clear_focus_on_release=False,
         )
 
         # throttle extras (debounce bookkeeping + any per-slider styling)
@@ -785,7 +783,7 @@ class ControllerView:
         host.on_speed_command(host.throttle.value)
 
         # Now clear focus so the handle deactivates visually.
-        # self.clear_focus(e)
+        host.app.tk.after_idle(self._do_clear_focus)
 
     def on_train_brake(self, value) -> None:
         if self._updating_from_state:
