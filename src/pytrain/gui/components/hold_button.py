@@ -182,13 +182,13 @@ class HoldButton(PushButton):
     def text_color(self, value):
         with self._cv:
             PushButton.text_color.fset(self, value)
-            self._normal_fg = value
+            self._normal_fg = self._normal_text_fg = value
 
     @PushButton.bg.setter
     def bg(self, value):
         with self._cv:
             PushButton.bg.fset(self, value)
-            self._normal_bg = value
+            self._normal_bg = self._normal_text_bg = value
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
