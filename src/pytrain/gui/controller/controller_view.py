@@ -662,12 +662,11 @@ class ControllerView:
         cells_to_hide = previous_btns - btns if last_type else self._all_engine_btns - btns
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
 
+        for cell in cells_to_hide:
+            cell.hide()
+
         for cell in cells_to_show:
             cell.show()
-
-        for cell in cells_to_hide:
-            print(cell)
-            # cell.hide()
 
         self._last_engine_type = t
 
