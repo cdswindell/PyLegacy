@@ -10,9 +10,7 @@
 from __future__ import annotations
 
 import logging
-import os
 import tkinter as tk
-import time
 from contextlib import contextmanager
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
@@ -33,84 +31,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 CAB_1_THROTTLE_REPEAT_MS = 200
-DIAG_SKIP_SPEED_UI_ENV = "PYTRAIN_GUI_DIAG_SKIP_SPEED_UI"
-
-
-def _trace_phase(host: object, phase: str, **fields) -> None:
-    trace = getattr(host, "trace_transition_phase", None)
-    if callable(trace):
-        trace(phase, **fields)
-
-
-def _slow_ms(host: object) -> float:
-    return float(getattr(host, "gui_trace_slow_ms", 350.0))
-
-
-def _diag_skip_speed_ui_flags() -> frozenset[str]:
-    raw = os.environ.get(DIAG_SKIP_SPEED_UI_ENV, "")
-    return frozenset(part.strip().lower() for part in raw.split(",") if part.strip())
-
-
-def _widget_trace_name(widget: Widget) -> str:
-    text = getattr(widget, "text", None)
-    if isinstance(text, str) and text:
-        return text
-    value = getattr(widget, "value", None)
-    if isinstance(value, str) and value:
-        return value
-    return type(widget).__name__
-
-
-def _widget_visible(widget: object | None) -> bool | None:
-    if widget is None:
-        return None
-    return bool(getattr(widget, "visible", False))
-
-
-def _widget_value(widget: object | None) -> object | None:
-    if widget is None:
-        return None
-    return getattr(widget, "value", None)
-
-
-def _widget_has_focus(widget: object | None) -> bool | None:
-    tk_widget = getattr(widget, "tk", None)
-    if tk_widget is None:
-        return None
-    focus_displayof = getattr(tk_widget, "focus_displayof", None)
-    if not callable(focus_displayof):
-        return None
-    try:
-        return focus_displayof() == tk_widget
-    except (AttributeError, RuntimeError, TypeError, ValueError):
-        return None
-
-
-def _tk_config_value(widget: object | None, key: str) -> object | None:
-    tk_widget = getattr(widget, "tk", None)
-    if tk_widget is None:
-        return None
-    cget = getattr(tk_widget, "cget", None)
-    if not callable(cget):
-        return None
-    try:
-        return cget(key)
-    except (AttributeError, RuntimeError, TypeError, ValueError):
-        return None
-
-
-def _update_idletasks_ms(host: object) -> float | None:
-    app = getattr(host, "app", None)
-    tk_root = getattr(app, "tk", None)
-    update_idletasks = getattr(tk_root, "update_idletasks", None)
-    if not callable(update_idletasks):
-        return None
-    started = time.perf_counter()
-    try:
-        update_idletasks()
-    except (AttributeError, RuntimeError, TypeError, ValueError):
-        return None
-    return round((time.perf_counter() - started) * 1000, 2)
 
 
 class ControllerView:
@@ -163,73 +83,57 @@ class ControllerView:
             return
 
         host = self._host
-        started = time.perf_counter()
-        throttle_state_changed = throttle_state != self._last_throttle_state
-        state_changed = state != self._last_state
-        diag_skip_flags = _diag_skip_speed_ui_flags()
-        _trace_phase(
-            host,
-            "controller.update_diag",
-            diag_skip_flags=sorted(diag_skip_flags) if diag_skip_flags else [],
-        )
         with self.__updating():
             # --- Throttle / Speed ---
             if throttle_state:
-                if throttle_state_changed:
-                    if "enable_disable" not in diag_skip_flags:
-                        if not host.speed.enabled:
-                            host.speed.enable()
-                        if not host.throttle.enabled:
-                            host.throttle.enable()
-                        if host._rr_speed_btn and not host._rr_speed_btn.enabled:
-                            host._rr_speed_btn.enable()
+                if throttle_state != self._last_throttle_state:
+                    if not host.speed.enabled:
+                        host.speed.enable()
+                    if not host.throttle.enabled:
+                        host.throttle.enable()
+                    if host._rr_speed_btn and not host._rr_speed_btn.enabled:
+                        host._rr_speed_btn.enable()
 
-                    if "range_config" not in diag_skip_flags:
-                        if throttle_state.is_legacy:
-                            host.throttle.tk.config(from_=195, to=0)
-                        elif throttle_state.is_cab1:
-                            host.throttle.tk.config(from_=3, to=-3)
-                        else:
-                            host.throttle.tk.config(from_=31, to=0)
-                    if throttle_state.is_cab1 and "throttle_sync" not in diag_skip_flags:
+                    if throttle_state.is_legacy:
+                        host.throttle.tk.config(from_=195, to=0)
+                    elif throttle_state.is_cab1:
+                        host.throttle.tk.config(from_=3, to=-3)
                         host.throttle.value = 0
-                    if throttle_state.is_cab1 and host._rr_speed_btn and "rr_speed_visibility" not in diag_skip_flags:
-                        host._rr_speed_btn.hide()
+                        if host._rr_speed_btn:
+                            host._rr_speed_btn.hide()
+                    else:
+                        host.throttle.tk.config(from_=31, to=0)
 
-                    if host._rr_speed_btn and "rr_speed_visibility" not in diag_skip_flags:
+                    if host._rr_speed_btn:
                         if throttle_state.is_cab1:
                             host._rr_speed_btn.hide()
                         else:
                             host._rr_speed_btn.show()
 
                 # don't fight the user while dragging
-                if "throttle_sync" not in diag_skip_flags and host.throttle.tk.focus_displayof() != host.throttle.tk:
+                if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
 
                 if throttle_state.is_cab1:
-                    if "speed_label" not in diag_skip_flags:
-                        self._set_cab1_speed()
+                    self._set_cab1_speed()
                 else:
-                    if "speed_label" not in diag_skip_flags:
-                        host.speed.value = f"{throttle_state.speed:03d}"
+                    host.speed.value = f"{throttle_state.speed:03d}"
 
                 # trough color indicates actual vs. target
-                if "troughcolor" not in diag_skip_flags:
-                    if throttle_state.speed != throttle_state.target_speed:
-                        host.throttle.tk.config(troughcolor="#4C96C5")
-                    else:
-                        host.throttle.tk.config(troughcolor=LIONEL_BLUE)
+                if throttle_state.speed != throttle_state.target_speed:
+                    host.throttle.tk.config(troughcolor="#4C96C5")
+                else:
+                    host.throttle.tk.config(troughcolor=LIONEL_BLUE)
 
-                if host._rr_speed_panel and "rr_speed_panel" not in diag_skip_flags:
+                if host._rr_speed_panel:
                     host._rr_speed_panel.configure(throttle_state)
             else:
-                if "enable_disable" not in diag_skip_flags:
-                    if host.speed.enabled:
-                        host.speed.disable()
-                    if host.throttle.enabled:
-                        host.throttle.disable()
-                    if host._rr_speed_btn and host._rr_speed_btn.enabled:
-                        host._rr_speed_btn.disable()
+                if host.speed.enabled:
+                    host.speed.disable()
+                if host.throttle.enabled:
+                    host.throttle.disable()
+                if host._rr_speed_btn and host._rr_speed_btn.enabled:
+                    host._rr_speed_btn.disable()
 
             # --- Brake ---
             brake = state.train_brake if state.train_brake is not None else 0
@@ -267,67 +171,6 @@ class ControllerView:
                         gauge.set_value(state.water_level_pct)
             self._last_throttle_state = throttle_state
             self._last_state = state
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        slow_ms = _slow_ms(host)
-        _trace_phase(
-            host,
-            "controller.update",
-            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
-            force=elapsed_ms >= slow_ms,
-            state_tmcc_id=state.tmcc_id,
-            throttle_tmcc_id=throttle_state.tmcc_id if throttle_state else None,
-            state_changed=state_changed,
-            throttle_state_changed=throttle_state_changed,
-            diag_skip_flags=sorted(diag_skip_flags) if diag_skip_flags else None,
-            throttle_has_focus=_widget_has_focus(getattr(host, "throttle", None)),
-            throttle_widget_value=_widget_value(getattr(host, "throttle", None)),
-            throttle_speed=throttle_state.speed if throttle_state else None,
-            throttle_target_speed=throttle_state.target_speed if throttle_state else None,
-            speed_label_value=_widget_value(getattr(host, "speed", None)),
-            rr_speed_btn_visible=_widget_visible(getattr(host, "_rr_speed_btn", None)),
-            rr_speed_box_visible=_widget_visible(getattr(host, "_rr_speed_box", None)),
-            freight_box_visible=_widget_visible(getattr(host, "_freight_sounds_bell_horn_box", None)),
-            throttle_box_visible=_widget_visible(getattr(host, "throttle_box", None)),
-            throttle_troughcolor=_tk_config_value(getattr(host, "throttle", None), "troughcolor"),
-            elapsed_ms=round(elapsed_ms, 2),
-        )
-        for k, v in host._scope_buttons.items():
-            if k == host.scope:
-                log.warning(f"controller on_scope: {k} {v.bg} {v.text_color}")
-
-    def _trace_scope_button_state(self, source: str) -> None:
-        host = self._host
-        active_button = host._scope_buttons.get(host.scope) if getattr(host, "_scope_buttons", None) else None
-        _trace_phase(
-            host,
-            "scope_button_state",
-            source=source,
-            active_scope=host.scope.label if host.scope else None,
-            active_bg=getattr(active_button, "bg", None),
-            active_text_color=getattr(active_button, "text_color", None),
-        )
-
-    @staticmethod
-    def _engine_type_key_for_state(state: EngineState | None) -> str | None:
-        if not isinstance(state, EngineState):
-            return None
-        if getattr(state, "is_diesel", False):
-            return "d"
-        if getattr(state, "is_steam", False):
-            return "s"
-        if getattr(state, "is_passenger", False):
-            return "p"
-        if getattr(state, "is_freight", False):
-            return "f"
-        if getattr(state, "is_acela", False):
-            return "a"
-        if getattr(state, "is_electric", False):
-            return "l"
-        if getattr(state, "is_crane", False):
-            return "r"
-        if getattr(state, "is_transformer", False):
-            return "t"
-        return "d"
 
     # noinspection PyProtectedMember
     def build(self, app) -> None:
@@ -741,13 +584,6 @@ class ControllerView:
         Called from EngineGui.ops_mode() after state is resolved.
         """
         host = self._host
-        started = time.perf_counter()
-        prior_engine_type = getattr(host, "_last_engine_type", None)
-        prior_state = self._last_state
-        prior_state_tmcc_id = getattr(prior_state, "tmcc_id", None)
-        prior_state_engine_type = self._engine_type_key_for_state(prior_state)
-        last_throttle_tmcc_id = getattr(self._last_throttle_state, "tmcc_id", None)
-        self._trace_scope_button_state("controller.apply_engine_type:start")
 
         # default hide/show aux widgets
         if host._freight_sounds_bell_horn_box:
@@ -757,45 +593,34 @@ class ControllerView:
 
         if not isinstance(state, EngineState):
             # If unknown, show diesel-ish defaults
-            show_keys_started = time.perf_counter()
-            shown_count, hidden_count, skipped = self._show_keys_for_type("d")
-            show_keys_ms = round((time.perf_counter() - show_keys_started) * 1000, 2)
+            self._show_keys_for_type("d")
             if host._rr_speed_box:
                 host._rr_speed_box.show()
             if host.horn_title_box:
                 host.horn_title_box.text = "Horn"
-            elapsed_ms = (time.perf_counter() - started) * 1000
-            self._trace_scope_button_state("controller.apply_engine_type:end")
-            _trace_phase(
-                host,
-                "controller.apply_engine_type",
-                level=logging.INFO if elapsed_ms >= _slow_ms(host) else logging.DEBUG,
-                force=elapsed_ms >= _slow_ms(host),
-                state_tmcc_id=getattr(state, "tmcc_id", None),
-                engine_type="d",
-                prior_engine_type=prior_engine_type,
-                prior_state_tmcc_id=prior_state_tmcc_id,
-                prior_state_engine_type=prior_state_engine_type,
-                last_throttle_tmcc_id=last_throttle_tmcc_id,
-                throttle_has_focus=_widget_has_focus(getattr(host, "throttle", None)),
-                throttle_widget_value=_widget_value(getattr(host, "throttle", None)),
-                rr_speed_btn_visible=_widget_visible(getattr(host, "_rr_speed_btn", None)),
-                rr_speed_box_visible=_widget_visible(getattr(host, "_rr_speed_box", None)),
-                freight_box_visible=_widget_visible(getattr(host, "_freight_sounds_bell_horn_box", None)),
-                throttle_box_visible=_widget_visible(getattr(host, "throttle_box", None)),
-                shown_count=shown_count,
-                hidden_count=hidden_count,
-                skipped=skipped,
-                show_keys_ms=show_keys_ms,
-                elapsed_ms=round(elapsed_ms, 2),
-            )
             return
 
-        t = self._engine_type_key_for_state(state) or "d"
+        # Determine the engine type key (must match your engine_gui_conf tags)
+        if getattr(state, "is_diesel", False):
+            t = "d"
+        elif getattr(state, "is_steam", False):
+            t = "s"
+        elif getattr(state, "is_passenger", False):
+            t = "p"
+        elif getattr(state, "is_freight", False):
+            t = "f"
+        elif getattr(state, "is_acela", False):
+            t = "a"
+        elif getattr(state, "is_electric", False):
+            t = "l"
+        elif getattr(state, "is_crane", False):
+            t = "r"
+        elif getattr(state, "is_transformer", False):
+            t = "t"
+        else:
+            t = "d"
 
-        show_keys_started = time.perf_counter()
-        shown_count, hidden_count, skipped = self._show_keys_for_type(t)
-        show_keys_ms = round((time.perf_counter() - show_keys_started) * 1000, 2)
+        self._show_keys_for_type(t)
 
         # Per-type aux behavior
         if t in {"d", "s", "a", "l", "p", "r", "t"}:
@@ -817,133 +642,23 @@ class ControllerView:
         if t == "t":
             # Transformer mode wants brake shown
             self.toggle_momentum_train_brake(show_btn="brake")
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        self._trace_scope_button_state("controller.apply_engine_type:end")
-        _trace_phase(
-            host,
-            "controller.apply_engine_type",
-            level=logging.INFO if elapsed_ms >= _slow_ms(host) else logging.DEBUG,
-            force=elapsed_ms >= _slow_ms(host),
-            state_tmcc_id=state.tmcc_id,
-            engine_type=t,
-            prior_engine_type=prior_engine_type,
-            prior_state_tmcc_id=prior_state_tmcc_id,
-            prior_state_engine_type=prior_state_engine_type,
-            last_throttle_tmcc_id=last_throttle_tmcc_id,
-            throttle_has_focus=_widget_has_focus(getattr(host, "throttle", None)),
-            throttle_widget_value=_widget_value(getattr(host, "throttle", None)),
-            rr_speed_btn_visible=_widget_visible(getattr(host, "_rr_speed_btn", None)),
-            rr_speed_box_visible=_widget_visible(getattr(host, "_rr_speed_box", None)),
-            freight_box_visible=_widget_visible(getattr(host, "_freight_sounds_bell_horn_box", None)),
-            throttle_box_visible=_widget_visible(getattr(host, "throttle_box", None)),
-            shown_count=shown_count,
-            hidden_count=hidden_count,
-            skipped=skipped,
-            show_keys_ms=show_keys_ms,
-            elapsed_ms=round(elapsed_ms, 2),
-        )
 
-    def _show_keys_for_type(self, t: str) -> tuple[int, int, bool]:
+    def _show_keys_for_type(self, t: str) -> None:
         """Internal: show keys for a controller type key."""
         host = self._host
-        previous_engine_type = getattr(host, "_last_engine_type", None)
 
         # Avoid rework if type unchanged
-        if previous_engine_type == t:
-            _trace_phase(
-                host,
-                "controller.show_keys_for_type",
-                engine_type=t,
-                previous_engine_type=previous_engine_type,
-                shown_count=0,
-                hidden_count=0,
-                batched_container_hidden=False,
-                container_hide_ms=None,
-                container_show_ms=None,
-                idletasks_before_ms=_update_idletasks_ms(host),
-                idletasks_after_show_ms=None,
-                idletasks_after_hide_ms=None,
-                show_ms=0.0,
-                hide_ms=0.0,
-                slowest_show_ms=0.0,
-                slowest_show_widget=None,
-                slowest_hide_ms=0.0,
-                slowest_hide_widget=None,
-                skipped=True,
-            )
-            return 0, 0, True
+        if getattr(host, "_last_engine_type", None) == t:
+            return
 
         btns = self._engine_type_key_map.get(t, set())
-        cells_to_show = btns
-        cells_to_hide = self._all_engine_btns - btns
-        container = getattr(host, "controller_keypad_box", None)
-        batched_container_hidden = bool(container is not None and getattr(container, "visible", False))
-        container_hide_ms = None
-        container_show_ms = None
-        if batched_container_hidden and callable(getattr(container, "hide", None)):
-            container_hide_started = time.perf_counter()
-            container.hide()
-            container_hide_ms = round((time.perf_counter() - container_hide_started) * 1000, 2)
-        idletasks_before_ms = _update_idletasks_ms(host)
-        try:
-            shown_count = 0
-            show_started = time.perf_counter()
-            slowest_show_ms = 0.0
-            slowest_show_widget = None
-            for cell in cells_to_show:
-                cell_started = time.perf_counter()
-                cell.show()
-                cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
-                if cell_elapsed_ms > slowest_show_ms:
-                    slowest_show_ms = cell_elapsed_ms
-                    slowest_show_widget = _widget_trace_name(cell)
-                shown_count += 1
-            show_ms = (time.perf_counter() - show_started) * 1000
-            idletasks_after_show_ms = _update_idletasks_ms(host)
+        for cell in btns:
+            cell.show()
 
-            hidden_count = 0
-            hide_started = time.perf_counter()
-            slowest_hide_ms = 0.0
-            slowest_hide_widget = None
-            for cell in cells_to_hide:
-                cell_started = time.perf_counter()
-                cell.hide()
-                cell_elapsed_ms = (time.perf_counter() - cell_started) * 1000
-                if cell_elapsed_ms > slowest_hide_ms:
-                    slowest_hide_ms = cell_elapsed_ms
-                    slowest_hide_widget = _widget_trace_name(cell)
-                hidden_count += 1
-            hide_ms = (time.perf_counter() - hide_started) * 1000
-            idletasks_after_hide_ms = _update_idletasks_ms(host)
-        finally:
-            if batched_container_hidden and callable(getattr(container, "show", None)):
-                container_show_started = time.perf_counter()
-                container.show()
-                container_show_ms = round((time.perf_counter() - container_show_started) * 1000, 2)
+        for cell in self._all_engine_btns - btns:
+            cell.hide()
 
         host._last_engine_type = t
-        _trace_phase(
-            host,
-            "controller.show_keys_for_type",
-            engine_type=t,
-            previous_engine_type=previous_engine_type,
-            shown_count=shown_count,
-            hidden_count=hidden_count,
-            batched_container_hidden=batched_container_hidden,
-            container_hide_ms=container_hide_ms,
-            container_show_ms=container_show_ms,
-            idletasks_before_ms=idletasks_before_ms,
-            idletasks_after_show_ms=idletasks_after_show_ms,
-            idletasks_after_hide_ms=idletasks_after_hide_ms,
-            show_ms=round(show_ms, 2),
-            hide_ms=round(hide_ms, 2),
-            slowest_show_ms=round(slowest_show_ms, 2),
-            slowest_show_widget=slowest_show_widget,
-            slowest_hide_ms=round(slowest_hide_ms, 2),
-            slowest_hide_widget=slowest_hide_widget,
-            skipped=False,
-        )
-        return shown_count, hidden_count, False
 
     def show(self) -> None:
         host = self._host

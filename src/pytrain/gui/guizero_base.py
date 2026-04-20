@@ -13,12 +13,9 @@ import atexit
 import gc
 import io
 import logging
-import os
-import time
 import tkinter as tk
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
@@ -54,19 +51,6 @@ COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, 
 PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
-GUI_TRACE_ENV = "PYTRAIN_GUI_TRACE_TRANSITIONS"
-GUI_TRACE_SLOW_MS_ENV = "PYTRAIN_GUI_SLOW_MS"
-
-
-@dataclass(slots=True)
-class _QueuedGuiMessage:
-    callback: Callable
-    args: tuple[Any, ...]
-    enqueued_at: float
-    transition_id: str | None
-    queue_size: int
-    trace_event: str | None
-    trace_fields: dict[str, Any]
 
 
 class GuiZeroBase(Thread, ABC):
@@ -170,17 +154,6 @@ class GuiZeroBase(Thread, ABC):
         self._app_counter = 0
         self._message_queue = Queue()
         self._owns_message_queue = True
-        self._gui_trace_enabled = os.environ.get(GUI_TRACE_ENV, "").strip().lower() in {
-            "1",
-            "true",
-            "yes",
-            "on",
-            "debug",
-        }
-        try:
-            self._gui_trace_slow_ms = float(os.environ.get(GUI_TRACE_SLOW_MS_ENV, "350"))
-        except ValueError:
-            self._gui_trace_slow_ms = 350.0
 
         # Thread-aware shutdown signaling
         self._tk_thread_id: int | None = None
@@ -254,47 +227,6 @@ class GuiZeroBase(Thread, ABC):
     def is_shutting_down(self) -> bool:
         return self._shutdown_flag.is_set()
 
-    @property
-    def gui_trace_enabled(self) -> bool:
-        return bool(getattr(self, "_gui_trace_enabled", False))
-
-    @property
-    def gui_trace_slow_ms(self) -> float:
-        return float(getattr(self, "_gui_trace_slow_ms", 350.0))
-
-    @property
-    def current_transition_id(self) -> str | None:
-        return None
-
-    @staticmethod
-    def _format_trace_fields(**fields: Any) -> str:
-        parts: list[str] = []
-        for key, value in fields.items():
-            if value is None:
-                continue
-            parts.append(f"{key}={value!r}")
-        return " ".join(parts)
-
-    def trace_gui(
-        self,
-        event: str,
-        *,
-        level: int = logging.DEBUG,
-        force: bool = False,
-        transition_id: str | None = None,
-        **fields: Any,
-    ) -> None:
-        if not (force or self.gui_trace_enabled):
-            return
-        if self.gui_trace_enabled and level == logging.DEBUG:
-            level = logging.INFO
-        tid = transition_id if transition_id is not None else self.current_transition_id
-        prefix = f"GUI_TRACE {event}"
-        if tid:
-            prefix += f" transition_id={tid}"
-        suffix = self._format_trace_fields(**fields)
-        log.log(level, f"{prefix} {suffix}".rstrip())
-
     def attach_to_parent_queue(self, parent: GuiZeroBase) -> None:
         """Route this GUI's queued callbacks through a parent GUI queue."""
         self._message_queue = parent._message_queue
@@ -342,32 +274,8 @@ class GuiZeroBase(Thread, ABC):
             self._init_complete_flag.wait()
             self.start()
 
-    def queue_message(
-        self,
-        message: Callable,
-        *args: Any,
-        trace_event: str | None = None,
-        trace_fields: dict[str, Any] | None = None,
-        transition_id: str | None = None,
-    ) -> None:
-        wrapped = _QueuedGuiMessage(
-            callback=message,
-            args=tuple(args),
-            enqueued_at=time.perf_counter(),
-            transition_id=transition_id if transition_id is not None else self.current_transition_id,
-            queue_size=self._message_queue.qsize(),
-            trace_event=trace_event,
-            trace_fields=dict(trace_fields or {}),
-        )
-        self._message_queue.put(wrapped)
-        self.trace_gui(
-            "queue_enqueue",
-            transition_id=wrapped.transition_id,
-            callback=getattr(message, "__name__", repr(message)),
-            queue_size=wrapped.queue_size,
-            trace_event=wrapped.trace_event,
-            **wrapped.trace_fields,
-        )
+    def queue_message(self, message: Callable, *args: Any) -> None:
+        self._message_queue.put((message, args))
 
     @staticmethod
     def safe_destroy(widget: Any) -> None:
@@ -432,43 +340,7 @@ class GuiZeroBase(Thread, ABC):
                     except Empty:
                         break
                     try:
-                        if isinstance(message, _QueuedGuiMessage):
-                            queue_lag_ms = (time.perf_counter() - message.enqueued_at) * 1000
-                            transition_depth = getattr(self, "_transition_depth", None)
-                            if self.gui_trace_enabled or queue_lag_ms >= self.gui_trace_slow_ms:
-                                self.trace_gui(
-                                    "queue_dequeue",
-                                    level=logging.INFO if queue_lag_ms >= self.gui_trace_slow_ms else logging.DEBUG,
-                                    force=queue_lag_ms >= self.gui_trace_slow_ms,
-                                    transition_id=message.transition_id,
-                                    callback=getattr(message.callback, "__name__", repr(message.callback)),
-                                    queue_lag_ms=round(queue_lag_ms, 2),
-                                    queue_size=self._message_queue.qsize(),
-                                    transition_depth=transition_depth,
-                                    in_transition=bool(transition_depth),
-                                    trace_event=message.trace_event,
-                                    **message.trace_fields,
-                                )
-                            callback_started = time.perf_counter()
-                            message.callback(*message.args)
-                            callback_elapsed_ms = (time.perf_counter() - callback_started) * 1000
-                            if self.gui_trace_enabled or callback_elapsed_ms >= self.gui_trace_slow_ms:
-                                self.trace_gui(
-                                    "queue_callback_complete",
-                                    level=logging.INFO
-                                    if callback_elapsed_ms >= self.gui_trace_slow_ms
-                                    else logging.DEBUG,
-                                    force=callback_elapsed_ms >= self.gui_trace_slow_ms,
-                                    transition_id=message.transition_id,
-                                    callback=getattr(message.callback, "__name__", repr(message.callback)),
-                                    callback_elapsed_ms=round(callback_elapsed_ms, 2),
-                                    queue_size=self._message_queue.qsize(),
-                                    transition_depth=getattr(self, "_transition_depth", None),
-                                    in_transition=bool(getattr(self, "_transition_depth", 0)),
-                                    trace_event=message.trace_event,
-                                    **message.trace_fields,
-                                )
-                        elif isinstance(message, tuple):
+                        if isinstance(message, tuple):
                             if len(message) > 1 and message[1] and len(message[1]) > 0:
                                 message[0](*message[1])
                             else:
@@ -683,7 +555,6 @@ class GuiZeroBase(Thread, ABC):
         preserve_height: bool = False,
         force_lionel: bool = False,
     ) -> ImageTk.PhotoImage:
-        started = time.perf_counter()
         if isinstance(source, io.BytesIO) and hasattr(source, "seek"):
             source.seek(0)
         pil_img = Image.open(source)
@@ -695,17 +566,6 @@ class GuiZeroBase(Thread, ABC):
         )
         # print(f"{source} scaled to {scaled_width}x{scaled_height} = {orig_width}x{orig_height}")
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        if self.gui_trace_enabled or elapsed_ms >= self.gui_trace_slow_ms:
-            self.trace_gui(
-                "get_scaled_image",
-                level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
-                force=elapsed_ms >= self.gui_trace_slow_ms,
-                source=source if isinstance(source, str) else type(source).__name__,
-                scaled_width=scaled_width,
-                scaled_height=scaled_height,
-                elapsed_ms=round(elapsed_ms, 2),
-            )
         return img
 
     def get_image(
@@ -717,9 +577,7 @@ class GuiZeroBase(Thread, ABC):
         preserve_height: bool = False,
     ):
         # Returns cached or newly created image data
-        cache_hit = path in self._image_cache
-        started = time.perf_counter()
-        if not cache_hit:
+        if path not in self._image_cache:
             img = None
             if scale:
                 normal_tk = self.get_scaled_image(path, preserve_height=preserve_height)
@@ -737,19 +595,6 @@ class GuiZeroBase(Thread, ABC):
                 self._image_cache[path] = (normal_tk, inverted_tk)
             else:
                 self._image_cache[path] = normal_tk
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        if self.gui_trace_enabled or (not cache_hit and elapsed_ms >= self.gui_trace_slow_ms):
-            self.trace_gui(
-                "get_image",
-                level=logging.INFO if (not cache_hit and elapsed_ms >= self.gui_trace_slow_ms) else logging.DEBUG,
-                force=(not cache_hit and elapsed_ms >= self.gui_trace_slow_ms),
-                path=path,
-                cache_hit=cache_hit,
-                scale=scale,
-                preserve_height=preserve_height,
-                inverse=inverse,
-                elapsed_ms=round(elapsed_ms, 2),
-            )
         return self._image_cache[path]
 
     def get_titled_image(self, path):
@@ -834,7 +679,6 @@ class GuiZeroBase(Thread, ABC):
         available_height: int,
     ) -> ProdInfo | None:
         """Fetch product info in a background thread, then schedule UI update."""
-        started = time.perf_counter()
         prod_info = None
         prepared_image = None
         do_request_prod_info = False
@@ -854,32 +698,7 @@ class GuiZeroBase(Thread, ABC):
                 self._prod_info_cache[tmcc_id] = prod_info
                 self._pending_prod_infos.discard(tmcc_id)
         # Schedule the UI update on the main thread
-        self.queue_message(
-            self.process_prod_image,
-            prod_info,
-            prepared_image,
-            tmcc_id,
-            callback,
-            trace_event="prod_info_image_ready",
-            trace_fields={
-                "tmcc_id": tmcc_id,
-                "bt_id": bt_id,
-                "prepared_image": prepared_image is not None,
-                "prod_info_type": type(prod_info).__name__ if prod_info is not None else None,
-            },
-        )
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        if self.gui_trace_enabled or elapsed_ms >= self.gui_trace_slow_ms:
-            self.trace_gui(
-                "fetch_prod_info",
-                level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
-                force=elapsed_ms >= self.gui_trace_slow_ms,
-                tmcc_id=tmcc_id,
-                bt_id=bt_id,
-                prepared_image=prepared_image is not None,
-                prod_info_type=type(prod_info).__name__ if prod_info is not None else None,
-                elapsed_ms=round(elapsed_ms, 2),
-            )
+        self.queue_message(self.process_prod_image, prod_info, prepared_image, tmcc_id, callback)
         return prod_info
 
     def process_prod_image(
@@ -890,7 +709,6 @@ class GuiZeroBase(Thread, ABC):
         callback: Callable,
     ):
         # Only create the Tk image and update widgets on the GUI thread.
-        started = time.perf_counter()
         if isinstance(prod_info, ProdInfo) and prepared_image is not None:
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(
@@ -911,17 +729,6 @@ class GuiZeroBase(Thread, ABC):
             )
         # we're in the main thread, update the UI
         callback(tmcc_id)
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        if self.gui_trace_enabled or elapsed_ms >= self.gui_trace_slow_ms:
-            self.trace_gui(
-                "process_prod_image",
-                level=logging.INFO if elapsed_ms >= self.gui_trace_slow_ms else logging.DEBUG,
-                force=elapsed_ms >= self.gui_trace_slow_ms,
-                tmcc_id=tmcc_id,
-                has_prepared_image=prepared_image is not None,
-                prod_info_type=type(prod_info).__name__ if prod_info is not None else None,
-                elapsed_ms=round(elapsed_ms, 2),
-            )
 
     def get_prod_info(
         self,
@@ -931,10 +738,8 @@ class GuiZeroBase(Thread, ABC):
         available_width: int,
         available_height: int,
     ) -> ProdInfo | None:
-        started = time.perf_counter()
         with self._cv:
             prod_info = self._prod_info_cache.get(tmcc_id, None)
-        cache_state = type(prod_info).__name__ if prod_info is not None else "None"
         # Attempts to retrieve or schedule production info
         if prod_info is None and bt_id:
             with self._cv:
@@ -962,14 +767,4 @@ class GuiZeroBase(Thread, ABC):
                 with self._cv:
                     self._prod_info_cache[tmcc_id] = prod_info
                     self._pending_prod_infos.discard(tmcc_id)
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        if self.gui_trace_enabled:
-            self.trace_gui(
-                "get_prod_info",
-                tmcc_id=tmcc_id,
-                bt_id=bt_id,
-                cache_state=cache_state,
-                result_type=type(prod_info).__name__ if prod_info is not None else None,
-                elapsed_ms=round(elapsed_ms, 2),
-            )
         return prod_info

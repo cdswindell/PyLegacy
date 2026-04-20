@@ -16,7 +16,6 @@ class DummyState:
         self.address = tmcc_id
         self.name = name
         self.scope = scope
-        self.has_throttle = scope in {CommandScope.ENGINE, CommandScope.TRAIN}
 
     def __repr__(self) -> str:
         return f"{self.scope.name}:{self.tmcc_id}"
@@ -87,7 +86,6 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui._accessory_view = {}
     gui._active_train_state = None
     gui._active_engine_state = None
-    gui._in_train_link_mode = False
     gui._state_info = None
     gui._transition_depth = 0
     gui._options_rebuild_pending = False
@@ -186,29 +184,6 @@ def test_update_component_info_repaints_hidden_image_when_returning_to_ops_mode(
     assert gui._image_updates == [34]
 
 
-def test_ops_mode_preserves_last_engine_type_for_controller_fast_path(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    gui = _new_engine()
-    state = DummyState(tmcc_id=34, name="Hudson")
-    gui._scope_tmcc_ids[CommandScope.ENGINE] = 34
-    gui._keypad_view.is_engine_or_train = True
-    gui._keypad_view.enter_ops_mode_base = lambda: None
-    gui._keypad_view.apply_ops_mode_ui_engine_shell = lambda: None
-    gui._last_engine_type = "s"
-    recorded_engine_types: list[str | None] = []
-    gui._controller_view = SimpleNamespace(
-        update=lambda **_kwargs: None,
-        apply_engine_type=lambda _state: recorded_engine_types.append(gui._last_engine_type),
-    )
-    monkeypatch.setattr(mod, "EngineState", DummyState, raising=True)
-
-    mod.EngineGui.ops_mode(gui, update_info=False, state=state)
-
-    assert recorded_engine_types == ["s"]
-    assert gui._last_engine_type == "s"
-
-
 def test_update_component_info_zero_clears_image_and_resets_keystroke_flag() -> None:
     gui = _new_engine()
     gui._keypad_view.reset_on_keystroke = True
@@ -291,7 +266,6 @@ def test_on_new_train_builds_train_link_queue_and_sets_engine_scope_tmcc() -> No
     assert list(gui._train_linked_queue) == [linked_1, linked_2]
     assert gui._scope_tmcc_ids[CommandScope.ENGINE] == 11
     assert gui._active_train_state is train_state
-    assert gui._in_train_link_mode is True
     assert gui._scope_buttons[CommandScope.ENGINE].bg == "lightgreen"
     assert gui._rebuild_options_calls == 1
 
@@ -330,34 +304,6 @@ def test_on_scope_switches_between_engine_and_train_without_forcing_entry_mode()
     assert gui._scope_keypad_args == (False, True)
 
 
-def test_on_scope_traces_scope_button_assignments() -> None:
-    gui = _new_engine(CommandScope.ENGINE)
-    gui._scope_tmcc_ids[CommandScope.ENGINE] = 5
-    gui._scope_tmcc_ids[CommandScope.TRAIN] = 9
-    gui.update_component_info = lambda *args, **kwargs: None
-    gui._close_popup = lambda _source: None
-    gui._request_options_rebuild = lambda: None
-    gui.trace_visibility_state = lambda *_args, **_kwargs: None
-    events: list[tuple[str, dict[str, object]]] = []
-    gui.trace_transition_phase = lambda phase, **fields: events.append((phase, fields))
-
-    gui.on_scope(CommandScope.TRAIN)
-
-    assign_events = [fields for phase, fields in events if phase == "scope_button_assign"]
-
-    assert any(
-        fields["button_scope"] == "Train"
-        and fields["requested_scope"] == "Train"
-        and fields["enabled_bg"] == "green"
-        and fields["new_bg"] == "green"
-        for fields in assign_events
-    )
-    assert any(
-        fields["button_scope"] == "Engine" and fields["requested_scope"] == "Train" and fields["new_bg"] == "white"
-        for fields in assign_events
-    )
-
-
 def test_on_new_engine_marks_train_scope_when_train_linked_engine_is_active(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -372,68 +318,6 @@ def test_on_new_engine_marks_train_scope_when_train_linked_engine_is_active(
     gui.on_new_engine(linked_engine, is_engine=True)
 
     assert gui._scope_buttons[CommandScope.TRAIN].bg == "lightgreen"
-
-
-def test_on_new_engine_skips_train_link_teardown_when_flag_is_not_set(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    gui = _new_engine(CommandScope.ENGINE)
-    state = DummyState(tmcc_id=18, name="Diesel", scope=CommandScope.ENGINE)
-    gui._in_train_link_mode = False
-    gui._tear_down_calls = 0
-
-    def tear_down() -> None:
-        gui._tear_down_calls += 1
-
-    gui._tear_down_link_gui = tear_down
-    monkeypatch.setattr(mod, "EngineState", DummyState, raising=True)
-
-    gui.on_new_engine(state, is_engine=True)
-
-    assert gui._tear_down_calls == 0
-
-
-def test_tear_down_link_gui_resets_train_link_mode_and_clears_train_linked_state() -> None:
-    gui = _new_engine(CommandScope.ENGINE)
-    linked_engine = DummyState(tmcc_id=11, name="Car 1", scope=CommandScope.ENGINE)
-    gui._train_linked_queue.append(linked_engine)
-    gui._scope_tmcc_ids[CommandScope.ENGINE] = 11
-    gui._active_train_state = DummyTrainState(tmcc_id=9, linked_ids=[11], name="Empire")
-    gui._in_train_link_mode = True
-
-    mod.EngineGui._tear_down_link_gui(gui)
-
-    assert gui._in_train_link_mode is False
-    assert gui._active_train_state is None
-    assert list(gui._train_linked_queue) == []
-    assert gui._scope_tmcc_ids[CommandScope.ENGINE] == 0
-
-
-def test_display_transition_traces_nested_completion() -> None:
-    gui = _new_engine(CommandScope.ENGINE)
-    gui._gui_trace_enabled = True
-    gui._gui_trace_slow_ms = 10_000
-    events: list[tuple[str, dict[str, object]]] = []
-
-    def trace_transition_phase(phase: str, **fields: object) -> None:
-        events.append((phase, fields))
-
-    def trace_visibility_state(source: str, **fields: object) -> None:
-        events.append(("visibility", {"source": source, **fields}))
-
-    gui.trace_transition_phase = trace_transition_phase
-    gui.trace_visibility_state = trace_visibility_state
-
-    with gui._display_transition("outer", scope=gui._scope_label()):
-        with gui._display_transition("inner", requested_tmcc_id=12):
-            pass
-
-    complete_events = [fields for phase, fields in events if phase == "transition_complete"]
-
-    assert [fields["cause"] for fields in complete_events] == ["inner", "outer"]
-    assert [fields["depth"] for fields in complete_events] == [2, 1]
-    assert complete_events[-1]["pending_rebuild"] is False
-    assert [phase for phase, _fields in events].count("transition_end") == 1
 
 
 def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytest.MonkeyPatch) -> None:

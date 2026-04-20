@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import math
-import time
 from dataclasses import dataclass
 from tkinter import TclError
 from typing import Any, Callable, Optional, TYPE_CHECKING
@@ -26,22 +25,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 log = logging.getLogger(__name__)
-
-
-def _trace_phase(host: object, phase: str, **fields) -> None:
-    trace = getattr(host, "trace_transition_phase", None)
-    if callable(trace):
-        trace(phase, **fields)
-
-
-def _trace_visibility(host: object, source: str, **fields) -> None:
-    trace = getattr(host, "trace_visibility_state", None)
-    if callable(trace):
-        trace(source, **fields)
-
-
-def _slow_ms(host: object) -> float:
-    return float(getattr(host, "gui_trace_slow_ms", 350.0))
 
 
 @dataclass
@@ -76,26 +59,14 @@ class PopupManager:
         on_close: Callable = None,
         on_popup_close: Callable[[Box], None] | None = None,
     ) -> Box:
-        started = time.perf_counter()
         with self._host.locked():
             existing = self._overlays.get(key)
             if isinstance(existing, Box):
-                _trace_phase(self._host, "popup_get_or_create_hit", overlay_key=key)
                 return existing
 
         overlay = self.create_popup(title, body_src, on_close, on_popup_close=on_popup_close)
         setattr(overlay, "overlay_key", key)
         self._overlays[key] = overlay
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        slow_ms = _slow_ms(self._host)
-        _trace_phase(
-            self._host,
-            "popup_get_or_create_miss",
-            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
-            force=elapsed_ms >= slow_ms,
-            overlay_key=key,
-            elapsed_ms=round(elapsed_ms, 2),
-        )
         return overlay
 
     def create_popup(
@@ -107,8 +78,6 @@ class PopupManager:
         on_popup_close: Callable[[Box], None] | None = None,
     ) -> Box:
         host = self._host
-        started = time.perf_counter()
-        slow_ms = _slow_ms(host)
 
         overlay = Box(host.app, align="top", border=2, visible=False)
         if on_popup_close:
@@ -139,16 +108,6 @@ class PopupManager:
             self.add_close_btn(host, on_close, overlay)
 
         overlay.hide()
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        _trace_phase(
-            host,
-            "popup_create",
-            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
-            force=elapsed_ms >= slow_ms,
-            title=title_text,
-            body_type=type(body_src).__name__,
-            elapsed_ms=round(elapsed_ms, 2),
-        )
         return overlay
 
     def add_close_acc_btn(
@@ -329,8 +288,6 @@ class PopupManager:
         hide_image_box: bool = False,
     ) -> None:
         host = self._host
-        started = time.perf_counter()
-        slow_ms = _slow_ms(host)
         with host.locked():
             # Close any existing popup
             self.close()
@@ -354,17 +311,10 @@ class PopupManager:
             if host.acc_overlay and host.acc_overlay.visible:
                 host.acc_overlay.hide()
                 self._state.restore_acc_box = True
-            _trace_visibility(
-                host,
-                "popup.show:prepared",
-                overlay=getattr(overlay, "overlay_key", None),
-                hide_image_box=hide_image_box,
-            )
         try:
             x, y = position if position else host.popup_position
             overlay.tk.place(x=x, y=y)
             overlay.show()
-            _trace_visibility(host, "popup.show:overlay_show", overlay=getattr(overlay, "overlay_key", None))
         except (AttributeError, RuntimeError, TclError):
             log.warning(f"Failed to place/show overlay: {overlay}")
             with host.locked():
@@ -383,16 +333,6 @@ class PopupManager:
                     self._state.on_close_show = None
         finally:
             self._restore_button_state(op=op, modifier=modifier, button=button)
-            elapsed_ms = (time.perf_counter() - started) * 1000
-            _trace_phase(
-                host,
-                "popup_show",
-                level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
-                force=elapsed_ms >= slow_ms,
-                overlay=getattr(overlay, "overlay_key", None),
-                hide_image_box=hide_image_box,
-                elapsed_ms=round(elapsed_ms, 2),
-            )
 
     def close(self, overlay: Box | None = None) -> None:
         host = self._host
@@ -430,11 +370,6 @@ class PopupManager:
                 except (AttributeError, RuntimeError):
                     pass
                 self._state.on_close_show = None
-            _trace_visibility(
-                host,
-                "popup.close",
-                overlay=getattr(overlay, "overlay_key", None) if overlay else None,
-            )
 
     # ------------------------------------------------------------------
     # Internals

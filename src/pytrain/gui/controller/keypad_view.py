@@ -7,7 +7,6 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import logging
-import time
 from tkinter import TclError
 from typing import Generic, TYPE_CHECKING, TypeVar
 
@@ -51,18 +50,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 S = TypeVar("S", ComponentState, ConfiguredAccessoryAdapter)
-
-
-def _trace_phase(host: object, phase: str, **fields) -> None:
-    trace = getattr(host, "trace_transition_phase", None)
-    if callable(trace):
-        trace(phase, **fields)
-
-
-def _trace_visibility(host: object, source: str, **fields) -> None:
-    trace = getattr(host, "trace_visibility_state", None)
-    if callable(trace):
-        trace(source, **fields)
 
 
 class KeypadView(Generic[S]):
@@ -652,14 +639,12 @@ class KeypadView(Generic[S]):
     def entry_mode(self, clear_info: bool = True) -> None:
         """Manages entry mode keypad display and button states"""
         host = self._host
-        _trace_phase(host, "entry_mode_start", clear_info=clear_info, scope=host.scope.label)
         self._entry_mode = True
         if clear_info:
             host.update_component_info(0)
         else:
             self._reset_on_keystroke = True
             host.image_box.hide()
-            _trace_visibility(host, "keypad.entry_mode:image_hide", clear_info=clear_info)
         self._entry_mode = True
         for cell in host.entry_cells:
             if not cell.visible:
@@ -679,7 +664,6 @@ class KeypadView(Generic[S]):
             host.reset_btn.enable()
         else:
             host.reset_btn.disable()
-        _trace_visibility(host, "keypad.entry_mode:end", clear_info=clear_info)
 
     def enter_ops_mode_base(self) -> None:
         """
@@ -687,7 +671,6 @@ class KeypadView(Generic[S]):
           - flip entry-mode flag
           - hide entry/ops cells (caller will selectively re-show ops cells)
         """
-        started = time.perf_counter()
         host = self._host
         self._entry_mode = False
 
@@ -701,17 +684,6 @@ class KeypadView(Generic[S]):
 
         self._collapse_acc_aux_cells()
         self.activate_numeric_keys()
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        slow_ms = float(getattr(host, "gui_trace_slow_ms", 350.0))
-        _trace_phase(
-            host,
-            "enter_ops_mode_base",
-            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
-            force=elapsed_ms >= slow_ms,
-            scope=host.scope.label,
-            elapsed_ms=round(elapsed_ms, 2),
-        )
-        _trace_visibility(host, "keypad.enter_ops_mode_base")
 
     def apply_ops_mode_ui_engine_shell(self) -> None:
         """
@@ -720,7 +692,6 @@ class KeypadView(Generic[S]):
           - ensure controller container(s) are visible
           - enable Reset
         """
-        started = time.perf_counter()
         host = self._host
 
         # Hide keypad/controller boxes appropriately
@@ -740,17 +711,6 @@ class KeypadView(Generic[S]):
             host.controller_keypad_box.show()
         if not host.controller_box.visible:
             host.controller_box.show()
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        slow_ms = float(getattr(host, "gui_trace_slow_ms", 350.0))
-        _trace_phase(
-            host,
-            "apply_ops_mode_ui_engine_shell",
-            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
-            force=elapsed_ms >= slow_ms,
-            scope=host.scope.label,
-            elapsed_ms=round(elapsed_ms, 2),
-        )
-        _trace_visibility(host, "keypad.apply_ops_mode_ui_engine_shell")
 
     def apply_ops_mode_ui_non_engine(self, state: S | None = None) -> None:
         """
@@ -773,7 +733,6 @@ class KeypadView(Generic[S]):
             host.fire_route_cell.show()
             if not host.keypad_box.visible:
                 host.keypad_box.show()
-            _trace_visibility(host, "keypad.apply_ops_mode_ui_non_engine:route")
             return
 
         if host.scope == CommandScope.SWITCH:
@@ -782,7 +741,6 @@ class KeypadView(Generic[S]):
             host.switch_out_cell.show()
             if not host.keypad_box.visible:
                 host.keypad_box.show()
-            _trace_visibility(host, "keypad.apply_ops_mode_ui_non_engine:switch")
             return
 
         # Handles accessory or BPC2 state and UI visibility
@@ -832,12 +790,6 @@ class KeypadView(Generic[S]):
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
-            _trace_visibility(
-                host,
-                "keypad.apply_ops_mode_ui_non_engine:accessory",
-                accessory_state=type(acc_state).__name__ if acc_state is not None else None,
-                show_keypad=show_keypad,
-            )
 
     # noinspection PyTypeChecker
     def enable_acc_view(self, state: S):
@@ -862,8 +814,6 @@ class KeypadView(Generic[S]):
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
         host.ac_op_btn.enable()
         host.ac_op_cell.show()
-        _trace_phase(host, "enable_acc_view", tmcc_id=state.tmcc_id, accessory=acc.instance_id)
-        _trace_visibility(host, "keypad.enable_acc_view", accessory=acc.instance_id)
 
     # noinspection PyProtectedMember
     def scope_keypad(self, force_entry_mode: bool = False, clear_info: bool = True):
@@ -878,13 +828,6 @@ class KeypadView(Generic[S]):
                 host.keypad_box.show()
         if host.scope != CommandScope.ACC and host.acc_overlay and host.acc_overlay.visible:
             host.reset_acc_overlay()
-        _trace_visibility(
-            host,
-            "keypad.scope_keypad",
-            tmcc_id=tmcc_id,
-            force_entry_mode=force_entry_mode,
-            clear_info=clear_info,
-        )
 
     def scope_power_btns(self):
         host = self._host

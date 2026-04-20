@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import re
-import time
 from abc import ABC, ABCMeta, abstractmethod
 from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar, cast
@@ -43,22 +42,6 @@ S = TypeVar("S", bound=ComponentState)
 
 HYPHEN_CLEANUP = re.compile(r"(?<=[A-Za-z])-+(?=[A-Za-z])")
 SPACE_CLEANUP = re.compile(r"\s{2,}")
-
-
-def _trace_phase(host: object, phase: str, **fields) -> None:
-    trace = getattr(host, "trace_transition_phase", None)
-    if callable(trace):
-        trace(phase, **fields)
-
-
-def _trace_visibility(host: object, source: str, **fields) -> None:
-    trace = getattr(host, "trace_visibility_state", None)
-    if callable(trace):
-        trace(source, **fields)
-
-
-def _slow_ms(host: object) -> float:
-    return float(getattr(host, "gui_trace_slow_ms", 350.0))
 
 
 class AccessoryBase(GuiZeroBase, Generic[S], ABC):
@@ -281,7 +264,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         return upd
 
     def queue_message(self, message: Callable, *args: Any) -> None:
-        self.host.queue_message(message, *args)
+        self.host._message_queue.put((message, args))
 
     @staticmethod
     def normalize(text: str) -> str:
@@ -366,7 +349,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             self._reset_state_buttons()
 
     def mount_gui(self, container: Box = None, *, add_spacer: bool = True) -> None:
-        started = time.perf_counter()
         self.bind_variant()
         self._create_state_watchers()
 
@@ -388,19 +370,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             assert self._stand_alone
             self.box = box = Box(self.host.app, layout="grid")
         self.build_accessory_controls(box)
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        slow_ms = _slow_ms(self.host)
-        _trace_phase(
-            self.host,
-            "accessory.mount_gui",
-            level=logging.INFO if elapsed_ms >= slow_ms else logging.DEBUG,
-            force=elapsed_ms >= slow_ms,
-            accessory=self.menu_label,
-            stand_alone=self._stand_alone,
-            add_spacer=add_spacer,
-            elapsed_ms=round(elapsed_ms, 2),
-        )
-        _trace_visibility(self.host, "accessory.mount_gui", accessory=self.menu_label)
 
     def destroy_gui(self):
         # Explicitly drop references to tkinter/guizero objects on the Tk thread
