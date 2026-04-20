@@ -784,7 +784,7 @@ class DelayHandler(Thread):
             elif tmcc_id == 99 and scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
                 ce = set()
                 for k in [k for k, v in self._event_cache.items() if k[1] in {CommandScope.ENGINE, CommandScope.TRAIN}]:
-                    ce.union(self._event_cache[k])
+                    ce |= self._event_cache[k]
             else:
                 ce = self._event_cache.get((tmcc_id, scope), None)
             if ce:
