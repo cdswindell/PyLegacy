@@ -156,7 +156,9 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
     def _on_after_send(self) -> None:
         from ...comm.comm_buffer import CommBuffer
+        from time import sleep
 
+        sleep(10)
         cb = CommBuffer.build()
         log.warning(f"After send queue size: {cb.num_queued_requests}")
         cb._scheduler.purge_inactive_events(reschedule=False)
