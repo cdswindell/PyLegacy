@@ -149,20 +149,15 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     delay = 2.50
                 self.add(engr, address, scope=scope, delay=delay)
 
-    def _on_before_send(self) -> None:
-        from ...comm.comm_buffer import CommBuffer
-
-        log.warning(f"Before send queue size: {CommBuffer.build().num_queued_requests}")
-
     def _on_after_send(self) -> None:
         from ...comm.comm_buffer import CommBuffer
         from time import sleep
 
         sleep(10)
-        cb = CommBuffer.build()
-        log.warning(f"After send queue size: {cb.num_queued_requests}")
+        cb = CommBuffer.get()
         cb._scheduler.purge_inactive_events(reschedule=False)
-        log.warning(f"After purge queue size: {cb.num_queued_requests}")
+        cache_n = sum(len(v) for v in cb._scheduler._event_cache.values())
+        log.warning("After forced purge: queue=%d cache=%d", len(cb._scheduler._scheduler.queue), cache_n)
 
 
 class RampedSpeedReq(RampedSpeedReqBase):
