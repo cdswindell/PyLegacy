@@ -434,8 +434,8 @@ class HoldButton(PushButton):
                 pressed_bg = "dark_grey"
                 try:
                     if self.text:
-                        self.bg = self._normal_text_fg if self._normal_text_fg else "black"
-                        self.text_color = self._normal_text_bg if self._normal_text_bg else "white"
+                        PushButton.bg.fset(self, self._normal_text_fg if self._normal_text_fg else "black")
+                        PushButton.text_color.fset(self._normal_text_bg if self._normal_text_bg else "white")
                     else:
                         # even if text is blanked, keep bg feedback if desired
                         self.tk.config(background=pressed_bg)
@@ -459,8 +459,8 @@ class HoldButton(PushButton):
             # restore colors using tk-configured "normals" to match hb.tk.config(...)
             try:
                 if self.text:
-                    self.bg = self._normal_text_bg if self._normal_text_bg else "white"
-                    self.text_color = self._normal_text_fg if self._normal_text_fg else "black"
+                    PushButton.bg.fset(self, self._normal_text_bg if self._normal_text_bg else "black")
+                    PushButton.text_color.fset(self._normal_text_fg if self._normal_text_fg else "white")
                     log.warning(f"Restoring '{self.text}' FG: {self.text_color} BG: {self.bg}")
 
                 if self._normal_bg is not None:
