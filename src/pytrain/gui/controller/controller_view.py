@@ -627,7 +627,7 @@ class ControllerView:
 
         # Per-type aux behavior
         if t in {"d", "s", "a", "l", "p", "r", "t"}:
-            if host._rr_speed_box:
+            if host._rr_speed_box and False:
                 host._rr_speed_box.show()
                 log.warning("apply_engine_type..._rr_speed_box.show")
 
