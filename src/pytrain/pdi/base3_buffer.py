@@ -266,11 +266,10 @@ class Base3Buffer(Thread):
                 if sync_reqs:
                     for sync_req in sync_reqs:
                         from ..db.engine_state import EngineState
-                        # from .base3_db_refresh_manager import Base3DbRefreshManager
+                        from .base3_db_refresh_manager import Base3DbRefreshManager
 
                         if isinstance(sync_req, EngineState):
-                            pass
-                            # Base3DbRefreshManager.request_refresh(sync_req)
+                            Base3DbRefreshManager.request_refresh(sync_req)
                         else:
                             cls._instance.send(sync_req.as_bytes)
 
