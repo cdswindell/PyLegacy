@@ -780,7 +780,7 @@ class ControllerView:
         # send speed command
         if state.is_cab1:
             host.throttle.value = 0
-        host.on_speed_command(host.throttle.value)
+        # host.on_speed_command(host.throttle.value)
 
         # Now clear focus so the handle deactivates visually.
         host.app.tk.after_idle(self._do_clear_focus)
