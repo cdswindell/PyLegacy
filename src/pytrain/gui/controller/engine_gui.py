@@ -1325,8 +1325,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             if tmcc_id:
                 tmcc_id, state = self._resolve_component_state(tmcc_id)
+                log.info("update_component_info..._resolve_component_state")
                 selection_changed = not self._is_same_display_selection(tmcc_id)
+                log.info("update_component_info..._is_same_display_selection")
                 _, update_button_state = self._apply_component_labels(tmcc_id, state, not_found_value, num_chars)
+                log.info("update_component_info..._apply_component_labels")
                 self._update_recent_selection(tmcc_id, state, in_ops_mode, selection_changed)
                 log.info("update_component_info..._update_recent_selections")
             else:
