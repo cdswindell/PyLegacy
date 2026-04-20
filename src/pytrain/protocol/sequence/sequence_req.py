@@ -171,7 +171,7 @@ class SequenceReq(CommandReq, Sequence):
                 port=port,
                 server=server,
             )
-            # sleep(0.001)
+        self._on_after_send()
 
     def fire(
         self,
@@ -334,6 +334,12 @@ class SequenceReq(CommandReq, Sequence):
     def _on_before_send(self) -> None:
         """
         Override in subclasses to perform actions before sending bytes
+        """
+        pass
+
+    def _on_after_send(self) -> None:
+        """
+        Override in subclasses to perform actions after sending bytes
         """
         pass
 

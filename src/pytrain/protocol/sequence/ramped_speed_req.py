@@ -149,6 +149,16 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     delay = 2.50
                 self.add(engr, address, scope=scope, delay=delay)
 
+    def on_before_send(self) -> None:
+        from ...comm.comm_buffer import CommBuffer
+
+        log.warning(f"Before send queue size: {CommBuffer.build().num_queued_requests}")
+
+    def on_after_send(self) -> None:
+        from ...comm.comm_buffer import CommBuffer
+
+        log.warning(f"After send queue size: {CommBuffer.build().num_queued_requests}")
+
 
 class RampedSpeedReq(RampedSpeedReqBase):
     def __init__(

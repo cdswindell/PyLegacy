@@ -226,6 +226,10 @@ class CommBuffer(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def num_queued_requests(self) -> int: ...
+
+    @property
+    @abc.abstractmethod
     def server_version(self) -> tuple[int, int, int]: ...
 
     @property
@@ -278,6 +282,10 @@ class CommBufferSingleton(CommBuffer, Thread):
         # start the consumer threads
         self._scheduler = DelayHandler(self)
         self.start()
+
+    @property
+    def num_queued_requests(self) -> int:
+        return self._scheduler.queued_requests
 
     def _cancel_delayed_requests(
         self,
@@ -402,7 +410,7 @@ class CommBufferSingleton(CommBuffer, Thread):
                     else:
                         log.debug(f"Enqueue command {command} (server, delayed: {was_delayed})")
                 if isinstance(command, CommandReq) or isinstance(command, PdiReq):
-                    if isinstance(command, CommandReq):
+                    if isinstance(command, CommandReq) and not was_delayed:
                         self._cancel_delayed_requests_on_enqueue(request=command, delay_handler=self._scheduler)
                     command = command.as_bytes
                 if command[0] == PDI_SOP:
@@ -543,6 +551,10 @@ class CommBufferProxy(CommBuffer):
         self._heartbeat_bytes = None
         self._heart_beat_thread = None
 
+    @property
+    def num_queued_requests(self) -> int:
+        return self._scheduler.queued_requests
+
     def _cancel_delayed_requests(
         self,
         tmcc_id: int,
@@ -597,7 +609,7 @@ class CommBufferProxy(CommBuffer):
                     log.debug(f"Enqueue command {command} (client, delayed: {was_delayed})")
             retries = 0
             if isinstance(command, CommandReq) or isinstance(command, PdiReq):
-                if isinstance(command, CommandReq):
+                if isinstance(command, CommandReq) and not was_delayed:
                     self._cancel_delayed_requests_on_enqueue(request=command, delay_handler=self._scheduler)
                 command = command.as_bytes
             while True:
@@ -724,6 +736,10 @@ class DelayHandler(Thread):
     @property
     def has_scheduled(self) -> bool:
         return bool(self._scheduler.queue)
+
+    @property
+    def queued_requests(self) -> int:
+        return len(self._scheduler.queue)
 
     def run(self) -> None:
         while True:
