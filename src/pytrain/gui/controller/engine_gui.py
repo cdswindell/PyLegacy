@@ -1313,8 +1313,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         in_ops_mode: bool = False,
     ) -> None:
         self._begin_transition()
+        log.info(f"update_component_info: {tmcc_id}")
         try:
             self._popup.close()
+            log.info("update_component_info...popup closed")
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
             # update the tmcc_id associated with current scope
@@ -1326,13 +1328,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 selection_changed = not self._is_same_display_selection(tmcc_id)
                 _, update_button_state = self._apply_component_labels(tmcc_id, state, not_found_value, num_chars)
                 self._update_recent_selection(tmcc_id, state, in_ops_mode, selection_changed)
+                log.info("update_component_info..._update_recent_selections")
             else:
                 state = None
                 selection_changed = not self._is_same_display_selection(tmcc_id)
                 self._clear_component_display(tmcc_id, num_chars)
             self._refresh_component_view(state, update_button_state, tmcc_id, selection_changed)
+            log.info("update_component_info..._refresh_component_view")
         finally:
             self._end_transition()
+        log.info("update_component_info...Done")
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         return self._image_presenter.calc_box_size()
