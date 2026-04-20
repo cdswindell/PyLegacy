@@ -631,7 +631,7 @@ class ControllerView:
                 host._rr_speed_box.show()
                 log.warning("apply_engine_type..._rr_speed_box.show")
 
-        if host.horn_title_box:
+        if host.horn_title_box and False:
             if t == "s":
                 host.horn_title_box.text = "Whistle"
             else:
