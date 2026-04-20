@@ -707,10 +707,10 @@ class KeypadView(Generic[S]):
         host.reset_btn.enable()
 
         # Show controller UI
-        if not host.controller_keypad_box.visible:
-            host.controller_keypad_box.show()
-        if not host.controller_box.visible:
-            host.controller_box.show()
+        # if not host.controller_keypad_box.visible:
+        #     host.controller_keypad_box.show()
+        # if not host.controller_box.visible:
+        #     host.controller_box.show()
 
     def apply_ops_mode_ui_non_engine(self, state: S | None = None) -> None:
         """

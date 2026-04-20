@@ -673,12 +673,15 @@ class ControllerView:
         previous_btns = self._engine_type_key_map.get(previous_engine_type, set()) if previous_engine_type else set()
         cells_to_show = btns - previous_btns
         cells_to_hide = previous_btns - btns if previous_engine_type else self._all_engine_btns - btns
+        log.warning("apply_engine_type...cells_to_show/hide")
 
         for cell in cells_to_show:
             cell.show()
+        logging.warning("apply_engine_type...cells_to_show: %d", len(cells_to_show))
 
         for cell in cells_to_hide:
             cell.hide()
+        logging.warning("apply_engine_type...cells_to_hide: %d", len(cells_to_hide))
 
         host._last_engine_type = t
 

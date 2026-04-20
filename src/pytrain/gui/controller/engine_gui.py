@@ -1214,6 +1214,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._controller_view.apply_engine_type(state)
             log.warning("ops_mode...apply_engine_type")
 
+            self._controller_view.show()
+            log.warning("ops_mode...controller_view.show")
+
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
