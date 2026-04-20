@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
+from time import perf_counter
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
@@ -668,13 +669,20 @@ class ControllerView:
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
         log.warning("apply_engine_type...cells_to_show/hide")
 
+        t0 = perf_counter()
         for cell in cells_to_show:
             cell.show()
-        log.warning("apply_engine_type...cells_to_show: %d", len(cells_to_show))
+        log.info(f"Show {len(cells_to_show)} cells: {perf_counter() - t0}")
 
+        t0 = perf_counter()
         for cell in cells_to_hide:
             cell.hide()
-        log.warning("apply_engine_type...cells_to_hide: %d", len(cells_to_hide))
+        log.info(f"Hide {len(cells_to_hide)} cells: {perf_counter() - t0}")
+
+        t0 = perf_counter()
+        self._host.controller_keypad_box.tk.update_idletasks()
+
+        log.info(f"idle tasks: {perf_counter() - t0}")
 
         self._last_engine_type = t
 
@@ -993,7 +1001,7 @@ class ControllerView:
             step=step,
             width=slider_width,
             height=slider_height,
-            command=None,  # command,
+            command=command,
         )
         s.text_color = "black"
 
