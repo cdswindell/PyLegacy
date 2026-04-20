@@ -7,13 +7,9 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
-#
-#
-#
 from __future__ import annotations
 
+import logging
 import time
 import tkinter as tk
 from threading import Condition, RLock
@@ -21,6 +17,8 @@ from tkinter import TclError
 from typing import Any, Callable
 
 from guizero import PushButton
+
+log = logging.getLogger(__name__)
 
 
 class HoldButton(PushButton):
@@ -407,6 +405,7 @@ class HoldButton(PushButton):
         if self.text:
             self._normal_text_bg = self.bg
             self._normal_text_fg = self.text_color
+            log.warning(f"Snapshotting '{self.text}' FG: {self._normal_text_fg} BG: {self._normal_text_bg}")
 
         try:
             self._normal_bg = str(self.tk.cget("background"))
@@ -462,6 +461,7 @@ class HoldButton(PushButton):
                 if self.text:
                     self.bg = self._normal_text_bg if self._normal_text_bg else "white"
                     self.text_color = self._normal_text_fg if self._normal_text_fg else "black"
+                    log.warning(f"Restoring '{self.text}' FG: {self.text_color} BG: {self.bg}")
 
                 if self._normal_bg is not None:
                     self.tk.config(background=self._normal_bg)
