@@ -458,6 +458,7 @@ class HoldButton(PushButton):
         with self._cv:
             # restore colors using tk-configured "normals" to match hb.tk.config(...)
             try:
+                log.warning(f"Restoring '{self.text}' FG: {self._normal_text_fg} BG: {self._normal_text_bg}")
                 if self.text:
                     PushButton.bg.fset(self, self._normal_text_bg if self._normal_text_bg else "black")
                     PushButton.text_color.fset(self._normal_text_fg if self._normal_text_fg else "white")
