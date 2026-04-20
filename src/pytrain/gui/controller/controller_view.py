@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
-from time import perf_counter
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
@@ -624,32 +623,27 @@ class ControllerView:
             t = "d"
 
         self._show_keys_for_type(t)
-        log.warning("apply_engine_type..._show_keys_for_type")
 
         # Per-type aux behavior
         if t in {"d", "s", "a", "l", "p", "r", "t"}:
             if host._rr_speed_box:
                 host._rr_speed_box.show()
-                log.warning("apply_engine_type..._rr_speed_box.show")
 
         if host.horn_title_box:
             if t == "s":
                 host.horn_title_box.text = "Whistle"
             else:
                 host.horn_title_box.text = "Horn"
-            log.warning("apply_engine_type...horn_title_box")
 
         if t in {"f", "r"}:
             if host._freight_sounds_bell_horn_box:
                 host._freight_sounds_bell_horn_box.show()
             # Freight uses the horn-control popup behavior
             self.show_horn_control()
-            log.warning("apply_engine_type..._show_horn_control")
 
         if t == "t":
             # Transformer mode wants brake shown
             self.toggle_momentum_train_brake(show_btn="brake")
-            log.warning("apply_engine_type..._show_keys_for_type")
 
     def _show_keys_for_type(self, t: str) -> None:
         """
@@ -657,7 +651,6 @@ class ControllerView:
         Only modify buttons that have to be changed.
         """
         last_type = self._last_engine_type
-        log.warning(f"****** apply_engine_type...previous_engine_type: {last_type} this: {t} ******")
 
         # Avoid rework if type unchanged
         if self._last_engine_type == t:
@@ -668,22 +661,12 @@ class ControllerView:
         cells_to_show = {cell for cell in (btns - previous_btns) if not cell.visible}
         cells_to_hide = previous_btns - btns if last_type else self._all_engine_btns - btns
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
-        log.warning("apply_engine_type...cells_to_show/hide")
 
         for cell in cells_to_show:
-            t0 = perf_counter()
             cell.show()
-            log.info(f"Show {cell.button_info} time: {perf_counter() - t0}")
 
         for cell in cells_to_hide:
-            t0 = perf_counter()
             cell.hide()
-            log.info(f"Hide {cell.button_info} time: {perf_counter() - t0}")
-
-        t0 = perf_counter()
-        self._host.controller_keypad_box.tk.update_idletasks()
-
-        log.info(f"idle tasks: {perf_counter() - t0}")
 
         self._last_engine_type = t
 
@@ -720,8 +703,7 @@ class ControllerView:
         for w in (host.throttle, host.brake, host.momentum, host.horn):
             try:
                 if w is not None:
-                    pass
-                    # w.tk.event_generate("<Leave>")
+                    w.tk.event_generate("<Leave>")
             except (TclError, AttributeError):
                 pass
 
