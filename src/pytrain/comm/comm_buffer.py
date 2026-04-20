@@ -839,14 +839,17 @@ class TrackedEvent:
 
         # wrap action so we can track execution
         def wrapper() -> None:
+            do_action = False
             with lock:
                 if self.was_canceled():
                     log.debug(f"Event {self} was canceled before it ran.")
                 elif self.has_run():
                     log.warning(f"Event {self} already ran, ignoring.")
                 else:
-                    self._ran = True
-                    return action(*arguments, **self.kwargs)
+                    self._ran = do_action = True
+            if do_action:
+                return action(*arguments, **self.kwargs)
+            else:
                 return None
 
         self._event = scheduler.enter(delay, priority, wrapper)
