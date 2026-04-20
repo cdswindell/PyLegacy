@@ -14,13 +14,19 @@ import gc
 import io
 import logging
 import os
+import queue
+import sys
+import threading
+
 import tkinter as tk
+import traceback
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
+from time import perf_counter
 from tkinter import TclError
 from typing import Any, Callable, TypeVar
 
@@ -56,6 +62,58 @@ FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
 
 
+class GuiHeartbeat:
+    def __init__(self, app_or_tk, interval_ms: int = 250, dump_threshold_s: float = 0.5) -> None:
+        self._interval_ms: int = interval_ms
+        self._dump_threshold_s: float = dump_threshold_s
+        self._dump_requests = queue.Queue()
+        root = getattr(app_or_tk, "tk", app_or_tk)
+
+        self._start_stack_dump_worker()
+        self._install_tk_heartbeat(root)
+
+    def _start_stack_dump_worker(self) -> None:
+        Thread(
+            target=self._stack_dump_worker,
+            daemon=True,
+            name="PyTrain GUI Stack Dump Worker",
+        ).start()
+
+    def _stack_dump_worker(self):
+        while True:
+            reason = self._dump_requests.get()
+            try:
+                self.dump_all_thread_stacks(f"{reason} ")
+            finally:
+                self._dump_requests.task_done()
+
+    @staticmethod
+    def dump_all_thread_stacks(prefix: str = "") -> None:
+        frames = sys._current_frames()
+        threads = {t.ident: t for t in threading.enumerate()}
+
+        for ident, frame in frames.items():
+            t = threads.get(ident)
+            name = t.name if t else f"unknown-{ident}"
+            log.warning("%s stack for thread %r ident=%r", prefix, name, ident)
+            log.warning("%s%s", prefix, "".join(traceback.format_stack(frame)))
+
+    def _install_tk_heartbeat(self, root) -> None:
+        last = perf_counter()
+
+        def beat():
+            nonlocal last
+            now = perf_counter()
+            dt = now - last
+            if dt > self._dump_threshold_s:
+                log.warning("TK heartbeat gap: %.3fs", dt)
+                self._dump_requests.put(f"HB gap {dt:.3f}s")
+            last = now
+            root.after(self._interval_ms, beat)
+
+        root.after(self._interval_ms, beat)
+
+
 @dataclass(frozen=True)
 class _QueuedSendRequest:
     request: CommandReq | PdiReq
@@ -80,28 +138,6 @@ class GuiZeroBase(Thread, ABC):
             wtk.winfo_reqheight(),
             wtk.focus_displayof() == wtk,
         )
-
-    @classmethod
-    def install_tk_heartbeat(cls, app_or_tk, interval_ms: int = 250) -> None:
-        import time
-        import threading
-        from ..utils.perf_utils import dump_all_thread_stacks
-
-        root = getattr(app_or_tk, "tk", app_or_tk)
-        last = time.perf_counter()
-
-        def beat():
-            nonlocal last
-            now = time.perf_counter()
-            dt = now - last
-            if dt > (interval_ms / 1000.0) * 2:
-                log.warning("TK heartbeat gap: %.3fs (thread=%s)", dt, threading.current_thread().name)
-
-                dump_all_thread_stacks()
-            last = now
-            root.after(interval_ms, beat)
-
-        root.after(interval_ms, beat)
 
     @classmethod
     def is_gui_debug_enabled(cls) -> bool:
@@ -219,6 +255,7 @@ class GuiZeroBase(Thread, ABC):
         self._is_closed = False
         self._init_complete_flag = Event()
         self._shutdown_flag = Event()
+        self._debug_heartbeat = None
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -469,7 +506,7 @@ class GuiZeroBase(Thread, ABC):
         app.repeat(20, _poll_shutdown)
 
         if self.is_gui_debug_enabled():
-            self.install_tk_heartbeat(app, interval_ms=250)
+            self._debug_heartbeat = GuiHeartbeat(app, interval_ms=250)
 
         # Display GUI and start event loop; call blocks
         try:
@@ -479,12 +516,9 @@ class GuiZeroBase(Thread, ABC):
             log.info(te)
             pass
         finally:
+            self._debug_heartbeat = None
             self.destroy_gui()
             self._app = app = None
-            # for k, v in self.__dict__.items():
-            #     if v:
-            #         print(f"{k} = {v}")
-            # Force tkinter Variable finalizers to run while we're still on Tk thread.
             gc.collect()
             self._ev.set()
 
