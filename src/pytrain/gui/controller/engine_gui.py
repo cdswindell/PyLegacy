@@ -204,8 +204,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.horn_overlay = None
 
-        self._last_engine_type = None
-
         # don't ask
         self._isd = None  # swipe detector for engine image field
         self._admin_panel = None
@@ -890,7 +888,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.scope_box.hide()
             force_entry_mode = False
             clear_info = True
-            # self._last_engine_type = None
             for k, v in self._scope_buttons.items():
                 if k == scope:
                     v.bg = self._enabled_bg
@@ -1210,7 +1207,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.on_new_engine(state, ops_mode_setup=True)
                 log.warning("ops_mode...on_new_engine")
 
-            self._last_engine_type = None
             self._controller_view.apply_engine_type(state)
             log.warning("ops_mode...apply_engine_type")
 
