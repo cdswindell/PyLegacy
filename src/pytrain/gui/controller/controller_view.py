@@ -217,7 +217,7 @@ class ControllerView:
         host.throttle_box, host.throttle_title_box, host.speed, host.throttle = self.make_slider(
             sliders,
             title="Speed",
-            # command=self.on_throttle_change,
+            command=self.on_throttle_change,
             frm=195,
             to=0,
             step=1,
@@ -921,6 +921,7 @@ class ControllerView:
     # type alias for tk config dict
     TkCfg = dict[str, Any]
 
+    # noinspection PyUnusedLocal
     def make_slider(
         self,
         parent: Box,
@@ -992,7 +993,7 @@ class ControllerView:
             step=step,
             width=slider_width,
             height=slider_height,
-            command=command,
+            command=None,  # command,
         )
         s.text_color = "black"
 
