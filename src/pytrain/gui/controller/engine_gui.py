@@ -689,7 +689,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
-        log.info("on_new_engine...")
+        log.warning("on_new_engine...")
         self._active_engine_state = state
         if isinstance(state, EngineState):
             if self._active_train_state and state in self._active_train_state:
@@ -715,11 +715,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 throttle_state = state
             else:
                 throttle_state = None
-            log.info("on_new_engine: determine throttle state...Done")
+            log.warning("on_new_engine: determine throttle state...Done")
 
             # UI painting lives in ControllerView now
             self._controller_view.update(state=state, throttle_state=throttle_state)
-            log.info("on_new_engine: controller_view.update...Done")
+            log.warning("on_new_engine: controller_view.update...Done")
 
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:
@@ -987,9 +987,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.header.select_default()
 
     def show_previous_component(self) -> None:
-        log.info("show_previous_component...")
+        log.warning("show_previous_component...")
         self._popup.close()
-        log.info("Closing popup...Done")
+        log.warning("Closing popup...Done")
         if self.scope == CommandScope.ENGINE and self._train_linked_queue:
             recents = self._train_linked_queue
         else:
@@ -997,11 +997,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
             state = cast(ComponentState, cast(object, recents.previous()))
             self._scope_tmcc_ids[self.scope] = state.tmcc_id
-            log.info("show_previous_component: Update_component_info...")
+            log.warning("show_previous_component: Update_component_info...")
             self.update_component_info(tmcc_id=state.tmcc_id)
-            log.info("show_previous_component: Update_component_info...Done")
+            log.warning("show_previous_component: Update_component_info...Done")
             self.header.select_default()
-        log.info("show_previous_component...Done")
+        log.warning("show_previous_component...Done")
 
     def rebuild_options(self):
         self.header.clear()
@@ -1188,13 +1188,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
-        log.info("ops_mode...enter_ops_mode_base")
+        log.warning("ops_mode...enter_ops_mode_base")
 
         # 2) Engine/train path
         if self._keypad_view.is_engine_or_train:
             # pure UI shell now lives in KeypadView
             self._keypad_view.apply_ops_mode_ui_engine_shell()
-            log.info("ops_mode...apply_ops_mode_ui_engine_shell")
+            log.warning("ops_mode...apply_ops_mode_ui_engine_shell")
 
             # Resolve state (EngineGui responsibility)
             if not isinstance(state, EngineState):
@@ -1205,14 +1205,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # Apply model changes (EngineGui responsibility)
             if isinstance(state, TrainState):
                 self.on_new_train(state, ops_mode_setup=True)
-                log.info("ops_mode...on_new_train")
+                log.warning("ops_mode...on_new_train")
             else:
                 self.on_new_engine(state, ops_mode_setup=True)
-                log.info("ops_mode...on_new_engine")
+                log.warning("ops_mode...on_new_engine")
 
             self._last_engine_type = None
             self._controller_view.apply_engine_type(state)
-            log.info("ops_mode...apply_engine_type")
+            log.warning("ops_mode...apply_engine_type")
 
         # 3) Non-engine path (already moved)
         else:
@@ -1226,7 +1226,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 4) Preserve existing behavior
         if update_info:
             self.update_component_info(in_ops_mode=True)
-            log.info("ops_mode...update_component_info")
+            log.warning("ops_mode...update_component_info")
 
     def _resolve_component_state(self, tmcc_id: int) -> tuple[int, S | None]:
         state = self.active_state
@@ -1272,10 +1272,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     ) -> None:
         if state and selection_changed:
             self.make_recent(self.scope, tmcc_id, state)
-            log.info("_update_recent_selection...make_recent")
+            log.warning("_update_recent_selection...make_recent")
             if not in_ops_mode:
                 self.ops_mode(update_info=False)
-                log.info("_update_recent_selection...ops_mode")
+                log.warning("_update_recent_selection...ops_mode")
 
     def _clear_component_display(self, tmcc_id: int, num_chars: int) -> None:
         if self._keypad_view.reset_on_keystroke:
@@ -1324,10 +1324,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         in_ops_mode: bool = False,
     ) -> None:
         self._begin_transition()
-        log.info(f"update_component_info: {tmcc_id}")
+        log.warning(f"update_component_info: {tmcc_id}")
         try:
             self._popup.close()
-            log.info("update_component_info...popup closed")
+            log.warning("update_component_info...popup closed")
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
             # update the tmcc_id associated with current scope
@@ -1336,22 +1336,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             if tmcc_id:
                 tmcc_id, state = self._resolve_component_state(tmcc_id)
-                log.info("update_component_info..._resolve_component_state")
+                log.warning("update_component_info..._resolve_component_state")
                 selection_changed = not self._is_same_display_selection(tmcc_id)
-                log.info("update_component_info..._is_same_display_selection")
+                log.warning("update_component_info..._is_same_display_selection")
                 _, update_button_state = self._apply_component_labels(tmcc_id, state, not_found_value, num_chars)
-                log.info("update_component_info..._apply_component_labels")
+                log.warning("update_component_info..._apply_component_labels")
                 self._update_recent_selection(tmcc_id, state, in_ops_mode, selection_changed)
-                log.info("update_component_info..._update_recent_selections")
+                log.warning("update_component_info..._update_recent_selections")
             else:
                 state = None
                 selection_changed = not self._is_same_display_selection(tmcc_id)
                 self._clear_component_display(tmcc_id, num_chars)
             self._refresh_component_view(state, update_button_state, tmcc_id, selection_changed)
-            log.info("update_component_info..._refresh_component_view")
+            log.warning("update_component_info..._refresh_component_view")
         finally:
             self._end_transition()
-        log.info("update_component_info...Done")
+        log.warning("update_component_info...Done")
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         return self._image_presenter.calc_box_size()
