@@ -1146,7 +1146,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     cmd = CommandReq.build(TMCC2EngineCommandEnum.SET_ADDRESS, address=tmcc_id, scope=scope)
                 else:
                     cmd = CommandReq.build(cmd_enum, address=tmcc_id, scope=scope)
-                cmd.send(repeat=self.repeat)
+                self.submit_request(cmd, repeat=self.repeat)
         else:
             self._keypad_view.entry_mode(clear_info=False)
 
@@ -1161,7 +1161,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if isinstance(cmd, CommandReq):
                     cmd.scope = self.scope
                     cmd.address = self._scope_tmcc_ids[self.scope]
-                    cmd.send(repeat=self.repeat)
+                    self.submit_request(cmd, repeat=self.repeat)
                 elif cmd == send_lcs_on_command:
                     state = self._state_store.get_state(self.scope, tmcc_id, False)
                     if state:
@@ -1484,7 +1484,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if cmd_enum:
                 cmd = CommandReq.build(cmd_enum, tmcc_id, data, scope)
                 repeat = self.get_repeats(cmd_enum, repeat)
-                cmd.send(repeat=repeat, delay=delay)
+                self.submit_request(cmd, repeat=repeat, delay=delay)
                 if do_ops is True and self._keypad_view.is_entry_mode is True:
                     self.ops_mode(update_info=True)
                 elif do_entry and self._keypad_view.is_entry_mode is False:
@@ -1524,4 +1524,4 @@ class EngineGui(GuiZeroBase, Generic[S]):
             acc_enum = TMCC1AuxCommandEnum.by_name(target)
             if acc_enum:
                 tmcc_id = state.tmcc_id
-                CommandReq.build(acc_enum, tmcc_id, data).send()
+                self.submit_request(CommandReq.build(acc_enum, tmcc_id, data))

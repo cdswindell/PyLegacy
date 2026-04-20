@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
+from threading import Thread
 from time import perf_counter
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
@@ -767,7 +768,7 @@ class ControllerView:
                 host.throttle.after_id = None
 
     # noinspection PyUnusedLocal
-    def _on_throttle_release_event(self, e=None) -> None:
+    def _on_throttle_release_event_xx(self, e=None) -> None:
         if self._updating_from_state:
             return
         host = self._host
@@ -784,6 +785,34 @@ class ControllerView:
 
         # Now clear focus so the handle deactivates visually.
         host.app.tk.after_idle(self._do_clear_focus)
+
+    def _send_throttle_release_command(self, speed: int) -> None:
+        self._host.on_speed_command(speed)
+
+    # noinspection PyUnusedLocal
+    def _on_throttle_release_event(self, e=None) -> None:
+        if self._updating_from_state:
+            return
+        host = self._host
+        self._cancel_cab_1_throttle_repeat()
+        state = host.active_engine_state or host.active_state
+
+        if not isinstance(state, EngineState):
+            return
+
+        speed = host.throttle.value
+        is_cab1 = state.is_cab1
+        host.app.tk.after_idle(self._do_clear_focus)
+
+        if is_cab1:
+            host.throttle.value = 0
+
+        Thread(
+            target=self._send_throttle_release_command,
+            args=(speed,),
+            daemon=True,
+            name="ThrottleReleaseSend",
+        ).start()
 
     def on_train_brake(self, value) -> None:
         if self._updating_from_state:
