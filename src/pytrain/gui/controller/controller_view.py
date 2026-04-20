@@ -127,7 +127,7 @@ class ControllerView:
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
 
-                if host._rr_speed_panel and not host._rr_speed_panel.is_hidden():
+                if host._rr_speed_panel and host._rr_speed_panel.visible:
                     host._rr_speed_panel.configure(throttle_state)
             else:
                 if host.speed.enabled:
@@ -234,7 +234,7 @@ class ControllerView:
             slider_width=int(host.button_size / 2),
             slider_height=host.slider_height,
             # We want OUR release handler (which clears focus) instead of default clear_focus binding:
-            # on_release=self._on_throttle_release_event,
+            on_release=self._on_throttle_release_event,
             # clear_focus_on_release=False,
         )
 
@@ -768,6 +768,7 @@ class ControllerView:
             finally:
                 host.throttle.after_id = None
 
+    # noinspection PyUnusedLocal
     def _on_throttle_release_event(self, e=None) -> None:
         if self._updating_from_state:
             return
@@ -784,7 +785,7 @@ class ControllerView:
         host.on_speed_command(host.throttle.value)
 
         # Now clear focus so the handle deactivates visually.
-        self.clear_focus(e)
+        # self.clear_focus(e)
 
     def on_train_brake(self, value) -> None:
         if self._updating_from_state:
