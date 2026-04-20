@@ -984,6 +984,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.header.select_default()
 
     def show_previous_component(self) -> None:
+        log.info("show_previous_component Closing popup...")
         self._popup.close()
         if self.scope == CommandScope.ENGINE and self._train_linked_queue:
             recents = self._train_linked_queue
@@ -992,8 +993,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if isinstance(recents, UniqueDeque) and len(recents) > 0:
             state = cast(ComponentState, cast(object, recents.previous()))
             self._scope_tmcc_ids[self.scope] = state.tmcc_id
+            log.info("Closing popup: Update_component_info...")
             self.update_component_info(tmcc_id=state.tmcc_id)
+            log.info("losing popup: Update_component_info...Done")
             self.header.select_default()
+        log.info("show_previous_component Closing popup...Done")
 
     def rebuild_options(self):
         self.header.clear()
