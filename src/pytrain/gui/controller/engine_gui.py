@@ -156,6 +156,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.scope = scope if scope else CommandScope.ENGINE
         self.initial = tmcc_id
         self._active_engine_state = self._active_train_state = None
+        self._is_train_linked_cars = False
         self._actual_current_engine_id = 0
 
         self._sensor_track_watcher = None
@@ -694,10 +695,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui
                 self._scope_buttons[CommandScope.TRAIN].bg = "lightgreen"
+                self._is_train_linked_cars = True
             elif is_engine:
                 # otherwise, indicate we are in "Engine": mode and tear down the
                 # train-linked gui components
-                self._tear_down_link_gui()
+                if self._is_train_linked_cars:
+                    self._tear_down_link_gui()
                 self._scope_buttons[CommandScope.TRAIN].bg = "white"
 
             # only set throttle/brake/momentum value if we are not in the middle of setting it
@@ -757,6 +760,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
         self._active_train_state = None
+        self._is_train_linked_cars = False
         self._request_options_rebuild()
 
     def on_new_route(self, state: RouteState = None):

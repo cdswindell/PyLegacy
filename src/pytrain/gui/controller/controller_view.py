@@ -125,8 +125,10 @@ class ControllerView:
                 else:
                     host.throttle.tk.config(troughcolor=LIONEL_BLUE)
 
-                if host._rr_speed_panel:
+                if host._rr_speed_panel and not host._rr_speed_panel.is_hidden():
+                    log.info("Updating rr speed panel...")
                     host._rr_speed_panel.configure(throttle_state)
+                    log.info("...Done")
             else:
                 if host.speed.enabled:
                     host.speed.disable()
