@@ -95,15 +95,15 @@ class ControllerView:
                     if host._rr_speed_btn and not host._rr_speed_btn.enabled:
                         host._rr_speed_btn.enable()
 
-                    # if throttle_state.is_legacy:
-                    #     host.throttle.tk.config(from_=195, to=0)
-                    # elif throttle_state.is_cab1:
-                    #     host.throttle.tk.config(from_=3, to=-3)
-                    #     host.throttle.value = 0
-                    #     if host._rr_speed_btn:
-                    #         host._rr_speed_btn.hide()
-                    # else:
-                    #     host.throttle.tk.config(from_=31, to=0)
+                    if throttle_state.is_legacy:
+                        host.throttle.tk.config(from_=195, to=0)
+                    elif throttle_state.is_cab1:
+                        host.throttle.tk.config(from_=3, to=-3)
+                        host.throttle.value = 0
+                        if host._rr_speed_btn:
+                            host._rr_speed_btn.hide()
+                    else:
+                        host.throttle.tk.config(from_=31, to=0)
 
                     if host._rr_speed_btn:
                         if throttle_state.is_cab1:
@@ -666,7 +666,8 @@ class ControllerView:
             cell.show()
 
         for cell in cells_to_hide:
-            cell.hide()
+            print(cell)
+            # cell.hide()
 
         self._last_engine_type = t
 
