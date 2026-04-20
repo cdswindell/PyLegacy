@@ -13,6 +13,7 @@ import atexit
 import gc
 import io
 import logging
+import os
 import tkinter as tk
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -64,6 +65,44 @@ class _QueuedSendRequest:
 
 class GuiZeroBase(Thread, ABC):
     __metaclass__ = ABCMeta
+
+    @classmethod
+    def log_widget_state(cls, widget, name: str) -> None:
+        wtk = widget.tk if hasattr(widget, "tk") else widget
+        log.warning(
+            "%s mapped=%r manager=%r size=%sx%s req=%sx%s focus=%r",
+            name,
+            bool(wtk.winfo_ismapped()),
+            wtk.winfo_manager(),
+            wtk.winfo_width(),
+            wtk.winfo_height(),
+            wtk.winfo_reqwidth(),
+            wtk.winfo_reqheight(),
+            wtk.focus_displayof() == wtk,
+        )
+
+    @classmethod
+    def install_tk_heartbeat(cls, app_or_tk, interval_ms: int = 250) -> None:
+        import time
+        import threading
+
+        root = getattr(app_or_tk, "tk", app_or_tk)
+        last = time.perf_counter()
+
+        def beat():
+            nonlocal last
+            now = time.perf_counter()
+            dt = now - last
+            if dt > (interval_ms / 1000.0) * 2:
+                log.warning("TK heartbeat gap: %.3fs (thread=%s)", dt, threading.current_thread().name)
+            last = now
+            root.after(interval_ms, beat)
+
+        root.after(interval_ms, beat)
+
+    @classmethod
+    def is_gui_debug_enabled(cls) -> bool:
+        return os.getenv("PYTRAIN_GUI_DEBUG", "").lower() in {"1", "true", "yes", "on"}
 
     @abstractmethod
     def __init__(
@@ -425,6 +464,9 @@ class GuiZeroBase(Thread, ABC):
 
         # start the event watcher; look for shutdown and requests from other threads
         app.repeat(20, _poll_shutdown)
+
+        if self.is_gui_debug_enabled():
+            self.install_tk_heartbeat(app, interval_ms=250)
 
         # Display GUI and start event loop; call blocks
         try:
