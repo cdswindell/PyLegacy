@@ -435,7 +435,7 @@ class HoldButton(PushButton):
                 try:
                     if self.text:
                         PushButton.bg.fset(self, self._normal_text_fg if self._normal_text_fg else "black")
-                        PushButton.text_color.fset(self._normal_text_bg if self._normal_text_bg else "white")
+                        PushButton.text_color.fset(self, self._normal_text_bg if self._normal_text_bg else "white")
                         log.warning(f"On press '{self.text}' FG: {self.text_color} BG: {self.bg}")
                     else:
                         # even if text is blanked, keep bg feedback if desired
@@ -462,7 +462,7 @@ class HoldButton(PushButton):
                 log.warning(f"Restoring '{self.text}' FG: {self._normal_text_fg} BG: {self._normal_text_bg}")
                 if self.text:
                     PushButton.bg.fset(self, self._normal_text_bg if self._normal_text_bg else "black")
-                    PushButton.text_color.fset(self._normal_text_fg if self._normal_text_fg else "white")
+                    PushButton.text_color.fset(self, self._normal_text_fg if self._normal_text_fg else "white")
                     log.warning(f"Restoring '{self.text}' FG: {self.text_color} BG: {self.bg}")
 
                 if self._normal_bg is not None:
