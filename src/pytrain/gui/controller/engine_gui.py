@@ -1404,7 +1404,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if do_dialog:
                     req = RampedSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
                 else:
-                    req = RampedSpeedReq(state.tmcc_id, rr_speed, state.scope)
+                    RampedSpeedReq(state.tmcc_id, rr_speed, state.scope)
+                    req = CommandReq(
+                        TMCC1EngineCommandEnum.ABSOLUTE_SPEED, state.tmcc_id, scope=self.scope, data=rr_speed
+                    )
         else:
             tmcc_id = self._scope_tmcc_ids[self.scope]
             req = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, tmcc_id, scope=self.scope, data=rr_speed)
