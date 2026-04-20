@@ -85,6 +85,7 @@ class GuiZeroBase(Thread, ABC):
     def install_tk_heartbeat(cls, app_or_tk, interval_ms: int = 250) -> None:
         import time
         import threading
+        from ..utils.perf_utils import dump_all_thread_stacks
 
         root = getattr(app_or_tk, "tk", app_or_tk)
         last = time.perf_counter()
@@ -95,6 +96,8 @@ class GuiZeroBase(Thread, ABC):
             dt = now - last
             if dt > (interval_ms / 1000.0) * 2:
                 log.warning("TK heartbeat gap: %.3fs (thread=%s)", dt, threading.current_thread().name)
+
+                dump_all_thread_stacks()
             last = now
             root.after(interval_ms, beat)
 
