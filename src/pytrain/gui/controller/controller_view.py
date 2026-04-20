@@ -786,8 +786,22 @@ class ControllerView:
         # Now clear focus so the handle deactivates visually.
         host.app.tk.after_idle(self._do_clear_focus)
 
-    def _send_throttle_release_command(self, speed: int) -> None:
-        self._host.on_speed_command(speed)
+    def _send_throttle_release_command(self, tmcc_id: int, scope, speed: int, is_cab1: bool) -> None:
+        from ...protocol.command_req import CommandReq
+        from ...protocol.sequence.ramped_speed_req import RampedSpeedReq
+        from ...protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+
+        if is_cab1:
+            req = CommandReq.build(
+                TMCC1EngineCommandEnum.RELATIVE_SPEED,
+                tmcc_id,
+                data=speed,
+                scope=scope,
+            )
+        else:
+            req = RampedSpeedReq(tmcc_id, speed, scope)
+
+        self._host.submit_request(req)
 
     # noinspection PyUnusedLocal
     def _on_throttle_release_event(self, e=None) -> None:
@@ -800,7 +814,9 @@ class ControllerView:
         if not isinstance(state, EngineState):
             return
 
-        speed = host.throttle.value
+        speed = int(host.throttle.value)
+        tmcc_id = state.tmcc_id
+        scope = state.scope
         is_cab1 = state.is_cab1
         host.app.tk.after_idle(self._do_clear_focus)
 
@@ -809,7 +825,7 @@ class ControllerView:
 
         Thread(
             target=self._send_throttle_release_command,
-            args=(speed,),
+            args=(tmcc_id, scope, speed, is_cab1),
             daemon=True,
             name="ThrottleReleaseSend",
         ).start()
