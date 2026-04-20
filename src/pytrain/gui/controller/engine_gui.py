@@ -1263,8 +1263,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     ) -> None:
         if state and selection_changed:
             self.make_recent(self.scope, tmcc_id, state)
+            log.info("_update_recent_selection...make_recent")
             if not in_ops_mode:
                 self.ops_mode(update_info=False)
+                log.info("_update_recent_selection...ops_mode")
 
     def _clear_component_display(self, tmcc_id: int, num_chars: int) -> None:
         if self._keypad_view.reset_on_keystroke:
