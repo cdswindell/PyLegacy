@@ -431,6 +431,7 @@ class ControllerView:
                         generator=generator,
                         titlebox_text=title_text,
                     )
+                    cell.button_info = op
 
                     # if the key is marked as engine type-specific, save as appropriate
                     self.scope_key(cell, nb, cmd, op)
@@ -627,11 +628,11 @@ class ControllerView:
 
         # Per-type aux behavior
         if t in {"d", "s", "a", "l", "p", "r", "t"}:
-            if host._rr_speed_box and False:
+            if host._rr_speed_box:
                 host._rr_speed_box.show()
                 log.warning("apply_engine_type..._rr_speed_box.show")
 
-        if host.horn_title_box and False:
+        if host.horn_title_box:
             if t == "s":
                 host.horn_title_box.text = "Whistle"
             else:
@@ -669,15 +670,15 @@ class ControllerView:
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
         log.warning("apply_engine_type...cells_to_show/hide")
 
-        t0 = perf_counter()
         for cell in cells_to_show:
+            t0 = perf_counter()
             cell.show()
-        log.info(f"Show {len(cells_to_show)} cells: {perf_counter() - t0}")
+            log.info(f"Show {cell.button_info} time: {perf_counter() - t0}")
 
-        t0 = perf_counter()
         for cell in cells_to_hide:
+            t0 = perf_counter()
             cell.hide()
-        log.info(f"Hide {len(cells_to_hide)} cells: {perf_counter() - t0}")
+            log.info(f"Hide {cell.button_info} time: {perf_counter() - t0}")
 
         t0 = perf_counter()
         self._host.controller_keypad_box.tk.update_idletasks()
