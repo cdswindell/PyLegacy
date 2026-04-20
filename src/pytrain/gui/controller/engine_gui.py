@@ -689,6 +689,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
+        log.info("on_new_engine...")
         self._active_engine_state = state
         if isinstance(state, EngineState):
             if self._active_train_state and state in self._active_train_state:
@@ -714,9 +715,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 throttle_state = state
             else:
                 throttle_state = None
+            log.info("on_new_engine: determine throttle state...Done")
 
             # UI painting lives in ControllerView now
             self._controller_view.update(state=state, throttle_state=throttle_state)
+            log.info("on_new_engine: controller_view.update...Done")
 
         # update info detail popup, if its visible
         if self._state_info and self._state_info.visible:
