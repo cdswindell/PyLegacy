@@ -613,13 +613,20 @@ class CommBufferProxy(CommBuffer):
                     self._cancel_delayed_requests_on_enqueue(request=command, delay_handler=self._scheduler)
                 command = command.as_bytes
             while True:
+                # Sends command with exponential backoff retry up to 90 attempts
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        t0 = time.perf_counter()
+
                         s.settimeout(5.0)
                         s.connect((str(self._server), self._port))
                         s.settimeout(None)
                         s.sendall(command)
                         resp = s.recv(32)  # response contains Base 3 Addr as well as the server version
+
+                        dt = time.perf_counter() - t0
+                        log.info("Proxy send %.3f s delayed=%s bytes=%d", dt, was_delayed, len(command))
+
                         if self._server_version is None and len(resp) >= 3:
                             self._server_version = (resp[0], resp[1], resp[2])
                             self._server_version_available.set()
