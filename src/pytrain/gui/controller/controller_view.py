@@ -655,7 +655,7 @@ class ControllerView:
         cells_to_hide = previous_btns - btns if last_type else self._all_engine_btns - btns
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
 
-        if self._host.is_gui_debug_enabled:
+        if self._host.is_gui_debug_enabled():
             for cell in cells_to_hide:
                 t0 = perf_counter()
                 cell.hide()
