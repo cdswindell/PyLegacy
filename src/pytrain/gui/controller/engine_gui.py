@@ -118,6 +118,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             scale_by=scale_by,
         )
 
+        self._last_header_options = None
         self.auto_scroll = auto_scroll
         self.image_file = None
         self._engine_tmcc_id = None
@@ -992,11 +993,26 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.update_component_info(tmcc_id=state.tmcc_id)
             self.header.select_default()
 
-    def rebuild_options(self):
+    def rebuild_options_xx(self):
         self.header.clear()
         for option in self.get_options():
             self.header.append(option)
         self.header.select_default()
+
+    def rebuild_options(self):
+        new_options = tuple(self.get_options())
+
+        if new_options == getattr(self, "_last_header_options", None):
+            return
+
+        self._last_header_options = new_options
+
+        self.header.clear()
+        for option in new_options:
+            self.header.append(option)
+
+        if new_options:
+            self.header.select_default()
 
     def _begin_transition(self) -> None:
         self._transition_depth += 1
