@@ -729,7 +729,7 @@ class DelayHandler(Thread):
         self._cv = Condition()
         self._ev = Event()
         self._event_cache: dict[tuple[int, CommandScope], Set[TrackedEvent]] = {}
-        self._scheduler = sched.scheduler(time.time, self._ev.wait)
+        self._scheduler = sched.scheduler(time.monotonic, self._ev.wait)
         self._have_scheduled_requests = False
         self._purge_frequency = purge_frequency
         self.start()
@@ -764,7 +764,7 @@ class DelayHandler(Thread):
                         break
 
                     next_deadline = self._scheduler.queue[0].time
-                    now = time.time()
+                    now = time.monotonic()
                     timeout = max(0.0, next_deadline - now)
 
                 # Wait until either:
