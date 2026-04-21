@@ -161,7 +161,7 @@ class SequenceReq(CommandReq, Sequence):
             req_delay = sqr.delay if sqr.delay is not None else delay
             req_duration = sqr.duration if sqr.duration is not None else duration
             req_interval = sqr.interval if sqr.interval is not None else interval
-            request.send_noop(
+            request.send(
                 repeat=req_repeat,
                 delay=req_delay,
                 duration=req_duration,

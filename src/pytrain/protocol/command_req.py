@@ -222,6 +222,7 @@ class CommandReq:
             interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, label="interval", allow_none=True
         )
 
+        # Generates AUX1 prefix bytes for specific scopes; resets repeat count
         if request and request.command_def.is_aux1_prefixed is True:
             if request.scope == CommandScope.ACC:
                 cmd_enum = TMCC1AuxCommandEnum.AUX1_OPT_ONE
