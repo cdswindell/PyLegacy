@@ -6,14 +6,6 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
-#
-#
-#  SPDX-License-Identifier: LPGL
-#
-#
 from __future__ import annotations
 
 from tkinter import TclError, font as tkfont
@@ -31,6 +23,12 @@ class ScrollingText(Text):
       - Touch interaction modes:
           * "hold": press pauses and resets, release resumes
           * "toggle": tap toggles scrolling on/off
+
+    Notes:
+      - Repeated set_text() calls are coalesced so we do not queue many
+        _auto_manage_scroll callbacks.
+      - needs_scroll() does not call update_idletasks(); if geometry is not
+        ready yet, it simply returns False and a later scheduled check will retry.
     """
 
     def __init__(
@@ -60,6 +58,7 @@ class ScrollingText(Text):
 
         self._tick_after_id: str | None = None
         self._start_after_id: str | None = None
+        self._manage_after_id: str | None = None
 
         self._scroll_buf = ""
 
@@ -88,9 +87,13 @@ class ScrollingText(Text):
         """Set base text and re-evaluate scrolling."""
         self._base_text = "" if text is None else str(text)
 
+        # Stop current scrolling and cancel any pending start/manage checks
         self.stop_scroll(reset_to_start=True, cancel_start=True)
+        self._cancel_manage_check()
+
         self._set_label_text(self._base_text)
 
+        # Coalesce repeated calls; let Tk settle naturally
         self._schedule_start_check(delay_ms=0)
 
     def set_touch_mode(self, mode: str) -> None:
@@ -109,16 +112,14 @@ class ScrollingText(Text):
         """True if base text width exceeds widget width."""
         label = self.tk
         try:
-            label.update_idletasks()
+            widget_width = label.winfo_width()
+            if widget_width <= 1:
+                return False
+
+            tk_font = tkfont.Font(font=label.cget("font"))
+            return tk_font.measure(self._base_text) > widget_width
         except TclError:
             return False
-
-        widget_width = label.winfo_width()
-        if widget_width <= 1:
-            return False
-
-        tk_font = tkfont.Font(font=label.cget("font"))
-        return tk_font.measure(self._base_text) > widget_width
 
     def start_scroll(self, delay_ms: int | None = None) -> None:
         if self._pressed:
@@ -148,7 +149,12 @@ class ScrollingText(Text):
     # -------------------------
 
     def _schedule_start_check(self, delay_ms: int) -> None:
-        self._after(max(0, int(delay_ms)), self._auto_manage_scroll)
+        self._cancel_manage_check()
+        self._manage_after_id = self._after(max(0, int(delay_ms)), self._run_manage_check)
+
+    def _run_manage_check(self) -> None:
+        self._manage_after_id = None
+        self._auto_manage_scroll()
 
     def _auto_manage_scroll(self) -> None:
         if not self._auto_scroll or self._pressed:
@@ -217,12 +223,14 @@ class ScrollingText(Text):
         if self._touch_mode == "toggle":
             if self._running or self._start_after_id is not None:
                 self.stop_scroll(reset_to_start=True, cancel_start=True)
+                self._cancel_manage_check()
             else:
                 self.start_scroll(delay_ms=0)
             return
 
         self._pressed = True
         self.stop_scroll(reset_to_start=True, cancel_start=True)
+        self._cancel_manage_check()
 
     def _on_release(self, _event=None) -> None:
         self._pressed = False
@@ -265,3 +273,13 @@ class ScrollingText(Text):
             pass
         finally:
             self._start_after_id = None
+
+    def _cancel_manage_check(self) -> None:
+        if self._manage_after_id is None:
+            return
+        try:
+            self.tk.after_cancel(self._manage_after_id)
+        except TclError:
+            pass
+        finally:
+            self._manage_after_id = None
