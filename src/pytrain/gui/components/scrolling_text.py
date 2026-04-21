@@ -61,6 +61,8 @@ class ScrollingText(Text):
         self._manage_after_id: str | None = None
 
         self._scroll_buf = ""
+        self._font_cache = None
+        self._font_key = None
 
         # Enforce single-line behavior
         try:
@@ -69,7 +71,7 @@ class ScrollingText(Text):
             pass
 
         self._bind_press_release()
-        self._schedule_start_check(delay_ms=0)
+        self._schedule_start_check(delay_ms=75)
 
     # -------------------------
     # Public API
@@ -85,16 +87,19 @@ class ScrollingText(Text):
 
     def set_text(self, text: str) -> None:
         """Set base text and re-evaluate scrolling."""
-        self._base_text = "" if text is None else str(text)
+        text = "" if text is None else str(text)
+        if text == self._base_text:
+            return
+
+        self._base_text = text
 
         # Stop current scrolling and cancel any pending start/manage checks
         self.stop_scroll(reset_to_start=True, cancel_start=True)
         self._cancel_manage_check()
-
         self._set_label_text(self._base_text)
 
         # Coalesce repeated calls; let Tk settle naturally
-        self._schedule_start_check(delay_ms=0)
+        self._schedule_start_check(delay_ms=75)
 
     def set_touch_mode(self, mode: str) -> None:
         """
@@ -112,12 +117,14 @@ class ScrollingText(Text):
         """True if base text width exceeds widget width."""
         label = self.tk
         try:
+            if not self._base_text or not label.winfo_ismapped():
+                return False
+
             widget_width = label.winfo_width()
             if widget_width <= 1:
                 return False
 
-            tk_font = tkfont.Font(font=label.cget("font"))
-            return tk_font.measure(self._base_text) > widget_width
+            return self._get_font().measure(self._base_text) > widget_width
         except TclError:
             return False
 
@@ -244,6 +251,13 @@ class ScrollingText(Text):
     # -------------------------
     # Internals: Tk helpers
     # -------------------------
+
+    def _get_font(self):
+        key = self.tk.cget("font")
+        if key != self._font_key or self._font_cache is None:
+            self._font_key = key
+            self._font_cache = tkfont.Font(font=key)
+        return self._font_cache
 
     def _set_label_text(self, s: str) -> None:
         super(ScrollingText, self.__class__).value.fset(self, s)  # type: ignore
