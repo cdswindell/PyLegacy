@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from typing import Callable, Set, TypeVar
 
@@ -56,6 +57,8 @@ from .tmcc2.tmcc2_constants import (
     TMCC2HaltCommandEnum,
     TMCC2RouteCommandEnum,
 )
+
+log = logging.getLogger(__name__)
 
 E = TypeVar("E", bound=CommandDefEnum)
 R = TypeVar("R", bound="CommandReq")
@@ -248,6 +251,9 @@ class CommandReq:
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         delay = 0 if delay is None else delay
         duration = 0 if duration is None else duration
+        log.warning(
+            f"Sending command: {cmd} (repeat={repeat}, delay={delay}, duration={duration}) prefix: {len(prefix_bytes)}"
+        )
         for rep_no in range(repeat):
             for prefix in prefix_bytes:
                 buffer.enqueue_command(prefix, delay)
@@ -270,6 +276,7 @@ class CommandReq:
                 # convert duration into milliseconds, then queue a command to fire
                 # every 100 msec for the duration
                 interval = interval if interval else DEFAULT_DURATION_INTERVAL_MSEC
+                # Queues repeated commands at fixed intervals over duration
                 for d in range(interval, int(round(duration * 1000)), interval):
                     buffer.enqueue_command(cmd, delay + (d / 1000.0))
 
