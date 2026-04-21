@@ -742,15 +742,43 @@ class DelayHandler(Thread):
     def queued_requests(self) -> int:
         return len(self._scheduler.queue)
 
+    # def run(self) -> None:
+    #     while True:
+    #         with self._cv:
+    #             while self._scheduler.empty():
+    #                 self._cv.wait()
+    #         # run the scheduler outside the cv lock; otherwise,
+    #         # we couldn't schedule more commands
+    #         self._scheduler.run()
+    #         self._ev.clear()
+
     def run(self) -> None:
         while True:
             with self._cv:
                 while self._scheduler.empty():
                     self._cv.wait()
-            # run the scheduler outside the cv lock; otherwise,
-            # we couldn't schedule more commands
-            self._scheduler.run()
-            self._ev.clear()
+
+            while True:
+                with self._cv:
+                    if self._scheduler.empty():
+                        break
+
+                    next_deadline = self._scheduler.queue[0].time
+                    now = time.time()
+                    timeout = max(0.0, next_deadline - now)
+
+                # Wait until either:
+                # - a new event is scheduled/canceled
+                # - or the next event is due
+                triggered = self._ev.wait(timeout)
+                self._ev.clear()
+
+                if triggered:
+                    # queue changed; recompute next deadline
+                    continue
+
+                # deadline reached; run only due events
+                self._scheduler.run(blocking=False)
 
     def schedule(self, delay: float, command: bytes | CommandReq | PdiReq) -> None:
         with self._cv:
