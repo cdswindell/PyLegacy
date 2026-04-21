@@ -18,6 +18,7 @@ import sys
 import threading
 
 import tkinter as tk
+import traceback
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
@@ -61,7 +62,7 @@ MAX_GUI_MESSAGES_PER_POLL = 5
 
 
 class TkWatchdog:
-    def __init__(self, root, interval_ms: int = 250, stall_threshold_s: float = 0.75):
+    def __init__(self, root, interval_ms: int = 250, stall_threshold_s: float = 0.5):
         self._root = getattr(root, "tk", root)
         self._interval_s = interval_ms / 1000.0
         self._stall_threshold_s = stall_threshold_s
@@ -118,11 +119,12 @@ class TkWatchdog:
     @staticmethod
     def _dump_all_thread_stacks(prefix: str = "") -> None:
         frames = sys._current_frames()
-        threads = {t.ident: t for t in threading.enumerate()}
+        by_ident = {t.ident: t for t in threading.enumerate()}
         for ident, frame in frames.items():
-            t = threads.get(ident)
+            t = by_ident.get(ident)
             name = t.name if t else f"unknown-{ident}"
             log.warning("%sstack for thread %r ident=%r", prefix, name, ident)
+            log.warning("%s%s", prefix, "".join(traceback.format_stack(frame)))
 
 
 @dataclass(frozen=True)
