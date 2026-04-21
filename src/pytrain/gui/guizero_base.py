@@ -120,11 +120,21 @@ class TkWatchdog:
     def _dump_all_thread_stacks(prefix: str = "") -> None:
         frames = sys._current_frames()
         by_ident = {t.ident: t for t in threading.enumerate()}
+
         for ident, frame in frames.items():
             t = by_ident.get(ident)
             name = t.name if t else f"unknown-{ident}"
-            log.warning("%sstack for thread %r ident=%r", prefix, name, ident)
-            log.warning("%s%s", prefix, "".join(traceback.format_stack(frame)))
+            native_id = getattr(t, "native_id", None) if t else None
+
+            log.warning(
+                "%s stack for thread %r ident=%r native_id=%r",
+                prefix,
+                name,
+                ident,
+                native_id,
+            )
+            stack = "".join(traceback.format_stack(frame))
+            log.warning("%s%s", prefix, stack)
 
 
 @dataclass(frozen=True)

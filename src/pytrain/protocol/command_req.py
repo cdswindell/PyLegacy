@@ -251,9 +251,6 @@ class CommandReq:
             buffer = CommBuffer.build(baudrate=baudrate, port=port, server=server)
         delay = 0 if delay is None else delay
         duration = 0 if duration is None else duration
-        log.warning(
-            f"Sending command: {cmd} (repeat={repeat}, delay={delay}, duration={duration}) prefix: {len(prefix_bytes)}"
-        )
         for rep_no in range(repeat):
             for prefix in prefix_bytes:
                 buffer.enqueue_command(prefix, delay)
