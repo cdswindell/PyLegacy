@@ -655,15 +655,22 @@ class ControllerView:
         cells_to_hide = previous_btns - btns if last_type else self._all_engine_btns - btns
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
 
-        for cell in cells_to_hide:
-            t0 = perf_counter()
-            cell.hide()
-            log.info(f"ControllerView: Hiding button {cell.bi} in {perf_counter() - t0:.3f}s")
+        if self._host.is_gui_debug_enabled:
+            for cell in cells_to_hide:
+                t0 = perf_counter()
+                cell.hide()
+                log.info(f"ControllerView: Hiding button {getattr(cell, 'bi', cell)} in {perf_counter() - t0:.3f}s")
 
-        for cell in cells_to_show:
-            t0 = perf_counter()
-            cell.show()
-            log.info(f"ControllerView: Showing button {cell.bi} in {perf_counter() - t0:.3f}s")
+            for cell in cells_to_show:
+                t0 = perf_counter()
+                cell.show()
+                log.info(f"ControllerView: Showing button {getattr(cell, 'bi', cell)} in {perf_counter() - t0:.3f}s")
+        else:
+            for cell in cells_to_hide:
+                cell.hide()
+
+            for cell in cells_to_show:
+                cell.show()
 
         self._last_engine_type = t
 
