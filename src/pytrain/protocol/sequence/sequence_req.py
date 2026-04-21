@@ -157,12 +157,11 @@ class SequenceReq(CommandReq, Sequence):
         self._on_before_send()
         for sqr in self._requests:
             request = sqr.request
-
             req_repeat = sqr.repeat if sqr.repeat is not None else repeat
             req_delay = sqr.delay if sqr.delay is not None else delay
             req_duration = sqr.duration if sqr.duration is not None else duration
             req_interval = sqr.interval if sqr.interval is not None else interval
-            request.send(
+            request.send_noop(
                 repeat=req_repeat,
                 delay=req_delay,
                 duration=req_duration,

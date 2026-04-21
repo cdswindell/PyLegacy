@@ -538,6 +538,18 @@ class CommandReq:
             interval=interval,
         )
 
+    def send_noop(
+        self,
+        repeat: int = 1,
+        delay: float = 0,
+        duration: float = 0,
+        interval: int = None,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ) -> None:
+        pass
+
     @property
     def as_bytes(self) -> bytes:
         if self.scope is None:
