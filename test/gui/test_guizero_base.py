@@ -88,7 +88,12 @@ class DummyGui(mod.GuiZeroBase):
 def _patch_runtime(monkeypatch):
     DummyApp.last_instance = None
     monkeypatch.setattr(mod, "App", DummyApp, raising=True)
-    monkeypatch.setattr(mod.CommandDispatcher, "get", staticmethod(lambda: object()), raising=True)
+    monkeypatch.setattr(
+        mod.CommandDispatcher,
+        "get",
+        staticmethod(lambda: SimpleNamespace(version="PyTrain Test")),
+        raising=True,
+    )
     monkeypatch.setattr(mod.ComponentStateStore, "get", staticmethod(lambda: object()), raising=True)
     monkeypatch.setattr(mod.GpioHandler, "cache_handler", staticmethod(lambda *_: None), raising=True)
     yield

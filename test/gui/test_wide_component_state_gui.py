@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from types import SimpleNamespace
 
 import pytest
 
@@ -38,7 +39,12 @@ def _patch_classes(monkeypatch):
     monkeypatch.setattr(ro_mod, "RoutesGui", DummyGui, raising=True)
     monkeypatch.setattr(sw_mod, "SwitchesGui", DummyGui, raising=True)
     monkeypatch.setattr(sy_mod, "SystemsGui", DummyGui, raising=True)
-    monkeypatch.setattr(base_mod.CommandDispatcher, "get", staticmethod(lambda: object()), raising=True)
+    monkeypatch.setattr(
+        base_mod.CommandDispatcher,
+        "get",
+        staticmethod(lambda: SimpleNamespace(version="PyTrain Test")),
+        raising=True,
+    )
     monkeypatch.setattr(base_mod.ComponentStateStore, "get", staticmethod(lambda: object()), raising=True)
 
 

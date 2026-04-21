@@ -272,6 +272,7 @@ class GuiZeroBase(Thread, ABC):
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
+        self._version = self._dispatcher.version
         self._state_store = ComponentStateStore.get()
         if stand_alone:
             self._synchronized = False
@@ -316,7 +317,7 @@ class GuiZeroBase(Thread, ABC):
 
     @property
     def version(self) -> str:
-        return self._dispatcher.version
+        return self._version
 
     @property
     def sync_state(self) -> SyncState:
