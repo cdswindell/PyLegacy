@@ -48,7 +48,6 @@ from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
 from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
 from ..components.hold_button import HoldButton
-from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector
 from ..guizero_base import GuiZeroBase
 from ...db.accessory_state import AccessoryState
@@ -1046,13 +1045,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # ───────────────────────────────
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
-        self.name_text = ScrollingText(
+        self.name_text = Text(
             name_box,
             text="",
             align="top",
             bold=True,
             width="fill",
-            auto_scroll=self.auto_scroll,
+            # auto_scroll=self.auto_scroll,
         )
         self.name_text.text_color = "blue"
         self.name_text.text_size = self.s_18
