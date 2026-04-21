@@ -14,19 +14,17 @@ import gc
 import io
 import logging
 import os
-import queue
 import sys
 import threading
 
 import tkinter as tk
-import traceback
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
-from time import perf_counter
+from time import perf_counter, sleep
 from tkinter import TclError
 from typing import Any, Callable, TypeVar
 
@@ -62,56 +60,69 @@ FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
 
 
-class GuiHeartbeat:
-    def __init__(self, app_or_tk, interval_ms: int = 250, dump_threshold_s: float = 0.5) -> None:
-        self._interval_ms: int = interval_ms
-        self._dump_threshold_s: float = dump_threshold_s
-        self._dump_requests = queue.Queue()
-        root = getattr(app_or_tk, "tk", app_or_tk)
+class TkWatchdog:
+    def __init__(self, root, interval_ms: int = 250, stall_threshold_s: float = 0.75):
+        self._root = getattr(root, "tk", root)
+        self._interval_s = interval_ms / 1000.0
+        self._stall_threshold_s = stall_threshold_s
+        self._last_heartbeat = perf_counter()
+        self._lock = threading.Lock()
+        self._running = False
+        self._watchdog_thread: threading.Thread | None = None
+        self._last_dump_at = 0.0
+        self._stall_active = False
+        self._dump_cooldown_s = 2.0
 
-        self._start_stack_dump_worker()
-        self._install_tk_heartbeat(root)
-
-    def _start_stack_dump_worker(self) -> None:
-        Thread(
-            target=self._stack_dump_worker,
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        self._watchdog_thread = threading.Thread(
+            target=self._watchdog_loop,
             daemon=True,
-            name="PyTrain GUI Stack Dump Worker",
-        ).start()
+            name="PyTrain Tk Watchdog",
+        )
+        self._watchdog_thread.start()
+        self._root.after(int(self._interval_s * 1000), self._heartbeat)
 
-    def _stack_dump_worker(self):
-        while True:
-            reason = self._dump_requests.get()
-            try:
-                self.dump_all_thread_stacks(f"{reason} ")
-            finally:
-                self._dump_requests.task_done()
+    def stop(self) -> None:
+        self._running = False
+
+    def _heartbeat(self) -> None:
+        if not self._running:
+            return
+        with self._lock:
+            self._last_heartbeat = perf_counter()
+            self._stall_active = False
+        self._root.after(int(self._interval_s * 1000), self._heartbeat)
+
+    def _watchdog_loop(self) -> None:
+        while self._running:
+            sleep(self._interval_s / 2.0)
+            now = perf_counter()
+
+            should_dump = False
+            age = 0.0
+
+            with self._lock:
+                age = now - self._last_heartbeat
+                if age >= self._stall_threshold_s and not self._stall_active:
+                    self._stall_active = True
+                    self._last_dump_at = now
+                    should_dump = True
+
+            if should_dump:
+                log.warning("Tk watchdog detected stall: %.3fs since last heartbeat", age)
+                self._dump_all_thread_stacks(prefix=f"TK STALL {age:.3f}s ")
 
     @staticmethod
-    def dump_all_thread_stacks(prefix: str = "") -> None:
+    def _dump_all_thread_stacks(prefix: str = "") -> None:
         frames = sys._current_frames()
         threads = {t.ident: t for t in threading.enumerate()}
-
         for ident, frame in frames.items():
             t = threads.get(ident)
             name = t.name if t else f"unknown-{ident}"
-            log.warning("%s stack for thread %r ident=%r", prefix, name, ident)
-            log.warning("%s%s", prefix, "".join(traceback.format_stack(frame)))
-
-    def _install_tk_heartbeat(self, root) -> None:
-        last = perf_counter()
-
-        def beat():
-            nonlocal last
-            now = perf_counter()
-            dt = now - last
-            if dt > self._dump_threshold_s:
-                log.warning("TK heartbeat gap: %.3fs", dt)
-                self._dump_requests.put(f"HB gap {dt:.3f}s")
-            last = now
-            root.after(self._interval_ms, beat)
-
-        root.after(self._interval_ms, beat)
+            log.warning("%sstack for thread %r ident=%r", prefix, name, ident)
 
 
 @dataclass(frozen=True)
@@ -506,7 +517,8 @@ class GuiZeroBase(Thread, ABC):
         app.repeat(20, _poll_shutdown)
 
         if self.is_gui_debug_enabled():
-            self._debug_heartbeat = GuiHeartbeat(app, interval_ms=250)
+            self._debug_heartbeat = TkWatchdog(app, interval_ms=250)
+            self._debug_heartbeat.start()
 
         # Display GUI and start event loop; call blocks
         try:
