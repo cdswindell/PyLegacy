@@ -149,18 +149,6 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     delay = 2.50
                 self.add(engr, address, scope=scope, delay=delay)
 
-    def send_stub(
-        self,
-        repeat: int = 1,
-        delay: float = 0.0,
-        duration: float = 0.0,
-        interval: int = None,
-        baudrate: int = 9600,
-        port: str = "/dev/ttyUSB0",
-        server: str = None,
-    ) -> None:
-        pass
-
 
 class RampedSpeedReq(RampedSpeedReqBase):
     def __init__(
