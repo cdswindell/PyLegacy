@@ -149,7 +149,7 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     delay = 2.50
                 self.add(engr, address, scope=scope, delay=delay)
 
-    def send(
+    def send_stub(
         self,
         repeat: int = 1,
         delay: float = 0.0,
