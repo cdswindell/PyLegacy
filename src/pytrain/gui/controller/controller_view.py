@@ -21,6 +21,7 @@ from guizero import Box, Slider, Text, TitleBox
 from guizero.base import Widget
 
 from .engine_gui_conf import BELL_KEY, ENGINE_OPS_LAYOUT, MOMENTUM, MOM_TB, TRAIN_BRAKE
+from .state_info_overlay import StateInfoOverlay
 from ..components.analog_gauge import AnalogGaugeWidget
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
@@ -61,6 +62,7 @@ class ControllerView:
         self._updating_from_state = False
         self._last_state = self._last_throttle_state = None
         self._last_engine_type = None
+        self._info_smoke = self._info_momentum = self.info_brake = None
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
@@ -397,6 +399,15 @@ class ControllerView:
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
         host._freight_sounds_bell_horn_box.hide()
 
+        # info box to display smoke, rpm, labor, etc.
+        host.controller_info_box = info_box = Box(
+            controller_box,
+            layout="grid",
+            border=0,
+            align="bottom",
+        )
+        self._populate_info_box(info_box)
+
         # --- HIDE IT AGAIN after sizing is complete ---
         host.controller_box.hide()
 
@@ -413,6 +424,32 @@ class ControllerView:
         if label not in self._gauges:
             self._gauges[label] = []
         self._gauges[label].append(gauge)
+
+    def _populate_info_box(self, info_box):
+        host = self._host
+        self._info_smoke = StateInfoOverlay.make_field(
+            host=host,
+            parent=info_box,
+            title="Smoke",
+            grid=[0, 0],
+            max_cols=6,
+        )
+
+        self._info_momentum = StateInfoOverlay.make_field(
+            host=host,
+            parent=info_box,
+            title="Mom",
+            grid=[1, 0],
+            max_cols=6,
+        )
+
+        self._info_brake = StateInfoOverlay.make_field(
+            host=host,
+            parent=info_box,
+            title="Brake",
+            grid=[2, 0],
+            max_cols=6,
+        )
 
     def populate_keypad(self, keys: list, keypad_box: Box):
         host = self._host

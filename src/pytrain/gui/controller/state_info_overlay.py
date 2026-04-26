@@ -8,7 +8,7 @@
 #
 
 import logging
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from guizero import Box, ListBox, Text, TitleBox
 
@@ -20,6 +20,9 @@ from ...db.prod_info import ProdInfo
 from ...protocol.constants import CommandScope
 
 log = logging.getLogger(__name__)
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .engine_gui import EngineGui
 
 
 class StateInfoOverlay:
@@ -43,8 +46,9 @@ class StateInfoOverlay:
     def visible(self) -> bool:
         return self._overlay is not None and self._overlay.visible
 
+    @staticmethod
     def make_field(
-        self,
+        host: "EngineGui",
         parent: Box,
         title: str,
         grid: list[int],
@@ -53,7 +57,7 @@ class StateInfoOverlay:
         is_list: bool = False,
     ) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
-        aw, _ = self._gui.calc_image_box_size()
+        aw, _ = host.calc_image_box_size()
         if len(grid) >= 4:
             col, row, colspan, rowspan = grid
             aw = colspan * int(aw / max_cols)
@@ -72,7 +76,7 @@ class StateInfoOverlay:
             width="fill",
             align="left",
         )
-        tb.text_size = self._gui.s_10
+        tb.text_size = host.s_10
         tb.display_scope = scope
 
         # Now tell Tk this one actually spans columns/rows
@@ -92,7 +96,7 @@ class StateInfoOverlay:
                 grid=[0, 0],
                 width="fill",
             )
-            tf.text_size = self._gui.s_18
+            tf.text_size = host.s_18
             tk_listbox = tf.children[0].tk
             tk_listbox.config(
                 bd=0,
@@ -103,17 +107,18 @@ class StateInfoOverlay:
             )
         else:
             tf = Text(tb, grid=[0, 0], width="fill", height=1)
-            tf.text_size = self._gui.s_18
+            tf.text_size = host.s_18
             tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)
         return tb, tf
 
     def build(self, body: Box):
         """Builds the 4-column grid layout for the info popup."""
+        host = self._gui
         info_box = Box(body, layout="grid", border=1)
         for i in range(4):
             info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
 
-        aw, _ = self._gui.calc_image_box_size()
+        aw, _ = host.calc_image_box_size()
         info_box.tk.config(width=aw)
 
         # Config: [Key, Title, Grid, Scope]
@@ -152,7 +157,7 @@ class StateInfoOverlay:
         for key, title, grid, scope in layouts:
             # Reusing the existing make_info_field logic from the main GUI
             is_list = key in {"operations"}
-            self.details[key] = self.make_field(info_box, title, grid, scope=scope, is_list=is_list)
+            self.details[key] = self.make_field(host, info_box, title, grid, scope=scope, is_list=is_list)
 
     def update(self, state):
         """Populates the fields with data from the current state."""

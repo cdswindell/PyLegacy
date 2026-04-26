@@ -166,7 +166,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # various boxes
         self.emergency_box = self.info_box = self.keypad_box = self.scope_box = self.name_box = self.image_box = None
         self.amc2_ops_box = None
-        self.controller_box = self.controller_keypad_box = self.controller_throttle_box = None
+        self.controller_box = self.controller_keypad_box = None
+        self.controller_throttle_box = self.controller_info_box = None
 
         self.emergency_box_width = self.emergency_box_height = None
 
