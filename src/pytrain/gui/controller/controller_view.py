@@ -277,22 +277,24 @@ class ControllerView:
 
         # Match sliders-column height to keypad and reserve ~10% for aux controls.
         host.app.tk.update_idletasks()
-        target_sliders_width = max(1, sliders.tk.winfo_width())
-        target_sliders_height = max(1, keypad_keys.tk.winfo_height())
+        target_sliders_width = max(1, sliders.tk.winfo_reqwidth())
+        target_sliders_height = max(1, keypad_keys.tk.winfo_reqheight())
         aux_row_height = max(1, int(round(target_sliders_height * 0.10)))
         slider_row_height = max(1, target_sliders_height - aux_row_height)
 
         sliders.tk.pack_configure(fill="y", expand=False)
         sliders.tk.grid_propagate(False)
         sliders.tk.config(width=target_sliders_width, height=target_sliders_height)
-        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=0)
-        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=0)
+        sliders.tk.grid_columnconfigure(0, weight=1)
+        sliders.tk.grid_columnconfigure(1, weight=1)
+        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=9)
+        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=1)
 
-        slider_row_overhead = max(0, host.throttle_box.tk.winfo_height() - host.throttle.tk.winfo_height())
-        target_slider_height = max(1, slider_row_height - slider_row_overhead)
-        slider_length = max(8, int(target_slider_height / 6))
+        slider_row_overhead = max(0, host.throttle_box.tk.winfo_reqheight() - host.throttle.tk.winfo_reqheight())
+        target_slider_length = max(1, slider_row_height - slider_row_overhead)
+        slider_length = max(8, int(target_slider_length / 6))
         for slider in (host.throttle, host.brake, host.momentum, host.horn):
-            slider.tk.config(length=target_slider_height, sliderlength=slider_length)
+            slider.tk.config(length=target_slider_length, sliderlength=slider_length)
 
         # compute rr speed button size
         host.app.tk.update_idletasks()
@@ -305,6 +307,7 @@ class ControllerView:
             grid=[0, 1, 2, 1],  # spans two columns under sliders
             align="top",
         )
+        rr_box.tk.grid_configure(sticky="nsew")
 
         # RR Speeds button
         host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
@@ -331,6 +334,7 @@ class ControllerView:
             border=0,
             align="top",
         )
+        pair_cell.tk.grid_configure(sticky="nsew")
         # Inner container to hold the two buttons side-by-side
         btn_row = Box(pair_cell, align="top", layout="grid")  # uses pack internally
         btn_row.tk.pack(expand=True)  # Center the *pair* within the TitleBox
