@@ -1191,7 +1191,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
-        print(self.active_state)
+        print("***", self.active_state, state)
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
 
@@ -1218,11 +1218,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-            tmcc_id = self.active_state.tmcc_id
-            if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
-                view = self.get_accessory_view(tmcc_id)
-                acc = getattr(view, "caa", None)
-                self.on_configured_accessory(acc)
+            if isinstance(self.active_state, AccessoryState):
+                tmcc_id = self.active_state.tmcc_id
+                if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
+                    view = self.get_accessory_view(tmcc_id)
+                    acc = getattr(view, "caa", None)
+                    self.on_configured_accessory(acc)
 
         # 4) Preserve existing behavior
         if update_info:
