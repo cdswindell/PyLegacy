@@ -213,7 +213,7 @@ class ControllerView:
             align="right",
             layout="grid",
         )
-        sliders.tk.pack(fill="y", expand=True)
+        sliders.tk.pack(fill="y", expand=False)
 
         # throttle
         host.throttle_box, host.throttle_title_box, host.speed, host.throttle = self.make_slider(
@@ -282,10 +282,11 @@ class ControllerView:
         aux_row_height = max(1, int(round(target_sliders_height * 0.10)))
         slider_row_height = max(1, target_sliders_height - aux_row_height)
 
+        sliders.tk.pack_configure(fill="y", expand=False)
         sliders.tk.grid_propagate(False)
         sliders.tk.config(width=target_sliders_width, height=target_sliders_height)
-        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=9)
-        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=1)
+        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=0)
+        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=0)
 
         slider_row_overhead = max(0, host.throttle_box.tk.winfo_height() - host.throttle.tk.winfo_height())
         target_slider_height = max(1, slider_row_height - slider_row_overhead)
