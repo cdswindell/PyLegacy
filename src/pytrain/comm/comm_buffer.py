@@ -742,7 +742,7 @@ class DelayHandler(Thread):
     def queued_requests(self) -> int:
         return len(self._scheduler.queue)
 
-    def run(self) -> None:
+    def run_x(self) -> None:
         while True:
             with self._cv:
                 while self._scheduler.empty():
@@ -752,7 +752,7 @@ class DelayHandler(Thread):
             self._ev.clear()
             self._scheduler.run()
 
-    def run_x(self) -> None:
+    def run(self) -> None:
         while True:
             with self._cv:
                 while self._scheduler.empty():
