@@ -290,7 +290,7 @@ class ControllerView:
         target_slider_height = max(1, slider_row_height - slider_row_overhead)
         slider_length = max(8, int(target_slider_height / 6))
         for slider in (host.throttle, host.brake, host.momentum, host.horn):
-            slider.tk.config(height=target_slider_height, sliderlength=slider_length)
+            slider.tk.config(length=target_slider_height, sliderlength=slider_length)
 
         # compute rr speed button size
         host.app.tk.update_idletasks()
