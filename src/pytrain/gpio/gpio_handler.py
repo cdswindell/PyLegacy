@@ -118,8 +118,8 @@ class GpioDelayHandler(Thread):
                     self._cv.wait()
             # run the scheduler outside the cv lock; otherwise,
             # we couldn't schedule more commands
-            self._scheduler.run()
             self._ev.clear()
+            self._scheduler.run()
 
     def schedule(self, delay: float, command: Callable) -> sched.Event:
         with self._cv:

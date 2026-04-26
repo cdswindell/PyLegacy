@@ -742,17 +742,17 @@ class DelayHandler(Thread):
     def queued_requests(self) -> int:
         return len(self._scheduler.queue)
 
-    # def run(self) -> None:
-    #     while True:
-    #         with self._cv:
-    #             while self._scheduler.empty():
-    #                 self._cv.wait()
-    #         # run the scheduler outside the cv lock; otherwise,
-    #         # we couldn't schedule more commands
-    #         self._scheduler.run()
-    #         self._ev.clear()
-
     def run(self) -> None:
+        while True:
+            with self._cv:
+                while self._scheduler.empty():
+                    self._cv.wait()
+            # run the scheduler outside the cv lock; otherwise,
+            # we couldn't schedule more commands
+            self._ev.clear()
+            self._scheduler.run()
+
+    def run_x(self) -> None:
         while True:
             with self._cv:
                 while self._scheduler.empty():
