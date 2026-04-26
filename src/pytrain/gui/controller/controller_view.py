@@ -275,11 +275,11 @@ class ControllerView:
             on_release=self.clear_focus,  # or a horn-specific release handler
         )
 
-        # Match sliders-column height to keypad and reserve ~18% for aux controls.
+        # Match sliders-column height to keypad and reserve ~17% for aux controls.
         host.app.tk.update_idletasks()
         target_sliders_width = max(1, sliders.tk.winfo_reqwidth())
         target_sliders_height = max(1, keypad_keys.tk.winfo_reqheight())
-        aux_row_height = max(1, int(round(target_sliders_height * 0.18)))
+        aux_row_height = max(1, int(round(target_sliders_height * 0.17)))
         slider_row_height = max(1, target_sliders_height - aux_row_height)
 
         sliders.tk.pack_configure(fill="y", expand=False)
@@ -287,8 +287,8 @@ class ControllerView:
         sliders.tk.config(width=target_sliders_width, height=target_sliders_height)
         sliders.tk.grid_columnconfigure(0, weight=1)
         sliders.tk.grid_columnconfigure(1, weight=1)
-        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=82)
-        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=18)
+        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=83)
+        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=17)
 
         slider_row_overhead = max(0, host.throttle_box.tk.winfo_reqheight() - host.throttle.tk.winfo_reqheight())
         target_slider_length = max(1, slider_row_height - slider_row_overhead)
@@ -312,7 +312,7 @@ class ControllerView:
 
         # RR Speeds button
         host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
-        rr_btn.tk.pack(fill="x", expand=False, anchor="n")
+        rr_btn.tk.place(relx=0.5, rely=0.5, relwidth=1.0, height=rr_btn_height, anchor="center")
 
         img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(w, rr_btn_height))
         rr_btn.tk.config(
