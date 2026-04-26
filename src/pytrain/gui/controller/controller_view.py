@@ -275,11 +275,11 @@ class ControllerView:
             on_release=self.clear_focus,  # or a horn-specific release handler
         )
 
-        # Match sliders-column height to keypad and reserve ~15% for aux controls.
+        # Match sliders-column height to keypad and reserve ~18% for aux controls.
         host.app.tk.update_idletasks()
         target_sliders_width = max(1, sliders.tk.winfo_reqwidth())
         target_sliders_height = max(1, keypad_keys.tk.winfo_reqheight())
-        aux_row_height = max(1, int(round(target_sliders_height * 0.15)))
+        aux_row_height = max(1, int(round(target_sliders_height * 0.18)))
         slider_row_height = max(1, target_sliders_height - aux_row_height)
 
         sliders.tk.pack_configure(fill="y", expand=False)
@@ -287,8 +287,8 @@ class ControllerView:
         sliders.tk.config(width=target_sliders_width, height=target_sliders_height)
         sliders.tk.grid_columnconfigure(0, weight=1)
         sliders.tk.grid_columnconfigure(1, weight=1)
-        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=17)
-        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=3)
+        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=82)
+        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=18)
 
         slider_row_overhead = max(0, host.throttle_box.tk.winfo_reqheight() - host.throttle.tk.winfo_reqheight())
         target_slider_length = max(1, slider_row_height - slider_row_overhead)
@@ -299,7 +299,8 @@ class ControllerView:
         # compute rr speed button size
         host.app.tk.update_idletasks()
         w = max(1, sliders.tk.winfo_width())
-        h = max(1, aux_row_height - 6)
+        # Keep RR Speeds visual size at the prior 85/15 tuning.
+        rr_btn_height = max(1, int(round(target_sliders_height * 0.15)) - 6)
 
         # RR Speeds button
         host._rr_speed_box = rr_box = Box(
@@ -311,14 +312,14 @@ class ControllerView:
 
         # RR Speeds button
         host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
-        rr_btn.tk.pack(fill="both", expand=True)
+        rr_btn.tk.pack(fill="x", expand=False, anchor="n")
 
-        img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(w, h))
+        img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(w, rr_btn_height))
         rr_btn.tk.config(
             image=img,
             compound="center",
             width=w,
-            height=h,
+            height=rr_btn_height,
             padx=3,  # small padding
             pady=3,
             borderwidth=2,  # light border
@@ -359,7 +360,13 @@ class ControllerView:
 
         # Allow Tk to compute geometry
         host.app.tk.update_idletasks()
-        horn_size = max(1, int(bell_box.tk.winfo_height() * 0.85))
+        horn_size = max(
+            1,
+            max(
+                int(bell_box.tk.winfo_height() * 0.85),
+                int(aux_row_height * 0.70),
+            ),
+        )
 
         # spacer box
         sp_size = int(horn_size * 0.1)
