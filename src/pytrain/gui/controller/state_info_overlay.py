@@ -57,7 +57,7 @@ class StateInfoOverlay:
         is_list: bool = False,
     ) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
-        aw, _ = host.calc_image_box_size()
+        aw = host.width
         if len(grid) >= 4:
             col, row, colspan, rowspan = grid
             aw = colspan * int(aw / max_cols)
