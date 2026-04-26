@@ -6,20 +6,24 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from typing import TYPE_CHECKING
 
 from guizero import Box, Text
 
 from .engine_gui_conf import AUX2_KEY, CAB_KEY, DIESEL_LIGHTS, STEAM_LIGHTS
+from .overlay_panel import OverlayPanel
 from ..components.hold_button import HoldButton
 from ...db.engine_state import EngineState
 
+if TYPE_CHECKING:  # pragma: no cover
+    from .engine_gui import EngineGui
 
-class LightingPanel:
-    def __init__(self, gui):
-        self._gui = gui
+
+class LightingPanel(OverlayPanel):
+    def __init__(self, gui: "EngineGui", title: str = "Lights"):
+        super().__init__(gui, title)
         self._diesel_opts = None
         self._steam_opts = None
-        self._overlay = None
 
     @property
     def overlay(self) -> Box:

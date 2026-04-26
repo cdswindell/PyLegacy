@@ -6,24 +6,21 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from typing import TYPE_CHECKING
 
 from guizero import Box, Text
 
 from .engine_gui_conf import CYCLE_KEY, PLAY_KEY, PLAY_PAUSE_KEY
+from .overlay_panel import OverlayPanel
 from ...utils.path_utils import find_file
 
+if TYPE_CHECKING:  # pragma: no cover
+    from .engine_gui import EngineGui
 
-class BellHornPanel:
-    def __init__(self, gui):
-        self._gui = gui
-        self._overlay = None
 
-    @property
-    def overlay(self) -> Box:
-        if self._overlay is None:
-            # noinspection PyProtectedMember
-            self._overlay = self._gui._popup.create_popup("Bell/Horn Options", self.build)
-        return self._overlay
+class BellHornPanel(OverlayPanel):
+    def __init__(self, gui: "EngineGui", title: str = "Bell/Horn Options"):
+        super().__init__(gui, title)
 
     def configure(self, state):
         pass

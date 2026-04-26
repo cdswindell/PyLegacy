@@ -6,29 +6,22 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from typing import TYPE_CHECKING
 
 from guizero import Box
 
 from .engine_gui_conf import RR_SPEED_LAYOUT
+from .overlay_panel import OverlayPanel
 from ...db.engine_state import EngineState
 
+if TYPE_CHECKING:  # pragma: no cover
+    from .engine_gui import EngineGui
 
-class RrSpeedPanel:
-    def __init__(self, gui):
-        self._gui = gui
+
+class RrSpeedPanel(OverlayPanel):
+    def __init__(self, gui: "EngineGui", title="Official Rail Road Speeds") -> None:
+        super().__init__(gui, title)
         self._rr_speed_btns = set()
-        self._overlay = None
-
-    @property
-    def overlay(self) -> Box:
-        if self._overlay is None:
-            # noinspection PyProtectedMember
-            self._overlay = self._gui._popup.create_popup("Official Rail Road Speeds", self.build)
-        return self._overlay
-
-    @property
-    def visible(self) -> bool:
-        return self._overlay is not None and self._overlay.visible
 
     def configure(self, state: EngineState):
         rr_speed = state.rr_speed if state else ""

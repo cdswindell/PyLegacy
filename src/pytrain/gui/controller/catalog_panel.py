@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from guizero import Box, CheckBox, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from .overlay_panel import OverlayPanel
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
@@ -30,9 +31,9 @@ SORT_OPTS = [
 ]
 
 
-class CatalogPanel:
+class CatalogPanel(OverlayPanel):
     def __init__(self, gui: "EngineGui", width: int, height: int):
-        self._gui = gui
+        super().__init__(gui, "Catalog")
         self._width = width
         self._height = height
         self._scope = None
@@ -43,18 +44,10 @@ class CatalogPanel:
         self._scoped_selection = {}
         self._skip_update = False
         self._entry_state_map = {}
-        self._overlay = None
         self._width_scale_factor = 3.375
         self._sel_1_btn = self._sel_2_btn = self._sel_3_btn = None
         self._configured_acc_labels: list[str] | None = None
         self._configured_acc_dict: dict[str, ConfiguredAccessoryAdapter] | None = None
-
-    @property
-    def overlay(self) -> Box:
-        if self._overlay is None:
-            # noinspection PyProtectedMember, PyUnresolvedReferences
-            self._overlay = self._gui._popup.create_popup("Catalog", self.build)
-        return self._overlay
 
     def build(self, body: Box) -> None:
         catalog_box = Box(body, border=1, align="top")
