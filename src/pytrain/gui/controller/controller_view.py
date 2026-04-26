@@ -406,6 +406,7 @@ class ControllerView:
             border=0,
             align="bottom",
         )
+        host.ops_cells.add(info_box)
         self._populate_info_box(info_box)
 
         # --- HIDE IT AGAIN after sizing is complete ---
