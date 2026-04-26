@@ -275,11 +275,11 @@ class ControllerView:
             on_release=self.clear_focus,  # or a horn-specific release handler
         )
 
-        # Match sliders-column height to keypad and reserve ~20% for aux controls.
+        # Match sliders-column height to keypad and reserve ~15% for aux controls.
         host.app.tk.update_idletasks()
         target_sliders_width = max(1, sliders.tk.winfo_reqwidth())
         target_sliders_height = max(1, keypad_keys.tk.winfo_reqheight())
-        aux_row_height = max(1, int(round(target_sliders_height * 0.20)))
+        aux_row_height = max(1, int(round(target_sliders_height * 0.15)))
         slider_row_height = max(1, target_sliders_height - aux_row_height)
 
         sliders.tk.pack_configure(fill="y", expand=False)
@@ -287,8 +287,8 @@ class ControllerView:
         sliders.tk.config(width=target_sliders_width, height=target_sliders_height)
         sliders.tk.grid_columnconfigure(0, weight=1)
         sliders.tk.grid_columnconfigure(1, weight=1)
-        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=4)
-        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=1)
+        sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=17)
+        sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=3)
 
         slider_row_overhead = max(0, host.throttle_box.tk.winfo_reqheight() - host.throttle.tk.winfo_reqheight())
         target_slider_length = max(1, slider_row_height - slider_row_overhead)
