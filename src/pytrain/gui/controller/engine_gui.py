@@ -921,7 +921,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._popup.close()
             self.update_component_info()
             # force entry mode if scoped tmcc_id is 0
-            if self._scope_tmcc_ids[scope] == 0:
+            if self._scope_tmcc_ids[scope] == 0 or self.active_state is None:
                 force_entry_mode = True
             self._request_options_rebuild()
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
@@ -1191,7 +1191,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
-        print("***", self.active_state, state)
         # 1) Common UI transition (moved)
         self._keypad_view.enter_ops_mode_base()
 
