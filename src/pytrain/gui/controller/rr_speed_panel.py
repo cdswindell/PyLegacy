@@ -26,6 +26,10 @@ class RrSpeedPanel:
             self._overlay = self._gui._popup.create_popup("Official Rail Road Speeds", self.build)
         return self._overlay
 
+    @property
+    def visible(self) -> bool:
+        return self._overlay is not None and self._overlay.visible
+
     def configure(self, state: EngineState):
         rr_speed = state.rr_speed if state else ""
         for btn in self._rr_speed_btns:
