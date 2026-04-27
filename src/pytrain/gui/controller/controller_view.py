@@ -91,7 +91,6 @@ class ControllerView:
         host = self._host
         with self.__updating():
             # --- Throttle / Speed ---
-            update_info_box = False
             if throttle_state:
                 if throttle_state != self._last_throttle_state:
                     if not host.speed.enabled:
@@ -104,7 +103,6 @@ class ControllerView:
                     if throttle_state.is_legacy:
                         host.throttle.tk.config(from_=195, to=0)
                         if self._controller_info_box:
-                            update_info_box = True
                             self._controller_info_box.show()
                             if throttle_state.is_steam:
                                 self._info_rpm[0].disable()
@@ -182,7 +180,7 @@ class ControllerView:
                         elif gauge_type == "water":
                             gauge.set_value(throttle_state.water_level_pct)
 
-                if update_info_box:
+                if throttle_state.is_legacy:
                     self._info_brake[1].value = f"{brake:>5d}"
 
                 print(f"Throttle State: {throttle_state}")
