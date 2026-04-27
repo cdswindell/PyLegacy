@@ -91,6 +91,7 @@ class ControllerView:
         host = self._host
         with self.__updating():
             # --- Throttle / Speed ---
+            update_info_box = False
             if throttle_state:
                 if throttle_state != self._last_throttle_state:
                     if not host.speed.enabled:
@@ -103,6 +104,7 @@ class ControllerView:
                     if throttle_state.is_legacy:
                         host.throttle.tk.config(from_=195, to=0)
                         if self._controller_info_box:
+                            update_info_box = True
                             self._controller_info_box.show()
                             if throttle_state.is_steam:
                                 self._info_rpm[0].disable()
@@ -158,6 +160,8 @@ class ControllerView:
             # --- Brake ---
             brake = state.train_brake if state.train_brake is not None else 0
             host.brake_level.value = f"{brake:02d}"
+            if update_info_box:
+                self._info_brake[1] = f"{brake:>3d}"
             if host.brake.tk.focus_displayof() != host.brake.tk:
                 host.brake.value = brake
 
@@ -448,19 +452,12 @@ class ControllerView:
 
     def _populate_info_box(self, info_box):
         host = self._host
-        self._info_smoke = StateInfoOverlay.make_field(
-            host=host,
-            parent=info_box,
-            title="Smoke",
-            grid=[0, 0],
-            max_cols=6,
-        )
 
         self._info_momentum = StateInfoOverlay.make_field(
             host=host,
             parent=info_box,
             title="Mom",
-            grid=[1, 0],
+            grid=[0, 0],
             max_cols=6,
         )
 
@@ -468,6 +465,14 @@ class ControllerView:
             host=host,
             parent=info_box,
             title="Brake",
+            grid=[1, 0],
+            max_cols=6,
+        )
+
+        self._info_smoke = StateInfoOverlay.make_field(
+            host=host,
+            parent=info_box,
+            title="Smoke",
             grid=[2, 0],
             max_cols=6,
         )
