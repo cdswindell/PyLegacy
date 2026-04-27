@@ -304,7 +304,7 @@ class ControllerView:
 
         # compute rr speed button size
         host.app.tk.update_idletasks()
-        w = max(1, sliders.tk.winfo_width())
+        rr_btn_width = target_sliders_width
         # Keep RR Speeds visual size at the prior 85/15 tuning.
         rr_btn_height = max(1, int(round(target_sliders_height * 0.15)) - 6)
 
@@ -317,15 +317,14 @@ class ControllerView:
         rr_box.tk.grid_configure(sticky="nsew")
 
         # RR Speeds button
-        print(f"RR Speeds button width: {target_sliders_width}, {w}")
         host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
         rr_btn.tk.place(relx=0.5, rely=0.5, relwidth=1.0, height=rr_btn_height, anchor="center")
 
-        img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(w, rr_btn_height))
+        img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(rr_btn_width, rr_btn_height))
         rr_btn.tk.config(
             image=img,
             compound="center",
-            width=w,
+            width=rr_btn_width,
             height=rr_btn_height,
             padx=3,  # small padding
             pady=3,
