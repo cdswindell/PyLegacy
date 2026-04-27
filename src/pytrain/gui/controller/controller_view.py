@@ -61,7 +61,7 @@ class ControllerView:
         self._updating_from_state = False
         self._last_state = self._last_throttle_state = None
         self._last_engine_type = None
-        self._info_smoke = self._info_momentum = self.info_brake = None
+        self._info_smoke = self._info_momentum = self._info_brake = self._info_effort = self._info_rpm = None
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
@@ -438,7 +438,6 @@ class ControllerView:
             grid=[0, 0],
             max_cols=6,
         )
-        self._info_smoke[1].value = "abc"
 
         self._info_momentum = StateInfoOverlay.make_field(
             host=host,
@@ -447,7 +446,6 @@ class ControllerView:
             grid=[1, 0],
             max_cols=6,
         )
-        self._info_momentum[1].value = "Low"
 
         self._info_brake = StateInfoOverlay.make_field(
             host=host,
@@ -456,8 +454,23 @@ class ControllerView:
             grid=[2, 0],
             max_cols=6,
         )
-        self._info_brake[1].value = "0"
-        for i in range(3):
+
+        self._info_effort = StateInfoOverlay.make_field(
+            host=host,
+            parent=info_box,
+            title="Effort",
+            grid=[3, 0],
+            max_cols=6,
+        )
+
+        self._info_rpm = StateInfoOverlay.make_field(
+            host=host,
+            parent=info_box,
+            title="RPM",
+            grid=[4, 0],
+            max_cols=6,
+        )
+        for i in range(6):
             info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
 
     def populate_keypad(self, keys: list, keypad_box: Box):
