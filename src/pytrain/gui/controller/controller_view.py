@@ -13,7 +13,6 @@ import logging
 import tkinter as tk
 from contextlib import contextmanager
 from threading import Thread
-from time import perf_counter
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
@@ -406,14 +405,12 @@ class ControllerView:
             border=0,
             align="bottom",
         )
-        host.ops_cells.add(info_box)
         self._populate_info_box(info_box)
 
         # --- HIDE IT AGAIN after sizing is complete ---
         host.controller_box.hide()
 
-        # ... create controller_keypad_box, sliders, throttle, brake, etc ...
-        # At the end:
+        # ... create controller_keypad_box, sliders, throttle, brake, etc ...        # At the end:
         self._focus_widget = focus_widget = tk.Frame(host.app.tk, takefocus=1)
         focus_widget.place(x=-9999, y=-9999, width=1, height=1)
 
@@ -428,6 +425,7 @@ class ControllerView:
 
     def _populate_info_box(self, info_box):
         host = self._host
+        host.ops_cells.add(info_box)
         self._info_smoke = StateInfoOverlay.make_field(
             host=host,
             parent=info_box,
@@ -435,6 +433,7 @@ class ControllerView:
             grid=[0, 0],
             max_cols=6,
         )
+        self._info_smoke[1].value = "abc"
 
         self._info_momentum = StateInfoOverlay.make_field(
             host=host,
@@ -724,22 +723,11 @@ class ControllerView:
         cells_to_hide = previous_btns - btns if last_type else self._all_engine_btns - btns
         cells_to_hide = {cell for cell in cells_to_hide if cell.visible}
 
-        if self._host.is_gui_debug_enabled():
-            for cell in cells_to_hide:
-                t0 = perf_counter()
-                cell.hide()
-                log.info(f"ControllerView: Hiding button {getattr(cell, 'bi', cell)} in {perf_counter() - t0:.3f}s")
+        for cell in cells_to_hide:
+            cell.hide()
 
-            for cell in cells_to_show:
-                t0 = perf_counter()
-                cell.show()
-                log.info(f"ControllerView: Showing button {getattr(cell, 'bi', cell)} in {perf_counter() - t0:.3f}s")
-        else:
-            for cell in cells_to_hide:
-                cell.hide()
-
-            for cell in cells_to_show:
-                cell.show()
+        for cell in cells_to_show:
+            cell.show()
 
         self._last_engine_type = t
 
