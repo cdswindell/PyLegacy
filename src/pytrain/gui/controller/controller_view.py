@@ -331,8 +331,8 @@ class ControllerView:
             relief="ridge",  # gives pressable button feel
             highlightthickness=0,
         )
-        rr_btn.tk.pack(anchor="nsew", pady=10)
         rr_btn.images = (img, inverted_img)
+        rr_btn.tk.pack(anchor="center", pady=10)
         rr_box.hide()
 
         # Bell/horn buttons for freight sounds
