@@ -192,6 +192,7 @@ class ControllerView:
 
         # Keep keypad/sliders in a dedicated top row so the info row can span full width below.
         controls_top_row = Box(controller_box, border=0, align="top")
+        host.controller_box.hide()
 
         # different engine types have different features
         # define the common keys first
@@ -210,7 +211,6 @@ class ControllerView:
         self.regen_engine_keys_map()
 
         # used to make sure brake and throttle get focus when needed
-        host.controller_box.show()
 
         sliders = Box(
             controls_top_row,
