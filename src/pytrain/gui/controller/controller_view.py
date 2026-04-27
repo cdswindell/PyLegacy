@@ -104,6 +104,11 @@ class ControllerView:
                         host.throttle.tk.config(from_=195, to=0)
                         if self._controller_info_box:
                             self._controller_info_box.show()
+                            if throttle_state.is_steam:
+                                self._info_rpm[0].disable()
+                                self._info_rpm[1].value = ""
+                            else:
+                                self._info_rpm[0].enable()
                     elif throttle_state.is_cab1:
                         host.throttle.tk.config(from_=3, to=-3)
                         host.throttle.value = 0
