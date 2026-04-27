@@ -149,6 +149,12 @@ class RampedSpeedReqBase(SequenceReq, ABC):
                     delay = 2.50
                 self.add(engr, address, scope=scope, delay=delay)
 
+    def _on_before_send(self) -> None:
+        from ...comm.comm_buffer import CommBuffer
+
+        log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id}")
+        CommBuffer.cancel_delayed_requests(self.state)
+
 
 class RampedSpeedReq(RampedSpeedReqBase):
     def __init__(

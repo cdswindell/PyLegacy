@@ -336,7 +336,7 @@ class EngineState(ComponentState):
                     if command.command in DIRECTIONS_SET and self.direction == command.command:
                         pass
                     else:
-                        log.info(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
+                        log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
                         CommBuffer.cancel_delayed_requests(self)
                         self._ramping = False
 
