@@ -1182,6 +1182,6 @@ class ControllerView:
     def _update_info_box(self, state):
         if state.is_legacy and self._controller_info_box:
             _, _, sl, _ = state.speeds
-            self._info_limit[1].value = f"{sl:>6d} if sl is not None else ''"
+            self._info_limit[1].value = f"{sl:>6d if sl is not None else ''}"
             self._info_brake[1].value = f"{state.train_brake:>5d}"
             self._info_momentum[1].value = state.momentum_text
