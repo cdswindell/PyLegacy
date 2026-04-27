@@ -447,6 +447,7 @@ class ControllerView:
             grid=[1, 0],
             max_cols=6,
         )
+        self._info_momentum[1].value = "Low"
 
         self._info_brake = StateInfoOverlay.make_field(
             host=host,
@@ -455,6 +456,7 @@ class ControllerView:
             grid=[2, 0],
             max_cols=6,
         )
+        self._info_brake[1].value = "0"
 
     def populate_keypad(self, keys: list, keypad_box: Box):
         host = self._host
