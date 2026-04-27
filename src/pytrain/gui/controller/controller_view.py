@@ -61,6 +61,7 @@ class ControllerView:
         self._updating_from_state = False
         self._last_state = self._last_throttle_state = None
         self._last_engine_type = None
+        self._controller_info_box: Box | None = None
         self._info_smoke = self._info_momentum = self._info_brake = None
         self._info_effort = self._info_rpm = self._info_limit = None
 
@@ -101,13 +102,19 @@ class ControllerView:
 
                     if throttle_state.is_legacy:
                         host.throttle.tk.config(from_=195, to=0)
+                        if self._controller_info_box:
+                            self._controller_info_box.show()
                     elif throttle_state.is_cab1:
                         host.throttle.tk.config(from_=3, to=-3)
                         host.throttle.value = 0
+                        if self._controller_info_box:
+                            self._controller_info_box.hide()
                         if host._rr_speed_box:
                             host._rr_speed_box.hide()
                     else:
                         host.throttle.tk.config(from_=31, to=0)
+                        if self._controller_info_box:
+                            self._controller_info_box.hide()
 
                     if host._rr_speed_box and not host._rr_speed_box.visible:
                         host._rr_speed_box.show()
@@ -133,6 +140,7 @@ class ControllerView:
                     host._rr_speed_panel.configure(throttle_state)
             else:
                 host.throttle.tk.config(from_=31, to=0)
+                self._controller_info_box.hide()
                 if host.speed.enabled:
                     host.speed.disable()
                 if host.throttle.enabled:
@@ -332,7 +340,7 @@ class ControllerView:
             highlightthickness=0,
         )
         rr_btn.images = (img, inverted_img)
-        rr_btn.tk.pack(anchor="center", pady=(10, 0))
+        rr_btn.tk.pack(anchor="center", pady=(9, 0))
         rr_box.hide()
 
         # Bell/horn buttons for freight sounds
@@ -405,7 +413,7 @@ class ControllerView:
         host._freight_sounds_bell_horn_box.hide()
 
         # info box to display smoke, rpm, labor, etc.
-        host.controller_info_box = info_box = Box(
+        self._controller_info_box = info_box = Box(
             controller_box,
             layout="grid",
             border=0,
@@ -457,11 +465,19 @@ class ControllerView:
             max_cols=6,
         )
 
+        self._info_limit = StateInfoOverlay.make_field(
+            host=host,
+            parent=info_box,
+            title="Speed Lim",
+            grid=[3, 0],
+            max_cols=6,
+        )
+
         self._info_effort = StateInfoOverlay.make_field(
             host=host,
             parent=info_box,
             title="Effort",
-            grid=[3, 0],
+            grid=[4, 0],
             max_cols=6,
         )
 
@@ -469,19 +485,14 @@ class ControllerView:
             host=host,
             parent=info_box,
             title="RPM",
-            grid=[4, 0],
-            max_cols=6,
-        )
-
-        self._info_limit = StateInfoOverlay.make_field(
-            host=host,
-            parent=info_box,
-            title="Speed Lim",
             grid=[5, 0],
             max_cols=6,
         )
+
         for i in range(6):
-            info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
+            info_box.tk.grid_columnconfigure(i, weight=1, uniform="info")
+
+        info_box.hide()
 
     def populate_keypad(self, keys: list, keypad_box: Box):
         host = self._host
