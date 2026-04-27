@@ -104,16 +104,16 @@ class ControllerView:
                     elif throttle_state.is_cab1:
                         host.throttle.tk.config(from_=3, to=-3)
                         host.throttle.value = 0
-                        if host._rr_speed_btn:
-                            host._rr_speed_btn.hide()
+                        if host._rr_speed_box:
+                            host._rr_speed_box.hide()
                     else:
                         host.throttle.tk.config(from_=31, to=0)
 
-                    if host._rr_speed_btn:
+                    if host._rr_speed_box:
                         if throttle_state.is_cab1:
-                            host._rr_speed_btn.hide()
+                            host._rr_speed_box.hide()
                         else:
-                            host._rr_speed_btn.show()
+                            host._rr_speed_box.show()
 
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
@@ -317,6 +317,7 @@ class ControllerView:
         rr_box.tk.grid_configure(sticky="nsew")
 
         # RR Speeds button
+        print(f"RR Speeds button width: {target_sliders_width}, {w}")
         host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
         rr_btn.tk.place(relx=0.5, rely=0.5, relwidth=1.0, height=rr_btn_height, anchor="center")
 
