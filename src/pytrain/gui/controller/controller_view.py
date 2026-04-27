@@ -475,7 +475,7 @@ class ControllerView:
         self._info_limit = StateInfoOverlay.make_field(
             host=host,
             parent=info_box,
-            title="Speed Limit",
+            title="Speed Lim",
             grid=[5, 0],
             max_cols=6,
         )
