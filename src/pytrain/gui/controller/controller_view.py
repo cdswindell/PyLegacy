@@ -318,7 +318,7 @@ class ControllerView:
 
         # RR Speeds button
         host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
-        rr_btn.tk.place(relx=0.5, rely=0.5, relwidth=1.0, height=rr_btn_height, anchor="center")
+        # rr_btn.tk.place(relx=0.5, rely=0.5, relwidth=1.0, height=rr_btn_height, anchor="center")
 
         img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(rr_btn_width, rr_btn_height))
         rr_btn.tk.config(
