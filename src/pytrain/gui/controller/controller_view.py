@@ -128,6 +128,11 @@ class ControllerView:
                     if host._rr_speed_box and not host._rr_speed_box.visible:
                         host._rr_speed_box.show()
 
+                    if state.is_legacy:
+                        host.momentum.tk.config(resolution=1, showvalue=True)
+                    else:
+                        host.momentum.tk.config(resolution=4, showvalue=False)
+
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
                     host.throttle.value = throttle_state.target_speed
@@ -147,8 +152,43 @@ class ControllerView:
 
                 if host._rr_speed_panel and host._rr_speed_panel.visible:
                     host._rr_speed_panel.configure(throttle_state)
+
+                # --- Momentum ---
+                momentum = throttle_state.momentum if throttle_state.momentum is not None else 0
+                host.momentum_level.value = f"{momentum:02d}"
+                if host.momentum.tk.focus_displayof() != host.momentum.tk:
+                    host.momentum.value = momentum
+
+                # --- Brake ---
+                brake = throttle_state.train_brake if throttle_state.train_brake is not None else 0
+                host.brake_level.value = f"{brake:02d}"
+                if host.brake.tk.focus_displayof() != host.brake.tk:
+                    host.brake.value = brake
+
+                # --- Direction buttons ---
+                if host.engine_ops_cells:
+                    _, fwd_btn = host.engine_ops_cells[("FORWARD_DIRECTION", "e")]
+                    fwd_btn.bg = host._active_bg if throttle_state.is_forward else host._inactive_bg
+
+                    _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
+                    rev_btn.bg = host._active_bg if throttle_state.is_reverse else host._inactive_bg
+
+                # --- Gauges ---
+                for gauge_type in ["fuel", "water"]:
+                    gauges = self._gauges.get(gauge_type, [])
+                    for gauge in gauges:
+                        if gauge_type == "fuel":
+                            gauge.set_value(throttle_state.fuel_level_pct)
+                        elif gauge_type == "water":
+                            gauge.set_value(throttle_state.water_level_pct)
+
+                if update_info_box:
+                    self._info_brake[1].value = f"{brake:>5d}"
+
+                print(f"Throttle State: {throttle_state}")
             else:
                 host.throttle.tk.config(from_=31, to=0)
+                host.momentum.tk.config(resolution=4, showvalue=False)
                 self._controller_info_box.hide()
                 if host.speed.enabled:
                     host.speed.disable()
@@ -157,42 +197,6 @@ class ControllerView:
                 if host._rr_speed_btn and host._rr_speed_btn.enabled:
                     host._rr_speed_btn.disable()
 
-            # --- Brake ---
-            brake = state.train_brake if state.train_brake is not None else 0
-            host.brake_level.value = f"{brake:02d}"
-            if update_info_box:
-                self._info_brake[1].value = f"{brake:>3d}"
-            if host.brake.tk.focus_displayof() != host.brake.tk:
-                host.brake.value = brake
-
-            # --- Momentum ---
-            momentum = state.momentum if state.momentum is not None else 0
-            host.momentum_level.value = f"{momentum:02d}"
-            if host.momentum.tk.focus_displayof() != host.momentum.tk:
-                host.momentum.value = momentum
-
-            if state != self._last_state:
-                if state.is_legacy:
-                    host.momentum.tk.config(resolution=1, showvalue=True)
-                else:
-                    host.momentum.tk.config(resolution=4, showvalue=False)
-
-            # --- Direction buttons ---
-            if host.engine_ops_cells:
-                _, fwd_btn = host.engine_ops_cells[("FORWARD_DIRECTION", "e")]
-                fwd_btn.bg = host._active_bg if state.is_forward else host._inactive_bg
-
-                _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
-                rev_btn.bg = host._active_bg if state.is_reverse else host._inactive_bg
-
-            # --- Gauges ---
-            for gauge_type in ["fuel", "water"]:
-                gauges = self._gauges.get(gauge_type, [])
-                for gauge in gauges:
-                    if gauge_type == "fuel":
-                        gauge.set_value(state.fuel_level_pct)
-                    elif gauge_type == "water":
-                        gauge.set_value(state.water_level_pct)
             self._last_throttle_state = throttle_state
             self._last_state = state
 
