@@ -55,6 +55,7 @@ class StateInfoOverlay:
         max_cols: int = 4,
         scope: CommandScope = None,
         is_list: bool = False,
+        center: bool = False,
     ) -> tuple[TitleBox, Text]:
         # grid can be [col, row] or [col, row, colspan, rowspan]
         aw = host.width
@@ -109,6 +110,9 @@ class StateInfoOverlay:
             tf = Text(tb, grid=[0, 0], width="fill", height=1)
             tf.text_size = host.s_18
             tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)
+            if center:
+                tf.tk.grid_configure(sticky="")  # centered in cell
+                tf.tk.config(justify="center", anchor="center")
         return tb, tf
 
     def build(self, body: Box):

@@ -104,13 +104,13 @@ class ControllerView:
                         host.throttle.tk.config(from_=195, to=0)
                         if self._controller_info_box:
                             self._controller_info_box.show()
-                            if throttle_state.is_steam:
+                            if throttle_state.is_rpm:
+                                self._info_rpm[0].enable()
+                                self._info_rpm[0].tk.configure(fg="black")
+                            else:
                                 self._info_rpm[0].disable()
                                 self._info_rpm[0].tk.configure(fg="grey")
                                 self._info_rpm[1].value = ""
-                            else:
-                                self._info_rpm[0].enable()
-                                self._info_rpm[0].tk.configure(fg="black")
                     elif throttle_state.is_cab1:
                         host.throttle.tk.config(from_=3, to=-3)
                         host.throttle.value = 0
@@ -458,6 +458,7 @@ class ControllerView:
             title="Mom",
             grid=[0, 0],
             max_cols=6,
+            center=True,
         )
 
         self._info_brake = StateInfoOverlay.make_field(
@@ -466,6 +467,7 @@ class ControllerView:
             title="Brake",
             grid=[1, 0],
             max_cols=6,
+            center=True,
         )
 
         self._info_smoke = StateInfoOverlay.make_field(
@@ -474,6 +476,7 @@ class ControllerView:
             title="Smoke",
             grid=[2, 0],
             max_cols=6,
+            center=True,
         )
 
         self._info_limit = StateInfoOverlay.make_field(
@@ -482,6 +485,7 @@ class ControllerView:
             title="Speed Lim",
             grid=[3, 0],
             max_cols=6,
+            center=True,
         )
 
         self._info_effort = StateInfoOverlay.make_field(
@@ -490,6 +494,7 @@ class ControllerView:
             title="Effort",
             grid=[4, 0],
             max_cols=6,
+            center=True,
         )
 
         self._info_rpm = StateInfoOverlay.make_field(
@@ -498,6 +503,7 @@ class ControllerView:
             title="RPM",
             grid=[5, 0],
             max_cols=6,
+            center=True,
         )
 
         for i in range(6):
@@ -1187,3 +1193,7 @@ class ControllerView:
             self._info_brake[1].value = f"{state.train_brake:>5d}"
             self._info_momentum[1].value = state.momentum_text
             self._info_smoke[1].value = state.smoke_text
+            if state.is_rpm:
+                self._info_rpm[1].value = f"{state.rpm:>5d}"
+            else:
+                self._info_rpm[1].value = "NA"
