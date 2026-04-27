@@ -425,7 +425,6 @@ class ControllerView:
 
     def _populate_info_box(self, info_box):
         host = self._host
-        host.ops_cells.add(info_box)
         self._info_smoke = StateInfoOverlay.make_field(
             host=host,
             parent=info_box,
