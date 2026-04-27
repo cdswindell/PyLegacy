@@ -332,7 +332,7 @@ class ControllerView:
             highlightthickness=0,
         )
         rr_btn.images = (img, inverted_img)
-        rr_btn.tk.pack(anchor="center", pady=1)
+        rr_btn.tk.pack(anchor="center", pady=5)
         rr_box.hide()
 
         # Bell/horn buttons for freight sounds
