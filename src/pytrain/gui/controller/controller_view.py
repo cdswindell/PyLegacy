@@ -180,10 +180,7 @@ class ControllerView:
                         elif gauge_type == "water":
                             gauge.set_value(throttle_state.water_level_pct)
 
-                if throttle_state.is_legacy:
-                    self._info_brake[1].value = f"{brake:>5d}"
-
-                print(f"Throttle State: {throttle_state}")
+                self._update_info_box(throttle_state)
             else:
                 host.throttle.tk.config(from_=31, to=0)
                 host.momentum.tk.config(resolution=4, showvalue=False)
@@ -1181,3 +1178,10 @@ class ControllerView:
             s.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
 
         return box, tb, level, s
+
+    def _update_info_box(self, state):
+        if state.is_legacy and self._controller_info_box:
+            _, _, sl, _ = state.speeds
+            self._info_limit[1].value = f"{sl:>6d} if sl is not None else ''"
+            self._info_brake[1].value = f"{state.train_brake:>5d}"
+            self._info_momentum[1].value = state.momentum_text

@@ -764,10 +764,10 @@ class EngineState(ComponentState):
     def momentum_text(self) -> str:
         if self.momentum == 0:
             return "Low"
-        elif self.momentum == 3:
-            return "Medium"
         elif self.momentum == 7:
             return "High"
+        elif self.momentum is not None:
+            return f"Med {self.momentum}"
         return self._as_label(self.momentum)
 
     @property
