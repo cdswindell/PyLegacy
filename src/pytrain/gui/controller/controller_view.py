@@ -332,7 +332,7 @@ class ControllerView:
             highlightthickness=0,
         )
         # rr_btn.tk.pack_configure(pady=(10, 3))
-        rr_btn.tk.pack(expand=True)
+        rr_btn.tk.pack(expand=True, anchor="center")
         rr_btn.images = (img, inverted_img)
         rr_box.hide()
 
