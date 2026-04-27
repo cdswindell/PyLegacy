@@ -508,8 +508,20 @@ class ControllerView:
 
         for i in range(6):
             info_box.tk.grid_columnconfigure(i, weight=1, uniform="info")
-
         info_box.hide()
+
+    def _update_info_box(self, state):
+        if state.is_legacy and self._controller_info_box:
+            _, _, sl, _ = state.speeds
+            self._info_limit[1].value = f"{sl}" if sl is not None else ""
+            self._info_effort[1].value = f"{state.labor}" if state.labor is not None else ""
+            self._info_brake[1].value = f"{state.train_brake}"
+            self._info_momentum[1].value = state.momentum_text
+            self._info_smoke[1].value = state.smoke_text
+            if state.is_rpm:
+                self._info_rpm[1].value = f"{state.rpm}"
+            else:
+                self._info_rpm[1].value = "NA"
 
     def populate_keypad(self, keys: list, keypad_box: Box):
         host = self._host
@@ -1184,16 +1196,3 @@ class ControllerView:
             s.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
 
         return box, tb, level, s
-
-    def _update_info_box(self, state):
-        if state.is_legacy and self._controller_info_box:
-            _, _, sl, _ = state.speeds
-            self._info_limit[1].value = f"{sl:>5d}" if sl is not None else ""
-            self._info_effort[1].value = f"{state.labor:>5d}" if state.labor is not None else ""
-            self._info_brake[1].value = f"{state.train_brake:>5d}"
-            self._info_momentum[1].value = state.momentum_text
-            self._info_smoke[1].value = state.smoke_text
-            if state.is_rpm:
-                self._info_rpm[1].value = f"{state.rpm:>5d}"
-            else:
-                self._info_rpm[1].value = "NA"
