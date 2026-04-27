@@ -457,6 +457,8 @@ class ControllerView:
             max_cols=6,
         )
         self._info_brake[1].value = "0"
+        for i in range(3):
+            info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
 
     def populate_keypad(self, keys: list, keypad_box: Box):
         host = self._host
