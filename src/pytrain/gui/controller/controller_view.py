@@ -306,7 +306,7 @@ class ControllerView:
         host.app.tk.update_idletasks()
         rr_btn_width = max(1, int(round(target_sliders_width * 0.9)) - 6)
         # Keep RR Speeds visual size at the prior 85/15 tuning.
-        rr_btn_height = max(1, int(round(target_sliders_height * 0.15)) - 6)
+        rr_btn_height = max(1, int(round(target_sliders_height * 0.15 * 0.9)) - 6)
 
         # RR Speeds button
         host._rr_speed_box = rr_box = Box(
@@ -326,7 +326,7 @@ class ControllerView:
             width=rr_btn_width,
             height=rr_btn_height,
             padx=3,  # small padding
-            pady=3,
+            pady=20,
             borderwidth=2,  # light border
             relief="ridge",  # gives pressable button feel
             highlightthickness=0,
