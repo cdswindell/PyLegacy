@@ -827,7 +827,7 @@ class EngineState(ComponentState):
     @property
     def smoke_text(self) -> str:
         if isinstance(self.smoke_level, CommandDefEnum):
-            if self.smoke_level == TMCC2EngineCommandEnum.SMOKE_MEDIUM:
+            if self.smoke_level == TMCC2EffectsControl.SMOKE_MEDIUM:
                 return "Med"
             return self.smoke_level.name.replace("SMOKE_", "").title()
         return ""
