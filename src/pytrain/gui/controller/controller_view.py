@@ -333,6 +333,7 @@ class ControllerView:
             highlightthickness=0,
         )
         rr_btn.images = (img, inverted_img)
+        rr_box.hide()
 
         # Bell/horn buttons for freight sounds
         host._freight_sounds_bell_horn_box = pair_cell = Box(
@@ -766,8 +767,6 @@ class ControllerView:
         host = self._host
         if host.controller_box and not host.controller_box.visible:
             host.controller_box.show()
-        # if host.controller_info_box and not host.controller_info_box.visible:
-        #     host.controller_info_box.show()
 
     def hide(self) -> None:
         host = self._host
