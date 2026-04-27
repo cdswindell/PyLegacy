@@ -405,6 +405,8 @@ class ControllerView:
             border=0,
             align="bottom",
         )
+        info_box.tk.pack_configure(side="bottom", fill="both", expand=True)
+        info_box.tk.pack_propagate(False)
         self._populate_info_box(info_box)
 
         # --- HIDE IT AGAIN after sizing is complete ---
