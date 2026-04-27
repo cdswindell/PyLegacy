@@ -331,8 +331,7 @@ class ControllerView:
             relief="ridge",  # gives pressable button feel
             highlightthickness=0,
         )
-        # rr_btn.tk.pack_configure(pady=(10, 3))
-        rr_btn.tk.pack(expand=True, anchor="center")
+        rr_btn.tk.pack(anchor="nsew", pady=10)
         rr_btn.images = (img, inverted_img)
         rr_box.hide()
 
