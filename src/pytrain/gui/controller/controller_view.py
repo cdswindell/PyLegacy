@@ -161,7 +161,7 @@ class ControllerView:
             brake = state.train_brake if state.train_brake is not None else 0
             host.brake_level.value = f"{brake:02d}"
             if update_info_box:
-                self._info_brake[1] = f"{brake:>3d}"
+                self._info_brake[1].value = f"{brake:>3d}"
             if host.brake.tk.focus_displayof() != host.brake.tk:
                 host.brake.value = brake
 
