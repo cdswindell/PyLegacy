@@ -187,12 +187,16 @@ class ControllerView:
         # Keep assignments to host.* so the rest of EngineGui keeps working.
         # Example:
         host.controller_box = controller_box = Box(app, border=2, align="top", visible=False)
+        controller_box.tk.pack_configure(fill="both", expand=True)
         host.ops_cells.add(controller_box)
+
+        # Keep keypad/sliders in a dedicated top row so the info row can span full width below.
+        controls_top_row = Box(controller_box, border=0, align="top")
 
         # different engine types have different features
         # define the common keys first
         host.controller_keypad_box = keypad_keys = Box(
-            controller_box,
+            controls_top_row,
             layout="grid",
             border=0,
             align="left",
@@ -209,7 +213,7 @@ class ControllerView:
         host.controller_box.show()
 
         sliders = Box(
-            controller_box,
+            controls_top_row,
             border=1,
             align="right",
             layout="grid",
@@ -736,6 +740,8 @@ class ControllerView:
         host = self._host
         if host.controller_box and not host.controller_box.visible:
             host.controller_box.show()
+        if host.controller_info_box and not host.controller_info_box.visible:
+            host.controller_info_box.show()
 
     def hide(self) -> None:
         host = self._host
