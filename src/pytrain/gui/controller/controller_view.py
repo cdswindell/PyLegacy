@@ -304,7 +304,7 @@ class ControllerView:
 
         # compute rr speed button size
         host.app.tk.update_idletasks()
-        rr_btn_width = target_sliders_width
+        rr_btn_width = max(1, int(round(target_sliders_width * 0.9)) - 6)
         # Keep RR Speeds visual size at the prior 85/15 tuning.
         rr_btn_height = max(1, int(round(target_sliders_height * 0.15)) - 6)
 
