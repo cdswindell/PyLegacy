@@ -127,9 +127,9 @@ class ControllerView:
                         host._rr_speed_box.show()
 
                     if state.is_legacy:
-                        host.momentum.tk.config(resolution=1, showvalue=True)
+                        host.momentum.tk.config(resolution=1, showvalue=True, from_=0, to=7)
                     else:
-                        host.momentum.tk.config(resolution=4, showvalue=False)
+                        host.momentum.tk.config(resolution=4, showvalue=False, from_=0, to=7)
 
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
