@@ -104,16 +104,16 @@ class ControllerView:
                     elif throttle_state.is_cab1:
                         host.throttle.tk.config(from_=3, to=-3)
                         host.throttle.value = 0
-                        if host._rr_speed_btn:
-                            host._rr_speed_btn.hide()
+                        if host._rr_speed_box:
+                            host._rr_speed_box.hide()
                     else:
                         host.throttle.tk.config(from_=31, to=0)
 
-                    if host._rr_speed_btn:
+                    if host._rr_speed_box:
                         if throttle_state.is_cab1:
-                            host._rr_speed_btn.hide()
+                            host._rr_speed_box.hide()
                         else:
-                            host._rr_speed_btn.show()
+                            host._rr_speed_box.show()
 
                 # don't fight the user while dragging
                 if host.throttle.tk.focus_displayof() != host.throttle.tk:
@@ -212,7 +212,9 @@ class ControllerView:
         self.regen_engine_keys_map()
 
         # used to make sure brake and throttle get focus when needed
+        host.controller_box.show()
 
+        # Create box for throttle/brake/horn/momentum sliders
         sliders = Box(
             controls_top_row,
             border=1,
@@ -304,7 +306,6 @@ class ControllerView:
 
         # compute rr speed button size
         host.app.tk.update_idletasks()
-        w = max(1, sliders.tk.winfo_width())
         # Keep RR Speeds visual size at the prior 85/15 tuning.
         rr_btn_height = max(1, int(round(target_sliders_height * 0.15)) - 6)
 
@@ -318,21 +319,34 @@ class ControllerView:
 
         # RR Speeds button
         host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
-        rr_btn.tk.place(relx=0.5, rely=0.5, relwidth=1.0, height=rr_btn_height, anchor="center")
+        rr_btn.tk.pack(fill="x", expand=False)
 
-        img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(w, rr_btn_height))
-        rr_btn.tk.config(
-            image=img,
-            compound="center",
-            width=w,
-            height=rr_btn_height,
-            padx=3,  # small padding
-            pady=3,
-            borderwidth=2,  # light border
-            relief="ridge",  # gives pressable button feel
-            highlightthickness=0,
-        )
-        rr_btn.images = (img, inverted_img)
+        def _refresh_rr_speed_button(_evt=None):
+            if not rr_box.tk.winfo_exists() or not rr_btn.tk.winfo_exists():
+                return
+            box_w = max(1, rr_box.tk.winfo_width(), rr_box.tk.winfo_reqwidth())
+            box_h = max(1, rr_box.tk.winfo_height(), rr_box.tk.winfo_reqheight())
+            btn_h = max(1, min(rr_btn_height, box_h))
+            pad_y = max(0, int((box_h - btn_h) / 2))
+            rr_btn.tk.pack_configure(fill="x", expand=False, pady=pad_y)
+
+            img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(box_w, btn_h))
+            rr_btn.tk.config(
+                image=img,
+                compound="center",
+                width=box_w,
+                height=btn_h,
+                padx=3,  # small padding
+                pady=3,
+                borderwidth=2,  # light border
+                relief="ridge",  # gives pressable button feel
+                highlightthickness=0,
+            )
+            rr_btn.images = (img, inverted_img)
+
+        rr_box.tk.bind("<Configure>", _refresh_rr_speed_button, add="+")
+        rr_box.tk.bind("<Map>", _refresh_rr_speed_button, add="+")
+        host.app.tk.after_idle(_refresh_rr_speed_button)
 
         # Bell/horn buttons for freight sounds
         host._freight_sounds_bell_horn_box = pair_cell = Box(
