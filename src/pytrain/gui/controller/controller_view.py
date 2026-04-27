@@ -766,8 +766,8 @@ class ControllerView:
         host = self._host
         if host.controller_box and not host.controller_box.visible:
             host.controller_box.show()
-        if host.controller_info_box and not host.controller_info_box.visible:
-            host.controller_info_box.show()
+        # if host.controller_info_box and not host.controller_info_box.visible:
+        #     host.controller_info_box.show()
 
     def hide(self) -> None:
         host = self._host
