@@ -29,7 +29,7 @@ ValueT = Union[int, str]
 @dataclass(frozen=False)
 class SpinnerStyle:
     button_width: int = 2
-    value_width: int = 2
+    value_width: int = 3
     button_padx: int = 2
     button_pady: int = 0
     button_text_size: int = 28
