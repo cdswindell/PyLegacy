@@ -27,7 +27,11 @@ class SpeedLimitPanel(OverlayPanel):
     def build(self, body: Box):
         host = self._gui
 
-        # cab light
+        # controls
+        sp = Box(body, border=0)
+        sp.tk.config(height=host.button_size)
+        host.cache(sp)
+
         parent = Box(body, layout="grid", border=1)
         aw = host.width
         parent.tk.config(width=aw)
