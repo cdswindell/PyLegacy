@@ -30,7 +30,7 @@ class SpeedLimitPanel(OverlayPanel):
 
         # controls
         sp = Box(body, border=0)
-        sp.tk.config(height=host.button_size // 5)
+        sp.tk.config(height=host.button_size // 4)
         host.cache(sp)
 
         parent = Box(body, layout="grid", border=0)
@@ -73,6 +73,10 @@ class SpeedLimitPanel(OverlayPanel):
 
         for i in range(3):
             parent.tk.grid_columnconfigure(i, weight=1, uniform="speed_limit")
+
+        sp = Box(body, border=0)
+        sp.tk.config(height=host.button_size // 4)
+        host.cache(sp)
 
     def configure(self, state: EngineState) -> None:
         sp, _, sl, _ = state.speeds
