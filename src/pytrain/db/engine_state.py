@@ -545,6 +545,8 @@ class EngineState(ComponentState):
 
         CommBuffer.cancel_delayed_requests(self)
         self.update_target_speed(self.speed)
+        self.comp_data.rpm_tmcc = 0
+        self.comp_data.labor_tmcc = 12
         self._ramping = False
 
     def update_target_speed(self, target_speed: int = None):
