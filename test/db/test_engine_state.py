@@ -75,12 +75,16 @@ class TestEngineStateBehavior:
         e._is_legacy = False  # type: ignore[attr-defined]
         e.comp_data._max_speed = 100  # type: ignore[attr-defined]
         e.comp_data._speed_limit = 100  # type: ignore[attr-defined]
-        assert e.speed_max == 31
+        assert e.speed_max == 16
 
         # Both limits present -> pick min; still capped for TMCC
-        e.comp_data._max_speed = 20  # type: ignore[attr-defined]
-        e.comp_data._speed_limit = 25  # type: ignore[attr-defined]
-        assert e.speed_max == 20
+        e.comp_data._max_speed = 160  # type: ignore[attr-defined]
+        e.comp_data._speed_limit = 175  # type: ignore[attr-defined]
+        assert e.speed_max == 25
+
+        # set max_speed to not set; should default to speed limit
+        e.comp_data._max_speed = 255
+        assert e.speed_max == 27
 
     def test_change_direction_toggle_tmcc1_and_tmcc2(self):
         e = self._new_engine()

@@ -698,11 +698,11 @@ class EngineState(ComponentState):
 
     @property
     def speed_limit(self) -> int:
-        return self.comp_data.speed_limit
+        return decode_tmcc_speed(self.comp_data.speed_limit, self.comp_data.is_legacy)
 
     @property
     def max_speed(self) -> int:
-        return self.comp_data.max_speed
+        return decode_tmcc_speed(self.comp_data.max_speed, self.comp_data.is_legacy)
 
     @property
     def speed_max(self) -> int | None:

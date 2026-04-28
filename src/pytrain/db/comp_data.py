@@ -45,8 +45,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_state import EngineState
 
 
-def decode_tmcc_speed(speed: int, is_legacy: bool) -> int:
-    if not is_legacy:
+def decode_tmcc_speed(speed: int, is_legacy: bool) -> int | None:
+    if speed is not None and speed != 255 and not is_legacy:
         speed = min(max(int(round(speed * 31 / 199)), 0), 31)
     return speed
 
