@@ -56,7 +56,9 @@ class StateInfoOverlay:
         scope: CommandScope = None,
         is_list: bool = False,
         center: bool = False,
+        text_size: int = None,
     ) -> tuple[TitleBox, Text]:
+        text_size = text_size or host.s_18
         # grid can be [col, row] or [col, row, colspan, rowspan]
         aw = host.width
         if len(grid) >= 4:
@@ -97,7 +99,7 @@ class StateInfoOverlay:
                 grid=[0, 0],
                 width="fill",
             )
-            tf.text_size = host.s_18
+            tf.text_size = text_size
             tk_listbox = tf.children[0].tk
             tk_listbox.config(
                 bd=0,
@@ -108,7 +110,7 @@ class StateInfoOverlay:
             )
         else:
             tf = Text(tb, grid=[0, 0], width="fill", height=1)
-            tf.text_size = host.s_18
+            tf.text_size = text_size
             tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)
             if center:
                 tf.tk.grid_configure(sticky="")  # centered in cell

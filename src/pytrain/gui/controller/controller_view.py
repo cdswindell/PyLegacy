@@ -219,7 +219,7 @@ class ControllerView:
         rr_box.tk.grid_configure(sticky="nsew")
 
         # RR Speeds button
-        host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", hold_threshold=2, command=host.on_rr_speed)
+        host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", hold_threshold=1.25, command=host.on_rr_speed)
         img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(rr_btn_width, rr_btn_height))
         rr_btn.tk.config(
             image=img,

@@ -8,7 +8,7 @@
 #
 from typing import TYPE_CHECKING
 
-from guizero import Box
+from guizero import Box, Text
 
 from .overlay_panel import OverlayPanel
 from .state_info_overlay import StateInfoOverlay
@@ -20,7 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SpeedLimitPanel(OverlayPanel):
-    def __init__(self, host: "EngineGui", title: str = "Speed Limit") -> None:
+    def __init__(self, host: "EngineGui", title: str = "Set/Clear Speed Limit") -> None:
         super().__init__(host, title)
         self._cur_speed_limit = None
         self._clear_btn = None
@@ -34,16 +34,21 @@ class SpeedLimitPanel(OverlayPanel):
         parent.tk.config(width=aw)
 
         # first row, display current speed limit and clear button
+        lbl = Text(parent, text="Current Limit:", grid=[0, 0], align="right")
+        lbl.text_size = host.s_20
+        host.cache(lbl)
+
         _, self._cur_speed_limit = StateInfoOverlay.make_field(
             host=host,
             parent=parent,
-            title="Current",
-            grid=[0, 0],
-            max_cols=2,
+            title=" ",
+            grid=[1, 0],
+            max_cols=3,
             center=True,
+            text_size=host.s_20,
         )
 
-        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[1, 0], align="bottom")
+        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[2, 0], align="bottom")
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
@@ -56,10 +61,16 @@ class SpeedLimitPanel(OverlayPanel):
             background="#f7f7f7",
         )
         btn.tk.grid_configure(padx=20, pady=20)
-        for i in range(2):
+
+        # second row, set the new speed limit
+        lbl = Text(parent, text="New Limit:", grid=[0, 1], align="right")
+        lbl.text_size = host.s_20
+        host.cache(lbl)
+
+        for i in range(3):
             parent.tk.grid_columnconfigure(i, weight=1, uniform="speed_limit")
 
     def configure(self, state: EngineState) -> None:
         _, _, sl, _ = state.speeds
-        self._cur_speed_limit.value = f"{sl}" if sl is not None else ""
+        self._cur_speed_limit.value = f"{sl}" if sl is not None else "Not Set"
         self._clear_btn.enabled = sl and sl > 0
