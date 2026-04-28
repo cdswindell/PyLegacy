@@ -13,6 +13,7 @@ from ..db.comp_data import (
     CompData,
     CompDataHandler,
     CompDataMixin,
+    UpdatePkg,
 )
 from ..db.component_state import ComponentState
 from ..db.components import ConsistComponent
@@ -145,13 +146,7 @@ class BaseReq(PdiReq, CompDataMixin):
 
     # noinspection PyUnreachableCode
     @classmethod
-    def update_eng(
-        cls,
-        cmd: CommandDefEnum | CommandReq,
-        address: int = None,
-        data: int | None = None,
-        scope: CommandScope = CommandScope.ENGINE,
-    ) -> List[BaseReq] | None:
+    def update_eng(cls, cmd: CommandDefEnum | CommandReq) -> List[BaseReq] | None:
         #
         # Given a TMCC command, determine how it indirectly impacts engine state and
         # return a list of commands to send to the Base 3 to set that state
@@ -159,7 +154,6 @@ class BaseReq(PdiReq, CompDataMixin):
         from ..db.component_state_store import ComponentStateStore
 
         pkgs = []
-
         if isinstance(cmd, CommandReq):
             state = cmd.command
             address = cmd.address
@@ -170,6 +164,10 @@ class BaseReq(PdiReq, CompDataMixin):
                 return []
             # otherwise, get state
             cur_state = ComponentStateStore.get_state(scope, address, False)
+            if cur_state is None:
+                # we need to initialize a new state record
+                cur_state = ComponentStateStore.get_state(scope, address)
+                cur_state.initialize(scope, address)
 
             if isinstance(cur_state, EngineState) and not cur_state.is_cab1:
                 # special case numeric commands
@@ -203,23 +201,60 @@ class BaseReq(PdiReq, CompDataMixin):
                                 )
                             )
                         )
-        elif isinstance(cmd, CommandDefEnum):
-            state = cmd
-            cur_state = ComponentStateStore.build().get_state(scope, address, False)
-            log.warning("********************** update_eng called with enum not req ***********************")
+            # harvest state update pkgs based on command
+            cmds = []
+            pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
+            if pkgs:
+                cmds = BaseReq.updates_to_reqs(cur_state, pkgs)
+            elif state.name in ENGINE_WRITE_MAP and cmd.address < 99:
+                log.warning(f"********* Using old-style {state.name} for updates from {cmd}")
+                bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
+                value1 = value2 = 0
+                if bit_pos <= 15:
+                    value1 = 1 << bit_pos
+                else:
+                    value2 = 1 << (bit_pos - 16)
+                # build data packet
+                if scaler:
+                    data = scaler(data)
+                byte_str = bytes()
+                pdi_cmd = PdiCommand.BASE_ENGINE if scope == CommandScope.ENGINE else PdiCommand.BASE_TRAIN
+                byte_str += pdi_cmd.to_bytes(1, byteorder="big")
+                byte_str += address.to_bytes(1, byteorder="big")
+                byte_str += (0xC2).to_bytes(1, byteorder="big")
+                byte_str += (0x00).to_bytes(2, byteorder="big")  # result byte + spare
+                byte_str += value1.to_bytes(2, byteorder="little")
+                byte_str += value2.to_bytes(2, byteorder="little")
+                # fill the buffer with zeros up to offset point
+                byte_str += (0x00).to_bytes(1, byteorder="big") * (offset - len(byte_str))
+                # now add data
+                byte_str += data.to_bytes(1, byteorder="big")
+                # now add SOP, EOP, and Checksum
+                byte_str, checksum = cls._calculate_checksum(byte_str)
+                byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
+                byte_str += checksum
+                byte_str += PDI_EOP.to_bytes(1, byteorder="big")
+                cmds.append(cls(byte_str))
+                log.warning(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
+            return cmds
         else:
             raise ValueError(f"Invalid option: {cmd}")
 
-        # harvest state update pkgs based on command
+    @classmethod
+    def updates_to_reqs(cls, state: EngineState, packages: List[UpdatePkg]) -> List[BaseReq] | None:
         cmds = []
-        pkgs = pkgs if pkgs else CompData.request_to_updates(cmd)
-        if pkgs:
+        if packages:
             from .d4_req import D4Req
 
-            for pkg in pkgs:
-                if 1 <= cmd.address <= 99:
+            assert state
+            tmcc_id = state.tmcc_id
+            scope = state.scope
+            for pkg in packages:
+                if 1 <= tmcc_id <= 99:
                     req = BaseReq(
-                        cmd.address,
+                        tmcc_id,
                         pdi_command=PdiCommand.BASE_MEMORY,
                         flags=0xC2,
                         scope=scope,
@@ -229,11 +264,11 @@ class BaseReq(PdiReq, CompDataMixin):
                     )
                     cmds.append(req)
                 else:
-                    assert cur_state.record_no != 0xFFFF
-                    pdi_cmd = PdiCommand.D4_ENGINE if cmd.scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
+                    assert state.record_no != 0xFFFF
+                    pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
                     cmds.append(
                         D4Req(
-                            cur_state.record_no,
+                            state.record_no,
                             pdi_cmd,
                             D4Action.UPDATE,
                             start=pkg.offset,
@@ -242,43 +277,9 @@ class BaseReq(PdiReq, CompDataMixin):
                         )
                     )
             if cmds:
-                # Append command to request current engine/train state
-                cur_state = ComponentStateStore.get_state(scope, address, False)
-                if cur_state:
+                if state:
                     # adding state to the command que will trigger refresh request
-                    cmds.append(cur_state)
-        elif state.name in ENGINE_WRITE_MAP and cmd.address < 99:
-            log.warning(f"********* Using old-style {state.name} for updates from {cmd}")
-            bit_pos, offset, scaler = ENGINE_WRITE_MAP[state.name]
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug(f"State: {state} {data} {bit_pos} {offset} {scaler(data) if scaler else data}")
-            value1 = value2 = 0
-            if bit_pos <= 15:
-                value1 = 1 << bit_pos
-            else:
-                value2 = 1 << (bit_pos - 16)
-            # build data packet
-            if scaler:
-                data = scaler(data)
-            byte_str = bytes()
-            pdi_cmd = PdiCommand.BASE_ENGINE if scope == CommandScope.ENGINE else PdiCommand.BASE_TRAIN
-            byte_str += pdi_cmd.to_bytes(1, byteorder="big")
-            byte_str += address.to_bytes(1, byteorder="big")
-            byte_str += (0xC2).to_bytes(1, byteorder="big")
-            byte_str += (0x00).to_bytes(2, byteorder="big")  # result byte + spare
-            byte_str += value1.to_bytes(2, byteorder="little")
-            byte_str += value2.to_bytes(2, byteorder="little")
-            # fill the buffer with zeros up to offset point
-            byte_str += (0x00).to_bytes(1, byteorder="big") * (offset - len(byte_str))
-            # now add data
-            byte_str += data.to_bytes(1, byteorder="big")
-            # now add SOP, EOP, and Checksum
-            byte_str, checksum = cls._calculate_checksum(byte_str)
-            byte_str = PDI_SOP.to_bytes(1, byteorder="big") + byte_str
-            byte_str += checksum
-            byte_str += PDI_EOP.to_bytes(1, byteorder="big")
-            cmds.append(cls(byte_str))
-            log.warning(f"********* Using old-style {pdi_cmd.name} for updates from {cmd}")
+                    cmds.append(state)
         return cmds
 
     @classmethod

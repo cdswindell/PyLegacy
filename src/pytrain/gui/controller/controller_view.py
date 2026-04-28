@@ -76,6 +76,10 @@ class ControllerView:
         finally:
             self._updating_from_state = False
 
+    @property
+    def throttle_state(self) -> EngineState | None:
+        return self._last_throttle_state
+
     # -----------------------------
     # Public API used by EngineGui
     # -----------------------------

@@ -51,10 +51,12 @@ def decode_tmcc_speed(speed: int, is_legacy: bool) -> int | None:
     return speed
 
 
-def encode_tmcc_speed(speed: int, is_legacy: bool) -> int:
-    if not is_legacy:
+def encode_tmcc_speed(speed: int | None, is_legacy: bool) -> int:
+    if speed is None or speed >= 255:
+        speed = 255
+    elif not is_legacy:
         speed = min(max(int(round(speed * 199 / 31)), 0), 199)
-    return speed
+    return max(min(speed, 255), 0)
 
 
 def encode_target_speed(speed: int, is_legacy: bool, state: "EngineState") -> int | None:
@@ -62,9 +64,7 @@ def encode_target_speed(speed: int, is_legacy: bool, state: "EngineState") -> in
 
     if isinstance(state, EngineState) and state.is_ramping:
         return None
-    if not is_legacy:
-        speed = min(max(int(round(speed * 199 / 31)), 0), 199)
-    return speed
+    return encode_tmcc_speed(speed, is_legacy)
 
 
 def default_from_func(t: bytes) -> int:
@@ -244,6 +244,8 @@ class CompDataMixin(Generic[C]):
         self._comp_data._momentum = 0
         self._comp_data._rpm_labor = 0
         self._comp_data._train_brake = 0
+        self._comp_data._speed = 0
+        self._comp_data._target_speed = 0
 
 
 #
@@ -429,6 +431,7 @@ REQUEST_TO_UPDATES_MAP = {
     "SMOKE_MEDIUM": [("smoke", lambda t: 2)],
     "SMOKE_OFF": [("smoke", lambda t: 0)],
     "SMOKE_ON": [("smoke", lambda t: 1)],
+    "SPEED_LIMIT": [("speed_limit",)],
     "STOP_IMMEDIATE": [
         ("speed", lambda x: 0),
         ("target_speed", lambda x: 0),
@@ -556,6 +559,26 @@ class CompData(ABC, Generic[R]):
             if isinstance(update, tuple) and len(update) >= 1:
                 transform = update[1] if len(update) >= 2 else None
                 pkg = cls._create_update_pkg(update[0], cmd.is_legacy, req.scope, req.address, req.data, transform)
+                if pkg:
+                    update_pkgs.append(pkg)
+        return update_pkgs
+
+    @classmethod
+    def field_to_updates(
+        cls,
+        field: str,
+        tmcc_id: int,
+        scope: CommandScope = CommandScope.ENGINE,
+        data: int | None = None,
+        legacy: bool = True,
+    ) -> list[UpdatePkg] | None:
+        update_pkgs: list[UpdatePkg] = []
+        # get a copy of the updates, as we don't want to modify the original dict
+        updates = REQUEST_TO_UPDATES_MAP.get(field.strip().upper(), []).copy()
+        for update in updates:
+            if isinstance(update, tuple) and len(update) >= 1:
+                transform = update[1] if len(update) >= 2 else None
+                pkg = cls._create_update_pkg(update[0], legacy, scope, tmcc_id, data, transform)
                 if pkg:
                     update_pkgs.append(pkg)
         return update_pkgs

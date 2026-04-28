@@ -112,7 +112,6 @@ class SpeedLimitPanel(OverlayPanel):
         self._cur_speed_limit.value = f"{sl}" if sl is not None else "Not Set"
         self._clear_btn.enabled = sl and sl > 0
         self._new_speed_limit.value = sp or ms
-        print(f"SpeedLimitPanel.configure: {sl} {ms} {sp}")
 
         if state.is_legacy:
             self._new_speed_limit.configure(min_value=1, max_value=199)
@@ -120,7 +119,9 @@ class SpeedLimitPanel(OverlayPanel):
             self._new_speed_limit.configure(min_value=1, max_value=31)
 
     def _on_clear_speed_limit(self) -> None:
+        self._gui.clear_speed_limit()
         self._close()
 
     def _on_set_speed_limit(self) -> None:
+        self._gui.set_speed_limit(int(self._new_speed_limit.value))
         self._close()

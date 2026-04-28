@@ -86,6 +86,18 @@ MOMENTUM_SET = {
 SPEED_SET = {
     TMCC1EngineCommandEnum.ABSOLUTE_SPEED,
     TMCC2EngineCommandEnum.ABSOLUTE_SPEED,
+    TMCC1EngineCommandEnum.SPEED_HIGHBALL,
+    TMCC2EngineCommandEnum.SPEED_HIGHBALL,
+    TMCC1EngineCommandEnum.SPEED_LIMITED,
+    TMCC2EngineCommandEnum.SPEED_LIMITED,
+    TMCC1EngineCommandEnum.SPEED_MEDIUM,
+    TMCC2EngineCommandEnum.SPEED_MEDIUM,
+    TMCC1EngineCommandEnum.SPEED_NORMAL,
+    TMCC2EngineCommandEnum.SPEED_NORMAL,
+    TMCC1EngineCommandEnum.SPEED_RESTRICTED,
+    TMCC2EngineCommandEnum.SPEED_RESTRICTED,
+    TMCC1EngineCommandEnum.SPEED_SLOW,
+    TMCC2EngineCommandEnum.SPEED_SLOW,
     (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, 0),
     (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 0),
 }
@@ -439,7 +451,16 @@ class EngineState(ComponentState):
 
                 # handle speed
                 if command.command in SPEED_SET:
-                    self.comp_data.speed = encode_tmcc_speed(command.data, self.is_legacy)
+                    if command.command.is_alias:
+                        # noinspection PyTypeChecker
+                        if command.command.alias and len(command.command.alias) > 1:
+                            # noinspection PyUnresolvedReferences
+                            data = int(command.command.alias[1])
+                        else:
+                            raise ValueError(f"Invalid speed alias: {command.command.alias}")
+                    else:
+                        data = command.data
+                    self.comp_data.speed = encode_tmcc_speed(data, self.is_legacy)
                     self.update_target_speed()
                 elif self.is_synchronized() and cmd_effects & SPEED_SET:
                     # ignore impact of direction command while synchronizing state

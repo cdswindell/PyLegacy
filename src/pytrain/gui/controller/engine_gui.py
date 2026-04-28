@@ -767,6 +767,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._is_train_linked_cars = False
         self._request_options_rebuild()
 
+    def clear_speed_limit(self) -> None:
+        from src.pytrain.db.comp_data import CompData
+
+        if self.controller_view and self.controller_view.throttle_state:
+            state = self.controller_view.throttle_state
+            pkgs = CompData.field_to_updates("SPEED_LIMIT", state.tmcc_id, state.scope, 255, state.is_legacy)
+            for pkg in pkgs:
+                print(pkg)
+
+    def set_speed_limit(self, speed_limit: int) -> None:
+        pass
+
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
         if state is None:
