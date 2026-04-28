@@ -1212,5 +1212,5 @@ class ControllerView:
             if self._speed_limit_panel is None:
                 self._speed_limit_panel = SpeedLimitPanel(host)
         overlay = self._speed_limit_panel.overlay
-        overlay.configure(self._last_throttle_state)
+        self._speed_limit_panel.configure(self._last_throttle_state)
         host.show_popup(overlay, hide_image_box=False)
