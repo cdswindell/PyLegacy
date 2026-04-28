@@ -55,7 +55,10 @@ class SpeedLimitPanel(OverlayPanel):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        btn.tk.pack_configure(padx=20, pady=20)
+        btn.tk.grid_configure(padx=20, pady=20)
+
+        for i in range(2):
+            parent.tk.grid_columnconfigure(i, weight=1, uniform="speed_limit")
 
     def configure(self, state: EngineState):
         self._cur_speed_limit = state.speed_limit
