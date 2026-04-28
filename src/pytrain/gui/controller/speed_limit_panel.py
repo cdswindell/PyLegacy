@@ -108,10 +108,11 @@ class SpeedLimitPanel(OverlayPanel):
         host.cache(sp)
 
     def configure(self, state: EngineState) -> None:
-        sp, _, sl, _ = state.speeds
+        sp, _, sl, ms = state.speeds
         self._cur_speed_limit.value = f"{sl}" if sl is not None else "Not Set"
         self._clear_btn.enabled = sl and sl > 0
-        self._new_speed_limit.value = sp
+        self._new_speed_limit.value = sp or ms
+        print(f"SpeedLimitPanel.configure: {sl} {ms} {sp}")
 
         if state.is_legacy:
             self._new_speed_limit.configure(min_value=1, max_value=199)
