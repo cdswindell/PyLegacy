@@ -66,7 +66,7 @@ class HoldButton(PushButton):
         show_hold_progress: bool = False,
         progress_update_ms: int = 40,
         progress_fill_color: str = "darkgrey",
-        critical_fill_color: str = "red",
+        critical_fill_color: str = "darkgrey",
         progress_empty_color: str | None = None,  # None => uses current button bg
         progress_keep_full_until_release: bool = True,
         cancel_on_leave: bool = False,
@@ -242,6 +242,14 @@ class HoldButton(PushButton):
                 self._progress_canvas.itemconfig(self._progress_rect, fill=self._progress_fill_color)
             except TclError:
                 pass
+
+    @property
+    def critical_fill_color(self) -> str:
+        return self._critical_fill_color
+
+    @critical_fill_color.setter
+    def critical_fill_color(self, value: str) -> None:
+        self._critical_fill_color = str(value)
 
     @property
     def progress_empty_color(self) -> str | None:
@@ -616,7 +624,7 @@ class HoldButton(PushButton):
         fill_w = int(w * max(0.0, min(1.0, frac)))
         fill_color = self._progress_fill_color
         if self._critical_fill_color and self._critical_fill_color != self._progress_fill_color:
-            fill_color = self._progress_fill_color if frac < 0.80 else self._critical_fill_color
+            fill_color = self._progress_fill_color if frac < 0.70 else self._critical_fill_color
         try:
             if fill_color != self._progress_fill_color:
                 self._progress_canvas.itemconfig(self._progress_rect, fill=fill_color)
