@@ -48,7 +48,7 @@ class SpeedLimitPanel(OverlayPanel):
         csl.tk.grid_configure(sticky="")  # centered in cell
         csl.tk.config(justify="center", anchor="center")
 
-        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[2, 0], align="bottom", width=btn_w)
+        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[2, 0], align=None, width=btn_w)
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
@@ -60,7 +60,7 @@ class SpeedLimitPanel(OverlayPanel):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        btn.tk.grid_configure(padx=20, pady=20)
+        btn.tk.grid_configure(padx=20, pady=20, sticky="")
 
         # second row, set the new speed limit
         lbl = Text(parent, text="New Limit:", grid=[0, 1], align="right")
@@ -68,11 +68,11 @@ class SpeedLimitPanel(OverlayPanel):
         host.cache(lbl)
 
         self._new_speed_limit = nsl = Spinner(
-            parent, grid=[1, 1], text_size=host.s_20, repeat=True, min_value=1, max_value=199
+            parent, grid=[1, 1], align=None, text_size=host.s_20, repeat=True, min_value=1, max_value=199
         )
         nsl.tk.grid_configure(sticky="")  # centered in cell
 
-        self._set_btn = btn = HoldButton(parent, text="Set", grid=[2, 1], align="bottom", width=btn_w)
+        self._set_btn = btn = HoldButton(parent, text="Set", grid=[2, 1], align=None, width=btn_w)
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
@@ -84,7 +84,7 @@ class SpeedLimitPanel(OverlayPanel):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        btn.tk.grid_configure(padx=20, pady=20)
+        btn.tk.grid_configure(padx=20, pady=20, sticky="")
 
         for i in range(3):
             parent.tk.grid_columnconfigure(i, weight=1, uniform="speed_limit")
