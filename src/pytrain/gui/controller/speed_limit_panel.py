@@ -68,7 +68,6 @@ class SpeedLimitPanel(OverlayPanel):
 
         self._new_speed_limit = nsl = Spinner(parent, grid=[1, 1], text_size=host.s_20, min_value=1, max_value=199)
         nsl.tk.grid_configure(sticky="")  # centered in cell
-        nsl.tk.config(anchor="center")
 
         for i in range(3):
             parent.tk.grid_columnconfigure(i, weight=1, uniform="speed_limit")
