@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
-from threading import Thread
+from threading import Condition, RLock, Thread
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
@@ -20,6 +20,7 @@ from guizero import Box, Slider, Text, TitleBox
 from guizero.base import Widget
 
 from .engine_gui_conf import BELL_KEY, ENGINE_OPS_LAYOUT, MOMENTUM, MOM_TB, TRAIN_BRAKE
+from .speed_limit_panel import SpeedLimitPanel
 from .state_info_overlay import StateInfoOverlay
 from ..components.analog_gauge import AnalogGaugeWidget
 from ..components.hold_button import HoldButton
@@ -37,6 +38,7 @@ CAB_1_THROTTLE_REPEAT_MS = 200
 
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
+        self._cv = Condition(RLock())
         self._host = host
         self._focus_widget = None
         self._acela_btns = set()
@@ -64,6 +66,7 @@ class ControllerView:
         self._controller_info_box: Box | None = None
         self._info_smoke = self._info_momentum = self._info_brake = None
         self._info_effort = self._info_rpm = self._info_limit = None
+        self._speed_limit_panel = None
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
@@ -76,125 +79,6 @@ class ControllerView:
     # -----------------------------
     # Public API used by EngineGui
     # -----------------------------
-
-    # noinspection PyProtectedMember
-    def update(self, state: EngineState | None, throttle_state: EngineState | None):
-        """
-        Paint throttle/brake/momentum + direction buttons from the given state.
-
-        `state` is the active engine state (for brake/momentum/direction).
-        `throttle_state` is whichever state is allowed to control throttle (engine vs. train vs. None).
-        """
-        if not isinstance(state, EngineState):
-            return
-
-        host = self._host
-        with self.__updating():
-            # --- Throttle / Speed ---
-            if throttle_state:
-                if throttle_state != self._last_throttle_state:
-                    if not host.speed.enabled:
-                        host.speed.enable()
-                    if not host.throttle.enabled:
-                        host.throttle.enable()
-                    if host._rr_speed_btn and not host._rr_speed_btn.enabled:
-                        host._rr_speed_btn.enable()
-
-                    if throttle_state.is_legacy:
-                        host.throttle.tk.config(from_=195, to=0)
-                        if self._controller_info_box:
-                            self._controller_info_box.show()
-                            if throttle_state.is_rpm:
-                                self._info_rpm[0].enable()
-                                self._info_rpm[0].tk.configure(fg="black")
-                            else:
-                                self._info_rpm[0].disable()
-                                self._info_rpm[0].tk.configure(fg="grey")
-                                self._info_rpm[1].value = ""
-                    elif throttle_state.is_cab1:
-                        host.throttle.tk.config(from_=3, to=-3)
-                        host.throttle.value = 0
-                        if self._controller_info_box:
-                            self._controller_info_box.hide()
-                        if host._rr_speed_box:
-                            host._rr_speed_box.hide()
-                    else:
-                        host.throttle.tk.config(from_=31, to=0)
-                        if self._controller_info_box:
-                            self._controller_info_box.hide()
-
-                    if host._rr_speed_box and not host._rr_speed_box.visible:
-                        host._rr_speed_box.show()
-
-                    if state.is_legacy:
-                        host.momentum.tk.config(resolution=1, showvalue=True, from_=0, to=7)
-                    else:
-                        host.momentum.tk.config(resolution=4, showvalue=False, from_=0, to=7)
-
-                # don't fight the user while dragging
-                if host.throttle.tk.focus_displayof() != host.throttle.tk:
-                    host.throttle.value = throttle_state.target_speed
-
-                if throttle_state.is_cab1:
-                    self._set_cab1_speed()
-                    if host._rr_speed_btn:
-                        host._rr_speed_btn.disable()
-                else:
-                    host.speed.value = f"{throttle_state.speed:03d}"
-
-                # trough color indicates actual vs. target
-                if throttle_state.speed != throttle_state.target_speed:
-                    host.throttle.tk.config(troughcolor="#4C96C5")
-                else:
-                    host.throttle.tk.config(troughcolor=LIONEL_BLUE)
-
-                if host._rr_speed_panel and host._rr_speed_panel.visible:
-                    host._rr_speed_panel.configure(throttle_state)
-
-                # --- Momentum ---
-                momentum = throttle_state.momentum if throttle_state.momentum is not None else 0
-                host.momentum_level.value = f"{momentum:02d}"
-                if host.momentum.tk.focus_displayof() != host.momentum.tk:
-                    host.momentum.value = momentum
-
-                # --- Brake ---
-                brake = throttle_state.train_brake if throttle_state.train_brake is not None else 0
-                host.brake_level.value = f"{brake:02d}"
-                if host.brake.tk.focus_displayof() != host.brake.tk:
-                    host.brake.value = brake
-
-                # --- Direction buttons ---
-                if host.engine_ops_cells:
-                    _, fwd_btn = host.engine_ops_cells[("FORWARD_DIRECTION", "e")]
-                    fwd_btn.bg = host._active_bg if throttle_state.is_forward else host._inactive_bg
-
-                    _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
-                    rev_btn.bg = host._active_bg if throttle_state.is_reverse else host._inactive_bg
-
-                # --- Gauges ---
-                for gauge_type in ["fuel", "water"]:
-                    gauges = self._gauges.get(gauge_type, [])
-                    for gauge in gauges:
-                        if gauge_type == "fuel":
-                            gauge.set_value(throttle_state.fuel_level_pct)
-                        elif gauge_type == "water":
-                            gauge.set_value(throttle_state.water_level_pct)
-
-                self._update_info_box(throttle_state)
-            else:
-                host.throttle.tk.config(from_=31, to=0)
-                host.momentum.tk.config(resolution=4, showvalue=False)
-                self._controller_info_box.hide()
-                if host.speed.enabled:
-                    host.speed.disable()
-                if host.throttle.enabled:
-                    host.throttle.disable()
-                if host._rr_speed_btn and host._rr_speed_btn.enabled:
-                    host._rr_speed_btn.disable()
-
-            self._last_throttle_state = throttle_state
-            self._last_state = state
-
     # noinspection PyProtectedMember
     def build(self, app) -> None:
         """Create controller widgets if not already built."""
@@ -335,8 +219,7 @@ class ControllerView:
         rr_box.tk.grid_configure(sticky="nsew")
 
         # RR Speeds button
-        host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", command=host.on_rr_speed)
-
+        host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", hold_threshold=2, command=host.on_rr_speed)
         img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(rr_btn_width, rr_btn_height))
         rr_btn.tk.config(
             image=img,
@@ -442,6 +325,132 @@ class ControllerView:
 
         # keep host.focus_widget used elsewhere, if you want
         host.focus_widget = self._focus_widget
+
+    # noinspection PyProtectedMember
+    def update(self, state: EngineState | None, throttle_state: EngineState | None):
+        """
+        Paint throttle/brake/momentum + direction buttons from the given state.
+
+        `state` is the active engine state (for brake/momentum/direction).
+        `throttle_state` is whichever state is allowed to control throttle (engine vs. train vs. None).
+        """
+        if not isinstance(state, EngineState):
+            return
+
+        host = self._host
+        with self.__updating():
+            # --- Throttle / Speed ---
+            if throttle_state:
+                if throttle_state != self._last_throttle_state:
+                    if not host.speed.enabled:
+                        host.speed.enable()
+                    if not host.throttle.enabled:
+                        host.throttle.enable()
+                    if host._rr_speed_btn and not host._rr_speed_btn.enabled:
+                        host._rr_speed_btn.enable()
+
+                    if throttle_state.is_legacy:
+                        host.throttle.tk.config(from_=195, to=0)
+                        if self._controller_info_box:
+                            self._controller_info_box.show()
+                            if throttle_state.is_rpm:
+                                self._info_rpm[0].enable()
+                                self._info_rpm[0].tk.configure(fg="black")
+                            else:
+                                self._info_rpm[0].disable()
+                                self._info_rpm[0].tk.configure(fg="grey")
+                                self._info_rpm[1].value = ""
+                    elif throttle_state.is_cab1:
+                        host.throttle.tk.config(from_=3, to=-3)
+                        host.throttle.value = 0
+                        if self._controller_info_box:
+                            self._controller_info_box.hide()
+                        if host._rr_speed_box:
+                            host._rr_speed_box.hide()
+                    else:
+                        host.throttle.tk.config(from_=31, to=0)
+                        if self._controller_info_box:
+                            self._controller_info_box.hide()
+
+                    if host._rr_speed_box and not host._rr_speed_box.visible:
+                        host._rr_speed_box.show()
+
+                    if state.is_legacy:
+                        host.momentum.tk.config(resolution=1, showvalue=True, from_=0, to=7)
+                    else:
+                        host.momentum.tk.config(resolution=4, showvalue=False, from_=0, to=7)
+
+                    if host._rr_speed_btn:
+                        if throttle_state.is_cab1:
+                            host._rr_speed_btn.on_hold = None
+                        else:
+                            host._rr_speed_btn.on_hold = self.on_speed_limit_panel
+
+                # don't fight the user while dragging
+                if host.throttle.tk.focus_displayof() != host.throttle.tk:
+                    host.throttle.value = throttle_state.target_speed
+
+                if throttle_state.is_cab1:
+                    self._set_cab1_speed()
+                    if host._rr_speed_btn:
+                        host._rr_speed_btn.disable()
+                else:
+                    host.speed.value = f"{throttle_state.speed:03d}"
+
+                # trough color indicates actual vs. target
+                if throttle_state.speed != throttle_state.target_speed:
+                    host.throttle.tk.config(troughcolor="#4C96C5")
+                else:
+                    host.throttle.tk.config(troughcolor=LIONEL_BLUE)
+
+                if host._rr_speed_panel and host._rr_speed_panel.visible:
+                    host._rr_speed_panel.configure(throttle_state)
+
+                # --- Momentum ---
+                momentum = throttle_state.momentum if throttle_state.momentum is not None else 0
+                host.momentum_level.value = f"{momentum:02d}"
+                if host.momentum.tk.focus_displayof() != host.momentum.tk:
+                    host.momentum.value = momentum
+
+                # --- Brake ---
+                brake = throttle_state.train_brake if throttle_state.train_brake is not None else 0
+                host.brake_level.value = f"{brake:02d}"
+                if host.brake.tk.focus_displayof() != host.brake.tk:
+                    host.brake.value = brake
+
+                # --- Direction buttons ---
+                if host.engine_ops_cells:
+                    _, fwd_btn = host.engine_ops_cells[("FORWARD_DIRECTION", "e")]
+                    fwd_btn.bg = host._active_bg if throttle_state.is_forward else host._inactive_bg
+
+                    _, rev_btn = host.engine_ops_cells[("REVERSE_DIRECTION", "e")]
+                    rev_btn.bg = host._active_bg if throttle_state.is_reverse else host._inactive_bg
+
+                # --- Gauges ---
+                for gauge_type in ["fuel", "water"]:
+                    gauges = self._gauges.get(gauge_type, [])
+                    for gauge in gauges:
+                        if gauge_type == "fuel":
+                            gauge.set_value(throttle_state.fuel_level_pct)
+                        elif gauge_type == "water":
+                            gauge.set_value(throttle_state.water_level_pct)
+
+                self._update_info_box(throttle_state)
+            else:
+                host.throttle.tk.config(from_=31, to=0)
+                host.momentum.tk.config(resolution=4, showvalue=False)
+                self._controller_info_box.hide()
+                if host.speed.enabled:
+                    host.speed.disable()
+                if host.throttle.enabled:
+                    host.throttle.disable()
+                if host._rr_speed_btn and host._rr_speed_btn.enabled:
+                    host._rr_speed_btn.disable()
+
+            self._last_throttle_state = throttle_state
+            self._last_state = state
+
+    # noinspection PyProtectedMember
 
     def _register_gauge(self, label: str, gauge: AnalogGaugeWidget) -> None:
         label = label.lower()
@@ -1196,3 +1205,12 @@ class ControllerView:
             s.tk.bind("<ButtonRelease-1>", self.clear_focus, add="+")
 
         return box, tb, level, s
+
+    def on_speed_limit_panel(self) -> None:
+        host = self._host
+        with self._cv:
+            if self._speed_limit_panel is None:
+                self._speed_limit_panel = SpeedLimitPanel(host)
+        overlay = self._speed_limit_panel.overlay
+        overlay.configure(self._last_throttle_state)
+        host.show_popup(overlay, hide_image_box=False)

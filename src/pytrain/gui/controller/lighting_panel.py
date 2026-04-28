@@ -25,13 +25,6 @@ class LightingPanel(OverlayPanel):
         self._diesel_opts = None
         self._steam_opts = None
 
-    @property
-    def overlay(self) -> Box:
-        if self._overlay is None:
-            # noinspection PyProtectedMember
-            self._overlay = self._gui._popup.create_popup("Lighting", self.build)
-        return self._overlay
-
     def configure(self, state: EngineState):
         if state and state.is_steam:
             self._steam_opts.show()
@@ -46,7 +39,7 @@ class LightingPanel(OverlayPanel):
 
         # cab light
         master_box = Box(body, layout="grid", border=1)
-        aw, _ = self._gui.calc_image_box_size()
+        aw = host.width
         master_box.tk.config(width=aw)
 
         cell = Box(master_box, layout="auto", grid=[0, 0], align="bottom", visible=True)
