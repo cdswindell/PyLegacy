@@ -330,15 +330,12 @@ class EngineState(ComponentState):
 
                 # Cancel any delayed requests, if impacted
                 if command.command in CANCEL_PENDINGS_SET or (self._ramping and command.command in TARGET_SPEED_SET):
-                    from ..comm.comm_buffer import CommBuffer
-
                     # ignore direction commands if they are the same as the current direction
                     if command.command in DIRECTIONS_SET and self.direction == command.command:
                         pass
                     else:
                         log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
-                        CommBuffer.cancel_delayed_requests(self)
-                        self._ramping = False
+                        self.cancel_ramps()
 
                 # handle last numeric
                 if command.command in NUMERIC_SET:
@@ -542,6 +539,13 @@ class EngineState(ComponentState):
                         self._d4_rec_no = command.record_no
             self.changed.set()
             self._cv.notify_all()
+
+    def cancel_ramps(self) -> None:
+        from ..comm.comm_buffer import CommBuffer
+
+        CommBuffer.cancel_delayed_requests(self)
+        self.update_target_speed(self.speed)
+        self._ramping = False
 
     def update_target_speed(self, target_speed: int = None):
         if target_speed is None:
