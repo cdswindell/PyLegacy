@@ -42,12 +42,13 @@ class SpeedLimitPanel(OverlayPanel):
         lbl.text_size = host.s_20
         host.cache(lbl)
 
+        btn_w = len("Clear")
         self._cur_speed_limit = csl = Text(parent, "", grid=[1, 0])
         csl.text_size = host.s_20
         csl.tk.grid_configure(sticky="")  # centered in cell
         csl.tk.config(justify="center", anchor="center")
 
-        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[2, 0], align="bottom")
+        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[2, 0], align="bottom", width=btn_w)
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
@@ -71,7 +72,7 @@ class SpeedLimitPanel(OverlayPanel):
         )
         nsl.tk.grid_configure(sticky="")  # centered in cell
 
-        self._set_btn = btn = HoldButton(parent, text="Set", grid=[2, 1], align="bottom")
+        self._set_btn = btn = HoldButton(parent, text="Set", grid=[2, 1], align="bottom", width=btn_w)
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
