@@ -30,7 +30,7 @@ class SpeedLimitPanel(OverlayPanel):
 
         # controls
         sp = Box(body, border=0)
-        sp.tk.config(height=host.button_size // 4)
+        sp.tk.config(height=host.button_size // 3)
         host.cache(sp)
 
         parent = Box(body, layout="grid", border=0)

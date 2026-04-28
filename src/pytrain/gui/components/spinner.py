@@ -399,7 +399,12 @@ class Spinner(Box):
             self._on_change(self, self._value)
 
     def _render(self) -> None:
-        self._set_textbox_text(str(self._value))
+        try:
+            val = int(self._value)
+            val = f"{val:>{self._style.value_width}d}"
+        except (TypeError, ValueError):
+            val = str(self._value)
+        self._set_textbox_text(val)
 
     def _update_buttons_enabled(self) -> None:
         if self._wrap:
