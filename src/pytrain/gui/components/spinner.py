@@ -26,7 +26,7 @@ from guizero import Box, PushButton, TextBox
 ValueT = Union[int, str]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class SpinnerStyle:
     button_width: int = 2
     value_width: int = 2
@@ -84,6 +84,7 @@ class Spinner(Box):
         on_change: Optional[Callable[["Spinner", ValueT], None]] = None,
         # Style:
         style: SpinnerStyle = SpinnerStyle(),
+        text_size: int = 28,
         align: str = "left",
         **box_kwargs,
     ):
@@ -95,6 +96,7 @@ class Spinner(Box):
         if orientation not in ("horizontal", "vertical"):
             raise ValueError("orientation must be 'horizontal' or 'vertical'")
 
+        style.value_text_size = int(text_size)
         self._style = style
         self._on_change = on_change
 
