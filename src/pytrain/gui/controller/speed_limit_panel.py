@@ -43,7 +43,7 @@ class SpeedLimitPanel(OverlayPanel):
             center=True,
         )
 
-        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[1, 0], align="center")
+        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[1, 0], align="bottom")
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
