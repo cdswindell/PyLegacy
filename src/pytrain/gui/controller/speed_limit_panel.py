@@ -60,6 +60,6 @@ class SpeedLimitPanel(OverlayPanel):
             parent.tk.grid_columnconfigure(i, weight=1, uniform="speed_limit")
 
     def configure(self, state: EngineState) -> None:
-        print(state)
-        self._cur_speed_limit.value = state.speed_limit if state else ""
-        self._clear_btn.enabled = state and state.speed_limit is not None and state.speed_limit > 0
+        _, _, sl, _ = state.speeds
+        self._cur_speed_limit.value = f"{sl}" if sl is not None else ""
+        self._clear_btn.enabled = sl and sl > 0
