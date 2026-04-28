@@ -66,6 +66,7 @@ class HoldButton(PushButton):
         show_hold_progress: bool = False,
         progress_update_ms: int = 40,
         progress_fill_color: str = "darkgrey",
+        critical_fill_color: str = "red",
         progress_empty_color: str | None = None,  # None => uses current button bg
         progress_keep_full_until_release: bool = True,
         cancel_on_leave: bool = False,
@@ -104,6 +105,7 @@ class HoldButton(PushButton):
         self._show_hold_progress = bool(show_hold_progress)
         self._progress_update_ms = int(progress_update_ms)
         self._progress_fill_color = str(progress_fill_color)
+        self._critical_fill_color = str(critical_fill_color)
         self._progress_empty_color = progress_empty_color
         self._progress_keep_full_until_release = bool(progress_keep_full_until_release)
 
@@ -567,15 +569,20 @@ class HoldButton(PushButton):
         self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
 
         canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
+        frac = self._progress_fraction() if self._pressed else 0.0
+        fill_color = self._progress_fill_color if frac < 0.80 else self._critical_fill_color
         try:
             self._progress_canvas.config(background=canvas_bg)
             self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
-            self._progress_canvas.itemconfig(self._progress_rect, fill=self._progress_fill_color)
+            self._progress_canvas.itemconfig(self._progress_rect, fill=fill_color)
+            log.info(
+                f"progress overlay: {frac:.2f} {canvas_bg} {fill_color}"
+                f"\n{self._progress_canvas.itemconfig(self._progress_rect)}"
+            )
             self._progress_canvas.coords(self._progress_bg_rect, 0, 0, bw, bh)
         except TclError:
             return
 
-        frac = self._progress_fraction() if self._pressed else 0.0
         fill_w = int(bw * frac)
         try:
             self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, bh)
