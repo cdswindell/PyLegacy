@@ -97,8 +97,12 @@ class RampedSpeedReqBase(SequenceReq, ABC):
             cs = self.state.speed
             delay = 0.100
             inc = 3 if self.is_tmcc2 else 1
-            c_rpm = self.state.rpm
-            init_labor = self.state.labor
+            if self.state.is_ramping:
+                c_rpm = 0
+                init_labor = 12
+            else:
+                c_rpm = self.state.rpm
+                init_labor = self.state.labor
             if self.state.momentum is not None:
                 delay_inc = 0.200 + (self.state.momentum * (0.010 if self.is_tmcc2 else 0.1))
                 if self.is_tmcc2:
