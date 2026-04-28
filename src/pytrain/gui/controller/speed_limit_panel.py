@@ -66,7 +66,9 @@ class SpeedLimitPanel(OverlayPanel):
         lbl.text_size = host.s_20
         host.cache(lbl)
 
-        self._new_speed_limit = nsl = Spinner(parent, grid=[1, 1], text_size=host.s_20, min_value=1, max_value=199)
+        self._new_speed_limit = nsl = Spinner(
+            parent, grid=[1, 1], text_size=host.s_20, repeat=True, min_value=1, max_value=199
+        )
         nsl.tk.grid_configure(sticky="")  # centered in cell
 
         for i in range(3):
