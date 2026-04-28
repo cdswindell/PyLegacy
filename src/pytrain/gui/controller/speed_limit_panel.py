@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from guizero import Box, Text
 
 from .overlay_panel import OverlayPanel
-from .state_info_overlay import StateInfoOverlay
 from ..components.hold_button import HoldButton
 from ...db.engine_state import EngineState
 
@@ -38,15 +37,10 @@ class SpeedLimitPanel(OverlayPanel):
         lbl.text_size = host.s_20
         host.cache(lbl)
 
-        _, self._cur_speed_limit = StateInfoOverlay.make_field(
-            host=host,
-            parent=parent,
-            title=" ",
-            grid=[1, 0],
-            max_cols=3,
-            center=True,
-            text_size=host.s_20,
-        )
+        self._cur_speed_limit = csl = Text(parent, "", grid=[1, 0])
+        csl.text_size = host.s_20
+        csl.tk.grid_configure(sticky="")  # centered in cell
+        csl.tk.config(justify="center", anchor="center")
 
         self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[2, 0], align="bottom")
         btn.text_size = host.s_20
