@@ -48,7 +48,14 @@ class SpeedLimitPanel(OverlayPanel):
         csl.tk.grid_configure(sticky="")  # centered in cell
         csl.tk.config(justify="center", anchor="center")
 
-        self._clear_btn = btn = HoldButton(parent, text="Clear", grid=[2, 0], align=None, width=btn_w)
+        self._clear_btn = btn = HoldButton(
+            parent,
+            text="Clear",
+            grid=[2, 0],
+            align=None,
+            width=btn_w,
+            command=self._on_clear_speed_limit,
+        )
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
@@ -72,7 +79,14 @@ class SpeedLimitPanel(OverlayPanel):
         )
         nsl.tk.grid_configure(sticky="")  # centered in cell
 
-        self._set_btn = btn = HoldButton(parent, text="Set", grid=[2, 1], align=None, width=btn_w)
+        self._set_btn = btn = HoldButton(
+            parent,
+            text="Set",
+            grid=[2, 1],
+            align=None,
+            width=btn_w,
+            command=self._on_set_speed_limit,
+        )
         btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
@@ -103,3 +117,9 @@ class SpeedLimitPanel(OverlayPanel):
             self._new_speed_limit.configure(min_value=1, max_value=199)
         else:
             self._new_speed_limit.configure(min_value=1, max_value=31)
+
+    def _on_clear_speed_limit(self) -> None:
+        self._close()
+
+    def _on_set_speed_limit(self) -> None:
+        self._close()

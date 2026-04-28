@@ -37,3 +37,7 @@ class OverlayPanel(metaclass=ABCMeta):
     @property
     def visible(self) -> bool:
         return self._overlay is not None and self._overlay.visible
+
+    def _close(self) -> None:
+        if self._overlay and self._gui and self._gui.popup_manager:
+            self._gui.popup_manager.close(self._overlay)

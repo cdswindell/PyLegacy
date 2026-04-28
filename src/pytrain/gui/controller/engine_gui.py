@@ -280,6 +280,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return getattr(self._acc_overlay, "caa", None)
         return None
 
+    @property
+    def popup_manager(self) -> PopupManager:
+        return self._popup
+
     def scope_tmcc_id(self, scope: CommandScope | None = None) -> int:
         scoped = scope or self.scope
         return self._scope_tmcc_ids.get(scoped, 0)
