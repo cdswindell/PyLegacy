@@ -569,20 +569,15 @@ class HoldButton(PushButton):
         self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
 
         canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
-        frac = self._progress_fraction() if self._pressed else 0.0
-        fill_color = self._progress_fill_color if frac < 0.80 else self._critical_fill_color
         try:
             self._progress_canvas.config(background=canvas_bg)
             self._progress_canvas.itemconfig(self._progress_bg_rect, fill=canvas_bg)
-            self._progress_canvas.itemconfig(self._progress_rect, fill=fill_color)
-            log.info(
-                f"progress overlay: {frac:.2f} {canvas_bg} {fill_color}"
-                f"\n{self._progress_canvas.itemconfig(self._progress_rect)}"
-            )
+            self._progress_canvas.itemconfig(self._progress_rect, fill=self._progress_fill_color)
             self._progress_canvas.coords(self._progress_bg_rect, 0, 0, bw, bh)
         except TclError:
             return
 
+        frac = self._progress_fraction() if self._pressed else 0.0
         fill_w = int(bw * frac)
         try:
             self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, bh)
@@ -619,7 +614,12 @@ class HoldButton(PushButton):
             return
 
         fill_w = int(w * max(0.0, min(1.0, frac)))
+        fill_color = self._progress_fill_color
+        if self._critical_fill_color and self._critical_fill_color != self._progress_fill_color:
+            fill_color = self._progress_fill_color if frac < 0.80 else self._critical_fill_color
         try:
+            if fill_color != self._progress_fill_color:
+                self._progress_canvas.itemconfig(self._progress_rect, fill=fill_color)
             self._progress_canvas.coords(self._progress_rect, 0, 0, fill_w, h)
         except TclError:
             pass
