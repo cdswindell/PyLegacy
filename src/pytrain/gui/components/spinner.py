@@ -85,7 +85,7 @@ class Spinner(Box):
         # Style:
         style: SpinnerStyle = SpinnerStyle(),
         text_size: int = 28,
-        align: str = "left",
+        align: str = "top",
         **box_kwargs,
     ):
         super().__init__(parent, align=align, **box_kwargs)
