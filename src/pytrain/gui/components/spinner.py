@@ -139,6 +139,7 @@ class Spinner(Box):
 
         # Inner container so we can control orientation reliably
         self._inner = Box(self, layout="auto")
+        self._inner.tk.pack_configure(expand=True)  # center contents
 
         # If repeat is enabled, do NOT also use command= (prevents double-trigger)
         down_cmd = None if self._repeat else self.decrement
