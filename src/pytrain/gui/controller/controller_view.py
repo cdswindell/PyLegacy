@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
-from threading import Condition, RLock, Thread
+from threading import Condition, RLock
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
@@ -543,7 +543,7 @@ class ControllerView:
             self._info_limit[1].value = f"{sl}" if sl is not None else ""
             self._info_effort[1].value = f"{state.labor}" if state.labor is not None else ""
             if state.is_legacy:
-                self._info_brake[1].value = f"{state.train_brake}"
+                self._info_brake[1].value = f"{state.train_brake}" if state.train_brake else "Off"
                 self._info_smoke[1].value = state.smoke_text
             else:
                 self._info_brake[1].value = self._info_smoke[1].value = "NA"
@@ -957,50 +957,6 @@ class ControllerView:
 
         # Now clear focus so the handle deactivates visually.
         host.app.tk.after_idle(self._do_clear_focus)
-
-    def _send_throttle_release_command(self, tmcc_id: int, scope, speed: int, is_cab1: bool) -> None:
-        from ...protocol.command_req import CommandReq
-        from ...protocol.sequence.ramped_speed_req import RampedSpeedReq
-        from ...protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
-
-        if is_cab1:
-            req = CommandReq.build(
-                TMCC1EngineCommandEnum.RELATIVE_SPEED,
-                tmcc_id,
-                data=speed,
-                scope=scope,
-            )
-        else:
-            req = RampedSpeedReq(tmcc_id, speed, scope)
-
-        self._host.submit_request(req)
-
-    # noinspection PyUnusedLocal
-    def _on_throttle_release_event_xx(self, e=None) -> None:
-        if self._updating_from_state:
-            return
-        host = self._host
-        self._cancel_cab_1_throttle_repeat()
-        state = host.active_engine_state or host.active_state
-
-        if not isinstance(state, EngineState):
-            return
-
-        speed = int(host.throttle.value)
-        tmcc_id = state.tmcc_id
-        scope = state.scope
-        is_cab1 = state.is_cab1
-        host.app.tk.after_idle(self._do_clear_focus)
-
-        if is_cab1:
-            host.throttle.value = 0
-
-        Thread(
-            target=self._send_throttle_release_command,
-            args=(tmcc_id, scope, speed, is_cab1),
-            daemon=True,
-            name="ThrottleReleaseSend",
-        ).start()
 
     def on_train_brake(self, value) -> None:
         if self._updating_from_state:
