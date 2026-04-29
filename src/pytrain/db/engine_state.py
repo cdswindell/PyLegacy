@@ -727,6 +727,7 @@ class EngineState(ComponentState):
 
     @property
     def speed_max(self) -> int | None:
+        # Determines effective maximum speed from limits with legacy fallback
         if self.max_speed and self.max_speed != 255 and self.speed_limit and self.speed_limit != 255:
             ms = min(self.max_speed, self.speed_limit)
         elif self.speed_limit and self.speed_limit != 255:

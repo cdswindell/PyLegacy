@@ -929,10 +929,10 @@ class ControllerView:
             host.throttle.value = 0
             host.on_speed_command(host.throttle.value)
         else:
-            sp, ts, sl, ms = state.speeds
+            ms = state.speed_max
             if host.throttle.value > ms:
                 host.throttle.value = ms
-            if sp != host.throttle.value:
+            if state.speed != host.throttle.value:
                 host.on_speed_command(host.throttle.value)
 
         # Now clear focus so the handle deactivates visually.
