@@ -539,11 +539,14 @@ class ControllerView:
     def _update_info_box(self, state):
         if self._controller_info_box.visible:
             _, _, sl, _ = state.speeds
+            self._info_momentum[1].value = state.momentum_text
             self._info_limit[1].value = f"{sl}" if sl is not None else ""
             self._info_effort[1].value = f"{state.labor}" if state.labor is not None else ""
-            self._info_brake[1].value = f"{state.train_brake}"
-            self._info_momentum[1].value = state.momentum_text
-            self._info_smoke[1].value = state.smoke_text
+            if state.is_legacy:
+                self._info_brake[1].value = f"{state.train_brake}"
+                self._info_smoke[1].value = state.smoke_text
+            else:
+                self._info_brake[1].value = self._info_smoke[1].value = "NA"
             if state.is_rpm:
                 self._info_rpm[1].value = f"{state.rpm}"
             else:
