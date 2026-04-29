@@ -466,7 +466,7 @@ class ControllerView:
     @staticmethod
     def _enable_info_box_field(fields: tuple[TitleBox, Text]) -> None:
         fields[0].enable()
-        fields[0].tk.configure(fg="grey")
+        fields[0].tk.configure(fg="black")
 
     # noinspection PyProtectedMember
     def _register_gauge(self, label: str, gauge: AnalogGaugeWidget) -> None:
