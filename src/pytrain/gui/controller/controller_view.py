@@ -76,10 +76,6 @@ class ControllerView:
         finally:
             self._updating_from_state = False
 
-    @property
-    def throttle_state(self) -> EngineState | None:
-        return self._last_throttle_state
-
     # -----------------------------
     # Public API used by EngineGui
     # -----------------------------
@@ -866,7 +862,7 @@ class ControllerView:
 
     def on_throttle_change(self, value) -> None:
         host = self._host
-        state = host.active_engine_state or host.active_state
+        state = host.throttle_state
         if self._updating_from_state or not state.is_cab1:
             return
         if host.throttle is None or host.throttle.tk.focus_displayof() != host.throttle.tk:
@@ -918,20 +914,26 @@ class ControllerView:
                 host.throttle.after_id = None
 
     # noinspection PyUnusedLocal
-    def _on_throttle_release_event_xx(self, e=None) -> None:
+    def _on_throttle_release_event(self, e=None) -> None:
         if self._updating_from_state:
             return
         host = self._host
         self._cancel_cab_1_throttle_repeat()
 
-        state = host.active_engine_state or host.active_state
+        state = host.throttle_state
         if not isinstance(state, EngineState):
             return
 
         # send speed command
         if state.is_cab1:
             host.throttle.value = 0
-        host.on_speed_command(host.throttle.value)
+            host.on_speed_command(host.throttle.value)
+        else:
+            sp, ts, sl, ms = state.speeds
+            if host.throttle.value > ms:
+                host.throttle.value = ms
+            if sp != host.throttle.value:
+                host.on_speed_command(host.throttle.value)
 
         # Now clear focus so the handle deactivates visually.
         host.app.tk.after_idle(self._do_clear_focus)
@@ -954,7 +956,7 @@ class ControllerView:
         self._host.submit_request(req)
 
     # noinspection PyUnusedLocal
-    def _on_throttle_release_event(self, e=None) -> None:
+    def _on_throttle_release_event_xx(self, e=None) -> None:
         if self._updating_from_state:
             return
         host = self._host
@@ -1216,5 +1218,5 @@ class ControllerView:
             if self._speed_limit_panel is None:
                 self._speed_limit_panel = SpeedLimitPanel(host)
         overlay = self._speed_limit_panel.overlay
-        self._speed_limit_panel.configure(self._last_throttle_state)
+        self._speed_limit_panel.configure(host.throttle_state)
         host.show_popup(overlay, hide_image_box=False)

@@ -1409,10 +1409,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-    def on_speed_command(self, speed_req: str | int) -> None:
+    @property
+    def throttle_state(self) -> EngineState | None:
         state = self.active_engine_state
         if self._active_train_state and state in self._train_linked_queue:
             state = self._active_train_state
+        return state if isinstance(state, EngineState) else None
+
+    def on_speed_command(self, speed_req: str | int) -> None:
+        state = self.throttle_state
         if isinstance(speed_req, str):
             speed = speed_req.split(", ")
             do_dialog = isinstance(speed, list) and len(speed) > 1
