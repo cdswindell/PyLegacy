@@ -351,6 +351,18 @@ class ControllerView:
 
                     if throttle_state.is_legacy:
                         host.throttle.tk.config(from_=195, to=0)
+                        show_info_box = True
+                    elif throttle_state.is_cab1:
+                        host.throttle.tk.config(from_=3, to=-3)
+                        host.throttle.value = 0
+                        show_info_box = False
+                        if host._rr_speed_box:
+                            host._rr_speed_box.hide()
+                    else:
+                        host.throttle.tk.config(from_=31, to=0)
+                        show_info_box = True
+
+                    if show_info_box:
                         if self._controller_info_box:
                             self._controller_info_box.show()
                             if throttle_state.is_rpm:
@@ -360,17 +372,9 @@ class ControllerView:
                                 self._info_rpm[0].disable()
                                 self._info_rpm[0].tk.configure(fg="grey")
                                 self._info_rpm[1].value = ""
-                    elif throttle_state.is_cab1:
-                        host.throttle.tk.config(from_=3, to=-3)
-                        host.throttle.value = 0
-                        if self._controller_info_box:
-                            self._controller_info_box.hide()
-                        if host._rr_speed_box:
-                            host._rr_speed_box.hide()
-                    else:
-                        host.throttle.tk.config(from_=31, to=0)
-                        if self._controller_info_box:
-                            self._controller_info_box.hide()
+                        else:
+                            if self._controller_info_box:
+                                self._controller_info_box.hide()
 
                     if host._rr_speed_box and not host._rr_speed_box.visible:
                         host._rr_speed_box.show()
@@ -520,7 +524,7 @@ class ControllerView:
         info_box.hide()
 
     def _update_info_box(self, state):
-        if state.is_legacy and self._controller_info_box:
+        if self._controller_info_box.visible:
             _, _, sl, _ = state.speeds
             self._info_limit[1].value = f"{sl}" if sl is not None else ""
             self._info_effort[1].value = f"{state.labor}" if state.labor is not None else ""
