@@ -431,7 +431,7 @@ REQUEST_TO_UPDATES_MAP = {
     "SMOKE_MEDIUM": [("smoke", lambda t: 2)],
     "SMOKE_OFF": [("smoke", lambda t: 0)],
     "SMOKE_ON": [("smoke", lambda t: 1)],
-    "SPEED_LIMIT": [("speed_limit",)],
+    "SPEED_LIMIT": [("speed_limit", encode_tmcc_speed)],
     "STOP_IMMEDIATE": [
         ("speed", lambda x: 0),
         ("target_speed", lambda x: 0),
