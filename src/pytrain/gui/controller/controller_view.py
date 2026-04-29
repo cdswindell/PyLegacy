@@ -372,9 +372,9 @@ class ControllerView:
                                 self._info_rpm[0].disable()
                                 self._info_rpm[0].tk.configure(fg="grey")
                                 self._info_rpm[1].value = ""
-                        else:
-                            if self._controller_info_box:
-                                self._controller_info_box.hide()
+                    else:
+                        if self._controller_info_box:
+                            self._controller_info_box.hide()
 
                     if host._rr_speed_box and not host._rr_speed_box.visible:
                         host._rr_speed_box.show()
