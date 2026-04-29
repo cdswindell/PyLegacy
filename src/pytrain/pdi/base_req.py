@@ -243,7 +243,12 @@ class BaseReq(PdiReq, CompDataMixin):
             raise ValueError(f"Invalid option: {cmd}")
 
     @classmethod
-    def updates_to_reqs(cls, state: EngineState, packages: List[UpdatePkg]) -> List[BaseReq] | None:
+    def updates_to_reqs(
+        cls,
+        state: EngineState,
+        packages: List[UpdatePkg],
+        refresh: bool = True,
+    ) -> List[BaseReq] | None:
         cmds = []
         if packages:
             from .d4_req import D4Req
@@ -276,10 +281,9 @@ class BaseReq(PdiReq, CompDataMixin):
                             data_bytes=pkg.data_bytes,
                         )
                     )
-            if cmds:
-                if state:
-                    # adding state to the command que will trigger refresh request
-                    cmds.append(state)
+            if cmds and refresh:
+                # adding state to the command que will trigger refresh request
+                cmds.append(state)
         return cmds
 
     @classmethod
@@ -303,11 +307,17 @@ class BaseReq(PdiReq, CompDataMixin):
         sync_reqs = BaseReq.update_eng(tmcc_cmd)
         if sync_reqs:
             cls.process_sync_reqs(sync_reqs, lambda r: r.send())
-            # for sync_req in sync_reqs:
-            #     if isinstance(sync_req, EngineState):
-            #         Base3DbRefreshManager.request_refresh(sync_req)
-            #     else:
-            #         sync_req.send()
+        return sync_reqs
+
+    @classmethod
+    def do_update_eng_field(cls, field: str, data: int, state: EngineState) -> list[BaseReq]:
+        sync_reqs = []
+        if state:
+            pkgs = CompData.field_to_updates(field, state.tmcc_id, state.scope, data, state.is_legacy)
+            if pkgs:
+                sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
+                if sync_reqs:
+                    cls.process_sync_reqs(sync_reqs, lambda r: r.send())
         return sync_reqs
 
     def __init__(
