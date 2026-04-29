@@ -366,12 +366,15 @@ class ControllerView:
                         if self._controller_info_box:
                             self._controller_info_box.show()
                             if throttle_state.is_rpm:
-                                self._info_rpm[0].enable()
-                                self._info_rpm[0].tk.configure(fg="black")
+                                self._enable_info_box_field(self._info_rpm)
                             else:
-                                self._info_rpm[0].disable()
-                                self._info_rpm[0].tk.configure(fg="grey")
-                                self._info_rpm[1].value = ""
+                                self._disable_info_box_field(self._info_rpm)
+
+                            for field in {self._info_brake, self._info_smoke}:
+                                if throttle_state.is_legacy:
+                                    self._enable_info_box_field(field)
+                                else:
+                                    self._disable_info_box_field(field)
                     else:
                         if self._controller_info_box:
                             self._controller_info_box.hide()
@@ -454,8 +457,18 @@ class ControllerView:
             self._last_throttle_state = throttle_state
             self._last_state = state
 
-    # noinspection PyProtectedMember
+    @staticmethod
+    def _disable_info_box_field(fields: tuple[TitleBox, Text]) -> None:
+        fields[0].disable()
+        fields[0].tk.configure(fg="grey")
+        fields[1].value = ""
 
+    @staticmethod
+    def _enable_info_box_field(fields: tuple[TitleBox, Text]) -> None:
+        fields[0].enable()
+        fields[0].tk.configure(fg="grey")
+
+    # noinspection PyProtectedMember
     def _register_gauge(self, label: str, gauge: AnalogGaugeWidget) -> None:
         label = label.lower()
         if label not in self._gauges:
