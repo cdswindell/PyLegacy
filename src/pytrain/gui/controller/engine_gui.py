@@ -770,15 +770,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def clear_speed_limit(self) -> None:
         from src.pytrain.pdi.base_req import BaseReq
 
-        if self.controller_view and self.controller_view.throttle_state:
-            state = self.controller_view.throttle_state
+        if self.throttle_state:
+            state = self.throttle_state
             BaseReq.do_update_eng_field("SPEED_LIMIT", 255, state)
 
     def set_speed_limit(self, speed_limit: int) -> None:
         from src.pytrain.pdi.base_req import BaseReq
 
-        if self.controller_view and self.controller_view.throttle_state:
-            state = self.controller_view.throttle_state
+        if self.throttle_state:
+            state = self.throttle_state
             BaseReq.do_update_eng_field("SPEED_LIMIT", speed_limit, state)
 
     def on_new_route(self, state: RouteState = None):
