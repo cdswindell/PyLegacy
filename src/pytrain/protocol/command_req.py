@@ -194,7 +194,7 @@ class CommandReq:
         if scope is None:
             scope = command.scope
         min_val = 0 if scope in {CommandScope.ENGINE} and syntax == CommandSyntax.LEGACY else 1
-        max_val = 9999 if scope in {CommandScope.ENGINE} and syntax == CommandSyntax.LEGACY else 99
+        max_val = 9999 if scope in {CommandScope.ENGINE, CommandScope.TRAIN} and syntax == CommandSyntax.LEGACY else 99
         if syntax == CommandSyntax.TMCC and command == TMCC1RouteCommandEnum.FIRE:
             scope = TMCC1CommandIdentifier.ROUTE
             max_val = 31
@@ -741,6 +741,7 @@ class CommandReq:
 
 TMCC4_FIRST_BYTE_TO_INTERPRETER = {
     LEGACY_ENGINE_COMMAND_PREFIX: CommandReq.build_tmcc4_command_req,
+    LEGACY_TRAIN_COMMAND_PREFIX: CommandReq.build_tmcc4_command_req,
 }
 
 TMCC_FIRST_BYTE_TO_INTERPRETER = {

@@ -132,6 +132,10 @@ def make_dummy_d4req(action, pdi_command=PdiCommand.D4_ENGINE, next_record_no=No
     dummy._scope = CommandScope.ENGINE
     dummy._record_no = 0
     dummy._next_record_no = next_record_no
+    dummy._suffix = None
+    dummy._data = None
+    dummy._original = None
+    dummy._post_action = None
     return dummy
 
 

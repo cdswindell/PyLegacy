@@ -303,11 +303,14 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x59: CompDataHandler("_tsdb_left"),
     0x5B: CompDataHandler("_tsdb_right"),
     0x5C: CompDataHandler("_unk_5c"),
+    0x5D: CompDataHandler("_unk_5d"),
     0x5E: CompDataHandler("_unk_5e"),
+    0x5F: CompDataHandler("_unk_5f"),
     0x68: CompDataHandler("_unk_68"),
     0x69: CompDataHandler("_smoke"),
     0x6A: CompDataHandler("_speed_limit"),
     0x6B: CompDataHandler("_max_speed"),
+    0x6C: CompDataHandler("_unk_6c"),
     0x6D: CompDataHandler("_lighting"),
     0xB8: CompDataHandler(
         "_tmcc_id",
@@ -337,6 +340,17 @@ BASE_MEMORY_TRAIN_READ_MAP = {
     ),
 }
 BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
+
+BASE_MEMORY_D4_TRAIN_READ_MAP = {
+    0x6D: CompDataHandler("_consist_flags"),
+    0x6E: CompDataHandler(
+        "_consist_comps",
+        64,
+        lambda t: ConsistComponent.from_d4_bytes(t),
+        lambda t: ConsistComponent.to_d4_bytes(t),
+    ),
+}
+BASE_MEMORY_D4_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 
 BASE_MEMORY_ACC_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
@@ -760,7 +774,12 @@ class CompData(ABC, Generic[R]):
                     f"Received malformed packet from Base for {self.scope}: "
                     f"got {len(data)} bytes, expected {PdiReq.scope_record_length(self.scope)}"
                 )
-            self._parse_bytes(data, SCOPE_TO_COMP_MAP.get(self.scope))
+
+            if scope == CommandScope.TRAIN and tmcc_id is None:
+                comp_map = BASE_MEMORY_D4_TRAIN_READ_MAP
+            else:
+                comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
+            self._parse_bytes(data, comp_map)
 
     def is_active(self) -> bool:
         """
@@ -937,8 +956,11 @@ class EngineData(CompData):
         self._unk_12: int | None = None
         self._unk_13: int | None = None
         self._unk_5c: int | None = None
+        self._unk_5d: int | None = None
         self._unk_5e: int | None = None
+        self._unk_5f: int | None = None
         self._unk_68: int | None = None
+        self._unk_6c: int | None = None
         self._unk_6: int | None = None
         self._unk_b: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)

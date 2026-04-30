@@ -31,8 +31,28 @@ class ConsistComponent:
         data_len = len(data)
         for i in range(0, 32, 2):
             if data_len > i:
+                # Prepends valid component from byte pair when present
                 if data[i] != 0xFF and data[i + 1] != 0xFF:
                     consist_components.insert(0, ConsistComponent(tmcc_id=data[i + 1], flags=data[i]))
+            else:
+                break
+        return consist_components
+
+    # noinspection PyTypeChecker
+    @classmethod
+    def from_d4_bytes(cls, data: bytes) -> list[ConsistComponent]:
+        from .component_state_store import ComponentStateStore
+
+        consist_components: list[ConsistComponent] = []
+        data_len = len(data)
+        for i in range(0, 64, 4):
+            if data_len > i:
+                if data[i + 1] != 0xFF and data[i + 2] != 0xFF and data[i + 3] != 0xFF:
+                    flags = data[i + 1]
+                    rec_no = int.from_bytes(data[i + 2 : i + 4], byteorder="little")
+                    state = ComponentStateStore.by_record_no(rec_no)
+                    if state:
+                        consist_components.append(ConsistComponent(state.tmcc_id, flags, rec_no, data[0]))
             else:
                 break
         return consist_components
@@ -45,9 +65,19 @@ class ConsistComponent:
         byte_str += b"\xff" * (32 - len(byte_str))
         return byte_str
 
-    def __init__(self, tmcc_id: int, flags: int) -> None:
+    @classmethod
+    def to_d4_bytes(cls, components: list[ConsistComponent]) -> bytes:
+        byte_str = bytes()
+        for comp in components:
+            byte_str += comp.as_bytes
+        byte_str += b"\xff" * (64 - len(byte_str))
+        return byte_str
+
+    def __init__(self, tmcc_id: int, flags: int, rec_no: int = None, extra: int = 0xFF) -> None:
         self.tmcc_id = tmcc_id
         self.flags = flags
+        self.extra = extra
+        self.rec_no = rec_no
 
     def __repr__(self) -> str:
         d = "F" if self.is_forward else "R"
@@ -115,9 +145,18 @@ class ConsistComponent:
         return 0b10000000 & self.flags == 0b10000000
 
     @property
+    def is_d4(self) -> bool:
+        return self.rec_no is not None
+
+    @property
     def as_bytes(self) -> bytes:
-        byte_str = self.flags.to_bytes(1, byteorder="little")
-        byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
+        if self.is_d4:
+            byte_str = self.flags.to_bytes(1, byteorder="little")
+            byte_str += self.rec_no.to_bytes(2, byteorder="little")
+            byte_str += b"\xff"
+        else:
+            byte_str = self.flags.to_bytes(1, byteorder="little")
+            byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
         return byte_str
 
 

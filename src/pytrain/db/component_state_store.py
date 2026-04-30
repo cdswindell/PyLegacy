@@ -123,6 +123,14 @@ class ComponentStateStore:
     def by_bluetooth_id(cls, bt_id: int) -> T | None:
         return cls._instance._bt_index.get(bt_id, None) if cls._instance else None
 
+    @classmethod
+    def by_record_no(cls, record_no: int) -> T | None:
+        if CommandScope.ENGINE in cls._instance._state:
+            for address in cls._instance._state[CommandScope.ENGINE]:
+                if cls._instance._state[CommandScope.ENGINE][address].record_no == record_no:
+                    return cls._instance._state[CommandScope.ENGINE][address]
+        return None
+
     def __new__(cls, *args, **kwargs):
         """
         Provides singleton functionality. We only want one instance

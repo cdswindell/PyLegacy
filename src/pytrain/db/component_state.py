@@ -909,9 +909,11 @@ class ComponentStateDict(ThreadSafeDefaultDict):
             raise KeyError(f"Invalid ID: {key}")
         elif self.scope == CommandScope.SYNC and key != 99:
             raise KeyError(f"Invalid ID: {key}")
-        elif self.scope == CommandScope.ENGINE and (key < 1 or key > 9999):
+        elif self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and (key < 1 or key > 9999):
             raise KeyError(f"Invalid ID: {key}")
-        elif self.scope not in {CommandScope.BASE, CommandScope.ENGINE, CommandScope.SYNC} and (key < 1 or key > 99):
+        elif self.scope not in {CommandScope.BASE, CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.SYNC} and (
+            key < 1 or key > 99
+        ):
             raise KeyError(f"Invalid ID: {key}")
         with self._lock:
             value: ComponentState = SCOPE_TO_STATE_MAP[self._scope](self._scope)

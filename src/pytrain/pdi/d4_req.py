@@ -106,6 +106,7 @@ class D4Req(PdiReq, CompDataMixin):
             self._count = count
             self._timestamp = timestamp
             self._state = state
+            # Overrides fields from engine state or sets base scope for initial actions
             if state and isinstance(state, EngineState):
                 self._tmcc_id = state.tmcc_id
                 self._start = 0

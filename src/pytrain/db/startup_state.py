@@ -43,6 +43,7 @@ class StartupState(Thread):
         self.pdi_state_store = pdi_state_store
         self._force_sync = force_sync
         self._no_d4 = no_d4
+        self._defer_d4_train_harvest = False
         self._cv = Condition()
         self._ev = Event()
         self._waiting_for = dict()
@@ -84,15 +85,18 @@ class StartupState(Thread):
             elif isinstance(cmd, D4Req):
                 req = None
                 if cmd.action == D4Action.COUNT and cmd.count:
-                    # request first record of D4 engines/trains
-                    req = D4Req(0, cmd.pdi_command, D4Action.FIRST_REC)
+                    # request first record of D4 engines
+                    if cmd.pdi_command == PdiCommand.D4_ENGINE:
+                        req = D4Req(0, cmd.pdi_command, D4Action.FIRST_REC)
+                    else:
+                        # delay harvest of D4 train records until all D4 engines loaded,
+                        # as D4 trains use D4 engine record number as ID
+                        self._defer_d4_train_harvest = True
                     log.debug(
                         f"Found {cmd.count} 4-digit {'train' if cmd.pdi_command == PdiCommand.D4_TRAIN else 'engine'}s."
                     )
                 elif cmd.action in {D4Action.FIRST_REC, D4Action.NEXT_REC}:
-                    if cmd.next_record_no == 0xFFFF:
-                        pass
-                    elif cmd.next_record_no is not None:
+                    if cmd.next_record_no is not None and cmd.next_record_no != 0xFFFF:
                         # query current state of 4-digit engine/train
                         req = D4Req(
                             cmd.next_record_no,
@@ -106,6 +110,9 @@ class StartupState(Thread):
                         self.pdi_listener.enqueue_command(req)
                         # get the record number of the next engine/train
                         req = D4Req(cmd.next_record_no, cmd.pdi_command, D4Action.NEXT_REC)
+                    elif self._defer_d4_train_harvest:
+                        self._defer_d4_train_harvest = False
+                        req = D4Req(0, PdiCommand.D4_TRAIN, D4Action.FIRST_REC)
             if req:
                 with self._cv:
                     self._waiting_for[req.as_key] = req
@@ -146,7 +153,7 @@ class StartupState(Thread):
         if self._no_d4:
             log.info("Omitting 4-digit engines and trains...")
         else:
-            for pdi_command in [PdiCommand.D4_ENGINE]:  # TODO: , PdiCommand.D4_TRAIN
+            for pdi_command in [PdiCommand.D4_ENGINE, PdiCommand.D4_TRAIN]:
                 req = D4Req(0, pdi_command, D4Action.COUNT)
                 with self._cv:
                     self._waiting_for[req.as_key] = req
