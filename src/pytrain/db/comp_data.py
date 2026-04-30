@@ -875,7 +875,10 @@ class CompData(ABC, Generic[R]):
         return ""
 
     def as_bytes(self) -> bytes:
-        comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
+        if self.scope == CommandScope.TRAIN and self.tmcc_id > 99:
+            comp_map = BASE_MEMORY_D4_TRAIN_READ_MAP
+        else:
+            comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
         schema = {key: comp_map[key] for key in sorted(comp_map.keys())}
         if self.tmcc_id <= 99:
             # delete any entries that are 4-digit specific
