@@ -244,6 +244,7 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-tb",
+            "-brake",
             "-train_brake",
             action=DataAction,
             dest="option",

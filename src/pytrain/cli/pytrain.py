@@ -1322,6 +1322,7 @@ class PyTrain:
             action = D4Action.by_prefix(param[1], raise_exception=True)
             if action in {D4Action.COUNT, D4Action.FIRST_REC}:
                 agr = D4Req(0, pdi, action=action)
+            # Builds D4 request with MAP, NEXT_REC, or QUERY/UPDATE parameters and validation
             if agr is None and param_len >= 3:
                 if action == D4Action.MAP:
                     tmcc_id = int(param[2])
