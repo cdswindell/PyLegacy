@@ -154,6 +154,7 @@ class ConsistComponent:
             byte_str = self.flags.to_bytes(1, byteorder="little")
             byte_str += self.rec_no.to_bytes(2, byteorder="little")
             byte_str += b"\xff"
+            print(f"D4: {self.tmcc_id} {self.flags} {self.rec_no} {self.extra} {byte_str.hex()}")
         else:
             byte_str = self.flags.to_bytes(1, byteorder="little")
             byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
