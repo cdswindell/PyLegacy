@@ -274,6 +274,7 @@ class CliBaseTMCC(CliBase):
     def __init__(self, arg_parser: ArgumentParser, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         if "format" in self._args and self._args.format:
+            print(f"Using {self._args.format} command format")
             self._command_format = self._args.format
         else:
             self._command_format = CommandSyntax.LEGACY
