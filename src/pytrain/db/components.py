@@ -151,10 +151,9 @@ class ConsistComponent:
     @property
     def as_bytes(self) -> bytes:
         if self.is_d4:
-            byte_str = self.flags.to_bytes(1, byteorder="little")
+            byte_str = b"\xff"
+            byte_str += self.flags.to_bytes(1, byteorder="little")
             byte_str += self.rec_no.to_bytes(2, byteorder="little")
-            byte_str += b"\xff"
-            print(f"D4: {self.tmcc_id} {self.flags} {self.rec_no} {self.extra} {byte_str.hex()}")
         else:
             byte_str = self.flags.to_bytes(1, byteorder="little")
             byte_str += self.tmcc_id.to_bytes(1, byteorder="little")
@@ -166,6 +165,7 @@ class RouteComponent:
 
     @classmethod
     def from_bytes(cls, data: bytes) -> list[RouteComponent]:
+        """Parses fixed‑length route components; sorts by ID"""
         route_comps: list[RouteComponent] = list()
         data_len = len(data)
         for i in range(0, 32, 2):
