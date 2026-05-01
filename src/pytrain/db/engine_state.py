@@ -1103,6 +1103,7 @@ class TrainState(EngineState, LcsProxyState):
     def head_tmcc_id(self) -> int | None:
         if self.consist_components:
             for comp in self.consist_components:
+                print(comp)
                 if comp.is_head:
                     return comp.tmcc_id
         return None

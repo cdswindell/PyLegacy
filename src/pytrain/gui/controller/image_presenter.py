@@ -187,6 +187,7 @@ class ImagePresenter:
                 if img is None:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"No image for train {tmcc_id} head {head_id}; requesting...")
+                        log.debug(f"Train state: {train_state}")
                     self.update(key=(CommandScope.ENGINE, head_id, train_id))
                     return
                 else:
