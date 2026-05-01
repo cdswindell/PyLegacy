@@ -522,6 +522,7 @@ class DependencyCache(Generic[T, C, E]):
             Engine2.RESET,
             Engine2.FORWARD_DIRECTION,
             Engine2.ABSOLUTE_SPEED,
+            Engine2.STOP_IMMEDIATE,
             Engine2.NUMBER_0,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
@@ -529,28 +530,28 @@ class DependencyCache(Generic[T, C, E]):
         )
         self.causes(
             Engine2.STOP_IMMEDIATE,
-            Engine2.SPEED_STOP_HOLD,
+            Engine2.ABSOLUTE_SPEED,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
         )
         self.causes(
             Engine2.FORWARD_DIRECTION,
             Engine2.STOP_IMMEDIATE,
-            Engine2.SPEED_STOP_HOLD,
+            Engine2.ABSOLUTE_SPEED,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
         )
         self.causes(
             Engine2.REVERSE_DIRECTION,
             Engine2.STOP_IMMEDIATE,
-            Engine2.SPEED_STOP_HOLD,
+            Engine2.ABSOLUTE_SPEED,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
         )
         self.causes(
             Engine2.TOGGLE_DIRECTION,
             Engine2.STOP_IMMEDIATE,
-            Engine2.SPEED_STOP_HOLD,
+            Engine2.ABSOLUTE_SPEED,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
         )
