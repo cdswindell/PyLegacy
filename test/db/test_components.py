@@ -97,7 +97,7 @@ class TestConsistComponent:
 
 class TestRouteComponent:
     def test_from_bytes_parses_sorts_by_tmcc_id(self):
-        # Create 3 components with out-of-order tmcc_ids
+        # Create 3 routes with out-of-order tmcc_ids
         r1 = RouteComponent(5, 0x00)  # switch thru
         r2 = RouteComponent(2, 0x01)  # switch out
         r3 = RouteComponent(8, 0x03)  # route

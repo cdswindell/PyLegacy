@@ -1543,6 +1543,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     @staticmethod
     def get_tmcc2_smoke_cmd(cmd: str, state: EngineState) -> TMCC2EngineOpsEnum | None:
         cur_smoke = state.smoke_level
+        print(f"cmd: {cmd} cur_smoke: {cur_smoke} state: {state}")
         if cmd == SMOKE_ON:  # increase smoke
             if cur_smoke == TMCC2EffectsControl.SMOKE_OFF:
                 return TMCC2EffectsControl.SMOKE_LOW
@@ -1550,6 +1551,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 return TMCC2EffectsControl.SMOKE_MEDIUM
             elif cur_smoke == TMCC2EffectsControl.SMOKE_MEDIUM:
                 return TMCC2EffectsControl.SMOKE_HIGH
+            else:
+                return TMCC2EffectsControl.SMOKE_LOW
         elif cmd == SMOKE_OFF:  # decrease smoke
             if cur_smoke == TMCC2EffectsControl.SMOKE_LOW:
                 return TMCC2EffectsControl.SMOKE_OFF
@@ -1557,6 +1560,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 return TMCC2EffectsControl.SMOKE_LOW
             elif cur_smoke == TMCC2EffectsControl.SMOKE_HIGH:
                 return TMCC2EffectsControl.SMOKE_MEDIUM
+            else:
+                return TMCC2EffectsControl.SMOKE_OFF
         return None
 
     def on_acc_command(self, target: str, data: int | None = None) -> None:
