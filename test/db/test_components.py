@@ -21,7 +21,7 @@ class TestConsistComponent:
         assert c.flags == flags
         assert c.unit_type == UnitBits.SINGLE
         assert c.is_single is True
-        assert c.is_head is False
+        assert c.is_head is True  # single is always head
         assert c.is_middle is False
         assert c.is_tail is False
 
