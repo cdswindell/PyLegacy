@@ -179,6 +179,10 @@ class AdminPanel:
         )
         cb.value = 1 if self._pytrain.debug else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.3))
+        if self._pytrain.echo:
+            cb.enable()
+        else:
+            cb.disable()
 
         row += 1
         sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
@@ -408,6 +412,10 @@ class AdminPanel:
 
     def _on_echo(self) -> None:
         self._pytrain.echo = bool(self._echo_btn.value)
+        if self._echo_btn.value:
+            self._debug_btn.enable()
+        else:
+            self._debug_btn.disable()
 
     def _on_debug(self) -> None:
         self._pytrain.debug = bool(self._debug_btn.value)
