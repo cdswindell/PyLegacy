@@ -106,7 +106,7 @@ class ConsistComponent:
 
     @property
     def is_head(self) -> bool:
-        return 0b11 & self.flags == 0b1
+        return (0b11 & self.flags == 0b1) | self.is_single
 
     @property
     def is_middle(self) -> bool:
