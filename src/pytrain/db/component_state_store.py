@@ -520,13 +520,12 @@ class DependencyCache(Generic[T, C, E]):
         # Engine commands, starting with Reset (Number 0)
         self.causes(
             Engine2.RESET,
-            Engine2.STOP_IMMEDIATE,
             Engine2.FORWARD_DIRECTION,
-            Engine2.START_UP_IMMEDIATE,
-            Engine2.BELL_OFF,
+            Engine2.ABSOLUTE_SPEED,
+            Engine2.NUMBER_0,
             Engine2.DIESEL_RPM,
             Engine2.ENGINE_LABOR_DEFAULT,
-            Engine2.NUMERIC,
+            Engine2.BELL_OFF,
         )
         self.causes(
             Engine2.STOP_IMMEDIATE,

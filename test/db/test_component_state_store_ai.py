@@ -241,7 +241,7 @@ class TestDependencyCacheMappings:
         cache = DependencyCache.build()
         # RESET results in STOP_IMMEDIATE (among others)
         res = cache.results_in(Engine2.RESET, dereference_aliases=True, include_aliases=False)
-        assert Engine2.STOP_IMMEDIATE in res
+        assert Engine2.ABSOLUTE_SPEED in res
 
         # STOP_IMMEDIATE is caused by RESET, FORWARD_DIRECTION, REVERSE_DIRECTION, TOGGLE_DIRECTION
         causes = cache.caused_by(Engine2.STOP_IMMEDIATE, dereference_aliases=True, include_aliases=False)
