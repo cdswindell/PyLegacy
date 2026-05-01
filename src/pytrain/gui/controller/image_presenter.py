@@ -185,6 +185,8 @@ class ImagePresenter:
                 head_id = train_state.head_tmcc_id
                 img = host._image_cache.get((CommandScope.ENGINE, head_id), None)
                 if img is None:
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug(f"No image for train {tmcc_id} head {head_id}; requesting...")
                     self.update(key=(CommandScope.ENGINE, head_id, train_id))
                     return
                 else:
@@ -203,7 +205,7 @@ class ImagePresenter:
                     state = host._state_store.get_state(scope, tmcc_id, False)
                     if log.isEnabledFor(logging.DEBUG):
                         bt_id = state.bt_id if state else "NA"
-                        log.debug(f"Requested product info for {scope} TMCC ID: {tmcc_id}  bt: {bt_id}...")
+                        log.debug(f"Requested product info for {scope.title} TMCC ID: {tmcc_id}  bt: {bt_id}...")
                     prod_info = host.get_prod_info(
                         state.bt_id if state else None,
                         self._make_prod_info_callback(tmcc_id, train_id),
