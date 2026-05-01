@@ -62,13 +62,17 @@ class TestBase:
         ]
 
     def generate_random_address(self, cmd: CommandDefEnum, scope: CommandScope = None) -> int:
+        # Generates TMCC-specific random address by scope
         if cmd.syntax == CommandSyntax.TMCC:
             if scope == CommandScope.TRAIN or cmd.scope == CommandScope.ROUTE:
                 address = random.randint(1, 10)
             else:
                 address = random.randint(1, 99)
         else:
-            address = random.randint(1, 99)
+            if scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
+                address = random.randint(1, 9999)
+            else:
+                address = random.randint(1, 99)
         return address
 
     def generate_random_data(self, cmd: CommandDefEnum) -> int:

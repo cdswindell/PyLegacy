@@ -233,6 +233,8 @@ class CommandDefMixins(Mixins):
         for _, member in cls.__members__.items():
             if member.value == value:
                 return member
+            if isinstance(member, CommandDefEnum) and member.value.is_alias:
+                continue  # only return first class values, not aliases
             if hasattr(member.value, "bits") and member.value.bits == value:
                 return member
             if isinstance(member, CommandDef) and member.bits == value:
