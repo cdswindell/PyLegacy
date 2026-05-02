@@ -72,7 +72,7 @@ class CulvertGui(AccessoryBase):
         return [self._action_state]
 
     def is_active(self, state: AccessoryState) -> bool:
-        return state.is_aux_on
+        return state.is_aux2_on
 
     def switch_state(self, state: AccessoryState) -> None:
         with self._cv:
