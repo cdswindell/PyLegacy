@@ -230,6 +230,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         with self._cv:
             pd: S = self._states[tmcc_id]
             pb = self._state_buttons.get(tmcc_id, None)
+            log.info(f"update_button: {tmcc_id} {pd} {pb}")
             if pb:
                 if self.is_active(pd):
                     self.set_button_active(pb)
