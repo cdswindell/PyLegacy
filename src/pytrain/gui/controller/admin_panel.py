@@ -415,6 +415,7 @@ class AdminPanel:
         if self._echo_btn.value:
             self._debug_btn.enable()
         else:
+            self._pytrain.debug = False
             self._debug_btn.disable()
 
     def _on_debug(self) -> None:
