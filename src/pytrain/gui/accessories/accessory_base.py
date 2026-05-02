@@ -152,7 +152,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def registry(self) -> AccessoryRegistry:
         with self._cv:
             if self._registry is None:
-                self._registry = AccessoryRegistry.instance()
+                self._registry = AccessoryRegistry.get()
                 self._registry.bootstrap()
         return self._registry
 

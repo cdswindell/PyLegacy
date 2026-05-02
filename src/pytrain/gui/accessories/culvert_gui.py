@@ -80,14 +80,12 @@ class CulvertGui(AccessoryBase):
         with self._cv:
             # LATCH behavior for power / conveyor
             self.toggle_latch(state)
-            self.gate_widget_on_power(state, self._action_button)
 
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
         max_text_len = len(self._action_label) + 2
 
         self._action_button = self.make_power_button(self._action_state, self._action_label, 0, max_text_len, box)
-        self.gate_widget_on_power(self._action_state, self._action_button)
 
     def on_action(self) -> None:
         CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._action).send()
