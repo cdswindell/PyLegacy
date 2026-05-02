@@ -75,9 +75,9 @@ class CulvertGui(AccessoryBase):
         print(f"CulvertGui.is_active: {state.is_aux2_on} {hasattr(self._action_button, 'text_field')}")
         if self._action_button and hasattr(self._action_button, "text_field"):
             if state.is_aux2_on:
-                self._action_button.text_field.text = self._action_label
+                self._action_button.text_field.value = self._action_label
             else:
-                self._action_button.text_field.text = "Off"
+                self._action_button.text_field.value = "Off"
         return state.is_aux2_on
 
     def switch_state(self, state: AccessoryState) -> None:
