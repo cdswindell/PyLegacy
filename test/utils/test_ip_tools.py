@@ -10,6 +10,8 @@
 import socket
 import subprocess
 
+import pytest
+
 from src.pytrain.utils.ip_tools import find_base_address, get_ip_address, is_base_address, get_ip_from_command
 
 
@@ -18,6 +20,11 @@ class DummyCompleted:
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = ""
+
+
+@pytest.fixture(autouse=True)
+def mock_network_wait(monkeypatch):
+    monkeypatch.setattr("src.pytrain.utils.ip_tools.wait_for_network", lambda timeout_s=60.0: True)
 
 
 def test_get_ip_address_linux_hostname_success(monkeypatch):

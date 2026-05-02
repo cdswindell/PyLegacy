@@ -1,0 +1,10 @@
+import pytest
+
+
+@pytest.fixture(autouse=True, scope="package")
+def mock_pdi_dispatcher_ip():
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("src.pytrain.comm.command_listener.get_ip_address", lambda: ["127.0.0.1"])
+    monkeypatch.setattr("src.pytrain.pdi.pdi_listener.get_ip_address", lambda: ["127.0.0.1"])
+    yield
+    monkeypatch.undo()
