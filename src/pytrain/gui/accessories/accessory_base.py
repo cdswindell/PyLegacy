@@ -415,6 +415,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             width=self.s_72,
         )
         button.tmcc_id = state.tmcc_id
+        button.text_field = tb
         button.update_command(self.switch_state, [state])
         self.register_widget(state, button)
         return button
