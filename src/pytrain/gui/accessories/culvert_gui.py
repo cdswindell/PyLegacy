@@ -13,8 +13,6 @@ from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
 from .accessory_type import AccessoryType
 from ...db.accessory_state import AccessoryState
-from ...protocol.command_req import CommandReq
-from ...protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
 from ...utils.path_utils import find_file
 
 
@@ -86,6 +84,3 @@ class CulvertGui(AccessoryBase):
         max_text_len = len(self._action_label) + 2
 
         self._action_button = self.make_power_button(self._action_state, self._action_label, 0, max_text_len, box)
-
-    def on_action(self) -> None:
-        CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._action).send()
