@@ -7,12 +7,6 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories
-#
-#
-#  SPDX-License-Identifier: LPGL
-#
 from guizero import Box
 
 from .accessory_base import AccessoryBase, S
@@ -80,10 +74,13 @@ class CulvertGui(AccessoryBase):
         return [self._action_state]
 
     def is_active(self, state: AccessoryState) -> bool:
-        return False
+        return state.is_aux_on
 
     def switch_state(self, state: AccessoryState) -> None:
-        pass
+        with self._cv:
+            # LATCH behavior for power / conveyor
+            self.toggle_latch(state)
+            self.gate_widget_on_power(state, self._action_button)
 
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
@@ -99,6 +96,7 @@ class CulvertGui(AccessoryBase):
             is_momentary=False,
         )
         ab.update_command(self.on_action)
+        self.gate_widget_on_power(self._action_state, self._action_button)
 
     def on_action(self) -> None:
         CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self._action).send()

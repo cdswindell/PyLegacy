@@ -6,7 +6,6 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-#
 
 from __future__ import annotations
 
@@ -68,8 +67,8 @@ class StartupState(Thread):
         if isinstance(cmd, PdiReq):
             req = None
             if cmd.action and cmd.action.is_config and self._config_key(cmd) not in self._processed_configs:
-                # register the device; registration returns a list of pdi commands
-                # to send to get device state
+                # register the device; registration returns a list
+                # of pdi commands to send to get device state
                 state_requests = self.pdi_state_store.register_pdi_device(cmd)
                 self._processed_configs.add(self._config_key(cmd))
                 if state_requests:
@@ -181,6 +180,7 @@ class StartupState(Thread):
         while total_time < 120:  # only listen for 2 minutes
             self._ev.wait(0.25)
             elapsed = round(time.time() - started_at)
+            # Awaits responses with timeout; forces sync completion if prolonged
             if self._ev.is_set() or (ev_set is True) or len(self._waiting_for) == 0:
                 self._ev.clear()
                 ev_set = True
