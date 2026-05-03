@@ -581,7 +581,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     def _get_power_button_images(self):
         if self._power_button_images is None:
-            sz = int(self.s_72 * 0.82)
+            sz = int(self.s_72 * 0.75)
             size = (sz, sz)
             on_img, _ = self.host.get_image(self.turn_on_image, size=size, inverse=False)
             off_img, _ = self.host.get_image(self.turn_off_image, size=size, inverse=False)
