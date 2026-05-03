@@ -772,7 +772,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         if self.throttle_state:
             state = self.throttle_state
-            BaseReq.do_update_eng_field("SPEED_LIMIT", 255, state, False)
+            BaseReq.do_update_eng_field("SPEED_LIMIT", 255, state, True)
 
     def set_speed_limit(self, speed_limit: int) -> None:
         from src.pytrain.pdi.base_req import BaseReq
