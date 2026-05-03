@@ -423,6 +423,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget.component_state = state
             self.update_button(state.tmcc_id)
 
+    # noinspection PyTypeChecker
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
@@ -431,7 +432,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         on_img, off_img = self._get_power_button_images()
         button = PowerButton(
             btn_box,
-            # image=None,
+            image=None,
             align="top",
             height=self.s_72,
             width=self.s_72,
@@ -581,10 +582,9 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def _get_power_button_images(self):
         if self._power_button_images is None:
             size = (self.s_72, self.s_72)
-            self._power_button_images = (
-                self.host.get_image(self.turn_on_image, size=size, inverse=False),
-                self.host.get_image(self.turn_off_image, size=size, inverse=False),
-            )
+            on_img, _ = self.host.get_image(self.turn_on_image, size=size, inverse=False)
+            off_img, _ = self.host.get_image(self.turn_off_image, size=size, inverse=False)
+            self._power_button_images = (on_img, off_img)
         return self._power_button_images
 
     def when_pressed(self, event: EventData) -> None:
