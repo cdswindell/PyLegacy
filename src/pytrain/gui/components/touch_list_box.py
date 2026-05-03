@@ -7,11 +7,6 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
-#
-#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
-#
-#
-#
 from __future__ import annotations
 
 import time
@@ -40,6 +35,7 @@ class TouchListBox(ListBox):
         items=None,
         selected=None,
         *,
+        horizontal_scroll: bool = False,
         hold_ms: int = 500,
         move_px: int = 35,
         tap_highlight: bool = False,
@@ -49,6 +45,7 @@ class TouchListBox(ListBox):
     ):
         super().__init__(master, items=items, selected=selected, **kwargs)
 
+        self.horizontal_scroll = bool(horizontal_scroll)
         self.hold_ms = int(hold_ms)
         self.move_px = int(move_px)
         self.tap_highlight = bool(tap_highlight)
@@ -81,10 +78,16 @@ class TouchListBox(ListBox):
             pass
 
         self._dbg(
-            f"init: hold_ms={self.hold_ms} move_px={self.move_px} tap_highlight={self.tap_highlight} lb={self._lb}"
+            "init: "
+            f"horizontal_scroll={self.horizontal_scroll} "
+            f"hold_ms={self.hold_ms} "
+            f"move_px={self.move_px} "
+            f"tap_highlight={self.tap_highlight} "
+            f"lb={self._lb}"
         )
 
         self._bind_touch_handlers()
+        self._apply_horizontal_scroll_policy()
 
     # ---------- Public API ----------
 
@@ -96,6 +99,10 @@ class TouchListBox(ListBox):
 
     def set_move_threshold(self, move_px: int) -> None:
         self.move_px = int(move_px)
+
+    def set_horizontal_scroll(self, enabled: bool) -> None:
+        self.horizontal_scroll = bool(enabled)
+        self._apply_horizontal_scroll_policy()
 
     # ---------- Internal helpers ----------
 
@@ -131,8 +138,21 @@ class TouchListBox(ListBox):
             self._lb.bind("<ButtonPress-1>", self._on_press, add="+")
             self._lb.bind("<B1-Motion>", self._on_motion, add="+")
             self._lb.bind("<ButtonRelease-1>", self._on_release, add="+")
+            self._lb.bind("<Configure>", self._on_configure, add="+")
         except TclError:
             # Widget may be destroying
+            pass
+
+    def _apply_horizontal_scroll_policy(self) -> None:
+        if not self.horizontal_scroll:
+            self._reset_horizontal_view()
+
+    def _reset_horizontal_view(self) -> None:
+        try:
+            if float(self._lb.xview()[0]) != 0.0:
+                self._dbg("reset_horizontal_view")
+            self._lb.xview_moveto(0)
+        except (TclError, TypeError, ValueError, IndexError):
             pass
 
     def _cancel_hold_timer(self) -> None:
@@ -273,6 +293,9 @@ class TouchListBox(ListBox):
     def _on_release(self, _event: Any) -> None:
         self._cancel_hold_timer()
 
+        if not self.horizontal_scroll:
+            self._reset_horizontal_view()
+
         if not self.tap_highlight:
             return
         if self._moved or self._hold_fired:
@@ -292,3 +315,7 @@ class TouchListBox(ListBox):
             self._lb.activate(idx)
         except TclError:
             pass
+
+    def _on_configure(self, _event: Any) -> None:
+        if not self.horizontal_scroll:
+            self._reset_horizontal_view()
