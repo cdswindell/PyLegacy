@@ -15,6 +15,7 @@
 #
 import threading
 import time
+from tkinter import TclError
 
 from guizero.base import Widget
 
@@ -54,6 +55,7 @@ class SwipeDetector:
         if self.long_press_timer:
             self.long_press_timer.cancel()
             self.long_press_timer = None
+            self.long_press_fired = False
 
     # ------------------------------
     #
@@ -68,19 +70,23 @@ class SwipeDetector:
 
         self.long_press_fired = True
         if self.on_long_press:
-            self.widget.tk.after(0, self.on_long_press)
+            try:
+                self.widget.tk.after(0, self.on_long_press)
+            except TclError:
+                pass
 
     # ------------------------------
 
     def _on_press(self, e):
         self.start_x = e.x
         self.start_y = e.y
-        self.start_time = time.time()
+        self.start_time = time.monotonic()
         self.long_press_fired = False
 
         # start long-press timer
         self._cancel_long_press_timer()
         self.long_press_timer = threading.Timer(self.long_press_time, self._trigger_long_press)
+        self.long_press_timer.daemon = True
         self.long_press_timer.start()
 
     # ------------------------------
@@ -110,7 +116,7 @@ class SwipeDetector:
 
         end_x = e.x
         end_y = e.y
-        dt = time.time() - self.start_time
+        dt = time.monotonic() - self.start_time
 
         dx = end_x - self.start_x
         dy = end_y - self.start_y
@@ -130,9 +136,12 @@ class SwipeDetector:
             return
 
         # direction
-        if dx > 0:
-            if self.on_swipe_right:
-                self.on_swipe_right()
-        else:
-            if self.on_swipe_left:
-                self.on_swipe_left()
+        try:
+            if dx > 0:
+                if self.on_swipe_right:
+                    self.widget.tk.after(0, self.on_swipe_right)
+            else:
+                if self.on_swipe_left:
+                    self.widget.tk.after(0, self.on_swipe_left)
+        except TclError:
+            pass
