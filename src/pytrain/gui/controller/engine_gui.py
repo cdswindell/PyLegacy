@@ -779,7 +779,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         if self.throttle_state:
             state = self.throttle_state
-            BaseReq.do_update_eng_field("SPEED_LIMIT", speed_limit, state, False)
+            BaseReq.do_update_eng_field("SPEED_LIMIT", speed_limit, state, True)
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!

@@ -305,8 +305,7 @@ class BaseReq(PdiReq, CompDataMixin):
                             target=callback,
                             args=(sync_req,),
                             daemon=True,
-                        )
-                        pass
+                        ).start()
                     else:
                         callback(sync_req)
         return refresh_requested
