@@ -56,11 +56,19 @@ class SwipeDetector:
             self.long_press_timer = None
 
     # ------------------------------
+    #
+    # def _trigger_long_press(self):
+    #     self.long_press_fired = True
+    #     if self.on_long_press:
+    #         self.on_long_press()
 
-    def _trigger_long_press(self):
+    def _trigger_long_press(self) -> None:
+        if not self.long_press_fired:
+            return
+
         self.long_press_fired = True
         if self.on_long_press:
-            self.on_long_press()
+            self.widget.tk.after(0, self.on_long_press)
 
     # ------------------------------
 

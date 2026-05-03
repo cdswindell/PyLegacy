@@ -106,7 +106,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self.alarm_off_image = find_file("red_light_off.jpg")
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
-        self._power_button_images = None
 
         # States
         self._states = dict[int, S]()
@@ -238,26 +237,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                     self.set_button_inactive(pb)
             # call child's after state change hook
             self.after_state_change(pb, pd)
-
-    # def set_button_inactive(self, widget: Widget):
-    #     if isinstance(widget, PowerButton):
-    #         # noinspection PyUnresolvedReferences
-    #         img = widget.images["on"]
-    #         widget.tk.config(image=img)
-    #         widget.tk.image = img
-    #     else:
-    #         widget.bg = self._disabled_bg
-    #         widget.text_color = self._disabled_text
-    #
-    # def set_button_active(self, widget: Widget):
-    #     if isinstance(widget, PowerButton):
-    #         # noinspection PyUnresolvedReferences
-    #         img = widget.images["off"]
-    #         widget.tk.config(image=img)
-    #         widget.tk.image = img
-    #     else:
-    #         widget.bg = self._enabled_bg
-    #         widget.text_color = self._enabled_text
 
     def set_button_inactive(self, widget: Widget):
         if isinstance(widget, PowerButton):
@@ -560,19 +539,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 scale_factor = scaled_height / ih
                 scaled_width = int(round(iw * scale_factor))
         return scaled_width, scaled_height
-
-    def _get_power_button_images(self, image_size: int):
-        key = image_size
-        if self._power_button_images is None or self._power_button_images[0] != key:
-            size = (image_size, image_size)
-
-            on_img, _ = self.host.get_image(self.turn_on_image, size=size, inverse=False)
-            off_img, _ = self.host.get_image(self.turn_off_image, size=size, inverse=False)
-
-            self._power_button_images = (key, on_img, off_img)
-
-        _, on_img, off_img = self._power_button_images
-        return on_img, off_img
 
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
