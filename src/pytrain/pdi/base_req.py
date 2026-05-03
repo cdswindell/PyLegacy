@@ -3,11 +3,9 @@ from __future__ import annotations
 import logging
 from enum import IntEnum, unique
 from math import floor
-from typing import Dict, List, Tuple, Literal, Callable
+from threading import Thread
+from typing import Callable, Dict, List, Literal, Tuple
 
-from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
-from .d4_req import D4Req
-from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 from ..db.comp_data import (
     SCOPE_TO_COMP_MAP,
     CompData,
@@ -22,6 +20,9 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CONTROL_TYPE, LOCO_CLASS, LOCO_TYPE, SOUND_TYPE, CommandScope, Mixins
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
+from .d4_req import D4Req
+from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
 
 log = logging.getLogger(__name__)
 
@@ -287,7 +288,7 @@ class BaseReq(PdiReq, CompDataMixin):
         return cmds
 
     @classmethod
-    def process_sync_reqs(cls, sync_reqs: list[BaseReq], callback: Callable) -> bool:
+    def process_sync_reqs(cls, sync_reqs: list[BaseReq], callback: Callable, do_async: bool = False) -> bool:
         """Processes sync requests dispatching engine refreshes or callbacks"""
         from ..db.engine_state import EngineState
         from .base3_db_refresh_manager import Base3DbRefreshManager
@@ -299,7 +300,15 @@ class BaseReq(PdiReq, CompDataMixin):
                     Base3DbRefreshManager.request_refresh(sync_req)
                     refresh_requested = True
                 else:
-                    callback(sync_req)
+                    if do_async:
+                        Thread(
+                            target=callback,
+                            args=(sync_req,),
+                            daemon=True,
+                        )
+                        pass
+                    else:
+                        callback(sync_req)
         return refresh_requested
 
     @classmethod
@@ -310,14 +319,14 @@ class BaseReq(PdiReq, CompDataMixin):
         return sync_reqs
 
     @classmethod
-    def do_update_eng_field(cls, field: str, data: int, state: EngineState) -> list[BaseReq]:
+    def do_update_eng_field(cls, field: str, data: int, state: EngineState, do_async: bool = False) -> list[BaseReq]:
         sync_reqs = []
         if state:
             pkgs = CompData.field_to_updates(field, state.tmcc_id, state.scope, data, state.is_legacy)
             if pkgs:
                 sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
                 if sync_reqs:
-                    cls.process_sync_reqs(sync_reqs, lambda r: r.send())
+                    cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
         return sync_reqs
 
     def __init__(
@@ -475,8 +484,8 @@ class BaseReq(PdiReq, CompDataMixin):
                     self._data_length = data_length
                     self._data_bytes = data_bytes
             elif state:
-                from ..db.engine_state import EngineState, TrainState
                 from ..db.base_state import BaseState
+                from ..db.engine_state import EngineState, TrainState
 
                 self._status = 0
                 self._spare_1 = state.spare_1
