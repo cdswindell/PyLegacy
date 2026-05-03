@@ -63,7 +63,7 @@ class SwipeDetector:
     #         self.on_long_press()
 
     def _trigger_long_press(self) -> None:
-        if not self.long_press_fired:
+        if self.long_press_fired:
             return
 
         self.long_press_fired = True
