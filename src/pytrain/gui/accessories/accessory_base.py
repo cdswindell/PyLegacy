@@ -435,7 +435,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             height=self.s_72,
             width=self.s_72,
         )
-        on_img, off_img = self._get_power_button_images()
+        button.tk.update_idletasks()
+        button_size = min(button.tk.winfo_reqwidth(), button.tk.winfo_reqheight())
+        image_size = max(1, int(button_size * 0.80))
+        on_img, off_img = self._get_power_button_images(image_size)
         button.images = {"on": on_img, "off": off_img}
         log.info("on_img size: %sx%s", on_img.width(), on_img.height())
         log.info("button requested: %sx%s", button.tk.winfo_reqwidth(), button.tk.winfo_reqheight())
@@ -575,14 +578,18 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 scaled_width = int(round(iw * scale_factor))
         return scaled_width, scaled_height
 
-    def _get_power_button_images(self):
-        if self._power_button_images is None:
-            sz = int(self.s_72 * 0.75)
-            size = (sz, sz)
+    def _get_power_button_images(self, image_size: int):
+        key = image_size
+        if self._power_button_images is None or self._power_button_images[0] != key:
+            size = (image_size, image_size)
+
             on_img, _ = self.host.get_image(self.turn_on_image, size=size, inverse=False)
             off_img, _ = self.host.get_image(self.turn_off_image, size=size, inverse=False)
-            self._power_button_images = (on_img, off_img)
-        return self._power_button_images
+
+            self._power_button_images = (key, on_img, off_img)
+
+        _, on_img, off_img = self._power_button_images
+        return on_img, off_img
 
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
