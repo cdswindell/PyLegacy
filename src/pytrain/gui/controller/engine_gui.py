@@ -772,14 +772,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         if self.throttle_state:
             state = self.throttle_state
-            BaseReq.do_update_eng_field("SPEED_LIMIT", 255, state, True)
+            BaseReq.do_update_eng_field("SPEED_LIMIT", 255, state, False)
 
     def set_speed_limit(self, speed_limit: int) -> None:
         from src.pytrain.pdi.base_req import BaseReq
 
         if self.throttle_state:
             state = self.throttle_state
-            BaseReq.do_update_eng_field("SPEED_LIMIT", speed_limit, state, True)
+            BaseReq.do_update_eng_field("SPEED_LIMIT", speed_limit, state, False)
 
     def on_new_route(self, state: RouteState = None):
         # must be called from app thread!!
