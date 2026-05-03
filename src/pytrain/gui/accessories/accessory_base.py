@@ -428,7 +428,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
         tb.width = text_len
 
-        on_img, off_img = self._get_power_button_images()
         button = PowerButton(
             btn_box,
             image=self.turn_on_image,
@@ -436,12 +435,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             height=self.s_72,
             width=self.s_72,
         )
-        button.images = {
-            "on": on_img,
-            "off": off_img,
-        }
-        button.tk.config(image=on_img)
-        button.tk.image = on_img
+        on_img, off_img = self._get_power_button_images()
+        button.images = {"on": on_img, "off": off_img}
+        log.info("on_img size: %sx%s", on_img.width(), on_img.height())
+        log.info("button requested: %sx%s", button.tk.winfo_reqwidth(), button.tk.winfo_reqheight())
 
         # button = PowerButton(
         #     btn_box,
