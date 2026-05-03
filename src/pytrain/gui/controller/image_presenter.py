@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 
 class ImagePresenter:
     def __init__(self, host: "EngineGui") -> None:
+        self._last_box_size = None
         self._host = host
         self.avail_image_height: int | None = None
         self.avail_image_width: int | None = None
@@ -130,6 +131,7 @@ class ImagePresenter:
             host.avail_image_width = avail_image_width = emergency_width
         else:
             avail_image_width = host.avail_image_width
+        self._last_box_size = (avail_image_height, avail_image_width)
         return avail_image_height, avail_image_width
 
     def _is_relevant_update(self, scope: CommandScope, tmcc_id: int | None, train_id: int | None = None) -> bool:
@@ -199,7 +201,7 @@ class ImagePresenter:
                     tmcc_id = train_id
                     scope = CommandScope.TRAIN
             else:
-                box_size = self.calc_box_size()
+                box_size = self.refresh_box_size() or self.calc_box_size()
                 available_height, available_width = box_size
                 with host.locked():
                     state = host._state_store.get_state(scope, tmcc_id, False)
@@ -302,3 +304,9 @@ class ImagePresenter:
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
             host.image_box.show()
+
+    def refresh_box_size(self):
+        w = self._host.image_box.tk.winfo_width()
+        h = self._host.image_box.tk.winfo_height()
+        if w > 1 and h > 1:
+            self._last_box_size = (h, w)

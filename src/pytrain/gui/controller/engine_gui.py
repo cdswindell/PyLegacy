@@ -566,6 +566,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
         setattr(overlay, "caa", acc)
         self.set_accessory_view(tmcc_id, acc)
+        self.app.tk.after_idle(self._image_presenter.refresh_box_size)
         self._image_presenter.update(tmcc_id=tmcc_id)
         return overlay
 
