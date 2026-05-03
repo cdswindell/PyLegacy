@@ -239,43 +239,41 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             # call child's after state change hook
             self.after_state_change(pb, pd)
 
+    # def set_button_inactive(self, widget: Widget):
+    #     if isinstance(widget, PowerButton):
+    #         # noinspection PyUnresolvedReferences
+    #         img = widget.images["on"]
+    #         widget.tk.config(image=img)
+    #         widget.tk.image = img
+    #     else:
+    #         widget.bg = self._disabled_bg
+    #         widget.text_color = self._disabled_text
+    #
+    # def set_button_active(self, widget: Widget):
+    #     if isinstance(widget, PowerButton):
+    #         # noinspection PyUnresolvedReferences
+    #         img = widget.images["off"]
+    #         widget.tk.config(image=img)
+    #         widget.tk.image = img
+    #     else:
+    #         widget.bg = self._enabled_bg
+    #         widget.text_color = self._enabled_text
+
     def set_button_inactive(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            # noinspection PyUnresolvedReferences
-            img = widget.images["on"]
-            widget.tk.config(image=img)
-            widget.tk.image = img
+            widget.image = self.turn_on_image
+            widget.height = widget.width = self.s_72
         else:
             widget.bg = self._disabled_bg
             widget.text_color = self._disabled_text
 
     def set_button_active(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            # noinspection PyUnresolvedReferences
-            img = widget.images["off"]
-            widget.tk.config(image=img)
-            widget.tk.image = img
+            widget.image = self.turn_off_image
+            widget.height = widget.width = self.s_72
         else:
             widget.bg = self._enabled_bg
             widget.text_color = self._enabled_text
-
-    # noinspection PyTypeChecker
-    # def set_button_inactive(self, widget: Widget):
-    #     if isinstance(widget, PowerButton):
-    #         widget.image = self.turn_on_image
-    #         widget.height = widget.width = self.s_72
-    #     else:
-    #         widget.bg = self._disabled_bg
-    #         widget.text_color = self._disabled_text
-
-    # noinspection PyTypeChecker
-    # def set_button_active(self, widget: Widget):
-    #     if isinstance(widget, PowerButton):
-    #         widget.image = self.turn_off_image
-    #         widget.height = widget.width = self.s_72
-    #     else:
-    #         widget.bg = self._enabled_bg
-    #         widget.text_color = self._enabled_text
 
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
@@ -435,23 +433,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             height=self.s_72,
             width=self.s_72,
         )
-        button.tk.update_idletasks()
-        button_size = min(button.tk.winfo_reqwidth(), button.tk.winfo_reqheight())
-        image_size = max(1, int(button_size * 0.80))
-        on_img, off_img = self._get_power_button_images(image_size)
-        button.images = {"on": on_img, "off": off_img}
-        button.tk.config(image=on_img)
-        button.tk.image = on_img
-        log.info("on_img size: %sx%s", on_img.width(), on_img.height())
-        log.info("button requested: %sx%s", button.tk.winfo_reqwidth(), button.tk.winfo_reqheight())
-
-        # button = PowerButton(
-        #     btn_box,
-        #     image=self.turn_on_image,
-        #     align="top",
-        #     height=self.s_72,
-        #     width=self.s_72,
-        # )
         button.tmcc_id = state.tmcc_id
         button.text_field = tb
         button.update_command(self.switch_state, [state])
