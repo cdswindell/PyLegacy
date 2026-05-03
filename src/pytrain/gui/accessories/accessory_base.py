@@ -423,7 +423,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget.component_state = state
             self.update_button(state.tmcc_id)
 
-    # noinspection PyTypeChecker
     def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
@@ -432,7 +431,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         on_img, off_img = self._get_power_button_images()
         button = PowerButton(
             btn_box,
-            image=None,
+            image=self.turn_on_image,
             align="top",
             height=self.s_72,
             width=self.s_72,
