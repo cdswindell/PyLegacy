@@ -106,6 +106,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self.alarm_off_image = find_file("red_light_off.jpg")
         self.left_arrow_image = find_file("left_arrow.jpg")
         self.right_arrow_image = find_file("right_arrow.jpg")
+        self._power_button_images = None
 
         # States
         self._states = dict[int, S]()
@@ -238,23 +239,43 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             # call child's after state change hook
             self.after_state_change(pb, pd)
 
-    # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            widget.image = self.turn_on_image
-            widget.height = widget.width = self.s_72
+            # noinspection PyUnresolvedReferences
+            img = widget.images["on"]
+            widget.tk.config(image=img)
+            widget.tk.image = img
         else:
             widget.bg = self._disabled_bg
             widget.text_color = self._disabled_text
 
-    # noinspection PyTypeChecker
     def set_button_active(self, widget: Widget):
         if isinstance(widget, PowerButton):
-            widget.image = self.turn_off_image
-            widget.height = widget.width = self.s_72
+            # noinspection PyUnresolvedReferences
+            img = widget.images["off"]
+            widget.tk.config(image=img)
+            widget.tk.image = img
         else:
             widget.bg = self._enabled_bg
             widget.text_color = self._enabled_text
+
+    # noinspection PyTypeChecker
+    # def set_button_inactive(self, widget: Widget):
+    #     if isinstance(widget, PowerButton):
+    #         widget.image = self.turn_on_image
+    #         widget.height = widget.width = self.s_72
+    #     else:
+    #         widget.bg = self._disabled_bg
+    #         widget.text_color = self._disabled_text
+
+    # noinspection PyTypeChecker
+    # def set_button_active(self, widget: Widget):
+    #     if isinstance(widget, PowerButton):
+    #         widget.image = self.turn_off_image
+    #         widget.height = widget.width = self.s_72
+    #     else:
+    #         widget.bg = self._enabled_bg
+    #         widget.text_color = self._enabled_text
 
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
@@ -406,13 +427,29 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
         tb.width = text_len
+
+        on_img, off_img = self._get_power_button_images()
         button = PowerButton(
             btn_box,
-            image=self.turn_on_image,
+            # image=None,
             align="top",
             height=self.s_72,
             width=self.s_72,
         )
+        button.images = {
+            "on": on_img,
+            "off": off_img,
+        }
+        button.tk.config(image=on_img)
+        button.tk.image = on_img
+
+        # button = PowerButton(
+        #     btn_box,
+        #     image=self.turn_on_image,
+        #     align="top",
+        #     height=self.s_72,
+        #     width=self.s_72,
+        # )
         button.tmcc_id = state.tmcc_id
         button.text_field = tb
         button.update_command(self.switch_state, [state])
@@ -540,6 +577,15 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 scale_factor = scaled_height / ih
                 scaled_width = int(round(iw * scale_factor))
         return scaled_width, scaled_height
+
+    def _get_power_button_images(self):
+        if self._power_button_images is None:
+            size = (self.s_72, self.s_72)
+            self._power_button_images = (
+                self.host.get_image(self.turn_on_image, size=size, inverse=False),
+                self.host.get_image(self.turn_off_image, size=size, inverse=False),
+            )
+        return self._power_button_images
 
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
