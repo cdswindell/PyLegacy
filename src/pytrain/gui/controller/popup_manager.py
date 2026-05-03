@@ -46,6 +46,7 @@ class PopupManager:
         self._combo_hackable: bool = False
         self._overlays: dict[str, Box] = {}
         self._overlay_close_hooks: dict[int, Callable[[Box], None]] = {}
+        self._close_acc_images: dict[tuple[bool, int], tuple[Any, Any]] = {}
 
     # ------------------------------------------------------------------
     # Construction
@@ -119,10 +120,7 @@ class PopupManager:
     ):
         host.add_vspace(overlay, 40)
         bs = int(host.button_size * 1.0)
-        if acc.state.is_asc2:
-            img, inverted_img = host.get_image(find_file("raw-acs2.jpg"), size=(bs, bs))
-        else:
-            img, inverted_img = host.get_image(find_file("raw-acc.jpg"), size=(bs, bs))
+        img, inverted_img = self._get_close_acc_images(acc.state.is_asc2, bs)
         btn = HoldButton(
             overlay,
             text="",
@@ -407,3 +405,12 @@ class PopupManager:
             btn.restore_color_state()
         except (KeyError, AttributeError):
             pass
+
+    def _get_close_acc_images(self, is_asc2: bool, size: int):
+        key = (is_asc2, size)
+        images = self._close_acc_images.get(key)
+        if images is None:
+            filename = "raw-acs2.jpg" if is_asc2 else "raw-acc.jpg"
+            images = self._host.get_image(find_file(filename), size=(size, size))
+            self._close_acc_images[key] = images
+        return images
