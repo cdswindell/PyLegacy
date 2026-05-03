@@ -440,6 +440,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         image_size = max(1, int(button_size * 0.80))
         on_img, off_img = self._get_power_button_images(image_size)
         button.images = {"on": on_img, "off": off_img}
+        button.tk.config(image=on_img)
+        button.tk.image = on_img
         log.info("on_img size: %sx%s", on_img.width(), on_img.height())
         log.info("button requested: %sx%s", button.tk.winfo_reqwidth(), button.tk.winfo_reqheight())
 
