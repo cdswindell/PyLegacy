@@ -429,7 +429,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             button.tmcc_id = state.tmcc_id
             button.text_field = tb
             button.update_command(self.switch_state, [state])
-            self.register_widget(state, button)
             if image == self.turn_on_image:
                 on_btn = button
             else:
@@ -437,6 +436,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         on_btn.sibling = off_btn
         off_btn.sibling = on_btn
         off_btn.hide()
+        self.register_widget(state, on_btn)
+        self.register_widget(state, off_btn)
         return on_btn
 
     def make_push_button(
