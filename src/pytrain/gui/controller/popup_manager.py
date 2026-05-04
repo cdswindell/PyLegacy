@@ -46,6 +46,10 @@ class PopupManager:
         self._combo_hackable: bool = False
         self._overlays: dict[str, Box] = {}
         self._overlay_close_hooks: dict[int, Callable[[Box], None]] = {}
+        self._close_acc_paths = {
+            False: find_file("raw-acc.jpg"),
+            True: find_file("raw-acs2.jpg"),
+        }
         self._close_acc_images: dict[tuple[bool, int], tuple[Any, Any]] = {}
 
     # ------------------------------------------------------------------
@@ -410,7 +414,6 @@ class PopupManager:
         key = (is_asc2, size)
         images = self._close_acc_images.get(key)
         if images is None:
-            filename = "raw-acs2.jpg" if is_asc2 else "raw-acc.jpg"
-            images = self._host.get_image(find_file(filename), size=(size, size))
+            images = self._host.get_image(self._close_acc_paths[is_asc2], size=(size, size))
             self._close_acc_images[key] = images
         return images

@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 from pathlib import Path
 from typing import Tuple
 
@@ -55,6 +56,7 @@ def find_dir(target: str | Path, places: Tuple = (".", "../")) -> str | None:
     return None
 
 
+@lru_cache(maxsize=512)
 def find_file(target: str | Path, places: Tuple = (".", "../")) -> str | None:
     name, concrete = _normalize_target(target)
 
