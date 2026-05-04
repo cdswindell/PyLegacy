@@ -10,6 +10,7 @@
 from typing import cast
 
 from guizero import Box
+from guizero.base import Widget
 
 from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
@@ -95,14 +96,14 @@ class ConstructionGui(AccessoryBase):
         )
         cast(AnimatedButton, self._action_button).stop_animation()
 
-    def set_button_active(self, button: AnimatedButton) -> None:
+    def set_button_active(self, button: AnimatedButton | set[Widget] | None = None) -> None:
         with self._cv:
             if isinstance(button, PowerButton):
                 super().set_button_active(button)
             else:
                 button.start_animation()
 
-    def set_button_inactive(self, button: AnimatedButton) -> None:
+    def set_button_inactive(self, button: AnimatedButton | set[Widget] | None = None) -> None:
         with self._cv:
             if isinstance(button, PowerButton):
                 super().set_button_inactive(button)

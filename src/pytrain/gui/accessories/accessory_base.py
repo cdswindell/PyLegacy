@@ -240,6 +240,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     # noinspection PyUnresolvedReferences
     def set_button_inactive(self, widget: Widget | set[Widget] | None = None) -> Widget:
+        if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
+            widget = {widget, widget.sibling}
         if isinstance(widget, set):
             widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
             if widget.image != self.turn_on_image:
@@ -255,6 +257,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     # noinspection PyUnresolvedReferences
     def set_button_active(self, widget: Widget | set[Widget] | None = None) -> Widget:
+        if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
+            widget = {widget, widget.sibling}
         if isinstance(widget, set):
             widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
             if widget.image != self.turn_off_image:
