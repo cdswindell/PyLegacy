@@ -270,16 +270,19 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
     def is_power_button_on(self, widget: PowerButton) -> bool:
         if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
+            print(f"is on? {widget.image} {widget.sibling.image}")
             if widget.image == self.turn_on_image and not widget.visible:
                 return True
             elif widget.image == self.turn_off_image and widget.visible:
                 return True
+        elif isinstance(widget, PushButton):
             return widget.image == self.turn_off_image
         return False
 
     def toggle_power_button_state(self, widget: PowerButton) -> Widget | None:
         if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
             btns = {widget, widget.sibling}
+            print(f"toggle: {widget.image} {widget.sibling.image}")
             if self.is_power_button_on(widget):
                 return self.set_button_active(btns)
             else:
