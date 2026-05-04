@@ -220,10 +220,11 @@ class PopupManager:
             # place 4 per column
             row = idx % boxes_per_column
             col = idx // boxes_per_column
+            title_len = len(title)
 
             # combo contents and mapping
             if self.is_combo_hackable:
-                select_ops = [v[0] for v in values]
+                select_ops = [v[0] + 5 * " " for v in values]
             else:
                 select_ops = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
