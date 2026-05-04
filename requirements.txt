@@ -1,4 +1,4 @@
--r test/requirements.txt
+-r tests/requirements.txt
 RPLCD>=1.4.0
 colorzero>=2.0
 gpiozero>=2.0.1
