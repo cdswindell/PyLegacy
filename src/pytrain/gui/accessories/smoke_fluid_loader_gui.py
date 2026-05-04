@@ -90,7 +90,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
 
     def toggle_lights(self) -> None:
         with self._cv:
-            if self._lights_button.visible():
+            if not self.is_power_button_on(self._lights_button.image):
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=9).send()
             else:
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=8).send()
@@ -104,8 +104,14 @@ class SmokeFluidLoaderGui(AccessoryBase):
         )
 
         col = 0
-        self._lights_button = self.make_power_button(self._state, "Lights", col, max_text_len, box)
-        self._lights_button.update_command(self.toggle_lights)
+        self._lights_button = self.make_power_button(
+            self._state,
+            "Lights",
+            col,
+            max_text_len,
+            box,
+            command=self.toggle_lights,
+        )
 
         col += 1
         boom_box = Box(box, layout="auto", border=2, grid=[col, 0], align="top")

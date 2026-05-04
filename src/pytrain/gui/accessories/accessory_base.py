@@ -436,7 +436,15 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget.component_state = state
             self.update_button(state.tmcc_id)
 
-    def make_power_button(self, state: S, label: str, col: int, text_len: int, container: Box) -> PowerButton:
+    def make_power_button(
+        self,
+        state: S,
+        label: str,
+        col: int,
+        text_len: int,
+        container: Box,
+        command: Callable = None,
+    ) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
         tb.width = text_len
@@ -452,7 +460,10 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             )
             button.tmcc_id = state.tmcc_id
             button.text_field = tb
-            button.update_command(self.switch_state, [state])
+            if command:
+                button.update_command(command)
+            else:
+                button.update_command(self.switch_state, [state])
             if image == self.turn_on_image:
                 on_btn = button
             else:
