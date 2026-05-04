@@ -113,6 +113,7 @@ class ControlTowerGui(AccessoryBase):
             button_cls=AnimatedButton,
         )
         cast(AnimatedButton, self.action_button).stop_animation()
+        self.action_button._pytrain_image_source = None
 
         # Robust initial gating
         self.after_state_change(None, self.power_state)
@@ -125,10 +126,13 @@ class ControlTowerGui(AccessoryBase):
                 super().set_button_active(button)
 
     def set_button_inactive(self, button: AnimatedButton | set[Widget] | None = None) -> None:
+        """Deactivates action button with image/size reset or delegates to superclass"""
         with self._cv:
             if button == self.action_button:
-                button.image = self._action_image
-                button.height = button.width = self.s_72
+                if button._pytrain_image_source != self._action_image:
+                    button.image = self._action_image
+                    button.height = button.width = self.s_72
+                    button._pytrain_image_source = self._action_image
                 button.stop_animation()
             else:
                 super().set_button_inactive(button)
