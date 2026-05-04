@@ -229,7 +229,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         with self._cv:
             pd: S = self._states[tmcc_id]
             pb = self._state_buttons.get(tmcc_id, None)
-            print(f"update_button: {tmcc_id} {pd.name} Active: {self.is_active(pd)}{pd} {pb}")
             if pb is not None:
                 if self.is_active(pd):
                     pb = self.set_button_active(pb)
@@ -246,7 +245,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget = next(
                 item for item in widget if isinstance(item, PowerButton) and hasattr(item, "sibling") and item.visible
             )
-            print(f"set_button_inactive: {widget} {widget.image} {widget.visible}")
             if widget.image != widget.turn_on_image:
                 widget.hide()
                 widget.sibling.show()
@@ -266,7 +264,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget = next(
                 item for item in widget if isinstance(item, PowerButton) and hasattr(item, "sibling") and item.visible
             )
-            print(f"set_button_active: {widget} {widget.image} {widget.visible}")
             if widget.image != widget.turn_off_image:
                 widget.hide()
                 widget.sibling.show()

@@ -12,7 +12,7 @@ from typing import cast
 from guizero import Box, PushButton
 from guizero.base import Widget
 
-from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
+from .accessory_base import AccessoryBase, AnimatedButton, S
 from .accessory_gui import AccessoryGui
 from .accessory_type import AccessoryType
 from ...db.accessory_state import AccessoryState
@@ -119,16 +119,16 @@ class ControlTowerGui(AccessoryBase):
 
     def set_button_active(self, button: AnimatedButton | set[Widget] | None = None) -> None:
         with self._cv:
-            if isinstance(button, PowerButton):
-                super().set_button_active(button)
-            else:
+            if button == self.action_button:
                 button.start_animation()
+            else:
+                super().set_button_active(button)
 
     def set_button_inactive(self, button: AnimatedButton | set[Widget] | None = None) -> None:
         with self._cv:
-            if isinstance(button, PowerButton):
-                super().set_button_inactive(button)
-            else:
+            if button == self.action_button:
                 button.image = self._action_image
                 button.height = button.width = self.s_72
                 button.stop_animation()
+            else:
+                super().set_button_inactive(button)
