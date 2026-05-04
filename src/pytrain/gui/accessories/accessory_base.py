@@ -435,7 +435,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 off_btn = button
         on_btn.sibling = off_btn
         off_btn.sibling = on_btn
-        off_btn.hide()
+        on_btn.hide()
         self.register_widget(state, on_btn)
         self.register_widget(state, off_btn)
         return on_btn
