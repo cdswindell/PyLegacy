@@ -115,8 +115,14 @@ class StationGui(AccessoryBase):
 
         self.power_button = self.make_power_button(self.power_state, power_label, 0, max_text_len, box)
 
-        self.platform_button = self.make_power_button(self.platform_state, self._empty_label, 1, max_text_len, box)
-        self.platform_button.update_command(self.when_platform_button_pressed)
+        self.platform_button = self.make_power_button(
+            self.platform_state,
+            self._empty_label,
+            1,
+            max_text_len,
+            box,
+            self.when_platform_button_pressed,
+        )
 
         self.after_state_change(None, self.platform_state)
         self.after_state_change(None, self.power_state)
