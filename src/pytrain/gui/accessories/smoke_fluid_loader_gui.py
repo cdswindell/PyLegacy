@@ -80,19 +80,19 @@ class SmokeFluidLoaderGui(AccessoryBase):
         Sync gui state to accessory state
         """
         with self._cv:
-            if self._state.number == 8 and self._lights_button.image != self.turn_on_image:
-                self.set_button_inactive(self._lights_button)
-            elif self._state.number == 9 and self._lights_button.image != self.turn_off_image:
-                self.set_button_active(self._lights_button)
+            if self._state.number == 8 and self.is_power_button_on(self._lights_button.image):
+                self.toggle_power_button_state(self._lights_button)
+            elif self._state.number == 9 and not self.is_power_button_on(self._lights_button.image):
+                self.toggle_power_button_state(self._lights_button)
 
     def switch_state(self, state: AccessoryState) -> None:
         pass
 
     def toggle_lights(self) -> None:
         with self._cv:
-            if self._lights_button.image == self.turn_on_image:
+            if self._lights_button.visible():
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=9).send()
-            elif self._lights_button.image == self.turn_off_image:
+            else:
                 CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=8).send()
 
     def build_accessory_controls(self, box: Box) -> None:

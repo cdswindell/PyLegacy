@@ -268,6 +268,25 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget.text_color = self._enabled_text
         return widget
 
+    def is_power_button_on(self, widget: PowerButton) -> bool:
+        if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
+            if widget.image == self.turn_on_image and not widget.visible():
+                return True
+            elif widget.image == self.turn_off_image and widget.visible():
+                return True
+            return widget.image == self.turn_off_image
+        return False
+
+    def toggle_power_button_state(self, widget: PowerButton) -> Widget | None:
+        if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
+            btns = {widget, widget.sibling}
+            if self.is_power_button_on(widget):
+                return self.set_button_active(btns)
+            else:
+                return self.set_button_inactive(btns)
+        else:
+            return None
+
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
             if not self._shutdown_flag.is_set():
