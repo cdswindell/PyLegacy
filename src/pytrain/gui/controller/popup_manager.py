@@ -252,7 +252,7 @@ class PopupManager:
     @staticmethod
     def _pad_item(item: str, max_len: int, extra: int = 2) -> str:
         if len(item) < (max_len + extra):
-            return item + " " * (2 * max_len + extra - len(item))
+            return item + "-" * (2 * max_len + extra - len(item))
         return item
 
     def _make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
@@ -265,7 +265,6 @@ class PopupManager:
         selected = selected.strip()
         cmd = od.get(selected, None)
         if isinstance(cmd, str):
-            print(cmd)
             self._host.on_engine_command(cmd)
         # rebuild combo
         self._rebuild_combo(cb, od, title)
