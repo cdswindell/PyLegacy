@@ -253,9 +253,7 @@ class PopupManager:
     def _pad_item(item: str, max_len: int, extra: int = 2) -> str:
         print(f"item: {item} max_len: {max_len} extra: {extra}")
         if len(item) < (max_len + extra):
-            item_p = item + ("-" * (2 * max_len + extra - len(item)))
-            print(f"item_p: '{item_p}' (len: {len(item_p)})")
-            return item + ("-" * (2 * max_len + extra - len(item)))
+            item = item + (" " * (max_len + extra - len(item)))
         return item
 
     def _make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
