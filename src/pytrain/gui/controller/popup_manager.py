@@ -251,6 +251,7 @@ class PopupManager:
 
     @staticmethod
     def _pad_item(item: str, max_len: int, extra: int = 2) -> str:
+        print(f"item: {item} max_len: {max_len} extra: {extra}")
         if len(item) < (max_len + extra):
             return item + "-" * (2 * max_len + extra - len(item))
         return item
