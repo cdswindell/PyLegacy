@@ -232,31 +232,39 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             pb = self._state_buttons.get(tmcc_id, None)
             if pb:
                 if self.is_active(pd):
-                    self.set_button_active(pb)
+                    pb = self.set_button_active(pb)
                 else:
-                    self.set_button_inactive(pb)
+                    pb = self.set_button_inactive(pb)
             # call child's after state change hook
             self.after_state_change(pb, pd)
 
-    def set_button_inactive(self, widget: Widget | set[Widget] | None = None):
+    # noinspection PyUnresolvedReferences
+    def set_button_inactive(self, widget: Widget | set[Widget] | None = None) -> Widget:
         if isinstance(widget, set):
-            print(widget)
+            widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
+            widget.hide()
+            widget.sibling.show()
         elif isinstance(widget, PowerButton):
             widget.image = self.turn_on_image
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._disabled_bg
             widget.text_color = self._disabled_text
+        return widget
 
-    def set_button_active(self, widget: Widget | set[Widget] | None = None):
+    # noinspection PyUnresolvedReferences
+    def set_button_active(self, widget: Widget | set[Widget] | None = None) -> Widget:
         if isinstance(widget, set):
-            print(widget)
+            widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
+            widget.hide()
+            widget.sibling.show()
         elif isinstance(widget, PowerButton):
             widget.image = self.turn_off_image
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._enabled_bg
             widget.text_color = self._enabled_text
+        return widget
 
     def on_state_change_action(self, tmcc_id: int) -> Callable:
         def upd():
@@ -429,7 +437,6 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         on_btn.sibling = off_btn
         off_btn.sibling = on_btn
         off_btn.hide()
-        print(f"Power button: {on_btn} {off_btn}")
         return on_btn
 
     def make_push_button(
