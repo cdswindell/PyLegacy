@@ -138,7 +138,7 @@ class StationGui(AccessoryBase):
                     self.set_button_active(self.platform_button)
                 else:
                     self.set_button_inactive(self.platform_button)
-                CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self.platform_state.tmcc_id).send()
+                self.submit_request(CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, self.platform_state.tmcc_id))
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget | set[Widget] | None = None):

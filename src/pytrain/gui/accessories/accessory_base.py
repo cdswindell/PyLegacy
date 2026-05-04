@@ -221,9 +221,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         return self._cfg
 
     # noinspection PyTypeChecker
-    @staticmethod
-    def toggle_latch(state: S) -> None:
-        CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id).send()
+    def toggle_latch(self, state: S) -> None:
+        self.submit_request(CommandReq(TMCC1AuxCommandEnum.AUX2_OPT_ONE, state.tmcc_id))
 
     # noinspection PyTypeChecker
     def update_button(self, tmcc_id: int) -> None:
@@ -614,7 +613,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if pb.enabled:
             state = pb.component_state
             if state.is_asc2:
-                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
+                self.submit_request(Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1))
             self.post_process_when_pressed(pb, state)
 
     def when_released(self, event: EventData) -> None:
@@ -622,7 +621,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if pb.enabled:
             state = pb.component_state
             if state.is_asc2:
-                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
+                self.submit_request(Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0))
             self.post_process_when_released(pb, state)
 
     def post_process_when_pressed(self, button: PushButton, state: S) -> None: ...

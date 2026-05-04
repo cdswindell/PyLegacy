@@ -91,9 +91,10 @@ class SmokeFluidLoaderGui(AccessoryBase):
     def toggle_lights(self) -> None:
         with self._cv:
             if self.is_power_button_on(self._lights_button):
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=8).send()
+                req = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=8)
             else:
-                CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=9).send()
+                req = CommandReq(TMCC1AuxCommandEnum.NUMERIC, self._tmcc_id, data=9)
+            self.submit_request(req)
 
     def build_accessory_controls(self, box: Box) -> None:
         lights_label, dispense_label = self.config.labels_for("lights", "dispense")
@@ -161,7 +162,7 @@ class SmokeFluidLoaderGui(AccessoryBase):
         with self._cv:
             pb = event.widget
             speed = 2 if pb.image == self.left_arrow_image else -2
-            CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed).send()
+            self.submit_request(CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=speed))
             self._boom_active_id = self.app.tk.after(self._repeat_interval, self.when_boom_held, speed, self._delta)
 
     # noinspection PyUnusedLocal
@@ -186,5 +187,5 @@ class SmokeFluidLoaderGui(AccessoryBase):
                         if speed < -5.0:
                             speed = -5.0
                             delta = 0.0
-                CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=int(speed)).send()
+                self.submit_request(CommandReq(TMCC1AuxCommandEnum.RELATIVE_SPEED, self._tmcc_id, data=int(speed)))
                 self._boom_active_id = self.app.tk.after(self._repeat_interval, self.when_boom_held, speed, delta)
