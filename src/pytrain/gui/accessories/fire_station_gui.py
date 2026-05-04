@@ -118,11 +118,12 @@ class FireStationGui(AccessoryBase):
 
     def set_button_active(self, button: PushButton | set[Widget] | None = None) -> None:
         with self._cv:
-            if button == self.alarm_button and self.is_active(self.power_state):
-                # Switch to animated GIF
-                self.alarm_button.image = self.alarm_on_image
-                self.alarm_button.height = self.alarm_button.width = self.s_72
-                self.app.after(5000, self.deactivate_alarm)
+            if button == self.alarm_button:
+                if self.is_active(self.power_state):
+                    # Switch to animated GIF
+                    self.alarm_button.image = self.alarm_on_image
+                    self.alarm_button.height = self.alarm_button.width = self.s_72
+                    self.app.after(5000, self.deactivate_alarm)
             elif button == self.power_button:
                 super().set_button_active(button)
 
