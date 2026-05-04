@@ -482,8 +482,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         on_btn.sibling = off_btn
         off_btn.sibling = on_btn
         off_btn.hide()
-        self.register_widget(state, on_btn, update_state=False)
-        self.register_widget(state, off_btn)
+        self.register_widget(state, off_btn, update_state=False)
+        self.register_widget(state, on_btn)
         return on_btn
 
     def make_push_button(
