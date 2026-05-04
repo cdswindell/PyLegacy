@@ -1248,6 +1248,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if self.scope == CommandScope.ACC and self.is_accessory_view(tmcc_id):
                     view = self.get_accessory_view(tmcc_id)
                     acc = getattr(view, "caa", None)
+                    if acc is None:
+                        acc = self.get_configured_accessory(tmcc_id)
                     self.on_configured_accessory(acc)
 
         # 4) Preserve existing behavior
