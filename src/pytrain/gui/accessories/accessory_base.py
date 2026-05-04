@@ -242,8 +242,9 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def set_button_inactive(self, widget: Widget | set[Widget] | None = None) -> Widget:
         if isinstance(widget, set):
             widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
-            widget.hide()
-            widget.sibling.show()
+            if widget.image != self.turn_on_image:
+                widget.hide()
+                widget.sibling.show()
         elif isinstance(widget, PowerButton):
             widget.image = self.turn_on_image
             widget.height = widget.width = self.s_72
@@ -256,8 +257,9 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     def set_button_active(self, widget: Widget | set[Widget] | None = None) -> Widget:
         if isinstance(widget, set):
             widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
-            widget.hide()
-            widget.sibling.show()
+            if widget.image != self.turn_off_image:
+                widget.hide()
+                widget.sibling.show()
         elif isinstance(widget, PowerButton):
             widget.image = self.turn_off_image
             widget.height = widget.width = self.s_72
