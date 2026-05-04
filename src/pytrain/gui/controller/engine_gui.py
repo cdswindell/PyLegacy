@@ -1276,7 +1276,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if state:
             if tmcc_id != int(self.tmcc_id_text.value):
                 self.tmcc_id_text.value = f"{tmcc_id:0{num_chars}d}"
-            if isinstance(state, AccessoryState) and self.get_accessory_view(tmcc_id):
+            if isinstance(state, AccessoryState) and self.is_accessory_view(tmcc_id):
                 view = self.get_accessory_view(tmcc_id)
                 acc = getattr(view, "caa", None)
                 if acc:
