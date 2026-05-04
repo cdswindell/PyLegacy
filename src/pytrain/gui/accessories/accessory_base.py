@@ -672,6 +672,7 @@ class PowerButton(PushButton):
         self.turn_on_image = kwargs.pop("turn_on_image", find_file("on_button.jpg"))
         self.turn_off_image = kwargs.pop("turn_off_image", find_file("off_button.jpg"))
         super().__init__(*args, **kwargs)
+        self.sibling: PowerButton | None = None
 
 
 class AnimatedButton(PushButton):
