@@ -121,7 +121,9 @@ class StationGui(AccessoryBase):
             1,
             max_text_len,
             box,
-            self.when_platform_button_pressed,
+            turn_on_image=self._full_image,
+            turn_off_image=self._empty_image,
+            command=self.when_platform_button_pressed,
         )
 
         self.after_state_change(None, self.platform_state)

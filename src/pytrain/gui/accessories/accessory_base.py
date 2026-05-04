@@ -244,11 +244,11 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget = {widget, widget.sibling}
         if isinstance(widget, set):
             widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
-            if widget.image != self.turn_on_image:
+            if widget.image != widget.turn_on_image:
                 widget.hide()
                 widget.sibling.show()
         elif isinstance(widget, PowerButton):
-            widget.image = self.turn_on_image
+            widget.image = widget.turn_on_image
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._disabled_bg
@@ -260,26 +260,29 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
             widget = {widget, widget.sibling}
         if isinstance(widget, set):
-            widget = next(item for item in widget if hasattr(item, "sibling") and item.visible)
-            if widget.image != self.turn_off_image:
+            widget = next(
+                item for item in widget if isinstance(item, PowerButton) and hasattr(item, "sibling") and item.visible
+            )
+            if widget.image != widget.turn_off_image:
                 widget.hide()
                 widget.sibling.show()
         elif isinstance(widget, PowerButton):
-            widget.image = self.turn_off_image
+            widget.image = widget.turn_off_image
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._enabled_bg
             widget.text_color = self._enabled_text
         return widget
 
-    def is_power_button_on(self, widget: PowerButton) -> bool:
+    @staticmethod
+    def is_power_button_on(widget: PowerButton) -> bool:
         if isinstance(widget, PowerButton) and hasattr(widget, "sibling"):
-            if widget.image == self.turn_on_image and not widget.visible:
+            if widget.image == widget.turn_on_image and not widget.visible:
                 return True
-            elif widget.image == self.turn_off_image and widget.visible:
+            elif widget.image == widget.turn_off_image and widget.visible:
                 return True
         elif isinstance(widget, PushButton):
-            return widget.image == self.turn_off_image
+            return widget.image == widget.turn_off_image
         return False
 
     def toggle_power_button_state(self, widget: PowerButton) -> Widget | None:
@@ -445,20 +448,26 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         col: int,
         text_len: int,
         container: Box,
+        turn_on_image: str = None,
+        turn_off_image: str = None,
         command: Callable = None,
     ) -> PowerButton:
         btn_box = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
         tb.width = text_len
 
+        turn_on_image = turn_on_image or self.turn_on_image
+        turn_off_image = turn_off_image or self.turn_off_image
         on_btn = off_btn = None
-        for image in [self.turn_on_image, self.turn_off_image]:
+        for image in [turn_on_image, turn_off_image]:
             button = PowerButton(
                 btn_box,
                 image=image,
                 align="top",
                 height=self.s_72,
                 width=self.s_72,
+                turn_on_image=turn_on_image,
+                turn_off_image=turn_off_image,
             )
             button.tmcc_id = state.tmcc_id
             button.text_field = tb
@@ -466,7 +475,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 button.update_command(command)
             else:
                 button.update_command(self.switch_state, [state])
-            if image == self.turn_on_image:
+            if image == turn_on_image:
                 on_btn = button
             else:
                 off_btn = button
@@ -655,7 +664,10 @@ class MomentaryActionHandler(Thread, Generic[S]):
 
 
 class PowerButton(PushButton):
-    pass
+    def __init__(self, *args, **kwargs):
+        self.turn_on_image = kwargs.pop("turn_on_image", find_file("on_button.jpg"))
+        self.turn_off_image = kwargs.pop("turn_off_image", find_file("off_button.jpg"))
+        super().__init__(*args, **kwargs)
 
 
 class AnimatedButton(PushButton):
