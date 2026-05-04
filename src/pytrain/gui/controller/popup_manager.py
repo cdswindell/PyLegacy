@@ -417,3 +417,8 @@ class PopupManager:
             images = self._host.get_image(self._close_acc_paths[is_asc2], size=(size, size))
             self._close_acc_images[key] = images
         return images
+
+    def preload_images(self) -> None:
+        bs = int(self._host.button_size * 1.0)
+        self._get_close_acc_images(False, bs)
+        self._get_close_acc_images(True, bs)

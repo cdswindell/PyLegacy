@@ -258,6 +258,7 @@ class GuiZeroBase(Thread, ABC):
 
         # image cache
         self._image_cache = {}
+        self._titled_image_cache = {}
 
         # queue task for gui main thread
         self._app = None
@@ -764,8 +765,16 @@ class GuiZeroBase(Thread, ABC):
                 self._image_cache[path] = normal_tk
         return self._image_cache[path]
 
-    def get_titled_image(self, path):
+    def get_titled_image_xx(self, path):
         return self.get_image(path, size=(self.titled_button_size, self.titled_button_size))
+
+    def get_titled_image(self, path):
+        key = (path, self.titled_button_size, self.titled_button_size)
+        cached = self._titled_image_cache.get(key)
+        if cached is None:
+            cached = self.get_image(path, size=(self.titled_button_size, self.titled_button_size))
+            self._titled_image_cache[key] = cached
+        return cached
 
     def _calc_scaled_image_size(
         self,

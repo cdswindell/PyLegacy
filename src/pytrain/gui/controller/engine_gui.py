@@ -437,6 +437,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if self.initial:
             app.after(100, self.update_component_info, [self.initial])
 
+        self.app.tk.after_idle(self._popup.preload_images)
+
     def destroy_gui(self) -> None:
         self.clear_cache()
         self.engine_ops_cells.clear()
