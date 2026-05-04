@@ -113,7 +113,7 @@ class ControlTowerGui(AccessoryBase):
             button_cls=AnimatedButton,
         )
         cast(AnimatedButton, self.action_button).stop_animation()
-        self.action_button._pytrain_image_source = None
+        self.action_button._pytrain_image_source = self.action_button.image
 
         # Robust initial gating
         self.after_state_change(None, self.power_state)
@@ -131,7 +131,7 @@ class ControlTowerGui(AccessoryBase):
             if button == self.action_button:
                 if button._pytrain_image_source != self._action_image:
                     button.image = self._action_image
-                    button.height = button.width = self.s_72
+                    # button.height = button.width = self.s_72
                     button._pytrain_image_source = self._action_image
                 button.stop_animation()
             else:
