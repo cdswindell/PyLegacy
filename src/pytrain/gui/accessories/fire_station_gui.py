@@ -10,6 +10,7 @@
 from typing import cast
 
 from guizero import Box, PushButton
+from guizero.base import Widget
 
 from .accessory_base import AccessoryBase, AnimatedButton, PowerButton, S
 from .accessory_gui import AccessoryGui
@@ -114,7 +115,7 @@ class FireStationGui(AccessoryBase):
         # Robust initial gating
         self.after_state_change(None, self.power_state)
 
-    def set_button_active(self, button: PushButton) -> None:
+    def set_button_active(self, button: PushButton | set[Widget] | None = None) -> None:
         with self._cv:
             if button == self.alarm_button and self.is_active(self.power_state):
                 # Switch to animated GIF
