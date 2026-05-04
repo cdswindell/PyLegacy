@@ -238,16 +238,20 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             # call child's after state change hook
             self.after_state_change(pb, pd)
 
-    def set_button_inactive(self, widget: Widget):
-        if isinstance(widget, PowerButton):
+    def set_button_inactive(self, widget: Widget | set[Widget] | None = None):
+        if isinstance(widget, set):
+            print(widget)
+        elif isinstance(widget, PowerButton):
             widget.image = self.turn_on_image
             widget.height = widget.width = self.s_72
         else:
             widget.bg = self._disabled_bg
             widget.text_color = self._disabled_text
 
-    def set_button_active(self, widget: Widget):
-        if isinstance(widget, PowerButton):
+    def set_button_active(self, widget: Widget | set[Widget] | None = None):
+        if isinstance(widget, set):
+            print(widget)
+        elif isinstance(widget, PowerButton):
             widget.image = self.turn_off_image
             widget.height = widget.width = self.s_72
         else:
@@ -405,18 +409,27 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         tb = Text(btn_box, text=label, align="top", size=self.s_16, underline=True)
         tb.width = text_len
 
-        button = PowerButton(
-            btn_box,
-            image=self.turn_on_image,
-            align="top",
-            height=self.s_72,
-            width=self.s_72,
-        )
-        button.tmcc_id = state.tmcc_id
-        button.text_field = tb
-        button.update_command(self.switch_state, [state])
-        self.register_widget(state, button)
-        return button
+        on_btn = off_btn = None
+        for image in [self.turn_on_image, self.turn_off_image]:
+            button = PowerButton(
+                btn_box,
+                image=image,
+                align="top",
+                height=self.s_72,
+                width=self.s_72,
+            )
+            button.tmcc_id = state.tmcc_id
+            button.text_field = tb
+            button.update_command(self.switch_state, [state])
+            self.register_widget(state, button)
+            if image is self.turn_on_image:
+                on_btn = button
+            else:
+                off_btn = button
+        on_btn.sibling = off_btn
+        off_btn.sibling = on_btn
+        off_btn.hide()
+        return on_btn
 
     def make_push_button(
         self,
@@ -483,8 +496,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     # noinspection PyUnusedLocal
     def _reset_state_buttons(self) -> None:
         for pdb in self._state_buttons.values():
-            if not isinstance(pdb, list):
-                pdb = [pdb]
+            if not isinstance(pdb, set):
+                pdb = {pdb}
             for widget in pdb:
                 self.safe_destroy(widget)
         self._state_buttons.clear()
