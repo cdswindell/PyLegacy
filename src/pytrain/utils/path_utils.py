@@ -56,7 +56,7 @@ def find_dir(target: str | Path, places: Tuple = (".", "../")) -> str | None:
     return None
 
 
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=2048)
 def find_file(target: str | Path, places: Tuple = (".", "../")) -> str | None:
     name, concrete = _normalize_target(target)
 

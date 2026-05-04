@@ -1245,7 +1245,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
             if isinstance(self.active_state, AccessoryState):
                 tmcc_id = self.active_state.tmcc_id
-                if self.scope == CommandScope.ACC and self.get_accessory_view(tmcc_id):
+                if self.scope == CommandScope.ACC and self.is_accessory_view(tmcc_id):
                     view = self.get_accessory_view(tmcc_id)
                     acc = getattr(view, "caa", None)
                     self.on_configured_accessory(acc)
