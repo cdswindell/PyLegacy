@@ -229,8 +229,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         with self._cv:
             pd: S = self._states[tmcc_id]
             pb = self._state_buttons.get(tmcc_id, None)
-            print(f"update_button: {tmcc_id} {pd.name} {pd} {pb}")
-            if pb:
+            print(f"update_button: {tmcc_id} {pd.name} Active: {self.is_active(pd)}{pd} {pb}")
+            if pb is not None:
                 if self.is_active(pd):
                     pb = self.set_button_active(pb)
                 else:
@@ -277,6 +277,14 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             widget.bg = self._enabled_bg
             widget.text_color = self._enabled_text
         return widget
+
+    @staticmethod
+    def is_power_btns(button: Widget | set[Widget] | None) -> bool:
+        if isinstance(button, PowerButton):
+            return True
+        if isinstance(button, set) and sum(isinstance(x, PowerButton) for x in button) >= 2:
+            return True
+        return False
 
     @staticmethod
     def is_power_button_on(widget: PowerButton) -> bool:
