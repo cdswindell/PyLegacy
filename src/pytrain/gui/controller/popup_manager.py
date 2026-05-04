@@ -224,7 +224,7 @@ class PopupManager:
 
             # combo contents and mapping
             if self.is_combo_hackable:
-                select_ops = [self._pad_item(v[0], title_len) for v in values]
+                select_ops = [v[0] for v in values]
             else:
                 select_ops = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
@@ -272,14 +272,17 @@ class PopupManager:
         # rebuild combo
         self._rebuild_combo(cb, od, title)
 
-    # noinspection PyProtectedMember
+    # noinspection PyProtectedMembers
     def _rebuild_combo(self, cb: Combo, od: dict, title: str):
         cb.clear()
         if not self.is_combo_hackable:
             cb.append(title)
+            title_len = 0
+        else:
+            title_len = len(title)
 
         for option in od.keys():
-            cb.append(option)
+            cb.append(self._pad_item(option, title_len))
 
         if self.is_combo_hackable:
             cb._selected.set(title)
