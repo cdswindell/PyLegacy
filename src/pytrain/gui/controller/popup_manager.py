@@ -224,7 +224,7 @@ class PopupManager:
 
             # combo contents and mapping
             if self.is_combo_hackable:
-                select_ops = [v[0] + 5 * " " for v in values]
+                select_ops = [self._pad_item(v[0], title_len) for v in values]
             else:
                 select_ops = [title] + [v[0] for v in values]
             od = {v[0]: v[1] for v in values}
@@ -248,6 +248,12 @@ class PopupManager:
     # ------------------------------------------------------------------
     # Combo box internals
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _pad_item(item: str, max_len: int, extra: int = 2) -> str:
+        if len(item) < (max_len + extra):
+            return item + " " * (max_len + extra - len(item))
+        return item
 
     def _make_combo_callback(self, cb: Combo, od: dict, title: str) -> Callable[[str], None]:
         def func(selected: str):

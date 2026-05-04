@@ -203,13 +203,13 @@ def test_update_component_info_accessory_uses_configured_accessory_name(monkeypa
     gui = _new_engine(CommandScope.ACC)
     state = DummyAccessoryState(tmcc_id=21, name="Base Accessory")
     adapter = DummyAdapter(name="Panel Light")
-    view = SimpleNamespace(caa=adapter)
     gui._scope_tmcc_ids[CommandScope.ACC] = 21
     gui.tmcc_id_text.value = "21"
     gui._state_store = SimpleNamespace(
         get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ACC, 21) else None
     )
-    gui.get_accessory_view = lambda tmcc_id: view if tmcc_id == 21 else None
+    gui._acc_tmcc_to_adapter[21] = adapter
+    gui.get_accessory_view = lambda _tmcc_id: pytest.fail("label refresh should not create accessory panels")
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
     monkeypatch.setattr(mod, "StateWatcher", DummyWatcher, raising=True)
 
