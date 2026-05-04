@@ -117,7 +117,7 @@ class CatalogPanel(OverlayPanel):
         self._catalog = lb = TouchListBox(
             catalog_box,
             items=[],
-            horizontal_scroll=True,
+            horizontal_scroll=False,
             scrollbar=True,
             on_hold_select=self.on_select,
         )
