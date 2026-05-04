@@ -424,7 +424,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
         self._state_buttons = None
 
     # noinspection PyTypeChecker
-    def register_widget(self, state: S, widget: Widget) -> None:
+    def register_widget(self, state: S, widget: Widget, update_state: bool = True) -> None:
         with self._cv:
             if state.tmcc_id in self._state_buttons:
                 contents = self._state_buttons[state.tmcc_id]
@@ -439,7 +439,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             else:
                 self._state_buttons[state.tmcc_id] = widget
             widget.component_state = state
-            self.update_button(state.tmcc_id)
+            if update_state:
+                self.update_button(state.tmcc_id)
 
     def make_power_button(
         self,
@@ -481,8 +482,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 off_btn = button
         on_btn.sibling = off_btn
         off_btn.sibling = on_btn
-        on_btn.hide()
-        self.register_widget(state, on_btn)
+        off_btn.hide()
+        self.register_widget(state, on_btn, update_state=False)
         self.register_widget(state, off_btn)
         return on_btn
 
