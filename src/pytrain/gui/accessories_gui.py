@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import logging
 from threading import Event
 from typing import cast
 
@@ -22,6 +23,8 @@ from ..pdi.constants import Asc2Action, PdiCommand
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum
+
+log = logging.getLogger(__name__)
 
 
 class AccessoriesGui(StateBasedGui):
@@ -66,6 +69,8 @@ class AccessoriesGui(StateBasedGui):
                 print(f"Adding momentary event for {tmcc_id}: {pb}")
                 pb.when_left_button_pressed = self.when_pressed
                 pb.when_left_button_released = self.when_released
+            else:
+                log.warning(f"No button found for Accessory {tmcc_id}")
 
     def get_target_states(self) -> list[AccessoryState]:
         pds: list[AccessoryState] = []
