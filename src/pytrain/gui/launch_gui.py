@@ -8,7 +8,7 @@
 
 import logging
 from threading import Event
-from time import time
+from time import monotonic
 from tkinter import RAISED
 from typing import Any
 
@@ -74,7 +74,7 @@ class LaunchGui(GuiZeroBase):
         self.engr_comm_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 2)
         self.tower_comm_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 7)
         self.launch_15_req = CommandReq(TMCC1EngineCommandEnum.REAR_COUPLER, tmcc_id)
-        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.5)
+        self.launch_seq_act = CommandReq(TMCC1EngineCommandEnum.AUX1_OPTION_ONE, tmcc_id).as_action(duration=3.25)
 
         # listen for state changes
         self._dispatcher = CommandDispatcher.get()
@@ -117,21 +117,23 @@ class LaunchGui(GuiZeroBase):
     def __call__(self, cmd: CommandReq) -> None:
         # handle launch sequence differently
         if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
+            # Detects launch sequence via repeated command timing
             if self._launch_seq_time_trigger is None:
-                if self._last_cmd != cmd or (time() - self._last_cmd_at) > 5:
-                    self._launch_seq_time_trigger = time()
+                if self._last_cmd != cmd or (monotonic() - self._last_cmd_at) > 5:
+                    self._launch_seq_time_trigger = monotonic()
             else:
-                if self._last_cmd == cmd and (time() - self._launch_seq_time_trigger) > 3.1:
+                # Triggers launch detection callback after sustained repeated command timing
+                if self._last_cmd == cmd and (monotonic() - self._launch_seq_time_trigger) > 3.1:
                     if not self._is_countdown:
                         self.app.after(1, self.do_launch_detected, [80])
                         self._launch_seq_time_trigger = None
             self._last_cmd = cmd
-            self._last_cmd_at = time()
+            self._last_cmd_at = monotonic()
             return
         else:
             self._launch_seq_time_trigger = None
-        if cmd != self._last_cmd or (time() - self._last_cmd_at) >= 1.0:
-            self._last_cmd_at = time()
+        if cmd != self._last_cmd or (monotonic() - self._last_cmd_at) >= 1.0:
+            self._last_cmd_at = monotonic()
             if cmd.command == TMCC1EngineCommandEnum.NUMERIC:
                 # Gantry Movement/Startup
                 if cmd.data in (3, 6):
@@ -145,30 +147,30 @@ class LaunchGui(GuiZeroBase):
                         if cmd.data == 6:
                             self.app.after(8000, self.set_klaxon_off_icon)
                             self.app.after(8000, self.lights_off_req.send)
-                    # self.app.after(20, self.sync_pad_lights)
                 elif cmd.data == 5:  # power down
                     self.app.after(10, self.set_lights_on_icon)
                     self.app.after(20, self.do_power_off)
                 elif cmd.data == 0:  # reset
                     if self._is_countdown:
-                        self.app.after(10, self.do_abort_detected)
+                        self.queue_message(self.do_abort_detected)
                     else:
                         # reset causes engine to start up, check for that state change here
-                        self.app.after(10, self.sync_gui_state)
-                    self.app.after(20, self.set_klaxon_off_icon)
+                        self.queue_message(self.sync_gui_state)
+                    self.queue_message(self.set_klaxon_off_icon)
             elif self.is_active():
+                # Schedules GUI updates for active engine commands
                 if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
                     self.app.after(1, self.do_launch_detected, [15])
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
-                    self.app.after(1, self.sync_pad_lights)
+                    self.queue_message(self.sync_pad_lights)
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:
-                    self.app.after(1, self.set_lights_off_icon)
+                    self.queue_message(self.set_lights_off_icon)
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
-                    self.app.after(1, self.set_lights_on_icon)
+                    self.queue_message(self.set_lights_on_icon)
                 elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
-                    self.app.after(1, self.siren_sounded)
+                    self.queue_message(self.siren_sounded)
                 elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
-                    self.app.after(1, self.klaxon_sounded)
+                    self.queue_message(self.klaxon_sounded)
         # remember last command
         self._last_cmd = cmd
 
@@ -418,8 +420,10 @@ class LaunchGui(GuiZeroBase):
         if the rocket is in the air.
         """
         with self._cv:
+            reset_sent = False
             if not detected:
                 self.reset_req.send()
+                reset_sent = True
             self.message.clear()
             self.cancel_flashing()
             if self._is_countdown:
@@ -434,7 +438,8 @@ class LaunchGui(GuiZeroBase):
                     self.message.show()
                 self.message.repeat(500, self.flash_message)
             else:
-                self.reset_req.send()
+                if not reset_sent:
+                    self.reset_req.send()
                 self.update_counter(value=0)
             self.launch.enable()
             self.message.show()
