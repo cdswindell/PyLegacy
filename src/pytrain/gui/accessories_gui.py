@@ -94,7 +94,9 @@ class AccessoriesGui(StateBasedGui):
     def when_pressed(self, event: EventData) -> None:
         pb = event.widget
         state = pb.component_state
+        # Handles ASC2 press or queues momentary event for release
         if state.is_asc2:
+            print(Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1))
             Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
         else:
             if state.tmcc_id in self._released_events:
@@ -107,6 +109,7 @@ class AccessoriesGui(StateBasedGui):
     def when_released(self, event: EventData) -> None:
         state = event.widget.component_state
         if state.is_asc2:
+            print(Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0))
             Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
         else:
             state = event.widget.component_state

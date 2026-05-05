@@ -268,7 +268,7 @@ class PopupManager:
         # rebuild combo
         self._rebuild_combo(cb, od, title)
 
-    # noinspection PyProtectedMembers
+    # noinspection PyProtectedMember
     def _rebuild_combo(self, cb: Combo, od: dict, title: str):
         cb.clear()
         if not self.is_combo_hackable:
