@@ -144,10 +144,11 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
         with self._cv:
             if state in self._state_buttons:
                 pb = self._state_buttons[state]
-                if self.is_active(state):
-                    self.set_button_active(pb)
-                else:
-                    self.set_button_inactive(pb)
+                if isinstance(pb, PushButton):
+                    if self.is_active(state):
+                        self.set_button_active(pb)
+                    else:
+                        self.set_button_inactive(pb)
 
     # noinspection PyTypeChecker
     def set_button_inactive(self, widget: Widget):
