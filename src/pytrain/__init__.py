@@ -182,8 +182,9 @@ def get_version() -> str:
     if version is None:
         from setuptools_scm import get_version as get_git_version
 
-        version = get_git_version(version_scheme="only-version")
+        version = get_git_version(root="../..", relative_to=__file__, version_scheme="only-version")
 
+    version = version.split("+", 1)[0]
     version = version if version.startswith("v") else f"v{version}"
     version = version.replace(".post0", "")
     return version

@@ -25,7 +25,7 @@ class PollableQueue(Queue):
         super().__init__(maxsize)
 
         # Create a pair of connected sockets
-        if os.name == "posix":
+        if os.name == "posix" or hasattr(socket, "socketpair"):
             self._put_socket, self._get_socket = socket.socketpair()
         else:
             # compatibility on non-POSIX systems

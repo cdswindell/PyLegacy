@@ -6,12 +6,12 @@
 #  SPDX-License-Identifier: LPGL
 #
 
-import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
 import pytest
 
+from src.pytrain.gui import guizero_base as base_mod
 from src.pytrain.gui import launch_gui as mod
 from src.pytrain.protocol.constants import CommandScope
 
@@ -151,6 +151,7 @@ class FakeReq:
 class FakeDispatcher:
     def __init__(self):
         self.subscribed = []
+        self.version = "PyTrain Test"
 
     def subscribe(self, who: Any, scope, addr: int):
         self.subscribed.append((who, scope, addr))
@@ -201,7 +202,7 @@ class DummyWatcher:
 @pytest.fixture(autouse=True)
 def patch_guizero_and_system(monkeypatch):
     # Replace guizero widgets with mock objects
-    monkeypatch.setattr(mod, "App", DummyApp, raising=True)
+    monkeypatch.setattr(base_mod, "App", DummyApp, raising=True)
     monkeypatch.setattr(mod, "Box", DummyBox, raising=True)
     monkeypatch.setattr(mod, "Text", DummyText, raising=True)
     monkeypatch.setattr(mod, "PushButton", DummyPushButton, raising=True)
@@ -218,10 +219,11 @@ def patch_guizero_and_system(monkeypatch):
     monkeypatch.setattr(mod.ComponentStateStore, "get_state", staticmethod(fake_store.get_state), raising=True)
 
     # Replace StateWatcher with no-op
+    monkeypatch.setattr(base_mod, "StateWatcher", DummyWatcher, raising=True)
     monkeypatch.setattr(mod, "StateWatcher", DummyWatcher, raising=True)
 
     # Replace GpioHandler cache to avoid side effects
-    monkeypatch.setattr(mod.GpioHandler, "cache_handler", staticmethod(lambda *_: None), raising=True)
+    monkeypatch.setattr(base_mod.GpioHandler, "cache_handler", staticmethod(lambda *_: None), raising=True)
 
     # Replace find_file so we don't need assets
     monkeypatch.setattr(mod, "find_file", lambda name: name, raising=True)
@@ -261,11 +263,13 @@ def test_on_sync_starts_and_subscribes(monkeypatch):
     monkeypatch.setattr(mod.LaunchGui, "run", fake_run, raising=True)
 
     inst = mod.LaunchGui(tmcc_id=41, width=320, height=240)
+    inst._on_initial_sync()
 
-    # on_sync should be triggered (sync True), setting started flag
+    # initial sync starts the GUI thread
     assert started["flag"] is True
 
-    # And subscribe should be called
+    # LaunchGui sync hooks up the monitored engine state and subscription
+    inst._on_sync()
     # Fetch the fake dispatcher installed in fixture
     dispatcher = mod.CommandDispatcher.get()
     assert (inst, CommandScope.ENGINE, 41) in dispatcher.subscribed
@@ -274,8 +278,7 @@ def test_on_sync_starts_and_subscribes(monkeypatch):
 def test_run_builds_min_ui_and_sync_state(monkeypatch):
     # Let the real run execute against mock objects to create widget tree
     inst = mod.LaunchGui(tmcc_id=39, width=640, height=480)
-    # Give some time for thread to run setup and immediately return
-    time.sleep(0.05)
+    inst.run()
 
     # After run, UI is torn down in finally, so app is None
     assert inst.app is None
@@ -285,7 +288,7 @@ def test_run_builds_min_ui_and_sync_state(monkeypatch):
 def test_toggle_power_on_path(monkeypatch):
     # Use a trimmed-down run to install minimal widget graph and not tear it down
     def mini_run(self):
-        self.app = DummyApp("Launch Pad", self.width, self.height)
+        self._app = DummyApp("Launch Pad", self.width, self.height)
         self.lower_box = DummyBox()
         self.upper_box = DummyBox()
         self.lights_box = DummyBox()
@@ -305,6 +308,7 @@ def test_toggle_power_on_path(monkeypatch):
     monkeypatch.setattr(mod.LaunchGui, "run", mini_run, raising=True)
 
     inst = mod.LaunchGui(tmcc_id=55, track_id=10, width=640, height=480)
+    inst.run()
 
     # Initial state: power button shows "on" image
     assert inst.power_button.image == inst.on_button
@@ -327,7 +331,7 @@ def test_toggle_power_on_path(monkeypatch):
 
 def test_toggle_power_off_path(monkeypatch):
     def mini_run(self):
-        self.app = DummyApp("Launch Pad", self.width, self.height)
+        self._app = DummyApp("Launch Pad", self.width, self.height)
         self.lower_box = DummyBox()
         self.upper_box = DummyBox()
         self.lights_box = DummyBox()
@@ -347,6 +351,7 @@ def test_toggle_power_off_path(monkeypatch):
     monkeypatch.setattr(mod.LaunchGui, "run", mini_run, raising=True)
 
     inst = mod.LaunchGui(tmcc_id=60, width=640, height=480)
+    inst.run()
 
     # Now toggling should power off
     inst.toggle_power()
@@ -357,7 +362,7 @@ def test_toggle_power_off_path(monkeypatch):
 
 def test_set_lights_icons_and_klaxon_off(monkeypatch):
     def mini_run(self):
-        self.app = DummyApp("Launch Pad", self.width, self.height)
+        self._app = DummyApp("Launch Pad", self.width, self.height)
         self.lower_box = DummyBox()
         self.power_button = DummyPushButton(image=self.on_button, height=self.s_72, width=self.s_72)
         self.lights_button = DummyPushButton(image=self.on_button, height=self.s_72, width=self.s_72)
@@ -366,6 +371,7 @@ def test_set_lights_icons_and_klaxon_off(monkeypatch):
     monkeypatch.setattr(mod.LaunchGui, "run", mini_run, raising=True)
 
     inst = mod.LaunchGui(tmcc_id=61, width=640, height=480)
+    inst.run()
 
     # Turn lights off icon
     inst.set_lights_off_icon()
