@@ -61,9 +61,9 @@ class AccessoriesGui(StateBasedGui):
 
     def _post_process_state_buttons(self) -> None:
         for tmcc_id in self._is_momentary:
-            print(f"Adding momentary event for {tmcc_id}")
             if tmcc_id in self._state_buttons:
                 pb = self._state_buttons[tmcc_id]
+                print(f"Adding momentary event for {tmcc_id}: {pb}")
                 pb.when_left_button_pressed = self.when_pressed
                 pb.when_left_button_released = self.when_released
 
