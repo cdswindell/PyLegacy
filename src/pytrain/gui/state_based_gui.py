@@ -137,7 +137,6 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             nl = len(acc.road_name)
             self._max_name_len = nl if nl > self._max_name_len else self._max_name_len
             self._states[(acc.tmcc_id, acc.scope)] = acc
-            print(f"Adding state {acc.road_name} ({acc.tmcc_id}) to {self.title} {acc}")
             self._state_watchers[acc] = StateWatcher(acc, self.on_state_change_action(acc))
 
     # noinspection PyTypeChecker
@@ -396,11 +395,9 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
                     btn_y = 0
                     row = 4
                     col += 1
-                print(f"Adding state button for {pd.road_name} ({pd.tmcc_id}) col: {col} row: {row}...")
                 if col in active_cols:
                     pb, btn_h, btn_y = self._make_state_button(pd, row, col)
                     self._state_buttons[pd] = pb
-                    print(f"State: {pd}  Button: {self._state_buttons[pd]}")
                 else:
                     btn_y += btn_h
                 row += 1
