@@ -15,7 +15,7 @@ import threading
 from abc import ABC, ABCMeta, abstractmethod
 from collections import defaultdict
 from threading import Condition, Event, RLock
-from time import time
+from time import monotonic
 from typing import Any, Dict, List, Self, Set, TypeVar
 
 from .comp_data import CompData, CompDataMixin
@@ -59,6 +59,7 @@ class ComponentState(ABC, CompDataMixin):
         self._ev = Event()
         self._is_known: bool = False
         self._scope = scope
+        self._this_command: CommandReq | None = None
         self._last_command: CommandReq | None = None
         self._last_command_bytes = None
         self._last_updated: float | None = None
@@ -180,14 +181,31 @@ class ComponentState(ABC, CompDataMixin):
 
         return ComponentStateStore.is_state_synchronizing()
 
-    # noinspection PyTypeChecker
     @abstractmethod
+    def _update_state(self, command: L | P) -> None:
+        pass
+
     def update(self, command: L | P) -> None:
+        if command is None:
+            return
+
+        with self.synchronizer:
+            self.changed.clear()
+            self._prepare_update(command)  # current base-class validation/setup
+            self._update_state(command)  # subclass-specific behavior
+
+            self._last_updated = monotonic()
+            self._last_command = command
+
+            self.changed.set()
+            self.synchronizer.notify_all()
+
+    # noinspection PyTypeChecker
+    def _prepare_update(self, command: L | P) -> None:
         from ..pdi.base_req import BaseReq
         from ..pdi.block_req import BlockReq
         from ..pdi.d4_req import D4Req
 
-        self.changed.clear()
         if command and hasattr(command, "command") and command.command == TMCC1HaltCommandEnum.HALT:
             pass
         else:
@@ -239,8 +257,6 @@ class ComponentState(ABC, CompDataMixin):
                 self._is_known = True
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
-        self._last_updated = time()
-        self._last_command = command
 
     def request_config(self, command: CommandReq):
         from ..comm.command_listener import CommandDispatcher
@@ -277,7 +293,7 @@ class ComponentState(ABC, CompDataMixin):
     @property
     def last_updated_ago(self) -> float:
         if self._last_updated is not None:
-            return time() - self._last_updated
+            return monotonic() - self._last_updated
         else:
             return BIG_NUMBER
 
@@ -400,8 +416,8 @@ class TmccState(ComponentState, ABC):
     def is_legacy(self) -> bool:
         return False
 
-    def update(self, command: L | P) -> None:
-        super().update(command)
+    def _update_state(self, command: L | P) -> None:
+        super()._update_state(command)
 
     def as_dict(self) -> Dict[str, Any]:
         return super()._as_dict()
@@ -415,7 +431,7 @@ class LcsState(ComponentState, ABC):
         self._config_req_count = 0
         self._config_req = self._status_req = self._info_req = self._firmware_req = self._control_req = None
 
-    def update(self, command: P) -> None:
+    def _update_state(self, command: P) -> None:
         if isinstance(command, LcsReq):
             if command.is_config_req:
                 self._config_req = command
@@ -428,7 +444,7 @@ class LcsState(ComponentState, ABC):
                 self._status_req = command
             elif command.is_control_req:
                 self._control_req = command
-        super().update(command)
+        super()._update_state(command)
 
     def as_bytes(self) -> bytes:
         byte_str = super().as_bytes()
@@ -481,10 +497,10 @@ class LcsProxyState(LcsState, ABC):
         self._parent = None
         self._pdi_source = False
 
-    def update(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> None:
         if isinstance(command, LcsReq):
             self._pdi_source = True
-        super().update(command)
+        super()._update_state(command)
 
     @property
     def accessory_type(self) -> str:
@@ -626,12 +642,12 @@ class SwitchState(TmccState):
         self._state: Switch | None = None
         self._routes: set[RouteState] = set()
 
-    def update(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> None:
         if command:
             if command.command == TMCC1HaltCommandEnum.HALT:
                 return
             with self.synchronizer:
-                super().update(command)
+                # Updates switch state based on command type and parameters
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
                 elif isinstance(command, CommandReq):
@@ -642,8 +658,6 @@ class SwitchState(TmccState):
                     self._state = Switch.THRU if command.is_thru else Switch.OUT
                 else:
                     log.warning(f"Unhandled Switch State Update received: {command}")
-                self.changed.set()
-                self.synchronizer.notify_all()
             # inform the routes that include this switch of new state
             self.update_route_state()
 
@@ -719,14 +733,13 @@ class RouteState(TmccState):
         self._signature: dict[str, bool] = dict()
         self._current_state: dict[str, bool | None] = dict()
 
-    def update(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> None:
         from .comp_data import CompDataMixin
 
         if command:
             if command.command == TMCC1HaltCommandEnum.HALT:
                 return
             with self.synchronizer:
-                super().update(command)
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
                     # set up callbacks so that changes to component switch states
@@ -757,8 +770,6 @@ class RouteState(TmccState):
                     pass
                 else:
                     log.warning(f"Unhandled Route State Update received: {command}")
-                self.changed.set()
-                self._cv.notify_all()
 
     @property
     def components(self) -> List[RouteComponent] | None:

@@ -49,81 +49,75 @@ class IrdaState(LcsState):
             ld = ""
         return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}{le}{lt}{ld}"
 
-    def update(self, command: P) -> None:
+    def _update_state(self, command: P) -> None:
         from ..comm.comm_buffer import CommBuffer
         from .component_state_store import ComponentStateStore
 
-        if command:
-            with self._cv:
-                self._is_known = True
-                super().update(command)
-                if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
-                    if command.action == IrdaAction.CONFIG:
-                        self._sequence = command.sequence
-                        self._loco_rl = command.loco_rl
-                        self._loco_lr = command.loco_lr
-                    elif command.action == IrdaAction.SEQUENCE:
-                        self._sequence_req = command
-                        self._sequence = command.sequence
-                    elif command.action == IrdaAction.DATA:
-                        self._data_req = command
-                        # change engine/train speed, based on the direction of travel
-                        self._last_engine_id = self.harvest_tmcc_id(command)
-                        self._last_train_id = command.train_id
-                        # check train exists
-                        if (
-                            self._last_train_id
-                            and ComponentStateStore.get_state(CommandScope.TRAIN, self._last_train_id, False) is None
-                        ):
-                            self._last_train_id = 0
-                        self._last_dir = command.direction
-                        self._product_id = command.product_id
-                        if log.isEnabledFor(logging.DEBUG):
-                            log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
-                        if (
-                            self.sequence
-                            in {
-                                IrdaSequence.SLOW_SPEED_NORMAL_SPEED,
-                                IrdaSequence.NORMAL_SPEED_SLOW_SPEED,
-                            }
-                            and CommBuffer.is_server()
-                        ):
-                            rr_speed = None
-                            if command.is_right_to_left:
-                                rr_speed = "slow" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "normal"
-                            elif command.is_left_to_right:
-                                rr_speed = "normal" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "slow"
-                            if rr_speed:
-                                address = None
-                                scope = CommandScope.ENGINE
-                                if self._last_train_id:
-                                    address = self._last_train_id
-                                    scope = CommandScope.TRAIN
-                                elif self._last_engine_id:
-                                    address = self._last_engine_id
-                                elif command.engine_id:
-                                    address = command.engine_id
-                                state = ComponentStateStore.get_state(scope, address, False)
-                                if state is not None:
-                                    from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+        # Updates sensor state from IRDA commands; handles config, sequence,
+        # data with speed adjustments and state propagation
+        if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:
+            if command.action == IrdaAction.CONFIG:
+                self._sequence = command.sequence
+                self._loco_rl = command.loco_rl
+                self._loco_lr = command.loco_lr
+            elif command.action == IrdaAction.SEQUENCE:
+                self._sequence_req = command
+                self._sequence = command.sequence
+            elif command.action == IrdaAction.DATA:
+                self._data_req = command
+                # change engine/train speed, based on the direction of travel
+                self._last_engine_id = self.harvest_tmcc_id(command)
+                self._last_train_id = command.train_id
+                # check train exists
+                if (
+                    self._last_train_id
+                    and ComponentStateStore.get_state(CommandScope.TRAIN, self._last_train_id, False) is None
+                ):
+                    self._last_train_id = 0
+                self._last_dir = command.direction
+                self._product_id = command.product_id
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"IRDA {self.address} Sequence: {self.sequence} Command: {command}")
+                if (
+                    self.sequence
+                    in {
+                        IrdaSequence.SLOW_SPEED_NORMAL_SPEED,
+                        IrdaSequence.NORMAL_SPEED_SLOW_SPEED,
+                    }
+                    and CommBuffer.is_server()
+                ):
+                    rr_speed = None
+                    if command.is_right_to_left:
+                        rr_speed = "slow" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "normal"
+                    elif command.is_left_to_right:
+                        rr_speed = "normal" if self.sequence == IrdaSequence.SLOW_SPEED_NORMAL_SPEED else "slow"
+                    if rr_speed:
+                        address = None
+                        scope = CommandScope.ENGINE
+                        if self._last_train_id:
+                            address = self._last_train_id
+                            scope = CommandScope.TRAIN
+                        elif self._last_engine_id:
+                            address = self._last_engine_id
+                        elif command.engine_id:
+                            address = command.engine_id
+                        state = ComponentStateStore.get_state(scope, address, False)
+                        if state is not None:
+                            from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
 
-                                    RampedSpeedReq(address, rr_speed, scope=scope).send()
-                            # send update to Train and component engines as well
-                            orig_scope = command.scope
-                            orig_tmcc_id = command.tmcc_id
-                            try:
-                                if self._last_engine_id:
-                                    engine_state = ComponentStateStore.get_state(
-                                        CommandScope.ENGINE, self._last_engine_id
-                                    )
-                                    command.scope = CommandScope.ENGINE
-                                    command.tmcc_id = self._last_engine_id
-                                    engine_state.update(command)
-                            finally:
-                                command.scope = orig_scope
-                                command.tmcc_id = orig_tmcc_id
-                    self.changed.set()
-                    self._cv.notify_all()
+                            RampedSpeedReq(address, rr_speed, scope=scope).send()
+                    # send update to Train and component engines as well
+                    orig_scope = command.scope
+                    orig_tmcc_id = command.tmcc_id
+                    try:
+                        if self._last_engine_id:
+                            engine_state = ComponentStateStore.get_state(CommandScope.ENGINE, self._last_engine_id)
+                            command.scope = CommandScope.ENGINE
+                            command.tmcc_id = self._last_engine_id
+                            engine_state.update(command)
+                    finally:
+                        command.scope = orig_scope
+                        command.tmcc_id = orig_tmcc_id
 
     @property
     def is_lcs(self) -> bool:

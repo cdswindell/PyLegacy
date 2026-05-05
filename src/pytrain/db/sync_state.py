@@ -57,6 +57,9 @@ class SyncState(ComponentState):
                 self.changed.set()
                 self._cv.notify_all()
 
+    def _update_state(self, command: L | P) -> None:
+        pass
+
     @property
     def is_synchronized(self) -> bool:
         return self._state_synchronized

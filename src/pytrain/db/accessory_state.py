@@ -77,68 +77,65 @@ class AccessoryState(TmccState, LcsProxyState):
         return aux, aux1, aux2, aux_num
 
     # noinspection DuplicatedCode
-    def update(self, command: L | P) -> None:
-        if command:
-            with self._cv:
-                super().update(command)
-                if isinstance(command, CompDataMixin) and command.is_comp_data_record:
-                    self._update_comp_data(command.comp_data)
-                elif isinstance(command, CommandReq):
-                    if command.command != Aux.SET_ADDRESS:
-                        if command.command == TMCC1HaltCommandEnum.HALT:
-                            self._aux1_state = Aux.AUX1_OFF
-                            self._aux2_state = Aux.AUX2_OFF
-                            self._aux_state = Aux.AUX2_OPT_ONE
-                            self._number = None
-                            self._relative_speed = 0
-                        else:
-                            if not self._pdi_source:
-                                if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
-                                    self._aux_state = command.command
-                                if command.command == Aux.AUX1_OPT_ONE:
-                                    if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
-                                        self._aux1_state = self.update_aux_state(
-                                            self._aux1_state,
-                                            Aux.AUX1_ON,
-                                            Aux.AUX1_OPT_ONE,
-                                            Aux.AUX1_OFF,
-                                        )
-                                    self._last_aux1_opt1 = self.last_updated
-                                elif command.command in {Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO}:
-                                    self._aux1_state = command.command
-                                    self._last_aux1_opt1 = self.last_updated
-                                elif command.command == Aux.AUX2_OPT_ONE:
-                                    if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
-                                        self._aux2_state = self.update_aux_state(
-                                            self._aux2_state,
-                                            Aux.AUX2_ON,
-                                            Aux.AUX2_OPT_ONE,
-                                            Aux.AUX2_OFF,
-                                        )
-                                    self._last_aux2_opt1 = self.last_updated
-                                elif command.command in {Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO}:
-                                    self._aux2_state = command.command
-                                    self._last_aux2_opt1 = self.last_updated
-                            if command.command == Aux.NUMERIC:
-                                self._number = command.data
-                            elif command.command == Aux.RELATIVE_SPEED:
-                                self._relative_speed = max(-5, min(5, int(command.data or 0)))
-                            if self.is_amc2:
-                                self.extract_state_from_req(command)
-                elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
-                    if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
-                        if command.state == 1:
-                            self._aux1_state = Aux.AUX1_ON
-                            self._aux2_state = Aux.AUX2_ON
-                            self._aux_state = Aux.AUX1_OPT_ONE
-                        else:
-                            self._aux1_state = Aux.AUX1_OFF
-                            self._aux2_state = Aux.AUX2_OFF
-                            self._aux_state = Aux.AUX2_OPT_ONE
-                    elif isinstance(command, Amc2Req):
+    def _update_state(self, command: L | P) -> None:
+        # Dispatches state updates by command variant; notifies observers
+        super()._update_state(command)
+        if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+            self._update_comp_data(command.comp_data)
+        elif isinstance(command, CommandReq):
+            if command.command != Aux.SET_ADDRESS:
+                if command.command == TMCC1HaltCommandEnum.HALT:
+                    self._aux1_state = Aux.AUX1_OFF
+                    self._aux2_state = Aux.AUX2_OFF
+                    self._aux_state = Aux.AUX2_OPT_ONE
+                    self._number = None
+                    self._relative_speed = 0
+                else:
+                    if not self._pdi_source:
+                        if command.command in {Aux.AUX1_OPT_ONE, Aux.AUX2_OPT_ONE}:
+                            self._aux_state = command.command
+                        if command.command == Aux.AUX1_OPT_ONE:
+                            if self.time_delta(self._last_updated, self._last_aux1_opt1) > 1:
+                                self._aux1_state = self.update_aux_state(
+                                    self._aux1_state,
+                                    Aux.AUX1_ON,
+                                    Aux.AUX1_OPT_ONE,
+                                    Aux.AUX1_OFF,
+                                )
+                            self._last_aux1_opt1 = self.last_updated
+                        elif command.command in {Aux.AUX1_ON, Aux.AUX1_OFF, Aux.AUX1_OPT_TWO}:
+                            self._aux1_state = command.command
+                            self._last_aux1_opt1 = self.last_updated
+                        elif command.command == Aux.AUX2_OPT_ONE:
+                            if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                                self._aux2_state = self.update_aux_state(
+                                    self._aux2_state,
+                                    Aux.AUX2_ON,
+                                    Aux.AUX2_OPT_ONE,
+                                    Aux.AUX2_OFF,
+                                )
+                            self._last_aux2_opt1 = self.last_updated
+                        elif command.command in {Aux.AUX2_ON, Aux.AUX2_OFF, Aux.AUX2_OPT_TWO}:
+                            self._aux2_state = command.command
+                            self._last_aux2_opt1 = self.last_updated
+                    if command.command == Aux.NUMERIC:
+                        self._number = command.data
+                    elif command.command == Aux.RELATIVE_SPEED:
+                        self._relative_speed = max(-5, min(5, int(command.data or 0)))
+                    if self.is_amc2:
                         self.extract_state_from_req(command)
-                self.changed.set()
-                self._cv.notify_all()
+        elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
+            if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
+                if command.state == 1:
+                    self._aux1_state = Aux.AUX1_ON
+                    self._aux2_state = Aux.AUX2_ON
+                    self._aux_state = Aux.AUX1_OPT_ONE
+                else:
+                    self._aux1_state = Aux.AUX1_OFF
+                    self._aux2_state = Aux.AUX2_OFF
+                    self._aux_state = Aux.AUX2_OPT_ONE
+            elif isinstance(command, Amc2Req):
+                self.extract_state_from_req(command)
 
     @property
     def is_known(self) -> bool:

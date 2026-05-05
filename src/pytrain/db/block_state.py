@@ -52,38 +52,33 @@ class BlockState(ComponentState):
         )
         return f"Block {msg}"
 
-    def update(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> None:
         from ..pdi.block_req import BlockReq
         from .component_state_store import ComponentStateStore
 
-        if command:
-            with self._cv:
-                super().update(command)
-                if isinstance(command, BlockReq):
-                    self._block_req = command
-                    self._block_id = command.block_id
-                    if command.prev_block_id:
-                        self._prev_block = ComponentStateStore.get_state(CommandScope.BLOCK, command.prev_block_id)
-                    else:
-                        self._prev_block = None
-                    if command.next_block_id:
-                        self._next_block = ComponentStateStore.get_state(CommandScope.BLOCK, command.next_block_id)
-                    else:
-                        self._next_block = None
-                    self._flags = command.flags
-                    self._direction = command.direction
-                    self._occupied = command.is_occupied
-                    self._occupied_direction = command.motive_direction
-                    if self._sensor_track is None and command.sensor_track_id:
-                        self._sensor_track = ComponentStateStore.get_state(CommandScope.IRDA, command.sensor_track_id)
-                    if self._switch is None and command.switch_id:
-                        self._switch = ComponentStateStore.get_state(CommandScope.SWITCH, command.switch_id)
-                    if command.motive_id:
-                        self._occupied_by = ComponentStateStore.get_state(command.motive_scope, command.motive_id)
-                    else:
-                        self._occupied_by = None
-                    self.changed.set()
-                    self._cv.notify_all()
+        if isinstance(command, BlockReq):
+            self._block_req = command
+            self._block_id = command.block_id
+            if command.prev_block_id:
+                self._prev_block = ComponentStateStore.get_state(CommandScope.BLOCK, command.prev_block_id)
+            else:
+                self._prev_block = None
+            if command.next_block_id:
+                self._next_block = ComponentStateStore.get_state(CommandScope.BLOCK, command.next_block_id)
+            else:
+                self._next_block = None
+            self._flags = command.flags
+            self._direction = command.direction
+            self._occupied = command.is_occupied
+            self._occupied_direction = command.motive_direction
+            if self._sensor_track is None and command.sensor_track_id:
+                self._sensor_track = ComponentStateStore.get_state(CommandScope.IRDA, command.sensor_track_id)
+            if self._switch is None and command.switch_id:
+                self._switch = ComponentStateStore.get_state(CommandScope.SWITCH, command.switch_id)
+            if command.motive_id:
+                self._occupied_by = ComponentStateStore.get_state(command.motive_scope, command.motive_id)
+            else:
+                self._occupied_by = None
 
     @property
     def is_known(self) -> bool:

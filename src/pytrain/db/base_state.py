@@ -79,6 +79,9 @@ class BaseState(ComponentState):
                         self._first_d4_train_rec_no = command.record_no if command.record_no != 0xFFFF else None
             # do not signal state update for engine and train counts
 
+    def _update_state(self, command: L | P) -> None:
+        pass
+
     @property
     def base_name(self) -> str:
         return self._base_name
