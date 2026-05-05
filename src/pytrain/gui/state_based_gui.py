@@ -390,6 +390,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
 
             self.btn_box.visible = False
             for pd in states:
+                print(f"Adding state button for {pd.road_name} ({pd.tmcc_id})...")
                 if btn_h is not None and btn_y is not None and self.y_offset + btn_y + btn_h > self.height:
                     if self._max_button_rows is None:
                         self._max_button_rows = row - 4
