@@ -101,6 +101,7 @@ class TMCC1CommandDef(CommandDef):
         interval: int = None,
         noop: bool = False,
         command_prefix: int = TMCC1_COMMAND_PREFIX,
+        ignore_impacts: bool = False,
     ) -> None:
         super().__init__(
             command_bits,
@@ -116,6 +117,7 @@ class TMCC1CommandDef(CommandDef):
             aux1=aux1,
             interval=interval,
             noop=noop,
+            ignore_impacts=ignore_impacts,
         )
         assert command_prefix
         self._command_ident = command_ident
@@ -509,6 +511,7 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
     REAR_REVERSE = TMCC1CommandDef(TMCC1_ENG_ASSIGN_REAR_REVERSE_COMMAND)
     RELATIVE_SPEED = TMCC1CommandDef(TMCC1_ENG_RELATIVE_SPEED_COMMAND, d_map=RELATIVE_SPEED_MAP)
     RESET = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0)
+    RESET_ONLY = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0, ignore_impacts=True)
     REVERSE_DIRECTION = TMCC1CommandDef(TMCC1_ENG_REVERSE_DIRECTION_COMMAND, filtered=False)
     RING_BELL = TMCC1CommandDef(TMCC1_ENG_RING_BELL_COMMAND)
     RPM_DOWN = TMCC1CommandDef(TMCC1_ENG_RPM_DOWN_COMMAND, alias="NUMERIC", data=6)

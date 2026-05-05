@@ -46,6 +46,7 @@ class CommandDef(ABC):
         aux1: bool = False,
         interval: int = None,
         noop: bool = False,
+        ignore_impacts: bool = False,
     ) -> None:
         self._command_bits: int = command_bits
         self._is_addressable = is_addressable
@@ -57,6 +58,8 @@ class CommandDef(ABC):
         self._d_max = d_max
         self._d_map = d_map
         self._d_bits = 0
+        self._ignore_impacts = ignore_impacts
+        # Computes data bits from max value or map
         if d_max:
             self._d_bits = math.ceil(math.log2(d_max))
         elif d_map is not None:
@@ -80,6 +83,10 @@ class CommandDef(ABC):
     @property
     def is_addressable(self) -> bool:
         return self._is_addressable
+
+    @property
+    def is_ignore_impacts(self) -> bool:
+        return self._ignore_impacts
 
     @property
     def is_data(self) -> bool:
@@ -312,10 +319,6 @@ class CommandDefEnum(CommandDefMixins, Enum):
         return self.command_def.is_alias
 
     @property
-    def is_filtered(self) -> bool:
-        return self.command_def.is_filtered
-
-    @property
     def alias(self) -> E | Tuple[E, int]:
         return self.command_def.alias
 
@@ -327,6 +330,14 @@ class CommandDefEnum(CommandDefMixins, Enum):
             else:
                 return self.alias
         return None
+
+    @property
+    def is_filtered(self) -> bool:
+        return self.command_def.is_filtered
+
+    @property
+    def is_ignore_impacts(self) -> bool:
+        return self.command_def.is_ignore_impacts
 
     @property
     def as_bytes(self) -> bytes:

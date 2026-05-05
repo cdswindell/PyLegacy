@@ -225,6 +225,11 @@ class CommandReq:
             interval, min_value=MINIMUM_DURATION_INTERVAL_MSEC, label="interval", allow_none=True
         )
 
+        if isinstance(cmd, CommandReq):
+            do_effects = trigger_effects and cmd.command_def.is_ignore_impacts is False
+        else:
+            do_effects = trigger_effects
+
         # Generates AUX1 prefix bytes for specific scopes; resets repeat count
         if request and request.command_def.is_aux1_prefixed is True:
             if request.scope == CommandScope.ACC:
@@ -260,7 +265,7 @@ class CommandReq:
             else:
                 buffer.enqueue_command(cmd, delay)
             # does this command cause any other state changes?
-            if rep_no == 0 and request and trigger_effects is True:
+            if rep_no == 0 and request and do_effects is True:
                 for effect in cls.results_in(request):
                     if isinstance(effect, CommandDefEnum):
                         effect_cmd = CommandReq.build(effect, request.address, 0, request.scope)

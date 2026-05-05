@@ -62,7 +62,7 @@ class LaunchGui(GuiZeroBase):
         self.track_on_req = CommandReq(TMCC1AuxCommandEnum.AUX1_OPT_ONE, track_id) if track_id else None
         self.power_on_req = CommandReq(TMCC1EngineCommandEnum.START_UP_IMMEDIATE, tmcc_id)
         self.power_off_req = CommandReq(TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE, tmcc_id)
-        self.reset_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 0)
+        self.reset_req = CommandReq(TMCC1EngineCommandEnum.RESET_ONLY, tmcc_id)
         self.launch_now_req = CommandReq(TMCC1EngineCommandEnum.FRONT_COUPLER, tmcc_id)
         self.abort_now_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 5)
         self.gantry_rev_req = CommandReq(TMCC1EngineCommandEnum.NUMERIC, tmcc_id, 6)
