@@ -115,6 +115,7 @@ class LaunchGui(GuiZeroBase):
             self.set_lights_on_icon()
 
     def __call__(self, cmd: CommandReq) -> None:
+        print(f"Received command: {cmd} is active: {self.is_active()}")
         # handle launch sequence differently
         if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
             # Detects launch sequence via repeated command timing
