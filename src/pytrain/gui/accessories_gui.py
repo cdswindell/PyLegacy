@@ -67,7 +67,7 @@ class AccessoriesGui(StateBasedGui):
             if (tmcc_id, CommandScope.ACC) in self._states:
                 state = self._states[(tmcc_id, CommandScope.ACC)]
                 if state in self._state_buttons:
-                    pb = self._state_buttons[tmcc_id]
+                    pb = self._state_buttons[state]
                     print(f"Adding momentary event for {tmcc_id}: {pb}")
                     pb.when_left_button_pressed = self.when_pressed
                     pb.when_left_button_released = self.when_released
