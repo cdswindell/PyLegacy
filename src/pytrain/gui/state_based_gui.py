@@ -449,6 +449,7 @@ class StateBasedGui(GuiZeroBase, Generic[S], ABC):
             show_hold_progress=show_hold_progress,
             progress_fill_color=progress_fill_color,
             progress_empty_color=progress_empty_color,
+            critical_fill_color="red",
         )
         pb.component_state = pd
 

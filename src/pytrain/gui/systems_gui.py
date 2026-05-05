@@ -45,6 +45,8 @@ class SystemsGui(StateBasedGui):
             height,
             aggregator,
             enabled_bg="red",
+            disabled_bg="lightgray",
+            disabled_text="black",
             scale_by=scale_by,
             exclude_unnamed=exclude_unnamed,
             screens=screens,
