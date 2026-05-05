@@ -168,6 +168,7 @@ class LaunchGui(GuiZeroBase):
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
                     self.queue_message(self.set_lights_on_icon)
                 elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
+                    print("Received Siren Event")
                     self.queue_message(self.siren_sounded)
                 elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
                     self.queue_message(self.klaxon_sounded)
@@ -178,8 +179,10 @@ class LaunchGui(GuiZeroBase):
         return True if self._monitored_state and self._monitored_state.is_started is True else False
 
     def build_gui(self):
-        """Builds rocket launch control GUI with buttons and displays; syncs state and runs event loop"""
-        self._on_sync()
+        """
+        Builds rocket launch control GUI with buttons and displays; syncs state and runs event loop
+        """
+        self._on_sync()  # register for events
         app = self.app
         self.upper_box = upper_box = Box(app, layout="grid", border=False)
 
