@@ -116,7 +116,6 @@ class SystemsGui(StateBasedGui):
             text=f"Hold for {self._press_for} seconds",
             grid=[col, row, 2, 1],
             size=ts,
-            bold=True,
             color="red",
         )
         widgets.append(title)
