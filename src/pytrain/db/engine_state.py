@@ -179,6 +179,8 @@ TMCC1_AUX_ONE_PREFIX_MAP = {
     (TMCC1EngineCommandEnum.NUMERIC, 5): TMCC1EngineCommandEnum.SHUTDOWN_IMMEDIATE,
 }
 
+TMCC1_PREFIX_TO_AUX_ONE_MAP = {v: k for k, v in TMCC1_AUX_ONE_PREFIX_MAP.items()}
+
 CANCEL_PENDINGS_ON_ENQUEUE = RESET_SET | {TMCC2EngineCommandEnum.STOP_IMMEDIATE}
 
 CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
@@ -633,7 +635,16 @@ class EngineState(ComponentState):
         if not self._pdi_source:
             # now encode state not managed by the Base 3, AFAIK
             if isinstance(self._start_stop, CommandDefEnum):
-                packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
+                cmd = TMCC1_PREFIX_TO_AUX_ONE_MAP.get(self._start_stop, None)
+                if cmd and isinstance(cmd, tuple):
+                    packets.append(
+                        CommandReq.build(
+                            TMCC1EngineCommandEnum.AUX1_OPTION_ONE, self.address, scope=self.scope
+                        ).as_bytes
+                    )
+                    packets.append(CommandReq.build(cmd[0], self.address, data=cmd[1], scope=self.scope).as_bytes)
+                else:
+                    packets.append(CommandReq.build(self._start_stop, self.address, scope=self.scope).as_bytes)
             if isinstance(self.smoke_level, CommandDefEnum):
                 packets.append(CommandReq.build(self.smoke_level, self.address, scope=self.scope).as_bytes)
             if isinstance(self._direction, CommandDefEnum):

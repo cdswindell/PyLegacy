@@ -146,7 +146,7 @@ class TestEngineStateBehavior:
         packets = e.as_bytes()
         # EngineState.as_bytes returns list[bytes]
         assert isinstance(packets, list)
-        assert len(packets) >= 1
+        assert len(packets) == 4
         assert all(isinstance(p, (bytes, bytearray)) for p in packets)
 
     def test_smoke_label_mapping(self):
