@@ -121,7 +121,10 @@ class LaunchGui(GuiZeroBase):
 
         self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)
         if self._monitored_state is None:
-            raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
+            if self._parent is None:
+                raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
+            log.warning("No launch pad state for tmcc_id %s; rendering disabled embedded launch GUI", self.tmcc_id)
+            return
         # watch for external state changes
         if self._monitored_state_watcher is None:
             self._monitored_state_watcher = StateWatcher(self._monitored_state, self.sync_gui_state)
@@ -136,7 +139,9 @@ class LaunchGui(GuiZeroBase):
                 self._state_changed_flag.set()
 
     def sync_pad_lights(self):
-        if self._monitored_state.is_aux2 is True:
+        if self._monitored_state is None:
+            self.set_lights_on_icon()
+        elif self._monitored_state.is_aux2 is True:
             self.set_lights_off_icon()
         else:
             self.set_lights_on_icon()
@@ -294,7 +299,9 @@ class LaunchGui(GuiZeroBase):
         _ = Text(lights_box, text="Lights", grid=[0, 0], size=self.s_16, underline=True)
         self.lights_button = PushButton(
             lights_box,
-            image=self.on_button if self._monitored_state.is_aux2 is False else self.off_button,
+            image=self.on_button
+            if self._monitored_state is None or self._monitored_state.is_aux2 is False
+            else self.off_button,
             grid=[0, 1],
             command=self.toggle_lights,
             height=self.s_72,
@@ -584,6 +591,8 @@ class LaunchGui(GuiZeroBase):
             self.lights_button.height = self.lights_button.width = self.s_72
 
     def toggle_lights(self):
+        if self._monitored_state is None:
+            return
         if self._monitored_state.is_aux2:
             self.lights_off_req.send(repeat=2)
         else:

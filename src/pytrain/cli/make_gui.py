@@ -107,6 +107,7 @@ WIDE_COMPONENT_ALIASES = {
     "operating accessory": "Operating Accessories",
     "operating_accessories": "Operating Accessories",
     "operating_accessory": "Operating Accessories",
+    "configured": "Operating Accessories",
     "configured accessories": "Operating Accessories",
     "configured accessory": "Operating Accessories",
     "op accessories": "Operating Accessories",
@@ -120,6 +121,7 @@ WIDE_COMPONENT_ALIASES = {
     "launchpad": "Launch Pad",
     "pad": "Launch Pad",
     "la": "Launch Pad",
+    "lp": "Launch Pad",
     "motors": "Motors",
     "motor": "Motors",
     "mo": "Motors",
@@ -318,7 +320,7 @@ class MakeGui(_MakeBase):
         # Launch Pad GUI
         pad = sp.add_parser(
             "launch_pad",
-            aliases=["la", "pad"],
+            aliases=["la", "lp", "pad"],
             allow_abbrev=True,
             help="Launch Pad GUI",
         )

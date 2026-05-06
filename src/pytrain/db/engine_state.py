@@ -639,6 +639,7 @@ class EngineState(ComponentState):
             if isinstance(self._direction, CommandDefEnum):
                 # the direction state will have encoded in it the syntax (tmcc1 or tmcc2)
                 packets.append(CommandReq.build(self._direction, self.address, scope=self.scope).as_bytes)
+            # Encodes numeric command packet for special crane engine type
             if self._numeric is not None and isinstance(self._numeric_cmd, CommandDefEnum):
                 if self.engine_type in {
                     LOCO_TRACK_CRANE,
