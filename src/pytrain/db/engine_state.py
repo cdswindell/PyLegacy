@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+from time import monotonic
 from typing import Any, Dict, List, TypeVar
 
 from .comp_data import CompDataHandler, CompDataMixin, decode_tmcc_speed, encode_tmcc_speed
@@ -407,7 +408,8 @@ class EngineState(ComponentState):
                         self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
                         # Updates aux2 state based on time delta and legacy mode
                         if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
-                            if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
+                            now = monotonic()
+                            if self.time_delta(now, self._last_aux2_opt1) > 1:
                                 if self._is_legacy:
                                     self._aux2 = self.update_aux_state(
                                         self._aux2,
@@ -422,7 +424,8 @@ class EngineState(ComponentState):
                                         TMCC1.AUX2_OPTION_ONE,
                                         TMCC1.AUX2_OFF,
                                     )
-                        self._last_aux2_opt1 = self.last_updated
+                                log.info(f"Command: {command} Aux2: {self._aux2} {self._last_aux2_opt1} {now}")
+                                self._last_aux2_opt1 = now
                     elif cmd in {
                         TMCC1.AUX2_ON,
                         TMCC1.AUX2_OFF,
@@ -432,7 +435,6 @@ class EngineState(ComponentState):
                         TMCC2.AUX2_OPTION_TWO,
                     }:
                         self._aux2 = cmd
-                        # self._last_aux2_opt1 = self.last_updated
 
             # handle run level/rpm
             if command.command in RPM_SET:
@@ -664,8 +666,9 @@ class EngineState(ComponentState):
                             scope=self.scope,
                         ).as_bytes
                     )
-            if isinstance(self._aux, CommandDefEnum):
-                packets.append(CommandReq.build(self._aux, self.address).as_bytes)
+            # Aux state is inferred from Aux1 and Aux2 state
+            # if isinstance(self._aux, CommandDefEnum):
+            #     packets.append(CommandReq.build(self._aux, self.address).as_bytes)
             if isinstance(self._aux1, CommandDefEnum):
                 packets.append(CommandReq.build(self.aux1, self.address).as_bytes)
             if isinstance(self._aux2, CommandDefEnum):
