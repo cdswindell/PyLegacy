@@ -102,6 +102,17 @@ class SystemsGui(StateBasedGui):
         ts = int(round(23 * self._scale_by))
         title = Text(
             self.btn_box,
+            text=self.version,
+            grid=[col, row, 2, 1],
+            size=ts,
+            bold=True,
+        )
+        widgets.append(title)
+
+        # make hold for
+        row += 1
+        title = Text(
+            self.btn_box,
             text=f"Hold for {self._press_for} seconds",
             grid=[col, row, 2, 1],
             size=ts,
@@ -132,7 +143,8 @@ class SystemsGui(StateBasedGui):
 
         # spacer
         row += 1
-        spacer = Text(self.btn_box, text=" ", grid=[col, row], size=ts)
+        sp = int(round(10 * self._scale_by))
+        spacer = Text(self.btn_box, text=" ", grid=[col, row], size=sp)
         widgets.append(spacer)
 
         # make reboot button
