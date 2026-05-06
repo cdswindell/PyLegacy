@@ -121,7 +121,7 @@ class FireStationGui(AccessoryBase):
                 if self.is_active(self.power_state):
                     # Switch to animated GIF
                     self.alarm_button.image = self.alarm_on_image
-                    self.alarm_button.height = self.alarm_button.width = self.s_72
+                    self.alarm_button.height = self.alarm_button.width = self.s_acc
                     self.app.after(5000, self.deactivate_alarm)
             else:
                 super().set_button_active(button)
@@ -129,4 +129,4 @@ class FireStationGui(AccessoryBase):
     def deactivate_alarm(self) -> None:
         with self._cv:
             self.alarm_button.image = self.alarm_off_image
-            self.alarm_button.height = self.alarm_button.width = self.s_72
+            self.alarm_button.height = self.alarm_button.width = self.s_acc

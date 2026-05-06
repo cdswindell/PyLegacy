@@ -147,7 +147,7 @@ class StationGui(AccessoryBase):
         elif widget == self.platform_button:
             self.set_boxed_button_label(widget, self._empty_label)
             self.platform_button.image = self._empty_image
-            self.platform_button.height = self.platform_button.width = self.s_72
+            self.platform_button.height = self.platform_button.width = self.s_acc
         else:
             super().set_button_inactive(widget)
 
@@ -158,6 +158,6 @@ class StationGui(AccessoryBase):
         elif widget == self.platform_button:
             self.set_boxed_button_label(widget, self._full_label)
             self.platform_button.image = self._full_image
-            self.platform_button.height = self.platform_button.width = self.s_72
+            self.platform_button.height = self.platform_button.width = self.s_acc
         else:
             super().set_button_active(widget)

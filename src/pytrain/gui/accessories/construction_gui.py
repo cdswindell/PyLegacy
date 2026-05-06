@@ -107,7 +107,7 @@ class ConstructionGui(AccessoryBase):
         with self._cv:
             if button == self._action_button:
                 button.image = self._action_image
-                button.height = button.width = self.s_72
+                button.height = button.width = self.s_acc
                 button.stop_animation()
             else:
                 super().set_button_inactive(button)

@@ -125,8 +125,8 @@ class SmokeFluidLoaderGui(AccessoryBase):
             label=None,
             col=0,
             image=bl_image,
-            height=self.s_72,
-            width=self.s_72,
+            height=self.s_acc,
+            width=self.s_acc,
         )
         left.when_left_button_pressed = self.when_boom_pressed
         left.when_left_button_released = self.when_boom_released
@@ -137,8 +137,8 @@ class SmokeFluidLoaderGui(AccessoryBase):
             label=None,
             col=1,
             image=br_image,
-            height=self.s_72,
-            width=self.s_72,
+            height=self.s_acc,
+            width=self.s_acc,
         )
         right.when_left_button_pressed = self.when_boom_pressed
         right.when_left_button_released = self.when_boom_released
@@ -151,8 +151,8 @@ class SmokeFluidLoaderGui(AccessoryBase):
             col=col,
             text_len=max_text_len,
             image=dispense_image,
-            height=self.s_72,
-            width=self.s_72,
+            height=self.s_acc,
+            width=self.s_acc,
         )
         db.update_command(
             CommandReq(TMCC1AuxCommandEnum.BRAKE, self._tmcc_id).send,

@@ -220,8 +220,9 @@ class GuiZeroBase(Thread, ABC):
         self._inactive_bg = inactive_bg
 
         # font sizes
+        self.s_acc = self.scale(80, scale_by)  # Use for configured accessories
         self.s_90 = self.scale(90, scale_by)
-        self.s_72 = self.scale(90, scale_by)
+        self.s_72 = self.scale(72, scale_by)
         self.s_30: int = int(round(30 * scale_by))
         self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))

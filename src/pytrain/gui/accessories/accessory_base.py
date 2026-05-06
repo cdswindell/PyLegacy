@@ -250,7 +250,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 widget.sibling.show()
         elif isinstance(widget, PowerButton):
             widget.image = widget.turn_on_image
-            widget.height = widget.width = self.s_72
+            widget.height = widget.width = self.s_acc
         else:
             widget.bg = self._disabled_bg
             widget.text_color = self._disabled_text
@@ -269,7 +269,7 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 widget.sibling.show()
         elif isinstance(widget, PowerButton):
             widget.image = widget.turn_off_image
-            widget.height = widget.width = self.s_72
+            widget.height = widget.width = self.s_acc
         else:
             widget.bg = self._enabled_bg
             widget.text_color = self._enabled_text
@@ -474,8 +474,8 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
                 btn_box,
                 image=image,
                 align="top",
-                height=self.s_72,
-                width=self.s_72,
+                height=self.s_acc,
+                width=self.s_acc,
                 turn_on_image=turn_on_image,
                 turn_off_image=turn_off_image,
             )
@@ -514,15 +514,15 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
             b = Box(container, layout="auto", border=2, grid=[col, 0], align="top")
             t = Text(b, text=label, align="top", size=self.s_16, underline=True)
             t.width = text_len
-            btn = button_cls(b, image=image, align="top", width=width or self.s_72, height=height or self.s_72)
+            btn = button_cls(b, image=image, align="top", width=width or self.s_acc, height=height or self.s_acc)
         else:
             btn = button_cls(
                 container,
                 image=image,
                 align="top",
                 grid=[col, 0],
-                width=width or self.s_72,
-                height=height or self.s_72,
+                width=width or self.s_acc,
+                height=height or self.s_acc,
             )
         if is_momentary:
             btn.when_left_button_pressed = self.when_pressed

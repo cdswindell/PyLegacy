@@ -131,7 +131,7 @@ class ControlTowerGui(AccessoryBase):
             if button == self.action_button:
                 if button._pytrain_image_source != self._action_image:
                     button.image = self._action_image
-                    # button.height = button.width = self.s_72
+                    # button.height = button.width = self.s_acc
                     button._pytrain_image_source = self._action_image
                 button.stop_animation()
             else:
