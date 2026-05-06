@@ -133,6 +133,7 @@ class LaunchGui(GuiZeroBase):
             self._is_subscribed = True
 
     def sync_gui_state(self) -> None:
+        print(f"sync_gui_state called; aux2: {self._monitored_state.aux2}")
         if self._monitored_state:
             with self._cv:
                 self.sync_pad_lights()
