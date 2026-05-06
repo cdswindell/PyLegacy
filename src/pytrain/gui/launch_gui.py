@@ -628,7 +628,7 @@ class LaunchGui(GuiZeroBase):
         To accommodate different lcd screen sizes and parent containers,
         we need to handle button sizing differently than the other accessories.
         """
-        required = 8 * bs + (4 * 22)  # buttons plus grid spacing
+        required = 8 * bs + (4 * 24)  # buttons plus grid spacing
         factor = self.width / required
         nbs = int(round(bs * factor))
         print(f"Width: {self.width} Required: {required} Scale: {factor:.4f} Original: {bs} New: {nbs}")
