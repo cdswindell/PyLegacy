@@ -405,6 +405,7 @@ class EngineState(ComponentState):
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX2_SET):
                     if cmd in ENGINE_AUX2_SET:
                         self._aux = cmd if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE} else self._aux
+                        # Updates aux2 state based on time delta and legacy mode
                         if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
                             if self.time_delta(self._last_updated, self._last_aux2_opt1) > 1:
                                 if self._is_legacy:
@@ -414,13 +415,13 @@ class EngineState(ComponentState):
                                         TMCC2.AUX2_OPTION_ONE,
                                         TMCC2.AUX2_OFF,
                                     )
-                            else:
-                                self._aux2 = self.update_aux_state(
-                                    self._aux2,
-                                    TMCC1.AUX2_ON,
-                                    TMCC1.AUX2_OPTION_ONE,
-                                    TMCC1.AUX2_OFF,
-                                )
+                                else:
+                                    self._aux2 = self.update_aux_state(
+                                        self._aux2,
+                                        TMCC1.AUX2_ON,
+                                        TMCC1.AUX2_OPTION_ONE,
+                                        TMCC1.AUX2_OFF,
+                                    )
                         self._last_aux2_opt1 = self.last_updated
                     elif cmd in {
                         TMCC1.AUX2_ON,
