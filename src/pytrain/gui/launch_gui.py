@@ -59,7 +59,7 @@ class LaunchGui(GuiZeroBase):
         self.label = label
         self._parent = parent
         self._root = None
-        self.s_bs = self.s_lp  # default button size
+        self.s_bs = self._calc_button_size(self.s_lp)  # default button size
 
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
@@ -622,6 +622,17 @@ class LaunchGui(GuiZeroBase):
                 button.image = self.siren_off
             button.height = button.width = self.s_bs
             self.lower_box.show()
+
+    def _calc_button_size(self, bs: int) -> int:
+        """
+        To accommodate different lcd screen sizes and parent containers,
+        we need to handle button sizing differently than the other accessories.
+        """
+        required = 8 * bs
+        factor = self.width // required
+        nbs = int(bs * factor)
+        print(f"Width: {self.width} Required: {required} Original: {bs} New: {nbs}")
+        return nbs
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
         return self.height, self.width
