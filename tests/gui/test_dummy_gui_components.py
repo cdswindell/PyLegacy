@@ -170,6 +170,7 @@ class FakeEngineState:
     def __init__(self, started=False, aux2=False):
         self.is_started = started
         self.is_aux2 = aux2
+        self.aux2 = None
 
 
 # noinspection PyMethodMayBeStatic,PyUnusedLocal
