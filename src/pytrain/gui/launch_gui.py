@@ -139,8 +139,9 @@ class LaunchGui(GuiZeroBase):
                 self.sync_pad_lights()
 
     def sync_pad_lights(self):
-        if self._monitored_state is None:
-            self.queue_message(self.set_lights_on_icon)
+        if self._monitored_state.aux2 is None:
+            # if lights state isn't defined, force off.
+            self.lights_off_req.send()
         elif self._monitored_state.is_aux2 is True:
             self.queue_message(self.set_lights_off_icon)
         else:
