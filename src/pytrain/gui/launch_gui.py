@@ -428,8 +428,9 @@ class LaunchGui(GuiZeroBase):
 
     def siren_sounded(self) -> None:
         # Must be run on GUI thread!!
-        self.toggle_sound(self.siren_button)
-        self.siren_button.after(13000, self.toggle_sound, [self.siren_button])
+        if self.siren_button.image == self.siren_off:
+            self.toggle_sound(self.siren_button)
+            self.siren_button.after(10000, self.toggle_sound, [self.siren_button])
 
     def klaxon_sounded(self) -> None:
         self.toggle_sound(self.klaxon_button)
