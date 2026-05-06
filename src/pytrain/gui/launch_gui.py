@@ -59,7 +59,7 @@ class LaunchGui(GuiZeroBase):
         self.label = label
         self._parent = parent
         self._root = None
-        self.s_bs = self.s_72  # default button size
+        self.s_bs = self.s_50  # default button size
 
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
