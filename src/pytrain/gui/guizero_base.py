@@ -221,7 +221,7 @@ class GuiZeroBase(Thread, ABC):
 
         # font sizes
         self.s_90 = self.scale(90, scale_by)
-        self.s_72 = self.scale(72, scale_by)
+        self.s_72 = self.scale(90, scale_by)
         self.s_30: int = int(round(30 * scale_by))
         self.s_24: int = int(round(24 * scale_by))
         self.s_22: int = int(round(22 * scale_by))
