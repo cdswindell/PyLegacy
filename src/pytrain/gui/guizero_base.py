@@ -221,7 +221,7 @@ class GuiZeroBase(Thread, ABC):
 
         # font sizes
         self.s_acc = self.scale(80, scale_by)  # Use for configured accessories
-        self.s_lp = self.scale(65, scale_by)
+        self.s_lp = self.scale(60, scale_by)  # Launch pad button size; included here for convenience
 
         self.s_90 = self.scale(90, scale_by)
         self.s_72 = self.scale(72, scale_by)
