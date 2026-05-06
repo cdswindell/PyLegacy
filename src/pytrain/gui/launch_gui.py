@@ -178,8 +178,8 @@ class LaunchGui(GuiZeroBase):
                         self.queue_message(self.set_klaxon_on_icon)
                         # gantry retract
                         if cmd.data == 6:
-                            self.app.after(8000, self.set_klaxon_off_icon)
-                            self.app.after(8000, self.lights_off_req.send)
+                            self.app.after(4000, self.set_klaxon_off_icon)
+                            self.app.after(6000, self.lights_off_req.send)
                 elif cmd.data == 5:  # power down
                     self.queue_message(self.set_lights_on_icon)
                     self.queue_message(self.do_power_off)
@@ -430,7 +430,7 @@ class LaunchGui(GuiZeroBase):
         # Must be run on GUI thread!!
         if self.siren_button.image == self.siren_off:
             self.toggle_sound(self.siren_button)
-            self.siren_button.after(10000, self.toggle_sound, [self.siren_button])
+            self.siren_button.after(11000, self.toggle_sound, [self.siren_button])
 
     def klaxon_sounded(self) -> None:
         self.toggle_sound(self.klaxon_button)
