@@ -115,7 +115,6 @@ class LaunchGui(GuiZeroBase):
             self.set_lights_on_icon()
 
     def __call__(self, cmd: CommandReq) -> None:
-        print(f"Received command: {cmd} is active: {self.is_active()}")
         # handle launch sequence differently
         if cmd.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
             # Detects launch sequence via repeated command timing
@@ -126,7 +125,7 @@ class LaunchGui(GuiZeroBase):
                 # Triggers launch detection callback after sustained repeated command timing
                 if self._last_cmd == cmd and (monotonic() - self._launch_seq_time_trigger) > 3.1:
                     if not self._is_countdown:
-                        self.app.after(1, self.do_launch_detected, [80])
+                        self.queue_message(self.do_launch_detected, 80)
                         self._launch_seq_time_trigger = None
             self._last_cmd = cmd
             self._last_cmd_at = monotonic()
@@ -139,18 +138,18 @@ class LaunchGui(GuiZeroBase):
                 # Gantry Movement/Startup
                 if cmd.data in (3, 6):
                     # mark launch pad as on
-                    self.app.after(10, self.do_power_on)
+                    self.queue_message(self.do_power_on)
                     # startup preceded by Aux1
                     if self._last_cmd and self._last_cmd.command != TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
-                        self.app.after(20, self.lights_on_req.send)
-                        self.app.after(30, self.set_klaxon_on_icon)
+                        self.queue_message(self.lights_on_req.send)
+                        self.queue_message(self.set_klaxon_on_icon)
                         # gantry retract
                         if cmd.data == 6:
                             self.app.after(8000, self.set_klaxon_off_icon)
                             self.app.after(8000, self.lights_off_req.send)
                 elif cmd.data == 5:  # power down
-                    self.app.after(10, self.set_lights_on_icon)
-                    self.app.after(20, self.do_power_off)
+                    self.queue_message(self.set_lights_on_icon)
+                    self.queue_message(self.do_power_off)
                 elif cmd.data == 0:  # reset
                     if self._is_countdown:
                         self.queue_message(self.do_abort_detected)
@@ -161,7 +160,7 @@ class LaunchGui(GuiZeroBase):
             elif self.is_active():
                 # Schedules GUI updates for active engine commands
                 if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
-                    self.app.after(1, self.do_launch_detected, [15])
+                    self.queue_message(self.do_launch_detected, 15)
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_OPTION_ONE:
                     self.queue_message(self.sync_pad_lights)
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_ON:

@@ -325,11 +325,9 @@ class EngineState(ComponentState):
             if self.last_command and self.last_command.command == TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
                 if command.command == TMCC1EngineCommandEnum.NUMERIC:
                     aux = TMCC1_AUX_ONE_PREFIX_MAP.get((TMCC1EngineCommandEnum.NUMERIC, command.data), None)
-                    print(f"Possible Aux1 prefix Command: {aux}")
                     if aux:
                         old = command
                         command = CommandReq(aux, command.address, scope=self.scope)
-                        log.info(f"{old} --> {command}")
 
             # handle some aspects of the halt command
             if command.command in {TMCC2EngineCommandEnum.SYSTEM_HALT, TMCC1HaltCommandEnum.HALT}:
