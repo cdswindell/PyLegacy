@@ -298,9 +298,7 @@ class LaunchGui(GuiZeroBase):
         _ = Text(lights_box, text="Lights", grid=[0, 0], size=self.s_16, underline=True)
         self.lights_button = PushButton(
             lights_box,
-            image=self.on_button
-            if self._monitored_state is None or self._monitored_state.is_aux2 is False
-            else self.off_button,
+            image=self.on_button,
             grid=[0, 1],
             command=self.toggle_lights,
             height=self.s_bs,
