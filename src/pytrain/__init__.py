@@ -184,7 +184,9 @@ def get_version() -> str:
 
         version = get_git_version(root="../..", relative_to=__file__, version_scheme="only-version")
 
-    version = version.split("+", 1)[0]
+    v_parts = version.split("+", 1)
+    version = v_parts[0] + ("" if len(v_parts) == 1 else "+")
+    print(v_parts)
     version = version if version.startswith("v") else f"v{version}"
     version = version.replace(".post0", "")
     return version

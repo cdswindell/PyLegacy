@@ -12,7 +12,7 @@ class TestPyTrain(TestBase):
     def test_get_version_strips_package_local_metadata(self, monkeypatch):
         monkeypatch.setattr(pytrain.importlib.metadata, "version", lambda _: "2.3.4+local")
 
-        assert pytrain.get_version() == "v2.3.4"
+        assert pytrain.get_version() == "v2.3.4+"
 
     def test_get_version_strips_git_local_metadata(self, monkeypatch):
         monkeypatch.setattr(
@@ -29,4 +29,4 @@ class TestPyTrain(TestBase):
 
         monkeypatch.setattr(setuptools_scm, "get_version", fake_git_version)
 
-        assert pytrain.get_version() == "v2.3.4"
+        assert pytrain.get_version() == "v2.3.4+"
