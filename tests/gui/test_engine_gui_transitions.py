@@ -37,6 +37,14 @@ class DummyAdapter:
         self.activations.append(tmcc_id)
 
 
+class DummyProvider:
+    def __init__(self, mapping: dict[int, list[object]]) -> None:
+        self._mapping = mapping
+
+    def adapters_for_tmcc_id(self, tmcc_id: int) -> list[object]:
+        return list(self._mapping.get(tmcc_id, ()))
+
+
 class DummyWatcher:
     def __init__(self, state, action) -> None:
         self.state = state
@@ -59,6 +67,7 @@ class DummyTrainState(DummyState):
         return isinstance(item, DummyState) and item.scope == CommandScope.ENGINE and item.tmcc_id in self.link_tmcc_ids
 
 
+# noinspection PyTypeChecker
 def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._cv = RLock()
@@ -208,6 +217,7 @@ def test_update_component_info_accessory_uses_configured_accessory_name(monkeypa
     gui._state_store = SimpleNamespace(
         get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ACC, 21) else None
     )
+    gui._caap = DummyProvider({})
     gui._acc_tmcc_to_adapter[21] = adapter
     gui.get_accessory_view = lambda _tmcc_id: pytest.fail("label refresh should not create accessory panels")
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)

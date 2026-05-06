@@ -364,9 +364,9 @@ def test_set_lights_icons_and_klaxon_off(monkeypatch):
     def mini_run(self):
         self._app = DummyApp("Launch Pad", self.width, self.height)
         self.lower_box = DummyBox()
-        self.power_button = DummyPushButton(image=self.on_button, height=self.s_lp, width=self.s_lp)
-        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_lp, width=self.s_lp)
-        self.klaxon_button = DummyPushButton(image=self.siren_on, height=self.s_lp, width=self.s_lp)
+        self.power_button = DummyPushButton(image=self.on_button, height=self.s_bs, width=self.s_bs)
+        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_bs, width=self.s_bs)
+        self.klaxon_button = DummyPushButton(image=self.siren_on, height=self.s_bs, width=self.s_bs)
 
     monkeypatch.setattr(mod.LaunchGui, "run", mini_run, raising=True)
 
@@ -376,8 +376,8 @@ def test_set_lights_icons_and_klaxon_off(monkeypatch):
     # Turn lights off icon
     inst.set_lights_off_icon()
     assert inst.lights_button.image == inst.off_button
-    assert inst.lights_button.height == inst.s_50
-    assert inst.lights_button.width == inst.s_50
+    assert inst.lights_button.height == inst.s_bs
+    assert inst.lights_button.width == inst.s_bs
 
     # Turn lights on icon
     inst.set_lights_on_icon()
@@ -386,5 +386,5 @@ def test_set_lights_icons_and_klaxon_off(monkeypatch):
     # Klaxon off updates image/size
     inst.set_klaxon_off_icon()
     assert inst.klaxon_button.image == inst.siren_off
-    assert inst.klaxon_button.height == inst.s_50
-    assert inst.klaxon_button.width == inst.s_50
+    assert inst.klaxon_button.height == inst.s_bs
+    assert inst.klaxon_button.width == inst.s_bs

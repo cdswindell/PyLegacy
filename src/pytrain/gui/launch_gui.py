@@ -631,7 +631,6 @@ class LaunchGui(GuiZeroBase):
         required = 8 * bs + (4 * 24)  # buttons plus grid spacing
         factor = self.width / required
         nbs = int(round(bs * factor))
-        print(f"Width: {self.width} Required: {required} Scale: {factor:.4f} Original: {bs} New: {nbs}")
         return nbs
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
