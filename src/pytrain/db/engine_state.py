@@ -405,7 +405,6 @@ class EngineState(ComponentState):
             if not self._pdi_source:
                 for cmd in {command.command} | (cmd_effects & ENGINE_AUX2_SET):
                     if cmd in ENGINE_AUX2_SET:
-                        print(f"AUX2 command received: {command} {cmd} was {self._aux2} ")
                         # Updates aux2 state based on time delta and legacy mode
                         if cmd in {TMCC1.AUX2_OPTION_ONE, TMCC2.AUX2_OPTION_ONE}:
                             self._aux = cmd
@@ -425,8 +424,6 @@ class EngineState(ComponentState):
                                         TMCC1.AUX2_OPTION_ONE,
                                         TMCC1.AUX2_OFF,
                                     )
-                                delta = now - (self._last_aux2_opt1 if self._last_aux2_opt1 else 0)
-                                log.info(f"Command: {command} Aux2: {self._aux2} {delta}")
                                 self._last_aux2_opt1 = now
                         elif cmd in {
                             TMCC1.AUX2_ON,
