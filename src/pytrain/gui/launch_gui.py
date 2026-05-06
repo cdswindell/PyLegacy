@@ -397,12 +397,18 @@ class LaunchGui(GuiZeroBase):
             except LAUNCH_GUI_CLEANUP_EXCEPTIONS:
                 pass
             self._is_subscribed = False
-        for widget, callback in [(self.count, self.update_counter), (self.message, self.flash_message)]:
-            if widget:
-                try:
-                    widget.cancel(callback)
-                except LAUNCH_GUI_CLEANUP_EXCEPTIONS:
-                    pass
+        if self._is_countdown and self.count:
+            try:
+                self.count.cancel(self.update_counter)
+            except LAUNCH_GUI_CLEANUP_EXCEPTIONS:
+                pass
+            self._is_countdown = False
+        if self._is_flashing and self.message:
+            try:
+                self.message.cancel(self.flash_message)
+            except LAUNCH_GUI_CLEANUP_EXCEPTIONS:
+                pass
+            self._is_flashing = False
         self.safe_destroy(self._root)
         self._root = None
         self.upper_box = self.lower_box = self.message = None
