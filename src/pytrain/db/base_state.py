@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Dict, Any
 
-from .component_state import ComponentState, L, P, SCOPE_TO_STATE_MAP
+from .component_state import ComponentState, L, P, SCOPE_TO_STATE_MAP, UpdateResult
 from ..pdi.constants import PdiCommand, D4Action
 from ..pdi.d4_req import D4Req
 from ..protocol.constants import CommandScope
@@ -63,10 +63,10 @@ class BaseState(ComponentState):
                     self._firmware_high = int(version_info[0])
                     self._firmware_low = int(version_info[1])
                 self._route_throw_rate = command.route_throw_rate
-                self.changed.set()
-                self._cv.notify_all()
+                self._complete_update(command)
         elif isinstance(command, D4Req):
             with self._cv:
+                # Updates D4 engine and train counts or first records based on command action
                 if command.pdi_command == PdiCommand.D4_ENGINE:
                     if command.action == D4Action.COUNT:
                         self._d4_engines = command.count
@@ -77,10 +77,11 @@ class BaseState(ComponentState):
                         self._d4_trains = command.count
                     elif command.action == D4Action.FIRST_REC:
                         self._first_d4_train_rec_no = command.record_no if command.record_no != 0xFFFF else None
+                self._complete_update(command, notify=False)
             # do not signal state update for engine and train counts
 
-    def _update_state(self, command: L | P) -> None:
-        pass
+    def _update_state(self, command: L | P) -> UpdateResult:
+        return UpdateResult.IGNORED
 
     @property
     def base_name(self) -> str:

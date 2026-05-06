@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Dict, Any
 
-from .component_state import ComponentState, L, P, SCOPE_TO_STATE_MAP, SwitchState
+from .component_state import ComponentState, L, P, SCOPE_TO_STATE_MAP, SwitchState, UpdateResult
 from .engine_state import EngineState, TrainState
 from .irda_state import IrdaState
 from ..protocol.constants import CommandScope, Direction
@@ -52,10 +52,11 @@ class BlockState(ComponentState):
         )
         return f"Block {msg}"
 
-    def _update_state(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> UpdateResult:
         from ..pdi.block_req import BlockReq
         from .component_state_store import ComponentStateStore
 
+        # Updates block state from BlockReq command; fetches linked components
         if isinstance(command, BlockReq):
             self._block_req = command
             self._block_id = command.block_id
@@ -79,6 +80,8 @@ class BlockState(ComponentState):
                 self._occupied_by = ComponentStateStore.get_state(command.motive_scope, command.motive_id)
             else:
                 self._occupied_by = None
+            return UpdateResult.UPDATED
+        return UpdateResult.IGNORED
 
     @property
     def is_known(self) -> bool:

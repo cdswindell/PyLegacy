@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
-from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, log
+from .component_state import SCOPE_TO_STATE_MAP, LcsState, P, UpdateResult, log
 from ..pdi.constants import IrdaAction, PdiCommand
 from ..pdi.irda_req import IrdaReq, IrdaSequence
 from ..protocol.constants import CommandScope, Direction
@@ -49,7 +49,7 @@ class IrdaState(LcsState):
             ld = ""
         return f"Sensor Track {self.address}: Sequence: {self.sequence_str}{rl}{lr}{le}{lt}{ld}"
 
-    def _update_state(self, command: P) -> None:
+    def _update_state(self, command: P) -> UpdateResult:
         from ..comm.comm_buffer import CommBuffer
         from .component_state_store import ComponentStateStore
 
@@ -118,6 +118,8 @@ class IrdaState(LcsState):
                     finally:
                         command.scope = orig_scope
                         command.tmcc_id = orig_tmcc_id
+            return UpdateResult.UPDATED
+        return UpdateResult.IGNORED
 
     @property
     def is_lcs(self) -> bool:

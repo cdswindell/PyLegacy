@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .component_state import SCOPE_TO_STATE_MAP, ComponentState, L, P
+from .component_state import SCOPE_TO_STATE_MAP, ComponentState, L, P, UpdateResult
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
@@ -54,11 +54,10 @@ class SyncState(ComponentState):
                     self._state_store._process_config_cache()
                     self._state_synchronized = True
                     self._state_synchronizing = False
-                self.changed.set()
-                self._cv.notify_all()
+                self._complete_update(command)
 
-    def _update_state(self, command: L | P) -> None:
-        pass
+    def _update_state(self, command: L | P) -> UpdateResult:
+        return UpdateResult.UPDATED
 
     @property
     def is_synchronized(self) -> bool:

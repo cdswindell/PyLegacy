@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from .comp_data import CompDataMixin
-from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState
+from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState, UpdateResult
 from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
@@ -77,13 +77,17 @@ class AccessoryState(TmccState, LcsProxyState):
         return aux, aux1, aux2, aux_num
 
     # noinspection DuplicatedCode
-    def _update_state(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> UpdateResult:
         # Dispatches state updates by command variant; notifies observers
-        super()._update_state(command)
+        result = super()._update_state(command)
+        handled = False
+        # Updates aux states based on command type and content
         if isinstance(command, CompDataMixin) and command.is_comp_data_record:
             self._update_comp_data(command.comp_data)
+            handled = True
         elif isinstance(command, CommandReq):
             if command.command != Aux.SET_ADDRESS:
+                handled = True
                 if command.command == TMCC1HaltCommandEnum.HALT:
                     self._aux1_state = Aux.AUX1_OFF
                     self._aux2_state = Aux.AUX2_OFF
@@ -126,6 +130,7 @@ class AccessoryState(TmccState, LcsProxyState):
                         self.extract_state_from_req(command)
         elif isinstance(command, Asc2Req) or isinstance(command, Bpc2Req) or isinstance(command, Amc2Req):
             if command.action in {Asc2Action.CONTROL1, Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
+                handled = True
                 if command.state == 1:
                     self._aux1_state = Aux.AUX1_ON
                     self._aux2_state = Aux.AUX2_ON
@@ -135,7 +140,9 @@ class AccessoryState(TmccState, LcsProxyState):
                     self._aux2_state = Aux.AUX2_OFF
                     self._aux_state = Aux.AUX2_OPT_ONE
             elif isinstance(command, Amc2Req):
+                handled = True
                 self.extract_state_from_req(command)
+        return UpdateResult.UPDATED if handled else result
 
     @property
     def is_known(self) -> bool:

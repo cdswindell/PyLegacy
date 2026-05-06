@@ -186,8 +186,14 @@ class TestComponentState(TestBase):
 
         # verify we can receive a Halt command
         halt_req = CommandReq(TMCC1HaltCommandEnum.HALT, 1)
+        ss.changed.clear()
+        last_command = ss.last_command
+        last_updated = ss.last_updated
         ss.update(halt_req)
-        # but that it didn't affect state
+        # but that it didn't affect state or mark the halt as handled by the switch
+        assert ss.last_command == last_command
+        assert ss.last_updated == last_updated
+        assert ss.changed.is_set() is False
         assert ss.address == 1
         assert ss.state == Switch.OUT
         assert ss.is_known is True

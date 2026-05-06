@@ -13,6 +13,7 @@ from src.pytrain import CommandScope, TMCC2EffectsControl
 from src.pytrain.db.comp_data import CompData
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
 from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
@@ -107,6 +108,33 @@ class TestEngineStateBehavior:
         e._direction = TMCC2.FORWARD_DIRECTION  # type: ignore[attr-defined]
         nd4 = e._change_direction(TMCC2.TOGGLE_DIRECTION)
         assert nd4 == TMCC2.REVERSE_DIRECTION
+
+    def test_duplicate_command_is_ignored_for_last_command_and_notification(self):
+        e = self._new_engine()
+        req = CommandReq.build(TMCC1.FORWARD_DIRECTION, e.address)
+
+        e.update(req)
+        assert e.last_command == req
+        assert e.changed.is_set() is True
+        last_updated = e.last_updated
+
+        e.changed.clear()
+        e.update(req)
+
+        assert e.last_command == req
+        assert e.last_updated == last_updated
+        assert e.changed.is_set() is False
+
+    def test_no_change_command_records_without_notification(self):
+        e = self._new_engine()
+        e._direction = TMCC1.FORWARD_DIRECTION  # type: ignore[attr-defined]
+        req = CommandReq.build(TMCC1.FORWARD_DIRECTION, e.address)
+
+        e.update(req)
+
+        assert e.last_command == req
+        assert e.last_updated is not None
+        assert e.changed.is_set() is False
 
     def test_as_bytes_yields_packets_list(self):
         e = self._new_engine(addr=12)  # <=99 so BaseReq BASE_MEMORY should be first

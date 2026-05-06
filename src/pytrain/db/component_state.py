@@ -14,6 +14,7 @@ import logging
 import threading
 from abc import ABC, ABCMeta, abstractmethod
 from collections import defaultdict
+from enum import Enum, auto
 from threading import Condition, Event, RLock
 from time import monotonic
 from typing import Any, Dict, List, Self, Set, TypeVar
@@ -44,6 +45,12 @@ P = TypeVar("P", bound=PdiReq)
 L = TypeVar("L", bound=CommandReq)
 
 BIG_NUMBER = float("inf")
+
+
+class UpdateResult(Enum):
+    UPDATED = auto()
+    NO_CHANGE = auto()
+    IGNORED = auto()
 
 
 # noinspection PyUnresolvedReferences
@@ -182,8 +189,8 @@ class ComponentState(ABC, CompDataMixin):
         return ComponentStateStore.is_state_synchronizing()
 
     @abstractmethod
-    def _update_state(self, command: L | P) -> None:
-        pass
+    def _update_state(self, command: L | P) -> UpdateResult:
+        return UpdateResult.UPDATED
 
     def update(self, command: L | P) -> None:
         if command is None:
@@ -192,11 +199,18 @@ class ComponentState(ABC, CompDataMixin):
         with self.synchronizer:
             self.changed.clear()
             self._prepare_update(command)  # current base-class validation/setup
-            self._update_state(command)  # subclass-specific behavior
+            result = self._update_state(command)  # subclass-specific behavior
 
-            self._last_updated = monotonic()
-            self._last_command = command
+            if result == UpdateResult.IGNORED:
+                return
 
+            self._complete_update(command, notify=result != UpdateResult.NO_CHANGE)
+
+    def _complete_update(self, command: L | P, notify: bool = True) -> None:
+        self._last_updated = monotonic()
+        self._last_command = command
+
+        if notify:
             self.changed.set()
             self.synchronizer.notify_all()
 
@@ -416,8 +430,8 @@ class TmccState(ComponentState, ABC):
     def is_legacy(self) -> bool:
         return False
 
-    def _update_state(self, command: L | P) -> None:
-        super()._update_state(command)
+    def _update_state(self, command: L | P) -> UpdateResult:
+        return super()._update_state(command)
 
     def as_dict(self) -> Dict[str, Any]:
         return super()._as_dict()
@@ -431,7 +445,7 @@ class LcsState(ComponentState, ABC):
         self._config_req_count = 0
         self._config_req = self._status_req = self._info_req = self._firmware_req = self._control_req = None
 
-    def _update_state(self, command: P) -> None:
+    def _update_state(self, command: P) -> UpdateResult:
         if isinstance(command, LcsReq):
             if command.is_config_req:
                 self._config_req = command
@@ -444,7 +458,7 @@ class LcsState(ComponentState, ABC):
                 self._status_req = command
             elif command.is_control_req:
                 self._control_req = command
-        super()._update_state(command)
+        return super()._update_state(command)
 
     def as_bytes(self) -> bytes:
         byte_str = super().as_bytes()
@@ -497,10 +511,10 @@ class LcsProxyState(LcsState, ABC):
         self._parent = None
         self._pdi_source = False
 
-    def _update_state(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> UpdateResult:
         if isinstance(command, LcsReq):
             self._pdi_source = True
-        super()._update_state(command)
+        return super()._update_state(command)
 
     @property
     def accessory_type(self) -> str:
@@ -642,10 +656,10 @@ class SwitchState(TmccState):
         self._state: Switch | None = None
         self._routes: set[RouteState] = set()
 
-    def _update_state(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> UpdateResult:
         if command:
             if command.command == TMCC1HaltCommandEnum.HALT:
-                return
+                return UpdateResult.IGNORED
             with self.synchronizer:
                 # Updates switch state based on command type and parameters
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
@@ -660,6 +674,8 @@ class SwitchState(TmccState):
                     log.warning(f"Unhandled Switch State Update received: {command}")
             # inform the routes that include this switch of new state
             self.update_route_state()
+            return UpdateResult.UPDATED
+        return UpdateResult.IGNORED
 
     @property
     def state(self) -> Switch:
@@ -733,12 +749,12 @@ class RouteState(TmccState):
         self._signature: dict[str, bool] = dict()
         self._current_state: dict[str, bool | None] = dict()
 
-    def _update_state(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> UpdateResult:
         from .comp_data import CompDataMixin
 
         if command:
             if command.command == TMCC1HaltCommandEnum.HALT:
-                return
+                return UpdateResult.IGNORED
             with self.synchronizer:
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
@@ -770,6 +786,8 @@ class RouteState(TmccState):
                     pass
                 else:
                     log.warning(f"Unhandled Route State Update received: {command}")
+            return UpdateResult.UPDATED
+        return UpdateResult.IGNORED
 
     @property
     def components(self) -> List[RouteComponent] | None:

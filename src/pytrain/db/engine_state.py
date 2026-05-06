@@ -14,7 +14,7 @@ import logging
 from typing import Any, Dict, List, TypeVar
 
 from .comp_data import CompDataHandler, CompDataMixin, decode_tmcc_speed, encode_tmcc_speed
-from .component_state import ComponentState, L, LcsProxyState, P, SCOPE_TO_STATE_MAP, log
+from .component_state import ComponentState, L, LcsProxyState, P, SCOPE_TO_STATE_MAP, UpdateResult, log
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
@@ -296,7 +296,7 @@ class EngineState(ComponentState):
                 speed_info = 31
         return speed_info
 
-    def _update_state(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> UpdateResult:
         """Updates engine state transactionally from command or effects; handles duplicates and all controls"""
         from ..pdi.base_req import BaseReq
 
@@ -305,7 +305,7 @@ class EngineState(ComponentState):
         # consecutively.
         self._is_known = True
         if command is None or (command == self._last_command and self.last_updated_ago < 1):
-            return
+            return UpdateResult.IGNORED
         # Updates engine state transactionally from command or effects; handles duplicates, aux, speed, rpm, labor,
         # direction, halt, momentum, startup/shutdown
         if isinstance(command, CompDataMixin) and command.is_comp_data_record:
@@ -345,7 +345,6 @@ class EngineState(ComponentState):
                     self.comp_data.labor_tmcc = 12
                 self.is_ramping = False
                 self._numeric = None
-                self._last_command = command
 
             # get the downstream effects of this command, as they also impact state
             cmd_effects = self.results_in(command)
@@ -374,7 +373,7 @@ class EngineState(ComponentState):
                 if self._direction != command.command:
                     self._direction = self._change_direction(command.command)
                 else:
-                    return
+                    return UpdateResult.NO_CHANGE
             elif cmd_effects & DIRECTIONS_SET:
                 self._direction = self._change_direction(self._harvest_effect(cmd_effects & DIRECTIONS_SET))
 
@@ -569,6 +568,7 @@ class EngineState(ComponentState):
                     pass
                 elif command.record_no is not None:
                     self._d4_rec_no = command.record_no
+        return UpdateResult.UPDATED
 
     def cancel_ramps(self) -> None:
         from ..comm.comm_buffer import CommBuffer
@@ -1065,7 +1065,7 @@ class TrainState(EngineState, LcsProxyState):
                     return True
         return False
 
-    def _update_state(self, command: L | P) -> None:
+    def _update_state(self, command: L | P) -> UpdateResult:
         from ..pdi.bpc2_req import Bpc2Req
 
         # if isinstance(command, CommandReq) and command.command in {TMCC2EngineCommandEnum.CLEAR_CONSIST}:
@@ -1082,7 +1082,7 @@ class TrainState(EngineState, LcsProxyState):
                     self._aux1 = TMCC2.AUX1_OFF
                     self._aux2 = TMCC2.AUX2_OFF
                     self._aux = TMCC2.AUX2_OPTION_ONE
-        super()._update_state(command)
+        return super()._update_state(command)
 
     @property
     def payload(self) -> str:
