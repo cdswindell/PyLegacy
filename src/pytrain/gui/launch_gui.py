@@ -59,6 +59,7 @@ class LaunchGui(GuiZeroBase):
         self.label = label
         self._parent = parent
         self._root = None
+        self.s_bs = self.s_72  # default button size
 
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
@@ -291,8 +292,8 @@ class LaunchGui(GuiZeroBase):
             image=self.on_button,
             grid=[0, 1],
             command=self.toggle_power,
-            height=self.s_acc,
-            width=self.s_acc,
+            height=self.s_bs,
+            width=self.s_bs,
         )
 
         self.lights_box = lights_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -304,8 +305,8 @@ class LaunchGui(GuiZeroBase):
             else self.off_button,
             grid=[0, 1],
             command=self.toggle_lights,
-            height=self.s_acc,
-            width=self.s_acc,
+            height=self.s_bs,
+            width=self.s_bs,
         )
 
         self.siren_box = siren_box = Box(lower_box, layout="grid", border=2, align="left")
@@ -314,8 +315,8 @@ class LaunchGui(GuiZeroBase):
             siren_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=self.s_acc,
-            width=self.s_acc,
+            height=self.s_bs,
+            width=self.s_bs,
             command=self.siren_req.send,
         )
 
@@ -325,8 +326,8 @@ class LaunchGui(GuiZeroBase):
             klaxon_box,
             image=self.siren_off,
             grid=[0, 1],
-            height=self.s_acc,
-            width=self.s_acc,
+            height=self.s_bs,
+            width=self.s_bs,
             command=self.klaxon_req.send,
         )
 
@@ -337,8 +338,8 @@ class LaunchGui(GuiZeroBase):
                 comms_box,
                 image=self.engr_comm,
                 grid=[0, 1],
-                height=self.s_acc,
-                width=self.s_acc,
+                height=self.s_bs,
+                width=self.s_bs,
                 command=self.engr_comm_req.send,
             )
             self.engr_comms.tk.config(relief=RAISED)
@@ -348,8 +349,8 @@ class LaunchGui(GuiZeroBase):
                 comms_box,
                 image=self.tower_comm,
                 grid=[1, 1],
-                height=self.s_acc,
-                width=self.s_acc,
+                height=self.s_bs,
+                width=self.s_bs,
                 command=self.tower_comm_req.send,
             )
             self.tower_comms.tk.config(relief=RAISED)
@@ -361,8 +362,8 @@ class LaunchGui(GuiZeroBase):
             gantry_box,
             image=self.left_arrow,
             grid=[0, 1],
-            height=self.s_acc,
-            width=self.s_acc,
+            height=self.s_bs,
+            width=self.s_bs,
         )
         self.gantry_rev.when_clicked = lambda: self.gantry_rev_req.send(repeat=2)
 
@@ -370,8 +371,8 @@ class LaunchGui(GuiZeroBase):
             gantry_box,
             image=self.right_arrow,
             grid=[1, 1],
-            height=self.s_acc,
-            width=self.s_acc,
+            height=self.s_bs,
+            width=self.s_bs,
         )
         self.gantry_fwd.when_clicked = lambda x: self.gantry_fwd_req.send(repeat=2)
 
@@ -546,7 +547,7 @@ class LaunchGui(GuiZeroBase):
         else:
             self.do_power_off()
             self.power_off_req.send()
-        self.power_button.height = self.power_button.width = self.s_acc
+        self.power_button.height = self.power_button.width = self.s_bs
         self.lower_box.show()
 
     def do_power_off(self):
@@ -559,7 +560,7 @@ class LaunchGui(GuiZeroBase):
                 self._is_countdown = False
             if self.power_button.image != self.on_button:
                 self.power_button.image = self.on_button
-                self.power_button.height = self.power_button.width = self.s_acc
+                self.power_button.height = self.power_button.width = self.s_bs
             self.upper_box.disable()
             self.lights_box.disable()
             self.siren_box.disable()
@@ -574,7 +575,7 @@ class LaunchGui(GuiZeroBase):
         with self._cv:
             if self.power_button.image != self.off_button:
                 self.power_button.image = self.off_button
-                self.power_button.height = self.power_button.width = self.s_acc
+                self.power_button.height = self.power_button.width = self.s_bs
             self.upper_box.enable()
             self.lights_box.enable()
             self.siren_box.enable()
@@ -589,12 +590,12 @@ class LaunchGui(GuiZeroBase):
     def set_lights_off_icon(self):
         if self.lights_button.image != self.off_button:
             self.lights_button.image = self.off_button
-            self.lights_button.height = self.lights_button.width = self.s_acc
+            self.lights_button.height = self.lights_button.width = self.s_bs
 
     def set_lights_on_icon(self):
         if self.lights_button.image != self.on_button:
             self.lights_button.image = self.on_button
-            self.lights_button.height = self.lights_button.width = self.s_acc
+            self.lights_button.height = self.lights_button.width = self.s_bs
 
     def toggle_lights(self):
         if self._monitored_state is None:
@@ -606,11 +607,11 @@ class LaunchGui(GuiZeroBase):
 
     def set_klaxon_off_icon(self):
         self.klaxon_button.image = self.siren_off
-        self.klaxon_button.height = self.klaxon_button.width = self.s_acc
+        self.klaxon_button.height = self.klaxon_button.width = self.s_bs
 
     def set_klaxon_on_icon(self):
         self.klaxon_button.image = self.siren_on
-        self.klaxon_button.height = self.klaxon_button.width = self.s_acc
+        self.klaxon_button.height = self.klaxon_button.width = self.s_bs
 
     def toggle_sound(self, button: PushButton):
         if button.enabled is True:
@@ -619,7 +620,7 @@ class LaunchGui(GuiZeroBase):
                 button.image = self.siren_on
             else:
                 button.image = self.siren_off
-            button.height = button.width = self.s_acc
+            button.height = button.width = self.s_bs
             self.lower_box.show()
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
