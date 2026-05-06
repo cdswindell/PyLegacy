@@ -76,11 +76,15 @@ class SystemsGui(StateBasedGui):
             self.start()
 
     def get_target_states(self) -> list[SyncState]:
-        pds: list[SyncState] = []
-        accs = self._state_store.get_all(CommandScope.SYNC)
-        for acc in accs:
-            pds.append(acc)
-        return pds
+        sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
+        return [sync_state] if sync_state else []
+
+    def _get_target_states(self) -> None:
+        # The admin panel is backed by the singleton SYNC state. It is intentionally
+        # unnamed, so do not apply the generic exclude_unnamed component filter.
+        for acc in self.get_target_states():
+            self._states[(acc.tmcc_id, acc.scope)] = acc
+        self._max_name_len = 12
 
     def is_active(self, state: SyncState) -> bool:
         return False
