@@ -7,7 +7,6 @@
 #
 
 import logging
-from threading import Event
 from time import monotonic
 from tkinter import RAISED, TclError
 from typing import Any
@@ -110,7 +109,6 @@ class LaunchGui(GuiZeroBase):
         self._is_flashing = False
         self.started_up = False
         self._monitored_state_watcher = None
-        self._state_changed_flag = Event()
         self._is_subscribed = False
 
         # tell parent we've set up variables and are ready to proceed
@@ -137,15 +135,15 @@ class LaunchGui(GuiZeroBase):
     def sync_gui_state(self) -> None:
         if self._monitored_state:
             with self._cv:
-                self._state_changed_flag.set()
+                self.sync_pad_lights()
 
     def sync_pad_lights(self):
         if self._monitored_state is None:
-            self.set_lights_on_icon()
+            self.queue_message(self.set_lights_on_icon)
         elif self._monitored_state.is_aux2 is True:
-            self.set_lights_off_icon()
+            self.queue_message(self.set_lights_off_icon)
         else:
-            self.set_lights_on_icon()
+            self.queue_message(self.set_lights_on_icon)
 
     def __call__(self, cmd: CommandReq) -> None:
         # handle launch sequence differently
@@ -174,7 +172,7 @@ class LaunchGui(GuiZeroBase):
                     self.queue_message(self.do_power_on)
                     # startup preceded by Aux1
                     if self._last_cmd and self._last_cmd.command != TMCC1EngineCommandEnum.AUX1_OPTION_ONE:
-                        self.queue_message(self.lights_on_req.send)
+                        self.lights_on_req.send()
                         self.queue_message(self.set_klaxon_on_icon)
                         # gantry retract
                         if cmd.data == 6:
@@ -188,8 +186,8 @@ class LaunchGui(GuiZeroBase):
                         self.queue_message(self.do_abort_detected)
                     else:
                         # reset causes engine to start up, check for that state change here
-                        self.queue_message(self.sync_gui_state)
-                    self.queue_message(self.set_klaxon_off_icon)
+                        self.sync_gui_state()
+                        self.queue_message(self.set_klaxon_off_icon)
             elif self.is_active():
                 # Schedules GUI updates for active engine commands
                 if cmd.command == TMCC1EngineCommandEnum.REAR_COUPLER:
@@ -429,6 +427,7 @@ class LaunchGui(GuiZeroBase):
             self._root.show()
 
     def siren_sounded(self) -> None:
+        # Must be run on GUI thread!!
         self.toggle_sound(self.siren_button)
         self.siren_button.after(13000, self.toggle_sound, [self.siren_button])
 
@@ -436,6 +435,7 @@ class LaunchGui(GuiZeroBase):
         self.toggle_sound(self.klaxon_button)
 
     def update_counter(self, value: int = None):
+        # Must be run on GUI thread!!
         with self._cv:
             prefix = "-"
             if value is None:
@@ -464,6 +464,7 @@ class LaunchGui(GuiZeroBase):
         self.do_launch(t_minus=t_minus, detected=True)
 
     def do_launch(self, t_minus: int = 80, detected: bool = False, hold=False):
+        # Must be run on GUI thread!!
         with self._cv:
             print(f"Launching: T Minus: {t_minus}")
             self.do_power_on()
@@ -494,6 +495,7 @@ class LaunchGui(GuiZeroBase):
         Abort launch sequence if counting down, initiate self-destruct
         if the rocket is in the air.
         """
+        # Must be run on GUI thread!!
         with self._cv:
             reset_sent = False
             if not detected:
@@ -520,6 +522,7 @@ class LaunchGui(GuiZeroBase):
             self.message.show()
 
     def flash_message(self):
+        # Must be run on GUI thread!!
         with self._cv:
             if self.message.text_color == "red":
                 self.message.text_color = self.app.bg
@@ -528,17 +531,20 @@ class LaunchGui(GuiZeroBase):
             self._is_flashing = True
 
     def cancel_flashing(self):
+        # Must be run on GUI thread!!
         with self._cv:
             if self._is_flashing:
                 self.message.cancel(self.flash_message)
                 self._is_flashing = False
 
     def toggle_power(self):
+        # Must be run on GUI thread!!
         self.update_counter(value=0)
         self.label.value = "T-Minus"
         self.message.clear()
         self.cancel_flashing()
         self.lower_box.hide()
+        # Executes power on or off based on button image
         if self.power_button.image == self.on_button:
             self.do_power_on()
             if self.track_on_req:
@@ -551,6 +557,7 @@ class LaunchGui(GuiZeroBase):
         self.lower_box.show()
 
     def do_power_off(self):
+        # Must be run on GUI thread!!
         with self._cv:
             if self._monitored_state and self._monitored_state.is_aux2 is True:
                 self.lights_off_req.send(repeat=2)
@@ -572,6 +579,7 @@ class LaunchGui(GuiZeroBase):
                 self.comms_box.disable()
 
     def do_power_on(self):
+        # Must be run on GUI thread!!
         with self._cv:
             if self.power_button.image != self.off_button:
                 self.power_button.image = self.off_button
@@ -588,11 +596,13 @@ class LaunchGui(GuiZeroBase):
                 self.launch.disable()
 
     def set_lights_off_icon(self):
+        # Must be run on GUI thread!!
         if self.lights_button.image != self.off_button:
             self.lights_button.image = self.off_button
             self.lights_button.height = self.lights_button.width = self.s_bs
 
     def set_lights_on_icon(self):
+        # Must be run on GUI thread!!
         if self.lights_button.image != self.on_button:
             self.lights_button.image = self.on_button
             self.lights_button.height = self.lights_button.width = self.s_bs
@@ -606,14 +616,17 @@ class LaunchGui(GuiZeroBase):
             self.lights_on_req.send(repeat=2)
 
     def set_klaxon_off_icon(self):
+        # Must be run on GUI thread!!
         self.klaxon_button.image = self.siren_off
         self.klaxon_button.height = self.klaxon_button.width = self.s_bs
 
     def set_klaxon_on_icon(self):
+        # Must be run on GUI thread!!
         self.klaxon_button.image = self.siren_on
         self.klaxon_button.height = self.klaxon_button.width = self.s_bs
 
     def toggle_sound(self, button: PushButton):
+        # Must be run on GUI thread!!
         if button.enabled is True:
             self.lower_box.hide()
             if button.image == self.siren_off:
