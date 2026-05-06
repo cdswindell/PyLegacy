@@ -289,7 +289,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return self._scope_tmcc_ids.get(scoped, 0)
 
     def is_accessory_view(self, tmcc_id: int) -> bool:
-        return tmcc_id in self._accessory_view
+        if tmcc_id in self._accessory_view:
+            return True
+        return self.accessory_provider is not None and self.accessory_provider.adapters_for_tmcc_id(tmcc_id)
 
     def get_accessory_view(self, tmcc_id: int) -> Box | None:
         """
