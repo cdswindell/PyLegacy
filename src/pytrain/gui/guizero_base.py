@@ -692,9 +692,8 @@ class GuiZeroBase(Thread, ABC):
 
     def scale(self, value: int, factor: float = None) -> int:
         orig_value = value
-        dw = max(self.width, 800)
-        value = int(max(orig_value, value * dw))
-        if factor is not None and dw > 480:
+        value = max(orig_value, int(value * max(self.width, 800) / 480))
+        if factor is not None and self.width > 480:
             value = max(orig_value, int(factor * value))
         return value
 
