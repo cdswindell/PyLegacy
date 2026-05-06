@@ -195,7 +195,6 @@ class LaunchGui(GuiZeroBase):
                 elif cmd.command == TMCC1EngineCommandEnum.AUX2_OFF:
                     self.queue_message(self.set_lights_on_icon)
                 elif cmd.command == TMCC1EngineCommandEnum.BLOW_HORN_ONE:
-                    print("Received Siren Event")
                     self.queue_message(self.siren_sounded)
                 elif cmd.command == TMCC1EngineCommandEnum.RING_BELL:
                     self.queue_message(self.klaxon_sounded)
