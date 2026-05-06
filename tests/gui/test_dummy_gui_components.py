@@ -296,8 +296,8 @@ def test_toggle_power_on_path(monkeypatch):
         self.klaxon_box = DummyBox()
         self.gantry_box = DummyBox()
         self.comms_box = DummyBox()
-        self.power_button = DummyPushButton(image=self.on_button, height=self.s_50, width=self.s_50)
-        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_50, width=self.s_50)
+        self.power_button = DummyPushButton(image=self.on_button, height=self.s_lp, width=self.s_lp)
+        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_lp, width=self.s_lp)
         self.label = DummyText(text="T-Minus")
         self.message = DummyText(text="")
         self.count = DummyText(text="")
@@ -339,9 +339,9 @@ def test_toggle_power_off_path(monkeypatch):
         self.klaxon_box = DummyBox()
         self.gantry_box = DummyBox()
         self.comms_box = None
-        self.power_button = DummyPushButton(image=self.off_button, height=self.s_50, width=self.s_50)
-        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_50, width=self.s_50)
-        self.klaxon_button = DummyPushButton(image=self.siren_on, height=self.s_50, width=self.s_50)
+        self.power_button = DummyPushButton(image=self.off_button, height=self.s_lp, width=self.s_lp)
+        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_lp, width=self.s_lp)
+        self.klaxon_button = DummyPushButton(image=self.siren_on, height=self.s_lp, width=self.s_lp)
         self.label = DummyText(text="T-Minus")
         self.message = DummyText(text="")
         self.count = DummyText(text="")
@@ -364,9 +364,9 @@ def test_set_lights_icons_and_klaxon_off(monkeypatch):
     def mini_run(self):
         self._app = DummyApp("Launch Pad", self.width, self.height)
         self.lower_box = DummyBox()
-        self.power_button = DummyPushButton(image=self.on_button, height=self.s_50, width=self.s_50)
-        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_50, width=self.s_50)
-        self.klaxon_button = DummyPushButton(image=self.siren_on, height=self.s_50, width=self.s_50)
+        self.power_button = DummyPushButton(image=self.on_button, height=self.s_lp, width=self.s_lp)
+        self.lights_button = DummyPushButton(image=self.on_button, height=self.s_lp, width=self.s_lp)
+        self.klaxon_button = DummyPushButton(image=self.siren_on, height=self.s_lp, width=self.s_lp)
 
     monkeypatch.setattr(mod.LaunchGui, "run", mini_run, raising=True)
 
