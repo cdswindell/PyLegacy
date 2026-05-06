@@ -629,7 +629,7 @@ class LaunchGui(GuiZeroBase):
         we need to handle button sizing differently than the other accessories.
         """
         required = 8 * bs
-        factor = self.width // required
+        factor = self.width / required
         nbs = int(bs * factor)
         print(f"Width: {self.width} Required: {required} Original: {bs} New: {nbs}")
         return nbs
