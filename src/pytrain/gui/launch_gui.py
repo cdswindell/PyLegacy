@@ -9,7 +9,7 @@
 import logging
 from threading import Event
 from time import monotonic
-from tkinter import RAISED
+from tkinter import RAISED, TclError
 from typing import Any
 
 from guizero import Box, PushButton, Text
@@ -24,6 +24,7 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCom
 from ..utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
+LAUNCH_GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError, ValueError)
 
 
 class LaunchGui(GuiZeroBase):
@@ -31,13 +32,33 @@ class LaunchGui(GuiZeroBase):
         self,
         tmcc_id: int = 39,
         track_id: int = None,
+        label: str = None,
         width: int = None,
         height: int = None,
+        scale_by: float = 1.0,
+        stand_alone: bool = True,
+        parent: Box = None,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
+        **_: Any,
     ):
         # initialize guizero thread
-        super().__init__(title=f"Pad {tmcc_id} GUI", width=width, height=height)
+        super().__init__(
+            title=f"Pad {tmcc_id} GUI",
+            width=width,
+            height=height,
+            scale_by=scale_by,
+            stand_alone=stand_alone,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
+        )
         self.tmcc_id = tmcc_id
         self.track_id = track_id
+        self.label = label
+        self._parent = parent
+        self._root = None
 
         self.on_button = find_file("on_button.jpg")
         self.off_button = find_file("off_button.jpg")
@@ -89,19 +110,25 @@ class LaunchGui(GuiZeroBase):
         self.started_up = False
         self._monitored_state_watcher = None
         self._state_changed_flag = Event()
+        self._is_subscribed = False
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
 
     def _on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
-            self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)
-            if self._monitored_state is None:
-                raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
-            # watch for external state changes
+        if self._sync_state is not None and not self._sync_state.is_synchronized:
+            return
+
+        self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)
+        if self._monitored_state is None:
+            raise ValueError(f"No state found for tmcc_id: {self.tmcc_id}")
+        # watch for external state changes
+        if self._monitored_state_watcher is None:
             self._monitored_state_watcher = StateWatcher(self._monitored_state, self.sync_gui_state)
-            # listen for state updates
+        # listen for state updates
+        if not self._is_subscribed:
             self._dispatcher.subscribe(self, CommandScope.ENGINE, self.tmcc_id)
+            self._is_subscribed = True
 
     def sync_gui_state(self) -> None:
         if self._monitored_state:
@@ -184,7 +211,13 @@ class LaunchGui(GuiZeroBase):
         """
         self._on_sync()  # register for events
         app = self.app
-        self.upper_box = upper_box = Box(app, layout="grid", border=False)
+        gui_parent = self._parent if self._parent is not None else app
+        self._root = root = Box(gui_parent, layout="auto")
+        if self._parent is None:
+            app.bg = "white"
+        root.bg = "white"
+
+        self.upper_box = upper_box = Box(root, layout="grid", border=False)
 
         s_128 = self.scale(128)
         self.launch = PushButton(
@@ -246,7 +279,7 @@ class LaunchGui(GuiZeroBase):
             height="fill",
         )
 
-        self.lower_box = lower_box = Box(app, border=2, align="bottom")
+        self.lower_box = lower_box = Box(root, border=2, align="bottom")
         power_box = Box(lower_box, layout="grid", border=2, align="left")
         _ = Text(power_box, text="Power", grid=[0, 0], size=self.s_16, underline=True)
         self.power_button = PushButton(
@@ -349,12 +382,38 @@ class LaunchGui(GuiZeroBase):
         self.sync_gui_state()
 
     def destroy_gui(self) -> None:
+        if self._monitored_state_watcher:
+            self._monitored_state_watcher.shutdown()
+            self._monitored_state_watcher = None
+        if self._is_subscribed:
+            try:
+                self._dispatcher.unsubscribe(self, CommandScope.ENGINE, self.tmcc_id)
+            except LAUNCH_GUI_CLEANUP_EXCEPTIONS:
+                pass
+            self._is_subscribed = False
+        for widget, callback in [(self.count, self.update_counter), (self.message, self.flash_message)]:
+            if widget:
+                try:
+                    widget.cancel(callback)
+                except LAUNCH_GUI_CLEANUP_EXCEPTIONS:
+                    pass
+        self.safe_destroy(self._root)
+        self._root = None
         self.upper_box = self.lower_box = self.message = None
         self.launch = self.abort = self.pad = self.count = self.label = None
         self.gantry_box = self.siren_box = self.klaxon_box = self.lights_box = None
         self.power_button = self.lights_button = self.siren_button = self.klaxon_button = None
         self.gantry_rev = self.gantry_fwd = None
         self.comms_box = self.tower_comms = self.engr_comms = None
+        self._parent = self._app = None
+
+    def hide_gui(self) -> None:
+        if self._root:
+            self._root.hide()
+
+    def show_gui(self) -> None:
+        if self._root:
+            self._root.show()
 
     def siren_sounded(self) -> None:
         self.toggle_sound(self.siren_button)

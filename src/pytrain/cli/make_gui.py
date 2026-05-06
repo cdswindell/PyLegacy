@@ -70,7 +70,7 @@ CLASS_TO_TEMPLATE = {
     " exclude_unnamed=__EXCLUDE_UNNAMED__, screens=__SCREENS__)",
     WideComponentStateGui: f"{WideComponentStateGui.name()}(label=__LABEL__, initial=__INITIAL__,"
     " scale_by=__SCALE_BY__, exclude_unnamed=__EXCLUDE_UNNAMED__, screens=__SCREENS__,"
-    " screen_components=__SCREEN_COMPONENTS__)",
+    " screen_components=__SCREEN_COMPONENTS__, launch_tmcc_id=__TMCC_ID__, launch_track_id=__TRACK_ID__)",
     LaunchGui: f"{LaunchGui.__name__}(tmcc_id=__TMCC_ID__, track_id=__TRACK_ID__)",
     MotorsGui: f"{MotorsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__)",
     PowerDistrictsGui: f"{PowerDistrictsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__,"
@@ -94,7 +94,7 @@ CHOICES = [
     "switches",
     f"{PROGRAM_NAME} Administration".lower(),
 ]
-WIDE_CHOICES = CHOICES + ["operating accessories"]
+WIDE_CHOICES = CHOICES + ["operating accessories", "launch pad"]
 
 CHOICES_HELP = ", ".join([x.title() for x in CHOICES]).replace(PROGRAM_NAME.title(), PROGRAM_NAME)
 WIDE_CHOICES_HELP = ", ".join([x.title() for x in WIDE_CHOICES]).replace(PROGRAM_NAME.title(), PROGRAM_NAME)
@@ -114,6 +114,12 @@ WIDE_COMPONENT_ALIASES = {
     "operating": "Operating Accessories",
     "lcs": "Operating Accessories",
     "oa": "Operating Accessories",
+    "launch pad": "Launch Pad",
+    "launch pads": "Launch Pad",
+    "launch": "Launch Pad",
+    "launchpad": "Launch Pad",
+    "pad": "Launch Pad",
+    "la": "Launch Pad",
     "motors": "Motors",
     "motor": "Motors",
     "mo": "Motors",
@@ -406,6 +412,19 @@ class MakeGui(_MakeBase):
             type=self._parse_wide_screen_set,
             metavar="",
             help="One screen's GUI set (repeat once per screen), comma-separated names; e.g. 'routes,power_districts'",
+        )
+        wcomp.add_argument(
+            "-tmcc_id",
+            type=IntRange(1, 98),
+            default=39,
+            const=39,
+            nargs="?",
+            help="Launch Pad TMCC ID when Launch Pad is included (default: 39)",
+        )
+        wcomp.add_argument(
+            "-track_id",
+            type=IntRange(1, 98),
+            help="Launch Pad Track Power District TMCC ID when Launch Pad is included",
         )
 
         # Accessories GUI

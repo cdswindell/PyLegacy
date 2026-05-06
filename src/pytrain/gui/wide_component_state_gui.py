@@ -22,6 +22,7 @@ from ..utils.path_utils import find_file
 log = logging.getLogger(__name__)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)
 OPERATING_ACCESSORIES_SCREEN = "Operating Accessories"
+LAUNCH_PAD_SCREEN = "Launch Pad"
 
 
 class _WidePane:
@@ -47,6 +48,7 @@ class _WidePane:
         scale_by: float,
         exclude_unnamed: bool,
         column: int,
+        child_options: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """
         Build pane widgets and instantiate the configured child GUI screens.
@@ -66,6 +68,7 @@ class _WidePane:
         self._owner = owner
         self._app = app
         self._gui_names = list(gui_names)
+        self._child_options = child_options or {}
         self._guis: dict[str, Any] = {}
         self._active_gui: str | None = None
 
@@ -109,19 +112,21 @@ class _WidePane:
 
         for gui_name in self._gui_names:
             gui_cls = all_guis[gui_name]
-            gui = gui_cls(
-                label=child_label,
-                width=pane_width,
-                height=inner_gui_height,
-                scale_by=scale_by,
-                exclude_unnamed=exclude_unnamed,
-                screens=1,
-                stand_alone=False,
-                parent=self.content,
-                full_screen=False,
-                x_offset=0,
-                y_offset=0,
-            )
+            gui_kwargs: dict[str, Any] = {
+                "label": child_label,
+                "width": pane_width,
+                "height": inner_gui_height,
+                "scale_by": scale_by,
+                "exclude_unnamed": exclude_unnamed,
+                "screens": 1,
+                "stand_alone": False,
+                "parent": self.content,
+                "full_screen": False,
+                "x_offset": 0,
+                "y_offset": 0,
+            }
+            gui_kwargs.update(self._child_options.get(gui_name, {}))
+            gui = gui_cls(**gui_kwargs)
             if isinstance(gui, GuiZeroBase):
                 gui.attach_to_parent_queue(self._owner)
                 if has_selector and hasattr(gui, "_show_title"):
@@ -454,11 +459,14 @@ class WideComponentStateGui(GuiZeroBase):
         exclude_unnamed: bool = False,
         screens: int | None = None,
         screen_components: list[str | Iterable[str]] | None = None,
+        launch_tmcc_id: int = 39,
+        launch_track_id: int | None = None,
         x_offset: int = 0,
         y_offset: int = 0,
         auto_start: bool = True,
     ) -> None:
         from ..gui.accessories_gui import AccessoriesGui
+        from ..gui.launch_gui import LaunchGui
         from ..gui.motors_gui import MotorsGui
         from ..gui.power_district_gui import PowerDistrictsGui
         from ..gui.routes_gui import RoutesGui
@@ -468,6 +476,7 @@ class WideComponentStateGui(GuiZeroBase):
         self._all_guis = {
             "Accessories": AccessoriesGui,
             OPERATING_ACCESSORIES_SCREEN: _OperatingAccessoriesGui,
+            LAUNCH_PAD_SCREEN: LaunchGui,
             "Motors": MotorsGui,
             "Power Districts": PowerDistrictsGui,
             "Routes": RoutesGui,
@@ -518,6 +527,12 @@ class WideComponentStateGui(GuiZeroBase):
         self._exclude_unnamed = exclude_unnamed
         self._root: Box | None = None
         self._panes: list[_WidePane] = []
+        self._child_options: dict[str, dict[str, Any]] = {
+            LAUNCH_PAD_SCREEN: {
+                "tmcc_id": launch_tmcc_id,
+                "track_id": launch_track_id,
+            }
+        }
 
         self._pane_configs = self._normalize_pane_config(screen_components, screens, initial)
         self.init_complete()
@@ -591,6 +606,7 @@ class WideComponentStateGui(GuiZeroBase):
             scale_by=self._scale_by,
             exclude_unnamed=self._exclude_unnamed,
             column=column,
+            child_options=self._child_options,
         )
 
     def _build_panes(self, app: App, root: Box) -> None:
