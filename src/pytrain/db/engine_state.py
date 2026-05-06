@@ -428,15 +428,15 @@ class EngineState(ComponentState):
                                 delta = now - (self._last_aux2_opt1 if self._last_aux2_opt1 else 0)
                                 log.info(f"Command: {command} Aux2: {self._aux2} {delta}")
                                 self._last_aux2_opt1 = now
-                    elif cmd in {
-                        TMCC1.AUX2_ON,
-                        TMCC1.AUX2_OFF,
-                        TMCC1.AUX2_OPTION_TWO,
-                        TMCC2.AUX2_ON,
-                        TMCC2.AUX2_OFF,
-                        TMCC2.AUX2_OPTION_TWO,
-                    }:
-                        self._aux2 = cmd
+                        elif cmd in {
+                            TMCC1.AUX2_ON,
+                            TMCC1.AUX2_OFF,
+                            TMCC1.AUX2_OPTION_TWO,
+                            TMCC2.AUX2_ON,
+                            TMCC2.AUX2_OFF,
+                            TMCC2.AUX2_OPTION_TWO,
+                        }:
+                            self._aux2 = cmd
 
             # handle run level/rpm
             if command.command in RPM_SET:
