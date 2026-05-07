@@ -184,7 +184,7 @@ class StateInfoOverlay:
                 etype = f"{p_info.engine_type} {etype}"
 
             self._set_val("type", etype)
-            self._set_val("control", state.control_type_text)
+            self._set_val("control", f"{state.control_type_text} {state.record_no_label}")
             self._set_val("sound", state.sound_type_label)
             self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
             self._set_val("smoke", state.smoke_text)

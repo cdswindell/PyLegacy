@@ -212,7 +212,7 @@ class EngineState(ComponentState):
 
     def __repr__(self) -> str:
         try:
-            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = fl = ""
+            sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = fl = rn = ""
             if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
                 dr = " FWD"
             elif self._direction in {
@@ -265,6 +265,8 @@ class EngineState(ComponentState):
             if self.fuel_level_pct is not None:
                 fl = f" Fuel: {self.fuel_level_pct:>3}%"
             ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
+            if self._d4_rec_no is not None:
+                rn = f" Rec# {self._d4_rec_no}"
             if isinstance(self, TrainState) and self.consist_components:
                 c = "\n"
                 for cc in self.consist_components:
@@ -273,7 +275,7 @@ class EngineState(ComponentState):
                 tr = f" Train: {self.train_tmcc_id}"
             return (
                 f"{self.scope.title} {self._address:04}{sp}{rl}{lb}{mom}{tb}{fl}{dr}{sm}"
-                f"{name}{num}{lt}{ct}{yr}{bt}{ss}{tr}{nu}{aux}{c}"
+                f"{name}{num}{lt}{ct}{yr}{bt}{rn}{ss}{tr}{nu}{aux}{c}"
             )
         except AttributeError as ae:
             if self.comp_data is None:
@@ -999,6 +1001,10 @@ class EngineState(ComponentState):
     @property
     def record_no(self) -> int:
         return self._d4_rec_no
+
+    @property
+    def record_no_label(self) -> str:
+        return f"#{self._d4_rec_no}" if self._is_d4 is not None else ""
 
     @property
     def is_cab1(self) -> bool:
