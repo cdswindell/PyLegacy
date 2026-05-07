@@ -1004,7 +1004,7 @@ class EngineState(ComponentState):
 
     @property
     def record_no_label(self) -> str:
-        return f"ID {self.record_no}" if self.record_no is not None else ""
+        return f"ID#{self.record_no}" if self.record_no is not None else ""
 
     @property
     def is_cab1(self) -> bool:
