@@ -906,7 +906,7 @@ class EngineState(ComponentState):
     def control_type_text(self) -> str:
         ct = CONTROL_TYPE.get(self.control_type, "NA")
         if self._is_d4 and ct != "NA":
-            ct += " 4-Digit"
+            ct += " 4D"
         return ct
 
     @property
@@ -1004,7 +1004,7 @@ class EngineState(ComponentState):
 
     @property
     def record_no_label(self) -> str:
-        return f"#{self._d4_rec_no}" if self._is_d4 is not None else ""
+        return f"Rec #{self.record_no}" if self.record_no is not None else ""
 
     @property
     def is_cab1(self) -> bool:
