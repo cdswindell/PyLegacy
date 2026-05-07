@@ -1042,6 +1042,7 @@ class EngineState(ComponentState):
             "labor",
             "max_speed",
             "momentum",
+            "record_no",
             "rpm",
             "speed",
             "speed_limit",
