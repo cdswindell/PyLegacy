@@ -1004,7 +1004,7 @@ class EngineState(ComponentState):
 
     @property
     def record_no_label(self) -> str:
-        return f"Id#{self.record_no}" if self.record_no is not None else ""
+        return f"ID: {self.record_no}" if self.record_no is not None else ""
 
     @property
     def is_cab1(self) -> bool:
@@ -1018,6 +1018,7 @@ class EngineState(ComponentState):
 
     @property
     def is_legacy(self) -> bool:
+        # Determines legacy status based on scope and type
         if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and self.address > 99:
             self._is_legacy = True
         elif self.control_type is not None and self.control_type != 255:
