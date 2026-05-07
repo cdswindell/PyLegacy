@@ -266,7 +266,7 @@ class EngineState(ComponentState):
                 fl = f" Fuel: {self.fuel_level_pct:>3}%"
             ct = f" {CONTROL_TYPE.get(self.control_type, 'NA')}"
             if self._d4_rec_no is not None:
-                rn = f" Rec# {self._d4_rec_no}"
+                rn = f" {self.record_no_label}"
             if isinstance(self, TrainState) and self.consist_components:
                 c = "\n"
                 for cc in self.consist_components:
