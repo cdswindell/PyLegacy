@@ -303,7 +303,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                     log.debug(f"PDI Dispatcher processing: {cmd}")
                 # update broadcast channels, mostly used for command echoing
                 if self._broadcasts:
-                    print(f"Broadcasting {cmd}")
                     self.publish(BROADCAST_TOPIC, cmd)
 
                 # publish dispatched pdi commands to listeners
@@ -321,7 +320,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
                         if cmd.tmcc_id == 100 and isinstance(cmd, BaseReq):
-                            print("Skip updates to 2D address 100)")
+                            pass
                         else:
                             if hasattr(cmd, "action"):
                                 self.publish((cmd.command, cmd.action), cmd)
@@ -424,7 +423,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         # receive broadcasts
         self._channels[BROADCAST_TOPIC].subscribe(subscriber)
         self._broadcasts = True
-        print("***** Broadcasts enabled")
 
     def unsubscribe_any(self, subscriber: Subscriber) -> None:
         # receive broadcasts
