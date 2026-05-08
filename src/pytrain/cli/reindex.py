@@ -94,7 +94,8 @@ class ReindexCmd(CommandBase, Thread):
         started_at = time.monotonic()
         ev_set = False
         incr = 0.25
-        while total_time < 30:  # only listen for 2 minutes
+        timeout = 15
+        while total_time < timeout:  # only listen for 2 minutes
             self._ev.wait(incr)
             elapsed = round(time.monotonic() - started_at)
             # Awaits responses with timeout; forces sync completion if prolonged
@@ -107,7 +108,7 @@ class ReindexCmd(CommandBase, Thread):
                     break
             else:
                 total_time += incr
-        if total_time >= 30:
+        if total_time >= timeout:
             log.warning("Timed out waiting for database state from Lionel Base")
 
         self._pytrain.pdi_listener.unsubscribe_any(self)
