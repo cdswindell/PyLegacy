@@ -175,11 +175,11 @@ class StartupState(Thread):
         # now wait for all responses; this will not track LCS devices reporting their config
         # because of the AllReq
         total_time = 0
-        started_at = time.time()
+        started_at = time.monotonic()
         ev_set = False
         while total_time < 120:  # only listen for 2 minutes
             self._ev.wait(0.25)
-            elapsed = round(time.time() - started_at)
+            elapsed = round(time.monotonic() - started_at)
             # Awaits responses with timeout; forces sync completion if prolonged
             if self._ev.is_set() or (ev_set is True) or len(self._waiting_for) == 0:
                 self._ev.clear()

@@ -104,8 +104,8 @@ class PyTrain:
     _current: "PyTrain | None" = None
 
     @classmethod
-    def current(cls) -> "PyTrain":
-        if cls._current is None:
+    def current(cls, raise_exception: bool = True) -> "PyTrain":
+        if cls._current is None and raise_exception is True:
             pn = PROGRAM_NAME
             raise RuntimeError(f"{pn}.current() called before {pn} was created")
         return cls._current
@@ -420,6 +420,20 @@ class PyTrain:
     @property
     def store(self) -> ComponentStateStore:
         return self._state_store
+
+    @property
+    def pdi_listener(self) -> PdiListener | ClientStateListener | None:
+        if self.is_server and self._pdi_buffer is not None:
+            return self._pdi_buffer
+        else:
+            return self._tmcc_listener
+
+    @property
+    def pdi_dispatcher(self) -> PdiListener | CommBuffer:
+        if self.is_server and self._pdi_buffer is not None:
+            return self._pdi_buffer
+        else:
+            return self._tmcc_buffer
 
     @property
     def command_dispatcher(self) -> CommandDispatcher:

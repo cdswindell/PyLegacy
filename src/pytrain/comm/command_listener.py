@@ -669,25 +669,32 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
                             if state.scope not in {CommandScope.BASE, CommandScope.IRDA} and state.comp_data is None:
                                 log.debug(f"Skipping state sync for {scope}:{address}; no initial state available")
                                 continue
-                            state_bytes = state.as_bytes()
-                            if isinstance(state_bytes, bytes):
-                                state_bytes = [state_bytes]
-                            elif isinstance(state_bytes, list):
-                                pass
-                            else:
-                                raise TypeError(f"Invalid state type: {type(state_bytes)}")
-                            do_pause = False
-                            for state_packet in state_bytes:
-                                if not state_packet:
-                                    continue
-                                if do_pause:
-                                    sleep(0.01)
-                                try:
-                                    self.send_state_packet(client_ip, client_port, state_packet)
-                                    do_pause = True
-                                except Exception as e:
-                                    log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
-                                    log.exception(e)
+                            try:
+                                state_bytes = state.as_bytes()
+                                if isinstance(state_bytes, bytes):
+                                    state_bytes = [state_bytes]
+                                elif isinstance(state_bytes, list):
+                                    pass
+                                else:
+                                    raise TypeError(f"Invalid state type: {type(state_bytes)}")
+                                do_pause = False
+                                for state_packet in state_bytes:
+                                    if not state_packet:
+                                        continue
+                                    if do_pause:
+                                        sleep(0.01)
+                                    try:
+                                        self.send_state_packet(client_ip, client_port, state_packet)
+                                        do_pause = True
+                                    except Exception as e:
+                                        log.warning(
+                                            f"Exception sending state packet {state_packet} "
+                                            f"to {client_ip}:{client_port}"
+                                        )
+                                        log.exception(e)
+                            except Exception as e:
+                                log.warning(f"Exception sending state update {state} to {client_ip}:{client_port}")
+                                log.exception(e)
                         self._client_lock.notify_all()
             # send sync_complete message
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_complete_response())
