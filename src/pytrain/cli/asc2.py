@@ -29,6 +29,7 @@ class Asc2Cmd(CommandBase):
         super().__init__(None, req, tmcc_id, CommandScope.ASC2, server=server)
         self._command = self._build_command()
 
+    # noinspection PyTypeChecker
     def _build_command(self) -> bytes | None:
         return self.command_req.as_bytes
 
@@ -49,7 +50,7 @@ class Asc2Cli(CliBase):
         from . import PROGRAM_NAME
 
         asc2_parser = PyTrainArgumentParser(add_help=False)
-        asc2_parser.add_argument("asc2", metavar="Asc2 TMCC ID", type=int, help="Asc2 to fire")
+        asc2_parser.add_argument("asc2", metavar="Asc2 TMCC ID", type=int, help="Asc2 port to control")
 
         group = asc2_parser.add_mutually_exclusive_group()
         group.add_argument(

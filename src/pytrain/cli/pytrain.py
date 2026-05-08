@@ -38,6 +38,7 @@ from .effects import EffectsCli
 from .engine import EngineCli
 from .halt import HaltCli
 from .lighting import LightingCli
+from .reindex import ReindexCli
 from .route import RouteCli
 from .sounds import SoundEffectsCli
 from .switch import SwitchCli
@@ -1062,7 +1063,6 @@ class PyTrain:
                         return None
                     #
                     # we're done with the admin/special commands, now do train stuff
-                    #
                     ui_parser = args.command.command_parser()
                     ui_parser.remove_args(["baudrate", "port", "server"])
                     # very hacky; should turn into a method to reduce complexity of this section
@@ -1181,7 +1181,8 @@ class PyTrain:
                             address = int(param[1])
                             state: ComponentState = self._state_store.query(scope, address)
                             if state:
-                                print(state)
+                                print(state, state.prev_link, state.next_link)
+                                return
                             else:
                                 print(f"No data available for this {scope.title}.")
                             return
@@ -1510,6 +1511,13 @@ class PyTrain:
             const="reboot",
             dest="command",
             help=f"Quit {PROGRAM_NAME} and reboot all nodes",
+        )
+        group.add_argument(
+            "-reindex",
+            action="store_const",
+            const=ReindexCli,
+            dest="command",
+            help="Reindex 2-digit records on the Lionel Base 3",
         )
         group.add_argument(
             "-restart",

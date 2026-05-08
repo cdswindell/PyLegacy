@@ -28,7 +28,7 @@ class CommandBase(ABC):
     def __init__(
         self,
         command: CommandDefEnum | None,
-        command_req: R,
+        command_req: R | None,
         address: int = 99,
         data: int = 0,
         scope: CommandScope = None,

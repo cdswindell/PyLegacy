@@ -414,6 +414,8 @@ SCOPE_TO_COMP_MAP = {
 # memory locations that must be updated in turn.
 #
 REQUEST_TO_UPDATES_MAP = {
+    "PREV_LINK": [("prev_link",)],
+    "NEXT_LINK": [("next_link",)],
     "ABSOLUTE_SPEED": [
         ("speed", encode_tmcc_speed),
         ("target_speed", encode_target_speed),
@@ -591,6 +593,7 @@ class CompData(ABC, Generic[R]):
         updates = REQUEST_TO_UPDATES_MAP.get(field.strip().upper(), []).copy()
         for update in updates:
             if isinstance(update, tuple) and len(update) >= 1:
+                # noinspection PyTypeChecker
                 transform = update[1] if len(update) >= 2 else None
                 pkg = cls._create_update_pkg(update[0], legacy, scope, tmcc_id, data, transform)
                 if pkg:

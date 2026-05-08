@@ -77,6 +77,8 @@ class ComponentState(ABC, CompDataMixin):
         self._spare_1: int | None = None
         self._dependencies = DependencyCache.build()
         self._config_requested = False
+        self._prev_link: int | None = None
+        self._next_link: int | None = None
 
     def __repr__(self) -> str:
         if self.is_comp_data_record is True and not self.payload:
@@ -176,6 +178,18 @@ class ComponentState(ABC, CompDataMixin):
     def spare_1(self) -> int:
         return self._spare_1
 
+    @property
+    def prev_link(self) -> int:
+        if self._comp_data and 1 <= self.tmcc_id < 99:
+            return self._comp_data.prev_link
+        return 0xFF
+
+    @property
+    def next_link(self) -> int:
+        if self._comp_data and 1 <= self.tmcc_id < 99:
+            return self._comp_data.next_link
+        return 0xFF
+
     @staticmethod
     def is_synchronized() -> bool:
         from .component_state_store import ComponentStateStore
@@ -260,6 +274,7 @@ class ComponentState(ABC, CompDataMixin):
                             from .component_state_store import ComponentStateStore
 
                             rn = int(self.road_number)
+                            # Persists component state when conditions are satisfied
                             if (
                                 rn > 99 >= self.address >= 1
                                 and ComponentStateStore.get_state(self.scope, rn, False) is None
