@@ -318,6 +318,9 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                     if isinstance(cmd, TmccReq):
                         self._tmcc_dispatcher.offer(cmd.tmcc_command, from_pdi=True)
                     elif (1 <= cmd.tmcc_id <= 9999) or (cmd.scope == CommandScope.BASE and cmd.tmcc_id == 0):
+                        if cmd.tmcc_id == 100 and isinstance(cmd, BaseReq):
+                            print("Skip updates to 2D address 100)")
+                            return
                         if hasattr(cmd, "action"):
                             self.publish((cmd.command, cmd.action), cmd)
                             self.publish((cmd.scope, cmd.tmcc_id, cmd.action), cmd)

@@ -57,14 +57,14 @@ class ReindexCmd(CommandBase, Thread):
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
-        if cmd:
+        if cmd and cmd.scope == self._scope:
             with self._cv:
                 self._waiting_for.pop(cmd.as_key, None)
-                print(f"Received PDI command: {cmd} {cmd.forward_link}")
         else:
             return
 
         if isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
+            print(f"Received PDI command: {cmd} {cmd.forward_link}")
             req = None
             if cmd.forward_link not in {255, 101}:
                 print(f"Next {self._scope.title} {cmd.forward_link}")
@@ -81,7 +81,7 @@ class ReindexCmd(CommandBase, Thread):
                         self._cv.notify_all()
 
     def run(self) -> None:
-        self._pytrain.pdi_listener.subscribe(self, self._scope)
+        self._pytrain.pdi_listener.subscribe_any(self)
         req = BaseReq(100, PdiCommand.BASE_MEMORY, scope=self._scope)
         if req:
             with self._cv:
@@ -93,19 +93,24 @@ class ReindexCmd(CommandBase, Thread):
         total_time = 0
         started_at = time.monotonic()
         ev_set = False
-        while total_time < 120:  # only listen for 2 minutes
-            self._ev.wait(0.25)
+        incr = 0.25
+        while total_time < 30:  # only listen for 2 minutes
+            self._ev.wait(incr)
             elapsed = round(time.monotonic() - started_at)
             # Awaits responses with timeout; forces sync completion if prolonged
             if self._ev.is_set() or (ev_set is True) or len(self._waiting_for) == 0:
                 self._ev.clear()
                 ev_set = True
+                total_time = 0
                 if elapsed >= 0:
                     log.info(f"Initial state loaded from Lionel Base: {elapsed:.2f} seconds elapsed.")
                     break
-            total_time += 0.25
+            else:
+                total_time += incr
+        if total_time >= 30:
+            log.warning("Timed out waiting for database state from Lionel Base")
 
-        self._pytrain.pdi_listener.unsubscribe(self, self._scope)
+        self._pytrain.pdi_listener.unsubscribe_any(self)
 
     # noinspection PyTypeChecker
     def send(
