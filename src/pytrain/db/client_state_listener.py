@@ -174,6 +174,14 @@ class ClientStateListener(threading.Thread):
         self._tmcc_listener.unsubscribe(listener, channel, address, command, data)
         self._pdi_listener.unsubscribe(listener, channel, address)
 
+    def subscribe_any(self, subscriber: Subscriber) -> None:
+        self._tmcc_listener.subscribe_any(subscriber)
+        self._pdi_listener.dispatcher.subscribe_any(subscriber)
+
+    def unsubscribe_any(self, subscriber: Subscriber) -> None:
+        self._tmcc_listener.unsubscribe_any(subscriber)
+        self._pdi_listener.dispatcher.unsubscribe_any(subscriber)
+
     def _register_pdi_callbacks(self):
         for dev in (
             (PdiCommand.ASC2_RX, Asc2Action.CONFIG),
