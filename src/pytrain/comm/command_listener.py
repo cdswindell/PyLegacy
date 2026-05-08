@@ -350,16 +350,23 @@ class Channel(Generic[Topic]):
     """
 
     def __init__(self) -> None:
+        self._cv = Condition()
         self.subscribers: set[Subscriber] = set[Subscriber]()
 
     def subscribe(self, subscriber: Subscriber) -> None:
-        self.subscribers.add(subscriber)
+        with self._cv:
+            self.subscribers.add(subscriber)
+            self._cv.notify()
 
     def unsubscribe(self, subscriber: Subscriber) -> None:
-        self.subscribers.remove(subscriber)
+        with self._cv:
+            self.subscribers.remove(subscriber)
+            self._cv.notify()
 
     def publish(self, message: Message) -> None:
-        for subscriber in self.subscribers:
+        with self._cv:
+            subscribers_copy = self.subscribers.copy()
+        for subscriber in subscribers_copy:
             try:
                 subscriber(message)
             except Exception as e:
