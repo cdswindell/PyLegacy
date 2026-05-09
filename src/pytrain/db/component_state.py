@@ -180,13 +180,13 @@ class ComponentState(ABC, CompDataMixin):
 
     @property
     def prev_link(self) -> int:
-        if self._comp_data and 1 <= self.tmcc_id < 99:
+        if self._comp_data and 1 <= self.tmcc_id <= 101:
             return self._comp_data.prev_link
         return 0xFF
 
     @property
     def next_link(self) -> int:
-        if self._comp_data and 1 <= self.tmcc_id < 99:
+        if self._comp_data and 1 <= self.tmcc_id <= 101:
             return self._comp_data.next_link
         return 0xFF
 

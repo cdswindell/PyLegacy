@@ -46,9 +46,10 @@ class ReindexCmd(CommandBase, Thread):
         self._command = self._build_command()
         self._pytrain = PyTrain.current()
         self._entries = None
+        self._entries_map = {}
         self._frm_found = self._lrm_found = self._bad_found = False
         self._waiting_for = dict()
-        self._db_order = []
+        self._db_order = None
         self._correct_order = []
         self._cv = Condition()
         self._ev = Event()
@@ -76,31 +77,21 @@ class ReindexCmd(CommandBase, Thread):
             return
 
         if isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
-            req = None
             print(f"{self._scope.title} {cmd.tmcc_id} prev: {cmd.reverse_link} next:{cmd.forward_link}")
 
-            if cmd.tmcc_id < 99:
-                self._db_order.append(cmd.tmcc_id)
-            elif cmd.tmcc_id == 100 and cmd.reverse_link == 101 and 1 <= cmd.forward_link < 99:
+            if cmd.tmcc_id == 100 and cmd.reverse_link == 101 and 1 <= cmd.forward_link < 99:
                 self._frm_found = True
+                self._db_order = self._walk_links(cmd.forward_link)
+            elif cmd.tmcc_id < 99:
+                self._db_order.append(cmd.tmcc_id)
             else:
                 self._bad_found = True
                 log.warning(f"Unexpected Base 3 record: {cmd.tmcc_id} {cmd.reverse_link} {cmd.forward_link}")
 
-            if cmd.forward_link not in {255, 101}:
-                req = BaseReq(cmd.forward_link, PdiCommand.BASE_MEMORY, scope=self._scope)
-            elif cmd.forward_link == 101 and 1 <= cmd.reverse_link < 99:
-                self._lrm_found = True
-
-            if req:
-                with self._cv:
-                    self._waiting_for[req.as_key] = req
-                self._pytrain.pdi_dispatcher.enqueue_command(req)
-            else:
-                with self._cv:
-                    if not self._waiting_for:
-                        self._ev.set()
-                        self._cv.notify_all()
+            with self._cv:
+                if not self._waiting_for:
+                    self._ev.set()
+                    self._cv.notify_all()
 
     def run(self) -> None:
         self._pytrain.pdi_listener.subscribe_any(self)
@@ -132,8 +123,12 @@ class ReindexCmd(CommandBase, Thread):
         if total_time >= timeout:
             log.warning("Timed out waiting for database state from Lionel Base")
 
+        if self._db_order is None and self._entries and self._entries[0].tmcc_id:
+            self._db_order = self._walk_links(self._entries[0].tmcc_id)
+        elif self._db_order is None:
+            self._db_order = []
+
         all_good = not self._bad_found and self._frm_found and self._lrm_found and self._db_order == self._correct_order
-        print(f"All Good: {all_good}  Validate only: {self._cli.is_validate}")
         if self._cli.is_validate:
             if not all_good:
                 num_obs = len(self._db_order)
@@ -147,13 +142,17 @@ class ReindexCmd(CommandBase, Thread):
                     if self.is_verbose:
                         for i, e in enumerate(self._entries):
                             if i >= num_obs or e.tmcc_id != self._db_order[i]:
-                                log.warning(f"{e.tmcc_id:02} {e.road_name} {e.road_number}")
+                                log.warning(
+                                    f"{e.tmcc_id:02} {e.road_name} {e.road_number} "
+                                    f"prev:{e.prev_link} next:{e.next_link}"
+                                )
             else:
                 log.info(f"All {self._scope.title} records match; no re-index needed.")
         else:
             if all_good:
                 log.info(f"All {self._scope.title} records match; re-index not done.")
             else:
+                self._do_reindex()
                 log.info(f"{self._scope.title} records re-indexed and successfully written to the Base 3 database")
 
         self._pytrain.pdi_listener.unsubscribe_any(self)
@@ -175,7 +174,7 @@ class ReindexCmd(CommandBase, Thread):
 
         entries = self._pytrain.store.get_all(self._scope)
         if entries:
-            # strip out 4D entries
+            # strip out 4D entries and entries that have empty database records
             entries = [e for e in entries if 1 <= e.tmcc_id < 99 and e.is_road_name]
 
         if entries is None:
@@ -185,8 +184,39 @@ class ReindexCmd(CommandBase, Thread):
         if self.is_verbose:
             log.info(f"Evaluating {len(entries)} {self._scope.title} records...")
         self._entries = entries
+        self._entries_map = {e.tmcc_id: e for e in entries}
         self._correct_order = [e.tmcc_id for e in entries]
         self.start()
+
+    def _do_reindex(self):
+        prev_rec = 100
+        num_entries = len(self._correct_order)
+        for i, tmcc_id in enumerate(self._correct_order):
+            if i < num_entries - 1:
+                next_rec = self._correct_order[i + 1]
+            else:
+                next_rec = 101
+            if self.is_verbose:
+                log.info(f"Reindexing {self._scope.title} {tmcc_id:02} prev: {prev_rec} next: {next_rec}")
+            prev_rec = tmcc_id
+
+    def _walk_links(self, first_tmcc_id: int) -> List[int]:
+        db_list = []
+        entry = self._entries_map.get(first_tmcc_id, None)
+        while entry:
+            db_list.append(entry.tmcc_id)
+            if entry.next_link == 101:
+                self._lrm_found = True
+            if self.is_verbose:
+                log.info(
+                    f"Walking {entry.tmcc_id} {entry.road_name} {entry.road_number} {entry.prev_link} {entry.next_link}"
+                )
+            if entry.next_link not in {100, 101, 255}:
+                entry = self._entries_map.get(entry.next_link, None)
+            else:
+                entry = None
+
+        return db_list
 
     def _build_command(self) -> bytes | None:
         return None
