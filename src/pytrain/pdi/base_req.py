@@ -258,7 +258,8 @@ class BaseReq(PdiReq, CompDataMixin):
             tmcc_id = state.tmcc_id
             scope = state.scope
             for pkg in packages:
-                if 1 <= tmcc_id <= 99:
+                # include TMCC ID 100 to update search chain
+                if 1 <= tmcc_id <= 100:
                     req = BaseReq(
                         tmcc_id,
                         pdi_command=PdiCommand.BASE_MEMORY,
