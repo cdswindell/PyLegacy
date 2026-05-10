@@ -57,6 +57,11 @@ class CliBase(ABC):
             default=DEFAULT_BAUDRATE,
             help=f"Baud Rate ({DEFAULT_BAUDRATE})",
         )
+        parser.add_argument(
+            "-client",
+            action="store_true",
+            help=f"Run command as a {PROGRAM_NAME} client",
+        )
         parser.add_argument("-port", action="store", default=DEFAULT_PORT, help=f"Serial Port ({DEFAULT_PORT})")
         parser.add_argument(
             "-server",
@@ -147,6 +152,7 @@ class CliBase(ABC):
         return parser
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
+        """Initializes command parser; restores stripped arguments; determines server status"""
         if arg_parser is None:
             arg_parser = self.command_parser()
         if cmd_line is None:
@@ -172,7 +178,7 @@ class CliBase(ABC):
             self._server = None
 
         # are we a server or a client, or do we just not know?
-        if CommBuffer.is_built:
+        if CommBuffer.is_built():
             self._is_server = CommBuffer.is_server()
         else:
             self._is_server = False

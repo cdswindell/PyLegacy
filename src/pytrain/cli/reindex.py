@@ -16,6 +16,8 @@ from threading import Condition, Event, Thread
 from typing import List
 
 from . import CliBase
+from ..db.state_watcher import StateWatcher
+from ..protocol.constants import PROGRAM_NAME
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand
 from ..pdi.pdi_req import PdiReq
@@ -41,10 +43,34 @@ class ReindexCmd(CommandBase, Thread):
 
         if self._cli.scope is None:
             raise ValueError("Scope must be specified")
+
+        if PyTrain.current(raise_exception=False) is None:
+            daemon = False
+            self._synchronized = False
+            pt_args = "-api"
+            if "client" in self._cli.args and self._cli.args.client:
+                pt_args += " -client"
+            elif "server" in self._cli.args and self._cli.args.server:
+                pt_args += f" -server {self._cli.args.server}"
+            elif "base" in self._cli.args and self._cli.args.base3:
+                pt_args += f" -base {self._cli.args.server}"
+            else:
+                raise NotImplementedError(f"{PROGRAM_NAME} can not be run without {PROGRAM_NAME} client or a Base 3")
+            self._pytrain = PyTrain(pt_args.split())
+
+            self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
+            self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
+        else:
+            daemon = True
+            self._synchronized = True
+            self._pytrain = PyTrain.current()
+        assert self._pytrain is not None, f"{PROGRAM_NAME} must be initialized"
+
+        # with PyTrain initialization sorted out, initialize CommandBase and Thread
         CommandBase.__init__(self, None, None, 1, scope=self._scope, server=None)
-        Thread.__init__(self, daemon=True, name="ReindexCmdThread")
+        Thread.__init__(self, daemon=daemon, name="ReindexCmdThread")
+
         self._command = self._build_command()
-        self._pytrain = PyTrain.current()
         self._entries = None
         self._entries_map = {}
         self._frm_found = self._lrm_found = self._bad_found = False
@@ -53,6 +79,7 @@ class ReindexCmd(CommandBase, Thread):
         self._correct_order = []
         self._cv = Condition()
         self._ev = Event()
+        self._first_pass_complete = False
 
     @property
     def scope(self) -> CommandScope:
@@ -74,15 +101,21 @@ class ReindexCmd(CommandBase, Thread):
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
+        if not self._synchronized:
+            return
+
         if cmd and cmd.scope == self._scope:
-            if self.is_verbose:
-                log.info(f"Received: {cmd}")
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Received: {cmd}")
             with self._cv:
-                self._waiting_for.pop(cmd.as_key, None)
+                key = cmd.as_key
+                if key not in self._waiting_for:
+                    log.warning(f"Unexpected response: {key}: {cmd}")
+                self._waiting_for.pop(key, None)
         else:
             return
 
-        if isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
+        if not self._first_pass_complete and isinstance(cmd, BaseReq) and cmd.pdi_command == PdiCommand.BASE_MEMORY:
             if self.is_verbose:
                 log.info(f"{self._scope.title} {cmd.tmcc_id} prev: {cmd.reverse_link} next: {cmd.forward_link}")
 
@@ -95,10 +128,10 @@ class ReindexCmd(CommandBase, Thread):
                 self._bad_found = True
                 log.warning(f"Unexpected Base 3 record: {cmd.tmcc_id} {cmd.reverse_link} {cmd.forward_link}")
 
-            with self._cv:
-                if not self._waiting_for:
-                    self._ev.set()
-                    self._cv.notify_all()
+        with self._cv:
+            if not self._waiting_for:
+                self._ev.set()
+                self._cv.notify_all()
 
     # noinspection PyTypeChecker
     def send(
@@ -112,6 +145,10 @@ class ReindexCmd(CommandBase, Thread):
         port: str = DEFAULT_PORT,
         server: str = None,
     ):
+        if not self._synchronized:
+            self._ev.wait()  # wait for initial Base 3 database load
+            self._ev.clear()
+
         kw = "Validating" if self._cli.is_validate else "Reindexing"
         log.info(f"{kw} Base 3 2-Digit {self._scope.title} database records...")
 
@@ -141,6 +178,7 @@ class ReindexCmd(CommandBase, Thread):
         total_time = self._wait_for_responses(timeout=timeout)
         if total_time >= timeout:
             log.warning("Timed out waiting for database state from Lionel Base")
+        self._first_pass_complete = True
 
         if self._db_order is None and self._entries and self._entries[0].tmcc_id:
             self._db_order = self._walk_links(self._entries[0].tmcc_id)
@@ -170,6 +208,10 @@ class ReindexCmd(CommandBase, Thread):
         else:
             if all_good and not self.is_force:
                 log.info(f"All {self._scope.title} records match; re-index not done.")
+                log.info(
+                    f"Use -force to re-index {self._scope.title} records; "
+                    f"this may take a while depending on the number of records"
+                )
             else:
                 self._do_reindex()
                 log.info(f"{self._scope.title} records re-indexed and successfully written to the Base 3 database")
@@ -182,6 +224,8 @@ class ReindexCmd(CommandBase, Thread):
         started_at = time.monotonic()
         ev_set = False
         self._ev.clear()
+        if self.is_verbose:
+            log.info(f"Waiting for {len(self._waiting_for)} responses...")
         while total_time < timeout:  # only listen for 2 minutes
             self._ev.wait(incr)
             elapsed = round(time.monotonic() - started_at)
@@ -194,9 +238,11 @@ class ReindexCmd(CommandBase, Thread):
                     break
             else:
                 total_time += incr
+        if self.is_verbose:
+            log.info(f"{len(self._waiting_for)} responses remain...")
         return total_time
 
-    def _do_reindex(self):
+    def _do_reindex(self, pause_for: float = 0.06):
         log.warning(f"Reindexing {len(self._correct_order)} {self._scope.title} records...")
         prev_rec = 100
         num_entries = len(self._correct_order)
@@ -209,6 +255,7 @@ class ReindexCmd(CommandBase, Thread):
                 log.info(f"Reindexing {self._scope.title} {tmcc_id:02} prev: {prev_rec} next: {next_rec}")
             req = self._build_links_update_req(tmcc_id, prev_rec, next_rec)
             self._dispatch_req(req, wait_for=False)
+            time.sleep(pause_for)
             prev_rec = tmcc_id
 
         # write final record
@@ -219,6 +266,13 @@ class ReindexCmd(CommandBase, Thread):
             log.info(f"Setting {self._scope.title} {tmcc_id:02} to prev: {prev_rec} next: {next_rec}")
         req = self._build_links_update_req(tmcc_id, prev_rec, next_rec)
         self._dispatch_req(req, wait_for=False)
+
+        # requery records
+        for tmcc_id in self._correct_order:
+            time.sleep(pause_for)
+            self._dispatch_req(BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=self._scope))
+
+        # wait for requery responses to post
         timeout = 15
         total_time = self._wait_for_responses(timeout=timeout)
         if total_time >= timeout:
@@ -266,6 +320,13 @@ class ReindexCmd(CommandBase, Thread):
 
         return db_list
 
+    def _sync_complete(self):
+        if self._sync_state.is_synchronized:
+            self._synchronized = True
+            self._sync_watcher.shutdown()
+            self._sync_watcher = None
+            self._ev.set()
+
     def _build_command(self) -> bytes | None:
         return None
 
@@ -283,7 +344,7 @@ class ReindexCli(CliBase):
 
     @classmethod
     def command_parser(cls) -> ArgumentParser:
-        parser = PyTrainArgumentParser("Reindex Lionel Base 3 database records")
+        parser = PyTrainArgumentParser(add_help=False)
         parser.add_argument(
             "scope",
             metavar="Record type",
@@ -312,7 +373,7 @@ class ReindexCli(CliBase):
         )
 
         # Return parser
-        return parser
+        return PyTrainArgumentParser("Reindex Lionel Base 3 database records", parents=[parser, cls.cli_parser()])
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
@@ -323,6 +384,8 @@ class ReindexCli(CliBase):
         try:
             self._scope = CommandScope.by_name(self._args.scope, True)
             cmd = ReindexCmd(self)
+            if self.do_fire:
+                cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
