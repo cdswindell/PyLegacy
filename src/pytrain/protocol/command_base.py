@@ -43,7 +43,7 @@ class CommandBase(ABC):
         client: bool = False,
         base: str = None,
     ) -> None:
-        from src.pytrain import PyTrain
+        from ..cli.pytrain import PyTrain
 
         super().__init__()
         self._address = address
