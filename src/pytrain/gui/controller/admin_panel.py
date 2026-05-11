@@ -13,15 +13,14 @@ import socket
 import psutil
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
-from ..components.checkbox_group import CheckBoxGroup
-from ..components.hold_button import HoldButton
-from ..guizero_base import GuiZeroBase
 from ...cli.pytrain import PyTrain
 from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ...utils import WiFiInfo
-
+from ..components.checkbox_group import CheckBoxGroup
+from ..components.hold_button import HoldButton
+from ..guizero_base import GuiZeroBase
 
 log = logging.getLogger(__name__)
 
@@ -124,7 +123,7 @@ class AdminPanel:
             pady=self._gui.text_pad_y,
             align="left",
         )
-        pb.bg = "green" if self._gui.sync_state.is_synchronized else "white"
+        pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
 
@@ -136,7 +135,7 @@ class AdminPanel:
             width=12,
             text_bold=True,
             text_size=self._gui.s_18,
-            enabled=self._gui.sync_state.is_synchronized,
+            enabled=self._gui.sync_state.is_synchronized(),
             padx=self._gui.text_pad_x,
             pady=self._gui.text_pad_y,
             align="right",
@@ -484,11 +483,11 @@ class AdminPanel:
         return hb
 
     def _on_sync_state(self) -> None:
-        if self._gui.sync_state.is_synchronized:
+        if self._gui.sync_state.is_synchronized():
             self._sync_state.text = "Loaded"
             self._sync_state.bg = "green"
             self._reload_btn.enable()
-        elif self._gui.sync_state.is_synchronizing:
+        elif self._gui.sync_state.is_synchronizing():
             self._sync_state.text = "Reloading..."
             self._sync_state.bg = "white"
             self._reload_btn.disable()

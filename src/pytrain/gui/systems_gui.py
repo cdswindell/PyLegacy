@@ -16,7 +16,7 @@ from ..db.sync_state import SyncState
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.state_based_gui import StateBasedGui
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, PROGRAM_NAME
+from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 
 
@@ -60,7 +60,7 @@ class SystemsGui(StateBasedGui):
 
     # noinspection PyTypeChecker
     def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
+        if self._sync_state.is_synchronized():
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None

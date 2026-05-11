@@ -9,18 +9,18 @@
 from __future__ import annotations
 
 import atexit
-from threading import Thread, Event, RLock
+from threading import Event, RLock, Thread
 from time import time
 
-from .gpio_device import GpioDevice
-from .i2c.oled import OledDevice, Oled
-from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
 from ..comm.command_listener import CommandDispatcher
-from ..protocol.command_req import CommandReq
-from ..db.engine_state import EngineState
 from ..db.component_state_store import ComponentStateStore
+from ..db.engine_state import EngineState
 from ..db.state_watcher import StateWatcher
+from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
+from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum, TMCC1HaltCommandEnum
+from .gpio_device import GpioDevice
+from .i2c.oled import Oled, OledDevice
 
 
 class LaunchStatus(Thread, GpioDevice):
@@ -66,7 +66,7 @@ class LaunchStatus(Thread, GpioDevice):
         # check for state synchronization
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if self._sync_state and self._sync_state.is_synchronized is True:
+        if self._sync_state and self._sync_state.is_synchronized() is True:
             self._sync_watcher = None
             self.on_sync()
         else:
@@ -154,7 +154,6 @@ class LaunchStatus(Thread, GpioDevice):
     def tmcc_id(self) -> int:
         return self._tmcc_id
 
-    @property
     def is_synchronized(self) -> bool:
         return self._synchronized
 
@@ -226,7 +225,7 @@ class LaunchStatus(Thread, GpioDevice):
             self.display.force_display()
 
     def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
+        if self._sync_state.is_synchronized():
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None

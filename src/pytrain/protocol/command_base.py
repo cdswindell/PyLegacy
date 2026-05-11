@@ -11,7 +11,7 @@ import abc
 import threading
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
-from typing import Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Sequence, TypeVar, cast
 
 from ..comm.comm_buffer import CommBuffer
 from ..db.state_watcher import StateWatcher
@@ -19,7 +19,10 @@ from ..pdi.pdi_req import PdiReq
 from ..utils.validations import Validations
 from .command_def import CommandDef, CommandDefEnum
 from .command_req import CommandReq
-from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope, PROGRAM_NAME
+from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, MINIMUM_DURATION_INTERVAL_MSEC, PROGRAM_NAME, CommandScope
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..cli.pytrain import PyTrain
 
 R = TypeVar("R", bound=CommandReq | PdiReq | Sequence[CommandReq | PdiReq])
 
@@ -76,9 +79,10 @@ class CommandBase(ABC):
             self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
             self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
         else:
-            self._daemon = True
-            self._synchronized = True
             self._pytrain = PyTrain.current()
+            self._daemon = True
+            self._synchronized = self._pytrain.is_synchronized()
+
         assert self._pytrain is not None, f"{PROGRAM_NAME} must be initialized"
 
         # persist command information
@@ -131,7 +135,6 @@ class CommandBase(ABC):
     def is_daemon(self) -> bool:
         return self._daemon
 
-    @property
     def is_synchronized(self) -> bool:
         return self._synchronized
 
@@ -196,12 +199,21 @@ class CommandBase(ABC):
             server=server,
         )
 
+    def wait_for_sync(self) -> None:
+        if not self.is_synchronized():
+            self._sc.wait()  # wait for initial Base 3 database load
+            self._sc.clear()
+
     def _sync_complete(self):
-        if self._sync_state.is_synchronized:
+        if self._sync_state.is_synchronized():
             self._synchronized = True
             self._sync_watcher.shutdown()
             self._sync_watcher = None
             self._sc.set()
+
+    @property
+    def pytrain(self) -> "PyTrain":
+        return self._pytrain
 
     @staticmethod
     def _encode_command(command: int, num_bytes: int = 2) -> bytes:

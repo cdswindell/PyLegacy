@@ -14,11 +14,12 @@ import argparse
 import logging.config
 import os
 import random
+import readline
 import signal
 import socket
 import subprocess
 import sys
-from argparse import ArgumentError, ArgumentParser, SUPPRESS
+from argparse import SUPPRESS, ArgumentError, ArgumentParser
 from datetime import datetime, timedelta
 from queue import Empty, Queue
 from threading import Event, Thread, get_native_id
@@ -26,22 +27,8 @@ from time import sleep
 from timeit import default_timer as timer
 from typing import Any, Dict, List, Tuple, cast
 
-import readline
 from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from .acc import AccCli
-from .amc2 import Amc2Cli
-from .asc2 import Asc2Cli
-from .bpc2 import Bpc2Cli
-from .dialogs import DialogsCli
-from .effects import EffectsCli
-from .engine import EngineCli
-from .halt import HaltCli
-from .lighting import LightingCli
-from .reindex import ReindexCli
-from .route import RouteCli
-from .sounds import SoundEffectsCli
-from .switch import SwitchCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -56,7 +43,7 @@ from ..gpio.gpio_handler import GpioHandler
 from ..pdi.amc2_req import Amc2Req, Direction
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.base_req import BaseReq
-from ..pdi.constants import Asc2Action, D4Action, PDI_SOP, PdiCommand
+from ..pdi.constants import PDI_SOP, Asc2Action, D4Action, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.pdi_listener import PdiListener
 from ..pdi.pdi_req import AllReq, PdiReq
@@ -65,23 +52,36 @@ from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import (
     BROADCAST_TOPIC,
-    CommandScope,
     DEFAULT_BASE_PORT,
     DEFAULT_BAUDRATE,
     DEFAULT_PORT,
     DEFAULT_QUEUE_SIZE,
     DEFAULT_SERVER_PORT,
     DEFAULT_VALID_BAUDRATES,
-    Mixins,
     PROGRAM_NAME,
     SERVICE_NAME,
     SERVICE_TYPE,
+    CommandScope,
+    Mixins,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
 from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_network
 from ..utils.singleton import singleton
+from .acc import AccCli
+from .amc2 import Amc2Cli
+from .asc2 import Asc2Cli
+from .bpc2 import Bpc2Cli
+from .dialogs import DialogsCli
+from .effects import EffectsCli
+from .engine import EngineCli
+from .halt import HaltCli
+from .lighting import LightingCli
+from .reindex import ReindexCli
+from .route import RouteCli
+from .sounds import SoundEffectsCli
+from .switch import SwitchCli
 
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
@@ -296,7 +296,7 @@ class PyTrain:
                 )
             sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
             if isinstance(sync_state, SyncState):
-                while not sync_state.is_synchronized:
+                while not sync_state.is_synchronized():
                     cycle += 1
                     if not self._headless:
                         print(
@@ -633,6 +633,10 @@ class PyTrain:
     @property
     def is_api_active(self) -> bool:
         return self._api is True and self._command_queue is not None and self._api_thread is not None
+
+    def is_synchronized(self) -> bool:
+        state = self._state_store.get_state(CommandScope.SYNC, 99, False)
+        return state.is_synchronized() if state else False
 
     def shutdown(self):
         try:
@@ -1157,7 +1161,7 @@ class PyTrain:
             cursor = {0: "|", 1: "/", 2: "-", 3: "\\"}
             print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle]}", end="\r")
             if isinstance(sync_state, SyncState):
-                while not sync_state.is_synchronized:
+                while not sync_state.is_synchronized():
                     cycle += 1
                     print(f"Loading roster from Lionel Base at {self._base_addr}... {cursor[cycle % 4]}", end="\r")
                     sleep(0.10)

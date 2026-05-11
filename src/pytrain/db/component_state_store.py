@@ -16,14 +16,6 @@ import threading
 from collections import defaultdict
 from typing import Generic, List, Set, Tuple, TypeVar, cast
 
-from .comp_data import CompDataMixin
-from .component_state import (
-    SCOPE_TO_STATE_MAP,
-    ComponentState,
-    ComponentStateDict,
-    RequestConfigurationException,
-    SystemStateDict,
-)
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
@@ -37,6 +29,14 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as Engine1
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum as Switch
 from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as Engine2
+from .comp_data import CompDataMixin
+from .component_state import (
+    SCOPE_TO_STATE_MAP,
+    ComponentState,
+    ComponentStateDict,
+    RequestConfigurationException,
+    SystemStateDict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class ComponentStateStore:
         sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
         if sync_state is None:
             return False
-        return cast(SyncState, sync_state).is_synchronized
+        return cast(SyncState, sync_state).is_synchronized()
 
     @classmethod
     def is_state_synchronizing(cls) -> bool:
@@ -117,7 +117,7 @@ class ComponentStateStore:
         sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
         if sync_state is None:
             return False
-        return cast(SyncState, sync_state).is_synchronizing
+        return cast(SyncState, sync_state).is_synchronizing()
 
     @classmethod
     def by_bluetooth_id(cls, bt_id: int) -> T | None:

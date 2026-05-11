@@ -15,13 +15,13 @@ from argparse import ArgumentParser
 from threading import Condition, Event, Thread
 from typing import List
 
-from . import CliBase
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_base import CommandBase
-from ..protocol.constants import CommandScope, DEFAULT_BAUDRATE, DEFAULT_PORT
+from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice
+from . import CliBase
 
 log = logging.getLogger(__name__)
 
@@ -128,9 +128,8 @@ class ReindexCmd(CommandBase, Thread):
         port: str = DEFAULT_PORT,
         server: str = None,
     ):
-        if not self._synchronized:
-            self._sc.wait()  # wait for initial Base 3 database load
-            self._sc.clear()
+        # pause until Base 3 sync complete
+        self.wait_for_sync()
 
         kw = "Validating" if self._cli.is_validate else "Reindexing"
         log.info(f"{kw} Base 3 2-Digit {self._scope.title} database records...")
@@ -152,54 +151,57 @@ class ReindexCmd(CommandBase, Thread):
         self.start()
 
     def run(self) -> None:
-        self._pytrain.pdi_listener.subscribe_any(self)
+        try:
+            self.pytrain.pdi_listener.subscribe_any(self)
 
-        # get record 100; it contains a link to the first engine, alphabetically
-        self._dispatch_req(BaseReq(100, PdiCommand.BASE_MEMORY, scope=self._scope))
+            # get record 100; it contains a link to the first engine, alphabetically
+            self._dispatch_req(BaseReq(100, PdiCommand.BASE_MEMORY, scope=self._scope))
 
-        timeout = 15
-        total_time = self._wait_for_responses(timeout=timeout)
-        if total_time >= timeout:
-            log.warning("Timed out waiting for database state from Lionel Base")
-        self._first_pass_complete = True
+            timeout = 15
+            total_time = self._wait_for_responses(timeout=timeout)
+            if total_time >= timeout:
+                log.warning("Timed out waiting for database state from Lionel Base")
+            self._first_pass_complete = True
 
-        if self._db_order is None and self._entries and self._entries[0].tmcc_id:
-            self._db_order = self._walk_links(self._entries[0].tmcc_id)
-        elif self._db_order is None:
-            self._db_order = []
+            if self._db_order is None and self._entries and self._entries[0].tmcc_id:
+                self._db_order = self._walk_links(self._entries[0].tmcc_id)
+            elif self._db_order is None:
+                self._db_order = []
 
-        all_good = not self._bad_found and self._frm_found and self._lrm_found and self._db_order == self._correct_order
-        if self._cli.is_validate:
-            if not all_good:
-                num_obs = len(self._db_order)
-                log.warning(f"{self._scope.title} record(s) mismatch:")
-                if not self._frm_found:
-                    log.warning("First record link not found")
-                if not self._lrm_found:
-                    log.warning("Last record link not found")
-                if self._db_order != self._correct_order:
-                    log.warning(f"{len(self._entries)} records found, only {num_obs} linked; reindex needed")
-                    if self.is_verbose:
-                        for i, e in enumerate(self._entries):
-                            if i >= num_obs or e.tmcc_id != self._db_order[i]:
-                                log.warning(
-                                    f"{e.tmcc_id:02} {e.road_name} {e.road_number} "
-                                    f"prev:{e.prev_link} next:{e.next_link}"
-                                )
+            all_good = (
+                not self._bad_found and self._frm_found and self._lrm_found and self._db_order == self._correct_order
+            )
+            if self._cli.is_validate:
+                if not all_good:
+                    num_obs = len(self._db_order)
+                    log.warning(f"{self._scope.title} record(s) mismatch:")
+                    if not self._frm_found:
+                        log.warning("First record link not found")
+                    if not self._lrm_found:
+                        log.warning("Last record link not found")
+                    if self._db_order != self._correct_order:
+                        log.warning(f"{len(self._entries)} records found, only {num_obs} linked; reindex needed")
+                        if self.is_verbose:
+                            for i, e in enumerate(self._entries):
+                                if i >= num_obs or e.tmcc_id != self._db_order[i]:
+                                    log.warning(
+                                        f"{e.tmcc_id:02} {e.road_name} {e.road_number} "
+                                        f"prev:{e.prev_link} next:{e.next_link}"
+                                    )
+                else:
+                    log.info(f"All {self._scope.title} records match; no re-index needed.")
             else:
-                log.info(f"All {self._scope.title} records match; no re-index needed.")
-        else:
-            if all_good and not self.is_force:
-                log.info(f"All {self._scope.title} records match; re-index not done.")
-                log.info(
-                    f"Use -force to re-index {self._scope.title} records; "
-                    f"this may take a while depending on the number of records"
-                )
-            else:
-                self._do_reindex()
-                log.info(f"{self._scope.title} records re-indexed and successfully written to the Base 3 database")
-
-        self._pytrain.pdi_listener.unsubscribe_any(self)
+                if all_good and not self.is_force:
+                    log.info(f"All {self._scope.title} records match; re-index not done.")
+                    log.info(
+                        f"Use -force to re-index {self._scope.title} records; "
+                        f"this may take a while depending on the number of records"
+                    )
+                else:
+                    self._do_reindex()
+                    log.info(f"{self._scope.title} records re-indexed and successfully written to the Base 3 database")
+        finally:
+            self.pytrain.pdi_listener.unsubscribe_any(self)
 
     def _wait_for_responses(self, incr: float = 0.25, timeout: int = 15) -> float:
         # now wait for all responses;
@@ -268,7 +270,7 @@ class ReindexCmd(CommandBase, Thread):
             with self._cv:
                 if wait_for:
                     self._waiting_for[req.as_key] = req
-            self._pytrain.pdi_dispatcher.enqueue_command(req)
+            self.pytrain.pdi_dispatcher.enqueue_command(req)
 
     def _build_links_update_req(self, tmcc_id: int, prev_link: int, next_link: int) -> BaseReq:
         # Note: this is hard-wired to update the prev and next record links that are stored in

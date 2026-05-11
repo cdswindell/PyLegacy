@@ -10,12 +10,12 @@
 import atexit
 from threading import Event, RLock, Thread
 
-from .gpio_device import GpioDevice
-from .i2c.oled import Oled, OledDevice
 from ..db.component_state_store import ComponentStateStore
 from ..db.engine_state import EngineState, TrainState
 from ..db.state_watcher import StateWatcher
 from ..protocol.constants import DEFAULT_ADDRESS, PROGRAM_NAME, CommandScope
+from .gpio_device import GpioDevice
+from .i2c.oled import Oled, OledDevice
 
 UP = "\u25b4"
 DOWN = "\u25be"
@@ -60,7 +60,7 @@ class EngineStatus(Thread, GpioDevice):
         # check for state synchronization
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
-        if self._sync_state and self._sync_state.is_synchronized is True:
+        if self._sync_state and self._sync_state.is_synchronized() is True:
             self._sync_watcher = None
             self.on_sync()
         else:
@@ -88,7 +88,6 @@ class EngineStatus(Thread, GpioDevice):
     def scope(self, value: CommandScope) -> None:
         self.update_engine(self.tmcc_id, value)
 
-    @property
     def is_synchronized(self) -> bool:
         return self._synchronized
 
@@ -193,7 +192,7 @@ class EngineStatus(Thread, GpioDevice):
                 row = f"{tb} {mo} {sm}{rpm}"
                 self.display[3] = row
                 cursor = (1, 8)
-            elif self.is_synchronized:
+            elif self.is_synchronized():
                 self.display.write(self.railroad, 0, center=True)
                 if self._tmcc_id and self._tmcc_id != 99:
                     self.display.write(f"{self.scope.label}: {self._tmcc_id}", 1, center=True)
@@ -210,7 +209,7 @@ class EngineStatus(Thread, GpioDevice):
                 self.display.cursor_pos = cursor
 
     def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
+        if self._sync_state.is_synchronized():
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None

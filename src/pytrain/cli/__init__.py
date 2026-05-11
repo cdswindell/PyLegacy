@@ -168,14 +168,21 @@ class CliBase(ABC):
             self._baudrate = self._args.baudrate
         else:
             self._baudrate = DEFAULT_BAUDRATE
+
         if "port" in self._args:
             self._port = self._args.port
         else:
             self._port = DEFAULT_PORT
+
         if "server" in self._args:
             self._server = self._args.server
         else:
             self._server = None
+
+        if "client" in self._args:
+            self._client = self._args.client
+        else:
+            self._client = False
 
         # are we a server or a client, or do we just not know?
         if CommBuffer.is_built():

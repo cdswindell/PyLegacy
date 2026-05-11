@@ -161,7 +161,6 @@ class FakeSyncState:
     def __init__(self, synchronized: bool = True):
         self._sync = synchronized
 
-    @property
     def is_synchronized(self) -> bool:
         return self._sync
 

@@ -12,10 +12,10 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .component_state import SCOPE_TO_STATE_MAP, ComponentState, L, P, UpdateResult
 from ..protocol.command_req import CommandReq
 from ..protocol.constants import PROGRAM_NAME, CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
+from .component_state import SCOPE_TO_STATE_MAP, ComponentState, L, P, UpdateResult
 
 
 class SyncState(ComponentState):
@@ -59,11 +59,9 @@ class SyncState(ComponentState):
     def _update_state(self, command: L | P) -> UpdateResult:
         return UpdateResult.UPDATED
 
-    @property
     def is_synchronized(self) -> bool:
         return self._state_synchronized
 
-    @property
     def is_synchronizing(self) -> bool:
         return self._state_synchronizing
 
@@ -87,7 +85,7 @@ class SyncState(ComponentState):
         return bytes()
 
     def as_dict(self) -> Dict[str, Any]:
-        state = "synchronized" if self.is_synchronized else "synchronizing" if self.is_synchronizing else None
+        state = "synchronized" if self.is_synchronized() else "synchronizing" if self.is_synchronizing() else None
         return {"state": state}
 
 

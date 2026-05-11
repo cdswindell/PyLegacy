@@ -16,7 +16,6 @@ import logging
 import os
 import sys
 import threading
-
 import tkinter as tk
 import traceback
 from abc import ABC, ABCMeta, abstractmethod
@@ -29,13 +28,12 @@ from time import perf_counter, sleep
 from tkinter import TclError
 from typing import Any, Callable, TypeVar
 
-# noinspection PyPackageRequirements
-from PIL import Image, ImageOps, ImageTk
 from guizero import App, Box, TitleBox
 from guizero.base import Widget
 
-from .components.hold_button import HoldButton
-from .controller.engine_gui_conf import FONT_SIZE_EXCEPTIONS
+# noinspection PyPackageRequirements
+from PIL import Image, ImageOps, ImageTk
+
 from ..comm.command_listener import CommandDispatcher
 from ..db.base_state import BaseState
 from ..db.component_state_store import ComponentStateStore
@@ -46,7 +44,9 @@ from ..gpio.gpio_handler import GpioHandler
 from ..pdi.pdi_req import PdiReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
-from ..protocol.constants import CommandScope, PROGRAM_NAME
+from ..protocol.constants import PROGRAM_NAME, CommandScope
+from .components.hold_button import HoldButton
+from .controller.engine_gui_conf import FONT_SIZE_EXCEPTIONS
 
 log = logging.getLogger(__name__)
 E = TypeVar("E", bound=CommandDefEnum)
@@ -395,7 +395,7 @@ class GuiZeroBase(Thread, ABC):
 
     def _on_initial_sync(self) -> None:
         """Handles initial synchronization; starts GUI thread"""
-        if self._sync_state.is_synchronized:
+        if self._sync_state.is_synchronized():
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
                 self._sync_watcher = None

@@ -13,7 +13,6 @@ from typing import Any
 
 from guizero import Box, PushButton, Text
 
-from .guizero_base import GuiZeroBase
 from ..comm.command_listener import CommandDispatcher
 from ..db.component_state_store import ComponentStateStore
 from ..db.state_watcher import StateWatcher
@@ -21,6 +20,7 @@ from ..protocol.command_req import CommandReq
 from ..protocol.constants import CommandScope
 from ..protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
 from ..utils.path_utils import find_file
+from .guizero_base import GuiZeroBase
 
 log = logging.getLogger(__name__)
 LAUNCH_GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError, ValueError)
@@ -115,7 +115,7 @@ class LaunchGui(GuiZeroBase):
         self.init_complete()
 
     def _on_sync(self) -> None:
-        if self._sync_state is not None and not self._sync_state.is_synchronized:
+        if self._sync_state is not None and not self._sync_state.is_synchronized():
             return
 
         self._monitored_state = self._state_store.get_state(CommandScope.ENGINE, self.tmcc_id, False)

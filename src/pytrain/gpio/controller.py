@@ -317,7 +317,7 @@ class Controller(Thread, GpioDevice):
         self._synchronized = False
         self._sync_state = self._state_store.get_state(CommandScope.SYNC, 99)
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} Controller")
-        if self._sync_state and self._sync_state.is_synchronized:
+        if self._sync_state and self._sync_state.is_synchronized():
             self._sync_watcher = None
             self.on_sync()
         else:
@@ -328,7 +328,6 @@ class Controller(Thread, GpioDevice):
     def engine_controller(self) -> EngineController:
         return self._engine_controller
 
-    @property
     def is_synchronized(self) -> bool:
         return self._synchronized
 
@@ -372,7 +371,7 @@ class Controller(Thread, GpioDevice):
             self._state_watcher = StateWatcher(self._state, self.on_state_update)
 
     def on_sync(self) -> None:
-        if self._sync_state.is_synchronized:
+        if self._sync_state.is_synchronized():
             if self._sync_watcher:
                 self._sync_watcher.shutdown()
             self._synchronized = True
@@ -480,7 +479,7 @@ class Controller(Thread, GpioDevice):
             else:
                 row = self.railroad
             self._lcd.add(row)
-            if self.is_synchronized:
+            if self.is_synchronized():
                 row = f"{self._scope.label}: "
                 tmcc_id_pos = len(row)
                 if self._tmcc_id is not None:
@@ -506,7 +505,7 @@ class Controller(Thread, GpioDevice):
                 tmcc_id_pos = 0
 
             self._lcd.write_frame_buffer(clear_display)
-            if self.is_synchronized and self._tmcc_id is None:
+            if self.is_synchronized() and self._tmcc_id is None:
                 self._lcd.cursor_pos = (1, tmcc_id_pos)
 
     @property

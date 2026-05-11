@@ -101,6 +101,23 @@ class DummyState:
         return f"DummyState({self.__dict__})"
 
 
+class DummySyncState:
+    def __init__(self, synchronized: bool = False):
+        self._synchronized = synchronized
+
+    def is_synchronized(self) -> bool:
+        return self._synchronized
+
+    def is_synchronizing(self) -> bool:
+        return not self._synchronized
+
+    def set_synchronized(self, value: bool) -> None:
+        self._synchronized = value
+
+    def __repr__(self):
+        return f"DummySyncState(synchronized={self._synchronized})"
+
+
 # noinspection PyUnusedLocal
 class DummyStateStore:
     def __init__(self):
@@ -128,7 +145,7 @@ def patched_engine_status(monkeypatch):
     # Prepare and patch a stub state store
     store = DummyStateStore()
     # SYNC state: address 99
-    sync_state = DummyState(is_synchronized=False)
+    sync_state = DummySyncState(synchronized=False)
     store.set_state(CommandScope.SYNC, 99, sync_state)
     # BASE state: used for railroad name
     base_state = DummyState(base_name="my railroad")
@@ -199,12 +216,12 @@ def test_on_sync_sets_synchronized_and_updates_display_not_found(patched_engine_
     eng_status = es_mod.EngineStatus(tmcc_id=2222, scope=CommandScope.ENGINE)
 
     # Flip sync state to True and trigger on_sync
-    patched_engine_status.sync_state.is_synchronized = True
+    patched_engine_status.sync_state.set_synchronized(True)
     eng_status.on_sync()
 
     # Sync watcher is shut down and cleared
     assert eng_status._sync_watcher is None
-    assert eng_status.is_synchronized is True
+    assert eng_status.is_synchronized() is True
 
     # No engine state present in store for tmcc_id=2222 => should show Not Found
     writes = eng_status.display._writes
@@ -219,7 +236,7 @@ def test_on_sync_sets_synchronized_and_updates_display_not_found(patched_engine_
 def test_update_engine_sets_state_and_clears_display_and_starts_watcher(patched_engine_status):
     es_mod = patched_engine_status.module
     # Start synchronized so EngineStatus won't create sync watcher that interferes
-    patched_engine_status.sync_state.is_synchronized = True
+    patched_engine_status.sync_state.set_synchronized(True)
 
     # Preload an engine state in store
     state = make_engine_state(address=3333)
@@ -244,7 +261,7 @@ def test_update_engine_sets_state_and_clears_display_and_starts_watcher(patched_
 
 def test_update_display_with_state_populates_rows_and_cursor(patched_engine_status):
     es_mod = patched_engine_status.module
-    patched_engine_status.sync_state.is_synchronized = True
+    patched_engine_status.sync_state.set_synchronized(True)
 
     # Provide monitored state directly via constructor by passing state object
     eng_state = make_engine_state(address=5555)
