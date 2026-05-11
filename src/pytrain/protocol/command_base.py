@@ -8,16 +8,18 @@
 #
 
 import abc
+import threading
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
 from typing import Sequence, TypeVar, cast
 
 from ..comm.comm_buffer import CommBuffer
+from ..db.state_watcher import StateWatcher
 from ..pdi.pdi_req import PdiReq
 from ..utils.validations import Validations
 from .command_def import CommandDef, CommandDefEnum
 from .command_req import CommandReq
-from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope
+from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope, PROGRAM_NAME
 
 R = TypeVar("R", bound=CommandReq | PdiReq | Sequence[CommandReq | PdiReq])
 
@@ -35,9 +37,16 @@ class CommandBase(ABC):
         baudrate: int = DEFAULT_BAUDRATE,
         port: str = DEFAULT_PORT,
         server: str = None,
+        client: bool = False,
+        base3: str = None,
     ) -> None:
+        from src.pytrain import PyTrain
+
+        super().__init__()
         self._address = address
         self._command = None  # provided by _build_command method in subclasses
+        self._sc = threading.Event()
+
         # validate baudrate
         if baudrate is None or baudrate < 110 or baudrate > 115200 or not isinstance(baudrate, int):
             raise ValueError("baudrate must be between 110 and 115,200")
@@ -48,6 +57,29 @@ class CommandBase(ABC):
         self._port = port
         # validate server ip address
         self._server, self._port = CommBuffer.parse_server(server, port)
+
+        if PyTrain.current(raise_exception=False) is None:
+            self._daemon = False
+            self._synchronized = False
+            pt_args = "-api"
+            if client:
+                pt_args += " -client"
+            elif server:
+                pt_args += f" -server {server}"
+            elif base3:
+                pt_args += f" -base {base3}"
+            else:
+                raise NotImplementedError(f"{PROGRAM_NAME} can not be run without {PROGRAM_NAME} client or a Base 3")
+
+            self._pytrain = PyTrain(pt_args.split())
+
+            self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
+            self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
+        else:
+            self._daemon = True
+            self._synchronized = True
+            self._pytrain = PyTrain.current()
+        assert self._pytrain is not None, f"{PROGRAM_NAME} must be initialized"
 
         # persist command information
         self._command_def_enum: CommandDefEnum = command
@@ -94,6 +126,14 @@ class CommandBase(ABC):
     @property
     def command_req(self) -> R:
         return self._command_req
+
+    @property
+    def is_daemon(self) -> bool:
+        return self._daemon
+
+    @property
+    def is_synchronized(self) -> bool:
+        return self._synchronized
 
     def send(
         self,
@@ -155,6 +195,13 @@ class CommandBase(ABC):
             port=port,
             server=server,
         )
+
+    def _sync_complete(self):
+        if self._sync_state.is_synchronized:
+            self._synchronized = True
+            self._sync_watcher.shutdown()
+            self._sync_watcher = None
+            self._sc.set()
 
     @staticmethod
     def _encode_command(command: int, num_bytes: int = 2) -> bytes:

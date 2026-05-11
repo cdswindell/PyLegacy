@@ -16,8 +16,6 @@ from threading import Condition, Event, Thread
 from typing import List
 
 from . import CliBase
-from ..db.state_watcher import StateWatcher
-from ..protocol.constants import PROGRAM_NAME
 from ..pdi.base_req import BaseReq
 from ..pdi.constants import PdiCommand
 from ..pdi.pdi_req import PdiReq
@@ -36,39 +34,24 @@ class ReindexCmd(CommandBase, Thread):
     """
 
     def __init__(self, cli: ReindexCli) -> None:
-        from .pytrain import PyTrain
-
         self._cli = cli
         self._scope: CommandScope = cli.scope
 
         if self._cli.scope is None:
             raise ValueError("Scope must be specified")
 
-        if PyTrain.current(raise_exception=False) is None:
-            daemon = False
-            self._synchronized = False
-            pt_args = "-api"
-            if "client" in self._cli.args and self._cli.args.client:
-                pt_args += " -client"
-            elif "server" in self._cli.args and self._cli.args.server:
-                pt_args += f" -server {self._cli.args.server}"
-            elif "base" in self._cli.args and self._cli.args.base3:
-                pt_args += f" -base {self._cli.args.server}"
-            else:
-                raise NotImplementedError(f"{PROGRAM_NAME} can not be run without {PROGRAM_NAME} client or a Base 3")
-            self._pytrain = PyTrain(pt_args.split())
-
-            self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
-            self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
-        else:
-            daemon = True
-            self._synchronized = True
-            self._pytrain = PyTrain.current()
-        assert self._pytrain is not None, f"{PROGRAM_NAME} must be initialized"
-
         # with PyTrain initialization sorted out, initialize CommandBase and Thread
-        CommandBase.__init__(self, None, None, 1, scope=self._scope, server=None)
-        Thread.__init__(self, daemon=daemon, name="ReindexCmdThread")
+        CommandBase.__init__(
+            self,
+            None,
+            None,
+            1,
+            scope=self._scope,
+            server=self._cli.args.server if "server" in self._cli.args else None,
+            client=self._cli.args.client if "client" in self._cli.args else False,
+            base3=self._cli.args.base3 if "base3" in self._cli.args else None,
+        )
+        Thread.__init__(self, daemon=self.is_daemon, name="ReindexCmdThread")
 
         self._command = self._build_command()
         self._entries = None
@@ -146,8 +129,8 @@ class ReindexCmd(CommandBase, Thread):
         server: str = None,
     ):
         if not self._synchronized:
-            self._ev.wait()  # wait for initial Base 3 database load
-            self._ev.clear()
+            self._sc.wait()  # wait for initial Base 3 database load
+            self._sc.clear()
 
         kw = "Validating" if self._cli.is_validate else "Reindexing"
         log.info(f"{kw} Base 3 2-Digit {self._scope.title} database records...")
@@ -319,13 +302,6 @@ class ReindexCmd(CommandBase, Thread):
                 entry = None
 
         return db_list
-
-    def _sync_complete(self):
-        if self._sync_state.is_synchronized:
-            self._synchronized = True
-            self._sync_watcher.shutdown()
-            self._sync_watcher = None
-            self._ev.set()
 
     def _build_command(self) -> bytes | None:
         return None
