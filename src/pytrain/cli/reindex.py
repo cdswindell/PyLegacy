@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from argparse import ArgumentParser
 from threading import Condition, Event, Thread
@@ -383,3 +384,13 @@ class ReindexCli(CliBase):
     @property
     def is_verbose(self) -> bool:
         return self._verbose
+
+
+def main(args: list[str] | None = None) -> int:
+    if args is None:
+        args = sys.argv[1:]
+    try:
+        ReindexCli(cmd_line=args)
+        return 0
+    except Exception as e:
+        sys.exit(f"{__file__}: error: {e}\n")
