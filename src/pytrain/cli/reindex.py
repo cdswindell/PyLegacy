@@ -49,7 +49,7 @@ class ReindexCmd(CommandBase, Thread):
             scope=self._scope,
             server=self._cli.args.server if "server" in self._cli.args else None,
             client=self._cli.args.client if "client" in self._cli.args else False,
-            base3=self._cli.args.base3 if "base3" in self._cli.args else None,
+            base=self._cli.args.base if "base" in self._cli.args else None,
         )
         Thread.__init__(self, daemon=self.is_daemon, name="ReindexCmdThread")
 
@@ -84,7 +84,7 @@ class ReindexCmd(CommandBase, Thread):
         """
         Callback specified in the Subscriber protocol used to send events to listeners
         """
-        if not self._synchronized:
+        if not self.is_synchronized():
             return
 
         if cmd and cmd.scope == self._scope:

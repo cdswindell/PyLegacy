@@ -49,6 +49,7 @@ class CliBase(ABC):
         # define arguments common to all Legacy CLI commands
         parser = PyTrainArgumentParser(add_help=False)
 
+        parser.add_argument("-base", action="store", help="IP Address of the Lionel Base 3")
         parser.add_argument(
             "-baudrate",
             action="store",
@@ -183,6 +184,11 @@ class CliBase(ABC):
             self._client = self._args.client
         else:
             self._client = False
+
+        if "base" in self._args:
+            self._base = self._args.base
+        else:
+            self._base = None
 
         # are we a server or a client, or do we just not know?
         if CommBuffer.is_built():

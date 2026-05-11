@@ -1082,7 +1082,7 @@ class PyTrain:
                     #
                     # we're done with the admin/special commands, now do train stuff
                     ui_parser = args.command.command_parser()
-                    ui_parser.remove_args(["baudrate", "client", "port", "server"])
+                    ui_parser.remove_args(["base", "baudrate", "client", "port", "server"])
                     # very hacky; should turn into a method to reduce complexity of this section
                     # if the user entered "tr...", treat this as a train command
                     # normally, this is done by adding the "-train" token after the tmcc_id but

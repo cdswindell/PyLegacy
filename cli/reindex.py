@@ -10,4 +10,7 @@
 from src.pytrain.cli.reindex import ReindexCli
 
 if __name__ == "__main__":
-    ReindexCli()
+    try:
+        ReindexCli()
+    except Exception as e:
+        print(e)

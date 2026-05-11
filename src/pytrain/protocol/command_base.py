@@ -41,7 +41,7 @@ class CommandBase(ABC):
         port: str = DEFAULT_PORT,
         server: str = None,
         client: bool = False,
-        base3: str = None,
+        base: str = None,
     ) -> None:
         from src.pytrain import PyTrain
 
@@ -63,25 +63,23 @@ class CommandBase(ABC):
 
         if PyTrain.current(raise_exception=False) is None:
             self._daemon = False
-            self._synchronized = False
             pt_args = "-api"
             if client:
                 pt_args += " -client"
             elif server:
                 pt_args += f" -server {server}"
-            elif base3:
-                pt_args += f" -base {base3}"
+            elif base:
+                pt_args += f" -headless -base {base}"
             else:
-                raise NotImplementedError(f"{PROGRAM_NAME} can not be run without {PROGRAM_NAME} client or a Base 3")
+                raise NotImplementedError("Program can not be run without specifying '-client' or '-base [IP Address]'")
 
             self._pytrain = PyTrain(pt_args.split())
-
-            self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
-            self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
+            if not self._pytrain.is_synchronized():
+                self._sync_state = self._pytrain.store.get_state(CommandScope.SYNC, 99)
+                self._sync_watcher = StateWatcher(self._sync_state, self._sync_complete)
         else:
             self._pytrain = PyTrain.current()
             self._daemon = True
-            self._synchronized = self._pytrain.is_synchronized()
 
         assert self._pytrain is not None, f"{PROGRAM_NAME} must be initialized"
 
@@ -136,7 +134,7 @@ class CommandBase(ABC):
         return self._daemon
 
     def is_synchronized(self) -> bool:
-        return self._synchronized
+        return self._pytrain.is_synchronized() if self._pytrain else False
 
     def send(
         self,
