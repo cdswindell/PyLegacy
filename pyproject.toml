@@ -77,6 +77,7 @@ configure = "pytrain.cli.configure:main"
 make_gui = "pytrain.cli.make_gui:main"
 make_service = "pytrain.cli.make_service:main"
 piconfig = "pytrain.cli.piconfig:main"
+reindex = "pytrain.cli.reindex.main"
 
 [project.urls]
 Homepage = "https://github.com/cdswindell/PyLegacy"
