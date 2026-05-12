@@ -59,6 +59,7 @@ COMMAND_REQUEST_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, 
 PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueError)
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
+DEFAULT_LAYOUT_TITLE = "My Layout"
 
 
 class TkWatchdog:
@@ -207,7 +208,7 @@ class GuiZeroBase(Thread, ABC):
             self.width = width
             self.height = height
 
-        self.title = "My Layout"
+        self.title = DEFAULT_LAYOUT_TITLE
         self._scale_by = scale_by
         self.repeat = repeat
 
@@ -402,11 +403,11 @@ class GuiZeroBase(Thread, ABC):
             self._synchronized = True
             self._base_state = self._state_store.get_state(CommandScope.BASE, 0, False)
             with self._cv:
-                if self.title is None:
+                if self.title is None or self.title == DEFAULT_LAYOUT_TITLE:
                     if isinstance(self._base_state, BaseState):
                         self.title = self._base_state.base_name
                     else:
-                        self.title = "My Layout"
+                        self.title = DEFAULT_LAYOUT_TITLE
 
             # start GUI; heavy lifting done in run()
             self._init_complete_flag.wait()
