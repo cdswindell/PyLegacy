@@ -13,7 +13,7 @@ from src.pytrain.pdi.amc2_req import Amc2Req
 from src.pytrain.pdi.asc2_req import Asc2Req
 from src.pytrain.pdi.bpc2_req import Bpc2Req
 from src.pytrain.pdi.constants import Amc2Action, Asc2Action, Bpc2Action, IrdaAction, PdiCommand
-from src.pytrain.pdi.irda_req import IrdaReq
+from src.pytrain.pdi.irda_req import IrdaReq, IrdaSequence
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
@@ -166,6 +166,22 @@ class TestAccessoryState:
         assert isinstance(blob, (bytes, bytearray))
         # Should contain IRDA header byte (0x32) somewhere after the first packet
         assert PdiCommand.IRDA_RX.as_bytes in blob
+
+    def test_irda_config_marks_sensor_track(self):
+        acc = self._new_acc(19)
+
+        config = IrdaReq(
+            acc.address,
+            PdiCommand.IRDA_RX,
+            IrdaAction.CONFIG,
+            scope=CommandScope.ACC,
+            sequence=IrdaSequence.NORMAL_SPEED_SLOW_SPEED,
+        )
+        acc.update(config)
+
+        assert acc.is_sensor_track is True
+        assert acc.is_lcs_component is True
+        assert acc.as_dict()["type"] == "sensor track"
 
     def test_as_bytes_tmcc_accessory_commands_append(self):
         acc = self._new_acc(22)

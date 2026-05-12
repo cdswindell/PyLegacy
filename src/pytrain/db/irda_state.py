@@ -53,6 +53,8 @@ class IrdaState(LcsState):
         from ..comm.comm_buffer import CommBuffer
         from .component_state_store import ComponentStateStore
 
+        super()._update_state(command)
+
         # Updates sensor state from IRDA commands; handles config, sequence,
         # data with speed adjustments and state propagation
         if isinstance(command, IrdaReq) and command.pdi_command == PdiCommand.IRDA_RX:

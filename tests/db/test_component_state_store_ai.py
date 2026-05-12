@@ -14,6 +14,8 @@ import pytest
 from src.pytrain.db.component_state import ComponentState
 from src.pytrain.db.component_state_store import ComponentStateStore, DependencyCache
 from src.pytrain.db.sync_state import SyncState
+from src.pytrain.pdi.constants import IrdaAction, PdiCommand
+from src.pytrain.pdi.irda_req import IrdaReq, IrdaSequence
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
@@ -174,6 +176,31 @@ class TestComponentStateStoreUpdates:
         # Toggle off
         store(CommandReq.build(Aux.AUX1_OFF, addr))
         assert st.aux1_state == Aux.AUX1_OFF
+
+    def test_irda_config_marks_corresponding_accessory_as_sensor_track(self):
+        assert ComponentStateStore.is_built() is False
+        store = build_store()
+        addr = 18
+
+        config = IrdaReq(
+            addr,
+            PdiCommand.IRDA_RX,
+            IrdaAction.CONFIG,
+            sequence=IrdaSequence.SLOW_SPEED_NORMAL_SPEED,
+        )
+        store(config)
+
+        irda_state = store.query(CommandScope.IRDA, addr)
+        acc_state = ComponentStateStore.get_state(CommandScope.ACC, addr)
+        assert irda_state is not None
+        assert acc_state.is_sensor_track is False
+
+        store._process_config_cache()
+
+        assert acc_state.parent is irda_state
+        assert acc_state.is_sensor_track is True
+        assert acc_state.is_lcs_component is True
+        assert acc_state.as_dict()["type"] == "sensor track"
 
     def test_broadcast_updates_update_all_known_for_scope(self):
         assert ComponentStateStore.is_built() is False

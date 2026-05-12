@@ -1204,7 +1204,7 @@ class PyTrain:
                             address = int(param[1])
                             state: ComponentState = self._state_store.query(scope, address)
                             if state:
-                                print(state, state.prev_link, state.next_link)
+                                print(state)
                                 return
                             else:
                                 print(f"No data available for this {scope.title}.")
