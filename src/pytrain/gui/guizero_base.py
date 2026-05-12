@@ -207,7 +207,7 @@ class GuiZeroBase(Thread, ABC):
             self.width = width
             self.height = height
 
-        self.title = None
+        self.title = "My Layout"
         self._scale_by = scale_by
         self.repeat = repeat
 
