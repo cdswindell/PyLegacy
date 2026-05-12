@@ -48,7 +48,6 @@ SERVICES = [
     "pipewire",
     "pulseaudio",
     "rpi-connect",
-    "rpi-connect",
     "rpi-connect-wayvnc",
     "rpi-connect-wayvnc-watcher",
     "rpicam-apps",
