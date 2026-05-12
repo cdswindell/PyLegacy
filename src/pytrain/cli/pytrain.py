@@ -789,13 +789,18 @@ class PyTrain:
         self.relaunch(PyTrainExitStatus.UPDATE)
 
     def upgrade(self) -> None:
-        log.info(f"{'Server' if self.is_server else 'Client'} upgrading...")
+        log.info(f"{'Server' if self.is_server else 'Client'} upgrading and rebooting...")
         if sys.platform == "linux":
             os.system("sudo apt update")
             sleep(1)
             os.system("sudo apt upgrade -y")
             sleep(1)
             os.system("sudo apt autoremove -y")
+            sleep(1)
+            os.system("sudo rpi-eeprom-update -a")
+            log.info(f"{'Server' if self.is_server else 'Client'} upgrade complete; rebooting...")
+            sleep(2)
+            os.system("sudo reboot")
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)

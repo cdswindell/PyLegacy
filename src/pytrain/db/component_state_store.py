@@ -10,16 +10,14 @@
 
 from __future__ import annotations
 
-import collections
 import logging
 import threading
 from collections import defaultdict
-from typing import Generic, List, Set, Tuple, TypeVar, cast
+from typing import Generic, List, Set, Tuple, TypeVar
 
 from ..comm.comm_buffer import CommBuffer
 from ..comm.command_listener import CommandListener, Message, Subscriber, Topic
 from ..db.client_state_listener import ClientStateListener
-from ..db.sync_state import SyncState
 from ..pdi.lcs_req import LcsReq
 from ..protocol.command_def import CommandDefEnum
 from ..protocol.command_req import CommandReq
@@ -108,7 +106,7 @@ class ComponentStateStore:
         sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
         if sync_state is None:
             return False
-        return cast(SyncState, sync_state).is_synchronized()
+        return sync_state.is_synchronized()
 
     @classmethod
     def is_state_synchronizing(cls) -> bool:
@@ -117,7 +115,7 @@ class ComponentStateStore:
         sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
         if sync_state is None:
             return False
-        return cast(SyncState, sync_state).is_synchronizing()
+        return sync_state.is_synchronizing()
 
     @classmethod
     def by_bluetooth_id(cls, bt_id: int) -> T | None:
@@ -336,7 +334,7 @@ class ComponentStateStore:
     def scopes(self) -> Set[CommandScope]:
         return set(self._state.keys())
 
-    def addresses(self, scope: CommandScope) -> collections.Iterable[int]:
+    def addresses(self, scope: CommandScope) -> set[int]:
         return set(self._state[scope].keys())
 
     def _delete_state(self, scope: CommandScope, address: int) -> None:
