@@ -503,12 +503,17 @@ class EditableText(Text):
 
         controls = tk.Frame(kb, background="#202020")
         controls.pack(fill="x", padx=8, pady=8)
-        mode_label = "ABC" if self._keyboard_mode == "lower" else "abc" if self._keyboard_mode == "upper" else "abc"
-        self._make_key(controls, mode_label, self._toggle_case, weight=1)
-        symbol_label = "123" if self._keyboard_mode != "symbols" else "abc"
-        self._make_key(controls, symbol_label, self._toggle_symbols, weight=1)
+        if self._keyboard_mode == "symbols":
+            self._make_key(controls, "ABC", lambda: self._set_keyboard_mode("upper"), weight=1)
+            self._make_key(controls, "abc", lambda: self._set_keyboard_mode("lower"), weight=1)
+        else:
+            mode_label = "ABC" if self._keyboard_mode == "lower" else "abc"
+            self._make_key(controls, mode_label, self._toggle_case, weight=1)
+            self._make_key(controls, "123", self._toggle_symbols, weight=1)
         self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=4)
-        self._make_key(controls, "Backspace", self._backspace, weight=2)
+        self._make_key(controls, "<--", self._move_cursor_left, weight=1)
+        self._make_key(controls, "-->", self._move_cursor_right, weight=1)
+        self._make_key(controls, "Del", self._backspace, weight=1)
 
     @staticmethod
     def _make_key(parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
@@ -559,12 +564,13 @@ class EditableText(Text):
         self._insert_text(value)
 
     def _toggle_case(self) -> None:
-        self._keyboard_mode = "upper" if self._keyboard_mode == "lower" else "lower"
-        if self._keyboard_window is not None:
-            self._build_builtin_keyboard(self._keyboard_window)
+        self._set_keyboard_mode("upper" if self._keyboard_mode == "lower" else "lower")
 
     def _toggle_symbols(self) -> None:
-        self._keyboard_mode = "lower" if self._keyboard_mode == "symbols" else "symbols"
+        self._set_keyboard_mode("lower" if self._keyboard_mode == "symbols" else "symbols")
+
+    def _set_keyboard_mode(self, mode: str) -> None:
+        self._keyboard_mode = mode
         if self._keyboard_window is not None:
             self._build_builtin_keyboard(self._keyboard_window)
 
@@ -590,6 +596,28 @@ class EditableText(Text):
                 pos = self._entry.index("insert")
                 if pos > 0:
                     self._entry.delete(pos - 1, pos)
+            self._entry.focus_set()
+        except TclError:
+            pass
+
+    def _move_cursor_left(self) -> None:
+        if self._entry is None:
+            return
+        try:
+            pos = self._entry.index("insert")
+            self._entry.selection_clear()
+            self._entry.icursor(max(0, pos - 1))
+            self._entry.focus_set()
+        except TclError:
+            pass
+
+    def _move_cursor_right(self) -> None:
+        if self._entry is None:
+            return
+        try:
+            pos = self._entry.index("insert")
+            self._entry.selection_clear()
+            self._entry.icursor(min(len(self._entry.get()), pos + 1))
             self._entry.focus_set()
         except TclError:
             pass

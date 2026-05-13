@@ -131,6 +131,9 @@ class DummyEntry:
     def selection_present(self) -> bool:
         return self._selection is not None
 
+    def selection_clear(self) -> None:
+        self._selection = None
+
     def icursor(self, index: int | str) -> None:
         self.cursor = len(self.text) if index == "end" else int(index)
 
@@ -407,6 +410,9 @@ def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkey
     assert any(btn.text == "Clear" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
     assert any(btn.text == "Enter" for btn in DummyButton.instances)
+    assert any(btn.text == "<--" for btn in DummyButton.instances)
+    assert any(btn.text == "-->" for btn in DummyButton.instances)
+    assert any(btn.text == "Del" for btn in DummyButton.instances)
 
 
 def test_builtin_keyboard_supports_lower_upper_and_symbols(
@@ -430,6 +436,29 @@ def test_builtin_keyboard_supports_lower_upper_and_symbols(
     widget._toggle_symbols()
     assert widget._keyboard_mode == "symbols"
     assert any(btn.text == "&" for btn in DummyButton.instances)
+    assert any(btn.text == "ABC" for btn in DummyButton.instances)
+    assert any(btn.text == "abc" for btn in DummyButton.instances)
+
+    widget._set_keyboard_mode("upper")
+    assert widget._keyboard_mode == "upper"
+    assert any(btn.text == "Q" for btn in DummyButton.instances)
+
+
+def test_builtin_keyboard_moves_cursor_and_del_deletes_left(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(None, text="Old", debounce_ms=0)
+
+    widget.begin_edit()
+    widget._entry.selection_clear()
+    widget._entry.icursor(1)
+    widget._move_cursor_right()
+    assert widget._entry.index("insert") == 2
+
+    widget._move_cursor_left()
+    assert widget._entry.index("insert") == 1
+
+    widget._backspace()
+    assert widget._entry.get() == "ld"
+    assert widget._entry.index("insert") == 0
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:
