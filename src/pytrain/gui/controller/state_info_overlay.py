@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, cast
 from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
-from ..components import EditableText
+from ..components.editable_text import EditableText
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
@@ -121,6 +121,7 @@ class StateInfoOverlay:
                     max_length=31,
                     on_commit=on_edit,
                 )
+                tf.add_hold_target(tb)
             else:
                 tf = Text(tb, grid=[0, 0], width="fill", height=1)
             tf.text_size = text_size

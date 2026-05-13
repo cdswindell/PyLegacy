@@ -179,6 +179,48 @@ def test_release_before_hold_cancels_inline_edit(editable_text_module) -> None:
     assert widget.is_editing is False
 
 
+def test_leave_does_not_cancel_hold_by_default(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(None, text="Original", hold_threshold=0.5, debounce_ms=0)
+
+    widget._on_press()
+    after_id = widget._hold_after_id
+    widget._on_leave()
+    widget.tk.run_after(after_id)
+
+    assert widget.is_editing is True
+
+
+def test_leave_can_cancel_hold_when_configured(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(
+        None,
+        text="Original",
+        hold_threshold=0.5,
+        debounce_ms=0,
+        cancel_on_leave=True,
+    )
+
+    widget._on_press()
+    after_id = widget._hold_after_id
+    widget._on_leave()
+
+    assert after_id not in widget.tk._after_calls
+    assert widget.is_editing is False
+
+
+def test_added_hold_target_can_begin_edit(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(None, text="Original", hold_threshold=0.5, debounce_ms=0)
+    target = DummyTk(top=widget.tk.winfo_toplevel())
+
+    widget.add_hold_target(target)
+    target._bindings["<ButtonPress-1>"][0]()
+    after_id = widget._hold_after_id
+    assert after_id is not None
+
+    widget.tk.run_after(after_id)
+
+    assert widget.is_editing is True
+
+
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:
     seen = []
     widget = editable_text_module.EditableText(

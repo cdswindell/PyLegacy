@@ -39,6 +39,7 @@ class EditableText(Text):
         on_cancel: Callable[["EditableText", str], None] | tuple | list | None = None,
         commit_on_focus_lost: bool = True,
         select_all_on_edit: bool = True,
+        cancel_on_leave: bool = False,
         edit_bg: str = "white",
         edit_fg: str = "black",
         **kwargs,
@@ -52,6 +53,7 @@ class EditableText(Text):
         self.on_cancel = on_cancel
         self.commit_on_focus_lost = bool(commit_on_focus_lost)
         self.select_all_on_edit = bool(select_all_on_edit)
+        self.cancel_on_leave = bool(cancel_on_leave)
         self.edit_bg = edit_bg
         self.edit_fg = edit_fg
 
@@ -70,6 +72,22 @@ class EditableText(Text):
         try:
             self.tk.configure(cursor="hand2")
         except TclError:
+            pass
+
+    def add_hold_target(self, target: Any) -> None:
+        """
+        Add another Tk or GuiZero widget that should start editing this text on hold.
+
+        This is useful when the Text lives inside a larger labelled field and the whole field
+        should feel editable, not only the exact label pixels.
+        """
+        tk_target = getattr(target, "tk", target)
+        try:
+            tk_target.bind("<ButtonPress-1>", self._on_press, add="+")
+            tk_target.bind("<ButtonRelease-1>", self._on_release, add="+")
+            tk_target.bind("<Leave>", self._on_leave, add="+")
+            tk_target.configure(cursor="hand2")
+        except (AttributeError, TclError):
             pass
 
     @property
@@ -153,7 +171,7 @@ class EditableText(Text):
 
     # noinspection PyUnusedLocal
     def _on_leave(self, event=None) -> None:
-        if self._editing:
+        if self._editing or not self.cancel_on_leave:
             return
         self._pressed = False
         self._cancel_hold_timer()
