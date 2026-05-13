@@ -488,24 +488,27 @@ class EditableText(Text):
         except TclError:
             pass
 
+        action_row = tk.Frame(kb, background="#202020")
+        action_row.pack(fill="x", padx=8, pady=(8, 0))
+        self._make_key(action_row, "Clear", self._clear_entry, weight=1)
+        self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
+        self._make_key(action_row, "Enter", self.commit_edit, weight=1)
+
         for row_idx, keys in enumerate(self._keyboard_rows()):
             row = tk.Frame(kb, background="#202020")
-            row.pack(fill="x", padx=8, pady=(8 if row_idx == 0 else 5, 0))
+            row.pack(fill="x", padx=8, pady=(6 if row_idx == 0 else 5, 0))
             for key in keys:
                 label, value, weight = self._parse_key(key)
                 self._make_key(row, label, lambda v=value: self._on_keyboard_key(v), weight=weight)
 
         controls = tk.Frame(kb, background="#202020")
-        controls.pack(fill="x", padx=8, pady=10)
+        controls.pack(fill="x", padx=8, pady=8)
         mode_label = "ABC" if self._keyboard_mode == "lower" else "abc" if self._keyboard_mode == "upper" else "abc"
         self._make_key(controls, mode_label, self._toggle_case, weight=1)
         symbol_label = "123" if self._keyboard_mode != "symbols" else "abc"
         self._make_key(controls, symbol_label, self._toggle_symbols, weight=1)
         self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=4)
         self._make_key(controls, "Backspace", self._backspace, weight=2)
-        self._make_key(controls, "Clear", self._clear_entry, weight=1)
-        self._make_key(controls, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(controls, "Done", self.commit_edit, weight=1)
 
     @staticmethod
     def _make_key(parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
@@ -520,7 +523,7 @@ class EditableText(Text):
             background="#f7f7f7",
             activebackground="#d8d8d8",
         )
-        btn.pack(side="left", fill="both", expand=True, padx=4, ipady=14)
+        btn.pack(side="left", fill="both", expand=True, padx=4, ipady=11)
         if weight > 1:
             btn.configure(width=5 * weight)
 

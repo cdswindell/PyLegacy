@@ -404,6 +404,9 @@ def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkey
     assert isinstance(widget._keyboard_window, DummyWindow)
     assert widget._entry.get() == "A"
     assert widget._keyboard_window.geometry_value == "800x420+0+60"
+    assert any(btn.text == "Clear" for btn in DummyButton.instances)
+    assert any(btn.text == "Cancel" for btn in DummyButton.instances)
+    assert any(btn.text == "Enter" for btn in DummyButton.instances)
 
 
 def test_builtin_keyboard_supports_lower_upper_and_symbols(
