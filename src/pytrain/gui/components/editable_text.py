@@ -10,14 +10,28 @@
 from __future__ import annotations
 
 import logging
+import os
+import shlex
+import shutil
+import subprocess
 import time
 import tkinter as tk
 from tkinter import TclError
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from guizero import Text
 
 log = logging.getLogger(__name__)
+
+OSK_COMMAND_ENV = "PYTRAIN_OSK_COMMAND"
+DEFAULT_OSK_COMMANDS = (
+    ("wvkbd-mobintl",),
+    ("wvkbd",),
+    ("squeekboard",),
+    ("onboard",),
+    ("matchbox-keyboard",),
+    ("florence",),
+)
 
 
 class EditableText(Text):
@@ -40,6 +54,10 @@ class EditableText(Text):
         commit_on_focus_lost: bool = True,
         select_all_on_edit: bool = True,
         cancel_on_leave: bool = False,
+        show_keyboard_on_edit: bool = True,
+        keyboard_command: str | Sequence[str] | None = None,
+        keyboard_candidates: Sequence[str | Sequence[str]] | None = None,
+        hide_keyboard_on_finish: bool = True,
         edit_bg: str = "white",
         edit_fg: str = "black",
         **kwargs,
@@ -54,6 +72,12 @@ class EditableText(Text):
         self.commit_on_focus_lost = bool(commit_on_focus_lost)
         self.select_all_on_edit = bool(select_all_on_edit)
         self.cancel_on_leave = bool(cancel_on_leave)
+        self.show_keyboard_on_edit = bool(show_keyboard_on_edit)
+        self.keyboard_command = keyboard_command
+        self.keyboard_candidates = (
+            tuple(keyboard_candidates) if keyboard_candidates is not None else DEFAULT_OSK_COMMANDS
+        )
+        self.hide_keyboard_on_finish = bool(hide_keyboard_on_finish)
         self.edit_bg = edit_bg
         self.edit_fg = edit_fg
 
@@ -61,6 +85,8 @@ class EditableText(Text):
         self._pressed = False
         self._editing = False
         self._hold_after_id: str | None = None
+        self._keyboard_after_id: str | None = None
+        self._keyboard_process: subprocess.Popen | None = None
         self._value_before_edit = ""
         self._entry: tk.Entry | None = None
 
@@ -112,6 +138,7 @@ class EditableText(Text):
             if self.select_all_on_edit:
                 entry.selection_range(0, "end")
             entry.icursor("end")
+            self._schedule_keyboard()
         except TclError:
             self._editing = False
             log.debug("Unable to begin inline text edit", exc_info=True)
@@ -253,6 +280,9 @@ class EditableText(Text):
         self._editing = False
         self._pressed = False
         self._cancel_hold_timer()
+        self._cancel_keyboard_timer()
+        if self.hide_keyboard_on_finish:
+            self._hide_keyboard()
         if self._entry is not None:
             try:
                 self._entry.place_forget()
@@ -296,3 +326,73 @@ class EditableText(Text):
             args = cb[1] if len(cb) > 1 else default_args
             kwargs = cb[2] if len(cb) > 2 else {}
             func(*args, **kwargs)
+
+    def _schedule_keyboard(self) -> None:
+        if not self.show_keyboard_on_edit:
+            return
+        self._cancel_keyboard_timer()
+        try:
+            self._keyboard_after_id = self.tk.after(150, self._show_keyboard)
+        except TclError:
+            self._show_keyboard()
+
+    def _cancel_keyboard_timer(self) -> None:
+        if self._keyboard_after_id is None:
+            return
+        try:
+            self.tk.after_cancel(self._keyboard_after_id)
+        except TclError:
+            pass
+        self._keyboard_after_id = None
+
+    def _show_keyboard(self) -> None:
+        self._keyboard_after_id = None
+        if not self._editing:
+            return
+        if self._keyboard_process is not None and self._keyboard_process.poll() is None:
+            return
+
+        cmd = self._resolve_keyboard_command()
+        if not cmd:
+            return
+
+        try:
+            self._keyboard_process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+            )
+        except (FileNotFoundError, OSError):
+            log.debug("Unable to show on-screen keyboard with command: %s", cmd, exc_info=True)
+
+    def _hide_keyboard(self) -> None:
+        proc = self._keyboard_process
+        self._keyboard_process = None
+        if proc is None or proc.poll() is not None:
+            return
+
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+
+    def _resolve_keyboard_command(self) -> list[str] | None:
+        command = self.keyboard_command or os.environ.get(OSK_COMMAND_ENV)
+        if command:
+            return self._normalize_command(command)
+
+        for candidate in self.keyboard_candidates:
+            cmd = self._normalize_command(candidate)
+            if cmd and shutil.which(cmd[0]):
+                return cmd
+        return None
+
+    @staticmethod
+    def _normalize_command(command: str | Sequence[str]) -> list[str] | None:
+        if isinstance(command, str):
+            cmd = shlex.split(command)
+        else:
+            cmd = [str(part) for part in command]
+        return cmd or None

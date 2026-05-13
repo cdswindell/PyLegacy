@@ -20,11 +20,12 @@ class FakeEditableText:
         self.is_editing = False
 
 
+# noinspection PyTypeChecker
 def test_popup_close_commits_active_inline_edits_and_delegates(monkeypatch) -> None:
     monkeypatch.setattr(mod, "EditableText", FakeEditableText)
     field = FakeEditableText()
     host = SimpleNamespace(closed_overlay=None)
-    host._on_state_info_closed = lambda overlay: setattr(host, "closed_overlay", overlay)
+    host.on_state_info_closed = lambda ov: setattr(host, "closed_overlay", ov)
     overlay = object()
 
     info = mod.StateInfoOverlay.__new__(mod.StateInfoOverlay)

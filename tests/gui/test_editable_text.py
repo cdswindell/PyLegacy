@@ -117,6 +117,17 @@ class DummyEntry:
         self.destroyed = True
 
 
+class DummyProcess:
+    def __init__(self) -> None:
+        self.terminated = False
+
+    def poll(self):
+        return None if not self.terminated else 0
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+
 class DummyText:
     def __init__(self, *_args: Any, text: str = "", **_kwargs: Any) -> None:
         self._text = str(text)
@@ -219,6 +230,70 @@ def test_added_hold_target_can_begin_edit(editable_text_module) -> None:
     widget.tk.run_after(after_id)
 
     assert widget.is_editing is True
+
+
+def test_begin_edit_launches_configured_keyboard(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    proc = DummyProcess()
+
+    def fake_popen(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return proc
+
+    monkeypatch.setattr(editable_text_module.subprocess, "Popen", fake_popen, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="Old",
+        debounce_ms=0,
+        keyboard_command=["fake-keyboard", "--show"],
+    )
+
+    widget.begin_edit()
+    after_id = widget._keyboard_after_id
+    assert after_id is not None
+
+    widget.tk.run_after(after_id)
+
+    assert calls[0][0] == ["fake-keyboard", "--show"]
+    assert widget._keyboard_process is proc
+
+
+def test_commit_cancels_pending_keyboard_launch(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        editable_text_module.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: pytest.fail("keyboard should not launch after commit"),
+        raising=True,
+    )
+    widget = editable_text_module.EditableText(
+        None,
+        text="Old",
+        debounce_ms=0,
+        keyboard_command=["fake-keyboard"],
+    )
+
+    widget.begin_edit()
+    after_id = widget._keyboard_after_id
+    widget.commit_edit()
+
+    assert after_id not in widget.tk._after_calls
+
+
+def test_commit_terminates_started_keyboard(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    proc = DummyProcess()
+    monkeypatch.setattr(editable_text_module.subprocess, "Popen", lambda *_args, **_kwargs: proc, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="Old",
+        debounce_ms=0,
+        keyboard_command=["fake-keyboard"],
+    )
+
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+    widget.commit_edit()
+
+    assert proc.terminated is True
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:
