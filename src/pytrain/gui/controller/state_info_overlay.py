@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, cast
 from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
-from ..components.editable_text import EditableText
+from ..components.editable_text import EditableText, EditorType
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
@@ -145,7 +145,7 @@ class StateInfoOverlay:
         layouts = [
             ("number", "Road Number", [0, 0], None),
             ("type", "Type", [1, 0, 3, 1], None),
-            ("name", "Road Name", [0, 1, 4, 1], None),
+            ("name", "Road Name", [0, 1, 4, 1], None, EditorType.KEYBOARD, self._on_road_name_edited),
             ("control", "Control", [0, 2, 2, 1], CommandScope.ENGINE),
             ("sound", "Sound", [2, 2, 2, 1], CommandScope.ENGINE),
             ("speed", "Speed", [0, 3], CommandScope.ENGINE),
@@ -174,7 +174,11 @@ class StateInfoOverlay:
             ("operations", "Operations/TMCC IDs", [0, 2, 4, 1], CommandScope.CONFIGURED),
         ]
 
-        for key, title, grid, scope in layouts:
+        for key, title, grid, scope, *rest in layouts:
+            editor_type = rest[0] if len(rest) > 0 else None
+            editable = editor_type is not None
+            callback = rest[1] if len(rest) > 1 else None
+
             # Reusing the existing make_info_field logic from the main GUI
             is_list = key in {"operations"}
             self.details[key] = self.make_field(
@@ -184,8 +188,8 @@ class StateInfoOverlay:
                 grid,
                 scope=scope,
                 is_list=is_list,
-                editable=key == "name",
-                on_edit=self._on_road_name_edited if key == "name" else None,
+                editable=editable,
+                on_edit=callback,
             )
 
     def update(self, state):
@@ -264,6 +268,8 @@ class StateInfoOverlay:
             _field.value = new_value
         if new_value == old_value:
             return
+
+        print(f"Road name changed from '{old_value}' to '{new_value}'")
 
         state = self._gui.active_state
         if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):

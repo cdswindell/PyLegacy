@@ -10,28 +10,21 @@
 from __future__ import annotations
 
 import logging
-import os
-import shlex
-import shutil
-import subprocess
 import time
 import tkinter as tk
+from enum import Enum, auto
 from tkinter import TclError
-from typing import Any, Callable, Sequence
+from typing import Any, Callable
 
 from guizero import Text
 
 log = logging.getLogger(__name__)
 
-OSK_COMMAND_ENV = "PYTRAIN_OSK_COMMAND"
-DEFAULT_OSK_COMMANDS = (
-    ("wvkbd-mobintl",),
-    ("wvkbd",),
-    ("squeekboard",),
-    ("onboard",),
-    ("matchbox-keyboard",),
-    ("florence",),
-)
+
+class EditorType(Enum):
+    KEYBOARD = auto()
+    KEYPAD = auto()
+    CHOICES = auto()
 
 
 class EditableText(Text):
@@ -55,10 +48,6 @@ class EditableText(Text):
         select_all_on_edit: bool = True,
         cancel_on_leave: bool = False,
         show_keyboard_on_edit: bool = True,
-        keyboard_command: str | Sequence[str] | None = None,
-        keyboard_candidates: Sequence[str | Sequence[str]] | None = None,
-        prefer_system_keyboard: bool = False,
-        use_builtin_keyboard: bool = True,
         hide_keyboard_on_finish: bool = True,
         edit_bg: str = "white",
         edit_fg: str = "black",
@@ -75,12 +64,6 @@ class EditableText(Text):
         self.select_all_on_edit = bool(select_all_on_edit)
         self.cancel_on_leave = bool(cancel_on_leave)
         self.show_keyboard_on_edit = bool(show_keyboard_on_edit)
-        self.keyboard_command = keyboard_command
-        self.keyboard_candidates = (
-            tuple(keyboard_candidates) if keyboard_candidates is not None else DEFAULT_OSK_COMMANDS
-        )
-        self.prefer_system_keyboard = bool(prefer_system_keyboard)
-        self.use_builtin_keyboard = bool(use_builtin_keyboard)
         self.hide_keyboard_on_finish = bool(hide_keyboard_on_finish)
         self.edit_bg = edit_bg
         self.edit_fg = edit_fg
@@ -90,7 +73,6 @@ class EditableText(Text):
         self._editing = False
         self._hold_after_id: str | None = None
         self._keyboard_after_id: str | None = None
-        self._keyboard_process: subprocess.Popen | None = None
         self._keyboard_window: tk.Toplevel | None = None
         self._keyboard_mode = "lower"
         self._value_before_edit = ""
@@ -374,27 +356,7 @@ class EditableText(Text):
         self._keyboard_after_id = None
         if not self._editing:
             return
-        if self._keyboard_process is not None and self._keyboard_process.poll() is None:
-            return
-
-        cmd = self._resolve_keyboard_command() if self.prefer_system_keyboard else self._explicit_keyboard_command()
-        if not cmd:
-            if self.use_builtin_keyboard:
-                self._show_builtin_keyboard()
-            return
-
-        try:
-            self._keyboard_process = subprocess.Popen(
-                cmd,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                close_fds=True,
-            )
-        except (FileNotFoundError, OSError):
-            log.debug("Unable to show on-screen keyboard with command: %s", cmd, exc_info=True)
-            if self.use_builtin_keyboard:
-                self._show_builtin_keyboard()
+        self._show_builtin_keyboard()
 
     def _hide_keyboard(self) -> None:
         if self._keyboard_window is not None:
@@ -403,40 +365,6 @@ class EditableText(Text):
             except TclError:
                 pass
             self._keyboard_window = None
-
-        proc = self._keyboard_process
-        self._keyboard_process = None
-        if proc is None or proc.poll() is not None:
-            return
-
-        try:
-            proc.terminate()
-        except OSError:
-            pass
-
-    # noinspection PyDeprecation
-    def _resolve_keyboard_command(self) -> list[str] | None:
-        command = self._explicit_keyboard_command()
-        if command:
-            return command
-
-        for candidate in self.keyboard_candidates:
-            cmd = self._normalize_command(candidate)
-            if cmd and shutil.which(cmd[0]):
-                return cmd
-        return None
-
-    def _explicit_keyboard_command(self) -> list[str] | None:
-        command = self.keyboard_command or os.environ.get(OSK_COMMAND_ENV)
-        return self._normalize_command(command) if command else None
-
-    @staticmethod
-    def _normalize_command(command: str | Sequence[str]) -> list[str] | None:
-        if isinstance(command, str):
-            cmd = shlex.split(command)
-        else:
-            cmd = [str(part) for part in command]
-        return cmd or None
 
     def _show_builtin_keyboard(self) -> None:
         if self._entry is None:
@@ -511,9 +439,9 @@ class EditableText(Text):
             self._make_key(controls, mode_label, self._toggle_case, weight=1)
             self._make_key(controls, "123", self._toggle_symbols, weight=1)
         self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=4)
-        self._make_key(controls, "<--", self._move_cursor_left, weight=1)
-        self._make_key(controls, "-->", self._move_cursor_right, weight=1)
-        self._make_key(controls, "Del", self._backspace, weight=1)
+        self._make_key(controls, "←", self._move_cursor_left, weight=1)
+        self._make_key(controls, "→", self._move_cursor_right, weight=1)
+        self._make_key(controls, "Del", self._backspace, weight=2)
 
     @staticmethod
     def _make_key(parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
