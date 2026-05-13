@@ -361,7 +361,7 @@ class CommBufferSingleton(CommBuffer, Thread):
         """
         Return the current time, in milliseconds past the "epoch"
         """
-        return round(time.time() * 1000)
+        return round(time.monotonic() * 1000)
 
     @property
     def port(self) -> str:

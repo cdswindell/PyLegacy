@@ -195,11 +195,11 @@ class Ads1x15(ABC):
 
     def _get_adc(self) -> int:
         """Get ADC raw_value with current configuration"""
-        t = time.time()
+        t = time.monotonic()
         is_continuous = (self._config & 0x0100) == 0
         # Wait conversion process finish or reach conversion time for continuous mode
         while not self.is_ready:
-            if is_continuous and (((time.time() - t) * 1000) >= self._conversion_delay):
+            if is_continuous and (((time.monotonic() - t) * 1000) >= self._conversion_delay):
                 break
             else:
                 time.sleep(0.001)
@@ -477,7 +477,7 @@ class Ads1015(Ads1x15):
     ):
         super().__init__(channel, bus_id, address, 2, 4, 12)
         self.gain = gain
-        if continuous is True:
+        if continuous:
             self.mode = self.MODE_CONTINUOUS
             self.data_rate = data_rate
         else:
@@ -533,7 +533,7 @@ class Ads1115(Ads1x15):
     ):
         super().__init__(channel, bus_id, address, 8, 4, 16)
         self.gain = gain
-        if continuous is True:
+        if continuous:
             self.mode = self.MODE_CONTINUOUS
             self.data_rate = data_rate
         else:

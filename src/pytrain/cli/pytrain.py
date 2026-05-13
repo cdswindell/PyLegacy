@@ -780,10 +780,10 @@ class PyTrain:
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
 
         if is_package():
-            # upgrade from Pypi
+            # update from Pypi
             os.system(f"cd {os.getcwd()}; pip install -U {PROGRAM_PACKAGE}")
         else:
-            # upgrade from github
+            # update from github
             os.system(f"cd {os.getcwd()}; git pull")
             os.system(f"cd {os.getcwd()}; pip install -r requirements.txt")
         self.relaunch(PyTrainExitStatus.UPDATE)

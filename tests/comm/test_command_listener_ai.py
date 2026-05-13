@@ -38,8 +38,8 @@ class DummyDispatcher:
 
 
 def wait_for(predicate, timeout=1.0):
-    start = time.time()
-    while time.time() - start < timeout:
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
         if predicate():
             return True
         time.sleep(0.01)

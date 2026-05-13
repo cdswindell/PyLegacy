@@ -90,7 +90,7 @@ class GpioDelayHandler(Thread):
         super().__init__(daemon=True, name=f"{PROGRAM_NAME} GPIO Delay Handler")
         self._cv = threading.Condition()
         self._ev = threading.Event()
-        self._scheduler = sched.scheduler(time.time, self._ev.wait)
+        self._scheduler = sched.scheduler(time.monotonic, self._ev.wait)
         self._running = True
         self.start()
 
@@ -269,7 +269,7 @@ class GpioHandler:
         """
         Return the current time, in milliseconds past the "epoch"
         """
-        return round(time.time() * 1000)
+        return round(time.monotonic() * 1000)
 
     @staticmethod
     def engine_numeric(address: int) -> int | None:

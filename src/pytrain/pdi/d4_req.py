@@ -22,6 +22,7 @@ LIONEL_EPOCH: int = 1577836800  # Midnight, Jan 1 2020 UTC
 class D4Req(PdiReq, CompDataMixin):
     @staticmethod
     def lionel_timestamp(as_bytes: bool = True) -> int | bytes:
+        # use time() and not monotonic() because we want wall clock
         lts = 0xFFFFFFFF & int(time.time() - LIONEL_EPOCH)
         if as_bytes:
             return lts.to_bytes(4, byteorder="little")
@@ -43,6 +44,7 @@ class D4Req(PdiReq, CompDataMixin):
         timestamp: int | None = None,
         state: CompDataMixin = None,
     ) -> None:
+        """Initializes D4Req; parses data; overrides fields from engine state"""
         super().__init__(data, pdi_command)
         self._scope = CommandScope.TRAIN if self.pdi_command == PdiCommand.D4_TRAIN else CommandScope.ENGINE
         self._record_no = self._next_record_no = self._tmcc_id = self._count = self._post_action = self._suffix = None

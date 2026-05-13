@@ -101,8 +101,8 @@ def patch_gui_classes(monkeypatch):
 
 def wait_for(predicate, timeout=2.0, interval=0.01):
     """Utility to wait until predicate() is True or timeout occurs."""
-    start = time.time()
-    while time.time() - start < timeout:
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
         if predicate():
             return True
         time.sleep(interval)

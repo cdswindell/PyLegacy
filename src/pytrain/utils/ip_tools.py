@@ -23,8 +23,8 @@ TEST_NET_IP = ("192.0.2.1", 80)  # RFC 5737 TEST-NET-1 (non-routable on the publ
 
 
 def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
-    deadline = time.time() + timeout_s
-    while time.time() <= deadline:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() <= deadline:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
@@ -49,8 +49,8 @@ def wait_for_ipv4(timeout_s: float = 30.0) -> bool:
 
 def wait_for_network(timeout_s: float = 60.0) -> bool:
     """Polls IPv4 readiness within timeout; returns success or false"""
-    deadline = time.time() + timeout_s
-    while time.time() <= deadline:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() <= deadline:
         if wait_for_ipv4(timeout_s=1.0):
             return True
         log.debug("Waiting for network...")

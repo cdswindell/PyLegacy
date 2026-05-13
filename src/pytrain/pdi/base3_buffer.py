@@ -89,7 +89,6 @@ class Base3Buffer(Thread):
         # data read from the Base 3 is sent to a PdiListener to decode and act on
         self._listener = listener
         self._is_running = True
-        self._last_output_at = 0  # used to throttle writes to LCS Base3
         # data to send to the Base 3 is written into a queue, which is drained by the thread
         # created when this instance is started
         self._send_queue: PollableQueue = PollableQueue(buffer_size)
@@ -122,10 +121,9 @@ class Base3Buffer(Thread):
         """
         Return the current time, in milliseconds past the "epoch"
         """
-        return round(time.time() * 1000)
+        return round(time.monotonic() * 1000)
 
     def run(self) -> None:
-        # signal(SIGPIPE, SIG_DFL)
         keep_trying = 10  # when we can't send a packet, retry 10 times
         while self._is_running and keep_trying:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -143,7 +141,6 @@ class Base3Buffer(Thread):
                                     sending = self._packetize_multibyte_cmds(sock.get())
                                     if sending is not None:
                                         s.sendall(sending.hex().upper().encode())
-                                        self._last_output_at = self._current_milli_time()
                                         try:
                                             self.sync_state(sending)
                                         except ValueError:
