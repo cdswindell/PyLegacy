@@ -116,7 +116,7 @@ class EditableText(Text):
 
         self._cancel_hold_timer()
         self._editing = True
-        self._value_before_edit = "" if self.value is None else str(self.value)
+        self._value_before_edit = "" if self.value is None else str(self.value).strip()
 
         entry = self._ensure_entry()
         self._set_entry_text(self._value_before_edit)
@@ -147,6 +147,14 @@ class EditableText(Text):
 
         if new_value != old_value:
             self._invoke_callback(self.on_commit, self, new_value, old_value)
+
+    @property
+    def is_changed(self) -> bool:
+        entry = self._entry
+        new_value = self._value_before_edit if entry is None else entry.get()
+        new_value = self._coerce_text(new_value)
+        old_value = self._value_before_edit
+        return new_value != old_value
 
     def cancel_edit(self) -> None:
         if not self._editing:
@@ -310,9 +318,9 @@ class EditableText(Text):
             pass
 
     def _coerce_text(self, value: Any) -> str:
-        text = "" if value is None else str(value)
+        text = "" if value is None else str(value).strip()
         if self.max_length is not None:
-            return text[: self.max_length]
+            return text[: self.max_length].strip()
         return text
 
     def _cancel_hold_timer(self) -> None:

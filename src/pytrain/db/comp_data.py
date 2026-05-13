@@ -442,6 +442,8 @@ REQUEST_TO_UPDATES_MAP = {
     ],
     "ROAD_NAME": [("road_name", lambda t: PdiReq.encode_text(t, 31))],
     "ROAD_NAME_LEN": [("road_name_len", lambda t: min(31, len(t)))],
+    "ROAD_NUMBER": [("road_number", lambda t: PdiReq.encode_text(t, 4))],
+    "ROAD_NUMBER_LEN": [("road_number_len", lambda t: min(4, len(t)))],
     "SHUTDOWN_DELAYED": [("rpm_labor", lambda x: 0)],
     "SHUTDOWN_IMMEDIATE": [("rpm_labor", lambda x: 0)],
     "SMOKE_HIGH": [("smoke", lambda t: 3)],
@@ -587,7 +589,7 @@ class CompData(ABC, Generic[R]):
         field: str,
         tmcc_id: int,
         scope: CommandScope = CommandScope.ENGINE,
-        data: int | None = None,
+        data: Any = None,
         legacy: bool = True,
     ) -> list[UpdatePkg] | None:
         update_pkgs: list[UpdatePkg] = []

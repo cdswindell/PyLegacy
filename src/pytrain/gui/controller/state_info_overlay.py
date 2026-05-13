@@ -18,6 +18,7 @@ from ...db.accessory_state import AccessoryState
 from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
 from ...db.prod_info import ProdInfo
+from ...pdi.base_req import BaseReq
 from ...protocol.constants import CommandScope
 
 log = logging.getLogger(__name__)
@@ -268,34 +269,34 @@ class StateInfoOverlay:
                 self.details[key][1].value = value
 
     def _on_road_name_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
+        if _field.is_changed:
+            new_value, old_value = self._process_input(_field, new_value, old_value)
+            print(f"Road name changed from '{old_value}' to '{new_value}'")
+
+            state = self._gui.active_state
+            if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
+                BaseReq.do_update_eng_field("ROAD_NAME_LEN", new_value, state, True)
+                BaseReq.do_update_eng_field("ROAD_NAME", new_value, state, True)
+
+    @staticmethod
+    def _process_input(_field: EditableText, new_value: str, old_value: str, fill: int = None) -> tuple[str, str]:
         new_value = new_value.strip()
+        if fill:
+            new_value = new_value.zfill(fill)
         old_value = old_value.strip()
         if new_value != _field.value:
             _field.value = new_value
-        if new_value == old_value:
-            return
-
-        print(f"Road name changed from '{old_value}' to '{new_value}'")
-
-        state = self._gui.active_state
-        if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
-            # Keep recurring overlay refreshes from immediately overwriting the committed value.
-            state._road_name = new_value
+        return new_value, old_value
 
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
-        new_value = new_value.strip()
-        old_value = old_value.strip()
-        if new_value != _field.value:
-            _field.value = new_value
-        if new_value == old_value:
-            return
+        if _field.is_changed:
+            new_value, old_value = self._process_input(_field, new_value, old_value, 4)
+            print(f"Road number changed from '{old_value}' to '{new_value}'")
 
-        print(f"Road number changed from '{old_value}' to '{new_value}'")
-
-        state = self._gui.active_state
-        if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
-            # Keep recurring overlay refreshes from immediately overwriting the committed value.
-            state._road_number = new_value
+            state = self._gui.active_state
+            if isinstance(state, (EngineState, TrainState)):
+                BaseReq.do_update_eng_field("ROAD_NUMBER_LEN", new_value, state, True)
+                BaseReq.do_update_eng_field("ROAD_NUMBER", new_value, state, True)
 
     def _on_popup_closed(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=True)
