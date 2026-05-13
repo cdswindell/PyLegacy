@@ -58,7 +58,8 @@ class StateInfoOverlay:
         is_list: bool = False,
         center: bool = False,
         text_size: int = None,
-        editable: bool = False,
+        editor: EditorType = None,
+        max_length: int = None,
         on_edit=None,
     ) -> tuple[TitleBox, Text]:
         text_size = text_size or host.s_18
@@ -112,13 +113,14 @@ class StateInfoOverlay:
                 width=36,
             )
         else:
-            if editable:
+            if editor:
                 tf = EditableText(
                     tb,
                     grid=[0, 0],
                     width="fill",
                     height=1,
-                    max_length=31,
+                    editor=editor,
+                    max_length=max_length,
                     on_commit=on_edit,
                 )
                 tf.add_hold_target(tb)
@@ -143,9 +145,9 @@ class StateInfoOverlay:
 
         # Config: [Key, Title, Grid, Scope]
         layouts = [
-            ("number", "Road Number", [0, 0], None),
+            ("number", "Road Number", [0, 0], None, EditorType.KEYPAD, 4, self._on_road_number_edited),
             ("type", "Type", [1, 0, 3, 1], None),
-            ("name", "Road Name", [0, 1, 4, 1], None, EditorType.KEYBOARD, self._on_road_name_edited),
+            ("name", "Road Name", [0, 1, 4, 1], None, EditorType.KEYBOARD, 31, self._on_road_name_edited),
             ("control", "Control", [0, 2, 2, 1], CommandScope.ENGINE),
             ("sound", "Sound", [2, 2, 2, 1], CommandScope.ENGINE),
             ("speed", "Speed", [0, 3], CommandScope.ENGINE),
@@ -176,8 +178,8 @@ class StateInfoOverlay:
 
         for key, title, grid, scope, *rest in layouts:
             editor_type = rest[0] if len(rest) > 0 else None
-            editable = editor_type is not None
-            callback = rest[1] if len(rest) > 1 else None
+            max_length = rest[1] if len(rest) > 1 else None
+            callback = rest[2] if len(rest) > 2 else None
 
             # Reusing the existing make_info_field logic from the main GUI
             is_list = key in {"operations"}
@@ -188,7 +190,8 @@ class StateInfoOverlay:
                 grid,
                 scope=scope,
                 is_list=is_list,
-                editable=editable,
+                editor=editor_type,
+                max_length=max_length,
                 on_edit=callback,
             )
 
@@ -275,6 +278,21 @@ class StateInfoOverlay:
         if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
             # Keep recurring overlay refreshes from immediately overwriting the committed value.
             state._road_name = new_value
+
+    def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
+        new_value = new_value.strip()
+        old_value = old_value.strip()
+        if new_value != _field.value:
+            _field.value = new_value
+        if new_value == old_value:
+            return
+
+        print(f"Road number changed from '{old_value}' to '{new_value}'")
+
+        state = self._gui.active_state
+        if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
+            # Keep recurring overlay refreshes from immediately overwriting the committed value.
+            state._road_number = new_value
 
     def _on_popup_closed(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=True)

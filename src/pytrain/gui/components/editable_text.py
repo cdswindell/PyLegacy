@@ -42,6 +42,7 @@ class EditableText(Text):
         hold_threshold: float = 1.0,
         debounce_ms: int = 80,
         max_length: int | None = None,
+        editor: EditorType = EditorType.KEYBOARD,
         on_commit: Callable[["EditableText", str, str], None] | tuple | list | None = None,
         on_cancel: Callable[["EditableText", str], None] | tuple | list | None = None,
         commit_on_focus_lost: bool = True,
@@ -57,6 +58,7 @@ class EditableText(Text):
 
         self.hold_threshold = float(hold_threshold)
         self.debounce_ms = int(debounce_ms)
+        self.editor = editor
         self.max_length = max_length
         self.on_commit = on_commit
         self.on_cancel = on_cancel
@@ -356,7 +358,12 @@ class EditableText(Text):
         self._keyboard_after_id = None
         if not self._editing:
             return
-        self._show_builtin_keyboard()
+        if self.editor == EditorType.KEYPAD:
+            self._show_builtin_keypad()
+        elif self.editor == EditorType.KEYBOARD:
+            self._show_builtin_keyboard()
+        else:
+            log.debug("Editor type %s is not implemented", self.editor)
 
     def _hide_keyboard(self) -> None:
         if self._keyboard_window is not None:
@@ -396,12 +403,55 @@ class EditableText(Text):
             self._keyboard_window = None
             log.debug("Unable to show built-in keyboard", exc_info=True)
 
+    def _show_builtin_keypad(self) -> None:
+        if self._entry is None:
+            return
+        if self._keyboard_window is not None:
+            try:
+                self._keyboard_window.lift()
+            except TclError:
+                pass
+            return
+
+        try:
+            top = self.tk.winfo_toplevel()
+            kb = tk.Toplevel(top)
+            self._keyboard_window = kb
+            kb.transient(top)
+            kb.title("Keypad")
+            kb.configure(background="#202020")
+            try:
+                kb.attributes("-topmost", True)
+            except TclError:
+                pass
+            kb.protocol("WM_DELETE_WINDOW", self.cancel_edit)
+            self._position_builtin_keypad(kb)
+            self._build_builtin_keypad(kb)
+            kb.lift()
+            self._entry.focus_set()
+        except TclError:
+            self._keyboard_window = None
+            log.debug("Unable to show built-in keypad", exc_info=True)
+
     def _position_builtin_keyboard(self, kb: tk.Toplevel) -> None:
         try:
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
             kb_w = min(screen_w, 980)
+            kb_h = min(screen_h, 420)
+            x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
+            y = max(0, screen_h - kb_h)
+            kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
+        except TclError:
+            pass
+
+    def _position_builtin_keypad(self, kb: tk.Toplevel) -> None:
+        try:
+            top = self.tk.winfo_toplevel()
+            screen_w = int(top.winfo_screenwidth())
+            screen_h = int(top.winfo_screenheight())
+            kb_w = min(screen_w, 520)
             kb_h = min(screen_h, 420)
             x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
             y = max(0, screen_h - kb_h)
@@ -442,6 +492,32 @@ class EditableText(Text):
         self._make_key(controls, "←", self._move_cursor_left, weight=1)
         self._make_key(controls, "→", self._move_cursor_right, weight=1)
         self._make_key(controls, "Del", self._backspace, weight=2)
+
+    def _build_builtin_keypad(self, kb: tk.Toplevel) -> None:
+        try:
+            for child in kb.winfo_children():
+                child.destroy()
+        except TclError:
+            pass
+
+        action_row = tk.Frame(kb, background="#202020")
+        action_row.pack(fill="x", padx=8, pady=(8, 0))
+        self._make_key(action_row, "Clear", self._clear_entry, weight=1)
+        self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
+        self._make_key(action_row, "Enter", self.commit_edit, weight=1)
+
+        for keys in (("7", "8", "9"), ("4", "5", "6"), ("1", "2", "3")):
+            row = tk.Frame(kb, background="#202020")
+            row.pack(fill="x", padx=8, pady=6)
+            for key in keys:
+                self._make_key(row, key, lambda k=key: self._insert_text(k), weight=1)
+
+        controls = tk.Frame(kb, background="#202020")
+        controls.pack(fill="x", padx=8, pady=6)
+        self._make_key(controls, "←", self._move_cursor_left, weight=1)
+        self._make_key(controls, "0", lambda: self._insert_text("0"), weight=1)
+        self._make_key(controls, "→", self._move_cursor_right, weight=1)
+        self._make_key(controls, "Del", self._backspace, weight=1)
 
     @staticmethod
     def _make_key(parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
@@ -506,13 +582,37 @@ class EditableText(Text):
         if self._entry is None:
             return
         try:
+            insert_text = self._text_allowed_for_insert(text)
+            if not insert_text:
+                self._entry.focus_set()
+                return
             if self._entry.selection_present():
                 self._entry.delete("sel.first", "sel.last")
-            self._entry.insert("insert", text)
+            self._entry.insert("insert", insert_text)
             self._on_entry_key_release()
             self._entry.focus_set()
         except TclError:
             pass
+
+    def _text_allowed_for_insert(self, text: str) -> str:
+        if self._entry is None or self.max_length is None:
+            return text
+        current = self._entry.get()
+        selected_len = self._selected_text_length()
+        available = self.max_length - (len(current) - selected_len)
+        if available <= 0:
+            return ""
+        return text[:available]
+
+    def _selected_text_length(self) -> int:
+        if self._entry is None:
+            return 0
+        try:
+            if not self._entry.selection_present():
+                return 0
+            return int(self._entry.index("sel.last")) - int(self._entry.index("sel.first"))
+        except (TclError, ValueError):
+            return 0
 
     def _backspace(self) -> None:
         if self._entry is None:

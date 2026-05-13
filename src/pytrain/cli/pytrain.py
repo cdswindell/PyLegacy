@@ -600,6 +600,7 @@ class PyTrain:
                 if self.is_server:
                     Thread(target=self._get_system_state, daemon=True).start()
                 return
+            # Handles authorized admin commands; interrupts main loop; sets exit status
             if cmd.command not in self._received_admin_cmds:
                 self._received_admin_cmds.add(cmd.command)
                 if self.is_client and cmd.command == TMCC1SyncCommandEnum.QUIT:

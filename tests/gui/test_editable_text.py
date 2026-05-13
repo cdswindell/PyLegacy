@@ -138,7 +138,10 @@ class DummyEntry:
         self.cursor = len(self.text) if index == "end" else int(index)
 
     def index(self, index: str) -> int:
-        _ = index
+        if index == "sel.first" and self._selection is not None:
+            return self._selection[0]
+        if index == "sel.last" and self._selection is not None:
+            return self._selection[1]
         return self.cursor
 
     def destroy(self) -> None:
@@ -394,6 +397,46 @@ def test_builtin_keyboard_moves_cursor_and_del_deletes_left(editable_text_module
     widget._backspace()
     assert widget._entry.get() == "ld"
     assert widget._entry.index("insert") == 0
+
+
+def test_builtin_keyboard_enforces_max_length_on_touch_input(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(None, text="", debounce_ms=0, max_length=3)
+
+    widget.begin_edit()
+    widget._insert_text("12345")
+
+    assert widget._entry.get() == "123"
+    assert widget._entry.index("insert") == 3
+
+
+def test_keypad_editor_shows_number_pad_and_enforces_max_length(
+    editable_text_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    DummyButton.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="",
+        debounce_ms=0,
+        max_length=2,
+        editor=editable_text_module.EditorType.KEYPAD,
+    )
+
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+    widget._insert_text("123")
+
+    assert isinstance(widget._keyboard_window, DummyWindow)
+    assert widget._keyboard_window.geometry_value == "520x420+0+60"
+    assert widget._entry.get() == "12"
+    assert all(any(btn.text == key for btn in DummyButton.instances) for key in "0123456789")
+    assert any(btn.text == "Clear" for btn in DummyButton.instances)
+    assert any(btn.text == "Cancel" for btn in DummyButton.instances)
+    assert any(btn.text == "Enter" for btn in DummyButton.instances)
+    assert any(btn.text == "Del" for btn in DummyButton.instances)
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:

@@ -440,6 +440,8 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
     ],
+    "ROAD_NAME": [("road_name", lambda t: PdiReq.encode_text(t, 31))],
+    "ROAD_NAME_LEN": [("road_name_len", lambda t: min(31, len(t)))],
     "SHUTDOWN_DELAYED": [("rpm_labor", lambda x: 0)],
     "SHUTDOWN_IMMEDIATE": [("rpm_labor", lambda x: 0)],
     "SMOKE_HIGH": [("smoke", lambda t: 3)],
