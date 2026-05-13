@@ -703,6 +703,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         self._active_engine_state = state
         if isinstance(state, EngineState):
+            if self.name_text.value != state.name:
+                print(f"Engine name changed: {self.name_text.value} -> {state.name}")
             if self._active_train_state and state in self._active_train_state:
                 # if we are operating on a train-linked car with the associated train
                 # active in the Train scope tab, indicate that on the gui

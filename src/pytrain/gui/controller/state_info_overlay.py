@@ -268,16 +268,6 @@ class StateInfoOverlay:
             else:
                 self.details[key][1].value = value
 
-    def _on_road_name_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
-        if _field.is_changed:
-            new_value, old_value = self._process_input(_field, new_value, old_value)
-            print(f"Road name changed from '{old_value}' to '{new_value}'")
-
-            state = self._gui.active_state
-            if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
-                BaseReq.do_update_eng_field("ROAD_NAME_LEN", new_value, state, True)
-                BaseReq.do_update_eng_field("ROAD_NAME", new_value, state, True)
-
     @staticmethod
     def _process_input(_field: EditableText, new_value: str, old_value: str, fill: int = None) -> tuple[str, str]:
         new_value = new_value.strip()
@@ -288,11 +278,17 @@ class StateInfoOverlay:
             _field.value = new_value
         return new_value, old_value
 
+    def _on_road_name_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
+        if _field.is_changed:
+            new_value, _ = self._process_input(_field, new_value, old_value)
+            state = self._gui.active_state
+            if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
+                BaseReq.do_update_eng_field("ROAD_NAME_LEN", new_value, state, True)
+                BaseReq.do_update_eng_field("ROAD_NAME", new_value, state, True)
+
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
-            new_value, old_value = self._process_input(_field, new_value, old_value, 4)
-            print(f"Road number changed from '{old_value}' to '{new_value}'")
-
+            new_value, _ = self._process_input(_field, new_value, old_value, 4)
             state = self._gui.active_state
             if isinstance(state, (EngineState, TrainState)):
                 BaseReq.do_update_eng_field("ROAD_NUMBER_LEN", new_value, state, True)
