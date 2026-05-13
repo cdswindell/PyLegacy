@@ -122,6 +122,7 @@ class StateInfoOverlay:
                     on_commit=on_edit,
                 )
                 tf.add_hold_target(tb)
+                print(f"EditableText: {title} {tf}")
             else:
                 tf = Text(tb, grid=[0, 0], width="fill", height=1)
             tf.text_size = text_size
