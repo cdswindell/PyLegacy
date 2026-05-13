@@ -57,6 +57,8 @@ class EditableText(Text):
         show_keyboard_on_edit: bool = True,
         keyboard_command: str | Sequence[str] | None = None,
         keyboard_candidates: Sequence[str | Sequence[str]] | None = None,
+        prefer_system_keyboard: bool = False,
+        use_builtin_keyboard: bool = True,
         hide_keyboard_on_finish: bool = True,
         edit_bg: str = "white",
         edit_fg: str = "black",
@@ -77,6 +79,8 @@ class EditableText(Text):
         self.keyboard_candidates = (
             tuple(keyboard_candidates) if keyboard_candidates is not None else DEFAULT_OSK_COMMANDS
         )
+        self.prefer_system_keyboard = bool(prefer_system_keyboard)
+        self.use_builtin_keyboard = bool(use_builtin_keyboard)
         self.hide_keyboard_on_finish = bool(hide_keyboard_on_finish)
         self.edit_bg = edit_bg
         self.edit_fg = edit_fg
@@ -87,6 +91,7 @@ class EditableText(Text):
         self._hold_after_id: str | None = None
         self._keyboard_after_id: str | None = None
         self._keyboard_process: subprocess.Popen | None = None
+        self._keyboard_window: tk.Toplevel | None = None
         self._value_before_edit = ""
         self._entry: tk.Entry | None = None
 
@@ -175,6 +180,7 @@ class EditableText(Text):
             except TclError:
                 pass
             self._entry = None
+        self._hide_keyboard()
         super().destroy()
 
     # -------------------------
@@ -250,8 +256,26 @@ class EditableText(Text):
         self._entry.bind("<Escape>", lambda _event: self.cancel_edit(), add="+")
         self._entry.bind("<KeyRelease>", self._on_entry_key_release, add="+")
         if self.commit_on_focus_lost:
-            self._entry.bind("<FocusOut>", lambda _event: self.commit_edit(), add="+")
+            self._entry.bind("<FocusOut>", self._on_entry_focus_out, add="+")
         return self._entry
+
+    # noinspection PyUnusedLocal
+    def _on_entry_focus_out(self, event=None) -> None:
+        try:
+            self.tk.after(100, self._commit_if_focus_left_editor)
+        except TclError:
+            self._commit_if_focus_left_editor()
+
+    def _commit_if_focus_left_editor(self) -> None:
+        if not self._editing:
+            return
+        try:
+            focused = self.tk.winfo_toplevel().focus_get()
+        except TclError:
+            focused = None
+        if focused is self._entry or self._is_keyboard_descendant(focused):
+            return
+        self.commit_edit()
 
     def _position_entry(self) -> None:
         if self._entry is None:
@@ -352,8 +376,10 @@ class EditableText(Text):
         if self._keyboard_process is not None and self._keyboard_process.poll() is None:
             return
 
-        cmd = self._resolve_keyboard_command()
+        cmd = self._resolve_keyboard_command() if self.prefer_system_keyboard else self._explicit_keyboard_command()
         if not cmd:
+            if self.use_builtin_keyboard:
+                self._show_builtin_keyboard()
             return
 
         try:
@@ -366,8 +392,17 @@ class EditableText(Text):
             )
         except (FileNotFoundError, OSError):
             log.debug("Unable to show on-screen keyboard with command: %s", cmd, exc_info=True)
+            if self.use_builtin_keyboard:
+                self._show_builtin_keyboard()
 
     def _hide_keyboard(self) -> None:
+        if self._keyboard_window is not None:
+            try:
+                self._keyboard_window.destroy()
+            except TclError:
+                pass
+            self._keyboard_window = None
+
         proc = self._keyboard_process
         self._keyboard_process = None
         if proc is None or proc.poll() is not None:
@@ -379,15 +414,19 @@ class EditableText(Text):
             pass
 
     def _resolve_keyboard_command(self) -> list[str] | None:
-        command = self.keyboard_command or os.environ.get(OSK_COMMAND_ENV)
+        command = self._explicit_keyboard_command()
         if command:
-            return self._normalize_command(command)
+            return command
 
         for candidate in self.keyboard_candidates:
             cmd = self._normalize_command(candidate)
             if cmd and shutil.which(cmd[0]):
                 return cmd
         return None
+
+    def _explicit_keyboard_command(self) -> list[str] | None:
+        command = self.keyboard_command or os.environ.get(OSK_COMMAND_ENV)
+        return self._normalize_command(command) if command else None
 
     @staticmethod
     def _normalize_command(command: str | Sequence[str]) -> list[str] | None:
@@ -396,3 +435,125 @@ class EditableText(Text):
         else:
             cmd = [str(part) for part in command]
         return cmd or None
+
+    def _show_builtin_keyboard(self) -> None:
+        if self._entry is None:
+            return
+        if self._keyboard_window is not None:
+            try:
+                self._keyboard_window.lift()
+            except TclError:
+                pass
+            return
+
+        try:
+            top = self.tk.winfo_toplevel()
+            kb = tk.Toplevel(top)
+            self._keyboard_window = kb
+            kb.transient(top)
+            kb.title("Keyboard")
+            kb.configure(background="#202020")
+            try:
+                kb.attributes("-topmost", True)
+            except TclError:
+                pass
+            kb.protocol("WM_DELETE_WINDOW", self.cancel_edit)
+            self._position_builtin_keyboard(kb)
+            self._build_builtin_keyboard(kb)
+            kb.lift()
+            self._entry.focus_set()
+        except TclError:
+            self._keyboard_window = None
+            log.debug("Unable to show built-in keyboard", exc_info=True)
+
+    def _position_builtin_keyboard(self, kb: tk.Toplevel) -> None:
+        try:
+            top = self.tk.winfo_toplevel()
+            screen_w = int(top.winfo_screenwidth())
+            screen_h = int(top.winfo_screenheight())
+            kb_w = min(screen_w, 760)
+            kb_h = 260
+            x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
+            y = max(0, screen_h - kb_h - 8)
+            kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
+        except TclError:
+            pass
+
+    def _build_builtin_keyboard(self, kb: tk.Toplevel) -> None:
+        rows = ("1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM")
+        for row_idx, chars in enumerate(rows):
+            row = tk.Frame(kb, background="#202020")
+            row.pack(fill="x", padx=8, pady=(8 if row_idx == 0 else 4, 0))
+            if row_idx in {2, 3}:
+                row.pack_configure(padx=22 if row_idx == 2 else 52)
+            for char in chars:
+                self._make_key(row, char, lambda c=char: self._insert_text(c))
+
+        controls = tk.Frame(kb, background="#202020")
+        controls.pack(fill="x", padx=8, pady=8)
+        self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=3)
+        self._make_key(controls, "Backspace", self._backspace, weight=2)
+        self._make_key(controls, "Clear", self._clear_entry, weight=1)
+        self._make_key(controls, "Cancel", self.cancel_edit, weight=1)
+        self._make_key(controls, "Done", self.commit_edit, weight=1)
+
+    def _make_key(self, parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
+        btn = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            takefocus=False,
+            relief="raised",
+            bd=2,
+            background="#f7f7f7",
+            activebackground="#d8d8d8",
+        )
+        btn.pack(side="left", fill="both", expand=True, padx=3, ipady=8)
+        if weight > 1:
+            btn.configure(width=6 * weight)
+
+    def _insert_text(self, text: str) -> None:
+        if self._entry is None:
+            return
+        try:
+            if self._entry.selection_present():
+                self._entry.delete("sel.first", "sel.last")
+            self._entry.insert("insert", text)
+            self._on_entry_key_release()
+            self._entry.focus_set()
+        except TclError:
+            pass
+
+    def _backspace(self) -> None:
+        if self._entry is None:
+            return
+        try:
+            if self._entry.selection_present():
+                self._entry.delete("sel.first", "sel.last")
+            else:
+                pos = self._entry.index("insert")
+                if pos > 0:
+                    self._entry.delete(pos - 1, pos)
+            self._entry.focus_set()
+        except TclError:
+            pass
+
+    def _clear_entry(self) -> None:
+        if self._entry is None:
+            return
+        try:
+            self._entry.delete(0, "end")
+            self._entry.focus_set()
+        except TclError:
+            pass
+
+    def _is_keyboard_descendant(self, widget: Any) -> bool:
+        kb = self._keyboard_window
+        if kb is None or widget is None:
+            return False
+        current = widget
+        while current is not None:
+            if current is kb:
+                return True
+            current = getattr(current, "master", None)
+        return False

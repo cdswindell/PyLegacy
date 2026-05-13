@@ -16,6 +16,7 @@ class DummyTk:
         self._bindings: dict[str, list[Callable]] = {}
         self._after_calls: dict[str, tuple[int, Callable]] = {}
         self._next_after_id = 1
+        self._focus = None
 
     def bind(self, event: str, func: Callable, add: str | None = None) -> None:
         _ = add
@@ -46,6 +47,15 @@ class DummyTk:
     def winfo_toplevel(self):
         return self._top
 
+    def focus_get(self):
+        return self._focus
+
+    def winfo_screenwidth(self) -> int:
+        return 800
+
+    def winfo_screenheight(self) -> int:
+        return 480
+
     @staticmethod
     def winfo_rootx() -> int:
         return 10
@@ -72,18 +82,29 @@ class DummyEntry:
         self._bindings: dict[str, list[Callable]] = {}
         self._config: dict[str, Any] = {}
         self.cursor = 0
+        self._selection: tuple[int, int] | None = None
 
     def bind(self, event: str, func: Callable, add: str | None = None) -> None:
         _ = add
         self._bindings.setdefault(event, []).append(func)
 
     def delete(self, start: int, end: str) -> None:
-        _ = start, end
-        self.text = ""
+        if start == "sel.first" and end == "sel.last" and self._selection is not None:
+            first, last = self._selection
+            self.text = self.text[:first] + self.text[last:]
+            self.cursor = first
+        elif isinstance(start, int) and isinstance(end, int):
+            self.text = self.text[:start] + self.text[end:]
+            self.cursor = start
+        else:
+            self.text = ""
+            self.cursor = 0
+        self._selection = None
 
-    def insert(self, index: int, value: str) -> None:
-        _ = index
-        self.text = value
+    def insert(self, index: int | str, value: str) -> None:
+        pos = self.cursor if index == "insert" else int(index)
+        self.text = self.text[:pos] + value + self.text[pos:]
+        self.cursor = pos + len(value)
 
     def get(self) -> str:
         return self.text
@@ -101,10 +122,14 @@ class DummyEntry:
         return
 
     def focus_set(self) -> None:
-        return
+        self.master._focus = self
 
     def selection_range(self, start: int, end: str) -> None:
-        _ = start, end
+        last = len(self.text) if end == "end" else int(end)
+        self._selection = (start, last)
+
+    def selection_present(self) -> bool:
+        return self._selection is not None
 
     def icursor(self, index: int | str) -> None:
         self.cursor = len(self.text) if index == "end" else int(index)
@@ -126,6 +151,59 @@ class DummyProcess:
 
     def terminate(self) -> None:
         self.terminated = True
+
+
+class DummyWindow(DummyTk):
+    def __init__(self, master=None) -> None:
+        super().__init__(top=self)
+        self.master = master
+        self.destroyed = False
+        self.geometry_value = None
+
+    def transient(self, _top) -> None:
+        return
+
+    def title(self, _text: str) -> None:
+        return
+
+    def attributes(self, *_args) -> None:
+        return
+
+    def protocol(self, *_args) -> None:
+        return
+
+    def geometry(self, value: str) -> None:
+        self.geometry_value = value
+
+    def lift(self) -> None:
+        return
+
+    def destroy(self) -> None:
+        self.destroyed = True
+
+
+class DummyFrame:
+    def __init__(self, master=None, **_kwargs) -> None:
+        self.master = master
+
+    def pack(self, **_kwargs) -> None:
+        return
+
+    def pack_configure(self, **_kwargs) -> None:
+        return
+
+
+class DummyButton:
+    def __init__(self, master=None, command=None, **kwargs) -> None:
+        self.master = master
+        self.command = command
+        self.kwargs = kwargs
+
+    def pack(self, **_kwargs) -> None:
+        return
+
+    def configure(self, **kwargs) -> None:
+        self.kwargs.update(kwargs)
 
 
 class DummyText:
@@ -294,6 +372,20 @@ def test_commit_terminates_started_keyboard(editable_text_module, monkeypatch: p
     widget.commit_edit()
 
     assert proc.terminated is True
+
+
+def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = editable_text_module.EditableText(None, text="Old", debounce_ms=0)
+
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+    widget._insert_text("A")
+
+    assert isinstance(widget._keyboard_window, DummyWindow)
+    assert widget._entry.get() == "A"
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:
