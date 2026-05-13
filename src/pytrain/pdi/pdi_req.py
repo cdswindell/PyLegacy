@@ -277,6 +277,7 @@ class PdiReq(ABC):
         if text is None:
             return b"\x00" * field_len
         else:
+            print(f"Text: {text} Len: {len(text)} Field len: {field_len}")
             return bytes(text, "ascii").ljust(field_len, b"\x00")
 
     @property
