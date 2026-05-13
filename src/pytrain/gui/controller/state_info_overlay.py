@@ -39,7 +39,7 @@ class StateInfoOverlay:
             self._overlay = self._gui._popup.create_popup(
                 self._gui.version,
                 self.build,
-                on_popup_close=self._gui._on_state_info_closed,
+                on_popup_close=self._on_popup_closed,
             )
         return self._overlay
 
@@ -270,6 +270,18 @@ class StateInfoOverlay:
         if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
             # Keep recurring overlay refreshes from immediately overwriting the committed value.
             state._road_name = new_value
+
+    def _on_popup_closed(self, overlay: Box | None = None) -> None:
+        self.end_inline_edits(commit=True)
+        self._gui._on_state_info_closed(overlay)
+
+    def end_inline_edits(self, *, commit: bool = True) -> None:
+        for _tb, field in self.details.values():
+            if isinstance(field, EditableText) and field.is_editing:
+                if commit:
+                    field.commit_edit()
+                else:
+                    field.cancel_edit()
 
     def reset_visibility(self, scope, is_lcs_proxy=False, accessory: ConfiguredAccessoryAdapter = None):
         """Hides or shows fields based on the context."""
