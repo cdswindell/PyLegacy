@@ -84,6 +84,8 @@ class StateInfoOverlay:
             align="left",
         )
         tb.text_size = host.s_10
+        if editor:
+            tb.text_bold = True
         tb.display_scope = scope
 
         # Now tell Tk this one actually spans columns/rows
