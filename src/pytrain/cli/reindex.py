@@ -41,7 +41,8 @@ class ReindexCmd(CommandBase, Thread):
         if self._cli.scope is None:
             raise ValueError("Scope must be specified")
 
-        # with PyTrain initialization sorted out, initialize CommandBase and Thread
+        # with PyTrain initialization sorted out, initialize CommandBase and Thread.
+        # If we are stand-alone, set daemon to False, as we need the process to continue running.
         CommandBase.__init__(
             self,
             None,
@@ -57,10 +58,12 @@ class ReindexCmd(CommandBase, Thread):
         self._command = self._build_command()
         self._entries = None
         self._entries_map = {}
-        self._frm_found = self._lrm_found = self._bad_found = False
+        self._frm_found = self._lrm_found = False
+        self._bad_found = self._bad_prev = 0
         self._waiting_for = dict()
         self._db_order = None
         self._correct_order = []
+        self._unlinked_entries = None
         self._cv = Condition()
         self._ev = Event()
         self._first_pass_complete = False
@@ -83,7 +86,8 @@ class ReindexCmd(CommandBase, Thread):
 
     def __call__(self, cmd: PdiReq) -> None:
         """
-        Callback specified in the Subscriber protocol used to send events to listeners
+        Callback specified in the Subscriber protocol used to send events to listeners.
+        We expect BaseReq responses
         """
         if not self.is_synchronized():
             return
@@ -104,12 +108,13 @@ class ReindexCmd(CommandBase, Thread):
                 log.info(f"{self._scope.title} {cmd.tmcc_id} prev: {cmd.reverse_link} next: {cmd.forward_link}")
 
             if cmd.tmcc_id == 100 and cmd.reverse_link == 101 and 1 <= cmd.forward_link < 99:
+                # record 100 contains a link to the first engine, alphabetically
                 self._frm_found = True
                 self._db_order = self._walk_links(cmd.forward_link)
             elif cmd.tmcc_id < 99:
-                self._db_order.append(cmd.tmcc_id)
+                pass
             else:
-                self._bad_found = True
+                self._bad_found += 1
                 log.warning(f"Unexpected Base 3 record: {cmd.tmcc_id} {cmd.reverse_link} {cmd.forward_link}")
 
         with self._cv:
@@ -149,6 +154,7 @@ class ReindexCmd(CommandBase, Thread):
         self._entries = entries
         self._entries_map = {e.tmcc_id: e for e in entries}
         self._correct_order = [e.tmcc_id for e in entries]
+        self._unlinked_entries = set(self._correct_order)
         self.start()
 
     def run(self) -> None:
@@ -158,30 +164,52 @@ class ReindexCmd(CommandBase, Thread):
             # get record 100; it contains a link to the first engine, alphabetically
             self._dispatch_req(BaseReq(100, PdiCommand.BASE_MEMORY, scope=self._scope))
 
+            # wait for the base to provide us with Record 100.
+            # once received, we walk forward pointers to observe
+            # what the Base 3 database contains
             timeout = 15
             total_time = self._wait_for_responses(timeout=timeout)
             if total_time >= timeout:
                 log.warning("Timed out waiting for database state from Lionel Base")
             self._first_pass_complete = True
 
+            # so at this point, we either found Record 100 or we hit
+            # a timeout if no record 100 exists (or it's empty)
+            # walk the links anyway, even though we will need to do
+            # a reindex to correct.
             if self._db_order is None and self._entries and self._entries[0].tmcc_id:
                 self._db_order = self._walk_links(self._entries[0].tmcc_id)
             elif self._db_order is None:
                 self._db_order = []
 
+            # we are "good" if:
+            #  - we found the first record link
+            #  - we found the last record link
+            #  - no invalid records were found
+            #  - the database order matches the order of the entries
             all_good = (
-                not self._bad_found and self._frm_found and self._lrm_found and self._db_order == self._correct_order
+                self._bad_found == 0
+                and self._bad_prev == 0
+                and self._frm_found
+                and self._lrm_found
+                and self._db_order == self._correct_order
+                and len(self._unlinked_entries) == 0
             )
+
+            num_obs = len(self._db_order)
             if self._cli.is_validate:
                 if not all_good:
-                    num_obs = len(self._db_order)
                     log.warning(f"{self._scope.title} record(s) mismatch:")
                     if not self._frm_found:
                         log.warning("First record link not found")
                     if not self._lrm_found:
                         log.warning("Last record link not found")
+                    if self._bad_prev != 0:
+                        log.warning(f"{self._bad_prev} previous record link(s) mismatch")
+                    if self._bad_found != 0:
+                        log.warning(f"{self._bad_found} invalid record(s) found")
                     if self._db_order != self._correct_order:
-                        log.warning(f"{len(self._entries)} records found, only {num_obs} linked; reindex needed")
+                        log.warning("Mislinked entries; reindex needed")
                         if self.is_verbose:
                             for i, e in enumerate(self._entries):
                                 if i >= num_obs or e.tmcc_id != self._db_order[i]:
@@ -189,8 +217,17 @@ class ReindexCmd(CommandBase, Thread):
                                         f"{e.tmcc_id:02} {e.road_name} {e.road_number} "
                                         f"prev:{e.prev_link} next:{e.next_link}"
                                     )
+                    if len(self._unlinked_entries) != 0:
+                        log.warning(f"{len(self._unlinked_entries)} unlinked entries; reindex needed")
+                        for tmcc_id in self._unlinked_entries:
+                            e = self._entries_map.get(tmcc_id, None)
+                            if e:
+                                log.warning(
+                                    f"{e.tmcc_id:02} {e.road_name} {e.road_number} "
+                                    f"prev:{e.prev_link} next:{e.next_link}"
+                                )
                 else:
-                    log.info(f"All {self._scope.title} records match; no re-index needed.")
+                    log.info(f"All {num_obs} {self._scope.title} records match; no re-index needed.")
             else:
                 if all_good and not self.is_force:
                     log.info(f"All {self._scope.title} records match; re-index not done.")
@@ -199,6 +236,7 @@ class ReindexCmd(CommandBase, Thread):
                         f"this may take a while depending on the number of records"
                     )
                 else:
+                    # reindex all records
                     self._do_reindex()
                     log.info(f"{self._scope.title} records re-indexed and successfully written to the Base 3 database")
         finally:
@@ -289,16 +327,37 @@ class ReindexCmd(CommandBase, Thread):
         )
 
     def _walk_links(self, first_tmcc_id: int) -> List[int]:
+        """
+        Walk through linked entries starting from the given first_tmcc_id, collecting their tmcc_ids
+        in a list. The traversal respects specific rules defined by the attributes of the entries.
+
+        Parameters:
+        first_tmcc_id: int
+            The identifier of the first entry to start walking from.
+
+        Returns:
+        List[int]
+            A list of tmcc_id values collected from the walked entries.
+        """
         db_list = []
+        prev_link = 100
         entry = self._entries_map.get(first_tmcc_id, None)
         while entry:
+            if entry.prev_link != prev_link:
+                log.warning(f"Record {entry.tmcc_id} prev link mismatch: {entry.prev_link} != {prev_link}")
+                self._bad_prev += 1
             db_list.append(entry.tmcc_id)
+            prev_link = entry.tmcc_id
+
             if entry.next_link == 101:
+                # indicates we've found the "last" record
                 self._lrm_found = True
             if self.is_verbose:
                 log.info(
                     f"Walking {entry.tmcc_id} {entry.road_name} {entry.road_number} {entry.prev_link} {entry.next_link}"
                 )
+            # remove this entry from the unlinked list, if it is present
+            self._unlinked_entries.discard(entry.tmcc_id)
             if entry.next_link not in {100, 101, 255}:
                 entry = self._entries_map.get(entry.next_link, None)
             else:

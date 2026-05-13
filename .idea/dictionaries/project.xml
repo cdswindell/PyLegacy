@@ -64,6 +64,7 @@
       <w>lpgl</w>
       <w>mailcap</w>
       <w>maxlen</w>
+      <w>mobintl</w>
       <w>modemmanager</w>
       <w>mome</w>
       <w>mvalue</w>
@@ -107,6 +108,8 @@
       <w>wayvnc</w>
       <w>wcomp</w>
       <w>weakref</w>
+      <w>wvkbd</w>
+      <w>zxcvbnm</w>
     </words>
   </dictionary>
 </component>

@@ -159,6 +159,7 @@ class DummyWindow(DummyTk):
         self.master = master
         self.destroyed = False
         self.geometry_value = None
+        self.children = []
 
     def transient(self, _top) -> None:
         return
@@ -181,10 +182,16 @@ class DummyWindow(DummyTk):
     def destroy(self) -> None:
         self.destroyed = True
 
+    def winfo_children(self):
+        return self.children
+
 
 class DummyFrame:
     def __init__(self, master=None, **_kwargs) -> None:
         self.master = master
+        self.children = []
+        if hasattr(master, "children"):
+            master.children.append(self)
 
     def pack(self, **_kwargs) -> None:
         return
@@ -192,12 +199,21 @@ class DummyFrame:
     def pack_configure(self, **_kwargs) -> None:
         return
 
+    def destroy(self) -> None:
+        return
+
 
 class DummyButton:
+    instances = []
+
     def __init__(self, master=None, command=None, **kwargs) -> None:
         self.master = master
         self.command = command
         self.kwargs = kwargs
+        self.text = kwargs.get("text")
+        DummyButton.instances.append(self)
+        if hasattr(master, "children"):
+            master.children.append(self)
 
     def pack(self, **_kwargs) -> None:
         return
@@ -375,6 +391,7 @@ def test_commit_terminates_started_keyboard(editable_text_module, monkeypatch: p
 
 
 def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    DummyButton.instances = []
     monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
     monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
     monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
@@ -386,6 +403,30 @@ def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkey
 
     assert isinstance(widget._keyboard_window, DummyWindow)
     assert widget._entry.get() == "A"
+    assert widget._keyboard_window.geometry_value == "800x420+0+60"
+
+
+def test_builtin_keyboard_supports_lower_upper_and_symbols(
+    editable_text_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    DummyButton.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = editable_text_module.EditableText(None, text="Old", debounce_ms=0)
+
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+    assert any(btn.text == "q" for btn in DummyButton.instances)
+
+    widget._toggle_case()
+    assert widget._keyboard_mode == "upper"
+    assert any(btn.text == "Q" for btn in DummyButton.instances)
+
+    widget._toggle_symbols()
+    assert widget._keyboard_mode == "symbols"
+    assert any(btn.text == "&" for btn in DummyButton.instances)
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:

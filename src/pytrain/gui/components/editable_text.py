@@ -92,6 +92,7 @@ class EditableText(Text):
         self._keyboard_after_id: str | None = None
         self._keyboard_process: subprocess.Popen | None = None
         self._keyboard_window: tk.Toplevel | None = None
+        self._keyboard_mode = "lower"
         self._value_before_edit = ""
         self._entry: tk.Entry | None = None
 
@@ -109,7 +110,7 @@ class EditableText(Text):
         """
         Add another Tk or GuiZero widget that should start editing this text on hold.
 
-        This is useful when the Text lives inside a larger labelled field and the whole field
+        This is useful when the Text lives inside a larger labeled field and the whole field
         should feel editable, not only the exact label pixels.
         """
         tk_target = getattr(target, "tk", target)
@@ -413,6 +414,7 @@ class EditableText(Text):
         except OSError:
             pass
 
+    # noinspection PyDeprecation
     def _resolve_keyboard_command(self) -> list[str] | None:
         command = self._explicit_keyboard_command()
         if command:
@@ -471,33 +473,42 @@ class EditableText(Text):
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
-            kb_w = min(screen_w, 760)
-            kb_h = 260
+            kb_w = min(screen_w, 980)
+            kb_h = min(screen_h, 420)
             x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
-            y = max(0, screen_h - kb_h - 8)
+            y = max(0, screen_h - kb_h)
             kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
         except TclError:
             pass
 
     def _build_builtin_keyboard(self, kb: tk.Toplevel) -> None:
-        rows = ("1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM")
-        for row_idx, chars in enumerate(rows):
+        try:
+            for child in kb.winfo_children():
+                child.destroy()
+        except TclError:
+            pass
+
+        for row_idx, keys in enumerate(self._keyboard_rows()):
             row = tk.Frame(kb, background="#202020")
-            row.pack(fill="x", padx=8, pady=(8 if row_idx == 0 else 4, 0))
-            if row_idx in {2, 3}:
-                row.pack_configure(padx=22 if row_idx == 2 else 52)
-            for char in chars:
-                self._make_key(row, char, lambda c=char: self._insert_text(c))
+            row.pack(fill="x", padx=8, pady=(8 if row_idx == 0 else 5, 0))
+            for key in keys:
+                label, value, weight = self._parse_key(key)
+                self._make_key(row, label, lambda v=value: self._on_keyboard_key(v), weight=weight)
 
         controls = tk.Frame(kb, background="#202020")
-        controls.pack(fill="x", padx=8, pady=8)
-        self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=3)
+        controls.pack(fill="x", padx=8, pady=10)
+        mode_label = "ABC" if self._keyboard_mode == "lower" else "abc" if self._keyboard_mode == "upper" else "abc"
+        self._make_key(controls, mode_label, self._toggle_case, weight=1)
+        symbol_label = "123" if self._keyboard_mode != "symbols" else "abc"
+        self._make_key(controls, symbol_label, self._toggle_symbols, weight=1)
+        self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=4)
         self._make_key(controls, "Backspace", self._backspace, weight=2)
         self._make_key(controls, "Clear", self._clear_entry, weight=1)
         self._make_key(controls, "Cancel", self.cancel_edit, weight=1)
         self._make_key(controls, "Done", self.commit_edit, weight=1)
 
-    def _make_key(self, parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
+    @staticmethod
+    def _make_key(parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
         btn = tk.Button(
             parent,
             text=text,
@@ -505,12 +516,54 @@ class EditableText(Text):
             takefocus=False,
             relief="raised",
             bd=2,
+            font=("TkDefaultFont", 18),
             background="#f7f7f7",
             activebackground="#d8d8d8",
         )
-        btn.pack(side="left", fill="both", expand=True, padx=3, ipady=8)
+        btn.pack(side="left", fill="both", expand=True, padx=4, ipady=14)
         if weight > 1:
-            btn.configure(width=6 * weight)
+            btn.configure(width=5 * weight)
+
+    def _keyboard_rows(self) -> tuple[tuple[str, ...], ...]:
+        if self._keyboard_mode == "symbols":
+            return (
+                tuple("1234567890"),
+                ("!", "@", "#", "$", "%", "^", "&", "*", "(", ")"),
+                ("-", "_", "+", "=", "/", "\\", ":", ";", '"', "'"),
+                (".", ",", "?", "|", "~", "`", "[", "]", "{", "}"),
+            )
+        if self._keyboard_mode == "upper":
+            return (
+                tuple("QWERTYUIOP"),
+                tuple("ASDFGHJKL"),
+                tuple("ZXCVBNM"),
+                ("-", "&", ".", "'", "#"),
+            )
+        return (
+            tuple("qwertyuiop"),
+            tuple("asdfghjkl"),
+            tuple("zxcvbnm"),
+            ("-", "&", ".", "'", "#"),
+        )
+
+    @staticmethod
+    def _parse_key(key: str | tuple[str, str, int]) -> tuple[str, str, int]:
+        if isinstance(key, tuple):
+            return key
+        return key, key, 1
+
+    def _on_keyboard_key(self, value: str) -> None:
+        self._insert_text(value)
+
+    def _toggle_case(self) -> None:
+        self._keyboard_mode = "upper" if self._keyboard_mode == "lower" else "lower"
+        if self._keyboard_window is not None:
+            self._build_builtin_keyboard(self._keyboard_window)
+
+    def _toggle_symbols(self) -> None:
+        self._keyboard_mode = "lower" if self._keyboard_mode == "symbols" else "symbols"
+        if self._keyboard_window is not None:
+            self._build_builtin_keyboard(self._keyboard_window)
 
     def _insert_text(self, text: str) -> None:
         if self._entry is None:
