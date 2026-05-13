@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, cast
 from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from ..components import EditableText
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
@@ -57,6 +58,8 @@ class StateInfoOverlay:
         is_list: bool = False,
         center: bool = False,
         text_size: int = None,
+        editable: bool = False,
+        on_edit=None,
     ) -> tuple[TitleBox, Text]:
         text_size = text_size or host.s_18
         # grid can be [col, row] or [col, row, colspan, rowspan]
@@ -109,7 +112,17 @@ class StateInfoOverlay:
                 width=36,
             )
         else:
-            tf = Text(tb, grid=[0, 0], width="fill", height=1)
+            if editable:
+                tf = EditableText(
+                    tb,
+                    grid=[0, 0],
+                    width="fill",
+                    height=1,
+                    max_length=31,
+                    on_commit=on_edit,
+                )
+            else:
+                tf = Text(tb, grid=[0, 0], width="fill", height=1)
             tf.text_size = text_size
             tf.tk.config(bd=0, highlightthickness=0, justify="left", anchor="w", width=aw)
             if center:
@@ -163,7 +176,16 @@ class StateInfoOverlay:
         for key, title, grid, scope in layouts:
             # Reusing the existing make_info_field logic from the main GUI
             is_list = key in {"operations"}
-            self.details[key] = self.make_field(host, info_box, title, grid, scope=scope, is_list=is_list)
+            self.details[key] = self.make_field(
+                host,
+                info_box,
+                title,
+                grid,
+                scope=scope,
+                is_list=is_list,
+                editable=key == "name",
+                on_edit=self._on_road_name_edited if key == "name" else None,
+            )
 
     def update(self, state):
         """Populates the fields with data from the current state."""
@@ -233,6 +255,19 @@ class StateInfoOverlay:
                     field.append(item)
             else:
                 self.details[key][1].value = value
+
+    def _on_road_name_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
+        new_value = new_value.strip()
+        old_value = old_value.strip()
+        if new_value != _field.value:
+            _field.value = new_value
+        if new_value == old_value:
+            return
+
+        state = self._gui.active_state
+        if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
+            # Keep recurring overlay refreshes from immediately overwriting the committed value.
+            state._road_name = new_value
 
     def reset_visibility(self, scope, is_lcs_proxy=False, accessory: ConfiguredAccessoryAdapter = None):
         """Hides or shows fields based on the context."""
