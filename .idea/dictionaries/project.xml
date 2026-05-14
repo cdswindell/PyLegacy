@@ -43,6 +43,7 @@
       <w>esso</w>
       <w>etype</w>
       <w>extendleft</w>
+      <w>getcwd</w>
       <w>gethostbyname</w>
       <w>gethostname</w>
       <w>getifaddr</w>
