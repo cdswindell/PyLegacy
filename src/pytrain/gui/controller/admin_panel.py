@@ -9,6 +9,7 @@
 import ipaddress
 import logging
 import socket
+from threading import Thread
 
 import psutil
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
@@ -422,7 +423,11 @@ class AdminPanel:
 
     def do_admin_command(self, command: TMCC1SyncCommandEnum) -> None:
         if self._scope_btns.value == "0":
-            self._pytrain.do_admin_cmd(command, ["me"])
+            Thread(
+                target=self._pytrain.do_admin_cmd,
+                args=(command, ["me"]),
+                daemon=True,
+            ).start()
         else:
             self._gui.do_tmcc_request(command)
 
