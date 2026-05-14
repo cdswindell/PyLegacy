@@ -19,7 +19,7 @@ from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
 from ...db.prod_info import ProdInfo
 from ...pdi.base_req import BaseReq
-from ...protocol.constants import CommandScope
+from ...protocol.constants import CommandScope, LOCO_TYPE
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +61,7 @@ class StateInfoOverlay:
         text_size: int = None,
         editor: EditorType = None,
         max_length: int = None,
+        choices: dict | None = None,
         on_edit=None,
     ) -> tuple[TitleBox, Text]:
         text_size = text_size or host.s_18
@@ -124,6 +125,7 @@ class StateInfoOverlay:
                     height=1,
                     editor=editor,
                     max_length=max_length,
+                    choices=choices,
                     on_commit=on_edit,
                 )
                 tf.text_bold = False
@@ -150,7 +152,7 @@ class StateInfoOverlay:
         # Config: [Key, Title, Grid, Scope]
         layouts = [
             ("number", "Road Number", [0, 0], None, EditorType.KEYPAD, 4, self._on_road_number_edited),
-            ("type", "Type", [1, 0, 3, 1], None),
+            ("type", "Type", [1, 0, 3, 1], None, EditorType.CHOICES, LOCO_TYPE, self._on_type_edited),
             ("name", "Road Name", [0, 1, 4, 1], None, EditorType.KEYBOARD, 31, self._on_road_name_edited),
             ("control", "Control", [0, 2, 2, 1], CommandScope.ENGINE),
             ("sound", "Sound", [2, 2, 2, 1], CommandScope.ENGINE),
@@ -182,7 +184,9 @@ class StateInfoOverlay:
 
         for key, title, grid, scope, *rest in layouts:
             editor_type = rest[0] if len(rest) > 0 else None
-            max_length = rest[1] if len(rest) > 1 else None
+            editor_arg = rest[1] if len(rest) > 1 else None
+            max_length = editor_arg if editor_type in {EditorType.KEYBOARD, EditorType.KEYPAD} else None
+            choices = editor_arg if editor_type == EditorType.CHOICES and isinstance(editor_arg, dict) else None
             callback = rest[2] if len(rest) > 2 else None
 
             # Reusing the existing make_info_field logic from the main GUI
@@ -196,6 +200,7 @@ class StateInfoOverlay:
                 is_list=is_list,
                 editor=editor_type,
                 max_length=max_length,
+                choices=choices,
                 on_edit=callback,
             )
 
@@ -217,7 +222,7 @@ class StateInfoOverlay:
             if isinstance(p_info, ProdInfo) and p_info.engine_type:
                 etype = f"{p_info.engine_type} {etype}"
 
-            self._set_val("type", etype)
+            self._set_val("type", etype, initial_value=state.engine_type)
             self._set_val("control", f"{state.control_type_text} {state.record_no_label}")
             self._set_val("sound", state.sound_type_label)
             self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
@@ -258,7 +263,7 @@ class StateInfoOverlay:
             self._set_val("type", acc.accessory_type.clean_title)
             self._set_val("operations", acc.configured_operations_legend)
 
-    def _set_val(self, key, value):
+    def _set_val(self, key, value, initial_value=None):
         if key in self.details:
             if isinstance(value, list):
                 field = cast(ListBox, self.details[key][1])
@@ -266,7 +271,10 @@ class StateInfoOverlay:
                 for item in value:
                     field.append(item)
             else:
-                self.details[key][1].value = value
+                field = self.details[key][1]
+                field.value = value
+                if initial_value is not None:
+                    field.initial_value = initial_value
 
     @staticmethod
     def _process_input(_field: EditableText, new_value: str, old_value: str, fill: int = None) -> tuple[str, str]:
@@ -293,6 +301,9 @@ class StateInfoOverlay:
             if isinstance(state, (EngineState, TrainState)):
                 BaseReq.do_update_eng_field("ROAD_NUMBER_LEN", new_value, state, True)
                 BaseReq.do_update_eng_field("ROAD_NUMBER", new_value, state, True)
+
+    def _on_type_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
+        print("on_type_edited", new_value, old_value)
 
     def _on_popup_closed(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=True)

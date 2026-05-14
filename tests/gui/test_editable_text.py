@@ -148,6 +148,54 @@ class DummyEntry:
         self.destroyed = True
 
 
+class DummyCombo:
+    def __init__(self, master, **kwargs) -> None:
+        self.master = master
+        self.placed = False
+        self.destroyed = False
+        self._bindings: dict[str, list[Callable]] = {}
+        self._config: dict[str, Any] = kwargs
+        self._values: list[str] = []
+        self._current = -1
+
+    def bind(self, event: str, func: Callable, add: str | None = None) -> None:
+        _ = add
+        self._bindings.setdefault(event, []).append(func)
+
+    def configure(self, **kwargs: Any) -> None:
+        self._config.update(kwargs)
+        if "values" in kwargs:
+            self._values = list(kwargs["values"])
+
+    def current(self, index: int | None = None) -> int:
+        if index is not None:
+            self._current = index
+        return self._current
+
+    def get(self) -> str:
+        if 0 <= self._current < len(self._values):
+            return self._values[self._current]
+        return ""
+
+    def place(self, **_kwargs: Any) -> None:
+        self.placed = True
+
+    def place_forget(self) -> None:
+        self.placed = False
+
+    def lift(self) -> None:
+        return
+
+    def focus_set(self) -> None:
+        self.master._focus = self
+
+    def event_generate(self, _event: str) -> None:
+        return
+
+    def destroy(self) -> None:
+        self.destroyed = True
+
+
 class DummyWindow(DummyTk):
     def __init__(self, master=None) -> None:
         super().__init__(top=self)
@@ -251,6 +299,7 @@ def editable_text_module(monkeypatch: pytest.MonkeyPatch):
     sys.modules[module_name] = mod
     spec.loader.exec_module(mod)
     monkeypatch.setattr(mod.tk, "Entry", DummyEntry, raising=True)
+    monkeypatch.setattr(mod.ttk, "Combobox", DummyCombo, raising=True)
     return mod
 
 
@@ -437,6 +486,27 @@ def test_keypad_editor_shows_number_pad_and_enforces_max_length(
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
     assert any(btn.text == "Enter" for btn in DummyButton.instances)
     assert any(btn.text == "Del" for btn in DummyButton.instances)
+
+
+def test_choices_editor_commits_choice_keys_and_keeps_display_text(editable_text_module) -> None:
+    seen = []
+    widget = editable_text_module.EditableText(
+        None,
+        text="Composite Diesel",
+        debounce_ms=0,
+        editor=editable_text_module.EditorType.CHOICES,
+        choices={0: "Diesel", 1: "Steam"},
+        initial_value=0,
+        on_commit=lambda field, new, old: seen.append((field, new, old, field.is_changed)),
+    )
+
+    widget.begin_edit()
+    widget._combo.current(1)
+    widget.commit_edit()
+
+    assert widget.value == "Composite Diesel"
+    assert widget.initial_value == 1
+    assert seen == [(widget, 1, 0, True)]
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:

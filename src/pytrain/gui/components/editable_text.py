@@ -13,7 +13,7 @@ import logging
 import time
 import tkinter as tk
 from enum import Enum, auto
-from tkinter import TclError
+from tkinter import TclError, ttk
 from typing import Any, Callable
 
 from guizero import Text
@@ -43,8 +43,10 @@ class EditableText(Text):
         debounce_ms: int = 80,
         max_length: int | None = None,
         editor: EditorType = EditorType.KEYBOARD,
-        on_commit: Callable[["EditableText", str, str], None] | tuple | list | None = None,
-        on_cancel: Callable[["EditableText", str], None] | tuple | list | None = None,
+        choices: dict[Any, Any] | None = None,
+        initial_value: Any = None,
+        on_commit: Callable[["EditableText", Any, Any], None] | tuple | list | None = None,
+        on_cancel: Callable[["EditableText", Any], None] | tuple | list | None = None,
         commit_on_focus_lost: bool = True,
         select_all_on_edit: bool = True,
         cancel_on_leave: bool = False,
@@ -60,6 +62,8 @@ class EditableText(Text):
         self.debounce_ms = int(debounce_ms)
         self.editor = editor
         self.max_length = max_length
+        self.choices = choices or {}
+        self.initial_value = initial_value
         self.on_commit = on_commit
         self.on_cancel = on_cancel
         self.commit_on_focus_lost = bool(commit_on_focus_lost)
@@ -77,8 +81,13 @@ class EditableText(Text):
         self._keyboard_after_id: str | None = None
         self._keyboard_window: tk.Toplevel | None = None
         self._keyboard_mode = "lower"
-        self._value_before_edit = ""
+        self._value_before_edit: Any = ""
+        self._display_before_edit = ""
+        self._last_committed_value: Any = ""
         self._entry: tk.Entry | None = None
+        self._combo: ttk.Combobox | None = None
+        self._choice_keys: list[Any] = []
+        self._choice_labels: list[str] = []
 
         self.tk.bind("<ButtonPress-1>", self._on_press, add="+")
         self.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
@@ -116,7 +125,13 @@ class EditableText(Text):
 
         self._cancel_hold_timer()
         self._editing = True
-        self._value_before_edit = "" if self.value is None else str(self.value).strip()
+        self._display_before_edit = "" if self.value is None else str(self.value)
+        self._value_before_edit = self._editor_initial_value()
+        self._last_committed_value = self._value_before_edit
+
+        if self.editor == EditorType.CHOICES:
+            self._begin_choice_edit()
+            return
 
         entry = self._ensure_entry()
         self._set_entry_text(self._value_before_edit)
@@ -137,24 +152,24 @@ class EditableText(Text):
         if not self._editing:
             return
 
-        entry = self._entry
-        new_value = self._value_before_edit if entry is None else entry.get()
-        new_value = self._coerce_text(new_value)
+        new_value = self._current_editor_value()
         old_value = self._value_before_edit
 
         self._finish_edit()
-        self.value = new_value
+        self._last_committed_value = new_value
+        if self.editor == EditorType.CHOICES:
+            self.initial_value = new_value
+        else:
+            self.value = new_value
 
         if new_value != old_value:
             self._invoke_callback(self.on_commit, self, new_value, old_value)
 
     @property
     def is_changed(self) -> bool:
-        entry = self._entry
-        new_value = self._value_before_edit if entry is None else entry.get()
-        new_value = self._coerce_text(new_value)
-        old_value = self._value_before_edit
-        return new_value != old_value
+        if self._editing:
+            return self._current_editor_value() != self._value_before_edit
+        return self._last_committed_value != self._value_before_edit
 
     def cancel_edit(self) -> None:
         if not self._editing:
@@ -162,7 +177,8 @@ class EditableText(Text):
 
         old_value = self._value_before_edit
         self._finish_edit()
-        self.value = old_value
+        self.value = self._display_before_edit if self.editor == EditorType.CHOICES else old_value
+        self._last_committed_value = old_value
         self._invoke_callback(self.on_cancel, self, old_value)
 
     def destroy(self):
@@ -173,6 +189,12 @@ class EditableText(Text):
             except TclError:
                 pass
             self._entry = None
+        if self._combo is not None:
+            try:
+                self._combo.destroy()
+            except TclError:
+                pass
+            self._combo = None
         self._hide_keyboard()
         super().destroy()
 
@@ -205,7 +227,10 @@ class EditableText(Text):
     # noinspection PyUnusedLocal
     def _on_configure(self, event=None) -> None:
         if self._editing:
-            self._position_entry()
+            if self.editor == EditorType.CHOICES:
+                self._position_combo()
+            else:
+                self._position_entry()
 
     def _on_hold(self) -> None:
         self._hold_after_id = None
@@ -235,8 +260,23 @@ class EditableText(Text):
             pass
 
     # -------------------------
-    # Entry overlay
+    # Editor overlays
     # -------------------------
+
+    def _begin_choice_edit(self) -> None:
+        try:
+            combo = self._ensure_combo()
+            self._populate_combo()
+            self._position_combo()
+            combo.lift()
+            combo.focus_set()
+            try:
+                combo.event_generate("<Button-1>")
+            except TclError:
+                pass
+        except TclError:
+            self._editing = False
+            log.debug("Unable to begin inline choice edit", exc_info=True)
 
     def _ensure_entry(self) -> tk.Entry:
         if self._entry is not None:
@@ -266,7 +306,7 @@ class EditableText(Text):
             focused = self.tk.winfo_toplevel().focus_get()
         except TclError:
             focused = None
-        if focused is self._entry or self._is_keyboard_descendant(focused):
+        if focused is self._entry or focused is self._combo or self._is_keyboard_descendant(focused):
             return
         self.commit_edit()
 
@@ -293,6 +333,50 @@ class EditableText(Text):
         except TclError:
             pass
 
+    def _ensure_combo(self) -> ttk.Combobox:
+        if self._combo is not None:
+            return self._combo
+
+        top = self.tk.winfo_toplevel()
+        self._combo = ttk.Combobox(top, state="readonly")
+        self._combo.bind("<Return>", lambda _event: self.commit_edit(), add="+")
+        self._combo.bind("<KP_Enter>", lambda _event: self.commit_edit(), add="+")
+        self._combo.bind("<Escape>", lambda _event: self.cancel_edit(), add="+")
+        self._combo.bind("<<ComboboxSelected>>", lambda _event: self.commit_edit(), add="+")
+        return self._combo
+
+    def _populate_combo(self) -> None:
+        if self._combo is None:
+            return
+
+        self._choice_keys = list(self.choices.keys())
+        self._choice_labels = [str(value) for value in self.choices.values()]
+        self._combo.configure(values=self._choice_labels, font=self.tk.cget("font"))
+
+        current_key = self._value_before_edit
+        try:
+            index = self._choice_keys.index(current_key)
+        except ValueError:
+            current_label = "" if self.value is None else str(self.value).strip()
+            index = self._choice_labels.index(current_label) if current_label in self._choice_labels else 0
+
+        if self._choice_labels:
+            self._combo.current(index)
+
+    def _position_combo(self) -> None:
+        if self._combo is None:
+            return
+
+        top = self._combo.master
+        try:
+            x = int(self.tk.winfo_rootx()) - int(top.winfo_rootx())
+            y = int(self.tk.winfo_rooty()) - int(top.winfo_rooty())
+            width = max(1, int(self.tk.winfo_width()))
+            height = max(1, int(self.tk.winfo_height()))
+            self._combo.place(x=x, y=y, width=width, height=height)
+        except TclError:
+            pass
+
     def _finish_edit(self) -> None:
         self._editing = False
         self._pressed = False
@@ -303,6 +387,11 @@ class EditableText(Text):
         if self._entry is not None:
             try:
                 self._entry.place_forget()
+            except TclError:
+                pass
+        if self._combo is not None:
+            try:
+                self._combo.place_forget()
             except TclError:
                 pass
 
@@ -322,6 +411,42 @@ class EditableText(Text):
         if self.max_length is not None:
             return text[: self.max_length].strip()
         return text
+
+    def _editor_initial_value(self) -> Any:
+        if self.editor == EditorType.CHOICES:
+            if self.initial_value is not None:
+                return self.initial_value
+            label = "" if self.value is None else str(self.value).strip()
+            return self._choice_key_for_label(label, default=label)
+        return self._coerce_text(self.value)
+
+    def _current_editor_value(self) -> Any:
+        if self.editor == EditorType.CHOICES:
+            return self._current_choice_value()
+        entry = self._entry
+        new_value = self._value_before_edit if entry is None else entry.get()
+        return self._coerce_text(new_value)
+
+    def _current_choice_value(self) -> Any:
+        combo = self._combo
+        if combo is None:
+            return self._value_before_edit
+        try:
+            index = int(combo.current())
+            if 0 <= index < len(self._choice_keys):
+                return self._choice_keys[index]
+        except (TclError, ValueError, TypeError):
+            pass
+        try:
+            return self._choice_key_for_label(combo.get(), default=self._value_before_edit)
+        except TclError:
+            return self._value_before_edit
+
+    def _choice_key_for_label(self, label: str, default: Any = None) -> Any:
+        for key, value in self.choices.items():
+            if str(value) == label:
+                return key
+        return default
 
     def _cancel_hold_timer(self) -> None:
         if self._hold_after_id is None:
