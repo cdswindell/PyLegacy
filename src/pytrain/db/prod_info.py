@@ -30,7 +30,7 @@ load_dotenv(find_dotenv())
 API_KEY = os.environ.get("LIONEL_API_KEY")
 PROD_INFO_URL = os.environ.get("PROD_INFO_URL")
 ENGINE_INFO_CACHE_DIR = "cache/engine_info"
-ENGINE_IMAGE_CACHE_DIR = "cache/engine_image"
+ENGINE_IMAGES_CACHE_DIR = "cache/engine_images"
 PROD_INFO_CONNECT_TIMEOUT = float(os.environ.get("PROD_INFO_CONNECT_TIMEOUT", "10.0"))
 PROD_INFO_READ_TIMEOUT = float(os.environ.get("PROD_INFO_READ_TIMEOUT", "20.0"))
 
@@ -83,8 +83,8 @@ class ProdInfo:
     def image_content(self) -> bytes:
         if self._image_content is None:
             image_cache_path = None
-            if ENGINE_IMAGE_CACHE_DIR and self._image_file:
-                file_name = find_file(self._image_file, places=(Path.cwd(), ENGINE_IMAGE_CACHE_DIR))
+            if ENGINE_IMAGES_CACHE_DIR and self._image_file:
+                file_name = find_file(self._image_file, places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
                 if file_name and Path(file_name).is_file():
                     try:
                         print(f"Loading product image from file: {file_name}")
@@ -92,7 +92,7 @@ class ProdInfo:
                         return self._image_content
                     except OSError as e:
                         log.warning("Failed to load product image from file %s: %s", file_name, e)
-                image_cache_path = Path(ENGINE_IMAGE_CACHE_DIR) / self._image_file
+                image_cache_path = Path(ENGINE_IMAGES_CACHE_DIR) / self._image_file
 
             response = requests.get(self.image_url, timeout=30.0)
             if response.status_code == 200:
