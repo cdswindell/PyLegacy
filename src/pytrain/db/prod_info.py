@@ -163,7 +163,7 @@ class ProdInfo:
 
             # write json to file
             if ENGINE_INFO_CACHE_DIR:
-                print(f"Writing dict to file: {ENGINE_INFO_CACHE_DIR}/{key}.json")
+                print(f"Writing dict to file: {ENGINE_INFO_CACHE_DIR}/{bt_id}.json")
                 Path(ENGINE_INFO_CACHE_DIR).mkdir(parents=True, exist_ok=True)
                 with open(f"{ENGINE_INFO_CACHE_DIR}/{bt_id}.json", "w", encoding="utf-8") as f:
                     json.dump(prod_dict, f, indent=2)
