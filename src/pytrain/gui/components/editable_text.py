@@ -81,8 +81,6 @@ class EditableText(Text):
         self._editing = False
         self._hold_after_id: str | None = None
         self._keyboard_after_id: str | None = None
-        self._choice_repeat_after_id: str | None = None
-        self._choice_repeat_command: Callable[[], None] | None = None
         self._keyboard_window: tk.Toplevel | None = None
         self._choice_window: tk.Toplevel | None = None
         self._keyboard_mode = "lower"
@@ -188,7 +186,6 @@ class EditableText(Text):
 
     def destroy(self):
         self._cancel_hold_timer()
-        self._stop_choice_repeat()
         if self._entry is not None:
             try:
                 self._entry.destroy()
@@ -424,7 +421,6 @@ class EditableText(Text):
         self._pressed = False
         self._cancel_hold_timer()
         self._cancel_keyboard_timer()
-        self._stop_choice_repeat()
         if self.hide_keyboard_on_finish:
             self._hide_keyboard()
         self._hide_choice_picker()
@@ -560,36 +556,6 @@ class EditableText(Text):
         except TclError:
             pass
         self._keyboard_after_id = None
-
-    def _start_choice_repeat(self, command: Callable[[], None]) -> None:
-        self._stop_choice_repeat()
-        command()
-        self._choice_repeat_command = command
-        try:
-            self._choice_repeat_after_id = self.tk.after(550, self._repeat_choice_action)
-        except TclError:
-            self._choice_repeat_after_id = None
-
-    def _repeat_choice_action(self) -> None:
-        self._choice_repeat_after_id = None
-        command = self._choice_repeat_command
-        if command is None or not self._editing:
-            return
-        command()
-        try:
-            self._choice_repeat_after_id = self.tk.after(250, self._repeat_choice_action)
-        except TclError:
-            self._choice_repeat_after_id = None
-
-    def _stop_choice_repeat(self) -> None:
-        self._choice_repeat_command = None
-        if self._choice_repeat_after_id is None:
-            return
-        try:
-            self.tk.after_cancel(self._choice_repeat_after_id)
-        except TclError:
-            pass
-        self._choice_repeat_after_id = None
 
     def _show_keyboard(self) -> None:
         self._keyboard_after_id = None
@@ -766,7 +732,13 @@ class EditableText(Text):
         self._make_key(controls, "Del", self._backspace, weight=1)
 
     @staticmethod
-    def _make_key(parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> tk.Button:
+    def _make_key(
+        parent: tk.Frame,
+        text: str,
+        command: Callable[[], None],
+        weight: int = 1,
+        **button_kwargs,
+    ) -> tk.Button:
         btn = tk.Button(
             parent,
             text=text,
@@ -777,6 +749,7 @@ class EditableText(Text):
             font=("TkDefaultFont", 18),
             background="#f7f7f7",
             activebackground="#d8d8d8",
+            **button_kwargs,
         )
         btn.pack(side="left", fill="both", expand=True, padx=4, ipady=11)
         if weight > 1:
@@ -784,10 +757,14 @@ class EditableText(Text):
         return btn
 
     def _make_repeat_key(self, parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
-        btn = self._make_key(parent, text, lambda: None, weight=weight)
-        btn.bind("<ButtonPress-1>", lambda _event: self._start_choice_repeat(command), add="+")
-        btn.bind("<ButtonRelease-1>", lambda _event: self._stop_choice_repeat(), add="+")
-        btn.bind("<Leave>", lambda _event: self._stop_choice_repeat(), add="+")
+        self._make_key(
+            parent,
+            text,
+            command,
+            weight=weight,
+            repeatdelay=550,
+            repeatinterval=250,
+        )
 
     def _keyboard_rows(self) -> tuple[tuple[str, ...], ...]:
         if self._keyboard_mode == "symbols":

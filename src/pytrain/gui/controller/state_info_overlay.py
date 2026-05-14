@@ -331,7 +331,6 @@ class StateInfoOverlay:
 
     def _persist_edit(self, _field: EditableText, new_value: int, old_value: int, field: str) -> None:
         if _field.is_changed:
-            print(f"Persisting edit: {field} {old_value} -> {new_value}")
             state = self._gui.active_state
             if isinstance(state, (EngineState, TrainState)):
                 BaseReq.do_update_eng_field(field, new_value, state, True)

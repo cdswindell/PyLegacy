@@ -614,16 +614,14 @@ def test_choices_editor_arrow_buttons_move_selection(
     down_button = next(btn for btn in DummyButton.instances if btn.text == "↓")
     up_button = next(btn for btn in DummyButton.instances if btn.text == "↑")
 
-    down_button._bindings["<ButtonPress-1>"][0](None)
-    down_button._bindings["<ButtonRelease-1>"][0](None)
+    down_button.command()
     assert widget._current_choice_value() == 2
 
-    up_button._bindings["<ButtonPress-1>"][0](None)
-    up_button._bindings["<ButtonRelease-1>"][0](None)
+    up_button.command()
     assert widget._current_choice_value() == 1
 
 
-def test_choices_editor_arrow_buttons_repeat_when_held(
+def test_choices_editor_arrow_buttons_use_native_button_repeat(
     editable_text_module,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -645,24 +643,17 @@ def test_choices_editor_arrow_buttons_repeat_when_held(
     widget.begin_edit()
     down_button = next(btn for btn in DummyButton.instances if btn.text == "↓")
 
-    down_button._bindings["<ButtonPress-1>"][0](None)
+    assert down_button.kwargs["repeatdelay"] == 550
+    assert down_button.kwargs["repeatinterval"] == 250
+
+    down_button.command()
     assert widget._current_choice_value() == 1
 
-    first_repeat_id = widget._choice_repeat_after_id
-    assert first_repeat_id is not None
-    widget.tk.run_after(first_repeat_id)
+    down_button.command()
     assert widget._current_choice_value() == 2
 
-    second_repeat_id = widget._choice_repeat_after_id
-    assert second_repeat_id is not None
-    widget.tk.run_after(second_repeat_id)
+    down_button.command()
     assert widget._current_choice_value() == 3
-
-    pending_repeat_id = widget._choice_repeat_after_id
-    down_button._bindings["<ButtonRelease-1>"][0](None)
-
-    assert widget._choice_repeat_after_id is None
-    assert pending_repeat_id not in widget.tk._after_calls
 
 
 def test_choices_editor_allows_configurable_visible_rows(
