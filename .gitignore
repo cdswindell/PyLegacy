@@ -1,4 +1,5 @@
 dist/
+cache/
 src/*.egg-info/
 src/pytrain/_version.py
 .idea/

@@ -1,6 +1,6 @@
 import requests
 
-from pytrain.db import prod_info as mod
+from src.pytrain.db import prod_info as mod
 
 
 class DummyResponse:
@@ -12,6 +12,7 @@ class DummyResponse:
         return self._payload
 
 
+# noinspection PyProtectedMember
 def setup_function() -> None:
     mod.ProdInfo._bt_cache.clear()
     mod.ProdInfo._failed_bt_cache.clear()
@@ -43,6 +44,7 @@ def test_get_info_uses_configured_timeouts(monkeypatch) -> None:
     monkeypatch.setattr(mod, "PROD_INFO_URL", "https://example.invalid/{}", raising=True)
     monkeypatch.setattr(mod, "PROD_INFO_CONNECT_TIMEOUT", 2.5, raising=True)
     monkeypatch.setattr(mod, "PROD_INFO_READ_TIMEOUT", 7.5, raising=True)
+    monkeypatch.setattr(mod, "ENGINE_INFO_CACHE_DIR", None, raising=True)
     monkeypatch.setattr(mod.requests, "get", fake_get, raising=True)
 
     payload = mod.ProdInfo.get_info("ABCD")
@@ -81,6 +83,7 @@ def test_by_btid_caches_successful_lookup(monkeypatch) -> None:
 
     monkeypatch.setattr(mod, "API_KEY", "tests-key", raising=True)
     monkeypatch.setattr(mod, "PROD_INFO_URL", "https://example.invalid/{}", raising=True)
+    monkeypatch.setattr(mod, "ENGINE_INFO_CACHE_DIR", None, raising=True)
     monkeypatch.setattr(mod.requests, "get", fake_get, raising=True)
 
     first = mod.ProdInfo.by_btid("BEEF")
@@ -102,6 +105,7 @@ def test_by_btid_failure_is_negative_cached(monkeypatch) -> None:
 
     monkeypatch.setattr(mod, "API_KEY", "tests-key", raising=True)
     monkeypatch.setattr(mod, "PROD_INFO_URL", "https://example.invalid/{}", raising=True)
+    monkeypatch.setattr(mod, "ENGINE_INFO_CACHE_DIR", None, raising=True)
     monkeypatch.setattr(mod.requests, "get", fake_get, raising=True)
 
     first = mod.ProdInfo.by_btid("DEAD")
@@ -117,6 +121,7 @@ def test_by_btid_failure_is_negative_cached(monkeypatch) -> None:
 def test_by_btid_missing_configuration_is_negative_cached(monkeypatch) -> None:
     monkeypatch.setattr(mod, "API_KEY", None, raising=True)
     monkeypatch.setattr(mod, "PROD_INFO_URL", None, raising=True)
+    monkeypatch.setattr(mod, "ENGINE_INFO_CACHE_DIR", None, raising=True)
 
     first = mod.ProdInfo.by_btid("C0DE")
     second = mod.ProdInfo.by_btid("C0DE")

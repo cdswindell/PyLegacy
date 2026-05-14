@@ -1183,10 +1183,10 @@ class PyTrain:
                 address = int(param[0])
                 state = self._state_store.get_state(CommandScope.ENGINE, address, create=False)
                 if isinstance(state, EngineState) and state.bt_id:
-                    info = ProdInfo.get_info(state.bt_id)
+                    info = ProdInfo.by_btid(state.bt_id)
                     if info:
                         log.info("From the Lionel product database:")
-                        for k, v in info.items():
+                        for k, v in info.as_dict().items():
                             log.info(f"{k}: {v}")
                         return
                 log.info(f"No product information available on Engine {address}...")
