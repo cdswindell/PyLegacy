@@ -265,3 +265,24 @@ def test_no_file_caching_when_both_cache_dirs_are_empty(monkeypatch, tmp_path) -
 
     assert _prod_info().image_content == image_bytes
     assert not list(tmp_path.rglob("*"))
+
+
+def test_clear_caches_removes_cache_files_and_clears_memory(monkeypatch, tmp_path) -> None:
+    info_cache_dir = tmp_path / "engine_info"
+    image_cache_dir = tmp_path / "engine_images"
+    info_cache_dir.mkdir()
+    image_cache_dir.mkdir()
+    (info_cache_dir / "ABCD.json").write_text("{}", encoding="utf-8")
+    (image_cache_dir / "engine.png").write_bytes(b"image bytes")
+    mod.ProdInfo._bt_cache["ABCD"] = {"cached": True}
+    mod.ProdInfo._failed_bt_cache.add("DEAD")
+
+    monkeypatch.setattr(mod, "ENGINE_INFO_CACHE_DIR", str(info_cache_dir), raising=True)
+    monkeypatch.setattr(mod, "ENGINE_IMAGES_CACHE_DIR", str(image_cache_dir), raising=True)
+
+    mod.ProdInfo.clear_caches()
+
+    assert not list(info_cache_dir.iterdir())
+    assert not list(image_cache_dir.iterdir())
+    assert mod.ProdInfo._bt_cache == {}
+    assert mod.ProdInfo._failed_bt_cache == set()

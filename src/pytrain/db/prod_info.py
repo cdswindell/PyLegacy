@@ -14,6 +14,7 @@ import logging
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
+from threading import RLock
 from typing import ClassVar
 from urllib.parse import urlparse
 
@@ -62,12 +63,14 @@ class ProdInfo:
     # class variables
     _bt_cache: ClassVar[dict[str, ProdInfo]] = {}
     _failed_bt_cache: ClassVar[set[str]] = set()
+    _cache_lock: ClassVar = RLock()
 
     def __post_init__(self):
         self._image_content = None
         self._image = None
-        ProdInfo._bt_cache[self.ble_hexid] = self
-        ProdInfo._failed_bt_cache.discard(self.ble_hexid)
+        with ProdInfo._cache_lock:
+            ProdInfo._bt_cache[self.ble_hexid] = self
+            ProdInfo._failed_bt_cache.discard(self.ble_hexid)
         try:
             self._image_file = PurePosixPath(urlparse(self.image_url).path).name
         except ValueError:
@@ -106,41 +109,65 @@ class ProdInfo:
         return self._image_content
 
     @classmethod
+    def clear_caches(cls) -> None:
+        with cls._cache_lock:
+            cls._bt_cache.clear()
+            cls._failed_bt_cache.clear()
+
+            for cache_dir in (ENGINE_INFO_CACHE_DIR, ENGINE_IMAGES_CACHE_DIR):
+                if not cache_dir:
+                    continue
+
+                cache_path = Path(cache_dir)
+                if not cache_path.is_dir():
+                    continue
+
+                for path in cache_path.iterdir():
+                    if path.is_file() or path.is_symlink():
+                        path.unlink()
+
+    @classmethod
     def by_btid(cls, bt_id: str) -> ProdInfo | None:
         """Attempts product info lookup; returns cached or None"""
-        if bt_id in cls._bt_cache:
-            return cls._bt_cache[bt_id]
+        with cls._cache_lock:
+            if bt_id in cls._bt_cache:
+                return cls._bt_cache[bt_id]
         try:
             prod_json = cls.get_info(bt_id)
         except (requests.RequestException, ValueError) as e:
-            cls._failed_bt_cache.add(bt_id)
+            with cls._cache_lock:
+                cls._failed_bt_cache.add(bt_id)
             log.warning("Product info lookup failed for %s: %s", bt_id, e)
             return None
         if prod_json:
-            cls._bt_cache[bt_id] = prod_info = cls.from_dict(prod_json)
+            prod_info = cls.from_dict(prod_json)
+            with cls._cache_lock:
+                cls._bt_cache[bt_id] = prod_info
             return prod_info
         else:
-            cls._failed_bt_cache.add(bt_id)
+            with cls._cache_lock:
+                cls._failed_bt_cache.add(bt_id)
             return None
 
     @classmethod
     def get_info(cls, bt_id: str) -> dict:
         key = bt_id + "_dict"
-        if key in cls._bt_cache:
-            return cls._bt_cache[key]
-        if bt_id in cls._failed_bt_cache:
-            return None
-        # look in local cache
-        if ENGINE_INFO_CACHE_DIR:
-            file_name = find_file(f"{bt_id}.json", places=(Path.cwd(), ENGINE_INFO_CACHE_DIR))
-            if file_name and Path(file_name).is_file():
-                try:
-                    with open(file_name, "r", encoding="utf-8") as f:
-                        prod_dict = json.load(f)
-                    cls._bt_cache[key] = prod_dict
-                    return prod_dict
-                except Exception as e:
-                    log.warning("Failed to load product info from file: %s", e)
+        with cls._cache_lock:
+            if key in cls._bt_cache:
+                return cls._bt_cache[key]
+            if bt_id in cls._failed_bt_cache:
+                return None
+            # look in local file cache
+            if ENGINE_INFO_CACHE_DIR:
+                file_name = find_file(f"{bt_id}.json", places=(Path.cwd(), ENGINE_INFO_CACHE_DIR))
+                if file_name and Path(file_name).is_file():
+                    try:
+                        with open(file_name, "r", encoding="utf-8") as f:
+                            prod_dict = json.load(f)
+                        cls._bt_cache[key] = prod_dict
+                        return prod_dict
+                    except Exception as e:
+                        log.warning("Failed to load product info from file: %s", e)
 
         if PROD_INFO_URL is None or API_KEY is None:
             raise ValueError("Missing required environment variables")
@@ -158,10 +185,12 @@ class ProdInfo:
                 Path(ENGINE_INFO_CACHE_DIR).mkdir(parents=True, exist_ok=True)
                 with open(f"{ENGINE_INFO_CACHE_DIR}/{bt_id}.json", "w", encoding="utf-8") as f:
                     json.dump(prod_dict, f, indent=2)
-            cls._bt_cache[key] = prod_dict
+            with cls._cache_lock:
+                cls._bt_cache[key] = prod_dict
             return prod_dict
         else:
-            cls._failed_bt_cache.add(bt_id)
+            with cls._cache_lock:
+                cls._failed_bt_cache.add(bt_id)
             msg = f"Request for product information on {bt_id} failed with status code {response.status_code}"
             raise requests.RequestException(msg)
 
