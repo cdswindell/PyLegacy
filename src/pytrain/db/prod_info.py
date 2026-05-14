@@ -6,7 +6,6 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-#
 
 from __future__ import annotations
 
@@ -29,8 +28,8 @@ log = logging.getLogger(__name__)
 load_dotenv(find_dotenv())
 API_KEY = os.environ.get("LIONEL_API_KEY")
 PROD_INFO_URL = os.environ.get("PROD_INFO_URL")
-ENGINE_INFO_CACHE_DIR = "cache/engine_info"
-ENGINE_IMAGES_CACHE_DIR = "cache/engine_images"
+ENGINE_INFO_CACHE_DIR = os.environ.get("ENGINE_INFO_CACHE_DIR", "cache/engine_info")
+ENGINE_IMAGES_CACHE_DIR = os.environ.get("ENGINE_IMAGES_CACHE_DIR", "cache/engine_images")
 PROD_INFO_CONNECT_TIMEOUT = float(os.environ.get("PROD_INFO_CONNECT_TIMEOUT", "10.0"))
 PROD_INFO_READ_TIMEOUT = float(os.environ.get("PROD_INFO_READ_TIMEOUT", "20.0"))
 
@@ -71,9 +70,7 @@ class ProdInfo:
         ProdInfo._failed_bt_cache.discard(self.ble_hexid)
         try:
             self._image_file = PurePosixPath(urlparse(self.image_url).path).name
-            print(f"Image file: {self._image_file}")
-        except ValueError as exc:
-            print(exc)
+        except ValueError:
             pass
 
     def as_dict(self) -> dict:
@@ -87,7 +84,6 @@ class ProdInfo:
                 file_name = find_file(self._image_file, places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
                 if file_name and Path(file_name).is_file():
                     try:
-                        print(f"Loading product image from file: {file_name}")
                         self._image_content = Path(file_name).read_bytes()
                         return self._image_content
                     except OSError as e:
@@ -99,7 +95,6 @@ class ProdInfo:
                 self._image_content = response.content
                 if image_cache_path:
                     try:
-                        print(f"Writing product image to file: {image_cache_path}")
                         image_cache_path.parent.mkdir(parents=True, exist_ok=True)
                         image_cache_path.write_bytes(self._image_content)
                     except OSError as e:
@@ -114,7 +109,6 @@ class ProdInfo:
     def by_btid(cls, bt_id: str) -> ProdInfo | None:
         """Attempts product info lookup; returns cached or None"""
         if bt_id in cls._bt_cache:
-            print(f"Using cached product info for {bt_id}")
             return cls._bt_cache[bt_id]
         try:
             prod_json = cls.get_info(bt_id)
@@ -133,7 +127,6 @@ class ProdInfo:
     def get_info(cls, bt_id: str) -> dict:
         key = bt_id + "_dict"
         if key in cls._bt_cache:
-            print(f"Using cached product dict for {bt_id}")
             return cls._bt_cache[key]
         if bt_id in cls._failed_bt_cache:
             return None
@@ -141,7 +134,6 @@ class ProdInfo:
         if ENGINE_INFO_CACHE_DIR:
             file_name = find_file(f"{bt_id}.json", places=(Path.cwd(), ENGINE_INFO_CACHE_DIR))
             if file_name and Path(file_name).is_file():
-                print(f"Loading product info from file: {file_name}")
                 try:
                     with open(file_name, "r", encoding="utf-8") as f:
                         prod_dict = json.load(f)
@@ -163,7 +155,6 @@ class ProdInfo:
 
             # write json to file
             if ENGINE_INFO_CACHE_DIR:
-                print(f"Writing dict to file: {ENGINE_INFO_CACHE_DIR}/{bt_id}.json")
                 Path(ENGINE_INFO_CACHE_DIR).mkdir(parents=True, exist_ok=True)
                 with open(f"{ENGINE_INFO_CACHE_DIR}/{bt_id}.json", "w", encoding="utf-8") as f:
                     json.dump(prod_dict, f, indent=2)
