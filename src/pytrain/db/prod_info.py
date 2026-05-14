@@ -82,9 +82,28 @@ class ProdInfo:
     @property
     def image_content(self) -> bytes:
         if self._image_content is None:
+            image_cache_path = None
+            if ENGINE_IMAGE_CACHE_DIR and self._image_file:
+                file_name = find_file(self._image_file, places=(Path.cwd(), ENGINE_IMAGE_CACHE_DIR))
+                if file_name and Path(file_name).is_file():
+                    try:
+                        print(f"Loading product image from file: {file_name}")
+                        self._image_content = Path(file_name).read_bytes()
+                        return self._image_content
+                    except OSError as e:
+                        log.warning("Failed to load product image from file %s: %s", file_name, e)
+                image_cache_path = Path(ENGINE_IMAGE_CACHE_DIR) / self._image_file
+
             response = requests.get(self.image_url, timeout=30.0)
             if response.status_code == 200:
                 self._image_content = response.content
+                if image_cache_path:
+                    try:
+                        print(f"Writing product image to file: {image_cache_path}")
+                        image_cache_path.parent.mkdir(parents=True, exist_ok=True)
+                        image_cache_path.write_bytes(self._image_content)
+                    except OSError as e:
+                        log.warning("Failed to cache product image to file %s: %s", image_cache_path, e)
             else:
                 msg = f"Request for product image on {self.pid} failed with status code {response.status_code}"
                 log.warning(msg)
