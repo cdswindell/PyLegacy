@@ -279,9 +279,14 @@ class DummyButton:
         self.command = command
         self.kwargs = kwargs
         self.text = kwargs.get("text")
+        self._bindings: dict[str, list[Callable]] = {}
         DummyButton.instances.append(self)
         if hasattr(master, "children"):
             master.children.append(self)
+
+    def bind(self, event: str, func: Callable, add: str | None = None) -> None:
+        _ = add
+        self._bindings.setdefault(event, []).append(func)
 
     def pack(self, **_kwargs) -> None:
         return
@@ -609,11 +614,55 @@ def test_choices_editor_arrow_buttons_move_selection(
     down_button = next(btn for btn in DummyButton.instances if btn.text == "↓")
     up_button = next(btn for btn in DummyButton.instances if btn.text == "↑")
 
-    down_button.command()
+    down_button._bindings["<ButtonPress-1>"][0](None)
+    down_button._bindings["<ButtonRelease-1>"][0](None)
     assert widget._current_choice_value() == 2
 
-    up_button.command()
+    up_button._bindings["<ButtonPress-1>"][0](None)
+    up_button._bindings["<ButtonRelease-1>"][0](None)
     assert widget._current_choice_value() == 1
+
+
+def test_choices_editor_arrow_buttons_repeat_when_held(
+    editable_text_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    DummyButton.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="Composite Diesel",
+        debounce_ms=0,
+        editor=editable_text_module.EditorType.CHOICES,
+        choices={0: "Diesel", 1: "Steam", 2: "Electric", 3: "Subway"},
+        initial_value=0,
+    )
+
+    widget.begin_edit()
+    down_button = next(btn for btn in DummyButton.instances if btn.text == "↓")
+
+    down_button._bindings["<ButtonPress-1>"][0](None)
+    assert widget._current_choice_value() == 1
+
+    first_repeat_id = widget._choice_repeat_after_id
+    assert first_repeat_id is not None
+    widget.tk.run_after(first_repeat_id)
+    assert widget._current_choice_value() == 2
+
+    second_repeat_id = widget._choice_repeat_after_id
+    assert second_repeat_id is not None
+    widget.tk.run_after(second_repeat_id)
+    assert widget._current_choice_value() == 3
+
+    pending_repeat_id = widget._choice_repeat_after_id
+    down_button._bindings["<ButtonRelease-1>"][0](None)
+
+    assert widget._choice_repeat_after_id is None
+    assert pending_repeat_id not in widget.tk._after_calls
 
 
 def test_choices_editor_allows_configurable_visible_rows(

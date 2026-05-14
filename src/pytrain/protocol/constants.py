@@ -278,7 +278,7 @@ LOCO_TYPE: Dict[int, str] = {
     4: "Accessory/Operating Car",
     5: "Passenger",
     6: "Breakdown",
-    7: "reserved",
+    # 7: "reserved",
     8: "Acela",
     9: "Track Crane",
     10: "Diesel Switcher",

@@ -19,7 +19,7 @@ from ...db.component_state import LcsProxyState
 from ...db.engine_state import EngineState, TrainState
 from ...db.prod_info import ProdInfo
 from ...pdi.base_req import BaseReq
-from ...protocol.constants import CommandScope, LOCO_TYPE
+from ...protocol.constants import CONTROL_TYPE, CommandScope, LOCO_TYPE, SOUND_TYPE
 
 log = logging.getLogger(__name__)
 
@@ -154,8 +154,24 @@ class StateInfoOverlay:
             ("number", "Road Number", [0, 0], None, EditorType.KEYPAD, 4, self._on_road_number_edited),
             ("type", "Type", [1, 0, 3, 1], None, EditorType.CHOICES, LOCO_TYPE, self._on_type_edited),
             ("name", "Road Name", [0, 1, 4, 1], None, EditorType.KEYBOARD, 31, self._on_road_name_edited),
-            ("control", "Control", [0, 2, 2, 1], CommandScope.ENGINE),
-            ("sound", "Sound", [2, 2, 2, 1], CommandScope.ENGINE),
+            (
+                "control",
+                "Control",
+                [0, 2, 2, 1],
+                CommandScope.ENGINE,
+                EditorType.CHOICES,
+                CONTROL_TYPE,
+                self._on_control_edited,
+            ),
+            (
+                "sound",
+                "Sound",
+                [2, 2, 2, 1],
+                CommandScope.ENGINE,
+                EditorType.CHOICES,
+                SOUND_TYPE,
+                self._on_sound_edited,
+            ),
             ("speed", "Speed", [0, 3], CommandScope.ENGINE),
             ("target", "Target Speed", [1, 3], CommandScope.ENGINE),
             ("limit", "Speed Limit", [2, 3], CommandScope.ENGINE),
@@ -223,8 +239,10 @@ class StateInfoOverlay:
                 etype = f"{p_info.engine_type} {etype}"
 
             self._set_val("type", etype, initial_value=state.engine_type)
-            self._set_val("control", f"{state.control_type_text} {state.record_no_label}")
-            self._set_val("sound", state.sound_type_label)
+            self._set_val(
+                "control", f"{state.control_type_text} {state.record_no_label}", initial_value=state.control_type
+            )
+            self._set_val("sound", state.sound_type_label, initial_value=state.sound_type)
             self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
             self._set_val("smoke", state.smoke_text)
             self._set_val("mom", state.momentum_text)
@@ -303,7 +321,20 @@ class StateInfoOverlay:
                 BaseReq.do_update_eng_field("ROAD_NUMBER", new_value, state, True)
 
     def _on_type_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
-        print("on_type_edited", new_value, old_value)
+        self._persist_edit(_field, new_value, old_value, "ENGINE_TYPE")
+
+    def _on_control_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
+        self._persist_edit(_field, new_value, old_value, "CONTROL_TYPE")
+
+    def _on_sound_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
+        self._persist_edit(_field, new_value, old_value, "SOUND_TYPE")
+
+    def _persist_edit(self, _field: EditableText, new_value: int, old_value: int, field: str) -> None:
+        print(f"Persisting edit: {field} {new_value} -> {old_value}")
+        if _field.is_changed:
+            state = self._gui.active_state
+            if isinstance(state, (EngineState, TrainState)):
+                BaseReq.do_update_eng_field(field, new_value, state, True)
 
     def _on_popup_closed(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=True)
