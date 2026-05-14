@@ -363,9 +363,9 @@ class EditableText(Text):
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
             picker_w = min(screen_w, 680)
-            picker_h = min(screen_h, 420)
-            x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - picker_w) // 2)
-            y = max(0, int(top.winfo_rooty()) + (int(top.winfo_height()) - picker_h) // 2)
+            picker_h = min(screen_h, 560)
+            x = max(0, (screen_w - picker_w) // 2)
+            y = max(0, (screen_h - picker_h) // 2)
             picker.geometry(f"{picker_w}x{picker_h}+{x}+{y}")
         except TclError:
             pass
@@ -388,6 +388,14 @@ class EditableText(Text):
         )
         title.pack(fill="x", padx=12, pady=(12, 6))
 
+        action_row = tk.Frame(picker, background="#202020")
+        action_row.pack(side="bottom", fill="x", padx=8, pady=(6, 12))
+        self._make_key(action_row, "↑", lambda: self._move_choice(-1), weight=1)
+        self._make_key(action_row, "↓", lambda: self._move_choice(1), weight=1)
+        self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
+        self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
+        self._make_key(action_row, "Done", self.commit_edit, weight=1)
+
         self._choice_listbox = tk.Listbox(
             picker,
             activestyle="dotbox",
@@ -396,8 +404,6 @@ class EditableText(Text):
             height=self.choice_rows,
             relief="solid",
             bd=1,
-            selectbackground="#2f7d32",
-            selectforeground="#ffffff",
         )
         self._choice_listbox.pack(fill="both", expand=True, padx=12, pady=6)
         self._choice_listbox.bind("<Up>", lambda _event: self._move_choice(-1), add="+")
@@ -409,14 +415,6 @@ class EditableText(Text):
         for label in self._choice_labels:
             self._choice_listbox.insert("end", label)
         self._select_choice_key(self._value_before_edit)
-
-        action_row = tk.Frame(picker, background="#202020")
-        action_row.pack(fill="x", padx=8, pady=(6, 12))
-        self._make_key(action_row, "↑", lambda: self._move_choice(-1), weight=1)
-        self._make_key(action_row, "↓", lambda: self._move_choice(1), weight=1)
-        self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
-        self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Enter", self.commit_edit, weight=1)
 
     def _finish_edit(self) -> None:
         self._editing = False
@@ -684,7 +682,7 @@ class EditableText(Text):
         action_row.pack(fill="x", padx=8, pady=(8, 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Enter", self.commit_edit, weight=1)
+        self._make_key(action_row, "Done", self.commit_edit, weight=1)
 
         for row_idx, keys in enumerate(self._keyboard_rows()):
             row = tk.Frame(kb, background="#202020")
@@ -718,7 +716,7 @@ class EditableText(Text):
         action_row.pack(fill="x", padx=8, pady=(8, 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Enter", self.commit_edit, weight=1)
+        self._make_key(action_row, "Done", self.commit_edit, weight=1)
 
         for keys in (("7", "8", "9"), ("4", "5", "6"), ("1", "2", "3")):
             row = tk.Frame(kb, background="#202020")

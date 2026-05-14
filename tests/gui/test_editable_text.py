@@ -177,6 +177,7 @@ class DummyListbox:
         self.selection: tuple[int, ...] = ()
         self.active = None
         self.seen = None
+        self.pack_kwargs: dict[str, Any] = {}
         DummyListbox.instances.append(self)
         if hasattr(master, "children"):
             master.children.append(self)
@@ -185,8 +186,8 @@ class DummyListbox:
         _ = add
         self._bindings.setdefault(event, []).append(func)
 
-    def pack(self, **_kwargs) -> None:
-        return
+    def pack(self, **kwargs) -> None:
+        self.pack_kwargs = kwargs
 
     def insert(self, index: int | str, value: str) -> None:
         if index == "end":
@@ -250,14 +251,18 @@ class DummyWindow(DummyTk):
 
 
 class DummyFrame:
+    instances = []
+
     def __init__(self, master=None, **_kwargs) -> None:
         self.master = master
         self.children = []
+        self.pack_kwargs: dict[str, Any] = {}
+        DummyFrame.instances.append(self)
         if hasattr(master, "children"):
             master.children.append(self)
 
-    def pack(self, **_kwargs) -> None:
-        return
+    def pack(self, **kwargs) -> None:
+        self.pack_kwargs = kwargs
 
     def pack_configure(self, **_kwargs) -> None:
         return
@@ -415,7 +420,7 @@ def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkey
     assert widget._keyboard_window.geometry_value == "800x420+0+60"
     assert any(btn.text == "Clear" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
-    assert any(btn.text == "Enter" for btn in DummyButton.instances)
+    assert any(btn.text == "Done" for btn in DummyButton.instances)
     assert any(btn.text == "←" for btn in DummyButton.instances)
     assert any(btn.text == "→" for btn in DummyButton.instances)
     assert any(btn.text == "Del" for btn in DummyButton.instances)
@@ -503,7 +508,7 @@ def test_keypad_editor_shows_number_pad_and_enforces_max_length(
     assert all(any(btn.text == key for btn in DummyButton.instances) for key in "0123456789")
     assert any(btn.text == "Clear" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
-    assert any(btn.text == "Enter" for btn in DummyButton.instances)
+    assert any(btn.text == "Done" for btn in DummyButton.instances)
     assert any(btn.text == "Del" for btn in DummyButton.instances)
 
 
@@ -513,6 +518,7 @@ def test_choices_editor_commits_choice_keys_and_keeps_display_text(
 ) -> None:
     seen = []
     DummyButton.instances = []
+    DummyFrame.instances = []
     DummyLabel.instances = []
     DummyListbox.instances = []
     monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
@@ -539,14 +545,18 @@ def test_choices_editor_commits_choice_keys_and_keeps_display_text(
     assert seen == [(widget, 1, 0, True)]
     assert isinstance(widget._choice_window, type(None))
     assert DummyListbox.instances[0].items == ["Diesel", "Steam"]
+    assert DummyListbox.instances[0].pack_kwargs["fill"] == "both"
     assert DummyListbox.instances[0].kwargs["font"] == ("TkDefaultFont", 20)
     assert DummyListbox.instances[0].kwargs["height"] == 12
+    assert DummyFrame.instances[0].pack_kwargs["side"] == "bottom"
+    assert "selectbackground" not in DummyListbox.instances[0].kwargs
+    assert "selectforeground" not in DummyListbox.instances[0].kwargs
     assert DummyLabel.instances[0].text == "Current: Diesel"
     assert any(btn.text == "↑" for btn in DummyButton.instances)
     assert any(btn.text == "↓" for btn in DummyButton.instances)
     assert any(btn.text == "Current" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
-    assert any(btn.text == "Enter" for btn in DummyButton.instances)
+    assert any(btn.text == "Done" for btn in DummyButton.instances)
 
 
 def test_choices_editor_current_button_restores_original_selection(
