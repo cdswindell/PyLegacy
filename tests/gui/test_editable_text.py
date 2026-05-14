@@ -148,52 +148,72 @@ class DummyEntry:
         self.destroyed = True
 
 
-class DummyCombo:
-    def __init__(self, master, **kwargs) -> None:
+class DummyLabel:
+    instances = []
+
+    def __init__(self, master=None, **kwargs) -> None:
         self.master = master
-        self.placed = False
-        self.destroyed = False
+        self.kwargs = kwargs
+        self.text = kwargs.get("text")
+        DummyLabel.instances.append(self)
+        if hasattr(master, "children"):
+            master.children.append(self)
+
+    def pack(self, **_kwargs) -> None:
+        return
+
+    def destroy(self) -> None:
+        return
+
+
+class DummyListbox:
+    instances = []
+
+    def __init__(self, master=None, **kwargs) -> None:
+        self.master = master
+        self.kwargs = kwargs
         self._bindings: dict[str, list[Callable]] = {}
-        self._config: dict[str, Any] = kwargs
-        self._values: list[str] = []
-        self._current = -1
+        self.items: list[str] = []
+        self.selection: tuple[int, ...] = ()
+        self.active = None
+        self.seen = None
+        DummyListbox.instances.append(self)
+        if hasattr(master, "children"):
+            master.children.append(self)
 
     def bind(self, event: str, func: Callable, add: str | None = None) -> None:
         _ = add
         self._bindings.setdefault(event, []).append(func)
 
-    def configure(self, **kwargs: Any) -> None:
-        self._config.update(kwargs)
-        if "values" in kwargs:
-            self._values = list(kwargs["values"])
-
-    def current(self, index: int | None = None) -> int:
-        if index is not None:
-            self._current = index
-        return self._current
-
-    def get(self) -> str:
-        if 0 <= self._current < len(self._values):
-            return self._values[self._current]
-        return ""
-
-    def place(self, **_kwargs: Any) -> None:
-        self.placed = True
-
-    def place_forget(self) -> None:
-        self.placed = False
-
-    def lift(self) -> None:
+    def pack(self, **_kwargs) -> None:
         return
+
+    def insert(self, index: int | str, value: str) -> None:
+        if index == "end":
+            self.items.append(value)
+        else:
+            self.items.insert(int(index), value)
+
+    def selection_clear(self, _start: int, _end: str) -> None:
+        self.selection = ()
+
+    def selection_set(self, index: int) -> None:
+        self.selection = (index,)
+
+    def activate(self, index: int) -> None:
+        self.active = index
+
+    def see(self, index: int) -> None:
+        self.seen = index
+
+    def curselection(self) -> tuple[int, ...]:
+        return self.selection
 
     def focus_set(self) -> None:
         self.master._focus = self
 
-    def event_generate(self, _event: str) -> None:
-        return
-
     def destroy(self) -> None:
-        self.destroyed = True
+        return
 
 
 class DummyWindow(DummyTk):
@@ -299,7 +319,6 @@ def editable_text_module(monkeypatch: pytest.MonkeyPatch):
     sys.modules[module_name] = mod
     spec.loader.exec_module(mod)
     monkeypatch.setattr(mod.tk, "Entry", DummyEntry, raising=True)
-    monkeypatch.setattr(mod.ttk, "Combobox", DummyCombo, raising=True)
     return mod
 
 
@@ -488,8 +507,19 @@ def test_keypad_editor_shows_number_pad_and_enforces_max_length(
     assert any(btn.text == "Del" for btn in DummyButton.instances)
 
 
-def test_choices_editor_commits_choice_keys_and_keeps_display_text(editable_text_module) -> None:
+def test_choices_editor_commits_choice_keys_and_keeps_display_text(
+    editable_text_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen = []
+    DummyButton.instances = []
+    DummyLabel.instances = []
+    DummyListbox.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
     widget = editable_text_module.EditableText(
         None,
         text="Composite Diesel",
@@ -501,12 +531,46 @@ def test_choices_editor_commits_choice_keys_and_keeps_display_text(editable_text
     )
 
     widget.begin_edit()
-    widget._combo.current(1)
+    widget._select_choice_index(1)
     widget.commit_edit()
 
     assert widget.value == "Composite Diesel"
     assert widget.initial_value == 1
     assert seen == [(widget, 1, 0, True)]
+    assert isinstance(widget._choice_window, type(None))
+    assert DummyListbox.instances[0].items == ["Diesel", "Steam"]
+    assert DummyListbox.instances[0].kwargs["font"] == ("TkDefaultFont", 20)
+    assert DummyLabel.instances[0].text == "Current: Diesel"
+    assert any(btn.text == "Current" for btn in DummyButton.instances)
+    assert any(btn.text == "Cancel" for btn in DummyButton.instances)
+    assert any(btn.text == "Enter" for btn in DummyButton.instances)
+
+
+def test_choices_editor_current_button_restores_original_selection(
+    editable_text_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    DummyButton.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="Composite Diesel",
+        debounce_ms=0,
+        editor=editable_text_module.EditorType.CHOICES,
+        choices={0: "Diesel", 1: "Steam"},
+        initial_value=0,
+    )
+
+    widget.begin_edit()
+    widget._select_choice_index(1)
+    current_button = next(btn for btn in DummyButton.instances if btn.text == "Current")
+    current_button.command()
+
+    assert widget._current_choice_value() == 0
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:

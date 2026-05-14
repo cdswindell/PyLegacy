@@ -13,7 +13,7 @@ import logging
 import time
 import tkinter as tk
 from enum import Enum, auto
-from tkinter import TclError, ttk
+from tkinter import TclError
 from typing import Any, Callable
 
 from guizero import Text
@@ -80,12 +80,13 @@ class EditableText(Text):
         self._hold_after_id: str | None = None
         self._keyboard_after_id: str | None = None
         self._keyboard_window: tk.Toplevel | None = None
+        self._choice_window: tk.Toplevel | None = None
         self._keyboard_mode = "lower"
         self._value_before_edit: Any = ""
         self._display_before_edit = ""
         self._last_committed_value: Any = ""
         self._entry: tk.Entry | None = None
-        self._combo: ttk.Combobox | None = None
+        self._choice_listbox: tk.Listbox | None = None
         self._choice_keys: list[Any] = []
         self._choice_labels: list[str] = []
 
@@ -189,12 +190,7 @@ class EditableText(Text):
             except TclError:
                 pass
             self._entry = None
-        if self._combo is not None:
-            try:
-                self._combo.destroy()
-            except TclError:
-                pass
-            self._combo = None
+        self._hide_choice_picker()
         self._hide_keyboard()
         super().destroy()
 
@@ -228,7 +224,7 @@ class EditableText(Text):
     def _on_configure(self, event=None) -> None:
         if self._editing:
             if self.editor == EditorType.CHOICES:
-                self._position_combo()
+                self._position_choice_picker()
             else:
                 self._position_entry()
 
@@ -265,15 +261,8 @@ class EditableText(Text):
 
     def _begin_choice_edit(self) -> None:
         try:
-            combo = self._ensure_combo()
-            self._populate_combo()
-            self._position_combo()
-            combo.lift()
-            combo.focus_set()
-            try:
-                combo.event_generate("<Button-1>")
-            except TclError:
-                pass
+            self._populate_choices()
+            self._show_choice_picker()
         except TclError:
             self._editing = False
             log.debug("Unable to begin inline choice edit", exc_info=True)
@@ -306,7 +295,7 @@ class EditableText(Text):
             focused = self.tk.winfo_toplevel().focus_get()
         except TclError:
             focused = None
-        if focused is self._entry or focused is self._combo or self._is_keyboard_descendant(focused):
+        if focused is self._entry or self._is_keyboard_descendant(focused) or self._is_choice_descendant(focused):
             return
         self.commit_edit()
 
@@ -333,49 +322,95 @@ class EditableText(Text):
         except TclError:
             pass
 
-    def _ensure_combo(self) -> ttk.Combobox:
-        if self._combo is not None:
-            return self._combo
-
-        top = self.tk.winfo_toplevel()
-        self._combo = ttk.Combobox(top, state="readonly")
-        self._combo.bind("<Return>", lambda _event: self.commit_edit(), add="+")
-        self._combo.bind("<KP_Enter>", lambda _event: self.commit_edit(), add="+")
-        self._combo.bind("<Escape>", lambda _event: self.cancel_edit(), add="+")
-        self._combo.bind("<<ComboboxSelected>>", lambda _event: self.commit_edit(), add="+")
-        return self._combo
-
-    def _populate_combo(self) -> None:
-        if self._combo is None:
-            return
-
+    def _populate_choices(self) -> None:
         self._choice_keys = list(self.choices.keys())
         self._choice_labels = [str(value) for value in self.choices.values()]
-        self._combo.configure(values=self._choice_labels, font=self.tk.cget("font"))
 
-        current_key = self._value_before_edit
-        try:
-            index = self._choice_keys.index(current_key)
-        except ValueError:
-            current_label = "" if self.value is None else str(self.value).strip()
-            index = self._choice_labels.index(current_label) if current_label in self._choice_labels else 0
-
-        if self._choice_labels:
-            self._combo.current(index)
-
-    def _position_combo(self) -> None:
-        if self._combo is None:
+    def _show_choice_picker(self) -> None:
+        if self._choice_window is not None:
+            try:
+                self._choice_window.lift()
+            except TclError:
+                pass
             return
 
-        top = self._combo.master
+        top = self.tk.winfo_toplevel()
+        picker = tk.Toplevel(top)
+        self._choice_window = picker
+        picker.transient(top)
+        picker.title("Choices")
+        picker.configure(background="#202020")
         try:
-            x = int(self.tk.winfo_rootx()) - int(top.winfo_rootx())
-            y = int(self.tk.winfo_rooty()) - int(top.winfo_rooty())
-            width = max(1, int(self.tk.winfo_width()))
-            height = max(1, int(self.tk.winfo_height()))
-            self._combo.place(x=x, y=y, width=width, height=height)
+            picker.attributes("-topmost", True)
         except TclError:
             pass
+        picker.protocol("WM_DELETE_WINDOW", self.cancel_edit)
+        self._position_choice_picker()
+        self._build_choice_picker(picker)
+        picker.lift()
+        if self._choice_listbox is not None:
+            self._choice_listbox.focus_set()
+
+    def _position_choice_picker(self) -> None:
+        picker = self._choice_window
+        if picker is None:
+            return
+
+        try:
+            top = self.tk.winfo_toplevel()
+            screen_w = int(top.winfo_screenwidth())
+            screen_h = int(top.winfo_screenheight())
+            picker_w = min(screen_w, 680)
+            picker_h = min(screen_h, 420)
+            x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - picker_w) // 2)
+            y = max(0, int(top.winfo_rooty()) + (int(top.winfo_height()) - picker_h) // 2)
+            picker.geometry(f"{picker_w}x{picker_h}+{x}+{y}")
+        except TclError:
+            pass
+
+    def _build_choice_picker(self, picker: tk.Toplevel) -> None:
+        try:
+            for child in picker.winfo_children():
+                child.destroy()
+        except TclError:
+            pass
+
+        current_label = self._choice_label_for_key(self._value_before_edit)
+        title = tk.Label(
+            picker,
+            text=f"Current: {current_label}",
+            anchor="w",
+            font=("TkDefaultFont", 20, "bold"),
+            background="#202020",
+            foreground="#ffffff",
+        )
+        title.pack(fill="x", padx=12, pady=(12, 6))
+
+        self._choice_listbox = tk.Listbox(
+            picker,
+            activestyle="dotbox",
+            exportselection=False,
+            font=("TkDefaultFont", 20),
+            height=8,
+            relief="solid",
+            bd=1,
+            selectbackground="#2f7d32",
+            selectforeground="#ffffff",
+        )
+        self._choice_listbox.pack(fill="both", expand=True, padx=12, pady=6)
+        self._choice_listbox.bind("<Return>", lambda _event: self.commit_edit(), add="+")
+        self._choice_listbox.bind("<KP_Enter>", lambda _event: self.commit_edit(), add="+")
+        self._choice_listbox.bind("<Escape>", lambda _event: self.cancel_edit(), add="+")
+
+        for label in self._choice_labels:
+            self._choice_listbox.insert("end", label)
+        self._select_choice_key(self._value_before_edit)
+
+        action_row = tk.Frame(picker, background="#202020")
+        action_row.pack(fill="x", padx=8, pady=(6, 12))
+        self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
+        self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
+        self._make_key(action_row, "Enter", self.commit_edit, weight=1)
 
     def _finish_edit(self) -> None:
         self._editing = False
@@ -384,14 +419,10 @@ class EditableText(Text):
         self._cancel_keyboard_timer()
         if self.hide_keyboard_on_finish:
             self._hide_keyboard()
+        self._hide_choice_picker()
         if self._entry is not None:
             try:
                 self._entry.place_forget()
-            except TclError:
-                pass
-        if self._combo is not None:
-            try:
-                self._combo.place_forget()
             except TclError:
                 pass
 
@@ -428,25 +459,50 @@ class EditableText(Text):
         return self._coerce_text(new_value)
 
     def _current_choice_value(self) -> Any:
-        combo = self._combo
-        if combo is None:
+        listbox = self._choice_listbox
+        if listbox is None:
             return self._value_before_edit
         try:
-            index = int(combo.current())
-            if 0 <= index < len(self._choice_keys):
-                return self._choice_keys[index]
-        except (TclError, ValueError, TypeError):
-            pass
-        try:
-            return self._choice_key_for_label(combo.get(), default=self._value_before_edit)
+            selection = listbox.curselection()
+            if selection:
+                index = int(selection[0])
+                if 0 <= index < len(self._choice_keys):
+                    return self._choice_keys[index]
         except TclError:
-            return self._value_before_edit
+            pass
+        return self._value_before_edit
+
+    def _select_choice_key(self, key: Any) -> None:
+        if self._choice_listbox is None:
+            return
+        try:
+            index = self._choice_keys.index(key)
+        except ValueError:
+            index = 0
+        self._select_choice_index(index)
+
+    def _select_choice_index(self, index: int) -> None:
+        if self._choice_listbox is None or not self._choice_keys:
+            return
+        try:
+            index = max(0, min(index, len(self._choice_keys) - 1))
+            self._choice_listbox.selection_clear(0, "end")
+            self._choice_listbox.selection_set(index)
+            self._choice_listbox.activate(index)
+            self._choice_listbox.see(index)
+        except TclError:
+            pass
 
     def _choice_key_for_label(self, label: str, default: Any = None) -> Any:
         for key, value in self.choices.items():
             if str(value) == label:
                 return key
         return default
+
+    def _choice_label_for_key(self, key: Any) -> str:
+        if key in self.choices:
+            return str(self.choices[key])
+        return "" if key is None else str(key)
 
     def _cancel_hold_timer(self) -> None:
         if self._hold_after_id is None:
@@ -505,6 +561,15 @@ class EditableText(Text):
             except TclError:
                 pass
             self._keyboard_window = None
+
+    def _hide_choice_picker(self) -> None:
+        if self._choice_window is not None:
+            try:
+                self._choice_window.destroy()
+            except TclError:
+                pass
+            self._choice_window = None
+        self._choice_listbox = None
 
     def _show_builtin_keyboard(self) -> None:
         if self._entry is None:
@@ -799,6 +864,17 @@ class EditableText(Text):
         current = widget
         while current is not None:
             if current is kb:
+                return True
+            current = getattr(current, "master", None)
+        return False
+
+    def _is_choice_descendant(self, widget: Any) -> bool:
+        picker = self._choice_window
+        if picker is None or widget is None:
+            return False
+        current = widget
+        while current is not None:
+            if current is picker:
                 return True
             current = getattr(current, "master", None)
         return False
