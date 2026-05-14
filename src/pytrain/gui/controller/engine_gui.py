@@ -101,6 +101,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         tmcc_id: int = None,
         scope: CommandScope = CommandScope.ENGINE,
         auto_scroll: bool = True,
+        enable_editing: bool = True,
         config_file: str = DEFAULT_CONFIG_FILE,
     ) -> None:
         # have to call parent init after all variables are set up
@@ -128,6 +129,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.num_recents = num_recents
         self._sensor_track_id = sensor_track_id
         self.slider_height = self.button_size * 4
+        self.enable_editing = enable_editing
 
         self.scope_size = int(round(self.width / 5))
         self.grid_pad_by = 2

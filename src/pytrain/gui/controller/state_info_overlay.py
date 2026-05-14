@@ -199,11 +199,11 @@ class StateInfoOverlay:
         ]
 
         for key, title, grid, scope, *rest in layouts:
-            editor_type = rest[0] if len(rest) > 0 else None
-            editor_arg = rest[1] if len(rest) > 1 else None
+            editor_type = rest[0] if len(rest) > 0 and host.enable_editing else None
+            editor_arg = rest[1] if len(rest) > 1 and host.enable_editing else None
             max_length = editor_arg if editor_type in {EditorType.KEYBOARD, EditorType.KEYPAD} else None
             choices = editor_arg if editor_type == EditorType.CHOICES and isinstance(editor_arg, dict) else None
-            callback = rest[2] if len(rest) > 2 else None
+            callback = rest[2] if len(rest) > 2 and host.enable_editing else None
 
             # Reusing the existing make_info_field logic from the main GUI
             is_list = key in {"operations"}
@@ -329,6 +329,7 @@ class StateInfoOverlay:
     def _on_sound_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
         self._persist_edit(_field, new_value, old_value, "SOUND_TYPE")
 
+    # noinspection PyUnusedLocal
     def _persist_edit(self, _field: EditableText, new_value: int, old_value: int, field: str) -> None:
         if _field.is_changed:
             state = self._gui.active_state
