@@ -45,6 +45,7 @@ class EditableText(Text):
         editor: EditorType = EditorType.KEYBOARD,
         choices: dict[Any, Any] | None = None,
         initial_value: Any = None,
+        choice_rows: int = 12,
         on_commit: Callable[["EditableText", Any, Any], None] | tuple | list | None = None,
         on_cancel: Callable[["EditableText", Any], None] | tuple | list | None = None,
         commit_on_focus_lost: bool = True,
@@ -64,6 +65,7 @@ class EditableText(Text):
         self.max_length = max_length
         self.choices = choices or {}
         self.initial_value = initial_value
+        self.choice_rows = max(1, int(choice_rows))
         self.on_commit = on_commit
         self.on_cancel = on_cancel
         self.commit_on_focus_lost = bool(commit_on_focus_lost)
@@ -391,13 +393,15 @@ class EditableText(Text):
             activestyle="dotbox",
             exportselection=False,
             font=("TkDefaultFont", 20),
-            height=8,
+            height=self.choice_rows,
             relief="solid",
             bd=1,
             selectbackground="#2f7d32",
             selectforeground="#ffffff",
         )
         self._choice_listbox.pack(fill="both", expand=True, padx=12, pady=6)
+        self._choice_listbox.bind("<Up>", lambda _event: self._move_choice(-1), add="+")
+        self._choice_listbox.bind("<Down>", lambda _event: self._move_choice(1), add="+")
         self._choice_listbox.bind("<Return>", lambda _event: self.commit_edit(), add="+")
         self._choice_listbox.bind("<KP_Enter>", lambda _event: self.commit_edit(), add="+")
         self._choice_listbox.bind("<Escape>", lambda _event: self.cancel_edit(), add="+")
@@ -408,6 +412,8 @@ class EditableText(Text):
 
         action_row = tk.Frame(picker, background="#202020")
         action_row.pack(fill="x", padx=8, pady=(6, 12))
+        self._make_key(action_row, "↑", lambda: self._move_choice(-1), weight=1)
+        self._make_key(action_row, "↓", lambda: self._move_choice(1), weight=1)
         self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
         self._make_key(action_row, "Enter", self.commit_edit, weight=1)
@@ -492,6 +498,16 @@ class EditableText(Text):
             self._choice_listbox.see(index)
         except TclError:
             pass
+
+    def _move_choice(self, delta: int) -> None:
+        if self._choice_listbox is None or not self._choice_keys:
+            return
+        try:
+            selection = self._choice_listbox.curselection()
+            current = int(selection[0]) if selection else 0
+        except (TclError, ValueError, TypeError):
+            current = 0
+        self._select_choice_index(current + delta)
 
     def _choice_key_for_label(self, label: str, default: Any = None) -> Any:
         for key, value in self.choices.items():

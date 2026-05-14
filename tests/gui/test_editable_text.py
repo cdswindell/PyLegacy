@@ -540,7 +540,10 @@ def test_choices_editor_commits_choice_keys_and_keeps_display_text(
     assert isinstance(widget._choice_window, type(None))
     assert DummyListbox.instances[0].items == ["Diesel", "Steam"]
     assert DummyListbox.instances[0].kwargs["font"] == ("TkDefaultFont", 20)
+    assert DummyListbox.instances[0].kwargs["height"] == 12
     assert DummyLabel.instances[0].text == "Current: Diesel"
+    assert any(btn.text == "↑" for btn in DummyButton.instances)
+    assert any(btn.text == "↓" for btn in DummyButton.instances)
     assert any(btn.text == "Current" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
     assert any(btn.text == "Enter" for btn in DummyButton.instances)
@@ -571,6 +574,61 @@ def test_choices_editor_current_button_restores_original_selection(
     current_button.command()
 
     assert widget._current_choice_value() == 0
+
+
+def test_choices_editor_arrow_buttons_move_selection(
+    editable_text_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    DummyButton.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="Composite Diesel",
+        debounce_ms=0,
+        editor=editable_text_module.EditorType.CHOICES,
+        choices={0: "Diesel", 1: "Steam", 2: "Electric"},
+        initial_value=1,
+    )
+
+    widget.begin_edit()
+    down_button = next(btn for btn in DummyButton.instances if btn.text == "↓")
+    up_button = next(btn for btn in DummyButton.instances if btn.text == "↑")
+
+    down_button.command()
+    assert widget._current_choice_value() == 2
+
+    up_button.command()
+    assert widget._current_choice_value() == 1
+
+
+def test_choices_editor_allows_configurable_visible_rows(
+    editable_text_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    DummyListbox.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="Composite Diesel",
+        debounce_ms=0,
+        editor=editable_text_module.EditorType.CHOICES,
+        choices={0: "Diesel", 1: "Steam"},
+        initial_value=0,
+        choice_rows=6,
+    )
+
+    widget.begin_edit()
+
+    assert DummyListbox.instances[0].kwargs["height"] == 6
 
 
 def test_commit_updates_value_truncates_and_invokes_callback(editable_text_module) -> None:
