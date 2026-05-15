@@ -20,13 +20,14 @@ import tkinter as tk
 import traceback
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass
 from io import BytesIO
 from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from time import perf_counter, sleep
 from tkinter import TclError
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Iterator, TypeVar
 
 from guizero import App, Box, TitleBox
 from guizero.base import Widget
@@ -297,6 +298,11 @@ class GuiZeroBase(Thread, ABC):
             atexit.register(self._atexit_close)
         else:
             self._synchronized = self._sync_state = self._sync_watcher = None
+
+    @contextmanager
+    def locked(self) -> Iterator[None]:
+        with self._cv:
+            yield
 
     @abstractmethod
     def build_gui(self) -> None: ...

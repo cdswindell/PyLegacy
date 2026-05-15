@@ -11,8 +11,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
-from contextlib import contextmanager
-from typing import Any, Callable, Generic, Iterator, TypeVar, cast
+from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, Text, TitleBox
 
@@ -249,11 +248,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
-
-    @contextmanager
-    def locked(self) -> Iterator[None]:
-        with self._cv:
-            yield
 
     @property
     def accessories(self) -> ConfiguredAccessorySet:

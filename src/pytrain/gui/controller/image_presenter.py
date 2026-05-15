@@ -180,79 +180,87 @@ class ImagePresenter:
 
         # for Trains, use the image of the lead engine
         if scope == CommandScope.TRAIN and host.active_state and not host.active_state.is_power_district and tmcc_id:
-            img = host._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
+            with host.locked():
+                img = host._image_cache.get((CommandScope.TRAIN, tmcc_id), None)
             if img is None:
                 train_state = host.active_state
                 train_id = tmcc_id
                 head_id = train_state.head_tmcc_id
-                img = host._image_cache.get((CommandScope.ENGINE, head_id), None)
+                with host.locked():
+                    img = host._image_cache.get((CommandScope.ENGINE, head_id), None)
                 if img is None:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"No image for train {tmcc_id} head {head_id}; requesting...")
                     self.update(key=(CommandScope.ENGINE, head_id, train_id))
                     return
                 else:
-                    host._image_cache[(CommandScope.TRAIN, train_id)] = img
+                    with host.locked():
+                        host._image_cache[(CommandScope.TRAIN, train_id)] = img
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
-            img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+            with host.locked():
+                img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
             if img is not None:
                 if train_id:
-                    host._image_cache[(CommandScope.TRAIN, train_id)] = img
+                    with host.locked():
+                        host._image_cache[(CommandScope.TRAIN, train_id)] = img
                     tmcc_id = train_id
                     scope = CommandScope.TRAIN
             else:
                 box_size = self.refresh_box_size() or self.calc_box_size()
                 available_height, available_width = box_size
-                with host.locked():
-                    state = host._state_store.get_state(scope, tmcc_id, False)
-                    if log.isEnabledFor(logging.DEBUG):
-                        bt_id = state.bt_id if state else "NA"
-                        log.debug(f"Requested product info for {scope.title} TMCC ID: {tmcc_id}  bt: {bt_id}...")
-                    prod_info = host.get_prod_info(
-                        state.bt_id if state else None,
-                        self._make_prod_info_callback(tmcc_id, train_id),
-                        tmcc_id,
-                        available_width=available_width,
-                        available_height=available_height,
-                    )
 
-                    if prod_info is None:
-                        return
+                state = host._state_store.get_state(scope, tmcc_id, False)
+                if log.isEnabledFor(logging.DEBUG):
+                    bt_id = state.bt_id if state else "NA"
+                    log.debug(f"Requested product info for {scope.title} TMCC ID: {tmcc_id}  bt: {bt_id}...")
+                prod_info = host.get_prod_info(
+                    state.bt_id if state else None,
+                    self._make_prod_info_callback(tmcc_id, train_id),
+                    tmcc_id,
+                    available_width=available_width,
+                    available_height=available_height,
+                )
 
-                    if log.isEnabledFor(logging.DEBUG):
-                        log.debug(f"Prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'}")
+                if prod_info is None:
+                    return
 
-                    if isinstance(prod_info, ProdInfo):
-                        # Image should have been cached by fetch_prod_indo
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Prod_info: {prod_info.road_name if isinstance(prod_info, ProdInfo) else 'NA'}")
+
+                if isinstance(prod_info, ProdInfo):
+                    # Image should have been cached by fetch_prod_indo
+                    with host.locked():
+                        img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+                    if img and train_id:
+                        with host.locked():
+                            host._image_cache[(CommandScope.TRAIN, train_id)] = img
+                        tmcc_id = train_id
+                        scope = CommandScope.TRAIN
+                else:
+                    if isinstance(state, EngineState):
                         with host.locked():
                             img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                        if img and train_id:
-                            host._image_cache[(CommandScope.TRAIN, train_id)] = img
-                            tmcc_id = train_id
-                            scope = CommandScope.TRAIN
-                    else:
-                        if isinstance(state, EngineState):
-                            img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                            # Retrieves or generates cached engine image; caches by type
-                            if img is None:
-                                et_enum = (
-                                    state.engine_type_enum if state.engine_type_enum is not None else EngineType.DIESEL
-                                )
-                                source = ENGINE_TYPE_TO_IMAGE.get(et_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL])
+                        # Retrieves or generates cached engine image; caches by type
+                        if img is None:
+                            et_enum = (
+                                state.engine_type_enum if state.engine_type_enum is not None else EngineType.DIESEL
+                            )
+                            source = ENGINE_TYPE_TO_IMAGE.get(et_enum, ENGINE_TYPE_TO_IMAGE[EngineType.DIESEL])
+                            with host.locked():
                                 img = host._image_cache.get(source, None)
-                                if img is None:
-                                    img = host.get_scaled_image(source, force_lionel=True)
-                                    img = center_text_on_image(img, et_enum.label(), styled=True)
+                            if img is None:
+                                img = host.get_scaled_image(source, force_lionel=True)
+                                img = center_text_on_image(img, et_enum.label(), styled=True)
+                                with host.locked():
                                     host._image_cache[source] = img
-                                    host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-                                    host._image_cache[source] = img
+                            with host.locked():
                                 host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                                 if train_id:
                                     host._image_cache[(CommandScope.TRAIN, train_id)] = img
                                     tmcc_id = train_id
                                     scope = CommandScope.TRAIN
-                        else:
-                            host._image_presenter.clear()
+                    else:
+                        host._image_presenter.clear()
         elif host.scope in {CommandScope.ACC, CommandScope.TRAIN} and tmcc_id != 0:
             state = host.state_store.get_state(host.scope, tmcc_id, False)
             if state:
@@ -264,7 +272,8 @@ class ImagePresenter:
                             key = (host.scope, tmcc_id, getattr(view, "acc"))
                     elif host.get_configured_accessory(tmcc_id):
                         key = (host.scope, tmcc_id, host.get_configured_accessory(tmcc_id))
-                img = host._image_cache.get(key, None)
+                with host.locked():
+                    img = host._image_cache.get(key, None)
                 # Attempts to load and cache image from state
                 if img is None:
                     img_path = None
@@ -288,7 +297,8 @@ class ImagePresenter:
                     if img_path:
                         img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
                     if img:
-                        host._image_cache[key] = img
+                        with host.locked():
+                            host._image_cache[key] = img
                     else:
                         self.clear()
         if img is None:
