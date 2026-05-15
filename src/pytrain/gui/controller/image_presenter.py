@@ -222,6 +222,7 @@ class ImagePresenter:
                 )
 
                 if prod_info is None:
+                    self.clear()
                     return
 
                 if log.isEnabledFor(logging.DEBUG):
