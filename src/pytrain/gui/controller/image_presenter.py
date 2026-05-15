@@ -225,7 +225,7 @@ class ImagePresenter:
                 )
 
                 if prod_info is None:
-                    img = host.get_image(self.loading_image, inverse=False, scale=True, preserve_height=True)
+                    img = host.get_image(self.loading_image, inverse=False, scale=True)
                     self._update_image(img, scope, tmcc_id, box_size)
                     return
 
