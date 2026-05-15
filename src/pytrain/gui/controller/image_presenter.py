@@ -12,6 +12,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from PIL.ImageTk import PhotoImage
+
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import ENGINE_TYPE_TO_IMAGE
 from ...db.accessory_state import AccessoryState
@@ -37,6 +39,7 @@ class ImagePresenter:
         self.amc2_image = find_file("LCS-AMC2-6-81641.jpg")
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
+        self.loading_image = find_file("loading_image.png")
 
     def clear(self) -> None:
         self._host.image.image = None
@@ -222,7 +225,8 @@ class ImagePresenter:
                 )
 
                 if prod_info is None:
-                    self.clear()
+                    img = host.get_image(self.loading_image, inverse=False, scale=True, preserve_height=True)
+                    self._update_image(img, scope, tmcc_id, box_size)
                     return
 
                 if log.isEnabledFor(logging.DEBUG):
@@ -304,7 +308,15 @@ class ImagePresenter:
                         self.clear()
         if img is None:
             self.clear()
+
+        # noinspection PyTypeChecker
+        self._update_image(img, scope, tmcc_id, box_size)
+
+    def _update_image(
+        self, img: PhotoImage | None, scope: CommandScope, tmcc_id: int | None, box_size: tuple[int, int] | None
+    ):
         # Updates image if scope and ID match current
+        host = self._host
         if img and scope == host.scope and tmcc_id == host.scope_tmcc_id(host.scope):
             if box_size is None:
                 if host.avail_image_height is None or host.avail_image_width is None:
