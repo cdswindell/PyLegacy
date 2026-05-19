@@ -326,15 +326,19 @@ class ImagePresenter:
         # Updates image if scope and ID match current
         host = self._host
         if img and scope == host.scope and tmcc_id == host.scope_tmcc_id(host.scope):
+            source = "box_size"
             if box_size is None:
+                print("Box Size is None")
                 if host.avail_image_height is None or host.avail_image_width is None:
                     box_size = self.calc_box_size()
+                    source = "calc_box_size"
                 else:
                     box_size = (host.avail_image_height, host.avail_image_width)
+                    source = "avail_image_size"
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
-            print(f"Box Size: {box_size} (2)")
+            print(f"Box Size: {box_size} ({source})")
             host.image_box.show()
 
     def refresh_box_size(self) -> tuple[int, int] | None:
