@@ -231,7 +231,8 @@ class ImagePresenter:
 
                 if prod_info is None:
                     img = host.get_image(self.loading_image, inverse=False, scale=True)
-                    loading_box_size = (img.height(), available_width) if img else box_size
+                    # loading_box_size = (img.height(), available_width) if img else box_size
+                    loading_box_size = box_size
                     self._update_image(img, scope, tmcc_id, loading_box_size)
                     print(f"Box Size: {loading_box_size} (1)")
                     return
@@ -333,7 +334,7 @@ class ImagePresenter:
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
-            print(f"Box Size: {box_size} (1)")
+            print(f"Box Size: {box_size} (2)")
             host.image_box.show()
 
     def refresh_box_size(self) -> tuple[int, int] | None:
