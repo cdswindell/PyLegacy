@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,6 +43,8 @@ class ImagePresenter:
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.loading_image = find_file("loading_image.png")
         self._checked_for_custom_images: set[int] = set()
+        self._pending_custom_images: set[int] = set()
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
     def clear(self) -> None:
         self._host.image.image = None
@@ -213,7 +216,8 @@ class ImagePresenter:
 
             # is there a custom image?
             if img is None and tmcc_id not in self._checked_for_custom_images:
-                img = self._lookup_custom_image(tmcc_id)
+                if self._lookup_custom_image(tmcc_id, train_id):
+                    return
 
             if img is not None:
                 if train_id is not None:
@@ -350,16 +354,59 @@ class ImagePresenter:
         return None
 
     # noinspection PyProtectedMember
-    def _lookup_custom_image(self, tmcc_id: int) -> PhotoImage | None:
+    def _lookup_custom_image(self, tmcc_id: int, train_id: int | None = None) -> bool:
+        """
+        Schedule custom-image lookup off the Tk thread.
+
+        Returns True when an existing or newly-created background lookup should
+        be allowed to finish before falling back to product/default images.
+        """
         host = self._host
         with host.locked():
             if tmcc_id in self._checked_for_custom_images:
-                return None
+                return False
+            if tmcc_id in self._pending_custom_images:
+                return True
+            self._pending_custom_images.add(tmcc_id)
 
-            self._checked_for_custom_images.add(tmcc_id)
+        try:
+            self._executor.submit(self._load_custom_image, tmcc_id, train_id)
+        except Exception as e:
+            log.exception("Unable to schedule custom image lookup for TMCC ID %s", tmcc_id, exc_info=e)
+            self._finish_custom_image_lookup(tmcc_id, train_id, None)
+            return False
+        return True
+
+    def _load_custom_image(
+        self,
+        tmcc_id: int,
+        train_id: int | None,
+    ) -> None:
+        host = self._host
+        img = None
+        try:
             image_path = find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
-            if image_path is None:
-                return None
-            img = host.get_scaled_image(image_path, force_lionel=True)
-            host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
-            return img
+            if image_path is not None:
+                img = host.get_scaled_image(image_path, force_lionel=True)
+        except Exception as e:
+            log.exception("Unable to load custom image for TMCC ID %s", tmcc_id, exc_info=e)
+        self._host.queue_message(self._finish_custom_image_lookup, tmcc_id, train_id, img)
+
+    # noinspection PyProtectedMember
+    def _finish_custom_image_lookup(
+        self,
+        tmcc_id: int,
+        train_id: int | None,
+        image: PhotoImage | None,
+    ) -> None:
+        # must run on TK thread
+        host = self._host
+        with host.locked():
+            if image is not None:
+                host._image_cache[(CommandScope.ENGINE, tmcc_id)] = image
+            self._pending_custom_images.discard(tmcc_id)
+            self._checked_for_custom_images.add(tmcc_id)
+        if train_id is None:
+            self.update(key=(CommandScope.ENGINE, tmcc_id))
+        else:
+            self.update(key=(CommandScope.ENGINE, tmcc_id, train_id))
