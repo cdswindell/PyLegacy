@@ -71,7 +71,7 @@ class ScrollingText(Text):
             pass
 
         self._bind_press_release()
-        self._bind_configure()
+        self._bind_map()
         self._schedule_start_check(delay_ms=75)
 
     # -------------------------
@@ -226,9 +226,9 @@ class ScrollingText(Text):
         except TclError:
             pass
 
-    def _bind_configure(self) -> None:
+    def _bind_map(self) -> None:
         try:
-            self.tk.bind("<Configure>", self._on_configure, add="+")
+            self.tk.bind("<Map>", self._on_map, add="+")
         except TclError:
             pass
 
@@ -265,7 +265,7 @@ class ScrollingText(Text):
     def _on_leave(self, _event=None) -> None:
         pass
 
-    def _on_configure(self, _event=None) -> None:
+    def _on_map(self, _event=None) -> None:
         if self._auto_scroll and self._base_text and not self._pressed:
             self._schedule_start_check(delay_ms=75)
 

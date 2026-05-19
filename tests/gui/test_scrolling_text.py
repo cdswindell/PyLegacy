@@ -116,10 +116,10 @@ def test_auto_manage_retries_when_widget_is_not_mapped_yet() -> None:
     assert widget._start_after_id is None
 
 
-def test_configure_event_rechecks_scroll_need() -> None:
+def test_map_event_rechecks_scroll_need() -> None:
     widget = make_widget()
 
-    widget._on_configure()
+    widget._on_map()
 
     assert widget._manage_after_id is not None
     assert widget.tk._after_calls[widget._manage_after_id][0] == 75
@@ -135,6 +135,17 @@ def test_auto_manage_schedules_one_start_when_text_needs_scroll() -> None:
     assert first_start_id is not None
     assert widget._start_after_id == first_start_id
     assert list(widget.tk._after_calls) == [first_start_id]
+
+
+def test_setting_same_logical_value_does_not_cancel_pending_scroll_start() -> None:
+    widget = make_widget("Canadian National ET44ac #3180", width=80)
+
+    widget._auto_manage_scroll()
+    first_start_id = widget._start_after_id
+    widget.value = "Canadian National ET44ac #3180"
+
+    assert first_start_id is not None
+    assert widget._start_after_id == first_start_id
 
 
 def test_needs_scroll_uses_parent_width_when_label_reports_natural_width() -> None:
