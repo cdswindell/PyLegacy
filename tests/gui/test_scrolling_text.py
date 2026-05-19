@@ -106,6 +106,16 @@ def test_auto_manage_retries_when_width_is_not_ready() -> None:
     assert widget._start_after_id is None
 
 
+def test_auto_manage_retries_when_widget_is_not_mapped_yet() -> None:
+    widget = make_widget(width=40, mapped=False)
+
+    widget._auto_manage_scroll()
+
+    assert widget._manage_after_id is not None
+    assert widget.tk._after_calls[widget._manage_after_id][0] == 250
+    assert widget._start_after_id is None
+
+
 def test_configure_event_rechecks_scroll_need() -> None:
     widget = make_widget()
 

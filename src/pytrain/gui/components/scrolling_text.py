@@ -122,8 +122,10 @@ class ScrollingText(Text):
         """Return None when Tk has not assigned a usable widget width yet."""
         label = self.tk
         try:
-            if not self._base_text or not label.winfo_ismapped():
+            if not self._base_text:
                 return False
+            if not label.winfo_ismapped():
+                return None
 
             widget_width = self._available_width()
             if widget_width is None:
