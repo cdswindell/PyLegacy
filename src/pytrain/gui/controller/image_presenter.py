@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PIL.ImageTk import PhotoImage
@@ -18,7 +19,7 @@ from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import ENGINE_TYPE_TO_IMAGE
 from ...db.accessory_state import AccessoryState
 from ...db.engine_state import EngineState
-from ...db.prod_info import ProdInfo
+from ...db.prod_info import ENGINE_INFO_CACHE_DIR, ProdInfo
 from ...protocol.constants import CommandScope, EngineType
 from ...utils.image_utils import center_text_on_image
 from ...utils.path_utils import find_file
@@ -40,6 +41,7 @@ class ImagePresenter:
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.loading_image = find_file("loading_image.png")
+        self._checked_for_custom_images: set[int] = set()
 
     def clear(self) -> None:
         self._host.image.image = None
@@ -205,8 +207,14 @@ class ImagePresenter:
                     with host.locked():
                         host._image_cache[(CommandScope.TRAIN, train_id)] = img
         elif scope in {CommandScope.ENGINE} and tmcc_id != 0:
+            # is an image cached?
             with host.locked():
                 img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
+
+            # is there a custom image?
+            if img is None and tmcc_id not in self._checked_for_custom_images:
+                img = self._lookup_custom_image(tmcc_id)
+
             if img is not None:
                 if train_id is not None:
                     with host.locked():
@@ -340,3 +348,18 @@ class ImagePresenter:
             self._last_box_size = (h, w)
             return self._last_box_size
         return None
+
+    # noinspection PyProtectedMember
+    def _lookup_custom_image(self, tmcc_id: int) -> PhotoImage | None:
+        host = self._host
+        with host.locked():
+            if tmcc_id in self._checked_for_custom_images:
+                return None
+
+            self._checked_for_custom_images.add(tmcc_id)
+            image_path = find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_INFO_CACHE_DIR))
+            if image_path is None:
+                return None
+            img = host.get_scaled_image(image_path, force_lionel=True)
+            host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+            return img
