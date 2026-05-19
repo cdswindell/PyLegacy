@@ -125,8 +125,8 @@ class ScrollingText(Text):
             if not self._base_text or not label.winfo_ismapped():
                 return False
 
-            widget_width = label.winfo_width()
-            if widget_width <= 1:
+            widget_width = self._available_width()
+            if widget_width is None:
                 return None
 
             return self._get_font().measure(self._base_text) > widget_width
@@ -277,6 +277,19 @@ class ScrollingText(Text):
             self._font_key = key
             self._font_cache = tkfont.Font(font=key)
         return self._font_cache
+
+    def _available_width(self) -> int | None:
+        widths: list[int] = []
+        for widget in (self.tk, getattr(getattr(self, "master", None), "tk", None)):
+            if widget is None:
+                continue
+            try:
+                width = int(widget.winfo_width())
+            except (TclError, TypeError, ValueError):
+                continue
+            if width > 1:
+                widths.append(width)
+        return min(widths) if widths else None
 
     def _set_label_text(self, s: str) -> None:
         Text.value.fset(self, s)  # type: ignore[union-attr]

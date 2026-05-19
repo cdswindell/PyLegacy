@@ -52,9 +52,21 @@ class DummyTk:
         return self.width
 
 
-def make_widget(text: str = "Very Long Road Name", *, width: int = 100, mapped: bool = True) -> ScrollingText:
+class DummyMaster:
+    def __init__(self, *, width: int) -> None:
+        self.tk = DummyTk(width=width)
+
+
+def make_widget(
+    text: str = "Very Long Road Name",
+    *,
+    width: int = 100,
+    mapped: bool = True,
+    master_width: int | None = None,
+) -> ScrollingText:
     widget = ScrollingText.__new__(ScrollingText)
     widget._tk = DummyTk(width=width, mapped=mapped)
+    widget._master = DummyMaster(width=master_width) if master_width is not None else None
     widget._text = text
     widget._base_text = text
     widget._gap = "  "
@@ -113,3 +125,9 @@ def test_auto_manage_schedules_one_start_when_text_needs_scroll() -> None:
     assert first_start_id is not None
     assert widget._start_after_id == first_start_id
     assert list(widget.tk._after_calls) == [first_start_id]
+
+
+def test_needs_scroll_uses_parent_width_when_label_reports_natural_width() -> None:
+    widget = make_widget("Very Long Road Name", width=260, master_width=80)
+
+    assert widget.needs_scroll()
