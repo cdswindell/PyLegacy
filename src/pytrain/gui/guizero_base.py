@@ -755,12 +755,15 @@ class GuiZeroBase(Thread, ABC):
         inverse: bool = True,
         scale: bool = False,
         preserve_height: bool = False,
+        force_lionel: bool = False,
     ):
         # Returns cached or newly created image data
         if path not in self._image_cache:
             img = None
             if scale:
                 normal_tk = self.get_scaled_image(path, preserve_height=preserve_height)
+            elif force_lionel:
+                normal_tk = self.get_scaled_image(path, force_lionel=True)
             else:
                 img = Image.open(path)
                 if size:
@@ -768,6 +771,8 @@ class GuiZeroBase(Thread, ABC):
                         size = (size, size)
                     img = img.resize(size)
                 normal_tk = ImageTk.PhotoImage(img)
+
+            # cache image(s)
             if inverse and img:
                 inverted = ImageOps.invert(img.convert("RGB"))
                 inverted.putalpha(img.split()[-1])

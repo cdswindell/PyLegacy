@@ -230,11 +230,8 @@ class ImagePresenter:
                 )
 
                 if prod_info is None:
-                    img = host.get_image(self.loading_image, inverse=False, scale=True)
-                    # loading_box_size = (img.height(), available_width) if img else box_size
-                    loading_box_size = box_size
-                    self._update_image(img, scope, tmcc_id, loading_box_size)
-                    print(f"Box Size: {loading_box_size} (1)")
+                    img = host.get_image(self.loading_image, inverse=False, scale=False, force_lionel=True)
+                    self._update_image(img, scope, tmcc_id, box_size)
                     return
 
                 if log.isEnabledFor(logging.DEBUG):
