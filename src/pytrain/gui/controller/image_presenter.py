@@ -324,7 +324,6 @@ class ImagePresenter:
         host = self._host
         if img and scope == host.scope and tmcc_id == host.scope_tmcc_id(host.scope):
             if box_size is None:
-                print("Box Size is None")
                 if host.avail_image_height is None or host.avail_image_width is None:
                     box_size = self.calc_box_size()
                 else:
