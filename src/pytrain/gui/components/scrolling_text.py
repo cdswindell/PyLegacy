@@ -71,6 +71,7 @@ class ScrollingText(Text):
             pass
 
         self._bind_press_release()
+        self._bind_configure()
         self._schedule_start_check(delay_ms=75)
 
     # -------------------------
@@ -79,7 +80,7 @@ class ScrollingText(Text):
 
     @property
     def value(self) -> str:
-        return super().value
+        return self._base_text
 
     @value.setter
     def value(self, new_text: str) -> None:
@@ -115,6 +116,10 @@ class ScrollingText(Text):
 
     def needs_scroll(self) -> bool:
         """True if base text width exceeds widget width."""
+        return self._scroll_measurement() is True
+
+    def _scroll_measurement(self) -> bool | None:
+        """Return None when Tk has not assigned a usable widget width yet."""
         label = self.tk
         try:
             if not self._base_text or not label.winfo_ismapped():
@@ -122,7 +127,7 @@ class ScrollingText(Text):
 
             widget_width = label.winfo_width()
             if widget_width <= 1:
-                return False
+                return None
 
             return self._get_font().measure(self._base_text) > widget_width
         except TclError:
@@ -167,8 +172,12 @@ class ScrollingText(Text):
         if not self._auto_scroll or self._pressed:
             return
 
-        if self.needs_scroll():
-            self.start_scroll()
+        needs_scroll = self._scroll_measurement()
+        if needs_scroll is None:
+            self._schedule_start_check(delay_ms=250)
+        elif needs_scroll:
+            if not self._running and self._start_after_id is None:
+                self.start_scroll()
         else:
             self.stop_scroll(reset_to_start=True, cancel_start=True)
 
@@ -215,6 +224,12 @@ class ScrollingText(Text):
         except TclError:
             pass
 
+    def _bind_configure(self) -> None:
+        try:
+            self.tk.bind("<Configure>", self._on_configure, add="+")
+        except TclError:
+            pass
+
     def _unbind_touch_events(self) -> None:
         try:
             self.tk.unbind("<ButtonPress-1>")
@@ -248,6 +263,10 @@ class ScrollingText(Text):
     def _on_leave(self, _event=None) -> None:
         pass
 
+    def _on_configure(self, _event=None) -> None:
+        if self._auto_scroll and self._base_text and not self._pressed:
+            self._schedule_start_check(delay_ms=75)
+
     # -------------------------
     # Internals: Tk helpers
     # -------------------------
@@ -260,7 +279,7 @@ class ScrollingText(Text):
         return self._font_cache
 
     def _set_label_text(self, s: str) -> None:
-        super(ScrollingText, self.__class__).value.fset(self, s)  # type: ignore
+        Text.value.fset(self, s)  # type: ignore[union-attr]
 
     def _after(self, delay_ms: int, fn) -> str | None:
         try:
