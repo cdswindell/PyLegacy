@@ -14,7 +14,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from .accessory_gui_catalog import AccessoryGuiCatalog
 from .accessory_registry import AccessoryRegistry, OperationAssets
@@ -271,9 +271,10 @@ class ConfiguredAccessory:
                     return value
 
         # Optional fallback to overall tmcc_id
-        if isinstance(self.tmcc_id, int):
+        tmcc_id = self.tmcc_id
+        if isinstance(tmcc_id, int):
             if needle in ("accessory", "default", "main") or needle in [k.key.lower() for k in self.operation_assets]:
-                return self.tmcc_id
+                return tmcc_id
 
         available = ", ".join(tmcc_ids.keys()) if isinstance(tmcc_ids, dict) and tmcc_ids else "none"
 
@@ -290,6 +291,7 @@ class ConfiguredAccessory:
     def operation_assets(self) -> list[OperationAssets]:
         return list(self.definition.operations)
 
+    # noinspection PyTypeChecker
     @property
     def configured_operation_assets(self) -> dict[int, OperationAssets | list[OperationAssets]]:
         co: dict[int, OperationAssets | list[OperationAssets]] = {}
@@ -297,7 +299,7 @@ class ConfiguredAccessory:
             tmcc_id = self.tmcc_id_for(op.key)
             if tmcc_id in co:
                 if isinstance(co[tmcc_id], list):
-                    co[tmcc_id].append(op)
+                    cast(list, co[tmcc_id]).append(op)
                 else:
                     co[tmcc_id] = [co[tmcc_id], op]
             else:
@@ -473,6 +475,7 @@ class ConfiguredAccessorySet:
         inst._load(path, validate=validate, verify=verify)
         return inst
 
+    # noinspection PyUnresolvedReferences
     def _load(
         self,
         path: str | Path | None,

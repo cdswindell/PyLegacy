@@ -87,7 +87,7 @@ class AccessoryGuiCatalog:
             raise ValueError(f"Duplicate AccessoryGuiCatalog key: {entry.key}")
         self._entries[nk] = entry
 
-    def resolve(self, key: str) -> GuiCatalogEntry:
+    def resolve(self, key: str | None) -> GuiCatalogEntry:
         """
         Resolve by exact or substring match (keeps your old behavior).
         """

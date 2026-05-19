@@ -63,6 +63,7 @@ MAX_GUI_MESSAGES_PER_POLL = 5
 DEFAULT_LAYOUT_TITLE = "My Layout"
 
 
+# noinspection PyUnresolvedReferences
 class TkWatchdog:
     def __init__(self, root, interval_ms: int = 250, stall_threshold_s: float = 0.5):
         self._root = getattr(root, "tk", root)
@@ -172,8 +173,8 @@ class GuiZeroBase(Thread, ABC):
     def __init__(
         self,
         title: str = f"{PROGRAM_NAME} GUI",
-        width: int = None,
-        height: int = None,
+        width: int | None = None,
+        height: int | None = None,
         enabled_bg: str = "green",
         disabled_bg: str = "white",
         enabled_text: str = "black",

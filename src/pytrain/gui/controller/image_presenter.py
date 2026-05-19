@@ -153,14 +153,19 @@ class ImagePresenter:
 
     def _make_prod_info_callback(self, tmcc_id: int, train_id: int | None):
         if train_id is None:
-            return lambda _resolved_tmcc_id: self.update(key=(CommandScope.ENGINE, tmcc_id))
-        return lambda _resolved_tmcc_id: self.update(key=(CommandScope.ENGINE, tmcc_id, train_id))
+            key: tuple[CommandScope, int] = (CommandScope.ENGINE, tmcc_id)
+        else:
+            key: tuple[CommandScope, int, int] = (CommandScope.ENGINE, tmcc_id, train_id)
+        return lambda _resolved_tmcc_id: self.update(key=key)
 
     # noinspection PyProtectedMember
     def update(
         self,
         tmcc_id: int | None = None,
-        key: tuple[CommandScope, int] | tuple[CommandScope, int, int] | None = None,
+        key: tuple[CommandScope, int]
+        | tuple[CommandScope, int, int]
+        | tuple[CommandScope, int, int | None]
+        | None = None,
     ) -> None:
         host = self._host
 
@@ -168,8 +173,8 @@ class ImagePresenter:
             # routes and switches don't use images
             return
         if key:
-            scope = key[0]
-            tmcc_id = key[1]
+            scope: CommandScope = key[0]
+            tmcc_id: int = int(key[1])
             train_id = key[2] if len(key) > 2 else None
             if not self._is_relevant_update(scope, tmcc_id, train_id):
                 return
@@ -203,10 +208,10 @@ class ImagePresenter:
             with host.locked():
                 img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
             if img is not None:
-                if train_id:
+                if train_id is not None:
                     with host.locked():
                         host._image_cache[(CommandScope.TRAIN, train_id)] = img
-                    tmcc_id = train_id
+                    tmcc_id = int(train_id)
                     scope = CommandScope.TRAIN
             else:
                 box_size = self.refresh_box_size() or self.calc_box_size()
@@ -228,6 +233,7 @@ class ImagePresenter:
                     img = host.get_image(self.loading_image, inverse=False, scale=True)
                     loading_box_size = (img.height(), available_width) if img else box_size
                     self._update_image(img, scope, tmcc_id, loading_box_size)
+                    print(f"Box Size: {loading_box_size} (1)")
                     return
 
                 if log.isEnabledFor(logging.DEBUG):
@@ -237,7 +243,7 @@ class ImagePresenter:
                     # Image should have been cached by fetch_prod_indo
                     with host.locked():
                         img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                    if img and train_id:
+                    if img is not None and train_id is not None:
                         with host.locked():
                             host._image_cache[(CommandScope.TRAIN, train_id)] = img
                         tmcc_id = train_id
@@ -297,7 +303,7 @@ class ImagePresenter:
                         elif state.is_sensor_track:
                             img_path = self.sensor_track_image
                         if img_path is None and host.get_configured_accessory(tmcc_id):
-                            acc = host.get_configured_accessory(tmcc_id)
+                            acc: ConfiguredAccessoryAdapter = host.get_configured_accessory(tmcc_id)
                             key = (host.scope, tmcc_id, acc)
                             img_path = find_file(acc.image_path)
                     if img_path:
@@ -327,10 +333,13 @@ class ImagePresenter:
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
+            print(f"Box Size: {box_size} (1)")
             host.image_box.show()
 
-    def refresh_box_size(self):
+    def refresh_box_size(self) -> tuple[int, int] | None:
         w = self._host.image_box.tk.winfo_width()
         h = self._host.image_box.tk.winfo_height()
         if w > 1 and h > 1:
             self._last_box_size = (h, w)
+            return self._last_box_size
+        return None

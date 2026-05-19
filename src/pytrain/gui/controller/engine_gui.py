@@ -1176,7 +1176,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_keypress(self, key):
         """Convenience wrapper; heavy lifting done in KeypadView"""
-        return self._keypad_view.on_keypress(key)
+        self._keypad_view.on_keypress(key)
 
     def on_set_key(self, scope: CommandScope, tmcc_id: int) -> None:
         # Fire the set address command; only valid for switches, accessories, and engines
@@ -1446,7 +1446,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 # dispatch directly to on_engine_command for processing
                 if state:
                     state.is_ramping = False
-                self.on_engine_command(speed_req, state=state, scope=state.scope)
+                    self.on_engine_command(speed_req, state=state, scope=state.scope)
                 return
         else:
             do_dialog = False

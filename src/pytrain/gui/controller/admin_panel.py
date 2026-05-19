@@ -431,7 +431,7 @@ class AdminPanel:
         else:
             self._gui.do_tmcc_request(command)
 
-    def _titlebox(self, parent: Box, text: str, grid: list[int] = None, **kwargs):
+    def _titlebox(self, parent: Box, text: str, grid: list[int] | None = None, **kwargs):
         is_height = "height" in kwargs
         height = kwargs.pop("height", self._gui.button_size)
         if is_height:

@@ -301,6 +301,7 @@ class EngineState(ComponentState):
                 speed_info = 31
         return speed_info
 
+    # noinspection PyStringConversionWithoutDunderMethod
     def _update_state(self, command: L | P) -> UpdateResult:
         """Updates engine state transactionally from command or effects; handles duplicates and all controls"""
         from ..pdi.base_req import BaseReq
