@@ -19,7 +19,7 @@ from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import ENGINE_TYPE_TO_IMAGE
 from ...db.accessory_state import AccessoryState
 from ...db.engine_state import EngineState
-from ...db.prod_info import ENGINE_INFO_CACHE_DIR, ProdInfo
+from ...db.prod_info import ENGINE_IMAGES_CACHE_DIR, ProdInfo
 from ...protocol.constants import CommandScope, EngineType
 from ...utils.image_utils import center_text_on_image
 from ...utils.path_utils import find_file
@@ -357,7 +357,7 @@ class ImagePresenter:
                 return None
 
             self._checked_for_custom_images.add(tmcc_id)
-            image_path = find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_INFO_CACHE_DIR))
+            image_path = find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
             if image_path is None:
                 return None
             img = host.get_scaled_image(image_path, force_lionel=True)
