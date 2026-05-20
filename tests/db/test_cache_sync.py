@@ -23,6 +23,28 @@ def test_rsync_push_command_without_delete(monkeypatch) -> None:
     ]
 
 
+def test_rsync_default_ssh_options_accept_new_host_keys(monkeypatch) -> None:
+    transport = RsyncCacheTransport(user="", timeout=1)
+    monkeypatch.setattr(transport, "_rsync", "rsync", raising=True)
+
+    cmd = transport.build_command(
+        "192.168.1.20",
+        Path("/local/cache/engine_info"),
+        Path("/remote/cache/engine_info"),
+        cache_name="engine_info",
+        delete=False,
+    )
+
+    assert cmd == [
+        "rsync",
+        "-az",
+        "-e",
+        "ssh -oBatchMode=yes -oConnectTimeout=5 -oStrictHostKeyChecking=accept-new",
+        "/local/cache/engine_info/",
+        "192.168.1.20:/remote/cache/engine_info/",
+    ]
+
+
 def test_rsync_server_image_command_deletes_but_protects_custom_images(monkeypatch) -> None:
     transport = RsyncCacheTransport(user="", ssh_opts="-oBatchMode=yes", timeout=1)
     monkeypatch.setattr(transport, "_rsync", "rsync", raising=True)

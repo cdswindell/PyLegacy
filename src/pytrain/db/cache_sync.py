@@ -36,7 +36,7 @@ DEFAULT_CACHE_SYNC_CONNECT_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_CO
 DEFAULT_CACHE_SYNC_USER = os.environ.get("PYTRAIN_CACHE_SYNC_USER", "")
 DEFAULT_CACHE_SYNC_SSH_OPTS = os.environ.get(
     "PYTRAIN_CACHE_SYNC_SSH_OPTS",
-    "-oBatchMode=yes -oConnectTimeout=5",
+    "-oBatchMode=yes -oConnectTimeout=5 -oStrictHostKeyChecking=accept-new",
 )
 
 
@@ -173,6 +173,14 @@ class RsyncCacheTransport:
                     ok = False
                     stderr = completed.stderr.strip() or completed.stdout.strip()
                     log.warning("Cache sync rsync failed for %s to %s: %s", cache_name, host, stderr)
+                    if "Host key verification failed" in stderr:
+                        log.warning(
+                            "Cache sync SSH host key was rejected for %s. "
+                            "Remove stale keys with 'ssh-keygen -R %s' if this host was rebuilt, "
+                            "or override SSH options with PYTRAIN_CACHE_SYNC_SSH_OPTS.",
+                            host,
+                            host,
+                        )
             except Exception as e:
                 ok = False
                 log.warning("Cache sync rsync failed for %s to %s: %s", cache_name, host, e)
