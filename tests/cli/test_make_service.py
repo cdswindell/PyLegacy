@@ -7,6 +7,7 @@
 #
 
 import builtins
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -37,6 +38,7 @@ class TestMakeService(TestBase):
             # tests some positive cases
             assert MakeService("-client".split()) is not None
             assert MakeService("-client -echo".split()) is not None
+            assert MakeService("-client -no_cache_sync".split()) is not None
             assert MakeService("-client -buttons".split()) is not None
             assert MakeService("-client -buttons -start".split()) is not None
             assert MakeService("-server -base -ser2 -echo -buttons_f".split()) is not None
@@ -51,3 +53,55 @@ class TestMakeService(TestBase):
             with pytest.raises(SystemExit) as e:
                 MakeService("-service".split())
             assert e.value.code == 2
+
+
+def test_make_service_command_line_defaults_to_cache_sync_enabled() -> None:
+    svc = MakeService.__new__(MakeService)
+    svc._exe = "pytrain"
+    svc._args = SimpleNamespace(mode="client", ser2=False)
+    svc._base_ip = None
+    svc._echo = False
+    svc._buttons_file = None
+    svc._no_cache_sync = False
+
+    assert svc.command_line == "pytrain -headless -client"
+
+
+def test_make_service_command_line_can_disable_cache_sync() -> None:
+    svc = MakeService.__new__(MakeService)
+    svc._exe = "pytrain"
+    svc._args = SimpleNamespace(mode="client", ser2=False)
+    svc._base_ip = None
+    svc._echo = False
+    svc._buttons_file = None
+    svc._no_cache_sync = True
+
+    assert svc.command_line == "pytrain -headless -client -no_cache_sync"
+
+
+def test_make_service_shell_script_includes_cache_sync_switch_only_when_disabled(tmp_path) -> None:
+    svc = MakeService.__new__(MakeService)
+    svc._home = tmp_path
+    svc._args = SimpleNamespace(mode="client")
+    svc._config = {
+        "___ACTIVATE___": "/venv/bin/activate",
+        "___BUTTONS___": "",
+        "___CACHE_SYNC___": " -no_cache_sync",
+        "___CLIENT___": " -client",
+        "___ECHO___": "",
+        "___LCSSER2___": "",
+        "___LIONELBASE___": "",
+        "___PYTRAIN___": "pytrain",
+        "___PYTRAINHOME___": "/opt/pytrain",
+    }
+
+    path = svc.make_shell_script()
+
+    assert path is not None
+    assert "-no_cache_sync" in path.read_text(encoding="utf-8")
+
+    svc._config["___CACHE_SYNC___"] = ""
+    path = svc.make_shell_script()
+
+    assert path is not None
+    assert "-no_cache_sync" not in path.read_text(encoding="utf-8")

@@ -114,10 +114,12 @@ class _MakeBase(ABC):
 
         self._exe = "pytrain" if is_package() else "cli/pytrain.py"
         self._echo = args.echo is True
+        self._no_cache_sync = args.no_cache_sync is True
         self._cmd_line = self.command_line
         self._config = {
             "___ACTIVATE___": str(self._activate_cmd),
             "___BUTTONS___": self._buttons_file if self._buttons_file else "",
+            "___CACHE_SYNC___": " -no_cache_sync" if self._no_cache_sync is True else "",
             "___CLIENT___": " -client" if self.is_client else "",
             "___ECHO___": " -echo" if self._echo is True else "",
             "___HOME___": str(self._home),
@@ -168,6 +170,8 @@ class _MakeBase(ABC):
                 cmd_line += " -ser2"
         if self._echo is True:
             cmd_line += " -echo"
+        if self._no_cache_sync is True:
+            cmd_line += " -no_cache_sync"
         if self._buttons_file:
             cmd_line += f" -buttons {self._buttons_file}"
         return cmd_line
@@ -180,6 +184,7 @@ class _MakeBase(ABC):
             print(f"  Lionel Base IP addresses: {self._base_ip}")
             print(f"  Use Ser2: {'Yes' if self._args.ser2 is True else 'No'}")
         print(f"  Button definitions file: {self._buttons_file if self._buttons_file else 'None'}")
+        print(f"  Cache file synchronization: {'Disabled' if self._no_cache_sync is True else 'Enabled'}")
         print(f"  Run as user: {self._user}")
         print(f"  User '{self._user} Home: {self._home}")
         print(f"  Echo TMCC/Legacy/Pdi commands to log file: {'Yes' if self._echo is True else 'No'}")
@@ -310,6 +315,11 @@ class _MakeBase(ABC):
             "-echo",
             action="store_true",
             help="Echo received TMCC/Legacy/Pdi commands to log file",
+        )
+        misc_opts.add_argument(
+            "-no_cache_sync",
+            action="store_true",
+            help="Disable cache file synchronization",
         )
         misc_opts.add_argument(
             "-user",

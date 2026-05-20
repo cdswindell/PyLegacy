@@ -14,6 +14,7 @@ LIONEL_BASE="___LIONELBASE___"
 LCS_SER_2="___LCSSER2___"
 CLIENT="___CLIENT___"
 ECHO="___ECHO___"
+CACHE_SYNC="___CACHE_SYNC___"
 
 # if a buttons file is specified, use it if found
 if [ -n "$BUTTONS_FILE" ]; then
@@ -46,4 +47,4 @@ DISPLAY=:0
 export DISPLAY
 
 # run the program with appropriate arguments
-___PYTRAIN___  -headless___CLIENT______LIONELBASE______LCSSER2______ECHO___ $START $BUTTONS_FILE
+___PYTRAIN___  -headless___CLIENT______LIONELBASE______LCSSER2______ECHO______CACHE_SYNC___ $START $BUTTONS_FILE
