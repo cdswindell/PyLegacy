@@ -109,7 +109,7 @@ class ProdInfo:
         return self._image_content
 
     @classmethod
-    def clear_caches(cls) -> None:
+    def clear_caches(cls, preserve_custom=True, verbose: bool = False) -> None:
         with cls._cache_lock:
             cls._bt_cache.clear()
             cls._failed_bt_cache.clear()
@@ -124,6 +124,10 @@ class ProdInfo:
 
                 for path in cache_path.iterdir():
                     if path.is_file() or path.is_symlink():
+                        if preserve_custom and path.stem.isdigit() and path.name.endswith(".jpg"):
+                            continue
+                        if verbose:
+                            log.info("Clearing cached file: %s", path)
                         path.unlink()
 
     @classmethod

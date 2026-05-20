@@ -8,6 +8,7 @@
 #
 
 import abc
+import logging
 import threading
 from abc import ABC
 from ipaddress import IPv4Address, IPv6Address
@@ -23,6 +24,8 @@ from .constants import DEFAULT_BAUDRATE, DEFAULT_PORT, MINIMUM_DURATION_INTERVAL
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..cli.pytrain import PyTrain
+
+log = logging.getLogger(__name__)
 
 R = TypeVar("R", bound=CommandReq | PdiReq | Sequence[CommandReq | PdiReq])
 
@@ -71,7 +74,8 @@ class CommandBase(ABC):
             elif base:
                 pt_args += f" -headless -base {base}"
             else:
-                raise NotImplementedError("Program can not be run without specifying '-client' or '-base [IP Address]'")
+                pt_args += " -client"
+                log.warning("Assuming client mode...")
 
             self._pytrain = PyTrain(pt_args.split())
             if not self._pytrain.is_synchronized():

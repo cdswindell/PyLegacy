@@ -387,7 +387,7 @@ class ReindexCli(CliBase):
             "scope",
             metavar="Record type",
             nargs="?",
-            type=UniqueChoice(["acc", "engine", "route", "switch", "train"]),
+            type=UniqueChoice(["accessory", "engine", "route", "switch", "train"]),
             default="engine",
             help="Base 3 record type to reindex",
         )
@@ -420,7 +420,7 @@ class ReindexCli(CliBase):
         self._check = self._args.check
         self._force = self._args.force
         try:
-            self._scope = CommandScope.by_name(self._args.scope, True)
+            self._scope = CommandScope.by_prefix(self._args.scope, True)
             cmd = ReindexCmd(self)
             if self.do_fire:
                 cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)

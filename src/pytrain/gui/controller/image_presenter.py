@@ -46,6 +46,11 @@ class ImagePresenter:
         self._pending_custom_images: set[int] = set()
         self._executor = ThreadPoolExecutor(max_workers=1)
 
+        # make sure custom image directory exists
+        p = Path(ENGINE_IMAGES_CACHE_DIR)
+        if not p.is_dir():
+            p.mkdir(parents=True, exist_ok=True)
+
     def clear(self) -> None:
         self._host.image.image = None
         self._host.image_box.hide()

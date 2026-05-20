@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
+from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
@@ -1140,7 +1141,7 @@ class PyTrain:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"Sending {cli_cmd.command.command_req}")
                     cli_cmd.send()
-                except ArgumentError as e:
+                except (ArgumentError, NotImplementedError) as e:
                     if parse_only:
                         return e.message
                     log.warning(e)
@@ -1486,6 +1487,13 @@ class PyTrain:
         group.add_argument("-asc2", action="store_const", const=Asc2Cli, dest="command", help="Issue Asc2 commands")
         group.add_argument("-amc2", action="store_const", const=Amc2Cli, dest="command", help="Issue Amc2 commands")
         group.add_argument("-bpc2", action="store_const", const=Bpc2Cli, dest="command", help="Issue Bpc2 commands")
+        group.add_argument(
+            "-clear",
+            action="store_const",
+            const=ClearCli,
+            dest="command",
+            help=f"Clear/delete specific {PROGRAM_NAME} elements",
+        )
         group.add_argument(
             "-db", action="store_const", const="db", dest="command", help="Query engine/train/switch/accessory state"
         )

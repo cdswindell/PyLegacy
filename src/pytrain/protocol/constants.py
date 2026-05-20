@@ -212,6 +212,8 @@ class CommandScope(Mixins):
             return value
         elif name and name.lower().startswith("rt"):
             return cls.ROUTE
+        elif name and name.lower().startswith("ac"):
+            return cls.ACC
         elif not raise_exception:
             return None
         else:
@@ -225,6 +227,18 @@ class CommandScope(Mixins):
             return "Switches"
         else:
             return f"{self.title}s"
+
+    @property
+    def title(self) -> str:
+        if self == CommandScope.ACC:
+            return "Accessory"
+        return super().title
+
+    @property
+    def label(self) -> str:
+        if self == CommandScope.ACC:
+            return "Accessory"
+        return super().label
 
 
 @unique
