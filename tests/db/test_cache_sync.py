@@ -1,6 +1,15 @@
 import pytest
 
-from src.pytrain.db.cache_sync import CacheSyncManager, CacheSyncPaths, SidecarCacheTransport
+from src.pytrain.db.cache_sync import (
+    DEFAULT_CACHE_SYNC_POLL,
+    CacheSyncManager,
+    CacheSyncPaths,
+    SidecarCacheTransport,
+)
+
+
+def test_default_cache_sync_poll_interval_is_30_seconds() -> None:
+    assert DEFAULT_CACHE_SYNC_POLL == 30.0
 
 
 def test_sidecar_payload_round_trip_syncs_files_and_deletes_stale_client_cache(tmp_path) -> None:
