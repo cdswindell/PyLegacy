@@ -76,6 +76,7 @@ pytrain = "pytrain:main"
 configure = "pytrain.cli.configure:main"
 make_gui = "pytrain.cli.make_gui:main"
 make_service = "pytrain.cli.make_service:main"
+pyclear = "pytrain.cli.clear:main"
 piconfig = "pytrain.cli.piconfig:main"
 reindex = "pytrain.cli.reindex:main"
 
