@@ -528,7 +528,7 @@ class PyTrain:
             "-cache_sync_port",
             type=int,
             default=None,
-            help="Cache sync sidecar port (default: server_port + 100)",
+            help="Engine info cache sync port (default: server_port + 100)",
         )
         ser2_opts = parser.add_argument_group("LCS Ser2 options")
         ser2_opts.add_argument(

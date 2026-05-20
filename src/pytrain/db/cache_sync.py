@@ -129,7 +129,7 @@ class CacheSyncHandler(socketserver.StreamRequestHandler):
             else:
                 response = {"ok": False, "error": "unsupported command"}
         except Exception as e:
-            log.debug("Cache sync sidecar request failed: %s", e)
+            log.debug("Engine info cache request failed: %s", e)
             response = {"ok": False, "error": str(e)}
         self.wfile.write((json.dumps(response) + "\n").encode("utf-8"))
 
@@ -170,13 +170,13 @@ class SidecarCacheTransport:
             if response.get("ok"):
                 return True
             log.warning(
-                "Cache sync sidecar rejected sync to %s:%s: %s",
+                "Engine info cache rejected sync to %s:%s: %s",
                 host,
                 port,
                 response.get("error", "unknown error"),
             )
         except Exception as e:
-            log.warning("Cache sync sidecar transfer failed to %s:%s: %s", host, port, e)
+            log.warning("Engine info cache transfer failed to %s:%s: %s", host, port, e)
         return False
 
     @classmethod
@@ -373,7 +373,7 @@ class CacheSyncManager(Thread):
             log.info("Cache sync skipped: server does not advertise cache sync support")
             return
         if not self._sidecar_available:
-            log.info("Cache sync skipped: local cache sync sidecar is unavailable")
+            log.info("Cache sync skipped: local engine info cache listener is unavailable")
             return
         if self._is_server:
             self._sync_to_clients()
@@ -395,10 +395,10 @@ class CacheSyncManager(Thread):
             self._server_thread = Thread(
                 target=self._server.serve_forever,
                 daemon=True,
-                name=f"{PROGRAM_NAME} Cache Sync Sidecar",
+                name=f"{PROGRAM_NAME} Engine Info Cache",
             )
             self._server_thread.start()
-            log.info("Cache sync sidecar listening on port %s", self._sync_port)
+            log.info("Engine info cache listening on port %s", self._sync_port)
             return True
         except OSError as e:
             log.warning("Cache sync disabled: unable to listen on port %s: %s", self._sync_port, e)
