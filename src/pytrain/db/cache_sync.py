@@ -9,16 +9,15 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
-import shutil
 import socket
 import socketserver
-import subprocess
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from queue import Empty, Queue
 from threading import Event, Lock, Thread
 from time import monotonic
@@ -33,11 +32,7 @@ DEFAULT_CACHE_SYNC_DEBOUNCE = float(os.environ.get("PYTRAIN_CACHE_SYNC_DEBOUNCE"
 DEFAULT_CACHE_SYNC_POLL = float(os.environ.get("PYTRAIN_CACHE_SYNC_POLL", "10.0"))
 DEFAULT_CACHE_SYNC_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_TIMEOUT", "30.0"))
 DEFAULT_CACHE_SYNC_CONNECT_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_CONNECT_TIMEOUT", "2.0"))
-DEFAULT_CACHE_SYNC_USER = os.environ.get("PYTRAIN_CACHE_SYNC_USER", "")
-DEFAULT_CACHE_SYNC_SSH_OPTS = os.environ.get(
-    "PYTRAIN_CACHE_SYNC_SSH_OPTS",
-    "-oBatchMode=yes -oConnectTimeout=5 -oStrictHostKeyChecking=accept-new",
-)
+DEFAULT_CACHE_SYNC_MAX_PAYLOAD = int(os.environ.get("PYTRAIN_CACHE_SYNC_MAX_PAYLOAD", str(64 * 1024 * 1024)))
 
 
 class CacheSyncEvent(Enum):
@@ -121,6 +116,16 @@ class CacheSyncHandler(socketserver.StreamRequestHandler):
             elif command == "changed":
                 manager.enqueue(CacheSyncEvent.REMOTE_CHANGED)
                 response = {"ok": True}
+            elif command == "sync":
+                content_length = int(request.get("content_length") or 0)
+                if content_length < 0 or content_length > DEFAULT_CACHE_SYNC_MAX_PAYLOAD:
+                    response = {"ok": False, "error": "cache sync payload too large"}
+                else:
+                    payload_raw = self.rfile.read(content_length)
+                    payload = json.loads(payload_raw.decode("utf-8")) if payload_raw else {}
+                    SidecarCacheTransport.apply_payload(CacheSyncPaths.current(create=True), payload)
+                    manager.mark_cache_synced()
+                    response = {"ok": True}
             else:
                 response = {"ok": False, "error": "unsupported command"}
         except Exception as e:
@@ -129,82 +134,143 @@ class CacheSyncHandler(socketserver.StreamRequestHandler):
         self.wfile.write((json.dumps(response) + "\n").encode("utf-8"))
 
 
-class RsyncCacheTransport:
-    def __init__(
-        self,
-        *,
-        user: str = DEFAULT_CACHE_SYNC_USER,
-        ssh_opts: str = DEFAULT_CACHE_SYNC_SSH_OPTS,
-        timeout: float = DEFAULT_CACHE_SYNC_TIMEOUT,
-    ) -> None:
-        self._user = user.strip()
-        self._ssh_opts = ssh_opts.strip()
+class SidecarCacheTransport:
+    def __init__(self, *, timeout: float = DEFAULT_CACHE_SYNC_TIMEOUT) -> None:
         self._timeout = timeout
-        rsync_name: str = "rsync"
-        # noinspection PyDeprecation
-        self._rsync: str | None = shutil.which(rsync_name)
-        self._warned_missing = False
 
     @property
     def available(self) -> bool:
-        return self._rsync is not None
+        return True
 
     def sync_to_peer(
         self,
         host: str,
+        port: int,
         local_paths: CacheSyncPaths,
         remote_paths: CacheSyncPaths,
         *,
         delete: bool,
     ) -> bool:
-        if not self.available:
-            if not self._warned_missing:
-                log.warning("Cache sync disabled: rsync not found")
-                self._warned_missing = True
-            return False
-        ok = True
-        for cache_name, local_path, remote_path in local_paths.iter_pairs(remote_paths):
+        try:
+            body = json.dumps(self.build_payload(local_paths, remote_paths, delete=delete)).encode("utf-8")
+            if len(body) > DEFAULT_CACHE_SYNC_MAX_PAYLOAD:
+                log.warning(
+                    "Cache sync skipped for %s: payload is larger than %s bytes",
+                    host,
+                    DEFAULT_CACHE_SYNC_MAX_PAYLOAD,
+                )
+                return False
+            response = CacheSyncManager.sidecar_request(
+                host,
+                port,
+                {"command": "sync", "content_length": len(body)},
+                body,
+                timeout=self._timeout,
+            )
+            if response.get("ok"):
+                return True
+            log.warning(
+                "Cache sync sidecar rejected sync to %s:%s: %s",
+                host,
+                port,
+                response.get("error", "unknown error"),
+            )
+        except Exception as e:
+            log.warning("Cache sync sidecar transfer failed to %s:%s: %s", host, port, e)
+        return False
+
+    @classmethod
+    def build_payload(cls, local_paths: CacheSyncPaths, remote_paths: CacheSyncPaths, *, delete: bool) -> dict:
+        payload = {"delete": delete, "caches": [], "files": []}
+        for cache_name, local_path, _remote_path in local_paths.iter_pairs(remote_paths):
+            payload["caches"].append(cache_name)
             if not local_path.is_dir():
                 continue
-            cmd = self.build_command(host, local_path, remote_path, cache_name=cache_name, delete=delete)
-            try:
-                completed = subprocess.run(cmd, capture_output=True, text=True, timeout=self._timeout, check=False)
-                if completed.returncode != 0:
-                    ok = False
-                    stderr = completed.stderr.strip() or completed.stdout.strip()
-                    log.warning("Cache sync rsync failed for %s to %s: %s", cache_name, host, stderr)
-                    if "Host key verification failed" in stderr:
-                        log.warning(
-                            "Cache sync SSH host key was rejected for %s. "
-                            "Remove stale keys with 'ssh-keygen -R %s' if this host was rebuilt, "
-                            "or override SSH options with PYTRAIN_CACHE_SYNC_SSH_OPTS.",
-                            host,
-                            host,
-                        )
-            except Exception as e:
-                ok = False
-                log.warning("Cache sync rsync failed for %s to %s: %s", cache_name, host, e)
-        return ok
+            for path in local_path.rglob("*"):
+                if not path.is_file():
+                    continue
+                try:
+                    rel = path.relative_to(local_path).as_posix()
+                    content = base64.b64encode(path.read_bytes()).decode("ascii")
+                    stat = path.stat()
+                    payload["files"].append(
+                        {
+                            "cache": cache_name,
+                            "path": rel,
+                            "content": content,
+                            "mtime_ns": stat.st_mtime_ns,
+                        }
+                    )
+                except OSError as e:
+                    log.debug("Skipping cache file %s during sync: %s", path, e)
+        return payload
 
-    def build_command(
-        self,
-        host: str,
-        local_path: Path,
-        remote_path: Path,
-        *,
-        cache_name: str,
-        delete: bool,
-    ) -> list[str]:
-        remote_host = f"{self._user}@{host}" if self._user else host
-        cmd = [self._rsync or "rsync", "-az"]
-        if self._ssh_opts:
-            cmd.extend(["-e", f"ssh {self._ssh_opts}"])
-        if delete:
-            cmd.append("--delete")
-            if cache_name == "engine_images":
-                cmd.extend(["--filter", "P /[0-9]*.jpg"])
-        cmd.extend([f"{local_path}/", f"{remote_host}:{remote_path}/"])
-        return cmd
+    @classmethod
+    def apply_payload(cls, local_paths: CacheSyncPaths, payload: dict) -> None:
+        roots = cls._roots(local_paths)
+        caches = [cache_name for cache_name in payload.get("caches", []) if cache_name in roots]
+        incoming: dict[str, set[str]] = {cache_name: set() for cache_name in caches}
+
+        for item in payload.get("files", []):
+            cache_name = item.get("cache")
+            if cache_name not in roots:
+                continue
+            rel = cls._safe_relative_path(item.get("path"))
+            incoming.setdefault(cache_name, set()).add(rel.as_posix())
+            target = roots[cache_name].joinpath(*rel.parts)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(base64.b64decode(item.get("content") or ""))
+            mtime_ns = item.get("mtime_ns")
+            if isinstance(mtime_ns, int):
+                os.utime(target, ns=(mtime_ns, mtime_ns))
+
+        if payload.get("delete"):
+            cls._delete_stale_files(roots, incoming)
+
+    @staticmethod
+    def _roots(paths: CacheSyncPaths) -> dict[str, Path]:
+        roots: dict[str, Path] = {}
+        if paths.engine_info is not None:
+            roots["engine_info"] = paths.engine_info
+        if paths.engine_images is not None:
+            roots["engine_images"] = paths.engine_images
+        return roots
+
+    @staticmethod
+    def _safe_relative_path(value: str | None) -> PurePosixPath:
+        if not value:
+            raise ValueError("cache sync file path is required")
+        rel = PurePosixPath(value)
+        if "\\" in value or rel.is_absolute() or any(part in {"", ".", ".."} for part in rel.parts):
+            raise ValueError(f"unsafe cache sync file path: {value}")
+        return rel
+
+    @staticmethod
+    def _delete_stale_files(roots: dict[str, Path], incoming: dict[str, set[str]]) -> None:
+        for cache_name, root in roots.items():
+            keep = incoming.get(cache_name)
+            if keep is None or not root.is_dir():
+                continue
+            for path in root.rglob("*"):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(root).as_posix()
+                if rel in keep or SidecarCacheTransport._preserve_file(cache_name, rel):
+                    continue
+                try:
+                    path.unlink()
+                except OSError as e:
+                    log.debug("Failed to delete stale cache file %s: %s", path, e)
+            for path in sorted((p for p in root.rglob("*") if p.is_dir()), reverse=True):
+                try:
+                    path.rmdir()
+                except OSError:
+                    pass
+
+    @staticmethod
+    def _preserve_file(cache_name: str, rel: str) -> bool:
+        path = PurePosixPath(rel)
+        return cache_name == "engine_images" and path.stem.isdigit() and path.name.endswith(".jpg")
 
 
 class CacheSyncManager(Thread):
@@ -222,7 +288,7 @@ class CacheSyncManager(Thread):
         server_sync_port: int | None = None,
         server_advertised_sync: bool | None = None,
         clients_provider: Callable[[], set[tuple[str, int]]] | None = None,
-        transport: RsyncCacheTransport | None = None,
+        transport: SidecarCacheTransport | None = None,
     ) -> "CacheSyncManager | None":
         if not enabled:
             return None
@@ -269,7 +335,7 @@ class CacheSyncManager(Thread):
         server_sync_port: int | None,
         server_advertised_sync: bool | None,
         clients_provider: Callable[[], set[tuple[str, int]]] | None,
-        transport: RsyncCacheTransport | None,
+        transport: SidecarCacheTransport | None,
         debounce: float = DEFAULT_CACHE_SYNC_DEBOUNCE,
         poll_interval: float = DEFAULT_CACHE_SYNC_POLL,
     ) -> None:
@@ -280,7 +346,7 @@ class CacheSyncManager(Thread):
         self._server_sync_port = server_sync_port or sync_port
         self._server_advertised_sync = server_advertised_sync
         self._clients_provider = clients_provider or (lambda: set())
-        self._transport = transport or RsyncCacheTransport()
+        self._transport = transport or SidecarCacheTransport()
         self._debounce = debounce
         self._poll_interval = poll_interval
         self._queue: Queue[tuple[CacheSyncEvent, CachePeer | None]] = Queue()
@@ -394,7 +460,7 @@ class CacheSyncManager(Thread):
         if remote_paths is None:
             return
         if self._transport.sync_to_peer(
-            self._server_ip, CacheSyncPaths.current(create=True), remote_paths, delete=False
+            self._server_ip, self._server_sync_port, CacheSyncPaths.current(create=True), remote_paths, delete=False
         ):
             self._notify_peer_changed(self._server_ip, self._server_sync_port)
 
@@ -406,11 +472,17 @@ class CacheSyncManager(Thread):
         remote_paths = self._probe(peer.host, peer.port)
         if remote_paths is None:
             return
-        self._transport.sync_to_peer(peer.host, CacheSyncPaths.current(create=True), remote_paths, delete=True)
+        self._transport.sync_to_peer(
+            peer.host,
+            peer.port,
+            CacheSyncPaths.current(create=True),
+            remote_paths,
+            delete=True,
+        )
 
     def _probe(self, host: str, port: int) -> CacheSyncPaths | None:
         try:
-            response = self._sidecar_request(host, port, {"command": "hello"})
+            response = self.sidecar_request(host, port, {"command": "hello"})
             if response.get("ok") is True and response.get("cache_sync") is True:
                 return CacheSyncPaths.from_wire_dict(response.get("paths") or {})
         except OSError:
@@ -421,17 +493,29 @@ class CacheSyncManager(Thread):
 
     def _notify_peer_changed(self, host: str, port: int) -> None:
         try:
-            self._sidecar_request(host, port, {"command": "changed"})
+            self.sidecar_request(host, port, {"command": "changed"})
         except Exception as e:
             log.debug("Cache sync changed notification failed for %s:%s: %s", host, port, e)
 
     @staticmethod
-    def _sidecar_request(host: str, port: int, payload: dict) -> dict:
-        with socket.create_connection((host, port), timeout=DEFAULT_CACHE_SYNC_CONNECT_TIMEOUT) as sock:
+    def sidecar_request(
+        host: str,
+        port: int,
+        payload: dict,
+        body: bytes | None = None,
+        *,
+        timeout: float = DEFAULT_CACHE_SYNC_CONNECT_TIMEOUT,
+    ) -> dict:
+        with socket.create_connection((host, port), timeout=timeout) as sock:
             sock.sendall((json.dumps(payload) + "\n").encode("utf-8"))
+            if body:
+                sock.sendall(body)
             with sock.makefile("rb") as f:
                 raw = f.readline(4096)
         return json.loads(raw.decode("utf-8")) if raw else {}
+
+    def mark_cache_synced(self) -> None:
+        self._manifest = self._cache_manifest()
 
     @staticmethod
     def _cache_manifest() -> tuple[tuple[str, int, int], ...]:

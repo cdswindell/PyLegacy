@@ -148,8 +148,7 @@ class CacheCmd(CommandBase):
                     )
                 else:
                     log.warning(
-                        "Cache sync skipped: cache sync is disabled or unavailable. "
-                        "Restart without -no_cache_sync and ensure rsync is installed."
+                        "Cache sync skipped: cache sync is disabled or unavailable. Restart without -no_cache_sync."
                     )
                 return
             cache_sync.force_sync()
