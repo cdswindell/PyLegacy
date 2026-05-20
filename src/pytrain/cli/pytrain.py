@@ -33,6 +33,7 @@ from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
+from ..db.cache_sync import CacheSyncManager, default_cache_sync_port
 from ..db.client_state_listener import ClientStateListener
 from ..db.component_state import ComponentState
 from ..db.component_state_store import ComponentStateStore
@@ -134,6 +135,12 @@ class PyTrain:
         self._headless = args.headless
         self._ser2 = args.ser2
         self._no_wait = args.no_wait
+        self._cache_sync_enabled = args.no_cache_sync is False
+        self._cache_sync_port = args.cache_sync_port or default_cache_sync_port(args.server_port)
+        self._server_cache_sync_capable: bool | None = None
+        self._server_cache_sync_port = self._cache_sync_port
+        self._cache_sync_manager = None
+        self._cache_sync_started = False
         self._service_info = None
         self._api = False
         self._api_thread = None
@@ -313,6 +320,8 @@ class PyTrain:
             log.info(f"Loading layout state {PROGRAM_NAME} from server{server}...")
 
     def run(self) -> None:
+        self._start_cache_sync()
+
         # register server so clients can connect without IP addr
         if self.is_server:
             self._zeroconf = Zeroconf()
@@ -320,6 +329,10 @@ class PyTrain:
                 self._ser2 is True,
                 self._base_addr is not None,
                 self._args.server_port,
+                self._cache_sync_enabled
+                and self._cache_sync_manager is not None
+                and self._cache_sync_manager.available,
+                self._cache_sync_port,
             )
 
         processed_replay = False
@@ -510,6 +523,12 @@ class PyTrain:
             default=DEFAULT_SERVER_PORT,
             help=f"Server port that remote clients connect to (default: {DEFAULT_SERVER_PORT})",
         )
+        server_opts.add_argument(
+            "-cache_sync_port",
+            type=int,
+            default=None,
+            help="Cache sync sidecar port (default: server_port + 100)",
+        )
         ser2_opts = parser.add_argument_group("LCS Ser2 options")
         ser2_opts.add_argument(
             "-baudrate",
@@ -541,6 +560,7 @@ class PyTrain:
             "-headless", action="store_true", help="Do not prompt for user input (run in background),"
         )
         misc_opts.add_argument("-force_sync", action="store_true", help=argparse.SUPPRESS)
+        misc_opts.add_argument("-no_cache_sync", action="store_true", help="Disable cache file synchronization")
         misc_opts.add_argument("-no_d4", action="store_true", help="Do not load 4-digit engines and trains")
         misc_opts.add_argument("-no_wait", action="store_true", help="Do not wait for roster download")
         misc_opts.add_argument(
@@ -844,12 +864,41 @@ class PyTrain:
         stat = subprocess.call(f"systemctl is-active --quiet {service}".split())
         return stat == 0
 
-    def register_service(self, ser2, base3, server_port) -> ServiceInfo:
+    def _start_cache_sync(self) -> None:
+        if self._cache_sync_started:
+            return
+        self._cache_sync_started = True
+        if not self._cache_sync_enabled:
+            log.info("Cache sync disabled")
+            return
+        if self.is_client and self._server_cache_sync_capable is False:
+            log.info("Cache sync disabled: server did not advertise cache sync support")
+            return
+        self._cache_sync_manager = CacheSyncManager.build(
+            enabled=True,
+            is_server=self.is_server,
+            sync_port=self._cache_sync_port,
+            server_ip=str(self._server) if self.is_client and self._server is not None else None,
+            server_sync_port=self._server_cache_sync_port,
+            server_advertised_sync=self._server_cache_sync_capable,
+            clients_provider=EnqueueProxyRequests.clients if self.is_server else None,
+        )
+
+    def register_service(
+        self,
+        ser2,
+        base3,
+        server_port,
+        cache_sync: bool = False,
+        cache_sync_port: int = None,
+    ) -> ServiceInfo:
         port = server_port
         properties = {
             "version": f"{self.version}",
             "Ser2": "1" if ser2 is True else "0",
             "Base3": "1" if base3 is True else "0",
+            "CacheSync": "1" if cache_sync is True else "0",
+            "CacheSyncPort": str(cache_sync_port or default_cache_sync_port(server_port)),
         }
         self._server_ips = server_ips = get_ip_address()
         hostname = socket.gethostname()
@@ -874,6 +923,22 @@ class PyTrain:
         for prop, value in update.items():
             self._service_info.properties[prop.encode("utf-8")] = str(value).encode("utf-8")
         self._zeroconf.register_service(self._service_info)
+
+    @staticmethod
+    def cache_sync_properties(info: ServiceInfo) -> tuple[bool, int]:
+        cache_sync = False
+        cache_sync_port = default_cache_sync_port(info.port)
+        for prop, value in info.properties.items():
+            decoded_prop = prop.decode("utf-8")
+            decoded_value = value.decode("utf-8") if value is not None else None
+            if decoded_prop == "CacheSync":
+                cache_sync = decoded_value == "1"
+            elif decoded_prop == "CacheSyncPort" and decoded_value:
+                try:
+                    cache_sync_port = int(decoded_value)
+                except ValueError:
+                    log.debug("Ignoring invalid CacheSyncPort service property: %s", decoded_value)
+        return cache_sync, cache_sync_port
 
     def get_service_info(self) -> Tuple[str, int] | None:
         """
@@ -964,6 +1029,7 @@ class PyTrain:
                 z.close()
 
         if an_info:
+            self._server_cache_sync_capable, self._server_cache_sync_port = self.cache_sync_properties(an_info)
             return an_info.parsed_addresses()[0], an_info.port
         else:
             return None
@@ -986,6 +1052,11 @@ class PyTrain:
                 self._server_discovered.set()
 
     def shutdown_service(self):
+        try:
+            CacheSyncManager.stop()
+            self._cache_sync_manager = None
+        except Exception as e:
+            log.warning(f"Error closing cache sync manager, continuing shutdown: {e}")
         if self._service_info and self._zeroconf:
             self._zeroconf.unregister_service(self._service_info)
             self._zeroconf.close()

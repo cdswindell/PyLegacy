@@ -35,6 +35,18 @@ PROD_INFO_CONNECT_TIMEOUT = float(os.environ.get("PROD_INFO_CONNECT_TIMEOUT", "1
 PROD_INFO_READ_TIMEOUT = float(os.environ.get("PROD_INFO_READ_TIMEOUT", "20.0"))
 
 
+def _notify_cache_changed(cleared: bool = False) -> None:
+    try:
+        from .cache_sync import CacheSyncManager
+
+        if cleared:
+            CacheSyncManager.notify_cache_cleared()
+        else:
+            CacheSyncManager.notify_cache_changed()
+    except Exception as e:
+        log.warning("Cache sync notification failed: %s", e)
+
+
 # noinspection PyTypeChecker
 @dataclass
 class ProdInfo:
@@ -100,6 +112,7 @@ class ProdInfo:
                     try:
                         image_cache_path.parent.mkdir(parents=True, exist_ok=True)
                         image_cache_path.write_bytes(self._image_content)
+                        _notify_cache_changed()
                     except OSError as e:
                         log.warning("Failed to cache product image to file %s: %s", image_cache_path, e)
             else:
@@ -129,6 +142,7 @@ class ProdInfo:
                         if verbose:
                             log.info("Clearing cached file: %s", path)
                         path.unlink()
+            _notify_cache_changed(cleared=True)
 
     @classmethod
     def by_btid(cls, bt_id: str) -> ProdInfo | None:
@@ -189,6 +203,7 @@ class ProdInfo:
                 Path(ENGINE_INFO_CACHE_DIR).mkdir(parents=True, exist_ok=True)
                 with open(f"{ENGINE_INFO_CACHE_DIR}/{bt_id}.json", "w", encoding="utf-8") as f:
                     json.dump(prod_dict, f, indent=2)
+                _notify_cache_changed()
             with cls._cache_lock:
                 cls._bt_cache[key] = prod_dict
             return prod_dict

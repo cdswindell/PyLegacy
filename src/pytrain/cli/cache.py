@@ -12,9 +12,10 @@ from __future__ import annotations
 import logging
 import sys
 from argparse import ArgumentParser
-from threading import Thread
 from typing import List
 
+from ..db.cache_sync import CacheSyncManager
+from ..db.prod_info import ProdInfo
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
 from ..utils.argument_parser import PyTrainArgumentParser, UniqueChoice
@@ -23,19 +24,16 @@ from . import CliBase
 log = logging.getLogger(__name__)
 
 
-class ClearCmd(CommandBase, Thread):
+class CacheClearCmd(CommandBase):
     """
-    Command to clear Lionel Base 3 database records.
+    Clear cache directories
 
     This is a special case of CommandBase where no actual requests are created nor sent.
     """
 
-    def __init__(self, cli: ClearCli) -> None:
+    def __init__(self, cli: CacheCli) -> None:
         self._cli = cli
         self._scope: CommandScope = cli.scope
-
-        if self._cli.scope is None:
-            raise ValueError("Scope must be specified")
 
         # with PyTrain initialization sorted out, initialize CommandBase and Thread.
         # If we are stand-alone, set daemon to False, as we need the process to continue running.
@@ -49,8 +47,67 @@ class ClearCmd(CommandBase, Thread):
             client=self._cli.args.client if "client" in self._cli.args else False,
             base=self._cli.args.base if "base" in self._cli.args else None,
         )
-        Thread.__init__(self, daemon=self.is_daemon, name="ClearCmdThread")
+        self._command = self._build_command()
 
+    @property
+    def scope(self) -> CommandScope:
+        return self._cli.scope
+
+    @property
+    def is_verbose(self) -> bool:
+        return self._cli.is_verbose
+
+    # noinspection PyTypeChecker
+    def send(
+        self,
+        repeat: int = None,
+        delay: float = None,
+        duration: float = None,
+        interval: int = None,
+        shutdown: bool = False,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ):
+        log.info("Clearing cache...")
+        ProdInfo.clear_caches(preserve_custom=True, verbose=self.is_verbose)
+
+    def _build_command(self) -> bytes | None:
+        return None
+
+    def _command_prefix(self) -> bytes | None:
+        pass
+
+    def _encode_address(self, command_op: int) -> bytes | None:
+        pass
+
+
+class CacheCmd(CommandBase):
+    """
+    Command to clear Lionel Base 3 database records.
+
+    This is a special case of CommandBase where no actual requests are created nor sent.
+    """
+
+    def __init__(self, cli: CacheCli) -> None:
+        self._cli = cli
+        self._scope: CommandScope = cli.scope
+
+        if self._cli.cache_command is None:
+            raise ValueError("Cache command required")
+
+        # with PyTrain initialization sorted out, initialize CommandBase and Thread.
+        # If we are stand-alone, set daemon to False, as we need the process to continue running.
+        CommandBase.__init__(
+            self,
+            None,
+            None,
+            1,
+            scope=self._scope,
+            server=self._cli.args.server if "server" in self._cli.args else None,
+            client=self._cli.args.client if "client" in self._cli.args else False,
+            base=self._cli.args.base if "base" in self._cli.args else None,
+        )
         self._command = self._build_command()
 
     @property
@@ -80,15 +137,14 @@ class ClearCmd(CommandBase, Thread):
         # pause until Base 3 sync complete
         self.wait_for_sync()
 
-        log.info(f"Clearing Base 3 {self._scope.title} database record...")
-
-        raise NotImplementedError(f"Clear command not implemented for {self._scope.plural}")
-
-    def run(self) -> None:
-        try:
-            self.pytrain.pdi_listener.subscribe_any(self)
-        finally:
-            self.pytrain.pdi_listener.unsubscribe_any(self)
+        if self._cli.cache_command == "sync":
+            log.info("Syncing cache...")
+            cache_sync = CacheSyncManager.current()
+            if cache_sync is None:
+                raise RuntimeError("Cache sync is not available; restart without -no_cache_sync")
+            cache_sync.force_sync()
+        else:
+            raise NotImplementedError(f"Cache command '{self._cli.cache_command}' not implemented.")
 
     def _build_command(self) -> bytes | None:
         return None
@@ -100,21 +156,21 @@ class ClearCmd(CommandBase, Thread):
         pass
 
 
-class ClearCli(CliBase):
+class CacheCli(CliBase):
     """
-    Clear Lionel Base 3 Database
+    Cache commands
     """
 
     @classmethod
     def command_parser(cls) -> ArgumentParser:
         parser = PyTrainArgumentParser(add_help=False)
         parser.add_argument(
-            "scope",
+            "command",
             metavar="Record type",
             nargs="?",
-            type=UniqueChoice(["accessory", "engine", "route", "switch", "train"]),
+            type=UniqueChoice(["clear", "sync"]),
             default="engine",
-            help="Element type to clear",
+            help="Cache operation",
         )
 
         parser.add_argument(
@@ -124,15 +180,19 @@ class ClearCli(CliBase):
         )
 
         # Return parser
-        return PyTrainArgumentParser("Clear Lionel Base 3 database record", parents=[parser, cls.cli_parser()])
+        return PyTrainArgumentParser("Cache options", parents=[parser, cls.cli_parser()])
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
         self._args = self._args
+        self._cache_command = self._args.command
         self._verbose = self._args.verbose
+        self._scope = CommandScope.SYSTEM
         try:
-            self._scope = CommandScope.by_prefix(self._args.scope, True)
-            cmd = ClearCmd(self)
+            if self._cache_command == "clear":
+                cmd = CacheClearCmd(self)
+            else:
+                cmd = CacheCmd(self)
             if self.do_fire:
                 cmd.fire(baudrate=self._baudrate, port=self._port, server=self._server)
             self._command = cmd
@@ -141,7 +201,11 @@ class ClearCli(CliBase):
 
     @property
     def scope(self) -> CommandScope:
-        return self._scope
+        return CommandScope.SYSTEM
+
+    @property
+    def cache_command(self) -> str:
+        return self._cache_command
 
     @property
     def is_verbose(self) -> bool:
@@ -152,7 +216,7 @@ def main(args: list[str] | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
     try:
-        ClearCli(cmd_line=args)
+        CacheCli(cmd_line=args)
         return 0
     except Exception as e:
         sys.exit(f"{__file__}: error: {e}\n")

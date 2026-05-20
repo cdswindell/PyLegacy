@@ -173,6 +173,7 @@ def test_get_info_reads_from_cache_file(monkeypatch, tmp_path) -> None:
 def test_get_info_writes_to_cache_file(monkeypatch, tmp_path) -> None:
     cache_dir = tmp_path / "engine_info"
     payload = _product_payload("ABCD")
+    notifications = []
 
     def fake_get(url, headers=None, timeout=None):
         return DummyResponse(200, payload)
@@ -181,9 +182,11 @@ def test_get_info_writes_to_cache_file(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(mod, "PROD_INFO_URL", "https://example.invalid/{}", raising=True)
     monkeypatch.setattr(mod, "ENGINE_INFO_CACHE_DIR", str(cache_dir), raising=True)
     monkeypatch.setattr(mod.requests, "get", fake_get, raising=True)
+    monkeypatch.setattr(mod, "_notify_cache_changed", lambda cleared=False: notifications.append(cleared), raising=True)
 
     assert mod.ProdInfo.get_info("ABCD") == payload
     assert json.loads((cache_dir / "ABCD.json").read_text(encoding="utf-8")) == payload
+    assert notifications == [False]
 
 
 def test_get_info_does_not_cache_when_info_cache_dir_is_empty(monkeypatch, tmp_path) -> None:
@@ -217,15 +220,18 @@ def test_image_content_reads_from_cache_file(monkeypatch, tmp_path) -> None:
 def test_image_content_writes_to_cache_file(monkeypatch, tmp_path) -> None:
     cache_dir = tmp_path / "engine_images"
     image_bytes = b"downloaded image bytes"
+    notifications = []
 
     def fake_get(url, timeout=None):
         return DummyResponse(200, content=image_bytes)
 
     monkeypatch.setattr(mod, "ENGINE_IMAGES_CACHE_DIR", str(cache_dir), raising=True)
     monkeypatch.setattr(mod.requests, "get", fake_get, raising=True)
+    monkeypatch.setattr(mod, "_notify_cache_changed", lambda cleared=False: notifications.append(cleared), raising=True)
 
     assert _prod_info().image_content == image_bytes
     assert (cache_dir / "engine.png").read_bytes() == image_bytes
+    assert notifications == [False]
 
 
 def test_image_content_does_not_cache_when_image_cache_dir_is_empty(monkeypatch, tmp_path) -> None:
@@ -276,9 +282,11 @@ def test_clear_caches_removes_cache_files_and_clears_memory(monkeypatch, tmp_pat
     (image_cache_dir / "engine.png").write_bytes(b"image bytes")
     mod.ProdInfo._bt_cache["ABCD"] = {"cached": True}
     mod.ProdInfo._failed_bt_cache.add("DEAD")
+    notifications = []
 
     monkeypatch.setattr(mod, "ENGINE_INFO_CACHE_DIR", str(info_cache_dir), raising=True)
     monkeypatch.setattr(mod, "ENGINE_IMAGES_CACHE_DIR", str(image_cache_dir), raising=True)
+    monkeypatch.setattr(mod, "_notify_cache_changed", lambda cleared=False: notifications.append(cleared), raising=True)
 
     mod.ProdInfo.clear_caches()
 
@@ -286,3 +294,4 @@ def test_clear_caches_removes_cache_files_and_clears_memory(monkeypatch, tmp_pat
     assert not list(image_cache_dir.iterdir())
     assert mod.ProdInfo._bt_cache == {}
     assert mod.ProdInfo._failed_bt_cache == set()
+    assert notifications == [True]
