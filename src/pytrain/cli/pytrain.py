@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Tuple, cast
 
 from zeroconf import IPVersion, ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
+from .cache import CacheCli
 from .clear import ClearCli
 from ..comm.comm_buffer import CommBuffer, CommBufferSingleton
 from ..comm.command_listener import CommandDispatcher, CommandListener
@@ -1559,11 +1560,18 @@ class PyTrain:
         group.add_argument("-amc2", action="store_const", const=Amc2Cli, dest="command", help="Issue Amc2 commands")
         group.add_argument("-bpc2", action="store_const", const=Bpc2Cli, dest="command", help="Issue Bpc2 commands")
         group.add_argument(
+            "-cache",
+            action="store_const",
+            const=CacheCli,
+            dest="command",
+            help="Cache operations",
+        )
+        group.add_argument(
             "-clear",
             action="store_const",
             const=ClearCli,
             dest="command",
-            help=f"Clear/delete specific {PROGRAM_NAME} elements",
+            help="Clear/delete engine/train/switch/accessory records",
         )
         group.add_argument(
             "-db", action="store_const", const="db", dest="command", help="Query engine/train/switch/accessory state"
