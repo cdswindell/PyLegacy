@@ -54,6 +54,10 @@ class CacheClearCmd(CommandBase):
         return self._cli.scope
 
     @property
+    def is_all(self) -> bool:
+        return self._cli.is_all
+
+    @property
     def is_verbose(self) -> bool:
         return self._cli.is_verbose
 
@@ -70,7 +74,7 @@ class CacheClearCmd(CommandBase):
         server: str = None,
     ):
         log.info("Clearing cache...")
-        ProdInfo.clear_caches(preserve_custom=True, verbose=self.is_verbose)
+        ProdInfo.clear_caches(preserve_custom=not self.is_all, verbose=self.is_verbose)
 
     def _build_command(self) -> bytes | None:
         return None
@@ -115,8 +119,8 @@ class CacheCmd(CommandBase):
         return self._cli.scope
 
     @property
-    def is_force(self) -> bool:
-        return self._cli.is_force
+    def is_all(self) -> bool:
+        return self._cli.is_all
 
     @property
     def is_verbose(self) -> bool:
@@ -165,11 +169,17 @@ class CacheCli(CliBase):
         parser = PyTrainArgumentParser(add_help=False)
         parser.add_argument(
             "command",
-            metavar="Record type",
+            metavar="Cache operation",
             nargs="?",
             type=UniqueChoice(["clear", "sync"]),
             default="engine",
             help="Cache operation",
+        )
+
+        parser.add_argument(
+            "-all",
+            action="store_true",
+            help="Include all files",
         )
 
         parser.add_argument(
@@ -185,6 +195,7 @@ class CacheCli(CliBase):
         super().__init__(arg_parser, cmd_line, do_fire)
         self._args = self._args
         self._cache_command = self._args.command
+        self._all = self._args.all
         self._verbose = self._args.verbose
         self._scope = CommandScope.SYSTEM
         try:
@@ -205,6 +216,10 @@ class CacheCli(CliBase):
     @property
     def cache_command(self) -> str:
         return self._cache_command
+
+    @property
+    def is_all(self) -> bool:
+        return self._all
 
     @property
     def is_verbose(self) -> bool:
