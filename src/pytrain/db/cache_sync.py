@@ -126,9 +126,11 @@ class CacheSyncHandler(socketserver.StreamRequestHandler):
                     manager.apply_sync_payload(payload)
                     response = {"ok": True}
             elif command == "delete":
+                propagate = bool(request.get("propagate", True))
                 deleted = manager.delete_cache_file(
                     request.get("file_name"),
-                    propagate=bool(request.get("propagate", True)),
+                    propagate=propagate,
+                    log_not_found=propagate,
                 )
                 response = {"ok": True, "deleted": deleted}
             else:
@@ -467,19 +469,19 @@ class CacheSyncManager(Thread):
         )
         self.mark_cache_synced()
 
-    def delete_cache_file(self, file_name: str, *, propagate: bool = True) -> int:
+    def delete_cache_file(self, file_name: str, *, propagate: bool = True, log_not_found: bool = True) -> int:
         file_name = SidecarCacheTransport._safe_file_name(file_name)
         if propagate and self._is_server:
             self._add_delete_tombstone(file_name)
             try:
-                deleted = self._delete_local_cache_file(file_name)
+                deleted = self._delete_local_cache_file(file_name, log_not_found=log_not_found)
                 self._delete_from_clients(file_name)
                 return deleted
             finally:
                 self._remove_delete_tombstone(file_name)
                 self._manifest = self._cache_manifest()
 
-        deleted = self._delete_local_cache_file(file_name)
+        deleted = self._delete_local_cache_file(file_name, log_not_found=log_not_found)
         if propagate:
             self._delete_from_server(file_name)
         self._manifest = self._cache_manifest()
@@ -584,11 +586,11 @@ class CacheSyncManager(Thread):
             delete=True,
         )
 
-    def _delete_local_cache_file(self, file_name: str) -> int:
+    def _delete_local_cache_file(self, file_name: str, *, log_not_found: bool = True) -> int:
         deleted = SidecarCacheTransport.delete_matching_files(CacheSyncPaths.current(create=False), file_name)
         if deleted:
             log.info("Deleted %s cache file%s named %s", deleted, "" if deleted == 1 else "s", file_name)
-        else:
+        elif log_not_found:
             log.info("No cache files named %s found", file_name)
         return deleted
 

@@ -151,7 +151,7 @@ def test_client_delete_deletes_local_file_then_forwards_to_server() -> None:
     manager._server_sync_port = 5655
     manager._server_advertised_sync = True
     manager._transport = FakeTransport()
-    manager._delete_local_cache_file = lambda file_name: calls.append(("local", file_name)) or 1
+    manager._delete_local_cache_file = lambda file_name, **_kwargs: calls.append(("local", file_name)) or 1
     manager._cache_manifest = lambda: ()
 
     assert manager.delete_cache_file("42.jpg") == 1
@@ -175,7 +175,7 @@ def test_server_delete_deletes_local_file_then_propagates_to_clients() -> None:
     manager._sync_port = 5655
     manager._clients_provider = lambda: {("192.168.3.101", 5655), ("192.168.3.102", 5655)}
     manager._transport = FakeTransport()
-    manager._delete_local_cache_file = lambda file_name: calls.append(("local", file_name)) or 1
+    manager._delete_local_cache_file = lambda file_name, **_kwargs: calls.append(("local", file_name)) or 1
     manager._cache_manifest = lambda: ()
 
     assert manager.delete_cache_file("42.jpg") == 1
@@ -200,7 +200,7 @@ def test_server_delete_keeps_tombstone_until_client_delete_requests_are_sent() -
     manager._sync_port = 5655
     manager._clients_provider = lambda: {("192.168.3.101", 5655)}
     manager._transport = FakeTransport()
-    manager._delete_local_cache_file = lambda file_name: (
+    manager._delete_local_cache_file = lambda file_name, **_kwargs: (
         calls.append(("local", file_name, manager._delete_tombstone_snapshot())) or 1
     )
     manager._cache_manifest = lambda: ()
@@ -212,6 +212,23 @@ def test_server_delete_keeps_tombstone_until_client_delete_requests_are_sent() -
         ("client", "42.jpg", {"42.jpg"}),
     ]
     assert manager._delete_tombstone_snapshot() == set()
+
+
+def test_propagated_delete_does_not_log_when_file_is_already_missing(tmp_path, monkeypatch, caplog) -> None:
+    paths = CacheSyncPaths(tmp_path / "engine_info", tmp_path / "engine_images")
+    for path in paths.iter_existing_or_configured():
+        path.mkdir(parents=True)
+    monkeypatch.setattr("src.pytrain.db.prod_info.ENGINE_INFO_CACHE_DIR", str(paths.engine_info), raising=True)
+    monkeypatch.setattr("src.pytrain.db.prod_info.ENGINE_IMAGES_CACHE_DIR", str(paths.engine_images), raising=True)
+
+    manager = object.__new__(CacheSyncManager)
+    manager._is_server = False
+    manager._cache_manifest = lambda: ()
+
+    with caplog.at_level("INFO"):
+        assert manager.delete_cache_file("42.jpg", propagate=False, log_not_found=False) == 0
+
+    assert "No cache files named 42.jpg found" not in caplog.text
 
 
 def test_sync_to_peer_posts_payload_to_sidecar(tmp_path, monkeypatch) -> None:
