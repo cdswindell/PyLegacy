@@ -310,7 +310,7 @@ class CacheSyncManager(Thread):
         from ..cli.pytrain import PyTrain
 
         if cls._instance is None:
-            if PyTrain.current(raise_exception=False) and False:
+            if PyTrain.current(raise_exception=False):
                 if PyTrain.current().is_client:
                     log.warning(
                         "Cache sync skipped: the connected server does not advertise cache sync support. "
