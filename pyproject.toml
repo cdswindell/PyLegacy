@@ -42,7 +42,7 @@ dependencies = [
     "setuptools >= 82.0.1",
     "setuptools_scm >= 9.2.2",
     "smbus2 >= 0.6.1",
-    "zeroconf >= 0.149.9",
+    "zeroconf >= 0.149.16",
     "spidev >= 3.8.0; platform_system == 'Linux'"
 ]
 
