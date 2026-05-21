@@ -126,6 +126,12 @@ class CacheSyncHandler(socketserver.StreamRequestHandler):
                     SidecarCacheTransport.apply_payload(CacheSyncPaths.current(create=True), payload)
                     manager.mark_cache_synced()
                     response = {"ok": True}
+            elif command == "delete":
+                deleted = manager.delete_cache_file(
+                    request.get("file_name"),
+                    propagate=bool(request.get("propagate", True)),
+                )
+                response = {"ok": True, "deleted": deleted}
             else:
                 response = {"ok": False, "error": "unsupported command"}
         except Exception as e:
@@ -179,6 +185,26 @@ class SidecarCacheTransport:
             log.warning("Engine info cache transfer failed to %s:%s: %s", host, port, e)
         return False
 
+    def delete_from_peer(self, host: str, port: int, file_name: str, *, propagate: bool) -> bool:
+        try:
+            response = CacheSyncManager.sidecar_request(
+                host,
+                port,
+                {"command": "delete", "file_name": self._safe_file_name(file_name), "propagate": propagate},
+                timeout=self._timeout,
+            )
+            if response.get("ok"):
+                return True
+            log.warning(
+                "Engine info cache rejected delete request to %s:%s: %s",
+                host,
+                port,
+                response.get("error", "unknown error"),
+            )
+        except Exception as e:
+            log.warning("Engine info cache delete request failed to %s:%s: %s", host, port, e)
+        return False
+
     @classmethod
     def build_payload(cls, local_paths: CacheSyncPaths, remote_paths: CacheSyncPaths, *, delete: bool) -> dict:
         payload = {"delete": delete, "caches": [], "files": []}
@@ -227,6 +253,25 @@ class SidecarCacheTransport:
         if payload.get("delete"):
             cls._delete_stale_files(roots, incoming)
 
+    @classmethod
+    def delete_matching_files(cls, local_paths: CacheSyncPaths, file_name: str) -> int:
+        file_name = cls._safe_file_name(file_name)
+        deleted = 0
+        roots = cls._roots(local_paths)
+        for root in roots.values():
+            if not root.is_dir():
+                continue
+            for path in root.rglob("*"):
+                if path.name != file_name or not (path.is_file() or path.is_symlink()):
+                    continue
+                try:
+                    path.unlink()
+                    deleted += 1
+                except OSError as e:
+                    log.debug("Failed to delete cache file %s: %s", path, e)
+        cls._delete_empty_dirs(roots)
+        return deleted
+
     @staticmethod
     def _roots(paths: CacheSyncPaths) -> dict[str, Path]:
         roots: dict[str, Path] = {}
@@ -246,6 +291,14 @@ class SidecarCacheTransport:
         return rel
 
     @staticmethod
+    def _safe_file_name(value: str | None) -> str:
+        if not isinstance(value, str) or not value:
+            raise ValueError("cache file name is required")
+        if "/" in value or "\\" in value or value in {".", ".."}:
+            raise ValueError(f"unsafe cache file name: {value}")
+        return value
+
+    @staticmethod
     def _delete_stale_files(roots: dict[str, Path], incoming: dict[str, set[str]]) -> None:
         for cache_name, root in roots.items():
             keep = incoming.get(cache_name)
@@ -261,6 +314,13 @@ class SidecarCacheTransport:
                     path.unlink()
                 except OSError as e:
                     log.debug("Failed to delete stale cache file %s: %s", path, e)
+        SidecarCacheTransport._delete_empty_dirs(roots)
+
+    @staticmethod
+    def _delete_empty_dirs(roots: dict[str, Path]) -> None:
+        for root in roots.values():
+            if not root.is_dir():
+                continue
             for path in sorted((p for p in root.rglob("*") if p.is_dir()), reverse=True):
                 try:
                     path.rmdir()
@@ -394,6 +454,16 @@ class CacheSyncManager(Thread):
             self._sync_to_server()
         self._manifest = self._cache_manifest()
 
+    def delete_cache_file(self, file_name: str, *, propagate: bool = True) -> int:
+        deleted = self._delete_local_cache_file(file_name)
+        if propagate:
+            if self._is_server:
+                self._delete_from_clients(file_name)
+            else:
+                self._delete_from_server(file_name)
+        self._manifest = self._cache_manifest()
+        return deleted
+
     def shutdown(self) -> None:
         self._shutdown.set()
         if self._server is not None:
@@ -492,6 +562,26 @@ class CacheSyncManager(Thread):
             remote_paths,
             delete=True,
         )
+
+    def _delete_local_cache_file(self, file_name: str) -> int:
+        deleted = SidecarCacheTransport.delete_matching_files(CacheSyncPaths.current(create=False), file_name)
+        if deleted:
+            log.info("Deleted %s cache file%s named %s", deleted, "" if deleted == 1 else "s", file_name)
+        else:
+            log.info("No cache files named %s found", file_name)
+        return deleted
+
+    def _delete_from_server(self, file_name: str) -> None:
+        if not self._server_ip:
+            return
+        if self._server_advertised_sync is False:
+            log.info("Cache delete propagation skipped: server does not advertise cache sync support")
+            return
+        self._transport.delete_from_peer(self._server_ip, self._server_sync_port, file_name, propagate=True)
+
+    def _delete_from_clients(self, file_name: str) -> None:
+        for client_ip, _client_port in self._clients_provider():
+            self._transport.delete_from_peer(client_ip, self._sync_port, file_name, propagate=False)
 
     def _probe(self, host: str, port: int) -> CacheSyncPaths | None:
         try:

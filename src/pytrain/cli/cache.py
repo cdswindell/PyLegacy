@@ -14,7 +14,7 @@ import sys
 from argparse import ArgumentParser
 from typing import List
 
-from ..db.cache_sync import CacheSyncManager
+from ..db.cache_sync import CacheSyncManager, CacheSyncPaths, SidecarCacheTransport
 from ..db.prod_info import ProdInfo
 from ..protocol.command_base import CommandBase
 from ..protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
@@ -99,6 +99,8 @@ class CacheCmd(CommandBase):
 
         if self._cli.cache_command is None:
             raise ValueError("Cache command required")
+        if self._cli.cache_command == "delete" and not self._cli.cache_file:
+            raise ValueError("Cache delete requires a file name")
 
         # with PyTrain initialization sorted out, initialize CommandBase and Thread.
         # If we are stand-alone, set daemon to False, as we need the process to continue running.
@@ -146,6 +148,18 @@ class CacheCmd(CommandBase):
             cache_sync = CacheSyncManager.current()
             if cache_sync:
                 cache_sync.force_sync()
+        elif self._cli.cache_command == "delete":
+            log.info("Deleting cache file %s...", self._cli.cache_file)
+            cache_sync = CacheSyncManager.current()
+            if cache_sync:
+                cache_sync.delete_cache_file(self._cli.cache_file)
+            else:
+                deleted = SidecarCacheTransport.delete_matching_files(
+                    CacheSyncPaths.current(create=False),
+                    self._cli.cache_file,
+                )
+                log.info("Deleted %s local cache file%s", deleted, "" if deleted == 1 else "s")
+                log.warning("Cache delete propagation skipped: cache sync is disabled or unavailable.")
         else:
             raise NotImplementedError(f"Cache command '{self._cli.cache_command}' not implemented.")
 
@@ -171,9 +185,14 @@ class CacheCli(CliBase):
             "command",
             metavar="Cache operation",
             nargs="?",
-            type=UniqueChoice(["clear", "sync"]),
+            type=UniqueChoice(["clear", "delete", "sync"]),
             default="engine",
             help="Cache operation",
+        )
+        parser.add_argument(
+            "file",
+            nargs="?",
+            help="Cache file name to delete",
         )
 
         parser.add_argument(
@@ -195,6 +214,7 @@ class CacheCli(CliBase):
         super().__init__(arg_parser, cmd_line, do_fire)
         self._args = self._args
         self._cache_command = self._args.command
+        self._cache_file = self._args.file
         self._all = self._args.all
         self._verbose = self._args.verbose
         self._scope = CommandScope.SYSTEM
@@ -216,6 +236,10 @@ class CacheCli(CliBase):
     @property
     def cache_command(self) -> str:
         return self._cache_command
+
+    @property
+    def cache_file(self) -> str | None:
+        return self._cache_file
 
     @property
     def is_all(self) -> bool:

@@ -54,6 +54,33 @@ def test_sidecar_payload_without_delete_keeps_stale_server_cache(tmp_path) -> No
     assert (remote.engine_info / "stale.json").read_text(encoding="utf-8") == "stale"
 
 
+def test_delete_matching_files_removes_named_files_in_all_cache_subdirs(tmp_path) -> None:
+    paths = CacheSyncPaths(tmp_path / "engine_info", tmp_path / "engine_images")
+    for path in paths.iter_existing_or_configured():
+        path.mkdir(parents=True)
+
+    (paths.engine_info / "42.jpg").write_text("info", encoding="utf-8")
+    (paths.engine_info / "nested").mkdir()
+    (paths.engine_info / "nested" / "42.jpg").write_text("nested info", encoding="utf-8")
+    (paths.engine_images / "42.jpg").write_text("custom", encoding="utf-8")
+    (paths.engine_images / "43.jpg").write_text("keep", encoding="utf-8")
+
+    assert SidecarCacheTransport.delete_matching_files(paths, "42.jpg") == 3
+
+    assert not (paths.engine_info / "42.jpg").exists()
+    assert not (paths.engine_info / "nested").exists()
+    assert not (paths.engine_images / "42.jpg").exists()
+    assert (paths.engine_images / "43.jpg").read_text(encoding="utf-8") == "keep"
+
+
+@pytest.mark.parametrize("unsafe_name", ["../42.jpg", "nested/42.jpg", r"nested\42.jpg", "", ".", ".."])
+def test_delete_matching_files_rejects_unsafe_file_names(tmp_path, unsafe_name) -> None:
+    paths = CacheSyncPaths(tmp_path / "engine_info", tmp_path / "engine_images")
+
+    with pytest.raises(ValueError):
+        SidecarCacheTransport.delete_matching_files(paths, unsafe_name)
+
+
 @pytest.mark.parametrize("unsafe_path", ["../bad.json", "/bad.json", "nested/../bad.json", r"nested\bad.json"])
 def test_sidecar_payload_rejects_unsafe_paths(tmp_path, unsafe_path) -> None:
     paths = CacheSyncPaths(tmp_path / "engine_info", tmp_path / "engine_images")
@@ -90,6 +117,56 @@ def test_force_sync_skips_when_client_server_does_not_advertise_support(monkeypa
     manager.force_sync()
 
     assert calls == []
+
+
+def test_client_delete_deletes_local_file_then_forwards_to_server() -> None:
+    calls = []
+
+    class FakeTransport:
+        def delete_from_peer(self, host, port, file_name, *, propagate):
+            calls.append(("server", host, port, file_name, propagate))
+            return True
+
+    manager = object.__new__(CacheSyncManager)
+    manager._is_server = False
+    manager._server_ip = "192.168.3.100"
+    manager._server_sync_port = 5655
+    manager._server_advertised_sync = True
+    manager._transport = FakeTransport()
+    manager._delete_local_cache_file = lambda file_name: calls.append(("local", file_name)) or 1
+    manager._cache_manifest = lambda: ()
+
+    assert manager.delete_cache_file("42.jpg") == 1
+
+    assert calls == [
+        ("local", "42.jpg"),
+        ("server", "192.168.3.100", 5655, "42.jpg", True),
+    ]
+
+
+def test_server_delete_deletes_local_file_then_propagates_to_clients() -> None:
+    calls = []
+
+    class FakeTransport:
+        def delete_from_peer(self, host, port, file_name, *, propagate):
+            calls.append(("client", host, port, file_name, propagate))
+            return True
+
+    manager = object.__new__(CacheSyncManager)
+    manager._is_server = True
+    manager._sync_port = 5655
+    manager._clients_provider = lambda: {("192.168.3.101", 5655), ("192.168.3.102", 5655)}
+    manager._transport = FakeTransport()
+    manager._delete_local_cache_file = lambda file_name: calls.append(("local", file_name)) or 1
+    manager._cache_manifest = lambda: ()
+
+    assert manager.delete_cache_file("42.jpg") == 1
+
+    assert calls[0] == ("local", "42.jpg")
+    assert set(calls[1:]) == {
+        ("client", "192.168.3.101", 5655, "42.jpg", False),
+        ("client", "192.168.3.102", 5655, "42.jpg", False),
+    }
 
 
 def test_sync_to_peer_posts_payload_to_sidecar(tmp_path, monkeypatch) -> None:
