@@ -195,7 +195,8 @@ class StartupState(Thread):
             total_time += 0.25
         # register handlers for special cases where additional processing
         # is required to process state
-        _ = Amc2StateSync(self.pdi_listener)
+        if self.pdi_dispatcher is not None:
+            _ = Amc2StateSync(self.pdi_listener)
         # print out any stragglers; this is an error we should address
         for k, v in self._waiting_for.items():
             log.info(f"No initial state loaded for {k.as_key if hasattr(k, 'as_key') else k}: {v}")

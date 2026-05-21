@@ -2,6 +2,7 @@ import time
 
 import pytest
 
+import src.pytrain.db.startup_state as startup_state_module
 from src.pytrain.comm.command_listener import SYNC_COMPLETE
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.startup_state import StartupState
@@ -319,6 +320,30 @@ def test_run_enqueues_base_memory_requests_for_all_scopes():
     # Unblock the thread's wait loop and allow it to finish
     ss._ev.set()
     ss.join(timeout=1)
+
+
+@pytest.mark.allow_thread
+@pytest.mark.timeout(2)
+def test_run_skips_amc2_sync_when_listener_has_no_dispatcher(monkeypatch):
+    listener = MockPdiListener()
+    dispatcher = MockDispatcher()
+    pdi_state_store = MockPdiStateStore()
+    amc2_sync_calls = []
+
+    def fake_amc2_state_sync(listener_arg):
+        amc2_sync_calls.append(listener_arg)
+        return object()
+
+    monkeypatch.setattr(startup_state_module, "Amc2StateSync", fake_amc2_state_sync)
+
+    # noinspection PyTypeChecker
+    ss = StartupState(listener, dispatcher, pdi_state_store)
+
+    time.sleep(0.05)
+    ss._ev.set()
+    ss.join(timeout=1)
+
+    assert amc2_sync_calls == []
 
 
 def test_base_memory_id1_responses_trigger_id2_requests_per_scope():
