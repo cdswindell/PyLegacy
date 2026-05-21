@@ -596,11 +596,9 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
     def signal_clients_on(
         self, option: CommandReq | TMCC1SyncCommandEnum = TMCC1SyncCommandEnum.QUIT, client: str = None
     ) -> None:
-        from .enqueue_proxy_requests import EnqueueProxyRequests
-
         if isinstance(option, TMCC1SyncCommandEnum):
             option = CommandReq(option)
-        for client_ip, port in EnqueueProxyRequests.clients():
+        for client_ip, port in self._client_sessions():
             if client_ip == client:
                 node_scope = cast(SyncCommandDef, cast(CommandDef, option.command_def)).is_node_scope
                 self.update_client_state(option, client=client, port=port)
@@ -623,10 +621,8 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
         Update all PyTrain clients with the dispatched command. Used to keep
         client states in sync with server
         """
-        from .enqueue_proxy_requests import EnqueueProxyRequests
-
         if client is None:
-            clients = EnqueueProxyRequests.clients()
+            clients = self._client_sessions()
         else:
             if port is None:
                 port = DEFAULT_SERVER_PORT
@@ -649,6 +645,16 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
             except Exception as e:
                 log.warning(f"Exception while sending TMCC state update {command} to {client}")
                 log.exception(e)
+
+    @staticmethod
+    def _client_sessions() -> set[tuple[str, int]]:
+        # During startup, the server dispatcher can exist before the proxy receiver.
+        # Treat that state as "no clients yet" so early state updates are harmless.
+        from .enqueue_proxy_requests import EnqueueProxyRequests
+
+        if EnqueueProxyRequests.is_built():
+            return EnqueueProxyRequests.clients()
+        return set()
 
     # noinspection PyTypeChecker
     def send_current_state(self, client_ip: str, client_port: int = None):

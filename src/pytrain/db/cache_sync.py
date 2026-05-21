@@ -469,6 +469,7 @@ class CacheSyncManager(Thread):
         )
         self.mark_cache_synced()
 
+    # noinspection PyProtectedMember
     def delete_cache_file(self, file_name: str, *, propagate: bool = True, log_not_found: bool = True) -> int:
         file_name = SidecarCacheTransport._safe_file_name(file_name)
         if propagate and self._is_server:
@@ -586,7 +587,8 @@ class CacheSyncManager(Thread):
             delete=True,
         )
 
-    def _delete_local_cache_file(self, file_name: str, *, log_not_found: bool = True) -> int:
+    @staticmethod
+    def _delete_local_cache_file(file_name: str, *, log_not_found: bool = True) -> int:
         deleted = SidecarCacheTransport.delete_matching_files(CacheSyncPaths.current(create=False), file_name)
         if deleted:
             log.info("Deleted %s cache file%s named %s", deleted, "" if deleted == 1 else "s", file_name)

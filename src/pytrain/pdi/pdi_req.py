@@ -21,7 +21,13 @@ from ..utils.validations import Validations
 if sys.version_info >= (3, 11):
     from typing import Self
 
-from ..protocol.constants import DEFAULT_DURATION_INTERVAL_MSEC, MINIMUM_DURATION_INTERVAL_MSEC, CommandScope
+from ..protocol.constants import (
+    DEFAULT_BAUDRATE,
+    DEFAULT_DURATION_INTERVAL_MSEC,
+    DEFAULT_PORT,
+    MINIMUM_DURATION_INTERVAL_MSEC,
+    CommandScope,
+)
 from .constants import PDI_EOP, PDI_SOP, PDI_STF, CommonAction, PdiAction, PdiCommand
 
 log = logging.getLogger(__name__)
@@ -300,8 +306,8 @@ class PdiReq(ABC):
         delay: float = 0.0,
         duration: float = 0.0,
         interval: int = None,
-        baudrate: int = None,
-        port: str | int = None,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str | int = DEFAULT_PORT,
         server: str = None,
     ) -> None:
         """

@@ -9,9 +9,14 @@ import pytest
 
 # noinspection PyProtectedMember
 from src.pytrain.comm.command_listener import Channel, CommandDispatcher, CommandListener, Message
+from src.pytrain.comm.enqueue_proxy_requests import EnqueueProxyRequests
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_TOPIC, DEFAULT_QUEUE_SIZE, CommandScope
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum
+from src.pytrain.protocol.tmcc1.tmcc1_constants import (
+    TMCC1HaltCommandEnum,
+    TMCC1SwitchCommandEnum,
+    TMCC1SyncCommandEnum,
+)
 from src.pytrain.protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum,
     TMCC2HaltCommandEnum,
@@ -41,6 +46,8 @@ def run_before_and_after_tests(tmpdir) -> None:
     if CommandDispatcher.is_built():
         CommandDispatcher().shutdown()
     assert CommandDispatcher.is_built() is False
+
+    EnqueueProxyRequests._instance = None
 
 
 class TestCommandDispatcher(TestBase):
@@ -328,6 +335,7 @@ class TestCommandDispatcher(TestBase):
         # listener should have triggered engine and train channels
         assert len(CALLBACK_DICT) == 3
         assert CALLBACK_DICT[CommandScope.ENGINE] == [sys_halt_req]
+
         assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [sys_halt_req]
         assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandEnum.RING_BELL)] == [sys_halt_req]
 
@@ -344,3 +352,11 @@ class TestCommandDispatcher(TestBase):
         assert CALLBACK_DICT[CommandScope.ENGINE] == [sys_halt_req]
         assert CALLBACK_DICT[(CommandScope.ENGINE, 13)] == [sys_halt_req]
         assert CALLBACK_DICT[(CommandScope.ENGINE, 22, TMCC2EngineCommandEnum.RING_BELL)] == [sys_halt_req]
+
+    def test_update_client_state_skips_when_proxy_receiver_not_built(self) -> None:
+        dispatcher = CommandDispatcher(ser2_receiver=True)
+        assert dispatcher._server_port is not None
+        assert EnqueueProxyRequests.is_built() is False
+
+        dispatcher.update_client_state(CommandReq.build(TMCC1HaltCommandEnum.HALT))
+        dispatcher.signal_clients_on(TMCC1SyncCommandEnum.RESTART, "10.0.0.5")
