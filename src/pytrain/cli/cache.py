@@ -140,18 +140,8 @@ class CacheCmd(CommandBase):
         if self._cli.cache_command == "sync":
             log.info("Syncing cache...")
             cache_sync = CacheSyncManager.current()
-            if cache_sync is None:
-                if self.pytrain.is_client:
-                    log.warning(
-                        "Cache sync skipped: the connected server does not advertise cache sync support. "
-                        "Upgrade the server or restart it with cache sync enabled to accept client cache files."
-                    )
-                else:
-                    log.warning(
-                        "Cache sync skipped: cache sync is disabled or unavailable. Restart without -no_cache_sync."
-                    )
-                return
-            cache_sync.force_sync()
+            if cache_sync:
+                cache_sync.force_sync()
         else:
             raise NotImplementedError(f"Cache command '{self._cli.cache_command}' not implemented.")
 

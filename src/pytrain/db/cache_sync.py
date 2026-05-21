@@ -307,6 +307,19 @@ class CacheSyncManager(Thread):
 
     @classmethod
     def current(cls) -> "CacheSyncManager | None":
+        from ..cli.pytrain import PyTrain
+
+        if cls._instance is None:
+            if PyTrain.current(raise_exception=False) and False:
+                if PyTrain.current().is_client:
+                    log.warning(
+                        "Cache sync skipped: the connected server does not advertise cache sync support. "
+                        "Upgrade the server or restart it with cache sync enabled to accept client cache files."
+                    )
+                else:
+                    log.warning(
+                        "Cache sync skipped: cache sync is disabled or unavailable. Restart without -no_cache_sync."
+                    )
         return cls._instance
 
     @classmethod
