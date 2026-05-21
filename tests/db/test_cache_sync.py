@@ -54,6 +54,24 @@ def test_sidecar_payload_without_delete_keeps_stale_server_cache(tmp_path) -> No
     assert (remote.engine_info / "stale.json").read_text(encoding="utf-8") == "stale"
 
 
+def test_sidecar_payload_can_skip_tombstoned_file_names(tmp_path) -> None:
+    local = CacheSyncPaths(tmp_path / "local_info", tmp_path / "local_images")
+    remote = CacheSyncPaths(tmp_path / "remote_info", tmp_path / "remote_images")
+    for path in local.iter_existing_or_configured():
+        path.mkdir(parents=True)
+    for path in remote.iter_existing_or_configured():
+        path.mkdir(parents=True)
+
+    (local.engine_images / "42.jpg").write_bytes(b"deleted")
+    (local.engine_images / "43.jpg").write_bytes(b"keep")
+
+    payload = SidecarCacheTransport.build_payload(local, remote, delete=False)
+    SidecarCacheTransport.apply_payload(remote, payload, skip_file_names={"42.jpg"})
+
+    assert not (remote.engine_images / "42.jpg").exists()
+    assert (remote.engine_images / "43.jpg").read_bytes() == b"keep"
+
+
 def test_delete_matching_files_removes_named_files_in_all_cache_subdirs(tmp_path) -> None:
     paths = CacheSyncPaths(tmp_path / "engine_info", tmp_path / "engine_images")
     for path in paths.iter_existing_or_configured():
@@ -167,6 +185,33 @@ def test_server_delete_deletes_local_file_then_propagates_to_clients() -> None:
         ("client", "192.168.3.101", 5655, "42.jpg", False),
         ("client", "192.168.3.102", 5655, "42.jpg", False),
     }
+
+
+def test_server_delete_keeps_tombstone_until_client_delete_requests_are_sent() -> None:
+    calls = []
+    manager = object.__new__(CacheSyncManager)
+
+    class FakeTransport:
+        def delete_from_peer(self, host, port, file_name, *, propagate):
+            calls.append(("client", file_name, manager._delete_tombstone_snapshot()))
+            return True
+
+    manager._is_server = True
+    manager._sync_port = 5655
+    manager._clients_provider = lambda: {("192.168.3.101", 5655)}
+    manager._transport = FakeTransport()
+    manager._delete_local_cache_file = lambda file_name: (
+        calls.append(("local", file_name, manager._delete_tombstone_snapshot())) or 1
+    )
+    manager._cache_manifest = lambda: ()
+
+    assert manager.delete_cache_file("42.jpg") == 1
+
+    assert calls == [
+        ("local", "42.jpg", {"42.jpg"}),
+        ("client", "42.jpg", {"42.jpg"}),
+    ]
+    assert manager._delete_tombstone_snapshot() == set()
 
 
 def test_sync_to_peer_posts_payload_to_sidecar(tmp_path, monkeypatch) -> None:

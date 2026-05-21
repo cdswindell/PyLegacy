@@ -123,8 +123,7 @@ class CacheSyncHandler(socketserver.StreamRequestHandler):
                 else:
                     payload_raw = self.rfile.read(content_length)
                     payload = json.loads(payload_raw.decode("utf-8")) if payload_raw else {}
-                    SidecarCacheTransport.apply_payload(CacheSyncPaths.current(create=True), payload)
-                    manager.mark_cache_synced()
+                    manager.apply_sync_payload(payload)
                     response = {"ok": True}
             elif command == "delete":
                 deleted = manager.delete_cache_file(
@@ -232,16 +231,19 @@ class SidecarCacheTransport:
         return payload
 
     @classmethod
-    def apply_payload(cls, local_paths: CacheSyncPaths, payload: dict) -> None:
+    def apply_payload(cls, local_paths: CacheSyncPaths, payload: dict, skip_file_names: set[str] | None = None) -> None:
         roots = cls._roots(local_paths)
         caches = [cache_name for cache_name in payload.get("caches", []) if cache_name in roots]
         incoming: dict[str, set[str]] = {cache_name: set() for cache_name in caches}
+        skip_file_names = skip_file_names or set()
 
         for item in payload.get("files", []):
             cache_name = item.get("cache")
             if cache_name not in roots:
                 continue
             rel = cls._safe_relative_path(item.get("path"))
+            if rel.name in skip_file_names:
+                continue
             incoming.setdefault(cache_name, set()).add(rel.as_posix())
             target = roots[cache_name].joinpath(*rel.parts)
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -426,6 +428,8 @@ class CacheSyncManager(Thread):
         self._shutdown = Event()
         self._server: CacheSyncTCPServer | None = None
         self._server_thread: Thread | None = None
+        self._delete_tombstones: dict[str, int] = {}
+        self._delete_tombstone_lock = Lock()
         self._manifest = self._cache_manifest()
         self._sidecar_available = self._start_sidecar()
         self.start()
@@ -454,13 +458,30 @@ class CacheSyncManager(Thread):
             self._sync_to_server()
         self._manifest = self._cache_manifest()
 
+    def apply_sync_payload(self, payload: dict) -> None:
+        skip_file_names = self._delete_tombstone_snapshot() if self._is_server else set()
+        SidecarCacheTransport.apply_payload(
+            CacheSyncPaths.current(create=True),
+            payload,
+            skip_file_names=skip_file_names,
+        )
+        self.mark_cache_synced()
+
     def delete_cache_file(self, file_name: str, *, propagate: bool = True) -> int:
+        file_name = SidecarCacheTransport._safe_file_name(file_name)
+        if propagate and self._is_server:
+            self._add_delete_tombstone(file_name)
+            try:
+                deleted = self._delete_local_cache_file(file_name)
+                self._delete_from_clients(file_name)
+                return deleted
+            finally:
+                self._remove_delete_tombstone(file_name)
+                self._manifest = self._cache_manifest()
+
         deleted = self._delete_local_cache_file(file_name)
         if propagate:
-            if self._is_server:
-                self._delete_from_clients(file_name)
-            else:
-                self._delete_from_server(file_name)
+            self._delete_from_server(file_name)
         self._manifest = self._cache_manifest()
         return deleted
 
@@ -582,6 +603,34 @@ class CacheSyncManager(Thread):
     def _delete_from_clients(self, file_name: str) -> None:
         for client_ip, _client_port in self._clients_provider():
             self._transport.delete_from_peer(client_ip, self._sync_port, file_name, propagate=False)
+
+    def _add_delete_tombstone(self, file_name: str) -> None:
+        lock = self._get_delete_tombstone_lock()
+        with lock:
+            self._delete_tombstones[file_name] = self._delete_tombstones.get(file_name, 0) + 1
+
+    def _remove_delete_tombstone(self, file_name: str) -> None:
+        lock = self._get_delete_tombstone_lock()
+        with lock:
+            count = self._delete_tombstones.get(file_name, 0)
+            if count <= 1:
+                self._delete_tombstones.pop(file_name, None)
+            else:
+                self._delete_tombstones[file_name] = count - 1
+
+    def _delete_tombstone_snapshot(self) -> set[str]:
+        lock = self._get_delete_tombstone_lock()
+        with lock:
+            return set(self._delete_tombstones)
+
+    def _get_delete_tombstone_lock(self) -> Lock:
+        lock = getattr(self, "_delete_tombstone_lock", None)
+        if lock is None:
+            lock = Lock()
+            self._delete_tombstone_lock = lock
+        if not hasattr(self, "_delete_tombstones"):
+            self._delete_tombstones = {}
+        return lock
 
     def _probe(self, host: str, port: int) -> CacheSyncPaths | None:
         try:
