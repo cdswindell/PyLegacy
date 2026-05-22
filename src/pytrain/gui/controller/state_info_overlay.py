@@ -271,6 +271,8 @@ class StateInfoOverlay:
                     else None
                 )
                 component = train_state.get_consist_component(state.tmcc_id) if train_state else None
+                print(f"TMCC ID: {state.tmcc_id} Component: {component}")
+                print(train_state)
                 self._set_val("bluetooth", f"{state.bt_id if state.bt_id else ' '}")
                 self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
                 self._set_val("train pos", f"{component.position if component else 'NA'}")
