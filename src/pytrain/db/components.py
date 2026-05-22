@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from enum import IntEnum, unique
 
+from ..protocol.multibyte.multibyte_constants import UnitAssignment
 from ..protocol.constants import Mixins
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
@@ -78,6 +79,7 @@ class ConsistComponent:
         self.flags = flags
         self.extra = extra
         self.rec_no = rec_no
+        self._ua = UnitAssignment(0b111 & flags)
 
     def __repr__(self) -> str:
         d = "F" if self.is_forward else "R"
@@ -85,7 +87,7 @@ class ConsistComponent:
         hm = " H" if self.is_horn_masked else ""
         dm = " D" if self.is_dialog_masked else ""
         a = " A" if self.is_accessory else ""
-        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} (0b{bin(self.flags)})]"
+        return f"[Engine {self.tmcc_id} {self.unit_type.name.title()} {d}{hm}{dm}{tl}{a} ({bin(self.flags)})]"
 
     @property
     def info(self) -> str:
@@ -147,6 +149,14 @@ class ConsistComponent:
     @property
     def is_d4(self) -> bool:
         return self.rec_no is not None
+
+    @property
+    def direction(self) -> str:
+        return self._ua.direction
+
+    @property
+    def position(self) -> str:
+        return self._ua.position
 
     @property
     def as_bytes(self) -> bytes:

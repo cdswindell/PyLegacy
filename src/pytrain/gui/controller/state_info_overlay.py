@@ -265,10 +265,16 @@ class StateInfoOverlay:
                 self._set_val("cars", f"{state.num_train_linked}")
                 self._set_val("accessories", f"{state.num_accessories}")
             else:
+                train_state = (
+                    host.state_store.get_state(CommandScope.TRAIN, state.train_tmcc_id, create=False)
+                    if state.train_tmcc_id
+                    else None
+                )
+                component = train_state.get_consist_component(state.tmcc_id) if train_state else None
                 self._set_val("bluetooth", f"{state.bt_id if state.bt_id else ' '}")
                 self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
-                self._set_val("train pos", f"{state.train_unit.position if state.train_unit else 'NA'}")
-                self._set_val("train dir", f"{state.train_unit.direction if state.train_unit else 'NA'}")
+                self._set_val("train pos", f"{component.position if component else 'NA'}")
+                self._set_val("train dir", f"{component.direction if component else 'NA'}")
         elif isinstance(state, LcsProxyState):
             self._set_val("type", state.accessory_type)
             self._set_val("mode", state.mode)

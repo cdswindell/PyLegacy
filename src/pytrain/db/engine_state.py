@@ -1249,6 +1249,13 @@ class TrainState(EngineState, LcsProxyState):
     def has_lights(self) -> bool:
         return self.head.has_lights if self.head else False
 
+    def get_consist_component(self, tmcc_id: int) -> ConsistComponent | None:
+        if self.consist_components:
+            for c in self.consist_components:
+                if c.tmcc_id == tmcc_id:
+                    return c
+        return None
+
     def as_bytes(self) -> list[bytes]:
         packets = []
         if self._pdi_source:

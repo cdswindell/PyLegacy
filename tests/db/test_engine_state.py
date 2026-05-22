@@ -5,12 +5,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+from types import SimpleNamespace
 from unittest.mock import PropertyMock, patch
 
 import pytest
 
 from src.pytrain import CommandScope, TMCC2EffectsControl
 from src.pytrain.db.comp_data import CompData
+from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.protocol.command_req import CommandReq
@@ -26,6 +28,13 @@ class TestEngineStateBehavior:
         # Simulate that component data is known/allocated
         st.initialize(CommandScope.ENGINE, addr)
         # Set address so properties relying on it work predictably
+        st._address = addr  # type: ignore[attr-defined]
+        return st
+
+    @staticmethod
+    def _new_train(addr: int = 101) -> TrainState:
+        st = TrainState(CommandScope.TRAIN)
+        st.initialize(CommandScope.TRAIN, addr)
         st._address = addr  # type: ignore[attr-defined]
         return st
 
@@ -247,3 +256,93 @@ class TestEngineStateBehavior:
         assert d["speed"] == 25
         assert d["road_name"] == "abc road"
         assert d["road_number"] == "123"
+
+    def test_train_state_rejects_non_train_scope(self):
+        with pytest.raises(ValueError, match="expected TRAIN"):
+            TrainState(CommandScope.ENGINE)
+
+    def test_train_state_consist_component_helpers_classify_components(self):
+        t = self._new_train()
+        head = ConsistComponent(tmcc_id=11, flags=0b00000001)
+        link = ConsistComponent(tmcc_id=22, flags=0b00001010)
+        accessory = ConsistComponent(tmcc_id=33, flags=0b10000011)
+        t.comp_data._consist_comps = [head, link, accessory]  # type: ignore[attr-defined]
+
+        assert t.consist_components == [head, link, accessory]
+        assert t.head_tmcc_id == 11
+        assert t.link_tmcc_id == 22
+        assert t.engine_ids == [11]
+        assert t.link_tmcc_ids == [22]
+        assert t.accessory_ids == [33]
+        assert t.num_engines == 1
+        assert t.num_train_linked == 1
+        assert t.num_accessories == 1
+        assert t.get_consist_component(22) is link
+        assert t.get_consist_component(99) is None
+
+    def test_train_state_consist_helpers_return_empty_values_without_components(self):
+        t = self._new_train()
+
+        assert t.head_tmcc_id is None
+        assert t.link_tmcc_id is None
+        assert t.engine_ids is None
+        assert t.link_tmcc_ids is None
+        assert t.accessory_ids is None
+        assert t.num_engines == 0
+        assert t.num_train_linked == 0
+        assert t.num_accessories == 0
+        assert t.get_consist_component(11) is None
+
+    def test_train_state_contains_engine_by_consist_tmcc_id(self):
+        t = self._new_train()
+        t.comp_data._consist_comps = [ConsistComponent(tmcc_id=11, flags=0b00000001)]  # type: ignore[attr-defined]
+        included_engine = self._new_engine(11)
+        excluded_engine = self._new_engine(12)
+
+        assert included_engine in t
+        assert excluded_engine not in t
+        assert t not in t
+
+    def test_train_state_head_fetches_engine_state_from_store(self, monkeypatch):
+        t = self._new_train()
+        t.comp_data._consist_comps = [ConsistComponent(tmcc_id=77, flags=0b00000001)]  # type: ignore[attr-defined]
+        head = self._new_engine(77)
+        calls = []
+
+        def get_state(scope, address, create):
+            calls.append((scope, address, create))
+            return head
+
+        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(get_state))
+
+        assert t.head is head
+        assert calls == [(CommandScope.ENGINE, 77, False)]
+
+    def test_train_state_delegates_capabilities_to_head(self, monkeypatch):
+        t = self._new_train()
+        t.comp_data._consist_comps = [ConsistComponent(tmcc_id=77, flags=0b00000001)]  # type: ignore[attr-defined]
+        head = SimpleNamespace(
+            is_rpm=True,
+            is_steam=True,
+            is_electric=False,
+            is_diesel=True,
+            is_crane=False,
+            is_passenger=True,
+            is_freight=False,
+            is_acela=True,
+            has_throttle=True,
+            has_lights=False,
+        )
+
+        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(lambda *_args: head))
+
+        assert t.is_rpm is True
+        assert t.is_steam is True
+        assert t.is_electric is False
+        assert t.is_diesel is True
+        assert t.is_crane is False
+        assert t.is_passenger is True
+        assert t.is_freight is False
+        assert t.is_acela is True
+        assert t.has_throttle is True
+        assert t.has_lights is False
