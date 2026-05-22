@@ -1094,13 +1094,14 @@ class PyTrain:
         """
         if ui is None:
             return "No command specified."
-        ui = ui.lower().strip()
+        ui = ui.strip()
         if ui:
             # display help if user enters '?'
             if ui == "?":
                 ui = "h"
             # the argparse library requires the argument string to be presented as a list
-            ui_parts = ui.split()
+            original_ui_parts = ui.split()
+            ui_parts = ui.lower().split()
             if ui_parts[0]:
                 # parse the first token
                 ui_parser = None
@@ -1158,6 +1159,13 @@ class PyTrain:
                     if parse_only is False and args.command == "version":
                         print(self.version)
                         return None
+                    if args.command == CacheCli:
+                        # Cache filenames can be case-sensitive on disk, so preserve the user's
+                        # filename token while still allowing case-insensitive cache verbs.
+                        ui_parts = original_ui_parts
+                        ui_parts[0] = ui_parts[0].lower()
+                        if len(ui_parts) > 1:
+                            ui_parts[1] = ui_parts[1].lower()
                     #
                     # we're done with the admin/special commands, now do train stuff
                     ui_parser = args.command.command_parser()
