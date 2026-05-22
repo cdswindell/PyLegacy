@@ -82,7 +82,6 @@ class ConsistComponent:
         self._ua = UnitAssignment(0b111 & flags)
 
     def __repr__(self) -> str:
-        print(f"Engine {self.tmcc_id} Fwd: {self.is_forward} Rev: {self.is_reverse} {self.direction}")
         d = "F" if self.is_forward else "R"
         tl = " T" if self.is_train_link else ""
         hm = " H" if self.is_horn_masked else ""
