@@ -151,9 +151,9 @@ class StateInfoOverlay:
 
         # Config: [Key, Title, Grid, Scope]
         layouts = [
-            ("number", "Road Number", [0, 0], None, EditorType.KEYPAD, 4, self._on_road_number_edited),
-            ("type", "Type", [1, 0, 3, 1], None, EditorType.CHOICES, LOCO_TYPE, self._on_type_edited),
-            ("name", "Road Name", [0, 1, 4, 1], None, EditorType.KEYBOARD, 31, self._on_road_name_edited),
+            ("name", "Road Name", [0, 0, 4, 1], None, EditorType.KEYBOARD, 31, self._on_road_name_edited),
+            ("number", "Road Number", [0, 1], None, EditorType.KEYPAD, 4, self._on_road_number_edited),
+            ("type", "Type", [1, 1, 3, 1], None, EditorType.CHOICES, LOCO_TYPE, self._on_type_edited),
             (
                 "control",
                 "Control",
@@ -184,9 +184,10 @@ class StateInfoOverlay:
             ("rpm", "RPM", [1, 5], CommandScope.ENGINE),
             ("fuel", "Fuel Level", [2, 5], CommandScope.ENGINE),
             ("water", "Water Level", [3, 5], CommandScope.ENGINE),
-            ("train id", "Train TMCC ID", [0, 6], CommandScope.ENGINE),
-            ("train pos", "Position", [1, 6], CommandScope.ENGINE),
-            ("train dir", "Direction", [2, 6], CommandScope.ENGINE),
+            ("bluetooth", "Bluetooth ID", [0, 6], CommandScope.ENGINE),
+            ("train id", "Train TMCC ID", [1, 6], CommandScope.ENGINE),
+            ("train pos", "Position", [2, 6], CommandScope.ENGINE),
+            ("train dir", "Direction", [3, 6], CommandScope.ENGINE),
             ("lead", "Lead Engine ID", [0, 6], CommandScope.TRAIN),
             ("engines", "Engines", [1, 6], CommandScope.TRAIN),
             ("cars", "Cars", [2, 6], CommandScope.TRAIN),
@@ -264,6 +265,7 @@ class StateInfoOverlay:
                 self._set_val("cars", f"{state.num_train_linked}")
                 self._set_val("accessories", f"{state.num_accessories}")
             else:
+                self._set_val("bluetooth", f"{state.bt_id if state.bt_id else ' '}")
                 self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
                 self._set_val("train pos", f"{state.train_unit.position if state.train_unit else 'NA'}")
                 self._set_val("train dir", f"{state.train_unit.direction if state.train_unit else 'NA'}")
