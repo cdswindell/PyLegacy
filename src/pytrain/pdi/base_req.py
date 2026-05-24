@@ -328,6 +328,7 @@ class BaseReq(PdiReq, CompDataMixin):
             if pkgs:
                 sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
                 if sync_reqs:
+                    print(sync_reqs)
                     cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
         return sync_reqs
 
