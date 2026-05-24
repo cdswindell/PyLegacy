@@ -346,6 +346,52 @@ def test_hold_begins_inline_edit(editable_text_module) -> None:
     assert widget._entry.placed is True
 
 
+def test_editable_false_makes_text_ignore_hold(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(None, text="Original", hold_threshold=0.5, debounce_ms=0)
+    hold_target = DummyTk()
+    widget.add_hold_target(hold_target)
+
+    widget.editable = False
+
+    assert widget.editable is False
+    assert widget.tk._config["cursor"] == ""
+    assert hold_target._config["cursor"] == ""
+
+    widget._on_press()
+
+    assert widget._hold_after_id is None
+    assert widget.is_editing is False
+
+
+def test_editable_true_enables_hold_to_edit(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(None, text="Original", hold_threshold=0.5, debounce_ms=0)
+    widget.editable = False
+
+    widget.editable = True
+
+    assert widget.editable is True
+    assert widget.tk._config["cursor"] == "hand2"
+    assert widget.is_editing is False
+
+    widget._on_press()
+    after_id = widget._hold_after_id
+    assert after_id is not None
+    widget.tk.run_after(after_id)
+
+    assert widget.is_editing is True
+    assert widget._entry.get() == "Original"
+
+
+def test_editable_true_without_editor_raises_unsupported_mode(editable_text_module) -> None:
+    widget = editable_text_module.EditableText(None, text="Original", editor=None, debounce_ms=0)
+
+    assert widget.editable is False
+    assert widget.tk._config["cursor"] == ""
+    with pytest.raises(NotImplementedError, match="without an editor"):
+        widget.editable = True
+    assert widget.is_editing is False
+
+
 def test_release_before_hold_cancels_inline_edit(editable_text_module) -> None:
     widget = editable_text_module.EditableText(None, text="Original", hold_threshold=0.5, debounce_ms=0)
 

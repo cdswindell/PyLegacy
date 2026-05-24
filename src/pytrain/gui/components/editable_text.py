@@ -42,7 +42,7 @@ class EditableText(Text):
         hold_threshold: float = 1.0,
         debounce_ms: int = 80,
         max_length: int | None = None,
-        editor: EditorType = EditorType.KEYBOARD,
+        editor: EditorType | None = EditorType.KEYBOARD,
         choices: dict[Any, Any] | None = None,
         initial_value: Any = None,
         choice_rows: int = 12,
@@ -62,6 +62,7 @@ class EditableText(Text):
         self.hold_threshold = float(hold_threshold)
         self.debounce_ms = int(debounce_ms)
         self.editor = editor
+        self._editable = editor is not None
         self.max_length = max_length
         self.choices = choices or {}
         self.initial_value = initial_value
@@ -91,16 +92,14 @@ class EditableText(Text):
         self._choice_listbox: tk.Listbox | None = None
         self._choice_keys: list[Any] = []
         self._choice_labels: list[str] = []
+        self._hold_targets: list[Any] = []
 
         self.tk.bind("<ButtonPress-1>", self._on_press, add="+")
         self.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
         self.tk.bind("<Leave>", self._on_leave, add="+")
         self.tk.bind("<Configure>", self._on_configure, add="+")
 
-        try:
-            self.tk.configure(cursor="hand2")
-        except TclError:
-            pass
+        self._set_editable_cursor()
 
     def add_hold_target(self, target: Any) -> None:
         """
@@ -114,7 +113,8 @@ class EditableText(Text):
             tk_target.bind("<ButtonPress-1>", self._on_press, add="+")
             tk_target.bind("<ButtonRelease-1>", self._on_release, add="+")
             tk_target.bind("<Leave>", self._on_leave, add="+")
-            tk_target.configure(cursor="hand2")
+            self._hold_targets.append(tk_target)
+            self._set_target_cursor(tk_target)
         except (AttributeError, TclError):
             pass
 
@@ -122,7 +122,26 @@ class EditableText(Text):
     def is_editing(self) -> bool:
         return self._editing
 
+    @property
+    def editable(self) -> bool:
+        return self._editable
+
+    @editable.setter
+    def editable(self, value: bool) -> None:
+        value = bool(value)
+        if value and self.editor is None:
+            raise NotImplementedError("EditableText cannot be editable without an editor")
+
+        self._editable = value
+        self._set_editable_cursor()
+        if not value and self._editing:
+            self.cancel_edit()
+
     def begin_edit(self) -> None:
+        if not self._editable:
+            return
+        if self.editor is None:
+            raise NotImplementedError("EditableText cannot begin editing without an editor")
         if self._editing:
             return
 
@@ -202,7 +221,7 @@ class EditableText(Text):
 
     # noinspection PyUnusedLocal
     def _on_press(self, event=None) -> None:
-        if self._editing:
+        if self._editing or not self._editable:
             return
 
         self._pressed = True
@@ -232,7 +251,7 @@ class EditableText(Text):
 
     def _on_hold(self) -> None:
         self._hold_after_id = None
-        if not self._pressed:
+        if not self._pressed or not self._editable:
             return
 
         elapsed = (time.monotonic() - self._press_time) if self._press_time else 0.0
@@ -240,6 +259,17 @@ class EditableText(Text):
             return
 
         self.begin_edit()
+
+    def _set_editable_cursor(self) -> None:
+        self._set_target_cursor(self.tk)
+        for target in self._hold_targets:
+            self._set_target_cursor(target)
+
+    def _set_target_cursor(self, target: Any) -> None:
+        try:
+            target.configure(cursor="hand2" if self._editable else "")
+        except (AttributeError, TclError):
+            pass
 
     # noinspection PyUnusedLocal
     def _on_entry_key_release(self, event=None) -> None:

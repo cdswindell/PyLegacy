@@ -229,8 +229,8 @@ class StateInfoOverlay:
             return
         host = self._gui
 
-        self._set_val("number", state.road_number)
-        self._set_val("name", state.road_name)
+        self._set_val("number", state.road_number, editable=True)
+        self._set_val("name", state.road_name, editable=True)
 
         if isinstance(state, (EngineState, TrainState)):
             tmcc_id = state.tmcc_id if isinstance(state, EngineState) else state.head_tmcc_id
