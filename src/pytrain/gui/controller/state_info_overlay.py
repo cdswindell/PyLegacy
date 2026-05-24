@@ -328,15 +328,16 @@ class StateInfoOverlay:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value)
             state = self._gui.active_state
-            if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
+            if isinstance(state, (EngineState, TrainState)):
                 BaseReq.do_update_field("ROAD_NAME_LEN", new_value, state, True)
+            if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
                 BaseReq.do_update_field("ROAD_NAME", new_value, state, True)
 
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value, 4)
             state = self._gui.active_state
-            if isinstance(state, (EngineState, TrainState)):
+            if isinstance(state, (EngineState, TrainState, AccessoryState)):
                 BaseReq.do_update_field("ROAD_NUMBER_LEN", new_value, state, True)
                 BaseReq.do_update_field("ROAD_NUMBER", new_value, state, True)
 
