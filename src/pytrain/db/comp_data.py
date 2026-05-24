@@ -340,6 +340,7 @@ BASE_MEMORY_TRAIN_READ_MAP = {
     ),
 }
 BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
+FIELD_TO_ADDR_TRAIN_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_TRAIN_READ_MAP.items()}
 
 BASE_MEMORY_D4_TRAIN_READ_MAP = {
     0x6D: CompDataHandler("_consist_flags"),
@@ -370,6 +371,7 @@ BASE_MEMORY_ACC_READ_MAP = {
         lambda t: PdiReq.encode_text(t, 4),
     ),
 }
+FIELD_TO_ADDR_ACC_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ACC_READ_MAP.items()}
 
 BASE_MEMORY_SWITCH_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
@@ -388,6 +390,7 @@ BASE_MEMORY_SWITCH_READ_MAP = {
         lambda t: PdiReq.encode_text(t, 4),
     ),
 }
+FIELD_TO_ADDR_SWITCH_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_SWITCH_READ_MAP.items()}
 
 BASE_MEMORY_ROUTE_READ_MAP = BASE_MEMORY_SWITCH_READ_MAP.copy()
 BASE_MEMORY_ROUTE_READ_MAP.update(
@@ -400,6 +403,7 @@ BASE_MEMORY_ROUTE_READ_MAP.update(
         ),
     }
 )
+FIELD_TO_ADDR_ROUTE_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ROUTE_READ_MAP.items()}
 
 SCOPE_TO_COMP_MAP = {
     CommandScope.ENGINE: BASE_MEMORY_ENGINE_READ_MAP,
@@ -409,6 +413,13 @@ SCOPE_TO_COMP_MAP = {
     CommandScope.ROUTE: BASE_MEMORY_ROUTE_READ_MAP,
 }
 
+SCOPE_TO_FIELDS_MAP = {
+    CommandScope.ENGINE: FIELD_TO_ADDR_ENGINE_MAP,
+    CommandScope.TRAIN: FIELD_TO_ADDR_TRAIN_MAP,
+    CommandScope.ACC: FIELD_TO_ADDR_ACC_MAP,
+    CommandScope.SWITCH: FIELD_TO_ADDR_SWITCH_MAP,
+    CommandScope.ROUTE: FIELD_TO_ADDR_ROUTE_MAP,
+}
 #
 # Map of Base 3 Command Requests to the corresponding Base 3
 # memory locations that must be updated in turn.
@@ -619,20 +630,26 @@ class CompData(ABC, Generic[R]):
         transform: Callable | None = None,
     ) -> UpdatePkg | None:
         sub_field = field = field.lower()
-        addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+        scoped_field_map = SCOPE_TO_FIELDS_MAP.get(scope, None)
+        assert scoped_field_map is not None, f"Scope {scope} not found in SCOPE_TO_FIELDS_MAP"
+
+        scoped_comp_map = SCOPE_TO_COMP_MAP.get(scope, None)
+        assert scoped_comp_map is not None, f"Scope {scope} not found in SCOPE_TO_COMP_MAP"
+
+        addr = scoped_field_map.get(field, None)
         if addr is None and not field.startswith("_"):
-            addr = FIELD_TO_ADDR_ENGINE_MAP.get("_" + field, None)
+            addr = scoped_field_map.get("_" + field, None)
         # special case for rpm/labor
         if addr is None and field in {"rpm", "labor"}:
             field = "rpm_labor"
-            addr = FIELD_TO_ADDR_ENGINE_MAP.get(field, None)
+            addr = scoped_field_map.get(field, None)
         if addr is None:
-            log.warning(f"Field {field} not found in FIELD_TO_ADDR_ENGINE_MAP")
+            log.warning(f"Field {field} not found in {scope.title} field map")
             return None
-        handler = BASE_MEMORY_ENGINE_READ_MAP.get(addr, None)
+        handler = scoped_comp_map.get(addr, None)
         if handler is None:
             if addr is None:
-                log.warning(f"Field {field} handler not found in BASE_MEMORY_ENGINE_READ_MAP")
+                log.warning(f"Field {field} handler not found in {scope.title} comp map")
             return None
         if transform is None:
             # have to convert data from command into Base 3 format

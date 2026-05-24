@@ -310,11 +310,9 @@ class StateInfoOverlay:
                 self.details[key][0].text_bold = True
                 self.details[key][1].text_bold = False
                 field.editable = True
-                print(f"Field: {key} editable: {editable}")
             else:
                 self.details[key][0].text_bold = False
                 field.editable = False
-                print(f"Field: {key} editable: {editable}")
 
     @staticmethod
     def _process_input(_field: EditableText, new_value: str, old_value: str, fill: int = None) -> tuple[str, str]:
