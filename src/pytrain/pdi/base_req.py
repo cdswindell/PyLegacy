@@ -325,7 +325,9 @@ class BaseReq(PdiReq, CompDataMixin):
         if state:
             pkgs = CompData.field_to_updates(field, state.tmcc_id, state.scope, data, state.is_legacy)
             if pkgs:
+                print(f"Pkgs: {pkgs}")
                 sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
+                print(f"Sync Requests: {sync_reqs}")
                 if sync_reqs:
                     cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
         return sync_reqs
