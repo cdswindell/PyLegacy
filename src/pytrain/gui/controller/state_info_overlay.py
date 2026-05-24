@@ -306,12 +306,14 @@ class StateInfoOverlay:
                 field.value = value
                 if initial_value is not None:
                     field.initial_value = initial_value
-                if editable:
-                    self.details[key][0].bold_text = True
-                    field.editable = True
-                else:
-                    self.details[key][0].bold_text = True
-                    field.editable = False
+            if editable:
+                self.details[key][0].bold_text = True
+                field.editable = True
+                print(f"Field: {key} editable: {editable}")
+            else:
+                self.details[key][0].bold_text = True
+                field.editable = False
+                print(f"Field: {key} editable: {editable}")
 
     @staticmethod
     def _process_input(_field: EditableText, new_value: str, old_value: str, fill: int = None) -> tuple[str, str]:
