@@ -644,7 +644,7 @@ class CompData(ABC, Generic[R]):
             field = "rpm_labor"
             addr = scoped_field_map.get(field, None)
         if addr is None:
-            log.debug(f"Field {field} not found in {scope.title} field map")
+            log.warning(f"Field {field} not found in {scope.title} field map")
             return None
         handler = scoped_comp_map.get(addr, None)
         if handler is None:
