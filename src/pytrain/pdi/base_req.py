@@ -293,13 +293,13 @@ class BaseReq(PdiReq, CompDataMixin):
     @classmethod
     def process_sync_reqs(cls, sync_reqs: list[BaseReq], callback: Callable, do_async: bool = False) -> bool:
         """Processes sync requests dispatching engine refreshes or callbacks"""
-        from ..db.engine_state import EngineState
         from .base3_db_refresh_manager import Base3DbRefreshManager
 
         refresh_requested = False
         if sync_reqs:
             for sync_req in sync_reqs:
-                if isinstance(sync_req, EngineState):
+                print(f"Processing sync request: {sync_req}")
+                if isinstance(sync_req, ComponentState):
                     Base3DbRefreshManager.request_refresh(sync_req)
                     refresh_requested = True
                 else:
@@ -328,7 +328,6 @@ class BaseReq(PdiReq, CompDataMixin):
             if pkgs:
                 sync_reqs = BaseReq.updates_to_reqs(state, pkgs)
                 if sync_reqs:
-                    print(sync_reqs)
                     cls.process_sync_reqs(sync_reqs, lambda r: r.send(), do_async)
         return sync_reqs
 
