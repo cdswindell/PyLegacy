@@ -615,6 +615,7 @@ class CompData(ABC, Generic[R]):
                 transform = update[1] if len(update) >= 2 else None
                 pkg = cls._create_update_pkg(update[0], legacy, scope, tmcc_id, data, transform)
                 if pkg:
+                    print(pkg)
                     update_pkgs.append(pkg)
         return update_pkgs
 
@@ -644,7 +645,7 @@ class CompData(ABC, Generic[R]):
             field = "rpm_labor"
             addr = scoped_field_map.get(field, None)
         if addr is None:
-            log.warning(f"Field {field} not found in {scope.title} field map")
+            log.debug(f"Field {field} not found in {scope.title} field map")
             return None
         handler = scoped_comp_map.get(addr, None)
         if handler is None:
