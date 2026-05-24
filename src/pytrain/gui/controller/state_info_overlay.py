@@ -312,7 +312,7 @@ class StateInfoOverlay:
                 field.editable = True
                 print(f"Field: {key} editable: {editable}")
             else:
-                self.details[key][0].bold_text = False
+                self.details[key][0].text_bold = False
                 field.editable = False
                 print(f"Field: {key} editable: {editable}")
 
