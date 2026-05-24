@@ -307,7 +307,8 @@ class StateInfoOverlay:
                 if initial_value is not None:
                     field.initial_value = initial_value
             if editable:
-                self.details[key][0].bold_text = True
+                self.details[key][0].text_bold = True
+                self.details[key][1].text_bold = False
                 field.editable = True
                 print(f"Field: {key} editable: {editable}")
             else:
