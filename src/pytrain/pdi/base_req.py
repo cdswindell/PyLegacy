@@ -298,7 +298,6 @@ class BaseReq(PdiReq, CompDataMixin):
         refresh_requested = False
         if sync_reqs:
             for sync_req in sync_reqs:
-                print(f"Processing sync request: {sync_req}")
                 if isinstance(sync_req, ComponentState):
                     Base3DbRefreshManager.request_refresh(sync_req)
                     refresh_requested = True
