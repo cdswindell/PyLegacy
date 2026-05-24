@@ -8,18 +8,20 @@
 #
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..components.editable_text import EditableText, EditorType
 from ...db.accessory_state import AccessoryState
-from ...db.component_state import LcsProxyState
+from ...db.component_state import ComponentState, LcsProxyState
 from ...db.engine_state import EngineState, TrainState
 from ...db.prod_info import ProdInfo
 from ...pdi.base_req import BaseReq
 from ...protocol.constants import CONTROL_TYPE, CommandScope, LOCO_TYPE, SOUND_TYPE
+
+S = TypeVar("S", bound=ComponentState)
 
 log = logging.getLogger(__name__)
 
@@ -221,7 +223,7 @@ class StateInfoOverlay:
                 on_edit=callback,
             )
 
-    def update(self, state):
+    def update(self, state: S):
         """Populates the fields with data from the current state."""
         if not state or not self.details:
             return
@@ -239,11 +241,14 @@ class StateInfoOverlay:
             if isinstance(p_info, ProdInfo) and p_info.engine_type:
                 etype = f"{p_info.engine_type} {etype}"
 
-            self._set_val("type", etype, initial_value=state.engine_type)
+            self._set_val("type", etype, initial_value=state.engine_type, editable=True)
             self._set_val(
-                "control", f"{state.control_type_text} {state.record_no_label}", initial_value=state.control_type
+                "control",
+                f"{state.control_type_text} {state.record_no_label}",
+                initial_value=state.control_type,
+                editable=True,
             )
-            self._set_val("sound", state.sound_type_label, initial_value=state.sound_type)
+            self._set_val("sound", state.sound_type_label, initial_value=state.sound_type, editable=True)
             self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
             self._set_val("smoke", state.smoke_text)
             self._set_val("mom", state.momentum_text)
@@ -276,7 +281,7 @@ class StateInfoOverlay:
                 self._set_val("train pos", f"{component.position if component else 'NA'}")
                 self._set_val("train dir", f"{component.direction if component else 'NA'}")
         elif isinstance(state, LcsProxyState):
-            self._set_val("type", state.accessory_type)
+            self._set_val("type", state.accessory_type, editable=False)
             self._set_val("mode", state.mode)
             self._set_val("parent", state.parent_id)
             self._set_val("port", state.port)
@@ -285,11 +290,11 @@ class StateInfoOverlay:
         # handle case where accessory has a configuration
         if isinstance(state, AccessoryState) and host.active_accessory:
             acc = host.active_accessory
-            self._set_val("name", acc.name)
-            self._set_val("type", acc.accessory_type.clean_title)
+            self._set_val("name", acc.name, editable=False)
+            self._set_val("type", acc.accessory_type.clean_title, editable=False)
             self._set_val("operations", acc.configured_operations_legend)
 
-    def _set_val(self, key, value, initial_value=None):
+    def _set_val(self, key, value, initial_value=None, editable: bool = False):
         if key in self.details:
             if isinstance(value, list):
                 field = cast(ListBox, self.details[key][1])
@@ -301,6 +306,12 @@ class StateInfoOverlay:
                 field.value = value
                 if initial_value is not None:
                     field.initial_value = initial_value
+                if editable:
+                    self.details[key][0].bold_text = True
+                    field.editable = True
+                else:
+                    self.details[key][0].bold_text = True
+                    field.editable = False
 
     @staticmethod
     def _process_input(_field: EditableText, new_value: str, old_value: str, fill: int = None) -> tuple[str, str]:
@@ -317,16 +328,16 @@ class StateInfoOverlay:
             new_value, _ = self._process_input(_field, new_value, old_value)
             state = self._gui.active_state
             if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
-                BaseReq.do_update_eng_field("ROAD_NAME_LEN", new_value, state, True)
-                BaseReq.do_update_eng_field("ROAD_NAME", new_value, state, True)
+                BaseReq.do_update_field("ROAD_NAME_LEN", new_value, state, True)
+                BaseReq.do_update_field("ROAD_NAME", new_value, state, True)
 
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value, 4)
             state = self._gui.active_state
             if isinstance(state, (EngineState, TrainState)):
-                BaseReq.do_update_eng_field("ROAD_NUMBER_LEN", new_value, state, True)
-                BaseReq.do_update_eng_field("ROAD_NUMBER", new_value, state, True)
+                BaseReq.do_update_field("ROAD_NUMBER_LEN", new_value, state, True)
+                BaseReq.do_update_field("ROAD_NUMBER", new_value, state, True)
 
     def _on_type_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
         self._persist_edit(_field, new_value, old_value, "ENGINE_TYPE")
@@ -342,7 +353,7 @@ class StateInfoOverlay:
         if _field.is_changed:
             state = self._gui.active_state
             if isinstance(state, (EngineState, TrainState)):
-                BaseReq.do_update_eng_field(field, new_value, state, True)
+                BaseReq.do_update_field(field, new_value, state, True)
 
     def _on_popup_closed(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=True)

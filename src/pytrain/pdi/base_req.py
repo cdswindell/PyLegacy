@@ -4,7 +4,7 @@ import logging
 from enum import IntEnum, unique
 from math import floor
 from threading import Thread
-from typing import Any, Callable, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple, TypeVar
 
 from ..db.comp_data import (
     SCOPE_TO_COMP_MAP,
@@ -23,6 +23,8 @@ from ..protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 from .constants import PDI_EOP, PDI_SOP, D4Action, PdiCommand
 from .d4_req import D4Req
 from .pdi_req import LIONEL_ENGINE_RECORD_LENGTH, SCOPE_TO_RECORD_LENGTH, PdiReq
+
+S = TypeVar("S", bound=ComponentState)
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +114,7 @@ SCOPE_TO_RECORD_TYPE_MAP = {s: p for p, s in RECORD_TYPE_MAP.items()}
 SCOPE_TO_RECORD_TYPE_MAP[CommandScope.IRDA] = 3  # manually patch irda record
 
 
-# noinspection PyUnresolvedReferences
+# noinspection PyUnresolvedReferences,PyUnreachableCode,PyUnboundLocalVariable
 class BaseReq(PdiReq, CompDataMixin):
     # noinspection PyTypeChecker,PyUnusedLocal
     @classmethod
@@ -319,7 +321,7 @@ class BaseReq(PdiReq, CompDataMixin):
         return sync_reqs
 
     @classmethod
-    def do_update_eng_field(cls, field: str, data: Any, state: EngineState, do_async: bool = False) -> list[BaseReq]:
+    def do_update_field(cls, field: str, data: Any, state: S, do_async: bool = True) -> list[BaseReq]:
         sync_reqs = []
         if state:
             pkgs = CompData.field_to_updates(field, state.tmcc_id, state.scope, data, state.is_legacy)
