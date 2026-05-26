@@ -106,8 +106,7 @@ class TouchListBox(ListBox):
 
     def set_item_style(
         self,
-        index: int | None,
-        *,
+        index: int | None = None,
         foreground: str | None = None,
         background: str | None = None,
     ) -> None:
