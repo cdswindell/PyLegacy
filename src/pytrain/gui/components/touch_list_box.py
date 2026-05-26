@@ -104,6 +104,30 @@ class TouchListBox(ListBox):
         self.horizontal_scroll = bool(enabled)
         self._apply_horizontal_scroll_policy()
 
+    def set_item_style(
+        self,
+        index: int | None,
+        *,
+        foreground: str | None = None,
+        background: str | None = None,
+    ) -> None:
+        options = {}
+        if foreground is not None:
+            options["foreground"] = foreground
+        if background is not None:
+            options["background"] = background
+        if not options:
+            return
+
+        try:
+            if index is None:
+                index = int(self._lb.size()) - 1
+            if index < 0:
+                return
+            self._lb.itemconfig(index, **options)
+        except (TclError, TypeError, ValueError):
+            pass
+
     # ---------- Internal helpers ----------
 
     def _dbg(self, msg: str) -> None:

@@ -13,10 +13,14 @@ class DummyTkListbox:
     def __init__(self, initial_xview: float = 0.0) -> None:
         self._xview = float(initial_xview)
         self._bindings: dict[str, Callable[..., Any]] = {}
+        self.item_styles: dict[int, dict[str, Any]] = {}
         self._after_id = 0
 
     def config(self, **_kwargs: Any) -> None:
         return
+
+    def itemconfig(self, index: int, **kwargs: Any) -> None:
+        self.item_styles.setdefault(index, {}).update(kwargs)
 
     def bind(self, event: str, func: Callable[..., Any], add: str | None = None) -> None:
         _ = add
@@ -84,6 +88,33 @@ def test_set_horizontal_scroll_false_realigns_scrolled_list(mod) -> None:
     widget.set_horizontal_scroll(False)
 
     assert widget._lb.xview()[0] == pytest.approx(0.0)
+
+
+def test_set_item_style_applies_per_row_colors(mod) -> None:
+    DummyListBox.initial_xview = 0.0
+    widget = mod.TouchListBox(object(), items=["A", "B"])
+
+    widget.set_item_style(1, foreground="red", background="#ffeeee")
+
+    assert widget._lb.item_styles[1] == {"foreground": "red", "background": "#ffeeee"}
+
+
+def test_set_item_style_with_none_styles_last_row(mod) -> None:
+    DummyListBox.initial_xview = 0.0
+    widget = mod.TouchListBox(object(), items=["A", "B", "C"])
+
+    widget.set_item_style(None, foreground="green")
+
+    assert widget._lb.item_styles[2] == {"foreground": "green"}
+
+
+def test_set_item_style_ignores_empty_style(mod) -> None:
+    DummyListBox.initial_xview = 0.0
+    widget = mod.TouchListBox(object(), items=["A", "B"])
+
+    widget.set_item_style(1)
+
+    assert widget._lb.item_styles == {}
 
 
 def test_release_realigns_list_when_horizontal_scroll_is_disabled(mod) -> None:
