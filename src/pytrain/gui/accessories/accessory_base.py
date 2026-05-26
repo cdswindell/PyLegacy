@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import re
 from abc import ABC, ABCMeta, abstractmethod
+from functools import lru_cache
 from threading import Event, Thread
 from typing import Any, Callable, Generic, TypeVar, cast
 
@@ -42,6 +43,29 @@ S = TypeVar("S", bound=ComponentState)
 
 HYPHEN_CLEANUP = re.compile(r"(?<=[A-Za-z])-+(?=[A-Za-z])")
 SPACE_CLEANUP = re.compile(r"\s{2,}")
+
+TURN_ON_IMAGE = "on_button.jpg"
+TURN_OFF_IMAGE = "off_button.jpg"
+ALARM_ON_IMAGE = "Breaking-News-Emoji.gif"
+ALARM_OFF_IMAGE = "red_light_off.jpg"
+LEFT_ARROW_IMAGE = "left_arrow.jpg"
+RIGHT_ARROW_IMAGE = "right_arrow.jpg"
+
+
+@lru_cache(maxsize=1)
+def _common_button_image_paths() -> dict[str, str | None]:
+    return {
+        TURN_ON_IMAGE: find_file(TURN_ON_IMAGE),
+        TURN_OFF_IMAGE: find_file(TURN_OFF_IMAGE),
+        ALARM_ON_IMAGE: find_file(ALARM_ON_IMAGE),
+        ALARM_OFF_IMAGE: find_file(ALARM_OFF_IMAGE),
+        LEFT_ARROW_IMAGE: find_file(LEFT_ARROW_IMAGE),
+        RIGHT_ARROW_IMAGE: find_file(RIGHT_ARROW_IMAGE),
+    }
+
+
+def _common_button_image_path(filename: str) -> str | None:
+    return _common_button_image_paths().get(filename)
 
 
 class AccessoryBase(GuiZeroBase, Generic[S], ABC):
@@ -100,12 +124,12 @@ class AccessoryBase(GuiZeroBase, Generic[S], ABC):
 
         self.box = self.acc_box = self.y_offset = None
         self.aggregator_combo = None
-        self.turn_on_image = find_file("on_button.jpg")
-        self.turn_off_image = find_file("off_button.jpg")
-        self.alarm_on_image = find_file("Breaking-News-Emoji.gif")
-        self.alarm_off_image = find_file("red_light_off.jpg")
-        self.left_arrow_image = find_file("left_arrow.jpg")
-        self.right_arrow_image = find_file("right_arrow.jpg")
+        self.turn_on_image = _common_button_image_path(TURN_ON_IMAGE)
+        self.turn_off_image = _common_button_image_path(TURN_OFF_IMAGE)
+        self.alarm_on_image = _common_button_image_path(ALARM_ON_IMAGE)
+        self.alarm_off_image = _common_button_image_path(ALARM_OFF_IMAGE)
+        self.left_arrow_image = _common_button_image_path(LEFT_ARROW_IMAGE)
+        self.right_arrow_image = _common_button_image_path(RIGHT_ARROW_IMAGE)
 
         # States
         self._states = dict[int, S]()
@@ -675,8 +699,8 @@ class MomentaryActionHandler(Thread, Generic[S]):
 
 class PowerButton(PushButton):
     def __init__(self, *args, **kwargs):
-        self.turn_on_image = kwargs.pop("turn_on_image", find_file("on_button.jpg"))
-        self.turn_off_image = kwargs.pop("turn_off_image", find_file("off_button.jpg"))
+        self.turn_on_image = kwargs.pop("turn_on_image", None) or _common_button_image_path(TURN_ON_IMAGE)
+        self.turn_off_image = kwargs.pop("turn_off_image", None) or _common_button_image_path(TURN_OFF_IMAGE)
         super().__init__(*args, **kwargs)
         self.sibling: PowerButton | None = None
 
