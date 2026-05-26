@@ -169,7 +169,7 @@ class CatalogPanel(OverlayPanel):
             elif sort_order == 2:
                 states.sort(key=lambda x: x.tmcc_id)
             for state in states:
-                if not self.is_name:
+                if not state.is_name:
                     print(state)
                     continue
                 if sort_order == 0:
