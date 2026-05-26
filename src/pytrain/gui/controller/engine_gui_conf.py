@@ -442,7 +442,7 @@ SENSOR_TRACK_OPTS = [
     ["Sound Horn R➟L/None L➟R", 1],
     ["None R➟L/Sound Horn L➟R", 2],
     ["10 sec Bell R➟L/None L➟R", 3],
-    ["None L➟R/10 sec Bell L➟R", 4],
+    ["None R➟L/10 sec Bell L➟R", 4],
     ["Begin Run R➟L/End Run L➟R", 5],
     ["End Run R➟L/Begin Run L➟R", 6],
     ["Go Slow R➟L/Go Normal L➟R", 7],
