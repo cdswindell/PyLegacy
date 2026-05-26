@@ -165,10 +165,6 @@ class ComponentState(ABC, CompDataMixin):
         return self.is_road_name or self.is_road_number
 
     @property
-    def is_user_defined(self) -> bool:
-        return self.is_name and (self.prev_link != 0xFF or self.next_link != 0xFF)
-
-    @property
     def payload(self) -> str:
         return ""
 
