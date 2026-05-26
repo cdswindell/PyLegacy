@@ -189,6 +189,12 @@ class CatalogPanel(OverlayPanel):
                     if isinstance(state, AccessoryState):
                         if state.is_bpc2 and state.is_aux_on:
                             self._catalog.set_item_style(background="green")
+                        elif state.is_asc2 and state.is_aux2_on:
+                            self._catalog.set_item_style(background="green")
+                    elif isinstance(state, SwitchState) and state.is_thru:
+                        self._catalog.set_item_style(background="green")
+                    elif isinstance(state, RouteState) and state.is_active:
+                        self._catalog.set_item_style(background="green")
                     self._scope = scope
 
     def configure_selection_btns(self, scope: CommandScope):
