@@ -193,7 +193,7 @@ class CatalogPanel(OverlayPanel):
                             self._catalog.set_item_style(background="green")
                     elif isinstance(state, SwitchState) and state.is_thru:
                         self._catalog.set_item_style(background="green")
-                    elif isinstance(state, RouteState) and state.is_active:
+                    elif isinstance(state, RouteState) and state.is_aligned:
                         self._catalog.set_item_style(background="green")
                     self._scope = scope
 

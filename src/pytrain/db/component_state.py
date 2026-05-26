@@ -819,6 +819,10 @@ class RouteState(TmccState):
         return self._signature == self._current_state
 
     @property
+    def is_aligned(self) -> bool:
+        return self.is_active
+
+    @property
     def is_not_active(self) -> bool:
         return not self.is_active and not self.is_unknown
 
