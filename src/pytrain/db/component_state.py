@@ -77,8 +77,6 @@ class ComponentState(ABC, CompDataMixin):
         self._spare_1: int | None = None
         self._dependencies = DependencyCache.build()
         self._config_requested = False
-        self._prev_link: int | None = None
-        self._next_link: int | None = None
 
     def __repr__(self) -> str:
         if self.is_comp_data_record is True and not self.payload:
@@ -165,6 +163,10 @@ class ComponentState(ABC, CompDataMixin):
     @property
     def is_name(self) -> bool:
         return self.is_road_name or self.is_road_number
+
+    @property
+    def is_user_defined(self) -> bool:
+        return self.is_name and (self.prev_link != 0xFF or self.next_link != 0xFF)
 
     @property
     def payload(self) -> str:
