@@ -123,6 +123,6 @@ class MilkLoaderGui(AccessoryBase):
             label=eject_label,
             col=2,
             text_len=max_text_len,
-            image=find_file(self.config.image_for("eject")),
+            image=self._eject_image,
         )
         self.after_state_change(None, self.power_state)

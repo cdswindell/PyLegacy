@@ -170,7 +170,6 @@ class CatalogPanel(OverlayPanel):
                 states.sort(key=lambda x: x.tmcc_id)
             for state in states:
                 if not state.is_name:
-                    print(state)
                     continue
                 if sort_order == 0:
                     entry = f"{state.name}"
