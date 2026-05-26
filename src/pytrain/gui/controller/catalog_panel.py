@@ -186,7 +186,10 @@ class CatalogPanel(OverlayPanel):
                         need_separator = False
                     self._entry_state_map[entry] = state
                     self._catalog.append(entry)
-            self._scope = scope
+                    if isinstance(state, AccessoryState):
+                        if state.is_bpc2 and state.is_aux_on:
+                            self._catalog.set_item_style(background="green")
+                    self._scope = scope
 
     def configure_selection_btns(self, scope: CommandScope):
         if scope not in self._scoped_selection:
