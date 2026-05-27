@@ -126,13 +126,9 @@ class ImagePresenter:
                 _, sensor_height = host.size_cache[host.sensor_track_box]
             variable_content = sensor_height
         elif host.acc_overlay and host.acc_overlay.visible:
-            if host.acc_overlay not in host.size_cache:
-                _, overlay_height = host.size_cache[host.acc_overlay] = (
-                    host.acc_overlay.tk.winfo_reqwidth(),
-                    host.acc_overlay.tk.winfo_reqheight(),
-                )
-            else:
-                _, overlay_height = host.size_cache[host.acc_overlay]
+            overlay_height = host.acc_overlay.tk.winfo_height()
+            if overlay_height <= 1:
+                overlay_height = host.acc_overlay.tk.winfo_reqheight()
             variable_content = overlay_height
         else:
             variable_content = 0

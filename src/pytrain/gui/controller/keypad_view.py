@@ -791,6 +791,7 @@ class KeypadView(Generic[S]):
                         self.enable_acc_view(acc_state)
 
             if show_keypad and not host.keypad_box.visible:
+                host.invalidate_image_box_size()
                 host.keypad_box.show()
 
     # noinspection PyTypeChecker

@@ -301,6 +301,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def reset_acc_overlay(self) -> None:
         if self._acc_overlay and self._acc_overlay.visible:
+            self.invalidate_image_box_size()
             self._acc_overlay.hide()
         self._acc_overlay = None
 
