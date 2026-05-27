@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from collections import deque
 from functools import lru_cache
 from typing import Any, Callable, Generic, TypeVar, cast
 
@@ -276,6 +277,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._caa = ConfiguredAccessorySet.from_file(config_file, verify=True)
         self._caap = ConfiguredAccessoryAdapterProvider(self._caa, self)
         self._acc_tmcc_to_adapter: dict[int, ConfiguredAccessoryAdapter] = {}
+        self._accessory_overlay_prewarm_queue = deque()
+        self._accessory_overlay_prewarm_active = False
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -469,6 +472,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # prewarm some images
         self.app.tk.after_idle(self._popup.preload_images)
+        self.app.tk.after_idle(self._start_accessory_overlay_prewarm)
         for image in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
             self.app.tk.after_idle(lambda: self.get_titled_image(image))
 
@@ -608,6 +612,38 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def _refresh_accessory_image(self, tmcc_id: int) -> None:
         self._image_presenter.refresh_box_size()
         self._image_presenter.update(tmcc_id=tmcc_id)
+
+    def _start_accessory_overlay_prewarm(self) -> None:
+        if self._shutdown_flag.is_set() or self._accessory_overlay_prewarm_active:
+            return
+        if not self._acc_buttons_future.done():
+            self.app.tk.after(50, self._start_accessory_overlay_prewarm)
+            return
+        try:
+            self._acc_buttons_future.result()
+        except Exception as e:
+            log.exception("Unable to prewarm accessory overlays because button image preload failed", exc_info=e)
+            return
+        self._accessory_overlay_prewarm_active = True
+        self._accessory_overlay_prewarm_queue = deque(self.accessories.configured_all())
+        self.app.tk.after(25, self._prewarm_next_accessory_overlay)
+
+    def _prewarm_next_accessory_overlay(self) -> None:
+        if self._shutdown_flag.is_set():
+            self._accessory_overlay_prewarm_active = False
+            return
+        while self._accessory_overlay_prewarm_queue:
+            cfg = self._accessory_overlay_prewarm_queue.popleft()
+            acc = self.accessory_provider.get(cfg)
+            if acc.overlay is None:
+                tmcc_ids = cfg.tmcc_ids
+                if tmcc_ids:
+                    acc.activate_tmcc_id(tmcc_ids[0])
+                overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
+                setattr(overlay, "caa", acc)
+            self.app.tk.after(25, self._prewarm_next_accessory_overlay)
+            return
+        self._accessory_overlay_prewarm_active = False
 
     def show_popup(
         self,
