@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from functools import lru_cache
 from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, Text, TitleBox
@@ -45,6 +46,7 @@ from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
+from ..accessories.accessory_base import preload_accessory_button_image_paths
 from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
@@ -76,6 +78,32 @@ from ...utils.unique_deque import UniqueDeque
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
+
+
+TURN_ON_IMAGE = "on_button.jpg"
+TURN_OFF_IMAGE = "off_button.jpg"
+BULB_OFF_IMAGE = "bulb-power-off.png"
+BULB_ON_IMAGE = "bulb-power-on.png"
+OP_ACC_IMAGE = "op-acc.jpg"
+
+
+@lru_cache(maxsize=1)
+def _common_button_image_paths() -> dict[str, str | None]:
+    return {
+        TURN_ON_IMAGE: find_file(TURN_ON_IMAGE),
+        TURN_OFF_IMAGE: find_file(TURN_OFF_IMAGE),
+        BULB_ON_IMAGE: find_file(BULB_ON_IMAGE),
+        BULB_OFF_IMAGE: find_file(BULB_OFF_IMAGE),
+        OP_ACC_IMAGE: find_file(OP_ACC_IMAGE),
+    }
+
+
+def _common_button_image_path(filename: str) -> str | None:
+    return _common_button_image_paths().get(filename)
+
+
+def preload_engine_button_image_paths() -> None:
+    _common_button_image_paths()
 
 
 class EngineGui(GuiZeroBase, Generic[S]):
@@ -117,6 +145,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             inactive_bg=inactive_bg,
             scale_by=scale_by,
         )
+        # preload common images
+        self._engine_buttons_future = self._executor.submit(preload_engine_button_image_paths)
+        self._acc_buttons_future = self._executor.submit(preload_accessory_button_image_paths)
 
         self._last_header_options = None
         self.auto_scroll = auto_scroll
@@ -136,11 +167,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.options = [self.title]
 
         self.box = self.acc_box = self.y_offset = None
-        self.turn_on_image = find_file("on_button.jpg")
-        self.turn_off_image = find_file("off_button.jpg")
-        self.power_off_path = find_file("bulb-power-off.png")
-        self.power_on_path = find_file("bulb-power-on.png")
-        self.op_acc_image = find_file("op-acc.jpg")
+        self.turn_on_image = _common_button_image_path(TURN_ON_IMAGE)
+        self.turn_off_image = _common_button_image_path(TURN_OFF_IMAGE)
+        self.power_off_path = _common_button_image_path(BULB_OFF_IMAGE)
+        self.power_on_path = _common_button_image_path(BULB_ON_IMAGE)
+        self.op_acc_image = _common_button_image_path(OP_ACC_IMAGE)
 
         self._btn_images = []
         self._dim_cache = {}
@@ -402,6 +433,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.make_info_box(app)
 
         # make selection box and keypad
+        self._engine_buttons_future.result()  # wait for common engine buttons to load
+        self._acc_buttons_future.result()  # wait for common accessory buttons to load
         self._keypad_view.build(app)
 
         # precreate extra functions popup

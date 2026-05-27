@@ -68,6 +68,10 @@ def _common_button_image_path(filename: str) -> str | None:
     return _common_button_image_paths().get(filename)
 
 
+def preload_accessory_button_image_paths() -> None:
+    _common_button_image_paths()
+
+
 class AccessoryBase(GuiZeroBase, Generic[S], ABC):
     __metaclass__ = ABCMeta
 
