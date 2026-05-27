@@ -1459,7 +1459,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return self._image_presenter.calc_box_size()
 
     def invalidate_image_box_size(self) -> None:
+        # Clear any cached image box sizes so they are recomputed on next use.
+        # We track engine-mode baseline separately to ensure accessory/other
+        # modes use the engine ops-mode height.
         self.avail_image_height = None
+        self.avail_image_height_engine = None
+        self.avail_image_width = None
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")

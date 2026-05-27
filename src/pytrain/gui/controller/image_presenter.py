@@ -59,6 +59,10 @@ class ImagePresenter:
         """
         Calculates available image box size based on layout
         Can only call from the main gui thread!
+
+        This implementation computes the engine-ops baseline height (using the
+        controller box required height) and uses that height for all modes so
+        accessory images don't lock in a smaller/incorrect size.
         """
         host = self._host
 
@@ -98,16 +102,11 @@ class ImagePresenter:
         else:
             _, scope_height = host.size_cache[host.scope_box]
 
-        if host.keypad_box.visible:
-            if host.keypad_box not in host.size_cache:
-                _, keypad_height = host.size_cache[host.keypad_box] = (
-                    host.keypad_box.tk.winfo_reqwidth(),
-                    host.keypad_box.tk.winfo_reqheight(),
-                )
-            else:
-                _, keypad_height = host.size_cache[host.keypad_box]
-            variable_content = keypad_height
-        elif host.controller_box and host.controller_box.visible:
+        # Compute controller height (engine ops baseline). If controller_box isn't
+        # present, treat its height as zero. This ensures we always compute the
+        # engine-ops available height and use it globally.
+        controller_height = 0
+        if host.controller_box is not None:
             if host.controller_box not in host.size_cache:
                 _, controller_height = host.size_cache[host.controller_box] = (
                     host.controller_box.tk.winfo_reqwidth(),
@@ -115,42 +114,23 @@ class ImagePresenter:
                 )
             else:
                 _, controller_height = host.size_cache[host.controller_box]
-            variable_content = controller_height
-        elif host.sensor_track_box and host.sensor_track_box.visible:
-            if host.sensor_track_box not in host.size_cache:
-                _, sensor_height = host.size_cache[host.sensor_track_box] = (
-                    host.sensor_track_box.tk.winfo_reqwidth(),
-                    host.sensor_track_box.tk.winfo_reqheight(),
-                )
-            else:
-                _, sensor_height = host.size_cache[host.sensor_track_box]
-            variable_content = sensor_height
-        elif host.acc_overlay and host.acc_overlay.visible:
-            overlay_height = host.acc_overlay.tk.winfo_height()
-            if overlay_height <= 1:
-                overlay_height = host.acc_overlay.tk.winfo_reqheight()
-            variable_content = overlay_height
-        else:
-            variable_content = 0
-            if log.isEnabledFor(logging.DEBUG) and host.avail_image_height is None:
-                log.debug("No variable content available while calculating image box size")
 
-        # Calculate remaining vertical space
-        if host.avail_image_height is None:
-            avail_image_height = (
-                host.height - header_height - emergency_height - info_height - variable_content - scope_height - 20
-            )
-            host.avail_image_height = avail_image_height
-        else:
-            avail_image_height = host.avail_image_height
+        # Derive engine-ops based available height and use it for all modes
+        engine_avail_image_height = (
+            host.height - header_height - emergency_height - info_height - controller_height - scope_height - 20
+        )
+        host.avail_image_height_engine = engine_avail_image_height
+        # Use engine baseline height globally so accessory images don't expand layout
+        host.avail_image_height = engine_avail_image_height
 
+        # Width logic unchanged: use emergency box width as standard
         if host.avail_image_width is None:
-            # use width of emergency height box as standard
             host.avail_image_width = avail_image_width = emergency_width
         else:
             avail_image_width = host.avail_image_width
-        self._last_box_size = (avail_image_height, avail_image_width)
-        return avail_image_height, avail_image_width
+
+        self._last_box_size = (host.avail_image_height, avail_image_width)
+        return host.avail_image_height, avail_image_width
 
     def _is_relevant_update(self, scope: CommandScope, tmcc_id: int | None, train_id: int | None = None) -> bool:
         host = self._host
