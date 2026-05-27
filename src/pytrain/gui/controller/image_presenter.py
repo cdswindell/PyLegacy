@@ -297,6 +297,7 @@ class ImagePresenter:
             state = host.state_store.get_state(host.scope, tmcc_id, False)
             if state:
                 key = (host.scope, tmcc_id)
+                box_size = host.calc_image_box_size()
                 if isinstance(state, AccessoryState):
                     if host.is_accessory_view(tmcc_id):
                         view = host.get_accessory_view(tmcc_id)
@@ -305,7 +306,7 @@ class ImagePresenter:
                     elif host.get_configured_accessory(tmcc_id):
                         key = (host.scope, tmcc_id, host.get_configured_accessory(tmcc_id))
                 with host.locked():
-                    img = host._image_cache.get(key, None)
+                    img = host._image_cache.get((*key, box_size), None)
                 # Attempts to load and cache image from state
                 if img is None:
                     img_path = None
@@ -330,7 +331,7 @@ class ImagePresenter:
                         img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
                     if img:
                         with host.locked():
-                            host._image_cache[key] = img
+                            host._image_cache[(*key, box_size)] = img
                     else:
                         self.clear()
         if img is None:
