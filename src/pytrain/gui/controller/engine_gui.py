@@ -593,8 +593,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
         self._acc_overlay = overlay = self._create_accessory_view(acc)
         if self.keypad_box.visible:
+            self.invalidate_image_box_size()
             self.keypad_box.hide()
         if not overlay.visible:
+            self.invalidate_image_box_size()
             overlay.show()
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:

@@ -125,10 +125,19 @@ class ImagePresenter:
             else:
                 _, sensor_height = host.size_cache[host.sensor_track_box]
             variable_content = sensor_height
+        elif host.acc_overlay and host.acc_overlay.visible:
+            if host.acc_overlay not in host.size_cache:
+                _, overlay_height = host.size_cache[host.acc_overlay] = (
+                    host.acc_overlay.tk.winfo_reqwidth(),
+                    host.acc_overlay.tk.winfo_reqheight(),
+                )
+            else:
+                _, overlay_height = host.size_cache[host.acc_overlay]
+            variable_content = overlay_height
         else:
             variable_content = 0
-            if host.avail_image_height is None:
-                print("*********** No Variable Content *******")
+            if log.isEnabledFor(logging.DEBUG) and host.avail_image_height is None:
+                log.debug("No variable content available while calculating image box size")
 
         # Calculate remaining vertical space
         if host.avail_image_height is None:
