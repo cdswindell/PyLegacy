@@ -347,6 +347,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         By default, we prefer to display the configured accessory view, if available.
         If the tmcc id isn't in the dict, we create a view, if possible
         """
+        print(self._acc_buttons_future.result())  # make sure accessory buttons are loaded
         with self._cv:
             if tmcc_id not in self._acc_tmcc_to_adapter:
                 acc = None
@@ -434,7 +435,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # make selection box and keypad
         self._engine_buttons_future.result()  # wait for common engine buttons to load
-        self._acc_buttons_future.result()  # wait for common accessory buttons to load
         self._keypad_view.build(app)
 
         # precreate extra functions popup
