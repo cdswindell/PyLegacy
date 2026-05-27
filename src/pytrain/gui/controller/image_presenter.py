@@ -339,8 +339,8 @@ class ImagePresenter:
     ):
         # Updates image if scope and ID match current
         host = self._host
-        self.clear()
         if img and scope == host.scope and tmcc_id == host.scope_tmcc_id(host.scope):
+            self.clear()
             if box_size is None:
                 if host.avail_image_height is None or host.avail_image_width is None:
                     box_size = self.calc_box_size()
