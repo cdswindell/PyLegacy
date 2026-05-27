@@ -1451,9 +1451,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._end_transition()
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
-        refreshed = self._image_presenter.refresh_box_size()
-        if refreshed is not None:
-            return refreshed
         if self.avail_image_height is not None and self.avail_image_width is not None:
             return self.avail_image_height, self.avail_image_width
         return self._image_presenter.calc_box_size()
