@@ -328,7 +328,7 @@ class ImagePresenter:
                             key = (host.scope, tmcc_id, acc)
                             img_path = find_file(acc.image_path)
                     if img_path:
-                        img = host.get_image(img_path, inverse=False, scale=True, preserve_height=True)
+                        img = host.get_scaled_image(img_path, preserve_height=True)
                     if img:
                         with host.locked():
                             host._image_cache[(*key, box_size)] = img
