@@ -347,7 +347,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         By default, we prefer to display the configured accessory view, if available.
         If the tmcc id isn't in the dict, we create a view, if possible
         """
-        print(self._acc_buttons_future.result())  # make sure accessory buttons are loaded
         with self._cv:
             if tmcc_id not in self._acc_tmcc_to_adapter:
                 acc = None
@@ -596,15 +595,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
         assert acc
+        self._acc_buttons_future.result()  # make sure accessory buttons are loaded
         tmcc_id = self._scope_tmcc_ids[self.scope]
         acc.activate_tmcc_id(tmcc_id)
         self.name_text.value = acc.name
         overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
         setattr(overlay, "caa", acc)
         self.set_accessory_view(tmcc_id, acc)
-        self.app.tk.after_idle(self._image_presenter.refresh_box_size)
-        self._image_presenter.update(tmcc_id=tmcc_id)
+        self.app.tk.after_idle(self._refresh_accessory_image, tmcc_id)
         return overlay
+
+    def _refresh_accessory_image(self, tmcc_id: int) -> None:
+        self._image_presenter.refresh_box_size()
+        self._image_presenter.update(tmcc_id=tmcc_id)
 
     def show_popup(
         self,
@@ -1412,6 +1415,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._end_transition()
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
+        refreshed = self._image_presenter.refresh_box_size()
+        if refreshed is not None:
+            return refreshed
+        if self.avail_image_height is not None and self.avail_image_width is not None:
+            return self.avail_image_height, self.avail_image_width
         return self._image_presenter.calc_box_size()
 
     def make_emergency_buttons(self, app: App):
