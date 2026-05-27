@@ -1315,6 +1315,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._controller_view.apply_engine_type(state)
             self._controller_view.show()
 
+            # Simulate the ops-mode display to compute and cache the engine-image
+            # baseline height even when no engine image is selected. This ensures
+            # accessory and other modes use the engine ops-mode available height.
+            try:
+                self.compute_engine_image_baseline()
+            except Exception:
+                log.exception("compute_engine_image_baseline failed")
+
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
@@ -1454,12 +1462,46 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._end_transition()
 
     def calc_image_box_size(self) -> tuple[int, int | Any]:
+        # Prefer explicit cached values
         if self.avail_image_height is not None and self.avail_image_width is not None:
             return self.avail_image_height, self.avail_image_width
+        # If engine baseline exists, use it
+        if getattr(self, "avail_image_height_engine", None) is not None and self.avail_image_width is not None:
+            return self.avail_image_height_engine, self.avail_image_width
+        # Fallback to presenter calculation
         return self._image_presenter.calc_box_size()
 
+    def compute_engine_image_baseline(self) -> None:
+        """Compute image height based on engine ops-mode layout and remember it.
+
+        Baseline = device height - ops keypad/controller - scope buttons - info box
+                   - engine id/road name box - Emergency/reset box - top header - padding
+        This is computed eagerly when entering ops mode so other modes use it.
+        """
+        try:
+            self.app.tk.update_idletasks()
+            header_h = self.header.tk.winfo_reqheight() if self.header else 0
+            emergency_h = self.emergency_box_height or (self.emergency_box.tk.winfo_reqheight() if self.emergency_box else 0)
+            info_h = self.info_box.tk.winfo_reqheight() if self.info_box else 0
+            scope_h = self.scope_box.tk.winfo_reqheight() if self.scope_box else 0
+            # Use controller_box as the ops-mode keypad area; use reqheight even if hidden
+            controller_h = self.controller_box.tk.winfo_reqheight() if self.controller_box else 0
+
+            baseline = self.height - header_h - emergency_h - info_h - scope_h - controller_h - 20
+            baseline = max(0, int(baseline))
+            self.avail_image_height_engine = baseline
+            # Apply globally so image presenter and other modes use engine baseline
+            self.avail_image_height = baseline
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(f"Computed engine image baseline height={baseline} (hdr={header_h}, em={emergency_h}, info={info_h}, scope={scope_h}, ctrl={controller_h})")
+        except Exception as e:
+            log.exception("Failed to compute engine image baseline", exc_info=e)
+
     def invalidate_image_box_size(self) -> None:
+        # Clear any cached image box sizes so they are recomputed on next use.
         self.avail_image_height = None
+        self.avail_image_height_engine = None
+        self.avail_image_width = None
 
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
