@@ -1455,6 +1455,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return self.avail_image_height, self.avail_image_width
         return self._image_presenter.calc_box_size()
 
+    def invalidate_image_box_size(self) -> None:
+        self.avail_image_height = None
+
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)

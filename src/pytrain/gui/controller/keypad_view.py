@@ -659,6 +659,7 @@ class KeypadView(Generic[S]):
         if host.acc_overlay and host.acc_overlay.visible:
             host.acc_overlay.hide()
         if not host.keypad_box.visible:
+            host.invalidate_image_box_size()
             host.keypad_box.show()
         if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} and host._scope_tmcc_ids[host.scope]:
             host.reset_btn.enable()
@@ -673,6 +674,7 @@ class KeypadView(Generic[S]):
         """
         host = self._host
         self._entry_mode = False
+        host.invalidate_image_box_size()
 
         for cell in host.entry_cells:
             if cell.visible:

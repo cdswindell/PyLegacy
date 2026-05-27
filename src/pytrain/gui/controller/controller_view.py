@@ -836,11 +836,13 @@ class ControllerView:
     def show(self) -> None:
         host = self._host
         if host.controller_box and not host.controller_box.visible:
+            host.invalidate_image_box_size()
             host.controller_box.show()
 
     def hide(self) -> None:
         host = self._host
         if host.controller_box and host.controller_box.visible:
+            host.invalidate_image_box_size()
             host.controller_box.hide()
 
     # -----------------------------
