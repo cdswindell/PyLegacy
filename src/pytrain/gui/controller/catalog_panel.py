@@ -141,7 +141,6 @@ class CatalogPanel(OverlayPanel):
         assert self.overlay  # force creation of panel
 
         # Updates catalog entries based on sort order
-        print(f"Configuring catalog panel for scope: {scope}")
         if force or self._scope != scope or scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE}:
             # configure the selection buttons and reset them to all on
             self.configure_selection_btns(scope)
@@ -243,7 +242,6 @@ class CatalogPanel(OverlayPanel):
     def on_sort(self) -> None:
         self._scoped_sort_order[self._scope] = int(self._sort_btns.value)
         self._scoped_selection[self._scope] = (self._sel_1_btn.value, self._sel_2_btn.value, self._sel_3_btn.value)
-        print(f"Sort order updated for {self._scope}: {self._scoped_sort_order[self._scope]} skip: {self._skip_update}")
         if self._skip_update:
             return
         self.configure(self._scope, force=True)
