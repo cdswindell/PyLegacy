@@ -479,10 +479,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
             app.after(100, self.update_component_info, [self.initial])
 
         # prewarm some images
-        self.app.tk.after(500, self._popup.preload_images)
-        self.app.tk.after(750, self._start_accessory_overlay_prewarm)
-        for image in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
-            self.app.tk.after(1000, lambda img=image: self.get_titled_image(img))
+        def prewarm_images():
+            try:
+                self._popup.preload_images()
+                self._start_accessory_overlay_prewarm()
+                for img in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
+                    self.get_titled_image(img)
+            except Exception as e:
+                log.exception("Prewarming failed", exc_info=e)
+
+        self._executor.submit(prewarm_images)
+
+        # self.app.tk.after(500, self._popup.preload_images)
+        # self.app.tk.after(750, self._start_accessory_overlay_prewarm)
+        # for image in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
+        #     self.app.tk.after(1000, lambda img=image: self.get_titled_image(img))
 
     def destroy_gui(self) -> None:
         self.clear_cache()
