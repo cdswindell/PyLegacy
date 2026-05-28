@@ -424,7 +424,7 @@ class EditableText(Text):
         self._make_repeat_key(action_row, "↓", lambda: self._move_choice(1), weight=1)
         self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Done", self.commit_edit, weight=1)
+        self._make_key(action_row, "Save", self.commit_edit, weight=1)
 
         self._choice_listbox = tk.Listbox(
             picker,
@@ -712,7 +712,7 @@ class EditableText(Text):
         action_row.pack(fill="x", padx=8, pady=(8, 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Done", self.commit_edit, weight=1)
+        self._make_key(action_row, "Save", self.commit_edit, weight=1)
 
         for row_idx, keys in enumerate(self._keyboard_rows()):
             row = tk.Frame(kb, background="#202020")
@@ -746,7 +746,7 @@ class EditableText(Text):
         action_row.pack(fill="x", padx=8, pady=(8, 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Done", self.commit_edit, weight=1)
+        self._make_key(action_row, "Save", self.commit_edit, weight=1)
 
         for keys in (("7", "8", "9"), ("4", "5", "6"), ("1", "2", "3")):
             row = tk.Frame(kb, background="#202020")
