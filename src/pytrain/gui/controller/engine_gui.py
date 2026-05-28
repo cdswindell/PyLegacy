@@ -456,8 +456,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._compute_engine_image_baseline()
 
         # Finally, resize image box
-        available_height, available_width = self._image_presenter.calc_box_size()
-        self.avail_image_width = available_width
+        available_height, available_width = (
+            (self.avail_image_height, self.avail_image_width)
+            if self.avail_image_height and self.avail_image_width
+            else self._image_presenter.calc_box_size()
+        )
         self.image_box.tk.config(height=available_height, width=available_width)
 
         # calculate offset for popups
@@ -1486,6 +1489,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
             baseline = self.height - header_h - emergency_h - info_h - scope_h - controller_h - 20
             baseline = max(0, int(baseline))
             self.avail_image_height_engine = baseline
+
+            self.avail_image_width = self.emergency_box_width or (
+                self.emergency_box.tk.winfo_reqwidth() if self.emergency_box else 0
+            )
 
             # Apply globally so image presenter and other modes use engine baseline
             self.avail_image_height = baseline
