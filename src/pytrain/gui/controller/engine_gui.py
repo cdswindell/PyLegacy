@@ -1490,14 +1490,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
             baseline = max(0, int(baseline))
             self.avail_image_height_engine = baseline
 
+            # save width as well
             self.avail_image_width = self.emergency_box_width or (
                 self.emergency_box.tk.winfo_reqwidth() if self.emergency_box else 0
             )
 
             # Apply globally so image presenter and other modes use engine baseline
             self.avail_image_height = baseline
-            if True or log.isEnabledFor(logging.DEBUG):
-                log.info(
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug(
                     f"Computed engine image baseline height={baseline} (hdr={header_h}, em={emergency_h}, "
                     f"info={info_h}, scope={scope_h}, ctrl={controller_h})"
                 )
