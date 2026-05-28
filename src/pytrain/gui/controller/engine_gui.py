@@ -483,7 +483,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.app.tk.after_idle(self._popup.preload_images)
         for image in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
             self.app.tk.after_idle(lambda img=image: self.get_titled_image(img))
-        # self.app.tk.after(750, self._start_accessory_overlay_prewarm)
+        self.app.tk.after(750, self._start_accessory_overlay_prewarm)
 
     def destroy_gui(self) -> None:
         self.clear_cache()

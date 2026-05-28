@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
+from contextlib import contextmanager
 from dataclasses import dataclass
 from tkinter import TclError
 from typing import Any, Callable, Optional, TYPE_CHECKING
@@ -56,6 +57,15 @@ class PopupManager:
     # Construction
     # ------------------------------------------------------------------
 
+    @contextmanager
+    def _suspend_host_layout(self):
+        display_widgets = self._host.app.display_widgets
+        self._host.app.display_widgets = lambda: None
+        try:
+            yield
+        finally:
+            self._host.app.display_widgets = display_widgets
+
     def get_or_create(
         self,
         key: str,
@@ -84,7 +94,11 @@ class PopupManager:
     ) -> Box:
         host = self._host
 
-        overlay = Box(host.app, align="top", border=2, visible=False)
+        # guizero's hidden-widget construction calls master.display_widgets(),
+        # which repacks the full app. Prewarmed overlays are not meant to affect
+        # the visible layout until they are explicitly shown.
+        with self._suspend_host_layout():
+            overlay = Box(host.app, align="top", border=2, visible=False)
         if on_popup_close:
             self._overlay_close_hooks[id(overlay)] = on_popup_close
         overlay.bg = "white"
@@ -112,7 +126,9 @@ class PopupManager:
             body_src(body)
             self.add_close_btn(host, on_close, overlay)
 
-        overlay.hide()
+        if overlay.visible:
+            with self._suspend_host_layout():
+                overlay.hide()
         return overlay
 
     def add_close_acc_btn(
