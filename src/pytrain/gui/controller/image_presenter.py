@@ -63,6 +63,7 @@ class ImagePresenter:
         host = self._host
 
         # force geometry layout
+        print("**** Forced Geometry Layout ****")
         host.app.tk.update_idletasks()
 
         # Get the heights of fixed elements
