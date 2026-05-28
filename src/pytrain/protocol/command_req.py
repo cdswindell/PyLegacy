@@ -95,6 +95,7 @@ class CommandReq:
         else:
             raise TypeError(f"Command type not recognized {command}")
 
+    # noinspection PyArgumentList
     @classmethod
     def from_bytes(cls, param: bytes, from_tmcc_rx: bool = False, is_tmcc4: bool = False) -> Self:
         from ..pdi.pdi_req import PdiReq
@@ -173,6 +174,7 @@ class CommandReq:
             return TMCC2CommandPrefix(validated_scope.name).as_bytes
         raise TypeError(f"Command type not recognized {command}")
 
+    # noinspection PyUnreachableCode
     @classmethod
     def _vet_request(
         cls,
@@ -203,6 +205,7 @@ class CommandReq:
         if data is not None and command.command_def.is_data:
             Validations.validate_int(data, label=scope.name.title())
 
+    # noinspection PyUnreachableCode
     @classmethod
     def _enqueue_command(
         cls,
@@ -359,6 +362,7 @@ class CommandReq:
         else:
             return False
 
+    # noinspection PyCallingNonCallable
     def __call__(self, message: CommandReq) -> None:
         """
         Allows CommandReqs to receive messages from channels

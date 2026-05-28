@@ -107,6 +107,8 @@ class IrdaReq(LcsReq):
                 self._loco_rl = self._data[8] if data_len > 8 else None
                 self._loco_lr = self._data[9] if data_len > 9 else None
             elif self._action == IrdaAction.DATA:
+                from ..db.component_state_store import ComponentStateStore
+
                 self._valid1 = int.from_bytes(self._data[3:4], byteorder="little") if data_len > 4 else None
                 self._valid2 = int.from_bytes(self._data[5:6], byteorder="little") if data_len > 6 else None
                 self._dir = self._data[7] if data_len > 7 else None
@@ -129,13 +131,14 @@ class IrdaReq(LcsReq):
                 self._max_speed = self._data[64] if data_len > 64 else None
                 self._odometer = int.from_bytes(self._data[65:68], byteorder="little") if data_len > 68 else None
                 # if BlueTooth ID present, update engine_id, if necessary
-                if self._bluetooth_id:
-                    from ..db.component_state_store import ComponentStateStore
-
+                if not self._engine_id and self._bluetooth_id:
                     bt_id = int.from_bytes(self._bluetooth_id, byteorder="big")
                     state = ComponentStateStore.by_bluetooth_id(bt_id)
                     if state:
                         self._engine_id = state.tmcc_id
+                # if train_id is present but train doesn't exist, clear it
+                if self._train_id and not ComponentStateStore.get_state(CommandScope.TRAIN, self._train_id, False):
+                    self._train_id = 0
             elif self._action == IrdaAction.SEQUENCE:
                 self._sequence = IrdaSequence.by_value(self._data[3], True) if data_len > 3 else None
             elif self._action == IrdaAction.RECORD:
@@ -253,11 +256,13 @@ class IrdaReq(LcsReq):
             elif self.action == IrdaAction.DATA:
                 trav = "R -> L" if self._dir == 0 else "L -> R"
                 if self.train_id:
-                    eng = f"Train: {self.train_id}"
-                elif self.engine_id:
+                    tr = f"Train: {self.train_id} "
+                else:
+                    tr = ""
+                if self.engine_id:
                     eng = f"Engine: {self.engine_id}"
                 else:
-                    eng = "<Unknown>"
+                    eng = "Engine: NA"
                 na = f" {self._name}" if self._name is not None else ""
                 no = f" #{self._number}" if self._number is not None else ""
                 yr = f" {self.year}" if self.year is not None else ""
@@ -266,7 +271,7 @@ class IrdaReq(LcsReq):
                 ft = f" Od: {self._odometer:,} ft" if self._odometer is not None else ""
                 fl = f" Fuel: {(100.0 * self._fuel / 255):.2f}%" if self._fuel is not None else ""
                 wl = f" Water: {(100.0 * self._water / 255):.2f}%" if self._water is not None else ""
-                return f"{trav} {eng}{na}{no}{bt}{yr}{ty}{ft}{fl}{wl} Status: {self.status} ({self.packet})"
+                return f"{trav} {tr}{eng}{na}{no}{bt}{yr}{ty}{ft}{fl}{wl} Status: {self.status} ({self.packet})"
             elif self.action == IrdaAction.SEQUENCE:
                 return f"Sequence: {self.sequence_str} ({self.packet})"
             elif self.action == IrdaAction.RECORD:

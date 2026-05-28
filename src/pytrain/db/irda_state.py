@@ -69,7 +69,7 @@ class IrdaState(LcsState):
                 self._data_req = command
                 # change engine/train speed, based on the direction of travel
                 self._last_engine_id = self.harvest_tmcc_id(command)
-                self._last_train_id = command.train_id
+                self._last_train_id = self.harvest_tmcc_id(command, scope=CommandScope.TRAIN)
                 # check train exists
                 if (
                     self._last_train_id
@@ -87,6 +87,8 @@ class IrdaState(LcsState):
                         IrdaSequence.NORMAL_SPEED_SLOW_SPEED,
                     }
                     and CommBuffer.is_server()
+                    and self._last_train_id != 1
+                    and self._last_engine_id != 1
                 ):
                     rr_speed = None
                     if command.is_right_to_left:
@@ -191,13 +193,13 @@ class IrdaState(LcsState):
         return d
 
     @staticmethod
-    def harvest_tmcc_id(command) -> int:
+    def harvest_tmcc_id(command: P, scope: CommandScope = CommandScope.ENGINE) -> int:
         from ..db.component_state_store import ComponentStateStore
 
-        tmcc_id = command.engine_id
+        tmcc_id = command.engine_id if scope == CommandScope.ENGINE else command.train_id
         if tmcc_id == 1 and command.number and command.number.isdigit():
             road_number = int(command.number)
-            state = ComponentStateStore.get_state(CommandScope.ENGINE, road_number, False)
+            state = ComponentStateStore.get_state(scope, road_number, False)
             tmcc_id = state.address if state else 1
         return tmcc_id
 

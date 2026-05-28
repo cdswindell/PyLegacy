@@ -228,6 +228,8 @@ class ComponentStateStore:
                                 and command.comp_data
                                 and command.comp_data.scope == CommandScope.ENGINE
                                 and command.comp_data._bt_id
+                                and CommandScope.ENGINE in self._state
+                                and address in self._state[CommandScope.ENGINE]
                             ):
                                 self._bt_index[command.comp_data._bt_id] = self._state[CommandScope.ENGINE][address]
                 else:
