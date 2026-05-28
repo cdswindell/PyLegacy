@@ -450,12 +450,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # make scope buttons
         self.make_scope(app)
 
+        # ONE geometry pass at the end
+        app.tk.after_idle(app.tk.update_idletasks)
+
+        # Simulate the ops-mode display to compute and cache the engine-image
+        # baseline height even when no engine image is selected. This ensures
+        # accessory and other modes use the engine ops-mode available height.
+        self.compute_engine_image_baseline()
+
         # Finally, resize image box
         available_height, available_width = self._image_presenter.calc_box_size()
         self.image_box.tk.config(height=available_height, width=available_width)
-
-        # ONE geometry pass at the end
-        app.tk.after_idle(app.tk.update_idletasks)
 
         # calculate offset for popups
         x = self.info_box.tk.winfo_rootx()
@@ -1316,11 +1321,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._controller_view.apply_engine_type(state)
             self._controller_view.show()
 
-            # Simulate the ops-mode display to compute and cache the engine-image
-            # baseline height even when no engine image is selected. This ensures
-            # accessory and other modes use the engine ops-mode available height.
-            self.compute_engine_image_baseline()
-
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
@@ -1492,8 +1492,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.avail_image_height_engine = baseline
             # Apply globally so image presenter and other modes use engine baseline
             self.avail_image_height = baseline
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug(
+            if True or log.isEnabledFor(logging.DEBUG):
+                log.info(
                     f"Computed engine image baseline height={baseline} (hdr={header_h}, em={emergency_h}, "
                     f"info={info_h}, scope={scope_h}, ctrl={controller_h})"
                 )
