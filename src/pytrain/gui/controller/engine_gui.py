@@ -302,7 +302,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def reset_acc_overlay(self) -> None:
         if self._acc_overlay and self._acc_overlay.visible:
-            self.invalidate_image_box_size()
             self._acc_overlay.hide()
         self._acc_overlay = None
 
@@ -600,10 +599,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_configured_accessory(self, acc: ConfiguredAccessoryAdapter) -> None:
         self._acc_overlay = overlay = self._create_accessory_view(acc)
         if self.keypad_box.visible:
-            self.invalidate_image_box_size()
             self.keypad_box.hide()
         if not overlay.visible:
-            self.invalidate_image_box_size()
             overlay.show()
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
@@ -1500,7 +1497,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         except Exception as e:
             log.exception("Failed to compute engine image baseline", exc_info=e)
 
-    def invalidate_image_box_size(self) -> None:
+    def invalidate_image_box_size_XXX(self) -> None:
         # Clear any cached image box sizes so they are recomputed on next use.
         self.avail_image_height = None
         self.avail_image_height_engine = None

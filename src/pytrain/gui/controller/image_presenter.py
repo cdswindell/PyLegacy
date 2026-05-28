@@ -298,6 +298,7 @@ class ImagePresenter:
             if state:
                 key = (host.scope, tmcc_id)
                 box_size = host.calc_image_box_size()
+                print(f"Box Size: {box_size}")
                 if isinstance(state, AccessoryState):
                     if host.is_accessory_view(tmcc_id):
                         view = host.get_accessory_view(tmcc_id)
