@@ -137,12 +137,12 @@ class CatalogPanel(OverlayPanel):
             highlightbackground=LIONEL_ORANGE,
         )  # pixels
 
-    def configure(self, scope: CommandScope) -> None:
+    def configure(self, scope: CommandScope, force: bool = False) -> None:
         assert self.overlay  # force creation of panel
 
         # Updates catalog entries based on sort order
         print(f"Configuring catalog panel for scope: {scope}")
-        if self._scope != scope or scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE}:
+        if force or self._scope != scope or scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE}:
             # configure the selection buttons and reset them to all on
             self.configure_selection_btns(scope)
 
@@ -246,9 +246,7 @@ class CatalogPanel(OverlayPanel):
         print(f"Sort order updated for {self._scope}: {self._scoped_sort_order[self._scope]} skip: {self._skip_update}")
         if self._skip_update:
             return
-        scope = self._scope
-        self._scope = None
-        self.configure(scope)
+        self.configure(self._scope, force=True)
 
     def _set_sort_order_widget(self, sort_order: int) -> None:
         try:
