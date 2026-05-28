@@ -132,8 +132,8 @@ class ImagePresenter:
             variable_content = overlay_height
         else:
             variable_content = 0
-            if log.isEnabledFor(logging.DEBUG) and host.avail_image_height is None:
-                log.debug("No variable content available while calculating image box size")
+            if host.avail_image_height is None:
+                log.warning("No variable content available while calculating image box size")
 
         # Calculate remaining vertical space
         if host.avail_image_height is None:
@@ -361,7 +361,7 @@ class ImagePresenter:
 
     def refresh_box_size(self) -> tuple[int, int] | None:
         w = self._host.image_box.tk.winfo_width()
-        h = self._host.image_box.tk.winfo_height()
+        h = self._host.avail_image_height or self._host.image_box.tk.winfo_height()
         if w > 1 and h > 1:
             self._last_box_size = (h, w)
             return self._last_box_size

@@ -449,16 +449,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # make scope buttons
         self.make_scope(app)
 
-        # ONE geometry pass at the end
-        app.tk.after_idle(app.tk.update_idletasks)
-
         # Simulate the ops-mode display to compute and cache the engine-image
         # baseline height even when no engine image is selected. This ensures
         # accessory and other modes use the engine ops-mode available height.
-        self.compute_engine_image_baseline()
+        # ONE geometry pass at the end
+        self._compute_engine_image_baseline()
 
         # Finally, resize image box
         available_height, available_width = self._image_presenter.calc_box_size()
+        self.avail_image_width = available_width
         self.image_box.tk.config(height=available_height, width=available_width)
 
         # calculate offset for popups
@@ -1466,7 +1465,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # Fallback to presenter calculation
         return self._image_presenter.calc_box_size()
 
-    def compute_engine_image_baseline(self) -> None:
+    def _compute_engine_image_baseline(self) -> None:
         """Compute image height based on engine ops-mode layout and remember it.
 
         Baseline = device height - ops keypad/controller - scope buttons - info box
@@ -1487,6 +1486,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             baseline = self.height - header_h - emergency_h - info_h - scope_h - controller_h - 20
             baseline = max(0, int(baseline))
             self.avail_image_height_engine = baseline
+
             # Apply globally so image presenter and other modes use engine baseline
             self.avail_image_height = baseline
             if True or log.isEnabledFor(logging.DEBUG):
