@@ -243,7 +243,6 @@ class ImagePresenter:
                 if log.isEnabledFor(logging.DEBUG):
                     bt_id = state.bt_id if state else "NA"
                     log.debug(f"Requested product info for {scope.title} TMCC ID: {tmcc_id}  bt: {bt_id}...")
-                print(f"Calling get_prod_info: {available_height}x{available_width}")
                 prod_info = host.get_prod_info(
                     state.bt_id if state else None,
                     self._make_prod_info_callback(tmcc_id, train_id),
@@ -299,7 +298,6 @@ class ImagePresenter:
             if state:
                 key = (host.scope, tmcc_id)
                 box_size = host.calc_image_box_size()
-                print(f"Box Size: {box_size}")
                 if isinstance(state, AccessoryState):
                     if host.is_accessory_view(tmcc_id):
                         view = host.get_accessory_view(tmcc_id)
@@ -356,7 +354,6 @@ class ImagePresenter:
                     box_size = (host.avail_image_height, host.avail_image_width)
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
-            print(f"Updating image box size to {available_height}x{available_width}")
             host.image.tk.config(image=img)
             host.image_box.show()
 
