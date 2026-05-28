@@ -216,6 +216,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._acc_overlay = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
         self.switch_thru_cell = self.switch_out_cell = None
+        self.avail_image_height_engine = None
 
         # Sensor Track
         self.sensor_track_box = self.sensor_track_buttons = None
@@ -1318,10 +1319,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # Simulate the ops-mode display to compute and cache the engine-image
             # baseline height even when no engine image is selected. This ensures
             # accessory and other modes use the engine ops-mode available height.
-            try:
-                self.compute_engine_image_baseline()
-            except Exception:
-                log.exception("compute_engine_image_baseline failed")
+            self.compute_engine_image_baseline()
 
         # 3) Non-engine path (already moved)
         else:
@@ -1481,7 +1479,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         try:
             self.app.tk.update_idletasks()
             header_h = self.header.tk.winfo_reqheight() if self.header else 0
-            emergency_h = self.emergency_box_height or (self.emergency_box.tk.winfo_reqheight() if self.emergency_box else 0)
+            emergency_h = self.emergency_box_height or (
+                self.emergency_box.tk.winfo_reqheight() if self.emergency_box else 0
+            )
             info_h = self.info_box.tk.winfo_reqheight() if self.info_box else 0
             scope_h = self.scope_box.tk.winfo_reqheight() if self.scope_box else 0
             # Use controller_box as the ops-mode keypad area; use reqheight even if hidden
@@ -1493,7 +1493,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # Apply globally so image presenter and other modes use engine baseline
             self.avail_image_height = baseline
             if log.isEnabledFor(logging.DEBUG):
-                log.debug(f"Computed engine image baseline height={baseline} (hdr={header_h}, em={emergency_h}, info={info_h}, scope={scope_h}, ctrl={controller_h})")
+                log.debug(
+                    f"Computed engine image baseline height={baseline} (hdr={header_h}, em={emergency_h}, "
+                    f"info={info_h}, scope={scope_h}, ctrl={controller_h})"
+                )
         except Exception as e:
             log.exception("Failed to compute engine image baseline", exc_info=e)
 
