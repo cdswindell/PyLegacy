@@ -243,6 +243,7 @@ class ImagePresenter:
                 if log.isEnabledFor(logging.DEBUG):
                     bt_id = state.bt_id if state else "NA"
                     log.debug(f"Requested product info for {scope.title} TMCC ID: {tmcc_id}  bt: {bt_id}...")
+                print(f"Calling get_prod_info: {available_height}x{available_width}")
                 prod_info = host.get_prod_info(
                     state.bt_id if state else None,
                     self._make_prod_info_callback(tmcc_id, train_id),
@@ -355,14 +356,14 @@ class ImagePresenter:
                     box_size = (host.avail_image_height, host.avail_image_width)
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
-            print(f"Updating image box size to {available_width}x{available_height}")
+            print(f"Updating image box size to {available_height}x{available_width}")
             host.image.tk.config(image=img)
             host.image_box.show()
 
     def refresh_box_size(self) -> tuple[int, int] | None:
-        w = self._host.image_box.tk.winfo_width()
+        w = self._host.avail_image_width or self._host.image_box.tk.winfo_width()
         h = self._host.avail_image_height or self._host.image_box.tk.winfo_height()
-        if w > 1 and h > 1:
+        if h > 1 and w > 1:
             self._last_box_size = (h, w)
             return self._last_box_size
         return None
