@@ -355,6 +355,7 @@ class ImagePresenter:
                     box_size = (host.avail_image_height, host.avail_image_width)
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
+            print(f"Updating image box size to {available_width}x{available_height}")
             host.image.tk.config(image=img)
             host.image_box.show()
 

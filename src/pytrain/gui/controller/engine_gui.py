@@ -1497,12 +1497,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         except Exception as e:
             log.exception("Failed to compute engine image baseline", exc_info=e)
 
-    def invalidate_image_box_size_XXX(self) -> None:
-        # Clear any cached image box sizes so they are recomputed on next use.
-        self.avail_image_height = None
-        self.avail_image_height_engine = None
-        self.avail_image_width = None
-
     def make_emergency_buttons(self, app: App):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
