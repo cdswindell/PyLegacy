@@ -197,7 +197,7 @@ class CatalogPanel(OverlayPanel):
                         self._catalog.set_item_style(background="green")
                     elif isinstance(state, RouteState) and state.is_aligned:
                         self._catalog.set_item_style(background="green")
-                    self._scope = scope
+            self._scope = scope or self.gui.scope
 
     def configure_selection_btns(self, scope: CommandScope):
         if scope not in self._scoped_selection:

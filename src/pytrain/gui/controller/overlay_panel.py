@@ -28,6 +28,10 @@ class OverlayPanel(metaclass=ABCMeta):
         pass
 
     @property
+    def gui(self) -> "EngineGui":
+        return self._gui
+
+    @property
     def overlay(self) -> Box:
         if self._overlay is None:
             # noinspection PyProtectedMember
