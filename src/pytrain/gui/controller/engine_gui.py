@@ -479,8 +479,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             app.after(100, self.update_component_info, [self.initial])
 
         # prewarm some images
-        self.app.tk.after_idle(self._popup.preload_images)
-        self.app.tk.after_idle(self._start_accessory_overlay_prewarm)
+        # self.app.tk.after_idle(self._popup.preload_images)
+        # self.app.tk.after_idle(self._start_accessory_overlay_prewarm)
         # for image in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
         #     self.app.tk.after_idle(lambda: self.get_titled_image(image))
 
