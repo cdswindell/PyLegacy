@@ -266,7 +266,7 @@ class IrdaReq(LcsReq):
                 na = f" {self._name}" if self._name is not None else ""
                 no = f" #{self._number}" if self._number is not None else ""
                 yr = f" {self.year}" if self.year is not None else ""
-                bt = f" BT: {self.bluetooth_id.hex(':')}" if self._bluetooth_id else ""
+                bt = f" BT: {self.bluetooth_id.hex()}" if self._bluetooth_id else ""
                 ty = f" Type: {self.product_id}"
                 ft = f" Od: {self._odometer:,} ft" if self._odometer is not None else ""
                 fl = f" Fuel: {(100.0 * self._fuel / 255):.2f}%" if self._fuel is not None else ""
