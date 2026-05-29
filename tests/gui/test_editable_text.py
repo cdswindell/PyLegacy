@@ -50,10 +50,12 @@ class DummyTk:
     def focus_get(self):
         return self._focus
 
-    def winfo_screenwidth(self) -> int:
+    @staticmethod
+    def winfo_screenwidth() -> int:
         return 800
 
-    def winfo_screenheight(self) -> int:
+    @staticmethod
+    def winfo_screenheight() -> int:
         return 480
 
     @staticmethod
@@ -471,7 +473,7 @@ def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkey
     assert widget._keyboard_window.geometry_value == "800x420+0+60"
     assert any(btn.text == "Clear" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
-    assert any(btn.text == "Done" for btn in DummyButton.instances)
+    assert any(btn.text == "Save" for btn in DummyButton.instances)
     assert any(btn.text == "←" for btn in DummyButton.instances)
     assert any(btn.text == "→" for btn in DummyButton.instances)
     assert any(btn.text == "Del" for btn in DummyButton.instances)
@@ -559,7 +561,7 @@ def test_keypad_editor_shows_number_pad_and_enforces_max_length(
     assert all(any(btn.text == key for btn in DummyButton.instances) for key in "0123456789")
     assert any(btn.text == "Clear" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
-    assert any(btn.text == "Done" for btn in DummyButton.instances)
+    assert any(btn.text == "Save" for btn in DummyButton.instances)
     assert any(btn.text == "Del" for btn in DummyButton.instances)
 
 
@@ -607,7 +609,7 @@ def test_choices_editor_commits_choice_keys_and_keeps_display_text(
     assert any(btn.text == "↓" for btn in DummyButton.instances)
     assert any(btn.text == "Current" for btn in DummyButton.instances)
     assert any(btn.text == "Cancel" for btn in DummyButton.instances)
-    assert any(btn.text == "Done" for btn in DummyButton.instances)
+    assert any(btn.text == "Save" for btn in DummyButton.instances)
 
 
 def test_choices_editor_current_button_restores_original_selection(

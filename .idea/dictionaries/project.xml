@@ -90,12 +90,16 @@
       <w>pytrainhome</w>
       <w>pytraininfo</w>
       <w>quilling</w>
+      <w>repeatdelay</w>
+      <w>repeatinterval</w>
       <w>requeues</w>
       <w>respbcasts</w>
       <w>retryhost</w>
       <w>returncode</w>
       <w>rnum</w>
       <w>rpicam</w>
+      <w>selectbackground</w>
+      <w>selectforeground</w>
       <w>setsid</w>
       <w>settimeout</w>
       <w>squeekboard</w>
