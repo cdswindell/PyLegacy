@@ -528,7 +528,7 @@ class PyTrain:
             "-cache_sync_port",
             type=int,
             default=None,
-            help="Engine info cache sync port (default: server_port + 100)",
+            help=f"{PROGRAM_NAME} cache sync port (default: server_port + 100)",
         )
         ser2_opts = parser.add_argument_group("LCS Ser2 options")
         ser2_opts.add_argument(
@@ -701,6 +701,7 @@ class PyTrain:
         except Exception as e:
             log.warning(f"Error closing GPIO, continuing shutdown: {e}")
 
+    # noinspection PyUnreachableCode
     def do_admin_cmd(self, command: CommandDefEnum, args: List[str] = None):
         cmd = CommandReq(command)
         # special case to see if we want to operate on a different client node

@@ -54,6 +54,126 @@ def test_sidecar_payload_without_delete_keeps_stale_server_cache(tmp_path) -> No
     assert (remote.engine_info / "stale.json").read_text(encoding="utf-8") == "stale"
 
 
+def test_sidecar_payload_syncs_config_json_files(tmp_path) -> None:
+    local = CacheSyncPaths(
+        tmp_path / "local_info",
+        tmp_path / "local_images",
+        tmp_path / "local_config",
+    )
+    remote = CacheSyncPaths(
+        tmp_path / "remote_info",
+        tmp_path / "remote_images",
+        tmp_path / "remote_config",
+    )
+    for path in local.iter_existing_or_configured():
+        path.mkdir(parents=True)
+    for path in remote.iter_existing_or_configured():
+        path.mkdir(parents=True)
+
+    (local.config / "accessory_config.json").write_text('{"accessories": []}', encoding="utf-8")
+    (remote.config / "stale.json").write_text("stale", encoding="utf-8")
+
+    payload = SidecarCacheTransport.build_payload(local, remote, delete=True)
+    SidecarCacheTransport.apply_payload(remote, payload)
+
+    assert (remote.config / "accessory_config.json").read_text(encoding="utf-8") == '{"accessories": []}'
+    assert not (remote.config / "stale.json").exists()
+
+
+def test_config_sync_ignores_non_json_and_nested_files(tmp_path) -> None:
+    local = CacheSyncPaths(None, None, tmp_path / "local_config")
+    remote = CacheSyncPaths(None, None, tmp_path / "remote_config")
+    local.config.mkdir(parents=True)
+    remote.config.mkdir(parents=True)
+    (local.config / "accessory_config.json").write_text("{}", encoding="utf-8")
+    (local.config / "notes.txt").write_text("ignore", encoding="utf-8")
+    (local.config / "nested").mkdir()
+    (local.config / "nested" / "nested.json").write_text("ignore", encoding="utf-8")
+    (remote.config / "keep.txt").write_text("keep", encoding="utf-8")
+    (remote.config / "nested").mkdir()
+    (remote.config / "nested" / "keep.json").write_text("keep", encoding="utf-8")
+
+    payload = SidecarCacheTransport.build_payload(local, remote, delete=True)
+    SidecarCacheTransport.apply_payload(remote, payload)
+
+    assert payload["caches"] == ["config"]
+    assert [item["path"] for item in payload["files"]] == ["accessory_config.json"]
+    assert (remote.config / "accessory_config.json").read_text(encoding="utf-8") == "{}"
+    assert (remote.config / "keep.txt").read_text(encoding="utf-8") == "keep"
+    assert (remote.config / "nested" / "keep.json").read_text(encoding="utf-8") == "keep"
+
+
+def test_config_sync_handles_missing_directories(tmp_path) -> None:
+    local = CacheSyncPaths(None, None, tmp_path / "missing_local_config")
+    remote = CacheSyncPaths(None, None, tmp_path / "missing_remote_config")
+
+    payload = SidecarCacheTransport.build_payload(local, remote, delete=True)
+    SidecarCacheTransport.apply_payload(remote, payload)
+
+    assert payload == {"delete": True, "caches": ["config"], "files": []}
+    assert not local.config.exists()
+    assert not remote.config.exists()
+
+
+def test_sync_skips_config_when_peer_does_not_advertise_it(tmp_path) -> None:
+    local = CacheSyncPaths(
+        tmp_path / "local_info",
+        tmp_path / "local_images",
+        tmp_path / "local_config",
+    )
+    remote = CacheSyncPaths(
+        tmp_path / "remote_info",
+        tmp_path / "remote_images",
+        None,
+    )
+    for path in local.iter_existing_or_configured():
+        path.mkdir(parents=True)
+    for path in remote.iter_existing_or_configured():
+        path.mkdir(parents=True)
+
+    (local.engine_info / "abc.json").write_text("engine", encoding="utf-8")
+    (local.config / "accessory_config.json").write_text("accessory", encoding="utf-8")
+
+    payload = SidecarCacheTransport.build_payload(local, remote, delete=False)
+
+    assert payload["caches"] == ["engine_info", "engine_images"]
+    assert {item["cache"] for item in payload["files"]} == {"engine_info"}
+
+
+def test_apply_payload_preserves_config_when_payload_does_not_include_config_cache(tmp_path) -> None:
+    local = CacheSyncPaths(
+        tmp_path / "local_info",
+        tmp_path / "local_images",
+        tmp_path / "local_config",
+    )
+    for path in local.iter_existing_or_configured():
+        path.mkdir(parents=True)
+
+    (local.config / "accessory_config.json").write_text("keep", encoding="utf-8")
+    payload = {
+        "delete": True,
+        "caches": ["engine_info", "engine_images"],
+        "files": [],
+    }
+
+    SidecarCacheTransport.apply_payload(local, payload)
+
+    assert (local.config / "accessory_config.json").read_text(encoding="utf-8") == "keep"
+
+
+def test_cache_sync_paths_decode_peer_without_config(tmp_path) -> None:
+    decoded = CacheSyncPaths.from_wire_dict(
+        {
+            "engine_info": str(tmp_path / "engine_info"),
+            "engine_images": str(tmp_path / "engine_images"),
+        }
+    )
+
+    assert decoded.engine_info == (tmp_path / "engine_info").resolve()
+    assert decoded.engine_images == (tmp_path / "engine_images").resolve()
+    assert decoded.config is None
+
+
 def test_sidecar_payload_can_skip_tombstoned_file_names(tmp_path) -> None:
     local = CacheSyncPaths(tmp_path / "local_info", tmp_path / "local_images")
     remote = CacheSyncPaths(tmp_path / "remote_info", tmp_path / "remote_images")
@@ -116,11 +236,24 @@ def test_sidecar_payload_rejects_unsafe_paths(tmp_path, unsafe_path) -> None:
 
 
 def test_cache_sync_paths_round_trip_wire_dict(tmp_path) -> None:
-    paths = CacheSyncPaths(tmp_path / "engine_info", tmp_path / "engine_images")
+    paths = CacheSyncPaths(tmp_path / "engine_info", tmp_path / "engine_images", tmp_path / "config")
 
     decoded = CacheSyncPaths.from_wire_dict(paths.as_wire_dict())
 
     assert decoded == paths
+
+
+def test_cache_manifest_uses_config_cache_key(tmp_path, monkeypatch) -> None:
+    config_dir = tmp_path / "cache" / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "accessory_config.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr("src.pytrain.db.prod_info.ENGINE_INFO_CACHE_DIR", "", raising=True)
+    monkeypatch.setattr("src.pytrain.db.prod_info.ENGINE_IMAGES_CACHE_DIR", "", raising=True)
+    monkeypatch.setattr("src.pytrain.db.cache_sync.CONFIG_CACHE_DIR", str(config_dir), raising=True)
+
+    manifest = CacheSyncManager._cache_manifest()
+
+    assert manifest[0][0] == "config/accessory_config.json"
 
 
 def test_force_sync_skips_when_client_server_does_not_advertise_support(monkeypatch) -> None:

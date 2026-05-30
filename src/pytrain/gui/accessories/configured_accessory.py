@@ -24,7 +24,7 @@ from ...utils.singleton import singleton
 log = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_FILE = "accessory_config.json"
-DEFAULT_CONFIG_CACHE_DIR = Path("cache") / "accessory_config"
+DEFAULT_CONFIG_CACHE_DIR = Path("cache") / "config"
 
 
 # -----------------------------------------------------------------------------
@@ -480,7 +480,7 @@ class ConfiguredAccessorySet:
         requested = Path(DEFAULT_CONFIG_FILE if path is None else path)
 
         # Explicit paths stay explicit. Bare filenames use the PyTrain config
-        # search order: current directory first, then ./cache/accessory_config.
+        # search order: current directory first, then ./cache/config.
         if requested.is_absolute() or requested.parent != Path("."):
             return requested
 

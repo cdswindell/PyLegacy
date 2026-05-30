@@ -116,7 +116,7 @@ def _basic_config(display_name: str, *, tmcc_id: int = 7, instance_id: str = "A"
 
 
 def test_configured_set_prefers_current_directory_over_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     (cache_dir / ca_mod.DEFAULT_CONFIG_FILE).write_text(json.dumps(_basic_config("Cached")), encoding="utf-8")
     (tmp_path / ca_mod.DEFAULT_CONFIG_FILE).write_text(json.dumps(_basic_config("Current")), encoding="utf-8")
@@ -128,7 +128,7 @@ def test_configured_set_prefers_current_directory_over_cache(tmp_path: Path, mon
 
 
 def test_configured_set_falls_back_to_cache_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     (cache_dir / ca_mod.DEFAULT_CONFIG_FILE).write_text(json.dumps(_basic_config("Cached")), encoding="utf-8")
     monkeypatch.chdir(tmp_path)

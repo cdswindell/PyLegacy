@@ -33,6 +33,7 @@ DEFAULT_CACHE_SYNC_POLL = float(os.environ.get("PYTRAIN_CACHE_SYNC_POLL", "30.0"
 DEFAULT_CACHE_SYNC_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_TIMEOUT", "30.0"))
 DEFAULT_CACHE_SYNC_CONNECT_TIMEOUT = float(os.environ.get("PYTRAIN_CACHE_SYNC_CONNECT_TIMEOUT", "2.0"))
 DEFAULT_CACHE_SYNC_MAX_PAYLOAD = int(os.environ.get("PYTRAIN_CACHE_SYNC_MAX_PAYLOAD", str(64 * 1024 * 1024)))
+CONFIG_CACHE_DIR = os.environ.get("CONFIG_CACHE_DIR", "cache/config")
 
 
 class CacheSyncEvent(Enum):
@@ -52,12 +53,14 @@ class CachePeer:
 class CacheSyncPaths:
     engine_info: Path | None
     engine_images: Path | None
+    config: Path | None = None
 
     @classmethod
     def current(cls, create: bool = False) -> "CacheSyncPaths":
         paths = cls(
             cls._path(prod_info.ENGINE_INFO_CACHE_DIR),
             cls._path(prod_info.ENGINE_IMAGES_CACHE_DIR),
+            cls._path(CONFIG_CACHE_DIR),
         )
         if create:
             for path in paths.iter_existing_or_configured():
@@ -72,20 +75,27 @@ class CacheSyncPaths:
         return {
             "engine_info": str(self.engine_info) if self.engine_info else None,
             "engine_images": str(self.engine_images) if self.engine_images else None,
+            "config": str(self.config) if self.config else None,
         }
 
     @classmethod
     def from_wire_dict(cls, data: dict) -> "CacheSyncPaths":
-        return cls(cls._path(data.get("engine_info")), cls._path(data.get("engine_images")))
+        return cls(
+            cls._path(data.get("engine_info")),
+            cls._path(data.get("engine_images")),
+            cls._path(data.get("config")),
+        )
 
     def iter_pairs(self, remote: "CacheSyncPaths"):
         if self.engine_info and remote.engine_info:
             yield "engine_info", self.engine_info, remote.engine_info
         if self.engine_images and remote.engine_images:
             yield "engine_images", self.engine_images, remote.engine_images
+        if self.config and remote.config:
+            yield "config", self.config, remote.config
 
     def iter_existing_or_configured(self):
-        for path in (self.engine_info, self.engine_images):
+        for path in (self.engine_info, self.engine_images, self.config):
             if path is not None:
                 yield path
 
@@ -136,7 +146,7 @@ class CacheSyncHandler(socketserver.StreamRequestHandler):
             else:
                 response = {"ok": False, "error": "unsupported command"}
         except Exception as e:
-            log.debug("Engine info cache request failed: %s", e)
+            log.debug(f"{PROGRAM_NAME} cache request failed: %s", e)
             response = {"ok": False, "error": str(e)}
         self.wfile.write((json.dumps(response) + "\n").encode("utf-8"))
 
@@ -177,13 +187,13 @@ class SidecarCacheTransport:
             if response.get("ok"):
                 return True
             log.warning(
-                "Engine info cache rejected sync to %s:%s: %s",
+                f"{PROGRAM_NAME} cache rejected sync to %s:%s: %s",
                 host,
                 port,
                 response.get("error", "unknown error"),
             )
         except Exception as e:
-            log.warning("Engine info cache transfer failed to %s:%s: %s", host, port, e)
+            log.warning(f"{PROGRAM_NAME} cache transfer failed to %s:%s: %s", host, port, e)
         return False
 
     def delete_from_peer(self, host: str, port: int, file_name: str, *, propagate: bool) -> bool:
@@ -197,13 +207,13 @@ class SidecarCacheTransport:
             if response.get("ok"):
                 return True
             log.warning(
-                "Engine info cache rejected delete request to %s:%s: %s",
+                f"{PROGRAM_NAME} cache rejected delete request to %s:%s: %s",
                 host,
                 port,
                 response.get("error", "unknown error"),
             )
         except Exception as e:
-            log.warning("Engine info cache delete request failed to %s:%s: %s", host, port, e)
+            log.warning(f"{PROGRAM_NAME} cache delete request failed to %s:%s: %s", host, port, e)
         return False
 
     @classmethod
@@ -213,9 +223,7 @@ class SidecarCacheTransport:
             payload["caches"].append(cache_name)
             if not local_path.is_dir():
                 continue
-            for path in local_path.rglob("*"):
-                if not path.is_file():
-                    continue
+            for path in cls._iter_sync_files(cache_name, local_path):
                 try:
                     rel = path.relative_to(local_path).as_posix()
                     content = base64.b64encode(path.read_bytes()).decode("ascii")
@@ -244,6 +252,8 @@ class SidecarCacheTransport:
             if cache_name not in roots:
                 continue
             rel = cls._safe_relative_path(item.get("path"))
+            if not cls._sync_file_allowed(cache_name, rel):
+                continue
             if rel.name in skip_file_names:
                 continue
             incoming.setdefault(cache_name, set()).add(rel.as_posix())
@@ -262,10 +272,10 @@ class SidecarCacheTransport:
         file_name = cls._safe_file_name(file_name)
         deleted = 0
         roots = cls._roots(local_paths)
-        for root in roots.values():
+        for cache_name, root in roots.items():
             if not root.is_dir():
                 continue
-            for path in root.rglob("*"):
+            for path in cls._iter_sync_files(cache_name, root):
                 if path.name != file_name or not (path.is_file() or path.is_symlink()):
                     continue
                 try:
@@ -283,6 +293,8 @@ class SidecarCacheTransport:
             roots["engine_info"] = paths.engine_info
         if paths.engine_images is not None:
             roots["engine_images"] = paths.engine_images
+        if paths.config is not None:
+            roots["config"] = paths.config
         return roots
 
     @staticmethod
@@ -308,9 +320,7 @@ class SidecarCacheTransport:
             keep = incoming.get(cache_name)
             if keep is None or not root.is_dir():
                 continue
-            for path in root.rglob("*"):
-                if not path.is_file():
-                    continue
+            for path in SidecarCacheTransport._iter_sync_files(cache_name, root):
                 rel = path.relative_to(root).as_posix()
                 if rel in keep or SidecarCacheTransport._preserve_file(cache_name, rel):
                     continue
@@ -335,6 +345,19 @@ class SidecarCacheTransport:
     def _preserve_file(cache_name: str, rel: str) -> bool:
         path = PurePosixPath(rel)
         return cache_name == "engine_images" and path.stem.isdigit() and path.name.endswith(".jpg")
+
+    @staticmethod
+    def _iter_sync_files(cache_name: str, root: Path):
+        paths = root.glob("*.json") if cache_name == "config" else root.rglob("*")
+        for path in paths:
+            if path.is_file():
+                yield path
+
+    @staticmethod
+    def _sync_file_allowed(cache_name: str, rel: PurePosixPath) -> bool:
+        if cache_name != "config":
+            return True
+        return len(rel.parts) == 1 and rel.suffix == ".json"
 
 
 class CacheSyncManager(Thread):
@@ -452,7 +475,7 @@ class CacheSyncManager(Thread):
             log.info("Cache sync skipped: server does not advertise cache sync support")
             return
         if not self._sidecar_available:
-            log.info("Cache sync skipped: local engine info cache listener is unavailable")
+            log.info(f"Cache sync skipped: local {PROGRAM_NAME} cache listener is unavailable")
             return
         if self._is_server:
             self._sync_to_clients()
@@ -502,10 +525,10 @@ class CacheSyncManager(Thread):
             self._server_thread = Thread(
                 target=self._server.serve_forever,
                 daemon=True,
-                name=f"{PROGRAM_NAME} Engine Info Cache",
+                name=f"{PROGRAM_NAME} Cache",
             )
             self._server_thread.start()
-            log.info("Engine info cache listening on port %s", self._sync_port)
+            log.info("%s cache listening on port %s", PROGRAM_NAME, self._sync_port)
             return True
         except OSError as e:
             log.warning("Cache sync disabled: unable to listen on port %s: %s", self._sync_port, e)
@@ -673,16 +696,19 @@ class CacheSyncManager(Thread):
     def mark_cache_synced(self) -> None:
         self._manifest = self._cache_manifest()
 
+    # noinspection PyProtectedMember
     @staticmethod
     def _cache_manifest() -> tuple[tuple[str, int, int], ...]:
         entries: list[tuple[str, int, int]] = []
         paths = CacheSyncPaths.current(create=False)
-        for cache_name, root in (("engine_info", paths.engine_info), ("engine_images", paths.engine_images)):
+        for cache_name, root in (
+            ("engine_info", paths.engine_info),
+            ("engine_images", paths.engine_images),
+            ("config", paths.config),
+        ):
             if root is None or not root.is_dir():
                 continue
-            for path in root.rglob("*"):
-                if not path.is_file():
-                    continue
+            for path in SidecarCacheTransport._iter_sync_files(cache_name, root):
                 try:
                     stat = path.stat()
                     rel = path.relative_to(root).as_posix()

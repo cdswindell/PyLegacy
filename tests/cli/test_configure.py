@@ -31,7 +31,7 @@ def _config_payload() -> dict[str, object]:
 
 
 def test_resolve_existing_path_prefers_top_level(tmp_path: Path, monkeypatch) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     top_level = tmp_path / configure.DEFAULT_CONFIG_FILE
     cached = cache_dir / configure.DEFAULT_CONFIG_FILE
@@ -43,7 +43,7 @@ def test_resolve_existing_path_prefers_top_level(tmp_path: Path, monkeypatch) ->
 
 
 def test_resolve_existing_path_falls_back_to_cache(tmp_path: Path, monkeypatch) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     cached = cache_dir / configure.DEFAULT_CONFIG_FILE
     cached.write_text("{}", encoding="utf-8")
@@ -53,7 +53,7 @@ def test_resolve_existing_path_falls_back_to_cache(tmp_path: Path, monkeypatch) 
 
 
 def test_print_edit_target_reports_cache_file(tmp_path: Path, monkeypatch, capsys) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     cached = cache_dir / configure.DEFAULT_CONFIG_FILE
     cached.write_text("{}", encoding="utf-8")
@@ -65,7 +65,7 @@ def test_print_edit_target_reports_cache_file(tmp_path: Path, monkeypatch, capsy
 
 
 def test_copy_cache_to_local_keeps_cache_file(tmp_path: Path, monkeypatch) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     cached = cache_dir / configure.DEFAULT_CONFIG_FILE
     cached.write_text('{"source": "cache"}', encoding="utf-8")
@@ -85,13 +85,13 @@ def test_move_local_to_cache_removes_top_level_file(tmp_path: Path, monkeypatch)
 
     moved = configure._move_local_to_cache(Path(configure.DEFAULT_CONFIG_FILE))
 
-    assert moved == tmp_path / "cache" / "accessory_config" / configure.DEFAULT_CONFIG_FILE
+    assert moved == tmp_path / "cache" / "config" / configure.DEFAULT_CONFIG_FILE
     assert moved.read_text(encoding="utf-8") == '{"source": "local"}'
     assert not top_level.exists()
 
 
 def test_copy_cache_to_local_command_line(tmp_path: Path, monkeypatch, capsys) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     cached = cache_dir / configure.DEFAULT_CONFIG_FILE
     cached.write_text('{"source": "cache"}', encoding="utf-8")
@@ -104,7 +104,7 @@ def test_copy_cache_to_local_command_line(tmp_path: Path, monkeypatch, capsys) -
 
 
 def test_copy_cache_to_local_requires_force_to_overwrite(tmp_path: Path, monkeypatch) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     (cache_dir / configure.DEFAULT_CONFIG_FILE).write_text('{"source": "cache"}', encoding="utf-8")
     (tmp_path / configure.DEFAULT_CONFIG_FILE).write_text('{"source": "local"}', encoding="utf-8")
@@ -128,7 +128,7 @@ def test_interactive_move_local_to_shared_cache(tmp_path: Path, monkeypatch) -> 
         registry=DummyRegistry(),
     )
 
-    assert resolved == tmp_path / "cache" / "accessory_config" / configure.DEFAULT_CONFIG_FILE
+    assert resolved == tmp_path / "cache" / "config" / configure.DEFAULT_CONFIG_FILE
     assert existing == payload["accessories"]
     assert resolved.exists()
     assert not top_level.exists()
@@ -154,7 +154,7 @@ def test_interactive_prompt_hides_cache_copy_when_cache_file_missing(tmp_path: P
 
 
 def test_interactive_prompt_hides_cache_move_when_local_file_missing(tmp_path: Path, monkeypatch) -> None:
-    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
     (cache_dir / configure.DEFAULT_CONFIG_FILE).write_text(json.dumps(_config_payload()), encoding="utf-8")
     monkeypatch.chdir(tmp_path)

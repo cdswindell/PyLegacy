@@ -324,7 +324,7 @@ def _resolve_existing_path(out_path: Path) -> Path:
 
     Priority:
       1) If out_path exists at top level/as given, use it.
-      2) Else try ./cache/accessory_config/<filename>.
+      2) Else try ./cache/config/<filename>.
       3) Else use out_path as provided (new file).
     """
     if out_path.exists():
@@ -886,13 +886,13 @@ class Configure:
             "--copy-cache-to-local",
             "--copy-cache-to-top-level",
             action="store_true",
-            help="Copy ./cache/accessory_config/<file> to the top level (locally override shared config) then exit.",
+            help="Copy ./cache/config/<file> to the top level (locally override shared config) then exit.",
         )
         transfer.add_argument(
             "--move-local-to-cache",
             "--move-top-level-to-cache",
             action="store_true",
-            help="Move the top-level config into ./cache/accessory_config so it can be shared, then exit.",
+            help="Move the top-level config into ./cache/config so it can be shared, then exit.",
         )
         ap.add_argument(
             "--force",
