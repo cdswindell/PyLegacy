@@ -370,6 +370,7 @@ class DependencyCache(Generic[T, C, E]):
         """
         return DependencyCache()
 
+    # noinspection PyUnreachableCode
     @classmethod
     def listen_for_enablers(cls, request: CommandReq, callback: Subscriber) -> List[E | Tuple[E, int]] | None:
         enablers = None
@@ -390,6 +391,7 @@ class DependencyCache(Generic[T, C, E]):
                     listener.listen_for(callback, request.scope, BROADCAST_ADDRESS, enabler)
         return enablers
 
+    # noinspection PyUnreachableCode
     @classmethod
     def listen_for_disablers(cls, request: CommandReq, callback: Subscriber) -> List[E | Tuple[E, int]] | None:
         disablers = None

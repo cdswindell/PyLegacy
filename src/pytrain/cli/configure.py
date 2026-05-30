@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -22,8 +23,7 @@ from typing import Any, Iterable
 from ..gui.accessories.accessory_gui_catalog import AccessoryGuiCatalog
 from ..gui.accessories.accessory_registry import AccessoryRegistry, PortBehavior
 from ..gui.accessories.accessory_type import AccessoryType
-from ..gui.accessories.configured_accessory import DEFAULT_CONFIG_FILE
-from ..utils.path_utils import find_file  # <-- adjust if needed
+from ..gui.accessories.configured_accessory import DEFAULT_CONFIG_CACHE_DIR, DEFAULT_CONFIG_FILE
 
 
 def _clean_accessory_list(
@@ -323,18 +323,143 @@ def _resolve_existing_path(out_path: Path) -> Path:
     Determine where we should read from / write to.
 
     Priority:
-      1) If out_path exists as given, use it.
-      2) Else try find_file(out_path.name) in project tree.
+      1) If out_path exists at top level/as given, use it.
+      2) Else try ./cache/accessory_config/<filename>.
       3) Else use out_path as provided (new file).
     """
     if out_path.exists():
         return out_path
 
-    found = find_file(out_path.name)
-    if found:
-        return Path(found)
+    if out_path.is_absolute() or out_path.parent != Path("."):
+        return out_path
+
+    cached_path = Path.cwd() / DEFAULT_CONFIG_CACHE_DIR / out_path.name
+    if cached_path.exists():
+        return cached_path
 
     return out_path
+
+
+def _is_default_config_location(path: Path) -> bool:
+    return not path.is_absolute() and path.parent == Path(".")
+
+
+def _top_level_config_path(path: Path) -> Path:
+    return Path.cwd() / path.name
+
+
+def _cache_config_path(path: Path) -> Path:
+    return Path.cwd() / DEFAULT_CONFIG_CACHE_DIR / path.name
+
+
+def _require_default_config_location(path: Path, action: str) -> None:
+    if not _is_default_config_location(path):
+        raise ValueError(f"{action} requires a bare config filename, not {path}")
+
+
+def _copy_cache_to_local(out_path: Path, *, force: bool = False) -> Path:
+    """
+    Copy the shared cache config to the top level so this node can override it.
+    """
+    _require_default_config_location(out_path, "Copying cache config to top level")
+    src = _cache_config_path(out_path)
+    dst = _top_level_config_path(out_path)
+
+    if not src.exists():
+        raise FileNotFoundError(f"Cache config file not found: {src}")
+    if dst.exists() and not force:
+        raise FileExistsError(f"Top-level config file already exists: {dst} (use --force to overwrite)")
+
+    shutil.copy2(src, dst)
+    return dst
+
+
+def _move_local_to_cache(out_path: Path, *, force: bool = False) -> Path:
+    """
+    Move the top-level config into cache so it can be shared across nodes.
+    """
+    _require_default_config_location(out_path, "Moving top-level config to cache")
+    src = _top_level_config_path(out_path)
+    dst = _cache_config_path(out_path)
+
+    if not src.exists():
+        raise FileNotFoundError(f"Top-level config file not found: {src}")
+    if dst.exists():
+        if not force:
+            raise FileExistsError(f"Cache config file already exists: {dst} (use --force to overwrite)")
+        dst.unlink()
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dst))
+    return dst
+
+
+def _confirm_overwrite(path: Path) -> bool:
+    answer = _ask(f"Overwrite existing file {path.resolve()}? (y/n)", default="n")
+    return _norm(answer) in ("y", "yes")
+
+
+def _copy_cache_to_local_interactive(out_path: Path) -> Path | None:
+    dst = _top_level_config_path(out_path)
+    force = dst.exists() and _confirm_overwrite(dst)
+    if dst.exists() and not force:
+        print("Copy canceled.")
+        return None
+
+    copied = _copy_cache_to_local(out_path, force=force)
+    print(f"Copied cache config to top level: {copied.resolve()}")
+    return copied
+
+
+def _move_local_to_cache_interactive(out_path: Path) -> Path | None:
+    dst = _cache_config_path(out_path)
+    force = dst.exists() and _confirm_overwrite(dst)
+    if dst.exists() and not force:
+        print("Move canceled.")
+        return None
+
+    moved = _move_local_to_cache(out_path, force=force)
+    print(f"Moved top-level config to cache: {moved.resolve()}")
+    return moved
+
+
+def _run_config_file_transfer(args: argparse.Namespace, out_path: Path) -> bool:
+    if args.copy_cache_to_local:
+        copied = _copy_cache_to_local(out_path, force=args.force)
+        print(f"Copied cache config to top level: {copied.resolve()}")
+        return True
+
+    if args.move_local_to_cache:
+        moved = _move_local_to_cache(out_path, force=args.force)
+        print(f"Moved top-level config to cache: {moved.resolve()}")
+        return True
+
+    return False
+
+
+def _config_path_location(path: Path, requested: Path) -> str:
+    if requested.is_absolute() or requested.parent != Path("."):
+        return "specified"
+
+    top_level_path = _top_level_config_path(requested).resolve()
+    cache_path = _cache_config_path(requested).resolve()
+    resolved_path = path.resolve()
+
+    if resolved_path == cache_path:
+        return "cache"
+    if resolved_path == top_level_path:
+        return "top-level"
+    return "specified"
+
+
+def _print_edit_target(path: Path, requested: Path) -> None:
+    location = _config_path_location(path, requested)
+    if location == "cache":
+        print(f"\nEditing cache config file: {path.resolve()}")
+    elif location == "top-level":
+        print(f"\nEditing top-level config file: {path.resolve()}")
+    else:
+        print(f"\nEditing specified config file: {path.resolve()}")
 
 
 def _load_existing_payload(path: Path) -> tuple[list[Any], dict[str, Any] | None]:
@@ -426,6 +551,7 @@ def _startup_existing_file_flow(
       (resolved_path, existing_accessories)
     """
     resolved = _resolve_existing_path(out_path)
+    _print_edit_target(resolved, out_path)
 
     if not resolved.exists():
         return resolved, []
@@ -477,7 +603,22 @@ def _startup_existing_file_flow(
 
     try:
         while True:
-            choice = _ask("Use existing file? (C)lear / (E)dit / (A)append / (Q)uit", default=dflt).strip().lower()
+            can_transfer = _is_default_config_location(out_path)
+            can_copy_cache_to_local = can_transfer and _cache_config_path(out_path).exists()
+            can_move_local_to_cache = can_transfer and _top_level_config_path(out_path).exists()
+            prompt_options = ["(C)lear", "(E)dit", "(A)append"]
+            valid_choices = ["C", "E", "A"]
+            if can_copy_cache_to_local:
+                prompt_options.append("copy cache to (L)ocal")
+                valid_choices.append("L")
+            if can_move_local_to_cache:
+                prompt_options.append("move local to (S)hared cache")
+                valid_choices.append("S")
+            prompt_options.append("(Q)uit")
+            valid_choices.append("Q")
+
+            prompt = f"Use existing file? {' / '.join(prompt_options)}"
+            choice = _ask(prompt, default=dflt).strip().lower()
 
             if choice in ("a", "append", ""):
                 return resolved, existing
@@ -506,10 +647,58 @@ def _startup_existing_file_flow(
                 existing = kept2
                 continue
 
+            if can_copy_cache_to_local and choice in ("l", "local", "copy-local", "copy"):
+                try:
+                    copied = _copy_cache_to_local_interactive(out_path)
+                except (FileNotFoundError, ValueError) as e:
+                    print(f"  {e}")
+                    continue
+                if copied is None:
+                    continue
+
+                resolved = copied
+                _print_edit_target(resolved, out_path)
+                raw2, _ = _load_existing_payload(resolved)
+                kept2, removed2 = _clean_accessory_list(
+                    raw2,
+                    registry=registry,
+                    validate_variants=do_validate,
+                    fix_variants=do_fix,
+                )
+                if removed2:
+                    print(f"Note: after copy, {len(removed2)} malformed/invalid entries were ignored.")
+                existing = kept2
+                print(f"Reloaded accessories: {len(existing)}")
+                continue
+
+            if can_move_local_to_cache and choice in ("s", "shared", "cache", "move-cache", "move"):
+                try:
+                    moved = _move_local_to_cache_interactive(out_path)
+                except (FileNotFoundError, ValueError) as e:
+                    print(f"  {e}")
+                    continue
+                if moved is None:
+                    continue
+
+                resolved = moved
+                _print_edit_target(resolved, out_path)
+                raw2, _ = _load_existing_payload(resolved)
+                kept2, removed2 = _clean_accessory_list(
+                    raw2,
+                    registry=registry,
+                    validate_variants=do_validate,
+                    fix_variants=do_fix,
+                )
+                if removed2:
+                    print(f"Note: after move, {len(removed2)} malformed/invalid entries were ignored.")
+                existing = kept2
+                print(f"Reloaded accessories: {len(existing)}")
+                continue
+
             if choice in ("q", "quit", "exit"):
                 raise SystemExit(0)
 
-            print("  Please choose C, E, A, or Q.")
+            print(f"  Please choose {', '.join(valid_choices)}.")
     except (KeyboardInterrupt, EOFError):
         raise SystemExit(0)
 
@@ -692,6 +881,24 @@ class Configure:
             action="store_true",
             help="Default to 'append' when an existing file is found.",
         )
+        transfer = ap.add_mutually_exclusive_group()
+        transfer.add_argument(
+            "--copy-cache-to-local",
+            "--copy-cache-to-top-level",
+            action="store_true",
+            help="Copy ./cache/accessory_config/<file> to the top level (locally override shared config) then exit.",
+        )
+        transfer.add_argument(
+            "--move-local-to-cache",
+            "--move-top-level-to-cache",
+            action="store_true",
+            help="Move the top-level config into ./cache/accessory_config so it can be shared, then exit.",
+        )
+        ap.add_argument(
+            "--force",
+            action="store_true",
+            help="Overwrite the destination for --copy-cache-to-local or --move-local-to-cache.",
+        )
         ap.add_argument(
             "--verify-existing",
             action="store_true",
@@ -713,6 +920,9 @@ class Configure:
             args.clean_existing = True
 
         out_path = Path(args.out)
+
+        if _run_config_file_transfer(args, out_path):
+            return
 
         catalog = AccessoryGuiCatalog()
         registry = AccessoryRegistry.get()

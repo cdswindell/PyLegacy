@@ -102,6 +102,50 @@ def _patch_registry_and_catalog(monkeypatch):
 # -----------------------------------------------------------------------------
 
 
+def _basic_config(display_name: str, *, tmcc_id: int = 7, instance_id: str = "A") -> list[dict[str, object]]:
+    return [
+        {
+            "gui": "gas",
+            "type": "gas_station",
+            "variant": "v1",
+            "tmcc_ids": {"power": tmcc_id},
+            "instance_id": instance_id,
+            "display_name": display_name,
+        }
+    ]
+
+
+def test_configured_set_prefers_current_directory_over_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / ca_mod.DEFAULT_CONFIG_FILE).write_text(json.dumps(_basic_config("Cached")), encoding="utf-8")
+    (tmp_path / ca_mod.DEFAULT_CONFIG_FILE).write_text(json.dumps(_basic_config("Current")), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    configured = ca_mod.ConfiguredAccessorySet.from_file()
+
+    assert configured.configured_labels() == ["Current"]
+
+
+def test_configured_set_falls_back_to_cache_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache_dir = tmp_path / "cache" / "accessory_config"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / ca_mod.DEFAULT_CONFIG_FILE).write_text(json.dumps(_basic_config("Cached")), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    configured = ca_mod.ConfiguredAccessorySet.from_file()
+
+    assert configured.configured_labels() == ["Cached"]
+
+
+def test_configured_set_missing_cache_directory_is_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    configured = ca_mod.ConfiguredAccessorySet.from_file()
+
+    assert configured.configured_all() == []
+
+
 def test_loads_config_and_disambiguates_labels(tmp_path: Path) -> None:
     """
     When two configured accessories resolve to the same registry title,

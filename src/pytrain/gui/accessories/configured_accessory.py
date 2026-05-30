@@ -19,12 +19,12 @@ from typing import Any, Mapping, cast
 from .accessory_gui_catalog import AccessoryGuiCatalog
 from .accessory_registry import AccessoryRegistry, OperationAssets
 from .accessory_type import AccessoryType
-from ...utils.path_utils import find_file
 from ...utils.singleton import singleton
 
 log = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_FILE = "accessory_config.json"
+DEFAULT_CONFIG_CACHE_DIR = Path("cache") / "accessory_config"
 
 
 # -----------------------------------------------------------------------------
@@ -475,6 +475,25 @@ class ConfiguredAccessorySet:
         inst._load(path, validate=validate, verify=verify)
         return inst
 
+    @staticmethod
+    def _resolve_config_path(path: str | Path | None) -> Path:
+        requested = Path(DEFAULT_CONFIG_FILE if path is None else path)
+
+        # Explicit paths stay explicit. Bare filenames use the PyTrain config
+        # search order: current directory first, then ./cache/accessory_config.
+        if requested.is_absolute() or requested.parent != Path("."):
+            return requested
+
+        cwd_config = Path.cwd() / requested.name
+        if cwd_config.exists():
+            return cwd_config
+
+        cached_config = Path.cwd() / DEFAULT_CONFIG_CACHE_DIR / requested.name
+        if cached_config.exists():
+            return cached_config
+
+        return cwd_config
+
     # noinspection PyUnresolvedReferences
     def _load(
         self,
@@ -485,15 +504,7 @@ class ConfiguredAccessorySet:
     ) -> None:
         self._registry.bootstrap()
 
-        # Resolve path
-        if path is None:
-            path = DEFAULT_CONFIG_FILE
-
-        if isinstance(path, str):
-            resolved = find_file(path)
-            self._path = Path(resolved) if resolved else Path(path)
-        else:
-            self._path = path
+        self._path = self._resolve_config_path(path)
 
         # Missing file → valid empty state
         if not self._path.exists():
