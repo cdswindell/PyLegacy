@@ -790,7 +790,7 @@ class KeypadView(Generic[S]):
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
-                host.app.tk.after_idle(host._image_presenter.update, host.scope_tmcc_id())
+                host.app.tk.after_idle(host.image_presenter.update, host.scope_tmcc_id())
 
     # noinspection PyTypeChecker
     def enable_acc_view(self, state: S):

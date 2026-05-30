@@ -266,8 +266,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             CommandScope.IRDA: self.on_sensor_track_update,
         }
 
-        # delete after refactor
-
         # helpers to reduce code
         self._popup: PopupManager = PopupManager(self)
         self._image_presenter: ImagePresenter = ImagePresenter(self)
@@ -283,6 +281,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
+
+    @property
+    def image_presenter(self) -> ImagePresenter:
+        return self._image_presenter
 
     @property
     def accessories(self) -> ConfiguredAccessorySet:
