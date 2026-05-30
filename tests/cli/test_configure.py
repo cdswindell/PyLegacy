@@ -39,9 +39,7 @@ def test_resolve_existing_path_prefers_top_level(tmp_path: Path, monkeypatch) ->
     cached.write_text("{}", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
-    assert configure._resolve_existing_path(Path(configure.DEFAULT_CONFIG_FILE)) == Path(
-        configure.DEFAULT_CONFIG_FILE
-    )
+    assert configure._resolve_existing_path(Path(configure.DEFAULT_CONFIG_FILE)) == Path(configure.DEFAULT_CONFIG_FILE)
 
 
 def test_resolve_existing_path_falls_back_to_cache(tmp_path: Path, monkeypatch) -> None:
@@ -142,6 +140,7 @@ def test_interactive_prompt_hides_cache_copy_when_cache_file_missing(tmp_path: P
     monkeypatch.chdir(tmp_path)
     prompts: list[str] = []
 
+    # noinspection PyUnusedLocal
     def fake_ask(prompt: str, *, default: str | None = None) -> str:
         prompts.append(prompt)
         return "a"
@@ -161,6 +160,7 @@ def test_interactive_prompt_hides_cache_move_when_local_file_missing(tmp_path: P
     monkeypatch.chdir(tmp_path)
     prompts: list[str] = []
 
+    # noinspection PyUnusedLocal
     def fake_ask(prompt: str, *, default: str | None = None) -> str:
         prompts.append(prompt)
         return "a"
