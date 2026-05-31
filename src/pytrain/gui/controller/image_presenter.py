@@ -286,9 +286,9 @@ class ImagePresenter:
                                 with host.locked():
                                     host._image_cache[source] = img
                             with host.locked():
-                                host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
+                                # host._image_cache[(CommandScope.ENGINE, tmcc_id)] = img
                                 if train_id:
-                                    host._image_cache[(CommandScope.TRAIN, train_id)] = img
+                                    # host._image_cache[(CommandScope.TRAIN, train_id)] = img
                                     tmcc_id = train_id
                                     scope = CommandScope.TRAIN
                     else:
