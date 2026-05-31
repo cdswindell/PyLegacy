@@ -208,21 +208,21 @@ class AdminPanel:
 
         br = 0
 
-        _ = self._hold_button(
+        b = self._hold_button(
             tb,
             text="Restart",
             grid=[0, br],
-            padx=(20, 0),
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
+        b.tk.grid_configure(padx=(20, 0))
 
-        _ = self._hold_button(
+        b = self._hold_button(
             tb,
             text="Reboot",
             grid=[1, br],
-            padx=(0, 20),
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
         )
+        b.tk.grid_configure(padx=(0, 20))
 
         br += 1
         sp = Text(tb, text=" ", grid=[0, br, 2, 1], height=1, bold=True, align="top")
