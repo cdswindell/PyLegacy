@@ -147,10 +147,6 @@ class AdminPanel:
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
-        # row += 1
-        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        # sp.text_size = self._gui.s_1
-
         # logging & debugging
         row += 1
         tb = self._titlebox(
@@ -182,10 +178,6 @@ class AdminPanel:
         else:
             cb.disable()
 
-        # row += 1
-        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        # sp.text_size = self._gui.s_1
-
         # scope
         row += 1
         tb = self._titlebox(
@@ -194,8 +186,6 @@ class AdminPanel:
             grid=[0, row, 2, 1],
         )
 
-        # sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        # sp.text_size = self._gui.s_1
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
@@ -216,54 +206,57 @@ class AdminPanel:
         )
         tb.text_color = "red"
 
-        sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        br = 0
 
         _ = self._hold_button(
             tb,
             text="Restart",
-            grid=[0, 1],
+            grid=[0, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
 
         _ = self._hold_button(
             tb,
             text="Reboot",
-            grid=[1, 1],
+            grid=[1, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
         )
 
-        sp = Text(tb, text=" ", grid=[0, 2, 2, 1], height=1, bold=True, align="top")
+        br += 1
+        sp = Text(tb, text=" ", grid=[0, br, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
 
+        br += 1
         _ = self._hold_button(
             tb,
             text=f"Update {PROGRAM_NAME}",
-            grid=[0, 3],
+            grid=[0, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
         )
 
         _ = self._hold_button(
             tb,
             text="Upgrade Pi OS",
-            grid=[1, 3],
+            grid=[1, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPGRADE]),
         )
 
-        sp = Text(tb, text=" ", grid=[0, 4, 2, 1], height=1, bold=True, align="top")
+        br += 1
+        sp = Text(tb, text=" ", grid=[0, br, 2, 1], height=1, bold=True, align="top")
         sp.text_size = self._gui.s_2
 
+        br += 1
         _ = self._hold_button(
             tb,
             text="Quit",
-            grid=[0, 5],
+            grid=[0, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.QUIT]),
         )
 
         _ = self._hold_button(
             tb,
             text="Shutdown",
-            grid=[1, 5],
+            grid=[1, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
