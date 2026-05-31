@@ -180,11 +180,12 @@ class AdminPanel:
 
         # Cache
         row += 1
-        _ = self._titlebox(
+        tb = self._titlebox(
             admin_box,
             text="Custom Images",
             grid=[0, row, 2, 1],
         )
+        self._gui.cache(tb)
 
         # scope
         row += 1
