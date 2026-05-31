@@ -206,6 +206,7 @@ class AdminPanel:
             width=int(self._width / 2.3),
             style="radio",
         )
+        tb.tk.grid_rowconfigure(0, minsize=self._gui.button_size)
 
         # admin operations
         row += 1
