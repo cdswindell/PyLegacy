@@ -183,9 +183,9 @@ class AdminPanel:
         else:
             cb.disable()
 
-        # row += 1
-        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        # sp.text_size = self._gui.s_1
+        row += 1
+        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_4
 
         # scope
         row += 1
@@ -193,21 +193,20 @@ class AdminPanel:
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
-            width="fill",
         )
 
+        sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
+        sp.text_size = self._gui.s_1
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
-            grid=[0, 0, 2, 1],
+            grid=[0, 1, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
             width=int(self._width / 2.3),
             style="radio",
         )
-        tb.tk.grid_rowconfigure(0, minsize=self._gui.button_size)
-        tb.tk.update_idletasks()
 
         # admin operations
         row += 1
