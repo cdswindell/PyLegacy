@@ -100,7 +100,7 @@ class AdminPanel:
         sp.tk.grid_configure(sticky="nse", padx=0, pady=0)
 
         sp = Text(body, text=" ", height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_1
 
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
@@ -151,7 +151,7 @@ class AdminPanel:
 
         row += 1
         sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_1
 
         # logging & debugging
         row += 1
@@ -186,7 +186,7 @@ class AdminPanel:
 
         row += 1
         sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_1
 
         # scope
         row += 1
@@ -219,7 +219,7 @@ class AdminPanel:
         tb.text_color = "red"
 
         sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_1
 
         _ = self._hold_button(
             tb,
@@ -236,7 +236,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 2, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_1
 
         _ = self._hold_button(
             tb,
@@ -253,7 +253,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 4, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_4
+        sp.text_size = self._gui.s_1
 
         _ = self._hold_button(
             tb,
