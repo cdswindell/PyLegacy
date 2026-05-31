@@ -184,9 +184,9 @@ class AdminPanel:
         else:
             cb.disable()
 
-        row += 1
-        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        # row += 1
+        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        # sp.text_size = self._gui.s_1
 
         # scope
         row += 1
