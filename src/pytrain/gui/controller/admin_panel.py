@@ -121,7 +121,6 @@ class AdminPanel:
             grid=[0, 0],
             width=12,
             padx=self._gui.text_pad_x,
-            # pady=self._gui.text_pad_y,
             align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
@@ -138,7 +137,6 @@ class AdminPanel:
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized(),
             padx=self._gui.text_pad_x,
-            # pady=self._gui.text_pad_y,
             align="right",
             show_hold_progress=True,
             progress_fill_color="darkgrey",
@@ -149,9 +147,9 @@ class AdminPanel:
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
-        row += 1
-        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        # row += 1
+        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        # sp.text_size = self._gui.s_1
 
         # logging & debugging
         row += 1
@@ -184,9 +182,9 @@ class AdminPanel:
         else:
             cb.disable()
 
-        row += 1
-        sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        # row += 1
+        # sp = Text(admin_box, text=" ", grid=[0, row, 2, 1], height=1, bold=True, align="top")
+        # sp.text_size = self._gui.s_1
 
         # scope
         row += 1
