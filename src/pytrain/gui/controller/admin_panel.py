@@ -73,7 +73,7 @@ class AdminPanel:
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
-        width = int(self._width * 0.95)
+        width = int(self._width * 0.98)
         self._wifi_box = wifi_box = TitleBox(
             body,
             text="Network",
@@ -105,7 +105,7 @@ class AdminPanel:
 
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
-        admin_box.tk.pack_configure(fill="x", expand=False, padx=4, pady=0)
+        admin_box.tk.pack_configure(fill="x", expand=False, padx=2, pady=0)
 
         row = 0
         # noinspection PyTypeChecker
