@@ -119,6 +119,7 @@ class CheckBoxGroup(ButtonGroup):
                     style=style,
                     thickness=thickness,
                 )
+
         # Schedule for idle so images are created after Tk has finished widget setup
         try:
             self.tk.after_idle(_decorate)
@@ -128,6 +129,7 @@ class CheckBoxGroup(ButtonGroup):
 
         # Also ensure decoration occurs when the widget is mapped (becomes visible)
         try:
+
             def _on_map(event=None):
                 try:
                     _decorate()
