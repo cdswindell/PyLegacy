@@ -112,7 +112,7 @@ class AdminPanel:
             admin_box,
             text="Base 3 Database",
             grid=[0, row, 2, 1],
-            height=self._gui.button_size,
+            # height=self._gui.button_size,
         )
 
         self._sync_state = pb = PushButton(
@@ -121,7 +121,7 @@ class AdminPanel:
             grid=[0, 0],
             width=12,
             padx=self._gui.text_pad_x,
-            pady=self._gui.text_pad_y,
+            # pady=self._gui.text_pad_y,
             align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
