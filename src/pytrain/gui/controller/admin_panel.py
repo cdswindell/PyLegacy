@@ -73,12 +73,13 @@ class AdminPanel:
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
+        width = int(self._width * 0.95)
         self._wifi_box = wifi_box = TitleBox(
             body,
             text="Network",
             layout="grid",
             align="top",
-            width=self._width,
+            width=width,
             height=int(7 * self._gui.button_size / 12),
         )
         wifi_box.tk.config(width=self._width)
@@ -112,6 +113,7 @@ class AdminPanel:
             admin_box,
             text="Base 3 Database",
             grid=[0, row, 2, 1],
+            width=width,
             height=self._gui.button_size,
         )
 
@@ -155,6 +157,7 @@ class AdminPanel:
             grid=[0, row, 2, 1],
             width="fill",
         )
+        tb.tk.config(width=width)
 
         self._echo_btn = cb = CheckBox(
             tb,
@@ -177,29 +180,6 @@ class AdminPanel:
             cb.enable()
         else:
             cb.disable()
-
-        # Cache
-        row += 1
-        tb = self._titlebox(
-            admin_box,
-            text="Custom Images",
-            grid=[0, row, 2, 1],
-            width="fill",
-        )
-        br = 0
-        _ = self._hold_button(
-            tb,
-            text="Reload Acc",
-            grid=[0, br],
-            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
-        )
-
-        _ = self._hold_button(
-            tb,
-            text="Reload Img",
-            grid=[1, br],
-            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
-        )
 
         # scope
         row += 1
