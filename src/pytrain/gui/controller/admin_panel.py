@@ -193,6 +193,7 @@ class AdminPanel:
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
+            width="fill",
         )
 
         self._scope_btns = CheckBoxGroup(
