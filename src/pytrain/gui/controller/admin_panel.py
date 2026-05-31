@@ -185,7 +185,20 @@ class AdminPanel:
             text="Custom Images",
             grid=[0, row, 2, 1],
         )
-        self._gui.cache(tb)
+        br = 0
+        _ = self._hold_button(
+            tb,
+            text="Reload Acc",
+            grid=[0, br],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
+        )
+
+        _ = self._hold_button(
+            tb,
+            text="Reload Img",
+            grid=[1, br],
+            on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
+        )
 
         # scope
         row += 1
@@ -216,7 +229,6 @@ class AdminPanel:
         tb.text_color = "red"
 
         br = 0
-
         _ = self._hold_button(
             tb,
             text="Restart",
