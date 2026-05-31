@@ -138,7 +138,7 @@ class AdminPanel:
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized(),
             padx=self._gui.text_pad_x,
-            pady=self._gui.text_pad_y,
+            # pady=self._gui.text_pad_y,
             align="right",
             show_hold_progress=True,
             progress_fill_color="darkgrey",
