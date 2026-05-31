@@ -107,39 +107,16 @@ class CheckBoxGroup(ButtonGroup):
         super().__init__(master, **kwargs)
 
         # indicator_size = int(size * scale_by)
-        # Delay decorating checkboxes until the widget children are created by Tk
-        def _decorate():
-            for widget in self.tk.winfo_children():
-                self.decorate_checkbox(
-                    widget,
-                    size,
-                    self._dis_width,
-                    self._padx,
-                    self._pady,
-                    style=style,
-                    thickness=thickness,
-                )
-
-        # Schedule for idle so images are created after Tk has finished widget setup
-        try:
-            self.tk.after_idle(_decorate)
-        except (AttributeError, tk.TclError):
-            # Fallback: decorate immediately
-            _decorate()
-
-        # Also ensure decoration occurs when the widget is mapped (becomes visible)
-        try:
-
-            def _on_map(event=None):
-                try:
-                    _decorate()
-                except (AttributeError, tk.TclError):
-                    pass
-
-            self.tk.bind("<Map>", _on_map)
-        except tk.TclError:
-            # If binding isn't available, ignore silently
-            pass
+        for widget in self.tk.winfo_children():
+            self.decorate_checkbox(
+                widget,
+                size,
+                self._dis_width,
+                self._padx,
+                self._pady,
+                style=style,
+                thickness=thickness,
+            )
 
 
 def _fill(img, color: str) -> None:

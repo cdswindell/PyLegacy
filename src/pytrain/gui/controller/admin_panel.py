@@ -112,7 +112,6 @@ class AdminPanel:
             admin_box,
             text="Base 3 Database",
             grid=[0, row, 2, 1],
-            # height=self._gui.button_size,
         )
 
         self._sync_state = pb = PushButton(
@@ -196,12 +195,10 @@ class AdminPanel:
             grid=[0, row, 2, 1],
         )
 
-        sp = Text(tb, text=" ", grid=[0, 0, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
-            grid=[0, 1, 2, 1],
+            grid=[0, 0, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
