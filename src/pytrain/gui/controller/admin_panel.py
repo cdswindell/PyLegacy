@@ -202,7 +202,7 @@ class AdminPanel:
             grid=[0, 0, 2, 1],
             options=SCOPE_OPTS,
             horizontal=True,
-            # align="top",
+            align="top",
             width=int(self._width / 2.3),
             style="radio",
         )
