@@ -178,6 +178,14 @@ class AdminPanel:
         else:
             cb.disable()
 
+        # Cache
+        row += 1
+        _ = self._titlebox(
+            admin_box,
+            text="Custom Images",
+            grid=[0, row, 2, 1],
+        )
+
         # scope
         row += 1
         tb = self._titlebox(
