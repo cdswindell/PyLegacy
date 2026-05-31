@@ -207,6 +207,7 @@ class AdminPanel:
             style="radio",
         )
         tb.tk.grid_rowconfigure(0, minsize=self._gui.button_size)
+        tb.tk.update_idletasks()
 
         # admin operations
         row += 1
