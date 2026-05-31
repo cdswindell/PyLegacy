@@ -112,7 +112,7 @@ class AdminPanel:
             admin_box,
             text="Base 3 Database",
             grid=[0, row, 2, 1],
-            height=self._gui.button_size,
+            # height=self._gui.button_size,
         )
 
         self._sync_state = pb = PushButton(
@@ -121,7 +121,7 @@ class AdminPanel:
             grid=[0, 0],
             width=12,
             padx=self._gui.text_pad_x,
-            pady=self._gui.text_pad_y,
+            # pady=self._gui.text_pad_y,
             align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
@@ -138,7 +138,7 @@ class AdminPanel:
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized(),
             padx=self._gui.text_pad_x,
-            pady=self._gui.text_pad_y,
+            # pady=self._gui.text_pad_y,
             align="right",
             show_hold_progress=True,
             progress_fill_color="darkgrey",
@@ -236,7 +236,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 2, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        sp.text_size = self._gui.s_2
 
         _ = self._hold_button(
             tb,
@@ -253,7 +253,7 @@ class AdminPanel:
         )
 
         sp = Text(tb, text=" ", grid=[0, 4, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        sp.text_size = self._gui.s_2
 
         _ = self._hold_button(
             tb,
