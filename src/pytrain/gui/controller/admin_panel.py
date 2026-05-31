@@ -184,6 +184,7 @@ class AdminPanel:
             admin_box,
             text="Custom Images",
             grid=[0, row, 2, 1],
+            width="fill",
         )
         br = 0
         _ = self._hold_button(
@@ -206,6 +207,7 @@ class AdminPanel:
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
+            width="fill",
         )
 
         self._scope_btns = CheckBoxGroup(
