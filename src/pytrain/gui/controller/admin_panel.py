@@ -212,6 +212,7 @@ class AdminPanel:
             tb,
             text="Restart",
             grid=[0, br],
+            padx=(20, 0),
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
 
@@ -219,6 +220,7 @@ class AdminPanel:
             tb,
             text="Reboot",
             grid=[1, br],
+            padx=(0, 20),
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
         )
 
