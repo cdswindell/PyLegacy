@@ -214,7 +214,7 @@ class AdminPanel:
             grid=[0, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
-        b.tk.grid_configure(padx=(20, 0))
+        b.tk.grid_configure(padx=(80, 0), sticky="e")
 
         b = self._hold_button(
             tb,
@@ -222,7 +222,7 @@ class AdminPanel:
             grid=[1, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
         )
-        b.tk.grid_configure(padx=(0, 20))
+        b.tk.grid_configure(padx=(0, 80), sticky="w")
 
         br += 1
         sp = Text(tb, text=" ", grid=[0, br, 2, 1], height=1, bold=True, align="top")
