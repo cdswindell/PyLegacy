@@ -112,7 +112,7 @@ class AdminPanel:
             admin_box,
             text="Base 3 Database",
             grid=[0, row, 2, 1],
-            height=int(2 * self._gui.button_size / 3),
+            height=self._gui.button_size,
         )
 
         self._sync_state = pb = PushButton(
