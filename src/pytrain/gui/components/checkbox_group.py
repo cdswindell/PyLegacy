@@ -126,6 +126,19 @@ class CheckBoxGroup(ButtonGroup):
             # Fallback: decorate immediately
             _decorate()
 
+        # Also ensure decoration occurs when the widget is mapped (becomes visible)
+        try:
+            def _on_map(event=None):
+                try:
+                    _decorate()
+                except (AttributeError, tk.TclError):
+                    pass
+
+            self.tk.bind("<Map>", _on_map)
+        except tk.TclError:
+            # If binding isn't available, ignore silently
+            pass
+
 
 def _fill(img, color: str) -> None:
     w, h = img.width(), img.height()
