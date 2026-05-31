@@ -105,7 +105,7 @@ class AdminPanel:
 
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
-        admin_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
+        admin_box.tk.pack_configure(fill="x", expand=False, padx=4, pady=0)
 
         row = 0
         # noinspection PyTypeChecker
