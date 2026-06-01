@@ -507,6 +507,126 @@ def _write_payload(path: Path, accessories: list[dict[str, Any]]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def _configured_accessory_summary(entry: dict[str, Any]) -> str:
+    label = entry.get("display_name") or entry.get("instance_id") or entry.get("gui") or "<unnamed>"
+    parts: list[str] = []
+
+    instance_id = entry.get("instance_id")
+    if instance_id and instance_id != label:
+        parts.append(f"id={instance_id}")
+
+    acc_type = entry.get("type")
+    variant = entry.get("variant")
+    if acc_type:
+        parts.append(str(acc_type))
+    if variant:
+        parts.append(str(variant))
+
+    tmcc_ids: list[int] = []
+    if isinstance(entry.get("tmcc_id"), int):
+        tmcc_ids.append(entry["tmcc_id"])
+    if isinstance(entry.get("tmcc_ids"), dict):
+        for value in entry["tmcc_ids"].values():
+            if isinstance(value, int):
+                tmcc_ids.append(value)
+    if tmcc_ids:
+        parts.append("tmcc=" + "/".join(str(v) for v in sorted(set(tmcc_ids))))
+
+    return f"{label} ({', '.join(parts)})" if parts else str(label)
+
+
+def _choose_delete_index(choices: list[str]) -> int | None:
+    while True:
+        s = _ask("Delete accessory by number/name, or press Enter when done", default="")
+        s_norm = _norm(s)
+        if s_norm in ("", "q", "quit", "done", "n", "no"):
+            return None
+
+        if s_norm.isdecimal():
+            idx = int(s_norm) - 1
+            if 0 <= idx < len(choices):
+                return idx
+            print(f"  Choose 1..{len(choices)}")
+            continue
+
+        matches = [i for i, choice in enumerate(choices) if s_norm in _norm(choice)]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            print("  Ambiguous; matches:")
+            for i in matches:
+                print(f"   - {i + 1}) {choices[i]}")
+            continue
+
+        print("  Invalid selection.")
+
+
+def _delete_configured_accessories_interactive(
+    accessories: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    remaining = list(accessories)
+    deleted = 0
+
+    while remaining:
+        choices = [_configured_accessory_summary(entry) for entry in remaining]
+        print("\nConfigured accessories:")
+        for i, choice in enumerate(choices, start=1):
+            print(f"  {i}) {choice}")
+
+        idx = _choose_delete_index(choices)
+        if idx is None:
+            break
+
+        choice = choices[idx]
+        answer = _ask(f"Delete {choice}? (y/n)", default="n")
+        if _norm(answer) not in ("y", "yes"):
+            print("Delete canceled.")
+            continue
+
+        remaining.pop(idx)
+        deleted += 1
+        print(f"Deleted: {choice}")
+
+    return remaining, deleted
+
+
+def _delete_existing_config_flow(
+    out_path: Path,
+    *,
+    registry: AccessoryRegistry,
+    verify_existing: bool = False,
+    clean_existing: bool = False,
+) -> None:
+    resolved = _resolve_existing_path(out_path)
+    _print_edit_target(resolved, out_path)
+
+    if not resolved.exists():
+        print(f"No config file found: {resolved}")
+        return
+
+    raw_accessories, _payload = _load_existing_payload(resolved)
+    kept, removed = _clean_accessory_list(
+        raw_accessories,
+        registry=registry,
+        validate_variants=verify_existing or clean_existing,
+        fix_variants=clean_existing,
+    )
+    if removed:
+        print(f"Note: {len(removed)} malformed/invalid entries were ignored.")
+
+    if not kept:
+        print("No configured accessories to delete.")
+        return
+
+    remaining, deleted = _delete_configured_accessories_interactive(kept)
+    if deleted:
+        _write_payload(resolved, remaining)
+        print(f"\nWrote: {resolved.resolve()}")
+        print(f"Accessories: {len(remaining)}")
+    else:
+        print("No accessories deleted.")
+
+
 def _open_in_editor(path: Path) -> None:
     """
     Open file in $EDITOR if available; otherwise best-effort platform default.
@@ -606,8 +726,8 @@ def _startup_existing_file_flow(
             can_transfer = _is_default_config_location(out_path)
             can_copy_cache_to_local = can_transfer and _cache_config_path(out_path).exists()
             can_move_local_to_cache = can_transfer and _top_level_config_path(out_path).exists()
-            prompt_options = ["(C)lear", "(E)dit", "(A)append"]
-            valid_choices = ["C", "E", "A"]
+            prompt_options = ["(C)lear", "(D)elete", "(E)dit", "(A)append"]
+            valid_choices = ["C", "D", "E", "A"]
             if can_copy_cache_to_local:
                 prompt_options.append("copy cache to (L)ocal")
                 valid_choices.append("L")
@@ -625,6 +745,16 @@ def _startup_existing_file_flow(
 
             if choice in ("c", "clear", "new", "reset"):
                 return resolved, []
+
+            if choice in ("d", "delete", "remove"):
+                existing, deleted = _delete_configured_accessories_interactive(existing)
+                if deleted:
+                    _write_payload(resolved, existing)
+                    print(f"\nWrote: {resolved.resolve()}")
+                    print(f"Accessories: {len(existing)}")
+                if len(existing) == 0:
+                    return resolved, []
+                continue
 
             if choice in ("e", "edit"):
                 if not resolved.exists():
@@ -894,6 +1024,11 @@ class Configure:
             action="store_true",
             help="Move the top-level config into ./cache/config so it can be shared, then exit.",
         )
+        transfer.add_argument(
+            "--delete",
+            action="store_true",
+            help="Interactively delete configured accessories from the config file, then exit.",
+        )
         ap.add_argument(
             "--force",
             action="store_true",
@@ -927,6 +1062,15 @@ class Configure:
         catalog = AccessoryGuiCatalog()
         registry = AccessoryRegistry.get()
         registry.bootstrap()
+
+        if args.delete:
+            _delete_existing_config_flow(
+                out_path,
+                registry=registry,
+                verify_existing=args.verify_existing,
+                clean_existing=args.clean_existing,
+            )
+            return
 
         resolved_path, existing = _startup_existing_file_flow(
             out_path,

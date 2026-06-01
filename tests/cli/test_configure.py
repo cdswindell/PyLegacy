@@ -30,6 +30,21 @@ def _config_payload() -> dict[str, object]:
     }
 
 
+def _multi_config_payload() -> dict[str, object]:
+    payload = _config_payload()
+    payload["accessories"] = [
+        *payload["accessories"],
+        {
+            "gui": "gas",
+            "type": "gas_station",
+            "variant": "v2",
+            "instance_id": "gas_v2_8",
+            "display_name": "Gas 2",
+        },
+    ]
+    return payload
+
+
 def test_resolve_existing_path_prefers_top_level(tmp_path: Path, monkeypatch) -> None:
     cache_dir = tmp_path / "cache" / "config"
     cache_dir.mkdir(parents=True)
@@ -171,3 +186,38 @@ def test_interactive_prompt_hides_cache_move_when_local_file_missing(tmp_path: P
 
     assert "copy cache to (L)ocal" in prompts[0]
     assert "move local to (S)hared cache" not in prompts[0]
+
+
+def test_delete_command_line_removes_selected_accessory(tmp_path: Path, monkeypatch, capsys) -> None:
+    path = tmp_path / configure.DEFAULT_CONFIG_FILE
+    path.write_text(json.dumps(_multi_config_payload()), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    answers = iter(["2", "y", ""])
+    monkeypatch.setattr(configure, "_ask", lambda _prompt, default=None: next(answers))
+
+    Configure(["--delete"])
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert [entry["instance_id"] for entry in payload["accessories"]] == ["gas_v1_7"]
+    out = capsys.readouterr().out
+    assert "Deleted: Gas 2" in out
+    assert "Accessories: 1" in out
+
+
+def test_existing_file_prompt_can_delete_before_append(tmp_path: Path, monkeypatch) -> None:
+    payload = _multi_config_payload()
+    path = tmp_path / configure.DEFAULT_CONFIG_FILE
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    answers = iter(["d", "1", "y", "", "a"])
+    monkeypatch.setattr(configure, "_ask", lambda _prompt, default=None: next(answers))
+
+    resolved, existing = configure._startup_existing_file_flow(
+        Path(configure.DEFAULT_CONFIG_FILE),
+        registry=DummyRegistry(),
+    )
+
+    assert resolved == Path(configure.DEFAULT_CONFIG_FILE)
+    assert [entry["instance_id"] for entry in existing] == ["gas_v2_8"]
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert [entry["instance_id"] for entry in written["accessories"]] == ["gas_v2_8"]
