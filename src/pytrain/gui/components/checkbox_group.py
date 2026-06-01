@@ -48,7 +48,6 @@ class CheckBoxGroup(ButtonGroup):
             pady=pady,
             anchor="w",
             width=width,
-            height=int(indicator_size * 1.2),
         )
 
         # IMPORTANT: keep refs so Tk doesn't GC the images
