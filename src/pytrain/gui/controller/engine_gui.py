@@ -687,6 +687,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if had_active_accessory_overlay:
                 self._show_accessory_entry_keypad()
 
+            self._reset_catalog_configured_accessories()
             self._request_options_rebuild()
             self._restart_accessory_overlay_prewarm()
 
@@ -731,6 +732,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._keypad_view.scope_keypad(force_entry_mode=True, clear_info=True)
         if self.scope_box and not getattr(self.scope_box, "visible", True):
             self.scope_box.show()
+
+    def _reset_catalog_configured_accessories(self) -> None:
+        if self._catalog_panel is not None:
+            self._catalog_panel.reset_configured_accessory_cache()
 
     def _restart_accessory_overlay_prewarm(self) -> None:
         self._accessory_overlay_prewarm_generation += 1

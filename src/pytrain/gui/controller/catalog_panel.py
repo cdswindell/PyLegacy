@@ -235,6 +235,12 @@ class CatalogPanel(OverlayPanel):
                         self._configured_acc_dict[v.label] = self._gui.accessory_provider.get(v)
                 self._configured_acc_labels.sort()
 
+    def reset_configured_accessory_cache(self, *, rebuild: bool = True) -> None:
+        self._configured_acc_labels = None
+        self._configured_acc_dict = None
+        if rebuild and self._scope == CommandScope.ACC and self._catalog is not None:
+            self.configure(CommandScope.ACC, force=True)
+
     @property
     def title(self) -> str:
         return self._scope.plural if self._scope else "N/A"

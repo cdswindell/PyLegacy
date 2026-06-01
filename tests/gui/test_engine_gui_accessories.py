@@ -87,6 +87,14 @@ class DummyKeypadView:
         self.scope_keypad_calls.append((force_entry_mode, clear_info))
 
 
+class DummyCatalogPanel:
+    def __init__(self) -> None:
+        self.reset_calls = 0
+
+    def reset_configured_accessory_cache(self) -> None:
+        self.reset_calls += 1
+
+
 class DummyTk:
     def __init__(self) -> None:
         self.after_calls: list[tuple[int, object]] = []
@@ -140,6 +148,7 @@ def _new_reload_engine() -> mod.EngineGui:
     gui._accessory_overlay_prewarm_generation = 1
     gui._shutdown_flag = SimpleNamespace(is_set=lambda: False)
     gui._app = SimpleNamespace(tk=DummyTk())
+    gui._catalog_panel = None
     gui._transition_depth = 0
     gui._options_rebuild_pending = False
     gui._rebuild_options_calls = 0
@@ -275,6 +284,26 @@ def test_reload_configured_accessories_reindexes_and_restarts_prewarm(
     assert list(gui._accessory_overlay_prewarm_queue) == []
     assert gui.app.tk.after_calls and gui.app.tk.after_calls[-1][0] == 25
     assert gui._rebuild_options_calls == 1
+
+
+def test_reload_configured_accessories_resets_catalog_panel_when_it_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gui = _new_reload_engine()
+    catalog_panel = DummyCatalogPanel()
+    gui._catalog_panel = catalog_panel
+    new_config = DummyConfiguredSet("new_a")
+
+    monkeypatch.setattr(
+        mod.ConfiguredAccessorySet,
+        "from_file",
+        classmethod(lambda cls, path, verify=True: new_config),
+        raising=True,
+    )
+
+    assert gui.reload_configured_accessories() is True
+
+    assert catalog_panel.reset_calls == 1
 
 
 def test_reload_configured_accessories_resets_active_overlay_to_acc_entry(
