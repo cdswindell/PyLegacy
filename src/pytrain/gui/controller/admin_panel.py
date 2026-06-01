@@ -9,6 +9,7 @@
 import ipaddress
 import logging
 import socket
+import tkinter as tk
 from threading import Thread
 
 import psutil
@@ -38,6 +39,8 @@ SCOPE_OPTS = [
 # noinspection PyUnresolvedReferences
 class AdminPanel:
     def __init__(self, gui: GuiZeroBase, width: int, height: int, hold_threshold: int = 3):
+        self._scope_radio_buttons = None
+        self._scope_var = None
         self._gui = gui
         self._width = width
         self._height = height
@@ -228,21 +231,37 @@ class AdminPanel:
         )
 
         tb.tk.grid_configure(sticky="ew")
-        tb.tk.config(width=width)
+        tb.tk.grid_columnconfigure(0, weight=1)
 
-        self._scope_btns = CheckBoxGroup(
-            tb,
-            size=self._gui.s_20,
-            grid=[0, 0],
-            options=SCOPE_OPTS,
-            horizontal=True,
-            # width=int(self._width / 2.3),
-            style="radio",
-        )
-        self._scope_btns.tk.grid_configure(sticky="w", padx=20, pady=2)
+        scope_frame = tk.Frame(tb.tk, borderwidth=0, highlightthickness=0)
+        scope_frame.grid(row=0, column=0, sticky="w", padx=20, pady=0)
 
-        for rb in self._scope_btns.children:
-            rb.tk.config(height=1, pady=0, padx=0)
+        # Keep this as an instance variable so Tk does not garbage collect it
+        self._scope_var = tk.StringVar(value=str(SCOPE_OPTS[0][1]))
+        self._scope_radio_buttons = []
+
+        for col, opt in enumerate(SCOPE_OPTS):
+            text, value = opt
+            value = str(value)
+
+            rb = tk.Radiobutton(
+                scope_frame,
+                text=text,
+                value=value,
+                variable=self._scope_var,
+                font=("Helvetica", self._gui.s_20),
+                indicatoron=True,
+                anchor="w",
+                height=1,
+                padx=8,
+                pady=0,
+                borderwidth=0,
+                highlightthickness=0,
+                takefocus=False,
+            )
+
+            rb.grid(row=0, column=col, sticky="w", padx=(0, 30), pady=0)
+            self._scope_radio_buttons.append(rb)
 
         # admin operations
         row += 1
