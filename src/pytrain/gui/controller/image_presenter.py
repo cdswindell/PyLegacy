@@ -42,7 +42,7 @@ class ImagePresenter:
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.loading_image = find_file("loading_image.png")
-        self._tmp_image = None
+        self._last_img = None
         self._checked_for_custom_images: set[int] = set()
         self._pending_custom_images: set[int] = set()
         self._executor = ThreadPoolExecutor(max_workers=1)
@@ -61,8 +61,6 @@ class ImagePresenter:
         host = self._host
         host.reset_prod_info_cache()  # this has its own lock...
         with host.locked():
-            self._tmp_image = host._image_cache.get((host.scope, host.scope_tmcc_id()), None)
-            print(f"{host.scope} {host.scope_tmcc_id()} {self._tmp_image}")
             host._image_cache.clear()
             self._checked_for_custom_images.clear()
             self._pending_custom_images.clear()
@@ -360,6 +358,7 @@ class ImagePresenter:
     ):
         # Updates image if scope and ID match current
         host = self._host
+        self._last_img = img
         if img and scope == host.scope and tmcc_id == host.scope_tmcc_id(host.scope):
             self.clear()
             if box_size is None:
