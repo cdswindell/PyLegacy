@@ -779,7 +779,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def _reset_catalog_configured_accessories(self) -> None:
         if self._catalog_panel is not None:
-            self._catalog_panel.reset_configured_accessory_cache()
+            self._catalog_panel.reset_configured_accessory_cache(scope=self.scope)
 
     def _restart_accessory_overlay_prewarm(self) -> None:
         self._accessory_overlay_prewarm_generation += 1

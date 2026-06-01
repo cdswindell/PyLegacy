@@ -106,10 +106,10 @@ class DummyKeypadView:
 
 class DummyCatalogPanel:
     def __init__(self) -> None:
-        self.reset_calls = 0
+        self.reset_calls: list[CommandScope | None] = []
 
-    def reset_configured_accessory_cache(self) -> None:
-        self.reset_calls += 1
+    def reset_configured_accessory_cache(self, *, scope: CommandScope | None = None) -> None:
+        self.reset_calls.append(scope)
 
 
 class DummyTk:
@@ -325,7 +325,7 @@ def test_reload_configured_accessories_resets_catalog_panel_when_it_exists(
 
     assert gui.reload_configured_accessories() is True
 
-    assert catalog_panel.reset_calls == 1
+    assert catalog_panel.reset_calls == [CommandScope.ACC]
 
 
 def test_reload_configured_accessories_removes_only_deleted_configured_accessory_options(
