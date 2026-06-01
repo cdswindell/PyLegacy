@@ -70,12 +70,11 @@ class AdminPanel:
             )
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
-        self.post_show()
+        # self._fixup_scope_buttons()
         return self._overlay
 
-    def post_show(self):
+    def _fixup_scope_buttons(self):
         if self._scope_btns.visible and not self._scope_btns.tk.winfo_ismapped():
-            print("Forcing display...")
             self._scope_btns.hide()
             self._scope_btns.show()
 
@@ -239,6 +238,7 @@ class AdminPanel:
             align="top",
             width=int(self._width / 2.3),
             style="radio",
+            visible=True,
         )
 
         # admin operations

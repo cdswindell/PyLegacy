@@ -343,8 +343,6 @@ class PopupManager:
             x, y = position if position else host.popup_position
             overlay.tk.place(x=x, y=y)
             overlay.show()
-            # if overlay.hasattr("post_show"):
-            #     overlay.post_show()
         except (AttributeError, RuntimeError, TclError):
             log.warning(f"Failed to place/show overlay: {overlay}")
             with host.locked():

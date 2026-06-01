@@ -118,6 +118,13 @@ class CheckBoxGroup(ButtonGroup):
                 thickness=thickness,
             )
 
+    def show(self):
+        super().show()
+        if self.visible and not self._scope_btns.tk.winfo_ismapped():
+            print("forcing display...")
+            self.hide()
+            super().show()
+
 
 def _fill(img, color: str) -> None:
     w, h = img.width(), img.height()
