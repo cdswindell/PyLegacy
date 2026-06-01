@@ -47,6 +47,7 @@ class AdminPanel:
         self._scope_btns = None
         self._echo_btn = None
         self._debug_btn = None
+        self._accs_btn = None
         self._wifi_box = None
         self._wifi_info = WiFiInfo()
         self._wifi_ssid = None
