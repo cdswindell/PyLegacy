@@ -74,9 +74,8 @@ class AdminPanel:
         return self._overlay
 
     def post_show(self):
-        print(f"Admin panel post show: {self._scope_btns.visible}")
-        if self._scope_btns and not self._scope_btns.visible:
-            self._scope_btns.show()
+        self._scope_btns.hide()
+        self._scope_btns.show()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
