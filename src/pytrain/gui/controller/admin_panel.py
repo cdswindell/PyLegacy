@@ -73,7 +73,9 @@ class AdminPanel:
         return self._overlay
 
     def post_show(self):
-        self._scope_btns.focus()
+        print("Admin panel post show")
+        self._scope_btns.hide()
+        self._scope_btns.show()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
@@ -226,7 +228,7 @@ class AdminPanel:
             # width="fill",
         )
 
-        self._scope_btns = cb = CheckBoxGroup(
+        self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
             grid=[0, 0, 2, 1],
@@ -236,7 +238,6 @@ class AdminPanel:
             width=int(self._width / 2.3),
             style="radio",
         )
-        cb.focus()
 
         # admin operations
         row += 1
