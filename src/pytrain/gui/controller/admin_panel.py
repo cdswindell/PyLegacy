@@ -107,6 +107,10 @@ class AdminPanel:
 
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
+
+        # make admin_box column expand
+        admin_box.tk.grid_columnconfigure(0, weight=1)
+        admin_box.tk.grid_columnconfigure(1, weight=1)
         admin_box.tk.pack_configure(fill="x", expand=False, padx=2, pady=0)
 
         row = 0
@@ -220,23 +224,22 @@ class AdminPanel:
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
-            width="fill",
+            width=width,
         )
 
-        scope_row = Box(tb, grid=[0, 0], layout="grid", width="fill")
-        scope_row.tk.config(height=int(self._gui.button_size * 0.75))
-        scope_row.tk.grid_propagate(False)
+        tb.tk.grid_configure(sticky="ew")
+        tb.tk.config(width=width)
 
         self._scope_btns = CheckBoxGroup(
-            scope_row,
+            tb,
             size=self._gui.s_20,
             grid=[0, 0],
             options=SCOPE_OPTS,
             horizontal=True,
-            width=int(self._width / 2.3),
+            # width=int(self._width / 2.3),
             style="radio",
         )
-        self._scope_btns.tk.grid_configure(sticky="w")
+        self._scope_btns.tk.grid_configure(sticky="w", padx=20, pady=2)
 
         for rb in self._scope_btns.children:
             rb.tk.config(height=1, pady=0, padx=0)
