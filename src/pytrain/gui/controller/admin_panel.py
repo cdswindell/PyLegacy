@@ -200,10 +200,11 @@ class AdminPanel:
         cb.value = 1 if self._pytrain.echo else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.3))
 
+        self.spacer(tb, grid=[1, 0])
         self._debug_btn = cb = CheckBox(
             tb,
             text="Debugging",
-            grid=[1, 0],
+            grid=[2, 0],
             command=self._on_debug,
         )
         cb.value = 1 if self._pytrain.debug else 0
