@@ -959,3 +959,8 @@ class GuiZeroBase(Thread, ABC):
                     self._prod_info_cache[tmcc_id] = prod_info
                     self._pending_prod_infos.discard(tmcc_id)
         return prod_info
+
+    def reset_prod_info_cache(self):
+        with self._cv:
+            self._prod_info_cache.clear()
+            log.debug("Production info cache reset completed")

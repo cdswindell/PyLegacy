@@ -58,6 +58,7 @@ class ImagePresenter:
     # noinspection PyProtectedMember
     def reset(self):
         host = self._host
+        host.reset_prod_info_cache()  # this has its own lock...
         with host.locked():
             host._image_cache.clear()
             self._checked_for_custom_images.clear()
