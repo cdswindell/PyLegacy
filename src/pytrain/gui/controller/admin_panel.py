@@ -221,7 +221,7 @@ class AdminPanel:
             text="Scope",
             grid=[0, row, 2, 1],
             width="fill",
-            height=int(self._gui.button_size * 0.9),
+            height=int(self._gui.button_size * 1),
         )
 
         tb.tk.grid_columnconfigure(0, weight=1)
