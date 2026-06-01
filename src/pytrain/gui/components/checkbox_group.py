@@ -120,7 +120,7 @@ class CheckBoxGroup(ButtonGroup):
 
     def show(self):
         super().show()
-        if self.visible and not self._scope_btns.tk.winfo_ismapped():
+        if self.visible and not self.tk.winfo_ismapped():
             print("forcing display...")
             self.hide()
             super().show()
