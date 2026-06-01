@@ -124,7 +124,7 @@ class AdminPanel:
             text="Loaded",
             grid=[0, 0],
             width=12,
-            padx=self._gui.text_pad_x,
+            # padx=self._gui.text_pad_x,
             align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
@@ -140,7 +140,7 @@ class AdminPanel:
             text_bold=True,
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized(),
-            padx=self._gui.text_pad_x,
+            # padx=self._gui.text_pad_x,
             align="right",
             show_hold_progress=True,
             progress_fill_color="darkgrey",
