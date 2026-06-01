@@ -42,7 +42,7 @@ class ImagePresenter:
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.loading_image = find_file("loading_image.png")
-        self._last_img = None
+        self._current_img = None
         self._checked_for_custom_images: set[int] = set()
         self._pending_custom_images: set[int] = set()
         self._executor = ThreadPoolExecutor(max_workers=1)
@@ -57,7 +57,7 @@ class ImagePresenter:
         self._host.image_box.hide()
 
     # noinspection PyProtectedMember
-    def reset(self):
+    def clear_caches(self):
         host = self._host
         host.reset_prod_info_cache()  # this has its own lock...
         with host.locked():
@@ -66,7 +66,7 @@ class ImagePresenter:
             self._pending_custom_images.clear()
             # force the file cache to clear as well
             find_file.cache_clear()
-            log.debug("Image presenter reset completed")
+            log.debug("Image caches cleared")
 
     def calc_box_size(self) -> tuple[int, int]:
         """
@@ -358,7 +358,7 @@ class ImagePresenter:
     ):
         # Updates image if scope and ID match current
         host = self._host
-        self._last_img = img
+        self._current_img = img  # save last image so it isn't GC'ed during cache clears
         if img and scope == host.scope and tmcc_id == host.scope_tmcc_id(host.scope):
             self.clear()
             if box_size is None:
