@@ -158,7 +158,6 @@ class AdminPanel:
             grid=[0, row, 2, 1],
             width="fill",
         )
-        tb.tk.config(width=width)
 
         self._accs_btn = pb = HoldButton(
             tb,
@@ -191,7 +190,6 @@ class AdminPanel:
             grid=[0, row, 2, 1],
             width="fill",
         )
-        tb.tk.config(width=width)
 
         self._echo_btn = cb = CheckBox(
             tb,
@@ -221,7 +219,7 @@ class AdminPanel:
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
-            width="fill",
+            # width="fill",
         )
 
         self._scope_btns = CheckBoxGroup(
