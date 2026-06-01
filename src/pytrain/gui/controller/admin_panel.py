@@ -149,6 +149,16 @@ class AdminPanel:
         # set up sync watcher to manage button state
         self._sync_watcher = StateWatcher(self._gui.sync_state, self._on_sync_state)
 
+        # Reload/Reset
+        row += 1
+        tb = self._titlebox(
+            admin_box,
+            text="Reload/Reset",
+            grid=[0, row, 2, 1],
+            width="fill",
+        )
+        tb.tk.config(width=width)
+
         # logging & debugging
         row += 1
         tb = self._titlebox(
