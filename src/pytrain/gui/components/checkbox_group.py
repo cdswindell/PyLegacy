@@ -117,7 +117,6 @@ class CheckBoxGroup(ButtonGroup):
                 style=style,
                 thickness=thickness,
             )
-            widget.show()
 
 
 def _fill(img, color: str) -> None:
