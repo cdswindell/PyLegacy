@@ -158,6 +158,16 @@ class AdminPanel:
             width="fill",
         )
         tb.tk.config(width=width)
+        self._accs_btn = pb = HoldButton(
+            tb,
+            text="Accessories",
+            grid=[0, 0],
+            width=12,
+            text_bold=True,
+            text_size=self._gui.s_18,
+            align="left",
+        )
+        self._gui.add_hover_action(pb)
 
         # logging & debugging
         row += 1
