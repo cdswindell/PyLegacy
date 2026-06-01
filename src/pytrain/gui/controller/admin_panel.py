@@ -124,23 +124,30 @@ class AdminPanel:
             text="Loaded",
             grid=[0, 0],
             width=12,
-            # padx=self._gui.text_pad_x,
             align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
 
+        sp = Text(
+            tb,
+            grid=[0, 1],
+            width=2,
+            align="top",
+        )
+        sp.text_size = self._gui.s_18
+        self._gui.cache(sp)
+
         self._reload_btn = pb = HoldButton(
             tb,
             text="Reload",
-            grid=[1, 0],
+            grid=[1, 2],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
             width=12,
             text_bold=True,
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized(),
-            # padx=self._gui.text_pad_x,
             align="right",
             show_hold_progress=True,
             progress_fill_color="darkgrey",
