@@ -14,7 +14,7 @@ import math
 from contextlib import contextmanager
 from dataclasses import dataclass
 from tkinter import TclError
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Iterable, Optional, TYPE_CHECKING
 
 from guizero import Box, Combo, PushButton, Text
 
@@ -83,6 +83,40 @@ class PopupManager:
         setattr(overlay, "overlay_key", key)
         self._overlays[key] = overlay
         return overlay
+
+    def forget(self, keys: Iterable[str]) -> None:
+        """
+        Remove cached overlays by key.
+
+        Accessory overlays are rebuilt from accessory_config.json. When that
+        file is reread, cached overlays must be discarded or get_or_create()
+        will return stale GUI instances for reused instance_ids.
+        """
+        with self._host.locked():
+            for key in keys:
+                overlay = self._overlays.pop(key, None)
+                if overlay is None:
+                    continue
+                if self._state.current_popup is overlay:
+                    self._state.current_popup = None
+                self._overlay_close_hooks.pop(id(overlay), None)
+                try:
+                    overlay.hide()
+                    overlay.tk.place_forget()
+                except (AttributeError, RuntimeError, TclError):
+                    pass
+                try:
+                    overlay.destroy()
+                except (AttributeError, RuntimeError, TclError):
+                    pass
+
+    def discard_acc_overlay_restore(self) -> None:
+        """
+        Prevent close() from restoring an accessory overlay that was hidden by
+        another popup.
+        """
+        with self._host.locked():
+            self._state.restore_acc_box = False
 
     def create_popup(
         self,

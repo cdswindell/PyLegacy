@@ -273,11 +273,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._keypad_view: KeypadView = KeypadView(self)
 
         # get configured accessories
+        self._accessory_config_file = config_file
         self._caa = ConfiguredAccessorySet.from_file(config_file, verify=True)
         self._caap = ConfiguredAccessoryAdapterProvider(self._caa, self)
         self._acc_tmcc_to_adapter: dict[int, ConfiguredAccessoryAdapter] = {}
         self._accessory_overlay_prewarm_queue = deque()
         self._accessory_overlay_prewarm_active = False
+        self._accessory_overlay_prewarm_generation = 0
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -624,11 +626,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._image_presenter.refresh_box_size()
         self._image_presenter.update(tmcc_id=tmcc_id)
 
-    def _start_accessory_overlay_prewarm(self) -> None:
+    def _start_accessory_overlay_prewarm(self, generation: int | None = None) -> None:
+        generation = self._accessory_overlay_prewarm_generation if generation is None else generation
+        if generation != self._accessory_overlay_prewarm_generation:
+            return
         if self._shutdown_flag.is_set() or self._accessory_overlay_prewarm_active:
             return
         if not self._acc_buttons_future.done():
-            self.app.tk.after(50, self._start_accessory_overlay_prewarm)
+            self.app.tk.after(50, lambda: self._start_accessory_overlay_prewarm(generation))
             return
         try:
             self._acc_buttons_future.result()
@@ -637,9 +642,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return
         self._accessory_overlay_prewarm_active = True
         self._accessory_overlay_prewarm_queue = deque(self.accessories.configured_all())
-        self.app.tk.after(25, self._prewarm_next_accessory_overlay)
+        self.app.tk.after(25, lambda: self._prewarm_next_accessory_overlay(generation))
 
-    def _prewarm_next_accessory_overlay(self) -> None:
+    def _prewarm_next_accessory_overlay(self, generation: int | None = None) -> None:
+        generation = self._accessory_overlay_prewarm_generation if generation is None else generation
+        if generation != self._accessory_overlay_prewarm_generation:
+            return
         if self._shutdown_flag.is_set():
             self._accessory_overlay_prewarm_active = False
             return
@@ -652,9 +660,85 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     acc.activate_tmcc_id(tmcc_ids[0])
                 overlay = self._popup.get_or_create(acc.instance_id, "", acc, self.restore_accessory_info)
                 setattr(overlay, "caa", acc)
-            self.app.tk.after(25, self._prewarm_next_accessory_overlay)
+            self.app.tk.after(25, lambda: self._prewarm_next_accessory_overlay(generation))
             return
         self._accessory_overlay_prewarm_active = False
+
+    def reload_configured_accessories(self) -> bool:
+        """
+        Reread accessory_config.json and rebuild all configured accessory GUI state.
+        """
+        old_overlay_keys = self._configured_accessory_overlay_keys()
+        had_active_accessory_overlay = self._acc_overlay is not None
+
+        try:
+            configured = ConfiguredAccessorySet.from_file(self._accessory_config_file, verify=True)
+        except Exception as e:
+            log.exception("Unable to reload configured accessories", exc_info=e)
+            return False
+
+        with self._cv:
+            self._caa = configured
+            self._caap.set_configured_set(configured, drop_adapters=True)
+            self._acc_tmcc_to_adapter.clear()
+            self._accessory_view.clear()
+            self._discard_configured_accessory_overlays(old_overlay_keys)
+
+            if had_active_accessory_overlay:
+                self._show_accessory_entry_keypad()
+
+            self._request_options_rebuild()
+            self._restart_accessory_overlay_prewarm()
+
+        log.info("Reloaded %d configured accessories from %s", len(configured.configured_all()), configured.path)
+        return True
+
+    def _configured_accessory_overlay_keys(self) -> set[str]:
+        keys: set[str] = set()
+        try:
+            for acc in self.accessories.configured_all():
+                if acc.instance_id:
+                    keys.add(acc.instance_id)
+        except (AttributeError, ValueError):
+            pass
+
+        key = getattr(self._acc_overlay, "overlay_key", None)
+        if isinstance(key, str) and key:
+            keys.add(key)
+        return keys
+
+    def _discard_configured_accessory_overlays(self, keys: set[str]) -> None:
+        self._popup.discard_acc_overlay_restore()
+        if self._acc_overlay and getattr(self._acc_overlay, "visible", False):
+            self._acc_overlay.hide()
+        self._acc_overlay = None
+        if keys:
+            self._popup.forget(keys)
+
+    def _show_accessory_entry_keypad(self) -> None:
+        self.scope = CommandScope.ACC
+        self._scope_tmcc_ids[CommandScope.ACC] = 0
+        if self.tmcc_id_box:
+            self.tmcc_id_box.text = f"{CommandScope.ACC.title} ID"
+        for scope, button in getattr(self, "_scope_buttons", {}).items():
+            if scope == CommandScope.ACC:
+                button.bg = self._enabled_bg
+                button.text_color = self._enabled_text
+            else:
+                button.bg = "white"
+                button.text_color = "black"
+        self._popup.close()
+        self._keypad_view.scope_keypad(force_entry_mode=True, clear_info=True)
+        if self.scope_box and not getattr(self.scope_box, "visible", True):
+            self.scope_box.show()
+
+    def _restart_accessory_overlay_prewarm(self) -> None:
+        self._accessory_overlay_prewarm_generation += 1
+        generation = self._accessory_overlay_prewarm_generation
+        self._accessory_overlay_prewarm_queue.clear()
+        self._accessory_overlay_prewarm_active = False
+        if not self._shutdown_flag.is_set():
+            self.app.tk.after(25, lambda: self._start_accessory_overlay_prewarm(generation))
 
     def show_popup(
         self,

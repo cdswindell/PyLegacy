@@ -178,6 +178,7 @@ class AdminPanel:
             text_bold=True,
             text_size=self._gui.s_18,
             align="left",
+            command=self._gui.reload_configured_accessories,
         )
         self._gui.add_hover_action(pb)
 
