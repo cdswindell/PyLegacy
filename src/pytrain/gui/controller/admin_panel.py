@@ -70,6 +70,7 @@ class AdminPanel:
             )
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
+        self.post_show()
         return self._overlay
 
     def post_show(self):

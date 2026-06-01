@@ -691,6 +691,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
         overlay = self._admin_panel.overlay
         self.show_popup(overlay, hide_image_box=True)
+        over
 
     def on_recents(self, value: str):
         # Updates component info if selected state is valid
