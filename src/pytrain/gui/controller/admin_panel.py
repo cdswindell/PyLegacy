@@ -70,7 +70,7 @@ class AdminPanel:
             )
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
-        self._fixup_scope_buttons()
+        # self._fixup_scope_buttons()
         return self._overlay
 
     def _fixup_scope_buttons(self):
@@ -159,7 +159,7 @@ class AdminPanel:
         row += 1
         tb = self._titlebox(
             admin_box,
-            text="Reload/Reset",
+            text="Reload/Refresh",
             grid=[0, row, 2, 1],
             width="fill",
         )
@@ -225,20 +225,23 @@ class AdminPanel:
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
-            # width="fill",
+            width="fill",
+            height=int(self._gui.button_size * 0.9),
         )
+
+        tb.tk.grid_columnconfigure(0, weight=1)
+        tb.tk.grid_rowconfigure(0, weight=1)
 
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
-            grid=[0, 0, 2, 1],
+            grid=[0, 0],
             options=SCOPE_OPTS,
             horizontal=True,
-            align="top",
             width=int(self._width / 2.3),
             style="radio",
-            visible=True,
         )
+        self._scope_btns.tk.grid_configure(sticky="nsew")
 
         # admin operations
         row += 1
