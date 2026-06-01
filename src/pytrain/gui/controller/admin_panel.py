@@ -132,7 +132,7 @@ class AdminPanel:
 
         sp = Text(
             tb,
-            grid=[0, 1],
+            grid=[1, 0],
             width=2,
             align="top",
         )
@@ -142,7 +142,7 @@ class AdminPanel:
         self._reload_btn = pb = HoldButton(
             tb,
             text="Reload",
-            grid=[1, 2],
+            grid=[2, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
             width=12,
             text_bold=True,
