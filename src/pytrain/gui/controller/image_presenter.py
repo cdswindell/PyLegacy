@@ -62,6 +62,7 @@ class ImagePresenter:
         with host.locked():
             host._image_cache.clear()
             self._checked_for_custom_images.clear()
+            self._pending_custom_images.clear()
             log.info("Image presenter reset completed")
 
     def calc_box_size(self) -> tuple[int, int]:
