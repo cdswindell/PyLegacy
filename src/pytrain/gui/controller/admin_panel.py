@@ -216,23 +216,19 @@ class AdminPanel:
 
         # scope
         row += 1
-        scope_height = int(self._gui.button_size * 1.1)
-
         tb = self._titlebox(
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
             width="fill",
-            height=scope_height,
         )
 
-        tb.tk.config(height=scope_height)
-        tb.tk.grid_propagate(False)
-        tb.tk.grid_columnconfigure(0, weight=1)
-        tb.tk.grid_rowconfigure(0, weight=1)
+        scope_row = Box(tb, grid=[0, 0], layout="grid", width="fill")
+        scope_row.tk.config(height=int(self._gui.button_size * 0.75))
+        scope_row.tk.grid_propagate(False)
 
         self._scope_btns = CheckBoxGroup(
-            tb,
+            scope_row,
             size=self._gui.s_20,
             grid=[0, 0],
             options=SCOPE_OPTS,
@@ -240,7 +236,7 @@ class AdminPanel:
             width=int(self._width / 2.3),
             style="radio",
         )
-        self._scope_btns.tk.grid_configure(sticky="nsew")
+        self._scope_btns.tk.grid_configure(sticky="w")
 
         for rb in self._scope_btns.children:
             rb.tk.config(height=1, pady=0, padx=0)
