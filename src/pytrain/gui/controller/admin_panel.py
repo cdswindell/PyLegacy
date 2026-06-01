@@ -48,6 +48,7 @@ class AdminPanel:
         self._echo_btn = None
         self._debug_btn = None
         self._accs_btn = None
+        self._imgs_btn = None
         self._wifi_box = None
         self._wifi_info = WiFiInfo()
         self._wifi_ssid = None
@@ -159,6 +160,7 @@ class AdminPanel:
             width="fill",
         )
         tb.tk.config(width=width)
+
         self._accs_btn = pb = HoldButton(
             tb,
             text="Accessories",
@@ -167,6 +169,17 @@ class AdminPanel:
             text_bold=True,
             text_size=self._gui.s_18,
             align="left",
+        )
+        self._gui.add_hover_action(pb)
+
+        self._imgs_btn = pb = HoldButton(
+            tb,
+            text="Images",
+            grid=[1, 0],
+            width=12,
+            text_bold=True,
+            text_size=self._gui.s_18,
+            align="right",
         )
         self._gui.add_hover_action(pb)
 
