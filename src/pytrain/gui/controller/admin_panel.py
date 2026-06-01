@@ -228,6 +228,7 @@ class AdminPanel:
             size=self._gui.s_20,
             grid=[0, 0, 2, 1],
             options=SCOPE_OPTS,
+            selected=0,
             horizontal=True,
             align="top",
             width=int(self._width / 2.3),
