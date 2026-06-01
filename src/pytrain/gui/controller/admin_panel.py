@@ -70,12 +70,7 @@ class AdminPanel:
             )
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
-        # self._fixup_scope_buttons()
         return self._overlay
-
-    def _fixup_scope_buttons(self):
-        self._scope_btns.hide()
-        self._scope_btns.show()
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
