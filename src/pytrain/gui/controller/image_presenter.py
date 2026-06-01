@@ -61,8 +61,8 @@ class ImagePresenter:
         host = self._host
         host.reset_prod_info_cache()  # this has its own lock...
         with host.locked():
-            self._tmp_image = host._image_cache.get((host.scope, host.scope_tmcc_id), None)
-            print(self._tmp_image)
+            self._tmp_image = host._image_cache.get((host.scope, host.scope_tmcc_id()), None)
+            print(f"{host.scope} {host.scope_tmcc_id()} {self._tmp_image}")
             host._image_cache.clear()
             self._checked_for_custom_images.clear()
             self._pending_custom_images.clear()
