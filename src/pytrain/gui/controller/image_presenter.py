@@ -412,7 +412,9 @@ class ImagePresenter:
         host = self._host
         img = None
         try:
+            print(f"Looking for '{tmcc_id}.jpg'...")
             image_path = find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
+            print(f"Found: {image_path}")
             if image_path is not None:
                 img = host.get_scaled_image(image_path, force_lionel=True)
         except Exception as e:
