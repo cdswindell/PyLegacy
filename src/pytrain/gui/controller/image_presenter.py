@@ -42,6 +42,7 @@ class ImagePresenter:
         self.bpc2_image = find_file("LCS-BPC2-6-81640.jpg")
         self.sensor_track_image = find_file("LCS-Sensor-Track-6-81294.jpg")
         self.loading_image = find_file("loading_image.png")
+        self._tmp_image = None
         self._checked_for_custom_images: set[int] = set()
         self._pending_custom_images: set[int] = set()
         self._executor = ThreadPoolExecutor(max_workers=1)
@@ -60,12 +61,13 @@ class ImagePresenter:
         host = self._host
         host.reset_prod_info_cache()  # this has its own lock...
         with host.locked():
+            self._tmp_image = host._image_cache.get((host.scope, host.scope_tmcc_id), None)
             host._image_cache.clear()
             self._checked_for_custom_images.clear()
             self._pending_custom_images.clear()
             # force the file cache to clear as well
             find_file.cache_clear()
-            log.info("Image presenter reset completed")
+            log.debug("Image presenter reset completed")
 
     def calc_box_size(self) -> tuple[int, int]:
         """
@@ -235,12 +237,9 @@ class ImagePresenter:
             # is an image cached?
             with host.locked():
                 img = host._image_cache.get((CommandScope.ENGINE, tmcc_id), None)
-                print(f"Engine: {tmcc_id} has image: {img is not None}")
 
             # is there a custom image?
-            print(f"Checked for custom image Engine {tmcc_id}: {tmcc_id in self._checked_for_custom_images}")
             if img is None and tmcc_id not in self._checked_for_custom_images:
-                print(f"Checking custom image for engine {tmcc_id}")
                 if self._lookup_custom_image(tmcc_id, train_id):
                     return
 
@@ -391,10 +390,8 @@ class ImagePresenter:
         host = self._host
         with host.locked():
             if tmcc_id in self._checked_for_custom_images:
-                print(f"Custom image lookup already checked for engine {tmcc_id}")
                 return False
             if tmcc_id in self._pending_custom_images:
-                print(f"Custom image lookup already pending for engine {tmcc_id}")
                 return True
             self._pending_custom_images.add(tmcc_id)
 
@@ -414,9 +411,7 @@ class ImagePresenter:
         host = self._host
         img = None
         try:
-            print(f"Looking for '{tmcc_id}.jpg'...")
             image_path = find_file(f"{tmcc_id}.jpg", places=(Path.cwd(), ENGINE_IMAGES_CACHE_DIR))
-            print(f"Found: {image_path}")
             if image_path is not None:
                 img = host.get_scaled_image(image_path, force_lionel=True)
         except Exception as e:
