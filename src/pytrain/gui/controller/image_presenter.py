@@ -55,6 +55,14 @@ class ImagePresenter:
         self._host.image.image = None
         self._host.image_box.hide()
 
+    # noinspection PyProtectedMember
+    def reset(self):
+        host = self._host
+        with host.locked():
+            host._image_cache.clear()
+            self._checked_for_custom_images.clear()
+            log.info("Image presenter reset completed")
+
     def calc_box_size(self) -> tuple[int, int]:
         """
         Calculates available image box size based on layout
