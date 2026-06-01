@@ -130,15 +130,7 @@ class AdminPanel:
         pb.text_bold = True
         pb.text_size = self._gui.s_18
 
-        sp = Text(
-            tb,
-            grid=[1, 0],
-            width=2,
-            align="top",
-        )
-        sp.text_size = self._gui.s_18
-        self._gui.cache(sp)
-
+        self.spacer(tb, grid=[1, 0])
         self._reload_btn = pb = HoldButton(
             tb,
             text="Reload",
@@ -179,10 +171,11 @@ class AdminPanel:
         )
         self._gui.add_hover_action(pb)
 
+        self.spacer(tb, grid=[1, 0])
         self._imgs_btn = pb = HoldButton(
             tb,
             text="Images",
-            grid=[1, 0],
+            grid=[2, 0],
             width=12,
             text_bold=True,
             text_size=self._gui.s_18,
@@ -303,6 +296,17 @@ class AdminPanel:
             grid=[1, br],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
+
+    def spacer(self, tb: TitleBox, grid: tuple[int, int], width: int = 2) -> Text:
+        sp = Text(
+            tb,
+            grid=grid,
+            width=width,
+            align="top",
+        )
+        sp.text_size = self._gui.s_18
+        self._gui.cache(sp)
+        return sp
 
     def _wifi_status(self) -> tuple[str, str | None, str, str | None, str]:
         snapshot = self._wifi_info.query()
