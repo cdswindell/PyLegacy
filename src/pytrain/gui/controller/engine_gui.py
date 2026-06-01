@@ -669,6 +669,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         Reread accessory_config.json and rebuild all configured accessory GUI state.
         """
         old_overlay_keys = self._configured_accessory_overlay_keys()
+        old_configured_tmcc_ids = self._configured_accessory_tmcc_ids(self.accessories)
         had_active_accessory_overlay = self._acc_overlay is not None
 
         try:
@@ -682,6 +683,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._caap.set_configured_set(configured, drop_adapters=True)
             self._acc_tmcc_to_adapter.clear()
             self._accessory_view.clear()
+            self._remove_removed_configured_accessory_options(
+                old_configured_tmcc_ids - self._configured_accessory_tmcc_ids(configured)
+            )
             self._discard_configured_accessory_overlays(old_overlay_keys)
 
             if had_active_accessory_overlay:
@@ -707,6 +711,46 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if isinstance(key, str) and key:
             keys.add(key)
         return keys
+
+    @staticmethod
+    def _configured_accessory_tmcc_ids(accessories) -> set[int]:
+        tmcc_ids: set[int] = set()
+        try:
+            configured = accessories.configured_all()
+        except (AttributeError, ValueError):
+            return tmcc_ids
+
+        for acc in configured:
+            try:
+                ids = acc.tmcc_ids
+            except (AttributeError, ValueError):
+                ids = ()
+            for tmcc_id in ids:
+                if isinstance(tmcc_id, int):
+                    tmcc_ids.add(tmcc_id)
+
+            try:
+                tmcc_id = acc.tmcc_id
+            except (AttributeError, ValueError):
+                tmcc_id = None
+            if isinstance(tmcc_id, int):
+                tmcc_ids.add(tmcc_id)
+
+        return tmcc_ids
+
+    def _remove_removed_configured_accessory_options(self, removed_tmcc_ids: set[int]) -> None:
+        if not removed_tmcc_ids:
+            return
+        queue = self._recents_queue.get(CommandScope.ACC)
+        if not isinstance(queue, UniqueDeque):
+            return
+
+        retained = [state for state in queue if getattr(state, "tmcc_id", None) not in removed_tmcc_ids]
+        if len(retained) == len(queue):
+            return
+
+        queue.clear()
+        queue.extend(retained)
 
     def _discard_configured_accessory_overlays(self, keys: set[str]) -> None:
         self._popup.discard_acc_overlay_restore()
@@ -820,12 +864,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if add_sep and self._train_linked_queue and state not in self._train_linked_queue:
                     options.append(self._separator)
                     add_sep = False
-                if (
-                    self.scope == CommandScope.ACC
-                    and state.tmcc_id in self._acc_tmcc_to_adapter
-                    and self._acc_tmcc_to_adapter[state.tmcc_id]
-                ):
-                    road_name = self._acc_tmcc_to_adapter[state.tmcc_id].name
+                acc = None
+                if self.scope == CommandScope.ACC:
+                    acc = self._acc_tmcc_to_adapter.get(state.tmcc_id)
+                    if state.tmcc_id not in self._acc_tmcc_to_adapter:
+                        acc = self.get_configured_accessory(state.tmcc_id)
+                if acc:
+                    road_name = acc.name
                 else:
                     road_name = state.road_name
                 name = f"{state.tmcc_id:0{num_chars}d}: {road_name}"

@@ -8,12 +8,14 @@ import pytest
 
 import src.pytrain.gui.controller.engine_gui as mod
 from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.utils.unique_deque import UniqueDeque
 
 
 class DummyAdapter:
-    def __init__(self):
+    def __init__(self, name: str = "Configured Accessory"):
         self.overlay = None
         self.activations: list[int] = []
+        self.name = name
 
     def activate_tmcc_id(self, tmcc_id: int) -> None:
         self.activations.append(tmcc_id)
@@ -30,17 +32,32 @@ class DummyProvider:
 
 
 class DummyConfiguredAccessory:
-    def __init__(self, instance_id: str) -> None:
+    def __init__(self, instance_id: str, *tmcc_ids: int) -> None:
         self.instance_id = instance_id
+        self.tmcc_ids = tuple(tmcc_ids)
+        self.tmcc_id = tmcc_ids[0] if tmcc_ids else None
 
 
 class DummyConfiguredSet:
-    def __init__(self, *instance_ids: str) -> None:
+    def __init__(self, *accessories: str | tuple) -> None:
         self.path = "accessory_config.json"
-        self._accessories = [DummyConfiguredAccessory(instance_id) for instance_id in instance_ids]
+        self._accessories = []
+        for acc in accessories:
+            if isinstance(acc, tuple):
+                instance_id, *tmcc_ids = acc
+                self._accessories.append(DummyConfiguredAccessory(instance_id, *tmcc_ids))
+            else:
+                self._accessories.append(DummyConfiguredAccessory(acc))
 
     def configured_all(self) -> list[DummyConfiguredAccessory]:
         return list(self._accessories)
+
+
+class DummyRecentState:
+    def __init__(self, tmcc_id: int, road_name: str) -> None:
+        self.tmcc_id = tmcc_id
+        self.road_name = road_name
+        self.road_number = ""
 
 
 class DummyReloadProvider(DummyProvider):
@@ -153,6 +170,11 @@ def _new_reload_engine() -> mod.EngineGui:
     gui._options_rebuild_pending = False
     gui._rebuild_options_calls = 0
     gui.rebuild_options = lambda: setattr(gui, "_rebuild_options_calls", gui._rebuild_options_calls + 1)
+    gui.title = "Engine GUI"
+    gui._separator = "---"
+    gui._options_to_state = {}
+    gui._recents_queue = {}
+    gui._train_linked_queue = UniqueDeque()
     return gui
 
 
@@ -304,6 +326,42 @@ def test_reload_configured_accessories_resets_catalog_panel_when_it_exists(
     assert gui.reload_configured_accessories() is True
 
     assert catalog_panel.reset_calls == 1
+
+
+def test_reload_configured_accessories_removes_only_deleted_configured_accessory_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gui = _new_reload_engine()
+    adapter = DummyAdapter("Keep Reloaded")
+    gui._caa = DummyConfiguredSet(("keep_old", 12), ("remove_old", 13))
+    gui._caap = DummyReloadProvider({12: [adapter]})
+    gui._recents_queue[CommandScope.ACC] = UniqueDeque(
+        [
+            DummyRecentState(12, "Keep Old"),
+            DummyRecentState(13, "Remove Old"),
+            DummyRecentState(99, "Raw Accessory"),
+        ]
+    )
+    new_config = DummyConfiguredSet(("keep_new", 12))
+
+    monkeypatch.setattr(
+        mod.ConfiguredAccessorySet,
+        "from_file",
+        classmethod(lambda cls, path, verify=True: new_config),
+        raising=True,
+    )
+
+    assert gui.reload_configured_accessories() is True
+
+    assert [state.tmcc_id for state in gui._recents_queue[CommandScope.ACC]] == [12, 99]
+    assert gui.get_options() == [
+        "Engine GUI",
+        "12: Keep Reloaded",
+        "99: Raw Accessory",
+        "---",
+        mod.ADMIN_TITLE,
+    ]
+    assert adapter.activations == [12]
 
 
 def test_reload_configured_accessories_resets_active_overlay_to_acc_entry(
