@@ -72,6 +72,9 @@ class AdminPanel:
         self._ensure_wifi_refresh()
         return self._overlay
 
+    def post_show(self):
+        self._scope_btns.focus()
+
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
         """Builds the 2-column grid layout for the admin popup."""
