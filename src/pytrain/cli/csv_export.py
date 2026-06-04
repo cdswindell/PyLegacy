@@ -88,7 +88,7 @@ class CsvCmd(CommandBase):
                     dw.writeheader()
                 for entry in entries:
                     if entry.is_name:
-                        dw.writerow(entry.as_csv)
+                        dw.writerow(entry.as_csv())
                         cnt += 1
             if self.is_verbose:
                 log.info(f"Exported {cnt} {self._scope.title} records(s)to '{self._cli.output_file}'")

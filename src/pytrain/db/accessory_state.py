@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from .comp_data import CompDataMixin
-from .component_state import SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState, UpdateResult
+from .component_state import LcsComponent, SCOPE_TO_STATE_MAP, L, LcsProxyState, P, TmccState, UpdateResult
 from ..pdi.amc2_req import Amc2Lamp, Amc2Motor, Amc2Req
 from ..pdi.asc2_req import Asc2Req
 from ..pdi.bpc2_req import Bpc2Req
@@ -28,7 +28,7 @@ class AccessoryState(TmccState, LcsProxyState):
     @classmethod
     def _csv_headers(cls) -> list[str]:
         cols = super()._csv_headers()
-        cols.extend(["lcs"])
+        cols.extend(["lcs", "port"])
         return cols
 
     def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
@@ -43,10 +43,11 @@ class AccessoryState(TmccState, LcsProxyState):
         self._number: int | None = None
         self._relative_speed: int = 0
 
-    @property
     def as_csv(self) -> dict[str, str | int | None]:
-        data = super().as_csv
-        print(self._config_req, self.port, self.model)
+        data = super().as_csv()
+        comp = LcsComponent.by_value(self.model)
+        data["lcs"] = comp.name if comp else None
+        data["port"] = self.port
         return data
 
     @property

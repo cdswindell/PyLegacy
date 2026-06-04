@@ -34,6 +34,7 @@ from ..protocol.constants import (
     BROADCAST_ADDRESS,
     CommandScope,
     CommandSyntax,
+    Mixins,
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum, TMCC1SwitchCommandEnum as Switch
 from ..utils.text_utils import title
@@ -52,6 +53,16 @@ class UpdateResult(Enum):
     UPDATED = auto()
     NO_CHANGE = auto()
     IGNORED = auto()
+
+
+class LcsComponent(Mixins):
+    IRDA = 0
+    WIFI = 2
+    SER2 = 3
+    ASC2 = 4
+    BPC2 = 5
+    AMC2 = 6
+    STM2 = 8
 
 
 # noinspection PyUnresolvedReferences
@@ -104,7 +115,6 @@ class ComponentState(ABC, CompDataMixin):
     def __lt__(self, other):
         return self.address < other.address
 
-    @property
     def as_csv(self) -> dict[str, str | int | None]:
         return {
             "address": self._address,
@@ -774,6 +784,12 @@ class RouteState(TmccState):
     Maintain Route State
     """
 
+    @classmethod
+    def _csv_headers(cls) -> list[str]:
+        cols = super()._csv_headers()
+        cols.extend(["switches", "subroutes"])
+        return cols
+
     def __init__(self, scope: CommandScope = CommandScope.ROUTE) -> None:
         if scope != CommandScope.ROUTE:
             raise ValueError(f"Invalid scope: {scope}")
@@ -781,6 +797,13 @@ class RouteState(TmccState):
         self._routes: set[RouteState] = set()
         self._signature: dict[str, bool] = dict()
         self._current_state: dict[str, bool | None] = dict()
+
+    def as_csv(self) -> dict[str, str | int | None]:
+        data = super().as_csv()
+        di = self.as_dict()
+        data["switches"] = len(di["switches"])
+        data["subroutes"] = len(di["routes"])
+        return data
 
     def _update_state(self, command: L | P) -> UpdateResult:
         from .comp_data import CompDataMixin
