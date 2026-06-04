@@ -691,6 +691,12 @@ class SwitchState(TmccState):
     Maintain the perceived state of a Switch
     """
 
+    @classmethod
+    def _csv_headers(cls) -> list[str]:
+        cols = super()._csv_headers()
+        cols.extend(["state"])
+        return cols
+
     def __init__(self, scope: CommandScope = CommandScope.SWITCH) -> None:
         if scope != CommandScope.SWITCH:
             raise ValueError(f"Invalid scope: {scope}")
@@ -698,6 +704,11 @@ class SwitchState(TmccState):
         self._pdi_source = False
         self._state: Switch | None = None
         self._routes: set[RouteState] = set()
+
+    def as_csv(self) -> dict[str, str | int | None]:
+        data = super().as_csv()
+        data["state"] = "thru" if self.is_thru else "out" if self.is_out else "unknown"
+        return data
 
     def _update_state(self, command: L | P) -> UpdateResult:
         if command:
