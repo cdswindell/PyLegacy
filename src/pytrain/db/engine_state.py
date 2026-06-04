@@ -16,6 +16,7 @@ from typing import Any, Dict, List, TypeVar
 
 from .comp_data import CompDataHandler, CompDataMixin, decode_tmcc_speed, encode_tmcc_speed
 from .component_state import ComponentState, L, LcsProxyState, P, SCOPE_TO_STATE_MAP, UpdateResult, log
+from .prod_info import ProdInfo
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
 from ..pdi.d4_req import D4Req
 from ..pdi.irda_req import IrdaReq
@@ -190,6 +191,16 @@ R = TypeVar("R", bound=OfficialRRSpeeds)
 
 
 class EngineState(ComponentState):
+    @classmethod
+    def _csv_headers(cls, include_state: bool = False) -> list[str]:
+        cols = super()._csv_headers(include_state=include_state)
+        if ProdInfo.is_capable():
+            cols.extend(["sku"])
+        cols.extend(["type", "control", "sound"])
+        if include_state:
+            cols.extend(["target", "speed", "momentum", "rpm", "effort", "fuel", "water"])
+        return cols
+
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
         if scope not in {CommandScope.ENGINE, CommandScope.TRAIN}:
             raise ValueError(f"Invalid scope: {scope}, expected ENGINE or TRAIN")
@@ -208,6 +219,7 @@ class EngineState(ComponentState):
         self._d4_rec_no: int | None = None
         self._is_d4: bool = False
         self._ramping: bool = False
+        self._prod_info = None
         self._pdi_source: bool = False  # for train is LCS BPC2
 
     def __repr__(self) -> str:
@@ -283,6 +295,33 @@ class EngineState(ComponentState):
             else:
                 log.error(f"Exception while processing {self.scope.title} {self._address:04} state: {ae}", exc_info=ae)
             return f"{self.scope.title} {self._address:04}: unavailable"
+
+    def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
+        data = super().as_csv(include_state=include_state)
+        if ProdInfo.is_capable() and self.bt_id:
+            data["sku"] = self.sku
+        data["type"] = self.engine_type_label
+        data["control"] = self.control_type_label
+        data["sound"] = self.sound_type_label
+        if include_state:
+            data["target"] = self.target_speed
+            data["speed"] = self.speed
+            data["momentum"] = self.momentum
+            if self.is_rpm:
+                data["rpm"] = self.rpm
+            data["effort"] = self.labor
+            data["fuel"] = self.fuel_level_pct
+            if self.is_steam:
+                data["water"] = self.water_level_pct
+        return data
+
+    @property
+    def sku(self) -> str | None:
+        if ProdInfo.is_capable() and self.bt_id:
+            with self._cv:
+                if self._prod_info is None:
+                    self._prod_info = ProdInfo.by_btid(self.bt_id)
+        return self._prod_info.sku_number if self._prod_info else None
 
     @property
     def is_ramping(self) -> bool:
@@ -1069,6 +1108,12 @@ class EngineState(ComponentState):
 class TrainState(EngineState, LcsProxyState):
     from .components import ConsistComponent
 
+    @classmethod
+    def _csv_headers(cls, include_state: bool = False) -> list[str]:
+        cols = super()._csv_headers(include_state=include_state)
+        cols.extend(["head", "engines", "cars", "accessories"])
+        return cols
+
     def __init__(self, scope: CommandScope = CommandScope.TRAIN) -> None:
         if scope != CommandScope.TRAIN:
             raise ValueError(f"Invalid scope: {scope}, expected {CommandScope.TRAIN.name}")
@@ -1088,6 +1133,15 @@ class TrainState(EngineState, LcsProxyState):
                 if comp.tmcc_id == item.tmcc_id:
                     return True
         return False
+
+    def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
+        data = super().as_csv(include_state=include_state)
+        data["head"] = self.head_tmcc_id
+        data["engines"] = self.num_engines
+        data["cars"] = self.num_train_linked
+        data["accessories"] = self.num_accessories
+
+        return data
 
     def _update_state(self, command: L | P) -> UpdateResult:
         from ..pdi.bpc2_req import Bpc2Req

@@ -330,8 +330,9 @@ class EngineType(Mixins, IntEnum):
     STEAM_PULLMOR = 14
     TRANSFORMER = 15
 
+    @property
     def label(self) -> str:
-        return self.name.replace("_", " ").title()
+        return self.name.replace("_", " ").capitalize()
 
 
 TMCC_CONTROL_TYPE = 1

@@ -26,9 +26,11 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 
 class AccessoryState(TmccState, LcsProxyState):
     @classmethod
-    def _csv_headers(cls) -> list[str]:
-        cols = super()._csv_headers()
+    def _csv_headers(cls, include_state: bool = False) -> list[str]:
+        cols = super()._csv_headers(include_state=include_state)
         cols.extend(["lcs", "port"])
+        if include_state:
+            pass
         return cols
 
     def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
@@ -43,8 +45,8 @@ class AccessoryState(TmccState, LcsProxyState):
         self._number: int | None = None
         self._relative_speed: int = 0
 
-    def as_csv(self) -> dict[str, str | int | None]:
-        data = super().as_csv()
+    def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
+        data = super().as_csv(include_state=include_state)
         comp = LcsComponent.by_value(self.model)
         data["lcs"] = comp.name if comp else None
         data["port"] = self.port

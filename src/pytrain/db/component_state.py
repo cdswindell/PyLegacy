@@ -70,14 +70,16 @@ class ComponentState(ABC, CompDataMixin):
     __metaclass__ = ABCMeta
 
     @classmethod
-    def get_cvs_dict_writer(cls, scope: CommandScope, csvfile: TextIO) -> csv.DictWriter:
+    def get_cvs_dict_writer(
+        cls, scope: CommandScope, csvfile: TextIO, *, include_state: bool = False
+    ) -> csv.DictWriter:
         state_class = SCOPE_TO_STATE_MAP.get(scope, None)
         if state_class is None:
             raise ValueError(f"Unsupported scope: {scope.name if scope else 'None'}")
-        return csv.DictWriter(csvfile, fieldnames=state_class._csv_headers())
+        return csv.DictWriter(csvfile, fieldnames=state_class._csv_headers(include_state=include_state))
 
     @classmethod
-    def _csv_headers(cls) -> list[str]:
+    def _csv_headers(cls, include_state: bool = False) -> list[str]:
         return ["address", "road_number", "road_name"]
 
     @abstractmethod
@@ -115,7 +117,7 @@ class ComponentState(ABC, CompDataMixin):
     def __lt__(self, other):
         return self.address < other.address
 
-    def as_csv(self) -> dict[str, str | int | None]:
+    def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
         return {
             "address": self._address,
             "road_number": self.road_number,
@@ -692,9 +694,10 @@ class SwitchState(TmccState):
     """
 
     @classmethod
-    def _csv_headers(cls) -> list[str]:
-        cols = super()._csv_headers()
-        cols.extend(["state"])
+    def _csv_headers(cls, include_state: bool = False) -> list[str]:
+        cols = super()._csv_headers(include_state=include_state)
+        if include_state:
+            cols.extend(["state"])
         return cols
 
     def __init__(self, scope: CommandScope = CommandScope.SWITCH) -> None:
@@ -705,9 +708,10 @@ class SwitchState(TmccState):
         self._state: Switch | None = None
         self._routes: set[RouteState] = set()
 
-    def as_csv(self) -> dict[str, str | int | None]:
-        data = super().as_csv()
-        data["state"] = "thru" if self.is_thru else "out" if self.is_out else "unknown"
+    def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
+        data = super().as_csv(include_state=include_state)
+        if include_state:
+            data["state"] = "thru" if self.is_thru else "out" if self.is_out else "unknown"
         return data
 
     def _update_state(self, command: L | P) -> UpdateResult:
@@ -796,9 +800,11 @@ class RouteState(TmccState):
     """
 
     @classmethod
-    def _csv_headers(cls) -> list[str]:
-        cols = super()._csv_headers()
+    def _csv_headers(cls, include_state: bool = False) -> list[str]:
+        cols = super()._csv_headers(include_state=include_state)
         cols.extend(["switches", "subroutes"])
+        if include_state:
+            cols.extend(["aligned"])
         return cols
 
     def __init__(self, scope: CommandScope = CommandScope.ROUTE) -> None:
@@ -809,11 +815,13 @@ class RouteState(TmccState):
         self._signature: dict[str, bool] = dict()
         self._current_state: dict[str, bool | None] = dict()
 
-    def as_csv(self) -> dict[str, str | int | None]:
-        data = super().as_csv()
+    def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
+        data = super().as_csv(include_state=include_state)
         di = self.as_dict()
         data["switches"] = len(di["switches"])
         data["subroutes"] = len(di["routes"])
+        if include_state:
+            data["aligned"] = self.is_aligned
         return data
 
     def _update_state(self, command: L | P) -> UpdateResult:

@@ -122,6 +122,10 @@ class ProdInfo:
         return self._image_content
 
     @classmethod
+    def is_capable(cls) -> bool:
+        return PROD_INFO_URL and API_KEY
+
+    @classmethod
     def clear_caches(cls, preserve_custom=True, verbose: bool = False) -> None:
         with cls._cache_lock:
             cls._bt_cache.clear()

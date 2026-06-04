@@ -58,6 +58,10 @@ class CsvCmd(CommandBase):
         return self._cli.scope
 
     @property
+    def is_real_time(self) -> bool:
+        return self._cli.is_real_time
+
+    @property
     def is_verbose(self) -> bool:
         return self._cli.is_verbose
 
@@ -83,12 +87,12 @@ class CsvCmd(CommandBase):
         if entries:
             cnt = 0
             with open(self._cli.output_file, "w", newline="") as f:
-                dw = ComponentState.get_cvs_dict_writer(self.scope, f)
+                dw = ComponentState.get_cvs_dict_writer(self.scope, f, include_state=self.is_real_time)
                 if self._cli.is_header:
                     dw.writeheader()
                 for entry in entries:
                     if entry.is_name:
-                        dw.writerow(entry.as_csv())
+                        dw.writerow(entry.as_csv(include_state=self.is_real_time))
                         cnt += 1
             if self.is_verbose:
                 log.info(f"Exported {cnt} {self._scope.title} records(s)to '{self._cli.output_file}'")
@@ -138,6 +142,12 @@ class CsvCli(CliBase):
         )
 
         parser.add_argument(
+            "-state",
+            action="store_true",
+            help="Include real time state information",
+        )
+
+        parser.add_argument(
             "-verbose",
             action="store_true",
             help="Verbose",
@@ -150,6 +160,7 @@ class CsvCli(CliBase):
         super().__init__(arg_parser, cmd_line, do_fire)
         self._args = self._args
         self._no_header = self._args.no_header
+        self._real_time = self._args.state
         self._output_file = self._args.output
         self._verbose = self._args.verbose
         try:
@@ -182,6 +193,10 @@ class CsvCli(CliBase):
     @property
     def is_verbose(self) -> bool:
         return self._verbose
+
+    @property
+    def is_real_time(self) -> bool:
+        return self._real_time
 
 
 def main(args: list[str] | None = None) -> int:
