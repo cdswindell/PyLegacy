@@ -25,6 +25,12 @@ from ..protocol.tmcc1.tmcc1_constants import TMCC1HaltCommandEnum
 
 
 class AccessoryState(TmccState, LcsProxyState):
+    @classmethod
+    def _csv_headers(cls) -> list[str]:
+        cols = super()._csv_headers()
+        cols.extend(["lcs"])
+        return cols
+
     def __init__(self, scope: CommandScope = CommandScope.ACC) -> None:
         if scope != CommandScope.ACC:
             raise ValueError(f"Invalid scope: {scope}")
@@ -36,6 +42,12 @@ class AccessoryState(TmccState, LcsProxyState):
         self._aux_state: Aux | None = None
         self._number: int | None = None
         self._relative_speed: int = 0
+
+    @property
+    def as_csv(self) -> dict[str, str | int | None]:
+        data = super().as_csv
+        print(self._config_req, self.port, self.model)
+        return data
 
     @property
     def payload(self) -> str:

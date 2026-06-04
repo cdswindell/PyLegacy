@@ -76,6 +76,7 @@ from .acc import AccCli
 from .amc2 import Amc2Cli
 from .asc2 import Asc2Cli
 from .bpc2 import Bpc2Cli
+from .csv_export import CsvCli
 from .dialogs import DialogsCli
 from .effects import EffectsCli
 from .engine import EngineCli
@@ -553,7 +554,7 @@ class PyTrain:
             type=str,
             nargs="?",
             const=DEFAULT_BUTTONS_FILE,
-            help=f"Load button definitions at start up (default file: {DEFAULT_BUTTONS_FILE})",
+            help=f"Load button definitions at start up (default: {DEFAULT_BUTTONS_FILE})",
         )
         misc_opts.add_argument("-debug", action="store_true", help="Enable debug logging")
         misc_opts.add_argument("-echo", action="store_true", help="Echo received TMCC/PDI commands to console")
@@ -569,7 +570,7 @@ class PyTrain:
             type=str,
             nargs="?",
             const=DEFAULT_REPLAY_FILE,
-            help=f"Replay {PROGRAM_NAME} commands at start up (default file: {DEFAULT_REPLAY_FILE})",
+            help=f"Replay {PROGRAM_NAME} commands at start up (default: {DEFAULT_REPLAY_FILE})",
         )
         misc_opts.add_argument(
             "-version",
@@ -1581,6 +1582,13 @@ class PyTrain:
             const=ClearCli,
             dest="command",
             help="Clear/delete engine/train/switch/accessory records",
+        )
+        group.add_argument(
+            "-csv",
+            action="store_const",
+            const=CsvCli,
+            dest="command",
+            help="Export CSV files for engine/train/switch/accessory records",
         )
         group.add_argument(
             "-db", action="store_const", const="db", dest="command", help="Query engine/train/switch/accessory state"

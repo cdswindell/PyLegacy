@@ -95,6 +95,7 @@ class CompDataHandler:
         length: int = 1,
         from_bytes: Callable = default_from_func,
         to_bytes: Callable = default_to_func,
+        *,
         d4_only: bool = False,
     ) -> None:
         self.field: str = field
@@ -317,14 +318,14 @@ BASE_MEMORY_ENGINE_READ_MAP = {
         4,
         lambda t: int(PdiReq.decode_int(t)),
         lambda t: PdiReq.encode_text(str(t).zfill(4), 4),
-        True,
+        d4_only=True,
     ),
     0xBC: CompDataHandler(
         "_timestamp",
         4,
         lambda t: int.from_bytes(t[0:4], byteorder="little"),
         lambda t: t.to_bytes(4, byteorder="little"),
-        True,
+        d4_only=True,
     ),
 }
 # build an inverse map from the token name to the address

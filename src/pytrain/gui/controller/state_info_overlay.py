@@ -338,6 +338,7 @@ class StateInfoOverlay:
             new_value, _ = self._process_input(_field, new_value, old_value, 4)
             state = self._gui.active_state
             if isinstance(state, (EngineState, TrainState, AccessoryState)):
+                new_value = new_value.zfill(4)
                 BaseReq.do_update_field("ROAD_NUMBER_LEN", new_value, state, True)
                 BaseReq.do_update_field("ROAD_NUMBER", new_value, state, True)
 

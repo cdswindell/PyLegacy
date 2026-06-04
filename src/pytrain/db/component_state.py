@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import csv
 import logging
 import threading
 from abc import ABC, ABCMeta, abstractmethod
@@ -17,7 +18,7 @@ from collections import defaultdict
 from enum import Enum, auto
 from threading import Condition, Event, RLock
 from time import monotonic
-from typing import Any, Dict, List, Self, Set, TypeVar
+from typing import Any, Dict, List, Self, Set, TextIO, TypeVar
 
 from .comp_data import CompData, CompDataMixin
 from ..pdi.asc2_req import Asc2Req
@@ -57,6 +58,17 @@ class UpdateResult(Enum):
 class ComponentState(ABC, CompDataMixin):
     __metaclass__ = ABCMeta
 
+    @classmethod
+    def get_cvs_dict_writer(cls, scope: CommandScope, csvfile: TextIO) -> csv.DictWriter:
+        state_class = SCOPE_TO_STATE_MAP.get(scope, None)
+        if state_class is None:
+            raise ValueError(f"Unsupported scope: {scope.name if scope else 'None'}")
+        return csv.DictWriter(csvfile, fieldnames=state_class._csv_headers())
+
+    @classmethod
+    def _csv_headers(cls) -> list[str]:
+        return ["address", "road_number", "road_name"]
+
     @abstractmethod
     def __init__(self, scope: CommandScope = None) -> None:
         from .component_state_store import DependencyCache
@@ -91,6 +103,14 @@ class ComponentState(ABC, CompDataMixin):
 
     def __lt__(self, other):
         return self.address < other.address
+
+    @property
+    def as_csv(self) -> dict[str, str | int | None]:
+        return {
+            "address": self._address,
+            "road_number": self.road_number,
+            "road_name": self.road_name,
+        }
 
     def results_in(self, command: CommandReq) -> Set[E]:
         effects = self._dependencies.results_in(command.command, dereference_aliases=True, include_aliases=False)
