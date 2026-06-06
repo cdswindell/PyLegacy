@@ -198,7 +198,7 @@ class EngineState(ComponentState):
             cols.extend(["sku"])
         cols.extend(["type", "control", "sound"])
         if include_state:
-            cols.extend(["target", "speed", "momentum", "rpm", "effort", "fuel", "water"])
+            cols.extend(["target", "speed", "speed_limit", "momentum", "rpm", "effort", "fuel", "water"])
         return cols
 
     def __init__(self, scope: CommandScope = CommandScope.ENGINE) -> None:
@@ -306,6 +306,7 @@ class EngineState(ComponentState):
         if include_state:
             data["target"] = self.target_speed
             data["speed"] = self.speed
+            data["speed_limit"] = self.speed_limit
             data["momentum"] = self.momentum
             if self.is_rpm:
                 data["rpm"] = self.rpm
@@ -316,12 +317,16 @@ class EngineState(ComponentState):
         return data
 
     @property
-    def sku(self) -> str | None:
+    def prod_info(self) -> ProdInfo | None:
         if ProdInfo.is_capable() and self.bt_id:
             with self._cv:
                 if self._prod_info is None:
                     self._prod_info = ProdInfo.by_btid(self.bt_id)
-        return self._prod_info.sku_number if self._prod_info else None
+        return self._prod_info
+
+    @property
+    def sku(self) -> str | None:
+        return self.prod_info.sku_number if self.prod_info else None
 
     @property
     def is_ramping(self) -> bool:
