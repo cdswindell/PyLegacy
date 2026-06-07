@@ -295,7 +295,7 @@ class ImagePresenter:
                                 img = host._image_cache.get(source, None)
                             if img is None:
                                 img = host.get_scaled_image(source, force_lionel=True)
-                                img = center_text_on_image(img, et_enum.label(), styled=True)
+                                img = center_text_on_image(img, et_enum.label, styled=True)
                                 with host.locked():
                                     host._image_cache[source] = img
                             with host.locked():
