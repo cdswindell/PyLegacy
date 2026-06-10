@@ -97,16 +97,22 @@ class CompDataHandler:
         to_bytes: Callable = default_to_func,
         *,
         d4_only: bool = False,
+        default: int = 0xFF,
     ) -> None:
         self.field: str = field
         self.length: int = length
         self.from_bytes: Callable = from_bytes
         self.to_bytes: Callable = to_bytes
         self._d4_only: bool = d4_only
+        self._default: Any = default
 
     @property
     def is_d4_only(self) -> bool:
         return self._d4_only
+
+    @property
+    def default(self) -> int:
+        return self._default
 
 
 class QueryPkg:
@@ -266,30 +272,30 @@ BASE_MEMORY_ENGINE_READ_MAP = {
         lambda t: t.to_bytes(2, byteorder="little"),
     ),
     0x06: CompDataHandler("_unk_6"),
-    0x07: CompDataHandler("_speed"),
-    0x08: CompDataHandler("_target_speed"),
-    0x09: CompDataHandler("_train_brake"),
+    0x07: CompDataHandler("_speed", default=0),
+    0x08: CompDataHandler("_target_speed", default=0),
+    0x09: CompDataHandler("_train_brake", default=0),
     0x0A: CompDataHandler("_control_id"),
     0x0B: CompDataHandler("_unk_b"),
-    0x0C: CompDataHandler("_rpm_labor"),  # Sound on/off on passenger and freight cars
+    0x0C: CompDataHandler("_rpm_labor", default=0),  # Sound on/off on passenger and freight cars
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
-    0x0F: CompDataHandler("_labor_level"),
+    0x0F: CompDataHandler("_labor_level", default=0),
     0x11: CompDataHandler("_unk_11"),
     0x12: CompDataHandler("_unk_12"),
     0x13: CompDataHandler("_unk_13"),
     0x17: CompDataHandler("_momentum_setting"),
-    0x18: CompDataHandler("_momentum"),
+    0x18: CompDataHandler("_momentum", default=0),
     0x1C: CompDataHandler("_train_tmcc_id"),
     0x1D: CompDataHandler("_train_unit"),
-    0x1E: CompDataHandler("_road_name_len"),
+    0x1E: CompDataHandler("_road_name_len", default=0),
     0x1F: CompDataHandler(
         "_road_name",
         31,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 31),
     ),
-    0x3E: CompDataHandler("_road_number_len"),
+    0x3E: CompDataHandler("_road_number_len", default=0),
     0x3F: CompDataHandler(
         "_road_number",
         4,
@@ -357,14 +363,14 @@ BASE_MEMORY_D4_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 BASE_MEMORY_ACC_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
-    0x1E: CompDataHandler("_device_code"),
+    0x1E: CompDataHandler("_road_name_len", default=0),
     0x1F: CompDataHandler(
         "_road_name",
         31,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 31),
     ),
-    0x3E: CompDataHandler("_road_number_len"),
+    0x3E: CompDataHandler("_road_number_len", default=0),
     0x3F: CompDataHandler(
         "_road_number",
         4,
@@ -377,13 +383,14 @@ FIELD_TO_ADDR_ACC_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ACC_READ_MAP.ite
 BASE_MEMORY_SWITCH_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
+    0x04: CompDataHandler("_road_name_len", default=0),
     0x05: CompDataHandler(
         "_road_name",
         31,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 31),
     ),
-    0x24: CompDataHandler("_road_number_len"),
+    0x24: CompDataHandler("_road_number_len", default=0),
     0x25: CompDataHandler(
         "_road_number",
         4,
@@ -1043,7 +1050,6 @@ class SwitchData(CompData):
 class AccessoryData(CompData):
     def __init__(self, data: bytes, tmcc_id: int = None) -> None:
         self._signal_initializing()
-        self._device_code: int | None = None
         super().__init__(data, scope=CommandScope.ACC, tmcc_id=tmcc_id)
 
 

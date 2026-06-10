@@ -761,7 +761,7 @@ class BaseReq(PdiReq, CompDataMixin):
         elif self.pdi_command == PdiCommand.BASE_MEMORY and self._start is not None:
             dt = ""
             sc = f"Scope: {self.scope}"
-            st = f"Start: {hex(self._start)} Len: {self.data_length}"
+            st = f"Start: {hex(self._start)} Len: {hex(self.data_length)}"
             comp_map = SCOPE_TO_COMP_MAP.get(self.scope, None)
             if comp_map:
                 tpl = comp_map.get(self.start, None)

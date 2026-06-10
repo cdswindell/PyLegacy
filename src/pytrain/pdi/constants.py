@@ -50,7 +50,7 @@ TMCC4_TX: int = 0x2C
 TMCC4_RX: int = 0x2D
 
 D4_ENGINE: int = 0x2E
-D4_TRAIN: int = 0x2F  # TODO: Not verified
+D4_TRAIN: int = 0x2F
 
 IRDA_GET: int = 0x30
 IRDA_SET: int = 0x31
@@ -83,11 +83,12 @@ STM2_RX: int = 0x4E
 
 RF_RX = 0x72
 
+BLE_TX = 0x75
 BLE_RX = 0x76
 
-BLOCK_GET: int = 0x90
-BLOCK_SET: int = 0x91
-BLOCK_RX: int = 0x92
+BLOCK_GET: int = 0xD0
+BLOCK_SET: int = 0xD1
+BLOCK_RX: int = 0xD2
 
 
 class FriendlyMixins(Enum):
@@ -139,6 +140,7 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     STM2_SET = STM2_SET
     STM2_RX = STM2_RX
     RF_RX = RF_RX
+    BLE_TX = BLE_TX
     BLE_RX = BLE_RX
     BLOCK_GET = BLOCK_GET
     BLOCK_SET = BLOCK_SET
@@ -224,6 +226,10 @@ class PdiCommand(IntEnum, Mixins, FriendlyMixins):
     @property
     def is_block(self) -> bool:
         return self.value in {BLOCK_GET, BLOCK_SET, BLOCK_RX}
+
+    @property
+    def is_ble(self) -> bool:
+        return self.value in {BLE_TX, BLE_RX}
 
     @property
     def is_lcs(self) -> bool:
