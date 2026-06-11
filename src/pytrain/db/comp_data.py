@@ -347,29 +347,33 @@ BASE_MEMORY_ENGINE_READ_MAP = {
 # build an inverse map from the token name to the address
 FIELD_TO_ADDR_ENGINE_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ENGINE_READ_MAP.items()}
 
-BASE_MEMORY_TRAIN_READ_MAP = {
-    0x02: CompDataHandler("_record_type", default=3),
-    0x6F: CompDataHandler("_consist_flags"),
-    0x70: CompDataHandler(
-        "_consist_comps",
-        32,
-        lambda t: ConsistComponent.from_bytes(t),
-        lambda t: ConsistComponent.to_bytes(t),
-    ),
-}
-BASE_MEMORY_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
+BASE_MEMORY_TRAIN_READ_MAP = BASE_MEMORY_ENGINE_READ_MAP.copy()
+BASE_MEMORY_TRAIN_READ_MAP.update(
+    {
+        0x02: CompDataHandler("_record_type", default=3),
+        0x6F: CompDataHandler("_consist_flags"),
+        0x70: CompDataHandler(
+            "_consist_comps",
+            32,
+            lambda t: ConsistComponent.from_bytes(t),
+            lambda t: ConsistComponent.to_bytes(t),
+        ),
+    }
+)
 FIELD_TO_ADDR_TRAIN_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_TRAIN_READ_MAP.items()}
 
-BASE_MEMORY_D4_TRAIN_READ_MAP = {
-    0x6D: CompDataHandler("_consist_flags"),
-    0x6E: CompDataHandler(
-        "_consist_comps",
-        64,
-        lambda t: ConsistComponent.from_d4_bytes(t),
-        lambda t: ConsistComponent.to_d4_bytes(t),
-    ),
-}
-BASE_MEMORY_D4_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
+BASE_MEMORY_D4_TRAIN_READ_MAP = BASE_MEMORY_ENGINE_READ_MAP.copy()
+BASE_MEMORY_D4_TRAIN_READ_MAP.update(
+    {
+        0x6D: CompDataHandler("_consist_flags"),
+        0x6E: CompDataHandler(
+            "_consist_comps",
+            64,
+            lambda t: ConsistComponent.from_d4_bytes(t),
+            lambda t: ConsistComponent.to_d4_bytes(t),
+        ),
+    }
+)
 
 BASE_MEMORY_ACC_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),

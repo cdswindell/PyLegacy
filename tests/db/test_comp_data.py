@@ -227,6 +227,91 @@ class TestCompData:
             assert h.is_comp_data_record is True
             assert isinstance(h.comp_data, expected_cls)
 
+    @pytest.mark.parametrize(
+        ("scope", "tmcc_id", "expected_defaults"),
+        [
+            (
+                CommandScope.ENGINE,
+                1234,
+                {
+                    "_record_type": 4,
+                    "_bt_id": 0,
+                    "_unk_6": 0,
+                    "_speed": 0,
+                    "_target_speed": 0,
+                    "_train_brake": 0,
+                    "_control_id": 0,
+                    "_unk_b": 0,
+                    "_rpm_labor": 0,
+                    "_labor_level": 0,
+                    "_unk_12": 0,
+                    "_unk_13": 0,
+                    "_momentum": 0,
+                    "_road_name_len": 0,
+                    "_road_number_len": 0,
+                },
+            ),
+            (
+                CommandScope.TRAIN,
+                1234,
+                {
+                    "_record_type": 3,
+                    "_bt_id": 0,
+                    "_unk_6": 0,
+                    "_speed": 0,
+                    "_target_speed": 0,
+                    "_train_brake": 0,
+                    "_control_id": 0,
+                    "_unk_b": 0,
+                    "_rpm_labor": 0,
+                    "_labor_level": 0,
+                    "_unk_12": 0,
+                    "_unk_13": 0,
+                    "_momentum": 0,
+                    "_road_name_len": 0,
+                    "_road_number_len": 0,
+                },
+            ),
+            (
+                CommandScope.ACC,
+                55,
+                {
+                    "_record_type": 1,
+                    "_road_name_len": 0,
+                    "_road_number_len": 0,
+                },
+            ),
+            (
+                CommandScope.SWITCH,
+                55,
+                {
+                    "_record_type": 0,
+                    "_road_name_len": 0,
+                    "_road_number_len": 0,
+                },
+            ),
+            (
+                CommandScope.ROUTE,
+                55,
+                {
+                    "_record_type": 2,
+                    "_road_name_len": 0,
+                    "_road_number_len": 0,
+                },
+            ),
+        ],
+    )
+    def test_comp_data_mixin_initialize_sets_handler_defaults(self, scope, tmcc_id, expected_defaults):
+        class Holder(CompDataMixin):
+            def __init__(self):
+                super().__init__()
+
+        h = Holder()
+        h.initialize(scope, tmcc_id=tmcc_id)
+
+        for field, expected_value in expected_defaults.items():
+            assert getattr(h.comp_data, field) == expected_value
+
     def test_comp_data_encode_rpm_labor_and_pkg(self):
         # Encode rpm/labor -> combined byte and into UpdatePkg
         val = CompData.encode_rpm_labor(rpm=5, labor=14)
