@@ -962,7 +962,6 @@ class CompData(ABC, Generic[R]):
                 req = pkg.as_request(self.tmcc_id, self.scope)
                 self._road_name = road_name
                 self._road_name_len = rnl
-                print(req)
                 return req
             else:
                 raise AttributeError(f"No Field map for scope: {self.scope}")

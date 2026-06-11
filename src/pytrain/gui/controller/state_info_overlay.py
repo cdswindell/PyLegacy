@@ -330,7 +330,7 @@ class StateInfoOverlay:
             state = self._gui.active_state
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_name_req(new_value)
-                print(req)
+                BaseReq.process_sync_reqs([req, state], do_async=True)
             # if isinstance(state, (EngineState, TrainState)):
             #     BaseReq.do_update_field("ROAD_NAME_LEN", new_value, state, True)
             # if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
