@@ -331,19 +331,18 @@ class StateInfoOverlay:
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_name_req(new_value)
                 BaseReq.process_sync_reqs([req, state], do_async=True)
-            # if isinstance(state, (EngineState, TrainState)):
-            #     BaseReq.do_update_field("ROAD_NAME_LEN", new_value, state, True)
-            # if isinstance(state, (EngineState, TrainState, AccessoryState, LcsProxyState)):
-            #     BaseReq.do_update_field("ROAD_NAME", new_value, state, True)
 
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value, 4)
             state = self._gui.active_state
-            if isinstance(state, (EngineState, TrainState, AccessoryState)):
-                new_value = new_value.zfill(4)
-                BaseReq.do_update_field("ROAD_NUMBER_LEN", new_value, state, True)
-                BaseReq.do_update_field("ROAD_NUMBER", new_value, state, True)
+            if isinstance(state, ComponentState):
+                req = state.comp_data.set_road_number_req(new_value)
+                BaseReq.process_sync_reqs([req, state], do_async=True)
+            # if isinstance(state, (EngineState, TrainState, AccessoryState)):
+            #     new_value = new_value.zfill(4)
+            #     BaseReq.do_update_field("ROAD_NUMBER_LEN", new_value, state, True)
+            #     BaseReq.do_update_field("ROAD_NUMBER", new_value, state, True)
 
     def _on_type_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
         self._persist_edit(_field, new_value, old_value, "ENGINE_TYPE")
