@@ -291,7 +291,9 @@ class BaseReq(PdiReq, CompDataMixin):
         return cmds
 
     @classmethod
-    def process_sync_reqs(cls, sync_reqs: list[BaseReq], callback: Callable, do_async: bool = False) -> bool:
+    def process_sync_reqs(
+        cls, sync_reqs: list[BaseReq], callback: Callable = lambda r: r.send(), do_async: bool = False
+    ) -> bool:
         """Processes sync requests dispatching engine refreshes or callbacks"""
         from .base3_db_refresh_manager import Base3DbRefreshManager
 
