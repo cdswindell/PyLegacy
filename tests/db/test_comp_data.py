@@ -24,8 +24,10 @@ from src.pytrain.db.comp_data import (
     TrainData,
     UpdatePkg,
 )
+from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.pdi.base_req import BaseReq
-from src.pytrain.pdi.constants import PdiCommand
+from src.pytrain.pdi.constants import D4Action, PdiCommand
+from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
@@ -33,6 +35,11 @@ from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 
 
 CLEAR_ROAD_NAME_NUMBER_DATA = b"\x00" + (b"\xff" * 31) + b"\x00" + (b"\xff" * 4)
+
+
+def road_number_update_data(road_number_text: str | None) -> bytes:
+    road_number_len = len(road_number_text) if road_number_text else 0
+    return road_number_len.to_bytes(1, "big") + PdiReq.encode_text(road_number_text, 4)
 
 
 class TestCompData:
@@ -344,9 +351,122 @@ class TestCompData:
         assert req.data_length == len(CLEAR_ROAD_NAME_NUMBER_DATA)
         assert req.data_bytes == CLEAR_ROAD_NAME_NUMBER_DATA
 
+    @pytest.mark.parametrize(
+        ("data_cls", "expected_scope", "expected_pdi_command"),
+        [
+            (EngineData, CommandScope.ENGINE, PdiCommand.D4_ENGINE),
+            (TrainData, CommandScope.TRAIN, PdiCommand.D4_TRAIN),
+        ],
+    )
+    def test_clear_road_name_number_req_builds_d4_update_for_four_digit_entries(
+        self,
+        monkeypatch,
+        data_cls,
+        expected_scope,
+        expected_pdi_command,
+    ):
+        calls = []
+
+        def get_state(scope, tmcc_id, create):
+            calls.append((scope, tmcc_id, create))
+            return types.SimpleNamespace(record_no=321)
+
+        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(get_state))
+
+        req = data_cls.clear_road_name_number_req(1234)
+
+        assert calls == [(expected_scope, 1234, False)]
+        assert isinstance(req, D4Req)
+        assert req.pdi_command == expected_pdi_command
+        assert req.action == D4Action.UPDATE
+        assert req.record_no == 321
+        assert req.scope == expected_scope
+        assert req.start == 0x1E
+        assert req.data_length == len(CLEAR_ROAD_NAME_NUMBER_DATA)
+        assert req._data_bytes == CLEAR_ROAD_NAME_NUMBER_DATA  # pylint: disable=protected-access
+
     def test_clear_road_name_number_req_rejects_unmapped_class(self):
         with pytest.raises(AttributeError, match="Invalid CompData"):
             CompData.clear_road_name_number_req(55)
+
+    @pytest.mark.parametrize(
+        ("data_cls", "scope", "expected_start"),
+        [
+            (EngineData, CommandScope.ENGINE, 0x3E),
+            (TrainData, CommandScope.TRAIN, 0x3E),
+            (AccessoryData, CommandScope.ACC, 0x3E),
+            (SwitchData, CommandScope.SWITCH, 0x24),
+            (RouteData, CommandScope.ROUTE, 0x24),
+        ],
+    )
+    def test_set_road_number_req_builds_base_memory_update(self, data_cls, scope, expected_start):
+        data = b"\xff" * PdiReq.scope_record_length(scope)
+        comp_data = data_cls(data, tmcc_id=55)
+
+        req = comp_data.set_road_number_req(7)
+
+        assert isinstance(req, BaseReq)
+        assert req.pdi_command == PdiCommand.BASE_MEMORY
+        assert req.tmcc_id == 55
+        assert req.scope == scope
+        assert req.flags == 0xC3
+        assert req.start == expected_start
+        assert req.data_length == 5
+        assert req.data_bytes == road_number_update_data("0007")
+        assert comp_data.road_number == "0007"
+        assert comp_data.road_number_len == 4
+
+    @pytest.mark.parametrize(
+        ("data_cls", "scope", "expected_pdi_command"),
+        [
+            (EngineData, CommandScope.ENGINE, PdiCommand.D4_ENGINE),
+            (TrainData, CommandScope.TRAIN, PdiCommand.D4_TRAIN),
+        ],
+    )
+    def test_set_road_number_req_builds_d4_update_for_four_digit_entries(
+        self,
+        monkeypatch,
+        data_cls,
+        scope,
+        expected_pdi_command,
+    ):
+        calls = []
+
+        def get_state(state_scope, tmcc_id, create):
+            calls.append((state_scope, tmcc_id, create))
+            return types.SimpleNamespace(record_no=654)
+
+        monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(get_state))
+        comp_data = data_cls(b"\xff" * PdiReq.scope_record_length(scope), tmcc_id=1234)
+
+        req = comp_data.set_road_number_req(7)
+
+        assert calls == [(scope, 1234, False)]
+        assert isinstance(req, D4Req)
+        assert req.pdi_command == expected_pdi_command
+        assert req.action == D4Action.UPDATE
+        assert req.record_no == 654
+        assert req.scope == scope
+        assert req.start == 0x3E
+        assert req.data_length == 5
+        assert req._data_bytes == road_number_update_data("0007")  # pylint: disable=protected-access
+        assert comp_data.road_number == "0007"
+        assert comp_data.road_number_len == 4
+
+    def test_set_road_number_req_with_none_clears_road_number(self):
+        comp_data = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=55)
+
+        req = comp_data.set_road_number_req(None)
+
+        assert req.data_bytes == road_number_update_data(None)
+        assert comp_data.road_number == ""
+        assert comp_data.road_number_len == 0
+
+    def test_set_road_number_req_rejects_out_of_range_value(self):
+        comp_data = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=55)
+
+        with pytest.raises(ValueError, match="Road Number must be less than or equal to 9999"):
+            comp_data.set_road_number_req(10000)
 
     def test_comp_data_encode_rpm_labor_and_pkg(self):
         # Encode rpm/labor -> combined byte and into UpdatePkg

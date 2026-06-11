@@ -21,6 +21,7 @@ from ..protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from ..protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
 from ..utils.text_utils import title
 from .components import ConsistComponent, RouteComponent
+from ..utils.validations import Validations
 
 log = logging.getLogger(__name__)
 
@@ -179,7 +180,12 @@ class UpdatePkg(QueryPkg):
                 data_length=self.length,
                 data_bytes=self.data_bytes,
             )
-        else:
+        elif 100 <= tmcc_id <= 9999:
+            if record_no is None:
+                from ..db.component_state_store import ComponentStateStore
+
+                state = ComponentStateStore.get_state(scope, tmcc_id, False)
+                record_no = state.record_no if state else 0xFFFF
             assert record_no != 0xFFFF
             pdi_cmd = PdiCommand.D4_ENGINE if scope == CommandScope.ENGINE else PdiCommand.D4_TRAIN
             return D4Req(
@@ -190,6 +196,8 @@ class UpdatePkg(QueryPkg):
                 data_length=self.length,
                 data_bytes=self.data_bytes,
             )
+        else:
+            return None
 
 
 class CompDataMixin(Generic[C]):
@@ -817,10 +825,6 @@ class CompData(ABC, Generic[R]):
                 raise AttributeError(f"No Field map for scope: {scope}")
         raise AttributeError(f"Invalid CompData: {cls}")
 
-    @classmethod
-    def set_road_name_number_pkg(cls) -> None:
-        pass
-
     @abstractmethod
     def __init__(self, data: bytes | None, scope: CommandScope, tmcc_id: int = None) -> None:
         super().__init__()
@@ -940,6 +944,56 @@ class CompData(ABC, Generic[R]):
 
     def payload(self) -> str:
         return ""
+
+    def set_road_name_req(self, road_name: str | None) -> PdiReq:
+        if self.scope:
+            field_map = SCOPE_TO_FIELDS_MAP.get(self.scope, None)
+            if field_map:
+                road_name_len_addr = field_map.get("road_name_len", None)
+                assert road_name_len_addr
+
+                # build data packet, setting length of road name
+                rnl = len(road_name.strip()) if road_name else 0
+                if rnl > 31:
+                    road_name = road_name[:31]
+                    rnl = 31
+                data = rnl.to_bytes(1, "big") + PdiReq.encode_text(road_name, 31)
+                pkg = UpdatePkg("_road_name_len", road_name_len_addr, len(data), data)
+                req = pkg.as_request(self.tmcc_id, self.scope)
+                self._road_name = road_name
+                self._road_name_len = rnl
+                print(req)
+                return req
+            else:
+                raise AttributeError(f"No Field map for scope: {self.scope}")
+        raise AttributeError(f"Invalid CompData: {self}")
+
+    def set_road_number_req(self, road_number: int | None) -> PdiReq:
+        # validate road number
+        road_number = Validations.validate_int(road_number, 0, 9999, "Road Number", True)
+        if self.scope:
+            field_map = SCOPE_TO_FIELDS_MAP.get(self.scope, None)
+            if field_map:
+                road_number_len_addr = field_map.get("road_number_len", None)
+                assert road_number_len_addr
+
+                # build data packet, setting length of road number
+                rnl = 4 if road_number else 0
+                if rnl == 4:
+                    road_number_text = str(road_number).zfill(4)
+                else:
+                    road_number_text = ""
+
+                data = rnl.to_bytes(1, "big") + PdiReq.encode_text(road_number_text, 4)
+                pkg = UpdatePkg("_road_number_len", road_number_len_addr, len(data), data)
+                req = pkg.as_request(self.tmcc_id, self.scope)
+                self._road_number = road_number_text
+                self._road_number_len = rnl
+                print(req)
+                return req
+            else:
+                raise AttributeError(f"No Field map for scope: {self.scope}")
+        raise AttributeError(f"Invalid CompData: {self}")
 
     def as_bytes(self) -> bytes:
         if self.scope == CommandScope.TRAIN and self.tmcc_id > 99:

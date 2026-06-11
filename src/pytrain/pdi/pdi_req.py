@@ -280,10 +280,10 @@ class PdiReq(ABC):
 
     @staticmethod
     def encode_text(text: str, field_len: int) -> bytes | None:
-        if text is None:
-            return b"\x00" * field_len
+        if text is None or len(text.strip()) == 0:
+            return b"\xff" * field_len
         else:
-            return bytes(text, "ascii").ljust(field_len, b"\x00")
+            return bytes(text.strip(), "ascii").ljust(field_len, b"\xff")
 
     @property
     def payload(self) -> str:

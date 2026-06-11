@@ -20,13 +20,14 @@ def test_encode_decode_text_roundtrip_ascii_and_nulls():
     txt = "ABC"
     enc = PdiReq.encode_text(txt, 5)
     assert isinstance(enc, (bytes, bytearray))
-    assert enc == b"ABC\x00\x00"
+    assert enc == b"ABC\xff\xff"
     dec = PdiReq.decode_text(enc)
     assert dec == "ABC"
 
-    # None encodes to all zero bytes; decoder stops at first zero and returns empty string
+    # None encodes to all 0xFF bytes; decoder stops at first zero and returns empty string
     enc_none = PdiReq.encode_text(None, 4)
-    assert enc_none == b"\x00\x00\x00\x00"
+    assert enc_none == b"\xff\xff\xff\xff"
+    enc_none = b"\x00\xff\xff\xff"
     dec_none = PdiReq.decode_text(enc_none)
     assert dec_none == ""
 
