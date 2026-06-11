@@ -24,10 +24,15 @@ from src.pytrain.db.comp_data import (
     TrainData,
     UpdatePkg,
 )
+from src.pytrain.pdi.base_req import BaseReq
+from src.pytrain.pdi.constants import PdiCommand
 from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+
+
+CLEAR_ROAD_NAME_NUMBER_DATA = b"\x00" + (b"\xff" * 31) + b"\x00" + (b"\xff" * 4)
 
 
 class TestCompData:
@@ -311,6 +316,37 @@ class TestCompData:
 
         for field, expected_value in expected_defaults.items():
             assert getattr(h.comp_data, field) == expected_value
+
+    @pytest.mark.parametrize(
+        ("data_cls", "expected_scope", "expected_start"),
+        [
+            (EngineData, CommandScope.ENGINE, 0x1E),
+            (TrainData, CommandScope.TRAIN, 0x1E),
+            (AccessoryData, CommandScope.ACC, 0x1E),
+            (SwitchData, CommandScope.SWITCH, 0x04),
+            (RouteData, CommandScope.ROUTE, 0x04),
+        ],
+    )
+    def test_clear_road_name_number_req_builds_base_memory_update(
+        self,
+        data_cls,
+        expected_scope,
+        expected_start,
+    ):
+        req = data_cls.clear_road_name_number_req(55)
+
+        assert isinstance(req, BaseReq)
+        assert req.pdi_command == PdiCommand.BASE_MEMORY
+        assert req.tmcc_id == 55
+        assert req.scope == expected_scope
+        assert req.flags == 0xC3
+        assert req.start == expected_start
+        assert req.data_length == len(CLEAR_ROAD_NAME_NUMBER_DATA)
+        assert req.data_bytes == CLEAR_ROAD_NAME_NUMBER_DATA
+
+    def test_clear_road_name_number_req_rejects_unmapped_class(self):
+        with pytest.raises(AttributeError, match="Invalid CompData"):
+            CompData.clear_road_name_number_req(55)
 
     def test_comp_data_encode_rpm_labor_and_pkg(self):
         # Encode rpm/labor -> combined byte and into UpdatePkg

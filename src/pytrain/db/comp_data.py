@@ -252,17 +252,6 @@ class CompDataMixin(Generic[C]):
                     else:
                         raise ValueError(f"Unknown field {field.field} for scope {scope.name}")
 
-    def _init_engine_data(self) -> None:
-        self._comp_data._engine_type = 0  # Diesel
-        self._comp_data._control_type = 1  # TMCC
-        self._comp_data._sound_type = 0  # None
-        self._comp_data._engine_class = 0  # Locomotive
-        self._comp_data._momentum = 0
-        self._comp_data._rpm_labor = 0
-        self._comp_data._train_brake = 0
-        self._comp_data._speed = 0
-        self._comp_data._target_speed = 0
-
 
 #
 # Base 3 memory locations where device state is stored. When commands are issued that change
@@ -808,6 +797,30 @@ class CompData(ABC, Generic[R]):
             pkg = cls._create_query_pkg(field)
         return pkg.as_request(address, scope, record_no) if pkg else None
 
+    @classmethod
+    def clear_road_name_number_req(cls, address: int) -> UpdatePkg:
+        scope = CompDataClassToScopeMap.get(cls, None)
+        if scope:
+            field_map = SCOPE_TO_FIELDS_MAP.get(scope, None)
+            if field_map:
+                road_name_len_addr = field_map.get("road_name_len", None)
+                assert road_name_len_addr
+                road_number_len_addr = field_map.get("road_number_len", None)
+                assert road_number_len_addr
+
+                # build data packet, zeroing out length of road name and number
+                data = b"\x00" + (b"\xff" * 31) + b"\x00" + (b"\xff" * 4)
+                pkg = UpdatePkg("_road_name_len", road_name_len_addr, len(data), data)
+                req = pkg.as_request(address, scope)
+                return req
+            else:
+                raise AttributeError(f"No Field map for scope: {scope}")
+        raise AttributeError(f"Invalid CompData: {cls}")
+
+    @classmethod
+    def set_road_name_number_pkg(cls) -> None:
+        pass
+
     @abstractmethod
     def __init__(self, data: bytes | None, scope: CommandScope, tmcc_id: int = None) -> None:
         super().__init__()
@@ -1097,3 +1110,12 @@ class RouteData(CompData):
                     sw += f"{sep}{c.tmcc_id:>2} [{state}]"
                     sep = ", "
         return (" ".join([ro, sw])).strip()
+
+
+CompDataClassToScopeMap = {
+    AccessoryData: CommandScope.ACC,
+    EngineData: CommandScope.ENGINE,
+    RouteData: CommandScope.ROUTE,
+    SwitchData: CommandScope.SWITCH,
+    TrainData: CommandScope.TRAIN,
+}
