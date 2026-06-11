@@ -231,17 +231,26 @@ class CompDataMixin(Generic[C]):
             self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)
         elif scope == CommandScope.ENGINE:
             self._comp_data = EngineData(b"\xff" * data_len, tmcc_id)
-            self._init_engine_data()
         elif scope == CommandScope.TRAIN:
             self._comp_data = TrainData(b"\xff" * data_len, tmcc_id)
-            self._init_engine_data()
         elif scope == CommandScope.ROUTE:
             self._comp_data = RouteData(b"\xff" * data_len, tmcc_id)
         elif scope == CommandScope.ACC:
             self._comp_data = AccessoryData(b"\xff" * data_len, tmcc_id)
         else:
             raise NotImplementedError(f"Unknown scope {scope.name}")
+        self._set_defaults(scope)
         self._comp_data_record = True
+
+    def _set_defaults(self, scope: CommandScope) -> None:
+        field_map = SCOPE_TO_COMP_MAP.get(scope, None)
+        if field_map:
+            for addr, field in field_map.items():
+                if field.default is not None and field.default != 0xFF:
+                    if hasattr(self._comp_data, field.field):
+                        setattr(self._comp_data, field.field, field.default)
+                    else:
+                        raise ValueError(f"Unknown field {field.field} for scope {scope.name}")
 
     def _init_engine_data(self) -> None:
         self._comp_data._engine_type = 0  # Diesel
@@ -263,27 +272,28 @@ class CompDataMixin(Generic[C]):
 BASE_MEMORY_ENGINE_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
-    0x02: CompDataHandler("_record_type"),
+    0x02: CompDataHandler("_record_type", default=4),
     0x03: CompDataHandler("_lc_flags"),
     0x04: CompDataHandler(
         "_bt_id",
         2,
         lambda t: int.from_bytes(t[0:2], byteorder="little"),
         lambda t: t.to_bytes(2, byteorder="little"),
+        default=0,
     ),
-    0x06: CompDataHandler("_unk_6"),
+    0x06: CompDataHandler("_unk_6", default=0),
     0x07: CompDataHandler("_speed", default=0),
     0x08: CompDataHandler("_target_speed", default=0),
     0x09: CompDataHandler("_train_brake", default=0),
-    0x0A: CompDataHandler("_control_id"),
-    0x0B: CompDataHandler("_unk_b"),
+    0x0A: CompDataHandler("_control_id", default=0),
+    0x0B: CompDataHandler("_unk_b", default=0),
     0x0C: CompDataHandler("_rpm_labor", default=0),  # Sound on/off on passenger and freight cars
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
     0x0F: CompDataHandler("_labor_level", default=0),
     0x11: CompDataHandler("_unk_11"),
-    0x12: CompDataHandler("_unk_12"),
-    0x13: CompDataHandler("_unk_13"),
+    0x12: CompDataHandler("_unk_12", default=0),
+    0x13: CompDataHandler("_unk_13", default=0),
     0x17: CompDataHandler("_momentum_setting"),
     0x18: CompDataHandler("_momentum", default=0),
     0x1C: CompDataHandler("_train_tmcc_id"),
@@ -338,6 +348,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
 FIELD_TO_ADDR_ENGINE_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ENGINE_READ_MAP.items()}
 
 BASE_MEMORY_TRAIN_READ_MAP = {
+    0x02: CompDataHandler("_record_type", default=3),
     0x6F: CompDataHandler("_consist_flags"),
     0x70: CompDataHandler(
         "_consist_comps",
@@ -363,6 +374,7 @@ BASE_MEMORY_D4_TRAIN_READ_MAP.update(BASE_MEMORY_ENGINE_READ_MAP)
 BASE_MEMORY_ACC_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
+    0x02: CompDataHandler("_record_type", default=1),
     0x1E: CompDataHandler("_road_name_len", default=0),
     0x1F: CompDataHandler(
         "_road_name",
@@ -383,6 +395,7 @@ FIELD_TO_ADDR_ACC_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ACC_READ_MAP.ite
 BASE_MEMORY_SWITCH_READ_MAP = {
     0x00: CompDataHandler("_prev_link"),
     0x01: CompDataHandler("_next_link"),
+    0x02: CompDataHandler("_record_type", default=0),
     0x04: CompDataHandler("_road_name_len", default=0),
     0x05: CompDataHandler(
         "_road_name",
@@ -403,6 +416,7 @@ FIELD_TO_ADDR_SWITCH_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_SWITCH_READ_M
 BASE_MEMORY_ROUTE_READ_MAP = BASE_MEMORY_SWITCH_READ_MAP.copy()
 BASE_MEMORY_ROUTE_READ_MAP.update(
     {
+        0x02: CompDataHandler("_record_type", default=2),
         0x60: CompDataHandler(
             "_components",
             32,
@@ -801,6 +815,7 @@ class CompData(ABC, Generic[R]):
         self._road_number: str | None = None
         self._next_link: int | None = None
         self._prev_link: int | None = None
+        self._record_type: int | None = None
 
         # load the data from the byte string
         if data:
@@ -951,7 +966,7 @@ class CompData(ABC, Generic[R]):
                     if hasattr(self, v.field):
                         setattr(self, v.field, value)
                 except Exception as e:
-                    log.exception(f"Exception decoding {v.field} {e}", exc_info=e)
+                    log.exception(f"Exception decoding {self.scope.title} field '{v.field}' {e}", exc_info=e)
 
 
 class EngineData(CompData):
@@ -975,7 +990,6 @@ class EngineData(CompData):
         self._min_os: int | None = None
         self._momentum: int | None = None
         self._momentum_setting: int | None = None
-        self._record_type: int | None = None
         self._rpm_labor: int | None = None
         self._smoke: int | None = None
         self._sound_type: int | None = None
