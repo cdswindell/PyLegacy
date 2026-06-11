@@ -313,8 +313,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                         # response to the request for info on Train 98...
                         if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
                             CommandDispatcher.get().offer(SYNC_COMPLETE)
-                        if cmd.start != 0:
-                            print(cmd, cmd.start, cmd.is_active)
                         if cmd.is_ack is True or cmd.is_active is False:
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher
