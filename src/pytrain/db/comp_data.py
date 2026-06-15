@@ -42,6 +42,7 @@ BASE_TO_TMCC1_SMOKE_MAP = {
 TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
 if TYPE_CHECKING:  # pragma: no cover
+    from .component_state import ComponentState
     from .component_state_store import ComponentStateStore
     from .engine_state import EngineState
 
@@ -259,6 +260,12 @@ class CompDataMixin(Generic[C]):
                         setattr(self._comp_data, field.field, field.default)
                     else:
                         raise ValueError(f"Unknown field {field.field} for scope {scope.name}")
+
+    def clear_record(self, state: "ComponentState", background: bool = True):
+        if self._comp_data:
+            reqs = self._comp_data.clear_record_reqs(state)
+            if reqs:
+                print(f"Requests {reqs} {background}")
 
 
 #
@@ -806,8 +813,8 @@ class CompData(ABC, Generic[R]):
         return pkg.as_request(address, scope, record_no) if pkg else None
 
     @classmethod
-    def clear_road_name_number_req(cls, address: int) -> UpdatePkg:
-        scope = CompDataClassToScopeMap.get(cls, None)
+    def clear_road_name_number_req(cls, address: int, scope: CommandScope = None) -> PdiReq:
+        scope = scope or CompDataClassToScopeMap.get(cls, None)
         if scope:
             field_map = SCOPE_TO_FIELDS_MAP.get(scope, None)
             if field_map:
@@ -823,6 +830,17 @@ class CompData(ABC, Generic[R]):
                 return req
             else:
                 raise AttributeError(f"No Field map for scope: {scope}")
+        raise AttributeError(f"Invalid CompData: {cls}")
+
+    # noinspection PyListCreation
+    @classmethod
+    def clear_record_reqs(cls, state: "ComponentState") -> list[PdiReq | "ComponentState"]:
+        scope = state.scope
+        address = scope.address
+        if scope:
+            reqs = [cls.clear_road_name_number_req(address, scope)]
+            reqs.append(state)
+            return reqs
         raise AttributeError(f"Invalid CompData: {cls}")
 
     @abstractmethod

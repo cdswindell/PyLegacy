@@ -313,7 +313,18 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                         # response to the request for info on Train 98...
                         if cmd.pdi_command == PdiCommand.BASE_TRAIN and cmd.tmcc_id == 98:
                             CommandDispatcher.get().offer(SYNC_COMPLETE)
-                        if cmd.is_ack is True or cmd.is_active is False:
+                        if cmd.is_ack:
+                            continue
+                        elif not cmd.is_active:
+                            # inactive records should be deleted from state store
+                            from ..db.component_state_store import ComponentStateStore
+
+                            state = ComponentStateStore.get_state(cmd.scope, cmd.tmcc_id, create=False)
+                            if state and not state.is_deleted:
+                                state.clear()
+                            if self.is_server:
+                                # propagate message to clients, so they delete the record
+                                self.update_client_state(cmd)
                             continue
                     # for TMCC requests, forward to TMCC Command Dispatcher
                     if isinstance(cmd, TmccReq):
@@ -331,7 +342,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                         # Update clients of state change. Note that we DO NOT do this
                         # if the command is TMCC command received from the Base, as it
                         # has been handled via the call to tmcc_dispatcher.offer above
-                        if self._server_port is not None:
+                        if self.is_server:
                             self.update_client_state(cmd)
             except Exception as e:
                 log.error(f"PdiDispatcher: Error publishing {cmd}")

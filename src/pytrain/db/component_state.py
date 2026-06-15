@@ -102,6 +102,7 @@ class ComponentState(ABC, CompDataMixin):
         self._spare_1: int | None = None
         self._dependencies = DependencyCache.build()
         self._config_requested = False
+        self._deleted = False
 
     def __repr__(self) -> str:
         if self.is_comp_data_record is True and not self.payload:
@@ -166,6 +167,10 @@ class ComponentState(ABC, CompDataMixin):
     @property
     def changed(self) -> threading.Event:
         return self._ev
+
+    @property
+    def is_deleted(self) -> bool:
+        return self._deleted
 
     @property
     def road_name(self) -> str | None:
@@ -316,6 +321,27 @@ class ComponentState(ABC, CompDataMixin):
                 self._is_known = True
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
+
+    def clear(self, notify: bool = True, clear_db: bool = False):
+        """
+        Deletes the component state from the store. Optionally, clears the
+        corresponding Base 3 database record
+        """
+        from .component_state_store import ComponentStateStore
+
+        with self._cv:
+            ComponentStateStore.delete_state(self)
+            self._deleted = True
+
+            # hold lock while we determine if Base 3 record should be cleared as well
+            clear_db = clear_db and isinstance(self, CompDataMixin) and self.is_comp_data_record
+
+            if notify:
+                self.changed.set()
+                self.synchronizer.notify_all()
+
+        if clear_db:
+            self.clear_record(self)
 
     def request_config(self, command: CommandReq):
         from ..comm.command_listener import CommandDispatcher
