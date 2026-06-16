@@ -383,6 +383,8 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             if isinstance(pdi_req, bytes):
                 pdi_req = PdiReq.from_bytes(pdi_req)
             if isinstance(pdi_req, PdiReq) and not pdi_req.is_ping and not pdi_req.is_ack:
+                if pdi_req.command == 0x26 and len(pdi_req.data) > 14 and pdi_req.data[14] == 0:
+                    print(f"PDI switch command 0x26 received: {pdi_req.data.hex()}")
                 with self._cv:
                     self._queue.put(pdi_req)
                     self._cv.notify()  # wake up receiving thread

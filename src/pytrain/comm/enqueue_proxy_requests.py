@@ -246,8 +246,6 @@ class EnqueueHandler(socketserver.BaseRequestHandler):
             return
         elif byte_stream[0] == PDI_SOP and len(byte_stream) > 0:
             pdi_cmd = PdiCommand.by_value(byte_stream[1], raise_exception=False)
-            if byte_stream[1] == 0x26 and len(byte_stream) > 14 and byte_stream[14] == 0:
-                print(f"PDI switch command 0x26 received: {byte_stream.hex()}")
             if pdi_cmd and pdi_cmd.is_sendable:
                 # Forward PDI commands to Base3Buffer
                 base3_dispatcher: Base3Buffer = cast(ProxyServer, self.server).base3_dispatcher
