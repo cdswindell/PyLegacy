@@ -15,6 +15,7 @@ import pytest
 
 from src.pytrain import AccessoryState, EngineState, TrainState
 from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener, Message
+from src.pytrain.db.block_state import BlockState
 from src.pytrain.db.component_state import (
     ComponentState,
     ComponentStateDict,
@@ -23,6 +24,12 @@ from src.pytrain.db.component_state import (
     SwitchState,
     SystemStateDict,
 )
+from src.pytrain.db.irda_state import IrdaState
+from src.pytrain.pdi.amc2_req import Amc2Req
+from src.pytrain.pdi.asc2_req import Asc2Req
+from src.pytrain.pdi.bpc2_req import Bpc2Req
+from src.pytrain.pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
+from src.pytrain.pdi.irda_req import IrdaReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
@@ -74,6 +81,71 @@ class TestComponentState(TestBase):
         with pytest.raises(TypeError):
             # noinspection PyTypeCher
             ComponentState(None)
+
+    @pytest.mark.parametrize(
+        ("state_cls", "scope"),
+        [
+            (EngineState, CommandScope.ENGINE),
+            (TrainState, CommandScope.TRAIN),
+            (AccessoryState, CommandScope.ACC),
+            (SwitchState, CommandScope.SWITCH),
+            (RouteState, CommandScope.ROUTE),
+            (BlockState, CommandScope.BLOCK),
+        ],
+    )
+    def test_non_lcs_states_are_deletable(self, state_cls, scope) -> None:
+        state = state_cls(scope)
+
+        assert state.is_lcs is False
+        assert state.is_deletable is True
+
+    @pytest.mark.parametrize(
+        "lcs_req",
+        [
+            Bpc2Req(15, PdiCommand.BPC2_SET, Bpc2Action.CONTROL3, state=1),
+            Asc2Req(16, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1),
+            Amc2Req.from_bytes(bytes.fromhex("d1461903190000000202020303010100000000000000000077df")),
+            IrdaReq(18, PdiCommand.IRDA_RX, IrdaAction.INFO, scope=CommandScope.ACC),
+        ],
+    )
+    def test_lcs_accessory_states_are_not_deletable(self, lcs_req) -> None:
+        state = AccessoryState(CommandScope.ACC)
+
+        state.update(lcs_req)
+
+        assert state.is_lcs_component is True
+        assert state.is_deletable is False
+
+    def test_lcs_switch_state_is_not_deletable(self) -> None:
+        state = SwitchState(CommandScope.SWITCH)
+        lcs_req = Asc2Req(
+            19,
+            PdiCommand.ASC2_SET,
+            Asc2Action.CONTROL4,
+            values=0,
+            scope=CommandScope.SWITCH,
+        )
+
+        state.update(lcs_req)
+
+        assert state.is_lcs_component is True
+        assert state.is_deletable is False
+
+    def test_lcs_train_state_is_not_deletable(self) -> None:
+        state = TrainState(CommandScope.TRAIN)
+        lcs_req = Bpc2Req(20, PdiCommand.BPC2_SET, Bpc2Action.CONTROL1, state=1)
+
+        state.update(lcs_req)
+
+        assert state.is_bpc2 is True
+        assert state.is_lcs is True
+        assert state.is_deletable is False
+
+    def test_irda_sensor_track_state_is_not_deletable(self) -> None:
+        state = IrdaState(CommandScope.IRDA)
+
+        assert state.is_lcs is True
+        assert state.is_deletable is False
 
     def test_switch_state(self) -> None:
         """

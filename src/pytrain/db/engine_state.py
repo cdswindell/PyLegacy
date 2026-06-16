@@ -1156,6 +1156,7 @@ class TrainState(EngineState, LcsProxyState):
         #
         #     ComponentStateStore.delete_state(self)
         if isinstance(command, Bpc2Req):
+            LcsProxyState._update_state(self, command)
             if command.action in {Bpc2Action.CONTROL1, Bpc2Action.CONTROL3}:
                 if command.state:
                     self._aux1 = TMCC2.AUX1_ON

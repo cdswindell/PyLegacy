@@ -173,6 +173,13 @@ class ComponentState(ABC, CompDataMixin):
         return self._deleted
 
     @property
+    def is_deletable(self) -> bool:
+        """
+        LCS device state should override to return False
+        """
+        return True
+
+    @property
     def road_name(self) -> str | None:
         return self._road_name if self._road_name else self.moniker
 
@@ -552,6 +559,10 @@ class LcsState(ComponentState, ABC):
     def is_legacy(self) -> bool:
         return True
 
+    @property
+    def is_deletable(self) -> bool:
+        return False
+
     #
     # @property
     # def is_lcs(self) -> bool:
@@ -674,6 +685,10 @@ class LcsProxyState(LcsState, ABC):
         return self._parent
 
     @property
+    def is_deletable(self) -> bool:
+        return False if self.is_lcs else ComponentState.is_deletable.fget(self)
+
+    @property
     def firmware(self) -> str:
         if self._parent:
             return self._parent.firmware
@@ -788,6 +803,10 @@ class SwitchState(TmccState):
     @property
     def is_lcs_component(self) -> bool:
         return self._pdi_source
+
+    @property
+    def is_deletable(self) -> bool:
+        return False if self.is_lcs_component else super().is_deletable
 
     @property
     def payload(self) -> str:

@@ -320,7 +320,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                             from ..db.component_state_store import ComponentStateStore
 
                             state = ComponentStateStore.get_state(cmd.scope, cmd.tmcc_id, create=False)
-                            if state and not state.is_deleted:
+                            if state and not state.is_deleted and state.is_deletable:
                                 state.clear()
                             if self.is_server:
                                 # propagate message to clients, so they delete the record
