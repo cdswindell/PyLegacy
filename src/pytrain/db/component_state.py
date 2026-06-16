@@ -337,6 +337,10 @@ class ComponentState(ABC, CompDataMixin):
         from .component_state_store import ComponentStateStore
 
         with self._cv:
+            if not self.is_deletable:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Component state {self} is not deletable")
+                return
             ComponentStateStore.delete_state(self)
             self._deleted = True
 
