@@ -1250,12 +1250,6 @@ class TrainState(EngineState, LcsProxyState):
         return len(self.accessory_ids) if self.accessory_ids else 0
 
     @property
-    def is_legacy(self) -> bool:
-        if self.is_bpc2 or self._is_legacy:
-            return True
-        return super().is_legacy
-
-    @property
     def is_lcs(self) -> bool:
         return True if self.is_bpc2 else super().is_lcs
 
@@ -1315,6 +1309,12 @@ class TrainState(EngineState, LcsProxyState):
                 if c.tmcc_id == tmcc_id:
                     return c
         return None
+
+    @property
+    def is_legacy(self) -> bool:
+        if self.is_lcs_component or self._is_legacy is True:
+            return True
+        return super().is_legacy
 
     @property
     def is_tmcc(self) -> bool:
