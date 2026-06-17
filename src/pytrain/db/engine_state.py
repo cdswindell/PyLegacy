@@ -1057,8 +1057,6 @@ class EngineState(ComponentState):
 
     @property
     def is_tmcc(self) -> bool:
-        if self.is_lcs_component:
-            return False
         if self.comp_data:
             return self.comp_data.is_legacy is False
         return self._is_legacy is False or self._is_legacy is None
@@ -1317,6 +1315,12 @@ class TrainState(EngineState, LcsProxyState):
                 if c.tmcc_id == tmcc_id:
                     return c
         return None
+
+    @property
+    def is_tmcc(self) -> bool:
+        if self.is_lcs_component:
+            return False
+        return super().is_tmcc
 
     def as_bytes(self) -> list[bytes]:
         packets = []
