@@ -272,18 +272,12 @@ class AccessoryState(TmccState, LcsProxyState):
         if self.comp_data is None:
             self.initialize(self.scope, self.address)
         byte_str = super().as_bytes()
+        # Builds byte string with conditional auxiliary data
         if self.is_lcs_component:
-            if self._config_req:
-                byte_str += self._config_req.as_bytes
-            if self._control_req:
-                byte_str += self._control_req.as_bytes
-            if self._firmware_req:
-                byte_str += self._firmware_req.as_bytes
-            if self._info_req:
-                byte_str += self._info_req.as_bytes
             if isinstance(self._config_req, Amc2Req):
                 if self.number:
-                    byte_str += CommandReq(Aux.NUMERIC, self.address, self.number).as_bytes
+                    # prepend the numeric value to the command request
+                    byte_str = CommandReq(Aux.NUMERIC, self.address, self.number).as_bytes + byte_str
         else:
             if self._aux_state is not None:
                 byte_str += CommandReq.build(self.aux_state, self.address).as_bytes

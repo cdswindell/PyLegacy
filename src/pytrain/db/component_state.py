@@ -737,6 +737,13 @@ class LcsProxyState(LcsState, ABC):
         else:
             return 1
 
+    def as_bytes(self) -> bytes:
+        byte_str = super().as_bytes()
+        if self.is_lcs_component:
+            if self._control_req:
+                byte_str += self._control_req.as_bytes
+        return byte_str
+
     def as_dict(self) -> Dict[str, Any]:
         return super()._as_dict()
 
@@ -836,18 +843,10 @@ class SwitchState(TmccState, LcsProxyState):
             route.update_switch_state(self)
 
     def as_bytes(self) -> bytes:
+        """Converts object state to serialized byte representation"""
         if self.comp_data is None:
             self.initialize(self.scope, self.address)
         byte_str = super().as_bytes()
-        if self.is_lcs_component:
-            if self._config_req:
-                byte_str += self._config_req.as_bytes
-            if self._control_req:
-                byte_str += self._control_req.as_bytes
-            if self._firmware_req:
-                byte_str += self._firmware_req.as_bytes
-            if self._info_req:
-                byte_str += self._info_req.as_bytes
         if self.is_known:
             byte_str += CommandReq.build(self.state, self.address).as_bytes
         return byte_str
