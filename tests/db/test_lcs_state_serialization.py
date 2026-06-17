@@ -138,4 +138,4 @@ def test_train_state_as_bytes_includes_received_lcs_config_firmware_and_info_pac
     packets = state.as_bytes()
 
     assert state.is_lcs is True
-    assert packets[:3] == [config.as_bytes, firmware.as_bytes, info.as_bytes]
+    assert packets[0].endswith(config.as_bytes + firmware.as_bytes + info.as_bytes)

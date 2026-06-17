@@ -1318,15 +1318,8 @@ class TrainState(EngineState, LcsProxyState):
 
     def as_bytes(self) -> list[bytes]:
         packets = []
-        if self._pdi_source:
-            if self._config_req:
-                packets.append(self._config_req.as_bytes)
-            if self._firmware_req:
-                packets.append(self._firmware_req.as_bytes)
-            if self._info_req:
-                packets.append(self._info_req.as_bytes)
-            if self._control_req:
-                packets.append(self._control_req.as_bytes)
+        if self.is_lcs_component:
+            return [LcsProxyState.as_bytes(self)]
         packets.extend(super().as_bytes())
         return packets
 
