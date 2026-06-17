@@ -155,7 +155,8 @@ class RampedSpeedReqBase(SequenceReq, ABC):
 
     def _on_before_send(self) -> None:
         # Cancel any existing ramps
-        self.state.cancel_ramps()
+        if self.state:
+            self.state.cancel_ramps()
 
 
 class RampedSpeedReq(RampedSpeedReqBase):
