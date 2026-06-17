@@ -65,6 +65,15 @@ class LcsComponent(Mixins):
     STM2 = 8
 
 
+BASE3_SCOPES = {
+    CommandScope.TRAIN,
+    CommandScope.ENGINE,
+    CommandScope.SWITCH,
+    CommandScope.ACC,
+    CommandScope.SWITCH,
+}
+
+
 # noinspection PyUnresolvedReferences
 class ComponentState(ABC, CompDataMixin):
     __metaclass__ = ABCMeta
@@ -292,9 +301,14 @@ class ComponentState(ABC, CompDataMixin):
                     f"{self.friendly_scope} #{self._address} received update for "
                     f"{command.scope.name.title()} #{command.address}, ignoring"
                 )
-            # have we received the initial configuration from Base 3? If not, trigger request
-            # and requeue this update.
-            if not self.is_comp_data_record and isinstance(command, CommandReq):
+            # have we received the initial configuration from Base 3?
+            # If we have, great. If we haven't, it could be that the initial
+            # sync is still ongoing or that the component hasn't been assigned a
+            # name and/or road number, in which case, the Base 3 sends an empty record.
+            # It could also be the record is new since the PyTrain server started up
+            if not self.is_comp_data_record and self.scope in BASE3_SCOPES:
+                # initialize comp data
+                self.initialize(self.scope, self.tmcc_id)
                 self.request_config(command)
 
             if self.scope != command.scope:
@@ -355,11 +369,9 @@ class ComponentState(ABC, CompDataMixin):
             self.clear_record(self)
 
     def request_config(self, command: CommandReq):
-        from ..comm.command_listener import CommandDispatcher
         from ..pdi.base_req import BaseReq
         from .component_state_store import ComponentStateStore
 
-        requeue = True
         if ComponentStateStore.is_state_synchronized():
             if not self._config_requested:
                 # if we're synchronized, this component may be new; request initial config
@@ -372,13 +384,9 @@ class ComponentState(ABC, CompDataMixin):
                     if self.record_no is not None:
                         cmd = PdiCommand.D4_TRAIN if self.scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE
                         D4Req(self.record_no, cmd).send()
-                        self._config_requested = True
+                self._config_requested = True
             else:
-                log.info(f"Ignoring {command} as component hasn't completed synchronization")
-                requeue = False
-        if requeue:
-            self.schedule_call(2.5, CommandDispatcher.get().offer, command)
-            raise RequestConfigurationException()
+                log.debug(f"Config for {self.scope.title} {self.tmcc_id} already requested")
 
     @staticmethod
     def schedule_call(delay_seconds, func, *args, **kwargs):
