@@ -125,6 +125,14 @@ class Acs2DeviceConfig(PdiDeviceConfig):
             elif self._mode == 1:
                 # Acc mode, 1 TMCC ID, latching
                 cmds.append(Asc2Req(self.tmcc_id, action=Asc2Action.CONTROL2))
+            elif self._mode == 2:
+                # Acc mode, 4 TMCC ID, Pulse
+                for i in range(8):
+                    cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL4))
+            elif self._mode == 3:
+                # Acc mode, 4 TMCC ID, Latching
+                for i in range(8):
+                    cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
         else:
             cmds = []
         return cmds
@@ -202,7 +210,7 @@ class Stm2DeviceConfig(PdiDeviceConfig):
             # 16 inputs, 16 TMCC IDs
             for i in range(16):
                 cmds.append(Stm2Req(self.tmcc_id + i, action=Stm2Action.CONTROL1))
-        elif self._mode == 2:
+        elif self._mode == 1:
             # 8 input pairs, 8 TMCC IDs
             for i in range(8):
                 cmds.append(Stm2Req(self.tmcc_id + i, action=Stm2Action.CONTROL1))

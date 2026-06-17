@@ -243,7 +243,10 @@ class ComponentStateStore:
     # noinspection PyTypeChecker
     def _process_config_cache(self) -> None:
         for config in self._lcs_config_reqs.values():
-            if config.scope in {CommandScope.ACC, CommandScope.TRAIN} and config.num_addressable_ports > 1:
+            if (
+                config.scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}
+                and config.num_addressable_ports > 1
+            ):
                 pri_state = ComponentStateStore.get_state(config.scope, config.address, False)
                 if pri_state:
                     pri_tmcc_id = pri_state.address

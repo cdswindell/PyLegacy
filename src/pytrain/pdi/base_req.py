@@ -734,11 +734,12 @@ class BaseReq(PdiReq, CompDataMixin):
             PdiCommand.BASE_ENGINE,
             PdiCommand.BASE_TRAIN,
             PdiCommand.BASE_ROUTE,
-            PdiCommand.BASE_ACC,
             PdiCommand.BASE_SWITCH,
+            PdiCommand.BASE_ACC,
         }:
             if self.forward_link == 255 and self.reverse_link == 255 and not self.name and not self.number:
                 return False
+
         return True
 
     @property

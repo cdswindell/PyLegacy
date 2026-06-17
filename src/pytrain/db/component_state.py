@@ -733,7 +733,7 @@ class LcsProxyState(LcsState, ABC):
         return super()._as_dict()
 
 
-class SwitchState(TmccState):
+class SwitchState(TmccState, LcsProxyState):
     """
     Maintain the perceived state of a Switch
     """
@@ -741,6 +741,7 @@ class SwitchState(TmccState):
     @classmethod
     def _csv_headers(cls, include_state: bool = False) -> list[str]:
         cols = super()._csv_headers(include_state=include_state)
+        cols.extend(["lcs", "port"])
         if include_state:
             cols.extend(["state"])
         return cols
@@ -749,36 +750,42 @@ class SwitchState(TmccState):
         if scope != CommandScope.SWITCH:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
-        self._pdi_source = False
         self._state: Switch | None = None
         self._routes: set[RouteState] = set()
 
     def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
         data = super().as_csv(include_state=include_state)
+        comp = LcsComponent.by_value(self.model)
+        data["lcs"] = comp.name if comp else None
+        data["port"] = self.port
         if include_state:
             data["state"] = "thru" if self.is_thru else "out" if self.is_out else "unknown"
         return data
 
     def _update_state(self, command: L | P) -> UpdateResult:
-        if command:
+        # Dispatches state updates by command variant; notifies observers
+        result = super()._update_state(command)
+        handled = False
+        if isinstance(command, CompDataMixin) and command.is_comp_data_record:
+            self._update_comp_data(command.comp_data)
+            handled = True
+        elif isinstance(command, CommandReq):
             if command.command == TMCC1HaltCommandEnum.HALT:
                 return UpdateResult.IGNORED
-            with self.synchronizer:
-                # Updates switch state based on command type and parameters
-                if isinstance(command, CompDataMixin) and command.is_comp_data_record:
-                    self._update_comp_data(command.comp_data)
-                elif isinstance(command, CommandReq):
-                    if command.command != Switch.SET_ADDRESS:
-                        self._state = command.command
-                elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
-                    self._pdi_source = True
-                    self._state = Switch.THRU if command.is_thru else Switch.OUT
-                else:
-                    log.warning(f"Unhandled Switch State Update received: {command}")
-            # inform the routes that include this switch of new state
-            self.update_route_state()
-            return UpdateResult.UPDATED
-        return UpdateResult.IGNORED
+            elif command.command == Switch.SET_ADDRESS:
+                return UpdateResult.NO_CHANGE
+            elif not self._pdi_source:
+                handled = True
+                self._state = command.command
+        elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
+            self._pdi_source = True
+            self._state = Switch.THRU if command.is_thru else Switch.OUT
+        else:
+            log.warning(f"Unhandled Switch State Update received: {command}")
+
+        # inform the routes that include this switch of new state
+        self.update_route_state()
+        return UpdateResult.UPDATED if handled else result
 
     @property
     def state(self) -> Switch:
@@ -805,16 +812,13 @@ class SwitchState(TmccState):
         return not self.is_through and not self.is_out
 
     @property
-    def is_lcs_component(self) -> bool:
-        return self._pdi_source
-
-    @property
-    def is_deletable(self) -> bool:
-        return False if self.is_lcs_component else super().is_deletable
-
-    @property
     def payload(self) -> str:
-        return f"{self._state.name if self._state is not None else 'Unknown'}"
+        sn = f"{self._state.name if self._state is not None else 'Unknown'}"
+        if self.is_asc2:
+            sn = f"ASC2 Port {self.port}: {sn}"
+        if self.is_stm2:
+            sn = f"STM2 Port {self.port}: {sn}"
+        return sn
 
     def register_route(self, route: RouteState) -> None:
         self._routes.add(route)
