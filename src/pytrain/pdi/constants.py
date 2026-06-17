@@ -503,7 +503,6 @@ ALL_FIRMWARE = {
     IrdaAction.FIRMWARE,
     Ser2Action.FIRMWARE,
     Stm2Action.FIRMWARE,
-    Stm2Action.FIRMWARE,
     WiFiAction.FIRMWARE,
 }
 
@@ -513,7 +512,6 @@ ALL_STATUS = {
     Bpc2Action.STATUS,
     IrdaAction.STATUS,
     Ser2Action.STATUS,
-    Stm2Action.STATUS,
     Stm2Action.STATUS,
     WiFiAction.STATUS,
 }
@@ -525,7 +523,6 @@ ALL_CONFIG = {
     IrdaAction.CONFIG,
     Ser2Action.CONFIG,
     Stm2Action.CONFIG,
-    Stm2Action.CONFIG,
     WiFiAction.CONFIG,
 }
 
@@ -535,7 +532,6 @@ ALL_INFO = {
     Bpc2Action.INFO,
     IrdaAction.INFO,
     Ser2Action.INFO,
-    Stm2Action.INFO,
     Stm2Action.INFO,
     WiFiAction.INFO,
 }
@@ -547,7 +543,6 @@ ALL_RESET = {
     IrdaAction.RESET,
     Ser2Action.RESET,
     Stm2Action.RESET,
-    Stm2Action.RESET,
     WiFiAction.RESET,
 }
 
@@ -557,7 +552,6 @@ ALL_IDENTIFY = {
     Bpc2Action.IDENTIFY,
     IrdaAction.IDENTIFY,
     Ser2Action.IDENTIFY,
-    Stm2Action.IDENTIFY,
     Stm2Action.IDENTIFY,
     WiFiAction.IDENTIFY,
 }

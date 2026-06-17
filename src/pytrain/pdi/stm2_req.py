@@ -30,6 +30,7 @@ class Stm2Req(LcsReq):
         state: TMCC1SwitchCommandEnum = None,
     ) -> None:
         super().__init__(data, pdi_command, action, ident, error)
+        self.scope = CommandScope.SWITCH
         if isinstance(data, bytes):
             self._action = Stm2Action(self._action_byte)
             data_len = len(self._data)
@@ -42,7 +43,6 @@ class Stm2Req(LcsReq):
             if self._action == Stm2Action.CONTROL1:
                 sw_state = self._data[3] if data_len > 3 else None
                 self._state = TMCC1SwitchCommandEnum.OUT if sw_state == 1 else TMCC1SwitchCommandEnum.THRU
-                self.scope = CommandScope.SWITCH
             else:
                 self._state = None
         else:
