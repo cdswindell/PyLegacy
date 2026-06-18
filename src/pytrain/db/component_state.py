@@ -369,10 +369,12 @@ class ComponentState(ABC, CompDataMixin):
             self.clear_record(self)
 
     def request_config(self, command: CommandReq):
+        from ..comm.comm_buffer import CommBuffer
         from ..pdi.base_req import BaseReq
         from .component_state_store import ComponentStateStore
 
-        if ComponentStateStore.is_state_synchronized():
+        # Only request config if we're synchronized and running on the server
+        if ComponentStateStore.is_state_synchronized() and CommBuffer.is_server():
             if not self._config_requested:
                 # if we're synchronized, this component may be new; request initial config
                 self.initialize(self.scope, self.tmcc_id)
