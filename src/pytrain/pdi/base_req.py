@@ -456,7 +456,12 @@ class BaseReq(PdiReq, CompDataMixin):
                         self._number = self._comp_data.road_number
                         self._rev_link = self._comp_data.prev_link
                         self._fwd_link = self._comp_data.next_link
-                        print(f"Created CompData record from: {self}")
+
+                        if self._name and self._number and self._rev_link != 255 and self._fwd_link != 255:
+                            self._empty = False
+                        else:
+                            self._empty = True
+                        print(f"Created CompData record from: {self} Empty: {self._empty}")
                     else:
                         self._comp_data = None
                         self._comp_data_record = False

@@ -241,17 +241,23 @@ class ComponentState(ABC, CompDataMixin):
             return self._comp_data.next_link
         return 0xFF
 
-    @staticmethod
-    def is_synchronized() -> bool:
+    def is_synchronized(self) -> bool:
         from .component_state_store import ComponentStateStore
+        from .sync_state import SyncState
 
-        return ComponentStateStore.is_state_synchronized()
+        if isinstance(self, SyncState):
+            return self.is_synchronized()
+        else:
+            return ComponentStateStore.is_state_synchronized()
 
-    @staticmethod
-    def is_synchronizing() -> bool:
+    def is_synchronizing(self) -> bool:
         from .component_state_store import ComponentStateStore
+        from .sync_state import SyncState
 
-        return ComponentStateStore.is_state_synchronizing()
+        if isinstance(self, SyncState):
+            return self.is_synchronizing()
+        else:
+            return ComponentStateStore.is_state_synchronizing()
 
     @abstractmethod
     def _update_state(self, command: L | P) -> UpdateResult:
@@ -302,11 +308,7 @@ class ComponentState(ABC, CompDataMixin):
                     f"{command.scope.name.title()} #{command.address}, ignoring"
                 )
             # have we received the initial configuration from Base 3?
-            # If we have, great. If we haven't, it could be that the initial
-            # sync is still ongoing or that the component hasn't been assigned a
-            # name and/or road number, in which case, the Base 3 sends an empty record.
-            # It could also be the record is new since the PyTrain server started up
-            if not self.is_comp_data_record and self.scope in BASE3_SCOPES:
+            if self.is_comp_data_empty and self.scope in BASE3_SCOPES:
                 # initialize comp data
                 self.initialize(self.scope, self.tmcc_id)
                 self.request_config(command)
@@ -371,10 +373,9 @@ class ComponentState(ABC, CompDataMixin):
     def request_config(self, command: CommandReq):
         from ..comm.comm_buffer import CommBuffer
         from ..pdi.base_req import BaseReq
-        from .component_state_store import ComponentStateStore
 
         # Only request config if we're synchronized and running on the server
-        if ComponentStateStore.is_state_synchronized() and CommBuffer.is_server():
+        if self.is_synchronized() and CommBuffer.is_server():
             print(f"Request config for component {self}? prior: {self._config_requested}")
             if not self._config_requested:
                 scope = command.scope

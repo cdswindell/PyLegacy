@@ -224,6 +224,7 @@ class CompDataMixin(Generic[C]):
         super().__init__()
         self._comp_data: C | None = None
         self._comp_data_record: bool = False
+        self._empty: bool = True
 
     @property
     def comp_data(self) -> C:
@@ -232,6 +233,10 @@ class CompDataMixin(Generic[C]):
     @property
     def is_comp_data_record(self) -> bool:
         return self._comp_data is not None and self._comp_data_record is True
+
+    @property
+    def is_comp_data_empty(self) -> bool:
+        return self._comp_data is None or self._empty is True
 
     def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
         data_len = PdiReq.scope_record_length(scope)
@@ -248,6 +253,7 @@ class CompDataMixin(Generic[C]):
         else:
             raise NotImplementedError(f"Unknown scope {scope.name}")
         self._set_defaults(scope)
+        self._empty = True
         self._comp_data_record = True
 
     def _set_defaults(self, scope: CommandScope) -> None:

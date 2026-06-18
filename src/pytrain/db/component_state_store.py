@@ -101,21 +101,25 @@ class ComponentStateStore:
 
     @classmethod
     def is_state_synchronized(cls) -> bool:
+        from src.pytrain import SyncState
+
         if cls._instance is None:
             return False
         sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
-        if sync_state is None:
-            return False
-        return sync_state.is_synchronized()
+        if isinstance(sync_state, SyncState):
+            return sync_state.is_synchronized()
+        return False
 
     @classmethod
     def is_state_synchronizing(cls) -> bool:
+        from src.pytrain import SyncState
+
         if cls._instance is None:
             return False
         sync_state = cls._instance.get_state(CommandScope.SYNC, 99, False)
-        if sync_state is None:
-            return False
-        return sync_state.is_synchronizing()
+        if isinstance(sync_state, SyncState):
+            return sync_state.is_synchronizing()
+        return False
 
     @classmethod
     def by_bluetooth_id(cls, bt_id: int) -> T | None:
