@@ -393,6 +393,7 @@ class ComponentState(ABC, CompDataMixin):
                 self._config_requested = True
                 print("***** Config request sent...")
             else:
+                print("***** Config already requested...")
                 log.debug(f"Config for {self.scope.title} {self.tmcc_id} already requested")
 
     @staticmethod
