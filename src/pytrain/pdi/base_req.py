@@ -457,11 +457,12 @@ class BaseReq(PdiReq, CompDataMixin):
                         self._rev_link = self._comp_data.prev_link
                         self._fwd_link = self._comp_data.next_link
 
-                        if self._name and self._number and self._rev_link != 255 and self._fwd_link != 255:
-                            self._empty = False
-                        else:
-                            self._empty = True
-                        print(f"Created CompData record from: {self} Empty: {self._empty}")
+                        # a record is considered empty if there is no road name/number and both links are 255
+                        self._empty = (
+                            True
+                            if self._name and self._number and self._rev_link != 255 and self._fwd_link != 255
+                            else False
+                        )
                     else:
                         self._comp_data = None
                         self._comp_data_record = False
