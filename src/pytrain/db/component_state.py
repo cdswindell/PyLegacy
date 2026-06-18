@@ -375,16 +375,19 @@ class ComponentState(ABC, CompDataMixin):
 
         # Only request config if we're synchronized and running on the server
         if ComponentStateStore.is_state_synchronized() and CommBuffer.is_server():
+            print(f"Request config for component {self}? {self._config_requested}")
             if not self._config_requested:
+                scope = command.scope
                 # if we're synchronized, this component may be new; request initial config
-                self.initialize(self.scope, self.tmcc_id)
-                scope = command.scope.name.title()
-                log.debug(f"{scope} {command.address} not known, will request config and retry {command}...")
+                if not self.is_comp_data_record and scope in BASE3_SCOPES:
+                    self.initialize(scope, self.tmcc_id)
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"{scope} {command.address} not known, will request config and retry {command}...")
                 if 1 <= command.address < 99:
-                    BaseReq(command.address, PdiCommand.BASE_MEMORY, scope=command.scope).send()
+                    BaseReq(command.address, PdiCommand.BASE_MEMORY, scope=scope).send()
                 elif 100 <= command.address <= 9999:
                     if self.record_no is not None:
-                        cmd = PdiCommand.D4_TRAIN if self.scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE
+                        cmd = PdiCommand.D4_TRAIN if scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE
                         D4Req(self.record_no, cmd).send()
                 self._config_requested = True
             else:
