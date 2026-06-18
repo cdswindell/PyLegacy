@@ -234,11 +234,6 @@ class CompDataMixin(Generic[C]):
         return self._comp_data is not None and self._comp_data_record is True
 
     def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
-        from .component_state_store import ComponentStateStore
-
-        if ComponentStateStore.is_state_synchronized():
-            print(f"Initializing {scope} {tmcc_id} Comp data...")
-
         data_len = PdiReq.scope_record_length(scope)
         if scope == CommandScope.SWITCH:
             self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)

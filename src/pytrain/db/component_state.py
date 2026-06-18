@@ -390,6 +390,7 @@ class ComponentState(ABC, CompDataMixin):
                         cmd = PdiCommand.D4_TRAIN if scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE
                         D4Req(self.record_no, cmd).send()
                 self._config_requested = True
+                print("***** Config request sent...")
             else:
                 log.debug(f"Config for {self.scope.title} {self.tmcc_id} already requested")
 
