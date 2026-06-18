@@ -374,8 +374,9 @@ class ComponentState(ABC, CompDataMixin):
         from .component_state_store import ComponentStateStore
 
         # Only request config if we're synchronized and running on the server
+        print(f"Request config for component {self}? server: {CommBuffer.is_server()}")
         if ComponentStateStore.is_state_synchronized() and CommBuffer.is_server():
-            print(f"Request config for component {self}? {self._config_requested}")
+            print(f"Request config for component {self}? prior: {self._config_requested}")
             if not self._config_requested:
                 scope = command.scope
                 # if we're synchronized, this component may be new; request initial config
