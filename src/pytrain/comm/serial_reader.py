@@ -51,6 +51,8 @@ class SerialReader(Thread):
                             ser2_bytes = ser.read(256)
                             if ser2_bytes:
                                 if self._consumer:
+                                    if log.isEnabledFor(logging.DEBUG):
+                                        log.debug(f"SerialReader: {ser2_bytes.hex(':')}")
                                     self._consumer.offer(ser2_bytes)
                                 else:
                                     log.warning(f"No serial consumer for: {ser2_bytes.hex(':')}")
