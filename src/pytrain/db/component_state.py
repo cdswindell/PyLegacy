@@ -458,12 +458,8 @@ class ComponentState(ABC, CompDataMixin):
     def _update_comp_data(self, comp_data: CompData):
         with self._cv:
             self._comp_data = comp_data
-            if comp_data and not self.is_comp_data_empty:
-                self._comp_data_record = True
-                self._empty = False
-            else:
-                self._comp_data_record = False
-                self._empty = True
+            self._comp_data_record = True
+            self._empty = False if comp_data and comp_data.is_comp_data_empty else True
 
     def _harvest_effect(self, effects: Set[E]) -> E | tuple[E, int] | None:
         for effect in effects:
