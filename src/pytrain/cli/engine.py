@@ -7,12 +7,14 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from __future__ import annotations
 
 import logging
 from argparse import ArgumentError, ArgumentParser
 from typing import List
 
-from ..protocol.constants import BROADCAST_ADDRESS, CommandScope, CommandSyntax
+from ..protocol.command_base import CommandBase
+from ..protocol.constants import BROADCAST_ADDRESS, CommandScope, CommandSyntax, DEFAULT_BAUDRATE, DEFAULT_PORT
 from ..protocol.multibyte.multibyte_constants import (
     TMCC2EffectsControl,
     TMCC2EngineCommandEnumEx,
@@ -37,6 +39,74 @@ AUX_COMMAND_MAP = {
     "off": "_OFF",
     "opt1": "_OPTION_ONE",
     "opt2": "_OPTION_TWO",
+}
+
+
+class ClearStateCmd(CommandBase):
+    def __init__(self, cli: CliBase):
+        self._cli = cli
+
+        if self.scope is None:
+            raise ValueError("Scope must be specified")
+
+        # this argument is a safety to make sure user action is confirmed
+        if self.tmcc_id != self._cli.data:
+            print(f"TMCC ID: {self.tmcc_id} confirm: {self._cli.data}")
+            raise ArgumentError(None, f"Must specify matching {self.scope.title} TMCC ID for -clear; use -h for help")
+
+        CommandBase.__init__(
+            self,
+            None,
+            None,
+            self.tmcc_id,
+            scope=self.scope,
+            server=self._cli.args.server if "server" in self._cli.args else None,
+            client=self._cli.args.client if "client" in self._cli.args else False,
+            base=self._cli.args.base if "base" in self._cli.args else None,
+        )
+        self._command = self._build_command()
+
+    # noinspection PyTypeChecker
+    def send(
+        self,
+        repeat: int = None,
+        delay: float = None,
+        duration: float = None,
+        interval: int = None,
+        shutdown: bool = False,
+        baudrate: int = DEFAULT_BAUDRATE,
+        port: str = DEFAULT_PORT,
+        server: str = None,
+    ):
+        # pause until Base 3 sync complete
+        self.wait_for_sync()
+
+        # get state to delete
+        state = self._pytrain.store.get_state(self.scope, self.tmcc_id, False)
+        if state:
+            log.info(f"Clearing {self.scope.title} TMCC ID {self.tmcc_id}")
+            state.clear(clear_db=True)
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._cli.scope
+
+    @property
+    def tmcc_id(self) -> CommandScope:
+        return self._cli.tmcc_id
+
+    def _build_command(self) -> bytes | None:
+        return None
+
+    def _command_prefix(self) -> bytes | None:
+        pass
+
+    def _encode_address(self, command_op: int) -> bytes | None:
+        pass
+
+
+CUSTOM_COMMANDS = {
+    "CLEAR": ClearStateCmd,
 }
 
 
@@ -75,6 +145,16 @@ class EngineCli(CliBaseTMCC):
         )
         ops.add_argument(
             "-bs", "-boost_speed", action="store_const", const="BOOST_SPEED", dest="option", help="Brake speed"
+        )
+        ops.add_argument(
+            "-clear",
+            action=DataAction,
+            dest="option",
+            metavar="1 - 9999",
+            type=ranged_int(1, 9999),
+            nargs=1,
+            const="CLEAR",
+            help="Clear/delete engine/train",
         )
         ops.add_argument(
             "-fc",
@@ -125,7 +205,7 @@ class EngineCli(CliBaseTMCC):
             help="Engine labor (0 - 31)",
         )
         ops.add_argument(
-            "-n",
+            "-number",
             action=DataAction,
             dest="option",
             choices=range(0, 10),
@@ -642,16 +722,20 @@ class EngineCli(CliBaseTMCC):
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
-        engine: int = self._args.engine
+        self._engine = engine = self._args.engine
         try:
-            scope = self._determine_scope()
+            self._scope = scope = self._determine_scope()
             self._determine_command_format(scope, engine)
             option = self._decode_engine_option()  # raise ValueError if you can't decode
             if option is None:
                 raise ValueError("Must specify an option, use -h for help")
             option_data: int = self._args.data if "data" in self._args else 0
 
-            if self.is_tmcc2 or option.is_tmcc2:
+            if option in CUSTOM_COMMANDS:
+                cmd = CUSTOM_COMMANDS[option](self)
+            elif isinstance(option, str):
+                raise ValueError(f"Invalid option: {option}, use -h for help")
+            elif self.is_tmcc2 or option.is_tmcc2:
                 cmd = EngineCmdTMCC2(
                     engine, option, option_data, scope, baudrate=self._baudrate, port=self._port, server=self._server
                 )
@@ -677,21 +761,38 @@ class EngineCli(CliBaseTMCC):
         except ValueError as ve:
             log.exception(ve)
 
+    @property
+    def scope(self) -> CommandScope:
+        return self._scope
+
+    @property
+    def data(self) -> int | None:
+        if self._args and "data" in self._args:
+            return self._args.data
+        return None
+
+    @property
+    def tmcc_id(self):
+        return self._engine
+
     def _determine_command_format(self, scope: CommandScope, tmcc_id: int) -> None:
         if "format" in self._args and self._args.format:
             pass  # use user-provided format
         else:
             from ..db.component_state_store import ComponentStateStore
 
-            state = ComponentStateStore.get_state(scope, tmcc_id, False)
-            if state and state.is_legacy:
-                self._command_format = CommandSyntax.LEGACY
+            if ComponentStateStore.is_built():
+                state = ComponentStateStore.get_state(scope, tmcc_id, False)
+                if state and state.is_legacy:
+                    self._command_format = CommandSyntax.LEGACY
+                else:
+                    self._command_format = CommandSyntax.TMCC
             else:
-                self._command_format = CommandSyntax.TMCC
+                self._command_format = None
 
     def _decode_engine_option(
         self,
-    ) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | SequenceCommandEnum | None:
+    ) -> TMCC1EngineCommandEnum | TMCC2EngineCommandEnum | TMCC2MultiByteEnum | SequenceCommandEnum | str | None:
         """
         Decode the 'option' argument, if present, into a valid
         TMCC1EngineCommandDef, TMCC2EngineCommandDef, or one of the multiword TMCC2
@@ -733,12 +834,15 @@ class EngineCli(CliBaseTMCC):
         self._args.option = option
 
         # vet data argument, if string
-        if "data" in self._args and isinstance(self._args.data, str):
-            rr_enums = TMCC2RRSpeedsEnum if self.is_tmcc2 else TMCC1RRSpeedsEnum
-            rr_value = rr_enums.by_name(self._args.data, False)
-            if rr_value is None:
-                raise ArgumentError(None, f"Invalid speed: {self._args.data}")
-            self._args.data = min(rr_value.value)
+        if "data" in self._args:
+            if isinstance(self._args.data, str):
+                rr_enums = TMCC2RRSpeedsEnum if self.is_tmcc2 else TMCC1RRSpeedsEnum
+                rr_value = rr_enums.by_name(self._args.data, False)
+                if rr_value is None:
+                    raise ArgumentError(None, f"Invalid speed: {self._args.data}")
+                self._args.data = min(rr_value.value)
+            elif isinstance(self._args.data, list) and len(self._args.data):
+                self._args.data = min(self._args.data)
 
         # determine enum from option string
         opt_enum = self._get_option_enum(option, self.is_tmcc1)
@@ -746,7 +850,11 @@ class EngineCli(CliBaseTMCC):
             opt_enum = self._get_option_enum(option, False)
         if opt_enum is not None:
             return opt_enum
-        raise ArgumentError(None, f"Invalid {self.command_format.name} option: {option}")
+        # custom command?
+        if option in CUSTOM_COMMANDS:
+            return option
+        msg = f"Invalid {self.command_format.name + ' ' if self.command_format else ''}option: {option}"
+        raise ArgumentError(None, msg)
 
     @staticmethod
     def _get_option_enum(

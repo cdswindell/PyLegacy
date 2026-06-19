@@ -841,7 +841,7 @@ class CompData(ABC, Generic[R]):
     @classmethod
     def clear_record_reqs(cls, state: "ComponentState") -> list[PdiReq | "ComponentState"]:
         scope = state.scope
-        address = scope.address
+        address = state.address
         if scope:
             reqs = [cls.clear_road_name_number_req(address, scope)]
             reqs.append(state)

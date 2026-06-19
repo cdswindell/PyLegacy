@@ -377,7 +377,7 @@ class ComponentState(ABC, CompDataMixin):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"Config for {self.scope.title} {self.tmcc_id} already requested")
 
-    def clear(self, notify: bool = True, clear_db: bool = False):
+    def clear(self, notify: bool = True, clear_db: bool = False) -> bool:
         """
         Deletes the component state from the store. Optionally, clears the
         corresponding Base 3 database record
@@ -388,7 +388,7 @@ class ComponentState(ABC, CompDataMixin):
             if not self.is_deletable:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"Component state {self} is not deletable")
-                return
+                return False
             ComponentStateStore.delete_state(self)
             self._deleted = True
 
@@ -401,6 +401,7 @@ class ComponentState(ABC, CompDataMixin):
 
         if clear_db:
             self.clear_record(self)
+        return True
 
     @staticmethod
     def schedule_call(delay_seconds, func, *args, **kwargs):

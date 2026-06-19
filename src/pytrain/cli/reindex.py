@@ -278,8 +278,9 @@ class ReindexCmd(CommandBase, Thread):
             if self.is_verbose:
                 log.info(f"Reindexing {self._scope.title} {tmcc_id:02} prev: {prev_rec} next: {next_rec}")
             req = self._build_links_update_req(tmcc_id, prev_rec, next_rec)
-            self._dispatch_req(req, wait_for=False)
-            time.sleep(pause_for)
+            if req:
+                self._dispatch_req(req, wait_for=False)
+                time.sleep(pause_for)
             prev_rec = tmcc_id
 
         # write final record
@@ -312,6 +313,12 @@ class ReindexCmd(CommandBase, Thread):
             self.pytrain.pdi_dispatcher.enqueue_command(req)
 
     def _build_links_update_req(self, tmcc_id: int, prev_link: int, next_link: int) -> BaseReq:
+        # if links are correct, do nothing
+        state = self._entries_map.get(tmcc_id, None)
+        if state and state.prev_link == prev_link and state.next_link == next_link:
+            if self.is_verbose:
+                log.info("Links are correct, no changes made")
+            return None
         # Note: this is hard-wired to update the prev and next record links that are stored in
         # bytes 0 and 1 of the Base 3 database record.
         data_bytes = bytes([prev_link, next_link])
