@@ -307,11 +307,18 @@ class ComponentState(ABC, CompDataMixin):
                     f"{self.friendly_scope} #{self._address} received update for "
                     f"{command.scope.name.title()} #{command.address}, ignoring"
                 )
+
             # have we received the initial configuration from Base 3?
+            # if we haven't, and this command isn't a configuration record,
+            # request configuration
             if self.is_comp_data_empty and self.scope in BASE3_SCOPES:
-                # initialize comp data
-                self.initialize(self.scope, self.tmcc_id)
-                self.request_config(command)
+                # initialize comp data, if it's empty
+                if not self.is_comp_data_record:
+                    self.initialize(self.scope, self.tmcc_id)
+                if not (isinstance(command, BaseReq) and command.is_comp_data_record):
+                    self.request_config(command)
+                else:
+                    log.info(f"Config for {self.scope.title} {self.tmcc_id} about to be applied...")
 
             if self.scope != command.scope:
                 scope = command.scope.name.title()
@@ -345,31 +352,6 @@ class ComponentState(ABC, CompDataMixin):
                 if hasattr(command, "spare_1"):
                     self._spare_1 = command.spare_1
 
-    def clear(self, notify: bool = True, clear_db: bool = False):
-        """
-        Deletes the component state from the store. Optionally, clears the
-        corresponding Base 3 database record
-        """
-        from .component_state_store import ComponentStateStore
-
-        with self._cv:
-            if not self.is_deletable:
-                if log.isEnabledFor(logging.DEBUG):
-                    log.debug(f"Component state {self} is not deletable")
-                return
-            ComponentStateStore.delete_state(self)
-            self._deleted = True
-
-            # hold lock while we determine if Base 3 record should be cleared as well
-            clear_db = clear_db and isinstance(self, CompDataMixin) and self.is_comp_data_record
-
-            if notify:
-                self.changed.set()
-                self.synchronizer.notify_all()
-
-        if clear_db:
-            self.clear_record(self)
-
     def request_config(self, command: CommandReq):
         from ..comm.comm_buffer import CommBuffer
         from ..pdi.base_req import BaseReq
@@ -395,6 +377,31 @@ class ComponentState(ABC, CompDataMixin):
             else:
                 print("***** Config already requested...")
                 log.debug(f"Config for {self.scope.title} {self.tmcc_id} already requested")
+
+    def clear(self, notify: bool = True, clear_db: bool = False):
+        """
+        Deletes the component state from the store. Optionally, clears the
+        corresponding Base 3 database record
+        """
+        from .component_state_store import ComponentStateStore
+
+        with self._cv:
+            if not self.is_deletable:
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Component state {self} is not deletable")
+                return
+            ComponentStateStore.delete_state(self)
+            self._deleted = True
+
+            # hold lock while we determine if Base 3 record should be cleared as well
+            clear_db = clear_db and isinstance(self, CompDataMixin) and self.is_comp_data_record
+
+            if notify:
+                self.changed.set()
+                self.synchronizer.notify_all()
+
+        if clear_db:
+            self.clear_record(self)
 
     @staticmethod
     def schedule_call(delay_seconds, func, *args, **kwargs):
