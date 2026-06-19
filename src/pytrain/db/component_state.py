@@ -317,8 +317,6 @@ class ComponentState(ABC, CompDataMixin):
                     self.initialize(self.scope, self.tmcc_id)
                 if not (isinstance(command, BaseReq) and command.is_comp_data_record):
                     self.request_config(command)
-                else:
-                    log.info(f"Config for {self.scope.title} {self.tmcc_id} about to be applied...")
 
             if self.scope != command.scope:
                 scope = command.scope.name.title()
@@ -358,7 +356,7 @@ class ComponentState(ABC, CompDataMixin):
 
         # Only request config if we're synchronized and running on the server
         if self.is_synchronized() and CommBuffer.is_server():
-            print(f"Request config for component {self}? prior: {self._config_requested}")
+            # print(f"Request config for component {self}? prior: {self._config_requested}")
             if not self._config_requested:
                 scope = command.scope
                 # if we're synchronized, this component may be new; request initial config
@@ -373,10 +371,11 @@ class ComponentState(ABC, CompDataMixin):
                         cmd = PdiCommand.D4_TRAIN if scope == CommandScope.TRAIN else PdiCommand.D4_ENGINE
                         D4Req(self.record_no, cmd).send()
                 self._config_requested = True
-                print("***** Config request sent...")
+                # print("***** Config request sent...")
             else:
-                print("***** Config already requested...")
-                log.debug(f"Config for {self.scope.title} {self.tmcc_id} already requested")
+                # print("***** Config already requested...")
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug(f"Config for {self.scope.title} {self.tmcc_id} already requested")
 
     def clear(self, notify: bool = True, clear_db: bool = False):
         """
