@@ -61,16 +61,18 @@ class ConsistComponent:
     @classmethod
     def to_bytes(cls, components: list[ConsistComponent]) -> bytes:
         byte_str = bytes()
-        for comp in reversed(components):
-            byte_str += comp.as_bytes
+        if components:
+            for comp in reversed(components):
+                byte_str += comp.as_bytes
         byte_str += b"\xff" * (32 - len(byte_str))
         return byte_str
 
     @classmethod
     def to_d4_bytes(cls, components: list[ConsistComponent]) -> bytes:
         byte_str = bytes()
-        for comp in components:
-            byte_str += comp.as_bytes
+        if components:
+            for comp in components:
+                byte_str += comp.as_bytes
         byte_str += b"\xff" * (64 - len(byte_str))
         return byte_str
 
@@ -190,8 +192,9 @@ class RouteComponent:
     @classmethod
     def to_bytes(cls, components: list[RouteComponent]) -> bytes:
         byte_str = bytes()
-        for comp in components:
-            byte_str += comp.as_bytes
+        if components:
+            for comp in components:
+                byte_str += comp.as_bytes
         byte_str += b"\xff" * (32 - len(byte_str))
         return byte_str
 

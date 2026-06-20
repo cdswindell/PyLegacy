@@ -19,6 +19,7 @@ from src.pytrain.db.comp_data import (
     CompDataHandler,
     CompDataMixin,
     EngineData,
+    FIRST_DATUM_ADDR,
     RouteData,
     SwitchData,
     TrainData,
@@ -240,6 +241,46 @@ class TestCompData:
             assert isinstance(h.comp_data, expected_cls)
 
     @pytest.mark.parametrize(
+        ("scope", "tmcc_id"),
+        [
+            (CommandScope.ENGINE, 1234),
+            (CommandScope.TRAIN, 1234),
+            (CommandScope.ACC, 55),
+            (CommandScope.SWITCH, 55),
+            (CommandScope.ROUTE, 55),
+        ],
+    )
+    def test_comp_data_mixin_initialized_records_serialize(self, scope, tmcc_id):
+        class Holder(CompDataMixin):
+            def __init__(self):
+                super().__init__()
+
+        h = Holder()
+        h.initialize(scope, tmcc_id=tmcc_id)
+
+        out = h.comp_data.as_bytes()
+
+        assert len(out) == PdiReq.scope_record_length(scope)
+
+    def test_comp_data_mixin_initialized_route_and_train_have_empty_component_blocks(self):
+        class Holder(CompDataMixin):
+            def __init__(self):
+                super().__init__()
+
+        route = Holder()
+        route.initialize(CommandScope.ROUTE, tmcc_id=55)
+        route_data = route.comp_data.as_bytes()
+        assert route.comp_data.components is None
+        assert route.comp_data.payload() == ""
+        assert route_data[0x60:0x80] == b"\xff" * 32
+
+        train = Holder()
+        train.initialize(CommandScope.TRAIN, tmcc_id=55)
+        train_data = train.comp_data.as_bytes()
+        assert train.comp_data.consist_comps is None
+        assert train_data[0x70:0x90] == b"\xff" * 32
+
+    @pytest.mark.parametrize(
         ("scope", "tmcc_id", "expected_defaults"),
         [
             (
@@ -388,6 +429,56 @@ class TestCompData:
     def test_clear_road_name_number_req_rejects_unmapped_class(self):
         with pytest.raises(AttributeError, match="Invalid CompData"):
             CompData.clear_road_name_number_req(55)
+
+    @pytest.mark.parametrize(
+        ("data_cls", "scope"),
+        [
+            (EngineData, CommandScope.ENGINE),
+            (TrainData, CommandScope.TRAIN),
+        ],
+    )
+    def test_clear_record_reqs_include_full_record_clear_for_engine_train(self, data_cls, scope):
+        state = types.SimpleNamespace(scope=scope, address=55)
+
+        reqs = data_cls.clear_record_reqs(state)
+
+        assert len(reqs) == 3
+        assert reqs[-1] is state
+        clear_req = reqs[1]
+        assert isinstance(clear_req, BaseReq)
+        assert clear_req.tmcc_id == 55
+        assert clear_req.scope == scope
+        assert clear_req.start == FIRST_DATUM_ADDR
+        assert clear_req.data_length == PdiReq.scope_record_length(scope) - FIRST_DATUM_ADDR
+
+    @pytest.mark.parametrize(
+        ("data_cls", "scope"),
+        [
+            (EngineData, CommandScope.ENGINE),
+            (TrainData, CommandScope.TRAIN),
+            (AccessoryData, CommandScope.ACC),
+            (SwitchData, CommandScope.SWITCH),
+            (RouteData, CommandScope.ROUTE),
+        ],
+    )
+    def test_clear_record_reqs_full_clear_payload_matches_scope_record_size(self, data_cls, scope):
+        state = types.SimpleNamespace(scope=scope, address=42)
+
+        clear_req = data_cls.clear_record_reqs(state)[1]
+
+        assert clear_req.data_length == len(clear_req.data_bytes)
+        assert clear_req.start + clear_req.data_length == PdiReq.scope_record_length(scope)
+
+    def test_clear_record_reqs_route_uses_state_address_without_raising(self):
+        state = types.SimpleNamespace(scope=CommandScope.ROUTE, address=42)
+
+        reqs = RouteData.clear_record_reqs(state)
+
+        assert reqs[-1] is state
+        assert isinstance(reqs[0], BaseReq)
+        assert reqs[0].tmcc_id == 42
+        assert reqs[0].scope == CommandScope.ROUTE
+        assert reqs[0].start == 0x04
 
     @pytest.mark.parametrize(
         ("data_cls", "scope", "expected_start"),

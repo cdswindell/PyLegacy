@@ -94,6 +94,10 @@ class TestConsistComponent:
         assert byt[: len(expected)] == expected
         assert byt[len(expected) :] == b"\xff" * (32 - len(expected))
 
+    def test_to_bytes_accepts_empty_components(self):
+        assert ConsistComponent.to_bytes(None) == b"\xff" * 32
+        assert ConsistComponent.to_d4_bytes(None) == b"\xff" * 64
+
 
 class TestRouteComponent:
     def test_from_bytes_parses_sorts_by_tmcc_id(self):
@@ -119,6 +123,9 @@ class TestRouteComponent:
         expected = comps[0].as_bytes + comps[1].as_bytes
         assert byt[: len(expected)] == expected
         assert byt[len(expected) :] == b"\xff" * (32 - len(expected))
+
+    def test_to_bytes_accepts_empty_components(self):
+        assert RouteComponent.to_bytes(None) == b"\xff" * 32
 
     def test_as_signature_switch_and_route(self):
         s = RouteComponent(12, 0x00)  # thru -> switch

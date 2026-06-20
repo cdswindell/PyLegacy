@@ -41,6 +41,8 @@ BASE_TO_TMCC1_SMOKE_MAP = {
 
 TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
+FIRST_DATUM_ADDR = 0x03
+
 if TYPE_CHECKING:  # pragma: no cover
     from .component_state import ComponentState
     from .component_state_store import ComponentStateStore
@@ -115,6 +117,9 @@ class CompDataHandler:
     @property
     def default(self) -> int:
         return self._default
+
+    def __repr__(self) -> str:
+        return f"<{self.field}: Length: {self.length}>"
 
 
 class QueryPkg:
@@ -239,20 +244,20 @@ class CompDataMixin(Generic[C]):
         return self._comp_data is None or self._empty is True
 
     def initialize(self, scope: CommandScope, tmcc_id: int) -> None:
-        data_len = PdiReq.scope_record_length(scope)
+        # data_len = PdiReq.scope_record_length(scope)
         if scope == CommandScope.SWITCH:
-            self._comp_data = SwitchData(b"\xff" * data_len, tmcc_id)
+            self._comp_data = SwitchData(None, tmcc_id)
         elif scope == CommandScope.ENGINE:
-            self._comp_data = EngineData(b"\xff" * data_len, tmcc_id)
+            self._comp_data = EngineData(None, tmcc_id)
         elif scope == CommandScope.TRAIN:
-            self._comp_data = TrainData(b"\xff" * data_len, tmcc_id)
+            self._comp_data = TrainData(None, tmcc_id)
         elif scope == CommandScope.ROUTE:
-            self._comp_data = RouteData(b"\xff" * data_len, tmcc_id)
+            self._comp_data = RouteData(None, tmcc_id)
         elif scope == CommandScope.ACC:
-            self._comp_data = AccessoryData(b"\xff" * data_len, tmcc_id)
+            self._comp_data = AccessoryData(None, tmcc_id)
         else:
             raise NotImplementedError(f"Unknown scope {scope.name}")
-        self._set_defaults(scope)
+        # self._set_defaults(scope)
         self._empty = True
         self._comp_data_record = True
 
@@ -268,7 +273,11 @@ class CompDataMixin(Generic[C]):
 
     def clear_record(self, state: "ComponentState", background: bool = True):
         if self._comp_data:
-            reqs = self._comp_data.clear_record_reqs(state)
+            reqs = []
+            req = self._comp_data.on_clear_req()
+            if req:
+                reqs.append(req)
+            reqs.append(self._comp_data.clear_record_reqs(state))
             if reqs:
                 print(f"Requests {reqs} {background}")
 
@@ -313,6 +322,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
         31,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 31),
+        default=None,
     ),
     0x3E: CompDataHandler("_road_number_len", default=0),
     0x3F: CompDataHandler(
@@ -320,6 +330,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
         4,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 4),
+        default=None,
     ),
     0x43: CompDataHandler("_engine_type"),
     0x44: CompDataHandler("_control_type"),
@@ -366,6 +377,7 @@ BASE_MEMORY_TRAIN_READ_MAP.update(
             32,
             lambda t: ConsistComponent.from_bytes(t),
             lambda t: ConsistComponent.to_bytes(t),
+            default=None,
         ),
     }
 )
@@ -394,6 +406,7 @@ BASE_MEMORY_ACC_READ_MAP = {
         31,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 31),
+        default=None,
     ),
     0x3E: CompDataHandler("_road_number_len", default=0),
     0x3F: CompDataHandler(
@@ -401,6 +414,7 @@ BASE_MEMORY_ACC_READ_MAP = {
         4,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 4),
+        default=None,
     ),
 }
 FIELD_TO_ADDR_ACC_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_ACC_READ_MAP.items()}
@@ -415,6 +429,7 @@ BASE_MEMORY_SWITCH_READ_MAP = {
         31,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 31),
+        default=None,
     ),
     0x24: CompDataHandler("_road_number_len", default=0),
     0x25: CompDataHandler(
@@ -422,6 +437,7 @@ BASE_MEMORY_SWITCH_READ_MAP = {
         4,
         lambda t: PdiReq.decode_text(t),
         lambda t: PdiReq.encode_text(t, 4),
+        default=None,
     ),
 }
 FIELD_TO_ADDR_SWITCH_MAP = {v.field[1:]: k for k, v in BASE_MEMORY_SWITCH_READ_MAP.items()}
@@ -435,6 +451,7 @@ BASE_MEMORY_ROUTE_READ_MAP.update(
             32,
             lambda t: RouteComponent.from_bytes(t),
             lambda t: RouteComponent.to_bytes(t),
+            default=None,
         ),
     }
 )
@@ -837,6 +854,21 @@ class CompData(ABC, Generic[R]):
                 raise AttributeError(f"No Field map for scope: {scope}")
         raise AttributeError(f"Invalid CompData: {cls}")
 
+    @classmethod
+    def _clear_record_req(cls, address: int, scope: CommandScope = None) -> PdiReq:
+        scope = scope or CompDataClassToScopeMap.get(cls, None)
+        if scope:
+            cleared_bytes = SCOPE_TO_CLEARED_MAP.get(scope, None)
+            if cleared_bytes:
+                # build data packet, zeroing out length of road name and number
+                data = cleared_bytes[FIRST_DATUM_ADDR:]
+                pkg = UpdatePkg("CLEAR", FIRST_DATUM_ADDR, len(data), data)
+                req = pkg.as_request(address, scope)
+                return req
+            else:
+                raise AttributeError(f"No Clear Record data for scope: {scope}")
+        raise AttributeError(f"Invalid CompData: {cls}")
+
     # noinspection PyListCreation
     @classmethod
     def clear_record_reqs(cls, state: "ComponentState") -> list[PdiReq | "ComponentState"]:
@@ -844,6 +876,7 @@ class CompData(ABC, Generic[R]):
         address = state.address
         if scope:
             reqs = [cls.clear_road_name_number_req(address, scope)]
+            reqs.append(cls._clear_record_req(address, scope))
             reqs.append(state)
             return reqs
         raise AttributeError(f"Invalid CompData: {cls}")
@@ -874,6 +907,22 @@ class CompData(ABC, Generic[R]):
             else:
                 comp_map = SCOPE_TO_COMP_MAP.get(self.scope)
             self._parse_bytes(data, comp_map)
+        else:
+            self._set_defaults()
+
+    def _set_defaults(self) -> None:
+        field_map = SCOPE_TO_COMP_MAP.get(self._scope, None)
+        if field_map:
+            for addr, field in field_map.items():
+                if field.field == "_tmcc_id":
+                    continue  # set to default value by __init__
+                if hasattr(self, field.field):
+                    default = field.default
+                    if default == 0xFF and field.length > 1:
+                        default = b"\xff" * field.length
+                    setattr(self, field.field, default)
+                else:
+                    raise ValueError(f"Unknown field {field.field} for scope {self._scope.name}")
 
     def is_active(self) -> bool:
         """
@@ -968,6 +1017,10 @@ class CompData(ABC, Generic[R]):
     def payload(self) -> str:
         return ""
 
+    # noinspection PyMethodMayBeStatic
+    def on_clear_req(self) -> CommandReq | PdiReq | None:
+        return None
+
     def set_road_name_req(self, road_name: str | None) -> PdiReq:
         if self.scope:
             field_map = SCOPE_TO_FIELDS_MAP.get(self.scope, None)
@@ -1033,7 +1086,11 @@ class CompData(ABC, Generic[R]):
             if idx > last_idx:
                 byte_str += b"\xff" * (idx - last_idx)
             data_len = tpl.length
-            new_bytes = tpl.to_bytes(getattr(self, tpl.field))
+            raw_data = getattr(self, tpl.field)
+            if isinstance(raw_data, bytes):
+                new_bytes = raw_data
+            else:
+                new_bytes = tpl.to_bytes(raw_data)
             if len(new_bytes) < data_len:
                 new_bytes += b"\xff" * (data_len - len(new_bytes))
             byte_str += new_bytes
@@ -1193,4 +1250,13 @@ CompDataClassToScopeMap = {
     RouteData: CommandScope.ROUTE,
     SwitchData: CommandScope.SWITCH,
     TrainData: CommandScope.TRAIN,
+}
+
+
+SCOPE_TO_CLEARED_MAP = {
+    CommandScope.ENGINE: EngineData(None, 0).as_bytes(),
+    CommandScope.TRAIN: TrainData(None, 0).as_bytes(),
+    CommandScope.ACC: AccessoryData(None, 0).as_bytes(),
+    CommandScope.ROUTE: RouteData(None, 0).as_bytes(),
+    CommandScope.SWITCH: SwitchData(None, 0).as_bytes(),
 }
