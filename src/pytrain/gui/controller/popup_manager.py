@@ -46,7 +46,7 @@ class PopupManager:
         self._state = PopupState()
         self._combo_hackable: bool = False
         self._overlays: dict[str, Box] = {}
-        self._overlay_close_hooks: dict[int, Callable[[Box], None]] = {}
+        self._post_close_actions: dict[int, Callable[[Box], None]] = {}
         self._close_acc_paths = {
             False: find_file("raw-acc.jpg"),
             True: find_file("raw-acs2.jpg"),
@@ -72,14 +72,14 @@ class PopupManager:
         title: str,
         body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter,
         on_close: Callable = None,
-        on_popup_close: Callable[[Box], None] | None = None,
+        post_close_action: Callable[[Box], None] | None = None,
     ) -> Box:
         with self._host.locked():
             existing = self._overlays.get(key)
             if isinstance(existing, Box):
                 return existing
 
-        overlay = self.create_popup(title, body_src, on_close, on_popup_close=on_popup_close)
+        overlay = self.create_popup(title, body_src, on_close, post_close_action=post_close_action)
         setattr(overlay, "overlay_key", key)
         self._overlays[key] = overlay
         return overlay
@@ -99,7 +99,7 @@ class PopupManager:
                     continue
                 if self._state.current_popup is overlay:
                     self._state.current_popup = None
-                self._overlay_close_hooks.pop(id(overlay), None)
+                self._post_close_actions.pop(id(overlay), None)
                 try:
                     overlay.hide()
                     overlay.tk.place_forget()
@@ -124,7 +124,7 @@ class PopupManager:
         body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter,
         on_close: Callable = None,
         *,
-        on_popup_close: Callable[[Box], None] | None = None,
+        post_close_action: Callable[[Box], None] | None = None,
     ) -> Box:
         host = self._host
 
@@ -133,8 +133,8 @@ class PopupManager:
         # the visible layout until they are explicitly shown.
         with self._suspend_host_layout():
             overlay = Box(host.app, align="top", border=2, visible=False)
-        if on_popup_close:
-            self._overlay_close_hooks[id(overlay)] = on_popup_close
+        if post_close_action:
+            self._post_close_actions[id(overlay)] = post_close_action
         overlay.bg = "white"
         height = (title_text.count("\n") + 1) * host.button_size // 3 if title_text else host.button_size // 3
         if title_text:
@@ -410,9 +410,9 @@ class PopupManager:
                 except (AttributeError, RuntimeError, TclError):
                     pass
                 try:
-                    on_popup_closed = self._overlay_close_hooks.get(id(overlay))
-                    if callable(on_popup_closed):
-                        on_popup_closed(overlay)
+                    post_close_action = self._post_close_actions.get(id(overlay))
+                    if callable(post_close_action):
+                        post_close_action(overlay)
                 except (AttributeError, RuntimeError, TclError):
                     pass
 

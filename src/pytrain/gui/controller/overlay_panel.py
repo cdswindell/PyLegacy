@@ -18,10 +18,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class OverlayPanel(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, gui: "EngineGui", title: str, *, on_close: Callable = None):
+    def __init__(self, gui: "EngineGui", title: str, *, post_close: Callable = None):
         self._gui = gui
         self._title = title
-        self._on_close = on_close
+        self._post_close = post_close
         self._overlay = None
 
     @abstractmethod
@@ -39,13 +39,23 @@ class OverlayPanel(metaclass=ABCMeta):
             self._overlay = self._gui._popup.create_popup(
                 self._title,
                 self.build,
-                on_popup_close=self._on_close,
+                post_close_action=self._post_close,
             )
         return self._overlay
 
     @property
     def visible(self) -> bool:
         return self._overlay is not None and self._overlay.visible
+
+    @property
+    def has_footer(self) -> bool:
+        return False
+
+    def build_footer(self, footer: Box) -> None:
+        pass
+
+    def refresh_footer(self) -> None:
+        pass
 
     def _close(self) -> None:
         if self._overlay and self._gui and self._gui.popup_manager:

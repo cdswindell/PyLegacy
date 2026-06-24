@@ -69,7 +69,7 @@ class AdminPanel:
             self._overlay = self._gui._popup.create_popup(
                 ADMIN_TITLE + "\n" + self._gui.version,
                 self.build,
-                on_popup_close=self._on_popup_close,
+                post_close_action=self._on_popup_close,
             )
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()

@@ -227,7 +227,7 @@ def test_popup_manager_close_invokes_overlay_close_hook() -> None:
         hide=lambda: seen.append("hide"),
         tk=SimpleNamespace(place_forget=lambda: seen.append("forget")),
     )
-    manager._overlay_close_hooks[id(overlay)] = lambda ov: seen.append(ov)
+    manager._post_close_actions[id(overlay)] = lambda ov: seen.append(ov)
     manager._state.current_popup = overlay
 
     manager.close()

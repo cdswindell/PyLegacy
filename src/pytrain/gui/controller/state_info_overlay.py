@@ -32,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class StateInfoOverlay(OverlayPanel):
     def __init__(self, gui):
-        super().__init__(gui, gui.version, on_close=self._on_popup_closed)
+        super().__init__(gui, gui.version, post_close=self._post_close_action)
         self.details = {}
 
     @staticmethod
@@ -341,7 +341,7 @@ class StateInfoOverlay(OverlayPanel):
             if isinstance(state, (EngineState, TrainState)):
                 BaseReq.do_update_field(field, new_value, state, True)
 
-    def _on_popup_closed(self, overlay: Box | None = None) -> None:
+    def _post_close_action(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=False)
         self.gui.on_state_info_closed(overlay)
 
@@ -376,3 +376,7 @@ class StateInfoOverlay(OverlayPanel):
                     tb.hide()
                 else:
                     log.debug(f"No 'hide' method for {tb}")
+
+    @property
+    def has_footer(self) -> bool:
+        return True

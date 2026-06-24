@@ -32,7 +32,7 @@ def test_popup_close_cancels_active_inline_edits_and_delegates(monkeypatch) -> N
     info._gui = host
     info.details = {"name": (object(), field)}
 
-    info._on_popup_closed(overlay)
+    info._post_close_action(overlay)
 
     assert field.committed is False
     assert field.cancelled is True
