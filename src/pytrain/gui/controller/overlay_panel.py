@@ -8,7 +8,7 @@
 #
 
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 
 from guizero import Box
 
@@ -18,9 +18,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class OverlayPanel(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, gui: "EngineGui", title: str):
+    def __init__(self, gui: "EngineGui", title: str, *, on_close: Callable = None):
         self._gui = gui
         self._title = title
+        self._on_close = on_close
         self._overlay = None
 
     @abstractmethod
@@ -35,7 +36,11 @@ class OverlayPanel(metaclass=ABCMeta):
     def overlay(self) -> Box:
         if self._overlay is None:
             # noinspection PyProtectedMember
-            self._overlay = self._gui._popup.create_popup(self._title, self.build)
+            self._overlay = self._gui._popup.create_popup(
+                self._title,
+                self.build,
+                on_popup_close=self._on_close,
+            )
         return self._overlay
 
     @property

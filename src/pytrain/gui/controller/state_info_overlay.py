@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from .overlay_panel import OverlayPanel
 from ..components.editable_text import EditableText, EditorType
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState
@@ -29,26 +30,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 
-class StateInfoOverlay:
+class StateInfoOverlay(OverlayPanel):
     def __init__(self, gui):
-        self._gui = gui
+        super().__init__(gui, self._gui.version, on_close=self._on_popup_closed)
         self.details = {}
-        self._overlay = None
-
-    @property
-    def overlay(self) -> Box:
-        if self._overlay is None:
-            # noinspection PyProtectedMember, PyUnresolvedReferences
-            self._overlay = self._gui._popup.create_popup(
-                self._gui.version,
-                self.build,
-                on_popup_close=self._on_popup_closed,
-            )
-        return self._overlay
-
-    @property
-    def visible(self) -> bool:
-        return self._overlay is not None and self._overlay.visible
 
     @staticmethod
     def make_field(
