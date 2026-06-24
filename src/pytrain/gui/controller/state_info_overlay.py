@@ -32,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class StateInfoOverlay(OverlayPanel):
     def __init__(self, gui):
-        super().__init__(gui, self._gui.version, on_close=self._on_popup_closed)
+        super().__init__(gui, gui.version, on_close=self._on_popup_closed)
         self.details = {}
 
     @staticmethod
@@ -128,7 +128,7 @@ class StateInfoOverlay(OverlayPanel):
 
     def build(self, body: Box):
         """Builds the 4-column grid layout for the info popup."""
-        host = self._gui
+        host = self.gui
         info_box = Box(body, layout="grid", border=1)
         for i in range(4):
             info_box.tk.grid_columnconfigure(i, weight=1, uniform="stateinfo")
@@ -212,7 +212,7 @@ class StateInfoOverlay(OverlayPanel):
         """Populates the fields with data from the current state."""
         if not state or not self.details:
             return
-        host = self._gui
+        host = self.gui
 
         self._set_val("number", state.road_number, editable=True)
         self._set_val("name", state.road_name, editable=True)
@@ -220,7 +220,7 @@ class StateInfoOverlay(OverlayPanel):
         if isinstance(state, (EngineState, TrainState)):
             tmcc_id = state.tmcc_id if isinstance(state, EngineState) else state.head_tmcc_id
             # noinspection PyProtectedMember
-            p_info = self._gui._prod_info_cache.get(tmcc_id)
+            p_info = self.gui._prod_info_cache.get(tmcc_id)
 
             etype = state.engine_type_label
             if isinstance(p_info, ProdInfo) and p_info.engine_type:
@@ -312,7 +312,7 @@ class StateInfoOverlay(OverlayPanel):
     def _on_road_name_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value)
-            state = self._gui.active_state
+            state = self.gui.active_state
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_name_req(new_value)
                 BaseReq.process_sync_reqs([req, state], do_async=True)
@@ -320,7 +320,7 @@ class StateInfoOverlay(OverlayPanel):
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
             new_value, _ = self._process_input(_field, new_value, old_value, 4)
-            state = self._gui.active_state
+            state = self.gui.active_state
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_number_req(new_value)
                 BaseReq.process_sync_reqs([req, state], do_async=True)
@@ -337,13 +337,13 @@ class StateInfoOverlay(OverlayPanel):
     # noinspection PyUnusedLocal
     def _persist_edit(self, _field: EditableText, new_value: int, old_value: int, field: str) -> None:
         if _field.is_changed:
-            state = self._gui.active_state
+            state = self.gui.active_state
             if isinstance(state, (EngineState, TrainState)):
                 BaseReq.do_update_field(field, new_value, state, True)
 
     def _on_popup_closed(self, overlay: Box | None = None) -> None:
         self.end_inline_edits(commit=False)
-        self._gui.on_state_info_closed(overlay)
+        self.gui.on_state_info_closed(overlay)
 
     def end_inline_edits(self, *, commit: bool = True) -> None:
         for _tb, field in self.details.values():
