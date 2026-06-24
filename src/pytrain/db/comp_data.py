@@ -272,14 +272,17 @@ class CompDataMixin(Generic[C]):
                         raise ValueError(f"Unknown field {field.field} for scope {scope.name}")
 
     def clear_record(self, state: "ComponentState", background: bool = True):
+        from ..pdi.base_req import BaseReq
+
         if self._comp_data:
             reqs = []
             req = self._comp_data.on_clear_req()
             if req:
                 reqs.append(req)
-            reqs.append(self._comp_data.clear_record_reqs(state))
+            reqs.extend(self._comp_data.clear_record_reqs(state))
             if reqs:
-                print(f"Requests {reqs} {background}")
+                # send the requests and do a BASE_MEMORY query on this entity
+                BaseReq.process_sync_reqs(reqs, do_async=background)
 
 
 #
