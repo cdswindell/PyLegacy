@@ -357,7 +357,7 @@ class StateInfoOverlay:
                 BaseReq.do_update_field(field, new_value, state, True)
 
     def _on_popup_closed(self, overlay: Box | None = None) -> None:
-        self.end_inline_edits(commit=True)
+        self.end_inline_edits(commit=False)
         self._gui.on_state_info_closed(overlay)
 
     def end_inline_edits(self, *, commit: bool = True) -> None:

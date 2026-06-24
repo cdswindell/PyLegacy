@@ -21,7 +21,7 @@ class FakeEditableText:
 
 
 # noinspection PyTypeChecker
-def test_popup_close_commits_active_inline_edits_and_delegates(monkeypatch) -> None:
+def test_popup_close_cancels_active_inline_edits_and_delegates(monkeypatch) -> None:
     monkeypatch.setattr(mod, "EditableText", FakeEditableText)
     field = FakeEditableText()
     host = SimpleNamespace(closed_overlay=None)
@@ -34,7 +34,7 @@ def test_popup_close_commits_active_inline_edits_and_delegates(monkeypatch) -> N
 
     info._on_popup_closed(overlay)
 
-    assert field.committed is True
-    assert field.cancelled is False
+    assert field.committed is False
+    assert field.cancelled is True
     assert field.is_editing is False
     assert host.closed_overlay is overlay
