@@ -16,6 +16,7 @@ class DummyState:
         self.address = tmcc_id
         self.name = name
         self.scope = scope
+        self.is_deleted = False
 
     def __repr__(self) -> str:
         return f"{self.scope.name}:{self.tmcc_id}"

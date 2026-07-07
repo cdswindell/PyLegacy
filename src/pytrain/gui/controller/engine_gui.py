@@ -395,7 +395,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return None
 
     def clear_record(self, state: S = None):
-        print(f"Clearing: {state}")
+        state = state or self.active_state
+        if state:
+            # clear this state on the Base 3; this will take some time to percolate
+            state.clear(notify=True, clear_db=True)
+            # rebuild caches
+            self._rebuild_state_caches(self.scope, state)
 
     def on_sensor_track_update(self, state: IrdaState) -> None:
         if state.last_train_id:
@@ -887,6 +892,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         options.append(ADMIN_TITLE)
         return options
 
+    def _rebuild_state_caches(self, scope: CommandScope, state: S):
+        print(f"rebuilding caches for {scope}; deleted: {state}")
+
     def monitor_state(self):
         with self._cv:
             tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
@@ -917,6 +925,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
+        if state and state.is_deleted:
+            self._rebuild_state_caches(state.scope, state)
+            return
         self._active_engine_state = state
         if isinstance(state, EngineState):
             if self.name_text.value != state.name:
