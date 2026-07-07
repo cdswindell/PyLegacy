@@ -490,6 +490,18 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     # Progress overlay (Canvas) — no button geometry changes
     # ───────────────────────────────
+    def cancel_interaction(self) -> None:
+        """Cancel an active press/hold/repeat without invoking callbacks."""
+        with self._cv:
+            self._pressed = False
+            self._repeating = False
+            self._held = True
+            self._handled_hold = True
+            self._press_time = None
+            self._cancel_after()
+            self._stop_progress()
+            self.restore_color_state()
+
     def _progress_fraction(self) -> float:
         if not self._progress_start or self.hold_threshold <= 0:
             return 0.0

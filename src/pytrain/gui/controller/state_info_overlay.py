@@ -401,7 +401,7 @@ class StateInfoOverlay(OverlayPanel):
             progress_fill_color="darkgrey",
             critical_fill_color="red",
             progress_empty_color="lightgrey",
-            on_hold=host.clear_record,
+            on_hold=self.clear_record,
         )
         btn.tk.config(
             borderwidth=3,
@@ -421,5 +421,7 @@ class StateInfoOverlay(OverlayPanel):
 
     def clear_record(self, state: S = None):
         host = self.gui
+        if self.clear_btn is not None:
+            self.clear_btn.cancel_interaction()
         host.popup_manager.close(self.overlay)
         host.clear_record(state)
