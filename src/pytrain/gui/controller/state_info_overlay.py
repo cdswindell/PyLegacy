@@ -218,7 +218,7 @@ class StateInfoOverlay(OverlayPanel):
         host = self.gui
 
         # update clear button command
-        self.clear_btn.on_hold = (host.clear_record, state)
+        self.clear_btn.on_hold = (host.clear_record, [state])
 
         self._set_val("number", state.road_number, editable=True)
         self._set_val("name", state.road_name, editable=True)
