@@ -218,7 +218,7 @@ class StateInfoOverlay(OverlayPanel):
         host = self.gui
 
         # update clear button command
-        self.clear_btn.on_hold = (host.clear_record, [state])
+        self.clear_btn.on_hold = (self.clear_record, [state])
 
         self._set_val("number", state.road_number, editable=True)
         self._set_val("name", state.road_name, editable=True)
@@ -418,3 +418,8 @@ class StateInfoOverlay(OverlayPanel):
         # spacer
         sp = Text(box, text=" ", height=1, align="left")
         sp.text_size = host.s_72
+
+    def clear_record(self, state: S = None):
+        host = self.gui
+        host.popup_manager.close(self.overlay)
+        host.clear_record(state)

@@ -157,7 +157,6 @@ class PopupManager:
             self.add_close_acc_btn(host, body_src, on_close, overlay)
             body_src.attach_overlay(overlay)
         elif isinstance(body_src, OverlayPanel):
-            print(f"on_close: {on_close}")
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
             if body_src.has_footer:
