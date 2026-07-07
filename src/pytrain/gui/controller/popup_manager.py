@@ -19,6 +19,7 @@ from typing import Any, Callable, Iterable, Optional, TYPE_CHECKING
 from guizero import Box, Combo, PushButton, Text
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
+from .overlay_panel import OverlayPanel
 from ..components.hold_button import HoldButton
 from ...utils.path_utils import find_file
 
@@ -70,7 +71,7 @@ class PopupManager:
         self,
         key: str,
         title: str,
-        body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter,
+        body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter | OverlayPanel,
         on_close: Callable = None,
         post_close_action: Callable[[Box], None] | None = None,
     ) -> Box:
@@ -121,7 +122,7 @@ class PopupManager:
     def create_popup(
         self,
         title_text: str,
-        body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter,
+        body_src: Callable[[Box], None] | ConfiguredAccessoryAdapter | OverlayPanel,
         on_close: Callable = None,
         *,
         post_close_action: Callable[[Box], None] | None = None,
@@ -155,6 +156,11 @@ class PopupManager:
             body_src.gui.mount_gui(overlay)
             self.add_close_acc_btn(host, body_src, on_close, overlay)
             body_src.attach_overlay(overlay)
+        elif isinstance(body_src, OverlayPanel):
+            print("Building Overlay_panel;")
+            body = Box(overlay, align="top", layout="auto")
+            body_src.build(body)
+            self.add_close_btn(host, on_close, overlay)
         else:
             body = Box(overlay, align="top", layout="auto")
             body_src(body)

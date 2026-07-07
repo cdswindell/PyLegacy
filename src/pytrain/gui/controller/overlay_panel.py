@@ -38,7 +38,7 @@ class OverlayPanel(metaclass=ABCMeta):
             # noinspection PyProtectedMember
             self._overlay = self._gui._popup.create_popup(
                 self._title,
-                self.build,
+                self,
                 post_close_action=self._post_close,
             )
         return self._overlay
