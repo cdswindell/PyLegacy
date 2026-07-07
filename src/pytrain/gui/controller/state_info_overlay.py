@@ -391,6 +391,7 @@ class StateInfoOverlay(OverlayPanel):
             text="Clear",
             align="left",
             text_size=host.s_20,
+            width=6,
             hold_threshold=self.hold_threshold,
             show_hold_progress=True,
             progress_fill_color="darkgrey",
