@@ -157,17 +157,16 @@ class PopupManager:
             self.add_close_acc_btn(host, body_src, on_close, overlay)
             body_src.attach_overlay(overlay)
         elif isinstance(body_src, OverlayPanel):
+            print(f"on_close: {on_close}")
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
             if body_src.has_footer:
                 button_row = Box(
                     overlay,
                     align="bottom",
-                    # width=host.emergency_box_width,
-                    # height=height,
                 )
                 body_src.build_footer(button_row)
-                self.add_close_btn(host, on_close, button_row, align="right")
+                self.add_close_btn(host, on_close, button_row, close_target=overlay, align="right")
             else:
                 self.add_close_btn(host, on_close, overlay)
         else:
@@ -180,14 +179,22 @@ class PopupManager:
                 overlay.hide()
         return overlay
 
-    def add_close_btn(self, host: EngineGui, on_close: Callable[..., Any] | None, overlay: Box, align="bottom"):
+    def add_close_btn(
+        self,
+        host: EngineGui,
+        on_close: Callable[..., Any] | None,
+        overlay: Box,
+        close_target: Box = None,
+        align="bottom",
+    ):
+        close_target = close_target or overlay
         # show explicit close button
         btn = PushButton(
             overlay,
             text="Close",
             align=align,
             command=on_close or self.close,
-            args=[overlay],
+            args=[close_target],
         )
         btn.text_size = host.s_20
         btn.tk.config(

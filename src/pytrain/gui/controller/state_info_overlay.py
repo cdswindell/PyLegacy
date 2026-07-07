@@ -391,3 +391,15 @@ class StateInfoOverlay(OverlayPanel):
             align="left",
         )
         btn.text_size = host.s_20
+        btn.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            padx=6,
+            pady=4,
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+        btn.tk.pack_configure(padx=20, pady=20)
+        host.cache(btn)
