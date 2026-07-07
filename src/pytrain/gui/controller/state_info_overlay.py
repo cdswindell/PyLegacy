@@ -391,7 +391,7 @@ class StateInfoOverlay(OverlayPanel):
             text="Clear",
             align="left",
             text_size=host.s_20,
-            width=6,
+            width=5,
             hold_threshold=self.hold_threshold,
             show_hold_progress=True,
             progress_fill_color="darkgrey",
@@ -408,5 +408,5 @@ class StateInfoOverlay(OverlayPanel):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        btn.tk.pack_configure(padx=20, pady=20)
+        btn.tk.pack_configure(padx=20, pady=(20, 60))
         host.cache(btn)
