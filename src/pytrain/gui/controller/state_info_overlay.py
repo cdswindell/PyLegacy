@@ -32,8 +32,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class StateInfoOverlay(OverlayPanel):
-    def __init__(self, gui):
+    def __init__(self, gui: "EngineGui", hold_threshold: int = 3):
         super().__init__(gui, gui.version, post_close=self._post_close_action)
+        self.hold_threshold = hold_threshold
         self.details = {}
 
     @staticmethod
@@ -389,8 +390,13 @@ class StateInfoOverlay(OverlayPanel):
             box,
             text="Clear",
             align="left",
+            text_size=host.s_20,
+            hold_threshold=self.hold_threshold,
+            show_hold_progress=True,
+            progress_fill_color="darkgrey",
+            critical_fill_color="red",
+            progress_empty_color="lightgrey",
         )
-        btn.text_size = host.s_20
         btn.tk.config(
             borderwidth=3,
             relief="raised",

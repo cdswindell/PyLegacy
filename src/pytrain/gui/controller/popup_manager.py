@@ -161,10 +161,7 @@ class PopupManager:
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
             if body_src.has_footer:
-                button_row = Box(
-                    overlay,
-                    align="bottom",
-                )
+                button_row = Box(overlay, align="bottom")
                 body_src.build_footer(button_row)
                 self.add_close_btn(host, on_close, button_row, close_target=overlay, align="right")
             else:
@@ -188,6 +185,7 @@ class PopupManager:
         align="bottom",
     ):
         close_target = close_target or overlay
+
         # show explicit close button
         btn = PushButton(
             overlay,
