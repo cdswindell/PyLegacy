@@ -35,6 +35,7 @@ class StateInfoOverlay(OverlayPanel):
     def __init__(self, gui: "EngineGui", hold_threshold: int = 3):
         super().__init__(gui, gui.version, post_close=self._post_close_action)
         self.hold_threshold = hold_threshold
+        self.clear_btn = None
         self.details = {}
 
     @staticmethod
@@ -216,6 +217,9 @@ class StateInfoOverlay(OverlayPanel):
             return
         host = self.gui
 
+        # update clear button command
+        self.clear_btn.on_hold = (host.clear_record, state)
+
         self._set_val("number", state.road_number, editable=True)
         self._set_val("name", state.road_name, editable=True)
 
@@ -386,7 +390,7 @@ class StateInfoOverlay(OverlayPanel):
     def build_footer(self, box: Box):
         host = self.gui
 
-        btn = HoldButton(
+        self.clear_btn = btn = HoldButton(
             box,
             text="Clear",
             align="left",
@@ -397,6 +401,7 @@ class StateInfoOverlay(OverlayPanel):
             progress_fill_color="darkgrey",
             critical_fill_color="red",
             progress_empty_color="lightgrey",
+            on_hold=host.clear_record,
         )
         btn.tk.config(
             borderwidth=3,

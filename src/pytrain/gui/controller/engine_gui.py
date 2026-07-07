@@ -394,6 +394,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             return None
 
+    def clear_record(self, state: S = None):
+        print(f"Clearing: {state}")
+
     def on_sensor_track_update(self, state: IrdaState) -> None:
         if state.last_train_id:
             scope = CommandScope.TRAIN
