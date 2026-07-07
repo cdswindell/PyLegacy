@@ -411,5 +411,5 @@ class StateInfoOverlay(OverlayPanel):
         btn.tk.pack_configure(padx=20, pady=20)
         host.cache(btn)
         # spacer
-        sp = Text(box, text="a", height=1, align="left")
-        sp.text_size = host.s_30
+        sp = Text(box, text=" ", height=1, align="left")
+        sp.text_size = host.s_72
