@@ -15,6 +15,7 @@ from guizero import Box, ListBox, Text, TitleBox
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .overlay_panel import OverlayPanel
 from ..components.editable_text import EditableText, EditorType
+from ..components.hold_button import HoldButton
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState
 from ...db.engine_state import EngineState, TrainState
@@ -380,3 +381,13 @@ class StateInfoOverlay(OverlayPanel):
     @property
     def has_footer(self) -> bool:
         return True
+
+    def build_footer(self, box: Box):
+        host = self.gui
+
+        btn = HoldButton(
+            box,
+            text="Clear",
+            align="left",
+        )
+        btn.text_size = host.s_20

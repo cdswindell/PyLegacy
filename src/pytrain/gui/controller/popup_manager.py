@@ -166,6 +166,7 @@ class PopupManager:
                     # width=host.emergency_box_width,
                     # height=height,
                 )
+                body_src.build_footer(button_row)
                 self.add_close_btn(host, on_close, button_row, align="right")
             else:
                 self.add_close_btn(host, on_close, overlay)
