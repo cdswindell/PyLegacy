@@ -191,6 +191,7 @@ class PopupManager:
             overlay,
             text="Close",
             align=align,
+            width=5,
             command=on_close or self.close,
             args=[close_target],
         )
