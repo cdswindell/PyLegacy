@@ -157,10 +157,18 @@ class PopupManager:
             self.add_close_acc_btn(host, body_src, on_close, overlay)
             body_src.attach_overlay(overlay)
         elif isinstance(body_src, OverlayPanel):
-            print("Building Overlay_panel;")
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
-            self.add_close_btn(host, on_close, overlay)
+            if body_src.has_footer:
+                button_row = Box(
+                    overlay,
+                    align="bottom",
+                    # width=host.emergency_box_width,
+                    # height=height,
+                )
+                self.add_close_btn(host, on_close, button_row, align="right")
+            else:
+                self.add_close_btn(host, on_close, overlay)
         else:
             body = Box(overlay, align="top", layout="auto")
             body_src(body)
@@ -170,6 +178,29 @@ class PopupManager:
             with self._suspend_host_layout():
                 overlay.hide()
         return overlay
+
+    def add_close_btn(self, host: EngineGui, on_close: Callable[..., Any] | None, overlay: Box, align="bottom"):
+        # show explicit close button
+        btn = PushButton(
+            overlay,
+            text="Close",
+            align=align,
+            command=on_close or self.close,
+            args=[overlay],
+        )
+        btn.text_size = host.s_20
+        btn.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            padx=6,
+            pady=4,
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+        btn.tk.pack_configure(padx=20, pady=20)
+        host.cache(btn)
 
     def add_close_acc_btn(
         self,
@@ -189,29 +220,6 @@ class PopupManager:
             args=[overlay],
         )
         btn.images = img, inverted_img
-        host.cache(btn)
-
-    def add_close_btn(self, host: EngineGui, on_close: Callable[..., Any] | None, overlay: Box):
-        # show explicit close button
-        btn = PushButton(
-            overlay,
-            text="Close",
-            align="bottom",
-            command=on_close or self.close,
-            args=[overlay],
-        )
-        btn.text_size = host.s_20
-        btn.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
-        btn.tk.pack_configure(padx=20, pady=20)
         host.cache(btn)
 
     # ------------------------------------------------------------------
