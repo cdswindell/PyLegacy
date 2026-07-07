@@ -9,9 +9,9 @@ python-dotenv>=1.2.2
 pyserial>=3.5
 range-key-dict>=1.1
 requests>=2.34.2
-setuptools>=82.0.1
-setuptools_scm>=9.2.2
+setuptools>=83.0.0
+setuptools_scm>=10.2.0
 smbus2>=0.6.1
-zeroconf>=0.149.16
+zeroconf>=0.150.0
 rpi-lgpio>=0.6; sys_platform == 'linux'
 spidev>=3.8.0; sys_platform == 'linux'
