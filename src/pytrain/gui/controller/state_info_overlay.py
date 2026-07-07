@@ -408,5 +408,8 @@ class StateInfoOverlay(OverlayPanel):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        btn.tk.pack_configure(padx=20, pady=(20, 60))
+        btn.tk.pack_configure(padx=20, pady=20)
         host.cache(btn)
+        # spacer
+        sp = Text(box, text="a", height=1, align="left")
+        sp.text_size = host.s_30
