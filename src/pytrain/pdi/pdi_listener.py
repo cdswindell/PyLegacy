@@ -460,7 +460,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         # receive broadcasts
         self._channels[DELETE_TOPIC].subscribe(subscriber)
         self._deletes = True
-        print(f"subscriber {subscriber} subscribed to delete events")
 
     def unsubscribe_delete(self, subscriber: Subscriber) -> None:
         # receive broadcasts

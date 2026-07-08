@@ -907,6 +907,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self._scope_tmcc_ids[state.scope] = 0
                     if self.scope == state.scope:
                         reselect_current = True
+                        print("Deleting current engine")
                 watcher = self._scope_watchers.get(state.scope, None)
                 if (
                     isinstance(watcher, StateWatcher)
@@ -923,7 +924,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if isinstance(recents, UniqueDeque) and state in recents:
                     recents.remove(state)
                     self._request_options_rebuild()
-                print(f"rebuilding caches for {state.scope}; deleted: {state} {reselect_current}")
                 if reselect_current:
                     if self._scope_tmcc_ids[state.scope] == 0:
                         self.display_most_recent(state.scope)
