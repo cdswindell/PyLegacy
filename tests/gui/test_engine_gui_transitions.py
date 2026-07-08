@@ -17,9 +17,16 @@ class DummyState:
         self.name = name
         self.scope = scope
         self.is_deleted = False
+        self.is_deletable = True
+        self.clear_calls: list[tuple[bool, bool]] = []
 
     def __repr__(self) -> str:
         return f"{self.scope.name}:{self.tmcc_id}"
+
+    def clear(self, notify: bool = True, clear_db: bool = False) -> bool:
+        self.clear_calls.append((notify, clear_db))
+        self.is_deleted = True
+        return True
 
 
 class DummyAccessoryState:
@@ -398,3 +405,40 @@ def test_on_scope_rebuilds_options_once_for_scope_transition() -> None:
     gui.on_scope(CommandScope.TRAIN)
 
     assert gui._rebuild_options_calls == 1
+
+
+def test_clear_record_clears_state_without_notifying_and_queues_cache_rebuild() -> None:
+    gui = _new_engine()
+    state = DummyState(tmcc_id=34)
+    queued = []
+    gui._message_queue = SimpleNamespace(put=lambda item: queued.append(item))
+
+    gui.clear_record(state)
+
+    assert state.clear_calls == [(False, True)]
+    assert queued == [(gui._rebuild_state_caches, [state])]
+
+
+def test_delete_callback_queues_cache_rebuild_for_component_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    gui = _new_engine()
+    state = DummyState(tmcc_id=34)
+    queued = []
+    gui._message_queue = SimpleNamespace(put=lambda item: queued.append(item))
+    monkeypatch.setattr(mod, "ComponentState", DummyState, raising=True)
+
+    gui(state)
+
+    assert queued == [(gui._rebuild_state_caches, [state])]
+
+
+def test_delete_callback_ignores_events_after_shutdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    gui = _new_engine()
+    state = DummyState(tmcc_id=34)
+    queued = []
+    gui._message_queue = SimpleNamespace(put=lambda item: queued.append(item))
+    gui._shutdown_flag = SimpleNamespace(is_set=lambda: True)
+    monkeypatch.setattr(mod, "ComponentState", DummyState, raising=True)
+
+    gui(state)
+
+    assert queued == []

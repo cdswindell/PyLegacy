@@ -505,6 +505,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         PdiDispatcher.get().subscribe_delete(self)
 
     def destroy_gui(self) -> None:
+        PdiDispatcher.get().unsubscribe_delete(self)
         self.clear_cache()
         self.engine_ops_cells.clear()
         self.box = None
@@ -915,7 +916,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     and watcher.tmcc_id == state.tmcc_id
                 ):
                     watcher.shutdown()
-                    self._scope_watchers[self.scope] = None
+                    self._scope_watchers[state.scope] = None
                 if self.active_engine_state == state:
                     self._active_engine_state = None
                 if self.active_train_state == state:

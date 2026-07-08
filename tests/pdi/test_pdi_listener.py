@@ -12,9 +12,13 @@ import threading
 import pytest
 
 from src.pytrain import CommandScope
+from src.pytrain.comm.command_listener import CommandDispatcher
+from src.pytrain.db.comp_data import EngineData
+from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import PdiCommand
-from src.pytrain.pdi.pdi_listener import PdiListener
+from src.pytrain.pdi.pdi_listener import PdiDispatcher, PdiListener
+from src.pytrain.pdi.pdi_req import PdiReq
 
 
 class _Catcher:
@@ -30,14 +34,48 @@ class _Catcher:
         return self.ev.wait(timeout)
 
 
+class _DeletableState:
+    is_deletable = True
+
+    def __init__(self) -> None:
+        self.is_deleted = False
+        self.clear_calls = 0
+
+    def clear(self) -> bool:
+        self.clear_calls += 1
+        self.is_deleted = True
+        return True
+
+
+def _inactive_base_memory_record(scope: CommandScope, tmcc_id: int) -> BaseReq:
+    payload = EngineData(None, tmcc_id).as_bytes()
+    req = BaseReq(
+        tmcc_id,
+        PdiCommand.BASE_MEMORY,
+        scope=scope,
+        start=0,
+        data_length=PdiReq.scope_record_length(scope),
+        data_bytes=payload,
+    )
+    return BaseReq(req.as_bytes)
+
+
 @pytest.fixture(autouse=True)
 def clean_singletons():
     # Ensure prior tests state is cleared without broad excepts
     if PdiListener.is_built():
         PdiListener.stop()
+    if PdiDispatcher.is_built():
+        PdiDispatcher.get().shutdown()
+    if CommandDispatcher.is_built():
+        CommandDispatcher.get().shutdown()
     yield
     if PdiListener.is_built():
         PdiListener.stop()
+    if PdiDispatcher.is_built():
+        PdiDispatcher.get().shutdown()
+    if CommandDispatcher.is_built():
+        CommandDispatcher.get().shutdown()
 
 
 def test_build_and_singleton():
@@ -133,3 +171,28 @@ def test_dispatcher_offer_accepts_bytes_or_req_and_filters_ack_ping_free_path():
 
     listener.unsubscribe_any(catcher)
     PdiListener.stop()
+
+
+def test_dispatcher_publishes_delete_for_inactive_base_memory_record(monkeypatch):
+    dispatcher = PdiDispatcher.build()
+    catcher = _Catcher()
+    state = _DeletableState()
+    scope = CommandScope.ENGINE
+    tmcc_id = 55
+
+    def get_state(request_scope, request_tmcc_id, create=False):
+        if (request_scope, request_tmcc_id, create) == (scope, tmcc_id, False):
+            return state
+        return None
+
+    monkeypatch.setattr(ComponentStateStore, "get_state", staticmethod(get_state), raising=True)
+    dispatcher.subscribe_delete(catcher)
+
+    dispatcher.offer(_inactive_base_memory_record(scope, tmcc_id))
+
+    assert catcher.wait(1.5), "Timed out waiting for delete notification"
+    assert catcher.messages == [state]
+    assert state.clear_calls == 1
+    assert state.is_deleted is True
+
+    dispatcher.unsubscribe_delete(catcher)
