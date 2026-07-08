@@ -218,7 +218,12 @@ class StateInfoOverlay(OverlayPanel):
         host = self.gui
 
         # update clear button command
-        self.clear_btn.on_hold = (self.clear_record, [state])
+        if state and state.is_deletable:
+            self.clear_btn.enable()
+            self.clear_btn.on_hold = (self.clear_record, [state])
+        else:
+            self.clear_btn.disable()
+            self.clear_btn.on_hold = None
 
         self._set_val("number", state.road_number, editable=True)
         self._set_val("name", state.road_name, editable=True)

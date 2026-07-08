@@ -401,7 +401,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def clear_record(self, state: S = None):
         state = state or self.active_state
-        if state:
+        if state and state.is_deletable:
             # clear this state on the Base 3; this will take some time to percolate
             state.clear(notify=False, clear_db=True)
             self._message_queue.put((self._rebuild_state_caches, [state]))
@@ -918,6 +918,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self._scope_watchers[self.scope] = None
                 if self.active_engine_state == state:
                     self._active_engine_state = None
+                if self.active_train_state == state:
+                    self.active_train_state = None
+                    self._train_linked_queue.clear()
                 if isinstance(self._catalog_panel, CatalogPanel) and self.scope == state.scope:
                     self._catalog_panel.configure(state.scope, force=True)
                 recents = self._recents_queue.get(state.scope, None)
