@@ -271,6 +271,13 @@ class HoldButton(PushButton):
     # ───────────────────────────────
     # noinspection PyUnusedLocal
     def _on_press_event(self, event=None):
+        if not self._is_enabled():
+            self._pressed = False
+            self._repeating = False
+            self._cancel_after()
+            self._stop_progress()
+            return
+
         self._pressed = True
         self._press_time = time.monotonic()
         self._held = False
@@ -289,11 +296,16 @@ class HoldButton(PushButton):
 
     # noinspection PyUnusedLocal
     def _on_release_event(self, event=None):
+        enabled = self._is_enabled()
         self._pressed = False
 
         # stop progress + timers
         self._stop_progress()
         self._cancel_after()
+
+        if not enabled:
+            self._repeating = False
+            return
 
         elapsed = (time.monotonic() - self._press_time) if self._press_time else 0.0
         if elapsed < (self.debounce_ms / 1000.0):
@@ -327,6 +339,13 @@ class HoldButton(PushButton):
             self._position_overlay()
 
     def _trigger_hold_or_repeat(self):
+        if not self._is_enabled():
+            self._pressed = False
+            self._repeating = False
+            self._stop_progress()
+            self._cancel_after()
+            return
+
         self._held = True
         handled = False
 
@@ -361,6 +380,12 @@ class HoldButton(PushButton):
 
     def _repeat_fire(self):
         if not self._repeating:
+            return
+        if not self._is_enabled():
+            self._pressed = False
+            self._repeating = False
+            self._stop_progress()
+            self._cancel_after()
             return
         self._invoke_callback(self._on_repeat)
         self._after_id = self.tk.after(int(self.repeat_interval * 1000), self._repeat_fire)
@@ -425,6 +450,17 @@ class HoldButton(PushButton):
             self._normal_fg = str(self.tk.cget("foreground"))
         except TclError:
             pass
+
+    def _is_enabled(self) -> bool:
+        try:
+            return bool(self.enabled)
+        except (AttributeError, TclError, RuntimeError):
+            pass
+
+        try:
+            return str(self.tk.cget("state")) in {"normal", "active"}
+        except (TclError, RuntimeError):
+            return False
 
     # ───────────────────────────────
     # Helper: Flash button when pressed
@@ -648,6 +684,12 @@ class HoldButton(PushButton):
         self._progress_after_id = self.tk.after(self._progress_update_ms, self._progress_tick)
 
     def _progress_tick(self) -> None:
+        if not self._is_enabled():
+            self._pressed = False
+            self._repeating = False
+            self._stop_progress()
+            self._cancel_after()
+            return
         if not self._pressed or not self._progress_start:
             return
 
@@ -658,7 +700,7 @@ class HoldButton(PushButton):
             self._schedule_progress_tick()
 
     def _start_progress(self) -> None:
-        if not self._show_hold_progress or self.hold_threshold <= 0:
+        if not self._show_hold_progress or self.hold_threshold <= 0 or not self._is_enabled():
             return
 
         self._progress_start = time.monotonic()
