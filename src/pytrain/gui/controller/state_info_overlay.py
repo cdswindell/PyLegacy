@@ -420,7 +420,6 @@ class StateInfoOverlay(OverlayPanel):
         sp.text_size = host.s_72
 
     def clear_record(self, state: S = None):
-        print("StateInfoPanel.clear_record")
         host = self.gui
         if self.clear_btn is not None:
             self.clear_btn.cancel_interaction()
