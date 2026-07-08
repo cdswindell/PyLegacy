@@ -129,11 +129,13 @@ class DummyAccessoryState:
         is_bpc2: bool = False,
         is_asc2: bool = False,
         is_amc2: bool = False,
+        is_deleted: bool = False,
     ) -> None:
         self.is_sensor_track = is_sensor_track
         self.is_bpc2 = is_bpc2
         self.is_asc2 = is_asc2
         self.is_amc2 = is_amc2
+        self.is_deleted = is_deleted
 
 
 def _new_engine() -> mod.EngineGui:

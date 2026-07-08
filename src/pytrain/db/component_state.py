@@ -390,6 +390,7 @@ class ComponentState(ABC, CompDataMixin):
                     log.debug(f"Component state {self} is not deletable")
                 return False
             ComponentStateStore.delete_state(self)
+            print(f"Marking {self} as deleted...")
             self._deleted = True
 
             # hold lock while we determine if Base 3 record should be cleared as well

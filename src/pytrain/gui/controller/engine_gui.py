@@ -918,6 +918,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         action = self._scoped_callbacks.get(state.scope, lambda s: log.info(f"** No action callback for {s}"))
 
         def upd():
+            print(f"State updated: {state}")
             if not self._shutdown_flag.is_set():
                 self._message_queue.put((action, [state]))
 
@@ -964,6 +965,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._state_info.update(state)
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
+        if state and state.is_deleted:
+            self._rebuild_state_caches(state.scope, state)
+            return
         if state and state != self._active_train_state:
             # set up for Train; if there are train-linked cars available, remember them
             # and set "Eng" scope key color accordingly. Also, add train-linked cars to
@@ -1019,6 +1023,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             BaseReq.do_update_field("SPEED_LIMIT", speed_limit, state, True)
 
     def on_new_route(self, state: RouteState = None):
+        if state and state.is_deleted:
+            self._rebuild_state_caches(state.scope, state)
+            return
         # must be called from app thread!!
         if state is None:
             tmcc_id = self._scope_tmcc_ids[CommandScope.ROUTE]
@@ -1031,6 +1038,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.add_hover_action(self.fire_route_btn, background=self._inactive_bg)
 
     def on_new_switch(self, state: SwitchState = None):
+        if state and state.is_deleted:
+            self._rebuild_state_caches(state.scope, state)
+            return
         # must be called from app thread!!
         if state is None:
             tmcc_id = self._scope_tmcc_ids[CommandScope.SWITCH]
@@ -1052,6 +1062,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.add_hover_action(btn, background=self._inactive_bg)
 
     def on_new_accessory(self, state: AccessoryState | TrainState = None):
+        if state and state.is_deleted:
+            self._rebuild_state_caches(state.scope, state)
+            return
         state = state if state else self.active_state
         tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
         if isinstance(state, AccessoryState):
