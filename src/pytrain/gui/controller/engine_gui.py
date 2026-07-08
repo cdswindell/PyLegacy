@@ -404,8 +404,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if state:
             # clear this state on the Base 3; this will take some time to percolate
             state.clear(notify=True, clear_db=True)
-            # rebuild caches
-            self._rebuild_state_caches(state)
 
     def on_sensor_track_update(self, state: IrdaState) -> None:
         if state.last_train_id:
@@ -970,7 +968,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
     # noinspection PyUnusedLocal
     def on_new_engine(self, state: EngineState = None, ops_mode_setup: bool = False, is_engine: bool = True) -> None:
         if state and state.is_deleted:
-            self._rebuild_state_caches(state)
             return
         self._active_engine_state = state
         if isinstance(state, EngineState):
@@ -1009,7 +1006,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
         if state and state.is_deleted:
-            self._rebuild_state_caches(state)
             return
         if state and state != self._active_train_state:
             # set up for Train; if there are train-linked cars available, remember them
@@ -1067,7 +1063,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_new_route(self, state: RouteState = None):
         if state and state.is_deleted:
-            self._rebuild_state_caches(state)
             return
         # must be called from app thread!!
         if state is None:
@@ -1082,7 +1077,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_new_switch(self, state: SwitchState = None):
         if state and state.is_deleted:
-            self._rebuild_state_caches(state)
             return
         # must be called from app thread!!
         if state is None:
@@ -1106,7 +1100,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_new_accessory(self, state: AccessoryState | TrainState = None):
         if state and state.is_deleted:
-            self._rebuild_state_caches(state)
             return
         state = state if state else self.active_state
         tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
