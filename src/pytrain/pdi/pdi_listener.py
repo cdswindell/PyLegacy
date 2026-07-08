@@ -23,7 +23,14 @@ from .constants import PDI_EOP, PDI_SOP, PDI_STF, PdiAction, PdiCommand
 from .pdi_req import PdiReq, TmccReq
 from ..comm.command_listener import Channel, CommandDispatcher, Message, SYNC_COMPLETE, Subscriber, Topic
 from ..comm.enqueue_proxy_requests import EnqueueProxyRequests
-from ..protocol.constants import BROADCAST_TOPIC, CommandScope, DEFAULT_BASE_PORT, DEFAULT_QUEUE_SIZE, PROGRAM_NAME
+from ..protocol.constants import (
+    BROADCAST_TOPIC,
+    CommandScope,
+    DEFAULT_BASE_PORT,
+    DEFAULT_QUEUE_SIZE,
+    DELETE_TOPIC,
+    PROGRAM_NAME,
+)
 from ..utils.ip_tools import get_ip_address
 
 log = logging.getLogger(__name__)
@@ -271,6 +278,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         self._cv = threading.Condition()
         self._is_running = True
         self._broadcasts = False
+        self._deletes = False
         self._queue = Queue[PdiReq](queue_size)
         self._tmcc_dispatcher = CommandDispatcher.build(queue_size)
         self._server_port = EnqueueProxyRequests.server_port() if EnqueueProxyRequests.is_built() else None
@@ -281,6 +289,10 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
     @property
     def is_broadcasts_enabled(self) -> bool:
         return self._broadcasts
+
+    @property
+    def is_deletes_enabled(self) -> bool:
+        return self._deletes
 
     @property
     def is_server(self) -> bool:
@@ -302,7 +314,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"PDI Dispatcher processing: {cmd}")
                 # update broadcast channels, mostly used for command echoing
-                if self._broadcasts:
+                if self.is_broadcasts_enabled:
                     self.publish(BROADCAST_TOPIC, cmd)
 
                 # publish dispatched pdi commands to listeners
@@ -322,6 +334,9 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                             state = ComponentStateStore.get_state(cmd.scope, cmd.tmcc_id, create=False)
                             if state and not state.is_deleted and state.is_deletable:
                                 state.clear()
+                                # alert subscribers of newly cleared state
+                                if self.is_deletes_enabled:
+                                    self.publish(DELETE_TOPIC, cmd)
                             if self.is_server:
                                 # propagate message to clients, so they delete the record
                                 self.update_client_state(cmd)
@@ -440,3 +455,14 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         self._channels[BROADCAST_TOPIC].unsubscribe(subscriber)
         if not self._channels[BROADCAST_TOPIC].subscribers:
             self._broadcasts = False
+
+    def subscribe_delete(self, subscriber: Subscriber) -> None:
+        # receive broadcasts
+        self._channels[DELETE_TOPIC].subscribe(subscriber)
+        self._deletes = True
+
+    def unsubscribe_delete(self, subscriber: Subscriber) -> None:
+        # receive broadcasts
+        self._channels[DELETE_TOPIC].unsubscribe(subscriber)
+        if not self._channels[DELETE_TOPIC].subscribers:
+            self._deletes = False

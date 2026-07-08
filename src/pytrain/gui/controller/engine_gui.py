@@ -58,6 +58,7 @@ from ...db.component_state import ComponentState, LcsProxyState, RouteState, Swi
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
 from ...db.state_watcher import StateWatcher
+from ...pdi.pdi_listener import PdiDispatcher
 from ...protocol.command_def import CommandDefEnum
 from ...protocol.command_req import CommandReq
 from ...protocol.constants import CommandScope
@@ -284,6 +285,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
 
+    def __call__(self, state: S):
+        if isinstance(state, ComponentState):
+            print(state)
+
     @property
     def image_presenter(self) -> ImagePresenter:
         return self._image_presenter
@@ -496,6 +501,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         for image in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
             self.app.tk.after_idle(lambda img=image: self.get_titled_image(img))
         self.app.tk.after(750, self._start_accessory_overlay_prewarm)
+
+        # register this class to receive delete events
+        PdiDispatcher.get().subscribe_delete(self)
 
     def destroy_gui(self) -> None:
         self.clear_cache()
