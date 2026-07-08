@@ -336,7 +336,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                                 state.clear()
                                 # alert subscribers of newly cleared state
                                 if self.is_deletes_enabled:
-                                    self.publish(DELETE_TOPIC, cmd)
+                                    self.publish(DELETE_TOPIC, state)
                             if self.is_server:
                                 # propagate message to clients, so they delete the record
                                 self.update_client_state(cmd)
@@ -460,6 +460,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         # receive broadcasts
         self._channels[DELETE_TOPIC].subscribe(subscriber)
         self._deletes = True
+        print(f"subscriber {subscriber} subscribed to delete events")
 
     def unsubscribe_delete(self, subscriber: Subscriber) -> None:
         # receive broadcasts
