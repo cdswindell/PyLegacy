@@ -931,6 +931,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         self.display_most_recent(state.scope)
                         self.update_component_info()
                         # force entry mode if scoped tmcc_id is 0
+                        force_entry_mode = False
                         if self._scope_tmcc_ids[state.scope] == 0 or self.active_state is None:
                             force_entry_mode = True
                         self._request_options_rebuild()
