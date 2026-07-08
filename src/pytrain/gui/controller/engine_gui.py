@@ -286,7 +286,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.init_complete()
 
     def __call__(self, state: S):
-        if isinstance(state, ComponentState) and self._message_queue:
+        if isinstance(state, ComponentState) and not self._shutdown_flag.is_set():
             self._message_queue.put(self._rebuild_state_caches, [state])
 
     @property
