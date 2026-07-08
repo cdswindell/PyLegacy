@@ -14,7 +14,7 @@ from threading import Thread
 from typing import Callable
 
 from .component_state import ComponentState
-from ..protocol.constants import PROGRAM_NAME
+from ..protocol.constants import CommandScope, PROGRAM_NAME
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +34,10 @@ class StateWatcher(Thread):
     @property
     def watched(self) -> ComponentState:
         return self._state
+
+    @property
+    def scope(self) -> CommandScope:
+        return self._state.scope if self._state else None
 
     @property
     def tmcc_id(self) -> int:
