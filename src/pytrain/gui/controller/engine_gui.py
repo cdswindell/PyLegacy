@@ -856,41 +856,42 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._separator = "-" * int(3 * len(self.title) / 2)
         options = [self.title]
         add_sep = False
-        self._options_to_state.clear()
-        queue = self._recents_queue.get(self.scope, UniqueDeque())
-        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
-            if queue:
-                # we want to preserve the order of the original queue
-                queue = queue.copy()
-                add_sep = True
-            for i, state in enumerate(self._train_linked_queue):
-                queue.insert(i, state)
-        # Adds formatted options from recent states queue
-        if isinstance(queue, UniqueDeque):
-            num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
-            for state in queue:
-                if add_sep and self._train_linked_queue and state not in self._train_linked_queue:
-                    options.append(self._separator)
-                    add_sep = False
-                acc = None
-                if self.scope == CommandScope.ACC:
-                    acc = self._acc_tmcc_to_adapter.get(state.tmcc_id)
-                    if state.tmcc_id not in self._acc_tmcc_to_adapter:
-                        acc = self.get_configured_accessory(state.tmcc_id)
-                if acc:
-                    road_name = acc.name
-                else:
-                    road_name = state.road_name
-                name = f"{state.tmcc_id:0{num_chars}d}: {road_name}"
-                road_number = state.road_number
-                if road_number and road_number.isnumeric() and int(road_number) != state.tmcc_id:
-                    name += f" #{int(road_number)}"
-                if name:
-                    options.append(name)
-                    self._options_to_state[name] = state
-        options.append(self._separator)
-        options.append(ADMIN_TITLE)
-        return options
+        with self._cv:
+            self._options_to_state.clear()
+            queue = self._recents_queue.get(self.scope, UniqueDeque())
+            if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+                if queue:
+                    # we want to preserve the order of the original queue
+                    queue = queue.copy()
+                    add_sep = True
+                for i, state in enumerate(self._train_linked_queue):
+                    queue.insert(i, state)
+            # Adds formatted options from recent states queue
+            if isinstance(queue, UniqueDeque):
+                num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
+                for state in queue:
+                    if add_sep and self._train_linked_queue and state not in self._train_linked_queue:
+                        options.append(self._separator)
+                        add_sep = False
+                    acc = None
+                    if self.scope == CommandScope.ACC:
+                        acc = self._acc_tmcc_to_adapter.get(state.tmcc_id)
+                        if state.tmcc_id not in self._acc_tmcc_to_adapter:
+                            acc = self.get_configured_accessory(state.tmcc_id)
+                    if acc:
+                        road_name = acc.name
+                    else:
+                        road_name = state.road_name
+                    name = f"{state.tmcc_id:0{num_chars}d}: {road_name}"
+                    road_number = state.road_number
+                    if road_number and road_number.isnumeric() and int(road_number) != state.tmcc_id:
+                        name += f" #{int(road_number)}"
+                    if name:
+                        options.append(name)
+                        self._options_to_state[name] = state
+            options.append(self._separator)
+            options.append(ADMIN_TITLE)
+            return options
 
     def _rebuild_state_caches(self, scope: CommandScope, state: S):
         print(f"rebuilding caches for {scope}; deleted: {state}")
@@ -1204,84 +1205,83 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """
         Display the most recent scoped component in the recents queue.
         """
-        recents = self._recents_queue.get(scope, None)
-        if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            state = recents[0]
-            self._scope_tmcc_ids[scope] = state.tmcc_id
+        with self._cv:
+            recents = self._recents_queue.get(scope, None)
+            if isinstance(recents, UniqueDeque) and len(recents) > 0:
+                state = recents[0]
+                self._scope_tmcc_ids[scope] = state.tmcc_id
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         self._popup.close()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
-        self._scope_tmcc_ids[self.scope] = tmcc_id
-        if tmcc_id > 0:
-            if state is None:
-                state = self.state_store.get_state(self.scope, tmcc_id, False)
-            if state:
-                # add to scope queue
-                if state in self._train_linked_queue:
-                    queue = self._train_linked_queue
-                else:
-                    if (
-                        scope == CommandScope.ENGINE
-                        and self._active_train_state
-                        and state not in self._active_train_state
-                    ):
-                        self._tear_down_link_gui()
-                    queue = self._recents_queue.get(self.scope, None)
-                    if queue is None:
-                        queue = UniqueDeque[S](maxlen=self.num_recents)
-                        self._recents_queue[self.scope] = queue
-                queue.appendleft(state)
-                self._request_options_rebuild()
-                return True
+        with self._cv:
+            self._scope_tmcc_ids[self.scope] = tmcc_id
+            if tmcc_id > 0:
+                if state is None:
+                    state = self.state_store.get_state(self.scope, tmcc_id, False)
+                if state:
+                    # add to scope queue
+                    if state in self._train_linked_queue:
+                        queue = self._train_linked_queue
+                    else:
+                        if (
+                            scope == CommandScope.ENGINE
+                            and self._active_train_state
+                            and state not in self._active_train_state
+                        ):
+                            self._tear_down_link_gui()
+                        queue = self._recents_queue.get(self.scope, None)
+                        if queue is None:
+                            queue = UniqueDeque[S](maxlen=self.num_recents)
+                            self._recents_queue[self.scope] = queue
+                    queue.appendleft(state)
+                    self._request_options_rebuild()
+                    return True
         return False
 
     def show_next_component(self) -> None:
         self._popup.close()
-        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
-            recents = self._train_linked_queue
-        else:
-            recents = self._recents_queue.get(self.scope, None)
-        if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            current = recents[0]
-            state = cast(ComponentState, cast(object, recents.next()))
-            recents.append(current)
-            self._scope_tmcc_ids[self.scope] = state.tmcc_id
-            self.update_component_info(tmcc_id=state.tmcc_id)
-            self.header.select_default()
+        with self._cv:
+            if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+                recents = self._train_linked_queue
+            else:
+                recents = self._recents_queue.get(self.scope, None)
+            if isinstance(recents, UniqueDeque) and len(recents) > 0:
+                current = recents[0]
+                state = cast(ComponentState, cast(object, recents.next()))
+                recents.append(current)
+                self._scope_tmcc_ids[self.scope] = state.tmcc_id
+                self.update_component_info(tmcc_id=state.tmcc_id)
+                self.header.select_default()
 
     def show_previous_component(self) -> None:
         self._popup.close()
-        if self.scope == CommandScope.ENGINE and self._train_linked_queue:
-            recents = self._train_linked_queue
-        else:
-            recents = self._recents_queue.get(self.scope, None)
-        if isinstance(recents, UniqueDeque) and len(recents) > 0:
-            state = cast(ComponentState, cast(object, recents.previous()))
-            self._scope_tmcc_ids[self.scope] = state.tmcc_id
-            self.update_component_info(tmcc_id=state.tmcc_id)
-            self.header.select_default()
-
-    def rebuild_options_xx(self):
-        self.header.clear()
-        for option in self.get_options():
-            self.header.append(option)
-        self.header.select_default()
+        with self._cv:
+            if self.scope == CommandScope.ENGINE and self._train_linked_queue:
+                recents = self._train_linked_queue
+            else:
+                recents = self._recents_queue.get(self.scope, None)
+            if isinstance(recents, UniqueDeque) and len(recents) > 0:
+                state = cast(ComponentState, cast(object, recents.previous()))
+                self._scope_tmcc_ids[self.scope] = state.tmcc_id
+                self.update_component_info(tmcc_id=state.tmcc_id)
+                self.header.select_default()
 
     def rebuild_options(self):
-        new_options = tuple(self.get_options())
+        with self._cv:
+            new_options = tuple(self.get_options())
 
-        if new_options == getattr(self, "_last_header_options", None):
-            return
+            if new_options == getattr(self, "_last_header_options", None):
+                return
 
-        self._last_header_options = new_options
+            self._last_header_options = new_options
 
-        self.header.clear()
-        for option in new_options:
-            self.header.append(option)
+            self.header.clear()
+            for option in new_options:
+                self.header.append(option)
 
-        if new_options:
-            self.header.select_default()
+            if new_options:
+                self.header.select_default()
 
     def _begin_transition(self) -> None:
         self._transition_depth += 1
