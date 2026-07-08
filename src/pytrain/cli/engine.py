@@ -92,17 +92,17 @@ class ClearStateCmd(CommandBase):
         return self._cli.scope
 
     @property
-    def tmcc_id(self) -> CommandScope:
+    def tmcc_id(self) -> int:
         return self._cli.tmcc_id
 
     def _build_command(self) -> bytes | None:
         return None
 
     def _command_prefix(self) -> bytes | None:
-        pass
+        return None
 
     def _encode_address(self, command_op: int) -> bytes | None:
-        pass
+        return None
 
 
 CUSTOM_COMMANDS = {
