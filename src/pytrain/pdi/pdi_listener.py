@@ -334,10 +334,8 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                             state = ComponentStateStore.get_state(cmd.scope, cmd.tmcc_id, create=False)
                             if state and not state.is_deleted and state.is_deletable:
                                 state.clear()
-                                print(f"Deleted state: {state}")
                                 # alert subscribers of newly cleared state
                                 if self.is_deletes_enabled:
-                                    print(f"Publishing delete event for state: {state}")
                                     self.publish(DELETE_TOPIC, state)
                             if self.is_server:
                                 # propagate message to clients, so they delete the record

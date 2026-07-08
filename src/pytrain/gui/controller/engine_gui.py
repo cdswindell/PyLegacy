@@ -286,7 +286,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.init_complete()
 
     def __call__(self, state: S):
-        print(f"__call__ received: {state}")
         if isinstance(state, ComponentState) and not self._shutdown_flag.is_set():
             self._message_queue.put((self._rebuild_state_caches, [state]))
 
@@ -905,11 +904,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def _rebuild_state_caches(self, state: S):
         if state:
             with self._cv:
-                xxx = False
+                reselect_current = False
                 if self._scope_tmcc_ids.get(state.scope, 0) == state.tmcc_id:
                     self._scope_tmcc_ids[state.scope] = 0
                     if self.scope == state.scope:
-                        xxx = True
+                        reselect_current = True
                 watcher = self._scope_watchers.get(state.scope, None)
                 if (
                     isinstance(watcher, StateWatcher)
@@ -926,7 +925,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if isinstance(recents, UniqueDeque) and state in recents:
                     recents.remove(state)
                     self._request_options_rebuild()
-                print(f"rebuilding caches for {state.scope}; deleted: {state} {xxx}")
+                print(f"rebuilding caches for {state.scope}; deleted: {state} {reselect_current}")
+                if reselect_current:
+                    if self._scope_tmcc_ids[state.scope] == 0:
+                        self.display_most_recent(state.scope)
+                        self.update_component_info()
+                        # force entry mode if scoped tmcc_id is 0
+                        if self._scope_tmcc_ids[state.scope] == 0 or self.active_state is None:
+                            force_entry_mode = True
+                        self._request_options_rebuild()
+                        num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
+                        self.tmcc_id_text.value = f"{self._scope_tmcc_ids[self.scope]:0{num_chars}d}"
+                        self._keypad_view.scope_keypad(force_entry_mode, True)
 
     def monitor_state(self):
         with self._cv:
@@ -951,7 +961,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         action = self._scoped_callbacks.get(state.scope, lambda s: log.info(f"** No action callback for {s}"))
 
         def upd():
-            print(f"State updated: {state}")
             if not self._shutdown_flag.is_set():
                 self._message_queue.put((action, [state]))
 
