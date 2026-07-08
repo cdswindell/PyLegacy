@@ -405,6 +405,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             print("EngineGui.clear_record")
             # clear this state on the Base 3; this will take some time to percolate
             state.clear(notify=False, clear_db=True)
+            self._message_queue.put((self._rebuild_state_caches, [state]))
 
     def on_sensor_track_update(self, state: IrdaState) -> None:
         if state.last_train_id:
