@@ -286,8 +286,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.init_complete()
 
     def __call__(self, state: S):
-        if isinstance(state, ComponentState):
-            print(state)
+        if isinstance(state, ComponentState) and self._message_queue:
+            self._message_queue.put(self._rebuild_state_caches, [state])
 
     @property
     def image_presenter(self) -> ImagePresenter:
