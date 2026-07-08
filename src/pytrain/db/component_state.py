@@ -389,6 +389,7 @@ class ComponentState(ABC, CompDataMixin):
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"Component state {self} is not deletable")
                 return False
+            print(f"Clearing component state {self}")
             ComponentStateStore.delete_state(self)
             self._deleted = True
 

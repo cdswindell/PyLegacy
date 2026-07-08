@@ -402,8 +402,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def clear_record(self, state: S = None):
         state = state or self.active_state
         if state:
+            print("EngineGui.clear_record")
             # clear this state on the Base 3; this will take some time to percolate
-            state.clear(notify=True, clear_db=True)
+            state.clear(notify=False, clear_db=True)
 
     def on_sensor_track_update(self, state: IrdaState) -> None:
         if state.last_train_id:
@@ -901,11 +902,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def _rebuild_state_caches(self, state: S):
         if state:
+            print("Rebuilding state caches 1")
             with self._cv:
                 reselect_current = False
                 if self._scope_tmcc_ids.get(state.scope, 0) == state.tmcc_id:
+                    print("Rebuilding state caches 2")
                     self._scope_tmcc_ids[state.scope] = 0
                     if self.scope == state.scope:
+                        print("Rebuilding state caches 3")
                         reselect_current = True
                         print("Deleting current engine")
                 watcher = self._scope_watchers.get(state.scope, None)
@@ -914,17 +918,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     and watcher.scope == state.scope
                     and watcher.tmcc_id == state.tmcc_id
                 ):
+                    print("Rebuilding state caches 4")
                     watcher.shutdown()
                     self._scope_watchers[self.scope] = None
                 if self.active_engine_state == state:
+                    print("Rebuilding state caches 5")
                     self._active_engine_state = None
                 if isinstance(self._catalog_panel, CatalogPanel) and self.scope == state.scope:
+                    print("Rebuilding state caches 6")
                     self._catalog_panel.configure(state.scope, force=True)
                 recents = self._recents_queue.get(state.scope, None)
                 if isinstance(recents, UniqueDeque) and state in recents:
+                    print("Rebuilding state caches 7")
                     recents.remove(state)
                     self._request_options_rebuild()
                 if reselect_current:
+                    print("Rebuilding state caches 8")
                     if self._scope_tmcc_ids[state.scope] == 0:
                         self.display_most_recent(state.scope)
                         self.update_component_info()
