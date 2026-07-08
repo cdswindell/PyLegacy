@@ -396,7 +396,7 @@ class HoldButton(PushButton):
     # noinspection PyUnusedLocal
     def _on_hover_enter(self, event=None) -> None:
         # while pressed or overlay visible, don't fight pressed visuals
-        if self._pressed or self._overlay_visible:
+        if not self._is_enabled() or self._pressed or self._overlay_visible:
             return
         try:
             self._hover_normal_bg = str(self.tk.cget("background"))
@@ -471,6 +471,9 @@ class HoldButton(PushButton):
         self._handled_flash = True
 
         def on_press(_event):
+            if not self._is_enabled():
+                return
+
             with self._cv:
                 # snapshot from tk so it respects hb.tk.config(background=...)
                 self._snapshot_tk_normals()
