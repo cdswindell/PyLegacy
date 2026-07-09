@@ -101,7 +101,7 @@ class ComponentStateStore:
 
     @classmethod
     def is_state_synchronized(cls) -> bool:
-        from src.pytrain import SyncState
+        from .sync_state import SyncState
 
         if cls._instance is None:
             return False
@@ -112,7 +112,7 @@ class ComponentStateStore:
 
     @classmethod
     def is_state_synchronizing(cls) -> bool:
-        from src.pytrain import SyncState
+        from .sync_state import SyncState
 
         if cls._instance is None:
             return False
