@@ -1,11 +1,11 @@
-build>=1.4.4
+build>=1.5.1
 iniconfig>=2.3.0
 packaging>=26.2.0
 pluggy>=1.6.0
 pypi-cleanup>=0.1.10
 pytest>=9.1.1
 ruff>=0.15.20
-tox>=4.56.1
+tox>=4.56.4
 twine>=6.2.0
 ipython>=9.15.0; python_version>="3.12"
 ipython>=9.10.0; python_version=="3.11"
