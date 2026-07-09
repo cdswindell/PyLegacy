@@ -904,6 +904,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def _rebuild_state_caches(self, state: S):
         if state:
+            print(f"Rebuilding state caches for {state}")
             with self._cv:
                 reselect_current = False
                 if self._scope_tmcc_ids.get(state.scope, 0) == state.tmcc_id:

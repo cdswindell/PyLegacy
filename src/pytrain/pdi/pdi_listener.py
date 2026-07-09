@@ -336,6 +336,7 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                                 state.clear()
                                 # alert subscribers of newly cleared state
                                 if self.is_deletes_enabled:
+                                    print(f"Deletes Enabled, publishing {state}")
                                     self.publish(DELETE_TOPIC, state)
                             if self.is_server:
                                 # propagate message to clients, so they delete the record
@@ -430,6 +431,8 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
     def subscribe(self, subscriber: Subscriber, channel: Topic, address: int = None, action: PdiAction = None) -> None:
         if channel == BROADCAST_TOPIC:
             self.subscribe_any(subscriber)
+        elif channel == DELETE_TOPIC:
+            self.subscribe_delete(subscriber)
         else:
             self._channels[self._make_channel(channel, address, action)].subscribe(subscriber)
 
@@ -439,6 +442,8 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
         # Unsubscribes from channel; deletes channel if empty
         if channel == BROADCAST_TOPIC:
             self.unsubscribe_any(subscriber)
+        elif channel == DELETE_TOPIC:
+            self.unsubscribe_delete(subscriber)
         else:
             channel = self._make_channel(channel, address, command)
             self._channels[channel].unsubscribe(subscriber)
@@ -457,15 +462,12 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
             self._broadcasts = False
 
     def subscribe_delete(self, subscriber: Subscriber) -> None:
-        # receive broadcasts
+        # receive deletes
         self._channels[DELETE_TOPIC].subscribe(subscriber)
         self._deletes = True
 
     def unsubscribe_delete(self, subscriber: Subscriber) -> None:
-        # receive broadcasts
-        if DELETE_TOPIC in self._channels:
-            self._channels[DELETE_TOPIC].unsubscribe(subscriber)
-            if not self._channels[DELETE_TOPIC].subscribers:
-                self._deletes = False
-        else:
+        # receive deletes
+        self._channels[DELETE_TOPIC].unsubscribe(subscriber)
+        if not self._channels[DELETE_TOPIC].subscribers:
             self._deletes = False
