@@ -921,8 +921,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self._scope_watchers[state.scope] = None
                 if self.active_engine_state == state:
                     self._active_engine_state = None
-                if self.active_train_state == state:
-                    self.active_train_state = None
+                if self._active_train_state == state:
+                    self._active_train_state = None
                     self._train_linked_queue.clear()
                 if isinstance(self._catalog_panel, CatalogPanel) and self.scope == state.scope:
                     self._catalog_panel.configure(state.scope, force=True)
