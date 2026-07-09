@@ -463,6 +463,9 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
 
     def unsubscribe_delete(self, subscriber: Subscriber) -> None:
         # receive broadcasts
-        self._channels[DELETE_TOPIC].unsubscribe(subscriber)
-        if not self._channels[DELETE_TOPIC].subscribers:
+        if DELETE_TOPIC in self._channels:
+            self._channels[DELETE_TOPIC].unsubscribe(subscriber)
+            if not self._channels[DELETE_TOPIC].subscribers:
+                self._deletes = False
+        else:
             self._deletes = False

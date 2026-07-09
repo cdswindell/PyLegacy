@@ -101,7 +101,7 @@ class CompDataHandler:
         to_bytes: Callable = default_to_func,
         *,
         d4_only: bool = False,
-        default: int = 0xFF,
+        default: Any = 0xFF,
     ) -> None:
         self.field: str = field
         self.length: int = length
@@ -115,7 +115,7 @@ class CompDataHandler:
         return self._d4_only
 
     @property
-    def default(self) -> int:
+    def default(self) -> Any:
         return self._default
 
     def __repr__(self) -> str:
@@ -257,19 +257,8 @@ class CompDataMixin(Generic[C]):
             self._comp_data = AccessoryData(None, tmcc_id)
         else:
             raise NotImplementedError(f"Unknown scope {scope.name}")
-        # self._set_defaults(scope)
         self._empty = True
         self._comp_data_record = True
-
-    def _set_defaults(self, scope: CommandScope) -> None:
-        field_map = SCOPE_TO_COMP_MAP.get(scope, None)
-        if field_map:
-            for addr, field in field_map.items():
-                if field.default is not None and field.default != 0xFF:
-                    if hasattr(self._comp_data, field.field):
-                        setattr(self._comp_data, field.field, field.default)
-                    else:
-                        raise ValueError(f"Unknown field {field.field} for scope {scope.name}")
 
     def clear_record(self, state: "ComponentState", background: bool = True):
         from ..pdi.base_req import BaseReq

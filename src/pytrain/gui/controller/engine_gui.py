@@ -505,7 +505,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         PdiDispatcher.get().subscribe_delete(self)
 
     def destroy_gui(self) -> None:
-        PdiDispatcher.get().unsubscribe_delete(self)
+        if PdiDispatcher.is_built():
+            PdiDispatcher.get().unsubscribe_delete(self)
         self.clear_cache()
         self.engine_ops_cells.clear()
         self.box = None
