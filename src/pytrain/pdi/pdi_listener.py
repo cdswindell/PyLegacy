@@ -336,7 +336,6 @@ class PdiDispatcher(Thread, Generic[Topic, Message]):
                                 state.clear()
                                 # alert subscribers of newly cleared state
                                 if self.is_deletes_enabled:
-                                    print(f"Deletes Enabled, publishing {state}")
                                     self.publish(DELETE_TOPIC, state)
                             if self.is_server:
                                 # propagate message to clients, so they delete the record
