@@ -545,9 +545,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_state_info_closed(self, _overlay: Box | None = None) -> None:
         self._bind_image_long_press()
 
-    def on_info(self) -> None:
+    def on_info(self, state: S = None) -> None:
         """Shows state information in popup overlay"""
-        state = self.active_state
+        is_new = state is not None
+        state = state or self.active_state
         if state is None:
             return  # this should never be the case...
 
@@ -564,6 +565,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._state_info.update(state)
         self._unbind_image_long_press()
         self.show_popup(overlay)
+        if is_new:
+            self._state_info.update(state, new=True)
 
     def on_rr_speed(self) -> None:
         with self._cv:

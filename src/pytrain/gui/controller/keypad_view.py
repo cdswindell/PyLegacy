@@ -500,6 +500,7 @@ class KeypadView(Generic[S]):
                 state = ComponentStateStore.get_state(host.scope, tmcc_id)
                 print(state)
                 host.ops_mode(update_info=True, state=state)
+                host.on_info(state=state)
                 return
         elif key == ENTER_KEY:
             # if a valid (existing) entry was entered, go to ops mode,
