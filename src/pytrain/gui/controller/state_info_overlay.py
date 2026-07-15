@@ -211,7 +211,7 @@ class StateInfoOverlay(OverlayPanel):
                 on_edit=callback,
             )
 
-    def update(self, state: S):
+    def update(self, state: S, new: bool = False):
         """Populates the fields with data from the current state."""
         if not state or not self.details:
             return
@@ -245,37 +245,38 @@ class StateInfoOverlay(OverlayPanel):
                 editable=True,
             )
             self._set_val("sound", state.sound_type_label, initial_value=state.sound_type, editable=True)
-            self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
-            self._set_val("smoke", state.smoke_text)
-            self._set_val("mom", state.momentum_text)
-            self._set_val("brake", state.train_brake_label)
-            self._set_val("labor", state.labor_label)
-            self._set_val("rpm", state.rpm_label)
-            self._set_val("fuel", f"{state.fuel_level_pct:>3d} %")
-            self._set_val("water", f"{state.water_level_pct:>3d} %")
+            if not new:
+                self._set_val("dir", "Fwd" if state.is_forward else "Rev" if state.is_reverse else "")
+                self._set_val("smoke", state.smoke_text)
+                self._set_val("mom", state.momentum_text)
+                self._set_val("brake", state.train_brake_label)
+                self._set_val("labor", state.labor_label)
+                self._set_val("rpm", state.rpm_label)
+                self._set_val("fuel", f"{state.fuel_level_pct:>3d} %")
+                self._set_val("water", f"{state.water_level_pct:>3d} %")
 
-            s, ts, sl, ms = state.speeds
-            self._set_val("speed", f"{s:>3d}")
-            self._set_val("target", f"{ts:>3d}")
-            self._set_val("limit", f"{sl:>3d}" if sl is not None else "")
-            self._set_val("max", f"{ms:>3d}")
+                s, ts, sl, ms = state.speeds
+                self._set_val("speed", f"{s:>3d}")
+                self._set_val("target", f"{ts:>3d}")
+                self._set_val("limit", f"{sl:>3d}" if sl is not None else "")
+                self._set_val("max", f"{ms:>3d}")
 
-            if isinstance(state, TrainState):
-                self._set_val("engines", f"{state.num_engines}")
-                self._set_val("lead", f"{state.head_tmcc_id:04d}")
-                self._set_val("cars", f"{state.num_train_linked}")
-                self._set_val("accessories", f"{state.num_accessories}")
-            else:
-                train_state = (
-                    host.state_store.get_state(CommandScope.TRAIN, state.train_tmcc_id, create=False)
-                    if state.train_tmcc_id
-                    else None
-                )
-                component = train_state.get_consist_component(state.tmcc_id) if train_state else None
-                self._set_val("bluetooth", f"{state.bt_id if state.bt_id else ' '}")
-                self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
-                self._set_val("train pos", f"{component.position if component else 'NA'}")
-                self._set_val("train dir", f"{component.direction if component else 'NA'}")
+                if isinstance(state, TrainState):
+                    self._set_val("engines", f"{state.num_engines}")
+                    self._set_val("lead", f"{state.head_tmcc_id:04d}")
+                    self._set_val("cars", f"{state.num_train_linked}")
+                    self._set_val("accessories", f"{state.num_accessories}")
+                else:
+                    train_state = (
+                        host.state_store.get_state(CommandScope.TRAIN, state.train_tmcc_id, create=False)
+                        if state.train_tmcc_id
+                        else None
+                    )
+                    component = train_state.get_consist_component(state.tmcc_id) if train_state else None
+                    self._set_val("bluetooth", f"{state.bt_id if state.bt_id else ' '}")
+                    self._set_val("train id", f"{state.train_tmcc_id if state.train_tmcc_id else 'NA'}")
+                    self._set_val("train pos", f"{component.position if component else 'NA'}")
+                    self._set_val("train dir", f"{component.direction if component else 'NA'}")
         elif isinstance(state, LcsProxyState):
             self._set_val("type", state.accessory_type, editable=False)
             self._set_val("mode", state.mode)

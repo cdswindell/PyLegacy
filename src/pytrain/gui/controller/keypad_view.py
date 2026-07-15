@@ -33,6 +33,7 @@ from .engine_gui_conf import (
 from ..components.checkbox_group import CheckBoxGroup
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState
+from ...db.component_state_store import ComponentStateStore
 from ...db.engine_state import TrainState
 from ...pdi.asc2_req import Asc2Req
 from ...pdi.constants import Asc2Action, IrdaAction, PdiCommand
@@ -493,7 +494,11 @@ class KeypadView(Generic[S]):
         elif key == SET_KEY:
             self._reset_on_keystroke = False
             tmcc_id = int(host.tmcc_id_text.value)
-            host.on_set_key(host.scope, tmcc_id)
+            end_range = 9999 if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 98
+            if tmcc_id and 2 <= tmcc_id <= end_range and tmcc_id != 99:
+                host.on_set_key(host.scope, tmcc_id)
+                state = ComponentStateStore.get_state(host.scope, tmcc_id)
+                host.ops_mode(update_info=True, state=state)
         elif key == ENTER_KEY:
             # if a valid (existing) entry was entered, go to ops mode,
             # otherwise, stay in entry mode
