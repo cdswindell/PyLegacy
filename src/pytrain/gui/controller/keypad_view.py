@@ -498,7 +498,9 @@ class KeypadView(Generic[S]):
             if tmcc_id and 2 <= tmcc_id <= end_range and tmcc_id != 99:
                 host.on_set_key(host.scope, tmcc_id)
                 state = ComponentStateStore.get_state(host.scope, tmcc_id)
+                print(state)
                 host.ops_mode(update_info=True, state=state)
+                return
         elif key == ENTER_KEY:
             # if a valid (existing) entry was entered, go to ops mode,
             # otherwise, stay in entry mode
