@@ -497,11 +497,14 @@ class KeypadView(Generic[S]):
             end_range = 9999 if host.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 98
             if tmcc_id and 2 <= tmcc_id <= end_range and tmcc_id != 99:
                 host.on_set_key(host.scope, tmcc_id)
-                state = ComponentStateStore.get_state(host.scope, tmcc_id)
-                print(state)
-                host.ops_mode(update_info=True, state=state)
-                host.on_info(state=state)
-                return
+                state = ComponentStateStore.get_state(host.scope, tmcc_id, create=False)
+                if state is None:
+                    state = ComponentStateStore.get_state(host.scope, tmcc_id, create=True)
+                    state.initialize(scope=host.scope, tmcc_id=tmcc_id)
+                    print(state)
+                    host.ops_mode(update_info=True, state=state)
+                    host.on_info(state=state)
+                    return
         elif key == ENTER_KEY:
             # if a valid (existing) entry was entered, go to ops mode,
             # otherwise, stay in entry mode

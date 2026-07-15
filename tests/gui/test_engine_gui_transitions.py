@@ -351,7 +351,7 @@ def test_on_info_unbinds_long_press_and_close_handler_rebinds(monkeypatch: pytes
     gui._state_info = SimpleNamespace(
         overlay=overlay,
         reset_visibility=lambda *args, **kwargs: setattr(gui, "_info_reset", True),
-        update=lambda updated_state: setattr(gui, "_info_state", updated_state),
+        update=lambda updated_state, new: setattr(gui, "_info_state", updated_state),
     )
     monkeypatch.setattr(mod, "LcsProxyState", type("DummyLcsProxyState", (), {}), raising=True)
 

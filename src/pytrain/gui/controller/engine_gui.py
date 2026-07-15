@@ -547,7 +547,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def on_info(self, state: S = None) -> None:
         """Shows state information in popup overlay"""
-        is_new = state is not None
+        is_new = state is not None and state.is_comp_data_empty
         state = state or self.active_state
         if state is None:
             return  # this should never be the case...
@@ -562,11 +562,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # show/hide fields in the overlay
         self._state_info.reset_visibility(scope, is_lcs_proxy=is_lcs, accessory=self.active_accessory)
-        self._state_info.update(state)
+        self._state_info.update(state, new=is_new)
         self._unbind_image_long_press()
         self.show_popup(overlay)
-        if is_new:
-            self._state_info.update(state, new=True)
 
     def on_rr_speed(self) -> None:
         with self._cv:
