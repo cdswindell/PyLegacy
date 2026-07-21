@@ -471,14 +471,6 @@ class HoldButton(PushButton):
         self._handled_flash = True
 
         def on_press(_event):
-            print(
-                "PRESS",
-                _event.widget,
-                _event.x,
-                _event.y,
-                _event.x_root,
-                _event.y_root,
-            )
             if not self._is_enabled():
                 return
 
