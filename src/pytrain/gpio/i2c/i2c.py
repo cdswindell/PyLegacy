@@ -6,7 +6,7 @@ from smbus2 import SMBus
 if sys.platform == "linux":
     try:
         DEFAULT_SMBUS = SMBus(1)
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         DEFAULT_SMBUS = None
 else:
     DEFAULT_SMBUS = None
