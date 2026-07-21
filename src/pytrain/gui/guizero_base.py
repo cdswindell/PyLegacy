@@ -209,7 +209,6 @@ class GuiZeroBase(Thread, ABC):
         else:
             self.width = width
             self.height = height
-        print(f"Window dimensions: width={self.width}, height={self.height}")
 
         self.title = DEFAULT_LAYOUT_TITLE
         self._scale_by = scale_by
