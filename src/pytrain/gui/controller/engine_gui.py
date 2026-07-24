@@ -1757,7 +1757,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
         # compute/apply scaling for larger displays, like the GPD 4
-        scale = self.width / (self.emergency_box_width + self.emergency_box_height)
+        scale = self.width / self.emergency_box_width
         if scale > 1.0:
             ebw = self.emergency_box_width * scale
             child_width = int(ebw / 2.05)
