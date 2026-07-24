@@ -1759,7 +1759,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # compute/apply scaling for larger displays, like the GPD 4
         scale = self.width / self.emergency_box_width
         if scale > 1.0:
-            ebw = int(self.emergency_box_width * scale)
+            # ebw = int(self.emergency_box_width * scale)
             child_width = int(scale * self.halt_btn.tk.winfo_width())
             self.halt_btn.tk.config(width=child_width)
             self.reset_btn.tk.config(width=child_width)
