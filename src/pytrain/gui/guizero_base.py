@@ -209,6 +209,7 @@ class GuiZeroBase(Thread, ABC):
         else:
             self.width = width
             self.height = height
+        log.info(f"Width: {self.width}, Height: {self.height}")
 
         self.title = DEFAULT_LAYOUT_TITLE
         self._scale_by = scale_by

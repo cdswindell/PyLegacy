@@ -1007,7 +1007,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._controller_view.update(state=state, throttle_state=throttle_state)
 
         # update info detail popup, if its visible
-        if self._state_info and self._state_info.visible:
+        if ops_mode_setup:
+            pass
+        elif self._state_info and self._state_info.visible:
             self._state_info.update(state)
 
     def on_new_train(self, state: TrainState = None, ops_mode_setup: bool = False) -> None:
@@ -1761,6 +1763,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             state = self._active_train_state
         return state if isinstance(state, EngineState) else None
 
+    # noinspection argument-list,none-function-assignment
     def on_speed_command(self, speed_req: str | int) -> None:
         state = self.throttle_state
         if isinstance(speed_req, str):
