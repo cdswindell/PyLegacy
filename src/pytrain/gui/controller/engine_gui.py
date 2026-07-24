@@ -1756,7 +1756,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
-        log.info(f"{(self.emergency_box_width + self.emergency_box_height) / self.width}")
+        # compute/apply scaling for larger displays, like the GPD 4
+        scale = self.width / (self.emergency_box_width + self.emergency_box_height)
+        if scale > 1.0:
+            self.emergency_box_width = self.emergency_box_width * scale
+            child_width = self.emergency_box_width / 2.05
+            self.halt_btn.tk.config(width=child_width)
+            self.reset_btn.tk.config(width=child_width)
+            self.app.tk.update_idletasks()
+            self.emergency_box_width = emergency_box.tk.winfo_width()
+            self.emergency_box_height = emergency_box.tk.winfo_height()
 
     @property
     def throttle_state(self) -> EngineState | None:
