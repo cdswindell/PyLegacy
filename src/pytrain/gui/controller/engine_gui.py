@@ -1760,12 +1760,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         scale = self.width / self.emergency_box_width
         if scale > 1.0:
             # ebw = int(self.emergency_box_width * scale)
-            child_width = int(scale * self.halt_btn.tk.winfo_width())
-            self.halt_btn.tk.config(width=child_width)
-            self.reset_btn.tk.config(width=child_width)
-            self.app.tk.update_idletasks()
-            self.emergency_box_width = emergency_box.tk.winfo_width()
-            self.emergency_box_height = emergency_box.tk.winfo_height()
+            print(f"Existing: {self.halt_btn.tk.winfo_width()} Proposed: {int(scale * self.halt_btn.tk.winfo_width())}")
+            # child_width = int(scale * self.halt_btn.tk.winfo_width())
+            # self.halt_btn.tk.config(width=child_width)
+            # self.reset_btn.tk.config(width=child_width)
+            # self.app.tk.update_idletasks()
+            # self.emergency_box_width = emergency_box.tk.winfo_width()
+            # self.emergency_box_height = emergency_box.tk.winfo_height()
 
     @property
     def throttle_state(self) -> EngineState | None:
