@@ -1756,6 +1756,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()
 
+        log.info(f"{(self.emergency_box_width + self.emergency_box_height) / self.width}")
+
     @property
     def throttle_state(self) -> EngineState | None:
         state = self.active_engine_state
