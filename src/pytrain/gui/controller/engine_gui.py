@@ -389,8 +389,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def scale_factor(self) -> float:
         return self._scale_factor
 
-    def rescale_by(self, size: int) -> int:
+    def rescale_by(self, size: int, maximum: int = None) -> int:
         if self._scale_factor > 1.0:
+            if maximum:
+                return min(int(size * self._scale_factor), maximum)
             return int(size * self._scale_factor)
         return size
 
