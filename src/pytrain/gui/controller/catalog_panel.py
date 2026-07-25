@@ -125,7 +125,8 @@ class CatalogPanel(OverlayPanel):
         lb.bg = "#f7f7f7"
 
         tk_listbox = lb.children[0].tk
-        tk_listbox.config(width=self.gui.rescale_by(21), height=10)
+        print(f"Catalog 21 --> {self.gui.rescale_by(21)}")
+        tk_listbox.config(width=self.gui.rescale_by(21, maximum=27), height=10)
 
         tk_scrollbar = lb.children[1].tk
         tk_scrollbar.config(

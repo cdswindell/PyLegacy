@@ -1773,7 +1773,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         scale = self.width / self.emergency_box_width
         if scale > 1.0:
             self._scale_factor = scale
-            print(f"Existing: {label_width} Proposed: {self.rescale_by(label_width)}")
             child_width = self.rescale_by(label_width)
             self.halt_btn.width = child_width
             self.reset_btn.width = child_width
