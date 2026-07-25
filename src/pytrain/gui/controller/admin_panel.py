@@ -134,7 +134,7 @@ class AdminPanel:
             tb,
             text="Loaded",
             grid=[0, 0],
-            width=12,
+            width=self.gui.rescale_by(12),
             align="left",
         )
         pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
@@ -147,7 +147,7 @@ class AdminPanel:
             text="Reload",
             grid=[2, 0],
             on_hold=(self._gui.do_tmcc_request, [TMCC1SyncCommandEnum.RESYNC]),
-            width=12,
+            width=self.gui.rescale_by(12),
             text_bold=True,
             text_size=self._gui.s_18,
             enabled=self._gui.sync_state.is_synchronized(),
@@ -174,7 +174,7 @@ class AdminPanel:
             tb,
             text="Accessories",
             grid=[0, 0],
-            width=12,
+            width=self.gui.rescale_by(12),
             text_bold=True,
             text_size=self._gui.s_18,
             align="left",
@@ -187,7 +187,7 @@ class AdminPanel:
             tb,
             text="Images",
             grid=[2, 0],
-            width=12,
+            width=self.gui.rescale_by(12),
             text_bold=True,
             text_size=self._gui.s_18,
             align="right",
@@ -516,7 +516,7 @@ class AdminPanel:
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
         text_size = kwargs.pop("text_size", self._gui.s_18)
-        width = kwargs.pop("width", 12)
+        width = self.gui.rescale_by(kwargs.pop("width", 12))
         text_bold = kwargs.pop("text_bold", True)
         hold_threshold = kwargs.pop("hold_threshold", self.hold_threshold)
         hb = HoldButton(
