@@ -162,6 +162,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._sensor_track_id = sensor_track_id
         self.slider_height = self.button_size * 4
         self.enable_editing = enable_editing
+        self._scale_factor: float = 1.0
 
         self.scope_size = int(round(self.width / 5))
         self.grid_pad_by = 2
@@ -383,6 +384,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def amc2_ops_panel(self, panel: Amc2OpsPanel | None) -> None:
         assert self._amc2_ops_panel is None
         self._amc2_ops_panel = panel
+
+    @property
+    def scale_factor(self) -> float:
+        return self._scale_factor
+
+    def rescale_by(self, size: int) -> int:
+        if self._scale_factor > 1.0:
+            return int(size * self._scale_factor)
+        return size
 
     @property
     def active_engine_state(self) -> EngineState | None:
@@ -1716,12 +1726,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
 
+        label_width = 11
         self.halt_btn = HoldButton(
             emergency_box,
             text=HALT_KEY,
             grid=[0, 1],
             align="top",
-            width=11,
+            width=label_width,
             padx=self.text_pad_x,
             pady=self.text_pad_y,
             bg="red",
@@ -1738,7 +1749,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             text="Reset",
             grid=[2, 1],
             align="top",
-            width=11,
+            width=label_width,
             padx=self.text_pad_x,
             pady=self.text_pad_y,
             bg="gray",
@@ -1759,9 +1770,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # compute/apply scaling for larger displays, like the GPD 4
         scale = self.width / self.emergency_box_width
         if scale > 1.0:
-            # ebw = int(self.emergency_box_width * scale)
-            print(f"Existing: {self.halt_btn.width} Proposed: {int(scale * self.halt_btn.width)}")
-            child_width = int(scale * self.halt_btn.width)
+            self._scale_factor = scale
+            print(f"Existing: {label_width} Proposed: {self.rescale_by(label_width)}")
+            child_width = self.rescale_by(label_width)
             self.halt_btn.width = child_width
             self.reset_btn.width = child_width
             self.app.tk.update_idletasks()
