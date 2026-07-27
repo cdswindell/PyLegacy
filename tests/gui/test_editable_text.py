@@ -491,11 +491,11 @@ def test_builtin_keyboard_supports_lower_upper_and_symbols(
 
     widget.begin_edit()
     widget.tk.run_after(widget._keyboard_after_id)
-    assert any(btn.text == "q" for btn in DummyButton.instances)
+    assert any(btn.text == "Q" for btn in DummyButton.instances)
 
     widget._toggle_case()
-    assert widget._keyboard_mode == "upper"
-    assert any(btn.text == "Q" for btn in DummyButton.instances)
+    assert widget._keyboard_mode == "lower"
+    assert any(btn.text == "q" for btn in DummyButton.instances)
 
     widget._toggle_symbols()
     assert widget._keyboard_mode == "symbols"
