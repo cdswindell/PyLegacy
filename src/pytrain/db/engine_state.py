@@ -190,6 +190,7 @@ CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
 R = TypeVar("R", bound=OfficialRRSpeeds)
 
 
+# noinspection string-format,unreachable-code
 class EngineState(ComponentState):
     @classmethod
     def _csv_headers(cls, include_state: bool = False) -> list[str]:

@@ -211,6 +211,7 @@ class StateInfoOverlay(OverlayPanel):
                 on_edit=callback,
             )
 
+    # noinspection string-format
     def update(self, state: S, new: bool = False):
         """Populates the fields with data from the current state."""
         if not state or not self.details:
@@ -263,7 +264,7 @@ class StateInfoOverlay(OverlayPanel):
 
                 if isinstance(state, TrainState):
                     self._set_val("engines", f"{state.num_engines}")
-                    self._set_val("lead", f"{state.head_tmcc_id:04d}")
+                    self._set_val("lead", f"{state.head_tmcc_id:04d}" if state.head_tmcc_id else "")
                     self._set_val("cars", f"{state.num_train_linked}")
                     self._set_val("accessories", f"{state.num_accessories}")
                 else:
@@ -346,7 +347,7 @@ class StateInfoOverlay(OverlayPanel):
     def _on_sound_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
         self._persist_edit(_field, new_value, old_value, "SOUND_TYPE")
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _persist_edit(self, _field: EditableText, new_value: int, old_value: int, field: str) -> None:
         if _field.is_changed:
             state = self.gui.active_state
@@ -393,11 +394,11 @@ class StateInfoOverlay(OverlayPanel):
     def has_footer(self) -> bool:
         return True
 
-    def build_footer(self, box: Box):
+    def build_footer(self, footer: Box) -> None:
         host = self.gui
 
         self.clear_btn = btn = HoldButton(
-            box,
+            footer,
             text="Clear",
             align="left",
             text_size=host.s_20,
@@ -422,7 +423,7 @@ class StateInfoOverlay(OverlayPanel):
         btn.tk.pack_configure(padx=20, pady=20)
         host.cache(btn)
         # spacer
-        sp = Text(box, text=" ", height=1, align="left")
+        sp = Text(footer, text=" ", height=1, align="left")
         sp.text_size = host.s_72
 
     def clear_record(self, state: S = None):
