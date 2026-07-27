@@ -685,7 +685,7 @@ class EditableText(Text):
             scale = self._screen_scale(screen_w, screen_h)
             kb_w = min(screen_w, self._scaled(980, scale))
             kb_h = min(screen_h, self._scaled(420, scale))
-            x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
+            x = max(0, (screen_w - kb_w) // 2)
             y = max(0, screen_h - kb_h)
             kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
         except TclError:
@@ -739,10 +739,10 @@ class EditableText(Text):
             mode_label = "ABC" if self._keyboard_mode == "lower" else "abc"
             self._make_key(controls, mode_label, self._toggle_case, weight=1)
             self._make_key(controls, "123", self._toggle_symbols, weight=1)
-        self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=4)
+        self._make_key(controls, "Space", lambda: self._insert_text(" "), weight=2)
         self._make_key(controls, "←", self._move_cursor_left, weight=1)
         self._make_key(controls, "→", self._move_cursor_right, weight=1)
-        self._make_key(controls, "Del", self._backspace, weight=2)
+        self._make_key(controls, "Del", self._backspace, weight=1)
 
     def _build_builtin_keypad(self, kb: tk.Toplevel) -> None:
         try:
@@ -792,7 +792,7 @@ class EditableText(Text):
         )
         btn.pack(side="left", fill="both", expand=True, padx=self._scaled(4), ipady=self._scaled(11))
         if weight > 1:
-            btn.configure(width=self._scaled(5 * weight))
+            btn.configure(width=5 * weight)
         return btn
 
     def _screen_scale(self, screen_w: int | None = None, screen_h: int | None = None) -> float:
