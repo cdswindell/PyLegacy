@@ -32,7 +32,7 @@ class EditableText(Text):
     Drop-in replacement for guizero.Text that becomes editable after a press-and-hold.
 
     The displayed widget remains the guizero Text/Label. While editing, a Tk Entry is
-    temporarily placed over the label so existing GuiZero layout code does not need to change.
+    temporarily placed over the label, so the existing GuiZero layout code does not need to change.
     """
 
     def __init__(
@@ -219,7 +219,7 @@ class EditableText(Text):
     # Event handling
     # -------------------------
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _on_press(self, event=None) -> None:
         if self._editing or not self._editable:
             return
@@ -229,19 +229,19 @@ class EditableText(Text):
         self._cancel_hold_timer()
         self._hold_after_id = self.tk.after(int(self.hold_threshold * 1000), self._on_hold)
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _on_release(self, event=None) -> None:
         self._pressed = False
         self._cancel_hold_timer()
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _on_leave(self, event=None) -> None:
         if self._editing or not self.cancel_on_leave:
             return
         self._pressed = False
         self._cancel_hold_timer()
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _on_configure(self, event=None) -> None:
         if self._editing:
             if self.editor == EditorType.CHOICES:
@@ -271,7 +271,7 @@ class EditableText(Text):
         except (AttributeError, TclError):
             pass
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _on_entry_key_release(self, event=None) -> None:
         if self.max_length is None or self._entry is None:
             return
@@ -313,7 +313,7 @@ class EditableText(Text):
             self._entry.bind("<FocusOut>", self._on_entry_focus_out, add="+")
         return self._entry
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _on_entry_focus_out(self, event=None) -> None:
         try:
             self.tk.after(100, self._commit_if_focus_left_editor)
