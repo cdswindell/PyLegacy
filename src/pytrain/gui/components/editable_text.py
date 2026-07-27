@@ -392,8 +392,9 @@ class EditableText(Text):
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
-            picker_w = min(screen_w, 680)
-            picker_h = min(screen_h, 560)
+            scale = self._screen_scale(screen_w, screen_h)
+            picker_w = min(screen_w, self._scaled(680, scale))
+            picker_h = min(screen_h, self._scaled(560, scale))
             x = max(0, (screen_w - picker_w) // 2)
             y = max(0, (screen_h - picker_h) // 2)
             picker.geometry(f"{picker_w}x{picker_h}+{x}+{y}")
@@ -412,14 +413,14 @@ class EditableText(Text):
             picker,
             text=f"Current: {current_label}",
             anchor="w",
-            font=("TkDefaultFont", 20, "bold"),
+            font=("TkDefaultFont", self._scaled(20), "bold"),
             background="#202020",
             foreground="#ffffff",
         )
-        title.pack(fill="x", padx=12, pady=(12, 6))
+        title.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(12), self._scaled(6)))
 
         action_row = tk.Frame(picker, background="#202020")
-        action_row.pack(side="bottom", fill="x", padx=8, pady=(6, 12))
+        action_row.pack(side="bottom", fill="x", padx=self._scaled(8), pady=(self._scaled(6), self._scaled(12)))
         self._make_repeat_key(action_row, "↑", lambda: self._move_choice(-1), weight=1)
         self._make_repeat_key(action_row, "↓", lambda: self._move_choice(1), weight=1)
         self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
@@ -430,12 +431,12 @@ class EditableText(Text):
             picker,
             activestyle="dotbox",
             exportselection=False,
-            font=("TkDefaultFont", 20),
+            font=("TkDefaultFont", self._scaled(20)),
             height=self.choice_rows,
             relief="solid",
             bd=1,
         )
-        self._choice_listbox.pack(fill="both", expand=True, padx=12, pady=6)
+        self._choice_listbox.pack(fill="both", expand=True, padx=self._scaled(12), pady=self._scaled(6))
         self._choice_listbox.bind("<Up>", lambda _event: self._move_choice(-1), add="+")
         self._choice_listbox.bind("<Down>", lambda _event: self._move_choice(1), add="+")
         self._choice_listbox.bind("<Return>", lambda _event: self.commit_edit(), add="+")
@@ -681,8 +682,9 @@ class EditableText(Text):
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
-            kb_w = min(screen_w, 980)
-            kb_h = min(screen_h, 420)
+            scale = self._screen_scale(screen_w, screen_h)
+            kb_w = min(screen_w, self._scaled(980, scale))
+            kb_h = min(screen_h, self._scaled(420, scale))
             x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
             y = max(0, screen_h - kb_h)
             kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
@@ -694,8 +696,9 @@ class EditableText(Text):
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
-            kb_w = min(screen_w, 520)
-            kb_h = min(screen_h, 420)
+            scale = self._screen_scale(screen_w, screen_h)
+            kb_w = min(screen_w, self._scaled(520, scale))
+            kb_h = min(screen_h, self._scaled(420, scale))
             x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
             y = max(0, screen_h - kb_h)
             kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
@@ -710,20 +713,25 @@ class EditableText(Text):
             pass
 
         action_row = tk.Frame(kb, background="#202020")
-        action_row.pack(fill="x", padx=8, pady=(8, 0))
+        action_row.pack(fill="x", padx=self._scaled(8), pady=(self._scaled(8), 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
         self._make_key(action_row, "Save", self.commit_edit, weight=1)
 
         for row_idx, keys in enumerate(self._keyboard_rows()):
             row = tk.Frame(kb, background="#202020")
-            row.pack(fill="both", expand=True, padx=8, pady=(6 if row_idx == 0 else 5, 0))
+            row.pack(
+                fill="both",
+                expand=True,
+                padx=self._scaled(8),
+                pady=(self._scaled(6 if row_idx == 0 else 5), 0),
+            )
             for key in keys:
                 label, value, weight = self._parse_key(key)
                 self._make_key(row, label, lambda v=value: self._on_keyboard_key(v), weight=weight)
 
         controls = tk.Frame(kb, background="#202020")
-        controls.pack(fill="both", expand=True, padx=8, pady=8)
+        controls.pack(fill="both", expand=True, padx=self._scaled(8), pady=self._scaled(8))
         if self._keyboard_mode == "symbols":
             self._make_key(controls, "ABC", lambda: self._set_keyboard_mode("upper"), weight=1)
             self._make_key(controls, "abc", lambda: self._set_keyboard_mode("lower"), weight=1)
@@ -744,26 +752,26 @@ class EditableText(Text):
             pass
 
         action_row = tk.Frame(kb, background="#202020")
-        action_row.pack(fill="x", padx=8, pady=(8, 0))
+        action_row.pack(fill="x", padx=self._scaled(8), pady=(self._scaled(8), 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
         self._make_key(action_row, "Save", self.commit_edit, weight=1)
 
         for keys in (("7", "8", "9"), ("4", "5", "6"), ("1", "2", "3")):
             row = tk.Frame(kb, background="#202020")
-            row.pack(fill="x", padx=8, pady=6)
+            row.pack(fill="both", expand=True, padx=self._scaled(8), pady=self._scaled(6))
             for key in keys:
                 self._make_key(row, key, lambda k=key: self._insert_text(k), weight=1)
 
         controls = tk.Frame(kb, background="#202020")
-        controls.pack(fill="x", padx=8, pady=6)
+        controls.pack(fill="both", expand=True, padx=self._scaled(8), pady=self._scaled(6))
         self._make_key(controls, "←", self._move_cursor_left, weight=1)
         self._make_key(controls, "0", lambda: self._insert_text("0"), weight=1)
         self._make_key(controls, "→", self._move_cursor_right, weight=1)
         self._make_key(controls, "Del", self._backspace, weight=1)
 
-    @staticmethod
     def _make_key(
+        self,
         parent: tk.Frame,
         text: str,
         command: Callable[[], None],
@@ -777,15 +785,34 @@ class EditableText(Text):
             takefocus=False,
             relief="raised",
             bd=2,
-            font=("TkDefaultFont", 18),
+            font=("TkDefaultFont", self._scaled(18)),
             background="#f7f7f7",
             activebackground="#d8d8d8",
             **button_kwargs,
         )
-        btn.pack(side="left", fill="both", expand=True, padx=4, ipady=11)
+        btn.pack(side="left", fill="both", expand=True, padx=self._scaled(4), ipady=self._scaled(11))
         if weight > 1:
-            btn.configure(width=5 * weight)
+            btn.configure(width=self._scaled(5 * weight))
         return btn
+
+    def _screen_scale(self, screen_w: int | None = None, screen_h: int | None = None) -> float:
+        try:
+            if screen_w is None or screen_h is None:
+                top = self.tk.winfo_toplevel()
+                screen_w = int(top.winfo_screenwidth())
+                screen_h = int(top.winfo_screenheight())
+            short_side = min(screen_w, screen_h)
+            long_side = max(screen_w, screen_h)
+            if short_side <= 720 or long_side <= 1280:
+                return 1.0
+            return min(short_side / 720, long_side / 1280)
+        except TclError:
+            return 1.0
+
+    def _scaled(self, value: int, scale: float | None = None) -> int:
+        if scale is None:
+            scale = self._screen_scale()
+        return max(1, int(round(value * scale)))
 
     def _make_repeat_key(self, parent: tk.Frame, text: str, command: Callable[[], None], weight: int = 1) -> None:
         self._make_key(
