@@ -84,7 +84,7 @@ class EditableText(Text):
         self._keyboard_after_id: str | None = None
         self._keyboard_window: tk.Toplevel | None = None
         self._choice_window: tk.Toplevel | None = None
-        self._keyboard_mode = "lower"
+        self._keyboard_mode = "upper"
         self._value_before_edit: Any = ""
         self._display_before_edit = ""
         self._last_committed_value: Any = ""
@@ -629,6 +629,7 @@ class EditableText(Text):
             top = self.tk.winfo_toplevel()
             kb = tk.Toplevel(top)
             self._keyboard_window = kb
+            self._keyboard_mode = "upper"
             kb.transient(top)
             kb.title("Keyboard")
             kb.configure(background="#202020")
@@ -716,13 +717,13 @@ class EditableText(Text):
 
         for row_idx, keys in enumerate(self._keyboard_rows()):
             row = tk.Frame(kb, background="#202020")
-            row.pack(fill="x", padx=8, pady=(6 if row_idx == 0 else 5, 0))
+            row.pack(fill="both", expand=True, padx=8, pady=(6 if row_idx == 0 else 5, 0))
             for key in keys:
                 label, value, weight = self._parse_key(key)
                 self._make_key(row, label, lambda v=value: self._on_keyboard_key(v), weight=weight)
 
         controls = tk.Frame(kb, background="#202020")
-        controls.pack(fill="x", padx=8, pady=8)
+        controls.pack(fill="both", expand=True, padx=8, pady=8)
         if self._keyboard_mode == "symbols":
             self._make_key(controls, "ABC", lambda: self._set_keyboard_mode("upper"), weight=1)
             self._make_key(controls, "abc", lambda: self._set_keyboard_mode("lower"), weight=1)
@@ -825,7 +826,9 @@ class EditableText(Text):
         return key, key, 1
 
     def _on_keyboard_key(self, value: str) -> None:
-        self._insert_text(value)
+        inserted_text = self._insert_text(value)
+        if inserted_text and self._keyboard_mode == "upper" and inserted_text.isupper():
+            self._set_keyboard_mode("lower")
 
     def _toggle_case(self) -> None:
         self._set_keyboard_mode("upper" if self._keyboard_mode == "lower" else "lower")
@@ -838,21 +841,22 @@ class EditableText(Text):
         if self._keyboard_window is not None:
             self._build_builtin_keyboard(self._keyboard_window)
 
-    def _insert_text(self, text: str) -> None:
+    def _insert_text(self, text: str) -> str:
         if self._entry is None:
-            return
+            return ""
         try:
             insert_text = self._text_allowed_for_insert(text)
             if not insert_text:
                 self._entry.focus_set()
-                return
+                return ""
             if self._entry.selection_present():
                 self._entry.delete("sel.first", "sel.last")
             self._entry.insert("insert", insert_text)
             self._on_entry_key_release()
             self._entry.focus_set()
+            return insert_text
         except TclError:
-            pass
+            return ""
 
     def _text_allowed_for_insert(self, text: str) -> str:
         if self._entry is None or self.max_length is None:
