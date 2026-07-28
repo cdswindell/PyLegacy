@@ -67,7 +67,7 @@ class PlaygroundGui(AccessoryBase):
 
         # Pre-resolve action image (momentary)
         self._motion_off_image = find_file(self.config.off_image_for("motion", "off_button.jpg"))
-        self._motion_on_image = find_file(self.config.on_image_for("platform"))
+        self._motion_on_image = find_file(self.config.on_image_for("motion"))
 
         self._motion_label = self.config.label_for("motion")
 
