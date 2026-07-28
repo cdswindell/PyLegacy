@@ -63,7 +63,7 @@ class AccessoryGuiCatalog:
         self.register(GuiCatalogEntry("fire", ".fire_station_gui", "FireStationGui", AccessoryType.FIRE_STATION))
         self.register(GuiCatalogEntry("gas", ".gas_station_gui", "GasStationGui", AccessoryType.GAS_STATION))
         self.register(GuiCatalogEntry("hobby", ".hobby_shop_gui", "HobbyShopGui", AccessoryType.HOBBY_SHOP))
-        self.register(GuiCatalogEntry("hobo", ".playground_gui", "PlaygroundGui", AccessoryType.HOBO_DEPOT))
+        self.register(GuiCatalogEntry("hobo", ".hobo_depot_gui", "HoboDepotGui", AccessoryType.HOBO_DEPOT))
         self.register(GuiCatalogEntry("milk", ".milk_loader_gui", "MilkLoaderGui", AccessoryType.MILK_LOADER))
         self.register(GuiCatalogEntry("playground", ".playground_gui", "PlaygroundGui", AccessoryType.PLAYGROUND))
         self.register(GuiCatalogEntry("uncoupler", ".uncoupler_gui", "UncouplerGui", AccessoryType.UNCOUPLER))
