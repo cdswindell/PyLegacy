@@ -26,11 +26,10 @@ from ..accessory_registry import (
 from ..accessory_type import AccessoryType
 
 """
-Hobby Shop accessory definition (GUI-agnostic).
+Hobo Depot definition (GUI-agnostic).
 
 Ports / operations:
   - power:  latch (on/off)
-  - action: latch (on/off)   (adjust to MOMENTARY_* if your GUI expects momentary)
 
 This file uses the “interpret legacy dicts” pattern: keep the original VARIANTS/TITLES
 data and transform it into VariantSpec entries at registration time.
@@ -42,26 +41,20 @@ data and transform it into VariantSpec entries at registration time.
 
 # legacy-name -> primary image filename
 _VARIANTS: dict[str, str] = {
-    "lionelville hobby shop 6-85294": "Lionelville-Hobby-Shop-6-85294.jpg",
-    "madison hobby shop 6-14133": "Madison-Hobby-Shop-6-14133.jpg",
-    "midtown models hobby shop 6-32998": "Midtown-Models-Hobby-Shop-6-32998.jpg",
+    "hobo depot 6-34191": "Hobo-Depot-6-34191.jpg",
 }
 
 # filename -> display/title
 _TITLES: dict[str, str] = {
-    "Lionelville-Hobby-Shop-6-85294.jpg": "Lionelville Hobby Shop",
-    "Madison-Hobby-Shop-6-14133.jpg": "Madison Hobby Shop",
-    "Midtown-Models-Hobby-Shop-6-32998.jpg": "Midtown Models",
+    "Hobo-Depot-6-34191.jpg": "Hobo Depot",
 }
 
 # optional extra aliases keyed by legacy key (same pattern as milk loader)
 ALIASES: dict[str, set[str]] = {
-    "midtown models hobby shop 6-32998": {"midtown", "midtown models"},
-    "lionelville hobby shop 6-85294": {"lionelville"},
-    "madison hobby shop 6-14133": {"madison"},
+    "hobo depot 6-34191": {"depot"},
 }
 
-DEFAULT_HOBBY_SHOP = "Midtown-Models-Hobby-Shop-6-32998.jpg"
+DEFAULT_ACC = "Hobo-Depot-6-34191.jpg"
 
 
 # -----------------------------------------------------------------------------
@@ -69,7 +62,7 @@ DEFAULT_HOBBY_SHOP = "Midtown-Models-Hobby-Shop-6-32998.jpg"
 # -----------------------------------------------------------------------------
 
 
-def register_hobby_shop(registry: AccessoryRegistry) -> None:
+def register_hobo_depot(registry: AccessoryRegistry) -> None:
     """
     Register Hobby Shop accessory type metadata.
     """
@@ -77,11 +70,6 @@ def register_hobby_shop(registry: AccessoryRegistry) -> None:
         OperationSpec(
             key="power",
             label="Power",
-            behavior=PortBehavior.LATCH,
-        ),
-        OperationSpec(
-            key="action",
-            label="Action",
             behavior=PortBehavior.LATCH,
         ),
     )
@@ -111,17 +99,17 @@ def register_hobby_shop(registry: AccessoryRegistry) -> None:
                 display=title,
                 title=title,
                 image=filename,
-                default=(filename == DEFAULT_HOBBY_SHOP),
+                default=(filename == DEFAULT_ACC),
                 aliases=dedup_preserve_order((*legacy_aliases, *extra_aliases, *extra2)),
             )
         )
 
     spec = AccessoryTypeSpec(
-        type=AccessoryType.HOBBY_SHOP,
-        display_name="Hobby Shop",
+        type=AccessoryType.HOBO_DEPOT,
+        display_name="Hobo Depot",
         operations=operations,
         variants=tuple(variants),
-        op_btn_image="op-hobby-shop.jpg",
+        op_btn_image="op-hobo-depot.jpg",
     )
 
     registry.register(spec)
@@ -131,5 +119,5 @@ if __name__ == "__main__":  # pragma: no cover
     reg = AccessoryRegistry.get()
     reg.reset_for_tests()
 
-    register_hobby_shop(reg)
-    print_registry_entry("hobby_shop")
+    register_hobo_depot(reg)
+    print_registry_entry("hobo_depot")

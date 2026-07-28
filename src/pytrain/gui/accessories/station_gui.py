@@ -93,7 +93,7 @@ class StationGui(AccessoryBase):
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
-    def switch_state(self, state: AccessoryState) -> None:
+    def switch_state(self, state: AccessoryState) -> bool:
         with self._cv:
             self.toggle_latch(state)
             self.after_state_change(None, state)

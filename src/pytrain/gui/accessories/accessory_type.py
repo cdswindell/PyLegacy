@@ -51,6 +51,7 @@ class AccessoryType(Mixins):
     GAS_STATION = "gas_station"
     HOBBY_SHOP = "hobby_shop"
     MILK_LOADER = "milk_loader"
+    HOBO_DEPOT = "hobo_depot"
     PLAYGROUND = "playground"
     SMOKE_FLUID_LOADER = "smoke_fluid_loader"
     STATION = "station"

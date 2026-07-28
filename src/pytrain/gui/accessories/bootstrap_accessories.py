@@ -38,6 +38,7 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
         (".defs.freight_depot_defs", "register_freight_depot"),
         (".defs.gas_station_defs", "register_gas_station"),
         (".defs.hobby_shop_defs", "register_hobby_shop"),
+        (".defs.hobo_depot_defs", "register_hobo_depot"),
         (".defs.milk_loader_defs", "register_milk_loader"),
         (".defs.playground_defs", "register_playground"),
         (".defs.smoke_fluid_loader_defs", "register_smoke_fluid_loader"),

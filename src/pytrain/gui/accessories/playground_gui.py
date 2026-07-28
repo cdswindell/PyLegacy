@@ -6,12 +6,11 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+from tkinter import Widget
 
-from typing import cast
+from guizero import Box, PushButton
 
-from guizero import Box
-
-from .accessory_base import AccessoryBase, AnimatedButton, S
+from .accessory_base import AccessoryBase, S
 from .accessory_gui import AccessoryGui
 from .accessory_type import AccessoryType
 from ...db.accessory_state import AccessoryState
@@ -41,13 +40,14 @@ class PlaygroundGui(AccessoryBase):
         # identify the accessory
         self._motion = motion
         self._variant = variant
+        self._motion_on_image = None
+        self._motion_off_image = None
         self._motion_button = None
         self._motion_state = None
 
         # Main title + image + eject image (resolved in bind_variant)
         self._title: str | None = None
         self._image: str | None = None
-        self._motion_image: str | None = None
         self._motion_label: str | None = None
 
         super().__init__(self._title, self._image, aggregator=aggregator)
@@ -66,7 +66,9 @@ class PlaygroundGui(AccessoryBase):
         )
 
         # Pre-resolve action image (momentary)
-        self._motion_image = find_file(self.config.image_for("motion"))
+        self._motion_off_image = find_file(self.config.off_image_for("motion", "off_button.jpg"))
+        self._motion_on_image = find_file(self.config.on_image_for("platform"))
+
         self._motion_label = self.config.label_for("motion")
 
     def get_target_states(self) -> list[S]:
@@ -76,21 +78,51 @@ class PlaygroundGui(AccessoryBase):
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
-    def switch_state(self, state: AccessoryState) -> None:
-        pass
+    def switch_state(self, state: AccessoryState) -> bool:
+        with self._cv:
+            self.toggle_latch(state)
+            self.after_state_change(None, state)
+
+    def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
+        # Updates platform button based on platform state
+        if state == self._motion_state:
+            if self.is_active(self._motion_state):
+                self.set_button_inactive(self._motion_button)
+            else:
+                self.set_button_active(self._motion_button)
 
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
         motion_label = self.config.label_for("motion")
         max_text_len = len(motion_label) + 2
 
-        self._motion_button = self.make_push_button(
+        self._motion_button = self.make_power_button(
+            self._motion_state,
+            self._motion_label,
+            1,
+            max_text_len,
             box,
-            state=self._motion_state,
-            label=motion_label,
-            col=1,
-            text_len=max_text_len,
-            image=self._motion_image,
-            button_cls=AnimatedButton,
+            turn_on_image=self._motion_on_image,
+            turn_off_image=self._motion_off_image,
+            # command=self.when_platform_button_pressed,
         )
-        cast(AnimatedButton, self._motion_button).stop_animation()
+
+    # noinspection PyTypeChecker
+    def set_button_inactive(self, widget: Widget | set[Widget] | None = None):
+        if widget is None:
+            return
+        elif widget == self._motion_button:
+            self._motion_button.image = self._motion_on_image
+            self._motion_button.height = self._motion_button.width = self.s_acc
+        else:
+            super().set_button_inactive(widget)
+
+    # noinspection PyTypeChecker
+    def set_button_active(self, widget: Widget | set[Widget] | None = None):
+        if widget is None:
+            return
+        elif widget == self._motion_button:
+            self._motion_button.image = self._motion_off_image
+            self._motion_button.height = self._motion_button.width = self.s_acc
+        else:
+            super().set_button_active(widget)

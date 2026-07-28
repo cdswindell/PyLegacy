@@ -13,6 +13,8 @@
       <w>accs</w>
       <w>activebackground</w>
       <w>addrs</w>
+      <w>adolph</w>
+      <w>altoona</w>
       <w>appendleft</w>
       <w>atexit</w>
       <w>autoremove</w>
@@ -25,6 +27,7 @@
       <w>caap</w>
       <w>chksum</w>
       <w>citgo</w>
+      <w>coors</w>
       <w>cplr</w>
       <w>ctors</w>
       <w>cupsd</w>
@@ -69,6 +72,7 @@
       <w>lpgl</w>
       <w>mailcap</w>
       <w>maxlen</w>
+      <w>middletown</w>
       <w>mobintl</w>
       <w>modemmanager</w>
       <w>mome</w>
@@ -82,7 +86,9 @@
       <w>padx</w>
       <w>pady</w>
       <w>pendings</w>
+      <w>pennsylvania</w>
       <w>piconfig</w>
+      <w>pittsburgh</w>
       <w>pmid</w>
       <w>powermaster</w>
       <w>precreate</w>

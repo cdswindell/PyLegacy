@@ -77,7 +77,7 @@ class ConstructionGui(AccessoryBase):
     def is_active(self, state: AccessoryState) -> bool:
         return state.is_aux_on
 
-    def switch_state(self, state: AccessoryState) -> None:
+    def switch_state(self, state: AccessoryState) -> bool:
         pass
 
     def build_accessory_controls(self, box: Box) -> None:
@@ -96,18 +96,18 @@ class ConstructionGui(AccessoryBase):
         )
         cast(AnimatedButton, self._action_button).stop_animation()
 
-    def set_button_active(self, button: AnimatedButton | set[Widget] | None = None) -> None:
+    def set_button_active(self, widget: Widget | set[Widget] | None = None) -> Widget:
         with self._cv:
-            if button == self._action_button:
-                button.start_animation()
+            if widget == self._action_button:
+                widget.start_animation()
             else:
-                super().set_button_active(button)
+                super().set_button_active(widget)
 
-    def set_button_inactive(self, button: AnimatedButton | set[Widget] | None = None) -> None:
+    def set_button_inactive(self, widget: Widget | set[Widget] | None = None) -> Widget:
         with self._cv:
-            if button == self._action_button:
-                button.image = self._action_image
-                button.height = button.width = self.s_acc
-                button.stop_animation()
+            if widget == self._action_button:
+                widget.image = self._action_image
+                widget.height = widget.width = self.s_acc
+                widget.stop_animation()
             else:
-                super().set_button_inactive(button)
+                super().set_button_inactive(widget)

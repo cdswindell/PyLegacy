@@ -890,6 +890,7 @@ def _catalog_entries(catalog: AccessoryGuiCatalog) -> list[Any]:
     for attr in ("entries", "all_entries", "list_entries"):
         fn = getattr(catalog, attr, None)
         if callable(fn):
+            # noinspection calling-non-callable
             v = fn()
             if isinstance(v, dict):
                 return list(v.values())

@@ -29,7 +29,7 @@ from ..accessory_type import AccessoryType
 Playground accessory definition (GUI-agnostic).
 
 Ports / operations:
-  - motion: momentary_hold (press/release)
+  - motion: latch (on/off)
 
 Per-variant overrides:
   - motion image comes from _MOTION_IMAGE[variant_image]
@@ -76,8 +76,9 @@ def register_playground(registry: AccessoryRegistry) -> None:
         OperationSpec(
             key="motion",
             label="Action",
-            behavior=PortBehavior.MOMENTARY_HOLD,
-            image="motion.gif",  # default (overridden per-variant)
+            behavior=PortBehavior.LATCH,
+            off_image="off_button.jpg",
+            on_image="on_button.jpg",
             width=72,
             height=72,
         ),
@@ -96,7 +97,7 @@ def register_playground(registry: AccessoryRegistry) -> None:
         base_no_ext = filename.rsplit(".", 1)[0]
         extra_aliases = (title.lower(), base_no_ext.lower())
 
-        op_images = {"motion": motion_image} if motion_image else None
+        op_images = {"motion": {"on": motion_image}} if motion_image else None
         op_labels = {"motion": motion_label} if motion_label else None
 
         variants.append(
