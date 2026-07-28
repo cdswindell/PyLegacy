@@ -22,7 +22,7 @@ class HoboDepotGui(AccessoryBase):
 
     def __init__(
         self,
-        motion: int,
+        power: int,
         variant: str = None,
         *,
         aggregator: AccessoryGui = None,
@@ -30,7 +30,7 @@ class HoboDepotGui(AccessoryBase):
         """
         Create a GUI to control Lionel Plug n Play Hobo Depot Accessories.
 
-        :param int motion:
+        :param int power:
             TMCC ID of the ACS2 port used for power.
 
         :param str variant:
@@ -38,7 +38,7 @@ class HoboDepotGui(AccessoryBase):
         """
 
         # identify the accessory
-        self._motion = motion
+        self._power = power
         self._variant = variant
         self._power_on_image = None
         self._power_off_image = None
@@ -62,7 +62,7 @@ class HoboDepotGui(AccessoryBase):
         self.configure_from_registry(
             self.ACCESSORY_TYPE,
             self._variant,
-            tmcc_ids={"power": self._motion},
+            tmcc_ids={"power": self._power},
         )
 
         # Pre-resolve action image (momentary)
