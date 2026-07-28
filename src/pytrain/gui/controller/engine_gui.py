@@ -1224,14 +1224,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.scope = scope
                 # if scoped TMCC_ID is 0, take the first item on the recents queue
                 if self._scope_tmcc_ids[scope] == 0:
-                    self.display_most_recent(scope)
+                    if not held:
+                        self.display_most_recent(scope)
             else:
                 # if the pressed scope button is the same as the current scope,
                 # return to entry mode or pop an element from the recents queue,
                 # based on whether the current scope TMCC_ID is 0 or not
                 if self._scope_tmcc_ids[scope] == 0:
-                    if not held:
-                        self.display_most_recent(scope)
+                    self.display_most_recent(scope)
                 else:
                     if not held:
                         # pressing the same scope button again returns to entry mode with current
