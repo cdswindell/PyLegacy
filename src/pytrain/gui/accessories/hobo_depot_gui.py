@@ -67,7 +67,7 @@ class HoboDepotGui(AccessoryBase):
 
         # Pre-resolve action image (momentary)
         self._power_off_image = find_file(self.config.off_image_for("power", "off_button.jpg"))
-        self._power_on_image = find_file(self.config.on_image_for("power"))
+        self._power_on_image = find_file(self.config.on_image_for("power", "on_button.jpg"))
 
         self._power_label = self.config.label_for("power")
 
