@@ -369,6 +369,7 @@ class ImagePresenter:
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
+            print("***** Image updated")
             host.image_box.show()
 
     def refresh_box_size(self) -> tuple[int, int] | None:
