@@ -1202,6 +1202,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._catalog_panel.overlay
         self._catalog_panel.configure(pb.scope)  # only call *after* overlay is created
         overlay.title.value = self._catalog_panel.title
+        print("********** on_scope_hold")
         self.show_popup(overlay, hide_image_box=True)
 
     # noinspection PyTypeChecker
@@ -1224,8 +1225,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.scope = scope
                 # if scoped TMCC_ID is 0, take the first item on the recents queue
                 if self._scope_tmcc_ids[scope] == 0:
-                    if not held:
-                        self.display_most_recent(scope)
+                    self.display_most_recent(scope)
             else:
                 # if the pressed scope button is the same as the current scope,
                 # return to entry mode or pop an element from the recents queue,
