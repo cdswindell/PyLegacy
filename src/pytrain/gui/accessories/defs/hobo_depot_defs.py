@@ -29,7 +29,7 @@ from ..accessory_type import AccessoryType
 Hobo Depot definition (GUI-agnostic).
 
 Ports / operations:
-  - power:  latch (on/off)
+  - motion:  latch (on/off)
 
 This file uses the “interpret legacy dicts” pattern: keep the original VARIANTS/TITLES
 data and transform it into VariantSpec entries at registration time.
@@ -68,7 +68,7 @@ def register_hobo_depot(registry: AccessoryRegistry) -> None:
     """
     operations = (
         OperationSpec(
-            key="power",
+            key="motion",
             label="Power",
             behavior=PortBehavior.LATCH,
         ),
