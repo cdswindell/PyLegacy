@@ -439,6 +439,7 @@ class PopupManager:
 
             if self._state.restore_image_box and host.image_box:
                 if not host.image_box.visible:
+                    print(f"********** CLOSE POPUP _hide_image_box: {host.image_box.visible}")
                     host.image_box.show()
             self._state.restore_image_box = False
 
