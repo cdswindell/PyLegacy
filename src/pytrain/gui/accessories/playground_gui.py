@@ -104,7 +104,6 @@ class PlaygroundGui(AccessoryBase):
             box,
             turn_on_image=self._motion_on_image,
             turn_off_image=self._motion_off_image,
-            # command=self.when_platform_button_pressed,
         )
 
     # noinspection PyTypeChecker
@@ -112,7 +111,7 @@ class PlaygroundGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self._motion_button:
-            self._motion_button.image = self._motion_on_image
+            self._motion_button.image = self._motion_off_image
             self._motion_button.height = self._motion_button.width = self.s_acc
         else:
             super().set_button_inactive(widget)
@@ -122,7 +121,7 @@ class PlaygroundGui(AccessoryBase):
         if widget is None:
             return
         elif widget == self._motion_button:
-            self._motion_button.image = self._motion_off_image
+            self._motion_button.image = self._motion_on_image
             self._motion_button.height = self._motion_button.width = self.s_acc
         else:
             super().set_button_active(widget)
