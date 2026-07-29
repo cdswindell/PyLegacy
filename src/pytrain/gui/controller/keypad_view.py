@@ -652,6 +652,7 @@ class KeypadView(Generic[S]):
         host = self._host
         self._entry_mode = True
         if clear_info:
+            print("*** entry_mode calling update_component_info")
             host.update_component_info(0)
         else:
             self._reset_on_keystroke = True
