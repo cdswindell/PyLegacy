@@ -115,16 +115,17 @@ class FireStationGui(AccessoryBase):
         # Robust initial gating
         self.after_state_change(None, self.power_state)
 
-    def set_button_active(self, button: PushButton | set[Widget] | None = None) -> None:
+    def set_button_active(self, widget: Widget | set[Widget] | None = None) -> Widget:
         with self._cv:
-            if button == self.alarm_button:
+            if widget == self.alarm_button:
                 if self.is_active(self.power_state):
                     # Switch to animated GIF
                     self.alarm_button.image = self.alarm_on_image
                     self.alarm_button.height = self.alarm_button.width = self.s_acc
                     self.app.after(5000, self.deactivate_alarm)
+                return widget
             else:
-                super().set_button_active(button)
+                return super().set_button_active(widget)
 
     def deactivate_alarm(self) -> None:
         with self._cv:
