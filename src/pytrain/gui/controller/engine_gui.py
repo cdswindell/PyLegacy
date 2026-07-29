@@ -1262,8 +1262,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
             self.scope_box.show()
-            print("*** scope keypad...")
-            self._keypad_view.scope_keypad(force_entry_mode, clear_info)
+            if not held:
+                print("*** scope keypad...")
+                self._keypad_view.scope_keypad(force_entry_mode, clear_info)
         finally:
             self._end_transition()
         print("*** exiting on_scope done...")
