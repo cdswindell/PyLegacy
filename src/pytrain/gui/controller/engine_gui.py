@@ -1250,10 +1250,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
                                 self.acc_overlay.hide()
             # update display
             self._popup.close()
-            self.update_component_info()
-            if held and self.image_box and self.image_box.visible:
-                print("*** Hiding image box...")
-                self.image_box.hide()
+            if held:
+                if self.image_box and self.image_box.visible:
+                    print("*** Hiding image box (on scope)...")
+                    self.image_box.hide()
+            else:
+                print("*** on_scope: Updating component info...")
+                self.update_component_info()
             # force entry mode if scoped tmcc_id is 0
             if self._scope_tmcc_ids[scope] == 0 or self.active_state is None:
                 force_entry_mode = True
@@ -1262,9 +1265,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
             self.scope_box.show()
-            if not held:
-                print("*** scope keypad...")
-                self._keypad_view.scope_keypad(force_entry_mode, clear_info)
+            print("*** scope keypad...")
+            self._keypad_view.scope_keypad(force_entry_mode, clear_info)
         finally:
             self._end_transition()
         print("*** exiting on_scope done...")
