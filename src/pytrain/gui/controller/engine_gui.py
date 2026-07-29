@@ -1194,6 +1194,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
+        print(f"*** entering on_scope_hold {pb.scope}...")
         self.on_scope(pb.scope, held=True)
         with self._cv:
             if self._catalog_panel is None:
@@ -1212,6 +1213,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
         self._begin_transition()
         try:
+            print(f"*** entering on_scope {scope}...")
             self.scope_box.hide()
             force_entry_mode = False
             clear_info = True
