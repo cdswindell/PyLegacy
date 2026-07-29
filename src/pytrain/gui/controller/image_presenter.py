@@ -196,6 +196,7 @@ class ImagePresenter:
         | None = None,
     ) -> None:
         host = self._host
+        print(f"*** entering update {host.scope} {tmcc_id} {key}...")
 
         if key is None and host.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
@@ -266,6 +267,7 @@ class ImagePresenter:
 
                 if prod_info is None:
                     img = host.get_image(self.loading_image, inverse=False, scale=False, force_lionel=True)
+                    print("*** prod info none, calling _update_image...")
                     self._update_image(img, scope, tmcc_id, box_size)
                     return
 
@@ -351,6 +353,7 @@ class ImagePresenter:
             self.clear()
 
         # noinspection PyTypeChecker
+        print("*** exiting update, calling _update_image...")
         self._update_image(img, scope, tmcc_id, box_size)
 
     def _update_image(
