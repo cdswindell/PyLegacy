@@ -1246,6 +1246,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._popup.close()
             self.update_component_info()
             if held and self.image_box and self.image_box.visible:
+                print("*** Hiding image box...")
                 self.image_box.hide()
             # force entry mode if scoped tmcc_id is 0
             if self._scope_tmcc_ids[scope] == 0 or self.active_state is None:
