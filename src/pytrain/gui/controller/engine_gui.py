@@ -1200,9 +1200,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self, width=self.emergency_box_width, height=int(3 * self.height / 4)
                 )
         overlay = self._catalog_panel.overlay
+        print("*** catalog panel created...")
         self._catalog_panel.configure(pb.scope)  # only call *after* overlay is created
         overlay.title.value = self._catalog_panel.title
+        print("*** showing popup...")
         self.show_popup(overlay, hide_image_box=True)
+        print("*** exiting on_scope_hold done...")
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
@@ -1260,6 +1263,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._keypad_view.scope_keypad(force_entry_mode, clear_info)
         finally:
             self._end_transition()
+        print("*** exiting on_scope done...")
 
     def display_most_recent(self, scope: CommandScope) -> None:
         """
