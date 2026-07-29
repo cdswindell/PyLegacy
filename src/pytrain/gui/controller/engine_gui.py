@@ -641,6 +641,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             overlay.show()
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
+        print(f"*** creating accessory view for {acc.name}...")
         assert acc
         self._acc_buttons_future.result()  # make sure accessory buttons are loaded
         tmcc_id = self._scope_tmcc_ids[self.scope]
