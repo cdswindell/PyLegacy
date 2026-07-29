@@ -197,7 +197,6 @@ class ImagePresenter:
         | None = None,
     ) -> None:
         host = self._host
-        print(f"*** entering update {host.scope} {tmcc_id} {key}...")
 
         if key is None and host.scope in {CommandScope.SWITCH, CommandScope.ROUTE}:
             # routes and switches don't use images
@@ -258,7 +257,6 @@ class ImagePresenter:
                 if log.isEnabledFor(logging.DEBUG):
                     bt_id = state.bt_id if state else "NA"
                     log.debug(f"Requested product info for {scope.title} TMCC ID: {tmcc_id}  bt: {bt_id}...")
-                print(f"*** Requested product info for {scope.title} TMCC ID: {tmcc_id}...")
                 prod_info = host.get_prod_info(
                     state.bt_id if state else None,
                     self._make_prod_info_callback(tmcc_id, train_id),
@@ -269,7 +267,6 @@ class ImagePresenter:
 
                 if prod_info is None:
                     img = host.get_image(self.loading_image, inverse=False, scale=False, force_lionel=True)
-                    print("*** prod info none, calling _update_image...")
                     self._update_image(img, scope, tmcc_id, box_size)
                     return
 
@@ -355,7 +352,6 @@ class ImagePresenter:
             self.clear()
 
         # noinspection PyTypeChecker
-        print("*** exiting update, calling _update_image...")
         self._update_image(img, scope, tmcc_id, box_size)
 
     def _update_image(
@@ -374,7 +370,6 @@ class ImagePresenter:
             available_height, available_width = box_size
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
-            print("*** Showing image box... _update_image")
             host.image_box.show()
 
     def refresh_box_size(self) -> tuple[int, int] | None:

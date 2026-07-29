@@ -641,7 +641,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
             overlay.show()
 
     def _create_accessory_view(self, acc: ConfiguredAccessoryAdapter) -> Box:
-        print(f"*** creating accessory view for {acc.name}...")
         assert acc
         self._acc_buttons_future.result()  # make sure accessory buttons are loaded
         tmcc_id = self._scope_tmcc_ids[self.scope]
@@ -1194,7 +1193,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
-        print(f"*** entering on_scope_hold {pb.scope}...")
         self.on_scope(pb.scope, held=True)
         with self._cv:
             if self._catalog_panel is None:
@@ -1202,18 +1200,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self, width=self.emergency_box_width, height=int(3 * self.height / 4)
                 )
         overlay = self._catalog_panel.overlay
-        print("*** catalog panel created...")
         self._catalog_panel.configure(pb.scope)  # only call *after* overlay is created
         overlay.title.value = self._catalog_panel.title
-        print("*** showing popup...")
         self.show_popup(overlay, hide_image_box=True)
-        print("*** exiting on_scope_hold done...")
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
         self._begin_transition()
         try:
-            print(f"*** entering on_scope {scope}...")
             self.scope_box.hide()
             force_entry_mode = False
             clear_info = True
@@ -1251,21 +1245,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # update display
             self._popup.close()
             if not held:
-                print("*** on_scope: Updating component info...")
                 self.update_component_info()
             # force entry mode if scoped tmcc_id is 0
             if self._scope_tmcc_ids[scope] == 0 or self.active_state is None:
                 force_entry_mode = True
-            print("*** request optin rebuild...")
             self._request_options_rebuild()
             num_chars = 4 if self.scope in {CommandScope.ENGINE, CommandScope.TRAIN} else 2
             self.tmcc_id_text.value = f"{self._scope_tmcc_ids[scope]:0{num_chars}d}"
             self.scope_box.show()
-            print("*** scope keypad...")
             self._keypad_view.scope_keypad(force_entry_mode, clear_info)
         finally:
             self._end_transition()
-        print("*** exiting on_scope done...")
 
     def display_most_recent(self, scope: CommandScope) -> None:
         """

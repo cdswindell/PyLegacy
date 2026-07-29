@@ -405,7 +405,6 @@ class PopupManager:
                     self._state.current_popup = None
                     # restore image box
                 if self._state.restore_image_box and host.image_box and not host.image_box.visible:
-                    print("*** Showing image box... popup.show")
                     host.image_box.show()
                 self._state.restore_image_box = False
                 # restore content box
@@ -440,7 +439,6 @@ class PopupManager:
 
             if self._state.restore_image_box and host.image_box:
                 if not host.image_box.visible:
-                    print("*** Showing image box... popup.close")
                     host.image_box.show()
             self._state.restore_image_box = False
 
