@@ -1202,7 +1202,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._catalog_panel.overlay
         self._catalog_panel.configure(pb.scope)  # only call *after* overlay is created
         overlay.title.value = self._catalog_panel.title
-        print("********** on_scope_hold")
         self.show_popup(overlay, hide_image_box=True)
 
     # noinspection PyTypeChecker
@@ -1246,6 +1245,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # update display
             self._popup.close()
             self.update_component_info()
+            if held and self.image_box and self.image_box.visible:
+                self.image_box.hide()
             # force entry mode if scoped tmcc_id is 0
             if self._scope_tmcc_ids[scope] == 0 or self.active_state is None:
                 force_entry_mode = True

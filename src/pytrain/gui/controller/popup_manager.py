@@ -439,7 +439,6 @@ class PopupManager:
 
             if self._state.restore_image_box and host.image_box:
                 if not host.image_box.visible:
-                    print(f"********** CLOSE POPUP _hide_image_box: {host.image_box.visible}")
                     host.image_box.show()
             self._state.restore_image_box = False
 
@@ -462,7 +461,6 @@ class PopupManager:
     def _hide_image_box(self, hide_image_box: bool, host: EngineGui):
         # Hide image box if requested
         self._state.restore_image_box = False
-        print(f"********** _hide_image_box: {hide_image_box} {host.image_box.visible if host.image_box else 'NA'}")
         if hide_image_box and host.image_box and host.image_box.visible:
             host.image_box.hide()
             self._state.restore_image_box = True
