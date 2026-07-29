@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -374,6 +375,7 @@ class ImagePresenter:
             host.image_box.tk.config(width=available_width, height=available_height)
             host.image.tk.config(image=img)
             print("*** Showing image box... _update_image")
+            print("".join(traceback.format_stack()))
             host.image_box.show()
 
     def refresh_box_size(self) -> tuple[int, int] | None:
