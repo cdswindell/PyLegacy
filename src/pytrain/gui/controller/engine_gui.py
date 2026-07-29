@@ -1250,11 +1250,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                                 self.acc_overlay.hide()
             # update display
             self._popup.close()
-            if held:
-                if self.image_box and self.image_box.visible:
-                    print("*** Hiding image box (on scope)...")
-                    self.image_box.hide()
-            else:
+            if not held:
                 print("*** on_scope: Updating component info...")
                 self.update_component_info()
             # force entry mode if scoped tmcc_id is 0
