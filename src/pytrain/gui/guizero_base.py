@@ -489,6 +489,7 @@ class GuiZeroBase(Thread, ABC):
         tk_scaling = os.getenv("PYTRAIN_TK_SCALING")
         if tk_scaling:
             app.tk.call("tk", "scaling", float(tk_scaling))
+            log.info(f"Setting Tk scaling to {tk_scaling}, DPI: {app.tk.winfo_fpixels('1i')}")
         app.full_screen = self._full_screen
         if not self._full_screen:
             app.tk.geometry(f"{self.width}x{self.height}+{self._x_offset}+{self._y_offset}")
