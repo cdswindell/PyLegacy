@@ -132,6 +132,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         auto_scroll: bool = True,
         enable_editing: bool = True,
         config_file: str = DEFAULT_CONFIG_FILE,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         # have to call parent init after all variables are set up
         GuiZeroBase.__init__(
@@ -146,6 +149,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             active_bg=active_bg,
             inactive_bg=inactive_bg,
             scale_by=scale_by,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
         )
         # preload common images
         self._engine_buttons_future = self._executor.submit(preload_engine_button_image_paths)

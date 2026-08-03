@@ -486,6 +486,9 @@ class GuiZeroBase(Thread, ABC):
         self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
         self._app = app = App(title=self.title, width=self.width, height=self.height)
+        tk_scaling = os.getenv("PYTRAIN_TK_SCALING")
+        if tk_scaling:
+            app.tk.call("tk", "scaling", float(tk_scaling))
         app.full_screen = self._full_screen
         if not self._full_screen:
             app.tk.geometry(f"{self.width}x{self.height}+{self._x_offset}+{self._y_offset}")
