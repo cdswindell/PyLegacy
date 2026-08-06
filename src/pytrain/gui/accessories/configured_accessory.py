@@ -476,7 +476,7 @@ class ConfiguredAccessorySet:
         return inst
 
     @staticmethod
-    def _resolve_config_path(path: str | Path | None) -> Path:
+    def resolve_config_path(path: str | Path | None) -> Path:
         requested = Path(DEFAULT_CONFIG_FILE if path is None else path)
 
         # Explicit paths stay explicit. Bare filenames use the PyTrain config
@@ -504,7 +504,7 @@ class ConfiguredAccessorySet:
     ) -> None:
         self._registry.bootstrap()
 
-        self._path = self._resolve_config_path(path)
+        self._path = self.resolve_config_path(path)
 
         # Missing file → valid empty state
         if not self._path.exists():

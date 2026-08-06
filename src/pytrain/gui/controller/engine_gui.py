@@ -10,9 +10,11 @@
 from __future__ import annotations
 
 import logging
+import time
 import tkinter as tk
 from collections import deque
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, Text, TitleBox
@@ -80,6 +82,7 @@ from ...utils.unique_deque import UniqueDeque
 
 log = logging.getLogger(__name__)
 S = TypeVar("S", bound=ComponentState)
+AccessoryConfigSignature = tuple[str, bool, int | None, int | None]
 
 
 TURN_ON_IMAGE = "on_button.jpg"
@@ -288,6 +291,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._accessory_overlay_prewarm_queue = deque()
         self._accessory_overlay_prewarm_active = False
         self._accessory_overlay_prewarm_generation = 0
+        self._accessory_config_poll_interval = 1.0
+        self._accessory_config_debounce = 0.5
+        self._accessory_config_watcher_future = None
+        self._accessory_config_last_signature = self._accessory_config_signature(self.accessories.path)
+        self._accessory_config_pending_signature: AccessoryConfigSignature | None = None
+        self._accessory_config_pending_since: float | None = None
 
         # tell parent we've set up variables and are ready to proceed
         self.init_complete()
@@ -518,11 +527,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         for image in (self.power_on_path, self.power_off_path, self.turn_off_image, self.op_acc_image):
             self.app.tk.after_idle(lambda img=image: self.get_titled_image(img))
         self.app.tk.after(750, self._start_accessory_overlay_prewarm)
+        self._start_accessory_config_watcher()
 
         # register this class to receive delete events
         PdiDispatcher.get().subscribe_delete(self)
 
     def destroy_gui(self) -> None:
+        self._stop_accessory_config_watcher()
         if PdiDispatcher.is_built():
             PdiDispatcher.get().unsubscribe_delete(self)
         self.clear_cache()
@@ -704,15 +715,98 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """
         Reread accessory_config.json and rebuild all configured accessory GUI state.
         """
+        configured = self._load_configured_accessories()
+        if configured is None:
+            return False
+
+        self._apply_configured_accessories(configured)
+        return True
+
+    def _load_configured_accessories(self) -> ConfiguredAccessorySet | None:
+        try:
+            return ConfiguredAccessorySet.from_file(self._accessory_config_file, verify=True)
+        except Exception as e:
+            log.exception("Unable to reload configured accessories", exc_info=e)
+            return None
+
+    @staticmethod
+    def _accessory_config_signature(path: str | Path | None) -> AccessoryConfigSignature:
+        if path is None:
+            return "", False, None, None
+
+        path = Path(path)
+        resolved_path = str(path.expanduser().resolve(strict=False))
+        try:
+            stat = path.stat()
+        except OSError:
+            return resolved_path, False, None, None
+        return resolved_path, True, stat.st_mtime_ns, stat.st_size
+
+    def _watch_accessory_config_changes(self) -> None:
+        while not self._shutdown_flag.is_set():
+            try:
+                self._check_accessory_config_change()
+            except Exception as e:
+                log.exception("Accessory config watcher failed while checking for changes", exc_info=e)
+            self._shutdown_flag.wait(self._accessory_config_poll_interval)
+
+    def _start_accessory_config_watcher(self) -> None:
+        if self._shutdown_flag.is_set():
+            return
+        if self._accessory_config_watcher_future is not None:
+            return
+        self._accessory_config_last_signature = self._accessory_config_signature(self.accessories.path)
+        self._accessory_config_watcher_future = self._executor.submit(self._watch_accessory_config_changes)
+
+    def _stop_accessory_config_watcher(self) -> None:
+        future = self._accessory_config_watcher_future
+        self._accessory_config_watcher_future = None
+        if future is not None:
+            future.cancel()
+
+    def _check_accessory_config_change(self) -> None:
+        watched_path = ConfiguredAccessorySet.resolve_config_path(self._accessory_config_file)
+        signature = self._accessory_config_signature(watched_path)
+        if signature == self._accessory_config_last_signature:
+            self._accessory_config_pending_signature = None
+            self._accessory_config_pending_since = None
+            return
+
+        now = time.monotonic()
+        if signature != self._accessory_config_pending_signature:
+            self._accessory_config_pending_signature = signature
+            self._accessory_config_pending_since = now
+            return
+
+        pending_since = self._accessory_config_pending_since
+        if pending_since is None or now - pending_since < self._accessory_config_debounce:
+            return
+
+        configured = self._load_configured_accessories()
+        if configured is None:
+            self._accessory_config_pending_signature = None
+            self._accessory_config_pending_since = None
+            return
+
+        self._schedule_configured_accessory_apply(configured)
+        self._accessory_config_pending_signature = None
+        self._accessory_config_pending_since = None
+
+    def _schedule_configured_accessory_apply(self, configured: ConfiguredAccessorySet) -> None:
+        if self._shutdown_flag.is_set():
+            return
+        self.app.tk.after(0, lambda: self._apply_changed_configured_accessories(configured))
+
+    def _apply_changed_configured_accessories(self, configured: ConfiguredAccessorySet) -> None:
+        if self._shutdown_flag.is_set():
+            return
+        self._apply_configured_accessories(configured)
+        self._accessory_config_last_signature = self._accessory_config_signature(configured.path)
+
+    def _apply_configured_accessories(self, configured: ConfiguredAccessorySet) -> None:
         old_overlay_keys = self._configured_accessory_overlay_keys()
         old_configured_tmcc_ids = self._configured_accessory_tmcc_ids(self.accessories)
         had_active_accessory_overlay = self._acc_overlay is not None
-
-        try:
-            configured = ConfiguredAccessorySet.from_file(self._accessory_config_file, verify=True)
-        except Exception as e:
-            log.exception("Unable to reload configured accessories", exc_info=e)
-            return False
 
         with self._cv:
             self._caa = configured
@@ -732,7 +826,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self._restart_accessory_overlay_prewarm()
 
         log.info("Reloaded %d configured accessories from %s", len(configured.configured_all()), configured.path)
-        return True
+        self._accessory_config_last_signature = self._accessory_config_signature(configured.path)
 
     def _configured_accessory_overlay_keys(self) -> set[str]:
         keys: set[str] = set()

@@ -418,3 +418,83 @@ def test_reload_configured_accessories_failure_leaves_existing_caches(
     assert gui._popup.forgot == []
     assert gui._popup.discard_calls == 0
     assert gui.app.tk.after_calls == []
+
+
+def test_accessory_config_signature_tracks_file_changes(tmp_path) -> None:
+    config_path = tmp_path / "accessory_config.json"
+    missing_signature = mod.EngineGui._accessory_config_signature(config_path)
+
+    config_path.write_text('{"accessories": []}', encoding="utf-8")
+    existing_signature = mod.EngineGui._accessory_config_signature(config_path)
+
+    config_path.write_text('{"accessories": [], "changed": true}', encoding="utf-8")
+    changed_signature = mod.EngineGui._accessory_config_signature(config_path)
+
+    assert missing_signature[1:] == (False, None, None)
+    assert existing_signature[1] is True
+    assert changed_signature != existing_signature
+
+
+def test_accessory_config_change_debounces_and_schedules_apply(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    config_path = tmp_path / "accessory_config.json"
+    config_path.write_text('{"accessories": []}', encoding="utf-8")
+    gui = _new_reload_engine()
+    gui._accessory_config_last_signature = mod.EngineGui._accessory_config_signature(config_path)
+    gui._accessory_config_pending_signature = None
+    gui._accessory_config_pending_since = None
+    gui._accessory_config_debounce = 0
+    new_config = DummyConfiguredSet("new_a")
+    new_config.path = config_path
+
+    monkeypatch.setattr(
+        mod.ConfiguredAccessorySet,
+        "resolve_config_path",
+        staticmethod(lambda _path: config_path),
+        raising=True,
+    )
+    gui._load_configured_accessories = lambda: new_config
+
+    config_path.write_text('{"accessories": [], "changed": true}', encoding="utf-8")
+    gui._check_accessory_config_change()
+    assert gui.app.tk.after_calls == []
+
+    gui._check_accessory_config_change()
+    assert len(gui.app.tk.after_calls) == 1
+
+    _, callback = gui.app.tk.after_calls[0]
+    callback()
+
+    assert gui._caa is new_config
+    assert gui._accessory_config_last_signature == mod.EngineGui._accessory_config_signature(new_config.path)
+
+
+def test_accessory_config_change_load_failure_keeps_current_set(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    config_path = tmp_path / "accessory_config.json"
+    config_path.write_text('{"accessories": []}', encoding="utf-8")
+    gui = _new_reload_engine()
+    original_config = gui._caa
+    gui._accessory_config_last_signature = mod.EngineGui._accessory_config_signature(config_path)
+    gui._accessory_config_pending_signature = None
+    gui._accessory_config_pending_since = None
+    gui._accessory_config_debounce = 0
+
+    monkeypatch.setattr(
+        mod.ConfiguredAccessorySet,
+        "resolve_config_path",
+        staticmethod(lambda _path: config_path),
+        raising=True,
+    )
+    gui._load_configured_accessories = lambda: None
+
+    config_path.write_text("{bad json", encoding="utf-8")
+    gui._check_accessory_config_change()
+    gui._check_accessory_config_change()
+
+    assert gui._caa is original_config
+    assert gui.app.tk.after_calls == []
