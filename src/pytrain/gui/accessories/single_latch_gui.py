@@ -93,7 +93,6 @@ class SingleLatchGui(AccessoryBase):
     def after_state_change(self, button: PushButton | None, state: AccessoryState) -> None:
         # Updates platform button based on platform state
         if state == self._power_state:
-            print(f"{button == self._power_button}, {button}, {self._power_button}")
             if self.is_active(self._power_state):
                 self.set_button_inactive(self._power_button)
             else:
