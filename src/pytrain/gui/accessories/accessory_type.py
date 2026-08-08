@@ -53,6 +53,7 @@ class AccessoryType(Mixins):
     MILK_LOADER = "milk_loader"
     HOBO_DEPOT = "hobo_depot"
     PLAYGROUND = "playground"
+    SINGLE_LATCH = "single_latch"
     SMOKE_FLUID_LOADER = "smoke_fluid_loader"
     STATION = "station"
     UNCOUPLER = "uncoupler"

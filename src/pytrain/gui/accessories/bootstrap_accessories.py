@@ -38,12 +38,12 @@ def register_all_accessory_types(registry: AccessoryRegistry) -> None:
         (".defs.freight_depot_defs", "register_freight_depot"),
         (".defs.gas_station_defs", "register_gas_station"),
         (".defs.hobby_shop_defs", "register_hobby_shop"),
-        (".defs.hobo_depot_defs", "register_hobo_depot"),
         (".defs.milk_loader_defs", "register_milk_loader"),
         (".defs.playground_defs", "register_playground"),
         (".defs.smoke_fluid_loader_defs", "register_smoke_fluid_loader"),
         (".defs.station_defs", "register_station"),
         (".defs.uncoupler_defs", "register_uncoupler"),
+        (".defs.single_latch_defs", "register_single_latch"),
     )
 
     register_fns: list[Callable[[AccessoryRegistry], None]] = [None] * len(items)  # type: ignore[list-item]
