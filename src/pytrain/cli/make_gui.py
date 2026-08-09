@@ -239,7 +239,7 @@ class MakeGui(_MakeBase):
         lines.append(f"  GUI: {self._gui_stmt}")
         return lines
 
-    def install(self) -> None:
+    def install(self) -> str:
         path = self.make_shell_script()
         if path:
             self._config["___SHELL_SCRIPT___"] = str(path)
@@ -265,7 +265,7 @@ class MakeGui(_MakeBase):
             self.spawn_detached(path)
             print(f"\nStarting {PROGRAM_NAME} {self._gui_class.__name__} GUI...")
 
-    def remove(self) -> None:
+    def remove(self) -> str:
         if not self.is_gui_present:
             print(f"\nNo {PROGRAM_NAME} GUI detected. Exiting")
             return
