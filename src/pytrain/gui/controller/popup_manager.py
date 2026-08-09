@@ -60,12 +60,13 @@ class PopupManager:
 
     @contextmanager
     def _suspend_host_layout(self):
-        display_widgets = self._host.app.display_widgets
-        self._host.app.display_widgets = lambda: None
+        root = getattr(self._host, "root", self._host.app)
+        display_widgets = root.display_widgets
+        root.display_widgets = lambda: None
         try:
             yield
         finally:
-            self._host.app.display_widgets = display_widgets
+            root.display_widgets = display_widgets
 
     def get_or_create(
         self,
@@ -133,7 +134,7 @@ class PopupManager:
         # which repacks the full app. Prewarmed overlays are not meant to affect
         # the visible layout until they are explicitly shown.
         with self._suspend_host_layout():
-            overlay = Box(host.app, align="top", border=2, visible=False)
+            overlay = Box(getattr(host, "root", host.app), align="top", border=2, visible=False)
         if post_close_action:
             self._post_close_actions[id(overlay)] = post_close_action
         overlay.bg = "white"

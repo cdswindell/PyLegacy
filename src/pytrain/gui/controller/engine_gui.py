@@ -17,7 +17,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Generic, TypeVar, cast
 
-from guizero import App, Box, Combo, Picture, Text, TitleBox
+from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
 
 from .admin_panel import ADMIN_TITLE, AdminPanel
 from .amc2_ops_panel import Amc2OpsPanel
@@ -54,7 +54,7 @@ from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_C
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
 from ..components.swipe_detector import SwipeDetector
-from ..guizero_base import GuiZeroBase
+from ..guizero_base import GuiZeroBase, resolve_font_family
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
 from ...db.engine_state import EngineState, TrainState
@@ -138,24 +138,45 @@ class EngineGui(GuiZeroBase, Generic[S]):
         full_screen: bool = True,
         x_offset: int = 0,
         y_offset: int = 0,
+        stand_alone: bool = True,
+        parent: Box | None = None,
+        parent_gui: GuiZeroBase | None = None,
+        compact: bool = False,
+        show_halt: bool = True,
+        linked_car_transfer: Callable[[EngineState], bool] | None = None,
     ) -> None:
+        if stand_alone and (parent is not None or parent_gui is not None):
+            raise ValueError("A standalone EngineGui cannot have a parent")
+        if not stand_alone and (parent is None or parent_gui is None):
+            raise ValueError("An embedded EngineGui requires both parent and parent_gui")
+
         # have to call parent init after all variables are set up
-        GuiZeroBase.__init__(
-            self,
-            title="Engine GUI",
-            width=width,
-            height=height,
-            enabled_bg=enabled_bg,
-            disabled_bg=disabled_bg,
-            enabled_text=enabled_text,
-            disabled_text=disabled_text,
-            active_bg=active_bg,
-            inactive_bg=inactive_bg,
-            scale_by=scale_by,
-            full_screen=full_screen,
-            x_offset=x_offset,
-            y_offset=y_offset,
-        )
+        base_kwargs = {
+            "title": "Engine GUI",
+            "width": width,
+            "height": height,
+            "enabled_bg": enabled_bg,
+            "disabled_bg": disabled_bg,
+            "enabled_text": enabled_text,
+            "disabled_text": disabled_text,
+            "active_bg": active_bg,
+            "inactive_bg": inactive_bg,
+            "scale_by": scale_by,
+            "full_screen": full_screen,
+            "x_offset": x_offset,
+            "y_offset": y_offset,
+        }
+        if not stand_alone:
+            base_kwargs["stand_alone"] = False
+        GuiZeroBase.__init__(self, **base_kwargs)
+        self._parent = parent
+        self._parent_gui = parent_gui
+        self._compact = compact
+        self._show_halt = show_halt
+        self._linked_car_transfer = linked_car_transfer
+        if parent_gui is not None:
+            self._app = parent_gui.app
+            self.attach_to_parent_queue(parent_gui)
         # preload common images
         self._engine_buttons_future = self._executor.submit(preload_engine_button_image_paths)
         self._acc_buttons_future = self._executor.submit(preload_accessory_button_image_paths)
@@ -216,7 +237,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.emergency_box_width = self.emergency_box_height = None
 
         # various buttons
-        self.halt_btn = self.reset_btn = self.off_btn = self.on_btn = self.set_btn = None
+        self.halt_btn = self.reset_btn = self.linked_cars_btn = self.off_btn = self.on_btn = self.set_btn = None
         self.fire_route_btn = self.switch_thru_btn = self.switch_out_btn = self.keypad_keys = None
 
         # various fields
@@ -308,6 +329,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
     @property
     def image_presenter(self) -> ImagePresenter:
         return self._image_presenter
+
+    @property
+    def root(self) -> App | Box:
+        return self._parent or self.app
+
+    @property
+    def compact(self) -> bool:
+        return self._compact
+
+    @property
+    def show_halt(self) -> bool:
+        return self._show_halt
 
     @property
     def accessories(self) -> ConfiguredAccessorySet:
@@ -453,10 +486,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
     # noinspection PyTypeChecker
     def build_gui(self) -> None:
         app = self.app
+        root = self.root
+        self.digital_font = resolve_font_family(app.tk, "DigitalDream")
 
         # customize label
         self.header = cb = Combo(
-            app,
+            root,
             options=self.get_options(),
             selected=self.title,
             align="top",
@@ -474,23 +509,23 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._popup.is_combo_hackable = hasattr(cb, "_selected")
 
         # Make the emergency buttons, including Halt and Reset
-        self.make_emergency_buttons(app)
+        self.make_emergency_buttons(root)
 
         # Make info box for TMCC ID and Road Name
-        self.make_info_box(app)
+        self.make_info_box(root)
 
         # make selection box and keypad
         self._engine_buttons_future.result()  # wait for common engine buttons to load
-        self._keypad_view.build(app)
+        self._keypad_view.build(root)
 
         # precreate extra functions popup
         self._popup.get_or_create("extra_functions", "Additional Options", self.build_extra_functions_body)
 
         # make engine/train controller UI
-        self._controller_view.build(app)
+        self._controller_view.build(root)
 
         # make scope buttons
-        self.make_scope(app)
+        self.make_scope(root)
 
         # Simulate the ops-mode display to compute and cache the engine-image
         # baseline height even when no engine image is selected. This ensures
@@ -509,6 +544,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # calculate offset for popups
         x = self.info_box.tk.winfo_rootx()
         y = self.info_box.tk.winfo_rooty() + self.info_box.tk.winfo_reqheight()
+        if root is not app:
+            x -= root.tk.winfo_rootx()
+            y -= root.tk.winfo_rooty()
         self.popup_position = (x, y)
 
         # create watcher for sensor track, if needed
@@ -541,6 +579,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.box = None
         self.acc_box = None
         self._image = None
+
+    def destroy_embedded(self) -> None:
+        if self._stand_alone:
+            raise RuntimeError("destroy_embedded is only valid for an embedded EngineGui")
+        self.close()
+        self.destroy_gui()
+        self._finalize_gui_resources()
 
     def build_tower_dialogs_body(self, body: Box):
         self._popup.make_combo_panel(body, TOWER_DIALOGS)
@@ -973,6 +1018,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:
             return None
 
+    @property
+    def linked_car_states(self) -> tuple[EngineState, ...]:
+        return tuple(self._train_linked_queue)
+
+    @property
+    def has_active_selection(self) -> bool:
+        return bool(self._scope_tmcc_ids.get(self.scope, 0))
+
+    def select_component(self, scope: CommandScope, tmcc_id: int) -> None:
+        if not isinstance(scope, CommandScope):
+            raise ValueError(f"Invalid command scope: {scope}")
+        if not isinstance(tmcc_id, int) or tmcc_id <= 0:
+            raise ValueError(f"Invalid TMCC ID: {tmcc_id}")
+        self.on_scope(scope)
+        self.update_component_info(tmcc_id)
+
     def get_options(self) -> list[str]:
         if self._separator is None:
             self._separator = "-" * int(3 * len(self.title) / 2)
@@ -1140,7 +1201,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     car_state = self._state_store.get_state(CommandScope.ENGINE, tmcc_id, False)
                     if car_state:
                         self._train_linked_queue.append(car_state)
-                self._setup_train_link_gui(self._train_linked_queue[0])
+                if self._train_linked_queue:
+                    self._setup_train_link_gui(self._train_linked_queue[0])
+                    if getattr(self, "linked_cars_btn", None):
+                        self.linked_cars_btn.enabled = True
+                else:
+                    self._tear_down_link_gui()
             else:
                 self._tear_down_link_gui()
             self._active_train_state = state
@@ -1163,6 +1229,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if current_engine_id and current_engine_id in {x.tmcc_id for x in self._train_linked_queue}:
             self._scope_tmcc_ids[CommandScope.ENGINE] = 0  # force current engine to be from queue
         self._train_linked_queue.clear()
+        if getattr(self, "linked_cars_btn", None):
+            self.linked_cars_btn.enabled = False
         self._active_train_state = None
         self._is_train_linked_cars = False
         self._request_options_rebuild()
@@ -1825,32 +1893,36 @@ class EngineGui(GuiZeroBase, Generic[S]):
         except Exception as e:
             log.exception("Failed to compute engine image baseline", exc_info=e)
 
-    def make_emergency_buttons(self, app: App):
+    def make_emergency_buttons(self, app: App | Box):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
         _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
 
         label_width = 11
-        self.halt_btn = HoldButton(
-            emergency_box,
-            text=HALT_KEY,
-            grid=[0, 1],
-            align="top",
-            width=label_width,
-            padx=self.text_pad_x,
-            pady=self.text_pad_y,
-            bg="red",
-            text_bold=True,
-            text_size=self.s_20,
-            command=self.on_keypress,
-            args=[HALT_KEY],
-        )
-
-        _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
+        if getattr(self, "_show_halt", True):
+            self.halt_btn = HoldButton(
+                emergency_box,
+                text=HALT_KEY,
+                grid=[0, 1],
+                align="top",
+                width=label_width,
+                padx=self.text_pad_x,
+                pady=self.text_pad_y,
+                bg="red",
+                text_bold=True,
+                text_size=self.s_20,
+                command=self.on_keypress,
+                args=[HALT_KEY],
+            )
+            _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
+            reset_col = 2
+        else:
+            self.halt_btn = None
+            reset_col = 0
 
         self.reset_btn = HoldButton(
             emergency_box,
             text="Reset",
-            grid=[2, 1],
+            grid=[reset_col, 1],
             align="top",
             width=label_width,
             padx=self.text_pad_x,
@@ -1865,6 +1937,23 @@ class EngineGui(GuiZeroBase, Generic[S]):
             repeat_interval=0.2,
         )
 
+        if getattr(self, "_linked_car_transfer", None) is not None:
+            self.linked_cars_btn = HoldButton(
+                emergency_box,
+                text="Linked Cars…",
+                grid=[2, 1],
+                align="top",
+                width=label_width,
+                padx=self.text_pad_x,
+                pady=self.text_pad_y,
+                bg="lightgrey",
+                text_size=self.s_18,
+                text_color="black",
+                text_bold=True,
+                enabled=False,
+                command=self.on_linked_cars,
+            )
+
         _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
         self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
@@ -1875,11 +1964,42 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if scale > 1.0:
             self._scale_factor = scale
             child_width = self.rescale_by(label_width)
-            self.halt_btn.width = child_width
+            if self.halt_btn:
+                self.halt_btn.width = child_width
             self.reset_btn.width = child_width
+            if self.linked_cars_btn:
+                self.linked_cars_btn.width = child_width
             self.app.tk.update_idletasks()
             self.emergency_box_width = emergency_box.tk.winfo_width()
             self.emergency_box_height = emergency_box.tk.winfo_height()
+
+    def on_linked_cars(self) -> None:
+        if self._linked_car_transfer is None or not self._train_linked_queue:
+            return
+
+        def build_linked_cars(body: Box) -> None:
+            Text(body, text="Open linked car in other panel", align="top", bold=True, size=self.s_18)
+            for state in self._train_linked_queue:
+                label = f"{state.tmcc_id:04d}: {state.name or state.road_name}"
+                button = PushButton(
+                    body,
+                    text=label,
+                    align="top",
+                    width=24,
+                    command=self._transfer_linked_car,
+                    args=[state],
+                )
+                button.text_size = self.s_18
+                self.cache(button)
+
+        key = "linked_car_transfer"
+        self._popup.forget([key])
+        overlay = self._popup.get_or_create(key, "Linked Cars", build_linked_cars)
+        self.show_popup(overlay, hide_image_box=True)
+
+    def _transfer_linked_car(self, state: EngineState) -> None:
+        if self._linked_car_transfer is not None and self._linked_car_transfer(state):
+            self._popup.close()
 
     @property
     def throttle_state(self) -> EngineState | None:

@@ -506,7 +506,7 @@ class Amc2OpsPanel:
             bold=True,
             size=host.s_18,
             width=4,
-            font="DigitalDream",
+            font=getattr(host, "digital_font", "TkDefaultFont"),
         )
         level_box.bg = "black"
         level_box.text_color = "white"

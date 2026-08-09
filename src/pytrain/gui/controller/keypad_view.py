@@ -430,7 +430,7 @@ class KeypadView(Generic[S]):
                 title_border=1,
                 level_text="0",
                 level_width=3,
-                level_font="DigitalDream",
+                level_font=getattr(host, "digital_font", "TkDefaultFont"),
                 level_size=host.s_18,
                 title_text_size=host.s_10,
                 slider_width=int(host.button_size / 2),

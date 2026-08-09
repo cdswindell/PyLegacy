@@ -2,3 +2,5 @@
 Type=Application
 Name=PyTrain
 Exec=___SHELL_SCRIPT___
+Terminal=false
+Categories=Game;Utility;

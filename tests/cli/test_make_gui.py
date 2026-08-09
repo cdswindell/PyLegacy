@@ -12,6 +12,7 @@ from unittest import mock
 
 import pytest
 
+import src.pytrain.cli.make_gui as mod
 from src.pytrain.cli.make_gui import MakeGui
 
 
@@ -106,3 +107,61 @@ def test_make_gui_shell_script_includes_cache_sync_switch_only_when_disabled(tmp
 
     assert path is not None
     assert "-no_cache_sync" not in path.read_text(encoding="utf-8")
+
+
+def test_landscape_aliases_template_and_font_selection() -> None:
+    assert mod.GUI_ARG_TO_CLASS["landscape"] is mod.LandscapeEngineGui
+    assert mod.GUI_ARG_TO_CLASS["steam_deck"] is mod.LandscapeEngineGui
+    assert mod.GUI_ARG_TO_CLASS["deck"] is mod.LandscapeEngineGui
+    template = mod.CLASS_TO_TEMPLATE[mod.LandscapeEngineGui]
+    assert "width=__WIDTH__" in template
+    assert "height=__HEIGHT__" in template
+    assert "controller_profile=__CONTROLLER_PROFILE__" in template
+    assert {mod.EngineGui, mod.LandscapeEngineGui}.issubset(mod.NEED_FONTS)
+
+
+def test_harvest_landscape_config_includes_native_size_and_profile() -> None:
+    mg = MakeGui.__new__(MakeGui)
+    mg._gui_config = {}
+    mg._args = SimpleNamespace(
+        width=1280,
+        height=800,
+        controller_profile="~/deck-controls.json",
+    )
+
+    mg.harvest_gui_config()
+
+    assert mg._gui_config["__WIDTH__"] == "1280"
+    assert mg._gui_config["__HEIGHT__"] == "800"
+    assert mg._gui_config["__CONTROLLER_PROFILE__"] == "'~/deck-controls.json'"
+
+
+def test_make_gui_parser_constructs_landscape_controller() -> None:
+    with mock.patch.object(builtins, "input", return_value="n"):
+        mg = MakeGui("-client landscape -controller_profile ~/deck-controls.json".split())
+
+    assert mg._gui_class is mod.LandscapeEngineGui
+    assert mg._args.width == 1280
+    assert mg._args.height == 800
+    assert mg.construct_gui_stmt() == (
+        "LandscapeEngineGui(width=1280, height=800, controller_profile='~/deck-controls.json')"
+    )
+
+
+def test_font_install_uses_xdg_directory_refreshes_and_verifies(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "digital.ttf").write_bytes(b"font")
+    installed = tmp_path / ".local" / "share" / "fonts" / "pytrain"
+    runs: list[list[str]] = []
+    monkeypatch.setattr(mod, "find_dir", lambda *_args: source)
+    monkeypatch.setattr(mod.subprocess, "run", lambda command, **_kwargs: runs.append(command))
+    mg = MakeGui.__new__(MakeGui)
+    mg._fonts_path = installed
+    mg.verify_tk_font = lambda: True
+
+    result = mg.install_fonts()
+
+    assert result == installed
+    assert (installed / "digital.ttf").exists()
+    assert runs == [["fc-cache", "-f", str(installed)]]

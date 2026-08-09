@@ -1,0 +1,348 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
+from __future__ import annotations
+
+import logging
+import time
+from pathlib import Path
+from tkinter import messagebox, TclError
+from typing import Any, Callable, Literal
+
+from guizero import Box, Text
+
+from .engine_gui import EngineGui
+from .engine_gui_conf import HALT_KEY, KEY_TO_COMMAND
+from .steam_deck_input import (
+    ControllerUnavailable,
+    ControlProfile,
+    DeckInputRouter,
+    SteamDeckInputProvider,
+)
+from ..components.hold_button import HoldButton
+from ..guizero_base import GuiZeroBase
+from ...db.engine_state import EngineState
+from ...protocol.constants import CommandScope
+
+STEAM_DECK_WIDTH = 1280
+STEAM_DECK_HEIGHT = 800
+TOOLBAR_HEIGHT = 52
+FOCUS_HEIGHT = 24
+HORIZONTAL_MARGIN = 12
+DIVIDER_WIDTH = 4
+COMPACT_SCALE = 0.65
+FOCUSED_BG = "#cfe8ff"
+UNFOCUSED_BG = "#eeeeee"
+CONTROLLER_POLL_MS = 20
+
+PanelName = Literal["left", "right"]
+log = logging.getLogger(__name__)
+
+
+class LandscapeEngineGui(GuiZeroBase):
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__
+
+    def __init__(
+        self,
+        width: int = STEAM_DECK_WIDTH,
+        height: int = STEAM_DECK_HEIGHT,
+        *,
+        full_screen: bool = True,
+        x_offset: int = 0,
+        y_offset: int = 0,
+        left_options: dict[str, Any] | None = None,
+        right_options: dict[str, Any] | None = None,
+        controller_profile: str | Path | None = None,
+        enable_controller: bool = True,
+        confirm_replace: Callable[[str], bool] | None = None,
+    ) -> None:
+        GuiZeroBase.__init__(
+            self,
+            title="PyTrain Landscape Controller",
+            width=width,
+            height=height,
+            scale_by=1.0,
+            full_screen=full_screen,
+            x_offset=x_offset,
+            y_offset=y_offset,
+        )
+        self._pane_width = max(1, (self.width - HORIZONTAL_MARGIN - DIVIDER_WIDTH) // 2)
+        self._pane_height = max(1, self.height - TOOLBAR_HEIGHT - FOCUS_HEIGHT)
+        self._focused_panel: PanelName = "left"
+        self._paired = False
+        self._left_options = dict(left_options or {})
+        self._right_options = dict(right_options or {})
+        self._confirm_replace = confirm_replace or self._confirm_panel_replace
+        self._enable_controller = enable_controller
+        self._controller_profile = ControlProfile.load(controller_profile)
+        self._input_provider: SteamDeckInputProvider | None = None
+        self._input_router: DeckInputRouter | None = None
+        self._controller_poll_id = None
+
+        self.toolbar = self.body = None
+        self.left_pane = self.right_pane = self.divider = None
+        self.left_root = self.right_root = None
+        self.left_focus = self.right_focus = None
+        self.global_halt_btn = self.pair_btn = None
+        self.left_gui: EngineGui | None = None
+        self.right_gui: EngineGui | None = None
+        self.init_complete()
+
+    @property
+    def pane_width(self) -> int:
+        return self._pane_width
+
+    @property
+    def pane_height(self) -> int:
+        return self._pane_height
+
+    @property
+    def focused_panel(self) -> PanelName:
+        return self._focused_panel
+
+    @property
+    def focused_gui(self) -> EngineGui | None:
+        return self.left_gui if self._focused_panel == "left" else self.right_gui
+
+    @property
+    def paired(self) -> bool:
+        return self._paired
+
+    def build_gui(self) -> None:
+        app = self.app
+        self.toolbar = Box(app, align="top", layout="grid", width=self.width, height=TOOLBAR_HEIGHT, border=1)
+        self.toolbar.tk.pack_propagate(False)
+        Text(
+            self.toolbar,
+            text="PyTrain Landscape Controller",
+            grid=[0, 0],
+            align="left",
+            bold=True,
+            size=22,
+        )
+        self.pair_btn = HoldButton(
+            self.toolbar,
+            text="Pair Panels",
+            grid=[1, 0],
+            align="right",
+            width=14,
+            bg="lightgrey",
+            text_bold=True,
+            text_size=18,
+            command=self.toggle_pairing,
+        )
+        self.global_halt_btn = HoldButton(
+            self.toolbar,
+            text=HALT_KEY,
+            grid=[2, 0],
+            align="right",
+            width=14,
+            bg="red",
+            text_bold=True,
+            text_size=22,
+            command=self.on_halt,
+        )
+        self.toolbar.tk.grid_columnconfigure(0, weight=1)
+
+        body_height = self.height - TOOLBAR_HEIGHT
+        self.body = Box(app, align="top", layout="grid", width=self.width, height=body_height)
+        self.body.tk.pack_propagate(False)
+        self.left_pane, self.left_focus, self.left_root = self._build_pane("left", 0)
+        self.divider = Box(
+            self.body,
+            grid=[1, 0],
+            width=DIVIDER_WIDTH,
+            height=body_height,
+            border=1,
+        )
+        self.divider.bg = "#555555"
+        self.right_pane, self.right_focus, self.right_root = self._build_pane("right", 2)
+
+        self.left_gui = self._build_controller("left", self.left_root, self._left_options)
+        self.right_gui = self._build_controller("right", self.right_root, self._right_options)
+        self._refresh_focus_indicators()
+        self._start_controller_input()
+
+    def _build_pane(self, side: PanelName, column: int) -> tuple[Box, Text, Box]:
+        body_height = self.height - TOOLBAR_HEIGHT
+        pane = Box(
+            self.body,
+            grid=[column, 0],
+            layout="auto",
+            width=self._pane_width,
+            height=body_height,
+        )
+        pane.tk.pack_propagate(False)
+        focus = Text(
+            pane,
+            text=side.title(),
+            align="top",
+            width=self._pane_width,
+            height=1,
+            bold=True,
+            size=14,
+        )
+        root = Box(
+            pane,
+            align="top",
+            width=self._pane_width,
+            height=self._pane_height,
+        )
+        root.tk.pack_propagate(False)
+        pane.tk.bind("<Button-1>", lambda _event, target=side: self.focus_panel(target))
+        root.tk.bind("<Button-1>", lambda _event, target=side: self.focus_panel(target))
+        return pane, focus, root
+
+    def _build_controller(self, side: PanelName, root: Box, options: dict[str, Any]) -> EngineGui:
+        child_options = {
+            **options,
+            "width": self._pane_width,
+            "height": self._pane_height,
+            "scale_by": COMPACT_SCALE,
+            "full_screen": False,
+            "stand_alone": False,
+            "parent": root,
+            "parent_gui": self,
+            "compact": True,
+            "show_halt": False,
+            "linked_car_transfer": lambda state, source=side: self.transfer_linked_car(source, state),
+        }
+        gui = EngineGui(**child_options)
+        gui.build_gui()
+        return gui
+
+    def focus_panel(self, panel: PanelName) -> None:
+        if panel not in ("left", "right"):
+            raise ValueError(f"Unknown panel: {panel}")
+        self._focused_panel = panel
+        self._refresh_focus_indicators()
+
+    def _refresh_focus_indicators(self) -> None:
+        if self.left_focus is not None:
+            self.left_focus.value = self._panel_label("left")
+            self.left_focus.bg = FOCUSED_BG if self._focused_panel == "left" else UNFOCUSED_BG
+        if self.right_focus is not None:
+            self.right_focus.value = self._panel_label("right")
+            self.right_focus.bg = FOCUSED_BG if self._focused_panel == "right" else UNFOCUSED_BG
+
+    def _panel_label(self, panel: PanelName) -> str:
+        labels = [panel.title()]
+        if self._focused_panel == panel:
+            labels.append("Focused")
+        if getattr(self, "_paired", False):
+            labels.append("Paired")
+        return " • ".join(labels)
+
+    def toggle_pairing(self) -> None:
+        self._paired = not self._paired
+        if self.pair_btn is not None:
+            self.pair_btn.text = "Unpair Panels" if self._paired else "Pair Panels"
+        self._refresh_focus_indicators()
+
+    def transfer_linked_car(self, source_panel: PanelName, state: EngineState) -> bool:
+        if source_panel not in ("left", "right"):
+            raise ValueError(f"Unknown panel: {source_panel}")
+        source = self.left_gui if source_panel == "left" else self.right_gui
+        target = self.right_gui if source_panel == "left" else self.left_gui
+        if source is None or target is None:
+            return False
+        linked = getattr(source, "linked_car_states", ())
+        if not any(getattr(candidate, "tmcc_id", None) == getattr(state, "tmcc_id", None) for candidate in linked):
+            return False
+        if target.has_active_selection:
+            name = getattr(state, "name", None) or getattr(state, "road_name", None) or f"TMCC {state.tmcc_id}"
+            if not self._confirm_replace(f"Replace the other panel with linked car {name}?"):
+                return False
+        target.select_component(CommandScope.ENGINE, state.tmcc_id)
+        return True
+
+    def _confirm_panel_replace(self, message: str) -> bool:
+        return bool(messagebox.askyesno("Replace controller?", message, parent=self.app.tk))
+
+    @staticmethod
+    def on_halt() -> None:
+        KEY_TO_COMMAND[HALT_KEY].send()
+
+    def _start_controller_input(self) -> None:
+        if not getattr(self, "_enable_controller", False):
+            return
+        self._input_router = DeckInputRouter(
+            self._controller_profile,
+            left=lambda: self.left_gui,
+            right=lambda: self.right_gui,
+            focused=lambda: self.focused_gui,
+            global_actions={
+                "halt": self.on_halt,
+                "focus_left": lambda: self.focus_panel("left"),
+                "focus_right": lambda: self.focus_panel("right"),
+            },
+        )
+        provider = SteamDeckInputProvider(self._controller_profile)
+        try:
+            provider.start()
+        except ControllerUnavailable as exc:
+            log.warning("Native controller input unavailable: %s", exc)
+            self._input_provider = None
+            self._input_router = None
+            self._controller_poll_id = None
+            return
+        self._input_provider = provider
+        self._controller_poll_id = self.app.tk.after(CONTROLLER_POLL_MS, self._poll_controller)
+
+    def _poll_controller(self) -> None:
+        provider = self._input_provider
+        router = self._input_router
+        if provider is None or router is None:
+            self._controller_poll_id = None
+            return
+        try:
+            for action in provider.poll():
+                router.handle(action)
+            router.tick(time.monotonic())
+        except Exception as exc:
+            log.exception("Steam Deck controller polling failed", exc_info=exc)
+        self._controller_poll_id = self.app.tk.after(CONTROLLER_POLL_MS, self._poll_controller)
+
+    def _stop_controller_input(self) -> None:
+        poll_id = getattr(self, "_controller_poll_id", None)
+        if poll_id is not None:
+            try:
+                self.app.tk.after_cancel(poll_id)
+            except (AttributeError, RuntimeError, TclError):
+                pass
+        self._controller_poll_id = None
+        provider = getattr(self, "_input_provider", None)
+        if provider is not None:
+            provider.stop()
+        router = getattr(self, "_input_router", None)
+        if router is not None:
+            router.clear()
+        self._input_provider = None
+        self._input_router = None
+
+    def destroy_gui(self) -> None:
+        self._stop_controller_input()
+        for child_name in ("left_gui", "right_gui"):
+            child = getattr(self, child_name, None)
+            if child is not None:
+                child.destroy_embedded()
+                setattr(self, child_name, None)
+        self.safe_destroy(getattr(self, "body", None))
+        self.safe_destroy(getattr(self, "toolbar", None))
+        self.body = self.toolbar = None
+        self.left_pane = self.right_pane = self.divider = None
+        self.left_root = self.right_root = None
+        self.left_focus = self.right_focus = None
+        self.global_halt_btn = self.pair_btn = None
+        self.clear_cache()
+
+    def calc_image_box_size(self) -> tuple[int, int]:
+        return self._pane_width, self._pane_height

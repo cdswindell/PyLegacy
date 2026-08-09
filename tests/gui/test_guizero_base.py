@@ -241,3 +241,15 @@ class _NullContext:
 
     def __exit__(self, exc_type, exc, tb):
         return False
+
+
+def test_resolve_font_family_accepts_embedded_family_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("Helvetica", "Digital dream"))
+
+    assert mod.resolve_font_family(object(), "DigitalDream") == "Digital dream"
+
+
+def test_resolve_font_family_uses_readable_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("Helvetica", "TkDefaultFont"))
+
+    assert mod.resolve_font_family(object(), "DigitalDream") == "TkDefaultFont"

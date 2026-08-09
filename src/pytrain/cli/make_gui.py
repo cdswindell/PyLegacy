@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tkinter as tk
 from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
 
@@ -23,6 +24,8 @@ from .pytrain import DEFAULT_BUTTONS_FILE
 from ..gui.accessories_gui import AccessoriesGui
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.controller.engine_gui import EngineGui
+from ..gui.controller.landscape_engine_gui import LandscapeEngineGui
+from ..gui.guizero_base import resolve_font_family
 from ..gui.launch_gui import LaunchGui
 from ..gui.motors_gui import MotorsGui
 from ..gui.power_district_gui import PowerDistrictsGui
@@ -41,6 +44,9 @@ GUI_ARG_TO_CLASS = {
     "component_state": ComponentStateGui,
     "cp": EngineGui,
     "control_panel": EngineGui,
+    "deck": LandscapeEngineGui,
+    "landscape": LandscapeEngineGui,
+    "steam_deck": LandscapeEngineGui,
     "la": LaunchGui,
     "launch_pad": LaunchGui,
     "mo": MotorsGui,
@@ -80,9 +86,13 @@ CLASS_TO_TEMPLATE = {
     SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, press_for=__PRESS_FOR__)",
     EngineGui: f"{EngineGui.__name__}(scope=__SCOPE__, tmcc_id=__TMCC_ID__,"
     " scale_by=__SCALE_BY__, num_recents=__NUM_RECENTS__)",
+    LandscapeEngineGui: f"{LandscapeEngineGui.__name__}(width=__WIDTH__, height=__HEIGHT__,"
+    " controller_profile=__CONTROLLER_PROFILE__)",
 }
 
 NEED_FONTS = {
+    EngineGui,
+    LandscapeEngineGui,
     LaunchGui,
 }
 
@@ -192,7 +202,7 @@ class MakeGui(_MakeBase):
         self._launch_path = Path(self._home, "launch_pytrain.bash")
         self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
         self._buttons_path = Path(self._cwd, self._buttons_file)
-        self._fonts_path = Path(self._home, ".fonts")
+        self._fonts_path = Path(self._home, ".local", "share", "fonts", "pytrain")
         self._imports = f"from {PROGRAM_BASE if is_package() else 'src.' + PROGRAM_BASE} import *"
         self._gui_class = GUI_ARG_TO_CLASS.get(self._args.gui)
         if self._gui_class is WideComponentStateGui and self._args.screen_components:
@@ -315,6 +325,32 @@ class MakeGui(_MakeBase):
             metavar="",
             default="engine",
             help="Initial Component Type to display (default: engine)",
+        )
+
+        # Steam Deck landscape controller
+        deck = sp.add_parser(
+            "landscape",
+            aliases=["deck", "steam_deck"],
+            allow_abbrev=True,
+            help="Steam Deck Landscape Controller",
+        )
+        deck.add_argument(
+            "-width",
+            type=IntRange(640, 3840),
+            default=1280,
+            help="Window width (default: 1280)",
+        )
+        deck.add_argument(
+            "-height",
+            type=IntRange(480, 2160),
+            default=800,
+            help="Window height (default: 800)",
+        )
+        deck.add_argument(
+            "-controller_profile",
+            type=str,
+            default=None,
+            help="Steam Deck JSON controller profile (default: bundled profile)",
         )
 
         # Launch Pad GUI
@@ -646,7 +682,9 @@ class MakeGui(_MakeBase):
         # copy the fonts directory
         try:
             shutil.copytree(template, path, dirs_exist_ok=True)
-            subprocess.run(["fc-cache", "-f", "-v"])
+            subprocess.run(["fc-cache", "-f", str(path)], check=False)
+            if not self.verify_tk_font():
+                print("Digital dream is not visible to Tk; using TkDefaultFont fallback")
             print(f"Installed fonts to: {path}")
         except shutil.Error as e:
             print(f"Error copying directory: {e}")
@@ -655,6 +693,19 @@ class MakeGui(_MakeBase):
             print(f"Error: {e}")
             path = None
         return path
+
+    @staticmethod
+    def verify_tk_font() -> bool:
+        root = None
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            return resolve_font_family(root, "DigitalDream") != "TkDefaultFont"
+        except (RuntimeError, tk.TclError):
+            return False
+        finally:
+            if root is not None:
+                root.destroy()
 
     def harvest_gui_config(self):
         if hasattr(self._args, "initial"):
@@ -690,6 +741,13 @@ class MakeGui(_MakeBase):
             self._gui_config["__TMCC_ID__"] = str(self._args.tmcc_id)
         else:
             self._gui_config["__TMCC_ID__"] = "None"
+        if hasattr(self._args, "width"):
+            self._gui_config["__WIDTH__"] = str(self._args.width)
+        if hasattr(self._args, "height"):
+            self._gui_config["__HEIGHT__"] = str(self._args.height)
+        if hasattr(self._args, "controller_profile"):
+            profile = self._args.controller_profile
+            self._gui_config["__CONTROLLER_PROFILE__"] = repr(profile) if profile else "None"
 
     def construct_gui_stmt(self):
         stmt = CLASS_TO_TEMPLATE.get(self._gui_class)

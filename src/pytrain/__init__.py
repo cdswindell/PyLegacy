@@ -61,6 +61,7 @@ from .gui.accessories.station_gui import StationGui  # noqa: F401
 from .gui.accessories_gui import AccessoriesGui  # noqa: F401
 from .gui.component_state_gui import ComponentStateGui  # noqa: F401
 from .gui.controller.engine_gui import EngineGui  # noqa: F401
+from .gui.controller.landscape_engine_gui import LandscapeEngineGui  # noqa: F401
 from .gui.launch_gui import LaunchGui  # noqa: F401
 from .gui.motors_gui import MotorsGui  # noqa: F401
 from .gui.power_district_gui import PowerDistrictsGui  # noqa: F401

@@ -27,6 +27,7 @@ from queue import Empty, Queue
 from threading import Condition, Event, RLock, Thread, get_ident
 from time import perf_counter, sleep
 from tkinter import TclError
+from tkinter import font as tkfont
 from typing import Any, Callable, Iterator, TypeVar
 
 from guizero import App, Box, TitleBox
@@ -61,6 +62,18 @@ PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueE
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
 DEFAULT_LAYOUT_TITLE = "My Layout"
+
+
+def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont") -> str:
+    def normalize(value: str) -> str:
+        return "".join(character for character in value.casefold() if character.isalnum())
+
+    try:
+        families = tkfont.families(root)
+    except (AttributeError, RuntimeError, TclError):
+        return fallback
+    available = {normalize(family): family for family in families}
+    return available.get(normalize(preferred), fallback)
 
 
 # noinspection PyUnresolvedReferences

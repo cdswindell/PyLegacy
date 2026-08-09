@@ -1,0 +1,238 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+
+from src.pytrain.gui.controller.steam_deck_input import (
+    ControlProfile,
+    DeckAction,
+    DeckInputRouter,
+    ProfileError,
+    SteamDeckInputProvider,
+)
+
+
+def _profile(**overrides) -> ControlProfile:
+    data = {
+        "dead_zone": 0.15,
+        "hysteresis": 0.05,
+        "throttle_rate": 20.0,
+        "repeat_interval": 0.1,
+        "direction_threshold": 0.75,
+        "axes": {
+            "1": {"action": "throttle", "target": "left", "invert": True},
+            "3": {"action": "throttle", "target": "right", "invert": True},
+            "0": {"action": "direction", "target": "left"},
+            "2": {"action": "direction", "target": "right"},
+        },
+        "buttons": {
+            "0": {"action": "bell", "target": "focused"},
+            "1": {"action": "reset", "target": "right"},
+        },
+        "chords": [{"buttons": [4, 5], "action": "halt", "target": "global"}],
+    }
+    data.update(overrides)
+    return ControlProfile.from_dict(data)
+
+
+def _gui(speed: int = 0, *, target_speed: int | None = 0, is_cab1: bool = False):
+    state = SimpleNamespace(speed=speed, target_speed=target_speed, speed_max=199, is_cab1=is_cab1)
+    gui = SimpleNamespace(throttle_state=state, speed_calls=[], command_calls=[])
+    gui.on_speed_command = lambda speed: gui.speed_calls.append(speed)
+    gui.on_engine_command = lambda command: gui.command_calls.append(command)
+    return gui
+
+
+def _router(profile: ControlProfile | None = None, *, left=None, right=None):
+    left = left or _gui()
+    right = right or _gui()
+    focused = SimpleNamespace(value=left)
+    global_calls: list[str] = []
+    router = DeckInputRouter(
+        profile or _profile(),
+        left=lambda: left,
+        right=lambda: right,
+        focused=lambda: focused.value,
+        global_actions={"halt": lambda: global_calls.append("halt")},
+    )
+    return router, left, right, focused, global_calls
+
+
+def test_profile_rejects_unknown_actions_and_unsafe_axis_targets() -> None:
+    with pytest.raises(ProfileError, match="Unknown action"):
+        _profile(buttons={"0": {"action": "launch_missiles", "target": "left"}})
+    with pytest.raises(ProfileError, match="fixed panel"):
+        _profile(axes={"1": {"action": "throttle", "target": "focused"}})
+    with pytest.raises(ProfileError, match="dead_zone"):
+        _profile(dead_zone=1.0)
+
+
+def test_invalid_external_profile_falls_back_to_bundled_default(tmp_path) -> None:
+    profile_path = tmp_path / "invalid.json"
+    profile_path.write_text('{"dead_zone": "wide open"}', encoding="utf-8")
+
+    profile = ControlProfile.load(profile_path)
+
+    assert profile.axes[1].action == "throttle"
+    assert profile.axes[1].target == "left"
+
+
+def test_provider_applies_dead_zone_hysteresis_and_axis_inversion() -> None:
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+    )
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=1, value=-0.10),
+            SimpleNamespace(type=1, axis=1, value=-0.60),
+            SimpleNamespace(type=1, axis=1, value=-0.12),
+            SimpleNamespace(type=1, axis=1, value=-0.09),
+        ]
+    )
+    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [action.value for action in actions] == pytest.approx([0.0, 0.5294118, 0.0, 0.0])
+    assert all(action.name == "throttle" and action.target == "left" for action in actions)
+
+
+def test_rate_throttle_is_proportional_bounded_and_center_holds_speed() -> None:
+    router, left, right, _, _ = _router()
+    router.handle(DeckAction("throttle", "left", 0.5, "changed"))
+    router.handle(DeckAction("throttle", "right", 1.0, "changed"))
+
+    router.tick(10.0)
+    router.tick(10.2)
+
+    assert left.speed_calls == [2]
+    assert right.speed_calls == [4]
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(10.4)
+    assert left.speed_calls == [2]
+    assert right.speed_calls == [4, 8]
+
+
+def test_cab1_rate_throttle_emits_bounded_relative_steps() -> None:
+    left = _gui(is_cab1=True)
+    router, _, _, _, _ = _router(left=left)
+    router.handle(DeckAction("throttle", "left", -0.8, "changed"))
+
+    router.tick(1.0)
+    router.tick(1.1)
+
+    assert left.speed_calls == [-4]
+
+
+def test_direction_requires_stopped_state_and_uses_hysteresis() -> None:
+    left = _gui(speed=10, target_speed=10)
+    router, _, _, _, _ = _router(left=left)
+
+    router.handle(DeckAction("direction", "left", 1.0, "changed"))
+    assert left.command_calls == []
+    left.throttle_state.speed = left.throttle_state.target_speed = 0
+    router.handle(DeckAction("direction", "left", 0.5, "changed"))
+    router.handle(DeckAction("direction", "left", 1.0, "changed"))
+    router.handle(DeckAction("direction", "left", 0.9, "changed"))
+    router.handle(DeckAction("direction", "left", 0.0, "changed"))
+    router.handle(DeckAction("direction", "left", -1.0, "changed"))
+
+    assert left.command_calls == ["REVERSE_DIRECTION", "FORWARD_DIRECTION"]
+
+
+def test_buttons_route_to_focused_fixed_and_global_targets() -> None:
+    router, left, right, focused, global_calls = _router()
+    focused.value = right
+
+    router.handle(DeckAction("bell", "focused", 1.0, "pressed"))
+    router.handle(DeckAction("reset", "right", 1.0, "pressed"))
+    router.handle(DeckAction("halt", "global", 1.0, "pressed"))
+    router.handle(DeckAction("bell", "left", 0.0, "released"))
+
+    assert left.command_calls == []
+    assert right.command_calls == ["RING_BELL", "RESET"]
+    assert global_calls == ["halt"]
+
+
+def test_disconnect_clears_active_throttle_without_issuing_stop() -> None:
+    router, left, _, _, _ = _router()
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(2.0)
+    router.handle(DeckAction("disconnect", "global", 0.0, "disconnected"))
+    router.tick(2.2)
+
+    assert left.speed_calls == []
+
+
+def test_provider_reports_unavailable_configured_controls() -> None:
+    warnings = SteamDeckInputProvider(_profile(), pygame_module=SimpleNamespace()).capability_warnings(
+        axis_count=3, button_count=2
+    )
+
+    assert "axis 3" in warnings
+    assert "button 4" in warnings
+    assert "button 5" in warnings
+
+
+def test_emergency_chord_fires_once_until_released() -> None:
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+    )
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=4),
+            SimpleNamespace(type=2, button=5),
+            SimpleNamespace(type=2, button=5),
+            SimpleNamespace(type=3, button=5),
+            SimpleNamespace(type=2, button=5),
+        ]
+    )
+    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [action.name for action in actions] == ["halt", "halt"]
+
+
+def test_provider_handles_disconnect_and_reconnect() -> None:
+    joystick = SimpleNamespace(
+        init_calls=0,
+        quit_calls=0,
+        init=lambda: setattr(joystick, "init_calls", joystick.init_calls + 1),
+        quit=lambda: setattr(joystick, "quit_calls", joystick.quit_calls + 1),
+        get_instance_id=lambda: 7,
+        get_numaxes=lambda: 4,
+        get_numbuttons=lambda: 11,
+        get_name=lambda: "Steam Deck",
+        get_guid=lambda: "deck-guid",
+    )
+    events = [SimpleNamespace(type=4, device_index=0), SimpleNamespace(type=5, instance_id=7)]
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+        event=SimpleNamespace(get=lambda: list(events)),
+        joystick=SimpleNamespace(Joystick=lambda _index: joystick),
+    )
+    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [action.name for action in actions] == ["disconnect"]
+    assert joystick.init_calls == 1
+    assert joystick.quit_calls == 1
+    events[:] = [SimpleNamespace(type=4, device_index=0)]
+    assert provider.poll() == []
+    assert joystick.init_calls == 2
+    assert provider._joysticks == {7: joystick}
