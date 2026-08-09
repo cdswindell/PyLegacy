@@ -260,7 +260,7 @@ class CatalogPanel(OverlayPanel):
         finally:
             self._skip_update = False
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def on_select(self, idx: int, item: str) -> None:
         from ...db.component_state import ComponentState
 

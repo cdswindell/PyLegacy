@@ -624,7 +624,7 @@ class KeypadView(Generic[S]):
             speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, int(state.relative_speed)))
         self._set_accessory_throttle_display(speed, update_slider=True)
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def clear_focus(self, e=None) -> None:
         host = self._host
         # Clears focus from host widgets after idle time

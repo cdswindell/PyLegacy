@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+# noinspection package-requirements
 from PIL.ImageTk import PhotoImage
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
