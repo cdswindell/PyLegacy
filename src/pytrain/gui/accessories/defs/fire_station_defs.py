@@ -49,7 +49,7 @@ _TITLES = {
     "Engine-Company-54-MTH-30-9196.jpg": "Engine Company 54",
     "Engine-Company-219-MTH-30-9159.jpg": "Engine Company 219",
     "Engine-Company-234-MTH-30-9102.jpg": "Engine Company 234",
-    "Gray-Fire-Station-MTH-30-9112.jpg": "MTH Fire Station",
+    "Gray-Fire-Station-MTH-30-9112.jpg": "Engine Company 208",
 }
 
 # If you later discover old hand-written tuple aliases that aren't naturally
