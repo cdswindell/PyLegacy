@@ -177,10 +177,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if parent_gui is not None:
             self._app = parent_gui.app
             self.attach_to_parent_queue(parent_gui)
+
         # preload common images
         self._engine_buttons_future = self._executor.submit(preload_engine_button_image_paths)
         self._acc_buttons_future = self._executor.submit(preload_accessory_button_image_paths)
 
+        self.digital_font = None
         self._last_header_options = None
         self.auto_scroll = auto_scroll
         self.image_file = None
@@ -487,7 +489,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def build_gui(self) -> None:
         app = self.app
         root = self.root
-        self.digital_font = resolve_font_family(app.tk, "DigitalDream")
+        self.digital_font = resolve_font_family(app.tk, "DigitalDream", fallback="DigitalDream")
 
         # customize label
         self.header = cb = Combo(

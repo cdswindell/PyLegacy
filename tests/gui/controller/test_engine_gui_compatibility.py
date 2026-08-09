@@ -277,6 +277,7 @@ def test_destroy_embedded_finalizes_child_without_destroying_shared_app() -> Non
 
 def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: pytest.MonkeyPatch) -> None:
     roots: list[tuple[str, object]] = []
+    font_requests: list[tuple[str, str]] = []
     pane = SimpleNamespace(tk=SimpleNamespace(winfo_rootx=lambda: 100, winfo_rooty=lambda: 200))
     app_tk = SimpleNamespace(after_idle=lambda _func: None, after=lambda *_args: None)
     app = SimpleNamespace(tk=app_tk)
@@ -287,6 +288,11 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
         text_bold=False,
     )
     monkeypatch.setattr(mod, "Combo", lambda root, **_kwargs: roots.append(("header", root)) or combo)
+    monkeypatch.setattr(
+        mod,
+        "resolve_font_family",
+        lambda _root, preferred, fallback: font_requests.append((preferred, fallback)) or fallback,
+    )
     monkeypatch.setattr(
         mod.PdiDispatcher,
         "get",
@@ -339,6 +345,8 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
         ("controller", pane),
         ("scope", pane),
     ]
+    assert font_requests == [("DigitalDream", "DigitalDream")]
+    assert gui.digital_font == "DigitalDream"
     assert gui.popup_position == (10, 50)
 
 
