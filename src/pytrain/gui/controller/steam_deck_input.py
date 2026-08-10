@@ -431,7 +431,7 @@ class DeckInputRouter:
         if speed != 0 or target_speed != 0:
             log.warning("Ignoring direction request for moving %s panel", action.target)
             return
-        gui.on_engine_command("REVERSE_DIRECTION" if action.value > 0 else "FORWARD_DIRECTION")
+        gui.on_engine_command("FORWARD_DIRECTION" if action.value > 0 else "REVERSE_DIRECTION")
 
     def _target_gui(self, target: Target):
         if target == "left":

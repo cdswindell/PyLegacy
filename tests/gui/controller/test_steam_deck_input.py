@@ -129,20 +129,21 @@ def test_cab1_rate_throttle_emits_bounded_relative_steps() -> None:
     assert left.speed_calls == [-4]
 
 
-def test_direction_requires_stopped_state_and_uses_hysteresis() -> None:
-    left = _gui(speed=10, target_speed=10)
-    router, _, _, _, _ = _router(left=left)
+@pytest.mark.parametrize("target", ["left", "right"])
+def test_direction_requires_stopped_state_and_uses_hysteresis(target: str) -> None:
+    panel = _gui(speed=10, target_speed=10)
+    router, _, _, _, _ = _router(**{target: panel})
 
-    router.handle(DeckAction("direction", "left", 1.0, "changed"))
-    assert left.command_calls == []
-    left.throttle_state.speed = left.throttle_state.target_speed = 0
-    router.handle(DeckAction("direction", "left", 0.5, "changed"))
-    router.handle(DeckAction("direction", "left", 1.0, "changed"))
-    router.handle(DeckAction("direction", "left", 0.9, "changed"))
-    router.handle(DeckAction("direction", "left", 0.0, "changed"))
-    router.handle(DeckAction("direction", "left", -1.0, "changed"))
+    router.handle(DeckAction("direction", target, 1.0, "changed"))
+    assert panel.command_calls == []
+    panel.throttle_state.speed = panel.throttle_state.target_speed = 0
+    router.handle(DeckAction("direction", target, 0.5, "changed"))
+    router.handle(DeckAction("direction", target, 1.0, "changed"))
+    router.handle(DeckAction("direction", target, 0.9, "changed"))
+    router.handle(DeckAction("direction", target, 0.0, "changed"))
+    router.handle(DeckAction("direction", target, -1.0, "changed"))
 
-    assert left.command_calls == ["REVERSE_DIRECTION", "FORWARD_DIRECTION"]
+    assert panel.command_calls == ["FORWARD_DIRECTION", "REVERSE_DIRECTION"]
 
 
 def test_buttons_route_to_focused_fixed_and_global_targets() -> None:
