@@ -65,7 +65,15 @@ class AdminPanel:
 
     @property
     def compact_section_height(self) -> int:
-        return max(48, int(self._gui.button_size * 0.72))
+        return max(44, int(self._gui.button_size * 0.55))
+
+    @property
+    def compact_admin_actions_height(self) -> int:
+        return self.compact_section_height * 3
+
+    @property
+    def compact_database_height(self) -> int:
+        return self.compact_section_height if self._compact else self._gui.button_size
 
     @property
     def admin_action_rows(self) -> tuple[int, int, int]:
@@ -140,7 +148,7 @@ class AdminPanel:
             text="Base 3 Database",
             grid=[0, row, 2, 1],
             width=width,
-            height=self._gui.button_size,
+            height=self.compact_database_height,
         )
 
         self._sync_state = pb = PushButton(
@@ -272,7 +280,7 @@ class AdminPanel:
             admin_box,
             text=f"Hold for {self.hold_threshold} second{'s' if self.hold_threshold > 1 else ''}",
             grid=[0, row, 2, 1],
-            **({"height": self.compact_section_height * 3} if self._compact else {}),
+            **({"height": self.compact_admin_actions_height} if self._compact else {}),
         )
         tb.text_color = "red"
 

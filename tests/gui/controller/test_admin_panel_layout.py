@@ -52,6 +52,20 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
     ]
 
 
+def test_compact_sections_fit_title_and_all_admin_actions() -> None:
+    panel = _panel(compact=True)
+
+    assert panel.compact_section_height == 44
+    assert panel.compact_admin_actions_height == 132
+    assert panel.compact_database_height == 44
+
+
+def test_portrait_database_height_retains_button_size() -> None:
+    panel = _panel(compact=False)
+
+    assert panel.compact_database_height == 79
+
+
 def test_portrait_titlebox_retains_natural_height_and_existing_grid(monkeypatch) -> None:
     monkeypatch.setattr(mod, "TitleBox", _TitleBox)
     panel = _panel(compact=False)

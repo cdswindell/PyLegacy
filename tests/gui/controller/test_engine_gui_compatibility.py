@@ -334,6 +334,17 @@ def test_compact_image_baseline_is_positive_and_bounded_by_pane() -> None:
     assert gui.avail_image_width == 632
 
 
+def test_info_box_height_is_bounded_only_in_compact_mode() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui.button_size = 79
+
+    gui._compact = True
+    assert gui.info_box_height == 44
+
+    gui._compact = False
+    assert gui.info_box_height is None
+
+
 def test_destroy_embedded_finalizes_child_without_destroying_shared_app() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._stand_alone = False
