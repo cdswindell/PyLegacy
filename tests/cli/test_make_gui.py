@@ -7,6 +7,7 @@
 #
 from argparse import ArgumentTypeError
 import builtins
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -118,6 +119,12 @@ def test_landscape_aliases_template_and_font_selection() -> None:
     assert "height=__HEIGHT__" in template
     assert "controller_profile=__CONTROLLER_PROFILE__" in template
     assert {mod.EngineGui, mod.LandscapeEngineGui}.issubset(mod.NEED_FONTS)
+
+
+def test_project_packages_digital_dream_fonts() -> None:
+    project = Path(__file__).parents[2] / "pyproject.toml"
+
+    assert '"pytrain.gui" = ["fonts/**/*.ttf"]' in project.read_text(encoding="utf-8")
 
 
 def test_harvest_landscape_config_includes_native_size_and_profile() -> None:

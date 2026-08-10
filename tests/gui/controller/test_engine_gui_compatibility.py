@@ -179,7 +179,8 @@ def test_embedded_constructor_uses_parent_root_and_owner_queue(monkeypatch: pyte
     attached: list[object] = []
     app = object()
     pane = object()
-    owner = SimpleNamespace(app=app)
+    sync_state = object()
+    owner = SimpleNamespace(app=app, sync_state=sync_state)
 
     def fake_base_init(_self, **kwargs) -> None:
         base_init.update(kwargs)
@@ -215,6 +216,7 @@ def test_embedded_constructor_uses_parent_root_and_owner_queue(monkeypatch: pyte
     assert gui.root is pane
     assert gui.compact is True
     assert gui.show_halt is False
+    assert gui.sync_state is sync_state
     assert attached == [owner]
 
 

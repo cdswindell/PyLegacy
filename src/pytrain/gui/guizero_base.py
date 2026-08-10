@@ -829,7 +829,7 @@ class GuiZeroBase(Thread, ABC):
             else:
                 scaled_width = int(orig_width * width_scale)
                 scaled_height = int(orig_height * scale)
-        return scaled_width, scaled_height
+        return max(1, scaled_width), max(1, scaled_height)
 
     def _prepare_scaled_pil_image(
         self,
@@ -859,7 +859,7 @@ class GuiZeroBase(Thread, ABC):
             else:
                 scaled_width = int(orig_width * width_scale)
                 scaled_height = int(orig_height * scale)
-        return pil_img.resize((scaled_width, scaled_height))
+        return pil_img.resize((max(1, scaled_width), max(1, scaled_height)))
 
     def _request_prod_info(self, bt_id: str) -> ProdInfo | None:
         prod_info = "N/A"

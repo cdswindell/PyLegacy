@@ -70,6 +70,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 install = ["*.template", "*.jpg", "*.png", "*.ttf"]
+"pytrain.gui" = ["fonts/**/*.ttf"]
 "pytrain.gui.controller" = ["*.json"]
 
 

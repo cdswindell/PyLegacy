@@ -176,6 +176,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._linked_car_transfer = linked_car_transfer
         if parent_gui is not None:
             self._app = parent_gui.app
+            self._sync_state = parent_gui.sync_state
             self.attach_to_parent_queue(parent_gui)
 
         # preload common images

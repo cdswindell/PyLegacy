@@ -123,6 +123,15 @@ def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
     assert app_cell.cell_contents is None
 
 
+def test_scaled_image_dimensions_never_reach_zero() -> None:
+    gui = DummyGui()
+
+    assert gui._calc_scaled_image_size(432, 167) == (1, 1)
+    assert gui._calc_scaled_image_size(432, 167, force_lionel=True) == (1, 1)
+
+    gui.close()
+
+
 def test_poll_shutdown_processes_up_to_five_messages_per_tick() -> None:
     gui = DummyGui()
     handled: list[int] = []

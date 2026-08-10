@@ -236,3 +236,30 @@ def test_provider_handles_disconnect_and_reconnect() -> None:
     assert provider.poll() == []
     assert joystick.init_calls == 2
     assert provider._joysticks == {7: joystick}
+
+
+def test_provider_ignores_duplicate_add_event_for_enumerated_device(caplog: pytest.LogCaptureFixture) -> None:
+    def joystick(name: str):
+        device = SimpleNamespace(name=name, init_calls=0, quit_calls=0)
+        device.init = lambda: setattr(device, "init_calls", device.init_calls + 1)
+        device.quit = lambda: setattr(device, "quit_calls", device.quit_calls + 1)
+        device.get_instance_id = lambda: 7
+        device.get_numaxes = lambda: 6
+        device.get_numbuttons = lambda: 20
+        device.get_name = lambda: "Steam Deck"
+        device.get_guid = lambda: "deck-guid"
+        return device
+
+    enumerated = joystick("enumerated")
+    duplicate = joystick("duplicate")
+    devices = iter((enumerated, duplicate))
+    pygame = SimpleNamespace(joystick=SimpleNamespace(Joystick=lambda _index: next(devices)))
+    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
+
+    with caplog.at_level("INFO"):
+        provider._add_device(0)
+        provider._add_device(0)
+
+    assert provider._joysticks == {7: enumerated}
+    assert duplicate.quit_calls == 1
+    assert caplog.messages.count("SDL controller connected: name=Steam Deck guid=deck-guid axes=6 buttons=20") == 1

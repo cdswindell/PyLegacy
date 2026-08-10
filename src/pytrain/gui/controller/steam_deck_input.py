@@ -13,6 +13,7 @@ import importlib
 import json
 import logging
 import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping
@@ -209,6 +210,7 @@ class SteamDeckInputProvider:
             return
         if self._pygame is None:
             try:
+                os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
                 self._pygame = importlib.import_module("pygame")
             except ImportError as exc:
                 raise ControllerUnavailable("pygame is not installed; touch controls remain available") from exc
@@ -300,6 +302,11 @@ class SteamDeckInputProvider:
             joystick = self._pygame.joystick.Joystick(device_index)
             joystick.init()
             instance_id = joystick.get_instance_id()
+            current = self._joysticks.get(instance_id)
+            if current is not None:
+                if joystick is not current:
+                    joystick.quit()
+                return
             self._joysticks[instance_id] = joystick
             warning = self.capability_warnings(
                 axis_count=joystick.get_numaxes(), button_count=joystick.get_numbuttons()
