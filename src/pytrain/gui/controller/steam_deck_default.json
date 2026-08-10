@@ -5,19 +5,59 @@
   "repeat_interval": 0.1,
   "direction_threshold": 0.75,
   "axes": {
-    "0": {"action": "direction", "target": "left"},
-    "1": {"action": "throttle", "target": "left", "invert": true},
-    "2": {"action": "direction", "target": "right"},
-    "3": {"action": "throttle", "target": "right", "invert": true}
+    "0": {
+      "action": "direction",
+      "target": "left"
+    },
+    "1": {
+      "action": "throttle",
+      "target": "left",
+      "invert": true
+    },
+    "2": {
+      "action": "direction",
+      "target": "right"
+    },
+    "3": {
+      "action": "throttle",
+      "target": "right",
+      "invert": true
+    }
   },
   "buttons": {
-    "0": {"action": "bell", "target": "focused"},
-    "1": {"action": "reset", "target": "focused"},
-    "2": {"action": "horn", "target": "focused"},
-    "9": {"action": "focus_left", "target": "global"},
-    "10": {"action": "focus_right", "target": "global"}
+    "0": {
+      "action": "reset",
+      "target": "focused"
+    },
+    "1": {
+      "action": "bell",
+      "target": "focused"
+    },
+    "2": {
+      "action": "reset",
+      "target": "focused"
+    },
+    "3": {
+      "action": "horn",
+      "target": "focused"
+    },
+    "9": {
+      "action": "focus_left",
+      "target": "global"
+    },
+    "10": {
+      "action": "focus_right",
+      "target": "global"
+    }
   },
   "chords": [
-    {"buttons": [4, 5], "action": "halt", "target": "global"}
+    {
+      "buttons": [
+        4,
+        5
+      ],
+      "action": "halt",
+      "target": "global"
+    }
   ]
 }
