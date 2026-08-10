@@ -427,11 +427,16 @@ class DeckInputRouter:
             return
         speed = int(getattr(state, "speed", 0) or 0)
         target_speed = int(getattr(state, "target_speed", 0) or 0)
-        if speed != 0 or target_speed != 0:
-            log.warning("Ignoring direction request for moving %s panel", action.target)
-            return
+        command = "FORWARD_DIRECTION" if action.value > 0 else "REVERSE_DIRECTION"
+        is_current_direction = (
+            bool(getattr(state, "is_forward", False))
+            if command == "FORWARD_DIRECTION"
+            else bool(getattr(state, "is_reverse", False))
+        )
         self._direction_latches.add(action.target)
-        gui.on_engine_command("FORWARD_DIRECTION" if action.value > 0 else "REVERSE_DIRECTION")
+        if (speed != 0 or target_speed != 0) and is_current_direction:
+            return
+        gui.on_engine_command(command)
 
     def _target_gui(self, target: Target):
         if target == "left":

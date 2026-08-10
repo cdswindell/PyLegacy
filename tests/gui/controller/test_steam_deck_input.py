@@ -36,8 +36,22 @@ def _profile(**overrides) -> ControlProfile:
     return ControlProfile.from_dict(data)
 
 
-def _gui(speed: int = 0, *, target_speed: int | None = 0, is_cab1: bool = False):
-    state = SimpleNamespace(speed=speed, target_speed=target_speed, speed_max=199, is_cab1=is_cab1)
+def _gui(
+    speed: int = 0,
+    *,
+    target_speed: int | None = 0,
+    is_cab1: bool = False,
+    is_forward: bool = False,
+    is_reverse: bool = False,
+):
+    state = SimpleNamespace(
+        speed=speed,
+        target_speed=target_speed,
+        speed_max=199,
+        is_cab1=is_cab1,
+        is_forward=is_forward,
+        is_reverse=is_reverse,
+    )
     gui = SimpleNamespace(throttle_state=state, speed_calls=[], command_calls=[])
     gui.on_speed_command = lambda speed: gui.speed_calls.append(speed)
     gui.on_engine_command = lambda command: gui.command_calls.append(command)
@@ -130,13 +144,10 @@ def test_cab1_rate_throttle_emits_bounded_relative_steps() -> None:
 
 
 @pytest.mark.parametrize("target", ["left", "right"])
-def test_direction_requires_stopped_state_and_uses_hysteresis(target: str) -> None:
-    panel = _gui(speed=10, target_speed=10)
+def test_direction_uses_hysteresis(target: str) -> None:
+    panel = _gui()
     router, _, _, _, _ = _router(**{target: panel})
 
-    router.handle(DeckAction("direction", target, 1.0, "changed"))
-    assert panel.command_calls == []
-    panel.throttle_state.speed = panel.throttle_state.target_speed = 0
     router.handle(DeckAction("direction", target, 0.5, "changed"))
     router.handle(DeckAction("direction", target, 1.0, "changed"))
     router.handle(DeckAction("direction", target, 0.9, "changed"))
@@ -147,15 +158,31 @@ def test_direction_requires_stopped_state_and_uses_hysteresis(target: str) -> No
 
 
 @pytest.mark.parametrize(
-    ("value", "command"),
-    [(1.0, "FORWARD_DIRECTION"), (-1.0, "REVERSE_DIRECTION")],
+    ("value", "is_forward", "is_reverse"),
+    [(1.0, True, False), (-1.0, False, True)],
 )
-def test_rejected_direction_request_does_not_latch(value: float, command: str) -> None:
-    left = _gui(speed=10, target_speed=10)
+def test_moving_current_direction_is_noop(value: float, is_forward: bool, is_reverse: bool) -> None:
+    left = _gui(speed=10, target_speed=10, is_forward=is_forward, is_reverse=is_reverse)
     router, _, _, _, _ = _router(left=left)
 
     router.handle(DeckAction("direction", "left", value, "changed"))
-    left.throttle_state.speed = left.throttle_state.target_speed = 0
+
+    assert left.command_calls == []
+
+
+@pytest.mark.parametrize(
+    ("value", "is_forward", "is_reverse", "command"),
+    [
+        (1.0, False, True, "FORWARD_DIRECTION"),
+        (-1.0, True, False, "REVERSE_DIRECTION"),
+    ],
+)
+def test_moving_opposite_direction_executes_command(
+    value: float, is_forward: bool, is_reverse: bool, command: str
+) -> None:
+    left = _gui(speed=10, target_speed=10, is_forward=is_forward, is_reverse=is_reverse)
+    router, _, _, _, _ = _router(left=left)
+
     router.handle(DeckAction("direction", "left", value, "changed"))
 
     assert left.command_calls == [command]
