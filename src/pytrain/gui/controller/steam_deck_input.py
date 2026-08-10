@@ -208,26 +208,46 @@ class SteamDeckInputProvider:
     def start(self) -> None:
         if self._started:
             return
-        if self._pygame is None:
-            try:
+        sdl_environment = {
+            "SDL_VIDEODRIVER": os.environ.get("SDL_VIDEODRIVER"),
+            "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS": os.environ.get("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"),
+        }
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+        os.environ["SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"] = "1"
+        try:
+            if self._pygame is None:
                 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
                 self._pygame = importlib.import_module("pygame")
-            except ImportError as exc:
-                raise ControllerUnavailable("pygame is not installed; touch controls remain available") from exc
-        try:
-            self._pygame.init()
+            self._pygame.display.init()
             self._pygame.joystick.init()
+            controller_events = (
+                self._pygame.JOYAXISMOTION,
+                self._pygame.JOYBUTTONDOWN,
+                self._pygame.JOYBUTTONUP,
+                self._pygame.JOYDEVICEADDED,
+                self._pygame.JOYDEVICEREMOVED,
+            )
+            self._pygame.event.set_blocked(None)
+            self._pygame.event.set_allowed(controller_events)
             for device_index in range(self._pygame.joystick.get_count()):
                 self._add_device(device_index)
             self._started = True
-        except Exception as exc:
+        except ImportError as exc:
+            raise ControllerUnavailable("pygame is not installed; touch controls remain available") from exc
+        except RuntimeError as exc:
             raise ControllerUnavailable(f"SDL controller initialization failed: {exc}") from exc
+        finally:
+            for name, value in sdl_environment.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
 
     def stop(self) -> None:
         for joystick in self._joysticks.values():
             try:
                 joystick.quit()
-            except Exception:
+            except RuntimeError:
                 pass
         self._joysticks.clear()
         self._active_axes.clear()
@@ -320,7 +340,7 @@ class SteamDeckInputProvider:
             )
             if warning:
                 log.warning("Configured Steam Deck controls unavailable: %s", warning)
-        except Exception as exc:
+        except RuntimeError as exc:
             log.warning("Unable to open SDL controller %s: %s", device_index, exc)
 
     def _remove_device(self, instance_id: int) -> None:
@@ -329,7 +349,7 @@ class SteamDeckInputProvider:
             log.info("SDL controller disconnected: name=%s", joystick.get_name())
             try:
                 joystick.quit()
-            except Exception:
+            except RuntimeError:
                 pass
         self._active_axes.clear()
         self._held_buttons.clear()

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
 import pytest
 
 from src.pytrain.gui.controller.steam_deck_input import (
     ControlProfile,
+    ControllerUnavailable,
     DeckAction,
     DeckInputRouter,
     ProfileError,
@@ -114,6 +116,52 @@ def test_provider_applies_dead_zone_hysteresis_and_axis_inversion() -> None:
 
     assert [action.value for action in actions] == pytest.approx([0.0, 0.5294118, 0.0, 0.0])
     assert all(action.name == "throttle" and action.target == "left" for action in actions)
+
+
+def test_provider_start_isolates_sdl_video_from_tk_touchscreen(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[object] = []
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+        init=lambda: calls.append("pygame.init"),
+        display=SimpleNamespace(init=lambda: calls.append(("display.init", os.environ.get("SDL_VIDEODRIVER")))),
+        event=SimpleNamespace(
+            set_blocked=lambda event_type: calls.append(("blocked", event_type)),
+            set_allowed=lambda event_types: calls.append(("allowed", tuple(event_types))),
+        ),
+        joystick=SimpleNamespace(init=lambda: calls.append("joystick.init"), get_count=lambda: 0),
+    )
+    monkeypatch.setenv("SDL_VIDEODRIVER", "wayland")
+    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
+
+    provider.start()
+
+    assert "pygame.init" not in calls
+    assert ("display.init", "dummy") in calls
+    assert ("blocked", None) in calls
+    assert ("allowed", (1, 2, 3, 4, 5)) in calls
+    assert os.environ["SDL_VIDEODRIVER"] == "wayland"
+
+
+def test_provider_start_wraps_only_sdl_runtime_errors() -> None:
+    def sdl_failure() -> None:
+        raise RuntimeError("SDL failed")
+
+    pygame = SimpleNamespace(display=SimpleNamespace(init=sdl_failure))
+    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
+
+    with pytest.raises(ControllerUnavailable, match="SDL controller initialization failed: SDL failed"):
+        provider.start()
+
+    def programming_failure() -> None:
+        raise ValueError("programming error")
+
+    pygame.display.init = programming_failure
+    with pytest.raises(ValueError, match="programming error"):
+        provider.start()
 
 
 def test_rate_throttle_is_proportional_bounded_and_center_holds_speed() -> None:
