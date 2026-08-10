@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import src.pytrain.gui.controller.engine_gui as mod
+from src.pytrain.gui.controller.configured_accessory_adapter_provider import ConfiguredAccessoryAdapterProvider
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.utils.unique_deque import UniqueDeque
 
@@ -178,6 +179,21 @@ def _new_reload_engine() -> mod.EngineGui:
     gui._recents_queue = {}
     gui._train_linked_queue = UniqueDeque()
     return gui
+
+
+def test_configured_accessory_providers_are_isolated_per_engine_gui() -> None:
+    left_host = object()
+    right_host = object()
+    left = ConfiguredAccessoryAdapterProvider(DummyConfiguredSet(("station", 12)), left_host)
+    right = ConfiguredAccessoryAdapterProvider(DummyConfiguredSet(("station", 12)), right_host)
+
+    left_adapter = left.get("station")
+    right_adapter = right.get("station")
+
+    assert left is not right
+    assert left_adapter is not right_adapter
+    assert left_adapter.host is left_host
+    assert right_adapter.host is right_host
 
 
 def test_get_configured_accessory_caches_adapter_and_activates_tmcc() -> None:

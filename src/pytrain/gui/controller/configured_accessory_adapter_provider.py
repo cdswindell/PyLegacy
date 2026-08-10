@@ -14,12 +14,10 @@ from threading import RLock
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from ..accessories.configured_accessory import ConfiguredAccessory, ConfiguredAccessorySet
-from ...utils.singleton import singleton
 
 log = logging.getLogger(__name__)
 
 
-@singleton
 class ConfiguredAccessoryAdapterProvider:
     """
     Lazy provider for ConfiguredAccessoryAdapter objects.

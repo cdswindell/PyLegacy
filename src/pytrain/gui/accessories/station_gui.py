@@ -110,6 +110,7 @@ class StationGui(AccessoryBase):
 
     def build_accessory_controls(self, box: Box) -> None:
         assert self.config is not None
+        self.power_button = self.platform_button = None
         power_label, _ = self.config.labels_for("power", "platform")
         max_text_len = max(len(power_label), len(self._empty_label), len(self._full_label)) + 2
 
