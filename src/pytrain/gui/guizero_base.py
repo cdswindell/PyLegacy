@@ -62,6 +62,7 @@ PROD_INFO_EXCEPTIONS = (AttributeError, OSError, RuntimeError, TypeError, ValueE
 FINALIZE_EXCEPTIONS = (RuntimeError, TypeError, ValueError)
 MAX_GUI_MESSAGES_PER_POLL = 5
 DEFAULT_LAYOUT_TITLE = "My Layout"
+UI_FONT_FALLBACKS = ("DejaVu Sans", "Noto Sans", "Liberation Sans")
 
 
 def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont") -> str:
@@ -74,6 +75,29 @@ def resolve_font_family(root, preferred: str, fallback: str = "TkDefaultFont") -
         return fallback
     available = {normalize(family): family for family in families}
     return available.get(normalize(preferred), fallback)
+
+
+def configure_tk_ui_fonts(root) -> bool:
+    """Replace a Tk default font that cannot honor requested sizes and bold weight."""
+    try:
+        default_font = tkfont.nametofont("TkDefaultFont", root=root)
+        default_family = default_font.actual()["family"]
+        probe = tkfont.Font(root=root, family=default_family, size=16, weight="bold").actual()
+        if probe["size"] == 16 and probe["weight"] == "bold":
+            return False
+
+        fallback = next(
+            (family for family in UI_FONT_FALLBACKS if resolve_font_family(root, family, fallback="") != ""),
+            None,
+        )
+        if fallback is None:
+            log.warning("TkDefaultFont does not support scalable bold text and no UI font fallback is available")
+            return False
+        default_font.configure(family=fallback)
+        log.info("Replaced unusable TkDefaultFont family %s with %s", default_family, fallback)
+        return True
+    except (AttributeError, KeyError, RuntimeError, TclError, TypeError):
+        return False
 
 
 # noinspection PyUnresolvedReferences
@@ -502,6 +526,7 @@ class GuiZeroBase(Thread, ABC):
         self._tk_thread_id = get_ident()
         GpioHandler.cache_handler(self)
         self._app = app = App(title=self.title, width=self.width, height=self.height)
+        configure_tk_ui_fonts(getattr(app, "tk", app))
         tk_scaling = os.getenv("PYTRAIN_TK_SCALING")
         if tk_scaling:
             app.tk.call("tk", "scaling", float(tk_scaling))
