@@ -346,7 +346,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     @property
     def info_box_height(self) -> int | None:
-        return max(44, int(self.button_size * 0.55)) if self._compact else None
+        return max(52, int(self.button_size * 0.65)) if self._compact else None
 
     @property
     def show_halt(self) -> bool:

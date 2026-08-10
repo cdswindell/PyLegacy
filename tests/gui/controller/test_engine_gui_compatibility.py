@@ -339,7 +339,7 @@ def test_info_box_height_is_bounded_only_in_compact_mode() -> None:
     gui.button_size = 79
 
     gui._compact = True
-    assert gui.info_box_height == 44
+    assert gui.info_box_height == 52
 
     gui._compact = False
     assert gui.info_box_height is None
