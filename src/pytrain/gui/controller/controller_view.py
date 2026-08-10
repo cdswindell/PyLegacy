@@ -1100,7 +1100,7 @@ class ControllerView:
         title_text_size: int | None = None,
         level_text: str = "00",
         level_width: int = 3,
-        level_font: str = "TkDefaultFont",
+        level_font: str | None = None,
         level_size: int | None = None,
         slider_width: int | None = None,
         slider_height: int | None = None,
@@ -1120,6 +1120,7 @@ class ControllerView:
         host = self._host
 
         title_text_size = title_text_size if title_text_size is not None else host.s_10
+        level_font = level_font if level_font is not None else getattr(host, "digital_font", "TkDefaultFont")
         level_size = level_size if level_size is not None else host.s_18
         slider_width = slider_width if slider_width is not None else int(host.button_size / 3)
         slider_height = slider_height if slider_height is not None else host.slider_height

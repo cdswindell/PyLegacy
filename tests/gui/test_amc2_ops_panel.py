@@ -142,6 +142,7 @@ def _new_host(state: DummyAccessoryState):
         button_size=110,
         slider_height=330,
         scale_by=1.0,
+        digital_font="Digital dream",
         state_store=state_store,
         active_state=state,
     )
@@ -172,6 +173,7 @@ def test_build_and_update_from_state_sets_motor_page_values() -> None:
     assert lamp1.container.visible is False
     assert motor1.slider.value == 35
     assert motor1.toggle_btn.bg == mod.BUTTON_ON_BG
+    assert motor1.level_box.font == "Digital dream"
 
 
 def test_paging_shows_two_controls_per_page() -> None:
