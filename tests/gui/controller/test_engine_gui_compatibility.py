@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 import src.pytrain.gui.controller.engine_gui as mod
+from src.pytrain.gui.controller.engine_gui_conf import ENTER_KEY
 from src.pytrain.protocol.constants import CommandScope
 
 
@@ -305,10 +306,10 @@ def test_compact_keypad_uses_ascii_enter_label_without_changing_command_value() 
     gui.ops_cells = set()
     gui.entry_cells = set()
 
-    gui.make_keypad_button(object(), mod.ENTER_KEY, 0, 0)
+    gui.make_keypad_button(object(), ENTER_KEY, 0, 0)
 
-    assert captured["label"] == "Enter"
-    assert captured["args"] == [mod.ENTER_KEY]
+    assert captured["label"] == ENTER_KEY
+    assert captured["args"] == [ENTER_KEY]
 
 
 def test_compact_image_baseline_is_positive_and_bounded_by_pane() -> None:

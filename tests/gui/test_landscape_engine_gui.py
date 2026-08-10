@@ -62,6 +62,7 @@ def test_landscape_defaults_target_native_steam_deck_size(monkeypatch: pytest.Mo
     assert base_init["height"] == 800
     assert base_init["full_screen"] is True
     assert gui.pane_width == 632
+    assert gui.pane_height == 800
     assert gui.focused_panel == "left"
 
 
@@ -82,19 +83,16 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
         return child
 
     monkeypatch.setattr(mod, "Box", make_widget)
-    monkeypatch.setattr(mod, "Text", make_widget)
-    monkeypatch.setattr(mod, "HoldButton", make_widget)
     monkeypatch.setattr(mod, "EngineGui", make_child)
     gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
     gui.width = 1280
     gui.height = 800
     gui._app = SimpleNamespace(tk=_Tk())
     gui._pane_width = 632
-    gui._pane_height = 724
+    gui._pane_height = 800
     gui._focused_panel = "left"
     gui._left_options = {"tmcc_id": 12}
     gui._right_options = {"tmcc_id": 34}
-    gui._paired = False
     gui.left_gui = gui.right_gui = None
 
     gui.build_gui()
@@ -106,26 +104,20 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     assert all(child.kwargs["parent_gui"] is gui for child in children)
     assert all(child.kwargs["stand_alone"] is False for child in children)
     assert all(child.kwargs["compact"] is True for child in children)
-    assert all(child.kwargs["show_halt"] is False for child in children)
+    assert all(child.kwargs["show_halt"] is True for child in children)
     assert all(child.kwargs["width"] == 632 for child in children)
-    assert all(child.kwargs["height"] == 724 for child in children)
+    assert all(child.kwargs["height"] == 800 for child in children)
     assert all(child.kwargs["scale_by"] == mod.LANDSCAPE_FONT_SCALE for child in children)
     assert all(child.kwargs["button_divisor"] == mod.LANDSCAPE_BUTTON_DIVISOR for child in children)
     assert [child.build_calls for child in children] == [1, 1]
-    assert gui.global_halt_btn.master is gui.toolbar
-    assert gui.pair_btn.master is gui.toolbar
-    assert gui.pair_btn.kwargs["grid"] == [0, 0]
-    assert gui.global_halt_btn.kwargs["grid"] == [1, 0]
-    assert "PyTrain Landscape Controller" not in [widget.value for widget in widgets]
-    assert gui.left_root.master is gui.left_pane
-    assert gui.right_root.master is gui.right_pane
+    assert not any(widget.value in {"Left", "Right", "Pair Panels", mod.HALT_KEY} for widget in widgets)
+    assert gui.left_root is gui.left_pane
+    assert gui.right_root is gui.right_pane
 
 
-def test_focus_indicator_changes_without_altering_other_controller() -> None:
+def test_focus_changes_without_altering_other_controller() -> None:
     gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
     gui._focused_panel = "left"
-    gui.left_focus = _Widget(text="Left")
-    gui.right_focus = _Widget(text="Right")
     left_gui = object()
     right_gui = object()
     gui.left_gui = left_gui
@@ -135,10 +127,6 @@ def test_focus_indicator_changes_without_altering_other_controller() -> None:
 
     assert gui.focused_panel == "right"
     assert gui.focused_gui is right_gui
-    assert gui.left_focus.value == "Left"
-    assert gui.right_focus.value == "Right - Focused"
-    assert gui.left_focus.bg == mod.UNFOCUSED_BG
-    assert gui.right_focus.bg == mod.FOCUSED_BG
     with pytest.raises(ValueError):
         gui.focus_panel("center")
 
@@ -236,31 +224,6 @@ def test_missing_pygame_keeps_touch_gui_available(monkeypatch: pytest.MonkeyPatc
     assert gui._controller_poll_id is None
 
 
-def test_pairing_is_explicit_visual_state_and_does_not_mirror_commands() -> None:
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
-    gui._paired = False
-    gui._focused_panel = "left"
-    gui.left_focus = _Widget(text="Left")
-    gui.right_focus = _Widget(text="Right")
-    gui.pair_btn = SimpleNamespace(text="Pair Panels")
-    left = _gui_stub()
-    right = _gui_stub()
-    gui.left_gui = left
-    gui.right_gui = right
-
-    gui.toggle_pairing()
-    left.on_speed_command(25)
-
-    assert gui.paired is True
-    assert gui.pair_btn.text == "Unpair Panels"
-    assert "Paired" in gui.left_focus.value
-    assert "Paired" in gui.right_focus.value
-    assert left.speed_calls == [25]
-    assert right.speed_calls == []
-    gui.toggle_pairing()
-    assert gui.paired is False
-
-
 def test_linked_car_transfer_uses_other_panel_and_confirms_occupied_target() -> None:
     car = SimpleNamespace(tmcc_id=77, name="Sound Car")
     source = SimpleNamespace(linked_car_states=(car,))
@@ -294,9 +257,3 @@ def test_linked_car_transfer_handles_empty_target_and_missing_car() -> None:
     assert gui.transfer_linked_car("left", missing) is False
     assert gui.transfer_linked_car("left", car) is True
     assert target.selections == [(mod.CommandScope.ENGINE, 77)]
-
-
-def _gui_stub():
-    gui = SimpleNamespace(speed_calls=[])
-    gui.on_speed_command = lambda speed: gui.speed_calls.append(speed)
-    return gui

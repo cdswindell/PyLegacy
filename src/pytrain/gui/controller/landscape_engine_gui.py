@@ -15,7 +15,7 @@ from pathlib import Path
 from tkinter import messagebox, TclError
 from typing import Any, Callable, Literal
 
-from guizero import Box, Text
+from guizero import Box
 
 from .engine_gui import EngineGui
 from .engine_gui_conf import HALT_KEY, KEY_TO_COMMAND
@@ -25,22 +25,17 @@ from .steam_deck_input import (
     DeckInputRouter,
     SteamDeckInputProvider,
 )
-from ..components.hold_button import HoldButton
 from ..guizero_base import GuiZeroBase
 from ...db.engine_state import EngineState
 from ...protocol.constants import CommandScope
 
 STEAM_DECK_WIDTH = 1280
 STEAM_DECK_HEIGHT = 800
-TOOLBAR_HEIGHT = 44
-FOCUS_HEIGHT = 24
 HORIZONTAL_MARGIN = 12
 DIVIDER_WIDTH = 4
 LANDSCAPE_FONT_SCALE = 0.9
 LANDSCAPE_BUTTON_DIVISOR = 8.0
 COMPACT_SCALE = LANDSCAPE_FONT_SCALE
-FOCUSED_BG = "#cfe8ff"
-UNFOCUSED_BG = "#eeeeee"
 CONTROLLER_POLL_MS = 20
 
 PanelName = Literal["left", "right"]
@@ -77,9 +72,8 @@ class LandscapeEngineGui(GuiZeroBase):
             y_offset=y_offset,
         )
         self._pane_width = max(1, (self.width - HORIZONTAL_MARGIN - DIVIDER_WIDTH) // 2)
-        self._pane_height = max(1, self.height - TOOLBAR_HEIGHT - FOCUS_HEIGHT)
+        self._pane_height = self.height
         self._focused_panel: PanelName = "left"
-        self._paired = False
         self._left_options = dict(left_options or {})
         self._right_options = dict(right_options or {})
         self._confirm_replace = confirm_replace or self._confirm_panel_replace
@@ -89,11 +83,9 @@ class LandscapeEngineGui(GuiZeroBase):
         self._input_router: DeckInputRouter | None = None
         self._controller_poll_id = None
 
-        self.toolbar = self.body = None
+        self.body = None
         self.left_pane = self.right_pane = self.divider = None
         self.left_root = self.right_root = None
-        self.left_focus = self.right_focus = None
-        self.global_halt_btn = self.pair_btn = None
         self.left_gui: EngineGui | None = None
         self.right_gui: EngineGui | None = None
         self.init_complete()
@@ -114,85 +106,36 @@ class LandscapeEngineGui(GuiZeroBase):
     def focused_gui(self) -> EngineGui | None:
         return self.left_gui if self._focused_panel == "left" else self.right_gui
 
-    @property
-    def paired(self) -> bool:
-        return self._paired
-
     def build_gui(self) -> None:
         app = self.app
-        self.toolbar = Box(app, align="top", layout="grid", width=self.width, height=TOOLBAR_HEIGHT, border=1)
-        self.toolbar.tk.pack_propagate(False)
-        self.pair_btn = HoldButton(
-            self.toolbar,
-            text="Pair Panels",
-            grid=[0, 0],
-            width=28,
-            bg="lightgrey",
-            text_bold=True,
-            text_size=18,
-            command=self.toggle_pairing,
-        )
-        self.global_halt_btn = HoldButton(
-            self.toolbar,
-            text=HALT_KEY,
-            grid=[1, 0],
-            width=28,
-            bg="red",
-            text_bold=True,
-            text_size=20,
-            command=self.on_halt,
-        )
-        self.toolbar.tk.grid_columnconfigure(0, weight=1)
-        self.toolbar.tk.grid_columnconfigure(1, weight=1)
-
-        body_height = self.height - TOOLBAR_HEIGHT
-        self.body = Box(app, align="top", layout="grid", width=self.width, height=body_height)
+        self.body = Box(app, align="top", layout="grid", width=self.width, height=self.height)
         self.body.tk.pack_propagate(False)
-        self.left_pane, self.left_focus, self.left_root = self._build_pane("left", 0)
+        self.left_pane = self.left_root = self._build_pane("left", 0)
         self.divider = Box(
             self.body,
             grid=[1, 0],
             width=DIVIDER_WIDTH,
-            height=body_height,
+            height=self.height,
             border=1,
         )
         self.divider.bg = "#555555"
-        self.right_pane, self.right_focus, self.right_root = self._build_pane("right", 2)
+        self.right_pane = self.right_root = self._build_pane("right", 2)
 
         self.left_gui = self._build_controller("left", self.left_root, self._left_options)
         self.right_gui = self._build_controller("right", self.right_root, self._right_options)
-        self._refresh_focus_indicators()
         self._start_controller_input()
 
-    def _build_pane(self, side: PanelName, column: int) -> tuple[Box, Text, Box]:
-        body_height = self.height - TOOLBAR_HEIGHT
+    def _build_pane(self, side: PanelName, column: int) -> Box:
         pane = Box(
             self.body,
             grid=[column, 0],
             layout="auto",
             width=self._pane_width,
-            height=body_height,
-        )
-        pane.tk.pack_propagate(False)
-        focus = Text(
-            pane,
-            text=side.title(),
-            align="top",
-            width=self._pane_width,
-            height=1,
-            bold=True,
-            size=14,
-        )
-        root = Box(
-            pane,
-            align="top",
-            width=self._pane_width,
             height=self._pane_height,
         )
-        root.tk.pack_propagate(False)
+        pane.tk.pack_propagate(False)
         pane.tk.bind("<Button-1>", lambda _event, target=side: self.focus_panel(target))
-        root.tk.bind("<Button-1>", lambda _event, target=side: self.focus_panel(target))
-        return pane, focus, root
+        return pane
 
     def _build_controller(self, side: PanelName, root: Box, options: dict[str, Any]) -> EngineGui:
         child_options = {
@@ -206,7 +149,7 @@ class LandscapeEngineGui(GuiZeroBase):
             "parent": root,
             "parent_gui": self,
             "compact": True,
-            "show_halt": False,
+            "show_halt": True,
             "linked_car_transfer": lambda state, source=side: self.transfer_linked_car(source, state),
         }
         gui = EngineGui(**child_options)
@@ -217,29 +160,6 @@ class LandscapeEngineGui(GuiZeroBase):
         if panel not in ("left", "right"):
             raise ValueError(f"Unknown panel: {panel}")
         self._focused_panel = panel
-        self._refresh_focus_indicators()
-
-    def _refresh_focus_indicators(self) -> None:
-        if self.left_focus is not None:
-            self.left_focus.value = self._panel_label("left")
-            self.left_focus.bg = FOCUSED_BG if self._focused_panel == "left" else UNFOCUSED_BG
-        if self.right_focus is not None:
-            self.right_focus.value = self._panel_label("right")
-            self.right_focus.bg = FOCUSED_BG if self._focused_panel == "right" else UNFOCUSED_BG
-
-    def _panel_label(self, panel: PanelName) -> str:
-        labels = [panel.title()]
-        if self._focused_panel == panel:
-            labels.append("Focused")
-        if getattr(self, "_paired", False):
-            labels.append("Paired")
-        return " - ".join(labels)
-
-    def toggle_pairing(self) -> None:
-        self._paired = not self._paired
-        if self.pair_btn is not None:
-            self.pair_btn.text = "Unpair Panels" if self._paired else "Pair Panels"
-        self._refresh_focus_indicators()
 
     def transfer_linked_car(self, source_panel: PanelName, state: EngineState) -> bool:
         if source_panel not in ("left", "right"):
@@ -330,12 +250,9 @@ class LandscapeEngineGui(GuiZeroBase):
                 child.destroy_embedded()
                 setattr(self, child_name, None)
         self.safe_destroy(getattr(self, "body", None))
-        self.safe_destroy(getattr(self, "toolbar", None))
-        self.body = self.toolbar = None
+        self.body = None
         self.left_pane = self.right_pane = self.divider = None
         self.left_root = self.right_root = None
-        self.left_focus = self.right_focus = None
-        self.global_halt_btn = self.pair_btn = None
         self.clear_cache()
 
     def calc_image_box_size(self) -> tuple[int, int]:

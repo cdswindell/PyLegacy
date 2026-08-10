@@ -109,17 +109,6 @@ def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
 
     assert gui.app is None
     assert gui.destroy_gui_calls == 1
-
-
-def test_run_configures_tk_fonts_before_building_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
-    gui = DummyGui()
-    calls: list[str] = []
-    monkeypatch.setattr(mod, "configure_tk_ui_fonts", lambda _root: calls.append("fonts"))
-    monkeypatch.setattr(gui, "build_gui", lambda: calls.append("build"))
-
-    gui.run()
-
-    assert calls == ["fonts", "build"]
     assert gui.destroy_complete.is_set()
 
     app = DummyApp.last_instance
@@ -287,53 +276,3 @@ def test_resolve_font_family_uses_readable_fallback(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("Helvetica", "TkDefaultFont"))
 
     assert mod.resolve_font_family(object(), "DigitalDream") == "TkDefaultFont"
-
-
-def test_configure_tk_ui_fonts_leaves_scalable_default_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
-    configured: list[dict[str, object]] = []
-    default_font = SimpleNamespace(actual=lambda: {"family": "DejaVu Sans", "size": 10, "weight": "normal"})
-    probe_font = SimpleNamespace(actual=lambda: {"family": "DejaVu Sans", "size": 16, "weight": "bold"})
-
-    monkeypatch.setattr(mod.tkfont, "nametofont", lambda _name, root=None: default_font)
-    monkeypatch.setattr(mod.tkfont, "Font", lambda **_kwargs: probe_font)
-    monkeypatch.setattr(default_font, "configure", lambda **kwargs: configured.append(kwargs), raising=False)
-
-    assert mod.configure_tk_ui_fonts(object()) is False
-    assert configured == []
-
-
-def test_configure_tk_ui_fonts_repairs_non_scalable_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    configured: list[dict[str, object]] = []
-    default_font = SimpleNamespace(
-        actual=lambda: {"family": "fixed", "size": 10, "weight": "normal"},
-        configure=lambda **kwargs: configured.append(kwargs),
-    )
-
-    def probe_font(**kwargs):
-        family = kwargs["family"]
-        if family == "DejaVu Sans":
-            return SimpleNamespace(actual=lambda: {"family": family, "size": 16, "weight": "bold"})
-        return SimpleNamespace(actual=lambda: {"family": "fixed", "size": 10, "weight": "normal"})
-
-    monkeypatch.setattr(mod.tkfont, "nametofont", lambda _name, root=None: default_font)
-    monkeypatch.setattr(mod.tkfont, "Font", probe_font)
-    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("fixed",))
-
-    assert mod.configure_tk_ui_fonts(object()) is True
-    assert configured == [{"family": "DejaVu Sans"}]
-
-
-def test_configure_tk_ui_fonts_does_nothing_without_scalable_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    configured: list[dict[str, object]] = []
-    default_font = SimpleNamespace(
-        actual=lambda: {"family": "fixed", "size": 10, "weight": "normal"},
-        configure=lambda **kwargs: configured.append(kwargs),
-    )
-    probe_font = SimpleNamespace(actual=lambda: {"family": "fixed", "size": 10, "weight": "normal"})
-
-    monkeypatch.setattr(mod.tkfont, "nametofont", lambda _name, root=None: default_font)
-    monkeypatch.setattr(mod.tkfont, "Font", lambda **_kwargs: probe_font)
-    monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("fixed",))
-
-    assert mod.configure_tk_ui_fonts(object()) is False
-    assert configured == []

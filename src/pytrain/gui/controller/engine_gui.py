@@ -30,7 +30,6 @@ from .engine_gui_conf import (
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
-    ENTER_KEY,
     EXTRA_FUNCTIONS,
     HALT_KEY,
     KEY_TO_COMMAND,
@@ -1625,11 +1624,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:  # custom command
             command = (command, args)
 
-        display_label = "Enter" if self._compact and label == ENTER_KEY else label
-
         cell, nb = self._build_keypad_button(
             keypad_box=keypad_box,
-            label=display_label,
+            label=label,
             row=row,
             col=col,
             size=size,
