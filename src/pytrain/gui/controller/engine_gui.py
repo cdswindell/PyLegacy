@@ -352,6 +352,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         compact_height = self.info_box_height
         return max(compact_height, required_height) if compact_height is not None else required_height
 
+    def fit_info_id_width(self, actual_width: int, required_width: int) -> int:
+        return max(actual_width, required_width) if self._compact else actual_width
+
     @property
     def show_halt(self) -> bool:
         return self._show_halt
@@ -1586,16 +1589,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 if info_height is not None:
                     required_height = max(tmcc_id_box.tk.winfo_reqheight(), name_box.tk.winfo_reqheight())
                     id_h = self.fit_info_box_height(required_height)
-                    tmcc_id_box.tk.config(height=id_h)
+                    id_w = self.fit_info_id_width(
+                        actual_width=tmcc_id_box.tk.winfo_width(),
+                        required_width=tmcc_id_box.tk.winfo_reqwidth(),
+                    )
+                    tmcc_id_box.tk.config(width=id_w, height=id_h)
                     tmcc_id_box.tk.pack_propagate(False)
                     name_box.tk.pack_propagate(False)
                 else:
                     id_h = tmcc_id_box.tk.winfo_height()
+                    id_w = tmcc_id_box.tk.winfo_width()
                 info_box.tk.config(width=total_w, height=id_h + 2)
                 info_box.tk.pack_propagate(False)  # <- prevent any child resizing
 
                 # Compute sub-box dimensions but don’t change the overall width later
-                id_w = self.tmcc_id_box.tk.winfo_width()
                 name_box.tk.config(height=id_h, width=max(0, total_w - id_w))
             except tk.TclError as e:
                 log.exception(f"[adjust_road_name_box] failed: {e}", exc_info=e)
