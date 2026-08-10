@@ -146,6 +146,21 @@ def test_direction_requires_stopped_state_and_uses_hysteresis(target: str) -> No
     assert panel.command_calls == ["FORWARD_DIRECTION", "REVERSE_DIRECTION"]
 
 
+@pytest.mark.parametrize(
+    ("value", "command"),
+    [(1.0, "FORWARD_DIRECTION"), (-1.0, "REVERSE_DIRECTION")],
+)
+def test_rejected_direction_request_does_not_latch(value: float, command: str) -> None:
+    left = _gui(speed=10, target_speed=10)
+    router, _, _, _, _ = _router(left=left)
+
+    router.handle(DeckAction("direction", "left", value, "changed"))
+    left.throttle_state.speed = left.throttle_state.target_speed = 0
+    router.handle(DeckAction("direction", "left", value, "changed"))
+
+    assert left.command_calls == [command]
+
+
 def test_buttons_route_to_focused_fixed_and_global_targets() -> None:
     router, left, right, focused, global_calls = _router()
     focused.value = right

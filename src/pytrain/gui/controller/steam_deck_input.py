@@ -421,7 +421,6 @@ class DeckInputRouter:
             return
         if abs(action.value) < self.profile.direction_threshold or action.target in self._direction_latches:
             return
-        self._direction_latches.add(action.target)
         gui = self._target_gui(action.target)
         state = getattr(gui, "throttle_state", None) if gui is not None else None
         if state is None:
@@ -431,6 +430,7 @@ class DeckInputRouter:
         if speed != 0 or target_speed != 0:
             log.warning("Ignoring direction request for moving %s panel", action.target)
             return
+        self._direction_latches.add(action.target)
         gui.on_engine_command("FORWARD_DIRECTION" if action.value > 0 else "REVERSE_DIRECTION")
 
     def _target_gui(self, target: Target):
