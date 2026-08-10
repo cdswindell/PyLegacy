@@ -150,7 +150,6 @@ class LandscapeEngineGui(GuiZeroBase):
             "parent_gui": self,
             "compact": True,
             "show_halt": True,
-            "linked_car_transfer": lambda state, source=side: self.transfer_linked_car(source, state),
         }
         gui = EngineGui(**child_options)
         gui.build_gui()

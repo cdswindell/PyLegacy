@@ -105,6 +105,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     assert all(child.kwargs["stand_alone"] is False for child in children)
     assert all(child.kwargs["compact"] is True for child in children)
     assert all(child.kwargs["show_halt"] is True for child in children)
+    assert all("linked_car_transfer" not in child.kwargs for child in children)
     assert all(child.kwargs["width"] == 632 for child in children)
     assert all(child.kwargs["height"] == 800 for child in children)
     assert all(child.kwargs["scale_by"] == mod.LANDSCAPE_FONT_SCALE for child in children)

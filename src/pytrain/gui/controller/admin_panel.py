@@ -43,6 +43,7 @@ class AdminPanel:
         self._gui = gui
         self._width = width
         self._height = height
+        self._compact = bool(getattr(gui, "compact", False))
         self._sync_watcher = None
         self._sync_state = None
         self._reload_btn = None
@@ -61,6 +62,18 @@ class AdminPanel:
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
         self._overlay = None
+
+    @property
+    def compact_section_height(self) -> int:
+        return max(48, int(self._gui.button_size * 0.72))
+
+    @property
+    def admin_action_rows(self) -> tuple[int, int, int]:
+        return (0, 1, 2) if self._compact else (0, 2, 4)
+
+    @property
+    def admin_action_columns(self) -> tuple[int, int]:
+        return (0, 2) if self._compact else (0, 1)
 
     @property
     def overlay(self) -> Box:
@@ -140,6 +153,7 @@ class AdminPanel:
         pb.bg = "green" if self._gui.sync_state.is_synchronized() else "white"
         pb.text_bold = True
         pb.text_size = self._gui.s_18
+        self._fit_compact_control(pb)
 
         self.spacer(tb, grid=[1, 0])
         self._reload_btn = pb = HoldButton(
@@ -156,6 +170,7 @@ class AdminPanel:
             progress_fill_color="darkgrey",
             progress_empty_color="white",
         )
+        self._fit_compact_control(pb)
         self._gui.add_hover_action(pb)
 
         # set up sync watcher to manage button state
@@ -180,6 +195,7 @@ class AdminPanel:
             align="left",
             command=self._gui.reload_configured_accessories,
         )
+        self._fit_compact_control(pb)
         self._gui.add_hover_action(pb)
 
         self.spacer(tb, grid=[1, 0])
@@ -193,6 +209,7 @@ class AdminPanel:
             align="right",
             command=self._gui.image_presenter.clear_caches,
         )
+        self._fit_compact_control(pb)
         self._gui.add_hover_action(pb)
 
         # logging & debugging
@@ -212,6 +229,7 @@ class AdminPanel:
         )
         cb.value = 1 if self._pytrain.echo else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
+        self._fit_compact_control(cb)
 
         self.spacer(tb, grid=[1, 0])
         self._debug_btn = cb = CheckBox(
@@ -222,6 +240,7 @@ class AdminPanel:
         )
         cb.value = 1 if self._pytrain.debug else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
+        self._fit_compact_control(cb)
         if self._pytrain.echo:
             cb.enable()
         else:
@@ -253,59 +272,59 @@ class AdminPanel:
             admin_box,
             text=f"Hold for {self.hold_threshold} second{'s' if self.hold_threshold > 1 else ''}",
             grid=[0, row, 2, 1],
+            **({"height": self.compact_section_height * 3} if self._compact else {}),
         )
         tb.text_color = "red"
 
-        br = 0
+        restart_row, update_row, quit_row = self.admin_action_rows
+        left_col, right_col = self.admin_action_columns
         _ = self._hold_button(
             tb,
             text="Restart",
-            grid=[0, br],
+            grid=[left_col, restart_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
 
         _ = self._hold_button(
             tb,
             text="Reboot",
-            grid=[1, br],
+            grid=[right_col, restart_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.REBOOT]),
         )
 
-        br += 1
-        sp = Text(tb, text=" ", grid=[0, br, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        if not self._compact:
+            sp = Text(tb, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
+            sp.text_size = self._gui.s_2
 
-        br += 1
         _ = self._hold_button(
             tb,
             text=f"Update {PROGRAM_NAME}",
-            grid=[0, br],
+            grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
         )
 
         _ = self._hold_button(
             tb,
             text="Upgrade Pi OS",
-            grid=[1, br],
+            grid=[right_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPGRADE]),
         )
 
-        br += 1
-        sp = Text(tb, text=" ", grid=[0, br, 2, 1], height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_2
+        if not self._compact:
+            sp = Text(tb, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
+            sp.text_size = self._gui.s_2
 
-        br += 1
         _ = self._hold_button(
             tb,
             text="Quit",
-            grid=[0, br],
+            grid=[left_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.QUIT]),
         )
 
         _ = self._hold_button(
             tb,
             text="Shutdown",
-            grid=[1, br],
+            grid=[right_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
@@ -483,6 +502,8 @@ class AdminPanel:
             self._gui.do_tmcc_request(command)
 
     def _titlebox(self, parent: Box, text: str, grid: list[int] | None = None, **kwargs):
+        if self._compact and "height" not in kwargs:
+            kwargs["height"] = self.compact_section_height
         is_height = "height" in kwargs
         height = kwargs.pop("height", self._gui.button_size)
         if is_height:
@@ -511,7 +532,12 @@ class AdminPanel:
             tb.tk.pack_propagate(False)
         else:
             tb.tk.pack_propagate(True)
-        tb.tk.grid_columnconfigure(grid[0], weight=1)
+        if self._compact:
+            tb.tk.grid_columnconfigure(0, weight=1, uniform="admin_controls")
+            tb.tk.grid_columnconfigure(1, weight=0)
+            tb.tk.grid_columnconfigure(2, weight=1, uniform="admin_controls")
+        else:
+            tb.tk.grid_columnconfigure(grid[0], weight=1)
         return tb
 
     def _hold_button(self, parent: Box, text: str, grid: list[int], **kwargs) -> HoldButton:
@@ -536,7 +562,12 @@ class AdminPanel:
         )
         self._gui.add_hover_action(hb)
         self._gui.cache(hb)
+        self._fit_compact_control(hb)
         return hb
+
+    def _fit_compact_control(self, control) -> None:
+        if self._compact:
+            control.tk.grid_configure(sticky="nsew", padx=0, pady=0)
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized():
