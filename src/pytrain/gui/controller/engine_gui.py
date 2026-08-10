@@ -30,6 +30,7 @@ from .engine_gui_conf import (
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
+    ENTER_KEY,
     EXTRA_FUNCTIONS,
     HALT_KEY,
     KEY_TO_COMMAND,
@@ -144,6 +145,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         compact: bool = False,
         show_halt: bool = True,
         linked_car_transfer: Callable[[EngineState], bool] | None = None,
+        button_divisor: float | None = None,
     ) -> None:
         if stand_alone and (parent is not None or parent_gui is not None):
             raise ValueError("A standalone EngineGui cannot have a parent")
@@ -168,6 +170,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         }
         if not stand_alone:
             base_kwargs["stand_alone"] = False
+        if button_divisor is not None:
+            base_kwargs["button_divisor"] = button_divisor
         GuiZeroBase.__init__(self, **base_kwargs)
         self._parent = parent
         self._parent_gui = parent_gui
@@ -1621,9 +1625,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         else:  # custom command
             command = (command, args)
 
+        display_label = "Enter" if self._compact and label == ENTER_KEY else label
+
         cell, nb = self._build_keypad_button(
             keypad_box=keypad_box,
-            label=label,
+            label=display_label,
             row=row,
             col=col,
             size=size,
@@ -1882,9 +1888,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.avail_image_height_engine = baseline
 
             # save width as well
-            self.avail_image_width = self.emergency_box_width or (
+            available_width = self.emergency_box_width or (
                 self.emergency_box.tk.winfo_reqwidth() if self.emergency_box else 0
             )
+            self.avail_image_width = min(self.width, max(0, available_width))
 
             # Apply globally so image presenter and other modes use engine baseline
             self.avail_image_height = baseline
@@ -1898,9 +1905,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def make_emergency_buttons(self, app: App | Box):
         self.emergency_box = emergency_box = Box(app, layout="grid", border=2, align="top")
-        _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
+        compact = getattr(self, "_compact", False)
+        if not compact:
+            _ = Text(emergency_box, text=" ", grid=[0, 0, 3, 1], align="top", size=2, height=1, bold=True)
 
-        label_width = 11
+        label_width = 8 if compact else 11
+        padding_x = padding_y = 4 if compact else None
+        if not compact:
+            padding_x = self.text_pad_x
+            padding_y = self.text_pad_y
         if getattr(self, "_show_halt", True):
             self.halt_btn = HoldButton(
                 emergency_box,
@@ -1908,15 +1921,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 grid=[0, 1],
                 align="top",
                 width=label_width,
-                padx=self.text_pad_x,
-                pady=self.text_pad_y,
+                padx=padding_x,
+                pady=padding_y,
                 bg="red",
                 text_bold=True,
                 text_size=self.s_20,
                 command=self.on_keypress,
                 args=[HALT_KEY],
             )
-            _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
+            if not compact:
+                _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
             reset_col = 2
         else:
             self.halt_btn = None
@@ -1928,8 +1942,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             grid=[reset_col, 1],
             align="top",
             width=label_width,
-            padx=self.text_pad_x,
-            pady=self.text_pad_y,
+            padx=padding_x,
+            pady=padding_y,
             bg="gray",
             text_size=self.s_20,
             text_color="black",
@@ -1943,12 +1957,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if getattr(self, "_linked_car_transfer", None) is not None:
             self.linked_cars_btn = HoldButton(
                 emergency_box,
-                text="Linked Cars…",
+                text="Cars..." if compact else "Linked Cars…",
                 grid=[2, 1],
                 align="top",
                 width=label_width,
-                padx=self.text_pad_x,
-                pady=self.text_pad_y,
+                padx=padding_x,
+                pady=padding_y,
                 bg="lightgrey",
                 text_size=self.s_18,
                 text_color="black",
@@ -1957,7 +1971,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 command=self.on_linked_cars,
             )
 
-        _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
+        if not compact:
+            _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)
         self.app.tk.update_idletasks()
         self.emergency_box_width = emergency_box.tk.winfo_width()
         self.emergency_box_height = emergency_box.tk.winfo_height()

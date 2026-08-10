@@ -200,6 +200,7 @@ class GuiZeroBase(Thread, ABC):
         full_screen: bool = True,
         x_offset: int = 0,
         y_offset: int = 0,
+        button_divisor: float = 6.0,
     ) -> None:
         Thread.__init__(self, daemon=True, name=title)
         self._cv = Condition(RLock())
@@ -263,8 +264,10 @@ class GuiZeroBase(Thread, ABC):
         self.grid_pad_by = 2
 
         # standard widget sizes
-        self.button_size = int(round(self.width / 6))
-        self.titled_button_size = int(round((self.width / 6) * 0.80))
+        if button_divisor <= 0:
+            raise ValueError("button_divisor must be greater than zero")
+        self.button_size = int(round(self.width / button_divisor))
+        self.titled_button_size = int(round((self.width / button_divisor) * 0.80))
 
         # prod info support
         self._prod_info_cache = {}

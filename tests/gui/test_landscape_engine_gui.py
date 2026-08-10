@@ -109,9 +109,14 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     assert all(child.kwargs["show_halt"] is False for child in children)
     assert all(child.kwargs["width"] == 632 for child in children)
     assert all(child.kwargs["height"] == 724 for child in children)
+    assert all(child.kwargs["scale_by"] == mod.LANDSCAPE_FONT_SCALE for child in children)
+    assert all(child.kwargs["button_divisor"] == mod.LANDSCAPE_BUTTON_DIVISOR for child in children)
     assert [child.build_calls for child in children] == [1, 1]
     assert gui.global_halt_btn.master is gui.toolbar
     assert gui.pair_btn.master is gui.toolbar
+    assert gui.pair_btn.kwargs["grid"] == [0, 0]
+    assert gui.global_halt_btn.kwargs["grid"] == [1, 0]
+    assert "PyTrain Landscape Controller" not in [widget.value for widget in widgets]
     assert gui.left_root.master is gui.left_pane
     assert gui.right_root.master is gui.right_pane
 
@@ -131,7 +136,7 @@ def test_focus_indicator_changes_without_altering_other_controller() -> None:
     assert gui.focused_panel == "right"
     assert gui.focused_gui is right_gui
     assert gui.left_focus.value == "Left"
-    assert gui.right_focus.value == "Right • Focused"
+    assert gui.right_focus.value == "Right - Focused"
     assert gui.left_focus.bg == mod.UNFOCUSED_BG
     assert gui.right_focus.bg == mod.FOCUSED_BG
     with pytest.raises(ValueError):

@@ -170,3 +170,17 @@ The landscape GUI launches in Desktop and Gaming Modes with bundled fonts availa
 - Update project dependencies and generated launch artifacts for native SDL input and KDE/non-Steam-game launch workflows.
 - Expand `NEED_FONTS`, install TTF assets into the XDG user font directory, refresh fontconfig, verify Tk discovery, and select a fallback when needed.
 - Extend CLI tests, run Ruff format checks on all changed Python files, and run the complete `../bin/python -m pytest` suite, including the unchanged standalone `EngineGui` compatibility suite.
+
+### ✓ Step 7: Refine the Steam Deck landscape layout
+The 1280×800 controller uses readable typography, compact controls, decoded key labels, bounded product images, and space-efficient global actions without changing portrait behavior.
+
+- Add landscape regression tests for font and button scaling, Unicode key labels, product-image visibility and bounds, and compact toolbar/linked-car actions.
+- Apply landscape-specific sizing rather than changing standalone `EngineGui` defaults.
+- Rework the global toolbar and linked-car control to preserve panel space and keep all actions touch accessible.
+- Run Ruff formatting checks on all changed Python files and the complete `../bin/python -m pytest` suite.
+
+### ✓ Step 8: Restore default constructor compatibility
+The standalone `EngineGui` constructor preserves its original `GuiZeroBase` arguments while landscape callers can explicitly request compact button sizing.
+
+- Reproduce and fix the default `button_divisor` regression without weakening compatibility assertions.
+- Run Ruff formatting checks on changed Python files and the complete `../bin/python -m pytest` suite.

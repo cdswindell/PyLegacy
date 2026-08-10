@@ -62,7 +62,7 @@ class DummyApp:
 
 
 class DummyGui(mod.GuiZeroBase):
-    def __init__(self) -> None:
+    def __init__(self, button_divisor: float = 6.0) -> None:
         self.destroy_gui_calls = 0
         super().__init__(
             title="Dummy GUI",
@@ -70,6 +70,7 @@ class DummyGui(mod.GuiZeroBase):
             height=240,
             stand_alone=False,
             full_screen=True,
+            button_divisor=button_divisor,
         )
 
     @staticmethod
@@ -130,6 +131,19 @@ def test_scaled_image_dimensions_never_reach_zero() -> None:
     assert gui._calc_scaled_image_size(432, 167, force_lionel=True) == (1, 1)
 
     gui.close()
+
+
+def test_button_divisor_supports_compact_landscape_controls() -> None:
+    portrait = DummyGui()
+    landscape = DummyGui(button_divisor=8.0)
+
+    assert portrait.button_size == 53
+    assert portrait.titled_button_size == 43
+    assert landscape.button_size == 40
+    assert landscape.titled_button_size == 32
+
+    portrait.close()
+    landscape.close()
 
 
 def test_poll_shutdown_processes_up_to_five_messages_per_tick() -> None:

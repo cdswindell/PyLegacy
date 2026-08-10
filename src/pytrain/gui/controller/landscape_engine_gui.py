@@ -32,11 +32,13 @@ from ...protocol.constants import CommandScope
 
 STEAM_DECK_WIDTH = 1280
 STEAM_DECK_HEIGHT = 800
-TOOLBAR_HEIGHT = 52
+TOOLBAR_HEIGHT = 44
 FOCUS_HEIGHT = 24
 HORIZONTAL_MARGIN = 12
 DIVIDER_WIDTH = 4
-COMPACT_SCALE = 0.65
+LANDSCAPE_FONT_SCALE = 0.9
+LANDSCAPE_BUTTON_DIVISOR = 8.0
+COMPACT_SCALE = LANDSCAPE_FONT_SCALE
 FOCUSED_BG = "#cfe8ff"
 UNFOCUSED_BG = "#eeeeee"
 CONTROLLER_POLL_MS = 20
@@ -120,20 +122,11 @@ class LandscapeEngineGui(GuiZeroBase):
         app = self.app
         self.toolbar = Box(app, align="top", layout="grid", width=self.width, height=TOOLBAR_HEIGHT, border=1)
         self.toolbar.tk.pack_propagate(False)
-        Text(
-            self.toolbar,
-            text="PyTrain Landscape Controller",
-            grid=[0, 0],
-            align="left",
-            bold=True,
-            size=22,
-        )
         self.pair_btn = HoldButton(
             self.toolbar,
             text="Pair Panels",
-            grid=[1, 0],
-            align="right",
-            width=14,
+            grid=[0, 0],
+            width=28,
             bg="lightgrey",
             text_bold=True,
             text_size=18,
@@ -142,15 +135,15 @@ class LandscapeEngineGui(GuiZeroBase):
         self.global_halt_btn = HoldButton(
             self.toolbar,
             text=HALT_KEY,
-            grid=[2, 0],
-            align="right",
-            width=14,
+            grid=[1, 0],
+            width=28,
             bg="red",
             text_bold=True,
-            text_size=22,
+            text_size=20,
             command=self.on_halt,
         )
         self.toolbar.tk.grid_columnconfigure(0, weight=1)
+        self.toolbar.tk.grid_columnconfigure(1, weight=1)
 
         body_height = self.height - TOOLBAR_HEIGHT
         self.body = Box(app, align="top", layout="grid", width=self.width, height=body_height)
@@ -206,7 +199,8 @@ class LandscapeEngineGui(GuiZeroBase):
             **options,
             "width": self._pane_width,
             "height": self._pane_height,
-            "scale_by": COMPACT_SCALE,
+            "scale_by": LANDSCAPE_FONT_SCALE,
+            "button_divisor": LANDSCAPE_BUTTON_DIVISOR,
             "full_screen": False,
             "stand_alone": False,
             "parent": root,
@@ -239,7 +233,7 @@ class LandscapeEngineGui(GuiZeroBase):
             labels.append("Focused")
         if getattr(self, "_paired", False):
             labels.append("Paired")
-        return " • ".join(labels)
+        return " - ".join(labels)
 
     def toggle_pairing(self) -> None:
         self._paired = not self._paired

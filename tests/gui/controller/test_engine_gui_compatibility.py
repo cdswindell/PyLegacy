@@ -251,14 +251,86 @@ def test_embedded_emergency_row_can_hide_halt_without_removing_reset(monkeypatch
     gui.text_pad_x = 20
     gui.text_pad_y = 20
     gui.s_20 = 30
+    gui.s_18 = 27
     gui._scale_factor = 1.0
     gui._show_halt = False
+    gui._compact = False
 
     gui.make_emergency_buttons(object())
 
     assert gui.halt_btn is None
     assert gui.reset_btn.kwargs["text"] == "Reset"
     assert [widget.kwargs.get("text") for widget in widgets].count("Reset") == 1
+
+
+def test_compact_emergency_row_uses_short_actions_and_minimal_padding(monkeypatch: pytest.MonkeyPatch) -> None:
+    widgets: list[_Widget] = []
+
+    def make_widget(master, **kwargs):
+        widget = _Widget(master, **kwargs)
+        widgets.append(widget)
+        return widget
+
+    monkeypatch.setattr(mod, "Box", make_widget)
+    monkeypatch.setattr(mod, "Text", make_widget)
+    monkeypatch.setattr(mod, "HoldButton", make_widget)
+    app = SimpleNamespace(tk=SimpleNamespace(update_idletasks=lambda: None))
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._app = app
+    gui.width = 632
+    gui.text_pad_x = 20
+    gui.text_pad_y = 20
+    gui.s_20 = 18
+    gui.s_18 = 16
+    gui._scale_factor = 1.0
+    gui._show_halt = False
+    gui._compact = True
+    gui._linked_car_transfer = object()
+
+    gui.make_emergency_buttons(object())
+
+    assert gui.reset_btn.kwargs["padx"] == 4
+    assert gui.reset_btn.kwargs["pady"] == 4
+    assert gui.linked_cars_btn.kwargs["text"] == "Cars..."
+    assert gui.linked_cars_btn.kwargs["padx"] == 4
+    assert [widget.kwargs.get("text") for widget in widgets].count(" ") == 0
+
+
+def test_compact_keypad_uses_ascii_enter_label_without_changing_command_value() -> None:
+    captured: dict[str, object] = {}
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._compact = True
+    gui.on_keypress = lambda _key: None
+    gui._build_keypad_button = lambda **kwargs: captured.update(kwargs) or (object(), object())
+    gui.ops_cells = set()
+    gui.entry_cells = set()
+
+    gui.make_keypad_button(object(), mod.ENTER_KEY, 0, 0)
+
+    assert captured["label"] == "Enter"
+    assert captured["args"] == [mod.ENTER_KEY]
+
+
+def test_compact_image_baseline_is_positive_and_bounded_by_pane() -> None:
+    def widget(width: int, height: int):
+        return SimpleNamespace(tk=SimpleNamespace(winfo_reqwidth=lambda: width, winfo_reqheight=lambda: height))
+
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._app = SimpleNamespace(tk=SimpleNamespace(update_idletasks=lambda: None))
+    gui.width = 632
+    gui.height = 724
+    gui.header = widget(632, 34)
+    gui.emergency_box = widget(900, 36)
+    gui.emergency_box_width = 900
+    gui.emergency_box_height = 36
+    gui.info_box = widget(632, 30)
+    gui.scope_box = widget(632, 36)
+    gui.controller_box = widget(632, 400)
+
+    gui._compute_engine_image_baseline()
+
+    assert gui.avail_image_height == 168
+    assert gui.avail_image_width == 632
 
 
 def test_destroy_embedded_finalizes_child_without_destroying_shared_app() -> None:
