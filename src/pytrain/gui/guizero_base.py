@@ -87,7 +87,12 @@ def configure_tk_ui_fonts(root) -> bool:
             return False
 
         fallback = next(
-            (family for family in UI_FONT_FALLBACKS if resolve_font_family(root, family, fallback="") != ""),
+            (
+                family
+                for family in UI_FONT_FALLBACKS
+                if (probe := tkfont.Font(root=root, family=family, size=16, weight="bold").actual())["size"] == 16
+                and probe["weight"] == "bold"
+            ),
             None,
         )
         if fallback is None:
