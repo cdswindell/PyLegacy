@@ -346,14 +346,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     @property
     def info_box_height(self) -> int | None:
-        return max(52, int(self.button_size * 0.65)) if self._compact else None
+        return max(44, int(self.button_size * 0.55)) if self._compact else None
 
     def fit_info_box_height(self, required_height: int) -> int:
         compact_height = self.info_box_height
-        return max(compact_height, required_height) if compact_height is not None else required_height
+        return compact_height if compact_height is not None else required_height
 
     def fit_info_id_width(self, actual_width: int, required_width: int) -> int:
         return max(actual_width, required_width) if self._compact else actual_width
+
+    def fit_image_box_size(self, available_height: int, available_width: int) -> tuple[int, int]:
+        if not self._compact:
+            return available_height, available_width
+        fitted_height = min(available_height, int(self.height * 0.15), available_width // 3)
+        fitted_height = max(0, fitted_height)
+        return fitted_height, fitted_height * 3
 
     @property
     def show_halt(self) -> bool:
@@ -524,6 +531,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # determine if we can set the "selected" value directly;
         # will be used for other combo boxes
         self._popup.is_combo_hackable = hasattr(cb, "_selected")
+
+        # Reserve the bottom edge before compact top-aligned content is packed.
+        if self._compact:
+            self.make_scope_box(root)
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(root)
@@ -1337,9 +1348,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
         )
         self.ac_status_btn.image = img
 
+    def make_scope_box(self, app: App) -> Box:
+        if self.scope_box is None:
+            self.scope_box = Box(app, layout="grid", border=2, align="bottom")
+        return self.scope_box
+
     def make_scope(self, app: App):
         button_height = int(round(40 * self._scale_by))
-        self.scope_box = scope_box = Box(app, layout="grid", border=2, align="bottom")
+        scope_box = self.make_scope_box(app)
         img = tk.PhotoImage(width=self.scope_size, height=button_height)
         self._btn_images.append(img)
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
@@ -1547,16 +1563,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # Left: ID box
         # ───────────────────────────────
         self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
-        tmcc_id_box.text_size = self.s_12
+        tmcc_id_box.text_size = self.s_10 if self._compact else self.s_12
         self.tmcc_id_text = Text(tmcc_id_box, text="0000", align="left", bold=True, width=5)
         self.tmcc_id_text.text_color = "blue"
-        self.tmcc_id_text.text_size = self.s_20
+        self.tmcc_id_text.text_size = self.s_16 if self._compact else self.s_20
 
         # ───────────────────────────────
         # Right: Road Name box
         # ───────────────────────────────
         self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
-        name_box.text_size = self.s_12
+        name_box.text_size = self.s_10 if self._compact else self.s_12
         self.name_text = ScrollingText(
             name_box,
             text="",
@@ -1566,7 +1582,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             auto_scroll=self.auto_scroll,
         )
         self.name_text.text_color = "blue"
-        self.name_text.text_size = self.s_18
+        self.name_text.text_size = self.s_16 if self._compact else self.s_18
         self.name_text.tk.config(justify="left", anchor="w")
         if info_height is None:
             name_box.tk.pack_propagate(False)  # preserve portrait behavior
@@ -1905,13 +1921,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
             baseline = self.height - header_h - emergency_h - info_h - scope_h - controller_h - 20
             baseline = max(0, int(baseline))
-            self.avail_image_height_engine = baseline
-
-            # save width as well
             available_width = self.emergency_box_width or (
                 self.emergency_box.tk.winfo_reqwidth() if self.emergency_box else 0
             )
-            self.avail_image_width = min(self.width, max(0, available_width))
+            available_width = min(self.width, max(0, available_width))
+            baseline, available_width = self.fit_image_box_size(baseline, available_width)
+            self.avail_image_height_engine = baseline
+            self.avail_image_width = available_width
 
             # Apply globally so image presenter and other modes use engine baseline
             self.avail_image_height = baseline

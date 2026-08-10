@@ -826,7 +826,10 @@ class GuiZeroBase(Thread, ABC):
             width_scale = available_width / orig_width
             height_scale = available_height / orig_height
             scale = min(width_scale, height_scale)
-            if preserve_height:
+            if getattr(self, "_compact", False):
+                scaled_width = int(orig_width * scale)
+                scaled_height = int(orig_height * scale)
+            elif preserve_height:
                 scaled_width = int(orig_width * scale)
                 scaled_height = int(orig_height * height_scale)
             else:
@@ -856,7 +859,10 @@ class GuiZeroBase(Thread, ABC):
             width_scale = available_width / orig_width
             height_scale = available_height / orig_height
             scale = min(width_scale, height_scale)
-            if preserve_height:
+            if getattr(self, "_compact", False):
+                scaled_width = int(orig_width * scale)
+                scaled_height = int(orig_height * scale)
+            elif preserve_height:
                 scaled_width = int(orig_width * scale)
                 scaled_height = int(orig_height * height_scale)
             else:

@@ -318,6 +318,7 @@ def test_compact_image_baseline_is_positive_and_bounded_by_pane() -> None:
 
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._app = SimpleNamespace(tk=SimpleNamespace(update_idletasks=lambda: None))
+    gui._compact = True
     gui.width = 632
     gui.height = 724
     gui.header = widget(632, 34)
@@ -330,8 +331,32 @@ def test_compact_image_baseline_is_positive_and_bounded_by_pane() -> None:
 
     gui._compute_engine_image_baseline()
 
-    assert gui.avail_image_height == 168
-    assert gui.avail_image_width == 632
+    assert gui.avail_image_height == 108
+    assert gui.avail_image_width == 324
+
+
+def test_compact_image_box_is_three_times_wider_and_height_limited() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._compact = True
+    gui.height = 800
+
+    assert gui.fit_image_box_size(available_height=260, available_width=632) == (120, 360)
+    assert gui.fit_image_box_size(available_height=260, available_width=200) == (66, 198)
+    assert gui.fit_image_box_size(available_height=-1, available_width=632) == (0, 0)
+
+    gui._compact = False
+    assert gui.fit_image_box_size(available_height=260, available_width=632) == (260, 632)
+
+
+def test_compact_image_scaling_preserves_source_aspect_ratio() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui.calc_image_box_size = lambda: (120, 360)
+
+    gui._compact = True
+    assert gui._calc_scaled_image_size(600, 300) == (240, 120)
+
+    gui._compact = False
+    assert gui._calc_scaled_image_size(600, 300) == (360, 120)
 
 
 def test_info_box_height_is_bounded_only_in_compact_mode() -> None:
@@ -339,8 +364,8 @@ def test_info_box_height_is_bounded_only_in_compact_mode() -> None:
     gui.button_size = 79
 
     gui._compact = True
-    assert gui.info_box_height == 52
-    assert gui.fit_info_box_height(68) == 68
+    assert gui.info_box_height == 44
+    assert gui.fit_info_box_height(68) == 44
     assert gui.fit_info_id_width(actual_width=1, required_width=84) == 84
 
     gui._compact = False
@@ -391,11 +416,13 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._app = app
     gui._parent = pane
+    gui._compact = True
     gui.title = "Engine/Train Control"
     gui.s_24 = 24
     gui.get_options = lambda: []
     gui.make_emergency_buttons = lambda root: roots.append(("emergency", root))
     gui.make_info_box = lambda root: roots.append(("info", root))
+    gui.make_scope_box = lambda root: roots.append(("scope_box", root))
     gui.make_scope = lambda root: roots.append(("scope", root))
     gui._engine_buttons_future = _ImmediateExecutor.submit(None)
     gui._keypad_view = SimpleNamespace(build=lambda root: roots.append(("keypad", root)))
@@ -429,6 +456,7 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
 
     assert roots == [
         ("header", pane),
+        ("scope_box", pane),
         ("emergency", pane),
         ("info", pane),
         ("keypad", pane),

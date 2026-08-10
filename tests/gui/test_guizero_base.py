@@ -10,11 +10,13 @@
 from __future__ import annotations
 
 from concurrent.futures import Future
+from io import BytesIO
 from threading import Event, get_ident
 from types import SimpleNamespace
 from typing import Callable
 
 import pytest
+from PIL import Image
 
 import src.pytrain.gui.guizero_base as mod
 import src.pytrain.gui.controller.popup_manager as popup_mod
@@ -129,6 +131,22 @@ def test_scaled_image_dimensions_never_reach_zero() -> None:
 
     assert gui._calc_scaled_image_size(432, 167) == (1, 1)
     assert gui._calc_scaled_image_size(432, 167, force_lionel=True) == (1, 1)
+
+    gui.close()
+
+
+def test_compact_prepared_image_preserves_source_aspect_ratio() -> None:
+    source = BytesIO()
+    Image.new("RGB", (600, 300)).save(source, format="PNG")
+    gui = DummyGui()
+
+    gui._compact = True
+    compact = gui._prepare_scaled_pil_image(source, available_width=360, available_height=120)
+    assert compact.size == (240, 120)
+
+    gui._compact = False
+    portrait = gui._prepare_scaled_pil_image(source, available_width=360, available_height=120)
+    assert portrait.size == (360, 120)
 
     gui.close()
 
