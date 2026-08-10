@@ -152,6 +152,7 @@ class LandscapeEngineGui(GuiZeroBase):
             "show_halt": True,
         }
         gui = EngineGui(**child_options)
+        gui.title = self.title
         gui.build_gui()
         return gui
 

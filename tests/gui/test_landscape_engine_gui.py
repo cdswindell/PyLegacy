@@ -76,7 +76,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
         return widget
 
     def make_child(**kwargs):
-        child = SimpleNamespace(kwargs=kwargs, build_calls=0, destroy_calls=0)
+        child = SimpleNamespace(kwargs=kwargs, build_calls=0, destroy_calls=0, title="My Layout")
         child.build_gui = lambda: setattr(child, "build_calls", child.build_calls + 1)
         child.destroy_embedded = lambda: setattr(child, "destroy_calls", child.destroy_calls + 1)
         children.append(child)
@@ -91,6 +91,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     gui._pane_width = 632
     gui._pane_height = 800
     gui._focused_panel = "left"
+    gui.title = "David's Railroad"
     gui._left_options = {"tmcc_id": 12}
     gui._right_options = {"tmcc_id": 34}
     gui.left_gui = gui.right_gui = None
@@ -110,6 +111,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     assert all(child.kwargs["height"] == 800 for child in children)
     assert all(child.kwargs["scale_by"] == mod.LANDSCAPE_FONT_SCALE for child in children)
     assert all(child.kwargs["button_divisor"] == mod.LANDSCAPE_BUTTON_DIVISOR for child in children)
+    assert all(child.title == "David's Railroad" for child in children)
     assert [child.build_calls for child in children] == [1, 1]
     assert not any(widget.value in {"Left", "Right", "Pair Panels", mod.HALT_KEY} for widget in widgets)
     assert gui.left_root is gui.left_pane
