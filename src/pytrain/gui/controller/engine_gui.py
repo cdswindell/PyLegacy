@@ -348,6 +348,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def info_box_height(self) -> int | None:
         return max(52, int(self.button_size * 0.65)) if self._compact else None
 
+    def fit_info_box_height(self, required_height: int) -> int:
+        compact_height = self.info_box_height
+        return max(compact_height, required_height) if compact_height is not None else required_height
+
     @property
     def show_halt(self) -> bool:
         return self._show_halt
@@ -1535,23 +1539,20 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def make_info_box(self, app: App):
         self.info_box = info_box = Box(app, layout="left", border=2, align="top")
         info_height = self.info_box_height
-        height_options = {"height": info_height} if info_height is not None else {}
 
         # ───────────────────────────────
         # Left: ID box
         # ───────────────────────────────
-        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left", **height_options)
+        self.tmcc_id_box = tmcc_id_box = TitleBox(info_box, f"{self.scope.title} ID", align="left")
         tmcc_id_box.text_size = self.s_12
         self.tmcc_id_text = Text(tmcc_id_box, text="0000", align="left", bold=True, width=5)
         self.tmcc_id_text.text_color = "blue"
         self.tmcc_id_text.text_size = self.s_20
-        if info_height is not None:
-            tmcc_id_box.tk.pack_propagate(False)
 
         # ───────────────────────────────
         # Right: Road Name box
         # ───────────────────────────────
-        self.name_box = name_box = TitleBox(info_box, "Road Name", align="right", **height_options)
+        self.name_box = name_box = TitleBox(info_box, "Road Name", align="right")
         name_box.text_size = self.s_12
         self.name_text = ScrollingText(
             name_box,
@@ -1564,7 +1565,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.name_text.text_color = "blue"
         self.name_text.text_size = self.s_18
         self.name_text.tk.config(justify="left", anchor="w")
-        name_box.tk.pack_propagate(False)  # prevent pack from shrinking
+        if info_height is None:
+            name_box.tk.pack_propagate(False)  # preserve portrait behavior
 
         # ───────────────────────────────
         # Wait until the ID box is actually realized
@@ -1581,7 +1583,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     return
 
                 # Fix the overall info_box width permanently
-                id_h = info_height or tmcc_id_box.tk.winfo_height()
+                if info_height is not None:
+                    required_height = max(tmcc_id_box.tk.winfo_reqheight(), name_box.tk.winfo_reqheight())
+                    id_h = self.fit_info_box_height(required_height)
+                    tmcc_id_box.tk.config(height=id_h)
+                    tmcc_id_box.tk.pack_propagate(False)
+                    name_box.tk.pack_propagate(False)
+                else:
+                    id_h = tmcc_id_box.tk.winfo_height()
                 info_box.tk.config(width=total_w, height=id_h + 2)
                 info_box.tk.pack_propagate(False)  # <- prevent any child resizing
 

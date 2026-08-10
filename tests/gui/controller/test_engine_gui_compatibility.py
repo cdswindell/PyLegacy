@@ -340,9 +340,11 @@ def test_info_box_height_is_bounded_only_in_compact_mode() -> None:
 
     gui._compact = True
     assert gui.info_box_height == 52
+    assert gui.fit_info_box_height(68) == 68
 
     gui._compact = False
     assert gui.info_box_height is None
+    assert gui.fit_info_box_height(68) == 68
 
 
 def test_destroy_embedded_finalizes_child_without_destroying_shared_app() -> None:
