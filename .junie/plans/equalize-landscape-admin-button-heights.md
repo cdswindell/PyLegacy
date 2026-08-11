@@ -88,3 +88,15 @@ Automated checks protect checkbox parity, the landscape-only two-pixel height in
 - Update `tests/gui/controller/test_admin_panel_layout.py` with focused landscape and portrait geometry assertions.
 - Run Ruff format checking on changed Python files.
 - Run the complete pytest suite.
+
+### ✓ Step 5: Align tests with manual landscape sizing
+Regression expectations reflect the user-adjusted compact button and Network heights without changing production code.
+
+- Update `tests/gui/controller/test_admin_panel_layout.py` for the current derived landscape dimensions.
+- Preserve checkbox parity, action-row, Scope, and portrait-isolation assertions.
+
+### ✓ Step 6: Verify the updated expectations
+Formatting and the complete test suite confirm the manual landscape geometry is covered correctly.
+
+- Run Ruff format checking on the changed Python test file.
+- Run the complete pytest suite.

@@ -84,8 +84,12 @@ class AdminPanel:
         return int(self.compact_section_height / 1.6)
 
     @property
+    def option_control_width(self) -> int:
+        return int(self._width / 2.48)
+
+    @property
     def scope_grid(self) -> list[int]:
-        return [0, 0, 3, 1] if self._compact else [0, 0]
+        return [0, 0, 3, 1]
 
     @property
     def compact_admin_actions_height(self) -> int:
@@ -264,7 +268,7 @@ class AdminPanel:
             command=self._on_echo,
         )
         cb.value = 1 if self._pytrain.echo else 0
-        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=self.option_control_width)
         self._fit_compact_control(cb, image_backed=True)
 
         self.spacer(tb, grid=[1, 0])
@@ -275,7 +279,7 @@ class AdminPanel:
             command=self._on_debug,
         )
         cb.value = 1 if self._pytrain.debug else 0
-        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=self.option_control_width)
         self._fit_compact_control(cb, image_backed=True)
         if self._pytrain.echo:
             cb.enable()
@@ -298,9 +302,10 @@ class AdminPanel:
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
-            width=int(self._width / 2.3),
+            width=self.option_control_width,
             style="radio",
         )
+        self._align_scope_controls(self._scope_btns)
 
         # admin operations
         row += 1
@@ -634,6 +639,11 @@ class AdminPanel:
             height = self.compact_control_height - 4 if image_backed else 1
             control.tk.config(height=height, pady=0)
             control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
+
+    @staticmethod
+    def _align_scope_controls(scope_group: CheckBoxGroup) -> None:
+        for column, control in zip((0, 2), scope_group.tk.winfo_children(), strict=False):
+            control.grid_configure(column=column, row=0)
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized():
