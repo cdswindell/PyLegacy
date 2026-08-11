@@ -65,7 +65,7 @@ class AdminPanel:
 
     @property
     def compact_control_height(self) -> int:
-        return max(36, int(self._gui.button_size * 0.45))
+        return max(44, int(self._gui.button_size * 0.55))
 
     @property
     def compact_section_height(self) -> int:
@@ -303,6 +303,7 @@ class AdminPanel:
         restart_row, update_row, quit_row = self.admin_action_rows
         left_col, right_col = self.admin_action_columns
         if self._compact:
+            self.spacer(tb, grid=[1, 0, 1, 3])
             for action_row in self.admin_action_rows:
                 tb.tk.grid_rowconfigure(
                     action_row,
@@ -566,7 +567,9 @@ class AdminPanel:
             tb.tk.config(width=self._width)
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
-        if is_height:
+        if self._compact:
+            tb.tk.grid_propagate(False)
+        elif is_height:
             tb.tk.pack_propagate(False)
         else:
             tb.tk.pack_propagate(True)

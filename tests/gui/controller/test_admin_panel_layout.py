@@ -8,6 +8,7 @@ class _Tk:
         self.columns = []
         self.rows = []
         self.grid = None
+        self.grid_propagates = []
         self.pack_propagates = []
 
     def config(self, **_kwargs) -> None:
@@ -21,6 +22,9 @@ class _Tk:
 
     def grid_rowconfigure(self, row, **kwargs) -> None:
         self.rows.append((row, kwargs))
+
+    def grid_propagate(self, value) -> None:
+        self.grid_propagates.append(value)
 
     def pack_propagate(self, value) -> None:
         self.pack_propagates.append(value)
@@ -49,7 +53,8 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
     titlebox = panel._titlebox(object(), "Reload/Refresh", grid=[0, 1, 2, 1])
 
     assert titlebox.kwargs["height"] == panel.compact_section_height
-    assert titlebox.tk.pack_propagates == [False]
+    assert titlebox.tk.grid_propagates == [False]
+    assert titlebox.tk.pack_propagates == []
     assert titlebox.tk.columns == [
         (0, {"weight": 1, "uniform": "admin_controls"}),
         (1, {"weight": 0}),
@@ -61,10 +66,10 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
 def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     panel = _panel(compact=True)
 
-    assert panel.compact_control_height == 36
-    assert panel.compact_section_height == 44
-    assert panel.compact_admin_actions_height == 116
-    assert panel.compact_database_height == 44
+    assert panel.compact_control_height == 44
+    assert panel.compact_section_height == 52
+    assert panel.compact_admin_actions_height == 140
+    assert panel.compact_database_height == 52
 
 
 def test_scope_group_spans_compact_columns_without_changing_portrait_grid() -> None:
