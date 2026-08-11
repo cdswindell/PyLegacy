@@ -9,6 +9,7 @@ class _Tk:
         self.rows = []
         self.grid = None
         self.grid_propagates = []
+        self.pack_configs = []
         self.pack_propagates = []
 
     def config(self, **_kwargs) -> None:
@@ -26,15 +27,31 @@ class _Tk:
     def grid_propagate(self, value) -> None:
         self.grid_propagates.append(value)
 
+    def pack_configure(self, **kwargs) -> None:
+        self.pack_configs.append(kwargs)
+
     def pack_propagate(self, value) -> None:
         self.pack_propagates.append(value)
 
 
 class _TitleBox:
+    instances = []
+
     def __init__(self, _parent, **kwargs) -> None:
         self.kwargs = kwargs
         self.tk = _Tk()
         self.text_size = None
+        self.instances.append(self)
+
+    @staticmethod
+    def decorate_checkbox(*_args, **_kwargs) -> None:
+        pass
+
+    def disable(self) -> None:
+        pass
+
+    def enable(self) -> None:
+        pass
 
 
 def _panel(compact: bool) -> mod.AdminPanel:
@@ -60,7 +77,42 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
         (1, {"weight": 0}),
         (2, {"weight": 1, "minsize": panel.compact_control_width, "uniform": "admin_controls"}),
     ]
-    assert titlebox.tk.rows == [(0, {"weight": 1, "minsize": panel.compact_control_height})]
+    assert titlebox.tk.rows == [(0, {"weight": 0, "minsize": panel.compact_control_height})]
+
+
+def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatch) -> None:
+    _TitleBox.instances = []
+    for widget_type in ("Box", "CheckBox", "CheckBoxGroup", "HoldButton", "PushButton", "Text", "TitleBox"):
+        monkeypatch.setattr(mod, widget_type, _TitleBox)
+    monkeypatch.setattr(mod, "StateWatcher", lambda *_args: None)
+    panel = _panel(compact=True)
+    panel.hold_threshold = 3
+    panel._gui = SimpleNamespace(
+        button_size=79,
+        s_1=1,
+        s_10=9,
+        s_18=16,
+        s_20=18,
+        sync_state=SimpleNamespace(is_synchronized=lambda: True),
+        image_presenter=SimpleNamespace(clear_caches=lambda: None),
+        rescale_by=lambda value: value,
+        do_tmcc_request=lambda *_args: None,
+        reload_configured_accessories=lambda: None,
+        add_hover_action=lambda _widget: None,
+        cache=lambda _widget: None,
+    )
+    panel._pytrain = SimpleNamespace(debug=False, echo=False)
+    panel._wifi_text = lambda *_args, **_kwargs: _TitleBox(None)
+    panel._wifi_signal_badge = lambda *_args, **_kwargs: _TitleBox(None)
+    panel._refresh_wifi_display = lambda: None
+
+    panel.build(_TitleBox(None))
+
+    admin_actions = next(box for box in _TitleBox.instances if str(box.kwargs.get("text", "")).startswith("Hold for"))
+    assert admin_actions.tk.rows[-3:] == [
+        (row, {"weight": 0, "minsize": panel.compact_control_height, "uniform": "admin_actions"})
+        for row in panel.admin_action_rows
+    ]
 
 
 def test_compact_sections_fit_title_and_all_admin_actions() -> None:

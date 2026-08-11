@@ -311,7 +311,7 @@ class AdminPanel:
             for action_row in self.admin_action_rows:
                 tb.tk.grid_rowconfigure(
                     action_row,
-                    weight=1,
+                    weight=0,
                     minsize=self.compact_control_height,
                     uniform="admin_actions",
                 )
@@ -591,7 +591,7 @@ class AdminPanel:
                 minsize=self.compact_control_width,
                 uniform="admin_controls",
             )
-            tb.tk.grid_rowconfigure(0, weight=1, minsize=self.compact_control_height)
+            tb.tk.grid_rowconfigure(0, weight=0, minsize=self.compact_control_height)
         else:
             tb.tk.grid_columnconfigure(grid[0], weight=1)
         return tb
