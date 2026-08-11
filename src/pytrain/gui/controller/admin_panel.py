@@ -72,8 +72,8 @@ class AdminPanel:
         return self.compact_control_height + 8
 
     @property
-    def compact_scope_height(self) -> int | None:
-        return self.compact_control_height + 20 if self._compact else None
+    def scope_grid(self) -> list[int]:
+        return [0, 0, 3, 1] if self._compact else [0, 0]
 
     @property
     def compact_admin_actions_height(self) -> int:
@@ -277,13 +277,12 @@ class AdminPanel:
             text="Scope",
             grid=[0, row, 2, 1],
             width=width,
-            **({"height": self.compact_scope_height} if self._compact else {}),
         )
 
         self._scope_btns = CheckBoxGroup(
             tb,
             size=self._gui.s_20,
-            grid=[0, 0],
+            grid=self.scope_grid,
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
