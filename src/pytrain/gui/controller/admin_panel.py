@@ -65,7 +65,7 @@ class AdminPanel:
 
     @property
     def compact_control_height(self) -> int:
-        return max(44, int(self._gui.button_size * 0.55))
+        return max(46, int(self._gui.button_size * 0.55))
 
     @property
     def compact_control_width(self) -> int:
@@ -78,6 +78,10 @@ class AdminPanel:
     @property
     def compact_section_height(self) -> int:
         return self.compact_control_height + self.compact_title_allowance
+
+    @property
+    def compact_network_height(self) -> int:
+        return self.compact_section_height // 2
 
     @property
     def scope_grid(self) -> list[int]:
@@ -132,7 +136,7 @@ class AdminPanel:
             layout="grid",
             align="top",
             width=width,
-            height=self.compact_section_height if self._compact else int(7 * self._gui.button_size / 12),
+            height=self.compact_network_height if self._compact else int(7 * self._gui.button_size / 12),
         )
         wifi_box.tk.config(width=self._width)
         wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
@@ -261,7 +265,7 @@ class AdminPanel:
         )
         cb.value = 1 if self._pytrain.echo else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
-        self._fit_compact_control(cb)
+        self._fit_compact_control(cb, image_backed=True)
 
         self.spacer(tb, grid=[1, 0])
         self._debug_btn = cb = CheckBox(
@@ -272,7 +276,7 @@ class AdminPanel:
         )
         cb.value = 1 if self._pytrain.debug else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
-        self._fit_compact_control(cb)
+        self._fit_compact_control(cb, image_backed=True)
         if self._pytrain.echo:
             cb.enable()
         else:
@@ -625,9 +629,10 @@ class AdminPanel:
         self._fit_compact_control(hb)
         return hb
 
-    def _fit_compact_control(self, control) -> None:
+    def _fit_compact_control(self, control, image_backed: bool = False) -> None:
         if self._compact:
-            control.tk.config(height=1, pady=0)
+            height = self.compact_control_height - 4 if image_backed else 1
+            control.tk.config(height=height, pady=0)
             control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
 
     def _on_sync_state(self) -> None:

@@ -73,3 +73,18 @@ Regression coverage proves the expanded panel keeps every control visible and pr
 - Verify all three action pairs remain constructed in fixed consecutive rows and `Close` retains space below the body.
 - Retain portrait-isolation and existing compact geometry assertions.
 - Run Ruff format checking on changed Python files and execute the full pytest suite.
+
+### ✓ Step 3: Equalize checkbox geometry and rebalance landscape heights
+The Logging and Debugging controls render at the same size, while landscape-only control heights gain two pixels and Network uses half its current height.
+
+- Correct the compact Logging checkbox sizing without disturbing Debugging or other landscape geometry.
+- Increase compact control height allocations by two pixels and reduce the compact WiFi/Network block height by 50%.
+- Leave portrait dimensions and natural geometry unchanged.
+- Preserve Scope visibility, all three Admin Operations rows, Close separation, callbacks, and CLI behavior.
+
+### ✓ Step 4: Extend regression coverage and verify
+Automated checks protect checkbox parity, the landscape-only two-pixel height increase, the reduced Network block, and portrait isolation.
+
+- Update `tests/gui/controller/test_admin_panel_layout.py` with focused landscape and portrait geometry assertions.
+- Run Ruff format checking on changed Python files.
+- Run the complete pytest suite.

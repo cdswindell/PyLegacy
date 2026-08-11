@@ -113,15 +113,22 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     network = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Network")
     logging = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Logging & Debugging")
     scope = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Scope")
-    assert network.kwargs["height"] == panel.compact_section_height
+    assert network.kwargs["height"] == panel.compact_network_height
     assert logging.kwargs["height"] == panel.compact_section_height
     assert scope.kwargs["height"] == panel.compact_section_height
     assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height
-    assert {
-        (box.kwargs.get("text"), tuple(box.kwargs.get("grid", [])))
-        for box in _TitleBox.instances
-        if box.kwargs.get("text") in {"Logging", "Debugging"}
-    } == {("Logging", (0, 0)), ("Debugging", (2, 0))}
+    checkbox_controls = {
+        box.kwargs.get("text"): box for box in _TitleBox.instances if box.kwargs.get("text") in {"Logging", "Debugging"}
+    }
+    assert {text: tuple(control.kwargs.get("grid", [])) for text, control in checkbox_controls.items()} == {
+        "Logging": (0, 0),
+        "Debugging": (2, 0),
+    }
+    assert (
+        checkbox_controls["Logging"].tk.configs
+        == checkbox_controls["Debugging"].tk.configs
+        == [{"height": panel.compact_control_height - 4, "pady": 0}]
+    )
     assert admin_actions.tk.rows[-3:] == [
         (row, {"weight": 0, "minsize": panel.compact_control_height, "uniform": "admin_actions"})
         for row in panel.admin_action_rows
@@ -143,12 +150,13 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
 def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     panel = _panel(compact=True)
 
-    assert panel.compact_control_height == 44
+    assert panel.compact_control_height == 46
     assert panel.compact_control_width == 300
     assert panel.compact_title_allowance == 20
-    assert panel.compact_section_height == 64
-    assert panel.compact_admin_actions_height == 152
-    assert panel.compact_database_height == 64
+    assert panel.compact_section_height == 66
+    assert panel.compact_network_height == 33
+    assert panel.compact_admin_actions_height == 158
+    assert panel.compact_database_height == 66
 
 
 def test_scope_group_spans_compact_columns_without_changing_portrait_grid() -> None:
@@ -201,10 +209,20 @@ def test_compact_controls_have_uniform_padding() -> None:
     assert control.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
 
 
+def test_compact_image_backed_controls_fill_shared_row() -> None:
+    control = SimpleNamespace(tk=_Tk())
+    panel = _panel(compact=True)
+
+    panel._fit_compact_control(control, image_backed=True)
+
+    assert control.tk.configs == [{"height": panel.compact_control_height - 4, "pady": 0}]
+    assert control.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
+
+
 def test_portrait_controls_retain_native_geometry() -> None:
     control = SimpleNamespace(tk=_Tk())
 
-    _panel(compact=False)._fit_compact_control(control)
+    _panel(compact=False)._fit_compact_control(control, image_backed=True)
 
     assert control.tk.configs == []
     assert control.tk.grid is None
