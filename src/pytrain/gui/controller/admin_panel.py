@@ -72,8 +72,12 @@ class AdminPanel:
         return int(self._width / 2.1)
 
     @property
+    def compact_title_allowance(self) -> int:
+        return 20
+
+    @property
     def compact_section_height(self) -> int:
-        return self.compact_control_height + 12
+        return self.compact_control_height + self.compact_title_allowance
 
     @property
     def scope_grid(self) -> list[int]:
@@ -81,7 +85,7 @@ class AdminPanel:
 
     @property
     def compact_admin_actions_height(self) -> int:
-        return self.compact_section_height + 2 * self.compact_control_height
+        return 3 * self.compact_control_height + self.compact_title_allowance
 
     @property
     def compact_database_height(self) -> int:

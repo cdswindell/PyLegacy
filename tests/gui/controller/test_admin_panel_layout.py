@@ -117,6 +117,11 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     assert logging.kwargs["height"] == panel.compact_section_height
     assert scope.kwargs["height"] == panel.compact_section_height
     assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height
+    assert {
+        (box.kwargs.get("text"), tuple(box.kwargs.get("grid", [])))
+        for box in _TitleBox.instances
+        if box.kwargs.get("text") in {"Logging", "Debugging"}
+    } == {("Logging", (0, 0)), ("Debugging", (2, 0))}
     assert admin_actions.tk.rows[-3:] == [
         (row, {"weight": 0, "minsize": panel.compact_control_height, "uniform": "admin_actions"})
         for row in panel.admin_action_rows
@@ -140,9 +145,10 @@ def test_compact_sections_fit_title_and_all_admin_actions() -> None:
 
     assert panel.compact_control_height == 44
     assert panel.compact_control_width == 300
-    assert panel.compact_section_height == 56
-    assert panel.compact_admin_actions_height == 144
-    assert panel.compact_database_height == 56
+    assert panel.compact_title_allowance == 20
+    assert panel.compact_section_height == 64
+    assert panel.compact_admin_actions_height == 152
+    assert panel.compact_database_height == 64
 
 
 def test_scope_group_spans_compact_columns_without_changing_portrait_grid() -> None:
