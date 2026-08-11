@@ -1595,7 +1595,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.name_text.text_color = "blue"
         self.name_text.text_size = self.info_name_text_size
         self.name_text.tk.config(justify="left", anchor="w")
-        if info_height is None:
+        if self._compact:
+            self.tmcc_id_text.tk.pack_configure(fill="both", expand=True)
+            self.name_text.tk.pack_configure(fill="both", expand=True)
+        else:
             name_box.tk.pack_propagate(False)  # preserve portrait behavior
 
         # ───────────────────────────────
@@ -2041,6 +2044,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         fitted_width = self.fit_emergency_box_width(self.emergency_box_width)
         if compact:
             emergency_box.tk.config(width=fitted_width, height=self.emergency_box_height)
+            emergency_box.tk.pack_configure(fill="x", expand=False)
             emergency_box.tk.pack_propagate(False)
             emergency_box.tk.grid_columnconfigure(reset_col, weight=1)
             self.reset_btn.tk.grid_configure(sticky="ew")

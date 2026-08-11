@@ -64,12 +64,16 @@ class AdminPanel:
         self._overlay = None
 
     @property
-    def compact_section_height(self) -> int:
+    def compact_control_height(self) -> int:
         return max(36, int(self._gui.button_size * 0.45))
 
     @property
+    def compact_section_height(self) -> int:
+        return self.compact_control_height + 8
+
+    @property
     def compact_admin_actions_height(self) -> int:
-        return self.compact_section_height * 3
+        return self.compact_section_height + 2 * self.compact_control_height
 
     @property
     def compact_database_height(self) -> int:
@@ -87,13 +91,7 @@ class AdminPanel:
     def popup_title(self) -> str:
         if not self._compact:
             return ADMIN_TITLE + "\n" + self._gui.version
-        version = str(self._gui.version)
-        for role in ("Client", "Server"):
-            prefix = f"{PROGRAM_NAME} {role} "
-            if version.startswith(prefix):
-                version = version.removeprefix(prefix).split(";", 1)[0]
-                break
-        return f"{ADMIN_TITLE} Client/Server {version}"
+        return self._gui.version
 
     @property
     def overlay(self) -> Box:
@@ -137,10 +135,11 @@ class AdminPanel:
         self._wifi_ip = self._wifi_text(wifi_box, grid=[1, 0], text="", anchor="center")
         self._wifi_signal = self._wifi_signal_badge(wifi_box, grid=[2, 0], text="N/A", badge_color="dim gray")
         self._refresh_wifi_display()
-        sp = Text(wifi_box, text=" ", grid=[0, 1, 3, 1], height=1, align="bottom")
-        sp.text_size = self._gui.s_1
-        sp.tk.config(padx=0, pady=0)
-        sp.tk.grid_configure(sticky="nse", padx=0, pady=0)
+        if not self._compact:
+            sp = Text(wifi_box, text=" ", grid=[0, 1, 3, 1], height=1, align="bottom")
+            sp.text_size = self._gui.s_1
+            sp.tk.config(padx=0, pady=0)
+            sp.tk.grid_configure(sticky="nse", padx=0, pady=0)
 
         if not self._compact:
             sp = Text(body, text=" ", height=1, bold=True, align="top")
@@ -299,6 +298,9 @@ class AdminPanel:
 
         restart_row, update_row, quit_row = self.admin_action_rows
         left_col, right_col = self.admin_action_columns
+        if self._compact:
+            for action_row in self.admin_action_rows:
+                tb.tk.grid_rowconfigure(action_row, weight=1, uniform="admin_actions")
         _ = self._hold_button(
             tb,
             text="Restart",
@@ -387,7 +389,7 @@ class AdminPanel:
             size=self._gui.s_12,
         )
         field.tk.configure(anchor=anchor)
-        field.tk.grid_configure(sticky=sticky, padx=2, pady=(2, 2))
+        field.tk.grid_configure(sticky=sticky, padx=2, pady=0 if self._compact else (2, 2))
         return field
 
     def _wifi_signal_badge(self, parent: Box, grid: list[int], text: str, badge_color: str) -> Text:
@@ -402,8 +404,14 @@ class AdminPanel:
         )
         badge.bg = badge_color
         badge.text_color = self._signal_text_color(badge_color)
-        badge.tk.configure(padx=8, pady=3, borderwidth=1, relief="flat", anchor="center")
-        badge.tk.grid_configure(sticky="nse", padx=2, pady=2)
+        badge.tk.configure(
+            padx=8,
+            pady=0 if self._compact else 3,
+            borderwidth=1,
+            relief="flat",
+            anchor="center",
+        )
+        badge.tk.grid_configure(sticky="nse", padx=2, pady=0 if self._compact else 2)
         return badge
 
     def _refresh_wifi_display(self) -> None:

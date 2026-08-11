@@ -19,18 +19,25 @@ class _ImmediateExecutor:
 
 
 class _Widget:
-    def __init__(self, master, **kwargs) -> None:
+    def __init__(self, master, *_args, **kwargs) -> None:
         self.master = master
         self.kwargs = kwargs
         self.width = kwargs.get("width")
+        self.pack_configs = []
+        self.grid_configs = []
+        self.grid_columns = []
         self.tk = SimpleNamespace(
             winfo_width=lambda: 600,
             winfo_height=lambda: 100,
             config=lambda **_kwargs: None,
+            pack_configure=lambda **config: self.pack_configs.append(config),
             pack_propagate=lambda _value: None,
-            grid_columnconfigure=lambda _column, **_kwargs: None,
-            grid_configure=lambda **_kwargs: None,
+            grid_columnconfigure=lambda column, **config: self.grid_columns.append((column, config)),
+            grid_configure=lambda **config: self.grid_configs.append(config),
         )
+
+    def hide(self) -> None:
+        pass
 
 
 def test_default_constructor_preserves_standalone_portrait_options(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -299,6 +306,34 @@ def test_compact_emergency_row_uses_short_actions_and_minimal_padding(monkeypatc
     assert gui.linked_cars_btn.kwargs["text"] == "Cars..."
     assert gui.linked_cars_btn.kwargs["padx"] == 4
     assert [widget.kwargs.get("text") for widget in widgets].count(" ") == 0
+    assert gui.emergency_box.pack_configs == [{"fill": "x", "expand": False}]
+    assert gui.reset_btn.grid_configs == [{"sticky": "ew"}]
+    assert gui.linked_cars_btn.grid_configs == [{"sticky": "ew"}]
+
+
+def test_compact_info_text_expands_vertically_within_road_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mod, "Box", _Widget)
+    monkeypatch.setattr(mod, "TitleBox", _Widget)
+    monkeypatch.setattr(mod, "Text", _Widget)
+    monkeypatch.setattr(mod, "ScrollingText", _Widget)
+    monkeypatch.setattr(mod, "Picture", _Widget)
+    monkeypatch.setattr(mod, "SwipeDetector", lambda _widget: SimpleNamespace())
+    app = SimpleNamespace(tk=SimpleNamespace(after=lambda *_args: None))
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._compact = True
+    gui.button_size = 79
+    gui.scope = SimpleNamespace(title="Road Number")
+    gui.s_10 = 9
+    gui.s_12 = 11
+    gui.s_18 = 16
+    gui.s_20 = 18
+    gui.auto_scroll = True
+    gui._bind_image_long_press = lambda: None
+
+    gui.make_info_box(app)
+
+    assert gui.tmcc_id_text.pack_configs == [{"fill": "both", "expand": True}]
+    assert gui.name_text.pack_configs == [{"fill": "both", "expand": True}]
 
 
 def test_compact_keypad_uses_ascii_enter_label_without_changing_command_value() -> None:
