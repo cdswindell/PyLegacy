@@ -5,76 +5,64 @@ sessionId: session-260810-214807-1rqv
 # Requirements
 
 ### Goal
-Make `Loaded`, `Restart`, and every other Admin-panel action control render at the same height in landscape mode.
+Correct the landscape regression introduced by the last height rebalance while ensuring all three Admin Operations rows are visible.
 
 ### Findings
-- The image shows that `Loaded` is taller than `Restart`; their rendered heights are not equal.
-- `Loaded` is a Guizero `PushButton` created at `src/pytrain/gui/controller/admin_panel.py:174–184`.
-- `Restart` is created through `_hold_button()` at `admin_panel.py:318–323`. `HoldButton` subclasses Guizero `PushButton` in `src/pytrain/gui/components/hold_button.py:24` and delegates construction to it at lines `128–139`, so the differing subclasses are not the cause.
-- The shared `compact_control_height` at `admin_panel.py:66–68` is only used as a grid `minsize`. The one-row `Loaded` section and three-row `Restart` section both use `weight=1`, so Tk expands their rows independently from differently sized containers (`admin_panel.py:311–317` and `580–594`).
+- The last commit reduced `compact_control_height` from `44` to `36` and added `compact_auxiliary_height=44` to Network, Logging, and Scope (`src/pytrain/gui/controller/admin_panel.py:66–80`, `129–139`, `249–255`, and `284–290`). This compresses controls that previously rendered correctly.
+- The change does not address the actual constraint: `grid_rowconfigure(..., minsize=...)` at `admin_panel.py:317–323` and `586–600` sets only a minimum. A Guizero `PushButton` or `HoldButton` can still request a taller row.
+- `_fit_compact_control()` at `admin_panel.py:630–632` applies grid stretch and external padding but does not constrain the native Tk widget height.
+- `HoldButton` delegates to Guizero `PushButton` in `src/pytrain/gui/components/hold_button.py:128–139`, so one compact native-height rule can cover `Loaded`, `Restart`, and the other action buttons.
 
-### Scope
-- Apply the correction only when `self._compact` is true (landscape mode).
-- Preserve the existing 44-pixel shared control allocation, uniform widths, padding, Scope visibility, and Admin-panel vertical footprint.
-- Do not alter portrait-mode layout or CLI restart behavior in `src/pytrain/cli/pytrain.py`.
+### Acceptance Criteria
+- Restore the pre-regression landscape heights for Network, Logging, Scope, and the shared action controls.
+- Render `Restart`/`Reboot`, `Update PyTrain`/`Upgrade Pi OS`, and `Quit`/`Shutdown` together above `Close`.
+- Preserve equal action-button width and height, uniform spacing, visible `Local` and `All` Scope options, the version title, and existing command behavior.
+- Make no portrait-layout or `src/pytrain/cli/pytrain.py` changes.
 
 # Technical Design
 
-### Proposed Change
-Treat compact action rows as fixed-size rows rather than expandable rows:
-
-- In `AdminPanel._titlebox()`, configure compact row `0` with `weight=0` and `minsize=self.compact_control_height`.
-- In the Admin Operations setup, configure rows returned by `admin_action_rows` with `weight=0`, the same `minsize`, and the existing `uniform="admin_actions"` grouping.
-- Keep `_fit_compact_control()` using `sticky="nsew"` and two-pixel padding, so each control fills the same fixed row allocation.
-- Keep `compact_section_height` and `compact_admin_actions_height` unchanged; their title allowance provides the remaining vertical space without allowing the button rows to absorb it.
+### Proposed Changes
+- Revert the latest height rebalance in `AdminPanel`: restore `compact_control_height` to `max(44, int(button_size * 0.55))`, remove `compact_auxiliary_height`, restore Network to `compact_section_height`, and let compact Logging and Scope use `_titlebox()`'s standard compact section height.
+- Retain the existing fixed, uniform action rows (`weight=0`, `minsize=compact_control_height`) and the `compact_admin_actions_height` allocation for three rows plus title allowance.
+- Extend `_fit_compact_control()` only in compact mode to reduce the native Tk button/checkbutton height request and internal vertical padding before applying `sticky="nsew"`, `padx=2`, and `pady=2`. The shared `44`-pixel grid row then determines the rendered height instead of each widget's natural request.
+- Keep `compact_control_width`, the three-column Scope span, and all portrait branches unchanged.
 
 ### Why This Works
-`minsize` alone does not impose an exact row height when a row has positive weight. Removing row expansion makes both the one-row Base 3 Database section and each row of the three-row Admin Operations section use the same allocation, independent of their containing `TitleBox` geometry.
+The Admin Operations `TitleBox` already reserves `3 * compact_control_height + 12` pixels. Constraining each compact widget's requested height below the `44`-pixel row minimum allows all three rows to fit that existing allocation; shrinking unrelated sections is unnecessary.
 
 ### Files
 - Modify `src/pytrain/gui/controller/admin_panel.py`.
 - Update `tests/gui/controller/test_admin_panel_layout.py`.
-- No change is required in attached `src/pytrain/cli/pytrain.py`.
+- Leave `src/pytrain/gui/components/hold_button.py` and attached `src/pytrain/cli/pytrain.py` unchanged.
 
 # Testing
 
 ### Validation
-- Update layout tests to assert non-expanding compact rows with the shared minimum height.
-- Cover both a standard one-row compact `TitleBox` and all three Admin Operations rows.
-- Retain portrait assertions to verify its natural-height grid behavior is unchanged.
-- Run Ruff format checking on changed Python files and the complete pytest suite, as required by the project instructions.
+- Assert restored landscape section/control allocations and all three fixed Admin Operations rows.
+- Assert compact controls receive the native height/padding constraint plus existing grid fill and spacing.
+- Assert portrait controls do not receive compact-only geometry changes.
+- Retain coverage for equal widths, Scope column span, version title, and visible third-row construction.
+- Run the required Ruff format check on changed Python files and the complete pytest suite.
 
 # Delivery Steps
 
-### ✓ Step 1: Fix compact row sizing
-Landscape Admin controls use one fixed shared row allocation instead of independently expanding heights.
+### ✓ Step 1: Restore the pre-regression landscape section budget
+Network, Logging, Scope, and shared compact controls regain their previously working heights.
 
-- Change compact row configuration in `src/pytrain/gui/controller/admin_panel.py` from expandable `weight=1` to fixed `weight=0`.
-- Apply the same policy to all three Admin Operations rows containing `Restart`, `Reboot`, update/upgrade, `Quit`, and `Shutdown`.
-- Preserve current width constraints, section heights, padding, Scope layout, and all portrait branches.
+- Revert the latest `compact_control_height` reduction in `src/pytrain/gui/controller/admin_panel.py`.
+- Remove `compact_auxiliary_height` and its explicit use by Network, Logging, and Scope.
+- Preserve fixed action rows, shared widths, Scope spanning, and every portrait branch.
 
-### ✓ Step 2: Strengthen layout regression coverage
-Automated checks prove single-row and multi-row landscape controls receive identical height constraints.
+### ✓ Step 2: Constrain compact controls to the shared row height
+All landscape controls fit their uniform grid rows, allowing all three Admin Operations rows to render above `Close`.
 
-- Update `tests/gui/controller/test_admin_panel_layout.py` expectations for the compact row weights.
-- Assert every Admin Operations row uses the shared `compact_control_height` without expansion.
-- Retain portrait-mode assertions and run Ruff format checking plus the full pytest suite.
+- Update `_fit_compact_control()` to limit the native Tk height request and internal vertical padding only when `self._compact` is true.
+- Keep the existing `44`-pixel row minimum, `sticky="nsew"`, and two-pixel inter-control spacing.
+- Apply the shared behavior to `PushButton`, `HoldButton`, and decorated checkbox controls without changing command callbacks.
 
-### ✓ Step 3: Capture the compact vertical budget regression
-Automated checks describe the smaller landscape-only allocations needed to keep all three Admin Operations rows visible.
+### ✓ Step 3: Update and run layout regression coverage
+Automated validation protects the restored sections, uniform control geometry, third action row, and portrait behavior.
 
-- Add expectations for reduced compact control, WiFi/Network, Logging, and Scope heights.
-- Retain portrait assertions proving natural-height behavior remains unchanged.
-
-### ✓ Step 4: Rebalance landscape section heights
-The landscape Admin panel reclaims enough vertical space to render `Quit` and `Shutdown` without clipping.
-
-- Reduce the shared compact button height while preserving uniform button dimensions.
-- Reduce only compact WiFi/Network, Logging, and Scope section allocations.
-- Keep all portrait branches and CLI restart behavior unchanged.
-
-### ✓ Step 5: Verify formatting and regressions
-Formatting and the complete unit-test suite validate the landscape-only correction.
-
-- Run Ruff format checking on changed Python files.
-- Run the complete pytest suite.
+- Update `tests/gui/controller/test_admin_panel_layout.py` for restored height values and native compact-control constraints.
+- Verify all three action row pairs are constructed inside the allocated Admin Operations section and portrait controls remain unconstrained.
+- Run Ruff formatting checks on both changed Python files and execute the complete pytest suite.

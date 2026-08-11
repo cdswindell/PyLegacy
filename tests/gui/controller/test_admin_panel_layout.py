@@ -6,14 +6,15 @@ import src.pytrain.gui.controller.admin_panel as mod
 class _Tk:
     def __init__(self) -> None:
         self.columns = []
+        self.configs = []
         self.rows = []
         self.grid = None
         self.grid_propagates = []
         self.pack_configs = []
         self.pack_propagates = []
 
-    def config(self, **_kwargs) -> None:
-        pass
+    def config(self, **kwargs) -> None:
+        self.configs.append(kwargs)
 
     def grid_configure(self, **kwargs) -> None:
         self.grid = kwargs
@@ -112,25 +113,36 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     network = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Network")
     logging = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Logging & Debugging")
     scope = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Scope")
-    assert network.kwargs["height"] == panel.compact_auxiliary_height
-    assert logging.kwargs["height"] == panel.compact_auxiliary_height
-    assert scope.kwargs["height"] == panel.compact_auxiliary_height
+    assert network.kwargs["height"] == panel.compact_section_height
+    assert logging.kwargs["height"] == panel.compact_section_height
+    assert scope.kwargs["height"] == panel.compact_section_height
     assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height
     assert admin_actions.tk.rows[-3:] == [
         (row, {"weight": 0, "minsize": panel.compact_control_height, "uniform": "admin_actions"})
         for row in panel.admin_action_rows
     ]
+    assert {
+        (box.kwargs.get("text"), tuple(box.kwargs.get("grid", [])))
+        for box in _TitleBox.instances
+        if box.kwargs.get("text") in {"Restart", "Reboot", "Update PyTrain", "Upgrade Pi OS", "Quit", "Shutdown"}
+    } == {
+        ("Restart", (0, 0)),
+        ("Reboot", (2, 0)),
+        ("Update PyTrain", (0, 1)),
+        ("Upgrade Pi OS", (2, 1)),
+        ("Quit", (0, 2)),
+        ("Shutdown", (2, 2)),
+    }
 
 
 def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     panel = _panel(compact=True)
 
-    assert panel.compact_control_height == 36
+    assert panel.compact_control_height == 44
     assert panel.compact_control_width == 300
-    assert panel.compact_auxiliary_height == 44
-    assert panel.compact_section_height == 48
-    assert panel.compact_admin_actions_height == 120
-    assert panel.compact_database_height == 48
+    assert panel.compact_section_height == 56
+    assert panel.compact_admin_actions_height == 144
+    assert panel.compact_database_height == 56
 
 
 def test_scope_group_spans_compact_columns_without_changing_portrait_grid() -> None:
@@ -179,4 +191,14 @@ def test_compact_controls_have_uniform_padding() -> None:
 
     panel._fit_compact_control(control)
 
+    assert control.tk.configs == [{"height": 1, "pady": 0}]
     assert control.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
+
+
+def test_portrait_controls_retain_native_geometry() -> None:
+    control = SimpleNamespace(tk=_Tk())
+
+    _panel(compact=False)._fit_compact_control(control)
+
+    assert control.tk.configs == []
+    assert control.tk.grid is None

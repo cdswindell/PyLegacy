@@ -65,7 +65,7 @@ class AdminPanel:
 
     @property
     def compact_control_height(self) -> int:
-        return max(36, int(self._gui.button_size * 0.45))
+        return max(44, int(self._gui.button_size * 0.55))
 
     @property
     def compact_control_width(self) -> int:
@@ -74,10 +74,6 @@ class AdminPanel:
     @property
     def compact_section_height(self) -> int:
         return self.compact_control_height + 12
-
-    @property
-    def compact_auxiliary_height(self) -> int:
-        return self.compact_control_height + 8
 
     @property
     def scope_grid(self) -> list[int]:
@@ -132,7 +128,7 @@ class AdminPanel:
             layout="grid",
             align="top",
             width=width,
-            height=self.compact_auxiliary_height if self._compact else int(7 * self._gui.button_size / 12),
+            height=self.compact_section_height if self._compact else int(7 * self._gui.button_size / 12),
         )
         wifi_box.tk.config(width=self._width)
         wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
@@ -251,7 +247,6 @@ class AdminPanel:
             text="Logging & Debugging",
             grid=[0, row, 2, 1],
             width="fill",
-            **({"height": self.compact_auxiliary_height} if self._compact else {}),
         )
 
         self._echo_btn = cb = CheckBox(
@@ -286,7 +281,6 @@ class AdminPanel:
             text="Scope",
             grid=[0, row, 2, 1],
             width=width,
-            **({"height": self.compact_auxiliary_height} if self._compact else {}),
         )
 
         self._scope_btns = CheckBoxGroup(
@@ -629,6 +623,7 @@ class AdminPanel:
 
     def _fit_compact_control(self, control) -> None:
         if self._compact:
+            control.tk.config(height=1, pady=0)
             control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
 
     def _on_sync_state(self) -> None:
