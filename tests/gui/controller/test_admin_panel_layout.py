@@ -6,6 +6,7 @@ import src.pytrain.gui.controller.admin_panel as mod
 class _Tk:
     def __init__(self) -> None:
         self.columns = []
+        self.rows = []
         self.grid = None
         self.pack_propagates = []
 
@@ -17,6 +18,9 @@ class _Tk:
 
     def grid_columnconfigure(self, column, **kwargs) -> None:
         self.columns.append((column, kwargs))
+
+    def grid_rowconfigure(self, row, **kwargs) -> None:
+        self.rows.append((row, kwargs))
 
     def pack_propagate(self, value) -> None:
         self.pack_propagates.append(value)
@@ -51,6 +55,7 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
         (1, {"weight": 0}),
         (2, {"weight": 1, "uniform": "admin_controls"}),
     ]
+    assert titlebox.tk.rows == [(0, {"weight": 1, "minsize": panel.compact_control_height})]
 
 
 def test_compact_sections_fit_title_and_all_admin_actions() -> None:
@@ -95,3 +100,12 @@ def test_compact_admin_actions_use_three_consecutive_rows() -> None:
     assert _panel(compact=True).admin_action_columns == (0, 2)
     assert _panel(compact=False).admin_action_rows == (0, 2, 4)
     assert _panel(compact=False).admin_action_columns == (0, 1)
+
+
+def test_compact_controls_have_uniform_padding() -> None:
+    control = SimpleNamespace(tk=_Tk())
+    panel = _panel(compact=True)
+
+    panel._fit_compact_control(control)
+
+    assert control.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}

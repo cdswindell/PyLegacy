@@ -300,7 +300,12 @@ class AdminPanel:
         left_col, right_col = self.admin_action_columns
         if self._compact:
             for action_row in self.admin_action_rows:
-                tb.tk.grid_rowconfigure(action_row, weight=1, uniform="admin_actions")
+                tb.tk.grid_rowconfigure(
+                    action_row,
+                    weight=1,
+                    minsize=self.compact_control_height,
+                    uniform="admin_actions",
+                )
         _ = self._hold_button(
             tb,
             text="Restart",
@@ -565,6 +570,7 @@ class AdminPanel:
             tb.tk.grid_columnconfigure(0, weight=1, uniform="admin_controls")
             tb.tk.grid_columnconfigure(1, weight=0)
             tb.tk.grid_columnconfigure(2, weight=1, uniform="admin_controls")
+            tb.tk.grid_rowconfigure(0, weight=1, minsize=self.compact_control_height)
         else:
             tb.tk.grid_columnconfigure(grid[0], weight=1)
         return tb
@@ -596,7 +602,7 @@ class AdminPanel:
 
     def _fit_compact_control(self, control) -> None:
         if self._compact:
-            control.tk.grid_configure(sticky="nsew", padx=0, pady=0)
+            control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized():
