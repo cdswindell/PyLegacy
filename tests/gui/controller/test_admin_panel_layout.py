@@ -56,9 +56,9 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
     assert titlebox.tk.grid_propagates == [False]
     assert titlebox.tk.pack_propagates == []
     assert titlebox.tk.columns == [
-        (0, {"weight": 1, "uniform": "admin_controls"}),
+        (0, {"weight": 1, "minsize": panel.compact_control_width, "uniform": "admin_controls"}),
         (1, {"weight": 0}),
-        (2, {"weight": 1, "uniform": "admin_controls"}),
+        (2, {"weight": 1, "minsize": panel.compact_control_width, "uniform": "admin_controls"}),
     ]
     assert titlebox.tk.rows == [(0, {"weight": 1, "minsize": panel.compact_control_height})]
 
@@ -67,9 +67,10 @@ def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     panel = _panel(compact=True)
 
     assert panel.compact_control_height == 44
-    assert panel.compact_section_height == 52
-    assert panel.compact_admin_actions_height == 140
-    assert panel.compact_database_height == 52
+    assert panel.compact_control_width == 300
+    assert panel.compact_section_height == 56
+    assert panel.compact_admin_actions_height == 144
+    assert panel.compact_database_height == 56
 
 
 def test_scope_group_spans_compact_columns_without_changing_portrait_grid() -> None:

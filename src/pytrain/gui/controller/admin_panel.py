@@ -68,8 +68,12 @@ class AdminPanel:
         return max(44, int(self._gui.button_size * 0.55))
 
     @property
+    def compact_control_width(self) -> int:
+        return int(self._width / 2.1)
+
+    @property
     def compact_section_height(self) -> int:
-        return self.compact_control_height + 8
+        return self.compact_control_height + 12
 
     @property
     def scope_grid(self) -> list[int]:
@@ -574,9 +578,19 @@ class AdminPanel:
         else:
             tb.tk.pack_propagate(True)
         if self._compact:
-            tb.tk.grid_columnconfigure(0, weight=1, uniform="admin_controls")
+            tb.tk.grid_columnconfigure(
+                0,
+                weight=1,
+                minsize=self.compact_control_width,
+                uniform="admin_controls",
+            )
             tb.tk.grid_columnconfigure(1, weight=0)
-            tb.tk.grid_columnconfigure(2, weight=1, uniform="admin_controls")
+            tb.tk.grid_columnconfigure(
+                2,
+                weight=1,
+                minsize=self.compact_control_width,
+                uniform="admin_controls",
+            )
             tb.tk.grid_rowconfigure(0, weight=1, minsize=self.compact_control_height)
         else:
             tb.tk.grid_columnconfigure(grid[0], weight=1)
