@@ -63,8 +63,13 @@ def test_compact_sections_fit_title_and_all_admin_actions() -> None:
 
     assert panel.compact_control_height == 36
     assert panel.compact_section_height == 44
+    assert panel.compact_scope_height == 56
     assert panel.compact_admin_actions_height == 116
     assert panel.compact_database_height == 44
+
+
+def test_portrait_scope_height_is_not_constrained() -> None:
+    assert _panel(compact=False).compact_scope_height is None
 
 
 def test_popup_title_includes_runtime_version() -> None:
