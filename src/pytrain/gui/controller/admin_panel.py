@@ -65,7 +65,7 @@ class AdminPanel:
 
     @property
     def compact_section_height(self) -> int:
-        return max(44, int(self._gui.button_size * 0.55))
+        return max(36, int(self._gui.button_size * 0.45))
 
     @property
     def compact_admin_actions_height(self) -> int:
@@ -84,11 +84,23 @@ class AdminPanel:
         return (0, 2) if self._compact else (0, 1)
 
     @property
+    def popup_title(self) -> str:
+        if not self._compact:
+            return ADMIN_TITLE + "\n" + self._gui.version
+        version = str(self._gui.version)
+        for role in ("Client", "Server"):
+            prefix = f"{PROGRAM_NAME} {role} "
+            if version.startswith(prefix):
+                version = version.removeprefix(prefix).split(";", 1)[0]
+                break
+        return f"{ADMIN_TITLE} Client/Server {version}"
+
+    @property
     def overlay(self) -> Box:
         if self._overlay is None:
             # noinspection PyProtectedMember
             self._overlay = self._gui._popup.create_popup(
-                ADMIN_TITLE + "\n" + self._gui.version,
+                self.popup_title,
                 self.build,
                 post_close_action=self._on_popup_close,
             )
@@ -110,7 +122,7 @@ class AdminPanel:
             layout="grid",
             align="top",
             width=width,
-            height=int(7 * self._gui.button_size / 12),
+            height=self.compact_section_height if self._compact else int(7 * self._gui.button_size / 12),
         )
         wifi_box.tk.config(width=self._width)
         wifi_box.tk.pack_configure(fill="x", expand=False, padx=0, pady=0)
@@ -130,8 +142,9 @@ class AdminPanel:
         sp.tk.config(padx=0, pady=0)
         sp.tk.grid_configure(sticky="nse", padx=0, pady=0)
 
-        sp = Text(body, text=" ", height=1, bold=True, align="top")
-        sp.text_size = self._gui.s_1
+        if not self._compact:
+            sp = Text(body, text=" ", height=1, bold=True, align="top")
+            sp.text_size = self._gui.s_1
 
         admin_box = Box(body, border=1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)

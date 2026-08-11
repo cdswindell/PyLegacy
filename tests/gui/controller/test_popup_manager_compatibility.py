@@ -13,6 +13,8 @@ class _Tk:
         self.fail_place = fail_place
         self.placed: list[tuple[int, int]] = []
         self.forgotten = 0
+        self.configured: list[dict] = []
+        self.packed: list[dict] = []
 
     def place(self, *, x: int, y: int) -> None:
         if self.fail_place:
@@ -22,13 +24,11 @@ class _Tk:
     def place_forget(self) -> None:
         self.forgotten += 1
 
-    @staticmethod
-    def config(**_kwargs) -> None:
-        return
+    def config(self, **kwargs) -> None:
+        self.configured.append(kwargs)
 
-    @staticmethod
-    def pack_configure(**_kwargs) -> None:
-        return
+    def pack_configure(self, **kwargs) -> None:
+        self.packed.append(kwargs)
 
 
 class _Widget:
@@ -68,6 +68,7 @@ def _host() -> SimpleNamespace:
         engine_ops_cells={},
         locked=nullcontext,
         cache=lambda *_args: None,
+        compact=False,
     )
     return host
 
@@ -180,3 +181,26 @@ def test_embedded_popup_is_parented_and_layout_suspended_within_host_root(monkey
     assert overlay.master is pane
     assert pane.display_calls == 0
     assert host.app.display_calls == 0
+
+
+def test_compact_close_button_uses_reduced_height_without_changing_portrait(monkeypatch: pytest.MonkeyPatch) -> None:
+    buttons: list[_Widget] = []
+
+    def make_button(master, **kwargs):
+        button = _Widget(master, **kwargs)
+        buttons.append(button)
+        return button
+
+    monkeypatch.setattr(mod, "PushButton", make_button)
+    manager = mod.PopupManager(_host())
+
+    portrait = _Widget()
+    manager.add_close_btn(manager._host, None, portrait)
+    assert buttons[-1].tk.configured[-1]["pady"] == 4
+    assert buttons[-1].tk.packed[-1] == {"padx": 20, "pady": 20}
+
+    manager._host.compact = True
+    compact = _Widget()
+    manager.add_close_btn(manager._host, None, compact)
+    assert buttons[-1].tk.configured[-1]["pady"] == 1
+    assert buttons[-1].tk.packed[-1] == {"padx": 4, "pady": 4}

@@ -26,6 +26,10 @@ class _Widget:
         self.tk = SimpleNamespace(
             winfo_width=lambda: 600,
             winfo_height=lambda: 100,
+            config=lambda **_kwargs: None,
+            pack_propagate=lambda _value: None,
+            grid_columnconfigure=lambda _column, **_kwargs: None,
+            grid_configure=lambda **_kwargs: None,
         )
 
 
@@ -362,16 +366,26 @@ def test_compact_image_scaling_preserves_source_aspect_ratio() -> None:
 def test_info_box_height_is_bounded_only_in_compact_mode() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui.button_size = 79
+    gui.width = 632
+    gui.s_16 = 14
+    gui.s_18 = 16
+    gui.s_20 = 18
 
     gui._compact = True
     assert gui.info_box_height == 44
     assert gui.fit_info_box_height(68) == 44
     assert gui.fit_info_id_width(actual_width=1, required_width=84) == 84
+    assert gui.fit_emergency_box_width(500) == 632
+    assert gui.info_id_text_size == 16
+    assert gui.info_name_text_size == 16
 
     gui._compact = False
     assert gui.info_box_height is None
     assert gui.fit_info_box_height(68) == 68
     assert gui.fit_info_id_width(actual_width=1, required_width=84) == 1
+    assert gui.fit_emergency_box_width(500) == 500
+    assert gui.info_id_text_size == 18
+    assert gui.info_name_text_size == 16
 
 
 def test_destroy_embedded_finalizes_child_without_destroying_shared_app() -> None:

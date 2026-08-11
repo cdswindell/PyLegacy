@@ -355,6 +355,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def fit_info_id_width(self, actual_width: int, required_width: int) -> int:
         return max(actual_width, required_width) if self._compact else actual_width
 
+    def fit_emergency_box_width(self, measured_width: int) -> int:
+        return self.width if getattr(self, "_compact", False) else measured_width
+
+    @property
+    def info_id_text_size(self) -> int:
+        return self.s_18 if self._compact else self.s_20
+
+    @property
+    def info_name_text_size(self) -> int:
+        return self.s_18
+
     def fit_image_box_size(self, available_height: int, available_width: int) -> tuple[int, int]:
         if not self._compact:
             return available_height, available_width
@@ -1566,7 +1577,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         tmcc_id_box.text_size = self.s_10 if self._compact else self.s_12
         self.tmcc_id_text = Text(tmcc_id_box, text="0000", align="left", bold=True, width=5)
         self.tmcc_id_text.text_color = "blue"
-        self.tmcc_id_text.text_size = self.s_16 if self._compact else self.s_20
+        self.tmcc_id_text.text_size = self.info_id_text_size
 
         # ───────────────────────────────
         # Right: Road Name box
@@ -1582,7 +1593,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             auto_scroll=self.auto_scroll,
         )
         self.name_text.text_color = "blue"
-        self.name_text.text_size = self.s_16 if self._compact else self.s_18
+        self.name_text.text_size = self.info_name_text_size
         self.name_text.tk.config(justify="left", anchor="w")
         if info_height is None:
             name_box.tk.pack_propagate(False)  # preserve portrait behavior
@@ -2026,6 +2037,21 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.app.tk.update_idletasks()
             self.emergency_box_width = emergency_box.tk.winfo_width()
             self.emergency_box_height = emergency_box.tk.winfo_height()
+
+        fitted_width = self.fit_emergency_box_width(self.emergency_box_width)
+        if compact:
+            emergency_box.tk.config(width=fitted_width, height=self.emergency_box_height)
+            emergency_box.tk.pack_propagate(False)
+            emergency_box.tk.grid_columnconfigure(reset_col, weight=1)
+            self.reset_btn.tk.grid_configure(sticky="ew")
+            if self.halt_btn:
+                emergency_box.tk.grid_columnconfigure(0, weight=1, uniform="emergency_actions")
+                emergency_box.tk.grid_columnconfigure(reset_col, weight=1, uniform="emergency_actions")
+                self.halt_btn.tk.grid_configure(sticky="ew")
+            if self.linked_cars_btn:
+                emergency_box.tk.grid_columnconfigure(2, weight=1, uniform="emergency_actions")
+                self.linked_cars_btn.tk.grid_configure(sticky="ew")
+        self.emergency_box_width = fitted_width
 
     def on_linked_cars(self) -> None:
         if self._linked_car_transfer is None or not self._train_linked_queue:

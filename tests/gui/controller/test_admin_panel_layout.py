@@ -31,7 +31,7 @@ class _TitleBox:
 
 def _panel(compact: bool) -> mod.AdminPanel:
     panel = mod.AdminPanel.__new__(mod.AdminPanel)
-    panel._gui = SimpleNamespace(button_size=79, s_10=9)
+    panel._gui = SimpleNamespace(button_size=79, s_10=9, version="PyTrain Client v2.9.3+")
     panel._width = 632
     panel._compact = compact
     return panel
@@ -55,9 +55,14 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
 def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     panel = _panel(compact=True)
 
-    assert panel.compact_section_height == 44
-    assert panel.compact_admin_actions_height == 132
-    assert panel.compact_database_height == 44
+    assert panel.compact_section_height == 36
+    assert panel.compact_admin_actions_height == 108
+    assert panel.compact_database_height == 36
+
+
+def test_compact_popup_title_is_one_line_and_portrait_title_is_unchanged() -> None:
+    assert _panel(compact=True).popup_title == "Manage PyTrain Client/Server v2.9.3+"
+    assert _panel(compact=False).popup_title == "Manage PyTrain\nPyTrain Client v2.9.3+"
 
 
 def test_portrait_database_height_retains_button_size() -> None:

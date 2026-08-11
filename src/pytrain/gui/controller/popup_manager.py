@@ -196,18 +196,20 @@ class PopupManager:
             command=on_close or self.close,
             args=[close_target],
         )
-        btn.text_size = host.s_20
+        compact = bool(getattr(host, "compact", False))
+        btn.text_size = host.s_18 if compact else host.s_20
         btn.tk.config(
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
             highlightbackground="black",
             padx=6,
-            pady=4,
+            pady=1 if compact else 4,
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        btn.tk.pack_configure(padx=20, pady=20)
+        padding = 4 if compact else 20
+        btn.tk.pack_configure(padx=padding, pady=padding)
         host.cache(btn)
 
     def add_close_acc_btn(
