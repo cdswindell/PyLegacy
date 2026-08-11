@@ -65,7 +65,7 @@ class AdminPanel:
 
     @property
     def compact_control_height(self) -> int:
-        return max(48, int(self._gui.button_size * 0.55))
+        return max(52, int(self._gui.button_size * 0.55))
 
     @property
     def compact_control_width(self) -> int:
@@ -81,7 +81,7 @@ class AdminPanel:
 
     @property
     def compact_network_height(self) -> int:
-        return int(self.compact_section_height / 1.75)
+        return int(self.compact_section_height / 1.6)
 
     @property
     def scope_grid(self) -> list[int]:
