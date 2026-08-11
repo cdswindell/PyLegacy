@@ -94,6 +94,19 @@ def test_invalid_external_profile_falls_back_to_bundled_default(tmp_path) -> Non
     assert profile.axes[1].target == "left"
 
 
+def test_bundled_profile_maps_right_stick_to_steam_input_axes() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.axes[0].action == "direction"
+    assert profile.axes[1].action == "throttle"
+    assert profile.axes[3].action == "direction"
+    assert profile.axes[3].target == "right"
+    assert profile.axes[4].action == "throttle"
+    assert profile.axes[4].target == "right"
+    assert profile.axes[4].invert is True
+    assert 2 not in profile.axes
+
+
 def test_provider_applies_dead_zone_hysteresis_and_axis_inversion() -> None:
     pygame = SimpleNamespace(
         JOYAXISMOTION=1,

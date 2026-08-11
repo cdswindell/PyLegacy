@@ -14,11 +14,11 @@
       "target": "left",
       "invert": true
     },
-    "2": {
+    "3": {
       "action": "direction",
       "target": "right"
     },
-    "3": {
+    "4": {
       "action": "throttle",
       "target": "right",
       "invert": true
