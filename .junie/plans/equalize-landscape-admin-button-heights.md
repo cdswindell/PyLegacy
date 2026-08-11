@@ -100,3 +100,17 @@ Formatting and the complete test suite confirm the manual landscape geometry is 
 
 - Run Ruff format checking on the changed Python test file.
 - Run the complete pytest suite.
+
+### ✓ Step 7: Revert incorrect Scope alignment changes
+Restore the Scope controls to their behavior before the latest width and alignment change.
+
+- Remove the shared option-width property and direct Scope child repositioning.
+- Restore the landscape-only three-column Scope span and portrait grid behavior.
+- Restore the prior Logging, Debugging, and Scope width expressions.
+- Revert the corresponding layout test changes.
+
+### ✓ Step 8: Verify the reversion
+Formatting and the complete test suite confirm the previous behavior is restored safely.
+
+- Run Ruff format checking on the changed Python files.
+- Run the complete pytest suite.

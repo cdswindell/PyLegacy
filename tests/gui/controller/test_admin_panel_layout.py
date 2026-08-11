@@ -5,7 +5,6 @@ import src.pytrain.gui.controller.admin_panel as mod
 
 class _Tk:
     def __init__(self) -> None:
-        self.children = []
         self.columns = []
         self.configs = []
         self.rows = []
@@ -34,9 +33,6 @@ class _Tk:
 
     def pack_propagate(self, value) -> None:
         self.pack_propagates.append(value)
-
-    def winfo_children(self) -> list:
-        return self.children
 
 
 class _TitleBox:
@@ -163,23 +159,9 @@ def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     assert panel.compact_database_height == 72
 
 
-def test_scope_group_spans_same_columns_in_both_layouts() -> None:
+def test_scope_group_spans_compact_columns_without_changing_portrait_grid() -> None:
     assert _panel(compact=True).scope_grid == [0, 0, 3, 1]
-    assert _panel(compact=False).scope_grid == [0, 0, 3, 1]
-
-
-def test_scope_controls_match_logging_checkbox_width_and_alignment() -> None:
-    panel = _panel(compact=False)
-    local = _Tk()
-    all_scopes = _Tk()
-    scope_group = SimpleNamespace(tk=_Tk())
-    scope_group.tk.children = [local, all_scopes]
-
-    panel._align_scope_controls(scope_group)
-
-    assert panel.option_control_width == int(panel._width / 2.48)
-    assert local.grid == {"column": 0, "row": 0}
-    assert all_scopes.grid == {"column": 2, "row": 0}
+    assert _panel(compact=False).scope_grid == [0, 0]
 
 
 def test_popup_title_includes_runtime_version() -> None:
