@@ -59,3 +59,22 @@ Automated checks prove single-row and multi-row landscape controls receive ident
 - Update `tests/gui/controller/test_admin_panel_layout.py` expectations for the compact row weights.
 - Assert every Admin Operations row uses the shared `compact_control_height` without expansion.
 - Retain portrait-mode assertions and run Ruff format checking plus the full pytest suite.
+
+### ✓ Step 3: Capture the compact vertical budget regression
+Automated checks describe the smaller landscape-only allocations needed to keep all three Admin Operations rows visible.
+
+- Add expectations for reduced compact control, WiFi/Network, Logging, and Scope heights.
+- Retain portrait assertions proving natural-height behavior remains unchanged.
+
+### ✓ Step 4: Rebalance landscape section heights
+The landscape Admin panel reclaims enough vertical space to render `Quit` and `Shutdown` without clipping.
+
+- Reduce the shared compact button height while preserving uniform button dimensions.
+- Reduce only compact WiFi/Network, Logging, and Scope section allocations.
+- Keep all portrait branches and CLI restart behavior unchanged.
+
+### ✓ Step 5: Verify formatting and regressions
+Formatting and the complete unit-test suite validate the landscape-only correction.
+
+- Run Ruff format checking on changed Python files.
+- Run the complete pytest suite.

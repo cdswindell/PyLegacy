@@ -109,6 +109,13 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     panel.build(_TitleBox(None))
 
     admin_actions = next(box for box in _TitleBox.instances if str(box.kwargs.get("text", "")).startswith("Hold for"))
+    network = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Network")
+    logging = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Logging & Debugging")
+    scope = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Scope")
+    assert network.kwargs["height"] == panel.compact_auxiliary_height
+    assert logging.kwargs["height"] == panel.compact_auxiliary_height
+    assert scope.kwargs["height"] == panel.compact_auxiliary_height
+    assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height
     assert admin_actions.tk.rows[-3:] == [
         (row, {"weight": 0, "minsize": panel.compact_control_height, "uniform": "admin_actions"})
         for row in panel.admin_action_rows
@@ -118,11 +125,12 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
 def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     panel = _panel(compact=True)
 
-    assert panel.compact_control_height == 44
+    assert panel.compact_control_height == 36
     assert panel.compact_control_width == 300
-    assert panel.compact_section_height == 56
-    assert panel.compact_admin_actions_height == 144
-    assert panel.compact_database_height == 56
+    assert panel.compact_auxiliary_height == 44
+    assert panel.compact_section_height == 48
+    assert panel.compact_admin_actions_height == 120
+    assert panel.compact_database_height == 48
 
 
 def test_scope_group_spans_compact_columns_without_changing_portrait_grid() -> None:
