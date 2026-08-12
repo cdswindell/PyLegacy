@@ -135,6 +135,31 @@ def test_focus_toggle_routes_to_registered_global_action() -> None:
     assert global_calls == ["toggle"]
 
 
+def test_bundled_profile_binds_menu_button_to_scope_catalog() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.buttons[7].action == "scope_catalog"
+    assert profile.buttons[7].target == "focused"
+
+
+def test_scope_catalog_invokes_scope_hold_on_focused_panel() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_calls = []
+    focused_gui.show_scope_catalog = lambda: focused_gui.catalog_calls.append("catalog")
+    router = DeckInputRouter(
+        _profile(buttons={"7": {"action": "scope_catalog", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("scope_catalog", "focused", 1.0, "pressed"))
+    router.handle(DeckAction("scope_catalog", "focused", 0.0, "released"))
+
+    assert focused_gui.catalog_calls == ["catalog"]
+
+
 def test_provider_applies_dead_zone_hysteresis_and_axis_inversion() -> None:
     pygame = SimpleNamespace(
         JOYAXISMOTION=1,

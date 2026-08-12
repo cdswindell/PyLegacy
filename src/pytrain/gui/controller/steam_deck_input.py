@@ -31,6 +31,7 @@ SUPPORTED_ACTIONS = {
     "focus_left",
     "focus_right",
     "focus_toggle",
+    "scope_catalog",
 }
 AXIS_ACTIONS = {"throttle", "direction"}
 PANEL_COMMANDS = {
@@ -408,8 +409,13 @@ class DeckInputRouter:
                 callback()
             return
         gui = self._target_gui(action.target)
+        if gui is None:
+            return
+        if action.name == "scope_catalog":
+            gui.show_scope_catalog()
+            return
         command = PANEL_COMMANDS.get(action.name)
-        if gui is not None and command is not None:
+        if command is not None:
             gui.on_engine_command(command)
 
     def tick(self, now: float) -> None:

@@ -45,6 +45,10 @@
       "action": "focus_toggle",
       "target": "global"
     },
+    "7": {
+      "action": "scope_catalog",
+      "target": "focused"
+    },
     "9": {
       "action": "focus_left",
       "target": "global"

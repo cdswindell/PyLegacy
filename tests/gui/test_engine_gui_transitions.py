@@ -145,6 +145,16 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     return gui
 
 
+def test_show_scope_catalog_holds_current_scope_button() -> None:
+    gui = _new_engine()
+    calls: list[object] = []
+    gui.on_scope_hold = lambda pb: calls.append(pb)
+
+    gui.show_scope_catalog()
+
+    assert calls == [gui._scope_buttons[CommandScope.ENGINE]]
+
+
 def test_update_component_info_with_state_updates_ui_and_ops_mode() -> None:
     gui = _new_engine()
     state = DummyState(tmcc_id=34, name="Hudson")

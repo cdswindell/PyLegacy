@@ -1403,6 +1403,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # highlight initial button
         self.on_scope(self.scope)
 
+    def show_scope_catalog(self) -> None:
+        pb = self._scope_buttons.get(self.scope)
+        if pb is not None:
+            self.on_scope_hold(pb)
+
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
         self.on_scope(pb.scope, held=True)
