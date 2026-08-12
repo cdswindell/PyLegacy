@@ -15,7 +15,7 @@ from pathlib import Path
 from tkinter import messagebox, TclError
 from typing import Any, Callable, Literal
 
-from guizero import Box
+from guizero import Box, Text
 
 from .engine_gui import EngineGui
 from .engine_gui_conf import HALT_KEY, KEY_TO_COMMAND
@@ -36,6 +36,9 @@ DIVIDER_WIDTH = 4
 FOCUS_BORDER = 3
 FOCUS_COLOR = "#3B82F6"
 UNFOCUSED_COLOR = "#555555"
+FOCUS_ARROW_LEFT = "◀"
+FOCUS_ARROW_RIGHT = "▶"
+FOCUS_ARROW_SIZE = 22
 LANDSCAPE_FONT_SCALE = 0.9
 LANDSCAPE_BUTTON_DIVISOR = 8.0
 COMPACT_SCALE = LANDSCAPE_FONT_SCALE
@@ -88,6 +91,7 @@ class LandscapeEngineGui(GuiZeroBase):
 
         self.body = None
         self.left_pane = self.right_pane = self.divider = None
+        self.focus_arrow = None
         self.left_root = self.right_root = None
         self.left_gui: EngineGui | None = None
         self.right_gui: EngineGui | None = None
@@ -126,6 +130,7 @@ class LandscapeEngineGui(GuiZeroBase):
 
         self.left_gui = self._build_controller("left", self.left_root, self._left_options)
         self.right_gui = self._build_controller("right", self.right_root, self._right_options)
+        self._build_focus_arrow()
         self._refresh_focus_indicator()
         self._start_controller_input()
 
@@ -171,6 +176,35 @@ class LandscapeEngineGui(GuiZeroBase):
     def toggle_focus(self) -> None:
         self.focus_panel("right" if self._focused_panel == "left" else "left")
 
+    def _build_focus_arrow(self) -> None:
+        # An arrow that sits on the divider, in the same row as each pane's top
+        # pulldown, pointing toward whichever pane currently has focus.
+        self.focus_arrow = Text(
+            self.body,
+            text=FOCUS_ARROW_RIGHT,
+            grid=[1, 0],
+            size=FOCUS_ARROW_SIZE,
+            color=FOCUS_COLOR,
+        )
+        self._position_focus_arrow()
+
+    def _position_focus_arrow(self) -> None:
+        arrow = getattr(self, "focus_arrow", None)
+        divider = getattr(self, "divider", None)
+        if arrow is None or divider is None:
+            return
+        arrow.tk.place(in_=divider.tk, relx=0.5, y=self._focus_arrow_y(), anchor="center")
+
+    def _focus_arrow_y(self) -> int:
+        header = getattr(self.left_gui, "header", None) if self.left_gui is not None else None
+        if header is None:
+            return FOCUS_BORDER + FOCUS_ARROW_SIZE
+        try:
+            self.body.tk.update_idletasks()
+            return FOCUS_BORDER + max(1, int(header.tk.winfo_reqheight()) // 2)
+        except (AttributeError, TclError, TypeError, ValueError):
+            return FOCUS_BORDER + FOCUS_ARROW_SIZE
+
     def _refresh_focus_indicator(self) -> None:
         panes = (("left", getattr(self, "left_pane", None)), ("right", getattr(self, "right_pane", None)))
         for name, pane in panes:
@@ -182,6 +216,9 @@ class LandscapeEngineGui(GuiZeroBase):
                 highlightbackground=color,
                 highlightcolor=color,
             )
+        arrow = getattr(self, "focus_arrow", None)
+        if arrow is not None:
+            arrow.value = FOCUS_ARROW_LEFT if self._focused_panel == "left" else FOCUS_ARROW_RIGHT
 
     def transfer_linked_car(self, source_panel: PanelName, state: EngineState) -> bool:
         if source_panel not in ("left", "right"):
@@ -275,6 +312,7 @@ class LandscapeEngineGui(GuiZeroBase):
         self.safe_destroy(getattr(self, "body", None))
         self.body = None
         self.left_pane = self.right_pane = self.divider = None
+        self.focus_arrow = None
         self.left_root = self.right_root = None
         self.clear_cache()
 

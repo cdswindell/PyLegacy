@@ -21,6 +21,10 @@ class _Tk:
         self.bindings[event] = callback
 
     @staticmethod
+    def place(**_kwargs) -> None:
+        return
+
+    @staticmethod
     def pack_propagate(_enabled) -> None:
         return
 
@@ -83,6 +87,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
         return child
 
     monkeypatch.setattr(mod, "Box", make_widget)
+    monkeypatch.setattr(mod, "Text", make_widget)
     monkeypatch.setattr(mod, "EngineGui", make_child)
     gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
     gui.width = 1280
@@ -145,6 +150,19 @@ def test_toggle_focus_alternates_between_panels() -> None:
 
     gui.toggle_focus()
     assert gui.focused_panel == "left"
+
+
+def test_focus_arrow_points_toward_active_pane() -> None:
+    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui._focused_panel = "left"
+    gui.left_pane = gui.right_pane = None
+    gui.focus_arrow = _Widget()
+
+    gui.focus_panel("left")
+    assert gui.focus_arrow.value == mod.FOCUS_ARROW_LEFT
+
+    gui.focus_panel("right")
+    assert gui.focus_arrow.value == mod.FOCUS_ARROW_RIGHT
 
 
 def test_global_halt_sends_immediately_once(monkeypatch: pytest.MonkeyPatch) -> None:
