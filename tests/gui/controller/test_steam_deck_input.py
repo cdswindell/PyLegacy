@@ -160,6 +160,71 @@ def test_scope_catalog_invokes_scope_hold_on_focused_panel() -> None:
     assert focused_gui.catalog_calls == ["catalog"]
 
 
+def test_select_button_confirms_catalog_entry_when_catalog_visible() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.select_calls = 0
+    focused_gui.select_catalog_entry = lambda: setattr(focused_gui, "select_calls", focused_gui.select_calls + 1)
+    router = DeckInputRouter(
+        _profile(buttons={"0": {"action": "reset", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=0))
+
+    assert focused_gui.select_calls == 1
+    assert focused_gui.command_calls == []
+
+
+def test_select_button_performs_assigned_action_when_catalog_hidden() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = False
+    focused_gui.select_catalog_entry = lambda: focused_gui.command_calls.append("select")
+    router = DeckInputRouter(
+        _profile(buttons={"0": {"action": "reset", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=0))
+
+    assert focused_gui.command_calls == ["RESET"]
+
+
+def test_non_select_button_ignores_catalog_visibility() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.select_catalog_entry = lambda: focused_gui.command_calls.append("select")
+    router = DeckInputRouter(
+        _profile(buttons={"1": {"action": "bell", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("bell", "focused", 1.0, "pressed", button=1))
+
+    assert focused_gui.command_calls == ["RING_BELL"]
+
+
+def test_provider_reports_button_index_for_button_actions() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=0)])
+    provider = SteamDeckInputProvider(
+        _profile(buttons={"0": {"action": "reset", "target": "focused"}}), pygame_module=pygame
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.button, a.phase) for a in actions] == [("reset", 0, "pressed")]
+
+
 def test_provider_applies_dead_zone_hysteresis_and_axis_inversion() -> None:
     pygame = SimpleNamespace(
         JOYAXISMOTION=1,

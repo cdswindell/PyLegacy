@@ -155,6 +155,40 @@ def test_show_scope_catalog_holds_current_scope_button() -> None:
     assert calls == [gui._scope_buttons[CommandScope.ENGINE]]
 
 
+def test_catalog_visible_reflects_panel_state() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._catalog_panel = None
+    assert gui.catalog_visible is False
+
+    gui._catalog_panel = SimpleNamespace(visible=False)
+    assert gui.catalog_visible is False
+
+    gui._catalog_panel = SimpleNamespace(visible=True)
+    assert gui.catalog_visible is True
+
+
+def test_select_catalog_entry_delegates_when_panel_visible() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    calls: list[str] = []
+    gui._catalog_panel = SimpleNamespace(
+        visible=True,
+        select_highlighted=lambda: (calls.append("select"), True)[1],
+    )
+
+    assert gui.select_catalog_entry() is True
+    assert calls == ["select"]
+
+
+def test_select_catalog_entry_noop_when_panel_hidden() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._catalog_panel = SimpleNamespace(
+        visible=False,
+        select_highlighted=lambda: pytest.fail("should not select while hidden"),
+    )
+
+    assert gui.select_catalog_entry() is False
+
+
 def test_update_component_info_with_state_updates_ui_and_ops_mode() -> None:
     gui = _new_engine()
     state = DummyState(tmcc_id=34, name="Hudson")

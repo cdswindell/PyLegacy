@@ -34,6 +34,9 @@ SUPPORTED_ACTIONS = {
     "scope_catalog",
 }
 AXIS_ACTIONS = {"throttle", "direction"}
+# SDL "A" button. While the catalog panel is open it confirms the highlighted
+# entry; otherwise it performs whatever action the profile assigns to it.
+SELECT_BUTTON = 0
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -56,6 +59,7 @@ class DeckAction:
     target: Target
     value: float
     phase: str
+    button: int | None = None
 
 
 @dataclass(frozen=True)
@@ -323,7 +327,11 @@ class SteamDeckInputProvider:
         if binding is not None:
             actions.append(
                 DeckAction(
-                    binding.action, binding.target, 1.0 if pressed else 0.0, "pressed" if pressed else "released"
+                    binding.action,
+                    binding.target,
+                    1.0 if pressed else 0.0,
+                    "pressed" if pressed else "released",
+                    button,
                 )
             )
         return actions
@@ -413,6 +421,11 @@ class DeckInputRouter:
             return
         if action.name == "scope_catalog":
             gui.show_scope_catalog()
+            return
+        if action.button == SELECT_BUTTON and getattr(gui, "catalog_visible", False):
+            # While the catalog panel is open, the A button confirms the
+            # highlighted entry instead of performing its assigned action.
+            gui.select_catalog_entry()
             return
         command = PANEL_COMMANDS.get(action.name)
         if command is not None:

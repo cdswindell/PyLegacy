@@ -47,6 +47,20 @@ class _Store:
         return []
 
 
+def test_select_highlighted_delegates_to_catalog_list_box() -> None:
+    panel = CatalogPanel.__new__(CatalogPanel)
+    panel._catalog = type("Lb", (), {"activate_highlighted": lambda self: True})()
+
+    assert panel.select_highlighted() is True
+
+
+def test_select_highlighted_returns_false_without_catalog() -> None:
+    panel = CatalogPanel.__new__(CatalogPanel)
+    panel._catalog = None
+
+    assert panel.select_highlighted() is False
+
+
 def test_reset_configured_accessory_cache_clears_and_rebuilds_active_accessory_catalog() -> None:
     panel = CatalogPanel.__new__(CatalogPanel)
     panel._configured_acc_labels = ["Old"]

@@ -104,6 +104,42 @@ class TouchListBox(ListBox):
         self.horizontal_scroll = bool(enabled)
         self._apply_horizontal_scroll_policy()
 
+    def highlighted_index(self) -> Optional[int]:
+        """
+        Return the index of the currently highlighted (selected, else active) entry,
+        or ``None`` when the list is empty / has no usable highlight.
+        """
+        size = self._tk_size()
+        if size <= 0:
+            return None
+        try:
+            selection = self._lb.curselection()
+            if selection:
+                idx = int(selection[0])
+            else:
+                idx = int(self._lb.index("active"))
+        except (TclError, TypeError, ValueError, IndexError):
+            return None
+        return idx if 0 <= idx < size else None
+
+    def activate_highlighted(self) -> bool:
+        """
+        Fire ``on_hold_select`` for the currently highlighted entry, matching the
+        behavior of a touch long-press. Returns ``True`` when an entry was activated.
+        """
+        idx = self.highlighted_index()
+        if idx is None:
+            return False
+        try:
+            self._lb.selection_clear(0, "end")
+            self._lb.selection_set(idx)
+            self._lb.activate(idx)
+            text = self._lb.get(idx)
+        except TclError:
+            return False
+        self.on_hold_select(idx, text)
+        return True
+
     def set_item_style(
         self,
         index: int | None = None,

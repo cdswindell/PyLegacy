@@ -1408,6 +1408,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if pb is not None:
             self.on_scope_hold(pb)
 
+    @property
+    def catalog_visible(self) -> bool:
+        panel = self._catalog_panel
+        return bool(panel is not None and panel.visible)
+
+    def select_catalog_entry(self) -> bool:
+        panel = self._catalog_panel
+        if panel is None or not panel.visible:
+            return False
+        return panel.select_highlighted()
+
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
         self.on_scope(pb.scope, held=True)
