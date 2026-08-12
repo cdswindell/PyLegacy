@@ -134,6 +134,19 @@ def test_focus_changes_without_altering_other_controller() -> None:
         gui.focus_panel("center")
 
 
+def test_toggle_focus_alternates_between_panels() -> None:
+    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui._focused_panel = "left"
+    gui.left_gui = object()
+    gui.right_gui = object()
+
+    gui.toggle_focus()
+    assert gui.focused_panel == "right"
+
+    gui.toggle_focus()
+    assert gui.focused_panel == "left"
+
+
 def test_global_halt_sends_immediately_once(monkeypatch: pytest.MonkeyPatch) -> None:
     halt = SimpleNamespace(send_calls=0)
     halt.send = lambda: setattr(halt, "send_calls", halt.send_calls + 1)

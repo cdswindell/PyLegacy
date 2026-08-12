@@ -21,7 +21,17 @@ from typing import Any, Callable, Literal, Mapping
 log = logging.getLogger(__name__)
 
 Target = Literal["left", "right", "focused", "global"]
-SUPPORTED_ACTIONS = {"throttle", "direction", "halt", "reset", "horn", "bell", "focus_left", "focus_right"}
+SUPPORTED_ACTIONS = {
+    "throttle",
+    "direction",
+    "halt",
+    "reset",
+    "horn",
+    "bell",
+    "focus_left",
+    "focus_right",
+    "focus_toggle",
+}
 AXIS_ACTIONS = {"throttle", "direction"}
 PANEL_COMMANDS = {
     "reset": "RESET",

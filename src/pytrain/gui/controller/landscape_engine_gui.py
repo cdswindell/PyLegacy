@@ -33,6 +33,9 @@ STEAM_DECK_WIDTH = 1280
 STEAM_DECK_HEIGHT = 800
 HORIZONTAL_MARGIN = 12
 DIVIDER_WIDTH = 4
+FOCUS_BORDER = 3
+FOCUS_COLOR = "#3B82F6"
+UNFOCUSED_COLOR = "#555555"
 LANDSCAPE_FONT_SCALE = 0.9
 LANDSCAPE_BUTTON_DIVISOR = 8.0
 COMPACT_SCALE = LANDSCAPE_FONT_SCALE
@@ -123,6 +126,7 @@ class LandscapeEngineGui(GuiZeroBase):
 
         self.left_gui = self._build_controller("left", self.left_root, self._left_options)
         self.right_gui = self._build_controller("right", self.right_root, self._right_options)
+        self._refresh_focus_indicator()
         self._start_controller_input()
 
     def _build_pane(self, side: PanelName, column: int) -> Box:
@@ -132,11 +136,13 @@ class LandscapeEngineGui(GuiZeroBase):
             layout="auto",
             width=self._pane_width,
             height=self._pane_height,
+            border=FOCUS_BORDER,
         )
         pane.tk.pack_propagate(False)
         pane.tk.bind("<Button-1>", lambda _event, target=side: self.focus_panel(target))
         return pane
 
+    # noinspection unused-parameter
     def _build_controller(self, side: PanelName, root: Box, options: dict[str, Any]) -> EngineGui:
         child_options = {
             **options,
@@ -160,6 +166,22 @@ class LandscapeEngineGui(GuiZeroBase):
         if panel not in ("left", "right"):
             raise ValueError(f"Unknown panel: {panel}")
         self._focused_panel = panel
+        self._refresh_focus_indicator()
+
+    def toggle_focus(self) -> None:
+        self.focus_panel("right" if self._focused_panel == "left" else "left")
+
+    def _refresh_focus_indicator(self) -> None:
+        panes = (("left", getattr(self, "left_pane", None)), ("right", getattr(self, "right_pane", None)))
+        for name, pane in panes:
+            if pane is None:
+                continue
+            color = FOCUS_COLOR if name == self._focused_panel else UNFOCUSED_COLOR
+            pane.tk.configure(
+                highlightthickness=FOCUS_BORDER,
+                highlightbackground=color,
+                highlightcolor=color,
+            )
 
     def transfer_linked_car(self, source_panel: PanelName, state: EngineState) -> bool:
         if source_panel not in ("left", "right"):
@@ -197,6 +219,7 @@ class LandscapeEngineGui(GuiZeroBase):
                 "halt": self.on_halt,
                 "focus_left": lambda: self.focus_panel("left"),
                 "focus_right": lambda: self.focus_panel("right"),
+                "focus_toggle": self.toggle_focus,
             },
         )
         provider = SteamDeckInputProvider(self._controller_profile)

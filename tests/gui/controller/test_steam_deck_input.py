@@ -107,6 +107,34 @@ def test_bundled_profile_maps_right_stick_to_steam_input_axes() -> None:
     assert 2 not in profile.axes
 
 
+def test_bundled_profile_binds_view_button_to_focus_toggle() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.buttons[6].action == "focus_toggle"
+    assert profile.buttons[6].target == "global"
+
+
+def test_focus_toggle_requires_global_target() -> None:
+    with pytest.raises(ProfileError, match="focus_toggle must target global"):
+        _profile(buttons={"6": {"action": "focus_toggle", "target": "focused"}})
+
+
+def test_focus_toggle_routes_to_registered_global_action() -> None:
+    global_calls: list[str] = []
+    router = DeckInputRouter(
+        _profile(buttons={"6": {"action": "focus_toggle", "target": "global"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: _gui(),
+        global_actions={"focus_toggle": lambda: global_calls.append("toggle")},
+    )
+
+    router.handle(DeckAction("focus_toggle", "global", 1.0, "pressed"))
+    router.handle(DeckAction("focus_toggle", "global", 0.0, "released"))
+
+    assert global_calls == ["toggle"]
+
+
 def test_provider_applies_dead_zone_hysteresis_and_axis_inversion() -> None:
     pygame = SimpleNamespace(
         JOYAXISMOTION=1,

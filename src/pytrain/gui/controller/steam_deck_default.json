@@ -41,6 +41,10 @@
       "action": "horn",
       "target": "focused"
     },
+    "6": {
+      "action": "focus_toggle",
+      "target": "global"
+    },
     "9": {
       "action": "focus_left",
       "target": "global"
