@@ -211,6 +211,40 @@ def test_select_catalog_entry_noop_when_panel_hidden() -> None:
     assert gui.select_catalog_entry() is False
 
 
+def test_popup_visible_reflects_popup_manager_state() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._popup = SimpleNamespace(current_popup=None)
+    assert gui.popup_visible is False
+
+    gui._popup = SimpleNamespace(current_popup=SimpleNamespace(visible=False))
+    assert gui.popup_visible is False
+
+    gui._popup = SimpleNamespace(current_popup=SimpleNamespace(visible=True))
+    assert gui.popup_visible is True
+
+
+def test_close_popup_closes_when_popup_visible() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    calls: list[str] = []
+    gui._popup = SimpleNamespace(
+        current_popup=SimpleNamespace(visible=True),
+        close=lambda: calls.append("close"),
+    )
+
+    assert gui.close_popup() is True
+    assert calls == ["close"]
+
+
+def test_close_popup_noop_when_no_popup_visible() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._popup = SimpleNamespace(
+        current_popup=None,
+        close=lambda: pytest.fail("should not close when nothing is visible"),
+    )
+
+    assert gui.close_popup() is False
+
+
 def test_update_component_info_with_state_updates_ui_and_ops_mode() -> None:
     gui = _new_engine()
     state = DummyState(tmcc_id=34, name="Hudson")

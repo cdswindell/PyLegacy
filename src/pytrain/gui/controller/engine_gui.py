@@ -1423,6 +1423,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
         panel = self._catalog_panel
         return bool(panel is not None and panel.visible)
 
+    @property
+    def popup_visible(self) -> bool:
+        popup = self._popup.current_popup
+        return bool(popup is not None and getattr(popup, "visible", False))
+
+    def close_popup(self) -> bool:
+        if not self.popup_visible:
+            return False
+        self._popup.close()
+        return True
+
     def select_catalog_entry(self) -> bool:
         panel = self._catalog_panel
         if panel is None or not panel.visible:

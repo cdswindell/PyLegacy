@@ -37,6 +37,9 @@ AXIS_ACTIONS = {"throttle", "direction"}
 # SDL "A" button. While the catalog panel is open it confirms the highlighted
 # entry; otherwise it performs whatever action the profile assigns to it.
 SELECT_BUTTON = 0
+# SDL "X" button. While a popup panel is displayed it closes the popup;
+# otherwise it performs whatever action the profile assigns to it.
+CLOSE_POPUP_BUTTON = 2
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -426,6 +429,11 @@ class DeckInputRouter:
             # While the catalog panel is open, the A button confirms the
             # highlighted entry instead of performing its assigned action.
             gui.select_catalog_entry()
+            return
+        if action.button == CLOSE_POPUP_BUTTON and getattr(gui, "popup_visible", False):
+            # While a popup panel is displayed, the X button closes it instead
+            # of performing its assigned action.
+            gui.close_popup()
             return
         command = PANEL_COMMANDS.get(action.name)
         if command is not None:

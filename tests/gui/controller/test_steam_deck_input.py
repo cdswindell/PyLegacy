@@ -213,6 +213,59 @@ def test_non_select_button_ignores_catalog_visibility() -> None:
     assert focused_gui.command_calls == ["RING_BELL"]
 
 
+def test_close_popup_button_closes_popup_when_popup_visible() -> None:
+    focused_gui = _gui()
+    focused_gui.popup_visible = True
+    focused_gui.close_calls = 0
+    focused_gui.close_popup = lambda: setattr(focused_gui, "close_calls", focused_gui.close_calls + 1)
+    router = DeckInputRouter(
+        _profile(buttons={"2": {"action": "reset", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+
+    assert focused_gui.close_calls == 1
+    assert focused_gui.command_calls == []
+
+
+def test_close_popup_button_performs_assigned_action_when_no_popup() -> None:
+    focused_gui = _gui()
+    focused_gui.popup_visible = False
+    focused_gui.close_popup = lambda: focused_gui.command_calls.append("close")
+    router = DeckInputRouter(
+        _profile(buttons={"2": {"action": "reset", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+
+    assert focused_gui.command_calls == ["RESET"]
+
+
+def test_non_close_button_ignores_popup_visibility() -> None:
+    focused_gui = _gui()
+    focused_gui.popup_visible = True
+    focused_gui.close_popup = lambda: focused_gui.command_calls.append("close")
+    router = DeckInputRouter(
+        _profile(buttons={"1": {"action": "bell", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("bell", "focused", 1.0, "pressed", button=1))
+
+    assert focused_gui.command_calls == ["RING_BELL"]
+
+
 def test_provider_reports_button_index_for_button_actions() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
     pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=0)])

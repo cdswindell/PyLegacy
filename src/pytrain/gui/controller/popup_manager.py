@@ -237,6 +237,10 @@ class PopupManager:
     # ------------------------------------------------------------------
 
     @property
+    def current_popup(self) -> Box | None:
+        return self._state.current_popup
+
+    @property
     def is_combo_hackable(self) -> bool:
         return self._combo_hackable
 
