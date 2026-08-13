@@ -121,9 +121,10 @@ class CatalogPanel(OverlayPanel):
             scrollbar=True,
             on_hold_select=self.on_select,
         )
-        # In Landscape (compact) mode the panel is shorter, so use a smaller
-        # entry font to leave room for the close button to display correctly.
-        lb.text_size = self._gui.s_18 if self._gui.compact else self._gui.s_24
+        # In Landscape (compact) mode the panel is shorter, so use a slightly
+        # smaller entry font that still leaves room for the close button to
+        # display correctly (s_18 was too small to read comfortably).
+        lb.text_size = self._gui.s_20 if self._gui.compact else self._gui.s_24
         lb.bg = "#f7f7f7"
 
         tk_listbox = lb.children[0].tk

@@ -1404,9 +1404,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.on_scope(self.scope)
 
     def show_scope_catalog(self) -> None:
+        # Toggle the scope catalog: if it is already showing in this panel,
+        # close it; otherwise open it for the current scope.
+        if self.catalog_visible:
+            self.hide_scope_catalog()
+            return
         pb = self._scope_buttons.get(self.scope)
         if pb is not None:
             self.on_scope_hold(pb)
+
+    def hide_scope_catalog(self) -> None:
+        panel = self._catalog_panel
+        if panel is not None and panel.visible:
+            self._popup.close(panel.overlay)
 
     @property
     def catalog_visible(self) -> bool:

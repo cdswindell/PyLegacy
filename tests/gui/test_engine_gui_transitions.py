@@ -140,6 +140,7 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui.rebuild_options = lambda: setattr(gui, "_rebuild_options_calls", getattr(gui, "_rebuild_options_calls", 0) + 1)
     gui.display_most_recent = mod.EngineGui.display_most_recent.__get__(gui, mod.EngineGui)
     gui._acc_overlay = None
+    gui._catalog_panel = None
     gui._enabled_bg = "green"
     gui._enabled_text = "black"
     return gui
@@ -153,6 +154,27 @@ def test_show_scope_catalog_holds_current_scope_button() -> None:
     gui.show_scope_catalog()
 
     assert calls == [gui._scope_buttons[CommandScope.ENGINE]]
+
+
+def test_show_scope_catalog_closes_catalog_when_already_visible() -> None:
+    gui = _new_engine()
+    gui.on_scope_hold = lambda pb: pytest.fail("should not reopen while visible")
+    closed: list[object] = []
+    overlay = object()
+    gui._catalog_panel = SimpleNamespace(visible=True, overlay=overlay)
+    gui._popup = SimpleNamespace(close=lambda ov: closed.append(ov))
+
+    gui.show_scope_catalog()
+
+    assert closed == [overlay]
+
+
+def test_hide_scope_catalog_noop_when_not_visible() -> None:
+    gui = _new_engine()
+    gui._catalog_panel = SimpleNamespace(visible=False, overlay=object())
+    gui._popup = SimpleNamespace(close=lambda _ov: pytest.fail("should not close when hidden"))
+
+    gui.hide_scope_catalog()
 
 
 def test_catalog_visible_reflects_panel_state() -> None:
