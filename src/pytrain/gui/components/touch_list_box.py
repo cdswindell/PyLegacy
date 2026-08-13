@@ -140,6 +140,33 @@ class TouchListBox(ListBox):
         self.on_hold_select(idx, text)
         return True
 
+    def move_highlight(self, delta: int) -> bool:
+        """
+        Move the highlight by ``delta`` rows (e.g. ``-1`` up, ``+1`` down),
+        clamped to the first/last entry (no wrap-around). Returns ``True`` when
+        the highlight actually moved.
+        """
+        size = self._tk_size()
+        if size <= 0:
+            return False
+        current = self.highlighted_index()
+        if current is None:
+            # Nothing highlighted yet: start at the top when moving down,
+            # bottom when moving up.
+            target = 0 if delta >= 0 else size - 1
+        else:
+            target = max(0, min(size - 1, current + delta))
+            if target == current:
+                return False
+        try:
+            self._lb.selection_clear(0, "end")
+            self._lb.selection_set(target)
+            self._lb.activate(target)
+            self._lb.see(target)
+        except TclError:
+            return False
+        return True
+
     def set_item_style(
         self,
         index: int | None = None,

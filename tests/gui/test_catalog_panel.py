@@ -61,6 +61,22 @@ def test_select_highlighted_returns_false_without_catalog() -> None:
     assert panel.select_highlighted() is False
 
 
+def test_move_highlight_delegates_to_catalog_list_box() -> None:
+    panel = CatalogPanel.__new__(CatalogPanel)
+    calls: list[int] = []
+    panel._catalog = type("Lb", (), {"move_highlight": lambda self, delta: calls.append(delta) or True})()
+
+    assert panel.move_highlight(-1) is True
+    assert calls == [-1]
+
+
+def test_move_highlight_returns_false_without_catalog() -> None:
+    panel = CatalogPanel.__new__(CatalogPanel)
+    panel._catalog = None
+
+    assert panel.move_highlight(1) is False
+
+
 def test_reset_configured_accessory_cache_clears_and_rebuilds_active_accessory_catalog() -> None:
     panel = CatalogPanel.__new__(CatalogPanel)
     panel._configured_acc_labels = ["Old"]

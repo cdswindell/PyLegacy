@@ -40,6 +40,13 @@ SELECT_BUTTON = 0
 # SDL "X" button. While a popup panel is displayed it closes the popup;
 # otherwise it performs whatever action the profile assigns to it.
 CLOSE_POPUP_BUTTON = 2
+# SDL D-pad (hat) up/down. On the Steam Deck the D-pad is reported as an SDL
+# hat (the connect log shows every button index 0-10 and axis 0-5 already used
+# by the sticks, triggers, and existing controls, leaving no room for it). While
+# the catalog panel is open these scroll the highlighted entry in the focused
+# pane; otherwise the D-pad has no assigned action.
+DPAD_UP = "dpad_up"
+DPAD_DOWN = "dpad_down"
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -221,6 +228,7 @@ class SteamDeckInputProvider:
         self._active_axes: set[int] = set()
         self._held_buttons: set[int] = set()
         self._fired_chords: set[ChordBinding] = set()
+        self._hat_y = 0
         self._started = False
 
     def start(self) -> None:
@@ -242,6 +250,7 @@ class SteamDeckInputProvider:
                 self._pygame.JOYAXISMOTION,
                 self._pygame.JOYBUTTONDOWN,
                 self._pygame.JOYBUTTONUP,
+                self._pygame.JOYHATMOTION,
                 self._pygame.JOYDEVICEADDED,
                 self._pygame.JOYDEVICEREMOVED,
             )
@@ -271,6 +280,7 @@ class SteamDeckInputProvider:
         self._active_axes.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()
+        self._hat_y = 0
         self._started = False
 
     def poll(self) -> list[DeckAction]:
@@ -287,6 +297,8 @@ class SteamDeckInputProvider:
                     actions.append(DeckAction(binding.action, binding.target, value, "changed"))
             elif event.type in (self._pygame.JOYBUTTONDOWN, self._pygame.JOYBUTTONUP):
                 actions.extend(self._button_actions(event.button, event.type == self._pygame.JOYBUTTONDOWN))
+            elif event.type == self._pygame.JOYHATMOTION:
+                actions.extend(self._hat_actions(event.value))
             elif event.type == self._pygame.JOYDEVICEADDED:
                 self._add_device(event.device_index)
             elif event.type == self._pygame.JOYDEVICEREMOVED:
@@ -339,6 +351,25 @@ class SteamDeckInputProvider:
             )
         return actions
 
+    def _hat_actions(self, value: Any) -> list[DeckAction]:
+        # The D-pad reports as an SDL hat; ``value`` is an ``(x, y)`` tuple with
+        # ``y == 1`` up and ``y == -1`` down. Emit a single one-shot action each
+        # time the vertical direction changes to a non-neutral position so the
+        # catalog scrolls one entry per press.
+        try:
+            _x, y = value
+        except (TypeError, ValueError):
+            return []
+        y = int(y)
+        if y == self._hat_y:
+            return []
+        self._hat_y = y
+        if y > 0:
+            return [DeckAction(DPAD_UP, "focused", 1.0, "pressed")]
+        if y < 0:
+            return [DeckAction(DPAD_DOWN, "focused", 1.0, "pressed")]
+        return []
+
     def _add_device(self, device_index: int) -> None:
         try:
             joystick = self._pygame.joystick.Joystick(device_index)
@@ -376,6 +407,7 @@ class SteamDeckInputProvider:
         self._active_axes.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()
+        self._hat_y = 0
 
 
 class DeckInputRouter:
@@ -424,6 +456,13 @@ class DeckInputRouter:
             return
         if action.name == "scope_catalog":
             gui.show_scope_catalog()
+            return
+        if action.name in (DPAD_UP, DPAD_DOWN):
+            # The D-pad scrolls the highlighted catalog entry (clamped at the
+            # ends) only while the catalog panel is open; otherwise it is a
+            # no-op, since the D-pad has no other assigned action.
+            if getattr(gui, "catalog_visible", False):
+                gui.scroll_catalog(-1 if action.name == DPAD_UP else 1)
             return
         if action.button == SELECT_BUTTON and getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, the A button confirms the

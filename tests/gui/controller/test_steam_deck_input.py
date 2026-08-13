@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 from src.pytrain.gui.controller.steam_deck_input import (
+    DPAD_DOWN,
+    DPAD_UP,
     ControlProfile,
     ControllerUnavailable,
     DeckAction,
@@ -140,6 +142,61 @@ def test_bundled_profile_binds_menu_button_to_scope_catalog() -> None:
 
     assert profile.buttons[7].action == "scope_catalog"
     assert profile.buttons[7].target == "focused"
+
+
+def test_dpad_scrolls_catalog_in_focused_panel_when_visible() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+
+    assert focused_gui.scroll_calls == [-1, 1]
+
+
+def test_dpad_is_noop_when_catalog_hidden() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = False
+    focused_gui.scroll_catalog = lambda delta: pytest.fail("should not scroll when catalog hidden")
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+
+
+def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=6, value=(0, 1)),
+            SimpleNamespace(type=6, value=(0, 1)),
+            SimpleNamespace(type=6, value=(0, 0)),
+            SimpleNamespace(type=6, value=(0, -1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [
+        (DPAD_UP, "focused", "pressed"),
+        (DPAD_DOWN, "focused", "pressed"),
+    ]
 
 
 def test_scope_catalog_invokes_scope_hold_on_focused_panel() -> None:
@@ -308,6 +365,7 @@ def test_provider_start_isolates_sdl_video_from_tk_touchscreen(monkeypatch: pyte
         JOYAXISMOTION=1,
         JOYBUTTONDOWN=2,
         JOYBUTTONUP=3,
+        JOYHATMOTION=6,
         JOYDEVICEADDED=4,
         JOYDEVICEREMOVED=5,
         init=lambda: calls.append("pygame.init"),
@@ -326,7 +384,7 @@ def test_provider_start_isolates_sdl_video_from_tk_touchscreen(monkeypatch: pyte
     assert "pygame.init" not in calls
     assert ("display.init", "dummy") in calls
     assert ("blocked", None) in calls
-    assert ("allowed", (1, 2, 3, 4, 5)) in calls
+    assert ("allowed", (1, 2, 3, 6, 4, 5)) in calls
     assert os.environ["SDL_VIDEODRIVER"] == "wayland"
 
 
@@ -495,6 +553,7 @@ def test_provider_handles_disconnect_and_reconnect() -> None:
         JOYAXISMOTION=1,
         JOYBUTTONDOWN=2,
         JOYBUTTONUP=3,
+        JOYHATMOTION=6,
         JOYDEVICEADDED=4,
         JOYDEVICEREMOVED=5,
         event=SimpleNamespace(get=lambda: list(events)),

@@ -147,6 +147,13 @@ class CatalogPanel(OverlayPanel):
             return False
         return self._catalog.activate_highlighted()
 
+    def move_highlight(self, delta: int) -> bool:
+        # Move the highlighted catalog entry by ``delta`` rows (clamped), so the
+        # controller D-pad can scroll the list the same way a finger drag would.
+        if self._catalog is None:
+            return False
+        return self._catalog.move_highlight(delta)
+
     def configure(self, scope: CommandScope, force: bool = False) -> None:
         assert self.overlay  # force creation of panel
 

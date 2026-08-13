@@ -1440,6 +1440,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return False
         return panel.select_highlighted()
 
+    def scroll_catalog(self, delta: int) -> bool:
+        panel = self._catalog_panel
+        if panel is None or not panel.visible:
+            return False
+        return panel.move_highlight(delta)
+
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
         self.on_scope(pb.scope, held=True)

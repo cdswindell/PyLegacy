@@ -38,6 +38,9 @@ class DummyTkListbox:
     def activate(self, index: int) -> None:
         self._active = int(index)
 
+    def see(self, index: int) -> None:
+        self.seen = int(index)
+
     def get(self, index: int) -> str:
         return self.items[int(index)]
 
@@ -172,3 +175,28 @@ def test_activate_highlighted_falls_back_to_active_row(mod) -> None:
     assert widget.highlighted_index() == 1
     assert widget.activate_highlighted() is True
     assert calls == [(1, "B")]
+
+
+def test_move_highlight_shifts_selection_and_scrolls_into_view(mod) -> None:
+    DummyListBox.initial_xview = 0.0
+    widget = mod.TouchListBox(object(), items=["A", "B", "C"])
+    widget._lb.selection_set(0)
+
+    assert widget.move_highlight(1) is True
+    assert widget.highlighted_index() == 1
+    assert widget._lb.seen == 1
+
+
+def test_move_highlight_clamps_at_ends_without_wrapping(mod) -> None:
+    DummyListBox.initial_xview = 0.0
+    widget = mod.TouchListBox(object(), items=["A", "B", "C"])
+    widget._lb.selection_set(0)
+
+    # Already at the top: moving up is clamped and reports no movement.
+    assert widget.move_highlight(-1) is False
+    assert widget.highlighted_index() == 0
+
+    widget._lb.selection_set(2)
+    # Already at the bottom: moving down is clamped and reports no movement.
+    assert widget.move_highlight(1) is False
+    assert widget.highlighted_index() == 2

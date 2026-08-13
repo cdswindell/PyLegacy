@@ -211,6 +211,28 @@ def test_select_catalog_entry_noop_when_panel_hidden() -> None:
     assert gui.select_catalog_entry() is False
 
 
+def test_scroll_catalog_delegates_when_panel_visible() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    calls: list[int] = []
+    gui._catalog_panel = SimpleNamespace(
+        visible=True,
+        move_highlight=lambda delta: (calls.append(delta), True)[1],
+    )
+
+    assert gui.scroll_catalog(1) is True
+    assert calls == [1]
+
+
+def test_scroll_catalog_noop_when_panel_hidden() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._catalog_panel = SimpleNamespace(
+        visible=False,
+        move_highlight=lambda delta: pytest.fail("should not scroll while hidden"),
+    )
+
+    assert gui.scroll_catalog(-1) is False
+
+
 def test_popup_visible_reflects_popup_manager_state() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._popup = SimpleNamespace(current_popup=None)
