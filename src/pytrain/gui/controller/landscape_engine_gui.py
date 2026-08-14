@@ -36,8 +36,11 @@ DIVIDER_WIDTH = 4
 FOCUS_BORDER = 3
 FOCUS_COLOR = "#3B82F6"
 UNFOCUSED_COLOR = "#555555"
-FOCUS_ARROW_LEFT = "◀━"
-FOCUS_ARROW_RIGHT = "━▶"
+# Append the text-presentation variation selector (U+FE0E) to the triangle
+# heads so the OS renders them as monochrome text honoring ``FOCUS_COLOR``
+# instead of as black color-emoji (the ``▬`` shaft is not emoji-eligible).
+FOCUS_ARROW_LEFT = "◀\ufe0e▬"
+FOCUS_ARROW_RIGHT = "▬▶\ufe0e"
 FOCUS_ARROW_SIZE = 26
 LANDSCAPE_FONT_SCALE = 0.9
 LANDSCAPE_BUTTON_DIVISOR = 8.0
