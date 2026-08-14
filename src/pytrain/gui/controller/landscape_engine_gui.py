@@ -25,7 +25,7 @@ from .steam_deck_input import (
     DeckInputRouter,
     SteamDeckInputProvider,
 )
-from ..guizero_base import GuiZeroBase
+from ..guizero_base import GuiZeroBase, LIONEL_ORANGE
 from ...db.engine_state import EngineState
 from ...protocol.constants import CommandScope
 
@@ -34,7 +34,7 @@ STEAM_DECK_HEIGHT = 800
 HORIZONTAL_MARGIN = 12
 DIVIDER_WIDTH = 4
 FOCUS_BORDER = 3
-FOCUS_COLOR = "#3B82F6"
+FOCUS_COLOR = LIONEL_ORANGE
 UNFOCUSED_COLOR = "#555555"
 FOCUS_ARROW_LEFT = "◀"
 FOCUS_ARROW_RIGHT = "▶"
