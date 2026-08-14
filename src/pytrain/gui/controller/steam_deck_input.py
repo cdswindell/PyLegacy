@@ -499,7 +499,15 @@ class SteamDeckInputProvider:
             elif y < 0:
                 actions.append(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
         if x != self._hat_x:
+            previous_x = self._hat_x
             self._hat_x = x
+            # Emit a release for the previously held horizontal direction so the
+            # router can stop repeating the boost/brake command it fires while
+            # the D-pad left/right is held.
+            if previous_x > 0:
+                actions.append(DeckAction(DPAD_RIGHT, "focused", 0.0, "released"))
+            elif previous_x < 0:
+                actions.append(DeckAction(DPAD_LEFT, "focused", 0.0, "released"))
             if x > 0:
                 actions.append(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
             elif x < 0:
@@ -567,6 +575,7 @@ class DeckInputRouter:
         self._throttles: dict[Target, float] = {}
         self._commanded_speeds: dict[Target, float] = {}
         self._quills: dict[Target, float] = {}
+        self._boosts: dict[Target, str] = {}
         self._direction_latches: set[Target] = set()
         self._last_tick: float | None = None
 
@@ -592,6 +601,12 @@ class DeckInputRouter:
                 self._quills[action.target] = min(1.0, action.value)
             else:
                 self._quills.pop(action.target, None)
+            return
+        if action.name in (DPAD_LEFT, DPAD_RIGHT):
+            # D-pad left/right must react to both press and release so ``tick()``
+            # can repeat the boost/brake command while the key is held and stop
+            # on release; handle it before the ``pressed``-only guard below.
+            self._handle_boost_brake(action)
             return
         if action.phase != "pressed":
             return
@@ -630,25 +645,6 @@ class DeckInputRouter:
             # no-op, since the D-pad has no other assigned action.
             if getattr(gui, "catalog_visible", False):
                 gui.scroll_catalog(-1 if action.name == DPAD_UP else 1)
-            return
-        if action.name == DPAD_RIGHT:
-            # While the catalog panel is open, D-pad right confirms the
-            # highlighted entry (mirroring the A button); otherwise it boosts
-            # the engine/train speed (``BOOST_SPEED`` resolves for both Legacy
-            # and TMCC generations).
-            if getattr(gui, "catalog_visible", False):
-                gui.select_catalog_entry()
-            else:
-                gui.on_engine_command("BOOST_SPEED")
-            return
-        if action.name == DPAD_LEFT:
-            # While the catalog panel is open, D-pad left cancels/closes the
-            # catalog panel; otherwise it brakes the engine/train speed
-            # (``BRAKE_SPEED`` resolves for both Legacy and TMCC generations).
-            if getattr(gui, "catalog_visible", False):
-                gui.hide_scope_catalog()
-            else:
-                gui.on_engine_command("BRAKE_SPEED")
             return
         if action.button == SELECT_BUTTON and getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, the A button confirms the
@@ -699,13 +695,47 @@ class DeckInputRouter:
             # engine falls through to the plain Blow Horn (intensity ignored).
             intensity = max(1, min(HORN_MAX_INTENSITY, round(fraction * HORN_MAX_INTENSITY)))
             gui.on_engine_command(HORN_COMMAND, data=intensity)
+        for target, command in tuple(self._boosts.items()):
+            # Re-send the boost/brake command every ``repeat_interval`` (100 ms)
+            # for as long as the D-pad left/right is held.
+            gui = self._target_gui(target)
+            if gui is None:
+                continue
+            gui.on_engine_command(command)
 
     def clear(self) -> None:
         self._throttles.clear()
         self._commanded_speeds.clear()
         self._quills.clear()
+        self._boosts.clear()
         self._direction_latches.clear()
         self._last_tick = None
+
+    def _handle_boost_brake(self, action: DeckAction) -> None:
+        if action.phase != "pressed":
+            # D-pad released: stop repeating the boost/brake command.
+            self._boosts.pop(action.target, None)
+            return
+        gui = self._target_gui(action.target)
+        if gui is None:
+            return
+        if getattr(gui, "catalog_visible", False):
+            # While the catalog panel is open, D-pad right confirms the
+            # highlighted entry (mirroring the A button) and D-pad left
+            # cancels/closes the panel; neither repeats.
+            self._boosts.pop(action.target, None)
+            if action.name == DPAD_RIGHT:
+                gui.select_catalog_entry()
+            else:
+                gui.hide_scope_catalog()
+            return
+        # Otherwise D-pad right boosts and D-pad left brakes the engine/train
+        # speed. Fire once immediately for responsiveness, then ``tick()``
+        # re-sends the command every ``repeat_interval`` while it is held
+        # (``BOOST_SPEED``/``BRAKE_SPEED`` resolve for both Legacy and TMCC).
+        command = "BOOST_SPEED" if action.name == DPAD_RIGHT else "BRAKE_SPEED"
+        self._boosts[action.target] = command
+        gui.on_engine_command(command)
 
     def _handle_direction(self, action: DeckAction) -> None:
         release_threshold = self.profile.direction_threshold - self.profile.hysteresis
