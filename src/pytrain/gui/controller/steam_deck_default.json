@@ -41,6 +41,14 @@
       "action": "horn",
       "target": "focused"
     },
+    "4": {
+      "action": "shutdown",
+      "target": "focused"
+    },
+    "5": {
+      "action": "startup",
+      "target": "focused"
+    },
     "6": {
       "action": "focus_toggle",
       "target": "global"

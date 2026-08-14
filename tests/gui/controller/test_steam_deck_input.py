@@ -10,6 +10,11 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DPAD_LEFT,
     DPAD_RIGHT,
     DPAD_UP,
+    SHUTDOWN_DELAYED,
+    SHUTDOWN_IMMEDIATE,
+    STARTUP_DELAYED,
+    STARTUP_IMMEDIATE,
+    STARTUP_LONG_PRESS_SECONDS,
     ControlProfile,
     ControllerUnavailable,
     DeckAction,
@@ -609,6 +614,227 @@ def test_emergency_chord_fires_once_until_released() -> None:
     actions = provider.poll()
 
     assert [action.name for action in actions] == ["halt", "halt"]
+
+
+def _startup_profile() -> ControlProfile:
+    return _profile(
+        buttons={
+            "0": {"action": "bell", "target": "focused"},
+            "5": {"action": "startup", "target": "focused"},
+        }
+    )
+
+
+def _clock(*values: float):
+    remaining = list(values)
+    return lambda: remaining.pop(0)
+
+
+def test_bundled_profile_binds_right_bumper_to_startup() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.buttons[5].action == "startup"
+    assert profile.buttons[5].target == "focused"
+
+
+def test_startup_requires_a_panel_target() -> None:
+    with pytest.raises(ProfileError, match="startup must target a panel"):
+        _profile(buttons={"5": {"action": "startup", "target": "global"}})
+
+
+def test_startup_immediate_action_starts_engine_immediately() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _startup_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(STARTUP_IMMEDIATE, "focused", 1.0, "pressed", button=5))
+
+    assert focused_gui.command_calls == ["START_UP_IMMEDIATE"]
+
+
+def test_startup_delayed_action_requests_delayed_startup_with_fallback() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _startup_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(STARTUP_DELAYED, "focused", 1.0, "pressed", button=5))
+
+    assert focused_gui.command_calls == [["START_UP_DELAYED", "START_UP_IMMEDIATE"]]
+
+
+def test_provider_short_press_emits_startup_immediate() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=5), SimpleNamespace(type=3, button=5)])
+    provider = SteamDeckInputProvider(
+        _startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(STARTUP_IMMEDIATE, "focused", "pressed")]
+
+
+def test_provider_long_press_emits_startup_delayed() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=5), SimpleNamespace(type=3, button=5)])
+    provider = SteamDeckInputProvider(
+        _startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS + 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(STARTUP_DELAYED, "focused", "pressed")]
+
+
+def test_provider_startup_button_press_alone_emits_nothing() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=5)])
+    provider = SteamDeckInputProvider(_startup_profile(), pygame_module=pygame, clock=_clock(0.0))
+
+    assert provider.poll() == []
+
+
+def test_provider_suppresses_startup_when_halt_chord_fires() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=4),
+            SimpleNamespace(type=2, button=5),
+            SimpleNamespace(type=3, button=5),
+            SimpleNamespace(type=3, button=4),
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS + 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [action.name for action in actions] == ["halt"]
+
+
+def _shutdown_profile() -> ControlProfile:
+    return _profile(
+        buttons={
+            "0": {"action": "bell", "target": "focused"},
+            "4": {"action": "shutdown", "target": "focused"},
+        }
+    )
+
+
+def test_bundled_profile_binds_left_bumper_to_shutdown() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.buttons[4].action == "shutdown"
+    assert profile.buttons[4].target == "focused"
+
+
+def test_shutdown_requires_a_panel_target() -> None:
+    with pytest.raises(ProfileError, match="shutdown must target a panel"):
+        _profile(buttons={"4": {"action": "shutdown", "target": "global"}})
+
+
+def test_shutdown_immediate_action_shuts_engine_down_immediately() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _shutdown_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(SHUTDOWN_IMMEDIATE, "focused", 1.0, "pressed", button=4))
+
+    assert focused_gui.command_calls == ["SHUTDOWN_IMMEDIATE"]
+
+
+def test_shutdown_delayed_action_requests_delayed_shutdown_with_fallback() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _shutdown_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(SHUTDOWN_DELAYED, "focused", 1.0, "pressed", button=4))
+
+    assert focused_gui.command_calls == [["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"]]
+
+
+def test_provider_short_press_emits_shutdown_immediate() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=4), SimpleNamespace(type=3, button=4)])
+    provider = SteamDeckInputProvider(
+        _shutdown_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(SHUTDOWN_IMMEDIATE, "focused", "pressed")]
+
+
+def test_provider_long_press_emits_shutdown_delayed() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=4), SimpleNamespace(type=3, button=4)])
+    provider = SteamDeckInputProvider(
+        _shutdown_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS + 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(SHUTDOWN_DELAYED, "focused", "pressed")]
+
+
+def test_provider_shutdown_button_press_alone_emits_nothing() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=4)])
+    provider = SteamDeckInputProvider(_shutdown_profile(), pygame_module=pygame, clock=_clock(0.0))
+
+    assert provider.poll() == []
+
+
+def test_provider_suppresses_shutdown_when_halt_chord_fires() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=5),
+            SimpleNamespace(type=2, button=4),
+            SimpleNamespace(type=3, button=4),
+            SimpleNamespace(type=3, button=5),
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _shutdown_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS + 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [action.name for action in actions] == ["halt"]
 
 
 def test_provider_handles_disconnect_and_reconnect() -> None:

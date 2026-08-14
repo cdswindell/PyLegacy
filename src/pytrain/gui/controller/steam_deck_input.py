@@ -14,6 +14,7 @@ import json
 import logging
 import math
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping
@@ -32,6 +33,8 @@ SUPPORTED_ACTIONS = {
     "focus_right",
     "focus_toggle",
     "scope_catalog",
+    "startup",
+    "shutdown",
 }
 AXIS_ACTIONS = {"throttle", "direction"}
 # SDL "A" button. While the catalog panel is open it confirms the highlighted
@@ -50,6 +53,25 @@ DPAD_UP = "dpad_up"
 DPAD_DOWN = "dpad_down"
 DPAD_LEFT = "dpad_left"
 DPAD_RIGHT = "dpad_right"
+# A button assigned the "startup" or "shutdown" action distinguishes a short
+# press from a long press: a short press emits the ``*_IMMEDIATE`` action
+# (START_UP_IMMEDIATE / SHUTDOWN_IMMEDIATE) while a hold of at least
+# ``LONG_PRESS_SECONDS`` emits the ``*_DELAYED`` action (START_UP_DELAYED /
+# SHUTDOWN_DELAYED, each falling back to its immediate variant for TMCC engines
+# that lack it). The command is emitted once, on release.
+STARTUP_IMMEDIATE = "startup_immediate"
+STARTUP_DELAYED = "startup_delayed"
+SHUTDOWN_IMMEDIATE = "shutdown_immediate"
+SHUTDOWN_DELAYED = "shutdown_delayed"
+LONG_PRESS_SECONDS = 1.0
+# Backwards-compatible alias for the shared long-press threshold.
+STARTUP_LONG_PRESS_SECONDS = LONG_PRESS_SECONDS
+# Profile actions whose button distinguishes a short press from a long press,
+# mapped to the (immediate, delayed) runtime action names they emit.
+LONG_PRESS_ACTIONS = {
+    "startup": (STARTUP_IMMEDIATE, STARTUP_DELAYED),
+    "shutdown": (SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED),
+}
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -221,18 +243,32 @@ class ControlProfile:
             raise ProfileError("halt must target global")
         if action.startswith("focus_") and target != "global":
             raise ProfileError(f"{action} must target global")
+        if action in LONG_PRESS_ACTIONS and target not in ("left", "right", "focused"):
+            raise ProfileError(f"{action} must target a panel")
 
 
 class SteamDeckInputProvider:
-    def __init__(self, profile: ControlProfile, *, pygame_module=None) -> None:
+    def __init__(
+        self,
+        profile: ControlProfile,
+        *,
+        pygame_module=None,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
         self.profile = profile
         self._pygame = pygame_module
+        self._clock = clock or time.monotonic
         self._joysticks: dict[int, Any] = {}
         self._active_axes: set[int] = set()
         self._held_buttons: set[int] = set()
         self._fired_chords: set[ChordBinding] = set()
         self._hat_y = 0
         self._hat_x = 0
+        self._long_press_buttons = {
+            index for index, binding in profile.buttons.items() if binding.action in LONG_PRESS_ACTIONS
+        }
+        self._long_press_pressed_at: dict[int, float] = {}
+        self._long_press_chorded: set[int] = set()
         self._started = False
 
     def start(self) -> None:
@@ -286,6 +322,8 @@ class SteamDeckInputProvider:
         self._fired_chords.clear()
         self._hat_y = 0
         self._hat_x = 0
+        self._long_press_pressed_at.clear()
+        self._long_press_chorded.clear()
         self._started = False
 
     def poll(self) -> list[DeckAction]:
@@ -340,21 +378,48 @@ class SteamDeckInputProvider:
                 if chord not in self._fired_chords and chord.buttons.issubset(self._held_buttons):
                     self._fired_chords.add(chord)
                     actions.append(DeckAction(chord.action, chord.target, 1.0, "pressed"))
+                    # Remember that a long-press button took part in a chord so
+                    # its release does not additionally fire a startup/shutdown
+                    # command.
+                    self._long_press_chorded.update(self._long_press_buttons & chord.buttons)
         else:
             self._held_buttons.discard(button)
             self._fired_chords = {chord for chord in self._fired_chords if chord.buttons.issubset(self._held_buttons)}
         binding = self.profile.buttons.get(button)
-        if binding is not None:
-            actions.append(
-                DeckAction(
-                    binding.action,
-                    binding.target,
-                    1.0 if pressed else 0.0,
-                    "pressed" if pressed else "released",
-                    button,
-                )
+        if binding is None:
+            return actions
+        if binding.action in LONG_PRESS_ACTIONS:
+            actions.extend(self._long_press_button_actions(button, binding, pressed))
+            return actions
+        actions.append(
+            DeckAction(
+                binding.action,
+                binding.target,
+                1.0 if pressed else 0.0,
+                "pressed" if pressed else "released",
+                button,
             )
+        )
         return actions
+
+    def _long_press_button_actions(self, button: int, binding: ButtonBinding, pressed: bool) -> list[DeckAction]:
+        # Distinguish a short press (*_IMMEDIATE) from a long press (*_DELAYED);
+        # the command is emitted once, on release. If the button also completes
+        # a chord while held (e.g. the L1+R1 halt chord), the startup/shutdown
+        # command is suppressed so an emergency stop never also starts or shuts
+        # down the engine.
+        immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
+        if pressed:
+            self._long_press_pressed_at[button] = self._clock()
+            return []
+        pressed_at = self._long_press_pressed_at.pop(button, None)
+        chorded = button in self._long_press_chorded
+        self._long_press_chorded.discard(button)
+        if chorded or pressed_at is None:
+            return []
+        held = self._clock() - pressed_at
+        name = delayed if held >= LONG_PRESS_SECONDS else immediate
+        return [DeckAction(name, binding.target, 1.0, "pressed", button)]
 
     def _hat_actions(self, value: Any) -> list[DeckAction]:
         # The D-pad reports as an SDL hat; ``value`` is an ``(x, y)`` tuple with
@@ -421,6 +486,8 @@ class SteamDeckInputProvider:
         self._fired_chords.clear()
         self._hat_y = 0
         self._hat_x = 0
+        self._long_press_pressed_at.clear()
+        self._long_press_chorded.clear()
 
 
 class DeckInputRouter:
@@ -466,6 +533,24 @@ class DeckInputRouter:
             return
         gui = self._target_gui(action.target)
         if gui is None:
+            return
+        if action.name == STARTUP_IMMEDIATE:
+            # A short press of a startup button starts the engine immediately.
+            gui.on_engine_command("START_UP_IMMEDIATE")
+            return
+        if action.name == STARTUP_DELAYED:
+            # A long press requests the delayed start-up sequence, falling back
+            # to the immediate start-up for TMCC engines that lack it.
+            gui.on_engine_command(["START_UP_DELAYED", "START_UP_IMMEDIATE"])
+            return
+        if action.name == SHUTDOWN_IMMEDIATE:
+            # A short press of a shutdown button shuts the engine down immediately.
+            gui.on_engine_command("SHUTDOWN_IMMEDIATE")
+            return
+        if action.name == SHUTDOWN_DELAYED:
+            # A long press requests the delayed shut-down sequence, falling back
+            # to the immediate shut-down for TMCC engines that lack it.
+            gui.on_engine_command(["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"])
             return
         if action.name == "scope_catalog":
             gui.show_scope_catalog()
