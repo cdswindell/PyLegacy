@@ -22,6 +22,16 @@
       "action": "throttle",
       "target": "right",
       "invert": true
+    },
+    "2": {
+      "action": "quilling_horn",
+      "target": "left",
+      "trigger": true
+    },
+    "5": {
+      "action": "quilling_horn",
+      "target": "right",
+      "trigger": true
     }
   },
   "buttons": {

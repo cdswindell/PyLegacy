@@ -35,8 +35,9 @@ SUPPORTED_ACTIONS = {
     "scope_catalog",
     "startup",
     "shutdown",
+    "quilling_horn",
 }
-AXIS_ACTIONS = {"throttle", "direction"}
+AXIS_ACTIONS = {"throttle", "direction", "quilling_horn"}
 # SDL "A" button. While the catalog panel is open it confirms the highlighted
 # entry; otherwise it performs whatever action the profile assigns to it.
 SELECT_BUTTON = 0
@@ -77,6 +78,15 @@ PANEL_COMMANDS = {
     "horn": "BLOW_HORN_ONE",
     "bell": "RING_BELL",
 }
+# Analog action for the L2/R2 triggers. While a trigger is held past its dead
+# zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
+# ``on_engine_command`` resolves the fallback list per engine generation: a
+# Legacy engine sounds the Quilling Horn with the supplied intensity while a
+# non-Legacy engine (TMCC/Cab-1/R100) falls through to the plain Blow Horn
+# (intensity ignored).
+QUILLING_HORN = "quilling_horn"
+HORN_MAX_INTENSITY = 15
+HORN_COMMAND = ["QUILLING_HORN", "BLOW_HORN_ONE"]
 DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 
 
@@ -102,6 +112,7 @@ class AxisBinding:
     action: str
     target: Target
     invert: bool = False
+    trigger: bool = False
 
 
 @dataclass(frozen=True)
@@ -154,7 +165,12 @@ class ControlProfile:
                 raise ProfileError(f"Action {action!r} cannot be assigned to an axis")
             if target not in ("left", "right"):
                 raise ProfileError(f"Axis {index} requires a fixed panel target")
-            axes[index] = AxisBinding(action, target, bool(raw_binding.get("invert", False)))
+            axes[index] = AxisBinding(
+                action,
+                target,
+                bool(raw_binding.get("invert", False)),
+                bool(raw_binding.get("trigger", False)),
+            )
 
         buttons: dict[int, ButtonBinding] = {}
         for raw_index, raw_binding in cls._mapping(data, "buttons").items():
@@ -334,9 +350,14 @@ class SteamDeckInputProvider:
             if event.type == self._pygame.JOYAXISMOTION:
                 binding = self.profile.axes.get(event.axis)
                 if binding is not None:
-                    value = self._normalize_axis(event.axis, float(event.value))
-                    if binding.invert:
-                        value = -value
+                    if binding.trigger:
+                        value = self._normalize_trigger(event.axis, float(event.value))
+                        if binding.invert:
+                            value = 1.0 - value if value else 0.0
+                    else:
+                        value = self._normalize_axis(event.axis, float(event.value))
+                        if binding.invert:
+                            value = -value
                     actions.append(DeckAction(binding.action, binding.target, value, "changed"))
             elif event.type in (self._pygame.JOYBUTTONDOWN, self._pygame.JOYBUTTONUP):
                 actions.extend(self._button_actions(event.button, event.type == self._pygame.JOYBUTTONDOWN))
@@ -369,6 +390,25 @@ class SteamDeckInputProvider:
             self._active_axes.add(axis)
         scaled = max(0.0, (magnitude - self.profile.dead_zone) / (1.0 - self.profile.dead_zone))
         return math.copysign(min(1.0, scaled), value) if scaled else 0.0
+
+    def _normalize_trigger(self, axis: int, value: float) -> float:
+        # SDL analog triggers rest at ``-1.0`` and travel to ``+1.0`` when fully
+        # depressed, unlike sticks that rest centered at ``0.0``. Map that
+        # ``[-1, +1]`` travel onto ``[0, 1]`` and apply the profile dead zone
+        # (with hysteresis) near the resting end so a released trigger reads as
+        # ``0.0`` rather than full magnitude.
+        fraction = (value + 1.0) / 2.0
+        fraction = max(0.0, min(1.0, fraction))
+        if axis in self._active_axes:
+            if fraction <= self.profile.dead_zone - self.profile.hysteresis:
+                self._active_axes.discard(axis)
+                return 0.0
+        elif fraction <= self.profile.dead_zone:
+            return 0.0
+        else:
+            self._active_axes.add(axis)
+        scaled = (fraction - self.profile.dead_zone) / (1.0 - self.profile.dead_zone)
+        return min(1.0, max(0.0, scaled))
 
     def _button_actions(self, button: int, pressed: bool) -> list[DeckAction]:
         actions: list[DeckAction] = []
@@ -507,6 +547,7 @@ class DeckInputRouter:
         self._global_actions = global_actions
         self._throttles: dict[Target, float] = {}
         self._commanded_speeds: dict[Target, float] = {}
+        self._quills: dict[Target, float] = {}
         self._direction_latches: set[Target] = set()
         self._last_tick: float | None = None
 
@@ -523,6 +564,15 @@ class DeckInputRouter:
             return
         if action.name == "direction":
             self._handle_direction(action)
+            return
+        if action.name == QUILLING_HORN:
+            # Store the current trigger fraction; ``tick()`` re-sends the horn
+            # every ``repeat_interval`` while it is held. A fraction of ``0.0``
+            # means the trigger returned to its dead zone, so stop sounding.
+            if action.value > 0.0:
+                self._quills[action.target] = min(1.0, action.value)
+            else:
+                self._quills.pop(action.target, None)
             return
         if action.phase != "pressed":
             return
@@ -615,10 +665,21 @@ class DeckInputRouter:
             command_speed = round(next_speed)
             if command_speed != round(current):
                 gui.on_speed_command(command_speed)
+        for target, fraction in tuple(self._quills.items()):
+            gui = self._target_gui(target)
+            if gui is None:
+                continue
+            # Emit the fallback list with an intensity: a Legacy engine sounds
+            # the Quilling Horn scaled to the trigger position (clamped to a
+            # minimum of 1 so a light hold is still audible) while a non-Legacy
+            # engine falls through to the plain Blow Horn (intensity ignored).
+            intensity = max(1, min(HORN_MAX_INTENSITY, round(fraction * HORN_MAX_INTENSITY)))
+            gui.on_engine_command(HORN_COMMAND, data=intensity)
 
     def clear(self) -> None:
         self._throttles.clear()
         self._commanded_speeds.clear()
+        self._quills.clear()
         self._direction_latches.clear()
         self._last_tick = None
 

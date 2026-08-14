@@ -10,6 +10,8 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DPAD_LEFT,
     DPAD_RIGHT,
     DPAD_UP,
+    HORN_COMMAND,
+    QUILLING_HORN,
     SHUTDOWN_DELAYED,
     SHUTDOWN_IMMEDIATE,
     STARTUP_DELAYED,
@@ -113,7 +115,9 @@ def test_bundled_profile_maps_right_stick_to_steam_input_axes() -> None:
     assert profile.axes[4].action == "throttle"
     assert profile.axes[4].target == "right"
     assert profile.axes[4].invert is True
-    assert 2 not in profile.axes
+    # Axes 2 and 5 are the L2/R2 triggers, bound to the quilling horn.
+    assert profile.axes[2].action == "quilling_horn"
+    assert profile.axes[5].action == "quilling_horn"
 
 
 def test_bundled_profile_binds_view_button_to_focus_toggle() -> None:
@@ -871,6 +875,120 @@ def test_provider_handles_disconnect_and_reconnect() -> None:
     assert provider.poll() == []
     assert joystick.init_calls == 2
     assert provider._joysticks == {7: joystick}
+
+
+def _horn_gui():
+    gui = SimpleNamespace(command_calls=[])
+    gui.on_engine_command = lambda command, data=0: gui.command_calls.append((command, data))
+    return gui
+
+
+def _horn_profile() -> ControlProfile:
+    return _profile(axes={"5": {"action": "quilling_horn", "target": "right", "trigger": True}})
+
+
+def test_bundled_profile_binds_triggers_to_quilling_horn() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.axes[2].action == "quilling_horn"
+    assert profile.axes[2].target == "left"
+    assert profile.axes[2].trigger is True
+    assert profile.axes[5].action == "quilling_horn"
+    assert profile.axes[5].target == "right"
+    assert profile.axes[5].trigger is True
+
+
+def test_stick_axes_are_not_flagged_as_triggers() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.axes[1].trigger is False
+    assert profile.axes[3].trigger is False
+
+
+def test_provider_normalizes_trigger_axis_from_resting_to_full() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=5, value=-1.0),  # resting -> 0.0
+            SimpleNamespace(type=1, axis=5, value=-0.8),  # inside dead zone -> 0.0
+            SimpleNamespace(type=1, axis=5, value=1.0),  # fully depressed -> 1.0
+            SimpleNamespace(type=1, axis=5, value=-1.0),  # released -> 0.0
+        ]
+    )
+    provider = SteamDeckInputProvider(_horn_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert all(a.name == QUILLING_HORN and a.target == "right" and a.phase == "changed" for a in actions)
+    assert [a.value for a in actions] == pytest.approx([0.0, 0.0, 1.0, 0.0])
+
+
+def test_provider_emits_fractional_quilling_horn_for_partial_press() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=5, value=0.0)])
+    provider = SteamDeckInputProvider(_horn_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # value 0.0 maps to fraction 0.5; the dead zone rescales it to 0.35 / 0.85.
+    assert [a.value for a in actions] == pytest.approx([0.4117647])
+
+
+def test_quilling_horn_press_and_release_update_router_state() -> None:
+    router, _, _, _, _ = _router()
+
+    router.handle(DeckAction(QUILLING_HORN, "right", 0.5, "changed"))
+    assert router._quills == {"right": 0.5}
+
+    router.handle(DeckAction(QUILLING_HORN, "right", 0.0, "changed"))
+    assert router._quills == {}
+
+
+def test_tick_repeats_quilling_horn_with_scaled_intensity() -> None:
+    left = _horn_gui()
+    router, _, _, _, _ = _router(left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 1.0, "changed"))
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+    router.tick(10.2)  # second repeat
+
+    assert left.command_calls == [(HORN_COMMAND, 15), (HORN_COMMAND, 15)]
+
+
+def test_tick_scales_quilling_horn_intensity_to_trigger_fraction() -> None:
+    left = _horn_gui()
+    router, _, _, _, _ = _router(left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))
+    router.tick(10.0)
+    router.tick(10.1)
+
+    assert left.command_calls == [(HORN_COMMAND, 12)]
+
+
+def test_tick_clamps_light_quilling_horn_press_to_minimum_intensity() -> None:
+    left = _horn_gui()
+    router, _, _, _, _ = _router(left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.02, "changed"))
+    router.tick(10.0)
+    router.tick(10.1)
+
+    assert left.command_calls == [(HORN_COMMAND, 1)]
+
+
+def test_tick_stops_quilling_horn_after_release() -> None:
+    left = _horn_gui()
+    router, _, _, _, _ = _router(left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))
+    router.tick(10.0)
+    router.tick(10.1)  # sounds once
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.0, "changed"))
+    router.tick(10.2)  # released: no further horn
+
+    assert left.command_calls == [(HORN_COMMAND, 12)]
 
 
 def test_provider_ignores_duplicate_add_event_for_enumerated_device(caplog: pytest.LogCaptureFixture) -> None:
