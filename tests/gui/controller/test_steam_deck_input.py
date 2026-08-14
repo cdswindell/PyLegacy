@@ -243,6 +243,57 @@ def test_dpad_left_right_are_noop_when_catalog_hidden() -> None:
     router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
 
 
+def test_dpad_right_boosts_engine_speed_when_catalog_hidden() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = False
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == ["BOOST_SPEED"]
+
+
+def test_dpad_left_brakes_engine_speed_when_catalog_hidden() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = False
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == ["BRAKE_SPEED"]
+
+
+def test_dpad_left_right_do_not_boost_or_brake_when_catalog_visible() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.select_catalog_entry = lambda: None
+    focused_gui.hide_scope_catalog = lambda: None
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == []
+
+
 def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(

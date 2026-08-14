@@ -633,17 +633,22 @@ class DeckInputRouter:
             return
         if action.name == DPAD_RIGHT:
             # While the catalog panel is open, D-pad right confirms the
-            # highlighted entry (mirroring the A button); otherwise it is a
-            # no-op, since the D-pad has no other assigned action.
+            # highlighted entry (mirroring the A button); otherwise it boosts
+            # the engine/train speed (``BOOST_SPEED`` resolves for both Legacy
+            # and TMCC generations).
             if getattr(gui, "catalog_visible", False):
                 gui.select_catalog_entry()
+            else:
+                gui.on_engine_command("BOOST_SPEED")
             return
         if action.name == DPAD_LEFT:
             # While the catalog panel is open, D-pad left cancels/closes the
-            # catalog panel; otherwise it is a no-op, since the D-pad has no
-            # other assigned action.
+            # catalog panel; otherwise it brakes the engine/train speed
+            # (``BRAKE_SPEED`` resolves for both Legacy and TMCC generations).
             if getattr(gui, "catalog_visible", False):
                 gui.hide_scope_catalog()
+            else:
+                gui.on_engine_command("BRAKE_SPEED")
             return
         if action.button == SELECT_BUTTON and getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, the A button confirms the
