@@ -905,12 +905,45 @@ def test_stick_axes_are_not_flagged_as_triggers() -> None:
     assert profile.axes[3].trigger is False
 
 
+def test_bundled_profile_uses_small_trigger_dead_zone() -> None:
+    profile = ControlProfile.load()
+
+    # The triggers get their own, much smaller dead zone than the sticks so the
+    # horn responds almost as soon as the trigger leaves its resting position.
+    assert profile.trigger_dead_zone == 0.02
+    assert profile.trigger_dead_zone < profile.dead_zone
+
+
+def test_trigger_dead_zone_defaults_when_omitted() -> None:
+    profile = _profile()
+
+    assert profile.trigger_dead_zone == 0.02
+
+
+def test_profile_rejects_out_of_range_trigger_dead_zone() -> None:
+    with pytest.raises(ProfileError, match="trigger_dead_zone"):
+        _profile(trigger_dead_zone=1.0)
+
+
+def test_provider_sounds_horn_just_past_trigger_rest() -> None:
+    # A light press that would fall inside the stick dead zone (0.15) still
+    # sounds the horn now that the triggers use a much smaller dead zone.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=5, value=-0.8)])
+    provider = SteamDeckInputProvider(_horn_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # value -0.8 -> fraction 0.1 -> (0.1 - 0.02) / (1 - 0.02).
+    assert [a.value for a in actions] == pytest.approx([0.0816327])
+
+
 def test_provider_normalizes_trigger_axis_from_resting_to_full() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
     pygame.event = SimpleNamespace(
         get=lambda: [
             SimpleNamespace(type=1, axis=5, value=-1.0),  # resting -> 0.0
-            SimpleNamespace(type=1, axis=5, value=-0.8),  # inside dead zone -> 0.0
+            SimpleNamespace(type=1, axis=5, value=-0.98),  # inside the small dead zone -> 0.0
             SimpleNamespace(type=1, axis=5, value=1.0),  # fully depressed -> 1.0
             SimpleNamespace(type=1, axis=5, value=-1.0),  # released -> 0.0
         ]
@@ -930,8 +963,9 @@ def test_provider_emits_fractional_quilling_horn_for_partial_press() -> None:
 
     actions = provider.poll()
 
-    # value 0.0 maps to fraction 0.5; the dead zone rescales it to 0.35 / 0.85.
-    assert [a.value for a in actions] == pytest.approx([0.4117647])
+    # value 0.0 maps to fraction 0.5; the small trigger dead zone rescales it to
+    # (0.5 - 0.02) / (1 - 0.02).
+    assert [a.value for a in actions] == pytest.approx([0.4897959])
 
 
 def test_quilling_horn_press_and_release_update_router_state() -> None:

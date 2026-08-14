@@ -87,6 +87,14 @@ PANEL_COMMANDS = {
 QUILLING_HORN = "quilling_horn"
 HORN_MAX_INTENSITY = 15
 HORN_COMMAND = ["QUILLING_HORN", "BLOW_HORN_ONE"]
+# Triggers (L2/R2) rest at one extreme and travel to the other, so they don't
+# suffer from the resting jitter that the sticks do. They therefore use their
+# own, much smaller dead zone than ``dead_zone`` (which the sticks need) so the
+# horn responds almost as soon as the trigger leaves its resting position. It
+# is kept just above zero as a guard against a trigger whose idle value drifts
+# slightly off its resting extreme. Profiles may override it via
+# ``trigger_dead_zone``.
+DEFAULT_TRIGGER_DEAD_ZONE = 0.02
 DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 
 
@@ -138,6 +146,7 @@ class ControlProfile:
     throttle_rate: float
     repeat_interval: float
     direction_threshold: float
+    trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ControlProfile":
@@ -146,8 +155,13 @@ class ControlProfile:
         throttle_rate = cls._number(data, "throttle_rate")
         repeat_interval = cls._number(data, "repeat_interval")
         direction_threshold = cls._number(data, "direction_threshold")
+        trigger_dead_zone = (
+            cls._number(data, "trigger_dead_zone") if "trigger_dead_zone" in data else DEFAULT_TRIGGER_DEAD_ZONE
+        )
         if not 0.0 <= dead_zone < 1.0:
             raise ProfileError("dead_zone must be between 0 and 1")
+        if not 0.0 <= trigger_dead_zone < 1.0:
+            raise ProfileError("trigger_dead_zone must be between 0 and 1")
         if not 0.0 <= hysteresis < dead_zone:
             raise ProfileError("hysteresis must be non-negative and less than dead_zone")
         if throttle_rate <= 0.0:
@@ -203,6 +217,7 @@ class ControlProfile:
             throttle_rate=throttle_rate,
             repeat_interval=repeat_interval,
             direction_threshold=direction_threshold,
+            trigger_dead_zone=trigger_dead_zone,
         )
 
     @classmethod
@@ -394,20 +409,24 @@ class SteamDeckInputProvider:
     def _normalize_trigger(self, axis: int, value: float) -> float:
         # SDL analog triggers rest at ``-1.0`` and travel to ``+1.0`` when fully
         # depressed, unlike sticks that rest centered at ``0.0``. Map that
-        # ``[-1, +1]`` travel onto ``[0, 1]`` and apply the profile dead zone
-        # (with hysteresis) near the resting end so a released trigger reads as
-        # ``0.0`` rather than full magnitude.
+        # ``[-1, +1]`` travel onto ``[0, 1]``. Triggers use their own, much
+        # smaller ``trigger_dead_zone`` (rather than the stick ``dead_zone``) so
+        # the horn responds almost as soon as the trigger leaves its resting
+        # position, while still guarding against a released trigger whose idle
+        # value drifts slightly off ``-1.0``.
         fraction = (value + 1.0) / 2.0
         fraction = max(0.0, min(1.0, fraction))
+        dead_zone = self.profile.trigger_dead_zone
+        release = max(0.0, dead_zone - self.profile.hysteresis)
         if axis in self._active_axes:
-            if fraction <= self.profile.dead_zone - self.profile.hysteresis:
+            if fraction <= release:
                 self._active_axes.discard(axis)
                 return 0.0
-        elif fraction <= self.profile.dead_zone:
+        elif fraction <= dead_zone:
             return 0.0
         else:
             self._active_axes.add(axis)
-        scaled = (fraction - self.profile.dead_zone) / (1.0 - self.profile.dead_zone)
+        scaled = (fraction - dead_zone) / (1.0 - dead_zone)
         return min(1.0, max(0.0, scaled))
 
     def _button_actions(self, button: int, pressed: bool) -> list[DeckAction]:

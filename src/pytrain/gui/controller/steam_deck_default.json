@@ -1,5 +1,6 @@
 {
   "dead_zone": 0.15,
+  "trigger_dead_zone": 0.02,
   "hysteresis": 0.05,
   "throttle_rate": 36.0,
   "repeat_interval": 0.1,
