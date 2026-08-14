@@ -40,13 +40,16 @@ SELECT_BUTTON = 0
 # SDL "X" button. While a popup panel is displayed it closes the popup;
 # otherwise it performs whatever action the profile assigns to it.
 CLOSE_POPUP_BUTTON = 2
-# SDL D-pad (hat) up/down. On the Steam Deck the D-pad is reported as an SDL
-# hat (the connect log shows every button index 0-10 and axis 0-5 already used
-# by the sticks, triggers, and existing controls, leaving no room for it). While
-# the catalog panel is open these scroll the highlighted entry in the focused
-# pane; otherwise the D-pad has no assigned action.
+# SDL D-pad (hat). On the Steam Deck the D-pad is reported as an SDL hat (the
+# connect log shows every button index 0-10 and axis 0-5 already used by the
+# sticks, triggers, and existing controls, leaving no room for it). While the
+# catalog panel is open, up/down scroll the highlighted entry in the focused
+# pane, right confirms the highlighted entry, and left cancels/closes the
+# catalog panel; otherwise the D-pad has no assigned action.
 DPAD_UP = "dpad_up"
 DPAD_DOWN = "dpad_down"
+DPAD_LEFT = "dpad_left"
+DPAD_RIGHT = "dpad_right"
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -229,6 +232,7 @@ class SteamDeckInputProvider:
         self._held_buttons: set[int] = set()
         self._fired_chords: set[ChordBinding] = set()
         self._hat_y = 0
+        self._hat_x = 0
         self._started = False
 
     def start(self) -> None:
@@ -281,6 +285,7 @@ class SteamDeckInputProvider:
         self._held_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0
+        self._hat_x = 0
         self._started = False
 
     def poll(self) -> list[DeckAction]:
@@ -353,22 +358,29 @@ class SteamDeckInputProvider:
 
     def _hat_actions(self, value: Any) -> list[DeckAction]:
         # The D-pad reports as an SDL hat; ``value`` is an ``(x, y)`` tuple with
-        # ``y == 1`` up and ``y == -1`` down. Emit a single one-shot action each
-        # time the vertical direction changes to a non-neutral position so the
-        # catalog scrolls one entry per press.
+        # ``y == 1`` up, ``y == -1`` down, ``x == 1`` right, and ``x == -1``
+        # left. Emit a single one-shot action each time a direction changes to a
+        # non-neutral position so the catalog scrolls/selects one step per press.
         try:
-            _x, y = value
+            x, y = value
         except (TypeError, ValueError):
             return []
+        x = int(x)
         y = int(y)
-        if y == self._hat_y:
-            return []
-        self._hat_y = y
-        if y > 0:
-            return [DeckAction(DPAD_UP, "focused", 1.0, "pressed")]
-        if y < 0:
-            return [DeckAction(DPAD_DOWN, "focused", 1.0, "pressed")]
-        return []
+        actions: list[DeckAction] = []
+        if y != self._hat_y:
+            self._hat_y = y
+            if y > 0:
+                actions.append(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+            elif y < 0:
+                actions.append(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+        if x != self._hat_x:
+            self._hat_x = x
+            if x > 0:
+                actions.append(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+            elif x < 0:
+                actions.append(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
+        return actions
 
     def _add_device(self, device_index: int) -> None:
         try:
@@ -408,6 +420,7 @@ class SteamDeckInputProvider:
         self._held_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0
+        self._hat_x = 0
 
 
 class DeckInputRouter:
@@ -463,6 +476,20 @@ class DeckInputRouter:
             # no-op, since the D-pad has no other assigned action.
             if getattr(gui, "catalog_visible", False):
                 gui.scroll_catalog(-1 if action.name == DPAD_UP else 1)
+            return
+        if action.name == DPAD_RIGHT:
+            # While the catalog panel is open, D-pad right confirms the
+            # highlighted entry (mirroring the A button); otherwise it is a
+            # no-op, since the D-pad has no other assigned action.
+            if getattr(gui, "catalog_visible", False):
+                gui.select_catalog_entry()
+            return
+        if action.name == DPAD_LEFT:
+            # While the catalog panel is open, D-pad left cancels/closes the
+            # catalog panel; otherwise it is a no-op, since the D-pad has no
+            # other assigned action.
+            if getattr(gui, "catalog_visible", False):
+                gui.hide_scope_catalog()
             return
         if action.button == SELECT_BUTTON and getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, the A button confirms the
