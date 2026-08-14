@@ -640,11 +640,16 @@ class DeckInputRouter:
             gui.show_scope_catalog()
             return
         if action.name in (DPAD_UP, DPAD_DOWN):
-            # The D-pad scrolls the highlighted catalog entry (clamped at the
-            # ends) only while the catalog panel is open; otherwise it is a
-            # no-op, since the D-pad has no other assigned action.
+            # While the catalog panel is open, the D-pad scrolls the highlighted
+            # catalog entry (clamped at the ends); otherwise it adjusts the
+            # engine/train smoke output. ``SMOKE_ON``/``SMOKE_OFF`` resolve
+            # automatically per control type: for a Legacy target they step the
+            # smoke level up/down (Off/Low/Medium/High), and for a non-Legacy
+            # (TMCC/Cab-1/R100) target they simply turn smoke on/off.
             if getattr(gui, "catalog_visible", False):
                 gui.scroll_catalog(-1 if action.name == DPAD_UP else 1)
+            else:
+                gui.on_engine_command("SMOKE_ON" if action.name == DPAD_UP else "SMOKE_OFF")
             return
         if action.button == SELECT_BUTTON and getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, the A button confirms the

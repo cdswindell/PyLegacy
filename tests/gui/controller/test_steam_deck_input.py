@@ -174,7 +174,7 @@ def test_dpad_scrolls_catalog_in_focused_panel_when_visible() -> None:
     assert focused_gui.scroll_calls == [-1, 1]
 
 
-def test_dpad_is_noop_when_catalog_hidden() -> None:
+def test_dpad_up_down_adjust_smoke_when_catalog_hidden() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     focused_gui.scroll_catalog = lambda delta: pytest.fail("should not scroll when catalog hidden")
@@ -186,8 +186,14 @@ def test_dpad_is_noop_when_catalog_hidden() -> None:
         global_actions={},
     )
 
+    # D-pad up raises smoke (``SMOKE_ON``) and D-pad down lowers it
+    # (``SMOKE_OFF``). ``on_engine_command`` resolves each per control type:
+    # a Legacy target steps the smoke level up/down while a non-Legacy target
+    # turns smoke on/off.
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == ["SMOKE_ON", "SMOKE_OFF"]
 
 
 def test_dpad_right_selects_catalog_entry_when_visible() -> None:
