@@ -15,7 +15,7 @@ import logging
 import math
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping
 
@@ -104,6 +104,19 @@ HORN_COMMAND = ["QUILLING_HORN", "BLOW_HORN_ONE"]
 # slightly off its resting extreme. Profiles may override it via
 # ``trigger_dead_zone``.
 DEFAULT_TRIGGER_DEAD_ZONE = 0.02
+# The Steam Deck trackpads surface through SDL's Game Controller *touchpad*
+# events (CONTROLLERTOUCHPADDOWN/MOTION/UP), not the joystick API the rest of
+# the provider uses, so they are captured through a separate controller-
+# subsystem path. Each pad is identified by its ``touch_id`` (index 0 = left,
+# 1 = right on the Steam Deck) and reports a finger position whose ``y`` runs
+# 0.0 (top) -> 1.0 (bottom). A profile ``touchpads`` section maps a pad index
+# to the ``quilling_horn`` action so pulling a finger down the pad sounds the
+# horn, mirroring the on-screen vertical horn slider.
+TOUCHPAD_ACTIONS = {"quilling_horn"}
+# Fraction of the pad, measured from the top edge, treated as "off" so a finger
+# resting at the very top does not sound the horn. Profiles may override it via
+# ``touch_dead_zone``.
+DEFAULT_TOUCH_DEAD_ZONE = 0.05
 DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 
 
@@ -140,6 +153,12 @@ class ButtonBinding:
 
 
 @dataclass(frozen=True)
+class TouchpadBinding:
+    action: str
+    target: Target
+
+
+@dataclass(frozen=True)
 class ChordBinding:
     buttons: frozenset[int]
     action: str
@@ -157,6 +176,8 @@ class ControlProfile:
     repeat_interval: float
     direction_threshold: float
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
+    touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
+    touch_dead_zone: float = DEFAULT_TOUCH_DEAD_ZONE
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ControlProfile":
@@ -168,10 +189,13 @@ class ControlProfile:
         trigger_dead_zone = (
             cls._number(data, "trigger_dead_zone") if "trigger_dead_zone" in data else DEFAULT_TRIGGER_DEAD_ZONE
         )
+        touch_dead_zone = cls._number(data, "touch_dead_zone") if "touch_dead_zone" in data else DEFAULT_TOUCH_DEAD_ZONE
         if not 0.0 <= dead_zone < 1.0:
             raise ProfileError("dead_zone must be between 0 and 1")
         if not 0.0 <= trigger_dead_zone < 1.0:
             raise ProfileError("trigger_dead_zone must be between 0 and 1")
+        if not 0.0 <= touch_dead_zone < 1.0:
+            raise ProfileError("touch_dead_zone must be between 0 and 1")
         if not 0.0 <= hysteresis < dead_zone:
             raise ProfileError("hysteresis must be non-negative and less than dead_zone")
         if throttle_rate <= 0.0:
@@ -205,6 +229,16 @@ class ControlProfile:
             cls._validate_action_target(action, target)
             buttons[index] = ButtonBinding(action, target, bool(raw_binding.get("repeat", False)))
 
+        touchpads: dict[int, TouchpadBinding] = {}
+        for raw_index, raw_binding in cls._mapping(data, "touchpads").items():
+            index = cls._index(raw_index, "touchpad")
+            action, target = cls._binding(raw_binding)
+            if action not in TOUCHPAD_ACTIONS:
+                raise ProfileError(f"Action {action!r} cannot be assigned to a touchpad")
+            if target not in ("left", "right"):
+                raise ProfileError(f"Touchpad {index} requires a fixed panel target")
+            touchpads[index] = TouchpadBinding(action, target)
+
         chords = []
         raw_chords = data.get("chords", [])
         if not isinstance(raw_chords, list):
@@ -228,6 +262,8 @@ class ControlProfile:
             repeat_interval=repeat_interval,
             direction_threshold=direction_threshold,
             trigger_dead_zone=trigger_dead_zone,
+            touchpads=touchpads,
+            touch_dead_zone=touch_dead_zone,
         )
 
     @classmethod
@@ -300,6 +336,16 @@ class SteamDeckInputProvider:
         self._pygame = pygame_module
         self._clock = clock or time.monotonic
         self._joysticks: dict[int, Any] = {}
+        # The optional ``pygame._sdl2.controller`` module used to open devices as
+        # game controllers (required for touchpad events); ``None`` when SDL's
+        # game-controller support is unavailable.
+        self._controller_module: Any = None
+        # Devices opened as SDL game controllers so their touchpad events fire;
+        # kept separate from the joystick handles above.
+        self._controllers: dict[int, Any] = {}
+        # Per-pad finger tracking: touch_id -> {finger_index: y}. A pad's horn
+        # sounds while it has at least one finger and stops when the last lifts.
+        self._touch_fingers: dict[int, dict[int, float]] = {}
         self._active_axes: set[int] = set()
         self._held_buttons: set[int] = set()
         self._fired_chords: set[ChordBinding] = set()
@@ -327,14 +373,24 @@ class SteamDeckInputProvider:
                 self._pygame = importlib.import_module("pygame")
             self._pygame.display.init()
             self._pygame.joystick.init()
-            controller_events = (
+            # Initialize the SDL game-controller subsystem alongside the
+            # joystick subsystem so the Steam Deck trackpads emit touchpad
+            # events. It is optional: if the ``pygame._sdl2.controller`` module
+            # is unavailable the horn simply loses its trackpad source while all
+            # other (joystick) controls keep working.
+            self._init_controller_subsystem()
+            controller_events = [
                 self._pygame.JOYAXISMOTION,
                 self._pygame.JOYBUTTONDOWN,
                 self._pygame.JOYBUTTONUP,
                 self._pygame.JOYHATMOTION,
                 self._pygame.JOYDEVICEADDED,
                 self._pygame.JOYDEVICEREMOVED,
-            )
+            ]
+            for name in ("CONTROLLERTOUCHPADDOWN", "CONTROLLERTOUCHPADMOTION", "CONTROLLERTOUCHPADUP"):
+                event_type = getattr(self._pygame, name, None)
+                if event_type is not None:
+                    controller_events.append(event_type)
             self._pygame.event.set_blocked(None)
             self._pygame.event.set_allowed(controller_events)
             for device_index in range(self._pygame.joystick.get_count()):
@@ -351,6 +407,33 @@ class SteamDeckInputProvider:
                 else:
                     os.environ[name] = value
 
+    def _init_controller_subsystem(self) -> None:
+        # Locate the optional ``pygame._sdl2.controller`` module and initialize
+        # it so devices can be opened as game controllers (a prerequisite for
+        # touchpad events). Prefer importing the submodule of whatever pygame
+        # package we are using; fall back to an already-attached ``_sdl2``
+        # attribute (used by the tests' fake pygame). Any failure simply leaves
+        # the trackpad horn disabled without affecting the joystick controls.
+        self._controller_module = None
+        controller = None
+        module_name = getattr(self._pygame, "__name__", None)
+        if module_name:
+            try:
+                controller = importlib.import_module(f"{module_name}._sdl2.controller")
+            except ImportError:
+                controller = None
+        if controller is None:
+            controller = getattr(getattr(self._pygame, "_sdl2", None), "controller", None)
+        if controller is None:
+            log.info("SDL game-controller touchpad support unavailable; trackpad horn disabled")
+            return
+        try:
+            controller.init()
+        except (RuntimeError, AttributeError) as exc:
+            log.warning("Unable to initialize SDL game-controller subsystem: %s", exc)
+            return
+        self._controller_module = controller
+
     def stop(self) -> None:
         for joystick in self._joysticks.values():
             try:
@@ -358,6 +441,13 @@ class SteamDeckInputProvider:
             except RuntimeError:
                 pass
         self._joysticks.clear()
+        for controller in self._controllers.values():
+            try:
+                controller.quit()
+            except (RuntimeError, AttributeError):
+                pass
+        self._controllers.clear()
+        self._touch_fingers.clear()
         self._active_axes.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()
@@ -370,6 +460,13 @@ class SteamDeckInputProvider:
     def poll(self) -> list[DeckAction]:
         if self._pygame is None:
             return []
+        # The Steam Deck trackpads arrive as SDL game-controller touchpad
+        # events. Resolve their (optional) type constants once so the decode
+        # branches below never touch a missing attribute on an older SDL/pygame
+        # build or on the joystick-only test fakes.
+        touch_down = getattr(self._pygame, "CONTROLLERTOUCHPADDOWN", None)
+        touch_motion = getattr(self._pygame, "CONTROLLERTOUCHPADMOTION", None)
+        touch_up = getattr(self._pygame, "CONTROLLERTOUCHPADUP", None)
         actions: list[DeckAction] = []
         for event in self._pygame.event.get():
             if event.type == self._pygame.JOYAXISMOTION:
@@ -393,6 +490,16 @@ class SteamDeckInputProvider:
             elif event.type == self._pygame.JOYDEVICEREMOVED:
                 self._remove_device(event.instance_id)
                 actions.append(DeckAction("disconnect", "global", 0.0, "disconnected"))
+            elif touch_up is not None and event.type == touch_up:
+                # A finger lifted from a trackpad; the horn keeps sounding while
+                # other fingers remain and stops when the last one lifts.
+                actions.extend(self._touch_up(event.touch_id, event.finger))
+            elif (touch_down is not None and event.type == touch_down) or (
+                touch_motion is not None and event.type == touch_motion
+            ):
+                # A finger touched or moved on a trackpad; the horn fraction
+                # tracks its absolute vertical position (top ~ off, bottom ~ full).
+                actions.extend(self._touch_moved(event.touch_id, event.finger, float(event.y)))
         return actions
 
     def capability_warnings(self, *, axis_count: int, button_count: int) -> str:
@@ -438,6 +545,46 @@ class SteamDeckInputProvider:
             self._active_axes.add(axis)
         scaled = (fraction - dead_zone) / (1.0 - dead_zone)
         return min(1.0, max(0.0, scaled))
+
+    def _normalize_touch_y(self, y: float) -> float:
+        # A trackpad reports a finger position with ``y`` running 0.0 at the top
+        # edge to 1.0 at the bottom. Map that onto a horn fraction so the top of
+        # the pad is off/soft and the bottom is full, with a small top dead zone
+        # so a finger resting near the top does not sound the horn. This mirrors
+        # the on-screen vertical horn slider (drag down for more).
+        y = max(0.0, min(1.0, y))
+        dead_zone = self.profile.touch_dead_zone
+        if y <= dead_zone:
+            return 0.0
+        return (y - dead_zone) / (1.0 - dead_zone)
+
+    def _touch_moved(self, touch_id: int, finger: int, y: float) -> list[DeckAction]:
+        binding = self.profile.touchpads.get(touch_id)
+        if binding is None:
+            return []
+        # Track the finger's position so a later lift can tell whether any
+        # fingers remain on this pad; the most recently moved finger drives the
+        # horn intensity.
+        self._touch_fingers.setdefault(touch_id, {})[finger] = y
+        fraction = self._normalize_touch_y(y)
+        return [DeckAction(binding.action, binding.target, fraction, "changed")]
+
+    def _touch_up(self, touch_id: int, finger: int) -> list[DeckAction]:
+        binding = self.profile.touchpads.get(touch_id)
+        if binding is None:
+            return []
+        fingers = self._touch_fingers.get(touch_id)
+        if not fingers:
+            return []
+        fingers.pop(finger, None)
+        if fingers:
+            # Other fingers remain on the pad, so keep the horn sounding, now
+            # tracking a remaining finger's position (last one inserted wins).
+            remaining_y = next(reversed(list(fingers.values())))
+            return [DeckAction(binding.action, binding.target, self._normalize_touch_y(remaining_y), "changed")]
+        # The last finger lifted: stop the horn.
+        self._touch_fingers.pop(touch_id, None)
+        return [DeckAction(binding.action, binding.target, 0.0, "changed")]
 
     def _button_actions(self, button: int, pressed: bool) -> list[DeckAction]:
         actions: list[DeckAction] = []
@@ -547,8 +694,27 @@ class SteamDeckInputProvider:
             )
             if warning:
                 log.warning("Configured Steam Deck controls unavailable: %s", warning)
+            self._open_controller(device_index, instance_id)
         except RuntimeError as exc:
             log.warning("Unable to open SDL controller %s: %s", device_index, exc)
+
+    def _open_controller(self, device_index: int, instance_id: int) -> None:
+        # Additionally open the device as an SDL game controller so its
+        # trackpads emit touchpad events (the joystick handle above never sees
+        # them). This is best-effort: a device with no touchpad, or a build
+        # without game-controller support, simply leaves the trackpad horn
+        # unavailable while every joystick control keeps working.
+        if self._controller_module is None or instance_id in self._controllers:
+            return
+        try:
+            controller = self._controller_module.Controller(device_index)
+            controller.init()
+        except (RuntimeError, AttributeError) as exc:
+            log.info("Unable to open SDL game controller %s (no trackpad horn): %s", device_index, exc)
+            return
+        self._controllers[instance_id] = controller
+        num_touchpads = getattr(controller, "get_num_touchpads", lambda: None)()
+        log.info("SDL game controller opened for touchpads: touchpads=%s", num_touchpads)
 
     def _remove_device(self, instance_id: int) -> None:
         joystick = self._joysticks.pop(instance_id, None)
@@ -558,6 +724,13 @@ class SteamDeckInputProvider:
                 joystick.quit()
             except RuntimeError:
                 pass
+        controller = self._controllers.pop(instance_id, None)
+        if controller is not None:
+            try:
+                controller.quit()
+            except (RuntimeError, AttributeError):
+                pass
+        self._touch_fingers.clear()
         self._active_axes.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()

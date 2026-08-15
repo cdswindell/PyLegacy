@@ -26,6 +26,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DeckInputRouter,
     ProfileError,
     SteamDeckInputProvider,
+    TouchpadBinding,
 )
 
 
@@ -118,9 +119,10 @@ def test_bundled_profile_maps_right_stick_to_steam_input_axes() -> None:
     assert profile.axes[4].action == "throttle"
     assert profile.axes[4].target == "right"
     assert profile.axes[4].invert is True
-    # Axes 2 and 5 are the L2/R2 triggers, bound to the quilling horn.
-    assert profile.axes[2].action == "quilling_horn"
-    assert profile.axes[5].action == "quilling_horn"
+    # Axes 2 and 5 (the L2/R2 triggers) are no longer bound; the quilling horn
+    # moved to the trackpads.
+    assert 2 not in profile.axes
+    assert 5 not in profile.axes
 
 
 def test_bundled_profile_binds_view_button_to_focus_toggle() -> None:
@@ -1006,15 +1008,13 @@ def _horn_profile() -> ControlProfile:
     return _profile(axes={"5": {"action": "quilling_horn", "target": "right", "trigger": True}})
 
 
-def test_bundled_profile_binds_triggers_to_quilling_horn() -> None:
+def test_bundled_profile_no_longer_binds_triggers_to_quilling_horn() -> None:
+    # The L2/R2 analog-trigger horn mapping was replaced by the trackpad drag
+    # gesture, so axes 2 and 5 are free again in the bundled profile.
     profile = ControlProfile.load()
 
-    assert profile.axes[2].action == "quilling_horn"
-    assert profile.axes[2].target == "left"
-    assert profile.axes[2].trigger is True
-    assert profile.axes[5].action == "quilling_horn"
-    assert profile.axes[5].target == "right"
-    assert profile.axes[5].trigger is True
+    assert 2 not in profile.axes
+    assert 5 not in profile.axes
 
 
 def test_stick_axes_are_not_flagged_as_triggers() -> None:
@@ -1376,3 +1376,301 @@ def test_provider_ignores_duplicate_add_event_for_enumerated_device(caplog: pyte
     assert provider._joysticks == {7: enumerated}
     assert duplicate.quit_calls == 1
     assert caplog.messages.count("SDL controller connected: name=Steam Deck guid=deck-guid axes=6 buttons=20") == 1
+
+
+# ---------------------------------------------------------------------------
+# Trackpad (SDL Game Controller touchpad) horn
+# ---------------------------------------------------------------------------
+
+
+def _touchpad_profile(**overrides) -> ControlProfile:
+    return _profile(
+        touchpads={
+            "0": {"action": "quilling_horn", "target": "left"},
+            "1": {"action": "quilling_horn", "target": "right"},
+        },
+        **overrides,
+    )
+
+
+def _touchpad_pygame(events):
+    return SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYHATMOTION=6,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+        CONTROLLERTOUCHPADDOWN=7,
+        CONTROLLERTOUCHPADMOTION=8,
+        CONTROLLERTOUCHPADUP=9,
+        event=SimpleNamespace(get=lambda: list(events)),
+    )
+
+
+def _touch_event(event_type: int, touch_id: int, finger: int, y: float):
+    return SimpleNamespace(type=event_type, touch_id=touch_id, finger=finger, x=0.5, y=y, pressure=1.0)
+
+
+def test_bundled_profile_binds_touchpads_to_quilling_horn() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.touchpads[0].action == "quilling_horn"
+    assert profile.touchpads[0].target == "left"
+    assert profile.touchpads[1].action == "quilling_horn"
+    assert profile.touchpads[1].target == "right"
+
+
+def test_bundled_profile_uses_small_touch_dead_zone() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.touch_dead_zone == 0.05
+
+
+def test_touch_dead_zone_defaults_when_omitted() -> None:
+    profile = _profile()
+
+    assert profile.touch_dead_zone == 0.05
+    assert profile.touchpads == {}
+
+
+def test_profile_rejects_out_of_range_touch_dead_zone() -> None:
+    with pytest.raises(ProfileError, match="touch_dead_zone"):
+        _touchpad_profile(touch_dead_zone=1.0)
+
+
+def test_profile_rejects_non_quilling_touchpad_action() -> None:
+    with pytest.raises(ProfileError, match="cannot be assigned to a touchpad"):
+        _profile(touchpads={"0": {"action": "bell", "target": "left"}})
+
+
+def test_profile_rejects_touchpad_without_fixed_panel_target() -> None:
+    with pytest.raises(ProfileError, match="fixed panel target"):
+        _profile(touchpads={"0": {"action": "quilling_horn", "target": "focused"}})
+
+
+def test_touchpad_binding_is_parsed_into_dataclass() -> None:
+    profile = _touchpad_profile()
+
+    assert profile.touchpads[0] == TouchpadBinding("quilling_horn", "left")
+    assert profile.touchpads[1] == TouchpadBinding("quilling_horn", "right")
+
+
+def test_normalize_touch_y_maps_top_to_off_and_bottom_to_full() -> None:
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=_touchpad_pygame([]))
+
+    # Top edge and anything inside the small dead zone is off.
+    assert provider._normalize_touch_y(0.0) == 0.0
+    assert provider._normalize_touch_y(0.05) == 0.0
+    # Mid-pad and the bottom edge ramp up to full.
+    assert provider._normalize_touch_y(0.5) == pytest.approx((0.5 - 0.05) / (1.0 - 0.05))
+    assert provider._normalize_touch_y(1.0) == pytest.approx(1.0)
+    # Values are clamped to the [0, 1] range.
+    assert provider._normalize_touch_y(2.0) == pytest.approx(1.0)
+
+
+def test_provider_touch_down_then_motion_emits_quilling_horn_on_left_pad() -> None:
+    pygame = _touchpad_pygame(
+        [
+            _touch_event(7, touch_id=0, finger=0, y=0.5),  # DOWN
+            _touch_event(8, touch_id=0, finger=0, y=1.0),  # MOTION to bottom
+        ]
+    )
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert all(a.name == QUILLING_HORN and a.target == "left" and a.phase == "changed" for a in actions)
+    assert [a.value for a in actions] == pytest.approx([(0.5 - 0.05) / 0.95, 1.0])
+
+
+def test_provider_touch_on_right_pad_targets_right_panel() -> None:
+    pygame = _touchpad_pygame([_touch_event(7, touch_id=1, finger=0, y=0.8)])
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target) for a in actions] == [(QUILLING_HORN, "right")]
+    assert actions[0].value == pytest.approx((0.8 - 0.05) / 0.95)
+
+
+def test_provider_touch_up_stops_the_horn_when_last_finger_lifts() -> None:
+    pygame = _touchpad_pygame(
+        [
+            _touch_event(7, touch_id=0, finger=0, y=0.6),  # DOWN
+            _touch_event(9, touch_id=0, finger=0, y=0.6),  # UP (last finger)
+        ]
+    )
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert actions[-1].name == QUILLING_HORN
+    assert actions[-1].target == "left"
+    assert actions[-1].value == 0.0
+    assert provider._touch_fingers == {}
+
+
+def test_provider_multi_finger_keeps_horn_until_last_finger_lifts() -> None:
+    pygame = _touchpad_pygame(
+        [
+            _touch_event(7, touch_id=0, finger=0, y=0.3),  # finger 0 DOWN
+            _touch_event(7, touch_id=0, finger=1, y=0.9),  # finger 1 DOWN
+            _touch_event(9, touch_id=0, finger=1, y=0.9),  # finger 1 UP (one remains)
+            _touch_event(9, touch_id=0, finger=0, y=0.3),  # finger 0 UP (last one)
+        ]
+    )
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # Lifting one of two fingers keeps sounding (tracks the remaining finger);
+    # only the final lift emits the 0.0 stop.
+    assert actions[2].value == pytest.approx((0.3 - 0.05) / 0.95)
+    assert actions[3].value == 0.0
+    assert provider._touch_fingers == {}
+
+
+def test_provider_ignores_touch_events_for_unmapped_pad() -> None:
+    pygame = _touchpad_pygame([_touch_event(7, touch_id=5, finger=0, y=0.5)])
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    assert provider.poll() == []
+
+
+def test_touch_drag_drives_router_quilling_horn_end_to_end() -> None:
+    left = _horn_gui()
+    router, _, _, _, _ = _router(profile=_touchpad_profile(), left=left)
+    pygame = _touchpad_pygame([_touch_event(7, touch_id=0, finger=0, y=1.0)])
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    for action in provider.poll():
+        router.handle(action)
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+
+    # A finger dragged to the bottom sounds the horn at full intensity; the
+    # fallback list lets a Legacy engine use the intensity and a non-Legacy
+    # engine fall through to the plain Blow Horn.
+    assert left.command_calls == [(HORN_COMMAND, 15)]
+
+
+def test_touch_release_stops_router_repeat() -> None:
+    left = _horn_gui()
+    router, _, _, _, _ = _router(profile=_touchpad_profile(), left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))
+    router.tick(10.0)
+    router.tick(10.1)  # sounds once
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.0, "changed"))
+    router.tick(10.2)  # released: no further horn
+
+    assert left.command_calls == [(HORN_COMMAND, 12)]
+
+
+def test_provider_without_touchpad_support_processes_joystick_only() -> None:
+    # A pygame build lacking the CONTROLLERTOUCHPAD* constants (and thus the
+    # touchpad horn) still handles the joystick controls without error.
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYHATMOTION=6,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+        event=SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=1, value=-1.0)]),
+    )
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [a.name for a in actions] == ["throttle"]
+
+
+def test_provider_start_allows_touchpad_events_and_opens_controller() -> None:
+    calls: list[object] = []
+    opened: list[int] = []
+
+    class FakeController:
+        def __init__(self, index: int) -> None:
+            opened.append(index)
+
+        def init(self) -> None:
+            calls.append("controller.opened")
+
+        def get_num_touchpads(self) -> int:
+            return 2
+
+        def quit(self) -> None:
+            calls.append("controller.quit")
+
+    def joystick(_index: int):
+        device = SimpleNamespace()
+        device.init = lambda: None
+        device.get_instance_id = lambda: 7
+        device.get_numaxes = lambda: 6
+        device.get_numbuttons = lambda: 20
+        device.get_name = lambda: "Steam Deck"
+        device.get_guid = lambda: "deck-guid"
+        return device
+
+    controller_module = SimpleNamespace(init=lambda: calls.append("subsystem.init"), Controller=FakeController)
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYHATMOTION=6,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+        CONTROLLERTOUCHPADDOWN=7,
+        CONTROLLERTOUCHPADMOTION=8,
+        CONTROLLERTOUCHPADUP=9,
+        display=SimpleNamespace(init=lambda: None),
+        event=SimpleNamespace(
+            set_blocked=lambda _t: None,
+            set_allowed=lambda event_types: calls.append(("allowed", tuple(event_types))),
+        ),
+        joystick=SimpleNamespace(init=lambda: None, get_count=lambda: 1, Joystick=joystick),
+        _sdl2=SimpleNamespace(controller=controller_module),
+    )
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    provider.start()
+
+    assert ("allowed", (1, 2, 3, 6, 4, 5, 7, 8, 9)) in calls
+    assert "subsystem.init" in calls
+    assert "controller.opened" in calls
+    assert opened == [0]
+    assert provider._controllers == {7: provider._controllers[7]}
+
+
+def test_provider_start_without_controller_module_leaves_touchpad_disabled() -> None:
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYHATMOTION=6,
+        JOYDEVICEADDED=4,
+        JOYDEVICEREMOVED=5,
+        display=SimpleNamespace(init=lambda: None),
+        event=SimpleNamespace(set_blocked=lambda _t: None, set_allowed=lambda _types: None),
+        joystick=SimpleNamespace(init=lambda: None, get_count=lambda: 0),
+    )
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    provider.start()
+
+    assert provider._controller_module is None
+    assert provider._controllers == {}
+
+
+def test_remove_device_resets_touch_finger_state() -> None:
+    pygame = _touchpad_pygame([_touch_event(7, touch_id=0, finger=0, y=0.5)])
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=pygame)
+
+    provider.poll()
+    assert provider._touch_fingers  # a finger is being tracked
+
+    provider._remove_device(instance_id=7)
+
+    assert provider._touch_fingers == {}

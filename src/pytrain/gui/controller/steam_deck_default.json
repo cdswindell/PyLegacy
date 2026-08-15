@@ -1,6 +1,7 @@
 {
   "dead_zone": 0.15,
   "trigger_dead_zone": 0.02,
+  "touch_dead_zone": 0.05,
   "hysteresis": 0.05,
   "throttle_rate": 36.0,
   "repeat_interval": 0.1,
@@ -23,16 +24,16 @@
       "action": "throttle",
       "target": "right",
       "invert": true
-    },
-    "2": {
+    }
+  },
+  "touchpads": {
+    "0": {
       "action": "quilling_horn",
-      "target": "left",
-      "trigger": true
+      "target": "left"
     },
-    "5": {
+    "1": {
       "action": "quilling_horn",
-      "target": "right",
-      "trigger": true
+      "target": "right"
     }
   },
   "buttons": {
