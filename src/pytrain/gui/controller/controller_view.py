@@ -847,7 +847,7 @@ class ControllerView:
     # Event handlers (moved over)
     # -----------------------------
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def clear_focus(self, e=None) -> None:
         host = self._host
         # Clears focus from host widgets after idle time
@@ -933,7 +933,7 @@ class ControllerView:
             finally:
                 host.throttle.after_id = None
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,unused-parameter
     def _on_throttle_release_event(self, e=None) -> None:
         if self._updating_from_state:
             return

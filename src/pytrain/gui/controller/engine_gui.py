@@ -2044,7 +2044,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             enabled=False,
             on_press=(self.on_engine_command, ["RESET"]),
             on_repeat=(self.on_engine_command, ["RESET"]),
-            repeat_interval=0.2,
+            repeat_interval=0.1,
         )
 
         if getattr(self, "_linked_car_transfer", None) is not None:

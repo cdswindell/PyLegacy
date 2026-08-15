@@ -37,7 +37,7 @@
   },
   "buttons": {
     "0": {
-      "action": "reset",
+      "action": "sequence_control",
       "target": "focused"
     },
     "1": {
@@ -46,11 +46,13 @@
     },
     "2": {
       "action": "reset",
-      "target": "focused"
+      "target": "focused",
+      "repeat": true
     },
     "3": {
       "action": "horn",
-      "target": "focused"
+      "target": "focused",
+      "repeat": true
     },
     "4": {
       "action": "shutdown",

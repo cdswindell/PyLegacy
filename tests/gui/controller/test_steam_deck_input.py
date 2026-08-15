@@ -12,6 +12,9 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DPAD_UP,
     HORN_COMMAND,
     QUILLING_HORN,
+    SEQUENCE_CONTROL,
+    SEQUENCE_CONTROL_COMMAND,
+    SEQUENCE_CONTROL_DURATION,
     SHUTDOWN_DELAYED,
     SHUTDOWN_IMMEDIATE,
     STARTUP_DELAYED,
@@ -1139,6 +1142,213 @@ def test_tick_stops_quilling_horn_after_release() -> None:
     router.tick(10.2)  # released: no further horn
 
     assert left.command_calls == [(HORN_COMMAND, 12)]
+
+
+def test_bundled_profile_binds_a_button_to_sequence_control() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.buttons[0].action == SEQUENCE_CONTROL
+    assert profile.buttons[0].target == "focused"
+    assert profile.buttons[0].repeat is False
+
+
+def test_bundled_profile_flags_x_and_y_buttons_as_repeat() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.buttons[2].action == "reset"
+    assert profile.buttons[2].repeat is True
+    assert profile.buttons[3].action == "horn"
+    assert profile.buttons[3].repeat is True
+
+
+def test_button_repeat_flag_defaults_to_false() -> None:
+    profile = _profile()
+
+    assert profile.buttons[0].repeat is False
+
+
+def _sequence_profile(**overrides) -> ControlProfile:
+    return _profile(
+        buttons={"0": {"action": "sequence_control", "target": "focused"}},
+        **overrides,
+    )
+
+
+def test_sequence_control_constants_match_automatic_sequence_spec() -> None:
+    assert SEQUENCE_CONTROL_COMMAND == "AUX1_OPTION_ONE"
+    assert SEQUENCE_CONTROL_DURATION == pytest.approx(3.1)
+
+
+def test_sequence_control_fires_immediately_and_schedules_full_burst() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = False
+    router = DeckInputRouter(
+        _sequence_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+
+    # Fired once immediately; the remaining emits (31 total at 100 ms over 3.1 s,
+    # minus the immediate one) are scheduled for tick().
+    assert focused_gui.command_calls == [SEQUENCE_CONTROL_COMMAND]
+    assert router._sequences == {"focused": 30}
+
+
+def test_sequence_control_repeats_across_ticks_then_stops() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = False
+    router = DeckInputRouter(
+        _sequence_profile(repeat_interval=1.0),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    # repeat_interval 1.0 s -> round(3.1 / 1.0) = 3 total emits.
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))  # emit 1
+    router.tick(0.0)  # primes the repeat clock
+    router.tick(1.0)  # emit 2
+    router.tick(2.0)  # emit 3 (burst complete)
+    router.tick(3.0)  # nothing further
+
+    assert focused_gui.command_calls == [SEQUENCE_CONTROL_COMMAND] * 3
+    assert router._sequences == {}
+
+
+def test_sequence_control_confirms_catalog_entry_when_visible() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.select_calls = 0
+    focused_gui.select_catalog_entry = lambda: setattr(focused_gui, "select_calls", focused_gui.select_calls + 1)
+    router = DeckInputRouter(
+        _sequence_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+
+    assert focused_gui.select_calls == 1
+    assert focused_gui.command_calls == []
+    assert router._sequences == {}
+
+
+def _repeat_button_profile(**overrides) -> ControlProfile:
+    return _profile(
+        buttons={"3": {"action": "horn", "target": "focused", "repeat": True}},
+        **overrides,
+    )
+
+
+def test_repeat_button_repeats_command_each_tick_while_held() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _repeat_button_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))  # immediate
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+    router.tick(10.2)  # second repeat
+
+    assert focused_gui.command_calls == ["BLOW_HORN_ONE", "BLOW_HORN_ONE", "BLOW_HORN_ONE"]
+    assert router._held_commands == {3: ("focused", "BLOW_HORN_ONE")}
+
+
+def test_repeat_button_stops_on_release() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _repeat_button_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))  # immediate
+    router.tick(10.0)  # primes
+    router.tick(10.1)  # first repeat
+    router.handle(DeckAction("horn", "focused", 0.0, "released", button=3))
+    router.tick(10.2)  # released: no further horn
+
+    assert focused_gui.command_calls == ["BLOW_HORN_ONE", "BLOW_HORN_ONE"]
+    assert router._held_commands == {}
+
+
+def test_repeat_close_popup_button_closes_popup_without_repeating() -> None:
+    focused_gui = _gui()
+    focused_gui.popup_visible = True
+    focused_gui.close_calls = 0
+    focused_gui.close_popup = lambda: setattr(focused_gui, "close_calls", focused_gui.close_calls + 1)
+    router = DeckInputRouter(
+        _profile(buttons={"2": {"action": "reset", "target": "focused", "repeat": True}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+    router.tick(10.0)
+    router.tick(10.1)
+
+    assert focused_gui.close_calls == 1
+    assert focused_gui.command_calls == []
+    assert router._held_commands == {}
+
+
+def test_non_repeat_button_fires_once_and_is_not_stored() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _profile(buttons={"3": {"action": "horn", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+    router.tick(10.0)
+    router.tick(10.1)
+
+    assert focused_gui.command_calls == ["BLOW_HORN_ONE"]
+    assert router._held_commands == {}
+
+
+def test_clear_resets_sequence_and_held_command_state() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _profile(
+            buttons={
+                "0": {"action": "sequence_control", "target": "focused"},
+                "3": {"action": "horn", "target": "focused", "repeat": True},
+            }
+        ),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+    assert router._sequences and router._held_commands
+
+    router.clear()
+
+    assert router._sequences == {}
+    assert router._held_commands == {}
 
 
 def test_provider_ignores_duplicate_add_event_for_enumerated_device(caplog: pytest.LogCaptureFixture) -> None:

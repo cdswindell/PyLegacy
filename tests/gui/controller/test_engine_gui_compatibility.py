@@ -127,7 +127,7 @@ def test_standalone_emergency_row_keeps_local_halt_and_reset(monkeypatch: pytest
     assert gui.reset_btn.kwargs["enabled"] is False
     assert gui.reset_btn.kwargs["on_press"] == (gui.on_engine_command, ["RESET"])
     assert gui.reset_btn.kwargs["on_repeat"] == (gui.on_engine_command, ["RESET"])
-    assert gui.reset_btn.kwargs["repeat_interval"] == pytest.approx(0.2)
+    assert gui.reset_btn.kwargs["repeat_interval"] == pytest.approx(0.1)
     assert widgets[0] is gui.emergency_box
 
 

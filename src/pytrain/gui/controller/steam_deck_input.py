@@ -36,6 +36,7 @@ SUPPORTED_ACTIONS = {
     "startup",
     "shutdown",
     "quilling_horn",
+    "sequence_control",
 }
 AXIS_ACTIONS = {"throttle", "direction", "quilling_horn"}
 # SDL "A" button. While the catalog panel is open it confirms the highlighted
@@ -78,6 +79,14 @@ PANEL_COMMANDS = {
     "horn": "BLOW_HORN_ONE",
     "bell": "RING_BELL",
 }
+# The A button runs the engine's "automatic sequence control": it sends the
+# AUX1_OPTION_ONE command every ``repeat_interval`` (100 ms) for
+# ``SEQUENCE_CONTROL_DURATION`` seconds, mirroring holding the physical AUX1
+# button. ``AUX1_OPTION_ONE`` resolves for both Legacy (TMCC2) and non-Legacy
+# (TMCC1) engines/trains, so the same command works regardless of control type.
+SEQUENCE_CONTROL = "sequence_control"
+SEQUENCE_CONTROL_COMMAND = "AUX1_OPTION_ONE"
+SEQUENCE_CONTROL_DURATION = 3.1
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -127,6 +136,7 @@ class AxisBinding:
 class ButtonBinding:
     action: str
     target: Target
+    repeat: bool = False
 
 
 @dataclass(frozen=True)
@@ -193,7 +203,7 @@ class ControlProfile:
             if action in AXIS_ACTIONS:
                 raise ProfileError(f"Action {action!r} cannot be assigned to a button")
             cls._validate_action_target(action, target)
-            buttons[index] = ButtonBinding(action, target)
+            buttons[index] = ButtonBinding(action, target, bool(raw_binding.get("repeat", False)))
 
         chords = []
         raw_chords = data.get("chords", [])
@@ -576,6 +586,8 @@ class DeckInputRouter:
         self._commanded_speeds: dict[Target, float] = {}
         self._quills: dict[Target, float] = {}
         self._boosts: dict[Target, str] = {}
+        self._held_commands: dict[int, tuple[Target, str]] = {}
+        self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
         self._last_tick: float | None = None
 
@@ -608,6 +620,15 @@ class DeckInputRouter:
             # on release; handle it before the ``pressed``-only guard below.
             self._handle_boost_brake(action)
             return
+        if action.button is not None and action.name in PANEL_COMMANDS:
+            binding = self.profile.buttons.get(action.button)
+            if binding is not None and binding.repeat:
+                # A repeat-flagged panel button (e.g. the X/Y buttons) must react
+                # to both press and release so ``tick()`` can re-send its command
+                # while it is held and stop on release; handle it before the
+                # ``pressed``-only guard below.
+                self._handle_repeat_command(action)
+                return
         if action.phase != "pressed":
             return
         if action.target == "global":
@@ -635,6 +656,23 @@ class DeckInputRouter:
             # A long press requests the delayed shut-down sequence, falling back
             # to the immediate shut-down for TMCC engines that lack it.
             gui.on_engine_command(["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"])
+            return
+        if action.name == SEQUENCE_CONTROL:
+            # The A button runs the engine's automatic sequence control. While
+            # the catalog panel is open it confirms the highlighted entry
+            # (mirroring the A button's catalog behavior); otherwise it sends
+            # AUX1_OPTION_ONE every ``repeat_interval`` (100 ms) for
+            # ``SEQUENCE_CONTROL_DURATION`` seconds. The command is fired once
+            # immediately and ``tick()`` re-sends the remainder of the burst.
+            if getattr(gui, "catalog_visible", False):
+                gui.select_catalog_entry()
+                return
+            repeats = max(1, round(SEQUENCE_CONTROL_DURATION / self.profile.repeat_interval))
+            gui.on_engine_command(SEQUENCE_CONTROL_COMMAND)
+            if repeats > 1:
+                self._sequences[action.target] = repeats - 1
+            else:
+                self._sequences.pop(action.target, None)
             return
         if action.name == "scope_catalog":
             gui.show_scope_catalog()
@@ -707,14 +745,57 @@ class DeckInputRouter:
             if gui is None:
                 continue
             gui.on_engine_command(command)
+        for _button, (target, command) in tuple(self._held_commands.items()):
+            # Re-send a held panel command (e.g. the X/Y buttons) every
+            # ``repeat_interval`` (100 ms) for as long as the button is held.
+            gui = self._target_gui(target)
+            if gui is None:
+                continue
+            gui.on_engine_command(command)
+        for target, remaining in tuple(self._sequences.items()):
+            # Continue the automatic sequence control started by the A button:
+            # emit AUX1_OPTION_ONE once per tick (every ``repeat_interval``)
+            # until the ``SEQUENCE_CONTROL_DURATION`` burst has completed.
+            gui = self._target_gui(target)
+            if gui is None:
+                self._sequences.pop(target, None)
+                continue
+            gui.on_engine_command(SEQUENCE_CONTROL_COMMAND)
+            if remaining <= 1:
+                self._sequences.pop(target, None)
+            else:
+                self._sequences[target] = remaining - 1
 
     def clear(self) -> None:
         self._throttles.clear()
         self._commanded_speeds.clear()
         self._quills.clear()
         self._boosts.clear()
+        self._held_commands.clear()
+        self._sequences.clear()
         self._direction_latches.clear()
         self._last_tick = None
+
+    def _handle_repeat_command(self, action: DeckAction) -> None:
+        if action.phase != "pressed":
+            # Button released: stop repeating its command.
+            self._held_commands.pop(action.button, None)
+            return
+        gui = self._target_gui(action.target)
+        if gui is None:
+            return
+        if action.button == CLOSE_POPUP_BUTTON and getattr(gui, "popup_visible", False):
+            # While a popup panel is displayed, the X button closes it instead of
+            # performing (or repeating) its assigned command.
+            self._held_commands.pop(action.button, None)
+            gui.close_popup()
+            return
+        # Fire the panel command once immediately for responsiveness, then
+        # ``tick()`` re-sends it every ``repeat_interval`` (100 ms) until the
+        # button is released.
+        command = PANEL_COMMANDS[action.name]
+        self._held_commands[action.button] = (action.target, command)
+        gui.on_engine_command(command)
 
     def _handle_boost_brake(self, action: DeckAction) -> None:
         if action.phase != "pressed":
