@@ -37,8 +37,16 @@ SUPPORTED_ACTIONS = {
     "shutdown",
     "quilling_horn",
     "sequence_control",
+    "front_coupler",
+    "rear_coupler",
 }
 AXIS_ACTIONS = {"throttle", "direction", "quilling_horn"}
+# Discrete navigation actions that may be bound to an analog trigger axis
+# (L2/R2). Unlike the analog axis actions above, these fire a single one-shot
+# command each time the trigger is squeezed past its dead zone; the trigger
+# must be released and squeezed again before it fires anew. They target the
+# global panel router, mirroring the same actions when bound to a button.
+TRIGGER_BUTTON_ACTIONS = {"focus_left", "focus_right", "focus_toggle"}
 # SDL "A" button. While the catalog panel is open it confirms the highlighted
 # entry; otherwise it performs whatever action the profile assigns to it.
 SELECT_BUTTON = 0
@@ -78,6 +86,10 @@ PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
     "bell": "RING_BELL",
+    # The L1/R1 shoulder buttons open the engine's couplers: L1 the rear
+    # coupler and R1 the front coupler.
+    "front_coupler": "FRONT_COUPLER",
+    "rear_coupler": "REAR_COUPLER",
 }
 # The A button runs the engine's "automatic sequence control": it sends the
 # AUX1_OPTION_ONE command every ``repeat_interval`` (100 ms) for
@@ -209,15 +221,27 @@ class ControlProfile:
         for raw_index, raw_binding in cls._mapping(data, "axes").items():
             index = cls._index(raw_index, "axis")
             action, target = cls._binding(raw_binding)
-            if action not in AXIS_ACTIONS:
+            trigger = bool(raw_binding.get("trigger", False))
+            if action in AXIS_ACTIONS:
+                if target not in ("left", "right"):
+                    raise ProfileError(f"Axis {index} requires a fixed panel target")
+            elif action in TRIGGER_BUTTON_ACTIONS or action in LONG_PRESS_ACTIONS:
+                # A discrete action on an axis is only meaningful for a trigger,
+                # which rests at one extreme and travels to the other; a stick
+                # axis rests centered and cannot cleanly emulate a button. This
+                # covers both the one-shot navigation actions and the
+                # startup/shutdown actions that distinguish a short press from a
+                # long press (L2/R2 acting as buttons rather than analog axes).
+                if not trigger:
+                    raise ProfileError(f"Axis {index} action {action!r} requires trigger to be true")
+                cls._validate_action_target(action, target)
+            else:
                 raise ProfileError(f"Action {action!r} cannot be assigned to an axis")
-            if target not in ("left", "right"):
-                raise ProfileError(f"Axis {index} requires a fixed panel target")
             axes[index] = AxisBinding(
                 action,
                 target,
                 bool(raw_binding.get("invert", False)),
-                bool(raw_binding.get("trigger", False)),
+                trigger,
             )
 
         buttons: dict[int, ButtonBinding] = {}
@@ -347,6 +371,15 @@ class SteamDeckInputProvider:
         # sounds while it has at least one finger and stops when the last lifts.
         self._touch_fingers: dict[int, dict[int, float]] = {}
         self._active_axes: set[int] = set()
+        # Discrete actions bound to analog triggers (L2/R2) fire once per
+        # squeeze; this tracks which trigger axes are currently engaged so the
+        # command is emitted only on the rising edge.
+        self._trigger_pressed: set[int] = set()
+        # When a trigger carries a startup/shutdown (long-press) action it
+        # behaves like the equivalent button: this records when each such
+        # trigger was squeezed so the release can tell a short press from a long
+        # one.
+        self._trigger_long_press_pressed_at: dict[int, float] = {}
         self._held_buttons: set[int] = set()
         self._fired_chords: set[ChordBinding] = set()
         self._hat_y = 0
@@ -449,6 +482,8 @@ class SteamDeckInputProvider:
         self._controllers.clear()
         self._touch_fingers.clear()
         self._active_axes.clear()
+        self._trigger_pressed.clear()
+        self._trigger_long_press_pressed_at.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0
@@ -472,15 +507,20 @@ class SteamDeckInputProvider:
             if event.type == self._pygame.JOYAXISMOTION:
                 binding = self.profile.axes.get(event.axis)
                 if binding is not None:
-                    if binding.trigger:
-                        value = self._normalize_trigger(event.axis, float(event.value))
-                        if binding.invert:
-                            value = 1.0 - value if value else 0.0
+                    if binding.action in TRIGGER_BUTTON_ACTIONS:
+                        actions.extend(self._trigger_button_actions(event.axis, binding, float(event.value)))
+                    elif binding.action in LONG_PRESS_ACTIONS:
+                        actions.extend(self._trigger_long_press_actions(event.axis, binding, float(event.value)))
                     else:
-                        value = self._normalize_axis(event.axis, float(event.value))
-                        if binding.invert:
-                            value = -value
-                    actions.append(DeckAction(binding.action, binding.target, value, "changed"))
+                        if binding.trigger:
+                            value = self._normalize_trigger(event.axis, float(event.value))
+                            if binding.invert:
+                                value = 1.0 - value if value else 0.0
+                        else:
+                            value = self._normalize_axis(event.axis, float(event.value))
+                            if binding.invert:
+                                value = -value
+                        actions.append(DeckAction(binding.action, binding.target, value, "changed"))
             elif event.type in (self._pygame.JOYBUTTONDOWN, self._pygame.JOYBUTTONUP):
                 actions.extend(self._button_actions(event.button, event.type == self._pygame.JOYBUTTONDOWN))
             elif event.type == self._pygame.JOYHATMOTION:
@@ -545,6 +585,49 @@ class SteamDeckInputProvider:
             self._active_axes.add(axis)
         scaled = (fraction - dead_zone) / (1.0 - dead_zone)
         return min(1.0, max(0.0, scaled))
+
+    def _trigger_button_actions(self, axis: int, binding: AxisBinding, value: float) -> list[DeckAction]:
+        # A discrete action (e.g. focus_left/focus_right) bound to an analog
+        # trigger fires once each time the trigger is squeezed past its dead
+        # zone. ``_normalize_trigger`` applies the trigger dead zone and
+        # hysteresis (returning 0.0 while the trigger rests), so any non-zero
+        # fraction means the trigger is engaged. The command is emitted only on
+        # the rising edge; the trigger must return to its resting position
+        # before it can fire again.
+        fraction = self._normalize_trigger(axis, value)
+        if fraction > 0.0:
+            if axis in self._trigger_pressed:
+                return []
+            self._trigger_pressed.add(axis)
+            return [DeckAction(binding.action, binding.target, 1.0, "pressed")]
+        self._trigger_pressed.discard(axis)
+        return []
+
+    def _trigger_long_press_actions(self, axis: int, binding: AxisBinding, value: float) -> list[DeckAction]:
+        # A startup/shutdown action bound to an analog trigger makes the trigger
+        # behave like the equivalent button: squeezing it past the dead zone is
+        # a press and letting it return to rest is a release. As with the
+        # button, the command is emitted once on release and distinguishes a
+        # short press (*_IMMEDIATE) from a hold of at least ``LONG_PRESS_SECONDS``
+        # (*_DELAYED). ``_normalize_trigger`` applies the trigger dead zone and
+        # hysteresis, so any non-zero fraction means the trigger is engaged.
+        fraction = self._normalize_trigger(axis, value)
+        immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
+        if fraction > 0.0:
+            if axis in self._trigger_pressed:
+                return []
+            self._trigger_pressed.add(axis)
+            self._trigger_long_press_pressed_at[axis] = self._clock()
+            return []
+        if axis not in self._trigger_pressed:
+            return []
+        self._trigger_pressed.discard(axis)
+        pressed_at = self._trigger_long_press_pressed_at.pop(axis, None)
+        if pressed_at is None:
+            return []
+        held = self._clock() - pressed_at
+        name = delayed if held >= LONG_PRESS_SECONDS else immediate
+        return [DeckAction(name, binding.target, 1.0, "pressed")]
 
     def _normalize_touch_y(self, y: float) -> float:
         # A trackpad reports a finger position with ``y`` running 0.0 at the top
@@ -732,6 +815,8 @@ class SteamDeckInputProvider:
                 pass
         self._touch_fingers.clear()
         self._active_axes.clear()
+        self._trigger_pressed.clear()
+        self._trigger_long_press_pressed_at.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0

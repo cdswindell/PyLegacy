@@ -119,10 +119,10 @@ def test_bundled_profile_maps_right_stick_to_steam_input_axes() -> None:
     assert profile.axes[4].action == "throttle"
     assert profile.axes[4].target == "right"
     assert profile.axes[4].invert is True
-    # Axes 2 and 5 (the L2/R2 triggers) are no longer bound; the quilling horn
-    # moved to the trackpads.
-    assert 2 not in profile.axes
-    assert 5 not in profile.axes
+    # Axes 2 and 5 (the L2/R2 triggers) act as buttons carrying the
+    # shutdown/startup short-vs-long-press commands.
+    assert profile.axes[2].action == "shutdown"
+    assert profile.axes[5].action == "startup"
 
 
 def test_bundled_profile_binds_view_button_to_focus_toggle() -> None:
@@ -158,6 +158,49 @@ def test_bundled_profile_binds_menu_button_to_scope_catalog() -> None:
 
     assert profile.buttons[7].action == "scope_catalog"
     assert profile.buttons[7].target == "focused"
+
+
+def test_bundled_profile_binds_shoulder_buttons_to_couplers() -> None:
+    # The L1/R1 shoulder buttons (indices 9 and 10) open the couplers: L1 the
+    # rear coupler and R1 the front coupler, each targeting the focused panel.
+    profile = ControlProfile.load()
+
+    assert profile.buttons[9].action == "rear_coupler"
+    assert profile.buttons[9].target == "focused"
+    assert profile.buttons[10].action == "front_coupler"
+    assert profile.buttons[10].target == "focused"
+
+
+def test_rear_coupler_button_opens_rear_coupler() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _profile(buttons={"9": {"action": "rear_coupler", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("rear_coupler", "focused", 1.0, "pressed", button=9))
+    router.handle(DeckAction("rear_coupler", "focused", 0.0, "released", button=9))
+
+    assert focused_gui.command_calls == ["REAR_COUPLER"]
+
+
+def test_front_coupler_button_opens_front_coupler() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _profile(buttons={"10": {"action": "front_coupler", "target": "focused"}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("front_coupler", "focused", 1.0, "pressed", button=10))
+    router.handle(DeckAction("front_coupler", "focused", 0.0, "released", button=10))
+
+    assert focused_gui.command_calls == ["FRONT_COUPLER"]
 
 
 def test_dpad_scrolls_catalog_in_focused_panel_when_visible() -> None:
@@ -1008,13 +1051,221 @@ def _horn_profile() -> ControlProfile:
     return _profile(axes={"5": {"action": "quilling_horn", "target": "right", "trigger": True}})
 
 
-def test_bundled_profile_no_longer_binds_triggers_to_quilling_horn() -> None:
-    # The L2/R2 analog-trigger horn mapping was replaced by the trackpad drag
-    # gesture, so axes 2 and 5 are free again in the bundled profile.
+def test_bundled_profile_binds_triggers_to_startup_shutdown() -> None:
+    # The L2/R2 analog triggers (axes 2 and 5) act as buttons: L2 carries the
+    # shutdown short/long-press command and R2 carries startup, each targeting
+    # the focused panel. They are trigger axes but are treated as buttons, and
+    # they are not the quilling horn (that lives on the trackpads).
     profile = ControlProfile.load()
 
-    assert 2 not in profile.axes
-    assert 5 not in profile.axes
+    assert profile.axes[2].action == "shutdown"
+    assert profile.axes[2].target == "focused"
+    assert profile.axes[2].trigger is True
+    assert profile.axes[5].action == "startup"
+    assert profile.axes[5].target == "focused"
+    assert profile.axes[5].trigger is True
+
+
+def _trigger_long_press_profile() -> ControlProfile:
+    return _profile(
+        axes={
+            "1": {"action": "throttle", "target": "left", "invert": True},
+            "2": {"action": "shutdown", "target": "focused", "trigger": True},
+            "5": {"action": "startup", "target": "focused", "trigger": True},
+        }
+    )
+
+
+def test_axis_shutdown_action_requires_trigger_flag() -> None:
+    # startup/shutdown only make sense on a trigger (which rests at one
+    # extreme); binding them to a plain axis is rejected.
+    with pytest.raises(ProfileError, match="requires trigger"):
+        _profile(axes={"2": {"action": "shutdown", "target": "focused"}})
+
+
+def test_axis_startup_action_requires_panel_target() -> None:
+    with pytest.raises(ProfileError, match="startup must target a panel"):
+        _profile(axes={"5": {"action": "startup", "target": "global", "trigger": True}})
+
+
+def test_provider_trigger_short_press_emits_shutdown_immediate() -> None:
+    # A quick squeeze-and-release of the L2 trigger (axis 2) behaves like a
+    # short button press and emits the immediate shutdown command on release.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=2, value=1.0),  # squeezed
+            SimpleNamespace(type=1, axis=2, value=-1.0),  # released
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(SHUTDOWN_IMMEDIATE, "focused", "pressed")]
+
+
+def test_provider_trigger_long_press_emits_shutdown_delayed() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=2, value=1.0),
+            SimpleNamespace(type=1, axis=2, value=-1.0),
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS + 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(SHUTDOWN_DELAYED, "focused", "pressed")]
+
+
+def test_provider_trigger_short_press_emits_startup_immediate() -> None:
+    # A quick squeeze of the R2 trigger (axis 5) emits the immediate startup.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=5, value=1.0),
+            SimpleNamespace(type=1, axis=5, value=-1.0),
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(STARTUP_IMMEDIATE, "focused", "pressed")]
+
+
+def test_provider_trigger_long_press_emits_startup_delayed() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=5, value=1.0),
+            SimpleNamespace(type=1, axis=5, value=-1.0),
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS + 0.5),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(STARTUP_DELAYED, "focused", "pressed")]
+
+
+def test_provider_trigger_long_press_squeeze_alone_emits_nothing() -> None:
+    # Squeezing the trigger without releasing it emits nothing; the command is
+    # only decided on release (mirroring the startup/shutdown buttons).
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=2, value=1.0)])
+    provider = SteamDeckInputProvider(_trigger_long_press_profile(), pygame_module=pygame, clock=_clock(0.0))
+
+    assert provider.poll() == []
+
+
+def test_provider_trigger_long_press_ignores_resting_position() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=2, value=-1.0)])
+    provider = SteamDeckInputProvider(_trigger_long_press_profile(), pygame_module=pygame, clock=_clock(0.0))
+
+    assert provider.poll() == []
+
+
+def _focus_trigger_profile() -> ControlProfile:
+    return _profile(
+        axes={
+            "1": {"action": "throttle", "target": "left", "invert": True},
+            "2": {"action": "focus_left", "target": "global", "trigger": True},
+            "5": {"action": "focus_right", "target": "global", "trigger": True},
+        }
+    )
+
+
+def test_axis_focus_action_requires_trigger_flag() -> None:
+    # A discrete navigation action only makes sense on a trigger (which rests at
+    # one extreme); binding it to a plain axis is rejected.
+    with pytest.raises(ProfileError, match="requires trigger"):
+        _profile(axes={"2": {"action": "focus_left", "target": "global"}})
+
+
+def test_axis_focus_action_requires_global_target() -> None:
+    with pytest.raises(ProfileError, match="focus_left must target global"):
+        _profile(axes={"2": {"action": "focus_left", "target": "left", "trigger": True}})
+
+
+def test_provider_trigger_button_fires_focus_once_per_squeeze() -> None:
+    # A discrete action bound to an analog trigger fires a single one-shot
+    # "pressed" action when the trigger crosses its dead zone and only fires
+    # again after the trigger returns to rest.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=2, value=-1.0),  # resting -> nothing
+            SimpleNamespace(type=1, axis=2, value=1.0),  # squeezed -> focus_left once
+            SimpleNamespace(type=1, axis=2, value=0.9),  # still held -> nothing
+            SimpleNamespace(type=1, axis=2, value=-1.0),  # released -> nothing (rearms)
+            SimpleNamespace(type=1, axis=2, value=1.0),  # squeezed again -> focus_left again
+        ]
+    )
+    provider = SteamDeckInputProvider(_focus_trigger_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase, a.value, a.button) for a in actions] == [
+        ("focus_left", "global", "pressed", 1.0, None),
+        ("focus_left", "global", "pressed", 1.0, None),
+    ]
+
+
+def test_provider_right_trigger_fires_focus_right() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=5, value=1.0)])
+    provider = SteamDeckInputProvider(_focus_trigger_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [("focus_right", "global", "pressed")]
+
+
+def test_provider_trigger_button_ignores_resting_position() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=2, value=-1.0)])
+    provider = SteamDeckInputProvider(_focus_trigger_profile(), pygame_module=pygame)
+
+    assert provider.poll() == []
+
+
+def test_trigger_focus_routes_to_registered_global_action() -> None:
+    global_calls: list[str] = []
+    router = DeckInputRouter(
+        _focus_trigger_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: _gui(),
+        global_actions={
+            "focus_left": lambda: global_calls.append("left"),
+            "focus_right": lambda: global_calls.append("right"),
+        },
+    )
+
+    router.handle(DeckAction("focus_left", "global", 1.0, "pressed"))
+    router.handle(DeckAction("focus_right", "global", 1.0, "pressed"))
+
+    assert global_calls == ["left", "right"]
 
 
 def test_stick_axes_are_not_flagged_as_triggers() -> None:

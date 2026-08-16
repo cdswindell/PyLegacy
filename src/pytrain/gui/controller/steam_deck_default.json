@@ -24,6 +24,16 @@
       "action": "throttle",
       "target": "right",
       "invert": true
+    },
+    "2": {
+      "action": "shutdown",
+      "target": "focused",
+      "trigger": true
+    },
+    "5": {
+      "action": "startup",
+      "target": "focused",
+      "trigger": true
     }
   },
   "touchpads": {
@@ -72,12 +82,12 @@
       "target": "focused"
     },
     "9": {
-      "action": "focus_left",
-      "target": "global"
+      "action": "rear_coupler",
+      "target": "focused"
     },
     "10": {
-      "action": "focus_right",
-      "target": "global"
+      "action": "front_coupler",
+      "target": "focused"
     }
   },
   "chords": [
