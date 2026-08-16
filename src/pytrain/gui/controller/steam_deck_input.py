@@ -138,13 +138,35 @@ DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 _sdl_library: Any = None
 
 
+def _loaded_sdl_paths() -> list[str]:
+    # Return the absolute paths of any SDL2 shared object already mapped into
+    # this process (Linux only, via ``/proc/self/maps``). pygame opens the game
+    # controller inside the exact SDL2 it loaded, so its internal controller
+    # registry only lives in that instance. Re-``dlopen``-ing that same file
+    # returns the same handle and shares that state, which is what lets
+    # ``SDL_GameControllerFromInstanceID`` actually find the device. This matters
+    # on Linux (the Steam Deck), where auditwheel places pygame's SDL2 in a
+    # sibling ``pygame.libs`` directory and a naive lookup would otherwise load a
+    # second, unrelated system SDL2 whose registry is empty.
+    paths: list[str] = []
+    try:
+        with open("/proc/self/maps", encoding="ascii", errors="replace") as maps:
+            for line in maps:
+                path = line.rstrip().split(" ")[-1]
+                if path.startswith("/") and "SDL2" in os.path.basename(path) and path not in paths:
+                    paths.append(path)
+    except OSError:
+        pass
+    return paths
+
+
 def _load_sdl_library() -> Any:
     # pygame(-ce)'s ``_sdl2.controller.Controller`` does not wrap
     # ``SDL_GameControllerGetNumTouchpads``, so there is no Python API to ask a
     # controller how many touchpads it has. Load SDL2 directly (preferring the
-    # copy pygame bundles so we talk to the very library pygame opened the
-    # device with) and call the C function ourselves. Best-effort: any failure
-    # simply means the touchpad count is reported as unknown.
+    # very library pygame already opened the device with) and call the C function
+    # ourselves. Best-effort: any failure simply means the touchpad count is
+    # reported as unknown.
     global _sdl_library
     if _sdl_library is not None:
         return _sdl_library or None
@@ -152,13 +174,23 @@ def _load_sdl_library() -> Any:
     import ctypes.util
     import glob
 
-    candidates: list[str] = []
+    # Prefer the exact SDL2 already loaded into the process so we share pygame's
+    # game-controller registry (see ``_loaded_sdl_paths``).
+    candidates: list[str] = _loaded_sdl_paths()
     try:
         import pygame
 
         base = os.path.dirname(pygame.__file__)
-        for sub in ("", ".dylibs", ".libs"):
-            candidates.extend(glob.glob(os.path.join(base, sub, "*SDL2*")))
+        parent = os.path.dirname(base)
+        # macOS delocate -> ``pygame/.dylibs``; Linux auditwheel -> sibling
+        # ``pygame.libs``; some layouts also use ``pygame/.libs``.
+        for directory in (
+            base,
+            os.path.join(base, ".dylibs"),
+            os.path.join(base, ".libs"),
+            os.path.join(parent, "pygame.libs"),
+        ):
+            candidates.extend(glob.glob(os.path.join(directory, "*SDL2*")))
     except Exception:  # noqa: BLE001 - pygame missing/broken is handled elsewhere
         pass
     found = ctypes.util.find_library("SDL2")
