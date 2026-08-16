@@ -132,6 +132,75 @@ DEFAULT_TOUCH_DEAD_ZONE = 0.05
 DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 
 
+# Cache for the SDL2 shared library used to query touchpad counts (see
+# ``_sdl_touchpad_count``). ``False`` means we already tried and failed to load
+# it, so we do not keep retrying; ``None`` means we have not looked yet.
+_sdl_library: Any = None
+
+
+def _load_sdl_library() -> Any:
+    # pygame(-ce)'s ``_sdl2.controller.Controller`` does not wrap
+    # ``SDL_GameControllerGetNumTouchpads``, so there is no Python API to ask a
+    # controller how many touchpads it has. Load SDL2 directly (preferring the
+    # copy pygame bundles so we talk to the very library pygame opened the
+    # device with) and call the C function ourselves. Best-effort: any failure
+    # simply means the touchpad count is reported as unknown.
+    global _sdl_library
+    if _sdl_library is not None:
+        return _sdl_library or None
+    import ctypes
+    import ctypes.util
+    import glob
+
+    candidates: list[str] = []
+    try:
+        import pygame
+
+        base = os.path.dirname(pygame.__file__)
+        for sub in ("", ".dylibs", ".libs"):
+            candidates.extend(glob.glob(os.path.join(base, sub, "*SDL2*")))
+    except Exception:  # noqa: BLE001 - pygame missing/broken is handled elsewhere
+        pass
+    found = ctypes.util.find_library("SDL2")
+    if found:
+        candidates.append(found)
+    for name in ("SDL2", "libSDL2-2.0.so.0", "libSDL2.so", "SDL2.dll"):
+        candidates.append(name)
+    for candidate in candidates:
+        try:
+            lib = ctypes.CDLL(candidate)
+        except OSError:
+            continue
+        if not hasattr(lib, "SDL_GameControllerFromInstanceID") or not hasattr(
+            lib, "SDL_GameControllerGetNumTouchpads"
+        ):
+            continue
+        lib.SDL_GameControllerFromInstanceID.restype = ctypes.c_void_p
+        lib.SDL_GameControllerFromInstanceID.argtypes = [ctypes.c_int]
+        lib.SDL_GameControllerGetNumTouchpads.restype = ctypes.c_int
+        lib.SDL_GameControllerGetNumTouchpads.argtypes = [ctypes.c_void_p]
+        _sdl_library = lib
+        return lib
+    _sdl_library = False
+    return None
+
+
+def _sdl_touchpad_count(instance_id: int) -> int | None:
+    # Resolve the number of touchpads for the game controller with the given
+    # joystick instance id via SDL directly. Returns the count (0 or more) or
+    # ``None`` if SDL could not be queried.
+    lib = _load_sdl_library()
+    if lib is None:
+        return None
+    try:
+        handle = lib.SDL_GameControllerFromInstanceID(int(instance_id))
+        if not handle:
+            return None
+        return int(lib.SDL_GameControllerGetNumTouchpads(handle))
+    except Exception:  # noqa: BLE001 - best effort diagnostic only
+        return None
+
+
 class ProfileError(ValueError):
     pass
 
@@ -796,8 +865,24 @@ class SteamDeckInputProvider:
             log.info("Unable to open SDL game controller %s (no trackpad horn): %s", device_index, exc)
             return
         self._controllers[instance_id] = controller
-        num_touchpads = getattr(controller, "get_num_touchpads", lambda: None)()
-        log.info("SDL game controller opened for touchpads: touchpads=%s", num_touchpads)
+        # ``pygame._sdl2.controller.Controller`` does not expose
+        # ``get_num_touchpads`` (so ``getattr`` would fall back to ``None`` and
+        # tell us nothing). Prefer the method if a future pygame adds it, then
+        # fall back to querying SDL directly so the log reports the real count.
+        get_num_touchpads = getattr(controller, "get_num_touchpads", None)
+        num_touchpads = get_num_touchpads() if callable(get_num_touchpads) else _sdl_touchpad_count(instance_id)
+        if num_touchpads is None:
+            log.warning(
+                "SDL game controller opened but touchpad count is unknown "
+                "(could not query SDL); trackpad horn may be unavailable"
+            )
+        elif num_touchpads <= 0:
+            log.warning(
+                "SDL game controller opened but reports no touchpads; trackpad horn unavailable. "
+                "If launched through Steam, Steam Input may be capturing the trackpads."
+            )
+        else:
+            log.info("SDL game controller opened for touchpads: touchpads=%s", num_touchpads)
 
     def _remove_device(self, instance_id: int) -> None:
         joystick = self._joysticks.pop(instance_id, None)

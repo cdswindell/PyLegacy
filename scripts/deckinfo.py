@@ -36,16 +36,33 @@ except (ImportError, RuntimeError, AttributeError) as exc:  # best effort
     _controller = None
     print("game-controller subsystem unavailable (raw axis order will be shown):", exc)
 
+# pygame(-ce)'s Controller wrapper does not expose SDL_GameControllerGetNumTouchpads,
+# so reuse PyTrain's SDL fallback to report the real touchpad count each device has.
+try:
+    from pytrain.gui.controller.steam_deck_input import _sdl_touchpad_count
+except ImportError:  # running the probe outside the installed package
+    _sdl_touchpad_count = None
+
 _controllers = []
 for _index in range(pygame.joystick.get_count()):
     js = pygame.joystick.Joystick(_index)
+    js.init()
     print("name:", js.get_name(), " buttons:", js.get_numbuttons(), " axes:", js.get_numaxes())
     if _controller is not None:
         try:
             _controllers.append(_controller.Controller(_index))
+            touchpads = _sdl_touchpad_count(js.get_instance_id()) if _sdl_touchpad_count else None
+            print("    opened as game controller; touchpads =", touchpads)
         except (RuntimeError, AttributeError) as exc:
             print("could not open device as game controller:", exc)
 
+# Allow the touchpad events so ``pygame.event.get()`` actually delivers them.
+for _name in ("CONTROLLERTOUCHPADDOWN", "CONTROLLERTOUCHPADMOTION", "CONTROLLERTOUCHPADUP"):
+    _event_type = getattr(pygame, _name, None)
+    if _event_type is not None:
+        pygame.event.set_allowed(_event_type)
+
+print("Move sticks/press buttons, then drag a finger on each trackpad...")
 while True:
     for e in pygame.event.get():
         if e.type == pygame.JOYBUTTONDOWN:
@@ -54,4 +71,10 @@ while True:
             # triggers usually show up here, not as buttons
             if abs(e.value) > 0.5:
                 print("AXIS", e.axis, "value =", round(e.value, 2))
+        elif e.type == getattr(pygame, "CONTROLLERTOUCHPADDOWN", -1):
+            print("TOUCHPAD DOWN pad =", e.touch_id, "finger =", e.finger, "x =", round(e.x, 3), "y =", round(e.y, 3))
+        elif e.type == getattr(pygame, "CONTROLLERTOUCHPADMOTION", -1):
+            print("TOUCHPAD MOVE pad =", e.touch_id, "finger =", e.finger, "x =", round(e.x, 3), "y =", round(e.y, 3))
+        elif e.type == getattr(pygame, "CONTROLLERTOUCHPADUP", -1):
+            print("TOUCHPAD UP   pad =", e.touch_id, "finger =", e.finger)
     pygame.time.wait(20)
