@@ -66,11 +66,11 @@
       "repeat": true
     },
     "4": {
-      "action": "shutdown",
+      "action": "rear_coupler",
       "target": "focused"
     },
     "5": {
-      "action": "startup",
+      "action": "front_coupler",
       "target": "focused"
     },
     "6": {
@@ -82,12 +82,12 @@
       "target": "focused"
     },
     "9": {
-      "action": "rear_coupler",
-      "target": "focused"
+      "action": "focus_left",
+      "target": "global"
     },
     "10": {
-      "action": "front_coupler",
-      "target": "focused"
+      "action": "focus_right",
+      "target": "global"
     }
   },
   "chords": [

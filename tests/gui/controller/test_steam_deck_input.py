@@ -161,14 +161,14 @@ def test_bundled_profile_binds_menu_button_to_scope_catalog() -> None:
 
 
 def test_bundled_profile_binds_shoulder_buttons_to_couplers() -> None:
-    # The L1/R1 shoulder buttons (indices 9 and 10) open the couplers: L1 the
+    # The L1/R1 shoulder buttons (indices 4 and 5) open the couplers: L1 the
     # rear coupler and R1 the front coupler, each targeting the focused panel.
     profile = ControlProfile.load()
 
-    assert profile.buttons[9].action == "rear_coupler"
-    assert profile.buttons[9].target == "focused"
-    assert profile.buttons[10].action == "front_coupler"
-    assert profile.buttons[10].target == "focused"
+    assert profile.buttons[4].action == "rear_coupler"
+    assert profile.buttons[4].target == "focused"
+    assert profile.buttons[5].action == "front_coupler"
+    assert profile.buttons[5].target == "focused"
 
 
 def test_rear_coupler_button_opens_rear_coupler() -> None:
@@ -798,11 +798,12 @@ def _clock(*values: float):
     return lambda: remaining.pop(0)
 
 
-def test_bundled_profile_binds_right_bumper_to_startup() -> None:
+def test_bundled_profile_binds_right_stick_click_to_focus_right() -> None:
+    # The right stick click (button index 10) focuses the right panel.
     profile = ControlProfile.load()
 
-    assert profile.buttons[5].action == "startup"
-    assert profile.buttons[5].target == "focused"
+    assert profile.buttons[10].action == "focus_right"
+    assert profile.buttons[10].target == "global"
 
 
 def test_startup_requires_a_panel_target() -> None:
@@ -906,11 +907,12 @@ def _shutdown_profile() -> ControlProfile:
     )
 
 
-def test_bundled_profile_binds_left_bumper_to_shutdown() -> None:
+def test_bundled_profile_binds_left_stick_click_to_focus_left() -> None:
+    # The left stick click (button index 9) focuses the left panel.
     profile = ControlProfile.load()
 
-    assert profile.buttons[4].action == "shutdown"
-    assert profile.buttons[4].target == "focused"
+    assert profile.buttons[9].action == "focus_left"
+    assert profile.buttons[9].target == "global"
 
 
 def test_shutdown_requires_a_panel_target() -> None:

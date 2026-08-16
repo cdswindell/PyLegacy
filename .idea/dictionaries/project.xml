@@ -1,6 +1,9 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>CONTROLLERTOUCHPADDOWN</w>
+      <w>CONTROLLERTOUCHPADMOTION</w>
+      <w>CONTROLLERTOUCHPADUP</w>
       <w>Citgo</w>
       <w>Dairymens</w>
       <w>Esso</w>
@@ -27,6 +30,7 @@
       <w>btns</w>
       <w>caap</w>
       <w>chksum</w>
+      <w>chorded</w>
       <w>citgo</w>
       <w>coors</w>
       <w>cplr</w>
