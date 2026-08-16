@@ -48,6 +48,7 @@ except (ImportError, RuntimeError, AttributeError) as exc:  # best effort
 # pygame(-ce)'s Controller wrapper does not expose SDL_GameControllerGetNumTouchpads,
 # so reuse PyTrain's SDL fallback to report the real touchpad count each device has.
 try:
+    # noinspection protected-member
     from pytrain.gui.controller.steam_deck_input import _sdl_touchpad_count
 except ImportError:  # running the probe outside the installed package
     _sdl_touchpad_count = None
@@ -55,7 +56,6 @@ except ImportError:  # running the probe outside the installed package
 _controllers = []
 for _index in range(pygame.joystick.get_count()):
     js = pygame.joystick.Joystick(_index)
-    js.init()
     print("name:", js.get_name(), " buttons:", js.get_numbuttons(), " axes:", js.get_numaxes())
     if _controller is not None:
         try:
