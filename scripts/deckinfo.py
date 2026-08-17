@@ -10,6 +10,19 @@ import importlib
 import os
 import sys
 
+# When this probe's stdout is a terminal it is line-buffered, so every ``print``
+# appears immediately. But when the output is redirected to a file (e.g. a
+# Non-Steam launcher doing ``... > deckinfo_out.txt``), Python switches stdout to
+# *block* buffering. Because the probe runs an infinite event loop and is
+# force-quit (its buffer is never flushed), the redirected file stays empty --
+# exactly the "nothing shows up in the log" symptom. Force line buffering so each
+# line is written as soon as it is printed, regardless of destination.
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except (AttributeError, ValueError):  # pre-3.7 or already-detached stream
+    pass
+
 # This probe imports PyTrain's private SDL helpers to report the real touchpad
 # count. PyTrain uses a ``src`` layout, so when it is not pip-installed into the
 # interpreter running this script (common on the Steam Deck, where the probe is
