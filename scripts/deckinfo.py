@@ -99,7 +99,7 @@ if _load_sdl_library is not None:
         print("SDL2 for touchpad query loaded from:", getattr(_sdl_lib, "_name", "<unknown>"))
 
 
-def _touchpad_diag(instance_id):
+def _touchpad_diag(iid):
     # Mirror ``_sdl_touchpad_count`` but explain *why* it fails so ``None`` is
     # no longer ambiguous: report whether SDL found the opened controller for
     # this instance id, then the count it returns.
@@ -109,7 +109,7 @@ def _touchpad_diag(instance_id):
     lib = _load_sdl_library()
     if lib is None:
         return "SDL2 not loadable"
-    handle = lib.SDL_GameControllerFromInstanceID(int(instance_id))
+    handle = lib.SDL_GameControllerFromInstanceID(int(iid))
     if not handle:
         return "SDL could not find the opened controller for this instance id (NULL handle) -- likely a different SDL2 instance or the pad is not exposed as a game controller"
     return "touchpads = " + str(int(lib.SDL_GameControllerGetNumTouchpads(handle)))
