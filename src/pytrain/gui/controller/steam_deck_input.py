@@ -499,6 +499,7 @@ class SteamDeckInputProvider:
             "SDL_VIDEODRIVER": os.environ.get("SDL_VIDEODRIVER"),
             "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS": os.environ.get("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"),
             "SDL_JOYSTICK_HIDAPI_STEAM": os.environ.get("SDL_JOYSTICK_HIDAPI_STEAM"),
+            "SDL_JOYSTICK_HIDAPI_STEAMDECK": os.environ.get("SDL_JOYSTICK_HIDAPI_STEAMDECK"),
         }
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         os.environ["SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"] = "1"
@@ -511,6 +512,14 @@ class SteamDeckInputProvider:
         # lets an operator override it. Only takes effect when Steam Input is not
         # itself capturing the pads.
         os.environ.setdefault("SDL_JOYSTICK_HIDAPI_STEAM", "1")
+        # The Steam Deck's *built-in* controls are handled by a different SDL
+        # HIDAPI driver than the external Steam Controller puck, gated by this
+        # separate hint. Enable it too so SDL opens the native Deck controller
+        # (which surfaces the two trackpads) rather than a plain gamepad that
+        # reports zero touchpads. Same rules as above: set before the controller
+        # subsystem initializes and only effective when Steam Input is not
+        # capturing the pads.
+        os.environ.setdefault("SDL_JOYSTICK_HIDAPI_STEAMDECK", "1")
         try:
             if self._pygame is None:
                 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")

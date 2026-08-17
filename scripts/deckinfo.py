@@ -36,6 +36,14 @@ os.environ["SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"] = "1"
 # not itself capturing the pads.
 os.environ.setdefault("SDL_JOYSTICK_HIDAPI_STEAM", "1")
 
+# The Steam Deck's *built-in* controls are handled by a different SDL HIDAPI
+# driver than the external Steam Controller puck, gated by this separate hint.
+# Enable it too so SDL opens the native Deck controller (which surfaces the two
+# trackpads) rather than a plain gamepad that reports zero touchpads. Same rules
+# as above: it must be set before pygame initializes the controller subsystem
+# and only takes effect when Steam Input is not itself capturing the pads.
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI_STEAMDECK", "1")
+
 # noinspection package-requirements
 import pygame
 
