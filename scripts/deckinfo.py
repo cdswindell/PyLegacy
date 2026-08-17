@@ -49,9 +49,51 @@ except (ImportError, RuntimeError, AttributeError) as exc:  # best effort
 # so reuse PyTrain's SDL fallback to report the real touchpad count each device has.
 try:
     # noinspection protected-member
-    from pytrain.gui.controller.steam_deck_input import _sdl_touchpad_count
+    from pytrain.gui.controller.steam_deck_input import (
+        _load_sdl_library,
+        _loaded_sdl_paths,
+        _sdl_touchpad_count,
+    )
 except ImportError:  # running the probe outside the installed package
     _sdl_touchpad_count = None
+    _load_sdl_library = None
+    _loaded_sdl_paths = None
+
+# Report the pygame/SDL build. Controller touchpad support needs SDL >= 2.0.14;
+# pygame-ce >= 2.5.x bundles SDL 2.30+, so a modern build is expected here. If
+# this shows an old SDL, that alone explains a missing touchpad count.
+print("pygame version:", pygame.version.ver, " SDL version:", ".".join(str(v) for v in pygame.get_sdl_version()))
+
+# ``touchpads = None`` (as opposed to ``0``) means the SDL query itself failed,
+# not that the device has no pads. The two usual causes are (a) we loaded a
+# *different* SDL2 than the one pygame opened the controller with -- so SDL's
+# controller registry is empty and ``SDL_GameControllerFromInstanceID`` returns
+# NULL -- or (b) SDL2 could not be loaded at all. Surface exactly which SDL2 is
+# in play so we can tell those apart.
+if _loaded_sdl_paths is not None:
+    print("SDL2 mapped into this process:", _loaded_sdl_paths() or "(none found in /proc/self/maps)")
+if _load_sdl_library is not None:
+    _sdl_lib = _load_sdl_library()
+    if _sdl_lib is None:
+        print("SDL2 for touchpad query: could NOT load a usable SDL2 (touchpad count will be None)")
+    else:
+        print("SDL2 for touchpad query loaded from:", getattr(_sdl_lib, "_name", "<unknown>"))
+
+
+def _touchpad_diag(instance_id):
+    # Mirror ``_sdl_touchpad_count`` but explain *why* it fails so ``None`` is
+    # no longer ambiguous: report whether SDL found the opened controller for
+    # this instance id, then the count it returns.
+    if _load_sdl_library is None:
+        return "pytrain not importable (cannot query SDL)"
+    lib = _load_sdl_library()
+    if lib is None:
+        return "SDL2 not loadable"
+    handle = lib.SDL_GameControllerFromInstanceID(int(instance_id))
+    if not handle:
+        return "SDL could not find the opened controller for this instance id (NULL handle) -- likely a different SDL2 instance or the pad is not exposed as a game controller"
+    return "touchpads = " + str(int(lib.SDL_GameControllerGetNumTouchpads(handle)))
+
 
 _controllers = []
 for _index in range(pygame.joystick.get_count()):
@@ -60,8 +102,11 @@ for _index in range(pygame.joystick.get_count()):
     if _controller is not None:
         try:
             _controllers.append(_controller.Controller(_index))
-            touchpads = _sdl_touchpad_count(js.get_instance_id()) if _sdl_touchpad_count else None
-            print("    opened as game controller; touchpads =", touchpads)
+            instance_id = js.get_instance_id()
+            touchpads = _sdl_touchpad_count(instance_id) if _sdl_touchpad_count else None
+            print("    opened as game controller; instance id =", instance_id, "; touchpads =", touchpads)
+            if touchpads is None:
+                print("    touchpad diagnostic:", _touchpad_diag(instance_id))
         except (RuntimeError, AttributeError) as exc:
             print("could not open device as game controller:", exc)
 
