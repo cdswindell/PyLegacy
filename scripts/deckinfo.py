@@ -8,6 +8,17 @@
 #
 import importlib
 import os
+import sys
+
+# This probe imports PyTrain's private SDL helpers to report the real touchpad
+# count. PyTrain uses a ``src`` layout, so when it is not pip-installed into the
+# interpreter running this script (common on the Steam Deck, where the probe is
+# launched directly as ``../bin/python scripts/deckinfo.py``), ``pytrain`` is not
+# importable unless the repo's ``src`` directory is on ``sys.path``. Add it so
+# the touchpad query works whether or not PyTrain is installed.
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if os.path.isdir(os.path.join(_SRC_DIR, "pytrain")) and _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
 
 # Mirror PyTrain's SDL setup so the axis/button numbers this probe prints match
 # what the running app sees. The app runs headless with background joystick
@@ -47,6 +58,7 @@ except (ImportError, RuntimeError, AttributeError) as exc:  # best effort
 
 # pygame(-ce)'s Controller wrapper does not expose SDL_GameControllerGetNumTouchpads,
 # so reuse PyTrain's SDL fallback to report the real touchpad count each device has.
+_pytrain_import_error = None
 try:
     # noinspection protected-member
     from pytrain.gui.controller.steam_deck_input import (
@@ -54,10 +66,17 @@ try:
         _loaded_sdl_paths,
         _sdl_touchpad_count,
     )
-except ImportError:  # running the probe outside the installed package
+except Exception as exc:  # noqa: BLE001 - any import failure disables the SDL query
+    # Capture the *actual* reason so "pytrain not importable" is no longer a
+    # dead end. A bare ImportError usually means PyTrain is not installed and
+    # ``src`` was not found above; other exceptions mean an optional dependency
+    # (e.g. GPIO) failed while importing the package.
+    _pytrain_import_error = exc
     _sdl_touchpad_count = None
     _load_sdl_library = None
     _loaded_sdl_paths = None
+    print(f"could not import pytrain ({type(exc).__name__}): {exc}")
+    print("    -> touchpad count cannot be queried; run with PyTrain installed or from the repo root")
 
 # Report the pygame/SDL build. Controller touchpad support needs SDL >= 2.0.14;
 # pygame-ce >= 2.5.x bundles SDL 2.30+, so a modern build is expected here. If
@@ -85,7 +104,8 @@ def _touchpad_diag(instance_id):
     # no longer ambiguous: report whether SDL found the opened controller for
     # this instance id, then the count it returns.
     if _load_sdl_library is None:
-        return "pytrain not importable (cannot query SDL)"
+        reason = f": {type(_pytrain_import_error).__name__}: {_pytrain_import_error}" if _pytrain_import_error else ""
+        return "pytrain not importable (cannot query SDL)" + reason
     lib = _load_sdl_library()
     if lib is None:
         return "SDL2 not loadable"
