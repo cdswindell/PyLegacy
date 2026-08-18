@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import queue
+import struct
 from types import SimpleNamespace
 
 import pytest
@@ -27,6 +29,9 @@ from src.pytrain.gui.controller.steam_deck_input import (
     ProfileError,
     SteamDeckInputProvider,
     TouchpadBinding,
+    _decode_deck_pads,
+    _deck_pad_y_fraction,
+    _find_deck_hidraw_paths,
 )
 
 
@@ -1851,9 +1856,6 @@ def test_provider_start_allows_touchpad_events_and_opens_controller() -> None:
         def init(self) -> None:
             calls.append("controller.opened")
 
-        def get_num_touchpads(self) -> int:
-            return 2
-
         def quit(self) -> None:
             calls.append("controller.quit")
 
@@ -1927,3 +1929,178 @@ def test_remove_device_resets_touch_finger_state() -> None:
     provider._remove_device(instance_id=7)
 
     assert provider._touch_fingers == {}
+
+
+# ---------------------------------------------------------------------------
+# Raw hidraw trackpad reader (Steam Deck built-in pads)
+# ---------------------------------------------------------------------------
+
+
+def _deck_state_report(*, lpad: tuple[int, int] | None = None, rpad: tuple[int, int] | None = None) -> bytes:
+    # Build a 64-byte Deck "state" input report with the given pad coordinates.
+    # A pad with coordinates is marked touched via its bit in the touch byte.
+    report = bytearray(64)
+    report[0] = 0x01
+    report[2] = 0x09  # ucType = state packet
+    report[3] = 0x40  # ucLength
+    touch = 0
+    if lpad is not None:
+        touch |= 1 << 3
+        struct.pack_into("<hh", report, 16, lpad[0], lpad[1])
+    if rpad is not None:
+        touch |= 1 << 4
+        struct.pack_into("<hh", report, 20, rpad[0], rpad[1])
+    report[10] = touch
+    return bytes(report)
+
+
+def test_decode_deck_pads_reads_touch_bits_and_coordinates() -> None:
+    report = _deck_state_report(lpad=(100, -200), rpad=(-300, 400))
+
+    decoded = _decode_deck_pads(report)
+
+    assert decoded == (True, (100, -200), True, (-300, 400))
+
+
+def test_decode_deck_pads_reports_untouched_pads() -> None:
+    # No pad marked touched: the touch flags are False and coordinates default 0.
+    decoded = _decode_deck_pads(_deck_state_report())
+
+    assert decoded == (False, (0, 0), False, (0, 0))
+
+
+def test_decode_deck_pads_rejects_non_state_and_short_reports() -> None:
+    not_a_state = bytearray(_deck_state_report(rpad=(0, 0)))
+    not_a_state[2] = 0x05  # a different report type
+    assert _decode_deck_pads(bytes(not_a_state)) is None
+    assert _decode_deck_pads(b"\x01\x00\x09") is None  # too short
+
+
+def test_deck_pad_y_fraction_maps_top_off_and_bottom_full() -> None:
+    # The pad's y runs +32767 (top) .. -32768 (bottom); the fraction runs the
+    # other way so a downward drag increases the horn.
+    assert _deck_pad_y_fraction(32767) == pytest.approx(0.0)
+    assert _deck_pad_y_fraction(-32768) == pytest.approx(1.0)
+    assert _deck_pad_y_fraction(0) == pytest.approx(0.5, abs=1e-4)
+
+
+def _hidraw_provider() -> SteamDeckInputProvider:
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=_touchpad_pygame([]))
+    provider._hidraw_queue = queue.Queue()
+    return provider
+
+
+def test_hidraw_pad_motion_emits_quilling_horn_for_bound_pads() -> None:
+    provider = _hidraw_provider()
+    # Right pad touched near the bottom (-32768) -> full horn on the right panel.
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report(rpad=(0, -32768))))
+
+    actions = provider._drain_hidraw_pads()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(QUILLING_HORN, "right", "changed")]
+    assert actions[0].value == pytest.approx(1.0)
+
+
+def test_hidraw_uses_only_latest_report_per_node() -> None:
+    provider = _hidraw_provider()
+    # Two stale reports followed by the current one; only the last is applied.
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report(rpad=(0, 32767))))
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report(rpad=(0, 0))))
+
+    actions = provider._drain_hidraw_pads()
+
+    # y = 0 is mid-pad -> fraction 0.5, then the touch dead zone is applied.
+    assert [(a.name, a.target) for a in actions] == [(QUILLING_HORN, "right")]
+    assert actions[0].value == pytest.approx((0.5 - 0.05) / 0.95, abs=1e-3)
+
+
+def test_hidraw_release_emits_single_stop_when_finger_lifts() -> None:
+    provider = _hidraw_provider()
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report(rpad=(0, -32768))))
+    provider._drain_hidraw_pads()  # finger down
+
+    # Next drain sees the pad released (no touched pads in the report).
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    first = provider._drain_hidraw_pads()
+    # A second empty drain must not emit another release.
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report()))
+    second = provider._drain_hidraw_pads()
+
+    assert [(a.name, a.target, a.value) for a in first] == [(QUILLING_HORN, "right", 0.0)]
+    assert second == []
+
+
+def test_hidraw_ignores_unbound_pad() -> None:
+    # A profile with only the right pad bound ignores left-pad motion.
+    provider = SteamDeckInputProvider(
+        _profile(touchpads={"1": {"action": "quilling_horn", "target": "right"}}),
+        pygame_module=_touchpad_pygame([]),
+    )
+    provider._hidraw_queue = queue.Queue()
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _deck_state_report(lpad=(0, -32768))))
+
+    assert provider._drain_hidraw_pads() == []
+
+
+def test_hidraw_reports_open_error_once() -> None:
+    provider = _hidraw_provider()
+    provider._hidraw_queue.put(("error", "/dev/hidraw3", "cannot open (permission denied)"))
+    provider._hidraw_queue.put(("error", "/dev/hidraw3", "cannot open (permission denied)"))
+
+    assert provider._drain_hidraw_pads() == []
+    assert "/dev/hidraw3" in provider._hidraw_errors
+
+
+def test_drain_hidraw_pads_is_noop_without_reader() -> None:
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=_touchpad_pygame([]))
+
+    assert provider._hidraw_queue is None
+    assert provider._drain_hidraw_pads() == []
+
+
+def test_start_hidraw_readers_skips_when_no_touchpads_bound() -> None:
+    provider = SteamDeckInputProvider(_profile(), pygame_module=_touchpad_pygame([]))
+
+    provider._start_hidraw_readers()
+
+    assert provider._hidraw_queue is None
+    assert provider._hidraw_readers == []
+
+
+def test_start_hidraw_readers_starts_thread_when_deck_node_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.pytrain.gui.controller.steam_deck_input as module
+
+    monkeypatch.setattr(module, "_find_deck_hidraw_paths", lambda: ["/dev/hidraw-fake"])
+    started: list[str] = []
+
+    class _FakeReader:
+        def __init__(self, path: str, out_queue: queue.Queue) -> None:
+            self.path = path
+            self.stopped = False
+
+        def start(self) -> None:
+            started.append(self.path)
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    monkeypatch.setattr(module, "_HidrawTrackpadReader", _FakeReader)
+    provider = SteamDeckInputProvider(_touchpad_profile(), pygame_module=_touchpad_pygame([]))
+
+    provider._start_hidraw_readers()
+
+    assert started == ["/dev/hidraw-fake"]
+    assert provider._hidraw_queue is not None
+
+    provider._stop_hidraw_readers()
+
+    assert provider._hidraw_readers == []
+    assert provider._hidraw_queue is None
+
+
+def test_find_deck_hidraw_paths_returns_list() -> None:
+    # Off the Deck this is empty; the contract is simply a list of device paths.
+    paths = _find_deck_hidraw_paths()
+
+    assert isinstance(paths, list)
+    assert all(p.startswith("/dev/hidraw") for p in paths)

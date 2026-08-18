@@ -7,7 +7,10 @@ import pytest
 
 import src.pytrain.gui.controller.engine_gui as mod
 from src.pytrain.gui.controller.engine_gui_conf import ENTER_KEY
+from src.pytrain.gui.controller.steam_deck_input import HORN_COMMAND
 from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
 
 
 class _ImmediateExecutor:
@@ -161,6 +164,45 @@ def test_engine_command_splits_targets_and_preserves_dispatch_order() -> None:
     assert [call[8] for call in dispatched] == [0.0, 0.1]
     assert all(call[0] == 17 for call in dispatched)
     assert all(call[2] == 3 and call[6] == 4 for call in dispatched)
+
+
+def _horn_gui() -> "mod.EngineGui":
+    # A bare EngineGui with only the state ``do_engine_command`` touches for the
+    # horn path, plus a recording ``submit_request`` so we can inspect the
+    # resolved command.
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui.scope = CommandScope.ENGINE
+    gui.repeat = 1
+    gui._scope_tmcc_ids = {CommandScope.ENGINE: 5}
+    gui.submitted = []
+    gui.submit_request = lambda cmd, repeat=None, delay=0.0: gui.submitted.append(cmd)
+    return gui
+
+
+def test_horn_command_sounds_quilling_horn_with_intensity_for_legacy_engine() -> None:
+    # The trackpad/trigger horn sends the ``HORN_COMMAND`` fallback list with the
+    # drag intensity. A Legacy (TMCC2) engine must resolve it to the Quilling
+    # Horn, honoring the 0..15 intensity.
+    gui = _horn_gui()
+    state = SimpleNamespace(is_legacy=True, tmcc_id=5, scope=CommandScope.ENGINE)
+
+    gui.on_engine_command(HORN_COMMAND, data=15, state=state)
+
+    assert len(gui.submitted) == 1
+    assert gui.submitted[0].command is TMCC2EngineCommandEnum.QUILLING_HORN
+    assert gui.submitted[0].data == 15
+
+
+def test_horn_command_falls_back_to_blow_horn_for_non_legacy_engine() -> None:
+    # A non-Legacy (TMCC1/Cab-1) engine has no Quilling Horn, so the fallback
+    # list must fall through to the plain Blow Horn (the intensity is ignored).
+    gui = _horn_gui()
+    state = SimpleNamespace(is_legacy=False, tmcc_id=5, scope=CommandScope.ENGINE)
+
+    gui.on_engine_command(HORN_COMMAND, data=15, state=state)
+
+    assert len(gui.submitted) == 1
+    assert gui.submitted[0].command is TMCC1EngineCommandEnum.BLOW_HORN_ONE
 
 
 def test_destroy_gui_releases_standalone_subscriptions_and_widget_cache(monkeypatch: pytest.MonkeyPatch) -> None:

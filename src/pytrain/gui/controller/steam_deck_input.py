@@ -9,11 +9,15 @@
 
 from __future__ import annotations
 
+import glob
 import importlib
 import json
 import logging
 import math
 import os
+import queue
+import struct
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -132,105 +136,123 @@ DEFAULT_TOUCH_DEAD_ZONE = 0.05
 DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 
 
-# Cache for the SDL2 shared library used to query touchpad counts (see
-# ``_sdl_touchpad_count``). ``False`` means we already tried and failed to load
-# it, so we do not keep retrying; ``None`` means we have not looked yet.
-_sdl_library: Any = None
+# ---------------------------------------------------------------------------
+# Raw hidraw trackpad reader for the Steam Deck's built-in controller.
+#
+# SDL never surfaces the Deck's built-in trackpads as controller touchpads, so
+# the CONTROLLERTOUCHPAD* events the provider listens for never fire on the
+# Deck. As an alternative input path we read the controller's raw 64-byte HID
+# input reports directly from its ``/dev/hidraw*`` node -- those reports carry
+# absolute trackpad coordinates. A dedicated daemon thread performs the blocking
+# reads and hands each report to the (single-threaded) provider through a
+# thread-safe ``queue.Queue``, keeping the reader fully decoupled from pygame.
+# This mirrors the probe proven out in ``scripts/deckinfo.py``.
+# ---------------------------------------------------------------------------
+_DECK_VID = 0x28DE
+_DECK_PID = 0x1205  # Steam Deck built-in controller
+# Byte offsets into the Deck's 64-byte input "state" report. The report begins
+# with 0x01 0x00 0x09 0x40 (unReportVersion=0x0001, ucType=0x09, ucLength=0x40).
+# These offsets mirror the Linux ``hid-steam`` driver's decode.
+_DECK_STATE_TYPE = 0x09
+_DECK_TOUCH_BYTE = 10  # bit3 = left pad touched, bit4 = right pad touched
+_DECK_LPAD_TOUCH_BIT = 1 << 3
+_DECK_RPAD_TOUCH_BIT = 1 << 4
+_DECK_LPAD_OFFSET = 16  # s16 LE x immediately followed by s16 LE y
+_DECK_RPAD_OFFSET = 20  # s16 LE x immediately followed by s16 LE y
+# The Deck reports each pad coordinate as a signed 16-bit value; the pad's ``y``
+# axis runs from ``+32767`` at the top edge to ``-32768`` at the bottom edge.
+_DECK_PAD_MIN = -32768
+_DECK_PAD_MAX = 32767
+_DECK_PAD_RANGE = _DECK_PAD_MAX - _DECK_PAD_MIN
+# The provider maps the left pad to ``touch_id`` 0 and the right pad to 1,
+# matching the SDL touchpad indices the ``touchpads`` profile section uses.
+_DECK_LEFT_TOUCH_ID = 0
+_DECK_RIGHT_TOUCH_ID = 1
 
 
-def _loaded_sdl_paths() -> list[str]:
-    # Return the absolute paths of any SDL2 shared object already mapped into
-    # this process (Linux only, via ``/proc/self/maps``). pygame opens the game
-    # controller inside the exact SDL2 it loaded, so its internal controller
-    # registry only lives in that instance. Re-``dlopen``-ing that same file
-    # returns the same handle and shares that state, which is what lets
-    # ``SDL_GameControllerFromInstanceID`` actually find the device. This matters
-    # on Linux (the Steam Deck), where auditwheel places pygame's SDL2 in a
-    # sibling ``pygame.libs`` directory and a naive lookup would otherwise load a
-    # second, unrelated system SDL2 whose registry is empty.
+def _find_deck_hidraw_paths() -> list[str]:
+    # Locate every ``/dev/hidraw*`` node that belongs to the Deck controller by
+    # matching its VID/PID in the sysfs ``uevent`` (HID_ID=0003:000028DE:00001205).
+    # Returns an empty list off the Deck (or anywhere without matching sysfs),
+    # so the reader stays inert on non-Deck hardware.
     paths: list[str] = []
-    try:
-        with open("/proc/self/maps", encoding="ascii", errors="replace") as maps:
-            for line in maps:
-                path = line.rstrip().split(" ")[-1]
-                if path.startswith("/") and "SDL2" in os.path.basename(path) and path not in paths:
-                    paths.append(path)
-    except OSError:
-        pass
+    hid_id = f":{_DECK_VID:08X}:{_DECK_PID:08X}".lower()
+    for sys_path in sorted(glob.glob("/sys/class/hidraw/hidraw*")):
+        uevent = os.path.join(sys_path, "device", "uevent")
+        try:
+            with open(uevent, encoding="ascii", errors="replace") as handle:
+                text = handle.read().lower()
+        except OSError:
+            continue
+        if hid_id in text:
+            paths.append("/dev/" + os.path.basename(sys_path))
     return paths
 
 
-def _load_sdl_library() -> Any:
-    # pygame(-ce)'s ``_sdl2.controller.Controller`` does not wrap
-    # ``SDL_GameControllerGetNumTouchpads``, so there is no Python API to ask a
-    # controller how many touchpads it has. Load SDL2 directly (preferring the
-    # very library pygame already opened the device with) and call the C function
-    # ourselves. Best-effort: any failure simply means the touchpad count is
-    # reported as unknown.
-    global _sdl_library
-    if _sdl_library is not None:
-        return _sdl_library or None
-    import ctypes
-    import ctypes.util
-    import glob
+def _decode_deck_pads(report: bytes) -> tuple[bool, tuple[int, int], bool, tuple[int, int]] | None:
+    # Return ``(lpad_touched, (lx, ly), rpad_touched, (rx, ry))`` for a Deck
+    # "state" packet, or ``None`` for any other report type / a report too short
+    # to decode.
+    if len(report) < _DECK_RPAD_OFFSET + 4:
+        return None
+    if report[0] != 0x01 or report[2] != _DECK_STATE_TYPE:
+        return None
+    touch = report[_DECK_TOUCH_BYTE]
+    lpad_touched = bool(touch & _DECK_LPAD_TOUCH_BIT)
+    rpad_touched = bool(touch & _DECK_RPAD_TOUCH_BIT)
+    lx, ly = struct.unpack_from("<hh", report, _DECK_LPAD_OFFSET)
+    rx, ry = struct.unpack_from("<hh", report, _DECK_RPAD_OFFSET)
+    return lpad_touched, (lx, ly), rpad_touched, (rx, ry)
 
-    # Prefer the exact SDL2 already loaded into the process so we share pygame's
-    # game-controller registry (see ``_loaded_sdl_paths``).
-    candidates: list[str] = _loaded_sdl_paths()
-    try:
-        import pygame
 
-        base = os.path.dirname(pygame.__file__)
-        parent = os.path.dirname(base)
-        # macOS delocate -> ``pygame/.dylibs``; Linux auditwheel -> sibling
-        # ``pygame.libs``; some layouts also use ``pygame/.libs``.
-        for directory in (
-            base,
-            os.path.join(base, ".dylibs"),
-            os.path.join(base, ".libs"),
-            os.path.join(parent, "pygame.libs"),
-        ):
-            candidates.extend(glob.glob(os.path.join(directory, "*SDL2*")))
-    except Exception:  # noqa: BLE001 - pygame missing/broken is handled elsewhere
-        pass
-    found = ctypes.util.find_library("SDL2")
-    if found:
-        candidates.append(found)
-    for name in ("SDL2", "libSDL2-2.0.so.0", "libSDL2.so", "SDL2.dll"):
-        candidates.append(name)
-    for candidate in candidates:
+def _deck_pad_y_fraction(raw_y: int) -> float:
+    # Convert a raw pad ``y`` (``+32767`` top .. ``-32768`` bottom) into the
+    # ``0.0`` (top) .. ``1.0`` (bottom) fraction ``_normalize_touch_y`` expects,
+    # so dragging a finger *down* the pad increases the horn -- mirroring the
+    # on-screen vertical horn slider.
+    fraction = (_DECK_PAD_MAX - raw_y) / _DECK_PAD_RANGE
+    return max(0.0, min(1.0, fraction))
+
+
+class _HidrawTrackpadReader(threading.Thread):
+    """Read 64-byte HID reports from one Deck hidraw node and queue them.
+
+    The blocking ``os.read`` runs on its own daemon thread so it never stalls
+    the provider's poll loop; each report (or a one-off error) is delivered via
+    ``out_queue`` as ``("report", path, bytes)`` or ``("error", path, message)``.
+    """
+
+    def __init__(self, path: str, out_queue: "queue.Queue") -> None:
+        super().__init__(name=f"hidraw:{path}", daemon=True)
+        self._path = path
+        self._queue = out_queue
+        self._stop = threading.Event()
+        self._fd: int | None = None
+
+    def run(self) -> None:
         try:
-            lib = ctypes.CDLL(candidate)
-        except OSError:
-            continue
-        if not hasattr(lib, "SDL_GameControllerFromInstanceID") or not hasattr(
-            lib, "SDL_GameControllerGetNumTouchpads"
-        ):
-            continue
-        lib.SDL_GameControllerFromInstanceID.restype = ctypes.c_void_p
-        lib.SDL_GameControllerFromInstanceID.argtypes = [ctypes.c_int]
-        lib.SDL_GameControllerGetNumTouchpads.restype = ctypes.c_int
-        lib.SDL_GameControllerGetNumTouchpads.argtypes = [ctypes.c_void_p]
-        _sdl_library = lib
-        return lib
-    _sdl_library = False
-    return None
+            self._fd = os.open(self._path, os.O_RDONLY)
+        except OSError as exc:
+            self._queue.put(("error", self._path, f"cannot open ({exc}); a udev rule or root may be required"))
+            return
+        while not self._stop.is_set():
+            try:
+                report = os.read(self._fd, 64)
+            except OSError as exc:
+                if not self._stop.is_set():
+                    self._queue.put(("error", self._path, f"read failed: {exc}"))
+                break
+            if report:
+                self._queue.put(("report", self._path, report))
 
-
-def _sdl_touchpad_count(instance_id: int) -> int | None:
-    # Resolve the number of touchpads for the game controller with the given
-    # joystick instance id via SDL directly. Returns the count (0 or more) or
-    # ``None`` if SDL could not be queried.
-    lib = _load_sdl_library()
-    if lib is None:
-        return None
-    try:
-        handle = lib.SDL_GameControllerFromInstanceID(int(instance_id))
-        if not handle:
-            return None
-        return int(lib.SDL_GameControllerGetNumTouchpads(handle))
-    except Exception:  # noqa: BLE001 - best effort diagnostic only
-        return None
+    def stop(self) -> None:
+        self._stop.set()
+        if self._fd is not None:
+            try:
+                os.close(self._fd)
+            except OSError:
+                pass
+            self._fd = None
 
 
 class ProfileError(ValueError):
@@ -490,6 +512,19 @@ class SteamDeckInputProvider:
         }
         self._long_press_pressed_at: dict[int, float] = {}
         self._long_press_chorded: set[int] = set()
+        # Raw hidraw trackpad reader state (Steam Deck built-in pads). On the
+        # Deck SDL never delivers the built-in trackpads as controller touchpad
+        # events, so their reports are read directly from ``/dev/hidraw*`` on a
+        # background thread and translated into the same ``quilling_horn`` touch
+        # actions in ``poll()``. All inert off the Deck / when no pad is bound.
+        self._hidraw_queue: queue.Queue | None = None
+        self._hidraw_readers: list[_HidrawTrackpadReader] = []
+        # touch_id -> whether the pad currently has a finger down, so a release
+        # is emitted exactly once when the finger lifts.
+        self._hidraw_pad_touched: dict[int, bool] = {}
+        # hidraw nodes whose open/read error has already been logged, so a
+        # permission problem is reported once rather than every poll.
+        self._hidraw_errors: set[str] = set()
         self._started = False
 
     def start(self) -> None:
@@ -529,6 +564,7 @@ class SteamDeckInputProvider:
             self._pygame.event.set_allowed(controller_events)
             for device_index in range(self._pygame.joystick.get_count()):
                 self._add_device(device_index)
+            self._start_hidraw_readers()
             self._started = True
         except ImportError as exc:
             raise ControllerUnavailable("pygame is not installed; touch controls remain available") from exc
@@ -568,7 +604,81 @@ class SteamDeckInputProvider:
             return
         self._controller_module = controller
 
+    def _start_hidraw_readers(self) -> None:
+        # Start a background reader per Steam Deck hidraw node so the built-in
+        # trackpads can drive the horn even though SDL never surfaces them as
+        # controller touchpads. This only does anything when a pad is actually
+        # bound to an action *and* a Deck controller is present, so it stays
+        # completely inert on other hardware (``_find_deck_hidraw_paths`` returns
+        # nothing there).
+        if not self.profile.touchpads:
+            return
+        paths = _find_deck_hidraw_paths()
+        if not paths:
+            return
+        self._hidraw_queue = queue.Queue()
+        for path in paths:
+            reader = _HidrawTrackpadReader(path, self._hidraw_queue)
+            reader.start()
+            self._hidraw_readers.append(reader)
+        log.info("Reading Steam Deck trackpads directly from hidraw: %s", ", ".join(paths))
+
+    def _stop_hidraw_readers(self) -> None:
+        for reader in self._hidraw_readers:
+            reader.stop()
+        self._hidraw_readers.clear()
+        self._hidraw_queue = None
+        self._hidraw_pad_touched.clear()
+        self._hidraw_errors.clear()
+
+    def _drain_hidraw_pads(self) -> list[DeckAction]:
+        # Translate any queued Deck HID reports into the same ``quilling_horn``
+        # touch actions the SDL touchpad path produces. Each report carries both
+        # pads' current touch state and coordinates, so only the most recent one
+        # per node matters: drain the queue, keep the latest, then diff it
+        # against the last-known touch state to emit motion while a finger is
+        # down and a single release when it lifts.
+        if self._hidraw_queue is None:
+            return []
+        latest: dict[str, bytes] = {}
+        while True:
+            try:
+                kind, path, payload = self._hidraw_queue.get_nowait()
+            except queue.Empty:
+                break
+            if kind == "error":
+                if path not in self._hidraw_errors:
+                    self._hidraw_errors.add(path)
+                    log.warning("Steam Deck trackpad hidraw %s: %s", path, payload)
+                continue
+            latest[path] = payload
+        actions: list[DeckAction] = []
+        for payload in latest.values():
+            decoded = _decode_deck_pads(payload)
+            if decoded is None:
+                continue
+            lpad_touched, (_lx, ly), rpad_touched, (_rx, ry) = decoded
+            actions.extend(self._hidraw_pad_action(_DECK_LEFT_TOUCH_ID, lpad_touched, ly))
+            actions.extend(self._hidraw_pad_action(_DECK_RIGHT_TOUCH_ID, rpad_touched, ry))
+        return actions
+
+    def _hidraw_pad_action(self, touch_id: int, touched: bool, raw_y: int) -> list[DeckAction]:
+        # Bridge one pad's raw HID state into the existing touch handlers so the
+        # horn behaves identically to the SDL touchpad path: a bound, touched pad
+        # feeds its vertical fraction through ``_touch_moved`` (finger 0), and a
+        # lift emits a single ``_touch_up``.
+        if self.profile.touchpads.get(touch_id) is None:
+            return []
+        if touched:
+            self._hidraw_pad_touched[touch_id] = True
+            return self._touch_moved(touch_id, 0, _deck_pad_y_fraction(raw_y))
+        if self._hidraw_pad_touched.get(touch_id):
+            self._hidraw_pad_touched[touch_id] = False
+            return self._touch_up(touch_id, 0)
+        return []
+
     def stop(self) -> None:
+        self._stop_hidraw_readers()
         for joystick in self._joysticks.values():
             try:
                 joystick.quit()
@@ -603,7 +713,10 @@ class SteamDeckInputProvider:
         touch_down = getattr(self._pygame, "CONTROLLERTOUCHPADDOWN", None)
         touch_motion = getattr(self._pygame, "CONTROLLERTOUCHPADMOTION", None)
         touch_up = getattr(self._pygame, "CONTROLLERTOUCHPADUP", None)
-        actions: list[DeckAction] = []
+        # On the Steam Deck the built-in trackpads never arrive as SDL touchpad
+        # events, so fold in any pad motion read directly from hidraw first (a
+        # no-op on other hardware / when no reader is running).
+        actions: list[DeckAction] = self._drain_hidraw_pads()
         for event in self._pygame.event.get():
             if event.type == self._pygame.JOYAXISMOTION:
                 binding = self.profile.axes.get(event.axis)
@@ -883,38 +996,23 @@ class SteamDeckInputProvider:
             log.warning("Unable to open SDL controller %s: %s", device_index, exc)
 
     def _open_controller(self, device_index: int, instance_id: int) -> None:
-        # Additionally open the device as an SDL game controller so its
-        # trackpads emit touchpad events (the joystick handle above never sees
-        # them). This is best-effort: a device with no touchpad, or a build
-        # without game-controller support, simply leaves the trackpad horn
-        # unavailable while every joystick control keeps working.
+        # Additionally open the device as an SDL game controller. This activates
+        # SDL's controller mapping, which renumbers the joystick axes to the
+        # standard game-controller order the profile is calibrated against (e.g.
+        # on a Steam Deck L2 = axis 2 and R2 = axis 5). It is best-effort: a
+        # build without game-controller support simply leaves the raw axis order
+        # in place while every joystick control keeps working. On the Steam Deck
+        # the built-in trackpads are read directly from hidraw (see
+        # ``_HidrawTrackpadReader``), not through this controller handle.
         if self._controller_module is None or instance_id in self._controllers:
             return
         try:
             controller = self._controller_module.Controller(device_index)
             controller.init()
         except (RuntimeError, AttributeError) as exc:
-            log.info("Unable to open SDL game controller %s (no trackpad horn): %s", device_index, exc)
+            log.info("Unable to open SDL game controller %s: %s", device_index, exc)
             return
         self._controllers[instance_id] = controller
-        # ``pygame._sdl2.controller.Controller`` does not expose
-        # ``get_num_touchpads`` (so ``getattr`` would fall back to ``None`` and
-        # tell us nothing). Prefer the method if a future pygame adds it, then
-        # fall back to querying SDL directly so the log reports the real count.
-        get_num_touchpads = getattr(controller, "get_num_touchpads", None)
-        num_touchpads = get_num_touchpads() if callable(get_num_touchpads) else _sdl_touchpad_count(instance_id)
-        if num_touchpads is None:
-            log.warning(
-                "SDL game controller opened but touchpad count is unknown "
-                "(could not query SDL); trackpad horn may be unavailable"
-            )
-        elif num_touchpads <= 0:
-            log.warning(
-                "SDL game controller opened but reports no touchpads; trackpad horn unavailable. "
-                "If launched through Steam, Steam Input may be capturing the trackpads."
-            )
-        else:
-            log.info("SDL game controller opened for touchpads: touchpads=%s", num_touchpads)
 
     def _remove_device(self, instance_id: int) -> None:
         joystick = self._joysticks.pop(instance_id, None)

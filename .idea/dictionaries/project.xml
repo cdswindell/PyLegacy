@@ -1,6 +1,7 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>CONTROLLERTOUCHPAD</w>
       <w>CONTROLLERTOUCHPADDOWN</w>
       <w>CONTROLLERTOUCHPADMOTION</w>
       <w>CONTROLLERTOUCHPADUP</w>
@@ -8,9 +9,11 @@
       <w>Dairymens</w>
       <w>Esso</w>
       <w>Fonic</w>
+      <w>HIDRAW</w>
       <w>Lineville</w>
       <w>Lionelville</w>
       <w>Misalignd</w>
+      <w>RPAD</w>
       <w>Sunoco</w>
       <w>Swindell</w>
       <w>VIDEODRIVER</w>
@@ -110,6 +113,7 @@
       <w>retryhost</w>
       <w>returncode</w>
       <w>rnum</w>
+      <w>rpad</w>
       <w>rpicam</w>
       <w>selectbackground</w>
       <w>selectforeground</w>
@@ -125,6 +129,7 @@
       <w>tmcc</w>
       <w>toxworkdir</w>
       <w>troughcolor</w>
+      <w>uevent</w>
       <w>unsel</w>
       <w>userhome</w>
       <w>valids</w>
