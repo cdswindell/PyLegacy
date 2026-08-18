@@ -249,6 +249,115 @@ def test_dpad_up_down_adjust_smoke_when_catalog_hidden() -> None:
     assert focused_gui.command_calls == ["SMOKE_ON", "SMOKE_OFF"]
 
 
+def test_dpad_up_repeats_catalog_scroll_every_tick_while_held() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+    router.tick(10.2)  # second repeat
+
+    assert focused_gui.scroll_calls == [-1, -1, -1]
+
+
+def test_dpad_down_repeats_catalog_scroll_every_tick_while_held() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))  # immediate
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+
+    assert focused_gui.scroll_calls == [1, 1]
+
+
+def test_dpad_release_stops_catalog_scroll_repeat() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.tick(10.2)  # released: no further scroll
+
+    assert focused_gui.scroll_calls == [-1, -1]
+    assert router._scrolls == {}
+
+
+def test_dpad_scroll_repeat_stops_when_catalog_closes() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+    # The catalog panel closes (e.g. an entry was selected) while the key is
+    # still held; the repeat must stop rather than scroll a hidden panel.
+    focused_gui.catalog_visible = False
+    router.tick(10.2)
+
+    assert focused_gui.scroll_calls == [-1, -1]
+    assert router._scrolls == {}
+
+
+def test_dpad_up_down_smoke_does_not_repeat_when_catalog_hidden() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = False
+    focused_gui.scroll_catalog = lambda delta: pytest.fail("should not scroll when catalog hidden")
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # one-shot smoke
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # no repeat expected for smoke
+
+    assert focused_gui.command_calls == ["SMOKE_ON"]
+    assert router._scrolls == {}
+
+
 def test_dpad_right_selects_catalog_entry_when_visible() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = True
@@ -427,6 +536,7 @@ def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:
 
     assert [(a.name, a.target, a.phase) for a in actions] == [
         (DPAD_UP, "focused", "pressed"),
+        (DPAD_UP, "focused", "released"),
         (DPAD_DOWN, "focused", "pressed"),
     ]
 

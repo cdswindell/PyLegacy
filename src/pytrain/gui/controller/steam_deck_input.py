@@ -947,7 +947,15 @@ class SteamDeckInputProvider:
         y = int(y)
         actions: list[DeckAction] = []
         if y != self._hat_y:
+            previous_y = self._hat_y
             self._hat_y = y
+            # Emit a release for the previously held vertical direction so the
+            # router can stop repeating the catalog scroll it fires while the
+            # D-pad up/down is held.
+            if previous_y > 0:
+                actions.append(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+            elif previous_y < 0:
+                actions.append(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
             if y > 0:
                 actions.append(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
             elif y < 0:
@@ -1059,6 +1067,7 @@ class DeckInputRouter:
         self._commanded_speeds: dict[Target, float] = {}
         self._quills: dict[Target, float] = {}
         self._boosts: dict[Target, str] = {}
+        self._scrolls: dict[Target, int] = {}
         self._held_commands: dict[int, tuple[Target, str]] = {}
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
@@ -1092,6 +1101,12 @@ class DeckInputRouter:
             # can repeat the boost/brake command while the key is held and stop
             # on release; handle it before the ``pressed``-only guard below.
             self._handle_boost_brake(action)
+            return
+        if action.name in (DPAD_UP, DPAD_DOWN):
+            # D-pad up/down must react to both press and release so ``tick()``
+            # can repeat the catalog scroll while the key is held and stop on
+            # release; handle it before the ``pressed``-only guard below.
+            self._handle_scroll_smoke(action)
             return
         if action.button is not None and action.name in PANEL_COMMANDS:
             binding = self.profile.buttons.get(action.button)
@@ -1150,18 +1165,6 @@ class DeckInputRouter:
         if action.name == "scope_catalog":
             gui.show_scope_catalog()
             return
-        if action.name in (DPAD_UP, DPAD_DOWN):
-            # While the catalog panel is open, the D-pad scrolls the highlighted
-            # catalog entry (clamped at the ends); otherwise it adjusts the
-            # engine/train smoke output. ``SMOKE_ON``/``SMOKE_OFF`` resolve
-            # automatically per control type: for a Legacy target they step the
-            # smoke level up/down (Off/Low/Medium/High), and for a non-Legacy
-            # (TMCC/Cab-1/R100) target they simply turn smoke on/off.
-            if getattr(gui, "catalog_visible", False):
-                gui.scroll_catalog(-1 if action.name == DPAD_UP else 1)
-            else:
-                gui.on_engine_command("SMOKE_ON" if action.name == DPAD_UP else "SMOKE_OFF")
-            return
         if action.button == SELECT_BUTTON and getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, the A button confirms the
             # highlighted entry instead of performing its assigned action.
@@ -1218,6 +1221,16 @@ class DeckInputRouter:
             if gui is None:
                 continue
             gui.on_engine_command(command)
+        for target, delta in tuple(self._scrolls.items()):
+            # Re-scroll the catalog one entry every ``repeat_interval`` (100 ms)
+            # for as long as the D-pad up/down is held, so the user can scroll
+            # through entries by keeping the key pressed. Stop if the catalog
+            # panel is no longer open.
+            gui = self._target_gui(target)
+            if gui is None or not getattr(gui, "catalog_visible", False):
+                self._scrolls.pop(target, None)
+                continue
+            gui.scroll_catalog(delta)
         for _button, (target, command) in tuple(self._held_commands.items()):
             # Re-send a held panel command (e.g. the X/Y buttons) every
             # ``repeat_interval`` (100 ms) for as long as the button is held.
@@ -1244,6 +1257,7 @@ class DeckInputRouter:
         self._commanded_speeds.clear()
         self._quills.clear()
         self._boosts.clear()
+        self._scrolls.clear()
         self._held_commands.clear()
         self._sequences.clear()
         self._direction_latches.clear()
@@ -1295,6 +1309,31 @@ class DeckInputRouter:
         command = "BOOST_SPEED" if action.name == DPAD_RIGHT else "BRAKE_SPEED"
         self._boosts[action.target] = command
         gui.on_engine_command(command)
+
+    def _handle_scroll_smoke(self, action: DeckAction) -> None:
+        if action.phase != "pressed":
+            # D-pad released: stop repeating the catalog scroll.
+            self._scrolls.pop(action.target, None)
+            return
+        gui = self._target_gui(action.target)
+        if gui is None:
+            return
+        if getattr(gui, "catalog_visible", False):
+            # While the catalog panel is open, the D-pad scrolls the highlighted
+            # catalog entry (clamped at the ends). Scroll once immediately for
+            # responsiveness, then ``tick()`` re-scrolls every ``repeat_interval``
+            # (100 ms) while the key is held so entries scroll continuously.
+            delta = -1 if action.name == DPAD_UP else 1
+            self._scrolls[action.target] = delta
+            gui.scroll_catalog(delta)
+            return
+        # Otherwise the D-pad adjusts the engine/train smoke output as a one-shot
+        # (no repeat). ``SMOKE_ON``/``SMOKE_OFF`` resolve automatically per
+        # control type: for a Legacy target they step the smoke level up/down
+        # (Off/Low/Medium/High), and for a non-Legacy (TMCC/Cab-1/R100) target
+        # they simply turn smoke on/off.
+        self._scrolls.pop(action.target, None)
+        gui.on_engine_command("SMOKE_ON" if action.name == DPAD_UP else "SMOKE_OFF")
 
     def _handle_direction(self, action: DeckAction) -> None:
         release_threshold = self.profile.direction_threshold - self.profile.hysteresis
