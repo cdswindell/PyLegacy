@@ -61,8 +61,11 @@ CLOSE_POPUP_BUTTON = 2
 # connect log shows every button index 0-10 and axis 0-5 already used by the
 # sticks, triggers, and existing controls, leaving no room for it). While the
 # catalog panel is open, up/down scroll the highlighted entry in the focused
-# pane, right confirms the highlighted entry, and left cancels/closes the
-# catalog panel; otherwise the D-pad has no assigned action.
+# pane (a double click of up/down jumps to the first/last entry and selects
+# it), right confirms the highlighted entry, and left cancels/closes the
+# catalog panel. Otherwise (no catalog), up/down boost/brake the engine or
+# train speed (auto-repeating while held) and left/right lower/raise the smoke
+# output (SMOKE_OFF/SMOKE_ON, one-shot per press).
 DPAD_UP = "dpad_up"
 DPAD_DOWN = "dpad_down"
 DPAD_LEFT = "dpad_left"
@@ -112,6 +115,11 @@ SEQUENCE_CONTROL_DURATION = 3.1
 # quick to control.
 CATALOG_SCROLL_INITIAL_DELAY = 0.5
 CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
+# While the catalog panel is open, a *double* click of the D-pad up jumps the
+# highlight to the first entry and selects it; a double click of the D-pad down
+# jumps to the last entry and selects it. Two presses of the same direction
+# within ``DPAD_DOUBLE_CLICK_SECONDS`` count as a double click.
+DPAD_DOUBLE_CLICK_SECONDS = 0.4
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -1081,6 +1089,10 @@ class DeckInputRouter:
         # on the first ``tick()`` after the press (arming it ``tick()``-side keeps
         # the timing on the same clock ``tick()`` uses).
         self._scrolls: dict[Target, list] = {}
+        # Timestamp of the last D-pad up/down press per ``(target, name)`` while
+        # the catalog is open, used to detect a double click (jump to the
+        # first/last entry and select it).
+        self._dpad_last_press: dict[tuple[Target, str], float] = {}
         self._held_commands: dict[int, tuple[Target, str]] = {}
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
@@ -1109,17 +1121,18 @@ class DeckInputRouter:
             else:
                 self._quills.pop(action.target, None)
             return
-        if action.name in (DPAD_LEFT, DPAD_RIGHT):
-            # D-pad left/right must react to both press and release so ``tick()``
-            # can repeat the boost/brake command while the key is held and stop
-            # on release; handle it before the ``pressed``-only guard below.
-            self._handle_boost_brake(action)
-            return
         if action.name in (DPAD_UP, DPAD_DOWN):
             # D-pad up/down must react to both press and release so ``tick()``
-            # can repeat the catalog scroll while the key is held and stop on
-            # release; handle it before the ``pressed``-only guard below.
-            self._handle_scroll_smoke(action)
+            # can repeat the boost/brake (no catalog) or catalog-scroll (catalog
+            # open) command while the key is held and stop on release; handle it
+            # before the ``pressed``-only guard below.
+            self._handle_scroll_boost(action)
+            return
+        if action.name in (DPAD_LEFT, DPAD_RIGHT):
+            # D-pad left/right select/close the catalog (when open) or adjust the
+            # smoke output (one-shot); neither repeats, but route it here to keep
+            # the D-pad handling together.
+            self._handle_select_smoke(action)
             return
         if action.button is not None and action.name in PANEL_COMMANDS:
             binding = self.profile.buttons.get(action.button)
@@ -1281,6 +1294,7 @@ class DeckInputRouter:
         self._quills.clear()
         self._boosts.clear()
         self._scrolls.clear()
+        self._dpad_last_press.clear()
         self._held_commands.clear()
         self._sequences.clear()
         self._direction_latches.clear()
@@ -1307,10 +1321,54 @@ class DeckInputRouter:
         self._held_commands[action.button] = (action.target, command)
         gui.on_engine_command(command)
 
-    def _handle_boost_brake(self, action: DeckAction) -> None:
+    def _handle_scroll_boost(self, action: DeckAction) -> None:
         if action.phase != "pressed":
-            # D-pad released: stop repeating the boost/brake command.
+            # D-pad released: stop repeating both the catalog scroll and the
+            # boost/brake command.
+            self._scrolls.pop(action.target, None)
             self._boosts.pop(action.target, None)
+            return
+        gui = self._target_gui(action.target)
+        if gui is None:
+            return
+        if getattr(gui, "catalog_visible", False):
+            # While the catalog panel is open, D-pad up/down scroll the
+            # highlighted catalog entry (never boost/brake).
+            self._boosts.pop(action.target, None)
+            key = (action.target, action.name)
+            now = time.monotonic()
+            last = self._dpad_last_press.get(key)
+            self._dpad_last_press[key] = now
+            if last is not None and now - last <= DPAD_DOUBLE_CLICK_SECONDS:
+                # Double click: jump to the first (up) or last (down) entry and
+                # select it. Cancel any pending auto-repeat and reset the
+                # double-click clock so a third press starts fresh.
+                self._scrolls.pop(action.target, None)
+                self._dpad_last_press.pop(key, None)
+                gui.select_catalog_end(to_top=action.name == DPAD_UP)
+                return
+            # Single press: scroll one entry immediately for responsiveness, then
+            # ``tick()`` arms the auto-repeat only after the key has been held for
+            # ``CATALOG_SCROLL_INITIAL_DELAY`` (500 ms) and thereafter re-scrolls
+            # every ``CATALOG_SCROLL_REPEAT_INTERVAL`` (200 ms) while held, so
+            # catalog selection is not too quick. ``next_scroll_time`` starts as
+            # ``None`` (armed on the next tick).
+            delta = -1 if action.name == DPAD_UP else 1
+            self._scrolls[action.target] = [delta, None]
+            gui.scroll_catalog(delta)
+            return
+        # Otherwise D-pad up boosts and D-pad down brakes the engine/train speed.
+        # Fire once immediately for responsiveness, then ``tick()`` re-sends the
+        # command every ``repeat_interval`` while it is held (``BOOST_SPEED`` /
+        # ``BRAKE_SPEED`` resolve for both Legacy and TMCC).
+        self._scrolls.pop(action.target, None)
+        command = "BOOST_SPEED" if action.name == DPAD_UP else "BRAKE_SPEED"
+        self._boosts[action.target] = command
+        gui.on_engine_command(command)
+
+    def _handle_select_smoke(self, action: DeckAction) -> None:
+        if action.phase != "pressed":
+            # D-pad left/right do not repeat, so only the press matters.
             return
         gui = self._target_gui(action.target)
         if gui is None:
@@ -1319,48 +1377,18 @@ class DeckInputRouter:
             # While the catalog panel is open, D-pad right confirms the
             # highlighted entry (mirroring the A button) and D-pad left
             # cancels/closes the panel; neither repeats.
-            self._boosts.pop(action.target, None)
             if action.name == DPAD_RIGHT:
                 gui.select_catalog_entry()
             else:
                 gui.hide_scope_catalog()
             return
-        # Otherwise D-pad right boosts and D-pad left brakes the engine/train
-        # speed. Fire once immediately for responsiveness, then ``tick()``
-        # re-sends the command every ``repeat_interval`` while it is held
-        # (``BOOST_SPEED``/``BRAKE_SPEED`` resolve for both Legacy and TMCC).
-        command = "BOOST_SPEED" if action.name == DPAD_RIGHT else "BRAKE_SPEED"
-        self._boosts[action.target] = command
-        gui.on_engine_command(command)
-
-    def _handle_scroll_smoke(self, action: DeckAction) -> None:
-        if action.phase != "pressed":
-            # D-pad released: stop repeating the catalog scroll.
-            self._scrolls.pop(action.target, None)
-            return
-        gui = self._target_gui(action.target)
-        if gui is None:
-            return
-        if getattr(gui, "catalog_visible", False):
-            # While the catalog panel is open, the D-pad scrolls the highlighted
-            # catalog entry (clamped at the ends). Scroll once immediately for
-            # responsiveness, then ``tick()`` arms the auto-repeat only after the
-            # key has been held for ``CATALOG_SCROLL_INITIAL_DELAY`` (500 ms) and
-            # thereafter re-scrolls every ``CATALOG_SCROLL_REPEAT_INTERVAL``
-            # (200 ms) while the key is held, so catalog selection is not too
-            # quick. ``next_scroll_time`` starts as ``None`` (armed on the next
-            # tick).
-            delta = -1 if action.name == DPAD_UP else 1
-            self._scrolls[action.target] = [delta, None]
-            gui.scroll_catalog(delta)
-            return
         # Otherwise the D-pad adjusts the engine/train smoke output as a one-shot
-        # (no repeat). ``SMOKE_ON``/``SMOKE_OFF`` resolve automatically per
+        # (no repeat): right raises it (``SMOKE_ON``) and left lowers it
+        # (``SMOKE_OFF``). ``SMOKE_ON``/``SMOKE_OFF`` resolve automatically per
         # control type: for a Legacy target they step the smoke level up/down
         # (Off/Low/Medium/High), and for a non-Legacy (TMCC/Cab-1/R100) target
         # they simply turn smoke on/off.
-        self._scrolls.pop(action.target, None)
-        gui.on_engine_command("SMOKE_ON" if action.name == DPAD_UP else "SMOKE_OFF")
+        gui.on_engine_command("SMOKE_ON" if action.name == DPAD_RIGHT else "SMOKE_OFF")
 
     def _handle_direction(self, action: DeckAction) -> None:
         release_threshold = self.profile.direction_threshold - self.profile.hysteresis

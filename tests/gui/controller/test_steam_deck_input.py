@@ -227,7 +227,7 @@ def test_dpad_scrolls_catalog_in_focused_panel_when_visible() -> None:
     assert focused_gui.scroll_calls == [-1, 1]
 
 
-def test_dpad_up_down_adjust_smoke_when_catalog_hidden() -> None:
+def test_dpad_up_down_boost_brake_when_catalog_hidden() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     focused_gui.scroll_catalog = lambda delta: pytest.fail("should not scroll when catalog hidden")
@@ -239,14 +239,13 @@ def test_dpad_up_down_adjust_smoke_when_catalog_hidden() -> None:
         global_actions={},
     )
 
-    # D-pad up raises smoke (``SMOKE_ON``) and D-pad down lowers it
-    # (``SMOKE_OFF``). ``on_engine_command`` resolves each per control type:
-    # a Legacy target steps the smoke level up/down while a non-Legacy target
-    # turns smoke on/off.
+    # With the catalog hidden, D-pad up boosts the engine/train speed
+    # (``BOOST_SPEED``) and D-pad down brakes it (``BRAKE_SPEED``); both resolve
+    # for Legacy and TMCC engines alike.
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
 
-    assert focused_gui.command_calls == ["SMOKE_ON", "SMOKE_OFF"]
+    assert focused_gui.command_calls == ["BOOST_SPEED", "BRAKE_SPEED"]
 
 
 def test_dpad_up_repeats_catalog_scroll_after_initial_delay() -> None:
@@ -346,7 +345,7 @@ def test_dpad_scroll_repeat_stops_when_catalog_closes() -> None:
     assert router._scrolls == {}
 
 
-def test_dpad_up_down_smoke_does_not_repeat_when_catalog_hidden() -> None:
+def test_dpad_left_right_smoke_does_not_repeat_when_catalog_hidden() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     focused_gui.scroll_catalog = lambda delta: pytest.fail("should not scroll when catalog hidden")
@@ -358,13 +357,14 @@ def test_dpad_up_down_smoke_does_not_repeat_when_catalog_hidden() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # one-shot smoke
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))  # one-shot smoke
     router.tick(10.0)  # primes the repeat clock
     router.tick(10.1)  # no repeat expected for smoke
     router.tick(10.6)  # even past the catalog auto-repeat delay: no repeat
 
     assert focused_gui.command_calls == ["SMOKE_ON"]
     assert router._scrolls == {}
+    assert router._boosts == {}
 
 
 def test_dpad_right_selects_catalog_entry_when_visible() -> None:
@@ -403,7 +403,7 @@ def test_dpad_left_closes_catalog_when_visible() -> None:
     assert focused_gui.hide_calls == 1
 
 
-def test_dpad_left_right_are_noop_when_catalog_hidden() -> None:
+def test_dpad_left_right_adjust_smoke_when_catalog_hidden() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     focused_gui.select_catalog_entry = lambda: pytest.fail("should not select when catalog hidden")
@@ -416,11 +416,15 @@ def test_dpad_left_right_are_noop_when_catalog_hidden() -> None:
         global_actions={},
     )
 
+    # With the catalog hidden, D-pad right raises smoke (``SMOKE_ON``) and D-pad
+    # left lowers it (``SMOKE_OFF``) as one-shots.
     router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
 
+    assert focused_gui.command_calls == ["SMOKE_ON", "SMOKE_OFF"]
 
-def test_dpad_right_boosts_engine_speed_when_catalog_hidden() -> None:
+
+def test_dpad_up_boosts_engine_speed_when_catalog_hidden() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     router = DeckInputRouter(
@@ -431,12 +435,12 @@ def test_dpad_right_boosts_engine_speed_when_catalog_hidden() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
 
     assert focused_gui.command_calls == ["BOOST_SPEED"]
 
 
-def test_dpad_left_brakes_engine_speed_when_catalog_hidden() -> None:
+def test_dpad_down_brakes_engine_speed_when_catalog_hidden() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     router = DeckInputRouter(
@@ -447,7 +451,7 @@ def test_dpad_left_brakes_engine_speed_when_catalog_hidden() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
 
     assert focused_gui.command_calls == ["BRAKE_SPEED"]
 
@@ -471,7 +475,7 @@ def test_dpad_left_right_do_not_boost_or_brake_when_catalog_visible() -> None:
     assert focused_gui.command_calls == []
 
 
-def test_dpad_right_repeats_boost_every_tick_while_held() -> None:
+def test_dpad_up_repeats_boost_every_tick_while_held() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     router = DeckInputRouter(
@@ -482,7 +486,7 @@ def test_dpad_right_repeats_boost_every_tick_while_held() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))  # immediate
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
     router.tick(10.0)  # primes the repeat clock
     router.tick(10.1)  # first repeat
     router.tick(10.2)  # second repeat
@@ -490,7 +494,7 @@ def test_dpad_right_repeats_boost_every_tick_while_held() -> None:
     assert focused_gui.command_calls == ["BOOST_SPEED", "BOOST_SPEED", "BOOST_SPEED"]
 
 
-def test_dpad_left_repeats_brake_every_tick_while_held() -> None:
+def test_dpad_down_repeats_brake_every_tick_while_held() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = False
     router = DeckInputRouter(
@@ -501,7 +505,7 @@ def test_dpad_left_repeats_brake_every_tick_while_held() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))  # immediate
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))  # immediate
     router.tick(10.0)  # primes the repeat clock
     router.tick(10.1)  # first repeat
 
@@ -519,14 +523,114 @@ def test_dpad_release_stops_boost_repeat() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))  # immediate
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
     router.tick(10.0)  # primes the repeat clock
     router.tick(10.1)  # first repeat
-    router.handle(DeckAction(DPAD_RIGHT, "focused", 0.0, "released"))
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
     router.tick(10.2)  # released: no further boost
 
     assert focused_gui.command_calls == ["BOOST_SPEED", "BOOST_SPEED"]
     assert router._boosts == {}
+
+
+def test_dpad_up_down_do_not_boost_or_brake_when_catalog_visible() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_catalog = lambda delta: None
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    # While the catalog is open, up/down scroll it and must never boost/brake.
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == []
+    assert router._boosts == {}
+
+
+def test_dpad_up_double_click_jumps_to_catalog_top_and_selects() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    focused_gui.select_end_calls = []
+    focused_gui.select_catalog_end = lambda to_top: focused_gui.select_end_calls.append(to_top)
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    # Two quick presses of D-pad up count as a double click: the first scrolls
+    # one entry, the second jumps to the first entry and selects it.
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+
+    assert focused_gui.scroll_calls == [-1]
+    assert focused_gui.select_end_calls == [True]
+    assert router._scrolls == {}
+
+
+def test_dpad_down_double_click_jumps_to_catalog_bottom_and_selects() -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    focused_gui.select_end_calls = []
+    focused_gui.select_catalog_end = lambda to_top: focused_gui.select_end_calls.append(to_top)
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    # Two quick presses of D-pad down jump to the last entry and select it.
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+
+    assert focused_gui.scroll_calls == [1]
+    assert focused_gui.select_end_calls == [False]
+    assert router._scrolls == {}
+
+
+def test_dpad_up_presses_far_apart_do_not_double_click(monkeypatch) -> None:
+    focused_gui = _gui()
+    focused_gui.catalog_visible = True
+    focused_gui.scroll_calls = []
+    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
+    focused_gui.select_catalog_end = lambda to_top: pytest.fail("slow presses must not double-click")
+    router = DeckInputRouter(
+        _profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    # Advance the monotonic clock 1 s per press: well outside the double-click
+    # window, so each press is an ordinary single scroll.
+    clock = [100.0]
+
+    def fake_monotonic() -> float:
+        value = clock[0]
+        clock[0] += 1.0
+        return value
+
+    monkeypatch.setattr("time.monotonic", fake_monotonic)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+
+    assert focused_gui.scroll_calls == [-1, -1]
 
 
 def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:

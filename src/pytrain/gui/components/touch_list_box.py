@@ -167,6 +167,25 @@ class TouchListBox(ListBox):
             return False
         return True
 
+    def move_highlight_to_end(self, to_top: bool) -> bool:
+        """
+        Jump the highlight to the first (``to_top=True``) or last entry,
+        regardless of the current position. Returns ``True`` when a valid entry
+        was highlighted (i.e. the list is not empty).
+        """
+        size = self._tk_size()
+        if size <= 0:
+            return False
+        target = 0 if to_top else size - 1
+        try:
+            self._lb.selection_clear(0, "end")
+            self._lb.selection_set(target)
+            self._lb.activate(target)
+            self._lb.see(target)
+        except TclError:
+            return False
+        return True
+
     def set_item_style(
         self,
         index: int | None = None,

@@ -1446,6 +1446,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return False
         return panel.move_highlight(delta)
 
+    def select_catalog_end(self, to_top: bool) -> bool:
+        # Jump the catalog highlight to the first (``to_top``) or last entry and
+        # activate it, mirroring a controller double-click of the D-pad up/down.
+        panel = self._catalog_panel
+        if panel is None or not panel.visible:
+            return False
+        if not panel.move_highlight_to_end(to_top):
+            return False
+        return panel.select_highlighted()
+
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
         self.on_scope(pb.scope, held=True)
