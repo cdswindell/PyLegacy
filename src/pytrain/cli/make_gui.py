@@ -24,7 +24,7 @@ from .pytrain import DEFAULT_BUTTONS_FILE
 from ..gui.accessories_gui import AccessoriesGui
 from ..gui.component_state_gui import ComponentStateGui
 from ..gui.controller.engine_gui import EngineGui
-from ..gui.controller.landscape_engine_gui import LandscapeEngineGui
+from ..gui.controller.steam_deck_gui import SteamDeckGui
 from ..gui.guizero_base import resolve_font_family
 from ..gui.launch_gui import LaunchGui
 from ..gui.motors_gui import MotorsGui
@@ -44,9 +44,9 @@ GUI_ARG_TO_CLASS = {
     "component_state": ComponentStateGui,
     "cp": EngineGui,
     "control_panel": EngineGui,
-    "deck": LandscapeEngineGui,
-    "landscape": LandscapeEngineGui,
-    "steam_deck": LandscapeEngineGui,
+    "deck": SteamDeckGui,
+    "landscape": SteamDeckGui,
+    "steam_deck": SteamDeckGui,
     "la": LaunchGui,
     "launch_pad": LaunchGui,
     "mo": MotorsGui,
@@ -86,13 +86,13 @@ CLASS_TO_TEMPLATE = {
     SystemsGui: f"{SystemsGui.name()}(label=__LABEL__, scale_by=__SCALE_BY__, press_for=__PRESS_FOR__)",
     EngineGui: f"{EngineGui.__name__}(scope=__SCOPE__, tmcc_id=__TMCC_ID__,"
     " scale_by=__SCALE_BY__, num_recents=__NUM_RECENTS__)",
-    LandscapeEngineGui: f"{LandscapeEngineGui.__name__}(width=__WIDTH__, height=__HEIGHT__,"
+    SteamDeckGui: f"{SteamDeckGui.__name__}(width=__WIDTH__, height=__HEIGHT__,"
     " controller_profile=__CONTROLLER_PROFILE__)",
 }
 
 NEED_FONTS = {
     EngineGui,
-    LandscapeEngineGui,
+    SteamDeckGui,
     LaunchGui,
 }
 

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import src.pytrain.gui.controller.landscape_engine_gui as mod
+import src.pytrain.gui.controller.steam_deck_gui as mod
 
 
 class _Tk:
@@ -58,9 +58,9 @@ def test_landscape_defaults_target_native_steam_deck_size(monkeypatch: pytest.Mo
         _self.height = kwargs["height"]
 
     monkeypatch.setattr(mod.GuiZeroBase, "__init__", fake_base_init)
-    monkeypatch.setattr(mod.LandscapeEngineGui, "init_complete", lambda _self: None)
+    monkeypatch.setattr(mod.SteamDeckGui, "init_complete", lambda _self: None)
 
-    gui = mod.LandscapeEngineGui()
+    gui = mod.SteamDeckGui()
 
     assert base_init["width"] == 1280
     assert base_init["height"] == 800
@@ -89,7 +89,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     monkeypatch.setattr(mod, "Box", make_widget)
     monkeypatch.setattr(mod, "Text", make_widget)
     monkeypatch.setattr(mod, "EngineGui", make_child)
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui.width = 1280
     gui.height = 800
     gui._app = SimpleNamespace(tk=_Tk())
@@ -124,7 +124,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
 
 
 def test_focus_changes_without_altering_other_controller() -> None:
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui._focused_panel = "left"
     left_gui = object()
     right_gui = object()
@@ -140,7 +140,7 @@ def test_focus_changes_without_altering_other_controller() -> None:
 
 
 def test_toggle_focus_alternates_between_panels() -> None:
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui._focused_panel = "left"
     gui.left_gui = object()
     gui.right_gui = object()
@@ -153,7 +153,7 @@ def test_toggle_focus_alternates_between_panels() -> None:
 
 
 def test_focus_arrow_points_toward_active_pane() -> None:
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui._focused_panel = "left"
     gui.left_pane = gui.right_pane = None
     gui.focus_arrow = _Widget()
@@ -169,7 +169,7 @@ def test_global_halt_sends_immediately_once(monkeypatch: pytest.MonkeyPatch) -> 
     halt = SimpleNamespace(send_calls=0)
     halt.send = lambda: setattr(halt, "send_calls", halt.send_calls + 1)
     monkeypatch.setitem(mod.KEY_TO_COMMAND, mod.HALT_KEY, halt)
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
 
     gui.on_halt()
 
@@ -177,7 +177,7 @@ def test_global_halt_sends_immediately_once(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_destroy_gui_tears_down_both_children() -> None:
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     left = SimpleNamespace(calls=0)
     right = SimpleNamespace(calls=0)
     left.destroy_embedded = lambda: setattr(left, "calls", left.calls + 1)
@@ -202,7 +202,7 @@ def test_controller_poll_routes_actions_on_tk_thread_and_reschedules(monkeypatch
     router.handle = lambda value: router.actions.append(value)
     router.tick = lambda value: router.ticks.append(value)
     scheduled: list[tuple[int, object]] = []
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui._app = SimpleNamespace(
         tk=SimpleNamespace(after=lambda delay, callback: scheduled.append((delay, callback)) or "a1")
     )
@@ -221,7 +221,7 @@ def test_controller_poll_routes_actions_on_tk_thread_and_reschedules(monkeypatch
 
 def test_controller_shutdown_cancels_poll_and_clears_input() -> None:
     calls: list[str] = []
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui._app = SimpleNamespace(tk=SimpleNamespace(after_cancel=lambda poll_id: calls.append(f"cancel:{poll_id}")))
     gui._controller_poll_id = "poll-1"
     gui._input_provider = SimpleNamespace(stop=lambda: calls.append("stop"))
@@ -234,7 +234,7 @@ def test_controller_shutdown_cancels_poll_and_clears_input() -> None:
 
 
 def test_missing_pygame_keeps_touch_gui_available(monkeypatch: pytest.MonkeyPatch) -> None:
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui._enable_controller = True
     gui._controller_profile = object()
     gui.left_gui = object()
@@ -264,7 +264,7 @@ def test_linked_car_transfer_uses_other_panel_and_confirms_occupied_target() -> 
     target = SimpleNamespace(has_active_selection=True, selections=[])
     target.select_component = lambda scope, tmcc_id: target.selections.append((scope, tmcc_id))
     confirmations: list[str] = []
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui.left_gui = source
     gui.right_gui = target
     gui._confirm_replace = lambda message: confirmations.append(message) or False
@@ -283,7 +283,7 @@ def test_linked_car_transfer_handles_empty_target_and_missing_car() -> None:
     source = SimpleNamespace(linked_car_states=(car,))
     target = SimpleNamespace(has_active_selection=False, selections=[])
     target.select_component = lambda scope, tmcc_id: target.selections.append((scope, tmcc_id))
-    gui = mod.LandscapeEngineGui.__new__(mod.LandscapeEngineGui)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui.left_gui = source
     gui.right_gui = target
     gui._confirm_replace = lambda _message: pytest.fail("empty target must not prompt")

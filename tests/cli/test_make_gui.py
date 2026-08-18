@@ -111,14 +111,14 @@ def test_make_gui_shell_script_includes_cache_sync_switch_only_when_disabled(tmp
 
 
 def test_landscape_aliases_template_and_font_selection() -> None:
-    assert mod.GUI_ARG_TO_CLASS["landscape"] is mod.LandscapeEngineGui
-    assert mod.GUI_ARG_TO_CLASS["steam_deck"] is mod.LandscapeEngineGui
-    assert mod.GUI_ARG_TO_CLASS["deck"] is mod.LandscapeEngineGui
-    template = mod.CLASS_TO_TEMPLATE[mod.LandscapeEngineGui]
+    assert mod.GUI_ARG_TO_CLASS["landscape"] is mod.SteamDeckGui
+    assert mod.GUI_ARG_TO_CLASS["steam_deck"] is mod.SteamDeckGui
+    assert mod.GUI_ARG_TO_CLASS["deck"] is mod.SteamDeckGui
+    template = mod.CLASS_TO_TEMPLATE[mod.SteamDeckGui]
     assert "width=__WIDTH__" in template
     assert "height=__HEIGHT__" in template
     assert "controller_profile=__CONTROLLER_PROFILE__" in template
-    assert {mod.EngineGui, mod.LandscapeEngineGui}.issubset(mod.NEED_FONTS)
+    assert {mod.EngineGui, mod.SteamDeckGui}.issubset(mod.NEED_FONTS)
 
 
 def test_project_packages_digital_dream_fonts() -> None:
@@ -147,11 +147,11 @@ def test_make_gui_parser_constructs_landscape_controller() -> None:
     with mock.patch.object(builtins, "input", return_value="n"):
         mg = MakeGui("-client landscape -controller_profile ~/deck-controls.json".split())
 
-    assert mg._gui_class is mod.LandscapeEngineGui
+    assert mg._gui_class is mod.SteamDeckGui
     assert mg._args.width == 1280
     assert mg._args.height == 800
     assert mg.construct_gui_stmt() == (
-        "LandscapeEngineGui(width=1280, height=800, controller_profile='~/deck-controls.json')"
+        "SteamDeckGui(width=1280, height=800, controller_profile='~/deck-controls.json')"
     )
 
 

@@ -51,7 +51,7 @@ PanelName = Literal["left", "right"]
 log = logging.getLogger(__name__)
 
 
-class LandscapeEngineGui(GuiZeroBase):
+class SteamDeckGui(GuiZeroBase):
     @classmethod
     def name(cls) -> str:
         return cls.__name__
