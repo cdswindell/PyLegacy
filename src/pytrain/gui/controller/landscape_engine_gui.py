@@ -82,7 +82,7 @@ class LandscapeEngineGui(GuiZeroBase):
         )
         self._pane_width = max(1, (self.width - HORIZONTAL_MARGIN - DIVIDER_WIDTH) // 2)
         self._pane_height = self.height
-        self._focused_panel: PanelName = "left"
+        self._focused_panel: PanelName = "right"
         self._left_options = dict(left_options or {})
         self._right_options = dict(right_options or {})
         self._confirm_replace = confirm_replace or self._confirm_panel_replace

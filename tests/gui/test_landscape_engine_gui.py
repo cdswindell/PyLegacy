@@ -67,7 +67,7 @@ def test_landscape_defaults_target_native_steam_deck_size(monkeypatch: pytest.Mo
     assert base_init["full_screen"] is True
     assert gui.pane_width == 632
     assert gui.pane_height == 800
-    assert gui.focused_panel == "left"
+    assert gui.focused_panel == "right"
 
 
 def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.MonkeyPatch) -> None:
