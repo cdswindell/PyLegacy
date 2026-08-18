@@ -61,11 +61,11 @@ CLOSE_POPUP_BUTTON = 2
 # connect log shows every button index 0-10 and axis 0-5 already used by the
 # sticks, triggers, and existing controls, leaving no room for it). While the
 # catalog panel is open, up/down scroll the highlighted entry in the focused
-# pane (a double click of up/down jumps to the first/last entry and selects
-# it), right confirms the highlighted entry, and left cancels/closes the
-# catalog panel. Otherwise (no catalog), up/down boost/brake the engine or
-# train speed (auto-repeating while held) and left/right lower/raise the smoke
-# output (SMOKE_OFF/SMOKE_ON, one-shot per press).
+# pane (a double click of up/down jumps the highlight to the first/last entry
+# without selecting it), right confirms the highlighted entry, and left
+# cancels/closes the catalog panel. Otherwise (no catalog), up/down boost/brake
+# the engine or train speed (auto-repeating while held) and left/right
+# lower/raise the smoke output (SMOKE_OFF/SMOKE_ON, one-shot per press).
 DPAD_UP = "dpad_up"
 DPAD_DOWN = "dpad_down"
 DPAD_LEFT = "dpad_left"
@@ -1340,12 +1340,13 @@ class DeckInputRouter:
             last = self._dpad_last_press.get(key)
             self._dpad_last_press[key] = now
             if last is not None and now - last <= DPAD_DOUBLE_CLICK_SECONDS:
-                # Double click: jump to the first (up) or last (down) entry and
-                # select it. Cancel any pending auto-repeat and reset the
+                # Double click: jump the highlight to the first (up) or last
+                # (down) entry without selecting it (the user confirms the entry
+                # separately). Cancel any pending auto-repeat and reset the
                 # double-click clock so a third press starts fresh.
                 self._scrolls.pop(action.target, None)
                 self._dpad_last_press.pop(key, None)
-                gui.select_catalog_end(to_top=action.name == DPAD_UP)
+                gui.scroll_catalog_to_end(to_top=action.name == DPAD_UP)
                 return
             # Single press: scroll one entry immediately for responsiveness, then
             # ``tick()`` arms the auto-repeat only after the key has been held for

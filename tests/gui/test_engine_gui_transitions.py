@@ -233,6 +233,29 @@ def test_scroll_catalog_noop_when_panel_hidden() -> None:
     assert gui.scroll_catalog(-1) is False
 
 
+def test_scroll_catalog_to_end_jumps_highlight_without_selecting() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    calls: list[bool] = []
+    gui._catalog_panel = SimpleNamespace(
+        visible=True,
+        move_highlight_to_end=lambda to_top: (calls.append(to_top), True)[1],
+        select_highlighted=lambda: pytest.fail("double click must not select the entry"),
+    )
+
+    assert gui.scroll_catalog_to_end(to_top=True) is True
+    assert calls == [True]
+
+
+def test_scroll_catalog_to_end_noop_when_panel_hidden() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._catalog_panel = SimpleNamespace(
+        visible=False,
+        move_highlight_to_end=lambda to_top: pytest.fail("should not scroll while hidden"),
+    )
+
+    assert gui.scroll_catalog_to_end(to_top=False) is False
+
+
 def test_popup_visible_reflects_popup_manager_state() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._popup = SimpleNamespace(current_popup=None)

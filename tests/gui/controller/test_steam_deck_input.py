@@ -553,13 +553,14 @@ def test_dpad_up_down_do_not_boost_or_brake_when_catalog_visible() -> None:
     assert router._boosts == {}
 
 
-def test_dpad_up_double_click_jumps_to_catalog_top_and_selects() -> None:
+def test_dpad_up_double_click_jumps_to_catalog_top_without_selecting() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = True
     focused_gui.scroll_calls = []
     focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
-    focused_gui.select_end_calls = []
-    focused_gui.select_catalog_end = lambda to_top: focused_gui.select_end_calls.append(to_top)
+    focused_gui.scroll_end_calls = []
+    focused_gui.scroll_catalog_to_end = lambda to_top: focused_gui.scroll_end_calls.append(to_top)
+    focused_gui.select_catalog_entry = lambda: pytest.fail("double click must not select the entry")
     router = DeckInputRouter(
         _profile(),
         left=lambda: _gui(),
@@ -569,22 +570,24 @@ def test_dpad_up_double_click_jumps_to_catalog_top_and_selects() -> None:
     )
 
     # Two quick presses of D-pad up count as a double click: the first scrolls
-    # one entry, the second jumps to the first entry and selects it.
+    # one entry, the second jumps the highlight to the first entry (without
+    # selecting it, so the catalog stays open).
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
 
     assert focused_gui.scroll_calls == [-1]
-    assert focused_gui.select_end_calls == [True]
+    assert focused_gui.scroll_end_calls == [True]
     assert router._scrolls == {}
 
 
-def test_dpad_down_double_click_jumps_to_catalog_bottom_and_selects() -> None:
+def test_dpad_down_double_click_jumps_to_catalog_bottom_without_selecting() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = True
     focused_gui.scroll_calls = []
     focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
-    focused_gui.select_end_calls = []
-    focused_gui.select_catalog_end = lambda to_top: focused_gui.select_end_calls.append(to_top)
+    focused_gui.scroll_end_calls = []
+    focused_gui.scroll_catalog_to_end = lambda to_top: focused_gui.scroll_end_calls.append(to_top)
+    focused_gui.select_catalog_entry = lambda: pytest.fail("double click must not select the entry")
     router = DeckInputRouter(
         _profile(),
         left=lambda: _gui(),
@@ -593,12 +596,13 @@ def test_dpad_down_double_click_jumps_to_catalog_bottom_and_selects() -> None:
         global_actions={},
     )
 
-    # Two quick presses of D-pad down jump to the last entry and select it.
+    # Two quick presses of D-pad down jump the highlight to the last entry
+    # (without selecting it, so the catalog stays open).
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
 
     assert focused_gui.scroll_calls == [1]
-    assert focused_gui.select_end_calls == [False]
+    assert focused_gui.scroll_end_calls == [False]
     assert router._scrolls == {}
 
 
@@ -607,7 +611,7 @@ def test_dpad_up_presses_far_apart_do_not_double_click(monkeypatch) -> None:
     focused_gui.catalog_visible = True
     focused_gui.scroll_calls = []
     focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
-    focused_gui.select_catalog_end = lambda to_top: pytest.fail("slow presses must not double-click")
+    focused_gui.scroll_catalog_to_end = lambda to_top: pytest.fail("slow presses must not double-click")
     router = DeckInputRouter(
         _profile(),
         left=lambda: _gui(),
