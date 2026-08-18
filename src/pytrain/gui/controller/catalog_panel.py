@@ -156,7 +156,7 @@ class CatalogPanel(OverlayPanel):
 
     def move_highlight_to_end(self, to_top: bool) -> bool:
         # Jump the highlighted catalog entry to the first (``to_top``) or last
-        # row, so a controller D-pad double-click can jump to either end of the
+        # row, so the controller's catalog-jump chord can reach either end of the
         # list before selecting the entry there.
         if self._catalog is None:
             return False

@@ -11,6 +11,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DPAD_DOWN,
     DPAD_LEFT,
     DPAD_RIGHT,
+    DEFAULT_PROFILE,
     DPAD_UP,
     HORN_COMMAND,
     QUILLING_HORN,
@@ -553,15 +554,23 @@ def test_dpad_up_down_do_not_boost_or_brake_when_catalog_visible() -> None:
     assert router._boosts == {}
 
 
-def test_dpad_up_double_click_jumps_to_catalog_top_without_selecting() -> None:
-    focused_gui = _gui()
-    focused_gui.catalog_visible = True
-    focused_gui.scroll_calls = []
-    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
-    focused_gui.scroll_end_calls = []
-    focused_gui.scroll_catalog_to_end = lambda to_top: focused_gui.scroll_end_calls.append(to_top)
-    focused_gui.select_catalog_entry = lambda: pytest.fail("double click must not select the entry")
-    router = DeckInputRouter(
+def _catalog_gui(*, allow_jump: bool = True) -> SimpleNamespace:
+    # A focused GUI with the catalog open that records catalog scroll/jump calls.
+    gui = _gui()
+    gui.catalog_visible = True
+    gui.scroll_calls = []
+    gui.scroll_catalog = lambda delta: gui.scroll_calls.append(delta)
+    gui.scroll_end_calls = []
+    if allow_jump:
+        gui.scroll_catalog_to_end = lambda to_top: gui.scroll_end_calls.append(to_top)
+    else:
+        gui.scroll_catalog_to_end = lambda to_top: pytest.fail("must not jump to the end of the catalog")
+    gui.select_catalog_entry = lambda: pytest.fail("the jump chord must not select the entry")
+    return gui
+
+
+def _catalog_router(focused_gui: SimpleNamespace) -> DeckInputRouter:
+    return DeckInputRouter(
         _profile(),
         left=lambda: _gui(),
         right=lambda: _gui(),
@@ -569,72 +578,152 @@ def test_dpad_up_double_click_jumps_to_catalog_top_without_selecting() -> None:
         global_actions={},
     )
 
-    # Two quick presses of D-pad up count as a double click: the first scrolls
-    # one entry, the second jumps the highlight to the first entry (without
-    # selecting it, so the catalog stays open).
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
 
-    assert focused_gui.scroll_calls == [-1]
+def _jump_profile(index: int = 8) -> ControlProfile:
+    # A profile whose button ``index`` is the modifier-only ``catalog_jump`` action,
+    # alongside an ordinary bound button (0, the bell) to contrast against.
+    return _profile(
+        buttons={
+            "0": {"action": "bell", "target": "focused"},
+            str(index): {"action": "catalog_jump", "target": "focused"},
+        }
+    )
+
+
+def test_dpad_up_with_jump_modifier_jumps_to_catalog_top_without_selecting() -> None:
+    focused_gui = _catalog_gui()
+    router = _catalog_router(focused_gui)
+
+    # Holding the ``catalog_jump`` modifier turns D-pad up into a jump to the first
+    # entry, without selecting it (so the catalog stays open) and without the
+    # ordinary one-entry scroll.
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=True))
+
+    assert focused_gui.scroll_end_calls == [True]
+    assert focused_gui.scroll_calls == []
+
+
+def test_dpad_down_with_jump_modifier_jumps_to_catalog_bottom_without_selecting() -> None:
+    focused_gui = _catalog_gui()
+    router = _catalog_router(focused_gui)
+
+    # Same chord on D-pad down jumps the highlight to the last entry.
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=True))
+
+    assert focused_gui.scroll_end_calls == [False]
+    assert focused_gui.scroll_calls == []
+
+
+def test_dpad_repeated_quick_presses_never_jump_without_the_modifier() -> None:
+    focused_gui = _catalog_gui(allow_jump=False)
+    router = _catalog_router(focused_gui)
+
+    # Without the modifier, presses scroll one entry each no matter how fast they
+    # arrive: tap-scrolling the catalog can never be mistaken for a jump.
+    for _ in range(4):
+        router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+        router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+
+    assert focused_gui.scroll_calls == [-1, -1, -1, -1]
+
+
+def test_dpad_jump_modifier_cancels_pending_auto_repeat() -> None:
+    focused_gui = _catalog_gui()
+    router = _catalog_router(focused_gui)
+
+    # A held D-pad arms the auto-repeat; a jump then cancels it so a still-held
+    # D-pad does not keep scrolling away from the entry it just jumped to.
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    assert router._scrolls != {}
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=True))
+
     assert focused_gui.scroll_end_calls == [True]
     assert router._scrolls == {}
 
 
-def test_dpad_down_double_click_jumps_to_catalog_bottom_without_selecting() -> None:
-    focused_gui = _gui()
-    focused_gui.catalog_visible = True
-    focused_gui.scroll_calls = []
-    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
-    focused_gui.scroll_end_calls = []
-    focused_gui.scroll_catalog_to_end = lambda to_top: focused_gui.scroll_end_calls.append(to_top)
-    focused_gui.select_catalog_entry = lambda: pytest.fail("double click must not select the entry")
-    router = DeckInputRouter(
-        _profile(),
-        left=lambda: _gui(),
-        right=lambda: _gui(),
-        focused=lambda: focused_gui,
-        global_actions={},
+def test_dpad_jump_modifier_still_boosts_when_catalog_closed() -> None:
+    focused_gui = _catalog_gui(allow_jump=False)
+    focused_gui.catalog_visible = False
+    focused_gui.command_calls = []
+    focused_gui.on_engine_command = lambda command, data=None: focused_gui.command_calls.append(command)
+    router = _catalog_router(focused_gui)
+
+    # With no catalog on screen there is nothing to jump to, so the modifier is
+    # ignored and D-pad up/down still boost/brake.
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=True))
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=True))
+
+    assert focused_gui.command_calls == ["BOOST_SPEED", "BRAKE_SPEED"]
+    assert focused_gui.scroll_calls == []
+
+
+def test_provider_flags_jump_modifier_while_catalog_jump_button_held() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=8),
+            SimpleNamespace(type=6, value=(0, 1)),
+            SimpleNamespace(type=6, value=(0, 0)),
+            SimpleNamespace(type=6, value=(0, -1)),
+        ]
     )
+    provider = SteamDeckInputProvider(_jump_profile(), pygame_module=pygame)
 
-    # Two quick presses of D-pad down jump the highlight to the last entry
-    # (without selecting it, so the catalog stays open).
-    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
-    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    actions = provider.poll()
 
-    assert focused_gui.scroll_calls == [1]
-    assert focused_gui.scroll_end_calls == [False]
-    assert router._scrolls == {}
+    # The modifier button emits no action of its own; both D-pad presses made while
+    # it is held carry the flag, and the release in between does not.
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [
+        (DPAD_UP, "pressed", True),
+        (DPAD_UP, "released", False),
+        (DPAD_DOWN, "pressed", True),
+    ]
 
 
-def test_dpad_up_presses_far_apart_do_not_double_click(monkeypatch) -> None:
-    focused_gui = _gui()
-    focused_gui.catalog_visible = True
-    focused_gui.scroll_calls = []
-    focused_gui.scroll_catalog = lambda delta: focused_gui.scroll_calls.append(delta)
-    focused_gui.scroll_catalog_to_end = lambda to_top: pytest.fail("slow presses must not double-click")
-    router = DeckInputRouter(
-        _profile(),
-        left=lambda: _gui(),
-        right=lambda: _gui(),
-        focused=lambda: focused_gui,
-        global_actions={},
+def test_provider_does_not_flag_jump_modifier_once_released() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=8),
+            SimpleNamespace(type=3, button=8),
+            SimpleNamespace(type=6, value=(0, 1)),
+        ]
     )
+    provider = SteamDeckInputProvider(_jump_profile(), pygame_module=pygame)
 
-    # Advance the monotonic clock 1 s per press: well outside the double-click
-    # window, so each press is an ordinary single scroll.
-    clock = [100.0]
+    actions = provider.poll()
 
-    def fake_monotonic() -> float:
-        value = clock[0]
-        clock[0] += 1.0
-        return value
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [(DPAD_UP, "pressed", False)]
 
-    monkeypatch.setattr("time.monotonic", fake_monotonic)
 
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+def test_provider_does_not_flag_jump_modifier_for_an_unrelated_button() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=0),
+            SimpleNamespace(type=6, value=(0, 1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_jump_profile(), pygame_module=pygame)
 
-    assert focused_gui.scroll_calls == [-1, -1]
+    actions = provider.poll()
+
+    # Button 0 is the bell, not the modifier: it emits its own action and leaves the
+    # D-pad press unflagged.
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [
+        ("bell", "pressed", False),
+        (DPAD_UP, "pressed", False),
+    ]
+
+
+def test_catalog_jump_button_is_a_valid_profile_binding() -> None:
+    profile = _jump_profile(8)
+
+    assert profile.catalog_jump_buttons == frozenset({8})
+    # The bundled default profile must bind the modifier somewhere, or the jump
+    # chord is unreachable on a stock install.
+    assert ControlProfile.load(DEFAULT_PROFILE, fallback=False).catalog_jump_buttons
 
 
 def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:

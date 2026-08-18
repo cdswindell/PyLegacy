@@ -81,6 +81,10 @@
       "action": "scope_catalog",
       "target": "focused"
     },
+    "8": {
+      "action": "catalog_jump",
+      "target": "focused"
+    },
     "9": {
       "action": "focus_left",
       "target": "global"

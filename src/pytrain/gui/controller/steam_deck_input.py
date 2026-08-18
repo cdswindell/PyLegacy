@@ -43,6 +43,10 @@ SUPPORTED_ACTIONS = {
     "sequence_control",
     "front_coupler",
     "rear_coupler",
+    # Modifier-only action: a button bound to it emits no action of its own and
+    # instead turns D-pad up/down into a jump to the first/last catalog entry
+    # while it is held. See ``CATALOG_JUMP`` below.
+    "catalog_jump",
 }
 AXIS_ACTIONS = {"throttle", "direction", "quilling_horn"}
 # Discrete navigation actions that may be bound to an analog trigger axis
@@ -61,8 +65,8 @@ CLOSE_POPUP_BUTTON = 2
 # connect log shows every button index 0-10 and axis 0-5 already used by the
 # sticks, triggers, and existing controls, leaving no room for it). While the
 # catalog panel is open, up/down scroll the highlighted entry in the focused
-# pane (a double click of up/down jumps the highlight to the first/last entry
-# without selecting it), right confirms the highlighted entry, and left
+# pane (or jump to the first/last entry when the ``catalog_jump`` modifier is
+# held), right confirms the highlighted entry, and left
 # cancels/closes the catalog panel. Otherwise (no catalog), up/down boost/brake
 # the engine or train speed (auto-repeating while held) and left/right
 # lower/raise the smoke output (SMOKE_OFF/SMOKE_ON, one-shot per press).
@@ -115,13 +119,17 @@ SEQUENCE_CONTROL_DURATION = 3.1
 # quick to control.
 CATALOG_SCROLL_INITIAL_DELAY = 0.5
 CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
-# While the catalog panel is open, a *double* click of the D-pad up jumps the
-# highlight to the first entry and selects it; a double click of the D-pad down
-# jumps to the last entry and selects it. Two presses of the same direction
-# within ``DPAD_DOUBLE_CLICK_SECONDS`` count as a double click. This is kept
-# short so tap-scrolling the catalog one entry at a time (a natural ~2-3 presses
-# per second) is not mistaken for the jump-to-end gesture.
-DPAD_DOUBLE_CLICK_SECONDS = 0.2
+# Jumping to the first/last catalog entry is a chord rather than a timed gesture:
+# hold the button bound to the ``catalog_jump`` action (the "..." button in the
+# bundled profile) and press D-pad up to jump the highlight to the first entry or
+# D-pad down to jump to the last entry, without selecting it (the user confirms
+# the entry separately). A chord has no timing to get wrong -- there is no window
+# in which an ordinary one-entry scroll can be mistaken for a jump. The modifier
+# button performs no action of its own, so holding it is harmless. Which physical
+# button acts as the modifier is a profile decision (any button index may be bound
+# to ``catalog_jump``); the modifier is ignored when the catalog is closed, where
+# D-pad up/down still boost/brake.
+CATALOG_JUMP = "catalog_jump"
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -289,6 +297,13 @@ class DeckAction:
     value: float
     phase: str
     button: int | None = None
+    # True when the ``catalog_jump`` modifier button was held as this action was
+    # produced. Only D-pad up/down presses set it; the router turns those into a
+    # jump to the first/last catalog entry instead of a one-entry scroll. The
+    # provider reports only the physical fact that the modifier was held so the
+    # router keeps sole ownership of what is on screen (the modifier is ignored
+    # when the catalog is closed).
+    jump_modifier: bool = False
 
 
 @dataclass(frozen=True)
@@ -332,6 +347,13 @@ class ControlProfile:
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
     touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
     touch_dead_zone: float = DEFAULT_TOUCH_DEAD_ZONE
+
+    @property
+    def catalog_jump_buttons(self) -> frozenset[int]:
+        # Button indices bound to the modifier-only ``catalog_jump`` action.
+        # Usually one button, but a profile may bind several (e.g. a left and a
+        # right modifier) and any of them held enables the jump.
+        return frozenset(index for index, binding in self.buttons.items() if binding.action == CATALOG_JUMP)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ControlProfile":
@@ -919,6 +941,16 @@ class SteamDeckInputProvider:
             self._fired_chords = {chord for chord in self._fired_chords if chord.buttons.issubset(self._held_buttons)}
         binding = self.profile.buttons.get(button)
         if binding is None:
+            if pressed:
+                # Log unbound presses so the physical-button-to-index mapping of a
+                # particular controller can be discovered from the log (useful when
+                # binding a modifier such as ``catalog_jump`` to a button whose SDL
+                # index is not known up front).
+                log.info("Steam Deck button %s pressed but not bound by the profile", button)
+            return actions
+        if binding.action == CATALOG_JUMP:
+            # Modifier-only: it performs no action of its own. ``_held_buttons``
+            # above already recorded it, which is all the jump chord needs.
             return actions
         if binding.action in LONG_PRESS_ACTIONS:
             actions.extend(self._long_press_button_actions(button, binding, pressed))
@@ -968,6 +1000,10 @@ class SteamDeckInputProvider:
         if y != self._hat_y:
             previous_y = self._hat_y
             self._hat_y = y
+            # Report whether the ``catalog_jump`` modifier is held as this
+            # direction is pressed, so the router can turn the press into a jump
+            # to the first/last catalog entry.
+            jump = bool(self.profile.catalog_jump_buttons & self._held_buttons)
             # Emit a release for the previously held vertical direction so the
             # router can stop repeating the catalog scroll it fires while the
             # D-pad up/down is held.
@@ -976,9 +1012,9 @@ class SteamDeckInputProvider:
             elif previous_y < 0:
                 actions.append(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
             if y > 0:
-                actions.append(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+                actions.append(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=jump))
             elif y < 0:
-                actions.append(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+                actions.append(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=jump))
         if x != self._hat_x:
             previous_x = self._hat_x
             self._hat_x = x
@@ -1091,10 +1127,6 @@ class DeckInputRouter:
         # on the first ``tick()`` after the press (arming it ``tick()``-side keeps
         # the timing on the same clock ``tick()`` uses).
         self._scrolls: dict[Target, list] = {}
-        # Timestamp of the last D-pad up/down press per ``(target, name)`` while
-        # the catalog is open, used to detect a double click (jump to the
-        # first/last entry and select it).
-        self._dpad_last_press: dict[tuple[Target, str], float] = {}
         self._held_commands: dict[int, tuple[Target, str]] = {}
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
@@ -1296,7 +1328,6 @@ class DeckInputRouter:
         self._quills.clear()
         self._boosts.clear()
         self._scrolls.clear()
-        self._dpad_last_press.clear()
         self._held_commands.clear()
         self._sequences.clear()
         self._direction_latches.clear()
@@ -1337,17 +1368,12 @@ class DeckInputRouter:
             # While the catalog panel is open, D-pad up/down scroll the
             # highlighted catalog entry (never boost/brake).
             self._boosts.pop(action.target, None)
-            key = (action.target, action.name)
-            now = time.monotonic()
-            last = self._dpad_last_press.get(key)
-            self._dpad_last_press[key] = now
-            if last is not None and now - last <= DPAD_DOUBLE_CLICK_SECONDS:
-                # Double click: jump the highlight to the first (up) or last
-                # (down) entry without selecting it (the user confirms the entry
-                # separately). Cancel any pending auto-repeat and reset the
-                # double-click clock so a third press starts fresh.
+            if action.jump_modifier:
+                # The ``catalog_jump`` modifier is held: jump the highlight to the
+                # first (up) or last (down) entry without selecting it (the user
+                # confirms the entry separately). Cancel any pending auto-repeat so
+                # a held D-pad does not keep scrolling away from the end.
                 self._scrolls.pop(action.target, None)
-                self._dpad_last_press.pop(key, None)
                 gui.scroll_catalog_to_end(to_top=action.name == DPAD_UP)
                 return
             # Single press: scroll one entry immediately for responsiveness, then
