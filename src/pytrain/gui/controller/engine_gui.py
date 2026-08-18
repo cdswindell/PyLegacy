@@ -2089,6 +2089,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
             emergency_box.tk.config(width=fitted_width, height=self.emergency_box_height)
             emergency_box.tk.pack_configure(fill="x", expand=False)
             emergency_box.tk.pack_propagate(False)
+            # The emergency box lays its buttons out with ``grid`` (not ``pack``),
+            # so ``pack_propagate(False)`` above does not keep the frame from
+            # shrinking to the natural width of its buttons. Use
+            # ``grid_propagate(False)`` so the box honors the fixed width above
+            # and the column weights below stretch HALT/Reset across the whole
+            # width, matching the Road Number/Name info row.
+            emergency_box.tk.grid_propagate(False)
             emergency_box.tk.grid_columnconfigure(reset_col, weight=1)
             self.reset_btn.tk.grid_configure(sticky="ew")
             if self.halt_btn:

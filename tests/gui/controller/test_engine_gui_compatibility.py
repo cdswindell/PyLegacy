@@ -29,12 +29,14 @@ class _Widget:
         self.pack_configs = []
         self.grid_configs = []
         self.grid_columns = []
+        self.grid_propagates = []
         self.tk = SimpleNamespace(
             winfo_width=lambda: 600,
             winfo_height=lambda: 100,
             config=lambda **_kwargs: None,
             pack_configure=lambda **config: self.pack_configs.append(config),
             pack_propagate=lambda _value: None,
+            grid_propagate=lambda _value: self.grid_propagates.append(_value),
             grid_columnconfigure=lambda column, **config: self.grid_columns.append((column, config)),
             grid_configure=lambda **config: self.grid_configs.append(config),
         )
@@ -349,6 +351,10 @@ def test_compact_emergency_row_uses_short_actions_and_minimal_padding(monkeypatc
     assert gui.linked_cars_btn.kwargs["padx"] == 4
     assert [widget.kwargs.get("text") for widget in widgets].count(" ") == 0
     assert gui.emergency_box.pack_configs == [{"fill": "x", "expand": False}]
+    # The emergency box is a grid container, so it must disable grid propagation
+    # (not just pack propagation) to hold its full width and let the column
+    # weights stretch the action buttons across the whole row.
+    assert gui.emergency_box.grid_propagates == [False]
     assert gui.reset_btn.grid_configs == [{"sticky": "ew"}]
     assert gui.linked_cars_btn.grid_configs == [{"sticky": "ew"}]
 
