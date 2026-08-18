@@ -118,8 +118,10 @@ CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
 # While the catalog panel is open, a *double* click of the D-pad up jumps the
 # highlight to the first entry and selects it; a double click of the D-pad down
 # jumps to the last entry and selects it. Two presses of the same direction
-# within ``DPAD_DOUBLE_CLICK_SECONDS`` count as a double click.
-DPAD_DOUBLE_CLICK_SECONDS = 0.4
+# within ``DPAD_DOUBLE_CLICK_SECONDS`` count as a double click. This is kept
+# short so tap-scrolling the catalog one entry at a time (a natural ~2-3 presses
+# per second) is not mistaken for the jump-to-end gesture.
+DPAD_DOUBLE_CLICK_SECONDS = 0.2
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
