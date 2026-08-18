@@ -103,6 +103,15 @@ PANEL_COMMANDS = {
 SEQUENCE_CONTROL = "sequence_control"
 SEQUENCE_CONTROL_COMMAND = "AUX1_OPTION_ONE"
 SEQUENCE_CONTROL_DURATION = 3.1
+# While the catalog panel is open, holding the D-pad up/down auto-repeats the
+# highlighted-entry scroll. The first scroll fires immediately on press; the
+# auto-repeat then only begins after the key has been held for
+# ``CATALOG_SCROLL_INITIAL_DELAY`` seconds and thereafter advances one entry
+# every ``CATALOG_SCROLL_REPEAT_INTERVAL`` seconds. These are deliberately
+# slower than the 100 ms ``repeat_interval`` so catalog selection is not too
+# quick to control.
+CATALOG_SCROLL_INITIAL_DELAY = 0.5
+CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -1067,7 +1076,11 @@ class DeckInputRouter:
         self._commanded_speeds: dict[Target, float] = {}
         self._quills: dict[Target, float] = {}
         self._boosts: dict[Target, str] = {}
-        self._scrolls: dict[Target, int] = {}
+        # Maps a target to ``[delta, next_scroll_time]`` for a held catalog
+        # scroll. ``next_scroll_time`` is ``None`` until the auto-repeat is armed
+        # on the first ``tick()`` after the press (arming it ``tick()``-side keeps
+        # the timing on the same clock ``tick()`` uses).
+        self._scrolls: dict[Target, list] = {}
         self._held_commands: dict[int, tuple[Target, str]] = {}
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
@@ -1221,16 +1234,26 @@ class DeckInputRouter:
             if gui is None:
                 continue
             gui.on_engine_command(command)
-        for target, delta in tuple(self._scrolls.items()):
-            # Re-scroll the catalog one entry every ``repeat_interval`` (100 ms)
-            # for as long as the D-pad up/down is held, so the user can scroll
-            # through entries by keeping the key pressed. Stop if the catalog
-            # panel is no longer open.
+        for target, entry in tuple(self._scrolls.items()):
+            # Auto-repeat the catalog scroll while the D-pad up/down is held, but
+            # only after an initial ``CATALOG_SCROLL_INITIAL_DELAY`` (500 ms) hold
+            # and then only once every ``CATALOG_SCROLL_REPEAT_INTERVAL`` (200 ms)
+            # so catalog selection is not too quick. Stop if the catalog panel is
+            # no longer open.
             gui = self._target_gui(target)
             if gui is None or not getattr(gui, "catalog_visible", False):
                 self._scrolls.pop(target, None)
                 continue
-            gui.scroll_catalog(delta)
+            delta, next_scroll_time = entry
+            if next_scroll_time is None:
+                # First tick after the press: arm the auto-repeat to begin one
+                # initial delay from now (the immediate scroll already happened
+                # on press).
+                entry[1] = now + CATALOG_SCROLL_INITIAL_DELAY
+                continue
+            if now + 1e-9 >= next_scroll_time:
+                gui.scroll_catalog(delta)
+                entry[1] = now + CATALOG_SCROLL_REPEAT_INTERVAL
         for _button, (target, command) in tuple(self._held_commands.items()):
             # Re-send a held panel command (e.g. the X/Y buttons) every
             # ``repeat_interval`` (100 ms) for as long as the button is held.
@@ -1321,10 +1344,14 @@ class DeckInputRouter:
         if getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, the D-pad scrolls the highlighted
             # catalog entry (clamped at the ends). Scroll once immediately for
-            # responsiveness, then ``tick()`` re-scrolls every ``repeat_interval``
-            # (100 ms) while the key is held so entries scroll continuously.
+            # responsiveness, then ``tick()`` arms the auto-repeat only after the
+            # key has been held for ``CATALOG_SCROLL_INITIAL_DELAY`` (500 ms) and
+            # thereafter re-scrolls every ``CATALOG_SCROLL_REPEAT_INTERVAL``
+            # (200 ms) while the key is held, so catalog selection is not too
+            # quick. ``next_scroll_time`` starts as ``None`` (armed on the next
+            # tick).
             delta = -1 if action.name == DPAD_UP else 1
-            self._scrolls[action.target] = delta
+            self._scrolls[action.target] = [delta, None]
             gui.scroll_catalog(delta)
             return
         # Otherwise the D-pad adjusts the engine/train smoke output as a one-shot

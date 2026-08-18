@@ -249,7 +249,7 @@ def test_dpad_up_down_adjust_smoke_when_catalog_hidden() -> None:
     assert focused_gui.command_calls == ["SMOKE_ON", "SMOKE_OFF"]
 
 
-def test_dpad_up_repeats_catalog_scroll_every_tick_while_held() -> None:
+def test_dpad_up_repeats_catalog_scroll_after_initial_delay() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = True
     focused_gui.scroll_calls = []
@@ -262,15 +262,20 @@ def test_dpad_up_repeats_catalog_scroll_every_tick_while_held() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate scroll
     router.tick(10.0)  # primes the repeat clock
-    router.tick(10.1)  # first repeat
-    router.tick(10.2)  # second repeat
+    router.tick(10.1)  # arms the 500 ms auto-repeat delay (next at 10.6)
+    router.tick(10.4)  # only 300 ms held: still no auto-repeat
+    assert focused_gui.scroll_calls == [-1]
+
+    router.tick(10.6)  # 500 ms elapsed: first auto-repeat (next at 10.8)
+    router.tick(10.7)  # only 100 ms since last repeat: no scroll
+    router.tick(10.8)  # 200 ms later: second auto-repeat
 
     assert focused_gui.scroll_calls == [-1, -1, -1]
 
 
-def test_dpad_down_repeats_catalog_scroll_every_tick_while_held() -> None:
+def test_dpad_down_repeats_catalog_scroll_after_initial_delay() -> None:
     focused_gui = _gui()
     focused_gui.catalog_visible = True
     focused_gui.scroll_calls = []
@@ -283,9 +288,10 @@ def test_dpad_down_repeats_catalog_scroll_every_tick_while_held() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))  # immediate
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))  # immediate scroll
     router.tick(10.0)  # primes the repeat clock
-    router.tick(10.1)  # first repeat
+    router.tick(10.1)  # arms the 500 ms auto-repeat delay (next at 10.6)
+    router.tick(10.6)  # 500 ms elapsed: first auto-repeat
 
     assert focused_gui.scroll_calls == [1, 1]
 
@@ -303,11 +309,12 @@ def test_dpad_release_stops_catalog_scroll_repeat() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate scroll
     router.tick(10.0)  # primes the repeat clock
-    router.tick(10.1)  # first repeat
+    router.tick(10.1)  # arms the 500 ms auto-repeat delay (next at 10.6)
+    router.tick(10.6)  # 500 ms elapsed: first auto-repeat
     router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
-    router.tick(10.2)  # released: no further scroll
+    router.tick(10.8)  # released: no further scroll
 
     assert focused_gui.scroll_calls == [-1, -1]
     assert router._scrolls == {}
@@ -326,13 +333,14 @@ def test_dpad_scroll_repeat_stops_when_catalog_closes() -> None:
         global_actions={},
     )
 
-    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate scroll
     router.tick(10.0)  # primes the repeat clock
-    router.tick(10.1)  # first repeat
+    router.tick(10.1)  # arms the 500 ms auto-repeat delay (next at 10.6)
+    router.tick(10.6)  # 500 ms elapsed: first auto-repeat
     # The catalog panel closes (e.g. an entry was selected) while the key is
     # still held; the repeat must stop rather than scroll a hidden panel.
     focused_gui.catalog_visible = False
-    router.tick(10.2)
+    router.tick(10.8)
 
     assert focused_gui.scroll_calls == [-1, -1]
     assert router._scrolls == {}
@@ -353,6 +361,7 @@ def test_dpad_up_down_smoke_does_not_repeat_when_catalog_hidden() -> None:
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # one-shot smoke
     router.tick(10.0)  # primes the repeat clock
     router.tick(10.1)  # no repeat expected for smoke
+    router.tick(10.6)  # even past the catalog auto-repeat delay: no repeat
 
     assert focused_gui.command_calls == ["SMOKE_ON"]
     assert router._scrolls == {}
