@@ -579,7 +579,7 @@ def _catalog_router(focused_gui: SimpleNamespace) -> DeckInputRouter:
     )
 
 
-def _jump_profile(index: int = 8) -> ControlProfile:
+def _jump_profile(index: int = 15) -> ControlProfile:
     # A profile whose button ``index`` is the modifier-only ``catalog_jump`` action,
     # alongside an ordinary bound button (0, the bell) to contrast against.
     return _profile(
@@ -662,7 +662,7 @@ def test_provider_flags_jump_modifier_while_catalog_jump_button_held() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(
         get=lambda: [
-            SimpleNamespace(type=2, button=8),
+            SimpleNamespace(type=2, button=15),
             SimpleNamespace(type=6, value=(0, 1)),
             SimpleNamespace(type=6, value=(0, 0)),
             SimpleNamespace(type=6, value=(0, -1)),
@@ -685,8 +685,8 @@ def test_provider_does_not_flag_jump_modifier_once_released() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(
         get=lambda: [
-            SimpleNamespace(type=2, button=8),
-            SimpleNamespace(type=3, button=8),
+            SimpleNamespace(type=2, button=15),
+            SimpleNamespace(type=3, button=15),
             SimpleNamespace(type=6, value=(0, 1)),
         ]
     )
@@ -718,9 +718,9 @@ def test_provider_does_not_flag_jump_modifier_for_an_unrelated_button() -> None:
 
 
 def test_catalog_jump_button_is_a_valid_profile_binding() -> None:
-    profile = _jump_profile(8)
+    profile = _jump_profile(15)
 
-    assert profile.catalog_jump_buttons == frozenset({8})
+    assert profile.catalog_jump_buttons == frozenset({15})
     # The bundled default profile must bind the modifier somewhere, or the jump
     # chord is unreachable on a stock install.
     assert ControlProfile.load(DEFAULT_PROFILE, fallback=False).catalog_jump_buttons

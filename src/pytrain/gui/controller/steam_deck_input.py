@@ -61,9 +61,12 @@ SELECT_BUTTON = 0
 # SDL "X" button. While a popup panel is displayed it closes the popup;
 # otherwise it performs whatever action the profile assigns to it.
 CLOSE_POPUP_BUTTON = 2
-# SDL D-pad (hat). On the Steam Deck the D-pad is reported as an SDL hat (the
-# connect log shows every button index 0-10 and axis 0-5 already used by the
-# sticks, triggers, and existing controls, leaving no room for it). While the
+# SDL D-pad (hat). On the Steam Deck the D-pad is reported as an SDL hat rather
+# than as buttons: button indices 0-10 and axes 0-5 are taken by the sticks,
+# triggers, face/shoulder buttons, and stick clicks, and the D-pad arrives as hat
+# motion instead. Higher button indices do exist (``scripts/deckinfo.py`` reports
+# the "..." button below the right trackpad as button 15) but none of them is the
+# D-pad. While the
 # catalog panel is open, up/down scroll the highlighted entry in the focused
 # pane (or jump to the first/last entry when the ``catalog_jump`` modifier is
 # held), right confirms the highlighted entry, and left
@@ -120,8 +123,10 @@ SEQUENCE_CONTROL_DURATION = 3.1
 CATALOG_SCROLL_INITIAL_DELAY = 0.5
 CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
 # Jumping to the first/last catalog entry is a chord rather than a timed gesture:
-# hold the button bound to the ``catalog_jump`` action (the "..." button in the
-# bundled profile) and press D-pad up to jump the highlight to the first entry or
+# hold the button bound to the ``catalog_jump`` action (button 15, the "..." button
+# below the right trackpad, in the bundled profile -- confirmed with
+# ``scripts/deckinfo.py``, which mirrors this module's SDL setup so its reported
+# indices match these) and press D-pad up to jump the highlight to the first entry or
 # D-pad down to jump to the last entry, without selecting it (the user confirms
 # the entry separately). A chord has no timing to get wrong -- there is no window
 # in which an ordinary one-entry scroll can be mistaken for a jump. The modifier

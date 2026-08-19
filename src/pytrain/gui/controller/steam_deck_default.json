@@ -81,10 +81,6 @@
       "action": "scope_catalog",
       "target": "focused"
     },
-    "8": {
-      "action": "catalog_jump",
-      "target": "focused"
-    },
     "9": {
       "action": "focus_left",
       "target": "global"
@@ -92,6 +88,10 @@
     "10": {
       "action": "focus_right",
       "target": "global"
+    },
+    "15": {
+      "action": "catalog_jump",
+      "target": "focused"
     }
   },
   "chords": [
