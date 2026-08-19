@@ -71,6 +71,9 @@ print("pygame version:", pygame.version.ver, " SDL version:", ".".join(str(v) fo
 _controllers = []
 for _index in range(pygame.joystick.get_count()):
     js = pygame.joystick.Joystick(_index)
+    # ``buttons`` is the joystick button count: a profile may only bind indices
+    # 0..buttons-1. If a physical button's JOYSTICK index is never printed below,
+    # it is outside this count and cannot be bound by index.
     print("name:", js.get_name(), " buttons:", js.get_numbuttons(), " axes:", js.get_numaxes())
     if _controller is not None:
         try:
@@ -80,8 +83,55 @@ for _index in range(pygame.joystick.get_count()):
         except (RuntimeError, AttributeError) as exc:
             print("could not open device as game controller:", exc)
 
-# Allow the touchpad events so ``pygame.event.get()`` actually delivers them.
-for _name in ("CONTROLLERTOUCHPADDOWN", "CONTROLLERTOUCHPADMOTION", "CONTROLLERTOUCHPADUP"):
+# SDL numbers buttons two different ways, and mixing them up is an easy way to
+# bind a control that never fires:
+#
+#   * The *joystick* API (``JOYBUTTONDOWN``, ``event.button``) reports the device's
+#     own button order. On the Deck that is the Linux joydev/xpad order -- 0-3
+#     A/B/X/Y, 4/5 L1/R1, 6 View, 7 Menu, 8 Steam, 9/10 stick clicks -- with the
+#     D-pad delivered as hat motion rather than as buttons.
+#   * The *game controller* API (``CONTROLLERBUTTONDOWN``) reports SDL's fixed
+#     ``SDL_CONTROLLER_BUTTON_*`` enum, where GUIDE (Steam) is 5, the D-pad is
+#     11-14, and MISC1 (the "..." button) is 15.
+#
+# PyTrain's profile (``steam_deck_default.json``) is indexed by the *joystick*
+# numbering, because ``SteamDeckInputProvider`` reads ``JOYBUTTONDOWN``. So print
+# both, clearly labelled: only the JOYSTICK number can go in the profile, and a
+# button that produces a CONTROLLER line but no JOYSTICK line cannot be bound by
+# index at all.
+_CONTROLLER_BUTTON_NAMES = {
+    0: "A",
+    1: "B",
+    2: "X",
+    3: "Y",
+    4: "BACK (View)",
+    5: "GUIDE (Steam)",
+    6: "START (Menu)",
+    7: "LEFTSTICK",
+    8: "RIGHTSTICK",
+    9: "LEFTSHOULDER",
+    10: "RIGHTSHOULDER",
+    11: "DPAD_UP",
+    12: "DPAD_DOWN",
+    13: "DPAD_LEFT",
+    14: "DPAD_RIGHT",
+    15: 'MISC1 ("...")',
+    16: "PADDLE1 (R4)",
+    17: "PADDLE2 (L4)",
+    18: "PADDLE3 (R5)",
+    19: "PADDLE4 (L5)",
+    20: "TOUCHPAD",
+}
+
+# Allow the controller button + touchpad events so ``pygame.event.get()`` actually
+# delivers them.
+for _name in (
+    "CONTROLLERBUTTONDOWN",
+    "CONTROLLERBUTTONUP",
+    "CONTROLLERTOUCHPADDOWN",
+    "CONTROLLERTOUCHPADMOTION",
+    "CONTROLLERTOUCHPADUP",
+):
     _event_type = getattr(pygame, _name, None)
     if _event_type is not None:
         pygame.event.set_allowed(_event_type)
@@ -243,7 +293,11 @@ while True:
     _drain_hidraw()
     for e in pygame.event.get():
         if e.type == pygame.JOYBUTTONDOWN:
-            print("BUTTON DOWN index =", e.button)
+            # The only numbering that can be used in the profile.
+            print("JOYSTICK BUTTON DOWN index =", e.button, " <-- use this number in the profile")
+        elif e.type == getattr(pygame, "CONTROLLERBUTTONDOWN", -1):
+            name = _CONTROLLER_BUTTON_NAMES.get(e.button, "unknown")
+            print(f"CONTROLLER BUTTON DOWN index = {e.button} ({name})  <-- SDL enum, NOT a profile index")
         elif e.type == pygame.JOYAXISMOTION:
             # triggers usually show up here, not as buttons
             if abs(e.value) > 0.5:
