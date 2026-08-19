@@ -13,11 +13,14 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+import logging
 import threading
 import time
 from tkinter import TclError
 
 from guizero.base import Widget
+
+log = logging.getLogger(__name__)
 
 
 class SwipeDetector:
@@ -103,15 +106,21 @@ class SwipeDetector:
     # ------------------------------
 
     def _on_release(self, e):
+        # TEMPORARY SWIPE DIAGNOSTIC (remove once the left-swipe bug is fixed):
+        # one log line per gesture -- never log from _on_move, which fires
+        # continuously and would stall the Tk loop.
+        long_press_had_fired = self.long_press_fired
         self._cancel_long_press_timer()
 
         # if long press fired, stop — it's not a swipe
-        if self.long_press_fired:
+        if long_press_had_fired:
+            log.info("SWIPE-DIAG release: rejected, long press had fired")
             self.start_x = self.start_y = self.start_time = None
             return
 
         # -- swipe detection --
         if self.start_x is None:
+            log.info("SWIPE-DIAG release: rejected, no press recorded (start_x is None)")
             return
 
         end_x = e.x
@@ -123,24 +132,39 @@ class SwipeDetector:
 
         self.start_x = self.start_y = self.start_time = None
 
+        measurements = f"dt={dt:.3f}s dx={dx} dy={dy} (max_time={self.max_time} min_distance={self.min_distance})"
+
         # swipe must be fast
         if dt > self.max_time:
+            log.info("SWIPE-DIAG release: rejected, too slow -- %s", measurements)
             return
 
         # swipe must be wide enough
         if abs(dx) < self.min_distance:
+            log.info("SWIPE-DIAG release: rejected, too short -- %s", measurements)
             return
 
         # primarily horizontal
         if abs(dx) <= abs(dy):
+            log.info("SWIPE-DIAG release: rejected, not primarily horizontal -- %s", measurements)
             return
 
         # direction
         try:
             if dx > 0:
+                log.info(
+                    "SWIPE-DIAG release: accepted RIGHT (dx>0, on_swipe_right=%s) -- %s",
+                    "set" if self.on_swipe_right else "None",
+                    measurements,
+                )
                 if self.on_swipe_right:
                     self.widget.tk.after(0, self.on_swipe_right)
             else:
+                log.info(
+                    "SWIPE-DIAG release: accepted LEFT (dx<0, on_swipe_left=%s) -- %s",
+                    "set" if self.on_swipe_left else "None",
+                    measurements,
+                )
                 if self.on_swipe_left:
                     self.widget.tk.after(0, self.on_swipe_left)
         except TclError:

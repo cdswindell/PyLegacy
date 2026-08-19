@@ -355,6 +355,7 @@ class ControlProfile:
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
     touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
     touch_dead_zone: float = DEFAULT_TOUCH_DEAD_ZONE
+
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ControlProfile":
         dead_zone = cls._number(data, "dead_zone")
