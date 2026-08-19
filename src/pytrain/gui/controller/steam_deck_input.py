@@ -135,6 +135,53 @@ CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
 # to ``catalog_jump``); the modifier is ignored when the catalog is closed, where
 # D-pad up/down still boost/brake.
 CATALOG_JUMP = "catalog_jump"
+# SDL numbers buttons in two unrelated ways, and the difference decides where a
+# binding has to live:
+#
+#   * The *joystick* API (``JOYBUTTONDOWN``/``event.button``) reports the device's
+#     own button order. This is what the profile's ``buttons`` section is keyed by.
+#     On the Steam Deck that order covers indices 0-10 (face, shoulders, View,
+#     Menu, Steam, stick clicks) with the D-pad arriving as hat motion; the back
+#     paddles and the "..." button are *not* in it.
+#   * The *game controller* API (``CONTROLLERBUTTONDOWN``) reports SDL's fixed
+#     ``SDL_CONTROLLER_BUTTON_*`` enum, which does cover the extras: ``misc1`` is
+#     the Deck's "..." button (below the right trackpad) and ``paddle1``-``paddle4``
+#     are L4/R4/L5/R5.
+#
+# So a button that only exists in the controller enum cannot be bound by joystick
+# index at all -- it belongs in the profile's ``controller_buttons`` section, which
+# is keyed by these names rather than by a number precisely so the two numbering
+# schemes cannot be confused. ``scripts/deckinfo.py`` prints both, labelled.
+# pygame exposes constants only through ``dpad_right``; the extras are spelled out
+# here (SDL's enum continues 15..20 and ends at ``MAX`` == 21).
+CONTROLLER_BUTTONS = {
+    "a": 0,
+    "b": 1,
+    "x": 2,
+    "y": 3,
+    "back": 4,
+    "guide": 5,
+    "start": 6,
+    "leftstick": 7,
+    "rightstick": 8,
+    "leftshoulder": 9,
+    "rightshoulder": 10,
+    "dpad_up": 11,
+    "dpad_down": 12,
+    "dpad_left": 13,
+    "dpad_right": 14,
+    "misc1": 15,
+    "paddle1": 16,
+    "paddle2": 17,
+    "paddle3": 18,
+    "paddle4": 19,
+    "touchpad": 20,
+}
+# Actions a ``controller_buttons`` entry may carry. Only the modifier is supported:
+# every other action keys its runtime state (auto-repeat, long press, chords) off
+# joystick button indices, and mixing a second, differently-numbered index space
+# into that state is exactly the confusion this section exists to avoid.
+CONTROLLER_BUTTON_ACTIONS = {CATALOG_JUMP}
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -352,13 +399,22 @@ class ControlProfile:
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
     touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
     touch_dead_zone: float = DEFAULT_TOUCH_DEAD_ZONE
+    # Bindings keyed by SDL *game controller* button enum value rather than by
+    # joystick index; see ``CONTROLLER_BUTTONS``.
+    controller_buttons: Mapping[int, ButtonBinding] = field(default_factory=dict)
 
     @property
     def catalog_jump_buttons(self) -> frozenset[int]:
-        # Button indices bound to the modifier-only ``catalog_jump`` action.
-        # Usually one button, but a profile may bind several (e.g. a left and a
-        # right modifier) and any of them held enables the jump.
+        # Joystick button indices bound to the modifier-only ``catalog_jump``
+        # action. Usually one button, but a profile may bind several (e.g. a left
+        # and a right modifier) and any of them held enables the jump.
         return frozenset(index for index, binding in self.buttons.items() if binding.action == CATALOG_JUMP)
+
+    @property
+    def catalog_jump_controller_buttons(self) -> frozenset[int]:
+        # The same modifier bound in the game-controller enum space, for buttons
+        # the joystick API never reports (on the Deck, ``misc1`` = the "..." button).
+        return frozenset(index for index, binding in self.controller_buttons.items() if binding.action == CATALOG_JUMP)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ControlProfile":
@@ -422,6 +478,23 @@ class ControlProfile:
             cls._validate_action_target(action, target)
             buttons[index] = ButtonBinding(action, target, bool(raw_binding.get("repeat", False)))
 
+        controller_buttons: dict[int, ButtonBinding] = {}
+        for raw_name, raw_binding in cls._mapping(data, "controller_buttons").items():
+            name = str(raw_name).strip().lower()
+            if name not in CONTROLLER_BUTTONS:
+                raise ProfileError(
+                    f"Unknown controller button {raw_name!r}; expected one of {', '.join(sorted(CONTROLLER_BUTTONS))}"
+                )
+            action, target = cls._binding(raw_binding)
+            if action not in CONTROLLER_BUTTON_ACTIONS:
+                raise ProfileError(
+                    f"Action {action!r} cannot be assigned to a controller button; "
+                    f"only {', '.join(sorted(CONTROLLER_BUTTON_ACTIONS))} may be, and other actions belong in "
+                    f"'buttons' (keyed by joystick index)"
+                )
+            cls._validate_action_target(action, target)
+            controller_buttons[CONTROLLER_BUTTONS[name]] = ButtonBinding(action, target)
+
         touchpads: dict[int, TouchpadBinding] = {}
         for raw_index, raw_binding in cls._mapping(data, "touchpads").items():
             index = cls._index(raw_index, "touchpad")
@@ -457,6 +530,7 @@ class ControlProfile:
             trigger_dead_zone=trigger_dead_zone,
             touchpads=touchpads,
             touch_dead_zone=touch_dead_zone,
+            controller_buttons=controller_buttons,
         )
 
     @classmethod
@@ -550,6 +624,10 @@ class SteamDeckInputProvider:
         # one.
         self._trigger_long_press_pressed_at: dict[int, float] = {}
         self._held_buttons: set[int] = set()
+        # Buttons held in the SDL game-controller enum space (``CONTROLLERBUTTONDOWN``),
+        # tracked separately from ``_held_buttons`` because the two numbering schemes
+        # are unrelated: joystick 5 is R1 on the Deck while controller 5 is Steam.
+        self._held_controller_buttons: set[int] = set()
         self._fired_chords: set[ChordBinding] = set()
         self._hat_y = 0
         self._hat_x = 0
@@ -602,7 +680,15 @@ class SteamDeckInputProvider:
                 self._pygame.JOYDEVICEADDED,
                 self._pygame.JOYDEVICEREMOVED,
             ]
-            for name in ("CONTROLLERTOUCHPADDOWN", "CONTROLLERTOUCHPADMOTION", "CONTROLLERTOUCHPADUP"):
+            for name in (
+                # Needed for buttons the joystick API never reports, such as the
+                # Deck's "..." button (controller ``misc1``).
+                "CONTROLLERBUTTONDOWN",
+                "CONTROLLERBUTTONUP",
+                "CONTROLLERTOUCHPADDOWN",
+                "CONTROLLERTOUCHPADMOTION",
+                "CONTROLLERTOUCHPADUP",
+            ):
                 event_type = getattr(self._pygame, name, None)
                 if event_type is not None:
                     controller_events.append(event_type)
@@ -742,6 +828,7 @@ class SteamDeckInputProvider:
         self._trigger_pressed.clear()
         self._trigger_long_press_pressed_at.clear()
         self._held_buttons.clear()
+        self._held_controller_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0
         self._hat_x = 0
@@ -759,6 +846,10 @@ class SteamDeckInputProvider:
         touch_down = getattr(self._pygame, "CONTROLLERTOUCHPADDOWN", None)
         touch_motion = getattr(self._pygame, "CONTROLLERTOUCHPADMOTION", None)
         touch_up = getattr(self._pygame, "CONTROLLERTOUCHPADUP", None)
+        # Game-controller button events carry the buttons the joystick API omits
+        # (the Deck's "..." and back paddles); resolved the same defensive way.
+        controller_down = getattr(self._pygame, "CONTROLLERBUTTONDOWN", None)
+        controller_up = getattr(self._pygame, "CONTROLLERBUTTONUP", None)
         # On the Steam Deck the built-in trackpads never arrive as SDL touchpad
         # events, so fold in any pad motion read directly from hidraw first (a
         # no-op on other hardware / when no reader is running).
@@ -785,6 +876,10 @@ class SteamDeckInputProvider:
                 actions.extend(self._button_actions(event.button, event.type == self._pygame.JOYBUTTONDOWN))
             elif event.type == self._pygame.JOYHATMOTION:
                 actions.extend(self._hat_actions(event.value))
+            elif controller_down is not None and event.type in (controller_down, controller_up):
+                # Track modifier state only; these buttons perform no action of
+                # their own (see ``CONTROLLER_BUTTON_ACTIONS``).
+                self._controller_button_changed(int(event.button), event.type == controller_down)
             elif event.type == self._pygame.JOYDEVICEADDED:
                 self._add_device(event.device_index)
             elif event.type == self._pygame.JOYDEVICEREMOVED:
@@ -929,6 +1024,18 @@ class SteamDeckInputProvider:
         self._touch_fingers.pop(touch_id, None)
         return [DeckAction(binding.action, binding.target, 0.0, "changed")]
 
+    def _controller_button_changed(self, button: int, pressed: bool) -> None:
+        if pressed:
+            self._held_controller_buttons.add(button)
+            if button in self.profile.controller_buttons:
+                log.info("catalog_jump modifier held (controller button %s)", button)
+            else:
+                # Log unbound presses so a physical button's controller-enum index
+                # can be discovered from the log, mirroring the joystick path.
+                log.info("Controller button %s pressed but not bound by the profile", button)
+        else:
+            self._held_controller_buttons.discard(button)
+
     def _button_actions(self, button: int, pressed: bool) -> list[DeckAction]:
         actions: list[DeckAction] = []
         if pressed:
@@ -955,7 +1062,11 @@ class SteamDeckInputProvider:
             return actions
         if binding.action == CATALOG_JUMP:
             # Modifier-only: it performs no action of its own. ``_held_buttons``
-            # above already recorded it, which is all the jump chord needs.
+            # above already recorded it, which is all the jump chord needs. Log the
+            # press so "the chord does nothing" can be told apart from "the app
+            # never saw the modifier".
+            if pressed:
+                log.info("catalog_jump modifier held (joystick button %s)", button)
             return actions
         if binding.action in LONG_PRESS_ACTIONS:
             actions.extend(self._long_press_button_actions(button, binding, pressed))
@@ -1007,8 +1118,11 @@ class SteamDeckInputProvider:
             self._hat_y = y
             # Report whether the ``catalog_jump`` modifier is held as this
             # direction is pressed, so the router can turn the press into a jump
-            # to the first/last catalog entry.
-            jump = bool(self.profile.catalog_jump_buttons & self._held_buttons)
+            # to the first/last catalog entry. The modifier may be bound in either
+            # numbering scheme; a hold in either enables the jump.
+            jump = bool(self.profile.catalog_jump_buttons & self._held_buttons) or bool(
+                self.profile.catalog_jump_controller_buttons & self._held_controller_buttons
+            )
             # Emit a release for the previously held vertical direction so the
             # router can stop repeating the catalog scroll it fires while the
             # D-pad up/down is held.
@@ -1101,6 +1215,7 @@ class SteamDeckInputProvider:
         self._trigger_pressed.clear()
         self._trigger_long_press_pressed_at.clear()
         self._held_buttons.clear()
+        self._held_controller_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0
         self._hat_x = 0

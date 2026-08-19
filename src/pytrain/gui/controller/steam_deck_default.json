@@ -94,6 +94,12 @@
       "target": "focused"
     }
   },
+  "controller_buttons": {
+    "misc1": {
+      "action": "catalog_jump",
+      "target": "focused"
+    }
+  },
   "chords": [
     {
       "buttons": [

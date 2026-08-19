@@ -579,14 +579,25 @@ def _catalog_router(focused_gui: SimpleNamespace) -> DeckInputRouter:
     )
 
 
-def _jump_profile(index: int = 15) -> ControlProfile:
-    # A profile whose button ``index`` is the modifier-only ``catalog_jump`` action,
-    # alongside an ordinary bound button (0, the bell) to contrast against.
+def _jump_profile(index: int = 8) -> ControlProfile:
+    # A profile whose *joystick* button ``index`` is the modifier-only
+    # ``catalog_jump`` action, alongside an ordinary bound button (0, the bell) to
+    # contrast against.
     return _profile(
         buttons={
             "0": {"action": "bell", "target": "focused"},
             str(index): {"action": "catalog_jump", "target": "focused"},
         }
+    )
+
+
+def _controller_jump_profile(name: str = "misc1") -> ControlProfile:
+    # The same modifier bound in the game-controller enum space instead, which is
+    # the only way to reach a button the joystick API never reports (the Deck's
+    # "..." button = ``misc1``).
+    return _profile(
+        buttons={"0": {"action": "bell", "target": "focused"}},
+        controller_buttons={name: {"action": "catalog_jump", "target": "focused"}},
     )
 
 
@@ -662,7 +673,7 @@ def test_provider_flags_jump_modifier_while_catalog_jump_button_held() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(
         get=lambda: [
-            SimpleNamespace(type=2, button=15),
+            SimpleNamespace(type=2, button=8),
             SimpleNamespace(type=6, value=(0, 1)),
             SimpleNamespace(type=6, value=(0, 0)),
             SimpleNamespace(type=6, value=(0, -1)),
@@ -685,8 +696,8 @@ def test_provider_does_not_flag_jump_modifier_once_released() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(
         get=lambda: [
-            SimpleNamespace(type=2, button=15),
-            SimpleNamespace(type=3, button=15),
+            SimpleNamespace(type=2, button=8),
+            SimpleNamespace(type=3, button=8),
             SimpleNamespace(type=6, value=(0, 1)),
         ]
     )
@@ -718,12 +729,122 @@ def test_provider_does_not_flag_jump_modifier_for_an_unrelated_button() -> None:
 
 
 def test_catalog_jump_button_is_a_valid_profile_binding() -> None:
-    profile = _jump_profile(15)
+    profile = _jump_profile(8)
+
+    assert profile.catalog_jump_buttons == frozenset({8})
+    assert profile.catalog_jump_controller_buttons == frozenset()
+
+
+def test_catalog_jump_controller_button_is_a_valid_profile_binding() -> None:
+    profile = _controller_jump_profile("misc1")
+
+    # ``misc1`` is SDL controller button 15; it must not leak into the joystick
+    # index space, where 15 means an entirely different (or absent) button.
+    assert profile.catalog_jump_controller_buttons == frozenset({15})
+    assert profile.catalog_jump_buttons == frozenset()
+
+
+def test_bundled_profile_binds_the_catalog_jump_modifier_in_both_index_spaces() -> None:
+    # The Deck reports the "..." button through *both* APIs (joystick index 15 and
+    # controller ``misc1``, also 15 -- the two spaces coincide here by luck, not by
+    # rule). Binding both means the chord works whichever event family SDL delivers
+    # on a given build, and neither binding depends on the other.
+    profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
 
     assert profile.catalog_jump_buttons == frozenset({15})
-    # The bundled default profile must bind the modifier somewhere, or the jump
-    # chord is unreachable on a stock install.
-    assert ControlProfile.load(DEFAULT_PROFILE, fallback=False).catalog_jump_buttons
+    assert profile.catalog_jump_controller_buttons == frozenset({15})
+
+
+def test_controller_button_binding_rejects_an_unknown_name() -> None:
+    with pytest.raises(ProfileError, match="Unknown controller button"):
+        _profile(controller_buttons={"quick_access": {"action": "catalog_jump", "target": "focused"}})
+
+
+def test_controller_button_binding_rejects_a_non_modifier_action() -> None:
+    # Every other action keys its state off joystick indices, so it belongs in
+    # ``buttons``; accepting it here would silently mix the two numbering schemes.
+    with pytest.raises(ProfileError, match="cannot be assigned to a controller button"):
+        _profile(controller_buttons={"misc1": {"action": "bell", "target": "focused"}})
+
+
+def test_provider_flags_jump_modifier_while_controller_button_held() -> None:
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYHATMOTION=6,
+        JOYDEVICEADDED=4,
+        CONTROLLERBUTTONDOWN=7,
+        CONTROLLERBUTTONUP=8,
+    )
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=7, button=15),
+            SimpleNamespace(type=6, value=(0, 1)),
+            SimpleNamespace(type=6, value=(0, 0)),
+            SimpleNamespace(type=6, value=(0, -1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_controller_jump_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # Holding controller ``misc1`` (the "..." button) flags both D-pad presses and
+    # emits no action of its own.
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [
+        (DPAD_UP, "pressed", True),
+        (DPAD_UP, "released", False),
+        (DPAD_DOWN, "pressed", True),
+    ]
+
+
+def test_provider_does_not_flag_jump_modifier_once_controller_button_released() -> None:
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYHATMOTION=6,
+        JOYDEVICEADDED=4,
+        CONTROLLERBUTTONDOWN=7,
+        CONTROLLERBUTTONUP=8,
+    )
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=7, button=15),
+            SimpleNamespace(type=8, button=15),
+            SimpleNamespace(type=6, value=(0, 1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_controller_jump_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [(DPAD_UP, "pressed", False)]
+
+
+def test_provider_ignores_a_joystick_button_matching_the_controller_modifier_index() -> None:
+    pygame = SimpleNamespace(
+        JOYAXISMOTION=1,
+        JOYBUTTONDOWN=2,
+        JOYBUTTONUP=3,
+        JOYHATMOTION=6,
+        JOYDEVICEADDED=4,
+        CONTROLLERBUTTONDOWN=7,
+        CONTROLLERBUTTONUP=8,
+    )
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=15),
+            SimpleNamespace(type=6, value=(0, 1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_controller_jump_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # Joystick button 15 is not the controller ``misc1`` modifier: the two index
+    # spaces are unrelated, so this must not enable the jump.
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [(DPAD_UP, "pressed", False)]
 
 
 def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:

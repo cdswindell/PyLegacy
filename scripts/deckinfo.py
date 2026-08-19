@@ -298,6 +298,12 @@ while True:
         elif e.type == getattr(pygame, "CONTROLLERBUTTONDOWN", -1):
             name = _CONTROLLER_BUTTON_NAMES.get(e.button, "unknown")
             print(f"CONTROLLER BUTTON DOWN index = {e.button} ({name})  <-- SDL enum, NOT a profile index")
+        elif e.type == pygame.JOYHATMOTION:
+            # The Deck's D-pad arrives as hat motion, not as buttons. Printing it
+            # matters for chords: hold a modifier such as "..." and press the D-pad
+            # to confirm the hat is still delivered while that button is down (if
+            # Steam grabs the D-pad for its own overlay, these lines stop).
+            print("HAT MOTION value =", e.value)
         elif e.type == pygame.JOYAXISMOTION:
             # triggers usually show up here, not as buttons
             if abs(e.value) > 0.5:
