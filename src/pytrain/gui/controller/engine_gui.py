@@ -280,7 +280,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # don't ask
         self._isd = None  # swipe detector for engine image field
-        self._isd_box = None  # swipe detector for the box around it (margin beside the image)
+        self._isd_area = None  # swipe detector for the margin beside the image
+        self._image_parent = None  # container that owns that margin
         self._admin_panel = None
         self._catalog_panel = None
         self._lighting_panel = None
@@ -1737,18 +1738,43 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._bind_image_long_press()
         self._isd.on_swipe_right = self.show_previous_component
         self._isd.on_swipe_left = self.show_next_component
-        # Also catch swipes that begin *beside* the image. The Picture is a Label
-        # sized to the image itself, while image_box is explicitly sized to the whole
-        # available area (in landscape ``fit_image_box_size`` gives it a 3:1 box, so
-        # it is wider than most images). Tk delivers a press only to the innermost
-        # widget, so a gesture starting in that margin never reached the Picture's
-        # detector -- the swipe simply did nothing. A second detector on the box
-        # widens the gesture target without changing any geometry, so portrait layout
-        # is untouched: nothing is resized, only bound.
-        self._isd_box = SwipeDetector(self.image_box)
-        self._isd_box.on_swipe_right = self.show_previous_component
-        self._isd_box.on_swipe_left = self.show_next_component
+        # Also catch swipes that begin *beside* the image, which previously did
+        # nothing at all. Two Tk facts decide where this has to be bound:
+        #
+        #   * ``image_box.tk.config(width=..., height=...)`` has no effect on its
+        #     actual size: pack geometry propagation is on, so the box shrinks to hug
+        #     the Picture (itself a Label sized to the image). The empty area beside
+        #     the image therefore belongs to the box's *parent*, not to the box.
+        #   * Tk delivers a press to the innermost widget only, and an intermediate
+        #     frame never sees presses on its children. So binding the parent catches
+        #     exactly the margin presses, and does not double-fire with the Picture's
+        #     own detector.
+        #
+        # The parent spans the whole pane, so restrict the gesture to the image's
+        # vertical band -- otherwise a swipe across background elsewhere in the pane
+        # would change components too. No geometry is altered, only bindings, so
+        # portrait layout is unaffected.
+        self._image_parent = app
+        self._isd_area = SwipeDetector(app, should_start=self._press_starts_in_image_band)
+        self._isd_area.on_swipe_right = self.show_previous_component
+        self._isd_area.on_swipe_left = self.show_next_component
         self.image_box.hide()
+
+    def _press_starts_in_image_band(self, event) -> bool:
+        # True when a press on the image's parent container falls within the vertical
+        # band the image box occupies, and the band is actually on screen.
+        box = self.image_box
+        if box is None or not getattr(box, "visible", False):
+            return False
+        try:
+            # When the parent is the toplevel (portrait), Tk *does* report presses on
+            # descendants here, so ignore ones the Picture's own detector handles.
+            if self.image is not None and event.widget is self.image.tk:
+                return False
+            top = box.tk.winfo_rooty()
+            return top <= event.y_root <= top + box.tk.winfo_height()
+        except (AttributeError, tk.TclError):
+            return False
 
     def make_keypad_button(
         self,

@@ -24,18 +24,31 @@ log = logging.getLogger(__name__)
 
 
 class SwipeDetector:
-    def __init__(self, widget: Widget, min_distance=50, max_time=0.5, long_press_time=0.6, max_move_for_long_press=10):
+    def __init__(
+        self,
+        widget: Widget,
+        min_distance=50,
+        max_time=0.5,
+        long_press_time=0.6,
+        max_move_for_long_press=10,
+        should_start=None,
+    ):
         """
         min_distance: minimum swipe distance in pixels
         max_time: max duration of swipe gesture
         long_press_time: seconds finger must remain down to count as long press
         max_move_for_long_press: if movement exceeds this, long press is canceled
+        should_start: optional predicate taking the press event; when it returns
+            False the whole gesture is ignored. Needed when the detector is attached
+            to a large container that covers more than the region of interest -- the
+            predicate restricts the gesture to that region.
         """
         self.widget = widget
         self.min_distance = min_distance
         self.max_time = max_time
         self.long_press_time = long_press_time
         self.max_move_for_long_press = max_move_for_long_press
+        self.should_start = should_start
 
         self.start_x = None
         self.start_y = None
@@ -92,6 +105,13 @@ class SwipeDetector:
     # ------------------------------
 
     def _on_press(self, e):
+        if self.should_start is not None and not self.should_start(e):
+            # Outside this detector's region of interest: drop the whole gesture, so
+            # the matching release cannot be mistaken for a swipe.
+            self.start_x = self.start_y = self.start_time = None
+            self._cancel_long_press_timer()
+            return
+
         # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): where the press landed
         # inside the widget, and where the widget sits on screen. A gesture that logs
         # no press at all never reached this widget.

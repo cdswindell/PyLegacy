@@ -156,6 +156,44 @@ def test_swipe_rejected_when_mostly_vertical(monkeypatch) -> None:
     assert detector.fired == []
 
 
+def test_should_start_predicate_ignores_gestures_outside_the_region(monkeypatch) -> None:
+    widget = _ContainerWidget()
+    seen = []
+    detector = SwipeDetector(widget, should_start=lambda e: seen.append(e.y) or e.y < 100)
+    detector.fired = []
+    detector.on_swipe_left = lambda: detector.fired.append("LEFT")
+    detector.on_swipe_right = lambda: detector.fired.append("RIGHT")
+
+    # A container detector covers more than the region of interest (e.g. the whole
+    # pane), so a press outside the band must drop the entire gesture -- including its
+    # release, which must not be mistaken for a swipe.
+    times = iter([100.0, 100.05, 200.0, 200.05])
+    monkeypatch.setattr("time.monotonic", lambda: next(times))
+    widget.press(SimpleNamespace(x=320, y=500))
+    widget.release(SimpleNamespace(x=20, y=500))
+    assert detector.fired == []
+
+    widget.press(SimpleNamespace(x=320, y=50))
+    widget.release(SimpleNamespace(x=20, y=50))
+    assert detector.fired == ["LEFT"]
+    assert seen == [500, 50]
+
+
+def test_should_start_rejection_does_not_leave_a_stale_press(monkeypatch) -> None:
+    widget = _ContainerWidget()
+    detector = SwipeDetector(widget, should_start=lambda e: e.y < 100)
+    detector.fired = []
+    detector.on_swipe_right = lambda: detector.fired.append("RIGHT")
+
+    times = iter([100.0, 100.05])
+    monkeypatch.setattr("time.monotonic", lambda: next(times))
+    widget.press(SimpleNamespace(x=10, y=500))  # rejected
+    widget.release(SimpleNamespace(x=400, y=500))
+
+    assert detector.start_x is None
+    assert detector.fired == []
+
+
 def test_long_press_suppresses_the_swipe(monkeypatch) -> None:
     widget = _HookWidget()
     detector = _detector(widget)
