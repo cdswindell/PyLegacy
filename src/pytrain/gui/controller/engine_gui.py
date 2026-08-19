@@ -1448,10 +1448,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def scroll_catalog_to_end(self, to_top: bool) -> bool:
         # Jump the catalog highlight to the first (``to_top``) or last entry,
-        # mirroring the controller's catalog-jump chord (the "..." modifier held
-        # while pressing D-pad up/down). This only
-        # moves the highlight; it does not select/activate the entry (the user
-        # confirms it separately), so the catalog stays open.
+        # mirroring the controller's shoulder buttons while the catalog is open
+        # (L1 = first entry, R1 = last). This only moves the highlight; it does not
+        # select/activate the entry (the user confirms it separately), so the
+        # catalog stays open.
         panel = self._catalog_panel
         if panel is None or not panel.visible:
             return False
