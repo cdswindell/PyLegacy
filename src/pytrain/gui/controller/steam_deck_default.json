@@ -88,16 +88,6 @@
     "10": {
       "action": "focus_right",
       "target": "global"
-    },
-    "15": {
-      "action": "catalog_jump",
-      "target": "focused"
-    }
-  },
-  "controller_buttons": {
-    "misc1": {
-      "action": "catalog_jump",
-      "target": "focused"
     }
   },
   "chords": [
