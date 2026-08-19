@@ -670,40 +670,6 @@ def test_catalog_jump_actions_cover_both_couplers() -> None:
     assert set(CATALOG_JUMP_ACTIONS) <= set(PANEL_COMMANDS)
 
 
-def test_provider_logs_unbound_controller_buttons_once_per_index(caplog) -> None:
-    pygame = SimpleNamespace(
-        JOYAXISMOTION=1,
-        JOYBUTTONDOWN=2,
-        JOYBUTTONUP=3,
-        JOYHATMOTION=6,
-        JOYDEVICEADDED=4,
-        CONTROLLERBUTTONDOWN=7,
-        CONTROLLERBUTTONUP=8,
-    )
-    pygame.event = SimpleNamespace(
-        get=lambda: [
-            SimpleNamespace(type=7, button=12),
-            SimpleNamespace(type=7, button=12),
-            SimpleNamespace(type=7, button=12),
-            SimpleNamespace(type=7, button=16),
-            SimpleNamespace(type=6, value=(0, -1)),
-        ]
-    )
-    provider = SteamDeckInputProvider(_profile(), pygame_module=pygame)
-
-    with caplog.at_level("INFO"):
-        actions = provider.poll()
-
-    # Controller buttons produce no actions -- only the hat does. On the Deck the
-    # D-pad also arrives as controller button 12, which would otherwise log on every
-    # catalog scroll, so each index is reported once and named.
-    assert [(a.name, a.phase) for a in actions] == [(DPAD_DOWN, "pressed")]
-    logged = [record.message for record in caplog.records if "Controller button" in record.message]
-    assert len(logged) == 2
-    assert "12 (dpad_down)" in logged[0]
-    assert "16 (paddle1)" in logged[1]
-
-
 def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(

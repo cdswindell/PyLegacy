@@ -117,58 +117,19 @@ SEQUENCE_CONTROL_DURATION = 3.1
 # quick to control.
 CATALOG_SCROLL_INITIAL_DELAY = 0.5
 CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
-# SDL numbers buttons in two unrelated ways, and the profile only speaks one of
-# them:
+# Profile ``buttons`` indices are *joystick* numbers (``JOYBUTTONDOWN``/
+# ``event.button``), which is the only button numbering this module reads. SDL's game
+# controller API numbers the same buttons differently (its fixed
+# ``SDL_CONTROLLER_BUTTON_*`` enum: on the Deck, Steam is joystick 8 but controller
+# 5) and exposes extras the joystick API may omit -- ``misc1`` = the Deck's "..."
+# button, ``paddle1``-``paddle4`` = L4/R4/L5/R5. Those numbers are NOT usable here.
+# ``scripts/deckinfo.py`` prints both, labelled, when a physical button's index needs
+# identifying.
 #
-#   * The *joystick* API (``JOYBUTTONDOWN``/``event.button``) reports the device's
-#     own button order. This is what the profile's ``buttons`` section is keyed by,
-#     and it is the only numbering a binding may use.
-#   * The *game controller* API (``CONTROLLERBUTTONDOWN``) reports SDL's fixed
-#     ``SDL_CONTROLLER_BUTTON_*`` enum, a different order that also covers extras
-#     the joystick API may omit (``misc1`` = the Deck's "..." button, ``paddle1``-
-#     ``paddle4`` = L4/R4/L5/R5). On the Deck the D-pad arrives here as buttons
-#     11-14 as well as via the hat this module actually reads.
-#
-# The same physical button therefore has two different numbers (on the Deck, Steam
-# is joystick 8 but controller 5), which is a rich source of dead bindings. Nothing
-# is bound in the controller space; these events are consumed only to log which
-# physical buttons a controller exposes, named via this table, as a discovery aid.
-# ``scripts/deckinfo.py`` prints both numberings, labelled.
-#
-# Note that a button being *reported* is not the same as it being *available*: under
-# Steam, pressing "..." opens the Quick Access overlay and Steam swallows the whole
-# controller, so neither that button nor any D-pad press reaches the app while it is
-# held. That is why the catalog jump below uses the shoulder buttons instead of a
-# modifier chord on "...".
-#
-# pygame names constants only up to ``dpad_right``; the extras are spelled out here
-# (SDL's enum continues 15..20 and ends at ``MAX`` == 21).
-CONTROLLER_BUTTONS = {
-    "a": 0,
-    "b": 1,
-    "x": 2,
-    "y": 3,
-    "back": 4,
-    "guide": 5,
-    "start": 6,
-    "leftstick": 7,
-    "rightstick": 8,
-    "leftshoulder": 9,
-    "rightshoulder": 10,
-    "dpad_up": 11,
-    "dpad_down": 12,
-    "dpad_left": 13,
-    "dpad_right": 14,
-    "misc1": 15,
-    "paddle1": 16,
-    "paddle2": 17,
-    "paddle3": 18,
-    "paddle4": 19,
-    "touchpad": 20,
-}
-# Reverse lookup for the discovery log, so an unbound press names the button it came
-# from rather than only its index.
-CONTROLLER_BUTTON_NAMES = {index: name for name, index in CONTROLLER_BUTTONS.items()}
+# Being *reported* is also not the same as being *available*: under Steam, pressing
+# "..." opens the Quick Access overlay, which grabs the whole controller, so neither
+# that button nor any D-pad press reaches the app while it is held. That rules the
+# Deck's obvious modifier button out of any chord.
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -584,14 +545,10 @@ class SteamDeckInputProvider:
         # one.
         self._trigger_long_press_pressed_at: dict[int, float] = {}
         self._held_buttons: set[int] = set()
-        # Buttons held in the SDL game-controller enum space (``CONTROLLERBUTTONDOWN``),
-        # tracked separately from ``_held_buttons`` because the two numbering schemes
-        # are unrelated: joystick 5 is R1 on the Deck while controller 5 is Steam.
-        # Indices already reported as unbound, so the discovery log below names each
-        # button once instead of once per press. On the Deck the D-pad also arrives
-        # as controller buttons 11-14 (alongside the hat the profile actually uses),
-        # which would otherwise log on every catalog scroll.
-        self._logged_unbound: set[tuple[str, int]] = set()
+        # Indices already reported as unbound, so the discovery log names each button
+        # once rather than on every press. This runs inside the Tk-driven poll, which
+        # is also the thread servicing the touch screen, so it must stay bounded.
+        self._logged_unbound: set[int] = set()
         self._fired_chords: set[ChordBinding] = set()
         self._hat_y = 0
         self._hat_x = 0
@@ -645,9 +602,6 @@ class SteamDeckInputProvider:
                 self._pygame.JOYDEVICEREMOVED,
             ]
             for name in (
-                # Presses only, and only to log which buttons a controller exposes
-                # (see ``_controller_button_pressed``); nothing is bound here.
-                "CONTROLLERBUTTONDOWN",
                 "CONTROLLERTOUCHPADDOWN",
                 "CONTROLLERTOUCHPADMOTION",
                 "CONTROLLERTOUCHPADUP",
@@ -808,9 +762,6 @@ class SteamDeckInputProvider:
         touch_down = getattr(self._pygame, "CONTROLLERTOUCHPADDOWN", None)
         touch_motion = getattr(self._pygame, "CONTROLLERTOUCHPADMOTION", None)
         touch_up = getattr(self._pygame, "CONTROLLERTOUCHPADUP", None)
-        # Game-controller button presses are logged as a discovery aid (they cover
-        # buttons the joystick API may omit); resolved the same defensive way.
-        controller_down = getattr(self._pygame, "CONTROLLERBUTTONDOWN", None)
         # On the Steam Deck the built-in trackpads never arrive as SDL touchpad
         # events, so fold in any pad motion read directly from hidraw first (a
         # no-op on other hardware / when no reader is running).
@@ -837,9 +788,6 @@ class SteamDeckInputProvider:
                 actions.extend(self._button_actions(event.button, event.type == self._pygame.JOYBUTTONDOWN))
             elif event.type == self._pygame.JOYHATMOTION:
                 actions.extend(self._hat_actions(event.value))
-            elif controller_down is not None and event.type == controller_down:
-                # Discovery logging only -- no binding lives in this index space.
-                self._controller_button_pressed(int(event.button))
             elif event.type == self._pygame.JOYDEVICEADDED:
                 self._add_device(event.device_index)
             elif event.type == self._pygame.JOYDEVICEREMOVED:
@@ -984,17 +932,6 @@ class SteamDeckInputProvider:
         self._touch_fingers.pop(touch_id, None)
         return [DeckAction(binding.action, binding.target, 0.0, "changed")]
 
-    def _controller_button_pressed(self, button: int) -> None:
-        # Nothing is bound in the controller-button space; these events exist purely
-        # so the log can report which physical buttons a controller exposes and under
-        # what index. Once per index: they fire on every press, including the D-pad
-        # (controller buttons 11-14 on the Deck, alongside the hat).
-        if ("controller", button) in self._logged_unbound:
-            return
-        self._logged_unbound.add(("controller", button))
-        name = CONTROLLER_BUTTON_NAMES.get(button, "unknown")
-        log.info("Controller button %s (%s) pressed; not used (profiles bind joystick indices)", button, name)
-
     def _button_actions(self, button: int, pressed: bool) -> list[DeckAction]:
         actions: list[DeckAction] = []
         if pressed:
@@ -1012,12 +949,12 @@ class SteamDeckInputProvider:
             self._fired_chords = {chord for chord in self._fired_chords if chord.buttons.issubset(self._held_buttons)}
         binding = self.profile.buttons.get(button)
         if binding is None:
-            if pressed and ("joystick", button) not in self._logged_unbound:
+            if pressed and button not in self._logged_unbound:
                 # Log unbound presses so the physical-button-to-index mapping of a
                 # particular controller can be discovered from the log when adding a
                 # binding for a button whose SDL index is not known up front. Once per
                 # index, not per press.
-                self._logged_unbound.add(("joystick", button))
+                self._logged_unbound.add(button)
                 log.info("Steam Deck button %s pressed but not bound by the profile", button)
             return actions
         if binding.action in LONG_PRESS_ACTIONS:
