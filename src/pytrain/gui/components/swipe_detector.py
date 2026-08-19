@@ -81,6 +81,24 @@ class SwipeDetector:
     # ------------------------------
 
     def _on_press(self, e):
+        # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): where the press landed
+        # inside the widget, and where the widget sits on screen. A gesture that logs
+        # no press at all never reached this widget.
+        try:
+            tk = self.widget.tk
+            log.info(
+                "SWIPE-DIAG press: at (%s,%s) in widget %sx%s whose left edge is screen x=%s (so screen x=%s)",
+                e.x,
+                e.y,
+                tk.winfo_width(),
+                tk.winfo_height(),
+                tk.winfo_rootx(),
+                tk.winfo_rootx() + e.x,
+            )
+        except (AttributeError, TclError):
+            pass
+        self._first_move_logged = False
+
         self.start_x = e.x
         self.start_y = e.y
         self.start_time = time.monotonic()
@@ -97,6 +115,12 @@ class SwipeDetector:
     def _on_move(self, e):
         # cancel long-press if moved too far
         if self.start_x is not None:
+            # TEMPORARY SWIPE DIAGNOSTIC: log only the FIRST move of each gesture.
+            # _on_move fires continuously, and logging every one would stall the Tk
+            # loop (it is the same thread that services the touch screen).
+            if not getattr(self, "_first_move_logged", True):
+                self._first_move_logged = True
+                log.info("SWIPE-DIAG first move: to (%s,%s) from (%s,%s)", e.x, e.y, self.start_x, self.start_y)
             if (
                 abs(e.x - self.start_x) > self.max_move_for_long_press
                 or abs(e.y - self.start_y) > self.max_move_for_long_press
