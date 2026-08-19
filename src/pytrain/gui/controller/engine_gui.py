@@ -280,6 +280,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # don't ask
         self._isd = None  # swipe detector for engine image field
+        self._isd_box = None  # swipe detector for the box around it (margin beside the image)
         self._admin_panel = None
         self._catalog_panel = None
         self._lighting_panel = None
@@ -1736,37 +1737,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._bind_image_long_press()
         self._isd.on_swipe_right = self.show_previous_component
         self._isd.on_swipe_left = self.show_next_component
-        self._bind_swipe_box_diagnostic()
+        # Also catch swipes that begin *beside* the image. The Picture is a Label
+        # sized to the image itself, while image_box is explicitly sized to the whole
+        # available area (in landscape ``fit_image_box_size`` gives it a 3:1 box, so
+        # it is wider than most images). Tk delivers a press only to the innermost
+        # widget, so a gesture starting in that margin never reached the Picture's
+        # detector -- the swipe simply did nothing. A second detector on the box
+        # widens the gesture target without changing any geometry, so portrait layout
+        # is untouched: nothing is resized, only bound.
+        self._isd_box = SwipeDetector(self.image_box)
+        self._isd_box.on_swipe_right = self.show_previous_component
+        self._isd_box.on_swipe_left = self.show_next_component
         self.image_box.hide()
-
-    def _bind_swipe_box_diagnostic(self) -> None:
-        # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest). The Picture is a Label
-        # sized to the image itself, so it can be narrower than the box around it. Tk
-        # delivers a press to the innermost widget only, so a press landing beside the
-        # image hits this box and the SwipeDetector never sees the gesture at all.
-        # This fires only in that case, which distinguishes "press missed the image"
-        # from "the gesture never reached the app".
-        def _on_box_press(ev) -> None:
-            box = self.image_box.tk
-            pic = self.image.tk
-            log.info(
-                "SWIPE-DIAG box press (MISSED the image): at (%s,%s) in box %sx%s; "
-                "image is %sx%s at box-relative x=%s..%s",
-                ev.x,
-                ev.y,
-                box.winfo_width(),
-                box.winfo_height(),
-                pic.winfo_width(),
-                pic.winfo_height(),
-                pic.winfo_rootx() - box.winfo_rootx(),
-                pic.winfo_rootx() - box.winfo_rootx() + pic.winfo_width(),
-            )
-
-        try:
-            self.image_box.tk.bind("<ButtonPress-1>", _on_box_press, add="+")
-        except (AttributeError, tk.TclError):
-            # Stubbed/headless widgets in tests have no real Tk binding surface.
-            pass
 
     def make_keypad_button(
         self,

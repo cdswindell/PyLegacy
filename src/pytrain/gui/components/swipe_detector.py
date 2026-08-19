@@ -43,9 +43,20 @@ class SwipeDetector:
         self.long_press_timer = None
         self.long_press_fired = False
 
-        widget.when_left_button_pressed = self._on_press
-        widget.when_mouse_moved = self._on_move
-        widget.when_left_button_released = self._on_release
+        # guizero exposes ``when_*`` event hooks through EventsMixin, which plain
+        # widgets (Picture, PushButton, ...) inherit but *containers* (Box, and
+        # anything else based on ContainerWidget) do not. Assigning the hooks on a
+        # container would silently create an ordinary attribute and bind nothing, so
+        # detect the difference on the class and fall back to binding the underlying
+        # Tk widget directly. ``add="+"`` so any existing bindings survive.
+        if hasattr(type(widget), "when_left_button_pressed"):
+            widget.when_left_button_pressed = self._on_press
+            widget.when_mouse_moved = self._on_move
+            widget.when_left_button_released = self._on_release
+        else:
+            widget.tk.bind("<ButtonPress-1>", self._on_press, add="+")
+            widget.tk.bind("<Motion>", self._on_move, add="+")
+            widget.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
 
         # user callback hooks:
         self.on_swipe_left = None
