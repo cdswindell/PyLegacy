@@ -71,6 +71,10 @@ class SwipeDetector:
             widget.tk.bind("<Motion>", self._on_move, add="+")
             widget.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
 
+        # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): identifies which
+        # detector a log line came from, since several are attached to one screen.
+        self._diag_name = str(getattr(widget, "tk", widget))
+
         # user callback hooks:
         self.on_swipe_left = None
         self.on_swipe_right = None
@@ -118,7 +122,8 @@ class SwipeDetector:
         try:
             tk = self.widget.tk
             log.info(
-                "SWIPE-DIAG press: at (%s,%s) in widget %sx%s whose left edge is screen x=%s (so screen x=%s)",
+                "SWIPE-DIAG press [%s]: at (%s,%s) in widget %sx%s whose left edge is screen x=%s (so screen x=%s)",
+                self._diag_name,
                 e.x,
                 e.y,
                 tk.winfo_width(),
@@ -169,13 +174,18 @@ class SwipeDetector:
 
         # if long press fired, stop — it's not a swipe
         if long_press_had_fired:
-            log.info("SWIPE-DIAG release: rejected, long press had fired")
+            log.info("SWIPE-DIAG release [%s]: rejected, long press had fired", self._diag_name)
             self.start_x = self.start_y = self.start_time = None
             return
 
         # -- swipe detection --
         if self.start_x is None:
-            log.info("SWIPE-DIAG release: rejected, no press recorded (start_x is None)")
+            log.info(
+                "SWIPE-DIAG release [%s]: rejected, no press recorded -- this release arrived on widget %s "
+                "with no matching press (either should_start rejected it, or the press went elsewhere)",
+                self._diag_name,
+                getattr(e, "widget", "?"),
+            )
             return
 
         end_x = e.x
@@ -191,24 +201,25 @@ class SwipeDetector:
 
         # swipe must be fast
         if dt > self.max_time:
-            log.info("SWIPE-DIAG release: rejected, too slow -- %s", measurements)
+            log.info("SWIPE-DIAG release [%s]: rejected, too slow -- %s", self._diag_name, measurements)
             return
 
         # swipe must be wide enough
         if abs(dx) < self.min_distance:
-            log.info("SWIPE-DIAG release: rejected, too short -- %s", measurements)
+            log.info("SWIPE-DIAG release [%s]: rejected, too short -- %s", self._diag_name, measurements)
             return
 
         # primarily horizontal
         if abs(dx) <= abs(dy):
-            log.info("SWIPE-DIAG release: rejected, not primarily horizontal -- %s", measurements)
+            log.info("SWIPE-DIAG release [%s]: rejected, not primarily horizontal -- %s", self._diag_name, measurements)
             return
 
         # direction
         try:
             if dx > 0:
                 log.info(
-                    "SWIPE-DIAG release: accepted RIGHT (dx>0, on_swipe_right=%s) -- %s",
+                    "SWIPE-DIAG release [%s]: accepted RIGHT (dx>0, on_swipe_right=%s) -- %s",
+                    self._diag_name,
                     "set" if self.on_swipe_right else "None",
                     measurements,
                 )
@@ -216,7 +227,8 @@ class SwipeDetector:
                     self.widget.tk.after(0, self.on_swipe_right)
             else:
                 log.info(
-                    "SWIPE-DIAG release: accepted LEFT (dx<0, on_swipe_left=%s) -- %s",
+                    "SWIPE-DIAG release [%s]: accepted LEFT (dx<0, on_swipe_left=%s) -- %s",
+                    self._diag_name,
                     "set" if self.on_swipe_left else "None",
                     measurements,
                 )

@@ -1761,19 +1761,39 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.image_box.hide()
 
     def _press_starts_in_image_band(self, event) -> bool:
-        # True when a press on the image's parent container falls within the vertical
-        # band the image box occupies, and the band is actually on screen.
+        # True when a press on the image's parent container belongs to the image
+        # region rather than the controls below it. The region is everything at or
+        # above the bottom edge of the image box: the box hugs the image (pack
+        # propagation ignores its configured size), so keying off its *top* edge too
+        # would reject a press in the margin only slightly above or below the image.
         box = self.image_box
-        if box is None or not getattr(box, "visible", False):
+        if box is None:
             return False
         try:
+            tkw = box.tk
+            # winfo_ismapped() is the truth about being on screen; guizero's own
+            # ``visible`` flag is a separate bookkeeping attribute.
+            mapped = bool(tkw.winfo_ismapped())
+            bottom = tkw.winfo_rooty() + tkw.winfo_height()
             # When the parent is the toplevel (portrait), Tk *does* report presses on
             # descendants here, so ignore ones the Picture's own detector handles.
-            if self.image is not None and event.widget is self.image.tk:
-                return False
-            top = box.tk.winfo_rooty()
-            return top <= event.y_root <= top + box.tk.winfo_height()
-        except (AttributeError, tk.TclError):
+            on_image = self.image is not None and event.widget is self.image.tk
+            accepted = mapped and not on_image and event.y_root <= bottom
+            # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): one line per press,
+            # naming the clause that decided it.
+            log.info(
+                "SWIPE-DIAG band check: y_root=%s box=(top=%s bottom=%s h=%s) mapped=%s on_image=%s -> %s",
+                event.y_root,
+                tkw.winfo_rooty(),
+                bottom,
+                tkw.winfo_height(),
+                mapped,
+                on_image,
+                "ACCEPTED" if accepted else "REJECTED",
+            )
+            return accepted
+        except (AttributeError, tk.TclError) as exc:
+            log.info("SWIPE-DIAG band check: failed (%s) -- treating as outside the region", exc)
             return False
 
     def make_keypad_button(
