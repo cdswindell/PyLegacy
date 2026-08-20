@@ -240,6 +240,74 @@ def _pad_fraction(value):
     return round((value + 32768) / 65535.0, 3)
 
 
+# ---------------------------------------------------------------------------
+# Digital button bits in the raw state report.
+#
+# Steam Input decides what the *SDL* layer sees, so buttons it swallows or remaps
+# (the "..." button, and the L4/L5/R4/R5 paddles when Steam binds them to A/B)
+# never reach the app through pygame. The raw HID report comes off the hardware
+# before Steam Input exists, so every physical button is in here regardless.
+#
+# The bit layout is firmware-defined and not documented here, so rather than
+# assume offsets this reports which bits *changed*: press one button at a time
+# and the transition names its byte and bit. Widen _BUTTON_WINDOW if a button
+# produces no line -- the window deliberately excludes the header (0-3), the
+# sequence counter (4-7), and the pad/stick/gyro payload further out, all of
+# which change constantly and would drown the signal.
+# ---------------------------------------------------------------------------
+_BUTTON_WINDOW = (8, 16)  # [start, stop) byte range watched for button bits
+_KNOWN_BITS = {
+    (_DECK_TOUCH_BYTE, 3): "left pad touch",
+    (_DECK_TOUCH_BYTE, 4): "right pad touch",
+}
+_last_buttons = {}
+
+
+def _button_bytes(report):
+    # The slice of the state report watched for digital button bits, or None for a
+    # non-state/short report.
+    start, stop = _BUTTON_WINDOW
+    if len(report) < stop:
+        return None
+    if report[0] != 0x01 or report[2] != _DECK_STATE_TYPE:
+        return None
+    return report[start:stop]
+
+
+def _describe_bit(byte_index, bit):
+    known = _KNOWN_BITS.get((byte_index, bit))
+    return f"byte {byte_index} bit {bit}" + (f" [{known}]" if known else "")
+
+
+def _report_button_changes(path, report):
+    window = _button_bytes(report)
+    if window is None:
+        return
+    previous = _last_buttons.get(path)
+    _last_buttons[path] = window
+    if previous is None:
+        start, stop = _BUTTON_WINDOW
+        print(f"HIDRAW {path} idle button bytes {start}..{stop - 1}: {window.hex(' ')}")
+        return
+    if window == previous:
+        return
+    start = _BUTTON_WINDOW[0]
+    pressed, released = [], []
+    for offset, (old, new) in enumerate(zip(previous, window)):
+        changed = old ^ new
+        if not changed:
+            continue
+        for bit in range(8):
+            mask = 1 << bit
+            if changed & mask:
+                (pressed if new & mask else released).append(_describe_bit(start + offset, bit))
+    if pressed:
+        print(f"HIDRAW {path} BUTTON DOWN: {', '.join(pressed)}")
+    if released:
+        print(f"HIDRAW {path} button up  : {', '.join(released)}")
+    print(f"           button bytes now: {window.hex(' ')}")
+
+
 # Start a reader thread per matching hidraw node.
 _hid_queue = queue.Queue()
 _hid_readers = []
@@ -271,6 +339,7 @@ def _drain_hidraw():
         if path not in _raw_dumped:
             _raw_dumped.add(path)
             print(f"HIDRAW {path} first report ({len(payload)} bytes): {payload.hex()}")
+        _report_button_changes(path, payload)
         decoded = _decode_deck_pads(payload)
         if decoded is None:
             continue
@@ -289,6 +358,13 @@ def _drain_hidraw():
 
 
 print("Move sticks/press buttons, then drag a finger on each trackpad...")
+print("")
+print("To map the back buttons (L4/L5/R4/R5) or any button Steam Input hides, press")
+print("ONE at a time and watch for 'HIDRAW ... BUTTON DOWN: byte N bit B'. That byte")
+print("and bit come straight from the hardware, so they hold regardless of what Steam")
+print("Input does with the button. If a button produces no HIDRAW line at all, widen")
+print(f"_BUTTON_WINDOW (currently bytes {_BUTTON_WINDOW[0]}..{_BUTTON_WINDOW[1] - 1}) and run again.")
+print("")
 while True:
     _drain_hidraw()
     for e in pygame.event.get():
