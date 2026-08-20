@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.pytrain.gui.components.swipe_detector import SwipeDetector
+from src.pytrain.gui.components.swipe_detector import SwipeDetector, event_screen_y, event_targets
 
 
 class _HookWidget:
@@ -154,6 +154,40 @@ def test_swipe_rejected_when_mostly_vertical(monkeypatch) -> None:
     _swipe(detector, widget, dx=-60, dy=-200, monkeypatch=monkeypatch)
 
     assert detector.fired == []
+
+
+def test_event_screen_y_reads_both_event_shapes() -> None:
+    # guizero hooks deliver EventData (display_y); a direct Tk bind delivers the raw
+    # event (y_root). A predicate keyed to only one of them silently rejects every
+    # gesture from the other -- which is exactly how this went wrong.
+    assert event_screen_y(SimpleNamespace(display_y=440)) == 440
+    assert event_screen_y(SimpleNamespace(y_root=441)) == 441
+    assert event_screen_y(SimpleNamespace(x=1, y=2)) is None
+
+
+def test_event_targets_covers_guizero_and_tk_widgets() -> None:
+    tk_widget = object()
+    guizero_widget = SimpleNamespace(tk=tk_widget)
+
+    # EventData.widget is the guizero widget; a raw Tk event's is the Tk widget.
+    assert event_targets(SimpleNamespace(widget=guizero_widget)) == (guizero_widget, tk_widget)
+    assert event_targets(SimpleNamespace(widget=tk_widget)) == (tk_widget, None)
+    assert event_targets(SimpleNamespace()) == ()
+
+
+def test_bind_directly_avoids_guizero_hooks_and_preserves_bindings() -> None:
+    widget = _HookWidget()
+    binds = {}
+    widget.tk.bind = lambda seq, fn, add=None: binds.__setitem__(seq, add)
+
+    SwipeDetector(widget, bind_directly=True)
+
+    # guizero binds without add="+", so its hooks replace existing bindings for the
+    # same sequence (<Button-1> and <ButtonPress-1> are one sequence in Tk). Direct
+    # binding must be additive so a widget's other handlers survive.
+    assert widget.hooks == {}
+    assert sorted(binds) == ["<ButtonPress-1>", "<ButtonRelease-1>", "<Motion>"]
+    assert set(binds.values()) == {"+"}
 
 
 def test_should_start_predicate_ignores_gestures_outside_the_region(monkeypatch) -> None:

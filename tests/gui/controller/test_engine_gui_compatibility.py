@@ -367,7 +367,7 @@ def test_compact_info_text_expands_vertically_within_road_fields(monkeypatch: py
     monkeypatch.setattr(mod, "Picture", _Widget)
     # A detector is attached to the image and to the container owning the margin
     # beside it; the latter passes a should_start region predicate.
-    monkeypatch.setattr(mod, "SwipeDetector", lambda _widget, should_start=None: SimpleNamespace())
+    monkeypatch.setattr(mod, "SwipeDetector", lambda _widget, should_start=None, bind_directly=False: SimpleNamespace())
     app = SimpleNamespace(tk=SimpleNamespace(after=lambda *_args: None))
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._compact = True

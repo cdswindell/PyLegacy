@@ -53,7 +53,7 @@ from ..accessories.accessory_base import preload_accessory_button_image_paths
 from ..accessories.configured_accessory import ConfiguredAccessorySet, DEFAULT_CONFIG_FILE
 from ..components.hold_button import HoldButton
 from ..components.scrolling_text import ScrollingText
-from ..components.swipe_detector import SwipeDetector
+from ..components.swipe_detector import SwipeDetector, event_screen_y, event_targets
 from ..guizero_base import GuiZeroBase, resolve_font_family
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
@@ -1754,8 +1754,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # vertical band -- otherwise a swipe across background elsewhere in the pane
         # would change components too. No geometry is altered, only bindings, so
         # portrait layout is unaffected.
+        # ``bind_directly`` matters here: the parent may already carry raw Tk
+        # bindings (the Steam Deck panes bind <Button-1> for tap-to-focus), and
+        # guizero's when_* hooks bind without add="+", which would silently replace
+        # them -- <Button-1> and <ButtonPress-1> are the same Tk sequence.
         self._image_parent = app
-        self._isd_area = SwipeDetector(app, should_start=self._press_starts_in_image_band)
+        self._isd_area = SwipeDetector(app, should_start=self._press_starts_in_image_band, bind_directly=True)
         self._isd_area.on_swipe_right = self.show_previous_component
         self._isd_area.on_swipe_left = self.show_next_component
         self.image_box.hide()
@@ -1775,15 +1779,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # ``visible`` flag is a separate bookkeeping attribute.
             mapped = bool(tkw.winfo_ismapped())
             bottom = tkw.winfo_rooty() + tkw.winfo_height()
+            # The event is a raw Tk event or a guizero EventData depending on how the
+            # detector was bound, and the two spell screen coordinates and the target
+            # widget differently.
+            screen_y = event_screen_y(event)
             # When the parent is the toplevel (portrait), Tk *does* report presses on
             # descendants here, so ignore ones the Picture's own detector handles.
-            on_image = self.image is not None and event.widget is self.image.tk
-            accepted = mapped and not on_image and event.y_root <= bottom
+            on_image = self.image is not None and self.image in event_targets(event)
+            accepted = mapped and not on_image and screen_y is not None and screen_y <= bottom
             # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): one line per press,
             # naming the clause that decided it.
             log.info(
-                "SWIPE-DIAG band check: y_root=%s box=(top=%s bottom=%s h=%s) mapped=%s on_image=%s -> %s",
-                event.y_root,
+                "SWIPE-DIAG band check: screen_y=%s box=(top=%s bottom=%s h=%s) mapped=%s on_image=%s -> %s",
+                screen_y,
                 tkw.winfo_rooty(),
                 bottom,
                 tkw.winfo_height(),
