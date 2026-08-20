@@ -11,7 +11,8 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DPAD_DOWN,
     DPAD_LEFT,
     DPAD_RIGHT,
-    CATALOG_JUMP_ACTIONS,
+    CATALOG_JUMP_MODIFIER,
+    DEFAULT_PROFILE,
     DPAD_UP,
     HORN_COMMAND,
     PANEL_COMMANDS,
@@ -581,8 +582,8 @@ def _catalog_router(focused_gui: SimpleNamespace) -> DeckInputRouter:
 
 
 def _coupler_profile() -> ControlProfile:
-    # L1/R1 carry the couplers, as in the bundled profile: while the catalog is open
-    # they jump the highlight to the first/last entry instead.
+    # L1/R1 carry the couplers, as in the bundled profile. R1 doubles as the
+    # catalog-jump modifier while the catalog is open.
     return _profile(
         buttons={
             "4": {"action": "rear_coupler", "target": "focused"},
@@ -591,30 +592,51 @@ def _coupler_profile() -> ControlProfile:
     )
 
 
-def test_l1_jumps_to_catalog_top_without_selecting_while_catalog_open() -> None:
+def test_r1_plus_dpad_up_jumps_to_catalog_top_without_selecting() -> None:
     focused_gui = _catalog_gui()
     router = _catalog_router(focused_gui)
 
-    # L1 (rear coupler) jumps the highlight to the first entry, without selecting it
-    # (so the catalog stays open) and without firing the coupler.
-    router.handle(DeckAction("rear_coupler", "focused", 1.0, "pressed", button=4))
+    # R1 held + D-pad up jumps the highlight to the first entry, without selecting it
+    # (so the catalog stays open) and without the ordinary one-entry scroll.
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=True))
 
     assert focused_gui.scroll_end_calls == [True]
-    assert focused_gui.command_calls == []
+    assert focused_gui.scroll_calls == []
 
 
-def test_r1_jumps_to_catalog_bottom_without_selecting_while_catalog_open() -> None:
+def test_r1_plus_dpad_down_jumps_to_catalog_end_without_selecting() -> None:
     focused_gui = _catalog_gui()
     router = _catalog_router(focused_gui)
 
-    # R1 (front coupler) jumps the highlight to the last entry.
-    router.handle(DeckAction("front_coupler", "focused", 1.0, "pressed", button=5))
+    # R1 held + D-pad down jumps the highlight to the last entry.
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=True))
 
     assert focused_gui.scroll_end_calls == [False]
+    assert focused_gui.scroll_calls == []
+
+
+def test_r1_opens_no_coupler_while_the_catalog_is_open() -> None:
+    focused_gui = _catalog_gui(allow_jump=False)
+    router = _catalog_router(focused_gui)
+
+    # R1 is the modifier while browsing, so it performs no action of its own -- holding
+    # it must not fire the front coupler.
+    router.handle(DeckAction("front_coupler", "focused", 1.0, "pressed", button=5))
+
     assert focused_gui.command_calls == []
 
 
-def test_shoulder_buttons_still_open_couplers_when_catalog_closed() -> None:
+def test_l1_still_opens_its_coupler_while_the_catalog_is_open() -> None:
+    focused_gui = _catalog_gui(allow_jump=False)
+    router = _catalog_router(focused_gui)
+
+    # Only the modifier button changes meaning; L1 keeps its coupler throughout.
+    router.handle(DeckAction("rear_coupler", "focused", 1.0, "pressed", button=4))
+
+    assert focused_gui.command_calls == [PANEL_COMMANDS["rear_coupler"]]
+
+
+def test_shoulder_buttons_open_couplers_when_catalog_closed() -> None:
     focused_gui = _catalog_gui(allow_jump=False)
     focused_gui.catalog_visible = False
     router = DeckInputRouter(
@@ -625,7 +647,7 @@ def test_shoulder_buttons_still_open_couplers_when_catalog_closed() -> None:
         global_actions={},
     )
 
-    # With no catalog on screen there is nothing to jump to, so the shoulder buttons
+    # With no catalog on screen there is nothing to jump to, so both shoulder buttons
     # keep their ordinary coupler behavior.
     router.handle(DeckAction("rear_coupler", "focused", 1.0, "pressed", button=4))
     router.handle(DeckAction("front_coupler", "focused", 1.0, "pressed", button=5))
@@ -644,18 +666,18 @@ def test_catalog_jump_cancels_pending_auto_repeat() -> None:
     # D-pad does not keep scrolling away from the entry just jumped to.
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
     assert router._scrolls != {}
-    router.handle(DeckAction("front_coupler", "focused", 1.0, "pressed", button=5))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=True))
 
     assert focused_gui.scroll_end_calls == [False]
     assert router._scrolls == {}
 
 
-def test_dpad_presses_only_ever_scroll_one_entry() -> None:
+def test_dpad_without_the_modifier_only_ever_scrolls_one_entry() -> None:
     focused_gui = _catalog_gui(allow_jump=False)
     router = _catalog_router(focused_gui)
 
-    # The D-pad no longer carries a jump gesture of any kind: however fast the
-    # presses arrive, each moves the highlight exactly one entry.
+    # Without R1 held, presses scroll one entry each however fast they arrive: there is
+    # no timed gesture that could be mistaken for a jump.
     for _ in range(4):
         router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
         router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
@@ -663,11 +685,86 @@ def test_dpad_presses_only_ever_scroll_one_entry() -> None:
     assert focused_gui.scroll_calls == [-1, -1, -1, -1]
 
 
-def test_catalog_jump_actions_cover_both_couplers() -> None:
-    # Keyed by action so the behavior follows whichever buttons a profile assigns the
-    # couplers to; L1 (rear) goes to the top and R1 (front) to the bottom.
-    assert CATALOG_JUMP_ACTIONS == {"rear_coupler": True, "front_coupler": False}
-    assert set(CATALOG_JUMP_ACTIONS) <= set(PANEL_COMMANDS)
+def test_jump_modifier_still_boosts_when_catalog_closed() -> None:
+    focused_gui = _catalog_gui(allow_jump=False)
+    focused_gui.catalog_visible = False
+    router = _catalog_router(focused_gui)
+
+    # With no catalog there is nothing to jump to, so the modifier is ignored and the
+    # D-pad still boosts/brakes.
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=True))
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=True))
+
+    assert focused_gui.command_calls == ["BOOST_SPEED", "BRAKE_SPEED"]
+    assert focused_gui.scroll_calls == []
+
+
+def test_bundled_profile_binds_the_catalog_jump_modifier() -> None:
+    # The modifier is keyed by action, so it follows whichever button carries the front
+    # coupler -- button 5 (R1) in the bundled profile.
+    profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
+
+    assert profile.catalog_jump_modifier_buttons == frozenset({5})
+    assert CATALOG_JUMP_MODIFIER in PANEL_COMMANDS
+
+
+def test_provider_flags_jump_modifier_while_r1_held() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=5),
+            SimpleNamespace(type=6, value=(0, 1)),
+            SimpleNamespace(type=6, value=(0, 0)),
+            SimpleNamespace(type=6, value=(0, -1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_coupler_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # Both D-pad presses made while R1 is held carry the flag; the release does not.
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [
+        ("front_coupler", "pressed", False),
+        (DPAD_UP, "pressed", True),
+        (DPAD_UP, "released", False),
+        (DPAD_DOWN, "pressed", True),
+    ]
+
+
+def test_provider_does_not_flag_jump_modifier_once_r1_released() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=5),
+            SimpleNamespace(type=3, button=5),
+            SimpleNamespace(type=6, value=(0, 1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_coupler_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions if a.name == DPAD_UP] == [(DPAD_UP, "pressed", False)]
+
+
+def test_provider_does_not_flag_jump_modifier_for_l1() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=4),
+            SimpleNamespace(type=6, value=(0, 1)),
+        ]
+    )
+    provider = SteamDeckInputProvider(_coupler_profile(), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # Only the front coupler's button is the modifier; L1 is not.
+    assert [(a.name, a.phase, a.jump_modifier) for a in actions] == [
+        ("rear_coupler", "pressed", False),
+        (DPAD_UP, "pressed", False),
+    ]
 
 
 def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:

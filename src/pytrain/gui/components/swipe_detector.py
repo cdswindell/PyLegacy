@@ -104,10 +104,6 @@ class SwipeDetector:
             widget.tk.bind("<Motion>", self._on_move, add="+")
             widget.tk.bind("<ButtonRelease-1>", self._on_release, add="+")
 
-        # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): identifies which
-        # detector a log line came from, since several are attached to one screen.
-        self._diag_name = str(getattr(widget, "tk", widget))
-
         # user callback hooks:
         self.on_swipe_left = None
         self.on_swipe_right = None
@@ -149,25 +145,6 @@ class SwipeDetector:
             self._cancel_long_press_timer()
             return
 
-        # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): where the press landed
-        # inside the widget, and where the widget sits on screen. A gesture that logs
-        # no press at all never reached this widget.
-        try:
-            tk = self.widget.tk
-            log.info(
-                "SWIPE-DIAG press [%s]: at (%s,%s) in widget %sx%s whose left edge is screen x=%s (so screen x=%s)",
-                self._diag_name,
-                e.x,
-                e.y,
-                tk.winfo_width(),
-                tk.winfo_height(),
-                tk.winfo_rootx(),
-                tk.winfo_rootx() + e.x,
-            )
-        except (AttributeError, TclError):
-            pass
-        self._first_move_logged = False
-
         self.start_x = e.x
         self.start_y = e.y
         self.start_time = time.monotonic()
@@ -182,14 +159,10 @@ class SwipeDetector:
     # ------------------------------
 
     def _on_move(self, e):
-        # cancel long-press if moved too far
+        # cancel long-press if moved too far. Deliberately does no logging: this fires
+        # continuously during a drag, on the same thread that services the touch
+        # screen, so even a debug call here is a real cost.
         if self.start_x is not None:
-            # TEMPORARY SWIPE DIAGNOSTIC: log only the FIRST move of each gesture.
-            # _on_move fires continuously, and logging every one would stall the Tk
-            # loop (it is the same thread that services the touch screen).
-            if not getattr(self, "_first_move_logged", True):
-                self._first_move_logged = True
-                log.info("SWIPE-DIAG first move: to (%s,%s) from (%s,%s)", e.x, e.y, self.start_x, self.start_y)
             if (
                 abs(e.x - self.start_x) > self.max_move_for_long_press
                 or abs(e.y - self.start_y) > self.max_move_for_long_press
@@ -199,26 +172,20 @@ class SwipeDetector:
     # ------------------------------
 
     def _on_release(self, e):
-        # TEMPORARY SWIPE DIAGNOSTIC (remove once the left-swipe bug is fixed):
-        # one log line per gesture -- never log from _on_move, which fires
-        # continuously and would stall the Tk loop.
+        # Read the long-press flag *before* cancelling the timer: cancelling resets
+        # it, which would let an already-fired long press be taken for a swipe.
         long_press_had_fired = self.long_press_fired
         self._cancel_long_press_timer()
 
         # if long press fired, stop — it's not a swipe
         if long_press_had_fired:
-            log.info("SWIPE-DIAG release [%s]: rejected, long press had fired", self._diag_name)
             self.start_x = self.start_y = self.start_time = None
             return
 
         # -- swipe detection --
         if self.start_x is None:
-            log.info(
-                "SWIPE-DIAG release [%s]: rejected, no press recorded -- this release arrived on widget %s "
-                "with no matching press (either should_start rejected it, or the press went elsewhere)",
-                self._diag_name,
-                getattr(e, "widget", "?"),
-            )
+            # No matching press: either should_start rejected it, or the press went to
+            # a different widget.
             return
 
         end_x = e.x
@@ -230,41 +197,36 @@ class SwipeDetector:
 
         self.start_x = self.start_y = self.start_time = None
 
-        measurements = f"dt={dt:.3f}s dx={dx} dy={dy} (max_time={self.max_time} min_distance={self.min_distance})"
-
-        # swipe must be fast
+        rejected = None
         if dt > self.max_time:
-            log.info("SWIPE-DIAG release [%s]: rejected, too slow -- %s", self._diag_name, measurements)
-            return
-
-        # swipe must be wide enough
-        if abs(dx) < self.min_distance:
-            log.info("SWIPE-DIAG release [%s]: rejected, too short -- %s", self._diag_name, measurements)
-            return
-
-        # primarily horizontal
-        if abs(dx) <= abs(dy):
-            log.info("SWIPE-DIAG release [%s]: rejected, not primarily horizontal -- %s", self._diag_name, measurements)
+            rejected = "too slow"
+        elif abs(dx) < self.min_distance:
+            rejected = "too short"
+        elif abs(dx) <= abs(dy):
+            rejected = "not primarily horizontal"
+        if rejected is not None:
+            # One line per gesture, at debug: which threshold dropped a swipe is
+            # otherwise invisible, and "nothing happened" is the hardest symptom to
+            # chase on a touch screen.
+            log.debug(
+                "swipe rejected (%s): dt=%.3fs dx=%s dy=%s (max_time=%s min_distance=%s)",
+                rejected,
+                dt,
+                dx,
+                dy,
+                self.max_time,
+                self.min_distance,
+            )
             return
 
         # direction
         try:
             if dx > 0:
-                log.info(
-                    "SWIPE-DIAG release [%s]: accepted RIGHT (dx>0, on_swipe_right=%s) -- %s",
-                    self._diag_name,
-                    "set" if self.on_swipe_right else "None",
-                    measurements,
-                )
+                log.debug("swipe right: dt=%.3fs dx=%s dy=%s", dt, dx, dy)
                 if self.on_swipe_right:
                     self.widget.tk.after(0, self.on_swipe_right)
             else:
-                log.info(
-                    "SWIPE-DIAG release [%s]: accepted LEFT (dx<0, on_swipe_left=%s) -- %s",
-                    self._diag_name,
-                    "set" if self.on_swipe_left else "None",
-                    measurements,
-                )
+                log.debug("swipe left: dt=%.3fs dx=%s dy=%s", dt, dx, dy)
                 if self.on_swipe_left:
                     self.widget.tk.after(0, self.on_swipe_left)
         except TclError:

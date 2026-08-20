@@ -1563,26 +1563,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     return True
         return False
 
-    def _log_swipe_diagnostic(self, direction: str, recents) -> None:
-        # TEMPORARY SWIPE DIAGNOSTIC (remove once the left-swipe bug is fixed).
-        # ``show_next_component`` assumes recents[0] is what is on screen (it takes
-        # recents[1] as "next"); ``show_previous_component`` makes no such
-        # assumption (it takes recents[-1]). Log whether that invariant holds.
-        if not isinstance(recents, UniqueDeque) or len(recents) == 0:
-            log.info("SWIPE-DIAG %s: no usable queue (recents=%r) -- nothing will happen", direction, recents)
-            return
-        queue_name = "train_linked" if recents is self._train_linked_queue else f"recents[{self.scope}]"
-        log.info(
-            "SWIPE-DIAG %s: queue=%s len=%s ids=%s on_screen=%s recents[0]=%s invariant_holds=%s",
-            direction,
-            queue_name,
-            len(recents),
-            [s.tmcc_id for s in recents],
-            self._last_displayed_tmcc_id,
-            recents[0].tmcc_id,
-            recents[0].tmcc_id == self._last_displayed_tmcc_id,
-        )
-
     def show_next_component(self) -> None:
         self._popup.close()
         with self._cv:
@@ -1590,18 +1570,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 recents = self._train_linked_queue
             else:
                 recents = self._recents_queue.get(self.scope, None)
-            self._log_swipe_diagnostic("next (swipe LEFT)", recents)
             if isinstance(recents, UniqueDeque) and len(recents) > 0:
                 current = recents[0]
                 state = cast(ComponentState, cast(object, recents.next()))
-                # TEMPORARY SWIPE DIAGNOSTIC: a choice equal to what is already on
-                # screen is the silent no-op mode -- update_component_info() will see
-                # selection_changed=False and nothing visible will happen.
-                log.info(
-                    "SWIPE-DIAG next: chose=%s already_on_screen=%s",
-                    state.tmcc_id,
-                    state.tmcc_id == self._last_displayed_tmcc_id,
-                )
                 recents.append(current)
                 self._scope_tmcc_ids[self.scope] = state.tmcc_id
                 self.update_component_info(tmcc_id=state.tmcc_id)
@@ -1614,14 +1585,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 recents = self._train_linked_queue
             else:
                 recents = self._recents_queue.get(self.scope, None)
-            self._log_swipe_diagnostic("previous (swipe RIGHT)", recents)
             if isinstance(recents, UniqueDeque) and len(recents) > 0:
                 state = cast(ComponentState, cast(object, recents.previous()))
-                log.info(
-                    "SWIPE-DIAG previous: chose=%s already_on_screen=%s",
-                    state.tmcc_id,
-                    state.tmcc_id == self._last_displayed_tmcc_id,
-                )
                 self._scope_tmcc_ids[self.scope] = state.tmcc_id
                 self.update_component_info(tmcc_id=state.tmcc_id)
                 self.header.select_default()
@@ -1787,21 +1752,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # descendants here, so ignore ones the Picture's own detector handles.
             on_image = self.image is not None and self.image in event_targets(event)
             accepted = mapped and not on_image and screen_y is not None and screen_y <= bottom
-            # TEMPORARY SWIPE DIAGNOSTIC (remove with the rest): one line per press,
-            # naming the clause that decided it.
-            log.info(
-                "SWIPE-DIAG band check: screen_y=%s box=(top=%s bottom=%s h=%s) mapped=%s on_image=%s -> %s",
+            log.debug(
+                "swipe region check: screen_y=%s image box bottom=%s mapped=%s on_image=%s -> %s",
                 screen_y,
-                tkw.winfo_rooty(),
                 bottom,
-                tkw.winfo_height(),
                 mapped,
                 on_image,
-                "ACCEPTED" if accepted else "REJECTED",
+                "in" if accepted else "out",
             )
             return accepted
         except (AttributeError, tk.TclError) as exc:
-            log.info("SWIPE-DIAG band check: failed (%s) -- treating as outside the region", exc)
+            log.debug("swipe region check failed (%s); treating as outside the region", exc)
             return False
 
     def make_keypad_button(

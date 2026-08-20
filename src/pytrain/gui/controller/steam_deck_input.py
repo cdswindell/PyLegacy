@@ -63,8 +63,8 @@ CLOSE_POPUP_BUTTON = 2
 # motion instead. Higher button indices do exist (``scripts/deckinfo.py`` reports
 # the "..." button below the right trackpad as button 15) but none of them is the
 # D-pad. While the catalog panel is open, up/down scroll the highlighted entry in
-# the focused pane one at a time (the shoulder buttons jump to the first/last entry
-# -- see ``CATALOG_JUMP_ACTIONS``), right confirms the highlighted entry, and left
+# the focused pane one at a time (or jump to the first/last entry when the
+# ``CATALOG_JUMP_MODIFIER`` button is held), right confirms the highlighted entry, and left
 # cancels/closes the catalog panel. Otherwise (no catalog), up/down boost/brake
 # the engine or train speed (auto-repeating while held) and left/right
 # lower/raise the smoke output (SMOKE_OFF/SMOKE_ON, one-shot per press).
@@ -156,21 +156,24 @@ DEFAULT_TRIGGER_DEAD_ZONE = 0.02
 # to the ``quilling_horn`` action so pulling a finger down the pad sounds the
 # horn, mirroring the on-screen vertical horn slider.
 TOUCHPAD_ACTIONS = {"quilling_horn"}
-# While the catalog panel is open the shoulder buttons jump the highlight to the
-# first/last entry (L1 = first, R1 = last) instead of opening a coupler, and the
-# jump only moves the highlight -- the user confirms the entry separately, so the
-# catalog stays open. Browsing a catalog and uncoupling cars are never useful at the
-# same moment, and this mirrors how the A button confirms the highlighted entry
-# while the catalog is open rather than running its assigned action.
+# While the catalog panel is open, holding R1 turns D-pad up/down into a jump to the
+# first/last entry instead of a one-entry scroll: R1+up jumps to the top, R1+down to
+# the end. The jump only moves the highlight -- the user confirms the entry
+# separately, so the catalog stays open.
 #
-# This is deliberately not a hold-a-modifier chord. The Deck's obvious modifier
-# candidates are unusable: Steam consumes "..." (and the entire controller with it)
-# for its Quick Access overlay, so neither that button nor the D-pad reaches the app
-# while it is held. A plain mode-dependent button needs no second input at all.
+# R1 is the modifier because it is delivered to the app reliably. The Deck's obvious
+# modifier candidates are not: Steam consumes "..." (and the whole controller with it)
+# for its Quick Access overlay, so neither that button nor any D-pad press reaches the
+# app while it is held.
 #
-# Keyed by profile action rather than by button index so the behavior follows
-# whichever buttons a profile assigns the couplers to. The value is ``to_top``.
-CATALOG_JUMP_ACTIONS = {"rear_coupler": True, "front_coupler": False}
+# While the catalog is open R1 does not also open its coupler -- browsing a catalog
+# and uncoupling cars are never useful at the same moment, and this mirrors how the A
+# button confirms the highlighted entry while the catalog is open rather than running
+# its assigned action. L1 keeps its coupler throughout.
+#
+# Keyed by profile action rather than by button index, so the modifier follows
+# whichever button a profile assigns the front coupler to.
+CATALOG_JUMP_MODIFIER = "front_coupler"
 # Fraction of the pad, measured from the top edge, treated as "off" so a finger
 # resting at the very top does not sound the horn. Profiles may override it via
 # ``touch_dead_zone``.
@@ -312,6 +315,11 @@ class DeckAction:
     value: float
     phase: str
     button: int | None = None
+    # True when the ``CATALOG_JUMP_MODIFIER`` button (R1) was held as this action was
+    # produced. Only D-pad up/down presses set it. The provider reports only the
+    # physical fact that the modifier was held, so the router keeps sole ownership of
+    # what is on screen -- the flag is ignored when the catalog is closed.
+    jump_modifier: bool = False
 
 
 @dataclass(frozen=True)
@@ -355,6 +363,13 @@ class ControlProfile:
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
     touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
     touch_dead_zone: float = DEFAULT_TOUCH_DEAD_ZONE
+
+    @property
+    def catalog_jump_modifier_buttons(self) -> frozenset[int]:
+        # Button indices whose action makes them the catalog-jump modifier (R1 in the
+        # bundled profile). Usually one, but a profile may bind several and any of
+        # them held enables the jump.
+        return frozenset(index for index, binding in self.buttons.items() if binding.action == CATALOG_JUMP_MODIFIER)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ControlProfile":
@@ -1006,6 +1021,10 @@ class SteamDeckInputProvider:
         if y != self._hat_y:
             previous_y = self._hat_y
             self._hat_y = y
+            # Report whether the catalog-jump modifier (R1) is held as this direction
+            # is pressed, so the router can turn the press into a jump to the
+            # first/last catalog entry rather than a one-entry scroll.
+            jump = bool(self.profile.catalog_jump_modifier_buttons & self._held_buttons)
             # Emit a release for the previously held vertical direction so the
             # router can stop repeating the catalog scroll it fires while the
             # D-pad up/down is held.
@@ -1014,9 +1033,9 @@ class SteamDeckInputProvider:
             elif previous_y < 0:
                 actions.append(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
             if y > 0:
-                actions.append(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+                actions.append(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=jump))
             elif y < 0:
-                actions.append(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+                actions.append(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=jump))
         if x != self._hat_x:
             previous_x = self._hat_x
             self._hat_x = x
@@ -1237,13 +1256,10 @@ class DeckInputRouter:
             # of performing its assigned action.
             gui.close_popup()
             return
-        if action.name in CATALOG_JUMP_ACTIONS and getattr(gui, "catalog_visible", False):
-            # While the catalog panel is open, the L1/R1 shoulder buttons jump the
-            # highlight to the first/last entry instead of opening a coupler. Cancel
-            # any pending auto-repeat so a still-held D-pad does not immediately
-            # scroll away from the entry just jumped to.
-            self._scrolls.pop(action.target, None)
-            gui.scroll_catalog_to_end(to_top=CATALOG_JUMP_ACTIONS[action.name])
+        if action.name == CATALOG_JUMP_MODIFIER and getattr(gui, "catalog_visible", False):
+            # While the catalog panel is open, R1 is the jump modifier rather than a
+            # coupler button: it performs no action of its own, and the D-pad press
+            # made while it is held does the jumping.
             return
         command = PANEL_COMMANDS.get(action.name)
         if command is not None:
@@ -1378,6 +1394,14 @@ class DeckInputRouter:
             # While the catalog panel is open, D-pad up/down scroll the
             # highlighted catalog entry (never boost/brake).
             self._boosts.pop(action.target, None)
+            if action.jump_modifier:
+                # R1 is held: jump the highlight to the first (up) or last (down)
+                # entry without selecting it (the user confirms the entry
+                # separately). Cancel any pending auto-repeat so a still-held D-pad
+                # does not scroll away from the entry just jumped to.
+                self._scrolls.pop(action.target, None)
+                gui.scroll_catalog_to_end(to_top=action.name == DPAD_UP)
+                return
             # Single press: scroll one entry immediately for responsiveness, then
             # ``tick()`` arms the auto-repeat only after the key has been held for
             # ``CATALOG_SCROLL_INITIAL_DELAY`` (500 ms) and thereafter re-scrolls
