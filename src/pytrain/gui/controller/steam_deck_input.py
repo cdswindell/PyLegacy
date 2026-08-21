@@ -47,6 +47,10 @@ SUPPORTED_ACTIONS = {
     "volume_down",
     "engineer_chatter",
     "tower_chatter",
+    "admin_quit",
+    "admin_update",
+    "admin_reboot",
+    "admin_shutdown",
 }
 AXIS_ACTIONS = {"throttle", "direction", "quilling_horn"}
 # Discrete navigation actions that may be bound to an analog trigger axis
@@ -170,6 +174,25 @@ DEFAULT_TRIGGER_DEAD_ZONE = 0.02
 # to the ``quilling_horn`` action so pulling a finger down the pad sounds the
 # horn, mirroring the on-screen vertical horn slider.
 TOUCHPAD_ACTIONS = {"quilling_horn"}
+# Admin panel operations, reachable as L1 + a face button *only while the admin panel
+# is on screen* -- the router drops them otherwise, so no chord can reboot or shut
+# down the machine from an operating screen. Each maps to the ``TMCC1SyncCommandEnum``
+# member the panel's own buttons send, resolved GUI-side like the PANEL_COMMANDS above.
+#
+# NOTE: the panel's on-screen buttons require a 3-second hold (``hold_threshold``, with
+# a visible "Hold for 3 seconds" progress bar) precisely because these are
+# destructive. A chord fires as soon as both buttons are down, so it deliberately
+# trades that guard for speed; two buttons at once is the only protection.
+ADMIN_COMMANDS = {
+    "admin_quit": "QUIT",
+    "admin_update": "UPDATE",
+    "admin_reboot": "REBOOT",
+    "admin_shutdown": "SHUTDOWN",
+}
+# While the admin panel is open, L1 is the chord modifier and opens no coupler, the
+# same way R1 becomes the catalog-jump modifier while the catalog is open. Keyed by
+# profile action so it follows whichever button carries the rear coupler.
+ADMIN_CHORD_MODIFIER = "rear_coupler"
 # While the catalog panel is open, holding R1 turns D-pad up/down into a jump to the
 # first/last entry instead of a one-entry scroll: R1+up jumps to the top, R1+down to
 # the end. The jump only moves the highlight -- the user confirms the entry
@@ -1033,19 +1056,35 @@ class SteamDeckInputProvider:
         # the edge first wins and the other is a no-op, rather than firing twice.
         if pressed == (button in self._held_buttons):
             return actions
+        completed_chord = False
         if pressed:
             self._held_buttons.add(button)
             for chord in self.profile.chords:
                 if chord not in self._fired_chords and chord.buttons.issubset(self._held_buttons):
                     self._fired_chords.add(chord)
                     actions.append(DeckAction(chord.action, chord.target, 1.0, "pressed"))
+                    completed_chord = completed_chord or button in chord.buttons
                     # Remember that a long-press button took part in a chord so
                     # its release does not additionally fire a startup/shutdown
                     # command.
                     self._long_press_chorded.update(self._long_press_buttons & chord.buttons)
         else:
             self._held_buttons.discard(button)
-            self._fired_chords = {chord for chord in self._fired_chords if chord.buttons.issubset(self._held_buttons)}
+            # Emit a release for any chord that is no longer fully held. A chord that
+            # stands in for a press-and-hold (the admin panel chords) needs the
+            # release to cancel the hold it started.
+            still_held = set()
+            for chord in self._fired_chords:
+                if chord.buttons.issubset(self._held_buttons):
+                    still_held.add(chord)
+                else:
+                    actions.append(DeckAction(chord.action, chord.target, 0.0, "released"))
+            self._fired_chords = still_held
+        if completed_chord:
+            # This press completed a chord, which is its own gesture: don't also fire
+            # the button's individual command. Otherwise L1+A would shut the machine
+            # down *and* run sequence control on the engine.
+            return actions
         binding = self.profile.buttons.get(button)
         if binding is None:
             if pressed and button not in self._logged_unbound:
@@ -1268,6 +1307,11 @@ class DeckInputRouter:
             # before the ``pressed``-only guard below.
             self._handle_scroll_boost(action)
             return
+        if action.name in ADMIN_COMMANDS:
+            # Both phases matter: the press starts the panel button's hold and the
+            # release cancels it, so handle this before the ``pressed``-only guard.
+            self._handle_admin_command(action)
+            return
         if action.name in (DPAD_LEFT, DPAD_RIGHT):
             # D-pad left/right select/close the catalog (when open) or adjust the
             # smoke output (one-shot); neither repeats, but route it here to keep
@@ -1340,6 +1384,9 @@ class DeckInputRouter:
             # While a popup panel is displayed, the X button closes it instead
             # of performing its assigned action.
             gui.close_popup()
+            return
+        if action.name == ADMIN_CHORD_MODIFIER and getattr(gui, "admin_visible", False):
+            # L1 is the admin chord modifier while that panel is up: no coupler.
             return
         if action.name == CATALOG_JUMP_MODIFIER and getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, R1 is the jump modifier rather than a
@@ -1480,6 +1527,19 @@ class DeckInputRouter:
             interval = binding.repeat_interval
         self._held_commands[action.button] = [action.target, command, interval, 0.0]
         gui.on_engine_command(command)
+
+    def _handle_admin_command(self, action: DeckAction) -> None:
+        # An admin chord stands in for pressing and holding the matching admin panel
+        # button: the press starts that button's hold (progress bar and all) and the
+        # command fires only once it completes, so a chord cannot reboot or shut down
+        # on a momentary fumble. The GUI re-checks that the panel is visible.
+        gui = self._target_gui(action.target)
+        if gui is None:
+            return
+        handler = getattr(gui, "on_admin_command", None)
+        if handler is None:
+            return
+        handler(ADMIN_COMMANDS[action.name], action.phase == "pressed")
 
     def _handle_scroll_boost(self, action: DeckAction) -> None:
         if action.phase != "pressed":

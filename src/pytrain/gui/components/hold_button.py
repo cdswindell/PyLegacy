@@ -270,6 +270,25 @@ class HoldButton(PushButton):
     # Internal event handlers
     # ───────────────────────────────
     # noinspection PyUnusedLocal
+    def begin_hold(self) -> None:
+        """Start a hold as though the button had been pressed with a finger.
+
+        For synthetic input (e.g. a controller chord standing in for a press): the
+        hold progress bar animates and ``on_hold`` fires after ``hold_threshold``
+        exactly as it would for a real press, so the timing and the visual feedback
+        have a single implementation.
+        """
+        self._on_press_event()
+
+    def cancel_hold(self) -> None:
+        """Abandon a hold started by :meth:`begin_hold` before it completes.
+
+        Stops the progress animation and the pending ``on_hold`` without firing the
+        short-press callback -- the same treatment as a finger sliding off the button.
+        Harmless if the hold has already completed.
+        """
+        self._on_leave_event()
+
     def _on_press_event(self, event=None):
         if not self._is_enabled():
             self._pressed = False

@@ -71,6 +71,7 @@ from ...protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
     TMCC1EngineCommandEnum,
     TMCC1RRSpeedsEnum,
+    TMCC1SyncCommandEnum,
 )
 from ...protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum,
@@ -1424,6 +1425,37 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def catalog_visible(self) -> bool:
         panel = self._catalog_panel
         return bool(panel is not None and panel.visible)
+
+    @property
+    def admin_visible(self) -> bool:
+        panel = self._admin_panel
+        return bool(panel is not None and panel.visible)
+
+    def on_admin_command(self, command: str, pressed: bool = True) -> bool:
+        """Hold an admin panel button by name (QUIT, UPDATE, REBOOT, SHUTDOWN, ...).
+
+        Rather than running the command outright, this drives the panel's own
+        ``HoldButton``: ``pressed`` starts its hold, so the on-screen progress bar
+        animates and the command fires only after ``hold_threshold`` seconds, exactly
+        as for a finger. Releasing before then cancels it. A controller chord
+        therefore gets the same dwell and the same feedback as the button it stands in
+        for, with no second copy of the timing logic.
+
+        A press is only honoured while the panel is on screen, so a chord cannot
+        reboot or shut down the machine from an ordinary operating screen. A release
+        is always forwarded, so an in-flight hold can always be cancelled.
+        """
+        panel = self._admin_panel
+        if panel is None:
+            return False
+        if TMCC1SyncCommandEnum.by_name(command) is None:
+            log.warning("Unknown admin command: %s", command)
+            return False
+        if not pressed:
+            return panel.cancel_hold(command)
+        if not self.admin_visible:
+            return False
+        return panel.begin_hold(command)
 
     @property
     def popup_visible(self) -> bool:

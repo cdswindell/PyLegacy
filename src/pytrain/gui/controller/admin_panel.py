@@ -59,6 +59,9 @@ class AdminPanel:
         self._wifi_signal = None
         self._wifi_refresh_after_id = None
         self._needs_scope_fix = True
+        # Admin action buttons by TMCC1SyncCommandEnum name, so synthetic input can
+        # drive the real widget (see ``begin_hold``).
+        self._admin_buttons: dict[str, HoldButton] = {}
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
         self._overlay = None
@@ -108,6 +111,41 @@ class AdminPanel:
         if not self._compact:
             return ADMIN_TITLE + "\n" + self._gui.version
         return self._gui.version
+
+    @property
+    def visible(self) -> bool:
+        """True when this panel's overlay is built and on screen."""
+        return bool(self._overlay is not None and self._overlay.visible)
+
+    def _admin_hold_button(self, parent, **kwargs) -> HoldButton:
+        # Create an admin action button and remember it by command name, so synthetic
+        # input (a controller chord) can drive the very same widget rather than
+        # duplicating its hold timing and progress feedback.
+        button = self._hold_button(parent, **kwargs)
+        command = kwargs["on_hold"][1][0]
+        self._admin_buttons[command.name] = button
+        return button
+
+    def begin_hold(self, command: str) -> bool:
+        """Start the hold on an admin button as if a finger had pressed it.
+
+        The button animates its hold progress and fires its own ``on_hold`` after
+        ``hold_threshold`` seconds, so a controller chord gets identical timing and
+        identical on-screen feedback. Returns whether a hold was started.
+        """
+        button = self._admin_buttons.get(command)
+        if button is None or not self.visible:
+            return False
+        button.begin_hold()
+        return True
+
+    def cancel_hold(self, command: str) -> bool:
+        """Abandon a hold started by :meth:`begin_hold` before it completes."""
+        button = self._admin_buttons.get(command)
+        if button is None:
+            return False
+        button.cancel_hold()
+        return True
 
     @property
     def overlay(self) -> Box:
@@ -323,14 +361,14 @@ class AdminPanel:
                     minsize=self.compact_control_height,
                     uniform="admin_actions",
                 )
-        _ = self._hold_button(
+        self._admin_hold_button(
             tb,
             text="Restart",
             grid=[left_col, restart_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.RESTART]),
         )
 
-        _ = self._hold_button(
+        self._admin_hold_button(
             tb,
             text="Reboot",
             grid=[right_col, restart_row],
@@ -341,14 +379,14 @@ class AdminPanel:
             sp = Text(tb, text=" ", grid=[0, 1, 2, 1], height=1, bold=True, align="top")
             sp.text_size = self._gui.s_2
 
-        _ = self._hold_button(
+        self._admin_hold_button(
             tb,
             text=f"Update {PROGRAM_NAME}",
             grid=[left_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPDATE]),
         )
 
-        _ = self._hold_button(
+        self._admin_hold_button(
             tb,
             text="Upgrade Pi OS",
             grid=[right_col, update_row],
@@ -359,14 +397,14 @@ class AdminPanel:
             sp = Text(tb, text=" ", grid=[0, 3, 2, 1], height=1, bold=True, align="top")
             sp.text_size = self._gui.s_2
 
-        _ = self._hold_button(
+        self._admin_hold_button(
             tb,
             text="Quit",
             grid=[left_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.QUIT]),
         )
 
-        _ = self._hold_button(
+        self._admin_hold_button(
             tb,
             text="Shutdown",
             grid=[right_col, quit_row],

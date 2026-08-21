@@ -614,3 +614,64 @@ def test_missing_linked_car_states_do_not_break_train_selection() -> None:
     gui.on_new_train(train)
 
     assert calls == ["teardown"]
+
+
+def _admin_gui_stub(*, visible: bool):
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    panel = SimpleNamespace(visible=visible, holds=[], cancels=[])
+    panel.begin_hold = lambda command: panel.holds.append(command) or True
+    panel.cancel_hold = lambda command: panel.cancels.append(command) or True
+    gui._admin_panel = panel
+    return gui, panel
+
+
+def test_on_admin_command_starts_the_panel_button_hold_when_visible() -> None:
+    gui, panel = _admin_gui_stub(visible=True)
+
+    # The command is NOT run here: the panel's own HoldButton runs it after its
+    # hold_threshold, which is what animates the progress bar.
+    assert gui.on_admin_command("SHUTDOWN") is True
+    assert panel.holds == ["SHUTDOWN"]
+    assert panel.cancels == []
+
+
+def test_on_admin_command_release_cancels_the_hold() -> None:
+    gui, panel = _admin_gui_stub(visible=True)
+
+    gui.on_admin_command("SHUTDOWN")
+    assert gui.on_admin_command("SHUTDOWN", pressed=False) is True
+
+    assert panel.cancels == ["SHUTDOWN"]
+
+
+def test_on_admin_command_refuses_to_start_when_the_panel_is_hidden() -> None:
+    # The controller chord reaches this method directly, so the visibility gate has to
+    # live here too -- not only in the router.
+    gui, panel = _admin_gui_stub(visible=False)
+
+    assert gui.on_admin_command("SHUTDOWN") is False
+    assert panel.holds == []
+
+
+def test_on_admin_command_still_cancels_when_the_panel_is_hidden() -> None:
+    # A release must always be forwarded, or a hold could be left running after the
+    # panel closes.
+    gui, panel = _admin_gui_stub(visible=False)
+
+    assert gui.on_admin_command("SHUTDOWN", pressed=False) is True
+    assert panel.cancels == ["SHUTDOWN"]
+
+
+def test_on_admin_command_rejects_an_unknown_command() -> None:
+    gui, panel = _admin_gui_stub(visible=True)
+
+    assert gui.on_admin_command("DEFENESTRATE") is False
+    assert panel.holds == []
+
+
+def test_admin_visible_is_false_without_a_panel() -> None:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._admin_panel = None
+
+    assert gui.admin_visible is False
+    assert gui.on_admin_command("QUIT") is False

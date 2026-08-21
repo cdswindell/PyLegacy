@@ -118,6 +118,38 @@
       ],
       "action": "halt",
       "target": "global"
+    },
+    {
+      "buttons": [
+        4,
+        2
+      ],
+      "action": "admin_quit",
+      "target": "focused"
+    },
+    {
+      "buttons": [
+        4,
+        3
+      ],
+      "action": "admin_update",
+      "target": "focused"
+    },
+    {
+      "buttons": [
+        4,
+        1
+      ],
+      "action": "admin_reboot",
+      "target": "focused"
+    },
+    {
+      "buttons": [
+        4,
+        0
+      ],
+      "action": "admin_shutdown",
+      "target": "focused"
     }
   ]
 }

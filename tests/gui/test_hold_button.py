@@ -285,3 +285,36 @@ def test_flash_press_paints_enabled_button() -> None:
 
     assert button.tk["background"] == "black"
     assert button.tk["foreground"] == "white"
+
+
+def test_begin_hold_starts_the_same_hold_a_finger_would() -> None:
+    # Synthetic input (a controller chord) drives the real widget, so the progress
+    # animation and the hold_threshold timing have a single implementation.
+    button = make_button(enabled=True)
+    button.hold_threshold = 3.0
+    calls = []
+    button._start_progress = lambda: calls.append("start_progress")
+
+    button.begin_hold()
+
+    assert button._pressed is True
+    assert calls == ["start_progress"]
+    assert button.tk.after_calls[-1][0] == 3000  # on_hold scheduled at the threshold
+
+
+def test_cancel_hold_stops_progress_without_firing_the_short_press() -> None:
+    button = make_button(enabled=True)
+    pressed_calls = []
+    button.on_press = lambda: pressed_calls.append("press")
+    calls = []
+    button._stop_progress = lambda: calls.append("stop_progress")
+    button._cancel_after = lambda: calls.append("cancel_after")
+    button.begin_hold()
+    calls.clear()  # begin_hold cancels any prior timer; only the cancel matters here
+
+    button.cancel_hold()
+
+    # Abandoning a hold is not a click: the short-press callback must stay unfired.
+    assert button._pressed is False
+    assert pressed_calls == []
+    assert calls == ["stop_progress", "cancel_after"]

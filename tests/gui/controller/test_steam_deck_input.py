@@ -11,6 +11,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DPAD_DOWN,
     DPAD_LEFT,
     DPAD_RIGHT,
+    ADMIN_COMMANDS,
     CATALOG_JUMP_MODIFIER,
     DEFAULT_PROFILE,
     DPAD_UP,
@@ -871,6 +872,137 @@ def test_provider_does_not_flag_jump_modifier_for_l1() -> None:
     ]
 
 
+def _admin_gui(*, admin_visible: bool = True):
+    gui = _gui()
+    gui.admin_visible = admin_visible
+    gui.admin_calls = []
+    gui.on_admin_command = lambda command, pressed=True: gui.admin_calls.append((command, pressed))
+    return gui
+
+
+def _bundled_router(focused_gui) -> DeckInputRouter:
+    return DeckInputRouter(
+        ControlProfile.load(DEFAULT_PROFILE, fallback=False),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+
+@pytest.mark.parametrize(
+    "action_name, command",
+    [
+        ("admin_quit", "QUIT"),
+        ("admin_update", "UPDATE"),
+        ("admin_reboot", "REBOOT"),
+        ("admin_shutdown", "SHUTDOWN"),
+    ],
+)
+def test_admin_chord_press_and_release_drive_the_panel_button(action_name, command) -> None:
+    focused_gui = _admin_gui()
+    router = _bundled_router(focused_gui)
+
+    # The chord stands in for pressing and holding the panel button: the press starts
+    # that button's hold and the release cancels it. The command itself fires from the
+    # button's own on_hold once hold_threshold elapses, so the dwell and the progress
+    # bar are the button's, not a second implementation here.
+    router.handle(DeckAction(action_name, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(action_name, "focused", 0.0, "released"))
+
+    assert focused_gui.admin_calls == [(command, True), (command, False)]
+    assert focused_gui.command_calls == []
+
+
+def test_admin_chord_is_dropped_by_a_gui_that_has_no_admin_panel() -> None:
+    focused_gui = _gui()  # no on_admin_command attribute at all
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction("admin_shutdown", "focused", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == []
+
+
+def test_l1_opens_no_coupler_while_the_admin_panel_is_open() -> None:
+    focused_gui = _admin_gui()
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction("rear_coupler", "focused", 1.0, "pressed", button=4))
+
+    assert focused_gui.command_calls == []
+
+
+def test_l1_still_opens_its_coupler_when_the_admin_panel_is_closed() -> None:
+    focused_gui = _admin_gui(admin_visible=False)
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction("rear_coupler", "focused", 1.0, "pressed", button=4))
+
+    assert focused_gui.command_calls == [PANEL_COMMANDS["rear_coupler"]]
+
+
+@pytest.mark.parametrize(
+    "second_button, action_name",
+    [(2, "admin_quit"), (3, "admin_update"), (1, "admin_reboot"), (0, "admin_shutdown")],
+)
+def test_provider_emits_admin_chord_and_suppresses_the_second_button(second_button, action_name) -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=4),  # hold L1
+            SimpleNamespace(type=2, button=second_button),
+        ]
+    )
+    provider = SteamDeckInputProvider(ControlProfile.load(DEFAULT_PROFILE, fallback=False), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # L1 reports its own action (the router drops it while the panel is open), then the
+    # chord fires -- but the face button's own command does not, so L1+A cannot shut
+    # down the machine *and* run sequence control on the engine.
+    assert [(a.name, a.phase) for a in actions] == [
+        ("rear_coupler", "pressed"),
+        (action_name, "pressed"),
+    ]
+
+
+def test_admin_chord_reports_press_and_release_and_rearms() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=2, button=4),
+            SimpleNamespace(type=2, button=0),
+            SimpleNamespace(type=3, button=0),
+            SimpleNamespace(type=2, button=0),
+        ]
+    )
+    provider = SteamDeckInputProvider(ControlProfile.load(DEFAULT_PROFILE, fallback=False), pygame_module=pygame)
+
+    actions = provider.poll()
+
+    # Holding does not repeat; releasing cancels the hold and re-arms the chord.
+    assert [(a.name, a.phase) for a in actions if a.name == "admin_shutdown"] == [
+        ("admin_shutdown", "pressed"),
+        ("admin_shutdown", "released"),
+        ("admin_shutdown", "pressed"),
+    ]
+
+
+def test_bundled_profile_defines_the_admin_chords() -> None:
+    profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
+
+    chords = {chord.action: sorted(chord.buttons) for chord in profile.chords}
+    # L1 (4) plus a face button: X=2 quit, Y=3 update, B=1 reboot, A=0 shutdown.
+    assert chords == {
+        "halt": [4, 5],
+        "admin_quit": [2, 4],
+        "admin_update": [3, 4],
+        "admin_reboot": [1, 4],
+        "admin_shutdown": [0, 4],
+    }
+    assert set(ADMIN_COMMANDS) == {"admin_quit", "admin_update", "admin_reboot", "admin_shutdown"}
+
+
 def test_provider_translates_dpad_hat_to_one_shot_scroll_actions() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(
@@ -1247,7 +1379,13 @@ def test_emergency_chord_fires_once_until_released() -> None:
 
     actions = provider.poll()
 
-    assert [action.name for action in actions] == ["halt", "halt"]
+    # The chord reports its release too, so a chord standing in for a
+    # press-and-hold can cancel the hold it started.
+    assert [(action.name, action.phase) for action in actions] == [
+        ("halt", "pressed"),
+        ("halt", "released"),
+        ("halt", "pressed"),
+    ]
 
 
 def _startup_profile() -> ControlProfile:
@@ -1361,7 +1499,7 @@ def test_provider_suppresses_startup_when_halt_chord_fires() -> None:
 
     actions = provider.poll()
 
-    assert [action.name for action in actions] == ["halt"]
+    assert [(action.name, action.phase) for action in actions] == [("halt", "pressed"), ("halt", "released")]
 
 
 def _shutdown_profile() -> ControlProfile:
@@ -1470,7 +1608,7 @@ def test_provider_suppresses_shutdown_when_halt_chord_fires() -> None:
 
     actions = provider.poll()
 
-    assert [action.name for action in actions] == ["halt"]
+    assert [(action.name, action.phase) for action in actions] == [("halt", "pressed"), ("halt", "released")]
 
 
 def test_provider_handles_disconnect_and_reconnect() -> None:
