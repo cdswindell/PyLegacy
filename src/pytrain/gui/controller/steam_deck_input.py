@@ -179,10 +179,12 @@ TOUCHPAD_ACTIONS = {"quilling_horn"}
 # down the machine from an operating screen. Each maps to the ``TMCC1SyncCommandEnum``
 # member the panel's own buttons send, resolved GUI-side like the PANEL_COMMANDS above.
 #
-# NOTE: the panel's on-screen buttons require a 3-second hold (``hold_threshold``, with
-# a visible "Hold for 3 seconds" progress bar) precisely because these are
-# destructive. A chord fires as soon as both buttons are down, so it deliberately
-# trades that guard for speed; two buttons at once is the only protection.
+# NOTE: these are destructive, so a chord does not bypass the hold guard the panel's
+# on-screen buttons impose. The press starts the matching button's own 3-second hold
+# (``hold_threshold``, with its visible "Hold for 3 seconds" progress bar) and the
+# command fires only once that completes; releasing either button first cancels it. A
+# chord therefore gets the same dwell and the same feedback as a finger, with no second
+# copy of the timing logic -- see ``_handle_admin_command``.
 ADMIN_COMMANDS = {
     "admin_quit": "QUIT",
     "admin_update": "UPDATE",
