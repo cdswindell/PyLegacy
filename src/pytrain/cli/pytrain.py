@@ -805,18 +805,22 @@ class PyTrain:
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
         # always update pip
-        os.system(f"cd {os.getcwd()}; pip install -U pip")
+        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], cwd=os.getcwd(), check=False)
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
 
         if is_package():
             # update from Pypi
-            os.system(f"cd {os.getcwd()}; pip install -U {PROGRAM_PACKAGE}")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-U", PROGRAM_PACKAGE], cwd=os.getcwd(), check=False
+            )
         else:
             # update from github
-            os.system(f"cd {os.getcwd()}; git pull")
-            os.system(f"cd {os.getcwd()}; pip install -r {self.requirements_file}")
+            subprocess.run(["git", "pull"], cwd=os.getcwd(), check=False)
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", self.requirements_file], cwd=os.getcwd(), check=False
+            )
         self.relaunch(PyTrainExitStatus.UPDATE)
 
     @property

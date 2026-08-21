@@ -6,6 +6,8 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -54,8 +56,15 @@ def test_update_falls_back_when_the_gpio_free_list_is_missing(monkeypatch, tmp_p
 def test_source_update_installs_the_selected_requirements(monkeypatch, repo_root) -> None:
     # The whole point of the property: it has to reach the pip command.
     monkeypatch.setenv(PLATFORM_ENV_VAR, STEAM_DECK_PLATFORM)
-    commands: list[str] = []
-    monkeypatch.setattr("src.pytrain.cli.pytrain.os.system", lambda command: commands.append(command) or 0)
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        return subprocess.CompletedProcess(args=command, returncode=0)
+
+    # Patch the seam, not os.system: update() shells out for real if this misses, and
+    # "already satisfied" is the only reason that was survivable last time.
+    monkeypatch.setattr("src.pytrain.cli.pytrain.subprocess.run", fake_run)
 
     pytrain = _pytrain()
     pytrain._exit_status = None
@@ -68,10 +77,12 @@ def test_source_update_installs_the_selected_requirements(monkeypatch, repo_root
 
     pytrain.update(do_inform=False)
 
-    pip_installs = [c for c in commands if "pip install -r" in c]
+    pip_installs = [c for c in commands if "install" in c and "-r" in c]
     assert len(pip_installs) == 1
-    assert pip_installs[0].endswith(f"pip install -r {REQUIREMENTS_NO_GPIO}")
-    assert "git pull" in " ".join(commands)
+    assert pip_installs[0][-2:] == ["-r", REQUIREMENTS_NO_GPIO]
+    # The venv's own interpreter, not whatever bare `pip` resolves to on PATH.
+    assert pip_installs[0][0] == sys.executable
+    assert ["git", "pull"] in commands
 
 
 def test_requirements_files_both_exist_in_the_repo() -> None:
