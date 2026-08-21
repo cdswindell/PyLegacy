@@ -209,14 +209,23 @@ DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 # ---------------------------------------------------------------------------
 _DECK_VID = 0x28DE
 _DECK_PID = 0x1205  # Steam Deck built-in controller
-# The same reports also carry every digital button, which matters because Steam
-# Input decides what the SDL layer sees and can remap or swallow a button before it
-# gets there. Only the trackpads are decoded below -- the joystick API reports all
-# 20 buttons on this hardware, so nothing else needs this path today. Bits measured
-# with ``scripts/deckinfo.py`` (press one button; it names the byte and bit), kept
-# here so the fallback does not have to be rediscovered:
-#   R4 = byte 13 bit 2   L4 = byte 13 bit 1
-#   R5 = byte 10 bit 0   L5 = byte  9 bit 7
+# The same reports also carry every digital button, which is the only way to reach
+# the back paddles. Steam Input decides what the SDL layer sees, and in Gaming Mode
+# it hands the app a virtual pad on which an unbound paddle emits *nothing at all* --
+# not a remapped button, not an unknown index. (Run from a Desktop Mode shell, SDL
+# does report the physical device's 20 buttons, paddles included, which is what
+# ``scripts/deckinfo.py`` sees. That path is not available to the app under Steam.)
+# Reading the raw HID report bypasses Steam Input entirely.
+#
+# Bits measured with ``scripts/deckinfo.py``, which names the byte and bit of any
+# button pressed. The dict is keyed by the button index SDL uses for the same paddle
+# on the physical device, so one profile binding covers both routes.
+_DECK_PADDLE_BUTTONS = {
+    16: (13, 1 << 2),  # R4
+    17: (13, 1 << 1),  # L4
+    18: (10, 1 << 0),  # R5
+    19: (9, 1 << 7),  # L5
+}
 # Byte offsets into the Deck's 64-byte input "state" report. The report begins
 # with 0x01 0x00 0x09 0x40 (unReportVersion=0x0001, ucType=0x09, ucLength=0x40).
 # These offsets mirror the Linux ``hid-steam`` driver's decode.
@@ -270,6 +279,16 @@ def _decode_deck_pads(report: bytes) -> tuple[bool, tuple[int, int], bool, tuple
     lx, ly = struct.unpack_from("<hh", report, _DECK_LPAD_OFFSET)
     rx, ry = struct.unpack_from("<hh", report, _DECK_RPAD_OFFSET)
     return lpad_touched, (lx, ly), rpad_touched, (rx, ry)
+
+
+def _decode_deck_paddles(report: bytes) -> dict[int, bool] | None:
+    # Return ``{button index: pressed}`` for the back paddles in a state packet, or
+    # None for any other report type / a report too short to decode.
+    if len(report) <= max(byte for byte, _mask in _DECK_PADDLE_BUTTONS.values()):
+        return None
+    if report[0] != 0x01 or report[2] != _DECK_STATE_TYPE:
+        return None
+    return {index: bool(report[byte] & mask) for index, (byte, mask) in _DECK_PADDLE_BUTTONS.items()}
 
 
 def _deck_pad_y_fraction(raw_y: int) -> float:
@@ -605,6 +624,9 @@ class SteamDeckInputProvider:
         # touch_id -> whether the pad currently has a finger down, so a release
         # is emitted exactly once when the finger lifts.
         self._hidraw_pad_touched: dict[int, bool] = {}
+        # Last seen pressed/released state of each back paddle, so only edges are
+        # emitted from the stream of HID reports.
+        self._hidraw_buttons: dict[int, bool] = {}
         # hidraw nodes whose open/read error has already been logged, so a
         # permission problem is reported once rather than every poll.
         self._hidraw_errors: set[str] = set()
@@ -716,6 +738,7 @@ class SteamDeckInputProvider:
         self._hidraw_readers.clear()
         self._hidraw_queue = None
         self._hidraw_pad_touched.clear()
+        self._hidraw_buttons.clear()
         self._hidraw_errors.clear()
 
     def _drain_hidraw_pads(self) -> list[DeckAction]:
@@ -741,12 +764,29 @@ class SteamDeckInputProvider:
             latest[path] = payload
         actions: list[DeckAction] = []
         for payload in latest.values():
+            actions.extend(self._hidraw_paddle_actions(payload))
             decoded = _decode_deck_pads(payload)
             if decoded is None:
                 continue
             lpad_touched, (_lx, ly), rpad_touched, (_rx, ry) = decoded
             actions.extend(self._hidraw_pad_action(_DECK_LEFT_TOUCH_ID, lpad_touched, ly))
             actions.extend(self._hidraw_pad_action(_DECK_RIGHT_TOUCH_ID, rpad_touched, ry))
+        return actions
+
+    def _hidraw_paddle_actions(self, payload: bytes) -> list[DeckAction]:
+        # Turn the paddle bits of one report into press/release actions, feeding them
+        # through the same ``_button_actions`` path the SDL buttons use so a paddle is
+        # bound, repeated and chorded exactly like any other button. Only edges are
+        # emitted; a held paddle produces nothing until it changes.
+        pressed_by_index = _decode_deck_paddles(payload)
+        if pressed_by_index is None:
+            return []
+        actions: list[DeckAction] = []
+        for index, pressed in pressed_by_index.items():
+            if self._hidraw_buttons.get(index) == pressed:
+                continue
+            self._hidraw_buttons[index] = pressed
+            actions.extend(self._button_actions(index, pressed))
         return actions
 
     def _hidraw_pad_action(self, touch_id: int, touched: bool, raw_y: int) -> list[DeckAction]:
@@ -848,6 +888,9 @@ class SteamDeckInputProvider:
         configured_buttons = set(self.profile.buttons)
         for chord in self.profile.chords:
             configured_buttons.update(chord.buttons)
+        # The back paddles are served by the raw HID reader, not SDL, so they are
+        # available even though Steam Input keeps them out of the button count.
+        configured_buttons -= set(_DECK_PADDLE_BUTTONS)
         warnings.extend(f"button {button}" for button in sorted(configured_buttons) if button >= button_count)
         return ", ".join(warnings)
 
@@ -972,6 +1015,12 @@ class SteamDeckInputProvider:
 
     def _button_actions(self, button: int, pressed: bool) -> list[DeckAction]:
         actions: list[DeckAction] = []
+        # A button can reach this from two routes -- SDL, and the raw HID reader for
+        # the back paddles -- and in Desktop Mode both see the same paddle. Treat
+        # ``_held_buttons`` as the single source of truth so whichever route reports
+        # the edge first wins and the other is a no-op, rather than firing twice.
+        if pressed == (button in self._held_buttons):
+            return actions
         if pressed:
             self._held_buttons.add(button)
             for chord in self.profile.chords:

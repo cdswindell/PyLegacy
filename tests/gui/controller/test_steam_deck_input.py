@@ -32,6 +32,8 @@ from src.pytrain.gui.controller.steam_deck_input import (
     ProfileError,
     SteamDeckInputProvider,
     TouchpadBinding,
+    _DECK_PADDLE_BUTTONS,
+    _decode_deck_paddles,
     _decode_deck_pads,
     _deck_pad_y_fraction,
     _find_deck_hidraw_paths,
@@ -2391,6 +2393,91 @@ def test_deck_pad_y_fraction_maps_top_off_and_bottom_full() -> None:
     assert _deck_pad_y_fraction(32767) == pytest.approx(0.0)
     assert _deck_pad_y_fraction(-32768) == pytest.approx(1.0)
     assert _deck_pad_y_fraction(0) == pytest.approx(0.5, abs=1e-4)
+
+
+def _paddle_report(*pressed_indices: int) -> bytes:
+    # A Deck state report with the given back paddles held down.
+    report = bytearray(_deck_state_report())
+    for index in pressed_indices:
+        byte, mask = _DECK_PADDLE_BUTTONS[index]
+        report[byte] |= mask
+    return bytes(report)
+
+
+def _paddle_provider() -> SteamDeckInputProvider:
+    # Paddles carry the bundled profile's actions: 16 = R4, 17 = L4, 18 = R5, 19 = L5.
+    profile = _profile(
+        buttons={
+            "16": {"action": "engineer_chatter", "target": "focused"},
+            "17": {"action": "volume_down", "target": "focused", "repeat": True},
+            "18": {"action": "tower_chatter", "target": "focused"},
+            "19": {"action": "volume_up", "target": "focused", "repeat": True},
+        }
+    )
+    provider = SteamDeckInputProvider(profile, pygame_module=_touchpad_pygame([]))
+    provider._hidraw_queue = queue.Queue()
+    return provider
+
+
+def test_decode_deck_paddles_reads_each_paddle_bit() -> None:
+    # Steam Input never forwards these in Gaming Mode, so the raw report is the only
+    # source; the bits were measured with scripts/deckinfo.py.
+    for index in _DECK_PADDLE_BUTTONS:
+        decoded = _decode_deck_paddles(_paddle_report(index))
+        assert decoded is not None
+        assert [held for held, state in decoded.items() if state] == [index]
+
+
+def test_decode_deck_paddles_rejects_non_state_and_short_reports() -> None:
+    not_a_state = bytearray(_deck_state_report())
+    not_a_state[2] = 0x05
+    assert _decode_deck_paddles(bytes(not_a_state)) is None
+    assert _decode_deck_paddles(b"\x01\x00\x09") is None
+
+
+def test_hidraw_paddle_press_and_release_emit_one_action_each() -> None:
+    provider = _paddle_provider()
+
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _paddle_report(16)))
+    pressed = provider._drain_hidraw_pads()
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _paddle_report(16)))
+    held = provider._drain_hidraw_pads()
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _paddle_report()))
+    released = provider._drain_hidraw_pads()
+
+    assert [(a.name, a.phase, a.button) for a in pressed] == [("engineer_chatter", "pressed", 16)]
+    assert held == []  # only edges are emitted
+    assert [(a.name, a.phase, a.button) for a in released] == [("engineer_chatter", "released", 16)]
+
+
+def test_hidraw_paddles_are_independent() -> None:
+    provider = _paddle_provider()
+
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _paddle_report(17, 19)))
+    actions = provider._drain_hidraw_pads()
+
+    assert sorted((a.name, a.button) for a in actions) == [("volume_down", 17), ("volume_up", 19)]
+
+
+def test_paddle_reported_by_both_routes_fires_once() -> None:
+    # In Desktop Mode SDL also reports the paddles, so the same press can arrive twice.
+    # _held_buttons is the single source of truth: the second route is a no-op.
+    provider = _paddle_provider()
+
+    sdl = provider._button_actions(16, True)
+    provider._hidraw_queue.put(("report", "/dev/hidraw3", _paddle_report(16)))
+    hidraw = provider._drain_hidraw_pads()
+
+    assert [(a.name, a.phase) for a in sdl] == [("engineer_chatter", "pressed")]
+    assert hidraw == []
+
+
+def test_capability_warning_ignores_paddles_sdl_does_not_report() -> None:
+    # Steam Input's virtual pad reports 11 buttons, but the paddles come from hidraw,
+    # so they must not be reported as unavailable.
+    provider = _paddle_provider()
+
+    assert provider.capability_warnings(axis_count=6, button_count=11) == ""
 
 
 def _hidraw_provider() -> SteamDeckInputProvider:
