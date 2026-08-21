@@ -21,6 +21,7 @@ import subprocess
 import sys
 from argparse import SUPPRESS, ArgumentError, ArgumentParser
 from datetime import datetime, timedelta
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread, get_native_id
 from time import sleep
@@ -70,6 +71,7 @@ from ..protocol.constants import (
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
 from ..utils.dual_logging import set_up_logging
+from ..utils.host_info import is_steam_deck
 from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_network
 from ..utils.singleton import singleton
 from .acc import AccCli
@@ -90,6 +92,10 @@ from .switch import SwitchCli
 DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
 DEFAULT_HISTORY_FILE: str = f".{PROGRAM_NAME.lower()}.history"
+# Dependency lists a source (git) install updates against. See
+# ``PyTrain.requirements_file`` for which one is used.
+REQUIREMENTS: str = "requirements.txt"
+REQUIREMENTS_NO_GPIO: str = "requirements-nogpio.txt"
 
 ADMIN_COMMAND_TO_ACTION_MAP: Dict[str, CommandDefEnum] = {
     "quit": TMCC1SyncCommandEnum.QUIT,
@@ -810,8 +816,21 @@ class PyTrain:
         else:
             # update from github
             os.system(f"cd {os.getcwd()}; git pull")
-            os.system(f"cd {os.getcwd()}; pip install -r requirements.txt")
+            os.system(f"cd {os.getcwd()}; pip install -r {self.requirements_file}")
         self.relaunch(PyTrainExitStatus.UPDATE)
+
+    @property
+    def requirements_file(self) -> str:
+        """Requirements file this install updates against.
+
+        The Steam Deck has no GPIO hardware, so it uses the GPIO-free list; the Pi
+        packages in the default list either fail to build or are dead weight there.
+        Falls back to the default if that file is missing, so an update never aborts on
+        a checkout that predates it.
+        """
+        if is_steam_deck() and Path(os.getcwd(), REQUIREMENTS_NO_GPIO).is_file():
+            return REQUIREMENTS_NO_GPIO
+        return REQUIREMENTS
 
     def upgrade(self) -> None:
         log.info(f"{'Server' if self.is_server else 'Client'} upgrading and rebooting...")
