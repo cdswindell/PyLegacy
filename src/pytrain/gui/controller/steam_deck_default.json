@@ -88,6 +88,24 @@
     "10": {
       "action": "focus_right",
       "target": "global"
+    },
+    "16": {
+      "action": "engineer_chatter",
+      "target": "focused"
+    },
+    "17": {
+      "action": "volume_down",
+      "target": "focused",
+      "repeat": true
+    },
+    "18": {
+      "action": "tower_chatter",
+      "target": "focused"
+    },
+    "19": {
+      "action": "volume_up",
+      "target": "focused",
+      "repeat": true
     }
   },
   "chords": [

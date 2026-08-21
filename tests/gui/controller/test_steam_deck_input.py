@@ -709,6 +709,58 @@ def test_bundled_profile_binds_the_catalog_jump_modifier() -> None:
     assert CATALOG_JUMP_MODIFIER in PANEL_COMMANDS
 
 
+def test_bundled_profile_binds_the_back_paddles() -> None:
+    # The Deck's joystick reports 20 buttons; 16-19 are the back paddles, measured
+    # with scripts/deckinfo.py (16 = R4, 17 = L4, 18 = R5, 19 = L5). Volume repeats
+    # while held because it is a relative step; the chatter commands are one-shot.
+    profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
+
+    assert {index: profile.buttons[index].action for index in (16, 17, 18, 19)} == {
+        16: "engineer_chatter",
+        17: "volume_down",
+        18: "tower_chatter",
+        19: "volume_up",
+    }
+    assert [profile.buttons[index].repeat for index in (17, 19)] == [True, True]
+    assert [profile.buttons[index].repeat for index in (16, 18)] == [False, False]
+
+
+@pytest.mark.parametrize(
+    "action_name, command",
+    [
+        ("volume_up", "VOLUME_UP"),
+        ("volume_down", "VOLUME_DOWN"),
+        ("engineer_chatter", "ENGINEER_CHATTER"),
+        ("tower_chatter", "TOWER_CHATTER"),
+    ],
+)
+def test_paddle_actions_send_their_engine_command(action_name, command) -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        ControlProfile.load(DEFAULT_PROFILE, fallback=False),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction(action_name, "focused", 1.0, "pressed", button=16))
+
+    assert focused_gui.command_calls == [command]
+
+
+def test_paddle_commands_resolve_for_both_engine_generations() -> None:
+    # Each paddle command must exist in both command sets, or the button would do
+    # nothing on one generation of engine.
+    from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
+    from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum
+
+    for action in ("volume_up", "volume_down", "engineer_chatter", "tower_chatter"):
+        command = PANEL_COMMANDS[action]
+        assert TMCC1EngineCommandEnum.by_name(command) is not None, command
+        assert TMCC2EngineCommandEnum.by_name(command) is not None, command
+
+
 def test_provider_flags_jump_modifier_while_r1_held() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYHATMOTION=6, JOYDEVICEADDED=4)
     pygame.event = SimpleNamespace(

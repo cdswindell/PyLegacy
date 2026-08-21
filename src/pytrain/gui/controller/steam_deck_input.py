@@ -43,6 +43,10 @@ SUPPORTED_ACTIONS = {
     "sequence_control",
     "front_coupler",
     "rear_coupler",
+    "volume_up",
+    "volume_down",
+    "engineer_chatter",
+    "tower_chatter",
 }
 AXIS_ACTIONS = {"throttle", "direction", "quilling_horn"}
 # Discrete navigation actions that may be bound to an analog trigger axis
@@ -58,11 +62,12 @@ SELECT_BUTTON = 0
 # otherwise it performs whatever action the profile assigns to it.
 CLOSE_POPUP_BUTTON = 2
 # SDL D-pad (hat). On the Steam Deck the D-pad is reported as an SDL hat rather
-# than as buttons: button indices 0-10 and axes 0-5 are taken by the sticks,
-# triggers, face/shoulder buttons, and stick clicks, and the D-pad arrives as hat
-# motion instead. Higher button indices do exist (``scripts/deckinfo.py`` reports
-# the "..." button below the right trackpad as button 15) but none of them is the
-# D-pad. While the catalog panel is open, up/down scroll the highlighted entry in
+# than as buttons, and arrives as hat motion. The Deck's joystick reports 20
+# buttons in total: 0-10 are the face/shoulder buttons, View, Menu, Steam and the
+# stick clicks; 15 is the "..." button below the right trackpad; and 16-19 are the
+# back paddles (16 = R4, 17 = L4, 18 = R5, 19 = L5). None of them is the D-pad.
+# Confirmed with ``scripts/deckinfo.py``, which mirrors this module's SDL setup.
+# While the catalog panel is open, up/down scroll the highlighted entry in
 # the focused pane one at a time (or jump to the first/last entry when the
 # ``CATALOG_JUMP_MODIFIER`` button is held), right confirms the highlighted entry, and left
 # cancels/closes the catalog panel. Otherwise (no catalog), up/down boost/brake
@@ -99,6 +104,15 @@ PANEL_COMMANDS = {
     # coupler and R1 the front coupler.
     "front_coupler": "FRONT_COUPLER",
     "rear_coupler": "REAR_COUPLER",
+    # Bound to the back paddles in the bundled profile. Each of these resolves for
+    # both Legacy (TMCC2) and non-Legacy (TMCC1) engines/trains, so the same command
+    # works regardless of control type. Volume is a relative step, so those two are
+    # flagged ``repeat`` in the profile and re-send while held; the chatter commands
+    # are one-shot.
+    "volume_up": "VOLUME_UP",
+    "volume_down": "VOLUME_DOWN",
+    "engineer_chatter": "ENGINEER_CHATTER",
+    "tower_chatter": "TOWER_CHATTER",
 }
 # The A button runs the engine's "automatic sequence control": it sends the
 # AUX1_OPTION_ONE command every ``repeat_interval`` (100 ms) for
@@ -195,6 +209,14 @@ DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 # ---------------------------------------------------------------------------
 _DECK_VID = 0x28DE
 _DECK_PID = 0x1205  # Steam Deck built-in controller
+# The same reports also carry every digital button, which matters because Steam
+# Input decides what the SDL layer sees and can remap or swallow a button before it
+# gets there. Only the trackpads are decoded below -- the joystick API reports all
+# 20 buttons on this hardware, so nothing else needs this path today. Bits measured
+# with ``scripts/deckinfo.py`` (press one button; it names the byte and bit), kept
+# here so the fallback does not have to be rediscovered:
+#   R4 = byte 13 bit 2   L4 = byte 13 bit 1
+#   R5 = byte 10 bit 0   L5 = byte  9 bit 7
 # Byte offsets into the Deck's 64-byte input "state" report. The report begins
 # with 0x01 0x00 0x09 0x40 (unReportVersion=0x0001, ucType=0x09, ucLength=0x40).
 # These offsets mirror the Linux ``hid-steam`` driver's decode.
