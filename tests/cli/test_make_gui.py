@@ -15,6 +15,10 @@ import pytest
 
 import src.pytrain.cli.make_gui as mod
 from src.pytrain.cli.make_gui import MakeGui
+from src.pytrain.gui.component_state_gui import ComponentStateGui
+from src.pytrain.gui.controller.engine_gui import EngineGui
+from src.pytrain.gui.controller.steam_deck_gui import SteamDeckGui
+from src.pytrain.utils.path_utils import find_file
 
 
 def test_parse_wide_screen_set_normalizes_aliases_and_dedupes() -> None:
@@ -85,6 +89,7 @@ def test_make_gui_command_line_can_disable_cache_sync() -> None:
 
 def test_make_gui_shell_script_includes_cache_sync_switch_only_when_disabled(tmp_path) -> None:
     mg = MakeGui.__new__(MakeGui)
+    mg._gui_class = None  # no GUI class selected -> the default launch template
     mg._launch_path = tmp_path / "launch_pytrain.bash"
     mg._config = {
         "___ACTIVATE___": "/venv/bin/activate",
@@ -172,3 +177,69 @@ def test_font_install_uses_xdg_directory_refreshes_and_verifies(tmp_path, monkey
     assert result == installed
     assert (installed / "digital.ttf").exists()
     assert runs == [["fc-cache", "-f", str(installed)]]
+
+
+def test_steam_deck_gui_reports_its_platform() -> None:
+    mg = MakeGui.__new__(MakeGui)
+    mg._gui_class = SteamDeckGui
+
+    assert mg.platform == "steamdeck"
+
+
+@pytest.mark.parametrize("gui_class", [EngineGui, ComponentStateGui, None])
+def test_other_guis_imply_no_platform(gui_class) -> None:
+    mg = MakeGui.__new__(MakeGui)
+    mg._gui_class = gui_class
+
+    assert mg.platform == ""
+
+
+def test_launch_template_exposes_the_platform_placeholder() -> None:
+    # make_shell_script() substitutes one config dict into the template, so a missing
+    # placeholder would silently emit a launcher with no platform set.
+    template = find_file("launch_pytrain.bash.template", (".", "../", "src"))
+    assert template is not None
+
+    body = Path(template).read_text(encoding="utf-8")
+    assert 'export PYTRAIN_PLATFORM="___PLATFORM___"' in body
+
+
+@pytest.mark.parametrize(
+    "gui_class, expected",
+    [(SteamDeckGui, "steamdeck"), (EngineGui, "")],
+)
+def test_shell_script_exports_the_platform_it_was_generated_for(tmp_path, gui_class, expected) -> None:
+    mg = MakeGui.__new__(MakeGui)
+    mg._gui_class = gui_class
+    mg._launch_path = tmp_path / "launch_pytrain.bash"
+    mg._config = {
+        "___ACTIVATE___": "/venv/bin/activate",
+        "___BUTTONS___": "",
+        "___CACHE_SYNC___": "",
+        "___CLIENT___": " -client",
+        "___ECHO___": "",
+        "___LCSSER2___": "",
+        "___LIONELBASE___": "",
+        "___PLATFORM___": mg.platform,
+        "___PYTRAIN___": "pytrain",
+        "___PYTRAINHOME___": "/opt/pytrain",
+    }
+
+    path = mg.make_shell_script()
+
+    assert path is not None
+    written = path.read_text(encoding="utf-8")
+    assert f'export PYTRAIN_PLATFORM="{expected}"' in written
+    assert "___" not in written  # every placeholder resolved
+
+
+def test_postprocess_config_records_the_platform() -> None:
+    mg = MakeGui.__new__(MakeGui)
+    mg._gui_class = SteamDeckGui
+    mg._imports = "from pytrain import *"
+    mg._gui_config = {"__WIDTH__": "1280", "__HEIGHT__": "800", "__CONTROLLER_PROFILE__": "None"}
+    mg._config = {}
+
+    mg.postprocess_config()
+
+    assert mg._config["___PLATFORM___"] == "steamdeck"

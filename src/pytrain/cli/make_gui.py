@@ -35,6 +35,7 @@ from ..gui.systems_gui import SystemsGui
 from ..gui.wide_component_state_gui import WideComponentStateGui
 from ..protocol.constants import CommandScope, PROGRAM_BASE, PROGRAM_NAME
 from ..utils.argument_parser import IntRange, PyTrainArgumentParser, UniqueChoice
+from ..utils.host_info import STEAM_DECK_PLATFORM
 from ..utils.path_utils import find_dir, find_file
 
 GUI_ARG_TO_CLASS = {
@@ -47,6 +48,7 @@ GUI_ARG_TO_CLASS = {
     "deck": SteamDeckGui,
     "landscape": SteamDeckGui,
     "steam_deck": SteamDeckGui,
+    "sd": SteamDeckGui,
     "la": LaunchGui,
     "launch_pad": LaunchGui,
     "mo": MotorsGui,
@@ -94,6 +96,15 @@ NEED_FONTS = {
     EngineGui,
     SteamDeckGui,
     LaunchGui,
+}
+
+LAUNCH_TEMPLATE = "launch_pytrain.bash.template"
+# Platform a GUI implies, exported by the generated launcher as PYTRAIN_PLATFORM and
+# read back through HostInfo. One launcher template serves every platform: the value
+# selects which platform-specific setup it applies, and lets application code branch
+# without re-detecting the hardware. Empty for GUIs that imply no particular platform.
+CLASS_TO_PLATFORM = {
+    SteamDeckGui: STEAM_DECK_PLATFORM,
 }
 
 CHOICES = [
@@ -240,6 +251,16 @@ class MakeGui(_MakeBase):
     def postprocess_config(self) -> None:
         self._config["___IMPORTS___"] = self._imports
         self._config["___GUI___"] = self._gui_stmt = self.construct_gui_stmt()
+        self._config["___PLATFORM___"] = self.platform
+
+    @property
+    def platform(self) -> str:
+        """Platform the configured GUI implies, or "" when it implies none.
+
+        Baked into the generated launcher as ``PYTRAIN_PLATFORM`` so both the launcher
+        and PyTrain itself can apply platform-specific handling.
+        """
+        return CLASS_TO_PLATFORM.get(self._gui_class, "")
 
     def config_header(self) -> list[str]:
         lines = list()
@@ -609,9 +630,9 @@ class MakeGui(_MakeBase):
         )
 
     def make_shell_script(self) -> Path | None:
-        template = find_file("launch_pytrain.bash.template", (".", "../", "src"))
+        template = find_file(LAUNCH_TEMPLATE, (".", "../", "src"))
         if template is None:
-            print("\nUnable to locate shell script template. Exiting")
+            print(f"\nUnable to locate shell script template {LAUNCH_TEMPLATE}. Exiting")
             return None
         template_data = ""
         with open(template, "r") as f:

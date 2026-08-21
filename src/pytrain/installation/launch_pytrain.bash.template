@@ -8,6 +8,35 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 #
 
+# Platform this launcher was generated for, or empty for a plain install. Exported so
+# PyTrain itself can branch on it -- see HostInfo.platform / HostInfo.is_steam_deck in
+# pytrain/utils/host_info.py -- rather than re-detecting the hardware at runtime.
+export PYTRAIN_PLATFORM="___PLATFORM___"
+
+if [ "$PYTRAIN_PLATFORM" = "steamdeck" ]; then
+  # Uncomment to capture this launcher's output. Launched from Steam there is no
+  # console, so otherwise a failed start leaves no record.
+  # exec > >(tee -a "$HOME/pytrain-steam.log") 2>&1
+
+  # Steam preloads its overlay library for both architectures. In a 64-bit process
+  # the 32-bit copy always fails ("wrong ELF class: ELFCLASS32: ignored"), and the
+  # 64-bit copy prints "pid N != M, skipping destruction (fork without exec?)" every
+  # time PyTrain forks a multiprocessing worker to scan for the Base 3. The overlay
+  # only hooks GL/Vulkan swapchains, so it does nothing for a Tk app: drop it and both
+  # messages go away. This does NOT affect Steam Input, which remaps controllers in
+  # the Steam client rather than through LD_PRELOAD, so button and paddle bindings are
+  # unchanged.
+  if [ -n "$LD_PRELOAD" ]; then
+    unset LD_PRELOAD
+  fi
+
+  # Load miniforge, if it is installed and not already loaded
+  if ! declare -F conda >/dev/null && [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/miniforge3/etc/profile.d/conda.sh"
+    conda activate "$HOME/Applications/PyTrain/env"
+  fi
+fi
+
 PYTRAIN_HOME="___PYTRAINHOME___"
 BUTTONS_FILE="___BUTTONS___"
 LIONEL_BASE="___LIONELBASE___"

@@ -7,6 +7,7 @@
       <w>CONTROLLERTOUCHPADUP</w>
       <w>Citgo</w>
       <w>Dairymens</w>
+      <w>ELFCLASS</w>
       <w>Esso</w>
       <w>Fonic</w>
       <w>Gamescope</w>
@@ -122,8 +123,10 @@
       <w>setsid</w>
       <w>settimeout</w>
       <w>squeekboard</w>
+      <w>steamdeck</w>
       <w>sunoco</w>
       <w>svsc</w>
+      <w>swapchains</w>
       <w>tids</w>
       <w>titlebox</w>
       <w>tkfont</w>

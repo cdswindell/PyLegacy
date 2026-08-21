@@ -7,10 +7,36 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 
+import os
 import platform
 import subprocess
 
 from .singleton import singleton
+
+# Environment variable the generated launcher exports to say which platform PyTrain was
+# installed for (see installation/launch_pytrain.bash.template). It records an install
+# *decision* rather than a hardware probe: the Steam Deck runs ordinary Linux and its
+# hardware is not reliably distinguishable, and the same machine can host a plain
+# install. Read it through ``HostInfo.platform`` / ``HostInfo.is_steam_deck``.
+PLATFORM_ENV_VAR = "PYTRAIN_PLATFORM"
+STEAM_DECK_PLATFORM = "steamdeck"
+
+
+def installed_platform() -> str:
+    """Platform PyTrain was installed for, lower-cased, or "" if unspecified.
+
+    A plain function rather than a ``HostInfo`` member so a caller does not have to
+    build that singleton -- which probes the hardware with ``cat`` and ``free`` -- just
+    to read an environment variable. Read live, so it stays correct however early
+    anything is constructed. Tolerates case and stray whitespace, the value having come
+    from a shell variable.
+    """
+    return os.getenv(PLATFORM_ENV_VAR, "").strip().lower()
+
+
+def is_steam_deck() -> bool:
+    """True when this install was configured for the Steam Deck."""
+    return installed_platform() == STEAM_DECK_PLATFORM
 
 
 @singleton
@@ -62,6 +88,15 @@ class HostInfo:
     @property
     def is_pi(self) -> bool:
         return self.pi_model is not None and self.pi_model.lower().startswith("raspberry pi")
+
+    @property
+    def platform(self) -> str:
+        """Platform PyTrain was installed for; see :func:`installed_platform`."""
+        return installed_platform()
+
+    @property
+    def is_steam_deck(self) -> bool:
+        return installed_platform() == STEAM_DECK_PLATFORM
 
     @property
     def pi_model(self) -> str:
