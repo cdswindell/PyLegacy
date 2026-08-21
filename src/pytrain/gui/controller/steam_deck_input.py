@@ -376,6 +376,10 @@ class ButtonBinding:
     action: str
     target: Target
     repeat: bool = False
+    # Seconds between re-sends while the button is held. ``None`` uses the profile's
+    # global ``repeat_interval``; set it per button where that rate is wrong for the
+    # command (volume steps, say, want a slower cadence than the horn).
+    repeat_interval: float | None = None
 
 
 @dataclass(frozen=True)
@@ -472,7 +476,15 @@ class ControlProfile:
             if action in AXIS_ACTIONS:
                 raise ProfileError(f"Action {action!r} cannot be assigned to a button")
             cls._validate_action_target(action, target)
-            buttons[index] = ButtonBinding(action, target, bool(raw_binding.get("repeat", False)))
+            repeat = bool(raw_binding.get("repeat", False))
+            button_repeat_interval = None
+            if "repeat_interval" in raw_binding:
+                button_repeat_interval = cls._number(raw_binding, "repeat_interval")
+                if not repeat:
+                    raise ProfileError(f"Button {index} sets repeat_interval but is not flagged repeat")
+                if not 0.02 <= button_repeat_interval <= 5.0:
+                    raise ProfileError(f"Button {index} repeat_interval must be between 0.02 and 5 seconds")
+            buttons[index] = ButtonBinding(action, target, repeat, button_repeat_interval)
 
         touchpads: dict[int, TouchpadBinding] = {}
         for raw_index, raw_binding in cls._mapping(data, "touchpads").items():
@@ -1219,7 +1231,9 @@ class DeckInputRouter:
         # on the first ``tick()`` after the press (arming it ``tick()``-side keeps
         # the timing on the same clock ``tick()`` uses).
         self._scrolls: dict[Target, list] = {}
-        self._held_commands: dict[int, tuple[Target, str]] = {}
+        # Maps a held button to ``[target, command, interval, next_send_time]`` so
+        # each repeating button keeps its own cadence.
+        self._held_commands: dict[int, list] = {}
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
         self._last_tick: float | None = None
@@ -1398,13 +1412,24 @@ class DeckInputRouter:
             if now + 1e-9 >= next_scroll_time:
                 gui.scroll_catalog(delta)
                 entry[1] = now + CATALOG_SCROLL_REPEAT_INTERVAL
-        for _button, (target, command) in tuple(self._held_commands.items()):
-            # Re-send a held panel command (e.g. the X/Y buttons) every
-            # ``repeat_interval`` (100 ms) for as long as the button is held.
+        for _button, entry in tuple(self._held_commands.items()):
+            # Re-send a held panel command (e.g. the X/Y buttons) for as long as the
+            # button is held, at that button's own cadence. Time is accumulated from
+            # the elapsed figure this tick already computed rather than compared
+            # against an absolute deadline, so the repeat does not depend on the
+            # caller's clock matching any clock read at press time. ``tick()`` itself
+            # only runs every ``repeat_interval``, so an interval is honoured to
+            # within one tick.
+            target, command, interval, waited = entry
+            waited += elapsed
+            entry[3] = waited
+            if waited + 1e-9 < interval:
+                continue
             gui = self._target_gui(target)
             if gui is None:
                 continue
             gui.on_engine_command(command)
+            entry[3] = 0.0
         for target, remaining in tuple(self._sequences.items()):
             # Continue the automatic sequence control started by the A button:
             # emit AUX1_OPTION_ONE once per tick (every ``repeat_interval``)
@@ -1445,10 +1470,15 @@ class DeckInputRouter:
             gui.close_popup()
             return
         # Fire the panel command once immediately for responsiveness, then
-        # ``tick()`` re-sends it every ``repeat_interval`` (100 ms) until the
-        # button is released.
+        # ``tick()`` re-sends it until the button is released -- every
+        # ``repeat_interval`` from the profile, or the button's own override where it
+        # sets one (volume steps want a slower cadence than the horn).
         command = PANEL_COMMANDS[action.name]
-        self._held_commands[action.button] = (action.target, command)
+        binding = self.profile.buttons.get(action.button)
+        interval = self.profile.repeat_interval
+        if binding is not None and binding.repeat_interval is not None:
+            interval = binding.repeat_interval
+        self._held_commands[action.button] = [action.target, command, interval, 0.0]
         gui.on_engine_command(command)
 
     def _handle_scroll_boost(self, action: DeckAction) -> None:

@@ -90,22 +90,24 @@
       "target": "global"
     },
     "16": {
-      "action": "engineer_chatter",
-      "target": "focused"
+      "action": "volume_up",
+      "target": "focused",
+      "repeat": true,
+      "repeat_interval": 0.2
     },
     "17": {
       "action": "volume_down",
       "target": "focused",
-      "repeat": true
+      "repeat": true,
+      "repeat_interval": 0.2
     },
     "18": {
       "action": "tower_chatter",
       "target": "focused"
     },
     "19": {
-      "action": "volume_up",
-      "target": "focused",
-      "repeat": true
+      "action": "engineer_chatter",
+      "target": "focused"
     }
   },
   "chords": [

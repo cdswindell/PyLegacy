@@ -714,17 +714,67 @@ def test_bundled_profile_binds_the_catalog_jump_modifier() -> None:
 def test_bundled_profile_binds_the_back_paddles() -> None:
     # The Deck's joystick reports 20 buttons; 16-19 are the back paddles, measured
     # with scripts/deckinfo.py (16 = R4, 17 = L4, 18 = R5, 19 = L5). Volume repeats
-    # while held because it is a relative step; the chatter commands are one-shot.
+    # while held at its own slower cadence; the chatter commands are one-shot.
     profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
 
     assert {index: profile.buttons[index].action for index in (16, 17, 18, 19)} == {
-        16: "engineer_chatter",
+        16: "volume_up",
         17: "volume_down",
         18: "tower_chatter",
-        19: "volume_up",
+        19: "engineer_chatter",
     }
-    assert [profile.buttons[index].repeat for index in (17, 19)] == [True, True]
-    assert [profile.buttons[index].repeat for index in (16, 18)] == [False, False]
+    assert [profile.buttons[index].repeat for index in (16, 17)] == [True, True]
+    assert [profile.buttons[index].repeat_interval for index in (16, 17)] == [0.2, 0.2]
+    assert [profile.buttons[index].repeat for index in (18, 19)] == [False, False]
+    assert [profile.buttons[index].repeat_interval for index in (18, 19)] == [None, None]
+
+
+def test_button_repeat_interval_overrides_the_profile_cadence() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _profile(buttons={"16": {"action": "volume_up", "target": "focused", "repeat": True, "repeat_interval": 0.2}}),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    # tick() runs every 100 ms (the profile cadence); a 200 ms button must send on
+    # every other tick, not every one.
+    router.handle(DeckAction("volume_up", "focused", 1.0, "pressed", button=16))
+    router.tick(10.0)  # primes the repeat clock
+    for step in range(1, 7):
+        router.tick(10.0 + step * 0.1)
+
+    assert focused_gui.command_calls == ["VOLUME_UP"] * 4  # immediate + 3 repeats over 600 ms
+
+
+def test_button_without_an_override_uses_the_profile_cadence() -> None:
+    focused_gui = _gui()
+    router = DeckInputRouter(
+        _repeat_button_profile(),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={},
+    )
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+    router.tick(10.0)
+    for step in range(1, 4):
+        router.tick(10.0 + step * 0.1)
+
+    assert focused_gui.command_calls == ["BLOW_HORN_ONE"] * 4  # immediate + one per tick
+
+
+def test_profile_rejects_repeat_interval_without_repeat() -> None:
+    with pytest.raises(ProfileError, match="repeat_interval but is not flagged repeat"):
+        _profile(buttons={"16": {"action": "volume_up", "target": "focused", "repeat_interval": 0.2}})
+
+
+def test_profile_rejects_an_out_of_range_repeat_interval() -> None:
+    with pytest.raises(ProfileError, match="repeat_interval must be between"):
+        _profile(buttons={"16": {"action": "volume_up", "target": "focused", "repeat": True, "repeat_interval": 9.0}})
 
 
 @pytest.mark.parametrize(
@@ -1932,7 +1982,8 @@ def test_repeat_button_repeats_command_each_tick_while_held() -> None:
     router.tick(10.2)  # second repeat
 
     assert focused_gui.command_calls == ["BLOW_HORN_ONE", "BLOW_HORN_ONE", "BLOW_HORN_ONE"]
-    assert router._held_commands == {3: ("focused", "BLOW_HORN_ONE")}
+    # [target, command, interval, seconds waited since the last send]
+    assert router._held_commands == {3: ["focused", "BLOW_HORN_ONE", pytest.approx(0.1), pytest.approx(0.0)]}
 
 
 def test_repeat_button_stops_on_release() -> None:
