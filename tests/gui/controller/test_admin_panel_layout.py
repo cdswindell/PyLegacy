@@ -227,3 +227,49 @@ def test_portrait_controls_retain_native_geometry() -> None:
 
     assert control.tk.configs == []
     assert control.tk.grid is None
+
+
+class _FakeHoldButton:
+    def __init__(self) -> None:
+        self.disabled = False
+
+    def disable(self) -> None:
+        self.disabled = True
+
+
+def _build_upgrade_button(monkeypatch, panel: mod.AdminPanel) -> _FakeHoldButton:
+    button = _FakeHoldButton()
+    monkeypatch.setattr(panel, "_hold_button", lambda _parent, **_kwargs: button)
+    panel._admin_hold_button(
+        object(),
+        text="Upgrade Pi OS",
+        grid=[2, 1],
+        on_hold=(panel.do_admin_command, [mod.TMCC1SyncCommandEnum.UPGRADE]),
+        enabled=panel.os_upgrade_supported,
+    )
+    return button
+
+
+def test_steam_deck_disables_the_os_upgrade_button(monkeypatch) -> None:
+    # SteamOS updates itself, and PyTrain.upgrade() gates only on sys.platform ==
+    # "linux", which the Deck satisfies -- so the apt path is reachable there.
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: True)
+    panel = _panel(compact=True)
+
+    button = _build_upgrade_button(monkeypatch, panel)
+
+    assert panel.os_upgrade_supported is False
+    assert button.disabled is True
+    # Absent from the registry, so a controller chord cannot fire what a finger cannot.
+    assert "UPGRADE" not in panel._admin_buttons
+
+
+def test_other_platforms_keep_the_os_upgrade_button(monkeypatch) -> None:
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: False)
+    panel = _panel(compact=False)
+
+    button = _build_upgrade_button(monkeypatch, panel)
+
+    assert panel.os_upgrade_supported is True
+    assert button.disabled is False
+    assert panel._admin_buttons["UPGRADE"] is button

@@ -19,6 +19,7 @@ from ...db.state_watcher import StateWatcher
 from ...protocol.constants import PROGRAM_NAME
 from ...protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ...utils import WiFiInfo
+from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from ..guizero_base import GuiZeroBase
@@ -117,12 +118,30 @@ class AdminPanel:
         """True when this panel's overlay is built and on screen."""
         return bool(self._overlay is not None and self._overlay.visible)
 
-    def _admin_hold_button(self, parent, **kwargs) -> HoldButton:
+    @property
+    def os_upgrade_supported(self) -> bool:
+        """False on the Steam Deck, where SteamOS updates itself.
+
+        The upgrade action drives apt and rpi-eeprom-update, which are a Raspberry Pi
+        story; ``PyTrain.upgrade()`` gates only on ``sys.platform == "linux"``, which
+        the Deck satisfies. Disabling the button keeps that path unreachable from the
+        Deck's admin panel.
+        """
+        return not is_steam_deck()
+
+    def _admin_hold_button(self, parent, enabled: bool = True, **kwargs) -> HoldButton:
         # Create an admin action button and remember it by command name, so synthetic
         # input (a controller chord) can drive the very same widget rather than
         # duplicating its hold timing and progress feedback.
         button = self._hold_button(parent, **kwargs)
         command = kwargs["on_hold"][1][0]
+        if not enabled:
+            # HoldButton checks `enabled` before starting a hold, so greying it out is
+            # enough to stop a finger. Leaving it out of the registry is what stops a
+            # controller chord: begin_hold() then reports no hold started rather than
+            # claiming one on a widget that will never fire.
+            button.disable()
+            return button
         self._admin_buttons[command.name] = button
         return button
 
@@ -391,6 +410,7 @@ class AdminPanel:
             text="Upgrade Pi OS",
             grid=[right_col, update_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.UPGRADE]),
+            enabled=self.os_upgrade_supported,
         )
 
         if not self._compact:
