@@ -351,7 +351,7 @@ class MakeGui(_MakeBase):
         # Steam Deck landscape controller
         deck = sp.add_parser(
             "landscape",
-            aliases=["deck", "steam_deck"],
+            aliases=["deck", "steam_deck", "sd", "landscape"],
             allow_abbrev=True,
             help="Steam Deck Landscape Controller",
         )
