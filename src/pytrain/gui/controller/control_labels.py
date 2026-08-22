@@ -139,6 +139,10 @@ ACTION_NOTES: dict[str, str] = {
 # row -- four copies of it made the Chords column the widest thing on screen.
 ADMIN_CHORD_ACTIONS = frozenset({"admin_quit", "admin_update", "admin_reboot", "admin_shutdown"})
 ADMIN_CHORD_TITLE = "Admin panel only, hold 3s"
+# Chords that work whatever is on screen get their own heading too. Said per row as
+# "(anywhere)" it wrapped both entries onto a second line, which made this column tall
+# enough to push the Close button off the bottom of the display.
+GLOBAL_CHORD_TITLE = "Chords - anywhere"
 
 
 def _sentence_case(text: str) -> str:
@@ -308,16 +312,21 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         )
 
     chords: list[ControlEntry] = []
+    global_chords: list[ControlEntry] = []
     admin_chords: list[ControlEntry] = []
     for chord in profile.chords:
         entry = ControlEntry(
             chord_label(chord.buttons),
             action_label(chord.action) + target_suffix(chord.target),
-            ACTION_NOTES.get(chord.action, "anywhere" if chord.target == "global" else ""),
+            ACTION_NOTES.get(chord.action, ""),
         )
         if chord.action in ADMIN_CHORD_ACTIONS:
             admin_chords.append(ControlEntry(entry.input, entry.action))
+        elif chord.target == "global":
+            global_chords.append(entry)
         else:
+            # A custom profile may bind a pane-scoped chord; it does not belong under a
+            # heading that promises the binding works anywhere.
             chords.append(entry)
 
     sections = (
@@ -325,6 +334,7 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         ControlSection("Triggers", tuple(triggers)),
         ControlSection("Trackpads", tuple(pads)),
         ControlSection("Buttons", tuple(buttons)),
+        ControlSection(GLOBAL_CHORD_TITLE, tuple(global_chords)),
         ControlSection("Chords", tuple(chords)),
         ControlSection(ADMIN_CHORD_TITLE, tuple(admin_chords)),
         ControlSection("D-pad", FIXED_DPAD_ENTRIES, fixed=True),

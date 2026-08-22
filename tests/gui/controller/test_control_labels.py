@@ -10,6 +10,7 @@ import pytest
 
 from src.pytrain.gui.controller.control_labels import (
     ADMIN_CHORD_TITLE,
+    GLOBAL_CHORD_TITLE,
     ARROW_HORIZONTAL,
     ARROW_VERTICAL,
     action_label,
@@ -59,8 +60,8 @@ def test_engine_commands_are_named_by_their_enum(action, expected) -> None:
     [
         # "horn" resolves to BLOW_HORN_ONE, whose clean_title is "Blow Horn One".
         ("horn", "Horn"),
-        ("startup", "Engine startup"),
-        ("shutdown", "Engine shutdown"),
+        ("startup", "Startup"),
+        ("shutdown", "Shutdown"),
     ],
 )
 def test_awkward_enum_names_are_overridden(action, expected) -> None:
@@ -156,15 +157,39 @@ def test_triggers_describe_their_hold_behaviour() -> None:
     assert entries["R2"] == "hold: with dialog"
 
 
-def test_admin_chords_are_separated_from_the_always_available_ones() -> None:
-    # The router drops them unless the admin panel is up. Stated once in the heading
-    # rather than repeated per row, which had made Chords the widest column on screen.
+def test_chords_are_grouped_by_where_they_work() -> None:
+    # Both caveats live in headings rather than on every row: as per-row notes they made
+    # this the widest column, then wrapped every entry and pushed Close off the display.
     sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
 
-    assert [entry.input for entry in sections["Chords"].entries] == ["L1 + R1", "L3 + R3"]
+    everywhere = sections[GLOBAL_CHORD_TITLE]
+    assert [entry.input for entry in everywhere.entries] == ["L1 + R1", "L3 + R3"]
+    assert all(entry.note == "" for entry in everywhere.entries)
+
     admin = sections[ADMIN_CHORD_TITLE]
     assert [entry.input for entry in admin.entries] == ["L1 + X", "L1 + Y", "L1 + B", "L1 + A"]
     assert all(entry.note == "" for entry in admin.entries)
+
+    # Nothing left over: the plain "Chords" heading is dropped when it would be empty.
+    assert "Chords" not in sections
+
+
+def test_a_pane_scoped_chord_is_not_filed_under_anywhere() -> None:
+    # A custom profile may bind a chord to the focused pane; it must not appear under a
+    # heading promising the binding works anywhere.
+    profile = ControlProfile.from_dict(
+        {
+            **CUSTOM_PROFILE,
+            "chords": [
+                {"buttons": [5, 3], "action": "halt", "target": "global"},
+                {"buttons": [5, 1], "action": "bell", "target": "focused"},
+            ],
+        }
+    )
+    sections = {section.title: section for section in controls_summary(profile)}
+
+    assert [entry.action for entry in sections[GLOBAL_CHORD_TITLE].entries] == ["HALT - emergency stop"]
+    assert [entry.action for entry in sections["Chords"].entries] == ["Ring bell"]
 
 
 def test_summary_separates_triggers_from_sticks() -> None:
@@ -198,7 +223,8 @@ def test_summary_follows_a_custom_profile() -> None:
 
     buttons = {entry.input: entry.action for entry in _section(profile, "Buttons").entries}
     assert buttons == {"A": "Ring bell LEFT", "Button 11": "Reset"}
-    assert [entry.input for entry in _section(profile, "Chords").entries] == ["R1 + Y"]
+    # halt targets global, so it files under the "works anywhere" heading.
+    assert [entry.input for entry in _section(profile, GLOBAL_CHORD_TITLE).entries] == ["R1 + Y"]
     assert [entry.action for entry in _section(profile, "Sticks").entries] == ["Throttle RIGHT"]
 
 
