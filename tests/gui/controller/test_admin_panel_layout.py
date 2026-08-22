@@ -57,7 +57,7 @@ class _TitleBox:
 
 def _panel(compact: bool) -> mod.AdminPanel:
     panel = mod.AdminPanel.__new__(mod.AdminPanel)
-    panel._gui = SimpleNamespace(button_size=79, s_10=9, version="PyTrain Client v2.9.3+")
+    panel._gui = SimpleNamespace(button_size=79, s_10=9, version="PyTrain Client v2.9.3+", controller_profile=None)
     panel._pytrain = SimpleNamespace(is_client=True)
     panel._width = 632
     panel._compact = compact
@@ -279,7 +279,24 @@ def test_admin_panel_is_an_overlay_panel() -> None:
     # create_popup only builds a footer -- and so only puts anything left of Close --
     # for OverlayPanel instances. Without this the Show Controls button has nowhere to go.
     assert issubclass(mod.AdminPanel, mod.OverlayPanel)
-    assert mod.AdminPanel.has_footer.fget(_panel(compact=False)) is True
+
+
+def test_landscape_admin_panel_offers_show_controls() -> None:
+    panel = _panel(compact=True)
+    panel._gui.controller_profile = object()  # a hosting SteamDeckGui loaded one
+
+    assert panel.controls_available is True
+    assert panel.has_footer is True
+
+
+def test_portrait_admin_panel_has_no_footer_at_all() -> None:
+    # A stand-alone portrait EngineGui has no hosting SteamDeckGui and so no profile:
+    # the help screen would have nothing to describe. has_footer must be False rather
+    # than an empty footer, so create_popup keeps the plain centred Close button.
+    panel = _panel(compact=False)
+
+    assert panel.controls_available is False
+    assert panel.has_footer is False
 
 
 class _FooterButton:
@@ -297,13 +314,13 @@ def test_footer_button_is_left_aligned_so_close_lands_to_its_right(monkeypatch) 
     _FooterButton.instances = []
     monkeypatch.setattr(mod, "PushButton", _FooterButton)
     panel = _panel(compact=True)
-    panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None)
+    panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
 
     panel.build_footer(object())
 
     assert len(_FooterButton.instances) == 1
     button = _FooterButton.instances[0]
-    assert button.kwargs["text"] == "Show Controls"
+    assert button.kwargs["text"] == "Controls..."
     # create_popup appends Close with align="right" after build_footer returns.
     assert button.kwargs["align"] == "left"
 

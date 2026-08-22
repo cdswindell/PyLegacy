@@ -444,11 +444,24 @@ class AdminPanel(OverlayPanel):
         )
 
     @property
+    def controls_available(self) -> bool:
+        """Whether there are controller bindings worth showing a help screen for.
+
+        A portrait EngineGui runs stand-alone with no hosting SteamDeckGui, so it has no
+        profile and the screen would have nothing to describe. Keyed off the profile
+        rather than the platform so the button appears exactly when it leads somewhere.
+        """
+        return self._gui.controller_profile is not None
+
+    @property
     def has_footer(self) -> bool:
-        return True
+        # False rather than an empty footer: create_popup then falls back to the plain
+        # centred Close button, leaving the portrait panel exactly as it was before this
+        # panel grew a footer at all.
+        return self.controls_available
 
     def build_footer(self, footer: Box) -> None:
-        """Put "Show Controls" in the footer, to the left of Close.
+        """Put "Controls..." in the footer, to the left of Close.
 
         create_popup appends Close with align="right" after this runs, so anything packed
         left here lands to its left. The chord ("..." on the Deck) is unguessable, so the
@@ -456,7 +469,7 @@ class AdminPanel(OverlayPanel):
         """
         btn = PushButton(
             footer,
-            text="Show Controls",
+            text="Controls...",
             align="left",
             width=13,
             command=self.show_controls,
