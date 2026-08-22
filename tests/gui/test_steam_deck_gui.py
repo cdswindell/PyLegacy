@@ -318,6 +318,14 @@ class _CallableTk:
         return
 
     @staticmethod
+    def pack_configure(**_kwargs) -> None:
+        return
+
+    @staticmethod
+    def grid_configure(**_kwargs) -> None:
+        return
+
+    @staticmethod
     def grid_columnconfigure(*_args, **_kwargs) -> None:
         return
 
@@ -342,8 +350,14 @@ class _ShowableWidget(_Widget):
         self.visible = False
 
 
+# Records _position_focus_arrow calls; the overlay has to re-tuck the arrow whenever it
+# shows or hides, because body.display_widgets() cancels the arrow's place().
+positioned: list[bool] = []
+
+
 def _deck_with_body(monkeypatch: pytest.MonkeyPatch) -> tuple[mod.SteamDeckGui, list[_ShowableWidget]]:
     made: list[_ShowableWidget] = []
+    positioned.clear()
 
     def make(master=None, **kwargs):
         widget = _ShowableWidget(master, **kwargs)
@@ -362,9 +376,11 @@ def _deck_with_body(monkeypatch: pytest.MonkeyPatch) -> tuple[mod.SteamDeckGui, 
     gui._controls_overlay = None
     gui._controller_profile = object()
     monkeypatch.setattr(type(gui), "version", property(lambda _self: "v2.9.3+"), raising=False)
-    monkeypatch.setattr(type(gui), "s_18", property(lambda _self: 27), raising=False)
-    monkeypatch.setattr(type(gui), "s_10", property(lambda _self: 9), raising=False)
+    monkeypatch.setattr(type(gui), "s_20", property(lambda _self: 20), raising=False)
+    monkeypatch.setattr(type(gui), "s_18", property(lambda _self: 18), raising=False)
+    monkeypatch.setattr(type(gui), "s_10", property(lambda _self: 10), raising=False)
     monkeypatch.setattr(type(gui), "cache", lambda _self, *_w: None)
+    monkeypatch.setattr(type(gui), "_position_focus_arrow", lambda _self: positioned.append(True))
     return gui, made
 
 
@@ -378,7 +394,11 @@ def test_controls_overlay_spans_every_column_of_the_body(monkeypatch: pytest.Mon
     overlay = made[0]
     assert overlay.master is gui.body
     assert overlay.kwargs["grid"] == [0, 0, 3, 1]
-    assert overlay.kwargs["width"] == 1280
+    # No width, height or align: it shrinks to its content and, with no sticky, grid
+    # centres it on the display rather than filling the window.
+    assert "width" not in overlay.kwargs
+    assert "height" not in overlay.kwargs
+    assert overlay.kwargs.get("align") is None
 
 
 def test_controls_overlay_is_built_once_and_reshown(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -423,3 +443,16 @@ def test_controls_panel_is_not_an_overlay_panel() -> None:
     from src.pytrain.gui.controller.overlay_panel import OverlayPanel
 
     assert not issubclass(mod.ControlsPanel, OverlayPanel)
+
+
+def test_showing_and_hiding_re_tucks_the_focus_arrow(monkeypatch: pytest.MonkeyPatch) -> None:
+    # body.display_widgets() re-grids every child of body when the overlay shows or
+    # hides, cancelling the place() that pins the arrow to the top of the divider. Left
+    # unrepaired, the arrow floats at mid-screen down the full height of its cell.
+    gui, _made = _deck_with_body(monkeypatch)
+
+    gui.on_show_controls()
+    assert positioned == [True]
+
+    gui.close_controls()
+    assert positioned == [True, True]

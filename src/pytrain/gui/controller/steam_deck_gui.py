@@ -43,6 +43,12 @@ UNFOCUSED_COLOR = "#555555"
 FOCUS_ARROW_LEFT = "◀\ufe0e▬"
 FOCUS_ARROW_RIGHT = "▬▶\ufe0e"
 FOCUS_ARROW_SIZE = 26
+# Controls-screen chrome. The header band reuses FOCUS_COLOR, the accent this GUI
+# already uses for the focused pane and the focus arrow.
+CONTROLS_BG = "white"
+CONTROLS_HEADER_BG = FOCUS_COLOR
+CONTROLS_HEADER_FG = "white"
+CONTROLS_TITLE_SIZE = 24
 LANDSCAPE_FONT_SCALE = 0.9
 LANDSCAPE_BUTTON_DIVISOR = 8.0
 COMPACT_SCALE = LANDSCAPE_FONT_SCALE
@@ -194,12 +200,18 @@ class SteamDeckGui(GuiZeroBase):
         if self._controls_overlay is None:
             self._controls_overlay = self._build_controls_overlay()
         self._controls_overlay.show()
+        # show()/hide() run body.display_widgets(), which re-grids every child of body --
+        # including the focus arrow, cancelling the place() that tucks it into the
+        # divider. Without this it drops back into its full-height grid cell and floats
+        # at mid-screen.
+        self._position_focus_arrow()
 
     def close_controls(self) -> bool:
         """Hide the controls help screen. Returns whether it was open."""
         if not self.controls_visible:
             return False
         self._controls_overlay.hide()
+        self._position_focus_arrow()  # see the note in on_show_controls
         return True
 
     @property
@@ -223,39 +235,43 @@ class SteamDeckGui(GuiZeroBase):
         panes, and it costs no layout change because 632 + 4 + 632 is already the full
         width. Created last, so it stacks above the panes it covers.
         """
-        overlay = Box(
-            self.body,
-            grid=[0, 0, 3, 1],
-            layout="auto",
-            align="top",
-            border=2,
-            width=self.width,
-            height=self.height,
-            visible=False,
-        )
-        overlay.bg = "white"
-        overlay.tk.pack_propagate(False)
+        # No width/height and no align: the Box sizes to its content and, with no sticky,
+        # grid centres it in the cell -- so it is as short as it can be and centred on the
+        # display rather than a full-height panel with a void under the text.
+        overlay = Box(self.body, grid=[0, 0, 3, 1], layout="auto", visible=False)
+        overlay.bg = CONTROLS_BG
+        overlay.tk.config(relief="raised", borderwidth=3)
 
-        title = Text(overlay, text=f"{CONTROLS_TITLE}   {self.version}", align="top", bold=True)
-        title.text_size = self.s_18
-        self.cache(title)
+        header = Box(overlay, align="top", width="fill")
+        header.bg = CONTROLS_HEADER_BG
+        title = Text(
+            header,
+            text=f"{CONTROLS_TITLE}   {self.version}",
+            align="top",
+            bold=True,
+            size=CONTROLS_TITLE_SIZE,
+            color=CONTROLS_HEADER_FG,
+        )
+        title.tk.config(padx=16, pady=6)
+        self.cache(header, title)
 
         body = Box(overlay, align="top", layout="auto")
         self._controls_panel = ControlsPanel(self, self._controller_profile)
         self._controls_panel.build(body)
 
-        close = PushButton(overlay, text="Close", align="bottom", width=8, command=self.close_controls)
-        close.text_size = self.s_18
+        close = PushButton(overlay, text="Close", align="bottom", width=10, command=self.close_controls)
+        close.text_size = self.s_20
         close.tk.config(
             borderwidth=3,
             relief="raised",
             highlightthickness=1,
             highlightbackground="black",
             padx=6,
-            pady=1,
+            pady=4,
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
+        close.tk.pack_configure(pady=10)
         self.cache(close)
         return overlay
 

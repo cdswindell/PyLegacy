@@ -34,10 +34,25 @@ CONTROLS_TITLE = "Controls"
 # 1280px where three was all a 632px pane allowed.
 COLUMNS = 4
 # Rows a single column can show before the next section starts a new column. A section
-# header costs one row on top of its entries. Sized so the bundled profile lands on a
-# single page -- at 15 its last one-entry section spilled onto a second page, which
-# looks broken even though it paginates correctly.
-ROWS_PER_COLUMN = 18
+# header costs one row on top of its entries. Retuned when the text grew to ENTRY_SIZE:
+# rows are ~1.6x taller, so fewer fit. Sized so the bundled profile fits one page *and*
+# its 14-entry Buttons section is not split into a 2-row continuation.
+ROWS_PER_COLUMN = 15
+
+# Text sizes. The Deck GUI is built with scale_by=1.0, so these are points as written.
+# Entries were s_10, which was legible on a desk and not at arm's length on a handheld.
+TITLE_SIZE = 24
+SECTION_SIZE = 14
+ENTRY_SIZE = 16
+FOOTNOTE_SIZE = 12
+
+# Palette. Kept in the app's existing family: FOCUS_COLOR (#3B82F6) is the Deck GUI's
+# accent, and the greys match the popup chrome PopupManager already uses.
+KEYCAP_BG = "#E2E8F0"
+KEYCAP_FG = "#1D4ED8"
+ENTRY_FG = "#1F2937"
+SECTION_FG = "#334155"
+FOOTNOTE_FG = "#6B7280"
 
 
 class ControlsPanel:
@@ -125,7 +140,8 @@ class ControlsPanel:
         # "*" marks the sections a custom profile cannot change: the D-pad and the
         # context-sensitive remaps are handled by DeckInputRouter, not the profile.
         note = Text(body, text="* fixed, not set by the controller profile", align="top")
-        note.text_size = self.gui.s_10
+        note.text_size = FOOTNOTE_SIZE
+        note.text_color = FOOTNOTE_FG
         self.gui.cache(note)
 
     def turn_page(self, forward: bool = True) -> None:
@@ -151,7 +167,8 @@ class ControlsPanel:
                 box,
                 text=f"Page {self._page + 1} of {self.page_count}   (D-pad up/down)",
                 grid=[0, 1, COLUMNS, 1],
-                size=self.gui.s_10,
+                size=FOOTNOTE_SIZE,
+                color=FOOTNOTE_FG,
             )
 
     def _render_column(self, parent: Box, sections: tuple[ControlSection, ...], column: int) -> None:
@@ -160,10 +177,26 @@ class ControlsPanel:
         for section in sections:
             title = section.title if not section.fixed else f"{section.title} *"
             tb = TitleBox(holder, text=title, layout="grid", align="top", width="fill")
-            tb.text_size = host.s_10
+            tb.text_size = SECTION_SIZE
+            tb.text_color = SECTION_FG
+            tb.text_bold = True
             for row, entry in enumerate(section.entries):
-                name = Text(tb, text=entry.input, grid=[0, row], align="left", size=host.s_10)
-                name.text_bold = True
-                action = entry.action if not entry.note else f"{entry.action}  ({entry.note})"
-                Text(tb, text=action, grid=[1, row], align="left", size=host.s_10)
+                self._render_entry(tb, entry, row)
             host.cache(tb)
+
+    def _render_entry(self, parent: TitleBox, entry, row: int) -> None:
+        # The input is drawn as a raised keycap so the eye can find "L1" or "View"
+        # without reading the whole line -- this is a reference table, scanned rather
+        # than read.
+        name = Text(parent, text=f" {entry.input} ", grid=[0, row], align="left", size=ENTRY_SIZE)
+        name.text_bold = True
+        name.text_color = KEYCAP_FG
+        name.bg = KEYCAP_BG
+        name.tk.config(relief="raised", borderwidth=1)
+        name.tk.grid_configure(padx=(4, 8), pady=2, sticky="w")
+
+        text = entry.action if not entry.note else f"{entry.action}  ({entry.note})"
+        action = Text(parent, text=text, grid=[1, row], align="left", size=ENTRY_SIZE)
+        action.text_color = ENTRY_FG
+        action.tk.grid_configure(padx=(0, 6), pady=2, sticky="w")
+        self.gui.cache(name, action)
