@@ -9,6 +9,9 @@
 import pytest
 
 from src.pytrain.gui.controller.control_labels import (
+    ADMIN_CHORD_TITLE,
+    ARROW_HORIZONTAL,
+    ARROW_VERTICAL,
     action_label,
     axis_label,
     button_label,
@@ -89,7 +92,8 @@ def test_button_labels_including_the_unknown_fallback(index, expected) -> None:
 
 
 def test_axis_and_touchpad_fallbacks() -> None:
-    assert axis_label(1) == "Left stick ^v"
+    assert axis_label(1) == f"Left stick {ARROW_VERTICAL}"
+    assert axis_label(0) == f"Left stick {ARROW_HORIZONTAL}"
     assert axis_label(9) == "Axis 9"
     assert touchpad_label(0) == "Left trackpad"
     assert touchpad_label(7) == "Touchpad 7"
@@ -124,8 +128,43 @@ def test_summary_marks_pane_scoped_bindings() -> None:
     # Which pane a stick drives is the thing people get wrong in landscape mode.
     entries = _section(ControlProfile.load(None), "Sticks").entries
 
-    assert ("Left stick ^v", "Throttle LEFT", "inverted") == (entries[1].input, entries[1].action, entries[1].note)
+    assert (f"Left stick {ARROW_VERTICAL}", "Throttle LEFT") == (entries[0].input, entries[0].action)
     assert any(entry.action == "Throttle RIGHT" for entry in entries)
+
+
+def test_sticks_list_throttle_before_direction_per_pane() -> None:
+    # Sorting by axis index put Direction first, which is not how anyone thinks about a
+    # throttle.
+    actions = [entry.action for entry in _section(ControlProfile.load(None), "Sticks").entries]
+
+    assert actions == ["Throttle LEFT", "Direction LEFT", "Throttle RIGHT", "Direction RIGHT"]
+
+
+def test_axis_inversion_is_not_surfaced() -> None:
+    # The throttle behaves correctly; whether the profile inverts the axis to achieve
+    # that is an implementation detail, not something to read on a help screen.
+    entries = _section(ControlProfile.load(None), "Sticks").entries
+
+    assert all("invert" not in entry.note.lower() for entry in entries)
+
+
+def test_triggers_describe_their_hold_behaviour() -> None:
+    # L2/R2 split a tap from a hold via LONG_PRESS_ACTIONS, which the screen has to say.
+    entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), "Triggers").entries}
+
+    assert entries["L2"] == "hold = delayed"
+    assert entries["R2"] == "hold = delayed"
+
+
+def test_admin_chords_are_separated_from_the_always_available_ones() -> None:
+    # The router drops them unless the admin panel is up. Stated once in the heading
+    # rather than repeated per row, which had made Chords the widest column on screen.
+    sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
+
+    assert [entry.input for entry in sections["Chords"].entries] == ["L1 + R1", "L3 + R3"]
+    admin = sections[ADMIN_CHORD_TITLE]
+    assert [entry.input for entry in admin.entries] == ["L1 + X", "L1 + Y", "L1 + B", "L1 + A"]
+    assert all(entry.note == "" for entry in admin.entries)
 
 
 def test_summary_separates_triggers_from_sticks() -> None:

@@ -20,6 +20,13 @@ from guizero import PushButton
 
 log = logging.getLogger(__name__)
 
+# A crossing this far outside the widget still counts as inside. Touch contact centroids
+# wander by a few pixels over a long hold as finger pressure changes.
+LEAVE_SLOP_PX = 16
+# How long a <Leave> must persist, with no intervening <Enter>, before it cancels a hold.
+# Long enough to swallow jitter, short enough that a deliberate drag-off feels immediate.
+LEAVE_CONFIRM_MS = 150
+
 
 class HoldButton(PushButton):
     """
@@ -112,6 +119,9 @@ class HoldButton(PushButton):
         self._progress_start: float | None = None
         self._progress_after_id: str | None = None
         self._cancel_on_leave = bool(cancel_on_leave)
+        # Pending-leave state, see _on_leave_candidate.
+        self._leave_pending: bool = False
+        self._leave_after_id: str | None = None
         # Last geometry the overlay was placed at, so _on_configure_event can skip a
         # re-place that would change nothing (see _position_overlay).
         self._overlay_geometry: tuple[int, int, int, int] | None = None
@@ -158,6 +168,7 @@ class HoldButton(PushButton):
         self.when_left_button_released = self._on_release_event
         if self._cancel_on_leave:
             self.tk.bind("<Leave>", self._on_leave_candidate, add="+")
+            self.tk.bind("<Enter>", self._on_enter_candidate, add="+")
 
         # hover bindings (robust, independent of Tk "active" internals)
         if show_hold_progress:
@@ -302,6 +313,8 @@ class HoldButton(PushButton):
             return
 
         self._pressed = True
+        self._leave_pending = False
+        self._cancel_leave_timer()
         self._press_time = time.monotonic()
         self._held = False
         self._repeating = False
@@ -351,19 +364,78 @@ class HoldButton(PushButton):
     # noinspection PyUnusedLocal
     # noinspection PyUnusedLocal
     def _on_leave_candidate(self, event=None):
-        """Cancel on a <Leave> only if the finger really left the button.
+        """Start a *provisional* cancel on <Leave>; confirm it only if it persists.
 
-        A bare <Leave> is not trustworthy here. The progress overlay is placed over the
-        button, so re-placing it can synthesise a crossing, and on a touchscreen the
-        pointer sits at the contact point -- which wanders a few pixels over a
-        three-second hold as finger pressure changes. Checking the pointer against the
-        button's own rectangle keeps a genuine drag-off working while ignoring both.
+        A bare <Leave> is not trustworthy on a touchscreen. The progress overlay is
+        placed over the button, so a crossing can be synthesised, and jitter in the touch
+        stream produces Leave/Enter pairs milliseconds apart. Cancelling on the Leave
+        itself therefore aborted roughly half of all 3-second holds.
+
+        Two filters, because either alone has been shown insufficient:
+
+        * The event's own ``x``/``y`` are relative to this widget, so a Leave reporting a
+          position still inside the button (plus ``LEAVE_SLOP_PX``) is jitter and is
+          discarded outright. This is trusted ahead of ``winfo_pointerxy()``, which
+          queries the *mouse* pointer -- not reliably warped to the finger under
+          gamescope, which is why a pointer-only check still let jitter through.
+        * Anything that survives that is confirmed after ``LEAVE_CONFIRM_MS``. A genuine
+          drag-off stays outside and cancels; jitter is followed immediately by an Enter,
+          which clears the pending cancel.
         """
+        if not self._pressed:
+            return
+        if self._event_inside(event):
+            return
+        self._leave_pending = True
+        self._cancel_leave_timer()
+        try:
+            self._leave_after_id = self.tk.after(LEAVE_CONFIRM_MS, self._confirm_leave)
+        except (AttributeError, TclError, RuntimeError):
+            # No event loop to defer with: fall back to deciding immediately.
+            self._confirm_leave()
+
+    # noinspection PyUnusedLocal
+    def _on_enter_candidate(self, event=None):
+        """An Enter means the finger never really left: drop the provisional cancel."""
+        self._leave_pending = False
+        self._cancel_leave_timer()
+
+    def _confirm_leave(self) -> None:
+        self._leave_after_id = None
+        if not self._leave_pending or not self._pressed:
+            return
+        self._leave_pending = False
         if self._pointer_outside():
-            self._on_leave_event(event)
+            self._on_leave_event()
+
+    def _cancel_leave_timer(self) -> None:
+        if self._leave_after_id is None:
+            return
+        try:
+            self.tk.after_cancel(self._leave_after_id)
+        except (AttributeError, TclError, RuntimeError):
+            pass
+        self._leave_after_id = None
+
+    @staticmethod
+    def _event_inside(event) -> bool:
+        """True when a crossing event reports a position still within the widget.
+
+        Uses the event's own coordinates, which describe where the crossing actually
+        happened rather than where the mouse pointer currently is.
+        """
+        try:
+            x = int(event.x)
+            y = int(event.y)
+            width = int(event.widget.winfo_width())
+            height = int(event.widget.winfo_height())
+        except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
+            return False
+        slop = LEAVE_SLOP_PX
+        return -slop <= x < width + slop and -slop <= y < height + slop
 
     def _pointer_outside(self) -> bool:
-        """True when the pointer is outside this button's rectangle.
+        """True when the mouse pointer is outside this button's rectangle, plus slop.
 
         Returns False if the geometry cannot be read: an unknown position must not cancel
         a hold, since a spurious cancel is the failure this whole path exists to avoid.
@@ -376,12 +448,15 @@ class HoldButton(PushButton):
             height = int(self.tk.winfo_height())
         except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
             return False
-        return not (x <= px < x + width and y <= py < y + height)
+        slop = LEAVE_SLOP_PX
+        return not (x - slop <= px < x + width + slop and y - slop <= py < y + height + slop)
 
     def _on_leave_event(self, event=None):
         # Treat leaving the button as a cancel (common on touch drags). Called directly
-        # by cancel_hold(), which must always cancel, and via _on_leave_candidate for
-        # pointer events, which must not cancel on jitter.
+        # by cancel_hold(), which must always cancel, and via _confirm_leave for pointer
+        # events, which must not cancel on jitter.
+        self._leave_pending = False
+        self._cancel_leave_timer()
         self._pressed = False
         self._repeating = False
         self._stop_progress()
@@ -652,6 +727,7 @@ class HoldButton(PushButton):
             # instant of a hold, so an unconditional cancel here overrode
             # cancel_on_leave=False and killed holds on the slightest touch drift.
             self._progress_canvas.bind("<Leave>", self._on_leave_candidate, add="+")
+            self._progress_canvas.bind("<Enter>", self._on_enter_candidate, add="+")
         self._progress_canvas.place_forget()
         self._overlay_geometry = None
 

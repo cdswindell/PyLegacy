@@ -278,12 +278,20 @@ class SteamDeckGui(GuiZeroBase):
     def _build_focus_arrow(self) -> None:
         # An arrow that sits on the divider, in the same row as each pane's top
         # pulldown, pointing toward whichever pane currently has focus.
+        #
+        # visible=False deliberately: the arrow is positioned by place() into the
+        # divider, and guizero only grids children it considers visible. Left visible it
+        # would be re-gridded by every body.display_widgets() -- which both cancelled the
+        # place() (dropping the arrow to mid-screen) and widened the divider's grid
+        # column to the arrow's own width. place() is unaffected by guizero visibility,
+        # so the arrow still shows.
         self.focus_arrow = Text(
             self.body,
             text=FOCUS_ARROW_RIGHT,
             grid=[1, 0],
             size=FOCUS_ARROW_SIZE,
             color=FOCUS_COLOR,
+            visible=False,
         )
         self._position_focus_arrow()
 

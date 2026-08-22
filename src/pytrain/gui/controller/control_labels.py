@@ -65,12 +65,15 @@ DECK_BUTTON_LABELS: dict[int, str] = {
 }
 
 # Axis index -> label. Sticks name their axis of travel; the triggers are just L2/R2.
+ARROW_HORIZONTAL = "\u2194\ufe0e"  # left-right arrow
+ARROW_VERTICAL = "\u2195\ufe0e"  # up-down arrow
+
 DECK_AXIS_LABELS: dict[int, str] = {
-    0: "Left stick <>",
-    1: "Left stick ^v",
+    0: f"Left stick {ARROW_HORIZONTAL}",
+    1: f"Left stick {ARROW_VERTICAL}",
     2: "L2",
-    3: "Right stick <>",
-    4: "Right stick ^v",
+    3: f"Right stick {ARROW_HORIZONTAL}",
+    4: f"Right stick {ARROW_VERTICAL}",
     5: "R2",
 }
 
@@ -111,6 +114,8 @@ ACTION_LABELS: dict[str, str] = {
     "quilling_horn": "Quilling horn",
     "startup": "Engine startup",
     "shutdown": "Engine shutdown",
+    # Deliberately no "quilling_horn" override for the trackpads: they are analog, and
+    # "Quilling horn" already reads correctly.
     "sequence_control": "Sequence control",
     # The D-pad is not part of the profile (see FIXED_SECTIONS below), but its action
     # names go through the same resolver.
@@ -119,6 +124,21 @@ ACTION_LABELS: dict[str, str] = {
     DPAD_LEFT: "Smoke down",
     DPAD_RIGHT: "Smoke up",
 }
+
+
+# Per-action notes the profile cannot express. Kept next to ACTION_LABELS so a new action
+# gets both in one place.
+ACTION_NOTES: dict[str, str] = {
+    # LONG_PRESS_ACTIONS splits these into IMMEDIATE and DELAYED variants.
+    "startup": "hold = delayed",
+    "shutdown": "hold = delayed",
+}
+
+# Chord actions the router drops unless the admin panel is displayed. Split into their
+# own section so the caveat is stated once in a heading rather than repeated on every
+# row -- four copies of it made the Chords column the widest thing on screen.
+ADMIN_CHORD_ACTIONS = frozenset({"admin_quit", "admin_update", "admin_reboot", "admin_shutdown"})
+ADMIN_CHORD_TITLE = "Admin panel only, hold 3s"
 
 
 def _sentence_case(text: str) -> str:
@@ -235,6 +255,20 @@ FIXED_CATALOG_ENTRIES: tuple[ControlEntry, ...] = (
 FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the panel on screen", ""),)
 
 
+# Reading order within the Sticks section: each pane's throttle before its direction,
+# left pane before right. Sorting by axis index gave direction first, which is not how
+# anyone thinks about a throttle.
+_STICK_ACTION_ORDER = ("throttle", "direction")
+_STICK_TARGET_ORDER = ("left", "right", "focused", "global")
+
+
+def _stick_order(binding, index: int) -> tuple[int, int, int]:
+    def rank(value: str, order: tuple[str, ...]) -> int:
+        return order.index(value) if value in order else len(order)
+
+    return rank(binding.target, _STICK_TARGET_ORDER), rank(binding.action, _STICK_ACTION_ORDER), index
+
+
 def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
     """Build the help screen's content from a loaded profile.
 
@@ -243,12 +277,14 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
     """
     sticks: list[ControlEntry] = []
     triggers: list[ControlEntry] = []
-    for index in sorted(profile.axes):
+    for index in sorted(profile.axes, key=lambda i: _stick_order(profile.axes[i], i)):
         binding = profile.axes[index]
+        # No "inverted" note: whether the profile inverts the axis is an implementation
+        # detail, and the resulting behaviour is what the reader cares about.
         entry = ControlEntry(
             axis_label(index),
             action_label(binding.action) + target_suffix(binding.target),
-            "inverted" if binding.invert else "",
+            ACTION_NOTES.get(binding.action, ""),
         )
         (triggers if binding.trigger else sticks).append(entry)
 
@@ -267,18 +303,22 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
             ControlEntry(
                 button_label(index),
                 action_label(binding.action) + target_suffix(binding.target),
-                "repeats" if binding.repeat else "",
+                ACTION_NOTES.get(binding.action, "repeats" if binding.repeat else ""),
             )
         )
 
-    chords = [
-        ControlEntry(
+    chords: list[ControlEntry] = []
+    admin_chords: list[ControlEntry] = []
+    for chord in profile.chords:
+        entry = ControlEntry(
             chord_label(chord.buttons),
             action_label(chord.action) + target_suffix(chord.target),
-            "any screen" if chord.target == "global" else "",
+            ACTION_NOTES.get(chord.action, "anywhere" if chord.target == "global" else ""),
         )
-        for chord in profile.chords
-    ]
+        if chord.action in ADMIN_CHORD_ACTIONS:
+            admin_chords.append(ControlEntry(entry.input, entry.action))
+        else:
+            chords.append(entry)
 
     sections = (
         ControlSection("Sticks", tuple(sticks)),
@@ -286,6 +326,7 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         ControlSection("Trackpads", tuple(pads)),
         ControlSection("Buttons", tuple(buttons)),
         ControlSection("Chords", tuple(chords)),
+        ControlSection(ADMIN_CHORD_TITLE, tuple(admin_chords)),
         ControlSection("D-pad", FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection("While the catalog is open", FIXED_CATALOG_ENTRIES, fixed=True),
         ControlSection("While a panel is open", FIXED_POPUP_ENTRIES, fixed=True),

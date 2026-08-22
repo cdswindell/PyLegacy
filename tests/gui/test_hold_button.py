@@ -4,6 +4,7 @@ from threading import Condition, RLock
 from types import SimpleNamespace
 from typing import Callable
 
+import src.pytrain.gui.components.hold_button as mod
 from src.pytrain.gui.components.hold_button import HoldButton
 
 
@@ -168,6 +169,8 @@ def make_button(enabled: bool, *, text: str = "Hold") -> DummyHoldButton:
     button._saved_button_text = None
     button._cancel_on_leave = True
     button._overlay_geometry = None
+    button._leave_pending = False
+    button._leave_after_id = None
     return button
 
 
@@ -361,28 +364,70 @@ def _held_button() -> DummyHoldButton:
     return button
 
 
-def test_touch_drift_inside_the_button_does_not_cancel_the_hold() -> None:
-    # The bug: the progress overlay covers the button, so its <Leave> fired on the few
-    # pixels of drift a finger makes over a 3s hold and killed the hold about half the
-    # time. A crossing only counts if the pointer really left the button.
-    button = _held_button()
-    button.tk.pointer = (60, 45)  # still within (10,20)-(110,60)
+def _crossing(x: int, y: int, width: int = 100, height: int = 40) -> SimpleNamespace:
+    """A <Leave> event reporting a position relative to the widget it crossed."""
+    return SimpleNamespace(
+        x=x,
+        y=y,
+        widget=SimpleNamespace(winfo_width=lambda: width, winfo_height=lambda: height),
+    )
 
-    button._on_leave_candidate()
+
+def _run_pending_leave(button: DummyHoldButton) -> None:
+    """Fire the deferred leave check the way the Tk event loop would."""
+    for delay, func in button.tk.after_calls:
+        if delay == mod.LEAVE_CONFIRM_MS:
+            func()
+
+
+def test_a_crossing_still_inside_the_button_is_discarded_outright() -> None:
+    # The event's own coordinates say where the crossing happened. Inside the widget
+    # (plus slop) means jitter, and jitter must not even provisionally cancel.
+    button = _held_button()
+
+    button._on_leave_candidate(_crossing(50, 20))
+
+    assert button._leave_pending is False
+    assert button._pressed is True
+
+
+def test_jitter_cancelled_by_a_following_enter_does_not_abort_the_hold() -> None:
+    # A jitter crossing is followed within milliseconds by an <Enter>. That clears the
+    # provisional cancel, so the deferred check does nothing -- this is what stops the
+    # ~50% abort rate that a pointer-position check alone did not.
+    button = _held_button()
+    button.tk.pointer = (300, 400)  # outside, so only the Enter can save the hold
+
+    button._on_leave_candidate(_crossing(200, 20))  # reads as outside
+    assert button._leave_pending is True
+    button._on_enter_candidate()
+    _run_pending_leave(button)
 
     assert button._pressed is True
     assert button._progress_start == 100.0
 
 
-def test_dragging_off_the_button_cancels_the_hold() -> None:
+def test_dragging_off_the_button_cancels_once_the_leave_persists() -> None:
     # Deliberate: these are destructive commands, so sliding off must abandon the hold.
     button = _held_button()
-    button.tk.pointer = (300, 400)  # well outside
+    button.tk.pointer = (300, 400)  # still outside when the deferred check runs
 
-    button._on_leave_candidate()
+    button._on_leave_candidate(_crossing(200, 20))
+    _run_pending_leave(button)
 
     assert button._pressed is False
     assert button._progress_start is None
+
+
+def test_a_persisting_leave_whose_pointer_is_back_inside_does_not_cancel() -> None:
+    # Belt and braces: even with no Enter, the pointer check gets the final say.
+    button = _held_button()
+    button.tk.pointer = (60, 45)  # inside
+
+    button._on_leave_candidate(_crossing(200, 20))
+    _run_pending_leave(button)
+
+    assert button._pressed is True
 
 
 def test_unreadable_pointer_position_does_not_cancel() -> None:
@@ -391,13 +436,24 @@ def test_unreadable_pointer_position_does_not_cancel() -> None:
     button = _held_button()
     button.tk.pointer = None  # winfo_pointerxy raises
 
-    button._on_leave_candidate()
+    button._on_leave_candidate(_crossing(200, 20))
+    _run_pending_leave(button)
 
     assert button._pressed is True
 
 
+def test_a_leave_is_ignored_when_no_hold_is_in_flight() -> None:
+    button = make_button(True)
+    button._pressed = False
+
+    button._on_leave_candidate(_crossing(200, 20))
+
+    assert button._leave_pending is False
+
+
 def test_cancel_hold_always_cancels_regardless_of_the_pointer() -> None:
-    # cancel_hold() is the controller-chord release path; it must not consult geometry.
+    # cancel_hold() is the controller-chord release path; it must not consult geometry
+    # and must not be deferred.
     button = _held_button()
     button.tk.pointer = (60, 45)  # inside
 
@@ -406,17 +462,35 @@ def test_cancel_hold_always_cancels_regardless_of_the_pointer() -> None:
     assert button._pressed is False
 
 
-def test_pointer_outside_checks_each_edge() -> None:
+def test_slop_is_wide_enough_to_absorb_touch_wander() -> None:
+    # Literal, not derived from the constant: a test computed from LEAVE_SLOP_PX passes
+    # even when the tolerance is zero, which is the case being guarded against.
+    assert mod.LEAVE_SLOP_PX >= 8
+
+
+def test_a_crossing_just_outside_the_widget_is_still_treated_as_inside() -> None:
+    # 4px past the edge is finger wander, not a drag-off.
+    button = _held_button()
+
+    button._on_leave_candidate(_crossing(104, 20, width=100, height=40))
+
+    assert button._leave_pending is False
+    assert button._pressed is True
+
+
+def test_pointer_outside_allows_slop_around_the_edges() -> None:
+    # The rectangle is (10,20)-(110,60); LEAVE_SLOP_PX of wander still counts as inside.
     button = make_button(True)
-    inside_and_outside = {
-        (10, 20): False,  # top-left corner is inside
-        (109, 59): False,  # bottom-right, exclusive upper bound
-        (9, 40): True,  # left of it
-        (110, 40): True,  # right of it
-        (60, 19): True,  # above it
-        (60, 60): True,  # below it
+    slop = mod.LEAVE_SLOP_PX
+    cases = {
+        (60, 40): False,  # dead centre
+        (10 - slop, 40): False,  # exactly one slop to the left
+        (10 - slop - 1, 40): True,  # a pixel further, genuinely off
+        (110 + slop, 40): True,  # past the right edge plus slop
+        (60, 20 - slop): False,  # one slop above
+        (60, 60 + slop + 1): True,  # below, past slop
     }
-    for pointer, expected in inside_and_outside.items():
+    for pointer, expected in cases.items():
         button.tk.pointer = pointer
         assert button._pointer_outside() is expected, pointer
 

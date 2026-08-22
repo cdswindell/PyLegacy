@@ -29,15 +29,15 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 CONTROLS_TITLE = "Controls"
-# Sections are laid out in this many columns per page. The overlay spans both panes (it
-# is gridded across the whole of SteamDeckGui.body), so four columns fit the Deck's
-# 1280px where three was all a 632px pane allowed.
-COLUMNS = 4
+# Sections are laid out in this many columns per page. Four overflowed the Deck's 1280px
+# -- the overlay grew wider than the window, so its last column was clipped and its
+# centre (and therefore the title and Close button) sat off screen. Three fits.
+COLUMNS = 3
 # Rows a single column can show before the next section starts a new column. A section
 # header costs one row on top of its entries. Retuned when the text grew to ENTRY_SIZE:
 # rows are ~1.6x taller, so fewer fit. Sized so the bundled profile fits one page *and*
 # its 14-entry Buttons section is not split into a 2-row continuation.
-ROWS_PER_COLUMN = 15
+ROWS_PER_COLUMN = 18
 
 # Text sizes. The Deck GUI is built with scale_by=1.0, so these are points as written.
 # Entries were s_10, which was legible on a desk and not at arm's length on a handheld.
