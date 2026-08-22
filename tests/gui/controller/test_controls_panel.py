@@ -122,3 +122,57 @@ def test_turn_page_is_a_no_op_on_a_single_page() -> None:
     panel.turn_page(forward=True)
 
     assert panel.page == 0
+
+
+def test_engine_gui_delegates_the_controls_screen_to_its_host() -> None:
+    # A pane-hosted popup could never span both panes, so the pane just asks the host.
+    from types import SimpleNamespace
+
+    from src.pytrain.gui.controller.engine_gui import EngineGui
+
+    calls: list[str] = []
+    pane = SimpleNamespace(_parent_gui=SimpleNamespace(on_show_controls=lambda: calls.append("show")))
+
+    EngineGui.on_controls_panel(pane)
+
+    assert calls == ["show"]
+
+
+def test_standalone_engine_gui_has_no_controls_screen() -> None:
+    # A portrait GUI has no host and no controller; asking must not raise.
+    from types import SimpleNamespace
+
+    from src.pytrain.gui.controller.engine_gui import EngineGui
+
+    EngineGui.on_controls_panel(SimpleNamespace(_parent_gui=None))
+
+
+def test_pane_reports_and_pages_the_hosts_screen() -> None:
+    from types import SimpleNamespace
+
+    from src.pytrain.gui.controller.engine_gui import EngineGui
+
+    turned: list[bool] = []
+    host = SimpleNamespace(
+        controls_visible=True,
+        page_controls=lambda forward: turned.append(forward) or True,
+        close_controls=lambda: True,
+    )
+    pane = SimpleNamespace(_parent_gui=host)
+
+    assert EngineGui.controls_visible.fget(pane) is True
+    assert EngineGui.page_controls(pane, False) is True
+    assert EngineGui.close_controls(pane) is True
+    assert turned == [False]
+
+
+def test_pane_without_a_host_reports_no_controls_screen() -> None:
+    from types import SimpleNamespace
+
+    from src.pytrain.gui.controller.engine_gui import EngineGui
+
+    pane = SimpleNamespace(_parent_gui=None)
+
+    assert EngineGui.controls_visible.fget(pane) is False
+    assert EngineGui.page_controls(pane, True) is False
+    assert EngineGui.close_controls(pane) is False

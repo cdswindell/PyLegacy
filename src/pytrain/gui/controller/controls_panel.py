@@ -21,18 +21,18 @@ from typing import TYPE_CHECKING
 from guizero import Box, Text, TitleBox
 
 from .control_labels import ControlSection, controls_summary
-from .overlay_panel import OverlayPanel
 from .steam_deck_input import ControlProfile
 
 if TYPE_CHECKING:
-    from .engine_gui import EngineGui
+    from ..guizero_base import GuiZeroBase
 
 log = logging.getLogger(__name__)
 
 CONTROLS_TITLE = "Controls"
-# Sections are laid out in this many columns per page, within the host pane's width.
-# The panel cannot span both panes: see the parenting note in PopupManager.create_popup.
-COLUMNS = 3
+# Sections are laid out in this many columns per page. The overlay spans both panes (it
+# is gridded across the whole of SteamDeckGui.body), so four columns fit the Deck's
+# 1280px where three was all a 632px pane allowed.
+COLUMNS = 4
 # Rows a single column can show before the next section starts a new column. A section
 # header costs one row on top of its entries. Sized so the bundled profile lands on a
 # single page -- at 15 its last one-entry section spilled onto a second page, which
@@ -40,16 +40,25 @@ COLUMNS = 3
 ROWS_PER_COLUMN = 18
 
 
-class ControlsPanel(OverlayPanel):
-    def __init__(self, gui: "EngineGui", profile: ControlProfile | None):
-        # The profile is passed in rather than looked up: it belongs to the hosting
-        # SteamDeckGui, and an EngineGui pane has no reference back to its host.
-        super().__init__(gui, CONTROLS_TITLE)
+class ControlsPanel:
+    """Content of the controls help screen.
+
+    Deliberately *not* an OverlayPanel: those are built by PopupManager, which belongs to
+    an EngineGui and can only parent an overlay inside that pane. This panel spans both
+    panes, so SteamDeckGui owns its overlay and calls build() to fill it.
+    """
+
+    def __init__(self, gui: "GuiZeroBase", profile: ControlProfile | None):
+        self._gui = gui
         self._profile = profile
         self._page = 0
         self._pages: tuple[tuple[tuple[ControlSection, ...], ...], ...] = ()
         self._page_box = None
         self._page_label = None
+
+    @property
+    def gui(self) -> "GuiZeroBase":
+        return self._gui
 
     @property
     def profile(self) -> ControlProfile | None:
@@ -113,6 +122,11 @@ class ControlsPanel(OverlayPanel):
         self._page = min(self._page, max(0, self.page_count - 1))
         self._page_box = Box(body, align="top", layout="grid")
         self._render_page()
+        # "*" marks the sections a custom profile cannot change: the D-pad and the
+        # context-sensitive remaps are handled by DeckInputRouter, not the profile.
+        note = Text(body, text="* fixed, not set by the controller profile", align="top")
+        note.text_size = self.gui.s_10
+        self.gui.cache(note)
 
     def turn_page(self, forward: bool = True) -> None:
         """Move a page and redraw. Wraps, so paging never dead-ends."""
@@ -153,14 +167,3 @@ class ControlsPanel(OverlayPanel):
                 action = entry.action if not entry.note else f"{entry.action}  ({entry.note})"
                 Text(tb, text=action, grid=[1, row], align="left", size=host.s_10)
             host.cache(tb)
-
-    @property
-    def has_footer(self) -> bool:
-        return True
-
-    def build_footer(self, footer: Box) -> None:
-        # "*" marks the sections a custom profile cannot change: the D-pad and the
-        # context-sensitive remaps are handled by DeckInputRouter, not the profile.
-        note = Text(footer, text="* fixed, not set by the controller profile", align="left")
-        note.text_size = self.gui.s_10
-        self.gui.cache(note)

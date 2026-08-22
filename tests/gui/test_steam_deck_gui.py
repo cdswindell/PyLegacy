@@ -291,3 +291,135 @@ def test_linked_car_transfer_handles_empty_target_and_missing_car() -> None:
     assert gui.transfer_linked_car("left", missing) is False
     assert gui.transfer_linked_car("left", car) is True
     assert target.selections == [(mod.CommandScope.ENGINE, 77)]
+
+
+class _CallableTk:
+    """Standalone: _Tk above stores `config` as a dict, shadowing any method of that
+    name, and production code calls tk.config(...)."""
+
+    def __init__(self) -> None:
+        self.config_calls: list[dict] = []
+        self.bindings: dict[str, object] = {}
+
+    def config(self, **kwargs) -> None:
+        self.config_calls.append(kwargs)
+
+    configure = config
+
+    def bind(self, event, callback) -> None:
+        self.bindings[event] = callback
+
+    @staticmethod
+    def place(**_kwargs) -> None:
+        return
+
+    @staticmethod
+    def pack_propagate(_enabled) -> None:
+        return
+
+    @staticmethod
+    def grid_columnconfigure(*_args, **_kwargs) -> None:
+        return
+
+    @staticmethod
+    def update_idletasks() -> None:
+        return
+
+
+class _ShowableWidget(_Widget):
+    """A widget that tracks show()/hide(), which the controls overlay relies on."""
+
+    def __init__(self, master=None, **kwargs) -> None:
+        super().__init__(master, **kwargs)
+        self.tk = _CallableTk()
+        self.visible = kwargs.get("visible", True)
+        self.text_size = None
+
+    def show(self) -> None:
+        self.visible = True
+
+    def hide(self) -> None:
+        self.visible = False
+
+
+def _deck_with_body(monkeypatch: pytest.MonkeyPatch) -> tuple[mod.SteamDeckGui, list[_ShowableWidget]]:
+    made: list[_ShowableWidget] = []
+
+    def make(master=None, **kwargs):
+        widget = _ShowableWidget(master, **kwargs)
+        made.append(widget)
+        return widget
+
+    monkeypatch.setattr(mod, "Box", make)
+    monkeypatch.setattr(mod, "Text", make)
+    monkeypatch.setattr(mod, "PushButton", make)
+    monkeypatch.setattr(mod.ControlsPanel, "build", lambda _self, _body: None)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
+    gui.width = 1280
+    gui.height = 800
+    gui.body = _ShowableWidget()
+    gui._controls_panel = None
+    gui._controls_overlay = None
+    gui._controller_profile = object()
+    monkeypatch.setattr(type(gui), "version", property(lambda _self: "v2.9.3+"), raising=False)
+    monkeypatch.setattr(type(gui), "s_18", property(lambda _self: 27), raising=False)
+    monkeypatch.setattr(type(gui), "s_10", property(lambda _self: 9), raising=False)
+    monkeypatch.setattr(type(gui), "cache", lambda _self, *_w: None)
+    return gui, made
+
+
+def test_controls_overlay_spans_every_column_of_the_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    # body holds the left pane (col 0), the divider (col 1) and the right pane (col 2);
+    # spanning all three is what puts the screen across both panes.
+    gui, made = _deck_with_body(monkeypatch)
+
+    gui.on_show_controls()
+
+    overlay = made[0]
+    assert overlay.master is gui.body
+    assert overlay.kwargs["grid"] == [0, 0, 3, 1]
+    assert overlay.kwargs["width"] == 1280
+
+
+def test_controls_overlay_is_built_once_and_reshown(monkeypatch: pytest.MonkeyPatch) -> None:
+    gui, made = _deck_with_body(monkeypatch)
+
+    gui.on_show_controls()
+    built = len(made)
+    gui.close_controls()
+    gui.on_show_controls()
+
+    assert len(made) == built, "the overlay must be reused, not rebuilt"
+    assert gui.controls_visible is True
+
+
+def test_close_controls_reports_whether_it_was_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    gui, made = _deck_with_body(monkeypatch)
+
+    assert gui.close_controls() is False  # never opened
+    gui.on_show_controls()
+    assert gui.close_controls() is True
+    assert gui.controls_visible is False
+
+
+def test_paging_only_works_while_the_screen_is_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    gui, _made = _deck_with_body(monkeypatch)
+    turned: list[bool] = []
+
+    assert gui.page_controls(True) is False  # not built yet
+    gui.on_show_controls()
+    monkeypatch.setattr(type(gui._controls_panel), "turn_page", lambda _self, forward: turned.append(forward))
+
+    assert gui.page_controls(False) is True
+    assert turned == [False]
+
+    gui.close_controls()
+    assert gui.page_controls(True) is False
+
+
+def test_controls_panel_is_not_an_overlay_panel() -> None:
+    # OverlayPanels are built by PopupManager, which is pane-bound -- an OverlayPanel
+    # could never span both panes. Guards against it being "restored" to one.
+    from src.pytrain.gui.controller.overlay_panel import OverlayPanel
+
+    assert not issubclass(mod.ControlsPanel, OverlayPanel)

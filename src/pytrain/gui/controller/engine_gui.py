@@ -284,7 +284,6 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._isd_area = None  # swipe detector for the margin beside the image
         self._image_parent = None  # container that owns that margin
         self._admin_panel = None
-        self._controls_panel = None
         self._catalog_panel = None
         self._lighting_panel = None
         self._rr_speed_panel = None
@@ -1053,18 +1052,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """
         return getattr(self._parent_gui, "controller_profile", None)
 
-    def on_controls_panel(self, profile=None) -> None:
-        """Show the controls help screen over this pane.
+    def on_controls_panel(self) -> None:
+        """Ask the host to show the controls help screen.
 
-        Defaults to the host's profile. A GUI running without controller input has none,
-        and gets a panel that says so rather than an exception.
+        The screen spans both panes, so the hosting SteamDeckGui owns it -- a pane-hosted
+        popup could never be wider than its pane. A stand-alone GUI has no host and no
+        controller, so there is nothing to show.
         """
-        from .controls_panel import ControlsPanel
-
-        with self._cv:
-            if self._controls_panel is None:
-                self._controls_panel = ControlsPanel(self, profile or self.controller_profile)
-        self.show_popup(self._controls_panel.overlay, hide_image_box=True)
+        host = self._parent_gui
+        if host is None or not hasattr(host, "on_show_controls"):
+            log.debug("No controls screen available: %s has no controller host", type(self).__name__)
+            return
+        host.on_show_controls()
 
     def on_recents(self, value: str):
         # Updates component info if selected state is valid
@@ -1457,16 +1456,26 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     @property
     def controls_visible(self) -> bool:
-        panel = self._controls_panel
-        return bool(panel is not None and panel.visible)
+        """Whether the host's controls screen is on display.
+
+        Delegated, and read through this pane because the input router resolves actions
+        against the focused pane rather than the host.
+        """
+        return bool(getattr(self._parent_gui, "controls_visible", False))
 
     def page_controls(self, forward: bool = True) -> bool:
-        """Page the controls screen, for the D-pad while it is displayed."""
-        panel = self._controls_panel
-        if panel is None or not self.controls_visible:
+        """Page the host's controls screen, for the D-pad while it is displayed."""
+        host = self._parent_gui
+        if host is None or not hasattr(host, "page_controls"):
             return False
-        panel.turn_page(forward)
-        return True
+        return host.page_controls(forward)
+
+    def close_controls(self) -> bool:
+        """Close the host's controls screen, for the X button while it is displayed."""
+        host = self._parent_gui
+        if host is None or not hasattr(host, "close_controls"):
+            return False
+        return host.close_controls()
 
     def on_admin_command(self, command: str, pressed: bool = True) -> bool:
         """Hold an admin panel button by name (QUIT, UPDATE, REBOOT, SHUTDOWN, ...).

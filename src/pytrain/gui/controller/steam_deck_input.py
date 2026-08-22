@@ -1559,8 +1559,11 @@ class DeckInputRouter:
                 gui.page_controls(forward=action.name == DPAD_DOWN)
             return True
         if action.button == CLOSE_POPUP_BUTTON:
-            # Let the popup handling close it rather than duplicating that here.
-            return False
+            # The controls screen is owned by the host GUI, not by this pane's popup
+            # manager, so the popup_visible path below would not see it.
+            if action.phase == "pressed" and hasattr(gui, "close_controls"):
+                gui.close_controls()
+            return True
         return True
 
     def _handle_admin_command(self, action: DeckAction) -> None:

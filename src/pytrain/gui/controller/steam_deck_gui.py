@@ -15,8 +15,9 @@ from pathlib import Path
 from tkinter import messagebox, TclError
 from typing import Any, Callable, Literal
 
-from guizero import Box, Text
+from guizero import Box, PushButton, Text
 
+from .controls_panel import CONTROLS_TITLE, ControlsPanel
 from .engine_gui import EngineGui
 from .engine_gui_conf import HALT_KEY, KEY_TO_COMMAND
 from .steam_deck_input import (
@@ -98,6 +99,10 @@ class SteamDeckGui(GuiZeroBase):
         self.left_root = self.right_root = None
         self.left_gui: EngineGui | None = None
         self.right_gui: EngineGui | None = None
+        # The controls help screen. Owned here rather than by a pane because it spans
+        # both of them (see _build_controls_overlay).
+        self._controls_panel: ControlsPanel | None = None
+        self._controls_overlay: Box | None = None
         self.init_complete()
 
     @property
@@ -185,15 +190,74 @@ class SteamDeckGui(GuiZeroBase):
         self.focus_panel("right" if self._focused_panel == "left" else "left")
 
     def on_show_controls(self) -> None:
-        """Show the controls help screen over the focused pane.
+        """Show the controls help screen across both panes."""
+        if self._controls_overlay is None:
+            self._controls_overlay = self._build_controls_overlay()
+        self._controls_overlay.show()
 
-        Global rather than per-pane -- the bindings it lists are the same either side --
-        but it has to be hosted by an EngineGui, since that is what owns the popup
-        machinery. The focused pane is the one the user is looking at.
+    def close_controls(self) -> bool:
+        """Hide the controls help screen. Returns whether it was open."""
+        if not self.controls_visible:
+            return False
+        self._controls_overlay.hide()
+        return True
+
+    @property
+    def controls_visible(self) -> bool:
+        return bool(self._controls_overlay is not None and self._controls_overlay.visible)
+
+    def page_controls(self, forward: bool = True) -> bool:
+        """Page the controls screen, for the D-pad while it is displayed."""
+        if not self.controls_visible or self._controls_panel is None:
+            return False
+        self._controls_panel.turn_page(forward)
+        return True
+
+    def _build_controls_overlay(self) -> Box:
+        """A full-width overlay gridded across every column of ``body``.
+
+        Gridded rather than placed: guizero's Widget.show() re-runs the master's
+        display_widgets(), which re-grids (or re-packs) its children -- so a place() is
+        cancelled the moment the overlay is shown. Spanning the three columns that hold
+        the left pane, the divider and the right pane is therefore the way to cover both
+        panes, and it costs no layout change because 632 + 4 + 632 is already the full
+        width. Created last, so it stacks above the panes it covers.
         """
-        gui = self.focused_gui
-        if gui is not None:
-            gui.on_controls_panel()
+        overlay = Box(
+            self.body,
+            grid=[0, 0, 3, 1],
+            layout="auto",
+            align="top",
+            border=2,
+            width=self.width,
+            height=self.height,
+            visible=False,
+        )
+        overlay.bg = "white"
+        overlay.tk.pack_propagate(False)
+
+        title = Text(overlay, text=f"{CONTROLS_TITLE}   {self.version}", align="top", bold=True)
+        title.text_size = self.s_18
+        self.cache(title)
+
+        body = Box(overlay, align="top", layout="auto")
+        self._controls_panel = ControlsPanel(self, self._controller_profile)
+        self._controls_panel.build(body)
+
+        close = PushButton(overlay, text="Close", align="bottom", width=8, command=self.close_controls)
+        close.text_size = self.s_18
+        close.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            padx=6,
+            pady=1,
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+        self.cache(close)
+        return overlay
 
     def _build_focus_arrow(self) -> None:
         # An arrow that sits on the divider, in the same row as each pane's top

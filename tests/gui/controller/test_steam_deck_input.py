@@ -2867,17 +2867,26 @@ def test_dpad_up_down_pages_the_controls_screen() -> None:
     assert focused_gui.command_calls == []
 
 
-def test_close_button_still_reaches_the_popup_handling() -> None:
-    # X has to keep closing the panel; the gate must not swallow it.
+def test_close_button_closes_the_controls_screen() -> None:
+    # The screen is owned by the host GUI, not this pane's popup manager, so the
+    # popup_visible path would never see it -- the gate closes it directly.
     focused_gui = _controls_gui()
-    focused_gui.popup_visible = True
     focused_gui.closed = []
-    focused_gui.close_popup = lambda: focused_gui.closed.append(True)
+    focused_gui.close_controls = lambda: focused_gui.closed.append(True)
     router = _bundled_router(focused_gui)
 
     router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
 
     assert focused_gui.closed == [True]
+    assert focused_gui.command_calls == []
+
+
+def test_close_button_is_tolerated_when_the_gui_cannot_close_it() -> None:
+    focused_gui = _controls_gui()  # no close_controls attribute
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+
     assert focused_gui.command_calls == []
 
 
