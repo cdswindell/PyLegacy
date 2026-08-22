@@ -9,6 +9,7 @@
 import copy
 import itertools
 import json
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -142,3 +143,48 @@ def test_other_panels_stay_inside_their_pane() -> None:
 def test_four_columns_now_that_it_has_the_width() -> None:
     # Three was what a 632px pane allowed; the point of spanning is using the rest.
     assert COLUMNS == 4
+
+
+class _StubGui:
+    """Enough EngineGui surface for on_controls_panel's placement decision."""
+
+    def __init__(self, *, embedded: bool) -> None:
+        self.app = object()
+        self.root = object() if embedded else self.app
+        self.popup_position = (316, 120)
+        self.shown: list[dict] = []
+        self._cv = nullcontext()
+
+    def show_popup(self, overlay, **kwargs) -> None:
+        self.shown.append({"overlay": overlay, **kwargs})
+
+
+def _on_controls_panel(gui: _StubGui, panel: ControlsPanel) -> None:
+    from src.pytrain.gui.controller.engine_gui import EngineGui
+
+    gui._controls_panel = panel
+    EngineGui.on_controls_panel(gui)
+
+
+def test_embedded_pane_pins_the_spanning_panel_to_the_window_edge(monkeypatch) -> None:
+    # popup_position is pane-relative, so reusing its x would inset a window-spanning
+    # overlay by a pane's width.
+    gui = _StubGui(embedded=True)
+    panel = _panel(ControlProfile.load(None))
+    monkeypatch.setattr(ControlsPanel, "overlay", property(lambda _self: "overlay"))
+
+    _on_controls_panel(gui, panel)
+
+    assert gui.shown[0]["position"] == (0, 120)
+
+
+def test_standalone_gui_keeps_its_own_position(monkeypatch) -> None:
+    # A portrait EngineGui has no enclosing pane (root is app), so its position is
+    # already window-relative -- forcing x=0 would shove the panel against the edge.
+    gui = _StubGui(embedded=False)
+    panel = _panel(ControlProfile.load(None))
+    monkeypatch.setattr(ControlsPanel, "overlay", property(lambda _self: "overlay"))
+
+    _on_controls_panel(gui, panel)
+
+    assert gui.shown[0]["position"] == (316, 120)
