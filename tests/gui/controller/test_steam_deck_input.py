@@ -993,8 +993,11 @@ def test_bundled_profile_defines_the_admin_chords() -> None:
 
     chords = {chord.action: sorted(chord.buttons) for chord in profile.chords}
     # L1 (4) plus a face button: X=2 quit, Y=3 update, B=1 reboot, A=0 shutdown.
+    # Asserted exhaustively so a new chord cannot be added without being considered here;
+    # show_controls is L3+R3 (the stick clicks) because their own actions are harmless.
     assert chords == {
         "halt": [4, 5],
+        "show_controls": [9, 10],
         "admin_quit": [2, 4],
         "admin_update": [3, 4],
         "admin_reboot": [1, 4],
@@ -2899,11 +2902,20 @@ def test_engine_commands_flow_normally_once_the_screen_is_closed() -> None:
     assert focused_gui.command_calls == ["RING_BELL"]
 
 
-def test_bundled_profile_binds_show_controls_to_the_misc_button() -> None:
+def test_bundled_profile_binds_show_controls_to_the_stick_clicks() -> None:
     profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
 
-    assert profile.buttons[15].action == "show_controls"
-    assert profile.buttons[15].target == "global"
+    chord = next(chord for chord in profile.chords if chord.action == "show_controls")
+    assert chord.buttons == frozenset({9, 10})
+    assert chord.target == "global"
+
+
+def test_the_misc_button_is_left_unbound() -> None:
+    # Steam's Quick Settings eats "..." -- the app never sees it, confirmed on-device.
+    # A binding there would be listed on the help screen as though it worked.
+    profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
+
+    assert 15 not in profile.buttons
 
 
 def test_show_controls_must_target_global() -> None:

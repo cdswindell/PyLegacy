@@ -145,12 +145,10 @@ CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
 # ``scripts/deckinfo.py`` prints both, labelled, when a physical button's index needs
 # identifying.
 #
-# Being *reported* is not always the same as being *available*: pressing "..." also
-# opens Steam's Quick Access overlay, which grabs the whole controller while it is held,
-# and no D-pad press reaches the app during that. That still rules "..." out as a chord
-# *modifier* -- it cannot be held down while a second button is pressed. It is readable
-# as a momentary press though, which is why the bundled profile binds it to
-# SHOW_CONTROLS: the help screen only needs the press, not a hold.
+# Being *reported* is not the same as being *available*: pressing "..." opens Steam's
+# Quick Settings panel and the app never sees the button, not even as a momentary press.
+# Confirmed on-device -- a binding on index 15 does nothing at all. So "..." is unusable
+# for anything: not as a chord modifier, and not as a plain button.
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -198,8 +196,11 @@ ADMIN_COMMANDS = {
 # same way R1 becomes the catalog-jump modifier while the catalog is open. Keyed by
 # profile action so it follows whichever button carries the rear coupler.
 ADMIN_CHORD_MODIFIER = "rear_coupler"
-# Opens the controls help screen. Bound to the Deck's "..." button in the bundled
-# profile. Global rather than per-pane: the bindings it lists are the same either side.
+# Opens the controls help screen. Bound to L3 + R3 (click both sticks) in the bundled
+# profile: every single button is taken, "..." never reaches the app, and a chord's first
+# button still fires its own action -- so the modifier has to be one whose action is
+# harmless. L3/R3 only move pane focus, where an R1 chord would open a real coupler.
+# Global rather than per-pane: the bindings it lists are the same either side.
 SHOW_CONTROLS = "show_controls"
 # While the catalog panel is open, holding R1 turns D-pad up/down into a jump to the
 # first/last entry instead of a one-entry scroll: R1+up jumps to the top, R1+down to
