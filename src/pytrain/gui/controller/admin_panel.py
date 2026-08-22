@@ -43,14 +43,25 @@ FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
 
 # How long a hold survives an interrupted touch contact before it counts as released.
-# Steam Deck only -- see the press_recovery_ms argument in _hold_button.
-# Measured across two logged sessions: gaps between the spurious release and the press
-# that followed were 5-49ms in nine of eleven cases, but 164ms and 265ms in the two where
-# the pointer jumped off the button and back. 400 covers all of them with margin.
+# Steam Deck only -- see the press_recovery_ms argument in _hold_button, and the note at the
+# top of that module for what actually causes the interruption (charger ground noise, not
+# software). Frequency scales with that noise: three flips in nine presses in one session,
+# seventeen in sixteen seconds in another, none at all on battery.
+# Deliberately short, and deliberately not sized to catch every flip. The window is paid on
+# *every* release -- a press arriving inside it is the only thing that distinguishes a
+# spurious release from a real one, so until it expires the button cannot tear down its
+# progress overlay. At 350ms that lag was visible on every deliberate release, which is a
+# constant cost to insure against noise that only appears while charging.
 #
-# The cost is latency on a deliberate cancel: dragging off and releasing takes this long
-# to register, because a press arriving inside the window is what distinguishes the two.
-PRESS_RECOVERY_MS = 350
+# What 100ms costs, measured over the worst logged session (17 flips in 16 seconds, charging
+# from an ungrounded supply): it catches 11 of the 18 recoveries; the other 7 are lost. They
+# are lost outright, not softened -- every one of those 7 came back as a Motion carrying the
+# button mask rather than a fresh ButtonPress, and _maybe_resume_from_contact only acts while
+# a release is still pending. RESTART_RESUME_MS covers a lift-and-press-again, which is not
+# what the panel does here. So plugged in, expect roughly a third of flips to reset a hold.
+# On battery none of this arises -- the flips do not happen at all, which is the case this
+# value is chosen for.
+PRESS_RECOVERY_MS = 100
 
 SCOPE_OPTS = [
     ["Local", 0],

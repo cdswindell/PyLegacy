@@ -20,6 +20,17 @@ from guizero import PushButton
 
 log = logging.getLogger(__name__)
 
+# Why any of the jitter machinery below exists, established by experiment on 2026-08-22:
+# the Steam Deck's touch panel misreports contact position when the unit is charging from
+# an ungrounded (two-prong) USB-C supply. The chassis floats and rings against earth, and
+# the noise corrupts the sense axis, so the pointer teleports hundreds of pixels along Y
+# while X tracks the finger correctly. X11 turns each teleport into a Leave plus a spurious
+# ButtonRelease, then an Enter plus a press when it snaps back -- which is what resets a
+# three-second hold. Reproduces only with the Deck on a flat surface, charging, pressed
+# with a bare finger: holding the unit couples chassis to body and it goes away, as does
+# unplugging it, as does a stylus. Not a code bug, and not fixable in a widget -- everything
+# here is damage limitation so the panel stays usable while plugged in.
+#
 # A crossing this far outside the widget still counts as inside. Touch contact centroids
 # wander by a few pixels over a long hold as finger pressure changes.
 LEAVE_SLOP_PX = 16
