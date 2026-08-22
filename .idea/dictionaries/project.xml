@@ -61,6 +61,7 @@
       <w>esso</w>
       <w>etype</w>
       <w>extendleft</w>
+      <w>gamescope</w>
       <w>getcwd</w>
       <w>gethostbyname</w>
       <w>gethostname</w>
@@ -69,6 +70,7 @@
       <w>gvfs</w>
       <w>hciuart</w>
       <w>hexid</w>
+      <w>holdbtn</w>
       <w>hpad</w>
       <w>iwgetid</w>
       <w>labwc</w>

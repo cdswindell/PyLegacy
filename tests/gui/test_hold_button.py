@@ -185,6 +185,12 @@ def make_button(enabled: bool, *, text: str = "Hold") -> DummyHoldButton:
     button._release_after_id = None
     button._held_elapsed = 0.0
     button._diag_label = text
+    button._abandoned_at = None
+    button._abandoned_banked = 0.0
+    # _note_abandoned consults these; the recovery fixtures override them.
+    button._on_hold = None
+    button._on_press = None
+    button._on_repeat = None
     return button
 
 
@@ -578,7 +584,7 @@ def test_overlay_is_re_placed_after_it_has_been_hidden() -> None:
 
 
 def _recovering_button(*, banked: float = 0.0) -> DummyHoldButton:
-    """A hold button that tolerates the touch stream dropping a contact."""
+    """A hold button that tolerates the Deck interrupting a held contact."""
     button = make_button(True)
     button._press_recovery_ms = 250
     button._on_hold = lambda: None
@@ -588,160 +594,150 @@ def _recovering_button(*, banked: float = 0.0) -> DummyHoldButton:
     return button
 
 
+def _spurious_release() -> SimpleNamespace:
+    """A release with no button-state mask, as the Deck emits mid-gesture."""
+    return SimpleNamespace(x=50, y=20, widget=SimpleNamespace(winfo_width=lambda: 100, winfo_height=lambda: 40))
+
+
+def _genuine_release() -> SimpleNamespace:
+    """A release carrying the state mask a real X transition has."""
+    event = _spurious_release()
+    event.state = mod.B1_MASK
+    return event
+
+
 def _run_after(button: DummyHoldButton, delay: int) -> None:
     for scheduled, func in button.tk.after_calls:
         if scheduled == delay:
             func()
 
 
-def test_a_dropped_contact_does_not_end_the_hold(monkeypatch) -> None:
-    # The real Deck behaviour: a release arrives mid-hold with the finger still down.
-    # Taken at face value it restarts the countdown, so 3 seconds is never reached.
-    button = _recovering_button()
+def _mid_hold(button: DummyHoldButton, monkeypatch, *, elapsed: float = 0.4) -> None:
     button._pressed = True
     button._press_time = 100.0
     button._progress_start = 100.0
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.0 + elapsed)
 
-    button._on_release_event(None)
+
+def test_a_state_less_release_off_the_button_is_deferred(monkeypatch) -> None:
+    # Could be a genuine drag-off, so pause and let a returning contact rescue it.
+    button = _recovering_button()
+    _mid_hold(button, monkeypatch)
+    button.tk.pointer = (900, 900)  # well away
+
+    button._on_release_event(_spurious_release())
 
     assert button._release_pending is True
-    assert button._pressed is True, "the hold is paused, not abandoned"
-    assert button._held_elapsed > 0, "time held so far must be banked"
+    assert button._held_elapsed == pytest.approx(0.4)
+
+
+def test_banking_does_not_double_count_the_running_clock(monkeypatch) -> None:
+    # _defer_release banked the elapsed time but left the clock running, so the next call
+    # added it again -- pushing a second release past the threshold, where it was treated
+    # as authoritative and ended the hold.
+    button = _recovering_button()
+    button.hold_threshold = 3.0  # the real admin-button threshold
+    _mid_hold(button, monkeypatch, elapsed=1.6)
+    button.tk.pointer = (900, 900)
+
+    button._on_release_event(_spurious_release())
+    assert button._held_elapsed == pytest.approx(1.6)
+
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 101.8)
+    assert button._elapsed_held() == pytest.approx(1.6), "the clock must be stopped while banked"
 
 
 def test_the_countdown_is_paused_while_a_release_is_deferred(monkeypatch) -> None:
     # Left running, a contact genuinely lifted at 2.9s would still fire at 3.0s. For a
     # Reboot button that is an unacceptable false positive.
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
+    _mid_hold(button, monkeypatch)
+    button.tk.pointer = (900, 900)
     button._after_id = "after-hold"
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
 
-    button._on_release_event(None)
+    button._on_release_event(_spurious_release())
 
     assert "after-hold" in button.tk.after_cancel_calls
 
 
 def test_a_press_inside_the_window_resumes_the_same_hold(monkeypatch) -> None:
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
-    button._progress_start = 100.0
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+    _mid_hold(button, monkeypatch)
+    button.tk.pointer = (900, 900)
 
-    button._on_release_event(None)  # banks 0.4s
+    button._on_release_event(_spurious_release())
     banked = button._held_elapsed
-    button._on_press_event(None)  # finger was never lifted
+    button._on_press_event(None)
 
     assert button._release_pending is False
     assert button._pressed is True
     assert button._held_elapsed == pytest.approx(banked)
-    # Rescheduled for the remaining time, not the full threshold.
     remaining_ms = max(1, int((button.hold_threshold - banked) * 1000))
     assert any(delay == remaining_ms for delay, _ in button.tk.after_calls)
 
 
 def test_a_resumed_hold_keeps_its_progress_bar_position(monkeypatch) -> None:
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
-    button._progress_start = 100.0
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.5)
+    _mid_hold(button, monkeypatch, elapsed=0.5)
+    button.tk.pointer = (900, 900)
 
-    button._on_release_event(None)
+    button._on_release_event(_spurious_release())
     button._on_press_event(None)
 
-    # Origin rewound by the banked time, so the bar carries on rather than restarting.
     assert button._progress_start == pytest.approx(100.5 - button._held_elapsed)
 
 
-def test_no_press_inside_the_window_is_a_real_release(monkeypatch) -> None:
+def test_no_return_inside_the_window_is_a_real_release(monkeypatch) -> None:
     released: list[str] = []
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
+    _mid_hold(button, monkeypatch)
+    button.tk.pointer = (900, 900)
     button._do_release = lambda _event=None: released.append("release")
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
 
-    button._on_release_event(None)
+    button._on_release_event(_spurious_release())
     _run_after(button, 250)
 
     assert released == ["release"]
     assert button._release_pending is False
 
 
-def test_recovery_is_off_by_default() -> None:
-    # Other HoldButtons must keep firing their short press immediately.
+def test_recovery_is_off_by_default(monkeypatch) -> None:
+    # Other HoldButtons -- and the Raspberry Pi's -- must be untouched by any of this.
     released: list[str] = []
     button = make_button(True)
     button._on_hold = lambda: None
-    button._pressed = True
-    button._press_time = 100.0
+    _mid_hold(button, monkeypatch)
     button._do_release = lambda _event=None: released.append("release")
 
-    button._on_release_event(None)
+    button._on_release_event(_spurious_release())
 
     assert released == ["release"]
     assert button._release_pending is False
 
 
-def test_a_completed_hold_is_not_deferred() -> None:
+def test_a_completed_hold_is_not_deferred(monkeypatch) -> None:
     # Once on_hold has fired there is nothing left to protect.
     released: list[str] = []
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
+    _mid_hold(button, monkeypatch)
     button._handled_hold = True
     button._do_release = lambda _event=None: released.append("release")
 
-    button._on_release_event(None)
+    button._on_release_event(_spurious_release())
 
     assert released == ["release"]
 
 
 def test_cancelling_clears_a_deferred_release(monkeypatch) -> None:
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
-    button._on_release_event(None)
+    _mid_hold(button, monkeypatch)
+    button.tk.pointer = (900, 900)
+    button._on_release_event(_spurious_release())
 
     button.cancel_hold()
 
     assert button._release_pending is False
     assert button._held_elapsed == 0.0
-
-
-def test_an_unlaid_out_button_is_measured_again_before_placing() -> None:
-    # Tk reports 1x1 for a widget it has not mapped yet. Placing that gives a 1x1
-    # overlay -- the progress bar is invisible -- which is why the first press on a
-    # freshly opened panel sometimes showed nothing.
-    button, canvas = _overlay_button()
-    button.tk.unmapped = True
-    button.tk.idletasks_calls = 0
-
-    button._position_overlay()
-
-    assert button.tk.idletasks_calls == 1, "must force a geometry pass rather than trust 1x1"
-    assert canvas.places[-1]["width"] == 100
-    assert canvas.places[-1]["height"] == 40
-
-
-def test_a_degenerate_geometry_is_not_cached(monkeypatch) -> None:
-    # If the size really cannot be resolved, the next call must place again rather than
-    # decide nothing changed and leave an invisible overlay up for the whole hold.
-    button, canvas = _overlay_button()
-    monkeypatch.setattr(type(button.tk), "winfo_width", lambda _self: 1)
-    monkeypatch.setattr(type(button.tk), "winfo_height", lambda _self: 1)
-    monkeypatch.setattr(type(button.tk), "update_idletasks", lambda _self: None)
-
-    button._position_overlay()
-    button._position_overlay()
-
-    assert button._overlay_geometry is None
-    assert len(canvas.places) == 2, "a degenerate placement must not suppress the next one"
 
 
 def _crossing_with_state(state: int) -> SimpleNamespace:
@@ -756,12 +752,9 @@ def test_an_enter_with_the_contact_still_down_resumes_the_hold(monkeypatch) -> N
     # warped off the button and back inside one continuous press. Waiting for a press
     # left the hold to expire; the button mask on the crossing settles it directly.
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
-    button._progress_start = 100.0
-    # Short of the 1.0s threshold this fixture uses, or the release is not deferred.
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.6)
-    button._on_release_event(None)
+    _mid_hold(button, monkeypatch, elapsed=0.6)
+    button.tk.pointer = (900, 900)
+    button._on_release_event(_spurious_release())
     assert button._release_pending is True
 
     button._on_enter_candidate(_crossing_with_state(mod.B1_MASK))
@@ -774,10 +767,9 @@ def test_an_enter_with_the_contact_still_down_resumes_the_hold(monkeypatch) -> N
 def test_an_enter_without_the_contact_does_not_resume(monkeypatch) -> None:
     # A genuine lift followed by the pointer drifting back must still cancel.
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
-    button._on_release_event(None)
+    _mid_hold(button, monkeypatch)
+    button.tk.pointer = (900, 900)
+    button._on_release_event(_spurious_release())
 
     button._on_enter_candidate(_crossing_with_state(0))
 
@@ -787,10 +779,9 @@ def test_an_enter_without_the_contact_does_not_resume(monkeypatch) -> None:
 def test_motion_with_the_contact_down_also_resumes(monkeypatch) -> None:
     # Motion arrives more often than crossings, so it is the more reliable rescue.
     button = _recovering_button()
-    button._pressed = True
-    button._press_time = 100.0
-    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
-    button._on_release_event(None)
+    _mid_hold(button, monkeypatch)
+    button.tk.pointer = (900, 900)
+    button._on_release_event(_spurious_release())
 
     button._on_motion_candidate(_crossing_with_state(mod.B1_MASK))
 
@@ -814,3 +805,94 @@ def test_an_unreadable_state_mask_does_not_resume() -> None:
 
     assert button._event_button1_down(SimpleNamespace()) is False
     assert button._event_button1_down(SimpleNamespace(state="nonsense")) is False
+
+
+def test_a_quick_restart_inherits_the_abandoned_progress(monkeypatch, caplog) -> None:
+    # "It keeps resetting to zero" is the symptom users report, and it is otherwise
+    # invisible in a trace: a fresh press looks the same whether or not it is really the
+    # same finger continuing.
+    import logging
+
+    button = _recovering_button()
+    button.hold_threshold = 3.0
+    _mid_hold(button, monkeypatch, elapsed=1.5)
+    button.tk.pointer = (900, 900)  # off the button, so the release is honoured
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        button._on_release_event(_spurious_release())
+        _run_after(button, 250)  # deferral expires: the hold is abandoned
+        monkeypatch.setattr(mod.time, "monotonic", lambda: 101.7)
+        button._on_press_event(None)
+
+    assert "restart-resumed" in caplog.text
+    assert "inherited=1.500s" in caplog.text
+    assert "gap=200ms" in caplog.text
+    assert button._held_elapsed == pytest.approx(1.5), "the countdown must not start over"
+
+
+def test_an_unrelated_later_press_is_not_flagged_as_a_restart(monkeypatch, caplog) -> None:
+    # A press long after the fact is a new gesture, not a lost countdown.
+    import logging
+
+    button = _recovering_button()
+    button.hold_threshold = 3.0
+    _mid_hold(button, monkeypatch, elapsed=1.5)
+    button.tk.pointer = (900, 900)
+    button._on_release_event(_genuine_release())
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        monkeypatch.setattr(mod.time, "monotonic", lambda: 110.0)
+        button._on_press_event(None)
+
+    assert "restart-after-abandon" not in caplog.text
+
+
+def test_a_hold_that_fired_is_not_counted_as_abandoned(monkeypatch) -> None:
+    button = _recovering_button()
+    _mid_hold(button, monkeypatch)
+    button._handled_hold = True
+
+    button._note_abandoned(2.0)
+
+    assert button._abandoned_at is None
+
+
+class _EventData:
+    """guizero's wrapper: exposes x/y/widget but deliberately no state."""
+
+    def __init__(self, tk_event) -> None:
+        self.tk_event = tk_event
+        self.x = tk_event.x
+        self.y = tk_event.y
+        self.widget = object()
+
+
+def test_a_slower_restart_is_flagged_but_starts_over(monkeypatch, caplog) -> None:
+    # Past RESTART_RESUME_MS this is a fresh gesture, not a jitter: it starts at zero and
+    # is only logged, so a deliberate re-press cannot inherit a nearly-complete countdown.
+    import logging
+
+    button = _recovering_button()
+    button.hold_threshold = 3.0
+    _mid_hold(button, monkeypatch, elapsed=2.9)
+    button.tk.pointer = (900, 900)
+    button._on_release_event(_spurious_release())
+    _run_after(button, 250)
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        monkeypatch.setattr(mod.time, "monotonic", lambda: 103.5)
+        button._on_press_event(None)
+
+    assert "restart-after-abandon" in caplog.text
+    assert "restart-resumed" not in caplog.text
+    assert button._held_elapsed == 0.0
+
+
+def test_the_unwrap_reads_state_through_guizeros_wrapper() -> None:
+    # guizero's EventData exposes no .state, which made every button-delivered event look
+    # stateless regardless of provenance. The unwrap is what makes the mask readable.
+    wrapped = _EventData(_genuine_release())
+
+    assert HoldButton._event_button1_down(wrapped) is True
+    assert "guizero wrapper" in HoldButton._describe_state(wrapped)
+    assert HoldButton._event_button1_down(_EventData(_spurious_release())) is False

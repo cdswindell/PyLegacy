@@ -26,6 +26,14 @@ LEAVE_SLOP_PX = 16
 # How long a <Leave> must persist, with no intervening <Enter>, before it cancels a hold.
 # Long enough to swallow jitter, short enough that a deliberate drag-off feels immediate.
 LEAVE_CONFIRM_MS = 150
+# A fresh press this soon after a hold was abandoned is almost certainly the same gesture
+# continuing -- i.e. a jitter cost the user their progress. Logged, not acted on: by then
+# the hold is already gone, and this exists to make the loss visible in a trace.
+RESTART_WINDOW_MS = 1500
+# A press this soon after a hold was abandoned inherits the progress that hold had made.
+# Much tighter than RESTART_WINDOW_MS, which only logs: this one changes behaviour, and a
+# deliberate second press does not follow a deliberate release within a third of a second.
+RESTART_RESUME_MS = 300
 
 # Every diagnostic in this module starts with this, so a session log can be filtered to
 # just the hold lifecycle: grep "holdbtn" pytrain.log
@@ -37,6 +45,7 @@ DIAG = "holdbtn"
 B1_MASK = 0x0100
 
 
+# noinspection unused-parameter
 class HoldButton(PushButton):
     """
     A PushButton subclass that adds:
@@ -137,6 +146,10 @@ class HoldButton(PushButton):
         # Hold time banked across release/press gaps, so a recovered hold resumes where
         # it left off instead of starting the countdown again.
         self._held_elapsed: float = 0.0
+        # When a hold was last abandoned without firing, and how much progress went with
+        # it. Only used for diagnostics -- see the restart check in _on_press_event.
+        self._abandoned_at: float | None = None
+        self._abandoned_banked: float = 0.0
         # Captured now: the underlying label is blanked while the progress overlay is up,
         # so reading it during a hold yields "".
         self._diag_label = str(text) or "?"
@@ -314,7 +327,7 @@ class HoldButton(PushButton):
     def begin_hold(self) -> None:
         """Start a hold as though the button had been pressed with a finger.
 
-        For synthetic input (e.g. a controller chord standing in for a press): the
+        For synthetic input (e.g., a controller chord standing in for a press): the
         hold progress bar animates and ``on_hold`` fires after ``hold_threshold``
         exactly as it would for a real press, so the timing and the visual feedback
         have a single implementation.
@@ -381,6 +394,7 @@ class HoldButton(PushButton):
         self._held_elapsed = 0.0
         self._press_time = time.monotonic()
         self._diag("press", f"threshold={self.hold_threshold}s")
+        self._note_restart_after_abandon()
         self._held = False
         self._repeating = False
         self._handled_hold = False
@@ -399,10 +413,28 @@ class HoldButton(PushButton):
     def _on_release_event(self, event=None):
         detail = f"{self._describe_event(event)} {self._describe_state(event)}" if event is not None else "synthetic"
         self._diag("release", detail)
+        # Every mid-hold release is deferred, whatever it looks like. Branching on the
+        # state mask was tried and withdrawn: guizero's EventData hid the field, so the
+        # mask only ever revealed which binding delivered the event, not whether the
+        # finger really lifted. The mask is still logged, for evidence.
         if self._should_defer_release():
             self._defer_release()
             return
         self._do_release(event)
+
+    @staticmethod
+    def _tk_event(event):
+        """The underlying tkinter event, unwrapping guizero's EventData if present.
+
+        Two bindings deliver events here: guizero's when_left_button_released, which
+        wraps the real event in an EventData exposing only x/y/widget/keycode, and raw
+        tk.bind() on the progress overlay, which passes the tkinter event straight
+        through. Reading `.state` off the wrapper silently fails, which made every
+        button-delivered release look stateless regardless of where it came from.
+        """
+        if event is None:
+            return None
+        return getattr(event, "tk_event", event)
 
     def _should_defer_release(self) -> bool:
         """Whether this release might be the touchscreen dropping a still-held contact.
@@ -421,13 +453,48 @@ class HoldButton(PushButton):
             and self._elapsed_held() < self.hold_threshold
         )
 
+    def _note_restart_after_abandon(self) -> None:
+        """Flag a countdown that restarted from zero right after one was abandoned.
+
+        This is the symptom users actually report -- "it keeps resetting" -- and it is
+        otherwise invisible in a trace, because a fresh press looks identical whether or
+        not it is really the same finger continuing.
+        """
+        if self._abandoned_at is None:
+            return
+        gap_ms = int((self._press_time - self._abandoned_at) * 1000)
+        lost = self._abandoned_banked
+        self._abandoned_at = None
+        self._abandoned_banked = 0.0
+        if gap_ms <= RESTART_RESUME_MS and lost > 0:
+            # Inherit the abandoned progress rather than starting the countdown again.
+            # This is the fix for the reported symptom, and it needs no theory about which
+            # releases were real: to reach the threshold the finger must still be pressing.
+            self._held_elapsed = lost
+            if self._progress_start is not None:
+                self._progress_start = self._press_time - lost
+            self._diag("restart-resumed", f"inherited={lost:.3f}s gap={gap_ms}ms")
+            return
+        if gap_ms <= RESTART_WINDOW_MS:
+            self._diag("restart-after-abandon", f"lost={lost:.3f}s gap={gap_ms}ms")
+
+    def _note_abandoned(self, banked: float) -> None:
+        """Remember that a hold ended without firing, for the restart check above."""
+        if self._on_hold and not self._handled_hold:
+            self._abandoned_at = time.monotonic()
+            self._abandoned_banked = banked
+
     def _elapsed_held(self) -> float:
         running = (time.monotonic() - self._press_time) if self._press_time else 0.0
         return self._held_elapsed + running
 
     def _defer_release(self) -> None:
-        """Bank the time held so far and wait to see whether a press follows."""
+        """Bank the time held so far and wait to see whether the contact comes back."""
         self._held_elapsed = self._elapsed_held()
+        # Stop the running clock, or _elapsed_held() adds it to the banked total again on
+        # the next call -- which pushed a second release past the threshold and let it
+        # end the hold outright.
+        self._press_time = None
         self._release_pending = True
         # Pause the countdown. Left running, a contact genuinely lifted at 2.9s would
         # still fire at 3.0s -- an unwanted reboot is a bad way to learn that.
@@ -476,6 +543,7 @@ class HoldButton(PushButton):
         self._release_after_id = None
 
     def _do_release(self, event=None):
+        self._note_abandoned(self._elapsed_held())
         enabled = self._is_enabled()
         self._pressed = False
 
@@ -512,7 +580,7 @@ class HoldButton(PushButton):
         """Start a *provisional* cancel on <Leave>; confirm it only if it persists.
 
         A bare <Leave> is not trustworthy on a touchscreen. The progress overlay is
-        placed over the button, so a crossing can be synthesised, and jitter in the touch
+        placed over the button, so a crossing can be synthesized, and jitter in the touch
         stream produces Leave/Enter pairs milliseconds apart. Cancelling on the Leave
         itself therefore aborted roughly half of all 3-second holds.
 
@@ -575,7 +643,7 @@ class HoldButton(PushButton):
     @staticmethod
     def _event_button1_down(event) -> bool:
         try:
-            return bool(int(event.state) & B1_MASK)
+            return bool(int(HoldButton._tk_event(event).state) & B1_MASK)
         except (AttributeError, TypeError, ValueError):
             # Some drivers do not populate state; absence is not evidence of a lift, but
             # it is not evidence of a hold either, so do not resume on it.
@@ -583,10 +651,13 @@ class HoldButton(PushButton):
 
     @staticmethod
     def _describe_state(event) -> str:
+        unwrapped = HoldButton._tk_event(event)
+        wrapped = " (guizero wrapper)" if unwrapped is not event else ""
         try:
-            return f"state=0x{int(event.state):04x} b1={bool(int(event.state) & B1_MASK)}"
+            state = int(unwrapped.state)
         except (AttributeError, TypeError, ValueError):
-            return "state=<unavailable>"
+            return f"state=<unavailable>{wrapped} raw={getattr(unwrapped, 'state', '<missing>')!r}"
+        return f"state=0x{state:04x} b1={bool(state & B1_MASK)}{wrapped}"
 
     def _confirm_leave(self) -> None:
         self._leave_after_id = None
@@ -616,11 +687,12 @@ class HoldButton(PushButton):
         Uses the event's own coordinates, which describe where the crossing actually
         happened rather than where the mouse pointer currently is.
         """
+        unwrapped = HoldButton._tk_event(event)
         try:
-            x = int(event.x)
-            y = int(event.y)
-            width = int(event.widget.winfo_width())
-            height = int(event.widget.winfo_height())
+            x = int(unwrapped.x)
+            y = int(unwrapped.y)
+            width = int(unwrapped.widget.winfo_width())
+            height = int(unwrapped.widget.winfo_height())
         except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
             return False
         slop = LEAVE_SLOP_PX
@@ -644,9 +716,10 @@ class HoldButton(PushButton):
         return not (x - slop <= px < x + width + slop and y - slop <= py < y + height + slop)
 
     def _describe_event(self, event) -> str:
+        unwrapped = self._tk_event(event)
         try:
             width, height = int(self.tk.winfo_width()), int(self.tk.winfo_height())
-            return f"event=({int(event.x)},{int(event.y)}) size=({width}x{height})"
+            return f"event=({int(unwrapped.x)},{int(unwrapped.y)}) size=({width}x{height})"
         except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
             return "event=<unreadable>"
 
@@ -664,6 +737,7 @@ class HoldButton(PushButton):
         # by cancel_hold(), which must always cancel, and via _confirm_leave for pointer
         # events, which must not cancel on jitter.
         self._diag("cancel", f"reason={reason}")
+        self._note_abandoned(self._elapsed_held())
         self._leave_pending = False
         self._cancel_leave_timer()
         self._release_pending = False
