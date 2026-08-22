@@ -1571,10 +1571,13 @@ class DeckInputRouter:
         gui = self._target_gui(action.target)
         if gui is None:
             return
-        handler = getattr(gui, "on_admin_command", None)
-        if handler is None:
+        # hasattr rather than `handler = getattr(gui, ..., None)`: the router is
+        # deliberately duck-typed, and PyCharm's getattr inference falls back to the
+        # default's type when it cannot resolve the name, so the getattr form reports
+        # "'None' object is not callable" on a call that is fine.
+        if not hasattr(gui, "on_admin_command"):
             return
-        handler(ADMIN_COMMANDS[action.name], action.phase == "pressed")
+        gui.on_admin_command(ADMIN_COMMANDS[action.name], action.phase == "pressed")
 
     def _handle_scroll_boost(self, action: DeckAction) -> None:
         if action.phase != "pressed":
