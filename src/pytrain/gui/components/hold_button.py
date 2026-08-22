@@ -81,6 +81,7 @@ class HoldButton(PushButton):
         progress_empty_color: str | None = None,  # None => uses current button bg
         progress_keep_full_until_release: bool = True,
         cancel_on_leave: bool = False,
+        press_recovery_ms: int = 0,
         **kwargs,
     ):
         # semaphore to protect critical code
@@ -123,6 +124,17 @@ class HoldButton(PushButton):
         self._progress_start: float | None = None
         self._progress_after_id: str | None = None
         self._cancel_on_leave = bool(cancel_on_leave)
+        # Window in which a <ButtonRelease> followed by a fresh <ButtonPress> is treated
+        # as one continuing hold rather than two. 0 disables it. See _defer_release.
+        self._press_recovery_ms = int(press_recovery_ms)
+        self._release_pending: bool = False
+        self._release_after_id: str | None = None
+        # Hold time banked across release/press gaps, so a recovered hold resumes where
+        # it left off instead of starting the countdown again.
+        self._held_elapsed: float = 0.0
+        # Captured now: the underlying label is blanked while the progress overlay is up,
+        # so reading it during a hold yields "".
+        self._diag_label = str(text) or "?"
         # Pending-leave state, see _on_leave_candidate.
         self._leave_pending: bool = False
         self._leave_after_id: str | None = None
@@ -322,10 +334,7 @@ class HoldButton(PushButton):
         )
 
     def _diag_name(self) -> str:
-        try:
-            return str(self.text) or "?"
-        except (AttributeError, TclError, RuntimeError):
-            return "?"
+        return getattr(self, "_diag_label", "?")
 
     @property
     def is_holding(self) -> bool:
@@ -353,9 +362,13 @@ class HoldButton(PushButton):
             self._stop_progress()
             return
 
+        if self._release_pending:
+            self._resume_hold()
+            return
         self._pressed = True
         self._leave_pending = False
         self._cancel_leave_timer()
+        self._held_elapsed = 0.0
         self._press_time = time.monotonic()
         self._diag("press", f"threshold={self.hold_threshold}s")
         self._held = False
@@ -375,6 +388,83 @@ class HoldButton(PushButton):
     # noinspection PyUnusedLocal
     def _on_release_event(self, event=None):
         self._diag("release", self._describe_event(event) if event is not None else "synthetic")
+        if self._should_defer_release():
+            self._defer_release()
+            return
+        self._do_release(event)
+
+    def _should_defer_release(self) -> bool:
+        """Whether this release might be the touchscreen dropping a still-held contact.
+
+        Observed on the Steam Deck: during a long hold the touch stream emits a release
+        and a fresh press milliseconds apart while the finger never moves. Taken at face
+        value that restarts the countdown, so a three-second hold can never complete.
+        Only deferred for holds still short of their threshold -- a completed hold has
+        already fired, and a button with no on_hold has nothing to protect.
+        """
+        return bool(
+            self._press_recovery_ms > 0
+            and self._pressed
+            and self._on_hold
+            and not self._handled_hold
+            and self._elapsed_held() < self.hold_threshold
+        )
+
+    def _elapsed_held(self) -> float:
+        running = (time.monotonic() - self._press_time) if self._press_time else 0.0
+        return self._held_elapsed + running
+
+    def _defer_release(self) -> None:
+        """Bank the time held so far and wait to see whether a press follows."""
+        self._held_elapsed = self._elapsed_held()
+        self._release_pending = True
+        # Pause the countdown. Left running, a contact genuinely lifted at 2.9s would
+        # still fire at 3.0s -- an unwanted reboot is a bad way to learn that.
+        self._cancel_after()
+        self._diag("release-deferred", f"banked={self._held_elapsed:.3f}s window={self._press_recovery_ms}ms")
+        self._cancel_release_timer()
+        try:
+            self._release_after_id = self.tk.after(self._press_recovery_ms, self._confirm_release)
+        except (AttributeError, TclError, RuntimeError):
+            self._confirm_release()
+
+    def _resume_hold(self) -> None:
+        """A press arrived inside the recovery window: carry on the same hold."""
+        self._cancel_release_timer()
+        self._release_pending = False
+        self._pressed = True
+        self._leave_pending = False
+        self._cancel_leave_timer()
+        self._press_time = time.monotonic()
+        remaining = max(0.0, self.hold_threshold - self._held_elapsed)
+        self._diag("press-resumed", f"banked={self._held_elapsed:.3f}s remaining={remaining:.3f}s")
+        # Rewind the progress origin so the bar continues from where it paused.
+        if self._progress_start is not None:
+            self._progress_start = self._press_time - self._held_elapsed
+        try:
+            self._after_id = self.tk.after(max(1, int(remaining * 1000)), self._trigger_hold_or_repeat)
+        except (AttributeError, TclError, RuntimeError):
+            self._after_id = None
+
+    def _confirm_release(self) -> None:
+        """No press followed: the finger really did come up."""
+        self._release_after_id = None
+        if not self._release_pending:
+            return
+        self._release_pending = False
+        self._diag("release-confirmed", f"banked={self._held_elapsed:.3f}s")
+        self._do_release(None)
+
+    def _cancel_release_timer(self) -> None:
+        if self._release_after_id is None:
+            return
+        try:
+            self.tk.after_cancel(self._release_after_id)
+        except (AttributeError, TclError, RuntimeError):
+            pass
+        self._release_after_id = None
+
+    def _do_release(self, event=None):
         enabled = self._is_enabled()
         self._pressed = False
 
@@ -386,7 +476,8 @@ class HoldButton(PushButton):
             self._repeating = False
             return
 
-        elapsed = (time.monotonic() - self._press_time) if self._press_time else 0.0
+        elapsed = self._elapsed_held()
+        self._held_elapsed = 0.0
         if elapsed < (self.debounce_ms / 1000.0):
             return
 
@@ -526,6 +617,9 @@ class HoldButton(PushButton):
         self._diag("cancel", f"reason={reason}")
         self._leave_pending = False
         self._cancel_leave_timer()
+        self._release_pending = False
+        self._cancel_release_timer()
+        self._held_elapsed = 0.0
         self._pressed = False
         self._repeating = False
         self._stop_progress()

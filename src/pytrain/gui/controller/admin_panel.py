@@ -42,6 +42,10 @@ CONTROLS_BUTTON_TEXT = "Controls..."
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
 
+# How long a hold survives a dropped touch contact before it counts as released.
+# Observed gaps between the spurious release and the following press were 3-21ms.
+PRESS_RECOVERY_MS = 250
+
 SCOPE_OPTS = [
     ["Local", 0],
     ["All", 1],
@@ -835,6 +839,10 @@ class AdminPanel(OverlayPanel):
             # Safe to ask for now that HoldButton checks the pointer really left the
             # button rather than trusting a bare <Leave>.
             cancel_on_leave=True,
+            # The Deck's touch stream drops and re-acquires a contact mid-hold; without
+            # this, each re-acquisition restarts the 3-second countdown and the hold can
+            # never complete. Harmless for these buttons, which define no short press.
+            press_recovery_ms=PRESS_RECOVERY_MS,
             progress_fill_color="darkgrey",
             critical_fill_color="red",
             progress_empty_color="lightgrey",

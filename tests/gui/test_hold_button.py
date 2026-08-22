@@ -4,6 +4,8 @@ from threading import Condition, RLock
 from types import SimpleNamespace
 from typing import Callable
 
+import pytest
+
 import src.pytrain.gui.components.hold_button as mod
 from src.pytrain.gui.components.hold_button import HoldButton
 
@@ -171,6 +173,11 @@ def make_button(enabled: bool, *, text: str = "Hold") -> DummyHoldButton:
     button._overlay_geometry = None
     button._leave_pending = False
     button._leave_after_id = None
+    button._press_recovery_ms = 0  # opt-in; the recovery tests turn it on explicitly
+    button._release_pending = False
+    button._release_after_id = None
+    button._held_elapsed = 0.0
+    button._diag_label = text
     return button
 
 
@@ -561,3 +568,140 @@ def test_overlay_is_re_placed_after_it_has_been_hidden() -> None:
     button._position_overlay()
 
     assert len(canvas.places) == 2
+
+
+def _recovering_button(*, banked: float = 0.0) -> DummyHoldButton:
+    """A hold button that tolerates the touch stream dropping a contact."""
+    button = make_button(True)
+    button._press_recovery_ms = 250
+    button._on_hold = lambda: None
+    button._on_press = None
+    button._on_repeat = None
+    button._held_elapsed = banked
+    return button
+
+
+def _run_after(button: DummyHoldButton, delay: int) -> None:
+    for scheduled, func in button.tk.after_calls:
+        if scheduled == delay:
+            func()
+
+
+def test_a_dropped_contact_does_not_end_the_hold(monkeypatch) -> None:
+    # The real Deck behaviour: a release arrives mid-hold with the finger still down.
+    # Taken at face value it restarts the countdown, so 3 seconds is never reached.
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    button._progress_start = 100.0
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+
+    button._on_release_event(None)
+
+    assert button._release_pending is True
+    assert button._pressed is True, "the hold is paused, not abandoned"
+    assert button._held_elapsed > 0, "time held so far must be banked"
+
+
+def test_the_countdown_is_paused_while_a_release_is_deferred(monkeypatch) -> None:
+    # Left running, a contact genuinely lifted at 2.9s would still fire at 3.0s. For a
+    # Reboot button that is an unacceptable false positive.
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    button._after_id = "after-hold"
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+
+    button._on_release_event(None)
+
+    assert "after-hold" in button.tk.after_cancel_calls
+
+
+def test_a_press_inside_the_window_resumes_the_same_hold(monkeypatch) -> None:
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    button._progress_start = 100.0
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+
+    button._on_release_event(None)  # banks 0.4s
+    banked = button._held_elapsed
+    button._on_press_event(None)  # finger was never lifted
+
+    assert button._release_pending is False
+    assert button._pressed is True
+    assert button._held_elapsed == pytest.approx(banked)
+    # Rescheduled for the remaining time, not the full threshold.
+    remaining_ms = max(1, int((button.hold_threshold - banked) * 1000))
+    assert any(delay == remaining_ms for delay, _ in button.tk.after_calls)
+
+
+def test_a_resumed_hold_keeps_its_progress_bar_position(monkeypatch) -> None:
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    button._progress_start = 100.0
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.5)
+
+    button._on_release_event(None)
+    button._on_press_event(None)
+
+    # Origin rewound by the banked time, so the bar carries on rather than restarting.
+    assert button._progress_start == pytest.approx(100.5 - button._held_elapsed)
+
+
+def test_no_press_inside_the_window_is_a_real_release(monkeypatch) -> None:
+    released: list[str] = []
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    button._do_release = lambda _event=None: released.append("release")
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+
+    button._on_release_event(None)
+    _run_after(button, 250)
+
+    assert released == ["release"]
+    assert button._release_pending is False
+
+
+def test_recovery_is_off_by_default() -> None:
+    # Other HoldButtons must keep firing their short press immediately.
+    released: list[str] = []
+    button = make_button(True)
+    button._on_hold = lambda: None
+    button._pressed = True
+    button._press_time = 100.0
+    button._do_release = lambda _event=None: released.append("release")
+
+    button._on_release_event(None)
+
+    assert released == ["release"]
+    assert button._release_pending is False
+
+
+def test_a_completed_hold_is_not_deferred() -> None:
+    # Once on_hold has fired there is nothing left to protect.
+    released: list[str] = []
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    button._handled_hold = True
+    button._do_release = lambda _event=None: released.append("release")
+
+    button._on_release_event(None)
+
+    assert released == ["release"]
+
+
+def test_cancelling_clears_a_deferred_release(monkeypatch) -> None:
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+    button._on_release_event(None)
+
+    button.cancel_hold()
+
+    assert button._release_pending is False
+    assert button._held_elapsed == 0.0
