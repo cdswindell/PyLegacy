@@ -312,12 +312,31 @@ def test_install_without_autostart_removes_a_stale_entry(tmp_path, monkeypatch) 
 
 
 def test_install_with_autostart_writes_the_entry(tmp_path, monkeypatch) -> None:
+    written: list[str] = []
     mg = _installable(tmp_path, monkeypatch, desktop_autostart=True)
-    monkeypatch.setattr(type(mg), "make_python_desktop_file", lambda _self: mg._desktop_path)
+
+    def fake_desktop_file(_self):
+        written.append("desktop")
+        return mg._desktop_path
+
+    monkeypatch.setattr(type(mg), "make_python_desktop_file", fake_desktop_file)
 
     mg.install()
 
-    assert mg._config["___DESKTOP___"] == str(mg._desktop_path)
+    assert written == ["desktop"]
+    # The install carries on past the autostart step.
+    assert mg._config["___BUTTONS___"] == str(tmp_path / "buttons.py")
+
+
+def test_install_aborts_when_the_autostart_entry_cannot_be_written(tmp_path, monkeypatch) -> None:
+    # make_python_desktop_file returns None when its template is missing; that has to
+    # stay fatal, so a half-configured install is not reported as a success.
+    mg = _installable(tmp_path, monkeypatch, desktop_autostart=True)
+    monkeypatch.setattr(type(mg), "make_python_desktop_file", lambda _self: None)
+
+    mg.install()
+
+    assert "___BUTTONS___" not in mg._config
 
 
 def test_gui_is_present_with_only_a_launcher(tmp_path, monkeypatch) -> None:

@@ -287,10 +287,9 @@ class MakeGui(_MakeBase):
             return
 
         if self._desktop_autostart:
-            desktop = self.make_python_desktop_file()
-            if desktop:
-                self._config["___DESKTOP___"] = str(desktop)
-            else:
+            # No config entry for the result: nothing substitutes a desktop path into a
+            # template, unlike ___SHELL_SCRIPT___ and ___BUTTONS___ below.
+            if not self.make_python_desktop_file():
                 return
         else:
             self.remove_desktop_autostart()
