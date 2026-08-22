@@ -101,6 +101,11 @@ class SteamDeckGui(GuiZeroBase):
         self.init_complete()
 
     @property
+    def controller_profile(self) -> ControlProfile:
+        """The loaded profile, so the controls help screen can describe the real bindings."""
+        return self._controller_profile
+
+    @property
     def pane_width(self) -> int:
         return self._pane_width
 
@@ -178,6 +183,17 @@ class SteamDeckGui(GuiZeroBase):
 
     def toggle_focus(self) -> None:
         self.focus_panel("right" if self._focused_panel == "left" else "left")
+
+    def on_show_controls(self) -> None:
+        """Show the controls help screen over the focused pane.
+
+        Global rather than per-pane -- the bindings it lists are the same either side --
+        but it has to be hosted by an EngineGui, since that is what owns the popup
+        machinery. The focused pane is the one the user is looking at.
+        """
+        gui = self.focused_gui
+        if gui is not None:
+            gui.on_controls_panel()
 
     def _build_focus_arrow(self) -> None:
         # An arrow that sits on the divider, in the same row as each pane's top
@@ -260,6 +276,7 @@ class SteamDeckGui(GuiZeroBase):
                 "focus_left": lambda: self.focus_panel("left"),
                 "focus_right": lambda: self.focus_panel("right"),
                 "focus_toggle": self.toggle_focus,
+                "show_controls": self.on_show_controls,
             },
         )
         provider = SteamDeckInputProvider(self._controller_profile)

@@ -89,6 +89,10 @@
       "action": "focus_right",
       "target": "global"
     },
+    "15": {
+      "action": "show_controls",
+      "target": "global"
+    },
     "16": {
       "action": "volume_up",
       "target": "focused",

@@ -10,6 +10,7 @@ import ipaddress
 import logging
 import socket
 from threading import Thread
+from typing import TYPE_CHECKING
 
 import psutil
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
@@ -22,7 +23,10 @@ from ...utils import WiFiInfo
 from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
-from ..guizero_base import GuiZeroBase
+from .overlay_panel import OverlayPanel
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .engine_gui import EngineGui
 
 log = logging.getLogger(__name__)
 
@@ -37,10 +41,19 @@ SCOPE_OPTS = [
 
 
 # noinspection PyUnresolvedReferences
-class AdminPanel:
-    def __init__(self, gui: GuiZeroBase, width: int, height: int, hold_threshold: int = 3):
+class AdminPanel(OverlayPanel):
+    """The manage-PyTrain popup.
+
+    An OverlayPanel rather than a plain callable body because ``create_popup`` only
+    builds a footer (and so only puts anything to the left of Close) for panels of that
+    type -- see PopupManager.create_popup.
+    """
+
+    def __init__(self, gui: "EngineGui", width: int, height: int, hold_threshold: int = 3):
         self._scope_radio_buttons = None
         self._scope_var = None
+        # Set before super().__init__ because the title it is handed (popup_title) reads
+        # self._gui.version. The base class assigns it again, to the same object.
         self._gui = gui
         self._width = width
         self._height = height
@@ -65,7 +78,9 @@ class AdminPanel:
         self._admin_buttons: dict[str, HoldButton] = {}
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
-        self._overlay = None
+        # Sets _gui, _overlay and the post-close hook the base class owns. Deferred to
+        # the end so the title, which reads self._compact, is computed after it is set.
+        super().__init__(gui, self.popup_title, post_close=self._on_popup_close)
 
     @property
     def compact_control_height(self) -> int:
@@ -168,20 +183,17 @@ class AdminPanel:
 
     @property
     def overlay(self) -> Box:
-        if self._overlay is None:
-            # noinspection PyProtectedMember
-            self._overlay = self._gui._popup.create_popup(
-                self.popup_title,
-                self.build,
-                post_close_action=self._on_popup_close,
-            )
+        # OverlayPanel builds it on first access, passing self -- which is what selects
+        # create_popup's footer path. Everything below is this panel's own per-show
+        # refresh, which the base class knows nothing about.
+        overlay = super().overlay
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
         if self._needs_scope_fix:
             self._needs_scope_fix = False
             self._scope_btns.hide()
             self._scope_btns.show()
-        return self._overlay
+        return overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
     def build(self, body: Box):
@@ -430,6 +442,48 @@ class AdminPanel:
             grid=[right_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
+
+    @property
+    def has_footer(self) -> bool:
+        return True
+
+    def build_footer(self, footer: Box) -> None:
+        """Put "Show Controls" in the footer, to the left of Close.
+
+        create_popup appends Close with align="right" after this runs, so anything packed
+        left here lands to its left. The chord ("..." on the Deck) is unguessable, so the
+        panel you already visit to look things up is where the discoverable copy belongs.
+        """
+        btn = PushButton(
+            footer,
+            text="Show Controls",
+            align="left",
+            width=13,
+            command=self.show_controls,
+        )
+        btn.text_size = self._gui.s_18 if self._compact else self._gui.s_20
+        btn.tk.config(
+            borderwidth=3,
+            relief="raised",
+            highlightthickness=1,
+            highlightbackground="black",
+            padx=6,
+            pady=1 if self._compact else 4,
+            activebackground="#e0e0e0",
+            background="#f7f7f7",
+        )
+        padding = 4 if self._compact else 20
+        btn.tk.pack_configure(padx=padding, pady=padding)
+        self._gui.cache(btn)
+
+    def show_controls(self) -> None:
+        """Swap this panel for the controls screen.
+
+        Closes the admin panel first: they are both popups, and leaving this one open
+        behind the other makes the Close button ambiguous.
+        """
+        self._gui.close_popup()
+        self._gui.on_controls_panel()
 
     def spacer(self, tb: TitleBox, grid: tuple[int, int], width: int = 2) -> Text:
         sp = Text(

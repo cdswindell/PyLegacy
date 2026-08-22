@@ -2789,3 +2789,126 @@ def test_find_deck_hidraw_paths_returns_list() -> None:
 
     assert isinstance(paths, list)
     assert all(p.startswith("/dev/hidraw") for p in paths)
+
+
+def _controls_gui(*, controls_visible: bool = True):
+    gui = _gui()
+    gui.controls_visible = controls_visible
+    gui.pages = []
+    gui.page_controls = lambda forward: gui.pages.append(forward)
+    return gui
+
+
+def _controls_router(focused_gui, opened: list[str]) -> DeckInputRouter:
+    # show_controls targets global, so it arrives through global_actions the same way
+    # halt and the focus actions do -- not through the focused gui.
+    return DeckInputRouter(
+        ControlProfile.load(DEFAULT_PROFILE, fallback=False),
+        left=lambda: _gui(),
+        right=lambda: _gui(),
+        focused=lambda: focused_gui,
+        global_actions={"show_controls": lambda: opened.append("open")},
+    )
+
+
+def test_show_controls_opens_the_panel_on_press_only() -> None:
+    opened: list[str] = []
+    router = _controls_router(_controls_gui(controls_visible=False), opened)
+
+    router.handle(DeckAction("show_controls", "global", 1.0, "pressed"))
+    router.handle(DeckAction("show_controls", "global", 0.0, "released"))
+
+    # No hold to cancel, unlike the admin chords, so the release is ignored.
+    assert opened == ["open"]
+
+
+def test_show_controls_still_opens_while_the_screen_is_already_up() -> None:
+    # The gate must not swallow the action that opens it, or the "..." button would be
+    # dead the second time it is pressed.
+    opened: list[str] = []
+    router = _controls_router(_controls_gui(controls_visible=True), opened)
+
+    router.handle(DeckAction("show_controls", "global", 1.0, "pressed"))
+
+    assert opened == ["open"]
+
+
+def test_show_controls_is_dropped_when_no_handler_is_registered() -> None:
+    focused_gui = _gui()
+    router = _bundled_router(focused_gui)  # global_actions={}
+
+    router.handle(DeckAction("show_controls", "global", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == []
+
+
+def test_engine_commands_are_dropped_while_the_controls_screen_is_up() -> None:
+    # Reading the help screen must not drive the train.
+    focused_gui = _controls_gui()
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction("bell", "focused", 1.0, "pressed", button=1))
+    router.handle(DeckAction("throttle", "focused", 0.8, "pressed"))
+    router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
+
+    assert focused_gui.command_calls == []
+    assert focused_gui.speed_calls == []
+
+
+def test_dpad_up_down_pages_the_controls_screen() -> None:
+    focused_gui = _controls_gui()
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+
+    assert focused_gui.pages == [True, False]
+    # And emphatically not boost/brake.
+    assert focused_gui.command_calls == []
+
+
+def test_close_button_still_reaches_the_popup_handling() -> None:
+    # X has to keep closing the panel; the gate must not swallow it.
+    focused_gui = _controls_gui()
+    focused_gui.popup_visible = True
+    focused_gui.closed = []
+    focused_gui.close_popup = lambda: focused_gui.closed.append(True)
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+
+    assert focused_gui.closed == [True]
+    assert focused_gui.command_calls == []
+
+
+def test_engine_commands_flow_normally_once_the_screen_is_closed() -> None:
+    focused_gui = _controls_gui(controls_visible=False)
+    router = _bundled_router(focused_gui)
+
+    router.handle(DeckAction("bell", "focused", 1.0, "pressed", button=1))
+
+    assert focused_gui.command_calls == ["RING_BELL"]
+
+
+def test_bundled_profile_binds_show_controls_to_the_misc_button() -> None:
+    profile = ControlProfile.load(DEFAULT_PROFILE, fallback=False)
+
+    assert profile.buttons[15].action == "show_controls"
+    assert profile.buttons[15].target == "global"
+
+
+def test_show_controls_must_target_global() -> None:
+    # The bindings it lists are identical either side, so a per-pane target is a mistake.
+    with pytest.raises(ProfileError):
+        ControlProfile.from_dict(
+            {
+                "dead_zone": 0.15,
+                "hysteresis": 0.05,
+                "throttle_rate": 36.0,
+                "repeat_interval": 0.1,
+                "direction_threshold": 0.75,
+                "axes": {},
+                "buttons": {"15": {"action": "show_controls", "target": "focused"}},
+                "chords": [],
+            }
+        )

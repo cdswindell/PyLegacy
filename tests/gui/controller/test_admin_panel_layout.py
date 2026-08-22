@@ -273,3 +273,50 @@ def test_other_platforms_keep_the_os_upgrade_button(monkeypatch) -> None:
     assert panel.os_upgrade_supported is True
     assert button.disabled is False
     assert panel._admin_buttons["UPGRADE"] is button
+
+
+def test_admin_panel_is_an_overlay_panel() -> None:
+    # create_popup only builds a footer -- and so only puts anything left of Close --
+    # for OverlayPanel instances. Without this the Show Controls button has nowhere to go.
+    assert issubclass(mod.AdminPanel, mod.OverlayPanel)
+    assert mod.AdminPanel.has_footer.fget(_panel(compact=False)) is True
+
+
+class _FooterButton:
+    instances = []
+
+    def __init__(self, parent, **kwargs) -> None:
+        self.parent = parent
+        self.kwargs = kwargs
+        self.tk = _Tk()
+        self.text_size = None
+        _FooterButton.instances.append(self)
+
+
+def test_footer_button_is_left_aligned_so_close_lands_to_its_right(monkeypatch) -> None:
+    _FooterButton.instances = []
+    monkeypatch.setattr(mod, "PushButton", _FooterButton)
+    panel = _panel(compact=True)
+    panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None)
+
+    panel.build_footer(object())
+
+    assert len(_FooterButton.instances) == 1
+    button = _FooterButton.instances[0]
+    assert button.kwargs["text"] == "Show Controls"
+    # create_popup appends Close with align="right" after build_footer returns.
+    assert button.kwargs["align"] == "left"
+
+
+def test_show_controls_closes_the_admin_panel_first(monkeypatch) -> None:
+    # Both are popups; leaving this one open behind the other makes Close ambiguous.
+    calls: list[str] = []
+    panel = _panel(compact=False)
+    panel._gui = SimpleNamespace(
+        close_popup=lambda: calls.append("close"),
+        on_controls_panel=lambda: calls.append("open"),
+    )
+
+    panel.show_controls()
+
+    assert calls == ["close", "open"]

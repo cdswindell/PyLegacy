@@ -51,6 +51,7 @@ SUPPORTED_ACTIONS = {
     "admin_update",
     "admin_reboot",
     "admin_shutdown",
+    "show_controls",
 }
 AXIS_ACTIONS = {"throttle", "direction", "quilling_horn"}
 # Discrete navigation actions that may be bound to an analog trigger axis
@@ -144,10 +145,12 @@ CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
 # ``scripts/deckinfo.py`` prints both, labelled, when a physical button's index needs
 # identifying.
 #
-# Being *reported* is also not the same as being *available*: under Steam, pressing
-# "..." opens the Quick Access overlay, which grabs the whole controller, so neither
-# that button nor any D-pad press reaches the app while it is held. That rules the
-# Deck's obvious modifier button out of any chord.
+# Being *reported* is not always the same as being *available*: pressing "..." also
+# opens Steam's Quick Access overlay, which grabs the whole controller while it is held,
+# and no D-pad press reaches the app during that. That still rules "..." out as a chord
+# *modifier* -- it cannot be held down while a second button is pressed. It is readable
+# as a momentary press though, which is why the bundled profile binds it to
+# SHOW_CONTROLS: the help screen only needs the press, not a hold.
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
 # zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
 # ``on_engine_command`` resolves the fallback list per engine generation: a
@@ -195,6 +198,9 @@ ADMIN_COMMANDS = {
 # same way R1 becomes the catalog-jump modifier while the catalog is open. Keyed by
 # profile action so it follows whichever button carries the rear coupler.
 ADMIN_CHORD_MODIFIER = "rear_coupler"
+# Opens the controls help screen. Bound to the Deck's "..." button in the bundled
+# profile. Global rather than per-pane: the bindings it lists are the same either side.
+SHOW_CONTROLS = "show_controls"
 # While the catalog panel is open, holding R1 turns D-pad up/down into a jump to the
 # first/last entry instead of a one-entry scroll: R1+up jumps to the top, R1+down to
 # the end. The jump only moves the highlight -- the user confirms the entry
@@ -604,6 +610,8 @@ class ControlProfile:
             raise ProfileError(f"{action} must target global")
         if action in LONG_PRESS_ACTIONS and target not in ("left", "right", "focused"):
             raise ProfileError(f"{action} must target a panel")
+        if action == SHOW_CONTROLS and target != "global":
+            raise ProfileError(f"{SHOW_CONTROLS} must target global")
 
 
 class SteamDeckInputProvider:
@@ -1283,6 +1291,8 @@ class DeckInputRouter:
         if action.name == "disconnect":
             self.clear()
             return
+        if self._controls_only(action):
+            return
         if action.name == "throttle":
             if action.value == 0.0:
                 self._throttles.pop(action.target, None)
@@ -1529,6 +1539,29 @@ class DeckInputRouter:
             interval = binding.repeat_interval
         self._held_commands[action.button] = [action.target, command, interval, 0.0]
         gui.on_engine_command(command)
+
+    def _controls_only(self, action: DeckAction) -> bool:
+        """True when the controls screen is up and this action must not reach the layout.
+
+        Reading the help screen should not drive the train. Everything analog and every
+        engine command is dropped while it is displayed; the D-pad is turned into page
+        navigation, and X still closes the panel through the popup handling below.
+        """
+        if action.name == SHOW_CONTROLS:
+            return False
+        gui = self._target_gui(action.target)
+        if gui is None or not getattr(gui, "controls_visible", False):
+            # Global-target actions (HALT, focus) resolve no gui and are never gated:
+            # HALT in particular has to work whatever is on screen.
+            return False
+        if action.name in (DPAD_UP, DPAD_DOWN):
+            if action.phase == "pressed":
+                gui.page_controls(forward=action.name == DPAD_DOWN)
+            return True
+        if action.button == CLOSE_POPUP_BUTTON:
+            # Let the popup handling close it rather than duplicating that here.
+            return False
+        return True
 
     def _handle_admin_command(self, action: DeckAction) -> None:
         # An admin chord stands in for pressing and holding the matching admin panel

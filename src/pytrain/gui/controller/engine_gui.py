@@ -284,6 +284,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._isd_area = None  # swipe detector for the margin beside the image
         self._image_parent = None  # container that owns that margin
         self._admin_panel = None
+        self._controls_panel = None
         self._catalog_panel = None
         self._lighting_panel = None
         self._rr_speed_panel = None
@@ -1042,6 +1043,29 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._admin_panel.overlay
         self.show_popup(overlay, hide_image_box=True)
 
+    @property
+    def controller_profile(self):
+        """The controller profile in force, read from the pane's host.
+
+        Kept as a lookup rather than a copy: the profile belongs to the SteamDeckGui and
+        a stale duplicate here would describe bindings that are no longer live. A
+        stand-alone EngineGui has no host and so no profile.
+        """
+        return getattr(self._parent_gui, "controller_profile", None)
+
+    def on_controls_panel(self, profile=None) -> None:
+        """Show the controls help screen over this pane.
+
+        Defaults to the host's profile. A GUI running without controller input has none,
+        and gets a panel that says so rather than an exception.
+        """
+        from .controls_panel import ControlsPanel
+
+        with self._cv:
+            if self._controls_panel is None:
+                self._controls_panel = ControlsPanel(self, profile or self.controller_profile)
+        self.show_popup(self._controls_panel.overlay, hide_image_box=True)
+
     def on_recents(self, value: str):
         # Updates component info if selected state is valid
         if value not in {self.title, self._separator}:
@@ -1430,6 +1454,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def admin_visible(self) -> bool:
         panel = self._admin_panel
         return bool(panel is not None and panel.visible)
+
+    @property
+    def controls_visible(self) -> bool:
+        panel = self._controls_panel
+        return bool(panel is not None and panel.visible)
+
+    def page_controls(self, forward: bool = True) -> bool:
+        """Page the controls screen, for the D-pad while it is displayed."""
+        panel = self._controls_panel
+        if panel is None or not self.controls_visible:
+            return False
+        panel.turn_page(forward)
+        return True
 
     def on_admin_command(self, command: str, pressed: bool = True) -> bool:
         """Hold an admin panel button by name (QUIT, UPDATE, REBOOT, SHUTDOWN, ...).
