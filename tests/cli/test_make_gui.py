@@ -243,3 +243,94 @@ def test_postprocess_config_records_the_platform() -> None:
     mg.postprocess_config()
 
     assert mg._config["___PLATFORM___"] == "steamdeck"
+
+
+def test_landscape_omits_desktop_autostart_by_default() -> None:
+    # The Deck launches PyTrain from Steam, so an autostart entry that also starts it
+    # with the desktop session is redundant -- it is opt-in there.
+    with mock.patch.object(builtins, "input", return_value="n"):
+        mg = MakeGui("-client landscape".split())
+
+    assert mg._args.desktop_autostart is False
+    assert mg._desktop_autostart is False
+
+
+def test_landscape_installs_desktop_autostart_when_asked() -> None:
+    with mock.patch.object(builtins, "input", return_value="n"):
+        mg = MakeGui("-client landscape -desktop_autostart".split())
+
+    assert mg._desktop_autostart is True
+
+
+def test_desktop_autostart_abbreviates() -> None:
+    # The deck subparser is allow_abbrev=True and no other deck option starts with "d".
+    with mock.patch.object(builtins, "input", return_value="n"):
+        mg = MakeGui("-client landscape -desktop".split())
+
+    assert mg._desktop_autostart is True
+
+
+def test_other_guis_still_autostart_unconditionally() -> None:
+    # Only the deck subparser defines the flag; everything else keeps the entry, which
+    # is what the getattr default in postprocess_args is for.
+    with mock.patch.object(builtins, "input", return_value="n"):
+        mg = MakeGui("-client component_state".split())
+
+    assert not hasattr(mg._args, "desktop_autostart")
+    assert mg._desktop_autostart is True
+
+
+def _installable(tmp_path, monkeypatch, desktop_autostart: bool) -> MakeGui:
+    """A MakeGui with install()'s file writers stubbed, except the autostart handling."""
+    mg = MakeGui.__new__(MakeGui)
+    mg._config = {}
+    mg._gui_class = None
+    mg._start_gui = False
+    mg._desktop_autostart = desktop_autostart
+    mg._desktop_path = tmp_path / ".config" / "autostart" / "pytrain.desktop"
+    mg._desktop_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(type(mg), "make_shell_script", lambda _self: tmp_path / "launch_pytrain.bash")
+    monkeypatch.setattr(type(mg), "make_buttons_file", lambda _self: tmp_path / "buttons.py")
+    return mg
+
+
+def test_install_without_autostart_removes_a_stale_entry(tmp_path, monkeypatch) -> None:
+    # Option (a): the absence of the flag is authoritative. A leftover entry would keep
+    # starting PyTrain with the desktop session while the command said it should not.
+    mg = _installable(tmp_path, monkeypatch, desktop_autostart=False)
+    mg._desktop_path.write_text("[Desktop Entry]\n", encoding="utf-8")
+    monkeypatch.setattr(
+        type(mg), "make_python_desktop_file", lambda _self: pytest.fail("must not write an autostart entry")
+    )
+
+    mg.install()
+
+    assert not mg._desktop_path.exists()
+    # The rest of the install still happened -- notably the buttons file, which sits
+    # after the autostart step and used to be skipped by its abort path.
+    assert mg._config["___BUTTONS___"] == str(tmp_path / "buttons.py")
+
+
+def test_install_with_autostart_writes_the_entry(tmp_path, monkeypatch) -> None:
+    mg = _installable(tmp_path, monkeypatch, desktop_autostart=True)
+    monkeypatch.setattr(type(mg), "make_python_desktop_file", lambda _self: mg._desktop_path)
+
+    mg.install()
+
+    assert mg._config["___DESKTOP___"] == str(mg._desktop_path)
+
+
+def test_gui_is_present_with_only_a_launcher(tmp_path, monkeypatch) -> None:
+    # A Steam-launched Deck install has no autostart entry; -remove still has to find it.
+    mg = MakeGui.__new__(MakeGui)
+    mg._home = str(tmp_path)
+    (tmp_path / "launch_pytrain.bash").write_text("#!/bin/bash\n", encoding="utf-8")
+
+    assert mg.is_gui_present is True
+
+
+def test_gui_is_absent_when_nothing_was_installed(tmp_path) -> None:
+    mg = MakeGui.__new__(MakeGui)
+    mg._home = str(tmp_path)
+
+    assert mg.is_gui_present is False

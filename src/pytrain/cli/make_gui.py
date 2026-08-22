@@ -192,6 +192,7 @@ class MakeGui(_MakeBase):
         self._imports = self._gui_class = self._gui_stmt = None
         self._gui_config = dict()
         self._exclude_unnamed = False
+        self._desktop_autostart = True
         super().__init__(cmd_line)
 
     def program(self) -> str:
@@ -209,6 +210,11 @@ class MakeGui(_MakeBase):
             self._start_gui = True
         if self._args.exclude_unnamed:
             self._exclude_unnamed = True
+        # Only the Steam Deck subparser defines -desktop_autostart, and only there is the
+        # autostart entry opt-in: the Deck launches PyTrain from Steam, so an entry that
+        # also starts it with the desktop session is redundant. Every other GUI keeps the
+        # entry unconditionally, hence the getattr default of True.
+        self._desktop_autostart = getattr(self._args, "desktop_autostart", True)
         self._buttons_file = DEFAULT_BUTTONS_FILE
         self._launch_path = Path(self._home, "launch_pytrain.bash")
         self._desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
@@ -266,6 +272,9 @@ class MakeGui(_MakeBase):
         lines = list()
         lines.append(f"\nInstalling the {PROGRAM_NAME} {self._gui_class.__name__} GUI with these settings:")
         lines.append(f"  Start GUI now: {'Yes' if self._start_gui is True else 'No'}")
+        if hasattr(self._args, "desktop_autostart"):
+            # Shown only where it is a choice, so every other GUI's prompt is unchanged.
+            lines.append(f"  Autostart with desktop session: {'Yes' if self._desktop_autostart else 'No'}")
         lines.append(f"  Imports: {self._imports}")
         lines.append(f"  GUI: {self._gui_stmt}")
         return lines
@@ -277,11 +286,14 @@ class MakeGui(_MakeBase):
         else:
             return
 
-        desktop = self.make_python_desktop_file()
-        if desktop:
-            self._config["___DESKTOP___"] = str(desktop)
+        if self._desktop_autostart:
+            desktop = self.make_python_desktop_file()
+            if desktop:
+                self._config["___DESKTOP___"] = str(desktop)
+            else:
+                return
         else:
-            return
+            self.remove_desktop_autostart()
 
         buttons = self.make_buttons_file()
         if buttons:
@@ -295,6 +307,17 @@ class MakeGui(_MakeBase):
         if self._start_gui:
             self.spawn_detached(path)
             print(f"\nStarting {PROGRAM_NAME} {self._gui_class.__name__} GUI...")
+
+    def remove_desktop_autostart(self) -> None:
+        """Clear an autostart entry left by an earlier install.
+
+        Installing without -desktop_autostart has to be authoritative: leaving a stale
+        entry in place would keep starting PyTrain with the desktop session while the
+        command that just ran said it should not.
+        """
+        if self._desktop_path.exists():
+            print(f"\nRemoving autostart entry {self._desktop_path}...")
+            self._desktop_path.unlink(missing_ok=True)
 
     def remove(self) -> str:
         if not self.is_gui_present:
@@ -372,6 +395,11 @@ class MakeGui(_MakeBase):
             type=str,
             default=None,
             help="Steam Deck JSON controller profile (default: bundled profile)",
+        )
+        deck.add_argument(
+            "-desktop_autostart",
+            action="store_true",
+            help="Also start PyTrain when a desktop session starts (default: no, launch it from Steam instead)",
         )
 
         # Launch Pad GUI
@@ -778,9 +806,15 @@ class MakeGui(_MakeBase):
 
     @property
     def is_gui_present(self) -> bool:
+        """Whether any GUI install exists here, so -remove has something to clean up.
+
+        The launcher is written by every install; the autostart entry is opt-in on the
+        Steam Deck (-desktop_autostart). Requiring both would make -remove report "no GUI
+        detected" for a Steam-launched Deck install and refuse to remove its launcher.
+        """
         launch_path = Path(self._home, "launch_pytrain.bash")
         desktop_path = Path(self._home, ".config", "autostart", "pytrain.desktop")
-        return launch_path.exists() and desktop_path.exists()
+        return launch_path.exists() or desktop_path.exists()
 
 
 def main(args: list[str] | None = None) -> int:
