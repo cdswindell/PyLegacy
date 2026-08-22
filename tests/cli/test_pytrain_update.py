@@ -6,6 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -114,6 +115,7 @@ def _shell_out_pytrain(monkeypatch, *, is_api: bool = False) -> PyTrain:
 
 
 def test_reboot_asks_shutdown_to_restart(monkeypatch, commands) -> None:
+    monkeypatch.delenv(PLATFORM_ENV_VAR, raising=False)
     pytrain = _shell_out_pytrain(monkeypatch)
 
     pytrain.reboot(reboot=True)
@@ -124,6 +126,7 @@ def test_reboot_asks_shutdown_to_restart(monkeypatch, commands) -> None:
 def test_shutdown_omits_the_restart_flag(monkeypatch, commands) -> None:
     # The -r is the only difference between halting the machine and restarting it, so
     # it is worth pinning in both directions.
+    monkeypatch.delenv(PLATFORM_ENV_VAR, raising=False)
     pytrain = _shell_out_pytrain(monkeypatch)
 
     pytrain.reboot(reboot=False)
@@ -286,3 +289,45 @@ def test_update_relaunches_only_when_asked(monkeypatch, repo_root, commands, rel
     # Either way the update itself still runs -- the flag governs the restart only.
     assert ["git", "pull"] in commands
     assert relaunches == ([PyTrainExitStatus.UPDATE] if relaunch else [])
+
+
+@pytest.mark.parametrize(
+    ("reboot", "expected"),
+    [(True, ["systemctl", "reboot"]), (False, ["systemctl", "poweroff"])],
+)
+def test_steam_deck_powers_down_through_logind(monkeypatch, commands, reboot, expected) -> None:
+    # No sudo on the Deck: the `deck` account ships with no password and PyTrain launched
+    # from Steam has no tty to prompt on, so `sudo shutdown` fails silently there. logind
+    # authorizes these for an active local session via polkit instead.
+    monkeypatch.setenv(PLATFORM_ENV_VAR, STEAM_DECK_PLATFORM)
+    pytrain = _shell_out_pytrain(monkeypatch)
+
+    pytrain.reboot(reboot=reboot)
+
+    assert commands == [expected]
+
+
+def test_the_pi_command_is_unchanged_by_the_deck_branch(monkeypatch) -> None:
+    # Explicitly pinned: the Deck support must not have perturbed the Pi's command.
+    monkeypatch.delenv(PLATFORM_ENV_VAR, raising=False)
+
+    assert PyTrain.power_command(True) == ["sudo", "shutdown", "-r", "now"]
+    assert PyTrain.power_command(False) == ["sudo", "shutdown", "now"]
+
+
+def test_a_failed_power_command_is_logged(monkeypatch, caplog) -> None:
+    # The original bug was invisible: check=False swallowed sudo's nonzero exit, so the
+    # button fired, nothing happened, and nothing was logged.
+    monkeypatch.setenv(PLATFORM_ENV_VAR, STEAM_DECK_PLATFORM)
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(args=command, returncode=1),
+    )
+    pytrain = _shell_out_pytrain(monkeypatch)
+
+    with caplog.at_level(logging.ERROR, logger=mod.log.name):
+        pytrain.reboot(reboot=True)
+
+    assert "systemctl reboot" in caplog.text
+    assert "exited 1" in caplog.text

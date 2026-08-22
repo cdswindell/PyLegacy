@@ -80,6 +80,7 @@
       <w>lineville</w>
       <w>lionelbase</w>
       <w>lionelville</w>
+      <w>logind</w>
       <w>lpgl</w>
       <w>mailcap</w>
       <w>maxlen</w>
@@ -101,7 +102,9 @@
       <w>piconfig</w>
       <w>pittsburgh</w>
       <w>pmid</w>
+      <w>polkit</w>
       <w>powermaster</w>
+      <w>poweroff</w>
       <w>precreate</w>
       <w>pullmor</w>
       <w>pycharm</w>

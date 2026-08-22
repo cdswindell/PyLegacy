@@ -786,11 +786,40 @@ class PyTrain:
         if self.is_api:
             self._exit_status = PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN
             raise PyTrainExitException(PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN)
+        command = self.power_command(reboot)
+        result = subprocess.run(command, check=False)
+        if result.returncode:
+            # Nothing downstream can report this: the caller expects the machine to go
+            # away, so a failure is otherwise indistinguishable from success.
+            verb = "reboot" if reboot else "shut down"
+            log.error(f"Failed to {verb}: `{' '.join(command)}` exited {result.returncode}")
+
+    @staticmethod
+    def power_command(reboot: bool) -> list[str]:
+        """Command that reboots or powers this machine off.
+
+        The Steam Deck runs PyTrain inside an active local desktop session, where logind
+        authorizes reboot and power-off through polkit (``allow_active=yes`` on
+        ``org.freedesktop.login1.reboot`` / ``.power-off``). So it needs neither sudo nor
+        a password, and nothing has to be added to ``/etc`` for a SteamOS update to
+        revert. It also has no working alternative: the ``deck`` account ships with no
+        password, and PyTrain launched from Steam has no tty for sudo to prompt on, so
+        ``sudo shutdown`` fails silently there.
+
+        Caveat: this relies on an *active session*. Run as a systemd system service (see
+        installation/pytrain.service.template) there is no session, polkit answers
+        "challenge", and this would fail -- a sudoers drop-in or a polkit rule would be
+        needed for that case.
+
+        Everywhere else this is unchanged: the Pi's passwordless-sudo ``shutdown``.
+        """
+        if is_steam_deck():
+            return ["systemctl", "reboot" if reboot else "poweroff"]
         command = ["sudo", "shutdown"]
         if reboot:
             command.append("-r")
         command.append("now")
-        subprocess.run(command, check=False)
+        return command
 
     def restart(self) -> None:
         try:
