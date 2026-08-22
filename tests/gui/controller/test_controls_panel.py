@@ -257,3 +257,20 @@ def test_the_action_text_is_configured_to_wrap(monkeypatch) -> None:
     assert wrap[0]["justify"] == "left"
     # The keycap must not wrap -- "L1 + R1" splitting across lines would look broken.
     assert not any("wraplength" in cfg for cfg in keycap.tk.configs)
+
+
+def test_the_wrap_predictor_agrees_with_the_pixel_budget() -> None:
+    # The bug this guards: WRAP_CHARS and ACTION_WRAP_PX were written down separately and
+    # drifted, so a 29-character line was budgeted one row while Tk wrapped it onto two.
+    assert mod.WRAP_CHARS == int(mod.ACTION_WRAP_PX / mod.APPROX_CHAR_PX)
+    # The predictor must not be more optimistic than the renderer.
+    assert mod.WRAP_CHARS * mod.APPROX_CHAR_PX <= mod.ACTION_WRAP_PX
+
+
+def test_no_bundled_entry_is_predicted_to_wrap() -> None:
+    # Not a rule for all time -- a custom profile may well wrap -- but the shipped screen
+    # reads better on one line per binding, and this catches a label growing past the
+    # budget unnoticed.
+    for section in controls_summary(ControlProfile.load(None)):
+        for entry in section.entries:
+            assert ControlsPanel.entry_rows(entry) == 1, (section.title, entry.input, entry.action)

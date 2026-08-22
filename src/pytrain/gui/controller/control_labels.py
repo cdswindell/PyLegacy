@@ -142,7 +142,7 @@ ADMIN_CHORD_TITLE = "Admin panel only, hold 3s"
 # Chords that work whatever is on screen get their own heading too. Said per row as
 # "(anywhere)" it wrapped both entries onto a second line, which made this column tall
 # enough to push the Close button off the bottom of the display.
-GLOBAL_CHORD_TITLE = "Chords - anywhere"
+GLOBAL_CHORD_TITLE = "Chords - global"
 
 
 def _sentence_case(text: str) -> str:

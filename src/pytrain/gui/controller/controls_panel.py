@@ -47,14 +47,22 @@ SECTION_SIZE = 14
 ENTRY_SIZE = 16
 FOOTNOTE_SIZE = 12
 
-# Width budget for an entry's action text, in pixels. Longer text wraps onto a second
-# line rather than widening the column or being truncated -- columns have vertical room
-# to spare, and horizontal room is what actually ran out.
-ACTION_WRAP_PX = 260
-# Characters that fit in ACTION_WRAP_PX at ENTRY_SIZE, roughly. Only used to predict
-# which entries will wrap so pagination can budget two rows for them; Tk does the real
-# wrapping, so being a little out here costs a little slack, not a broken layout.
-WRAP_CHARS = 30
+# Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
+# this is what actually decides where a line breaks. Raising it past ~300 costs no extra
+# width: at that point every column is already sized by its longest line or its section
+# heading rather than by this budget. 320 clears the longest current string ("Boost /
+# brake speed  (repeats)", measured at 276px) with room for a wider font than the one
+# this was measured on.
+ACTION_WRAP_PX = 320
+# Rendered width of one character at ENTRY_SIZE, for predicting wraps. Measured across
+# the real strings at 9.2-10.5 px/char; the high end is deliberate, because
+# under-estimating means budgeting one row for a line Tk will wrap onto two -- which
+# overflows the column. Over-estimating only leaves slack.
+APPROX_CHAR_PX = 10.0
+# Characters that fit in the budget. Derived, not written down separately: as independent
+# constants they drifted apart, and a predictor that said "fits" while Tk wrapped anyway
+# is exactly how a 29-character line ended up on two rows with no extra row reserved.
+WRAP_CHARS = int(ACTION_WRAP_PX / APPROX_CHAR_PX)
 
 # Palette. Kept in the app's existing family: FOCUS_COLOR (#3B82F6) is the Deck GUI's
 # accent, and the greys match the popup chrome PopupManager already uses.
