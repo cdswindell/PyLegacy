@@ -744,6 +744,10 @@ class AdminPanel(OverlayPanel):
             text_bold=text_bold,
             hold_threshold=hold_threshold,
             show_hold_progress=True,
+            # These are destructive, so sliding a finger off has to abandon the hold.
+            # Safe to ask for now that HoldButton checks the pointer really left the
+            # button rather than trusting a bare <Leave>.
+            cancel_on_leave=True,
             progress_fill_color="darkgrey",
             critical_fill_color="red",
             progress_empty_color="lightgrey",

@@ -111,6 +111,10 @@ class HoldButton(PushButton):
 
         self._progress_start: float | None = None
         self._progress_after_id: str | None = None
+        self._cancel_on_leave = bool(cancel_on_leave)
+        # Last geometry the overlay was placed at, so _on_configure_event can skip a
+        # re-place that would change nothing (see _position_overlay).
+        self._overlay_geometry: tuple[int, int, int, int] | None = None
 
         # overlay canvas (toplevel)
         self._progress_canvas: tk.Canvas | None = None
@@ -152,8 +156,8 @@ class HoldButton(PushButton):
         # bind events (mouse and touchscreen compatible)
         self.when_left_button_pressed = self._on_press_event
         self.when_left_button_released = self._on_release_event
-        if cancel_on_leave:
-            self.tk.bind("<Leave>", self._on_leave_event, add="+")
+        if self._cancel_on_leave:
+            self.tk.bind("<Leave>", self._on_leave_candidate, add="+")
 
         # hover bindings (robust, independent of Tk "active" internals)
         if show_hold_progress:
@@ -345,8 +349,39 @@ class HoldButton(PushButton):
             self._invoke_callback(self._on_press)
 
     # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal
+    def _on_leave_candidate(self, event=None):
+        """Cancel on a <Leave> only if the finger really left the button.
+
+        A bare <Leave> is not trustworthy here. The progress overlay is placed over the
+        button, so re-placing it can synthesise a crossing, and on a touchscreen the
+        pointer sits at the contact point -- which wanders a few pixels over a
+        three-second hold as finger pressure changes. Checking the pointer against the
+        button's own rectangle keeps a genuine drag-off working while ignoring both.
+        """
+        if self._pointer_outside():
+            self._on_leave_event(event)
+
+    def _pointer_outside(self) -> bool:
+        """True when the pointer is outside this button's rectangle.
+
+        Returns False if the geometry cannot be read: an unknown position must not cancel
+        a hold, since a spurious cancel is the failure this whole path exists to avoid.
+        """
+        try:
+            px, py = self.tk.winfo_pointerxy()
+            x = int(self.tk.winfo_rootx())
+            y = int(self.tk.winfo_rooty())
+            width = int(self.tk.winfo_width())
+            height = int(self.tk.winfo_height())
+        except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
+            return False
+        return not (x <= px < x + width and y <= py < y + height)
+
     def _on_leave_event(self, event=None):
-        # Treat leaving the button as a cancel (common on touch drags)
+        # Treat leaving the button as a cancel (common on touch drags). Called directly
+        # by cancel_hold(), which must always cancel, and via _on_leave_candidate for
+        # pointer events, which must not cancel on jitter.
         self._pressed = False
         self._repeating = False
         self._stop_progress()
@@ -354,6 +389,9 @@ class HoldButton(PushButton):
 
     # noinspection PyUnusedLocal
     def _on_configure_event(self, event=None):
+        # _position_overlay is a no-op when the geometry is unchanged, so a <Configure>
+        # that does not actually move the button cannot synthesise a pointer crossing
+        # over the overlay mid-hold.
         if self._overlay_visible:
             self._position_overlay()
 
@@ -607,10 +645,15 @@ class HoldButton(PushButton):
             font=self.tk.cget("font"),
         )
 
-        # If overlay is visible and user releases on it, we still want release/cancel behavior
+        # If overlay is visible and user releases on it, we still want release behavior.
         self._progress_canvas.bind("<ButtonRelease-1>", lambda e: self._on_release_event(e), add="+")
-        self._progress_canvas.bind("<Leave>", lambda e: self._on_leave_event(e), add="+")
+        if self._cancel_on_leave:
+            # Only when asked. The overlay covers the button for all but the first
+            # instant of a hold, so an unconditional cancel here overrode
+            # cancel_on_leave=False and killed holds on the slightest touch drift.
+            self._progress_canvas.bind("<Leave>", self._on_leave_candidate, add="+")
         self._progress_canvas.place_forget()
+        self._overlay_geometry = None
 
     def _safe_tk_bg(self) -> str | None:
         try:
@@ -644,7 +687,13 @@ class HoldButton(PushButton):
         x = bx - tx
         y = by - ty
 
-        self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
+        geometry = (x, y, bw, bh)
+        if geometry != self._overlay_geometry:
+            # Re-placing the window under the pointer can synthesise a crossing, which
+            # used to cancel the hold. Only place when something actually moved; the
+            # fill and label below still refresh on every call.
+            self._overlay_geometry = geometry
+            self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
 
         canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
         try:
@@ -754,6 +803,7 @@ class HoldButton(PushButton):
                 self._progress_canvas.place_forget()
             except TclError:
                 pass
+        self._overlay_geometry = None
         self._overlay_visible = False
 
         # Restore underlying label

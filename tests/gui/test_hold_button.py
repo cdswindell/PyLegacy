@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from threading import Condition, RLock
+from types import SimpleNamespace
 from typing import Callable
 
 from src.pytrain.gui.components.hold_button import HoldButton
@@ -72,6 +73,32 @@ class FakeTk:
     def after_cancel(self, after_id: str) -> None:
         self.after_cancel_calls.append(after_id)
 
+    # -- geometry, for _pointer_outside ------------------------------------------------
+    # The button occupies (10, 20) to (110, 60) in root coordinates; move `pointer` to
+    # place the finger inside or outside it.
+    pointer: tuple[int, int] | None = (50, 40)
+
+    def winfo_pointerxy(self):
+        if self.pointer is None:
+            raise RuntimeError("no pointer")
+        return self.pointer
+
+    @staticmethod
+    def winfo_rootx() -> int:
+        return 10
+
+    @staticmethod
+    def winfo_rooty() -> int:
+        return 20
+
+    @staticmethod
+    def winfo_width() -> int:
+        return 100
+
+    @staticmethod
+    def winfo_height() -> int:
+        return 40
+
     def _set_value(self, key: str, value) -> None:
         self.values[key] = value
         if key == "bg":
@@ -139,6 +166,8 @@ def make_button(enabled: bool, *, text: str = "Hold") -> DummyHoldButton:
     button._progress_text_item = None
     button._overlay_visible = False
     button._saved_button_text = None
+    button._cancel_on_leave = True
+    button._overlay_geometry = None
     return button
 
 
@@ -318,3 +347,143 @@ def test_cancel_hold_stops_progress_without_firing_the_short_press() -> None:
     assert button._pressed is False
     assert pressed_calls == []
     assert calls == ["stop_progress", "cancel_after"]
+
+
+def _held_button() -> DummyHoldButton:
+    """A button mid-hold: pressed, with the progress animation and hold timer armed."""
+    button = make_button(True)
+    button._show_hold_progress = True
+    button._pressed = True
+    button._press_time = 100.0
+    button._progress_start = 100.0
+    button._after_id = "after-1"
+    button._progress_after_id = "after-2"
+    return button
+
+
+def test_touch_drift_inside_the_button_does_not_cancel_the_hold() -> None:
+    # The bug: the progress overlay covers the button, so its <Leave> fired on the few
+    # pixels of drift a finger makes over a 3s hold and killed the hold about half the
+    # time. A crossing only counts if the pointer really left the button.
+    button = _held_button()
+    button.tk.pointer = (60, 45)  # still within (10,20)-(110,60)
+
+    button._on_leave_candidate()
+
+    assert button._pressed is True
+    assert button._progress_start == 100.0
+
+
+def test_dragging_off_the_button_cancels_the_hold() -> None:
+    # Deliberate: these are destructive commands, so sliding off must abandon the hold.
+    button = _held_button()
+    button.tk.pointer = (300, 400)  # well outside
+
+    button._on_leave_candidate()
+
+    assert button._pressed is False
+    assert button._progress_start is None
+
+
+def test_unreadable_pointer_position_does_not_cancel() -> None:
+    # An unknown position must not cancel: a spurious cancel is the failure this path
+    # exists to prevent, and releasing early still cancels either way.
+    button = _held_button()
+    button.tk.pointer = None  # winfo_pointerxy raises
+
+    button._on_leave_candidate()
+
+    assert button._pressed is True
+
+
+def test_cancel_hold_always_cancels_regardless_of_the_pointer() -> None:
+    # cancel_hold() is the controller-chord release path; it must not consult geometry.
+    button = _held_button()
+    button.tk.pointer = (60, 45)  # inside
+
+    button.cancel_hold()
+
+    assert button._pressed is False
+
+
+def test_pointer_outside_checks_each_edge() -> None:
+    button = make_button(True)
+    inside_and_outside = {
+        (10, 20): False,  # top-left corner is inside
+        (109, 59): False,  # bottom-right, exclusive upper bound
+        (9, 40): True,  # left of it
+        (110, 40): True,  # right of it
+        (60, 19): True,  # above it
+        (60, 60): True,  # below it
+    }
+    for pointer, expected in inside_and_outside.items():
+        button.tk.pointer = pointer
+        assert button._pointer_outside() is expected, pointer
+
+
+class FakeCanvas:
+    """Just enough tk.Canvas for _position_overlay."""
+
+    def __init__(self) -> None:
+        self.master = SimpleNamespace(winfo_rootx=lambda: 0, winfo_rooty=lambda: 0)
+        self.places: list[dict] = []
+
+    def place(self, **kwargs) -> None:
+        self.places.append(kwargs)
+
+    def place_forget(self) -> None:
+        return
+
+    def config(self, **_kwargs) -> None:
+        return
+
+    def itemconfig(self, *_args, **_kwargs) -> None:
+        return
+
+    def coords(self, *_args, **_kwargs) -> None:
+        return
+
+    # _position_overlay raises the overlay via tk.call("raise", ...)
+    @property
+    def tk(self):
+        return SimpleNamespace(call=lambda *_args: None)
+
+    def __str__(self) -> str:
+        return "fake-canvas"
+
+
+def _overlay_button() -> tuple[DummyHoldButton, FakeCanvas]:
+    button = _held_button()
+    canvas = FakeCanvas()
+    button._progress_canvas = canvas
+    button._progress_rect = "rect"
+    button._progress_bg_rect = "bg"
+    button._progress_text_item = None
+    button._overlay_visible = True
+    return button, canvas
+
+
+def test_overlay_is_placed_once_while_the_geometry_is_unchanged() -> None:
+    # Re-placing the window under the pointer can synthesise a crossing, which is what
+    # used to cancel the hold. A <Configure> that did not move the button must not place.
+    button, canvas = _overlay_button()
+
+    button._position_overlay()
+    button._position_overlay()
+    button._on_configure_event()
+
+    assert len(canvas.places) == 1
+    assert canvas.places[0] == {"x": 10, "y": 20, "width": 100, "height": 40}
+
+
+def test_overlay_is_re_placed_after_it_has_been_hidden() -> None:
+    # _stop_progress forgets the placement, so the cache has to be cleared with it or the
+    # next hold would skip its place() and show no progress bar at all.
+    button, canvas = _overlay_button()
+    button._position_overlay()
+
+    button._stop_progress()
+    button._overlay_visible = True
+    button._position_overlay()
+
+    assert len(canvas.places) == 2
