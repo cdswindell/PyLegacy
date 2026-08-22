@@ -38,6 +38,13 @@ RESTART_RESUME_MS = 300
 # Every diagnostic in this module starts with this, so a session log can be filtered to
 # just the hold lifecycle: grep "holdbtn" pytrain.log
 DIAG = "holdbtn"
+# Per-event tracing on top of that: every crossing, motion, deferral step and overlay
+# placement. Off by default -- it ran to about a dozen lines per press and buried the rest
+# of a -debug session. What stays on is the hold's story (press, resume, threshold, fire,
+# cancel); this is the finer detail that identified the Steam Deck's dropped-contact
+# jitter. Kept rather than deleted because that root cause is still unknown and this is the
+# only way to see the touch stream after the fact. Set True to get it back.
+DIAG_VERBOSE = False
 
 # X11 button-1 bit in an event's state mask. Crossing and motion events carry the button
 # state at the time they were generated, so this answers "is the finger still down?"
@@ -356,6 +363,17 @@ class HoldButton(PushButton):
             detail,
         )
 
+    def _vdiag(self, event: str, detail: Callable[[], str] | str = "") -> None:
+        """Trace one pointer event -- only when DIAG_VERBOSE is set. See _diag.
+
+        ``detail`` may be a callable, so a description that costs Tk round-trips (pointer
+        position, widget geometry) is not built when nothing will read it. Motion arrives
+        often enough during a three-second hold for that to be worth the indirection.
+        """
+        if not DIAG_VERBOSE or not log.isEnabledFor(logging.DEBUG):
+            return
+        self._diag(event, detail() if callable(detail) else detail)
+
     def _diag_name(self) -> str:
         return getattr(self, "_diag_label", "?")
 
@@ -411,8 +429,12 @@ class HoldButton(PushButton):
 
     # noinspection PyUnusedLocal
     def _on_release_event(self, event=None):
-        detail = f"{self._describe_event(event)} {self._describe_state(event)}" if event is not None else "synthetic"
-        self._diag("release", detail)
+        self._vdiag(
+            "release",
+            lambda: (
+                f"{self._describe_event(event)} {self._describe_state(event)}" if event is not None else "synthetic"
+            ),
+        )
         # Every mid-hold release is deferred, whatever it looks like. Branching on the
         # state mask was tried and withdrawn: guizero's EventData hid the field, so the
         # mask only ever revealed which binding delivered the event, not whether the
@@ -497,7 +519,7 @@ class HoldButton(PushButton):
         # Pause the countdown. Left running, a contact genuinely lifted at 2.9s would
         # still fire at 3.0s -- an unwanted reboot is a bad way to learn that.
         self._cancel_after()
-        self._diag("release-deferred", f"banked={self._held_elapsed:.3f}s window={self._press_recovery_ms}ms")
+        self._vdiag("release-deferred", f"banked={self._held_elapsed:.3f}s window={self._press_recovery_ms}ms")
         self._cancel_release_timer()
         try:
             self._release_after_id = self.tk.after(self._press_recovery_ms, self._confirm_release)
@@ -593,12 +615,12 @@ class HoldButton(PushButton):
           which clears the pending cancel.
         """
         if not self._pressed:
-            self._diag("leave-ignored", "no hold in flight")
+            self._vdiag("leave-ignored", "no hold in flight")
             return
         if self._event_inside(event):
-            self._diag("leave-discarded", f"inside widget {self._describe_event(event)}")
+            self._vdiag("leave-discarded", lambda: f"inside widget {self._describe_event(event)}")
             return
-        self._diag("leave-provisional", f"{self._describe_event(event)} confirm_in={LEAVE_CONFIRM_MS}ms")
+        self._vdiag("leave-provisional", lambda: f"{self._describe_event(event)} confirm_in={LEAVE_CONFIRM_MS}ms")
         self._leave_pending = True
         self._cancel_leave_timer()
         try:
@@ -611,7 +633,7 @@ class HoldButton(PushButton):
     def _on_enter_candidate(self, event=None):
         """An Enter means the finger never really left: drop the provisional cancel."""
         if self._leave_pending:
-            self._diag("leave-rescinded", "enter arrived before the confirm deadline")
+            self._vdiag("leave-rescinded", "enter arrived before the confirm deadline")
         self._leave_pending = False
         self._cancel_leave_timer()
         self._maybe_resume_from_contact(event, "enter")
@@ -632,9 +654,9 @@ class HoldButton(PushButton):
         if not self._release_pending:
             return
         if not self._event_button1_down(event):
-            self._diag(f"{source}-no-contact", self._describe_state(event))
+            self._vdiag(f"{source}-no-contact", lambda: self._describe_state(event))
             return
-        self._diag(f"{source}-contact-held", self._describe_state(event))
+        self._vdiag(f"{source}-contact-held", lambda: self._describe_state(event))
         self._resume_hold()
 
     @staticmethod
@@ -659,14 +681,14 @@ class HoldButton(PushButton):
     def _confirm_leave(self) -> None:
         self._leave_after_id = None
         if not self._leave_pending or not self._pressed:
-            self._diag("confirm-moot", "already rescinded or released")
+            self._vdiag("confirm-moot", "already rescinded or released")
             return
         self._leave_pending = False
         if self._pointer_outside():
             self._diag("confirm-cancel", self._describe_pointer())
             self._on_leave_event(reason="pointer left the button")
             return
-        self._diag("confirm-declined", f"pointer back inside {self._describe_pointer()}")
+        self._vdiag("confirm-declined", lambda: f"pointer back inside {self._describe_pointer()}")
 
     def _cancel_leave_timer(self) -> None:
         if self._leave_after_id is None:
@@ -748,7 +770,7 @@ class HoldButton(PushButton):
     # noinspection PyUnusedLocal
     def _on_configure_event(self, event=None):
         if self._pressed:
-            self._diag("configure", "geometry event during a hold")
+            self._vdiag("configure", "geometry event during a hold")
         # _position_overlay is a no-op when the geometry is unchanged, so a <Configure>
         # that does not actually move the button cannot synthesise a pointer crossing
         # over the overlay mid-hold.
@@ -1082,7 +1104,7 @@ class HoldButton(PushButton):
             # an invisible overlay in place for the rest of the hold.
             self._overlay_geometry = None if degenerate else geometry
             self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
-            self._diag("overlay-placed", f"geometry={geometry}{' DEGENERATE' if degenerate else ''}")
+            self._vdiag("overlay-placed", f"geometry={geometry}{' DEGENERATE' if degenerate else ''}")
 
         canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
         try:
@@ -1194,7 +1216,7 @@ class HoldButton(PushButton):
                 pass
         self._overlay_geometry = None
         if self._overlay_visible:
-            self._diag("overlay-hidden")
+            self._vdiag("overlay-hidden")
         self._overlay_visible = False
 
         # Restore underlying label

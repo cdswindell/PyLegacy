@@ -934,3 +934,62 @@ def test_the_unwrap_reads_state_through_guizeros_wrapper() -> None:
     assert HoldButton._event_button1_down(wrapped) is True
     assert "guizero wrapper" in HoldButton._describe_state(wrapped)
     assert HoldButton._event_button1_down(_EventData(_spurious_release())) is False
+
+
+def test_the_hold_story_is_still_traced_with_verbose_tracing_off(monkeypatch, caplog) -> None:
+    # What survived the trim has to be enough to follow a hold end to end without turning
+    # anything back on: when did it start, did it resume, did it reach the threshold.
+    import logging
+
+    button = _recovering_button()
+    button.hold_threshold = 3.0
+    monkeypatch.setattr(mod, "DIAG_VERBOSE", False)
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        _mid_hold(button, monkeypatch, elapsed=0.4)
+        button.tk.pointer = (900, 900)
+        button._on_release_event(_spurious_release())
+        button._on_press_event(None)
+        button._trigger_hold_or_repeat()
+
+    assert "press-resumed" in caplog.text
+    assert "threshold-reached" in caplog.text
+    assert "fired" in caplog.text
+
+
+def test_per_event_chatter_is_silent_until_verbose_tracing_is_enabled(monkeypatch, caplog) -> None:
+    import logging
+
+    button = _recovering_button()
+    button.hold_threshold = 3.0
+    _mid_hold(button, monkeypatch, elapsed=0.4)
+
+    monkeypatch.setattr(mod, "DIAG_VERBOSE", False)
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        button._on_leave_candidate(_crossing(50, 20))
+    assert "leave-discarded" not in caplog.text
+
+    caplog.clear()
+    monkeypatch.setattr(mod, "DIAG_VERBOSE", True)
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        button._on_leave_candidate(_crossing(50, 20))
+    assert "leave-discarded" in caplog.text
+
+
+def test_a_costly_detail_is_not_built_when_tracing_is_off(monkeypatch) -> None:
+    # The reason _vdiag takes a callable: these descriptions cost Tk round-trips, and
+    # motion arrives often during a three-second hold.
+    button = _recovering_button()
+    monkeypatch.setattr(mod, "DIAG_VERBOSE", False)
+    built: list[str] = []
+
+    button._vdiag("motion-no-contact", lambda: built.append("built") or "detail")
+
+    assert built == []
+
+
+def test_verbose_tracing_ships_disabled() -> None:
+    # Both tests above set the flag explicitly, so neither pins the shipped default -- and
+    # the default is the entire point: a -debug session should not carry a dozen lines per
+    # button press. Committing it as True would be a silent regression.
+    assert mod.DIAG_VERBOSE is False
