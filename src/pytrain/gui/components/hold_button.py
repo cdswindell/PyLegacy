@@ -920,8 +920,16 @@ class HoldButton(PushButton):
         try:
             bx = int(self.tk.winfo_rootx())
             by = int(self.tk.winfo_rooty())
-            bw = max(1, int(self.tk.winfo_width()))
-            bh = max(1, int(self.tk.winfo_height()))
+            bw = int(self.tk.winfo_width())
+            bh = int(self.tk.winfo_height())
+            if bw <= 1 or bh <= 1:
+                # Tk reports 1x1 for a widget it has not laid out yet. Accepting that
+                # places a 1x1 overlay -- an invisible progress bar -- so force a
+                # geometry pass and re-read before believing it.
+                self.tk.update_idletasks()
+                bw = int(self.tk.winfo_width())
+                bh = int(self.tk.winfo_height())
+            bw, bh = max(1, bw), max(1, bh)
 
             tx = int(top.winfo_rootx())
             ty = int(top.winfo_rooty())
@@ -932,12 +940,18 @@ class HoldButton(PushButton):
         y = by - ty
 
         geometry = (x, y, bw, bh)
+        degenerate = bw <= 1 or bh <= 1
         if geometry != self._overlay_geometry:
             # Re-placing the window under the pointer can synthesise a crossing, which
             # used to cancel the hold. Only place when something actually moved; the
             # fill and label below still refresh on every call.
-            self._overlay_geometry = geometry
+            #
+            # A degenerate size is never cached: the widget is not laid out yet, so the
+            # next call must place again rather than conclude nothing changed and leave
+            # an invisible overlay in place for the rest of the hold.
+            self._overlay_geometry = None if degenerate else geometry
             self._progress_canvas.place(x=x, y=y, width=bw, height=bh)
+            self._diag("overlay-placed", f"geometry={geometry}{' DEGENERATE' if degenerate else ''}")
 
         canvas_bg = self._progress_empty_color or self._normal_bg or self._safe_tk_bg() or "white"
         try:
@@ -1048,6 +1062,8 @@ class HoldButton(PushButton):
             except TclError:
                 pass
         self._overlay_geometry = None
+        if self._overlay_visible:
+            self._diag("overlay-hidden")
         self._overlay_visible = False
 
         # Restore underlying label

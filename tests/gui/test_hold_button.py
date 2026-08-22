@@ -76,6 +76,15 @@ class FakeTk:
     def after_cancel(self, after_id: str) -> None:
         self.after_cancel_calls.append(after_id)
 
+    # Geometry Tk reports. `unmapped` mimics a widget Tk has not laid out yet, which
+    # reports 1x1 until an update_idletasks forces a geometry pass.
+    unmapped: bool = False
+    idletasks_calls: int = 0
+
+    def update_idletasks(self) -> None:
+        self.idletasks_calls = self.idletasks_calls + 1
+        self.unmapped = False
+
     # -- geometry, for _pointer_outside ------------------------------------------------
     # The button occupies (10, 20) to (110, 60) in root coordinates; move `pointer` to
     # place the finger inside or outside it.
@@ -94,13 +103,11 @@ class FakeTk:
     def winfo_rooty() -> int:
         return 20
 
-    @staticmethod
-    def winfo_width() -> int:
-        return 100
+    def winfo_width(self) -> int:
+        return 1 if self.unmapped else 100
 
-    @staticmethod
-    def winfo_height() -> int:
-        return 40
+    def winfo_height(self) -> int:
+        return 1 if self.unmapped else 40
 
     def _set_value(self, key: str, value) -> None:
         self.values[key] = value
@@ -705,3 +712,33 @@ def test_cancelling_clears_a_deferred_release(monkeypatch) -> None:
 
     assert button._release_pending is False
     assert button._held_elapsed == 0.0
+
+
+def test_an_unlaid_out_button_is_measured_again_before_placing() -> None:
+    # Tk reports 1x1 for a widget it has not mapped yet. Placing that gives a 1x1
+    # overlay -- the progress bar is invisible -- which is why the first press on a
+    # freshly opened panel sometimes showed nothing.
+    button, canvas = _overlay_button()
+    button.tk.unmapped = True
+    button.tk.idletasks_calls = 0
+
+    button._position_overlay()
+
+    assert button.tk.idletasks_calls == 1, "must force a geometry pass rather than trust 1x1"
+    assert canvas.places[-1]["width"] == 100
+    assert canvas.places[-1]["height"] == 40
+
+
+def test_a_degenerate_geometry_is_not_cached(monkeypatch) -> None:
+    # If the size really cannot be resolved, the next call must place again rather than
+    # decide nothing changed and leave an invisible overlay up for the whole hold.
+    button, canvas = _overlay_button()
+    monkeypatch.setattr(type(button.tk), "winfo_width", lambda _self: 1)
+    monkeypatch.setattr(type(button.tk), "winfo_height", lambda _self: 1)
+    monkeypatch.setattr(type(button.tk), "update_idletasks", lambda _self: None)
+
+    button._position_overlay()
+    button._position_overlay()
+
+    assert button._overlay_geometry is None
+    assert len(canvas.places) == 2, "a degenerate placement must not suppress the next one"
