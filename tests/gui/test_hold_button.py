@@ -678,13 +678,51 @@ def test_a_press_inside_the_window_resumes_the_same_hold(monkeypatch) -> None:
 
 def test_a_resumed_hold_keeps_its_progress_bar_position(monkeypatch) -> None:
     button = _recovering_button()
+    button.hold_threshold = 3.0
     _mid_hold(button, monkeypatch, elapsed=0.5)
     button.tk.pointer = (900, 900)
 
     button._on_release_event(_spurious_release())
     button._on_press_event(None)
 
-    assert button._progress_start == pytest.approx(100.5 - button._held_elapsed)
+    # Asserted through the fraction rather than _progress_start: the bar reads the hold
+    # clock now, so the origin is no longer rewound and there is nothing there to check.
+    assert button._progress_fraction() == pytest.approx(0.5 / button.hold_threshold)
+
+
+def test_the_progress_bar_freezes_while_a_release_is_deferred(monkeypatch) -> None:
+    # The reported symptom: the bar kept filling for the whole recovery window after the
+    # finger came up. It could never fire -- _defer_release cancels the countdown -- but on
+    # a Reboot button a bar still advancing after release reads as "happening anyway".
+    button = _recovering_button()
+    button.hold_threshold = 3.0
+    _mid_hold(button, monkeypatch, elapsed=1.5)
+    button.tk.pointer = (900, 900)
+
+    button._on_release_event(_spurious_release())
+    frozen = button._progress_fraction()
+    # Most of the recovery window elapses without the contact returning.
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 101.84)
+
+    assert frozen == pytest.approx(1.5 / 3.0)
+    assert button._progress_fraction() == pytest.approx(frozen)
+
+
+def test_a_tick_inside_the_deferral_repaints_without_advancing(monkeypatch) -> None:
+    # The tick loop keeps running while banked -- it has to, so a resumed hold repaints
+    # promptly -- so what it paints is what the user sees creeping.
+    button = _recovering_button()
+    button.hold_threshold = 3.0
+    _mid_hold(button, monkeypatch, elapsed=1.5)
+    button.tk.pointer = (900, 900)
+    painted: list[float] = []
+    button._set_overlay_fraction = painted.append
+
+    button._on_release_event(_spurious_release())
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 101.84)
+    button._progress_tick()
+
+    assert painted == [pytest.approx(1.5 / 3.0)]
 
 
 def test_no_return_inside_the_window_is_a_real_release(monkeypatch) -> None:

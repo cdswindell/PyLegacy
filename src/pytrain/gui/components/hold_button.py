@@ -471,8 +471,6 @@ class HoldButton(PushButton):
             # This is the fix for the reported symptom, and it needs no theory about which
             # releases were real: to reach the threshold the finger must still be pressing.
             self._held_elapsed = lost
-            if self._progress_start is not None:
-                self._progress_start = self._press_time - lost
             self._diag("restart-resumed", f"inherited={lost:.3f}s gap={gap_ms}ms")
             return
         if gap_ms <= RESTART_WINDOW_MS:
@@ -516,9 +514,8 @@ class HoldButton(PushButton):
         self._press_time = time.monotonic()
         remaining = max(0.0, self.hold_threshold - self._held_elapsed)
         self._diag("press-resumed", f"banked={self._held_elapsed:.3f}s remaining={remaining:.3f}s")
-        # Rewind the progress origin so the bar continues from where it paused.
-        if self._progress_start is not None:
-            self._progress_start = self._press_time - self._held_elapsed
+        # No progress-bar bookkeeping here: _progress_fraction reads _elapsed_held(), which
+        # the two lines above have already brought up to date.
         try:
             self._after_id = self.tk.after(max(1, int(remaining * 1000)), self._trigger_hold_or_repeat)
         except (AttributeError, TclError, RuntimeError):
@@ -965,10 +962,19 @@ class HoldButton(PushButton):
             self.restore_color_state()
 
     def _progress_fraction(self) -> float:
+        """How full the bar should be, read off the same clock the countdown runs on.
+
+        Deliberately *not* wall-clock since _progress_start. That clock keeps running while
+        a release is deferred, so the bar crept on for the whole recovery window after the
+        finger came up. It could never fire -- _defer_release cancels the countdown -- but
+        the bar said otherwise, which is worse than useless on a button that reboots the
+        machine. Sharing _elapsed_held() means the bar freezes when the countdown pauses
+        and resumes when it resumes, with no second copy of the elapsed time to keep in
+        step. _progress_start survives only as the "progress is running" flag.
+        """
         if not self._progress_start or self.hold_threshold <= 0:
             return 0.0
-        elapsed = time.monotonic() - self._progress_start
-        return max(0.0, min(1.0, elapsed / self.hold_threshold))
+        return max(0.0, min(1.0, self._elapsed_held() / self.hold_threshold))
 
     def _ensure_overlay(self) -> None:
         if self._progress_canvas is not None:
