@@ -786,11 +786,11 @@ class PyTrain:
         if self.is_api:
             self._exit_status = PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN
             raise PyTrainExitException(PyTrainExitStatus.REBOOT if reboot is True else PyTrainExitStatus.SHUTDOWN)
+        command = ["sudo", "shutdown"]
         if reboot:
-            opt = " -r"
-        else:
-            opt = ""
-        os.system(f"sudo shutdown{opt} now")
+            command.append("-r")
+        command.append("now")
+        subprocess.run(command, check=False)
 
     def restart(self) -> None:
         try:
@@ -799,7 +799,13 @@ class PyTrain:
             pass
         self.relaunch(PyTrainExitStatus.RESTART)
 
-    def update(self, do_inform: bool = True) -> None:
+    def update(self, do_inform: bool = True, relaunch: bool = True) -> None:
+        """Update PyTrain in place, then relaunch it so the new code is what runs.
+
+        Pass ``relaunch=False`` when the caller has its own way of restarting and this
+        method's relaunch would preempt it -- ``upgrade()`` does exactly that, because
+        the reboot it issues afterward *is* the relaunch.
+        """
         from .. import PROGRAM_PACKAGE, is_package
 
         if do_inform:
@@ -821,7 +827,8 @@ class PyTrain:
             subprocess.run(
                 [sys.executable, "-m", "pip", "install", "-r", self.requirements_file], cwd=os.getcwd(), check=False
             )
-        self.relaunch(PyTrainExitStatus.UPDATE)
+        if relaunch:
+            self.relaunch(PyTrainExitStatus.UPDATE)
 
     @property
     def requirements_file(self) -> str:
@@ -837,22 +844,37 @@ class PyTrain:
         return REQUIREMENTS
 
     def upgrade(self) -> None:
-        log.info(f"{'Server' if self.is_server else 'Client'} upgrading and rebooting...")
-        if sys.platform == "linux":
-            os.system("sudo apt update")
-            sleep(1)
-            os.system("sudo apt upgrade -y")
-            sleep(1)
-            os.system("sudo apt autoremove -y")
-            sleep(1)
-            os.system("sudo rpi-eeprom-update -a")
-            log.info(f"{'Server' if self.is_server else 'Client'} upgrade complete; rebooting...")
-            sleep(2)
-            os.system("sudo reboot")
+        # The Steam Deck keeps SteamOS updated itself and its root filesystem is
+        # immutable, so apt and rpi-eeprom-update are both meaningless and unavailable
+        # there. Skipping the OS half degrades upgrade() to a PyTrain update, the same
+        # way it already behaves off Linux.
+        upgrade_os = sys.platform == "linux" and not is_steam_deck()
+        role = "Server" if self.is_server else "Client"
+        log.info(f"{role} {'upgrading and rebooting' if upgrade_os else 'updating'}...")
+        # In API mode PyTrain performs no destructive action itself: it records an exit
+        # status and hands control back to the host, the same as reboot(), update() and
+        # relaunch() do. Checked before anything runs, not after.
         if self.is_api:
             self._exit_status = PyTrainExitStatus.UPDATE
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
-        self.update(do_inform=False)
+        # PyTrain updates first, while the machine is still up. `sudo reboot` returns as
+        # soon as systemd accepts the shutdown job rather than blocking until the machine
+        # goes down, so anything sequenced after it races the teardown -- and a pip
+        # install killed partway leaves a half-written package behind with nothing in the
+        # log to say why. When the reboot follows, it is this path's relaunch, so update()
+        # must not relaunch as well.
+        self.update(do_inform=False, relaunch=not upgrade_os)
+        if upgrade_os:
+            subprocess.run(["sudo", "apt", "update"], check=False)
+            sleep(1)
+            subprocess.run(["sudo", "apt", "upgrade", "-y"], check=False)
+            sleep(1)
+            subprocess.run(["sudo", "apt", "autoremove", "-y"], check=False)
+            sleep(1)
+            subprocess.run(["sudo", "rpi-eeprom-update", "-a"], check=False)
+            log.info(f"{role} upgrade complete; rebooting...")
+            sleep(2)
+            subprocess.run(["sudo", "reboot"], check=False)
 
     def relaunch(self, exit_status: PyTrainExitStatus, delay: bool = True) -> None:
         # if we're a client, we need to give the server time to respond, otherwise, we
@@ -866,7 +888,8 @@ class PyTrain:
         # are we a service or run from the commandline?
         if self.is_service:
             # restart service
-            os.system(f"sudo systemctl restart pytrain_{'server' if self.is_server else 'client'}.service")
+            service = f"pytrain_{'server' if self.is_server else 'client'}.service"
+            subprocess.run(["sudo", "systemctl", "restart", service], check=False)
         else:
             # rerun commandline pgm
             if self._echo is True and "-echo" not in sys.argv:
@@ -887,8 +910,8 @@ class PyTrain:
         if not is_linux():
             return False
         service = f"pytrain_{'server' if self.is_server else 'client'}.service"
-        stat = subprocess.call(f"systemctl is-active --quiet {service}".split())
-        return stat == 0
+        stat = subprocess.run(["systemctl", "is-active", "--quiet", service], check=False)
+        return stat.returncode == 0
 
     def _start_cache_sync(self) -> None:
         if self._cache_sync_started:
