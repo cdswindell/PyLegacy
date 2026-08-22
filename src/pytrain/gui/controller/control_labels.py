@@ -112,8 +112,8 @@ ACTION_LABELS: dict[str, str] = {
     # what you want to read on a help screen.
     "horn": "Horn",
     "quilling_horn": "Quilling horn",
-    "startup": "Engine startup",
-    "shutdown": "Engine shutdown",
+    "startup": "Startup",
+    "shutdown": "Shutdown",
     # Deliberately no "quilling_horn" override for the trackpads: they are analog, and
     # "Quilling horn" already reads correctly.
     "sequence_control": "Sequence control",
