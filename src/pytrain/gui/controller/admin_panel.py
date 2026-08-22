@@ -37,9 +37,10 @@ ADMIN_TITLE = f"Manage {PROGRAM_NAME}"
 # Footer button. Text and width are tied together so the button cannot drift wider than
 # its label again.
 CONTROLS_BUTTON_TEXT = "Controls..."
-# Space to the right of it, separating it from the Close button create_popup appends.
-FOOTER_GAP = 56
-FOOTER_GAP_COMPACT = 32
+# Width of the spacer between it and the Close button, expressed as a text size (the
+# spacer is a single space, so its point size is what sets its width).
+FOOTER_GAP = 40
+FOOTER_GAP_COMPACT = 24
 
 SCOPE_OPTS = [
     ["Local", 0],
@@ -501,12 +502,17 @@ class AdminPanel(OverlayPanel):
             background="#f7f7f7",
         )
         padding = 4 if self._compact else 20
-        # The footer Box shrinks to its content, so side=left and side=right put these two
-        # buttons next to each other rather than at opposite ends. A wider right pad is
-        # what separates them; Close supplies its own left pad on top of this.
-        gap = FOOTER_GAP_COMPACT if self._compact else FOOTER_GAP
-        btn.tk.pack_configure(padx=(padding, gap), pady=padding)
+        btn.tk.pack_configure(padx=padding, pady=padding)
         self._gui.cache(btn)
+
+        # Separate this from the Close button with a spacer *widget*, not pack padding.
+        # create_popup adds Close to this same footer immediately after we return, and
+        # creating it runs footer.display_widgets(), which pack_forget()s every sibling --
+        # discarding any padx set here. A real widget survives that because it is
+        # re-packed too. Same trick StateInfoOverlay.build_footer uses.
+        spacer = Text(footer, text=" ", height=1, align="left")
+        spacer.text_size = FOOTER_GAP_COMPACT if self._compact else FOOTER_GAP
+        self._gui.cache(spacer)
 
     def show_controls(self) -> None:
         """Swap this panel for the controls screen.

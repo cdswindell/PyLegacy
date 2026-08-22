@@ -315,12 +315,14 @@ class _FooterButton:
 def test_footer_button_is_left_aligned_so_close_lands_to_its_right(monkeypatch) -> None:
     _FooterButton.instances = []
     monkeypatch.setattr(mod, "PushButton", _FooterButton)
+    monkeypatch.setattr(mod, "Text", _FooterButton)
     panel = _panel(compact=True)
     panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
 
     panel.build_footer(object())
 
-    assert len(_FooterButton.instances) == 1
+    # The button, then the spacer that keeps it clear of Close.
+    assert len(_FooterButton.instances) == 2
     button = _FooterButton.instances[0]
     assert button.kwargs["text"] == "Controls..."
     # create_popup appends Close with align="right" after build_footer returns.
@@ -329,19 +331,24 @@ def test_footer_button_is_left_aligned_so_close_lands_to_its_right(monkeypatch) 
     assert button.kwargs["width"] == len("Controls...")
 
 
-def test_footer_button_leaves_a_gap_before_close(monkeypatch) -> None:
-    # The footer Box shrinks to its content, so the two buttons sit next to each other --
-    # the right pad is what keeps them from touching.
+def test_footer_gap_is_a_spacer_widget_not_pack_padding(monkeypatch) -> None:
+    # Pack padding does not survive here: create_popup adds Close to this same footer
+    # right after build_footer returns, and that runs footer.display_widgets(), which
+    # pack_forget()s every sibling and discards its padx. Only a real widget survives.
     _FooterButton.instances = []
+    spacers: list[_FooterButton] = []
     monkeypatch.setattr(mod, "PushButton", _FooterButton)
+    monkeypatch.setattr(
+        mod, "Text", lambda _parent, **kwargs: spacers.append(_FooterButton(_parent, **kwargs)) or spacers[-1]
+    )
     panel = _panel(compact=True)
     panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
 
     panel.build_footer(object())
 
-    left, right = _FooterButton.instances[0].tk.pack_configs[-1]["padx"]
-    assert right == mod.FOOTER_GAP_COMPACT
-    assert right > left, "the gap toward Close must exceed the outer padding"
+    assert len(spacers) == 1, "a spacer widget must separate Controls from Close"
+    assert spacers[0].kwargs["align"] == "left", "must pack between Controls and Close"
+    assert spacers[0].text_size == mod.FOOTER_GAP_COMPACT
 
 
 def test_show_controls_closes_the_admin_panel_first(monkeypatch) -> None:

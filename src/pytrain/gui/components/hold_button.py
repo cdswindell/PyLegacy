@@ -27,6 +27,10 @@ LEAVE_SLOP_PX = 16
 # Long enough to swallow jitter, short enough that a deliberate drag-off feels immediate.
 LEAVE_CONFIRM_MS = 150
 
+# Every diagnostic in this module starts with this, so a session log can be filtered to
+# just the hold lifecycle: grep "holdbtn" pytrain.log
+DIAG = "holdbtn"
+
 
 class HoldButton(PushButton):
     """
@@ -295,6 +299,34 @@ class HoldButton(PushButton):
         """
         self._on_press_event()
 
+    def _diag(self, event: str, detail: str = "") -> None:
+        """Trace one step of the hold lifecycle.
+
+        Enabled by PyTrain's -debug flag. Holds are cancelled by pointer events that are
+        invisible after the fact, so every decision point logs what it saw and what it
+        concluded -- the elapsed time is what says how far into the three seconds a hold
+        died.
+        """
+        if not log.isEnabledFor(logging.DEBUG):
+            return
+        elapsed = f"{time.monotonic() - self._press_time:.3f}s" if self._press_time else "-"
+        log.debug(
+            "%s[%s] %s t=%s pressed=%s leave_pending=%s %s",
+            DIAG,
+            self._diag_name(),
+            event,
+            elapsed,
+            self._pressed,
+            self._leave_pending,
+            detail,
+        )
+
+    def _diag_name(self) -> str:
+        try:
+            return str(self.text) or "?"
+        except (AttributeError, TclError, RuntimeError):
+            return "?"
+
     @property
     def is_holding(self) -> bool:
         """True between the press and the hold firing (or being cancelled).
@@ -304,14 +336,14 @@ class HoldButton(PushButton):
         """
         return bool(self._pressed)
 
-    def cancel_hold(self) -> None:
+    def cancel_hold(self, reason: str = "cancel_hold()") -> None:
         """Abandon a hold started by :meth:`begin_hold` before it completes.
 
         Stops the progress animation and the pending ``on_hold`` without firing the
         short-press callback -- the same treatment as a finger sliding off the button.
         Harmless if the hold has already completed.
         """
-        self._on_leave_event()
+        self._on_leave_event(reason=reason)
 
     def _on_press_event(self, event=None):
         if not self._is_enabled():
@@ -325,6 +357,7 @@ class HoldButton(PushButton):
         self._leave_pending = False
         self._cancel_leave_timer()
         self._press_time = time.monotonic()
+        self._diag("press", f"threshold={self.hold_threshold}s")
         self._held = False
         self._repeating = False
         self._handled_hold = False
@@ -341,6 +374,7 @@ class HoldButton(PushButton):
 
     # noinspection PyUnusedLocal
     def _on_release_event(self, event=None):
+        self._diag("release", self._describe_event(event) if event is not None else "synthetic")
         enabled = self._is_enabled()
         self._pressed = False
 
@@ -392,9 +426,12 @@ class HoldButton(PushButton):
           which clears the pending cancel.
         """
         if not self._pressed:
+            self._diag("leave-ignored", "no hold in flight")
             return
         if self._event_inside(event):
+            self._diag("leave-discarded", f"inside widget {self._describe_event(event)}")
             return
+        self._diag("leave-provisional", f"{self._describe_event(event)} confirm_in={LEAVE_CONFIRM_MS}ms")
         self._leave_pending = True
         self._cancel_leave_timer()
         try:
@@ -406,16 +443,22 @@ class HoldButton(PushButton):
     # noinspection PyUnusedLocal
     def _on_enter_candidate(self, event=None):
         """An Enter means the finger never really left: drop the provisional cancel."""
+        if self._leave_pending:
+            self._diag("leave-rescinded", "enter arrived before the confirm deadline")
         self._leave_pending = False
         self._cancel_leave_timer()
 
     def _confirm_leave(self) -> None:
         self._leave_after_id = None
         if not self._leave_pending or not self._pressed:
+            self._diag("confirm-moot", "already rescinded or released")
             return
         self._leave_pending = False
         if self._pointer_outside():
-            self._on_leave_event()
+            self._diag("confirm-cancel", self._describe_pointer())
+            self._on_leave_event(reason="pointer left the button")
+            return
+        self._diag("confirm-declined", f"pointer back inside {self._describe_pointer()}")
 
     def _cancel_leave_timer(self) -> None:
         if self._leave_after_id is None:
@@ -460,10 +503,27 @@ class HoldButton(PushButton):
         slop = LEAVE_SLOP_PX
         return not (x - slop <= px < x + width + slop and y - slop <= py < y + height + slop)
 
-    def _on_leave_event(self, event=None):
+    def _describe_event(self, event) -> str:
+        try:
+            width, height = int(self.tk.winfo_width()), int(self.tk.winfo_height())
+            return f"event=({int(event.x)},{int(event.y)}) size=({width}x{height})"
+        except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
+            return "event=<unreadable>"
+
+    def _describe_pointer(self) -> str:
+        try:
+            px, py = self.tk.winfo_pointerxy()
+            x, y = int(self.tk.winfo_rootx()), int(self.tk.winfo_rooty())
+            w, h = int(self.tk.winfo_width()), int(self.tk.winfo_height())
+            return f"pointer=({px},{py}) rect=({x},{y})-({x + w},{y + h}) slop={LEAVE_SLOP_PX}"
+        except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
+            return "pointer=<unreadable>"
+
+    def _on_leave_event(self, event=None, reason: str = "leave"):
         # Treat leaving the button as a cancel (common on touch drags). Called directly
         # by cancel_hold(), which must always cancel, and via _confirm_leave for pointer
         # events, which must not cancel on jitter.
+        self._diag("cancel", f"reason={reason}")
         self._leave_pending = False
         self._cancel_leave_timer()
         self._pressed = False
@@ -473,6 +533,8 @@ class HoldButton(PushButton):
 
     # noinspection PyUnusedLocal
     def _on_configure_event(self, event=None):
+        if self._pressed:
+            self._diag("configure", "geometry event during a hold")
         # _position_overlay is a no-op when the geometry is unchanged, so a <Configure>
         # that does not actually move the button cannot synthesise a pointer crossing
         # over the overlay mid-hold.
@@ -480,7 +542,9 @@ class HoldButton(PushButton):
             self._position_overlay()
 
     def _trigger_hold_or_repeat(self):
+        self._diag("threshold-reached")
         if not self._is_enabled():
+            self._diag("cancel", "reason=disabled at threshold")
             self._pressed = False
             self._repeating = False
             self._stop_progress()
@@ -500,6 +564,7 @@ class HoldButton(PushButton):
             handled = True
 
         elif self._on_hold:
+            self._diag("fired", "on_hold")
             if self._progress_keep_full_until_release:
                 self._set_progress_full()
             else:

@@ -6,7 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-"""The controls help screen: what every button, stick and chord currently does.
+"""The controls help screen: what every button, stick, and chord currently does.
 
 Content comes from the loaded :class:`ControlProfile`, so a user who passes
 ``-controller_profile`` to ``make_gui`` sees their own bindings rather than the bundled
