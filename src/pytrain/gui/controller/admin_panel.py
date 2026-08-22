@@ -43,8 +43,13 @@ FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
 
 # How long a hold survives a dropped touch contact before it counts as released.
-# Observed gaps between the spurious release and the following press were 3-21ms.
-PRESS_RECOVERY_MS = 250
+# Measured across two logged sessions: gaps between the spurious release and the press
+# that followed were 5-49ms in nine of eleven cases, but 164ms and 265ms in the two where
+# the pointer jumped off the button and back. 400 covers all of them with margin.
+#
+# The cost is latency on a deliberate cancel: dragging off and releasing takes this long
+# to register, because a press arriving inside the window is what distinguishes the two.
+PRESS_RECOVERY_MS = 350
 
 SCOPE_OPTS = [
     ["Local", 0],
