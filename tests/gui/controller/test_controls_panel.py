@@ -7,6 +7,7 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 import copy
+import itertools
 import json
 from pathlib import Path
 
@@ -30,9 +31,15 @@ def _panel(profile: ControlProfile | None) -> ControlsPanel:
 
 
 def _oversized_profile() -> ControlProfile:
+    """A profile far larger than the bundled one, to force pagination.
+
+    Sized past COLUMNS * ROWS_PER_COLUMN so it spans pages however those constants are
+    later tuned -- the point is the paging behaviour, not any particular capacity.
+    """
     data = copy.deepcopy(json.loads(BUNDLED.read_text(encoding="utf-8")))
     data["buttons"] = {str(index): {"action": "bell", "target": "focused"} for index in range(20)}
-    data["chords"] = [{"buttons": [4, index], "action": "halt", "target": "global"} for index in range(4)]
+    pairs = list(itertools.combinations(range(20), 2))[: COLUMNS * ROWS_PER_COLUMN]
+    data["chords"] = [{"buttons": list(pair), "action": "halt", "target": "global"} for pair in pairs]
     return ControlProfile.from_dict(data)
 
 
@@ -115,3 +122,23 @@ def test_turn_page_is_a_no_op_on_a_single_page() -> None:
     panel.turn_page(forward=True)
 
     assert panel.page == 0
+
+
+def test_controls_panel_spans_the_window() -> None:
+    # A pane is half the screen; the binding table is cramped in it.
+    assert ControlsPanel.full_window.fget(_panel(ControlProfile.load(None))) is True
+
+
+def test_other_panels_stay_inside_their_pane() -> None:
+    # full_window has to be opt-in: every existing overlay belongs to its own pane, and
+    # reparenting them to the window would move them.
+    from src.pytrain.gui.controller.overlay_panel import OverlayPanel
+    from src.pytrain.gui.controller.state_info_overlay import StateInfoOverlay
+
+    assert OverlayPanel.full_window.fget(object()) is False
+    assert StateInfoOverlay.full_window is OverlayPanel.full_window
+
+
+def test_four_columns_now_that_it_has_the_width() -> None:
+    # Three was what a 632px pane allowed; the point of spanning is using the rest.
+    assert COLUMNS == 4

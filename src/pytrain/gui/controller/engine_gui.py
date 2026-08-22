@@ -1064,7 +1064,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
         with self._cv:
             if self._controls_panel is None:
                 self._controls_panel = ControlsPanel(self, profile or self.controller_profile)
-        self.show_popup(self._controls_panel.overlay, hide_image_box=True)
+        # A full-window overlay is parented past this pane, so the pane-relative x in
+        # popup_position would inset it by a pane's width -- pin it to the window's left
+        # edge instead, keeping the y so it still sits below the title bar. A stand-alone
+        # portrait GUI has no enclosing pane (root is app), so its position already is
+        # window-relative and is left alone.
+        x, y = self.popup_position
+        if self._controls_panel.full_window and self.root is not self.app:
+            x = 0
+        self.show_popup(self._controls_panel.overlay, hide_image_box=True, position=(x, y))
 
     def on_recents(self, value: str):
         # Updates component info if selected state is valid

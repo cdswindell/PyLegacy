@@ -204,3 +204,60 @@ def test_compact_close_button_uses_reduced_height_without_changing_portrait(monk
     manager.add_close_btn(manager._host, None, compact)
     assert buttons[-1].tk.configured[-1]["pady"] == 1
     assert buttons[-1].tk.packed[-1] == {"padx": 4, "pady": 4}
+
+
+def _pane_host() -> SimpleNamespace:
+    """A host whose root is its own pane, as an embedded EngineGui's is."""
+    host = _host()
+    pane = _Widget()
+    pane.display_widgets = lambda: None
+    host.root = pane
+    host.app.width = 1280
+    return host
+
+
+def test_popup_is_parented_to_the_host_pane_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    host = _pane_host()
+    monkeypatch.setattr(mod, "Box", _Widget)
+    monkeypatch.setattr(mod, "Text", _Widget)
+    monkeypatch.setattr(mod, "PushButton", _Widget)
+    manager = mod.PopupManager(host)
+
+    overlay = manager.create_popup("Title", lambda _body: None)
+
+    # Unchanged behaviour: an overlay belongs to its pane and cannot outgrow it.
+    assert overlay.master is host.root
+
+
+def test_full_window_popup_is_parented_to_the_whole_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    host = _pane_host()
+    monkeypatch.setattr(mod, "Box", _Widget)
+    monkeypatch.setattr(mod, "Text", _Widget)
+    monkeypatch.setattr(mod, "PushButton", _Widget)
+    manager = mod.PopupManager(host)
+
+    overlay = manager.create_popup("Title", lambda _body: None, full_window=True)
+
+    # Parented past the pane, so it can span both of them.
+    assert overlay.master is host.app
+
+
+def test_full_window_title_row_uses_the_window_width(monkeypatch: pytest.MonkeyPatch) -> None:
+    host = _pane_host()
+    created: list[_Widget] = []
+
+    def make(master=None, **kwargs):
+        widget = _Widget(master, **kwargs)
+        created.append(widget)
+        return widget
+
+    monkeypatch.setattr(mod, "Box", make)
+    monkeypatch.setattr(mod, "Text", make)
+    monkeypatch.setattr(mod, "PushButton", make)
+    manager = mod.PopupManager(host)
+
+    manager.create_popup("Title", lambda _body: None, full_window=True)
+
+    widths = [widget.kwargs.get("width") for widget in created if widget.kwargs.get("width")]
+    assert host.app.width in widths
+    assert host.emergency_box_width not in widths

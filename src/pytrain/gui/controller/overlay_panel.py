@@ -33,6 +33,15 @@ class OverlayPanel(metaclass=ABCMeta):
         return self._gui
 
     @property
+    def full_window(self) -> bool:
+        """True for a panel that should span the window rather than its host's pane.
+
+        Off by default: a popup belongs to its pane unless its content genuinely needs
+        the width.
+        """
+        return False
+
+    @property
     def overlay(self) -> Box:
         if self._overlay is None:
             # noinspection PyProtectedMember
@@ -40,6 +49,7 @@ class OverlayPanel(metaclass=ABCMeta):
                 self._title,
                 self,
                 post_close_action=self._post_close,
+                full_window=self.full_window,
             )
         return self._overlay
 
