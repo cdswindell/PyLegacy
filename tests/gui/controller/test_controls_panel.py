@@ -10,10 +10,12 @@ import copy
 import itertools
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from src.pytrain.gui.controller.control_labels import controls_summary
+from src.pytrain.gui.controller.control_labels import ControlEntry, ControlSection, controls_summary
+import src.pytrain.gui.controller.controls_panel as mod
 from src.pytrain.gui.controller.controls_panel import COLUMNS, ROWS_PER_COLUMN, ControlsPanel
 from src.pytrain.gui.controller.steam_deck_input import ControlProfile
 
@@ -176,3 +178,82 @@ def test_pane_without_a_host_reports_no_controls_screen() -> None:
     assert EngineGui.controls_visible.fget(pane) is False
     assert EngineGui.page_controls(pane, True) is False
     assert EngineGui.close_controls(pane) is False
+
+
+def test_a_long_entry_is_budgeted_two_rows() -> None:
+    # Tk wraps the action text with wraplength; pagination has to know a wrapped entry is
+    # taller, or the column overflows the display it was measured against.
+    short = ControlEntry("A", "Ring bell")
+    long = ControlEntry("L2", "Engine shutdown", "hold: with dialog")
+
+    assert ControlsPanel.entry_rows(short) == 1
+    assert ControlsPanel.entry_rows(long) == 2
+
+
+def test_section_rows_counts_the_header_and_wrapped_entries() -> None:
+    section = ControlSection(
+        "Triggers",
+        (
+            ControlEntry("L2", "Engine shutdown", "hold: with dialog"),
+            ControlEntry("R2", "Engine startup", "hold: with dialog"),
+        ),
+    )
+
+    assert ControlsPanel.section_rows(section) == 1 + 2 + 2
+
+
+def test_columns_respect_the_row_budget_once_wrapping_is_counted() -> None:
+    # The check that matters: measured in rendered rows, not entry counts.
+    for profile in (ControlProfile.load(None), _oversized_profile()):
+        panel = _panel(profile)
+        for page in panel.paginate():
+            for column in page:
+                rows = sum(ControlsPanel.section_rows(section) for section in column)
+                assert rows <= ROWS_PER_COLUMN, [section.title for section in column]
+
+
+def test_bundled_profile_still_fits_one_page_with_wrapping() -> None:
+    assert len(_panel(ControlProfile.load(None)).paginate()) == 1
+
+
+class _FakeTextTk:
+    def __init__(self) -> None:
+        self.configs: list[dict] = []
+        self.grids: list[dict] = []
+
+    def config(self, **kwargs) -> None:
+        self.configs.append(kwargs)
+
+    def grid_configure(self, **kwargs) -> None:
+        self.grids.append(kwargs)
+
+
+class _FakeText:
+    instances: list["_FakeText"] = []
+
+    def __init__(self, _parent, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.tk = _FakeTextTk()
+        self.text_bold = None
+        self.text_color = None
+        self.bg = None
+        _FakeText.instances.append(self)
+
+
+def test_the_action_text_is_configured_to_wrap(monkeypatch) -> None:
+    # Without wraplength Tk neither wraps nor shrinks: the line is truncated, which is
+    # what "Boost / brake speed (repeats)" was doing on the Deck.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_w: None)
+
+    panel._render_entry(object(), ControlEntry("Up / Down", "Boost / brake speed", "repeats"), 0)
+
+    keycap, action = _FakeText.instances
+    wrap = [cfg for cfg in action.tk.configs if "wraplength" in cfg]
+    assert wrap, "action text must be given a wrap width"
+    assert wrap[0]["wraplength"] == mod.ACTION_WRAP_PX
+    assert wrap[0]["justify"] == "left"
+    # The keycap must not wrap -- "L1 + R1" splitting across lines would look broken.
+    assert not any("wraplength" in cfg for cfg in keycap.tk.configs)

@@ -152,8 +152,8 @@ def test_triggers_describe_their_hold_behaviour() -> None:
     # L2/R2 split a tap from a hold via LONG_PRESS_ACTIONS, which the screen has to say.
     entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), "Triggers").entries}
 
-    assert entries["L2"] == "hold = delayed"
-    assert entries["R2"] == "hold = delayed"
+    assert entries["L2"] == "hold: with dialog"
+    assert entries["R2"] == "hold: with dialog"
 
 
 def test_admin_chords_are_separated_from_the_always_available_ones() -> None:

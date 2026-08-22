@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from guizero import Box, Text, TitleBox
 
-from .control_labels import ControlSection, controls_summary
+from .control_labels import ControlEntry, ControlSection, controls_summary
 from .steam_deck_input import ControlProfile
 
 if TYPE_CHECKING:
@@ -34,10 +34,11 @@ CONTROLS_TITLE = "Controls"
 # centre (and therefore the title and Close button) sat off screen. Three fits.
 COLUMNS = 3
 # Rows a single column can show before the next section starts a new column. A section
-# header costs one row on top of its entries. Retuned when the text grew to ENTRY_SIZE:
-# rows are ~1.6x taller, so fewer fit. Sized so the bundled profile fits one page *and*
-# its 14-entry Buttons section is not split into a 2-row continuation.
-ROWS_PER_COLUMN = 18
+# header costs one row on top of its entries, and a wrapped entry costs two -- see
+# entry_rows. Sized so the bundled profile lands on one page: the tallest column comes
+# out at 20 rows, which is the vertical room a 1280x800 display leaves below the header
+# and above the Close button.
+ROWS_PER_COLUMN = 20
 
 # Text sizes. The Deck GUI is built with scale_by=1.0, so these are points as written.
 # Entries were s_10, which was legible on a desk and not at arm's length on a handheld.
@@ -45,6 +46,15 @@ TITLE_SIZE = 24
 SECTION_SIZE = 14
 ENTRY_SIZE = 16
 FOOTNOTE_SIZE = 12
+
+# Width budget for an entry's action text, in pixels. Longer text wraps onto a second
+# line rather than widening the column or being truncated -- columns have vertical room
+# to spare, and horizontal room is what actually ran out.
+ACTION_WRAP_PX = 260
+# Characters that fit in ACTION_WRAP_PX at ENTRY_SIZE, roughly. Only used to predict
+# which entries will wrap so pagination can budget two rows for them; Tk does the real
+# wrapping, so being a little out here costs a little slack, not a broken layout.
+WRAP_CHARS = 30
 
 # Palette. Kept in the app's existing family: FOCUS_COLOR (#3B82F6) is the Deck GUI's
 # accent, and the greys match the popup chrome PopupManager already uses.
@@ -100,7 +110,7 @@ class ControlsPanel:
         columns: list[list[ControlSection]] = [[]]
         used = 0
         for section in self._split_to_fit(controls_summary(profile)):
-            cost = len(section.entries) + 1  # header row
+            cost = self.section_rows(section)
             if used and used + cost > ROWS_PER_COLUMN:
                 columns.append([])
                 used = 0
@@ -113,6 +123,17 @@ class ControlsPanel:
         return tuple(pages)
 
     @staticmethod
+    def entry_rows(entry: ControlEntry) -> int:
+        """Rows an entry will occupy once Tk has wrapped its action text."""
+        text = entry.action if not entry.note else f"{entry.action}  ({entry.note})"
+        return 1 + (len(text) - 1) // WRAP_CHARS
+
+    @classmethod
+    def section_rows(cls, section: ControlSection) -> int:
+        """Rows a section occupies: its header plus its (possibly wrapped) entries."""
+        return 1 + sum(cls.entry_rows(entry) for entry in section.entries)
+
+    @staticmethod
     def _split_to_fit(sections: tuple[ControlSection, ...]) -> list[ControlSection]:
         """Break any section taller than a column into continuation chunks.
 
@@ -123,14 +144,32 @@ class ControlsPanel:
         capacity = ROWS_PER_COLUMN - 1  # the header takes a row
         chunks: list[ControlSection] = []
         for section in sections:
-            entries = section.entries
-            if len(entries) <= capacity:
+            if ControlsPanel.section_rows(section) <= ROWS_PER_COLUMN:
                 chunks.append(section)
                 continue
-            for start in range(0, len(entries), capacity):
-                title = section.title if start == 0 else f"{section.title} (cont.)"
-                chunks.append(ControlSection(title, entries[start : start + capacity], section.fixed))
-        return chunks
+            # Accumulate by rendered height, not entry count: a wrapped entry is two rows.
+            batch: list[ControlEntry] = []
+            used = 0
+            for entry in section.entries:
+                rows = ControlsPanel.entry_rows(entry)
+                if batch and used + rows > capacity:
+                    title = section.title if not chunks or chunks[-1].title != section.title else section.title
+                    chunks.append(ControlSection(title, tuple(batch), section.fixed))
+                    batch, used = [], 0
+                batch.append(entry)
+                used += rows
+            if batch:
+                chunks.append(ControlSection(section.title, tuple(batch), section.fixed))
+        # Mark every chunk after the first as a continuation of its section.
+        seen: set[str] = set()
+        marked: list[ControlSection] = []
+        for chunk in chunks:
+            if chunk.title in seen:
+                marked.append(ControlSection(f"{chunk.title} (cont.)", chunk.entries, chunk.fixed))
+            else:
+                seen.add(chunk.title)
+                marked.append(chunk)
+        return marked
 
     def build(self, body: Box) -> None:
         self._pages = self.paginate()
@@ -198,5 +237,8 @@ class ControlsPanel:
         text = entry.action if not entry.note else f"{entry.action}  ({entry.note})"
         action = Text(parent, text=text, grid=[1, row], align="left", size=ENTRY_SIZE)
         action.text_color = ENTRY_FG
+        # wraplength wraps instead of truncating or forcing the column wider. justify
+        # keeps the second line aligned under the first rather than centred.
+        action.tk.config(wraplength=ACTION_WRAP_PX, justify="left")
         action.tk.grid_configure(padx=(0, 6), pady=2, sticky="w")
         self.gui.cache(name, action)

@@ -130,8 +130,8 @@ ACTION_LABELS: dict[str, str] = {
 # gets both in one place.
 ACTION_NOTES: dict[str, str] = {
     # LONG_PRESS_ACTIONS splits these into IMMEDIATE and DELAYED variants.
-    "startup": "hold = delayed",
-    "shutdown": "hold = delayed",
+    "startup": "hold: with dialog",
+    "shutdown": "hold: with dialog",
 }
 
 # Chord actions the router drops unless the admin panel is displayed. Split into their
