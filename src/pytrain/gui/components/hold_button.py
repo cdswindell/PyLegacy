@@ -510,8 +510,15 @@ class HoldButton(PushButton):
             self._diag("restart-after-abandon", f"lost={lost:.3f}s gap={gap_ms}ms")
 
     def _note_abandoned(self, banked: float) -> None:
-        """Remember that a hold ended without firing, for the restart check above."""
-        if self._on_hold and not self._handled_hold:
+        """Remember that a hold ended without firing, for the restart check above.
+
+        Gated on the recovery window like the rest of this machinery. Without the gate the
+        restart-with-credit behaviour was live everywhere, so on the Raspberry Pi -- which
+        has none of the Deck's problems -- releasing a hold and pressing again within
+        RESTART_RESUME_MS silently carried the first attempt's progress into the second.
+        That is a Deck workaround leaking onto a platform that never asked for it.
+        """
+        if self._press_recovery_ms > 0 and self._on_hold and not self._handled_hold:
             self._abandoned_at = time.monotonic()
             self._abandoned_banked = banked
 

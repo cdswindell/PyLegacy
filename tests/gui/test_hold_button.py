@@ -993,3 +993,24 @@ def test_verbose_tracing_ships_disabled() -> None:
     # the default is the entire point: a -debug session should not carry a dozen lines per
     # button press. Committing it as True would be a silent regression.
     assert mod.DIAG_VERBOSE is False
+
+
+def test_a_plain_button_does_not_carry_progress_between_presses(monkeypatch, caplog) -> None:
+    # The Pi's buttons, and every non-Deck HoldButton. Restart-with-credit is a workaround
+    # for a touch panel that drops contacts; on a platform whose releases mean what they say,
+    # a genuine release followed by a fresh press has to start the countdown over.
+    import logging
+
+    button = make_button(True)  # press_recovery_ms defaults to 0
+    button.hold_threshold = 3.0
+    button._on_hold = lambda: None
+    button._on_press = None
+    _mid_hold(button, monkeypatch, elapsed=1.5)
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        button._on_release_event(_genuine_release())
+        monkeypatch.setattr(mod.time, "monotonic", lambda: 101.6)  # 100ms later
+        button._on_press_event(None)
+
+    assert button._held_elapsed == 0.0, "the second hold must start from zero"
+    assert "restart-resumed" not in caplog.text

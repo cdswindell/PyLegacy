@@ -47,21 +47,19 @@ FOOTER_GAP_COMPACT = 24
 # top of that module for what actually causes the interruption (charger ground noise, not
 # software). Frequency scales with that noise: three flips in nine presses in one session,
 # seventeen in sixteen seconds in another, none at all on battery.
-# Deliberately short, and deliberately not sized to catch every flip. The window is paid on
-# *every* release -- a press arriving inside it is the only thing that distinguishes a
-# spurious release from a real one, so until it expires the button cannot tear down its
-# progress overlay. At 350ms that lag was visible on every deliberate release, which is a
-# constant cost to insure against noise that only appears while charging.
+# Zero, i.e. off: the Deck now behaves exactly as the Pi does. Every release is taken at face
+# value and the progress overlay is torn down in the same event, with no window to wait out.
 #
-# What 100ms costs, measured over the worst logged session (17 flips in 16 seconds, charging
-# from an ungrounded supply): it catches 11 of the 18 recoveries; the other 7 are lost. They
-# are lost outright, not softened -- every one of those 7 came back as a Motion carrying the
-# button mask rather than a fresh ButtonPress, and _maybe_resume_from_contact only acts while
-# a release is still pending. RESTART_RESUME_MS covers a lift-and-press-again, which is not
-# what the panel does here. So plugged in, expect roughly a third of flips to reset a hold.
-# On battery none of this arises -- the flips do not happen at all, which is the case this
-# value is chosen for.
-PRESS_RECOVERY_MS = 100
+# Off because the flips are not the panel's fault and not ours -- they are noise induced while
+# charging from an ungrounded supply, and they vanish on battery. A window is paid on *every*
+# release (a press arriving inside it is the only thing that separates a spurious release from
+# a real one, so until it expires the button cannot commit), which made it a permanent cost
+# for an avoidable condition.
+#
+# Raise it to re-arm the machinery -- nothing else needs changing, and hold_button gates the
+# whole feature on this being greater than zero. 100 caught 11 of 18 flips in the worst logged
+# session (17 in 16 seconds, charging); 350 caught all 18 at a release lag you could see.
+PRESS_RECOVERY_MS = 0
 
 SCOPE_OPTS = [
     ["Local", 0],
