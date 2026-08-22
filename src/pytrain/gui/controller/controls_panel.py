@@ -30,10 +30,9 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 CONTROLS_TITLE = "Controls"
-# Sections are laid out in this many columns per page. The panel spans the whole window
-# rather than one pane (see full_window), so there is room for four columns across the
-# Deck's 1280px rather than the three a 632px pane allowed.
-COLUMNS = 4
+# Sections are laid out in this many columns per page, within the host pane's width.
+# The panel cannot span both panes: see the parenting note in PopupManager.create_popup.
+COLUMNS = 3
 # Rows a single column can show before the next section starts a new column. A section
 # header costs one row on top of its entries. Sized so the bundled profile lands on a
 # single page -- at 15 its last one-entry section spilled onto a second page, which
@@ -55,12 +54,6 @@ class ControlsPanel(OverlayPanel):
     @property
     def profile(self) -> ControlProfile | None:
         return self._profile
-
-    @property
-    def full_window(self) -> bool:
-        # A pane is half the screen; a two-column table of every binding is cramped in
-        # it. This is a reference table, not a pane-scoped control, so it spans both.
-        return True
 
     @property
     def page_count(self) -> int:

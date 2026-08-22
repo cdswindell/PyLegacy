@@ -59,8 +59,8 @@ class PopupManager:
     # ------------------------------------------------------------------
 
     @contextmanager
-    def _suspend_host_layout(self, root=None):
-        root = root if root is not None else getattr(self._host, "root", self._host.app)
+    def _suspend_host_layout(self):
+        root = getattr(self._host, "root", self._host.app)
         display_widgets = root.display_widgets
         root.display_widgets = lambda: None
         try:
@@ -127,20 +127,19 @@ class PopupManager:
         on_close: Callable = None,
         *,
         post_close_action: Callable[[Box], None] | None = None,
-        full_window: bool = False,
     ) -> Box:
         host = self._host
 
-        # A popup normally belongs to its host's root, which for an embedded EngineGui is
-        # its own pane -- so it can never be wider than that pane. full_window parents it
-        # to the whole window instead, for panels whose content wants the full width (see
-        # ControlsPanel). The caller is then responsible for the x position, since
-        # host.popup_position is pane-relative.
-        parent = host.app if full_window else getattr(host, "root", host.app)
+        # A popup belongs to its host's root, which for an embedded EngineGui is its own
+        # pane. It cannot be re-parented to the window to span both panes: guizero's
+        # Widget.show() calls master.display_widgets(), which packs the overlay -- so an
+        # overlay is positioned by that pack, not by the place() in show() below, and a
+        # window-parented one lands after `body` and off screen.
+        parent = getattr(host, "root", host.app)
         # guizero's hidden-widget construction calls master.display_widgets(),
         # which repacks the full app. Prewarmed overlays are not meant to affect
         # the visible layout until they are explicitly shown.
-        with self._suspend_host_layout(parent):
+        with self._suspend_host_layout():
             overlay = Box(parent, align="top", border=2, visible=False)
         if post_close_action:
             self._post_close_actions[id(overlay)] = post_close_action
@@ -150,7 +149,7 @@ class PopupManager:
             title_row = Box(
                 overlay,
                 align="top",
-                width=host.app.width if full_window else host.emergency_box_width,
+                width=host.emergency_box_width,
                 height=height,
             )
             title_row.bg = "lightgrey"
