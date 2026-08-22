@@ -742,3 +742,75 @@ def test_a_degenerate_geometry_is_not_cached(monkeypatch) -> None:
 
     assert button._overlay_geometry is None
     assert len(canvas.places) == 2, "a degenerate placement must not suppress the next one"
+
+
+def _crossing_with_state(state: int) -> SimpleNamespace:
+    """An Enter/Motion event carrying an X button mask."""
+    return SimpleNamespace(
+        x=50, y=20, state=state, widget=SimpleNamespace(winfo_width=lambda: 100, winfo_height=lambda: 40)
+    )
+
+
+def test_an_enter_with_the_contact_still_down_resumes_the_hold(monkeypatch) -> None:
+    # The Deck does not always follow a spurious release with a press: the pointer gets
+    # warped off the button and back inside one continuous press. Waiting for a press
+    # left the hold to expire; the button mask on the crossing settles it directly.
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    button._progress_start = 100.0
+    # Short of the 1.0s threshold this fixture uses, or the release is not deferred.
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.6)
+    button._on_release_event(None)
+    assert button._release_pending is True
+
+    button._on_enter_candidate(_crossing_with_state(mod.B1_MASK))
+
+    assert button._release_pending is False
+    assert button._pressed is True
+    assert button._held_elapsed == pytest.approx(0.6)
+
+
+def test_an_enter_without_the_contact_does_not_resume(monkeypatch) -> None:
+    # A genuine lift followed by the pointer drifting back must still cancel.
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+    button._on_release_event(None)
+
+    button._on_enter_candidate(_crossing_with_state(0))
+
+    assert button._release_pending is True, "no button mask means no evidence of a hold"
+
+
+def test_motion_with_the_contact_down_also_resumes(monkeypatch) -> None:
+    # Motion arrives more often than crossings, so it is the more reliable rescue.
+    button = _recovering_button()
+    button._pressed = True
+    button._press_time = 100.0
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 100.4)
+    button._on_release_event(None)
+
+    button._on_motion_candidate(_crossing_with_state(mod.B1_MASK))
+
+    assert button._release_pending is False
+
+
+def test_motion_is_ignored_when_no_release_is_deferred() -> None:
+    # Motion is frequent; it must do nothing outside the recovery window.
+    button = _recovering_button()
+    button._pressed = True
+
+    button._on_motion_candidate(_crossing_with_state(mod.B1_MASK))
+
+    assert button._release_pending is False
+    assert button._pressed is True
+
+
+def test_an_unreadable_state_mask_does_not_resume() -> None:
+    # Some drivers omit state. Absence is not evidence the finger is still down.
+    button = _recovering_button()
+
+    assert button._event_button1_down(SimpleNamespace()) is False
+    assert button._event_button1_down(SimpleNamespace(state="nonsense")) is False

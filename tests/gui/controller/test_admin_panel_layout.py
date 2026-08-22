@@ -547,3 +547,61 @@ def test_a_failing_query_keeps_the_last_good_value_and_clears_the_flag(monkeypat
 
     assert panel._wifi_cache == ("WiFi", "Old", "10.0.0.4", "50%", "green")
     assert panel._wifi_query_running is False
+
+
+class _StubHoldButton:
+    instances: list["_StubHoldButton"] = []
+
+    def __init__(self, _parent, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.tk = _CallableTkStub()
+        _StubHoldButton.instances.append(self)
+
+    def disable(self) -> None:
+        return
+
+
+class _CallableTkStub:
+    def config(self, **_kwargs) -> None:
+        return
+
+    def grid_configure(self, **_kwargs) -> None:
+        return
+
+
+def _built_hold_button(monkeypatch, *, steam_deck: bool) -> _StubHoldButton:
+    _StubHoldButton.instances = []
+    monkeypatch.setattr(mod, "HoldButton", _StubHoldButton)
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: steam_deck)
+    panel = _panel(compact=steam_deck)
+    panel._gui = SimpleNamespace(
+        s_18=17, s_20=19, rescale_by=lambda v: v, add_hover_action=lambda _b: None, cache=lambda *_w: None
+    )
+    panel.hold_threshold = 3
+    monkeypatch.setattr(type(panel), "_fit_compact_control", lambda _self, _c, image_backed=False: None)
+    panel._hold_button(object(), text="Reboot", grid=[0, 0])
+    return _StubHoldButton.instances[0]
+
+
+def test_touch_recovery_is_enabled_on_the_steam_deck(monkeypatch) -> None:
+    # Its touch stream interrupts a held contact, so a 3-second hold never completes.
+    button = _built_hold_button(monkeypatch, steam_deck=True)
+
+    assert button.kwargs["press_recovery_ms"] == mod.PRESS_RECOVERY_MS
+
+
+def test_the_pi_gets_no_touch_recovery(monkeypatch) -> None:
+    # The Pi has never shown the problem, and the recovery is not free: it defers every
+    # release and binds <Motion>. Zero leaves that path exactly as it was.
+    button = _built_hold_button(monkeypatch, steam_deck=False)
+
+    assert button.kwargs["press_recovery_ms"] == 0
+
+
+def test_drag_off_cancel_applies_to_both_platforms(monkeypatch) -> None:
+    # This one was asked for as a feature, not a Deck workaround: before it, the progress
+    # overlay cancelled on any crossing regardless, so both platforms already cancelled on
+    # a drag-off -- just far too eagerly.
+    for steam_deck in (True, False):
+        button = _built_hold_button(monkeypatch, steam_deck=steam_deck)
+        assert button.kwargs["cancel_on_leave"] is True

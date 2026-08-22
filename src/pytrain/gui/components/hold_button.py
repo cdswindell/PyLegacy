@@ -31,6 +31,11 @@ LEAVE_CONFIRM_MS = 150
 # just the hold lifecycle: grep "holdbtn" pytrain.log
 DIAG = "holdbtn"
 
+# X11 button-1 bit in an event's state mask. Crossing and motion events carry the button
+# state at the time they were generated, so this answers "is the finger still down?"
+# without waiting for a ButtonPress that may never arrive.
+B1_MASK = 0x0100
+
 
 class HoldButton(PushButton):
     """
@@ -185,6 +190,11 @@ class HoldButton(PushButton):
         if self._cancel_on_leave:
             self.tk.bind("<Leave>", self._on_leave_candidate, add="+")
             self.tk.bind("<Enter>", self._on_enter_candidate, add="+")
+        if press_recovery_ms > 0:
+            # Motion is what proves a contact is still down when no press follows a
+            # spurious release. Bound only where recovery is wanted, to keep the event
+            # traffic off buttons that do not need it.
+            self.tk.bind("<Motion>", self._on_motion_candidate, add="+")
 
         # hover bindings (robust, independent of Tk "active" internals)
         if show_hold_progress:
@@ -387,7 +397,8 @@ class HoldButton(PushButton):
 
     # noinspection PyUnusedLocal
     def _on_release_event(self, event=None):
-        self._diag("release", self._describe_event(event) if event is not None else "synthetic")
+        detail = f"{self._describe_event(event)} {self._describe_state(event)}" if event is not None else "synthetic"
+        self._diag("release", detail)
         if self._should_defer_release():
             self._defer_release()
             return
@@ -538,6 +549,44 @@ class HoldButton(PushButton):
             self._diag("leave-rescinded", "enter arrived before the confirm deadline")
         self._leave_pending = False
         self._cancel_leave_timer()
+        self._maybe_resume_from_contact(event, "enter")
+
+    # noinspection PyUnusedLocal
+    def _on_motion_candidate(self, event=None):
+        """Motion over the button while a release is deferred: is the contact still down?"""
+        self._maybe_resume_from_contact(event, "motion")
+
+    def _maybe_resume_from_contact(self, event, source: str) -> None:
+        """Resume a deferred hold when an event proves the contact is still down.
+
+        The Deck does not always follow a spurious release with a fresh press: the
+        pointer gets warped off the button and back inside one continuous press, so
+        waiting for a ButtonPress leaves the hold to expire. A crossing or motion event
+        carries the button state at the time it was generated, which settles it directly.
+        """
+        if not self._release_pending:
+            return
+        if not self._event_button1_down(event):
+            self._diag(f"{source}-no-contact", self._describe_state(event))
+            return
+        self._diag(f"{source}-contact-held", self._describe_state(event))
+        self._resume_hold()
+
+    @staticmethod
+    def _event_button1_down(event) -> bool:
+        try:
+            return bool(int(event.state) & B1_MASK)
+        except (AttributeError, TypeError, ValueError):
+            # Some drivers do not populate state; absence is not evidence of a lift, but
+            # it is not evidence of a hold either, so do not resume on it.
+            return False
+
+    @staticmethod
+    def _describe_state(event) -> str:
+        try:
+            return f"state=0x{int(event.state):04x} b1={bool(int(event.state) & B1_MASK)}"
+        except (AttributeError, TypeError, ValueError):
+            return "state=<unavailable>"
 
     def _confirm_leave(self) -> None:
         self._leave_after_id = None
@@ -896,6 +945,8 @@ class HoldButton(PushButton):
             # cancel_on_leave=False and killed holds on the slightest touch drift.
             self._progress_canvas.bind("<Leave>", self._on_leave_candidate, add="+")
             self._progress_canvas.bind("<Enter>", self._on_enter_candidate, add="+")
+        if self._press_recovery_ms > 0:
+            self._progress_canvas.bind("<Motion>", self._on_motion_candidate, add="+")
         self._progress_canvas.place_forget()
         self._overlay_geometry = None
 

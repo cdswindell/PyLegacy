@@ -42,7 +42,8 @@ CONTROLS_BUTTON_TEXT = "Controls..."
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
 
-# How long a hold survives a dropped touch contact before it counts as released.
+# How long a hold survives an interrupted touch contact before it counts as released.
+# Steam Deck only -- see the press_recovery_ms argument in _hold_button.
 # Measured across two logged sessions: gaps between the spurious release and the press
 # that followed were 5-49ms in nine of eleven cases, but 164ms and 265ms in the two where
 # the pointer jumped off the button and back. 400 covers all of them with margin.
@@ -844,10 +845,13 @@ class AdminPanel(OverlayPanel):
             # Safe to ask for now that HoldButton checks the pointer really left the
             # button rather than trusting a bare <Leave>.
             cancel_on_leave=True,
-            # The Deck's touch stream drops and re-acquires a contact mid-hold; without
-            # this, each re-acquisition restarts the 3-second countdown and the hold can
-            # never complete. Harmless for these buttons, which define no short press.
-            press_recovery_ms=PRESS_RECOVERY_MS,
+            # Steam Deck only. Its touch stream interrupts a held contact -- sometimes
+            # with a spurious release, sometimes by warping the pointer off the button and
+            # back -- so a 3-second hold never completes without this. The Raspberry Pi's
+            # touchscreen has never shown it, and the recovery is not free: it defers
+            # every release by press_recovery_ms and binds <Motion> to watch the contact.
+            # Zero here leaves the Pi path exactly as it was.
+            press_recovery_ms=PRESS_RECOVERY_MS if is_steam_deck() else 0,
             progress_fill_color="darkgrey",
             critical_fill_color="red",
             progress_empty_color="lightgrey",
