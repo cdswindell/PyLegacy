@@ -1,3 +1,5 @@
+import threading
+from threading import Event, RLock
 from types import SimpleNamespace
 
 import src.pytrain.gui.controller.admin_panel as mod
@@ -337,3 +339,187 @@ def test_show_controls_closes_the_admin_panel_first(monkeypatch) -> None:
     panel.show_controls()
 
     assert calls == ["close", "open"]
+
+
+class _WifiWidget:
+    """A guizero-ish widget that records show()/hide(), the calls that repack siblings."""
+
+    def __init__(self, visible: bool = True) -> None:
+        self.visible = visible
+        self.value = ""
+        self.bg = None
+        self.text_color = None
+        self.calls: list[str] = []
+
+    def show(self) -> None:
+        self.visible = True
+        self.calls.append("show")
+
+    def hide(self) -> None:
+        self.visible = False
+        self.calls.append("hide")
+
+
+class _HeldButton:
+    def __init__(self, holding: bool) -> None:
+        self.is_holding = holding
+
+
+def _wifi_panel(monkeypatch, *, connected: bool = True) -> mod.AdminPanel:
+    panel = _panel(compact=False)
+    panel._wifi_box = SimpleNamespace(text="")
+    panel._wifi_ssid = _WifiWidget(visible=connected)
+    panel._wifi_signal = _WifiWidget(visible=connected)
+    panel._wifi_ip = _WifiWidget()
+    status = (
+        ("WiFi", "Sprucewood", "10.0.0.4", "78%", "green") if connected else ("Ethernet", None, "10.0.0.4", None, "")
+    )
+    # _refresh_wifi_display now paints the worker's cache rather than querying inline.
+    panel._wifi_lock = RLock()
+    panel._wifi_cache = status
+    panel._wifi_query_running = False
+    monkeypatch.setattr(type(panel), "_wifi_status", lambda _self: status)
+    monkeypatch.setattr(type(panel), "_signal_text_color", staticmethod(lambda _color: "black"))
+    return panel
+
+
+def test_unchanged_wifi_visibility_does_not_repack(monkeypatch) -> None:
+    # show()/hide() call master.display_widgets(), which re-packs every sibling. Doing
+    # that every 5s reflowed the panel for nothing -- and a reflow mid-hold generates the
+    # pointer crossings that cancelled the hold.
+    panel = _wifi_panel(monkeypatch, connected=True)
+
+    panel._refresh_wifi_display()
+
+    assert panel._wifi_ssid.calls == []
+    assert panel._wifi_signal.calls == []
+
+
+def test_changed_wifi_visibility_still_updates(monkeypatch) -> None:
+    # The suppression must not stop a real state change from being shown.
+    panel = _wifi_panel(monkeypatch, connected=True)
+    panel._wifi_ssid.visible = False
+    panel._wifi_signal.visible = False
+
+    panel._refresh_wifi_display()
+
+    assert panel._wifi_ssid.calls == ["show"]
+    assert panel._wifi_signal.calls == ["show"]
+
+
+def test_wifi_refresh_is_skipped_while_a_button_is_held(monkeypatch) -> None:
+    panel = _wifi_panel(monkeypatch)
+    panel._admin_buttons = {"UPDATE": _HeldButton(True)}
+    panel._overlay = SimpleNamespace(visible=True, tk=SimpleNamespace(after=lambda _ms, _f: "after-1"))
+    refreshed: list[str] = []
+    queried: list[str] = []
+    monkeypatch.setattr(type(panel), "_refresh_wifi_display", lambda _self: refreshed.append("refresh"))
+    monkeypatch.setattr(type(panel), "_start_wifi_query", lambda _self: queried.append("query"))
+
+    panel._refresh_wifi_if_visible()
+
+    assert refreshed == []
+    assert queried == [], "a blocking probe must not be started mid-hold either"
+    # ...but the loop must keep running, or strength never updates again.
+    assert panel._wifi_refresh_after_id == "after-1"
+
+
+def test_wifi_refresh_resumes_once_the_hold_ends(monkeypatch) -> None:
+    panel = _wifi_panel(monkeypatch)
+    panel._admin_buttons = {"UPDATE": _HeldButton(False)}
+    panel._overlay = SimpleNamespace(visible=True, tk=SimpleNamespace(after=lambda _ms, _f: "after-1"))
+    refreshed: list[str] = []
+    queried: list[str] = []
+    monkeypatch.setattr(type(panel), "_refresh_wifi_display", lambda _self: refreshed.append("refresh"))
+    monkeypatch.setattr(type(panel), "_start_wifi_query", lambda _self: queried.append("query"))
+
+    panel._refresh_wifi_if_visible()
+
+    assert refreshed == ["refresh"]
+    assert queried == ["query"]
+
+
+def test_hold_in_progress_reports_any_held_button() -> None:
+    panel = _panel(compact=False)
+    panel._admin_buttons = {"QUIT": _HeldButton(False), "UPDATE": _HeldButton(True)}
+
+    assert panel.hold_in_progress is True
+
+    panel._admin_buttons["UPDATE"] = _HeldButton(False)
+    assert panel.hold_in_progress is False
+
+
+def test_the_wifi_query_runs_off_the_tk_thread(monkeypatch) -> None:
+    # The point of the worker: WiFiInfo.query() shells out and the address lookup opens a
+    # socket. Blocking the Tk thread on those every 5s is a visible hitch, and was part of
+    # what disturbed an in-flight hold.
+    panel = _panel(compact=False)
+    panel._wifi_lock = RLock()
+    panel._wifi_cache = None
+    panel._wifi_query_running = False
+    ran_on: list[str] = []
+    finished = Event()
+
+    def fake_status(_self):
+        ran_on.append(threading.current_thread().name)
+        return ("WiFi", "Sprucewood", "10.0.0.4", "78%", "green")
+
+    monkeypatch.setattr(type(panel), "_wifi_status", fake_status)
+    original = mod.AdminPanel._wifi_query_worker
+
+    def worker(self) -> None:
+        original(self)
+        finished.set()
+
+    monkeypatch.setattr(type(panel), "_wifi_query_worker", worker)
+
+    panel._start_wifi_query()
+
+    assert finished.wait(5), "worker never completed"
+    assert ran_on and ran_on[0] != threading.current_thread().name
+    assert panel._wifi_cache == ("WiFi", "Sprucewood", "10.0.0.4", "78%", "green")
+    assert panel._wifi_query_running is False
+
+
+def test_only_one_wifi_query_runs_at_a_time() -> None:
+    # WiFiInfo caches the interface it found, so overlapping queries would race on it.
+    panel = _panel(compact=False)
+    panel._wifi_lock = RLock()
+    panel._wifi_cache = None
+    panel._wifi_query_running = True  # one already in flight
+    started: list[str] = []
+    panel._wifi_query_worker = lambda: started.append("worker")
+
+    panel._start_wifi_query()
+
+    assert started == []
+
+
+def test_display_leaves_widgets_alone_until_the_first_query_lands(monkeypatch) -> None:
+    # Better to keep showing the previous values than to flash placeholders in and out.
+    panel = _wifi_panel(monkeypatch)
+    panel._wifi_cache = None
+    panel._wifi_ssid.value = "Sprucewood"
+
+    panel._refresh_wifi_display()
+
+    assert panel._wifi_ssid.value == "Sprucewood"
+    assert panel._wifi_ssid.calls == []
+
+
+def test_a_failing_query_keeps_the_last_good_value_and_clears_the_flag(monkeypatch) -> None:
+    # A background probe must never take the GUI down, nor wedge the single-flight guard.
+    panel = _panel(compact=False)
+    panel._wifi_lock = RLock()
+    panel._wifi_cache = ("WiFi", "Old", "10.0.0.4", "50%", "green")
+    panel._wifi_query_running = True
+
+    def boom(_self):
+        raise OSError("no interface")
+
+    monkeypatch.setattr(type(panel), "_wifi_status", boom)
+
+    panel._wifi_query_worker()
+
+    assert panel._wifi_cache == ("WiFi", "Old", "10.0.0.4", "50%", "green")
+    assert panel._wifi_query_running is False

@@ -295,6 +295,15 @@ class HoldButton(PushButton):
         """
         self._on_press_event()
 
+    @property
+    def is_holding(self) -> bool:
+        """True between the press and the hold firing (or being cancelled).
+
+        Public so a host can avoid disturbing the widget mid-hold: anything that repacks
+        the layout generates pointer crossings, which cancel the hold.
+        """
+        return bool(self._pressed)
+
     def cancel_hold(self) -> None:
         """Abandon a hold started by :meth:`begin_hold` before it completes.
 

@@ -9,7 +9,7 @@
 import ipaddress
 import logging
 import socket
-from threading import Thread
+from threading import RLock, Thread
 from typing import TYPE_CHECKING
 
 import psutil
@@ -72,12 +72,18 @@ class AdminPanel(OverlayPanel):
         self._wifi_ip = None
         self._wifi_signal = None
         self._wifi_refresh_after_id = None
+        # Latest status computed off the Tk thread, and the single-flight guard for the
+        # worker producing it. See _start_wifi_query.
+        self._wifi_lock = RLock()
+        self._wifi_cache: tuple[str, str | None, str, str | None, str] | None = None
+        self._wifi_query_running = False
         self._needs_scope_fix = True
         # Admin action buttons by TMCC1SyncCommandEnum name, so synthetic input can
         # drive the real widget (see ``begin_hold``).
         self._admin_buttons: dict[str, HoldButton] = {}
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
+        self._start_wifi_query()
         # Sets _gui, _overlay and the post-close hook the base class owns. Deferred to
         # the end so the title, which reads self._compact, is computed after it is set.
         super().__init__(gui, self.popup_title, post_close=self._on_popup_close)
@@ -187,6 +193,7 @@ class AdminPanel(OverlayPanel):
         # create_popup's footer path. Everything below is this panel's own per-show
         # refresh, which the base class knows nothing about.
         overlay = super().overlay
+        self._start_wifi_query()
         self._refresh_wifi_display()
         self._ensure_wifi_refresh()
         if self._needs_scope_fix:
@@ -561,10 +568,48 @@ class AdminPanel(OverlayPanel):
         badge.tk.grid_configure(sticky="nse", padx=2, pady=0 if self._compact else 2)
         return badge
 
+    def _start_wifi_query(self) -> None:
+        """Compute the wifi status on a worker thread.
+
+        ``_wifi_status`` shells out (``WiFiInfo.query``) and opens a socket to find the
+        local address, both of which block. Run on the Tk thread that stalled the event
+        loop for the duration every 5 seconds, which is visible as a hitch and was part
+        of what disturbed an in-flight button hold.
+
+        The worker touches no widgets -- it only stores a tuple of strings, which the Tk
+        thread picks up on its next refresh. Nothing here calls into Tk from another
+        thread, which is what makes it safe rather than merely usually-safe.
+
+        Single-flight: only one query runs at a time, so the WiFiInfo instance (which
+        caches the interface it found) is never used concurrently.
+        """
+        with self._wifi_lock:
+            if self._wifi_query_running:
+                return
+            self._wifi_query_running = True
+        Thread(target=self._wifi_query_worker, name="PyTrainWiFiQuery", daemon=True).start()
+
+    def _wifi_query_worker(self) -> None:
+        try:
+            status = self._wifi_status()
+        except Exception as exc:  # a background probe must never take the GUI down
+            log.warning("WiFi status query failed: %s", exc)
+            status = None
+        with self._wifi_lock:
+            if status is not None:
+                self._wifi_cache = status
+            self._wifi_query_running = False
+
     def _refresh_wifi_display(self) -> None:
         if self._wifi_box is None or self._wifi_ssid is None or self._wifi_ip is None or self._wifi_signal is None:
             return
-        title, ssid, ip_address, strength, signal_color = self._wifi_status()
+        with self._wifi_lock:
+            cached = self._wifi_cache
+        if cached is None:
+            # No query has completed yet; leave the display as it is rather than
+            # flashing placeholder values in and straight back out.
+            return
+        title, ssid, ip_address, strength, signal_color = cached
         show_wifi_details = bool(ssid and strength)
         self._wifi_box.text = title
         self._wifi_ssid.value = ssid if ssid else ""
@@ -572,24 +617,48 @@ class AdminPanel(OverlayPanel):
         self._wifi_signal.value = strength or ""
 
         if show_wifi_details:
-            self._wifi_ssid.show()
-            self._wifi_signal.show()
+            self._set_visible(self._wifi_ssid, True)
+            self._set_visible(self._wifi_signal, True)
             self._wifi_signal.bg = signal_color
             self._wifi_signal.text_color = self._signal_text_color(signal_color)
         else:
-            self._wifi_ssid.hide()
-            self._wifi_signal.hide()
+            self._set_visible(self._wifi_ssid, False)
+            self._set_visible(self._wifi_signal, False)
+
+    @staticmethod
+    def _set_visible(widget, visible: bool) -> None:
+        """show()/hide() only when it would change something.
+
+        Both call master.display_widgets(), which re-packs every sibling. The wifi state
+        rarely changes, so calling them on every refresh repacked the panel for nothing --
+        and a repack mid-hold moves windows under the pointer, generating the crossings
+        that cancelled the hold.
+        """
+        if bool(widget.visible) == visible:
+            return
+        widget.show() if visible else widget.hide()
 
     def _ensure_wifi_refresh(self) -> None:
         if self._overlay is None or self._wifi_refresh_after_id is not None:
             return
         self._wifi_refresh_after_id = self._overlay.tk.after(5_000, self._refresh_wifi_if_visible)
 
+    @property
+    def hold_in_progress(self) -> bool:
+        """True while any admin action button is mid-hold."""
+        return any(button.is_holding for button in self._admin_buttons.values())
+
     def _refresh_wifi_if_visible(self) -> None:
         self._wifi_refresh_after_id = None
         if self._overlay is None or not self._overlay.visible:
             return
+        if self.hold_in_progress:
+            # Skip repainting entirely: any resulting relayout generates the pointer
+            # crossings that abandon a hold. Signal strength can wait three seconds.
+            self._ensure_wifi_refresh()
+            return
         self._refresh_wifi_display()
+        self._start_wifi_query()
         self._ensure_wifi_refresh()
 
     def _on_popup_close(self, _overlay: Box | None = None) -> None:
