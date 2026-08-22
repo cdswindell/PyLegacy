@@ -34,6 +34,13 @@ TEST_NET_IP = ("192.0.2.1", 80)
 
 ADMIN_TITLE = f"Manage {PROGRAM_NAME}"
 
+# Footer button. Text and width are tied together so the button cannot drift wider than
+# its label again.
+CONTROLS_BUTTON_TEXT = "Controls..."
+# Space to the right of it, separating it from the Close button create_popup appends.
+FOOTER_GAP = 56
+FOOTER_GAP_COMPACT = 32
+
 SCOPE_OPTS = [
     ["Local", 0],
     ["All", 1],
@@ -468,7 +475,7 @@ class AdminPanel(OverlayPanel):
         return self.controls_available
 
     def build_footer(self, footer: Box) -> None:
-        """Put "Controls..." in the footer, to the left of Close.
+        """Put the Controls button in the footer, to the left of Close.
 
         create_popup appends Close with align="right" after this runs, so anything packed
         left here lands to its left. The chord ("..." on the Deck) is unguessable, so the
@@ -476,9 +483,10 @@ class AdminPanel(OverlayPanel):
         """
         btn = PushButton(
             footer,
-            text="Controls...",
+            text=CONTROLS_BUTTON_TEXT,
             align="left",
-            width=13,
+            # Sized to the label rather than the 13 it inherited from "Show Controls".
+            width=len(CONTROLS_BUTTON_TEXT),
             command=self.show_controls,
         )
         btn.text_size = self._gui.s_18 if self._compact else self._gui.s_20
@@ -493,7 +501,11 @@ class AdminPanel(OverlayPanel):
             background="#f7f7f7",
         )
         padding = 4 if self._compact else 20
-        btn.tk.pack_configure(padx=padding, pady=padding)
+        # The footer Box shrinks to its content, so side=left and side=right put these two
+        # buttons next to each other rather than at opposite ends. A wider right pad is
+        # what separates them; Close supplies its own left pad on top of this.
+        gap = FOOTER_GAP_COMPACT if self._compact else FOOTER_GAP
+        btn.tk.pack_configure(padx=(padding, gap), pady=padding)
         self._gui.cache(btn)
 
     def show_controls(self) -> None:

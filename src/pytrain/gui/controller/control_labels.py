@@ -97,7 +97,7 @@ ACTION_LABELS: dict[str, str] = {
     "throttle": "Throttle",
     "direction": "Direction",
     # App/UI actions: no engine command, so no enum to name them.
-    "halt": "HALT - stop everything",
+    "halt": "HALT - emergency stop",
     "focus_left": "Focus left pane",
     "focus_right": "Focus right pane",
     "focus_toggle": "Swap focused pane",

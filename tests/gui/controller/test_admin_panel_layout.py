@@ -325,6 +325,23 @@ def test_footer_button_is_left_aligned_so_close_lands_to_its_right(monkeypatch) 
     assert button.kwargs["text"] == "Controls..."
     # create_popup appends Close with align="right" after build_footer returns.
     assert button.kwargs["align"] == "left"
+    # Sized to the label, not the 13 it inherited from the longer "Show Controls".
+    assert button.kwargs["width"] == len("Controls...")
+
+
+def test_footer_button_leaves_a_gap_before_close(monkeypatch) -> None:
+    # The footer Box shrinks to its content, so the two buttons sit next to each other --
+    # the right pad is what keeps them from touching.
+    _FooterButton.instances = []
+    monkeypatch.setattr(mod, "PushButton", _FooterButton)
+    panel = _panel(compact=True)
+    panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
+
+    panel.build_footer(object())
+
+    left, right = _FooterButton.instances[0].tk.pack_configs[-1]["padx"]
+    assert right == mod.FOOTER_GAP_COMPACT
+    assert right > left, "the gap toward Close must exceed the outer padding"
 
 
 def test_show_controls_closes_the_admin_panel_first(monkeypatch) -> None:
