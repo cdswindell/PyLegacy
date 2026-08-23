@@ -235,12 +235,21 @@ class PopupManager:
         # which repacks the full app. Prewarmed overlays are not meant to affect
         # the visible layout until they are explicitly shown.
         with self._suspend_host_layout():
-            # height="fill" is what makes every panel reach the scope buttons. The overlay is a
+            # height="fill" is what makes a panel reach the scope buttons. The overlay is a
             # side=top packed child of the pane and the scope box is side=bottom, so the band
             # between them is exactly the overlay's parcel: guizero maps "fill" to Tk's fill=Y
-            # and, for a top/bottom side, expand=YES. Declarative -- no measuring of where the
-            # scope row happens to be, and it follows whatever else is packed above.
-            overlay = Box(parent, align="top", border=2, visible=False, height="fill")
+            # and, for a top/bottom side, expand=YES. No measuring of where the scope row
+            # happens to be, and it follows whatever else is packed above.
+            #
+            # Compact only, and provisionally so: portrait lost its engine image box when this
+            # was applied there, and the fill could not be shown to cause that. A hidden
+            # fill sibling leaves its siblings' geometry untouched in every probe -- App-rooted
+            # and Box-rooted, across a full show/place/close cycle -- and both roots use the
+            # same pack layout. Gated rather than reverted so the Deck keeps the behaviour it
+            # was asked for, and so the next portrait run is a clean test: if the image box is
+            # still missing with this off, the cause is somewhere else entirely.
+            fill = {"height": "fill"} if bool(getattr(host, "compact", False)) else {}
+            overlay = Box(parent, align="top", border=2, visible=False, **fill)
         if post_close_action:
             self._post_close_actions[id(overlay)] = post_close_action
         overlay.bg = "white"

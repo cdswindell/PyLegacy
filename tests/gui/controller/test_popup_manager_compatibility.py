@@ -338,22 +338,33 @@ def test_create_popup_centres_the_footer_row_it_builds(monkeypatch: pytest.Monke
     assert footer.tk.packed[-1] == {"expand": True}
 
 
-def test_the_overlay_fills_the_band_down_to_the_scope_buttons(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The overlay is a side=top packed child of the pane and the scope box is side=bottom, so
-    # the band between them is the overlay's parcel. guizero maps height="fill" to Tk's fill=Y
-    # plus expand for a top/bottom side, which is what makes every panel reach the scope row
-    # instead of stopping wherever its content happens to end.
-    host = _host()
+def _overlay_for(host, monkeypatch) -> _Widget:
     made: list[_Widget] = []
     monkeypatch.setattr(mod, "Box", lambda master=None, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
     monkeypatch.setattr(mod, "Text", lambda master, **kwargs: _Widget(master, **kwargs))
     monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
-    manager = mod.PopupManager(host)
+    mod.PopupManager(host).create_popup("Options", lambda _body: None)
+    return made[0]
 
-    overlay = manager.create_popup("Options", lambda _body: None)
 
-    assert overlay.kwargs["height"] == "fill"
-    assert overlay is made[0]
+def test_a_compact_overlay_fills_the_band_down_to_the_scope_buttons(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The overlay is a side=top packed child of the pane and the scope box is side=bottom, so
+    # the band between them is the overlay's parcel. guizero maps height="fill" to Tk's fill=Y
+    # plus expand for a top/bottom side, which is what makes the panel reach the scope row
+    # instead of stopping wherever its content happens to end.
+    host = _host()
+    host.compact = True
+
+    assert _overlay_for(host, monkeypatch).kwargs["height"] == "fill"
+
+
+def test_a_portrait_overlay_is_left_content_sized(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Provisional: portrait lost its engine image box when the fill was applied there, and the
+    # fill could not be shown to cause it. Gated so portrait is exactly the code that worked.
+    host = _host()
+    host.compact = False
+
+    assert "height" not in _overlay_for(host, monkeypatch).kwargs
 
 
 def test_centring_expands_the_parcel_without_filling_it() -> None:
