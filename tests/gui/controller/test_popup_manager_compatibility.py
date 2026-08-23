@@ -706,3 +706,138 @@ def test_accessory_popups_are_marked_no_expand_when_built(monkeypatch: pytest.Mo
     overlay = manager.create_popup("Station", _Adapter())
 
     assert getattr(overlay, mod._NO_EXPAND_ATTR, False) is True
+
+
+def _measurable(height: int, *, mapped: int = 1) -> _Tk:
+    tk = _Tk()
+    tk.winfo_height = lambda: height
+    tk.winfo_ismapped = lambda: mapped
+    return tk
+
+
+def _balanceable(monkeypatch: pytest.MonkeyPatch, *, below: int, compact: bool, mapped: int = 1):
+    """An overlay whose fill box measures ``below`` pixels, ready for the correction pass."""
+    host = _host()
+    host.compact = compact
+    host.app.tk = SimpleNamespace(update_idletasks=lambda: None, after_idle=lambda fn: fn())
+    overlay = _Widget()
+    overlay.tk = _measurable(0, mapped=mapped)
+    lead = _Widget(height=mod.footer_lead_height(host))
+    fill = _Widget(height="fill")
+    fill.tk = _measurable(below)
+    setattr(overlay, mod._FOOTER_BOXES_ATTR, (lead, fill))
+    return host, overlay, lead, fill
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_a_roomy_band_keeps_the_fixed_lead_and_changes_nothing(monkeypatch: pytest.MonkeyPatch, compact: bool) -> None:
+    # The common case, and it has to be a genuine no-op: assigning a height re-packs the overlay,
+    # so a correction pass that always writes would repack every panel on every show.
+    lead_px = mod.FOOTER_LEAD_COMPACT if compact else mod.FOOTER_LEAD
+    host, overlay, lead, _fill = _balanceable(monkeypatch, below=400, compact=compact)
+
+    mod.balance_footer_row(host, overlay)
+
+    assert lead.height == lead_px
+    assert lead.height_history == [], "nothing was assigned, so nothing was re-packed"
+
+
+@pytest.mark.parametrize(
+    "compact,below,expected",
+    [
+        (True, 4, 8),  # (4 + 12) // 2
+        (True, 11, 11),  # (11 + 12) // 2, rounded down
+        (False, 6, 15),  # (6 + 24) // 2
+        (False, 0, 12),  # nothing below at all
+    ],
+)
+def test_a_band_tighter_than_the_lead_centres_the_row(
+    monkeypatch: pytest.MonkeyPatch, compact: bool, below: int, expected: int
+) -> None:
+    # Less room below the row than above it means the fixed lead has pinned the row against the
+    # bottom edge. Even the two up.
+    host, overlay, lead, _fill = _balanceable(monkeypatch, below=below, compact=compact)
+
+    mod.balance_footer_row(host, overlay)
+
+    assert lead.height == expected
+
+
+def test_the_correction_settles_instead_of_creeping(monkeypatch: pytest.MonkeyPatch) -> None:
+    # It runs on every show, so it has to be stable: once the two sides are level the condition
+    # stops firing. Correcting the lead alone is enough because the fill is the expander and
+    # re-absorbs the difference, which the second pass sees.
+    host, overlay, lead, fill = _balanceable(monkeypatch, below=4, compact=True)
+
+    mod.balance_footer_row(host, overlay)
+    settled = lead.height
+    fill.tk.winfo_height = lambda: settled  # the fill gave back what the lead released
+
+    mod.balance_footer_row(host, overlay)
+
+    assert lead.height == settled
+    assert lead.height_history == [settled], "a second pass must not move it again"
+
+
+def test_an_unmapped_overlay_is_not_measured(monkeypatch: pytest.MonkeyPatch) -> None:
+    # winfo_height reads 1 before Tk lays a widget out, which would look like the tightest
+    # possible band and centre the row on a band that does not exist yet.
+    host, overlay, lead, _fill = _balanceable(monkeypatch, below=1, compact=True, mapped=0)
+
+    mod.balance_footer_row(host, overlay)
+
+    assert lead.height_history == []
+
+
+def test_a_popup_with_no_recorded_spacers_is_left_alone() -> None:
+    # The accessory popups: they never get a lead or a fill, and nothing should be inferred.
+    host = _host()
+    scheduled: list[object] = []
+    host.app.tk = SimpleNamespace(after_idle=scheduled.append)
+
+    mod.balance_footer_row(host, _Widget())
+
+    assert scheduled == []
+
+
+def test_create_popup_records_the_spacer_pair_for_every_panel(monkeypatch: pytest.MonkeyPatch) -> None:
+    made: list[_Widget] = []
+    monkeypatch.setattr(mod, "Box", lambda master=None, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
+    monkeypatch.setattr(mod, "Text", lambda master, **kwargs: _Widget(master, **kwargs))
+    monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
+    host = _host()
+    manager = mod.PopupManager(host)
+
+    overlay = manager.create_popup("Options", lambda _body: None)
+
+    lead, fill = getattr(overlay, mod._FOOTER_BOXES_ATTR)
+    assert lead.kwargs["height"] == mod.FOOTER_LEAD
+    assert fill.kwargs["height"] == "fill"
+
+
+def test_show_runs_the_correction_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Wiring, not the helper: a correction nobody invokes looks exactly like a panel with no
+    # problem, which is how the whole feature got reverted the first time.
+    host = _host()
+    ran: list[str] = []
+    host.app.tk = SimpleNamespace(after_idle=lambda fn: ran.append("balanced"))
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False)
+    setattr(overlay, mod._FOOTER_BOXES_ATTR, (_Widget(height=12), _Widget(height="fill")))
+
+    manager.show(overlay)
+
+    assert ran == ["balanced"]
+
+
+def test_a_popup_that_failed_to_appear_is_not_balanced() -> None:
+    host = _host()
+    ran: list[str] = []
+    host.app.tk = SimpleNamespace(after_idle=lambda fn: ran.append("balanced"))
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False, fail_place=True)
+    setattr(overlay, mod._FOOTER_BOXES_ATTR, (_Widget(height=12), _Widget(height="fill")))
+
+    manager.show(overlay)
+
+    assert ran == []

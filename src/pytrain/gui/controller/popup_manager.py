@@ -66,6 +66,9 @@ _OVERLAY_HEIGHT_ATTR = "_pytrain_overlay_height"
 # mount a foreign GUI that owns its own layout, and accessory images were the one thing still
 # working through the regression that backed this feature out the first time.
 _NO_EXPAND_ATTR = "_pytrain_no_expand"
+# Where an overlay keeps its (lead, fill) pair, so the row's position can be corrected on show
+# without walking the children and guessing which boxes are the spacers.
+_FOOTER_BOXES_ATTR = "_pytrain_footer_boxes"
 # How long to wait after showing a popup before measuring it. A sample taken any earlier is
 # worthless: winfo_height reads 1 and winfo_rooty reads 0 until Tk has laid the widget out, which
 # is how the first run of the admin panel's geometry trace produced a page of w=1 parent_w=1.
@@ -158,8 +161,70 @@ def footer_lead(host, overlay: Box) -> Box:
     ``width="fill"`` is not cosmetic: guizero warns "You must specify a width and a height"
     whenever both are ints and one of them is zero, and a fill is the documented exemption.
     """
-    lead = FOOTER_LEAD_COMPACT if bool(getattr(host, "compact", False)) else FOOTER_LEAD
-    return Box(overlay, align="top", width="fill", height=lead)
+    return Box(overlay, align="top", width="fill", height=footer_lead_height(host))
+
+
+def footer_lead_height(host) -> int:
+    """The whitespace a panel wants between its content and its footer row, before any correction."""
+    return FOOTER_LEAD_COMPACT if bool(getattr(host, "compact", False)) else FOOTER_LEAD
+
+
+def balance_footer_row(host, overlay) -> None:
+    """Centre the footer row when the band it sits in is too tight to hold the lead comfortably.
+
+    The fixed lead is right whenever there is more room below the row than above it. When there
+    is *less* -- a panel whose content nearly reaches the scope buttons, so the whole spare band
+    is under twice the lead -- keeping the lead fixed pins the row hard against the bottom edge.
+    In that case the row is centred in whatever band there is instead.
+
+    Which is ``min(lead, band / 2)``, and unlike the fixed lead it cannot be expressed in pack:
+    two expanding boxes always divide space proportionally, and pack shrinks in creation order
+    rather than proportionally, so nothing declarative caps one side. It needs the band measured.
+
+    The measurement is a cheap one. ``footer_fill``'s own allocated height *is* the space below the
+    row, so nothing has to be derived from the content, and correcting the lead alone is enough --
+    the fill is the expander, so it re-absorbs whatever the lead gives back. It is also stable
+    under repetition: once the two are equal the condition stops firing.
+
+    Scheduled rather than immediate because ``winfo_height`` reads 1 until Tk has laid the overlay
+    out. Any reposition is therefore visible, but bounded by half the lead -- at most 6px on a
+    Deck pane -- and only in the tight case; a roomy panel measures once and changes nothing.
+    """
+    boxes = getattr(overlay, _FOOTER_BOXES_ATTR, None)
+    if not boxes:
+        return
+    try:
+        host.app.tk.after_idle(lambda: _balance_footer_row(host, overlay, *boxes))
+    except (AttributeError, TclError, RuntimeError):
+        pass
+
+
+def _balance_footer_row(host, overlay, lead: Box, fill: Box) -> None:
+    """Measure the band below the footer row and even it up with the lead if it is the smaller."""
+    try:
+        # Flush the pending geometry work first: an idle callback is not guaranteed to run after
+        # the geometry manager's own, and measuring before it does reads 1 and would "centre" the
+        # row on a band that does not exist yet.
+        host.app.tk.update_idletasks()
+        # Both guards are about the same hazard: winfo_height reports 1 until Tk has allocated the
+        # widget, and a reading taken before then would "centre" the row on a band that does not
+        # exist yet. Mapped plus flushed means the number is real.
+        if not overlay.tk.winfo_ismapped():
+            return
+        wanted = footer_lead_height(host)
+        above = int(lead.height)
+        below = int(fill.tk.winfo_height())
+        # Derived from the whole band, not from ``below`` against the constant. The band is what
+        # stays invariant under the correction -- whatever the lead gives back, the fill takes --
+        # so this settles in a single pass. Measuring ``below`` against ``wanted`` instead creeps:
+        # each show closes half the remaining gap and the lead climbs back to its fixed value.
+        target = min(wanted, (above + below) // 2)
+        # Only when it differs: assigning a height re-packs the overlay, and the roomy case --
+        # every panel, most of the time -- must measure and then do nothing at all.
+        if above != target:
+            lead.height = target
+    except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
+        pass
 
 
 def expand_overlay(overlay) -> None:
@@ -428,7 +493,7 @@ class PopupManager:
         elif isinstance(body_src, OverlayPanel):
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
-            footer_fill(overlay)
+            fill = footer_fill(overlay)
             if body_src.has_footer:
                 footer = Box(overlay, align="bottom")
                 body_src.build_footer(footer)
@@ -438,13 +503,13 @@ class PopupManager:
                 # positioned exactly as a row would be, and the overlay stands in as the footer.
                 footer = overlay
                 self.add_close_btn(host, on_close, overlay)
-            self._place_footer_lead(host, overlay, footer)
+            self._place_footer_lead(host, overlay, footer, fill)
         else:
             body = Box(overlay, align="top", layout="auto")
             body_src(body)
-            footer_fill(overlay)
+            fill = footer_fill(overlay)
             self.add_close_btn(host, on_close, overlay)
-            self._place_footer_lead(host, overlay, overlay)
+            self._place_footer_lead(host, overlay, overlay, fill)
 
         if overlay.visible:
             with self._suspend_host_layout():
@@ -452,7 +517,7 @@ class PopupManager:
         return overlay
 
     @staticmethod
-    def _place_footer_lead(host, overlay: Box, footer: Box) -> None:
+    def _place_footer_lead(host, overlay: Box, footer: Box, fill: Box) -> None:
         """Add the whitespace above the footer row, and give the row its packing back.
 
         The lead has to be created after the row (see footer_lead), and creating anything in the
@@ -460,9 +525,14 @@ class PopupManager:
         of the overlay, since then it is one of them and loses the padding style_footer_button
         gave it; when there is a real footer row the buttons are inside it and untouched. Replayed
         either way, so this stays correct if the order ever changes again.
+
+        The pair is recorded on the overlay because balance_footer_row needs both on every show,
+        and picking them back out of the children by their height would break the moment the
+        correction changed one of them.
         """
-        footer_lead(host, overlay)
+        lead = footer_lead(host, overlay)
         restore_footer_packing(footer)
+        setattr(overlay, _FOOTER_BOXES_ATTR, (lead, fill))
 
     def add_close_btn(
         self,
@@ -704,8 +774,9 @@ class PopupManager:
         finally:
             self._restore_button_state(op=op, modifier=modifier, button=button)
         if shown:
-            # Outside the try on purpose: a measurement that failed must not be mistaken for a
-            # popup that failed to appear, which would run the rollback above on a live overlay.
+            # Both outside the try on purpose: a measurement that failed must not be mistaken for
+            # a popup that failed to appear, which would run the rollback above on a live overlay.
+            balance_footer_row(host, overlay)
             log_popup_geometry(host, overlay)
 
     def close(self, overlay: Box | None = None) -> None:
