@@ -162,27 +162,15 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     logging = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Logging & Debugging")
     scope = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Scope")
     assert network.kwargs["height"] == panel.compact_network_height
-    # The two toggle rows are deliberately shorter than every other section; the pixels
-    # they give up are what pays for the gap above the footer.
+    # The two toggle rows are deliberately shorter than every other section. What they give up
+    # now lands in the band the footer row is centred in, rather than a spacer box: the overlay
+    # fills down to the scope buttons and pack centres the row in whatever is left over, so a
+    # hand-tuned gap here would only bias that.
     toggle_section = panel.compact_toggle_height + panel.compact_title_allowance
     assert logging.kwargs["height"] == toggle_section
     assert scope.kwargs["height"] == toggle_section
     assert toggle_section < panel.compact_section_height
-    gap = next(
-        box
-        for box in _TitleBox.instances
-        if box.kwargs.get("height") == panel.compact_footer_gap and "text" not in box.kwargs
-    )
-    assert gap.kwargs["align"] == "top"
-    # Equal above and below, which is what centres the row between the last section and the
-    # pane's scope buttons. Halved rather than added: the overlay has no vertical slack.
-    reclaimed = 2 * (panel.compact_control_height - panel.compact_toggle_height)
-    assert panel.compact_footer_gap == reclaimed // 2
-    # Coincides with the shared pad StateInfoOverlay uses, so the two panels' footers read the
-    # same -- but derived here, because the admin overlay cannot afford to grow.
-    assert panel.compact_footer_gap == popup_manager.FOOTER_ROW_PAD_COMPACT
-    assert panel.footer_bottom_pad == panel.compact_footer_gap
-    assert panel.compact_footer_gap + panel.footer_bottom_pad == reclaimed
+    assert not hasattr(panel, "compact_footer_gap"), "superseded by center_in_leftover"
     assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height
     checkbox_controls = {
         box.kwargs.get("text"): box for box in _TitleBox.instances if box.kwargs.get("text") in {"Logging", "Debugging"}
