@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import nullcontext
 from types import SimpleNamespace
 
@@ -511,20 +512,39 @@ def test_the_geometry_report_survives_a_widget_that_cannot_be_measured(caplog) -
         mod._report_popup_geometry(host, SimpleNamespace(tk=SimpleNamespace(winfo_rooty=boom)))
 
 
-def test_geometry_is_not_measured_when_debug_logging_is_off() -> None:
-    # Every line costs two Tk round-trips per child; nobody pays for them in normal operation.
+def _only_root_handler(monkeypatch: pytest.MonkeyPatch, level: int) -> None:
+    monkeypatch.setattr(logging.getLogger(), "handlers", [logging.NullHandler(level=level)])
+
+
+def test_geometry_is_not_measured_when_no_handler_wants_debug(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Every report costs two Tk round-trips per child, and nobody should pay them in normal
+    # operation. Checking the logger alone would not save it: set_up_logging puts the root logger
+    # at DEBUG unconditionally and filters on the handlers, so isEnabledFor is always true and
+    # -debug is visible only in the handler levels.
     host = _host()
     scheduled: list[object] = []
     host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append(fn))
+    _only_root_handler(monkeypatch, logging.INFO)
 
-    previous = mod.log.level
-    mod.log.setLevel("INFO")
-    try:
-        mod.log_popup_geometry(host, _Widget())
-    finally:
-        mod.log.setLevel(previous)
+    mod.log_popup_geometry(host, _Widget())
 
     assert scheduled == []
+    assert mod.log.isEnabledFor(logging.DEBUG), "the logger says yes; only the handler says no"
+    assert mod.debug_diagnostics_enabled() is False
+
+
+def test_geometry_is_measured_as_soon_as_a_handler_wants_debug(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The other half: flipping -debug at runtime moves handler levels, so the trace comes back
+    # without a restart.
+    host = _host()
+    scheduled: list[object] = []
+    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append(fn))
+    _only_root_handler(monkeypatch, logging.DEBUG)
+
+    mod.log_popup_geometry(host, _Widget())
+
+    assert len(scheduled) == 1
+    assert mod.debug_diagnostics_enabled() is True
 
 
 @pytest.mark.parametrize("compact", [False, True])

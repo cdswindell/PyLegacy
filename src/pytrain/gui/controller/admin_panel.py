@@ -26,7 +26,7 @@ from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
-from .popup_manager import footer_spacer, style_footer_button
+from .popup_manager import debug_diagnostics_enabled, footer_spacer, style_footer_button
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -664,7 +664,7 @@ class AdminPanel(OverlayPanel):
         Diagnostics only -- it must never be able to break the panel, hence the broad
         guard and the single call site after the overlay is on screen.
         """
-        if not self._compact or not log.isEnabledFor(logging.DEBUG):
+        if not self._compact or not debug_diagnostics_enabled():
             return
         try:
             self._gui.app.tk.update_idletasks()

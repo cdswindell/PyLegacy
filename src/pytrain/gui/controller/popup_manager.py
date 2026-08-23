@@ -177,6 +177,24 @@ def collapse_overlay(overlay) -> None:
         pass
 
 
+def debug_diagnostics_enabled() -> bool:
+    """Whether a DEBUG record would actually reach a handler, so measuring it is worth paying for.
+
+    ``log.isEnabledFor(logging.DEBUG)`` is not enough on its own here, and on its own is in fact
+    always true: ``set_up_logging`` puts the *root* logger at DEBUG unconditionally -- "required
+    for handler levels to work" -- and filters entirely on the handlers, which is what ``-debug``
+    and the runtime ``-debug`` toggle raise and lower. Guarding on the logger alone therefore
+    buys nothing: every Tk round-trip below gets paid on every popup and the records are then
+    dropped on the floor.
+
+    Consulting the handlers also means the runtime toggle takes effect immediately, with no
+    restart -- turn debug on, open the panel, read the numbers, turn it back off.
+    """
+    if not log.isEnabledFor(logging.DEBUG):
+        return False
+    return any(handler.level <= logging.DEBUG for handler in logging.getLogger().handlers)
+
+
 def log_popup_geometry(host, overlay) -> None:
     """Schedule a report of where an overlay and its children actually landed.
 
@@ -190,7 +208,7 @@ def log_popup_geometry(host, overlay) -> None:
     Diagnostics only -- it must never be able to break a popup, hence the broad guards and the
     single call site after the overlay is on screen.
     """
-    if not log.isEnabledFor(logging.DEBUG):
+    if not debug_diagnostics_enabled():
         return
     try:
         host.app.tk.after(POPUP_GEOM_DELAY_MS, lambda: _report_popup_geometry(host, overlay))
