@@ -40,13 +40,24 @@ class PopupState:
 # Pack padding around a footer button. The compact pane cannot afford the portrait inset.
 # Kept tight deliberately: this is spacing *inside* the row, separating the buttons from its
 # edges. The row's own position in the overlay is not padding at all any more -- see
-# center_footer_row, which shares the leftover space around it.
+# footer_lead and footer_fill, which place the row within the overlay.
 FOOTER_BUTTON_PAD_COMPACT = 4
 FOOTER_BUTTON_PAD = 20
 # Horizontal gap between a panel's own footer button and Close, expressed as a text size --
 # the spacer is a single space, so its point size is what sets its width.
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
+# Whitespace between a panel's content and its footer row, in pixels. Fixed rather than a share
+# of the leftover: an expanded panel's spare band ranges from ~24px (the admin panel, which
+# nearly fills the pane) to several hundred (Lights, Tower Dialogs), and a share of the latter
+# leaves the buttons floating mid-overlay instead of attached to the panel. All the remaining
+# space goes below the row -- see footer_fill.
+#
+# The compact value is the old FOOTER_ROW_PAD_COMPACT: on a pane where the whole band is 24px,
+# 12px above and the rest below is the same picture as a centred row, which is the one that was
+# signed off. Portrait gets more because it has far more of it to spend.
+FOOTER_LEAD = 24
+FOOTER_LEAD_COMPACT = 12
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
 # Where an overlay remembers the height it was built with, so expanding it is reversible.
@@ -108,27 +119,47 @@ def footer_spacer(host, footer) -> Text:
     return spacer
 
 
-def center_footer_row(overlay: Box) -> tuple[Box, Box]:
-    """Split whatever vertical space an expanded panel has spare, half above the footer row.
+def footer_fill(overlay: Box) -> Box:
+    """Soak up an expanded panel's spare vertical space *below* the footer row.
 
-    Two empty ``height="fill"`` boxes, one on each side. guizero gives each of them ``fill=Y``
-    plus ``expand=YES``, and Tk shares leftover space equally between widgets that expand, so
-    the row lands in the middle of the band below the panel's content -- at whatever size that
-    band turns out to be, with no measuring and no constant to re-derive whenever a section's
-    height changes. It is also self-limiting: with the overlay collapsed there is no leftover,
-    both boxes are zero-high, and the layout is what it was before.
+    An empty ``height="fill"`` box: guizero gives it ``fill=Y`` plus ``expand=YES``, and Tk hands
+    surplus space to the widgets that expand, so this one absorbs the whole band and leaves the
+    row sitting directly above it. Paired with footer_lead, which then holds the row a fixed
+    distance off the content.
 
-    **Call this after the body and before the row.** pack fills a side in creation order, so the
-    bottom box has to be created first to claim the bottom edge and leave the row above it.
+    Together they replace an equal split between two filling boxes. Equal was right for a panel
+    that nearly fills the pane -- the admin panel's spare band is only ~24px, so half of it is
+    12px either side -- but proportional means a short panel (Lights, Tower Dialogs) gets half of
+    several hundred pixels above its row, and the buttons float in the middle of nothing instead
+    of reading as part of the panel.
 
-    Replaces a pair of hand-tuned pads (``pad_footer_row`` and ``AdminPanel.compact_footer_gap``)
-    that only ever ran on the compact pane and had to be kept in sync with each other by hand.
-    Unlike ``pack_configure`` padding, this survives a repack: ``Container._pack_widget`` rebuilds
-    its option dict from scratch every pass and reads fill back off each widget's own ``height``.
+    **Call this after the body and before the row**: pack fills a side in creation order, so this
+    has to claim the bottom edge first to leave the row above it.
+
+    Survives a repack, unlike ``pack_configure`` padding: ``Container._pack_widget`` rebuilds its
+    option dict from scratch every pass and reads fill back off each widget's own ``height``.
     """
-    bottom = Box(overlay, align="bottom", height="fill")
-    top = Box(overlay, align="top", height="fill")
-    return top, bottom
+    return Box(overlay, align="bottom", height="fill")
+
+
+def footer_lead(host, overlay: Box) -> Box:
+    """Hold the footer row a fixed distance below the panel's content.
+
+    A real widget of a fixed height rather than pack padding, for the same reason footer_spacer
+    is one: padding set on the row is discarded the next time anything in the overlay is created
+    or shown, and a widget is re-packed instead of forgotten.
+
+    **Call this after the row**, even though it renders above it. It is the one thing here that
+    asks for space unconditionally, and pack allots in creation order, so on a band too tight for
+    both this has to be the thing that loses out rather than the buttons. Being last also means
+    it is clipped to nothing instead of pushing the row off the bottom edge -- it is empty, so
+    losing it costs nothing.
+
+    ``width="fill"`` is not cosmetic: guizero warns "You must specify a width and a height"
+    whenever both are ints and one of them is zero, and a fill is the documented exemption.
+    """
+    lead = FOOTER_LEAD_COMPACT if bool(getattr(host, "compact", False)) else FOOTER_LEAD
+    return Box(overlay, align="top", width="fill", height=lead)
 
 
 def expand_overlay(overlay) -> None:
@@ -397,25 +428,41 @@ class PopupManager:
         elif isinstance(body_src, OverlayPanel):
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
-            center_footer_row(overlay)
+            footer_fill(overlay)
             if body_src.has_footer:
-                button_row = Box(overlay, align="bottom")
-                body_src.build_footer(button_row)
-                self.add_close_btn(host, on_close, button_row, close_target=overlay, align="right", width=8)
+                footer = Box(overlay, align="bottom")
+                body_src.build_footer(footer)
+                self.add_close_btn(host, on_close, footer, close_target=overlay, align="right", width=8)
             else:
+                # add_close_btn already defaults to align="bottom", so a bare Close button is
+                # positioned exactly as a row would be, and the overlay stands in as the footer.
+                footer = overlay
                 self.add_close_btn(host, on_close, overlay)
+            self._place_footer_lead(host, overlay, footer)
         else:
             body = Box(overlay, align="top", layout="auto")
             body_src(body)
-            center_footer_row(overlay)
-            # No footer row of its own: add_close_btn already defaults to align="bottom", so the
-            # spacers centre the bare Close button just as they would a row.
+            footer_fill(overlay)
             self.add_close_btn(host, on_close, overlay)
+            self._place_footer_lead(host, overlay, overlay)
 
         if overlay.visible:
             with self._suspend_host_layout():
                 overlay.hide()
         return overlay
+
+    @staticmethod
+    def _place_footer_lead(host, overlay: Box, footer: Box) -> None:
+        """Add the whitespace above the footer row, and give the row its packing back.
+
+        The lead has to be created after the row (see footer_lead), and creating anything in the
+        overlay re-packs the overlay's children. That matters only when Close is a direct child
+        of the overlay, since then it is one of them and loses the padding style_footer_button
+        gave it; when there is a real footer row the buttons are inside it and untouched. Replayed
+        either way, so this stays correct if the order ever changes again.
+        """
+        footer_lead(host, overlay)
+        restore_footer_packing(footer)
 
     def add_close_btn(
         self,

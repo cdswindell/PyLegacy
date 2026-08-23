@@ -32,6 +32,10 @@ class _Tk:
         self.packed.append(kwargs)
 
 
+# What a guizero repack leaves behind: side/fill only, everything else forgotten.
+_REPACKED = {"repacked": True}
+
+
 class _Widget:
     def __init__(self, master=None, *, visible: bool = True, fail_place: bool = False, **kwargs) -> None:
         self.master = master
@@ -44,6 +48,10 @@ class _Widget:
         # mechanism behind a panel reaching down to the scope row -- and the sequence matters:
         # "fill" on show, back to what it was on close.
         self.height_history: list = []
+        self.children: list = []
+        if isinstance(master, _Widget):
+            master.children.append(self)
+            master.display_widgets()
 
     @property
     def height(self):
@@ -53,6 +61,17 @@ class _Widget:
     def height(self, value) -> None:
         self._height = value
         self.height_history.append(value)
+
+    def display_widgets(self) -> None:
+        """Emulate the repack guizero does whenever a child is created.
+
+        Container._pack_widget rebuilds each child's option dict from scratch and keeps only side
+        and fill, so anything a caller set with pack_configure -- a footer button's padding, say
+        -- is discarded. Without this the stub silently made every ordering look correct, and two
+        mutations that reorder create_popup or drop restore_footer_packing survived.
+        """
+        for child in self.children:
+            child.tk.packed.append(_REPACKED)
 
     def hide(self) -> None:
         self.visible = False
@@ -301,8 +320,8 @@ def test_adding_close_repairs_the_packing_of_the_button_beside_it(monkeypatch: p
 
 def test_compact_footer_buttons_stay_tighter_than_portrait() -> None:
     # Inside the row only. The row's distance from the overlay's edges is no longer padding at
-    # all -- center_footer_row shares the leftover space around it -- so the pane's lack of
-    # vertical slack no longer has to be paid for out of these numbers.
+    # all -- footer_lead and footer_fill place the row within the overlay -- so the pane's lack
+    # of vertical slack no longer has to be paid for out of these numbers.
     assert mod.FOOTER_BUTTON_PAD_COMPACT < mod.FOOTER_BUTTON_PAD
 
 
@@ -324,38 +343,78 @@ def test_the_footer_spacer_tracks_the_mode() -> None:
         assert cached == [spacer], "the spacer has to be cached like any other widget"
 
 
-def test_the_footer_row_is_centred_by_two_equal_expanding_spacers(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Tk shares leftover space equally between widgets that expand, and guizero gives a
-    # height="fill" box exactly that. Equal on both sides is the whole mechanism: one spacer
-    # would leave the row flush against an edge.
+def test_the_leftover_space_all_goes_below_the_footer_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    # One expanding box, on the bottom. It was an equal split between two, which is right for a
+    # panel that nearly fills the pane and wrong for a short one: half of several hundred pixels
+    # left Lights and Tower Dialogs with their buttons floating mid-overlay.
     made: list[_Widget] = []
     monkeypatch.setattr(mod, "Box", lambda master, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
     overlay = _Widget()
 
-    top, bottom = mod.center_footer_row(overlay)
+    fill = mod.footer_fill(overlay)
 
-    assert top.kwargs == {"align": "top", "height": "fill"}
-    assert bottom.kwargs == {"align": "bottom", "height": "fill"}
-    assert top.kwargs["height"] == bottom.kwargs["height"], "unequal spacers do not centre"
-    assert top.master is overlay and bottom.master is overlay
+    assert fill.kwargs == {"align": "bottom", "height": "fill"}
+    assert fill.master is overlay
 
 
-def test_the_bottom_spacer_is_created_first_so_the_row_lands_above_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    # pack fills a side in creation order. Create the bottom spacer after the row and it takes
-    # the slot above it instead of below, which pushes the row onto the overlay's bottom edge.
+@pytest.mark.parametrize("compact,expected", [(False, mod.FOOTER_LEAD), (True, mod.FOOTER_LEAD_COMPACT)])
+def test_the_row_sits_a_fixed_distance_below_the_content(
+    monkeypatch: pytest.MonkeyPatch, compact: bool, expected: int
+) -> None:
     made: list[_Widget] = []
     monkeypatch.setattr(mod, "Box", lambda master, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
 
-    mod.center_footer_row(_Widget())
+    lead = mod.footer_lead(SimpleNamespace(compact=compact), _Widget())
 
-    assert [widget.kwargs["align"] for widget in made] == ["bottom", "top"]
+    assert lead.kwargs["height"] == expected
+    assert lead.kwargs["align"] == "top"
+    # Not decoration: guizero warns when both sizes are ints and one is zero, and a fill is the
+    # documented exemption. A bare height= here is the warning that appeared five times before.
+    assert lead.kwargs["width"] == "fill"
 
 
-def test_create_popup_centres_the_footer_row_of_every_panel_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The helper is covered directly above, but that leaves its *wiring* untested: dropping the
-    # call from create_popup broke nothing, which is the failure mode that matters. Both
-    # branches, because a panel without its own footer button gets a bare Close and used to be
-    # the case nobody centred.
+def test_the_compact_lead_is_what_a_centred_row_used_to_look_like() -> None:
+    # The admin panel's whole spare band is 2 * (52 - 40) = 24px, so 12 above and the rest below
+    # draws the same picture the equal split did -- which is the one that was signed off. Portrait
+    # gets more because it has more to spend.
+    assert mod.FOOTER_LEAD_COMPACT == 12
+    assert mod.FOOTER_LEAD > mod.FOOTER_LEAD_COMPACT
+
+
+def test_the_lead_is_created_after_the_row_so_a_tight_band_loses_whitespace_not_buttons(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The lead is the only thing here that asks for space unconditionally, and pack allots in
+    # creation order. Created before the row, it takes its 12-24px first and a band too tight for
+    # both clips the buttons instead of the empty box.
+    host = _host()
+    created: list[_Widget] = []
+
+    def make(master=None, **kwargs):
+        created.append(_Widget(master, **kwargs))
+        return created[-1]
+
+    monkeypatch.setattr(mod, "Box", make)
+    monkeypatch.setattr(mod, "Text", make)
+    monkeypatch.setattr(mod, "PushButton", make)
+    manager = mod.PopupManager(host)
+
+    manager.create_popup("Options", lambda _body: None)
+
+    fill = next(w for w in created if w.kwargs.get("height") == "fill")
+    close = next(w for w in created if w.kwargs.get("text") == "Close")
+    lead = next(w for w in created if w.kwargs.get("height") == mod.FOOTER_LEAD)
+    assert created.index(fill) < created.index(close) < created.index(lead)
+    # Creating the lead re-packed the overlay's children, and a bare Close is one of them, so its
+    # styling had to be replayed afterwards or it renders with no padding at all.
+    assert close.tk.packed[-1] == {"padx": mod.FOOTER_BUTTON_PAD, "pady": mod.FOOTER_BUTTON_PAD}
+
+
+def test_create_popup_positions_the_footer_row_of_every_panel_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The helpers are covered directly above, but that leaves their *wiring* untested: dropping
+    # either call from create_popup broke nothing, which is the failure mode that matters. All
+    # three branches, because a panel without its own footer button gets a bare Close and used to
+    # be the case nobody positioned.
     made: list[_Widget] = []
 
     def make_box(master=None, **kwargs):
@@ -383,6 +442,7 @@ def test_create_popup_centres_the_footer_row_of_every_panel_it_builds(monkeypatc
             pass
 
     for compact in (False, True):
+        expected_lead = mod.FOOTER_LEAD_COMPACT if compact else mod.FOOTER_LEAD
         for label, body_src in (("callable", lambda body: None), ("footer", _Panel(True)), ("bare", _Panel(False))):
             host = _host()
             host.compact = compact
@@ -392,10 +452,11 @@ def test_create_popup_centres_the_footer_row_of_every_panel_it_builds(monkeypatc
             made.clear()
 
             overlay = manager.create_popup("Options", body_src)
+            mine = [w for w in made if w.master is overlay]
 
-            spacers = [w for w in made if w.master is overlay and w.kwargs.get("height") == "fill"]
-            aligns = sorted(w.kwargs["align"] for w in spacers)
-            assert aligns == ["bottom", "top"], f"compact={compact} panel={label}"
+            where = f"compact={compact} panel={label}"
+            assert [w.kwargs["align"] for w in mine if w.kwargs.get("height") == "fill"] == ["bottom"], where
+            assert [w.kwargs["align"] for w in mine if w.kwargs.get("height") == expected_lead] == ["top"], where
 
 
 def test_create_popup_leaves_the_overlay_unsized(monkeypatch: pytest.MonkeyPatch) -> None:

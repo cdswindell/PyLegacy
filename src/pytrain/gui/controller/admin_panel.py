@@ -550,8 +550,8 @@ class AdminPanel(OverlayPanel):
         )
 
         # No spacer between the destructive actions and the Controls/Close row: the row is no
-        # longer flush against them. popup_manager.center_footer_row shares the whole band below
-        # this section around it, so what the two toggle rows gave up lands there automatically.
+        # longer flush against them. popup_manager.footer_lead holds it a fixed distance below
+        # this section, so what the two toggle rows gave up lands below the row automatically.
 
         # Last thing in build(): every control is created, so nothing further will re-grid
         # them out from under this.

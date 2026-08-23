@@ -163,8 +163,8 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     scope = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Scope")
     assert network.kwargs["height"] == panel.compact_network_height
     # The two toggle rows are deliberately shorter than every other section. What they give up
-    # used to pay for a hand-sized gap above the footer row; it now falls into the band
-    # popup_manager.center_footer_row shares around that row, so nothing here has to size it.
+    # used to pay for a hand-sized gap above the footer row; that gap is now
+    # popup_manager.FOOTER_LEAD_COMPACT, so nothing here has to size it.
     toggle_section = panel.compact_toggle_height + panel.compact_title_allowance
     assert logging.kwargs["height"] == toggle_section
     assert scope.kwargs["height"] == toggle_section

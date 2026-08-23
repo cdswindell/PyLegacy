@@ -159,9 +159,9 @@ def _build_body(compact: bool, monkeypatch) -> list[_GapBox]:
 
 def test_the_panel_leaves_its_own_footer_whitespace_to_the_popup(monkeypatch) -> None:
     # It used to add a spacer of its own below the fields, to match a pad the popup put below
-    # the Clear/Close row. Both are gone: popup_manager.center_footer_row shares the whole band
-    # below the content around the row, in either mode, so a panel that adds its own spacer is
-    # now double-counting and pushes the row off centre.
+    # the Clear/Close row. Both are gone: popup_manager.footer_lead sets the gap above the row
+    # in either mode, so a panel that adds its own spacer is double-counting and pushes the
+    # row further from its content than every other panel.
     for compact in (True, False):
         boxes = _build_body(compact=compact, monkeypatch=monkeypatch)
 
