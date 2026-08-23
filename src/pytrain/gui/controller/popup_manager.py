@@ -48,15 +48,19 @@ FOOTER_BUTTON_PAD = 20
 # the spacer is a single space, so its point size is what sets its width.
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
-# Whitespace below the whole footer row. Distinct from the buttons' own pady, which sits
-# *inside* the row and separates the buttons from its edges -- this separates the row from the
-# bottom of the overlay, and is the only thing that can. Compact only: the portrait footer
-# already carries 20px around its buttons and renders correctly as it is.
+# Whitespace above *and* below the footer row on a compact pane -- equal on both sides is what
+# centres the row between a panel's last section and the pane's scope buttons. Distinct from
+# the buttons' own pady, which sits inside the row and separates them from its edges; only
+# padding the row itself reaches the bottom of the overlay.
 #
-# Paid for, not added: AdminPanel.compact_footer_gap gives up exactly this much above the row,
-# because the overlay has no room to grow. Measured -- at h=597 it already reached y=751 with
-# the pane's nav bar starting around 738, so 20px of new padding put the buttons underneath it.
-FOOTER_ROW_BOTTOM_PAD_COMPACT = 8
+# Compact only: the portrait footer already carries 20px around its buttons and renders
+# correctly as it is.
+#
+# Whether this can simply be added depends on the panel. StateInfoOverlay is content-sized and
+# far shorter than the pane, so it can afford both halves. AdminPanel cannot -- measured at
+# h=597 reaching y=751 with the nav bar around 738 -- so it halves the band its shortened
+# toggle rows freed instead of growing (see AdminPanel.compact_footer_gap).
+FOOTER_ROW_PAD_COMPACT = 12
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
 
@@ -123,7 +127,7 @@ def pad_footer_row(host, footer, pad: int | None = None) -> None:
     if not bool(getattr(host, "compact", False)):
         return
     if pad is None:
-        pad = FOOTER_ROW_BOTTOM_PAD_COMPACT
+        pad = FOOTER_ROW_PAD_COMPACT
     try:
         footer.tk.pack_configure(pady=(0, pad))
     except (AttributeError, TclError, RuntimeError):

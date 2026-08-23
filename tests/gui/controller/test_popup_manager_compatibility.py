@@ -287,7 +287,7 @@ def test_the_row_pays_for_its_whitespace_rather_than_growing_the_overlay() -> No
     # The overlay has no vertical slack: measured at h=597 reaching y=751 with the pane's nav
     # bar starting around 738, so 20px of extra padding put the footer buttons underneath it.
     # Whatever the row spends below itself comes out of the gap above it, not out of thin air.
-    assert mod.FOOTER_ROW_BOTTOM_PAD_COMPACT > 0
+    assert mod.FOOTER_ROW_PAD_COMPACT > 0
     assert mod.FOOTER_BUTTON_PAD_COMPACT < mod.FOOTER_BUTTON_PAD, "compact stays tighter than portrait"
 
 
@@ -317,7 +317,7 @@ def test_the_footer_row_is_padded_away_from_the_bottom_of_the_overlay() -> None:
 
     mod.pad_footer_row(SimpleNamespace(compact=True), footer)
 
-    assert footer.tk.packed == [{"pady": (0, mod.FOOTER_ROW_BOTTOM_PAD_COMPACT)}]
+    assert footer.tk.packed == [{"pady": (0, mod.FOOTER_ROW_PAD_COMPACT)}]
 
 
 def test_portrait_footers_are_not_padded_further() -> None:
@@ -356,7 +356,7 @@ def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPa
 
     # Deliberately not the shared default: otherwise create_popup ignoring the panel entirely
     # would produce the same padding and the wiring would go untested.
-    panel_pad = mod.FOOTER_ROW_BOTTOM_PAD_COMPACT + 7
+    panel_pad = mod.FOOTER_ROW_PAD_COMPACT + 7
 
     class _Panel(mod.OverlayPanel):
         has_footer = True

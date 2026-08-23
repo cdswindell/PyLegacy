@@ -178,6 +178,9 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     # pane's scope buttons. Halved rather than added: the overlay has no vertical slack.
     reclaimed = 2 * (panel.compact_control_height - panel.compact_toggle_height)
     assert panel.compact_footer_gap == reclaimed // 2
+    # Coincides with the shared pad StateInfoOverlay uses, so the two panels' footers read the
+    # same -- but derived here, because the admin overlay cannot afford to grow.
+    assert panel.compact_footer_gap == popup_manager.FOOTER_ROW_PAD_COMPACT
     assert panel.footer_bottom_pad == panel.compact_footer_gap
     assert panel.compact_footer_gap + panel.footer_bottom_pad == reclaimed
     assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height

@@ -123,3 +123,62 @@ def test_clear_record_cancels_button_closes_overlay_and_delegates() -> None:
     assert info.clear_btn.cancel_calls == 1
     assert closed == [info.overlay]
     assert cleared == [state]
+
+
+class _GapBox:
+    """Records the widgets build() appends to the body, so the gap can be identified."""
+
+    instances: list["_GapBox"] = []
+
+    def __init__(self, _parent=None, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.tk = SimpleNamespace(
+            config=lambda **_kw: None,
+            grid_columnconfigure=lambda *_a, **_kw: None,
+        )
+        _GapBox.instances.append(self)
+
+
+def _build_body(compact: bool, monkeypatch) -> list[_GapBox]:
+    _GapBox.instances = []
+    monkeypatch.setattr(mod, "Box", _GapBox)
+    info = mod.StateInfoOverlay.__new__(mod.StateInfoOverlay)
+    info.details = {}
+    info._gui = SimpleNamespace(
+        compact=compact,
+        emergency_box_width=632,
+        enable_editing=False,
+        calc_image_box_size=lambda: (600, 400),
+    )
+    info.make_field = lambda *_args, **_kwargs: (FakeTitle(), FakeField())
+
+    info.build(_GapBox())
+
+    return _GapBox.instances
+
+
+def test_compact_leaves_a_gap_above_the_footer_row(monkeypatch) -> None:
+    # Matched to the pad pad_footer_row leaves below the row: equal above and below is what
+    # centres Clear/Close rather than leaving them flush against the bottom of the overlay.
+    boxes = _build_body(compact=True, monkeypatch=monkeypatch)
+
+    gap = next(box for box in boxes if box.kwargs.get("height") == mod.FOOTER_ROW_PAD_COMPACT)
+    assert gap.kwargs["align"] == "top"
+    # Width as well as height, or guizero warns that one was given without the other.
+    assert gap.kwargs["width"] == 632
+
+
+def test_portrait_adds_no_footer_gap(monkeypatch) -> None:
+    # Portrait already carries 20px around each footer button and renders correctly as it is.
+    boxes = _build_body(compact=False, monkeypatch=monkeypatch)
+
+    assert all(box.kwargs.get("height") != mod.FOOTER_ROW_PAD_COMPACT for box in boxes)
+
+
+def test_the_gap_matches_what_is_left_below_the_row() -> None:
+    # The invariant that makes it centred. StateInfoOverlay does not override
+    # footer_bottom_pad, so the row falls back to the shared default -- the same constant.
+    info = mod.StateInfoOverlay.__new__(mod.StateInfoOverlay)
+
+    assert info.footer_bottom_pad is None, "inherits the shared default rather than its own"
+    assert mod.FOOTER_ROW_PAD_COMPACT > 0
