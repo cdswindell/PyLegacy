@@ -7,6 +7,7 @@ from typing import Callable
 import pytest
 
 import src.pytrain.gui.components.hold_button as mod
+import src.pytrain.gui.components.touch_contact as touch
 from src.pytrain.gui.components.hold_button import HoldButton
 
 
@@ -180,14 +181,11 @@ def make_button(enabled: bool, *, text: str = "Hold") -> DummyHoldButton:
     button._overlay_geometry = None
     button._leave_pending = False
     button._leave_after_id = None
-    button._press_recovery_ms = 0  # opt-in; the recovery tests turn it on explicitly
-    button._release_pending = False
-    button._release_after_id = None
     button._held_elapsed = 0.0
     button._diag_label = text
-    button._abandoned_at = None
-    button._abandoned_banked = 0.0
-    # _note_abandoned consults these; the recovery fixtures override them.
+    # Off by default -- the recovery tests build their own filter. _note_abandoned also
+    # consults the callbacks below, which those fixtures override.
+    button._contact = touch.TouchContactFilter(button, 0)
     button._on_hold = None
     button._on_press = None
     button._on_repeat = None
@@ -586,7 +584,7 @@ def test_overlay_is_re_placed_after_it_has_been_hidden() -> None:
 def _recovering_button(*, banked: float = 0.0) -> DummyHoldButton:
     """A hold button that tolerates the Deck interrupting a held contact."""
     button = make_button(True)
-    button._press_recovery_ms = 250
+    button._contact = touch.TouchContactFilter(button, 250)
     button._on_hold = lambda: None
     button._on_press = None
     button._on_repeat = None
@@ -602,7 +600,7 @@ def _spurious_release() -> SimpleNamespace:
 def _genuine_release() -> SimpleNamespace:
     """A release carrying the state mask a real X transition has."""
     event = _spurious_release()
-    event.state = mod.B1_MASK
+    event.state = touch.B1_MASK
     return event
 
 
@@ -627,7 +625,7 @@ def test_a_state_less_release_off_the_button_is_deferred(monkeypatch) -> None:
 
     button._on_release_event(_spurious_release())
 
-    assert button._release_pending is True
+    assert button._contact.release_pending is True
     assert button._held_elapsed == pytest.approx(0.4)
 
 
@@ -669,7 +667,7 @@ def test_a_press_inside_the_window_resumes_the_same_hold(monkeypatch) -> None:
     banked = button._held_elapsed
     button._on_press_event(None)
 
-    assert button._release_pending is False
+    assert button._contact.release_pending is False
     assert button._pressed is True
     assert button._held_elapsed == pytest.approx(banked)
     remaining_ms = max(1, int((button.hold_threshold - banked) * 1000))
@@ -736,7 +734,7 @@ def test_no_return_inside_the_window_is_a_real_release(monkeypatch) -> None:
     _run_after(button, 250)
 
     assert released == ["release"]
-    assert button._release_pending is False
+    assert button._contact.release_pending is False
 
 
 def test_recovery_is_off_by_default(monkeypatch) -> None:
@@ -750,7 +748,7 @@ def test_recovery_is_off_by_default(monkeypatch) -> None:
     button._on_release_event(_spurious_release())
 
     assert released == ["release"]
-    assert button._release_pending is False
+    assert button._contact.release_pending is False
 
 
 def test_a_completed_hold_is_not_deferred(monkeypatch) -> None:
@@ -774,7 +772,7 @@ def test_cancelling_clears_a_deferred_release(monkeypatch) -> None:
 
     button.cancel_hold()
 
-    assert button._release_pending is False
+    assert button._contact.release_pending is False
     assert button._held_elapsed == 0.0
 
 
@@ -793,11 +791,11 @@ def test_an_enter_with_the_contact_still_down_resumes_the_hold(monkeypatch) -> N
     _mid_hold(button, monkeypatch, elapsed=0.6)
     button.tk.pointer = (900, 900)
     button._on_release_event(_spurious_release())
-    assert button._release_pending is True
+    assert button._contact.release_pending is True
 
-    button._on_enter_candidate(_crossing_with_state(mod.B1_MASK))
+    button._on_enter_candidate(_crossing_with_state(touch.B1_MASK))
 
-    assert button._release_pending is False
+    assert button._contact.release_pending is False
     assert button._pressed is True
     assert button._held_elapsed == pytest.approx(0.6)
 
@@ -811,7 +809,7 @@ def test_an_enter_without_the_contact_does_not_resume(monkeypatch) -> None:
 
     button._on_enter_candidate(_crossing_with_state(0))
 
-    assert button._release_pending is True, "no button mask means no evidence of a hold"
+    assert button._contact.release_pending is True, "no button mask means no evidence of a hold"
 
 
 def test_motion_with_the_contact_down_also_resumes(monkeypatch) -> None:
@@ -821,28 +819,34 @@ def test_motion_with_the_contact_down_also_resumes(monkeypatch) -> None:
     button.tk.pointer = (900, 900)
     button._on_release_event(_spurious_release())
 
-    button._on_motion_candidate(_crossing_with_state(mod.B1_MASK))
+    button._on_motion_candidate(_crossing_with_state(touch.B1_MASK))
 
-    assert button._release_pending is False
+    assert button._contact.release_pending is False
 
 
-def test_motion_is_ignored_when_no_release_is_deferred() -> None:
-    # Motion is frequent; it must do nothing outside the recovery window.
+def test_motion_is_ignored_when_no_release_is_deferred(caplog) -> None:
+    # Motion is frequent; it must do nothing outside the recovery window. Asserted via
+    # press-resumed and the clock, not via release_pending: a bogus resume also leaves that
+    # False (resuming disarms the filter), so the obvious assertion passes either way.
+    import logging
+
     button = _recovering_button()
     button._pressed = True
+    button._press_time = None
 
-    button._on_motion_candidate(_crossing_with_state(mod.B1_MASK))
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        button._on_motion_candidate(_crossing_with_state(touch.B1_MASK))
 
-    assert button._release_pending is False
+    assert "press-resumed" not in caplog.text
+    assert button._press_time is None, "resuming would have restarted the clock"
+    assert button._contact.release_pending is False
     assert button._pressed is True
 
 
 def test_an_unreadable_state_mask_does_not_resume() -> None:
     # Some drivers omit state. Absence is not evidence the finger is still down.
-    button = _recovering_button()
-
-    assert button._event_button1_down(SimpleNamespace()) is False
-    assert button._event_button1_down(SimpleNamespace(state="nonsense")) is False
+    assert touch.contact_is_down(SimpleNamespace()) is False
+    assert touch.contact_is_down(SimpleNamespace(state="nonsense")) is False
 
 
 def test_a_quick_restart_inherits_the_abandoned_progress(monkeypatch, caplog) -> None:
@@ -892,7 +896,7 @@ def test_a_hold_that_fired_is_not_counted_as_abandoned(monkeypatch) -> None:
 
     button._note_abandoned(2.0)
 
-    assert button._abandoned_at is None
+    assert button._contact.has_abandoned_hold is False
 
 
 class _EventData:
@@ -931,9 +935,9 @@ def test_the_unwrap_reads_state_through_guizeros_wrapper() -> None:
     # stateless regardless of provenance. The unwrap is what makes the mask readable.
     wrapped = _EventData(_genuine_release())
 
-    assert HoldButton._event_button1_down(wrapped) is True
-    assert "guizero wrapper" in HoldButton._describe_state(wrapped)
-    assert HoldButton._event_button1_down(_EventData(_spurious_release())) is False
+    assert touch.contact_is_down(wrapped) is True
+    assert "guizero wrapper" in touch.describe_state(wrapped)
+    assert touch.contact_is_down(_EventData(_spurious_release())) is False
 
 
 def test_the_hold_story_is_still_traced_with_verbose_tracing_off(monkeypatch, caplog) -> None:
@@ -1014,3 +1018,34 @@ def test_a_plain_button_does_not_carry_progress_between_presses(monkeypatch, cap
 
     assert button._held_elapsed == 0.0, "the second hold must start from zero"
     assert "restart-resumed" not in caplog.text
+
+
+def test_a_callback_may_be_a_bare_function() -> None:
+    calls: list[tuple] = []
+
+    HoldButton._invoke_callback(lambda: calls.append(()))
+
+    assert calls == [()]
+
+
+def test_a_callback_may_carry_positional_args() -> None:
+    calls: list[tuple] = []
+
+    HoldButton._invoke_callback((lambda *a: calls.append(a), [1, 2]))
+
+    assert calls == [(1, 2)]
+
+
+def test_a_callback_may_carry_args_and_kwargs() -> None:
+    calls: list[tuple] = []
+
+    HoldButton._invoke_callback((lambda *a, **k: calls.append((a, k)), [1], {"flag": True}))
+
+    assert calls == [((1,), {"flag": True})]
+
+
+def test_an_absent_or_empty_callback_is_a_no_op() -> None:
+    # Guards the packed forms: an empty sequence must not be indexed, and a button with no
+    # callback for a phase reaches here on every press.
+    for empty in (None, (), []):
+        HoldButton._invoke_callback(empty)
