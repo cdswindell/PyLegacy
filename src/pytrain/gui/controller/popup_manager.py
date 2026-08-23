@@ -37,11 +37,12 @@ class PopupState:
     restore_acc_box: bool = False
 
 
-# Pack padding around a footer button. The compact pane cannot afford the portrait inset
-# horizontally, but it does need vertical breathing room: at 4 the row sat hard against the
-# section above it with nothing below, so padx and pady are separate in compact.
-FOOTER_BUTTON_PADX_COMPACT = 4
-FOOTER_BUTTON_PADY_COMPACT = 10
+# Pack padding around a footer button. The compact pane cannot afford the portrait inset.
+# Kept tight deliberately: the overlay has no vertical slack (it already ends within a dozen
+# pixels of the pane's nav bar), so the row's outer spacing is set on the row itself -- see
+# pad_footer_row and AdminPanel.compact_footer_gap -- where it can be traded against the gap
+# above rather than silently growing the overlay and pushing the buttons under the nav bar.
+FOOTER_BUTTON_PAD_COMPACT = 4
 FOOTER_BUTTON_PAD = 20
 # Horizontal gap between a panel's own footer button and Close, expressed as a text size --
 # the spacer is a single space, so its point size is what sets its width.
@@ -51,6 +52,10 @@ FOOTER_GAP_COMPACT = 24
 # *inside* the row and separates the buttons from its edges -- this separates the row from the
 # bottom of the overlay, and is the only thing that can. Compact only: the portrait footer
 # already carries 20px around its buttons and renders correctly as it is.
+#
+# Paid for, not added: AdminPanel.compact_footer_gap gives up exactly this much above the row,
+# because the overlay has no room to grow. Measured -- at h=597 it already reached y=751 with
+# the pane's nav bar starting around 738, so 20px of new padding put the buttons underneath it.
 FOOTER_ROW_BOTTOM_PAD_COMPACT = 8
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
@@ -80,10 +85,8 @@ def style_footer_button(host, btn) -> None:
         activebackground="#e0e0e0",
         background="#f7f7f7",
     )
-    options = {
-        "padx": FOOTER_BUTTON_PADX_COMPACT if compact else FOOTER_BUTTON_PAD,
-        "pady": FOOTER_BUTTON_PADY_COMPACT if compact else FOOTER_BUTTON_PAD,
-    }
+    padding = FOOTER_BUTTON_PAD_COMPACT if compact else FOOTER_BUTTON_PAD
+    options = {"padx": padding, "pady": padding}
     btn.tk.pack_configure(**options)
     setattr(btn, _FOOTER_PACK_ATTR, options)
 

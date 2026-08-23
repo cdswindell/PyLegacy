@@ -174,6 +174,10 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
         if box.kwargs.get("height") == panel.compact_footer_gap and "text" not in box.kwargs
     )
     assert gap.kwargs["align"] == "top"
+    # The gap above yields exactly what the footer row spends below itself: the overlay has no
+    # vertical slack, so whitespace below the buttons is paid for, not added.
+    reclaimed = 2 * (panel.compact_control_height - panel.compact_toggle_height)
+    assert panel.compact_footer_gap == reclaimed - popup_manager.FOOTER_ROW_BOTTOM_PAD_COMPACT
     assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height
     checkbox_controls = {
         box.kwargs.get("text"): box for box in _TitleBox.instances if box.kwargs.get("text") in {"Logging", "Debugging"}

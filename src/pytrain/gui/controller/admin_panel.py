@@ -26,7 +26,7 @@ from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
-from .popup_manager import footer_spacer, style_footer_button
+from .popup_manager import FOOTER_ROW_BOTTOM_PAD_COMPACT, footer_spacer, style_footer_button
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -182,11 +182,17 @@ class AdminPanel(OverlayPanel):
     def compact_footer_gap(self) -> int:
         """Whitespace above the Controls/Close row, in pixels.
 
-        Derived from what the two toggle rows gave up rather than written down separately,
-        so shrinking or restoring those rows moves this in step instead of leaving the
-        footer floating or crowded.
+        What the two toggle rows gave up, minus what the footer row now spends below itself.
+        Both halves are derived rather than written down, so changing either moves this in
+        step instead of leaving the footer crowded or floating.
+
+        The subtraction is the load-bearing part: the overlay has no vertical slack. Measured
+        at h=597 reaching y=751, with the pane's nav bar starting around 738 -- so whitespace
+        below the row is not free, and taking it from the gap above keeps the overlay the
+        height that already fit rather than sliding the buttons under the nav bar.
         """
-        return 2 * (self.compact_control_height - self.compact_toggle_height)
+        reclaimed = 2 * (self.compact_control_height - self.compact_toggle_height)
+        return max(0, reclaimed - FOOTER_ROW_BOTTOM_PAD_COMPACT)
 
     @property
     def compact_section_height(self) -> int:
@@ -691,13 +697,26 @@ class AdminPanel(OverlayPanel):
             try:
                 tk = overlay.tk
                 log.debug(
-                    "admingeom %-18s map=%s y=%-4s h=%-4s parent_h=%-4s",
+                    # parent_h is the whole pane and overstates the room available: the
+                    # usable region ends where the pane's nav bar begins. bottom= is the
+                    # number that matters -- what the overlay actually reaches.
+                    "admingeom %-18s map=%s y=%-4s h=%-4s bottom=%-4s parent_h=%-4s",
                     "OVERLAY",
                     int(tk.winfo_ismapped()),
                     tk.winfo_rooty(),
                     tk.winfo_height(),
+                    tk.winfo_rooty() + tk.winfo_height(),
                     tk.master.winfo_height(),
                 )
+                for child in getattr(overlay, "children", ()) or ():
+                    ctk = child.tk
+                    log.debug(
+                        "admingeom %-18s map=%s y=%-4s h=%-4s",
+                        f"  {ctk.winfo_class()}",
+                        int(ctk.winfo_ismapped()),
+                        ctk.winfo_rooty(),
+                        ctk.winfo_height(),
+                    )
             except (AttributeError, TclError, RuntimeError, TypeError):
                 pass
         for widget, options in self._compact_controls:

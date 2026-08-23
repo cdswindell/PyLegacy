@@ -203,10 +203,9 @@ def test_compact_close_button_uses_reduced_height_without_changing_portrait(monk
     compact = _Widget()
     manager.add_close_btn(manager._host, None, compact)
     assert buttons[-1].tk.configured[-1]["pady"] == 1
-    # padx stays tight; pady is what gives the row room above and below.
     assert buttons[-1].tk.packed[-1] == {
-        "padx": mod.FOOTER_BUTTON_PADX_COMPACT,
-        "pady": mod.FOOTER_BUTTON_PADY_COMPACT,
+        "padx": mod.FOOTER_BUTTON_PAD_COMPACT,
+        "pady": mod.FOOTER_BUTTON_PAD_COMPACT,
     }
 
 
@@ -224,8 +223,8 @@ def test_a_footer_button_records_the_packing_it_was_given() -> None:
     mod.style_footer_button(host, btn)
 
     assert btn.tk.packed[-1] == {
-        "padx": mod.FOOTER_BUTTON_PADX_COMPACT,
-        "pady": mod.FOOTER_BUTTON_PADY_COMPACT,
+        "padx": mod.FOOTER_BUTTON_PAD_COMPACT,
+        "pady": mod.FOOTER_BUTTON_PAD_COMPACT,
     }
     assert getattr(btn, mod._FOOTER_PACK_ATTR) == btn.tk.packed[-1]
 
@@ -233,9 +232,9 @@ def test_a_footer_button_records_the_packing_it_was_given() -> None:
 def test_footer_buttons_are_styled_identically_in_each_mode() -> None:
     # The defect was three copies of one style. Whatever a panel puts in its footer has to
     # come out matching Close, in both modes.
-    for compact, size, inner_pady, padx, pady in (
-        (True, 16, 1, mod.FOOTER_BUTTON_PADX_COMPACT, mod.FOOTER_BUTTON_PADY_COMPACT),
-        (False, 20, 4, mod.FOOTER_BUTTON_PAD, mod.FOOTER_BUTTON_PAD),
+    for compact, size, inner_pady, pad in (
+        (True, 16, 1, mod.FOOTER_BUTTON_PAD_COMPACT),
+        (False, 20, 4, mod.FOOTER_BUTTON_PAD),
     ):
         host = SimpleNamespace(compact=compact, s_18=16, s_20=20)
         close, other = _footer_button(), _footer_button()
@@ -247,7 +246,7 @@ def test_footer_buttons_are_styled_identically_in_each_mode() -> None:
         assert close.tk.packed == other.tk.packed, f"compact={compact}"
         assert close.text_size == other.text_size == size
         assert close.tk.configured[-1]["pady"] == inner_pady
-        assert close.tk.packed[-1] == {"padx": padx, "pady": pady}
+        assert close.tk.packed[-1] == {"padx": pad, "pady": pad}
 
 
 def test_restoring_replays_only_the_buttons_that_were_styled() -> None:
@@ -260,7 +259,7 @@ def test_restoring_replays_only_the_buttons_that_were_styled() -> None:
 
     mod.restore_footer_packing(footer)
 
-    assert styled.tk.packed == [{"padx": mod.FOOTER_BUTTON_PADX_COMPACT, "pady": mod.FOOTER_BUTTON_PADY_COMPACT}]
+    assert styled.tk.packed == [{"padx": mod.FOOTER_BUTTON_PAD_COMPACT, "pady": mod.FOOTER_BUTTON_PAD_COMPACT}]
     assert plain.tk.packed == [], "a spacer is re-packed by guizero; it has no padding to restore"
 
 
@@ -284,11 +283,12 @@ def test_adding_close_repairs_the_packing_of_the_button_beside_it(monkeypatch: p
     assert panel_btn.tk.packed[-1] == made[-1].tk.packed[-1]
 
 
-def test_the_footer_row_gets_vertical_room_it_did_not_have() -> None:
-    # The reported symptom: the row sat hard against the section above it with nothing below.
-    # Horizontal inset is still tight -- the pane cannot spare it -- so the two differ.
-    assert mod.FOOTER_BUTTON_PADY_COMPACT > mod.FOOTER_BUTTON_PADX_COMPACT
-    assert mod.FOOTER_BUTTON_PADY_COMPACT < mod.FOOTER_BUTTON_PAD, "still tighter than portrait"
+def test_the_row_pays_for_its_whitespace_rather_than_growing_the_overlay() -> None:
+    # The overlay has no vertical slack: measured at h=597 reaching y=751 with the pane's nav
+    # bar starting around 738, so 20px of extra padding put the footer buttons underneath it.
+    # Whatever the row spends below itself comes out of the gap above it, not out of thin air.
+    assert mod.FOOTER_ROW_BOTTOM_PAD_COMPACT > 0
+    assert mod.FOOTER_BUTTON_PAD_COMPACT < mod.FOOTER_BUTTON_PAD, "compact stays tighter than portrait"
 
 
 def test_the_footer_spacer_tracks_the_mode() -> None:
