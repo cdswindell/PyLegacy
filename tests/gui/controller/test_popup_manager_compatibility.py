@@ -204,3 +204,74 @@ def test_compact_close_button_uses_reduced_height_without_changing_portrait(monk
     manager.add_close_btn(manager._host, None, compact)
     assert buttons[-1].tk.configured[-1]["pady"] == 1
     assert buttons[-1].tk.packed[-1] == {"padx": 4, "pady": 4}
+
+
+def _footer_button() -> _Widget:
+    return _Widget()
+
+
+def test_a_footer_button_records_the_packing_it_was_given() -> None:
+    # Recorded because creating the next sibling discards it: guizero re-packs every child
+    # keeping only side/fill, so whichever button is added last is the only one that keeps
+    # its padding. That is why Close looked inset and the button beside it did not.
+    host = SimpleNamespace(compact=True, s_18=16, s_20=20)
+    btn = _footer_button()
+
+    mod.style_footer_button(host, btn)
+
+    assert btn.tk.packed[-1] == {"padx": mod.FOOTER_BUTTON_PAD_COMPACT, "pady": mod.FOOTER_BUTTON_PAD_COMPACT}
+    assert getattr(btn, mod._FOOTER_PACK_ATTR) == btn.tk.packed[-1]
+
+
+def test_footer_buttons_are_styled_identically_in_each_mode() -> None:
+    # The defect was three copies of one style. Whatever a panel puts in its footer has to
+    # come out matching Close, in both modes.
+    for compact, size, pady, pad in (
+        (True, 16, 1, mod.FOOTER_BUTTON_PAD_COMPACT),
+        (False, 20, 4, mod.FOOTER_BUTTON_PAD),
+    ):
+        host = SimpleNamespace(compact=compact, s_18=16, s_20=20)
+        close, other = _footer_button(), _footer_button()
+
+        mod.style_footer_button(host, close)
+        mod.style_footer_button(host, other)
+
+        assert close.tk.configured == other.tk.configured, f"compact={compact}"
+        assert close.tk.packed == other.tk.packed, f"compact={compact}"
+        assert close.text_size == other.text_size == size
+        assert close.tk.configured[-1]["pady"] == pady
+        assert close.tk.packed[-1] == {"padx": pad, "pady": pad}
+
+
+def test_restoring_replays_only_the_buttons_that_were_styled() -> None:
+    host = SimpleNamespace(compact=True, s_18=16, s_20=20)
+    styled, plain = _footer_button(), _footer_button()
+    mod.style_footer_button(host, styled)
+    footer = SimpleNamespace(children=[styled, plain])
+    styled.tk.packed.clear()  # what display_widgets leaves behind
+    plain.tk.packed.clear()
+
+    mod.restore_footer_packing(footer)
+
+    assert styled.tk.packed == [{"padx": mod.FOOTER_BUTTON_PAD_COMPACT, "pady": mod.FOOTER_BUTTON_PAD_COMPACT}]
+    assert plain.tk.packed == [], "a spacer is re-packed by guizero; it has no padding to restore"
+
+
+def test_adding_close_repairs_the_packing_of_the_button_beside_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The end-to-end shape: a panel styles its own button, then create_popup adds Close --
+    # which is the creation that wipes the first one. add_close_btn has to put it back.
+    host = _host()
+    host.compact = True
+    host.s_18 = 16
+    host.s_20 = 20
+    made: list[_Widget] = []
+    monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
+    manager = mod.PopupManager(host)
+    panel_btn = _footer_button()
+    mod.style_footer_button(host, panel_btn)
+    footer = SimpleNamespace(children=[panel_btn], tk=_Tk())
+    panel_btn.tk.packed.clear()  # guizero drops it when Close is created
+
+    manager.add_close_btn(host, None, footer)
+
+    assert panel_btn.tk.packed[-1] == made[-1].tk.packed[-1]

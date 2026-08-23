@@ -37,6 +37,58 @@ class PopupState:
     restore_acc_box: bool = False
 
 
+# Pack padding around a footer button. The compact pane cannot afford the portrait inset.
+FOOTER_BUTTON_PAD_COMPACT = 4
+FOOTER_BUTTON_PAD = 20
+# Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
+_FOOTER_PACK_ATTR = "_pytrain_footer_pack"
+
+
+def style_footer_button(host, btn) -> None:
+    """Give a footer button the one shared look.
+
+    There were three copies of this block -- Close here, plus the extra button in each
+    panel's build_footer -- and they drifted, which is the whole defect. AdminPanel's copy
+    tracked compact correctly; StateInfoOverlay's never had a compact branch at all, so on a
+    Deck pane its Clear button was styled for portrait next to a compact Close.
+
+    The packing is *recorded* as well as applied, because guizero re-packs every sibling
+    whenever a widget is created and keeps only side/fill (Container._pack_widget). Whichever
+    footer button is created last keeps its padding; the others silently lose theirs.
+    """
+    compact = bool(getattr(host, "compact", False))
+    btn.text_size = host.s_18 if compact else host.s_20
+    btn.tk.config(
+        borderwidth=3,
+        relief="raised",
+        highlightthickness=1,
+        highlightbackground="black",
+        padx=6,
+        pady=1 if compact else 4,
+        activebackground="#e0e0e0",
+        background="#f7f7f7",
+    )
+    padding = FOOTER_BUTTON_PAD_COMPACT if compact else FOOTER_BUTTON_PAD
+    options = {"padx": padding, "pady": padding}
+    btn.tk.pack_configure(**options)
+    setattr(btn, _FOOTER_PACK_ATTR, options)
+
+
+def restore_footer_packing(footer) -> None:
+    """Replay the packing of every styled button in a footer.
+
+    Called once Close is in place -- it is always the last thing added to a footer, so it is
+    the only button whose own packing survived creation.
+    """
+    for child in getattr(footer, "children", ()) or ():
+        options = getattr(child, _FOOTER_PACK_ATTR, None)
+        if options:
+            try:
+                child.tk.pack_configure(**options)
+            except (AttributeError, TclError, RuntimeError):
+                continue
+
+
 class PopupManager:
     """
     Manages overlay popups for EngineGui.
@@ -202,20 +254,9 @@ class PopupManager:
             command=on_close or self.close,
             args=[close_target],
         )
-        compact = bool(getattr(host, "compact", False))
-        btn.text_size = host.s_18 if compact else host.s_20
-        btn.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=1 if compact else 4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
-        padding = 4 if compact else 20
-        btn.tk.pack_configure(padx=padding, pady=padding)
+        style_footer_button(host, btn)
+        # Creating this button discarded the packing of everything already in the footer.
+        restore_footer_packing(overlay)
         host.cache(btn)
 
     def add_close_acc_btn(

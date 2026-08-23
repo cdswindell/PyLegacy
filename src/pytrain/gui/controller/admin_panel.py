@@ -26,6 +26,7 @@ from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
+from .popup_manager import style_footer_button
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -601,19 +602,9 @@ class AdminPanel(OverlayPanel):
             width=len(CONTROLS_BUTTON_TEXT),
             command=self.show_controls,
         )
-        btn.text_size = self._gui.s_18 if self._compact else self._gui.s_20
-        btn.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=1 if self._compact else 4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
-        padding = 4 if self._compact else 20
-        btn.tk.pack_configure(padx=padding, pady=padding)
+        # One shared style, so this button and Close cannot drift apart -- they had separate
+        # copies of the same block, and Close ended up the only one keeping its packing.
+        style_footer_button(self._gui, btn)
         self._gui.cache(btn)
 
         # Separate this from the Close button with a spacer *widget*, not pack padding.

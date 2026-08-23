@@ -14,6 +14,7 @@ from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .overlay_panel import OverlayPanel
+from .popup_manager import style_footer_button
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ...db.accessory_state import AccessoryState
@@ -401,7 +402,6 @@ class StateInfoOverlay(OverlayPanel):
             footer,
             text="Clear",
             align="left",
-            text_size=host.s_20,
             width=8,
             hold_threshold=self.hold_threshold,
             show_hold_progress=True,
@@ -410,17 +410,10 @@ class StateInfoOverlay(OverlayPanel):
             progress_empty_color="lightgrey",
             on_hold=self.clear_record,
         )
-        btn.tk.config(
-            borderwidth=3,
-            relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
-            padx=6,
-            pady=4,
-            activebackground="#e0e0e0",
-            background="#f7f7f7",
-        )
-        btn.tk.pack_configure(padx=20, pady=20)
+        # Shared with Close. This copy had no compact branch at all, so on a Deck pane a
+        # portrait-styled Clear sat next to a compact Close -- a bigger mismatch than the
+        # admin panel's, and the same root cause.
+        style_footer_button(host, btn)
         host.cache(btn)
         # spacer
         sp = Text(footer, text=" ", height=1, align="left")
