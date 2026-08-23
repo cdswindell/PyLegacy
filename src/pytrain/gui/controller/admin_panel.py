@@ -89,6 +89,7 @@ class AdminPanel(OverlayPanel):
         self._sync_state = None
         self._reload_btn = None
         self._scope_btns = None
+        self._compact_controls: list = []
         self._echo_btn = None
         self._debug_btn = None
         self._accs_btn = None
@@ -122,6 +123,17 @@ class AdminPanel(OverlayPanel):
     @property
     def compact_control_width(self) -> int:
         return int(self._width / 2.1)
+
+    @property
+    def control_half_width(self) -> int:
+        """Width of one control in a two-up row, in pixels.
+
+        Shared by the Logging & Debugging checkboxes and the Scope radios so the two rows
+        line up. The radios used to ask for self._width / 2.3, which with 18px of padx on
+        each side came to 620px for the pair -- inside a TitleBox pinned to 619 and set
+        grid_propagate(False), so the second option was clipped mid-word.
+        """
+        return int(self._width / 2.48)
 
     @property
     def compact_title_allowance(self) -> int:
@@ -367,7 +379,7 @@ class AdminPanel(OverlayPanel):
             command=self._on_echo,
         )
         cb.value = 1 if self._pytrain.echo else 0
-        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=self.control_half_width)
         self._fit_compact_control(cb, image_backed=True)
 
         self.spacer(tb, grid=[1, 0])
@@ -378,20 +390,21 @@ class AdminPanel(OverlayPanel):
             command=self._on_debug,
         )
         cb.value = 1 if self._pytrain.debug else 0
-        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=int(self._width / 2.48))
+        CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=self.control_half_width)
         self._fit_compact_control(cb, image_backed=True)
         if self._pytrain.echo:
             cb.enable()
         else:
             cb.disable()
 
-        # scope
+        # scope -- deliberately shaped like the Logging & Debugging row above: a filling
+        # TitleBox, one option per half-width column, and the same spacer between them.
         row += 1
         tb = self._titlebox(
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
-            width=width,
+            width="fill",
         )
 
         self._scope_btns = CheckBoxGroup(
@@ -401,9 +414,10 @@ class AdminPanel(OverlayPanel):
             options=SCOPE_OPTS,
             horizontal=True,
             align="top",
-            width=int(self._width / 2.3),
+            width=self.control_half_width,
             style="radio",
         )
+        self._mirror_two_up_columns(self._scope_btns)
 
         # admin operations
         row += 1
@@ -477,6 +491,10 @@ class AdminPanel(OverlayPanel):
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
+        # Last thing in build(): every control is created, so nothing further will re-grid
+        # them out from under this.
+        self._apply_compact_grid()
+
     @property
     def controls_available(self) -> bool:
         """Whether there are controller bindings worth showing a help screen for.
@@ -541,6 +559,44 @@ class AdminPanel(OverlayPanel):
         """
         self._gui.close_popup()
         self._gui.on_controls_panel()
+
+    def _mirror_two_up_columns(self, group: CheckBoxGroup) -> None:
+        """Re-grid a two-option ButtonGroup onto the columns the checkbox rows use.
+
+        guizero grids a horizontal ButtonGroup's options into adjacent columns of its own
+        frame (1 and 2 -- it pre-increments), with nothing between them. The checkbox rows
+        put their controls in columns 0 and 2 with a spacer at 1, so left to itself the
+        Scope row sat a spacer's width tighter than the row above and read as misaligned.
+
+        Assigning through guizero's own ``grid`` property rather than tk's grid() is what
+        makes this stick: display_widgets() re-grids from that attribute, so a later
+        show/hide -- and this panel does hide/show the group deliberately, see
+        _needs_scope_fix -- reproduces the placement instead of undoing it.
+        """
+        options = getattr(group, "_rbuttons", None)
+        if not options or len(options) != 2:
+            # Only the two-option case has a checkbox row to mirror. Anything else keeps
+            # guizero's own packing rather than being silently mangled.
+            return
+        left, right = options
+        self.spacer(group, grid=[1, 0])
+        left.grid = [0, 0]
+        right.grid = [2, 0]
+
+    def _apply_compact_grid(self) -> None:
+        """Re-assert the compact grid options that widget creation wipes.
+
+        guizero's Widget.__init__ ends with ``self.visible = visible``, which calls
+        master.display_widgets() and re-grids *every* sibling via tk's grid() -- and grid()
+        replaces the whole option set, so the sticky/padx/pady from _fit_compact_control
+        survive only on the last child added to a container. That is why Shutdown, created
+        last in the admin-actions box, filled its cell at 296x48 while the five buttons
+        above it sat at their natural 300x40.
+
+        Called once at the end of build(), when nothing further will be created.
+        """
+        for control in self._compact_controls:
+            control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
 
     def spacer(self, tb: TitleBox, grid: tuple[int, int], width: int = 2) -> Text:
         sp = Text(
@@ -875,7 +931,11 @@ class AdminPanel(OverlayPanel):
         if self._compact:
             height = self.compact_control_height - 4 if image_backed else 1
             control.tk.config(height=height, pady=0)
+            # Applied now so a control that happens to be created last is right either way,
+            # and recorded so _apply_compact_grid can restore it after the sibling that
+            # follows wipes it. The tk.config above is not affected -- only grid options are.
             control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
+            self._compact_controls.append(control)
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized():

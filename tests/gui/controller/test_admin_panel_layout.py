@@ -64,6 +64,7 @@ def _panel(compact: bool) -> mod.AdminPanel:
     panel._width = 632
     panel._compact = compact
     panel._admin_buttons = {}  # normally set in __init__, which this factory bypasses
+    panel._compact_controls = []
     return panel
 
 
@@ -605,3 +606,80 @@ def test_drag_off_cancel_applies_to_both_platforms(monkeypatch) -> None:
     for steam_deck in (True, False):
         button = _built_hold_button(monkeypatch, steam_deck=steam_deck)
         assert button.kwargs["cancel_on_leave"] is True
+
+
+class _Rb:
+    """Stands in for a guizero RadioButton: only its `grid` attribute matters here."""
+
+    def __init__(self) -> None:
+        self.grid = None
+
+
+def test_a_two_option_group_is_regridded_onto_the_checkbox_columns() -> None:
+    # The Scope radios must land in the same columns as the Logging/Debugging checkboxes,
+    # with a spacer between, or the row reads as misaligned against the one above it.
+    panel = _panel(compact=True)
+    spacers = []
+    panel.spacer = lambda parent, grid: spacers.append((parent, grid))
+    left, right = _Rb(), _Rb()
+    group = SimpleNamespace(_rbuttons=[left, right])
+
+    panel._mirror_two_up_columns(group)
+
+    assert left.grid == [0, 0]
+    assert right.grid == [2, 0]
+    assert spacers == [(group, [1, 0])]
+
+
+def test_a_group_that_is_not_two_up_keeps_guizeros_own_packing() -> None:
+    # Only the two-option case has a checkbox row to mirror. A third option would have no
+    # column to go to, so leave the group alone rather than mangle it.
+    panel = _panel(compact=True)
+    called = []
+    panel.spacer = lambda parent, grid: called.append(grid)
+
+    panel._mirror_two_up_columns(SimpleNamespace(_rbuttons=[_Rb(), _Rb(), _Rb()]))
+    panel._mirror_two_up_columns(SimpleNamespace(_rbuttons=[]))
+    panel._mirror_two_up_columns(SimpleNamespace())
+
+    assert called == []
+
+
+def test_the_scope_radios_are_the_same_width_as_the_logging_checkboxes() -> None:
+    # Equal width is what keeps the two rows aligned, and what stopped the pair from
+    # overflowing a TitleBox pinned to 98% of the panel width.
+    panel = _panel(compact=True)
+
+    per_option = panel.control_half_width
+
+    assert per_option * 2 < panel._width, "a pair plus padding has to fit the panel"
+    assert per_option == int(panel._width / 2.48)
+
+
+def test_compact_grid_options_are_restored_after_creation_wipes_them() -> None:
+    # guizero re-grids every sibling whenever a widget is created, and tk's grid() replaces
+    # the whole option set -- so only the last control added kept its sticky and padding.
+    # That is why Shutdown rendered 8px taller than the five buttons above it.
+    panel = _panel(compact=True)
+    first, last = SimpleNamespace(tk=_Tk()), SimpleNamespace(tk=_Tk())
+    panel._fit_compact_control(first)
+    panel._fit_compact_control(last)
+    first.tk.grid = {"column": 0, "row": 2, "sticky": "W"}  # what display_widgets leaves
+
+    panel._apply_compact_grid()
+
+    assert first.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
+    assert last.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
+
+
+def test_portrait_records_no_compact_controls_to_restore() -> None:
+    # The re-apply pass must be a no-op off the Deck: portrait never asked for the compact
+    # sizing in the first place.
+    panel = _panel(compact=False)
+    control = SimpleNamespace(tk=_Tk())
+
+    panel._fit_compact_control(control)
+    panel._apply_compact_grid()
+
+    assert panel._compact_controls == []
+    assert control.tk.grid is None
