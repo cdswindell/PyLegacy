@@ -13,6 +13,8 @@ from threading import RLock, Thread
 from typing import TYPE_CHECKING
 
 import psutil
+from tkinter import TclError
+
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
 from ...cli.pytrain import PyTrain
@@ -264,6 +266,7 @@ class AdminPanel(OverlayPanel):
             # That hide/show is a display_widgets() on the Scope box, which re-grids the
             # group and drops the fill applied during build. Put it back.
             self._apply_compact_grid()
+        self._log_compact_geometry()
         return overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -637,6 +640,46 @@ class AdminPanel(OverlayPanel):
         for option in (left, right):
             self._fit_compact_control(option, image_backed=True, row_height=self.compact_toggle_height)
 
+    def _log_compact_geometry(self) -> None:
+        """Report what Tk actually allocated to every compact section and control.
+
+        Two rounds of reasoning about 5-pixel insets from a photograph produced changes with
+        no visible effect, so this reports measured geometry instead of inferred geometry:
+        each widget's own size and position, its grid options, and its parent's width. Run
+        with -debug on the Deck, open this panel, and grep the log for "admingeom".
+
+        Diagnostics only -- it must never be able to break the panel, hence the broad
+        guard and the single call site after the overlay is on screen.
+        """
+        if not self._compact or not log.isEnabledFor(logging.DEBUG):
+            return
+        try:
+            self._gui.app.tk.update_idletasks()
+        except (AttributeError, TclError, RuntimeError):
+            return
+        log.debug("admingeom panel width=%s (the value sections are sized from)", self._width)
+        for widget, options in self._compact_controls:
+            try:
+                tk = widget.tk
+                # LabelFrames and buttons both carry -text, which identifies them far better
+                # than a Tk widget path; frames without one fall back to their class.
+                name = tk.cget("text") if "text" in tk.keys() else tk.winfo_class()
+                info = tk.grid_info()
+                log.debug(
+                    "admingeom %-18s x=%-4s w=%-4s h=%-3s parent_w=%-4s col=%s span=%s sticky=%s asked=%s",
+                    str(name)[:18],
+                    tk.winfo_rootx(),
+                    tk.winfo_width(),
+                    tk.winfo_height(),
+                    tk.master.winfo_width(),
+                    info.get("column"),
+                    info.get("columnspan"),
+                    info.get("sticky"),
+                    options,
+                )
+            except (AttributeError, TclError, RuntimeError, TypeError):
+                continue
+
     def _apply_compact_grid(self) -> None:
         """Re-assert the compact grid options that widget creation wipes.
 
@@ -915,7 +958,12 @@ class AdminPanel(OverlayPanel):
                 align="top",
                 grid=grid,
                 height=height,
-                **({} if self._compact else {"width": self._width}),
+                # "fill" rather than omitting it: guizero warns when given a height and no
+                # width (base.py, "You must specify a width and a height"), and its own
+                # comment there exempts fill. Fill also skips setting a tk width while
+                # still applying grid_propagate(False) for the height, which is precisely
+                # the intent -- the real width comes from the sticky="nsew" below.
+                width=self._width if not self._compact else "fill",
             )
             if not self._compact:
                 tb.tk.config(width=self._width)

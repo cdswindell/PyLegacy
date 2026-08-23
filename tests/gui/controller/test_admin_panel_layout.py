@@ -86,7 +86,10 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
     # No asserted width: self._width is the whole pane, which a section inside admin_box
     # (padx=2 a side, 1px border) can never be given. It fills its column instead, with no
     # padding of its own -- padding here would come off the width its columns share.
-    assert "width" not in titlebox.kwargs
+    # "fill", not absent: a height with no width trips a guizero warning, and fill is the
+    # documented exemption. It also leaves the tk width unset, which is the point.
+    assert titlebox.kwargs["width"] == "fill"
+    assert titlebox.tk.configs == [], "compact must not assert a pixel width"
     assert titlebox.tk.grid == {"sticky": "nsew", "padx": 0, "pady": 0}
     assert panel._compact_controls == [(titlebox, {"sticky": "nsew", "padx": 0, "pady": 0})]
 
@@ -761,3 +764,103 @@ def test_portrait_records_no_compact_controls_to_restore() -> None:
 
     assert panel._compact_controls == []
     assert control.tk.grid is None
+
+
+class _GeomTk(_Tk):
+    """A tk stub that can answer geometry questions, or refuse to."""
+
+    def __init__(self, *, text: str | None = "Widget", broken: bool = False) -> None:
+        super().__init__()
+        self._text = text
+        self.broken = broken
+        self.master = SimpleNamespace(winfo_width=lambda: 626)
+
+    def keys(self):
+        return ["text"] if self._text is not None else ["background"]
+
+    def cget(self, _key):
+        return self._text
+
+    def winfo_class(self):
+        return "Frame"
+
+    def grid_info(self):
+        return {"column": 0, "columnspan": 2, "sticky": "nsew"}
+
+    def winfo_rootx(self):
+        if self.broken:
+            raise RuntimeError("not mapped")
+        return 100
+
+    def winfo_width(self):
+        return 620
+
+    def winfo_height(self):
+        return 60
+
+
+def _geom_panel(compact: bool):
+    panel = _panel(compact=compact)
+    panel._gui = SimpleNamespace(app=SimpleNamespace(tk=SimpleNamespace(update_idletasks=lambda: None)))
+    return panel
+
+
+def test_geometry_is_reported_for_each_compact_widget(caplog) -> None:
+    import logging
+
+    panel = _geom_panel(compact=True)
+    panel._compact_controls = [
+        (SimpleNamespace(tk=_GeomTk(text="Scope")), {"sticky": "nsew", "padx": 0, "pady": 0}),
+        (SimpleNamespace(tk=_GeomTk(text=None)), {"sticky": "nsew", "padx": 2, "pady": 2}),
+    ]
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        panel._log_compact_geometry()
+
+    assert "admingeom panel width=632" in caplog.text
+    assert "Scope" in caplog.text
+    # A frame carries no -text, so it is identified by its Tk class instead.
+    assert "Frame" in caplog.text
+
+
+def test_geometry_reporting_is_silent_off_the_deck(caplog) -> None:
+    import logging
+
+    panel = _geom_panel(compact=False)
+    panel._compact_controls = [(SimpleNamespace(tk=_GeomTk()), {})]
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        panel._log_compact_geometry()
+
+    assert "admingeom" not in caplog.text
+
+
+def test_a_widget_that_cannot_be_measured_does_not_stop_the_report(caplog) -> None:
+    # Diagnostics must never break the panel: an unmapped widget is skipped, not fatal.
+    import logging
+
+    panel = _geom_panel(compact=True)
+    panel._compact_controls = [
+        (SimpleNamespace(tk=_GeomTk(text="Broken", broken=True)), {}),
+        (SimpleNamespace(tk=_GeomTk(text="Fine")), {}),
+    ]
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        panel._log_compact_geometry()
+
+    assert "Broken" not in caplog.text
+    assert "Fine" in caplog.text
+
+
+def test_no_titlebox_is_given_a_height_without_a_width(monkeypatch) -> None:
+    # guizero emits "You must specify a width and a height" when it gets one and not the
+    # other, and it emitted five of them -- one per section -- when compact stopped passing
+    # a width. Any size kwarg at all means both must be present.
+    monkeypatch.setattr(mod, "TitleBox", _TitleBox)
+
+    for compact in (True, False):
+        panel = _panel(compact=compact)
+        for kwargs in ({}, {"height": 90}):
+            box = panel._titlebox(object(), "Section", grid=[0, 0, 2, 1], **kwargs)
+            sized = {"width", "height"} & box.kwargs.keys()
+            assert sized in ({"width", "height"}, set()), f"compact={compact} kwargs={box.kwargs}"
