@@ -63,6 +63,17 @@ FOOTER_GAP_COMPACT = 24
 # session (17 in 16 seconds, charging); 350 caught all 18 at a release lag you could see.
 PRESS_RECOVERY_MS = 0
 
+# What a compact section loses relative to self._width. Measured from the admingeom trace at
+# 12 (self._width 632 produced 620px sections), of which 6 was admin_box's own border and
+# pack padding -- since removed. Kept at 12 as a deliberately conservative allowance: it only
+# feeds the column floor below, and an over-large floor clips while an over-small one costs
+# nothing, because weight hands the slack back.
+SECTION_CHROME_PX = 12
+# Width of the spacer column between the two control columns, at s_18. Also measured: the
+# left column starts 4px into the section and the right one 332px in, a pitch of 328 for a
+# 300px column.
+COLUMN_SPACER_PX = 28
+
 SCOPE_OPTS = [
     ["Local", 0],
     ["All", 1],
@@ -124,7 +135,22 @@ class AdminPanel(OverlayPanel):
 
     @property
     def compact_control_width(self) -> int:
-        return int(self._width / 2.1)
+        """Floor for one control column, in pixels -- a floor, not a target.
+
+        ``weight=1`` on columns 0 and 2 is what actually sizes them: Tk divides whatever the
+        section really received. This value only has to be small enough that two of them plus
+        the spacer can never exceed that, because with grid_propagate(False) an over-large
+        floor is not negotiated -- Tk lays out left to right and the shortfall clips the
+        right-hand column.
+
+        Which is what happened. At self._width / 2.1 the floor was 300, so the pair demanded
+        300 + 28 + 300 = 628 inside a section that gets 620: the right column overflowed by
+        8px and Reload, Images, Debugging, All and Shutdown each lost their right edge.
+
+        Deliberately conservative -- it allows for twice the measured spacer -- because slack
+        costs nothing here. Weight hands it straight back to the two columns.
+        """
+        return int((self._width - SECTION_CHROME_PX - 2 * COLUMN_SPACER_PX) / 2)
 
     @property
     def control_half_width(self) -> int:
@@ -311,13 +337,17 @@ class AdminPanel(OverlayPanel):
             sp = Text(body, text=" ", height=1, bold=True, align="top")
             sp.text_size = self._gui.s_1
 
-        admin_box = Box(body, border=1, align="top", layout="grid")
+        # No border or pack padding in compact: both come straight off the width the sections
+        # have to share, and the admingeom trace showed the loss landing entirely on the right
+        # as unused white space. Portrait keeps them -- it has room and the outline reads well
+        # against a taller, narrower layout.
+        admin_box = Box(body, border=0 if self._compact else 1, align="top", layout="grid")
         admin_box.tk.config(width=self._width)
 
         # make admin_box column expand
         admin_box.tk.grid_columnconfigure(0, weight=1)
         admin_box.tk.grid_columnconfigure(1, weight=1)
-        admin_box.tk.pack_configure(fill="x", expand=False, padx=2, pady=0)
+        admin_box.tk.pack_configure(fill="x", expand=False, padx=0 if self._compact else 2, pady=0)
 
         row = 0
         # noinspection PyTypeChecker

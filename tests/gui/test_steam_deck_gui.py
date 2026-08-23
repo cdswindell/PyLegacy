@@ -65,8 +65,11 @@ def test_landscape_defaults_target_native_steam_deck_size(monkeypatch: pytest.Mo
     assert base_init["width"] == 1280
     assert base_init["height"] == 800
     assert base_init["full_screen"] is True
-    assert gui.pane_width == 632
+    assert gui.pane_width == 639
     assert gui.pane_height == 800
+    # The two panes plus the divider must account for the whole display exactly: any
+    # shortfall is white space down the outer edges, and any excess clips a pane.
+    assert 2 * gui.pane_width + mod.DIVIDER_WIDTH + mod.HORIZONTAL_MARGIN == mod.STEAM_DECK_WIDTH
     assert gui.focused_panel == "right"
 
 

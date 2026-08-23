@@ -32,8 +32,13 @@ from ...protocol.constants import CommandScope
 
 STEAM_DECK_WIDTH = 1280
 STEAM_DECK_HEIGHT = 800
-HORIZONTAL_MARGIN = 12
-DIVIDER_WIDTH = 4
+# No outside margin: FOCUS_BORDER is set as `border=` on the pane Box itself, and Tk draws
+# a frame's border and highlight ring inside the widget's own allocation -- so the focus
+# indicator never needed room reserved beyond it. The 12px this used to hold back was
+# visible as white space down each outer edge.
+HORIZONTAL_MARGIN = 0
+# Just enough to separate two panes that each already carry a FOCUS_BORDER of their own.
+DIVIDER_WIDTH = 2
 FOCUS_BORDER = 3
 FOCUS_COLOR = "#3B82F6"
 UNFOCUSED_COLOR = "#555555"

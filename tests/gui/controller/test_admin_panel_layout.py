@@ -208,7 +208,7 @@ def test_compact_sections_fit_title_and_all_admin_actions() -> None:
     panel = _panel(compact=True)
 
     assert panel.compact_control_height == 52
-    assert panel.compact_control_width == 300
+    assert panel.compact_control_width == 282
     assert panel.compact_title_allowance == 20
     assert panel.compact_section_height == 72
     assert panel.compact_network_height == 45
@@ -907,3 +907,66 @@ def test_the_report_says_whether_the_sample_was_mapped(caplog) -> None:
 
     assert "map=1" in caplog.text
     assert "reqw=632" in caplog.text
+
+
+def test_two_control_columns_and_their_spacer_fit_inside_a_section() -> None:
+    # The invariant the truncation broke. A section receives self._width minus admin_box's
+    # chrome; two column floors plus the spacer between them have to fit inside that, or
+    # grid_propagate(False) leaves Tk clipping the right-hand column instead of negotiating.
+    # Measured on the Deck: floor 300 demanded 628 of 620, and the right column lost 8px.
+    for width in (480, 560, 632, 640, 800, 1024):
+        panel = _panel(compact=True)
+        panel._width = width
+        available = width - mod.SECTION_CHROME_PX
+        demanded = 2 * panel.compact_control_width + mod.COLUMN_SPACER_PX
+
+        assert demanded <= available, f"width={width}: columns demand {demanded} of {available}"
+
+
+def test_the_column_floor_leaves_the_columns_a_usable_share() -> None:
+    # Conservative is fine, useless is not: weight hands the slack back, but the floor still
+    # has to be most of a half-width or a column could collapse before weight is applied.
+    panel = _panel(compact=True)
+    half = (panel._width - mod.SECTION_CHROME_PX - mod.COLUMN_SPACER_PX) / 2
+
+    assert 0.85 * half <= panel.compact_control_width <= half
+
+
+def test_the_compact_admin_box_carries_no_chrome_of_its_own(monkeypatch) -> None:
+    # Border and pack padding on admin_box come straight off the width the two control
+    # columns share, and the admingeom trace showed the loss landing entirely on the right as
+    # unused white space. Portrait keeps them.
+    for compact, border, padx in ((True, 0, 0), (False, 1, 2)):
+        _TitleBox.instances = []
+        for widget_type in ("Box", "CheckBox", "CheckBoxGroup", "HoldButton", "PushButton", "Text", "TitleBox"):
+            monkeypatch.setattr(mod, widget_type, _TitleBox)
+        monkeypatch.setattr(mod, "StateWatcher", lambda *_args: None)
+        panel = _panel(compact=compact)
+        panel.hold_threshold = 3
+        panel._gui = SimpleNamespace(
+            button_size=79,
+            s_1=1,
+            s_2=2,  # portrait-only spacers use this; the compact path never reaches them
+            s_10=9,
+            s_18=16,
+            s_20=18,
+            sync_state=SimpleNamespace(is_synchronized=lambda: True),
+            image_presenter=SimpleNamespace(clear_caches=lambda: None),
+            rescale_by=lambda value: value,
+            do_tmcc_request=lambda *_args: None,
+            reload_configured_accessories=lambda: None,
+            add_hover_action=lambda _widget: None,
+            cache=lambda _widget: None,
+        )
+        panel._pytrain = SimpleNamespace(debug=False, echo=False)
+        panel._wifi_text = lambda *_args, **_kwargs: _TitleBox(None)
+        panel._wifi_signal_badge = lambda *_args, **_kwargs: _TitleBox(None)
+        panel._refresh_wifi_display = lambda: None
+
+        panel.build(_TitleBox(None))
+
+        admin_box = next(
+            box for box in _TitleBox.instances if box.kwargs.get("layout") == "grid" and "text" not in box.kwargs
+        )
+        assert admin_box.kwargs["border"] == border, f"compact={compact}"
+        assert admin_box.tk.pack_configs[-1]["padx"] == padx, f"compact={compact}"
