@@ -129,15 +129,37 @@ class AdminPanel(OverlayPanel):
         """Width of one control in a two-up row, in pixels.
 
         Shared by the Logging & Debugging checkboxes and the Scope radios so the two rows
-        line up. The radios used to ask for self._width / 2.3, which with 18px of padx on
-        each side came to 620px for the pair -- inside a TitleBox pinned to 619 and set
-        grid_propagate(False), so the second option was clipped mid-word.
+        line up. The radios used to ask for self._width / 2.48 * 1.078 (they had their own
+        literal, self._width / 2.3), and decorate_checkbox adds 18px of padx per side on
+        top of it -- so the pair came within a few pixels of the whole panel width, and the
+        second option clipped mid-word. At 2.48 there is room for the pair plus the spacer
+        between them.
         """
         return int(self._width / 2.48)
 
     @property
     def compact_title_allowance(self) -> int:
         return 20
+
+    @property
+    def compact_toggle_height(self) -> int:
+        """Row height for the checkbox and radio rows, shorter than an action row.
+
+        A toggle is a glyph and a word: it does not need the touch target a destructive
+        hold button needs, and on a 1280x800 pane the two rows were the easiest vertical
+        space to reclaim. Every other section keeps compact_control_height.
+        """
+        return max(40, int(self.compact_control_height * 0.78))
+
+    @property
+    def compact_footer_gap(self) -> int:
+        """Whitespace above the Controls/Close row, in pixels.
+
+        Derived from what the two toggle rows gave up rather than written down separately,
+        so shrinking or restoring those rows moves this in step instead of leaving the
+        footer floating or crowded.
+        """
+        return 2 * (self.compact_control_height - self.compact_toggle_height)
 
     @property
     def compact_section_height(self) -> int:
@@ -239,6 +261,9 @@ class AdminPanel(OverlayPanel):
             self._needs_scope_fix = False
             self._scope_btns.hide()
             self._scope_btns.show()
+            # That hide/show is a display_widgets() on the Scope box, which re-grids the
+            # group and drops the fill applied during build. Put it back.
+            self._apply_compact_grid()
         return overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -370,6 +395,7 @@ class AdminPanel(OverlayPanel):
             text="Logging & Debugging",
             grid=[0, row, 2, 1],
             width="fill",
+            control_height=self.compact_toggle_height,
         )
 
         self._echo_btn = cb = CheckBox(
@@ -380,7 +406,7 @@ class AdminPanel(OverlayPanel):
         )
         cb.value = 1 if self._pytrain.echo else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=self.control_half_width)
-        self._fit_compact_control(cb, image_backed=True)
+        self._fit_compact_control(cb, image_backed=True, row_height=self.compact_toggle_height)
 
         self.spacer(tb, grid=[1, 0])
         self._debug_btn = cb = CheckBox(
@@ -391,20 +417,23 @@ class AdminPanel(OverlayPanel):
         )
         cb.value = 1 if self._pytrain.debug else 0
         CheckBoxGroup.decorate_checkbox(cb, self._gui.s_20, width=self.control_half_width)
-        self._fit_compact_control(cb, image_backed=True)
+        self._fit_compact_control(cb, image_backed=True, row_height=self.compact_toggle_height)
         if self._pytrain.echo:
             cb.enable()
         else:
             cb.disable()
 
-        # scope -- deliberately shaped like the Logging & Debugging row above: a filling
-        # TitleBox, one option per half-width column, and the same spacer between them.
+        # scope -- deliberately shaped like the Logging & Debugging row above: one option
+        # per half-width column with the same spacer between them. The width kwarg matches
+        # that row for symmetry only; _titlebox reads nothing out of **kwargs but height,
+        # so every caller's width= is discarded and the box is always self._width wide.
         row += 1
         tb = self._titlebox(
             admin_box,
             text="Scope",
             grid=[0, row, 2, 1],
             width="fill",
+            control_height=self.compact_toggle_height,
         )
 
         self._scope_btns = CheckBoxGroup(
@@ -490,6 +519,11 @@ class AdminPanel(OverlayPanel):
             grid=[right_col, quit_row],
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
+
+        if self._compact:
+            # Spend what the two toggle rows gave up on separating the destructive actions
+            # from the Controls/Close row, which sat directly against them.
+            Box(body, align="top", width=self._width, height=self.compact_footer_gap)
 
         # Last thing in build(): every control is created, so nothing further will re-grid
         # them out from under this.
@@ -582,6 +616,26 @@ class AdminPanel(OverlayPanel):
         self.spacer(group, grid=[1, 0])
         left.grid = [0, 0]
         right.grid = [2, 0]
+        if not self._compact:
+            return
+        # Column *numbers* alone were not enough. The group's frame sized its columns to
+        # whatever each option asked for, so "All" -- a three-letter label -- came out a
+        # different width from "Debugging" directly above it. Give the frame the TitleBox's
+        # own column geometry and stretch each option into it, exactly as the checkbox row
+        # does, and the two rows agree regardless of label length.
+        for column in (0, 2):
+            group.tk.grid_columnconfigure(
+                column,
+                weight=1,
+                minsize=self.compact_control_width,
+                uniform="admin_controls",
+            )
+        group.tk.grid_columnconfigure(1, weight=0)
+        # The frame itself has to fill the section before its columns mean anything: guizero
+        # grids it from align="top", i.e. sticky="N".
+        self._stretch_compact(group)
+        for option in (left, right):
+            self._fit_compact_control(option, image_backed=True, row_height=self.compact_toggle_height)
 
     def _apply_compact_grid(self) -> None:
         """Re-assert the compact grid options that widget creation wipes.
@@ -840,8 +894,11 @@ class AdminPanel(OverlayPanel):
             self._gui.do_tmcc_request(command)
 
     def _titlebox(self, parent: Box, text: str, grid: list[int] | None = None, **kwargs):
+        # How tall the section's single row of controls should be. Sets both the box height
+        # and the row's minsize, so the two cannot disagree and clip.
+        control_height = kwargs.pop("control_height", self.compact_control_height)
         if self._compact and "height" not in kwargs:
-            kwargs["height"] = self.compact_section_height
+            kwargs["height"] = control_height + self.compact_title_allowance
         is_height = "height" in kwargs
         height = kwargs.pop("height", self._gui.button_size)
         if is_height:
@@ -886,7 +943,7 @@ class AdminPanel(OverlayPanel):
                 minsize=self.compact_control_width,
                 uniform="admin_controls",
             )
-            tb.tk.grid_rowconfigure(0, weight=0, minsize=self.compact_control_height)
+            tb.tk.grid_rowconfigure(0, weight=0, minsize=control_height)
         else:
             tb.tk.grid_columnconfigure(grid[0], weight=1)
         return tb
@@ -927,15 +984,23 @@ class AdminPanel(OverlayPanel):
         self._fit_compact_control(hb)
         return hb
 
-    def _fit_compact_control(self, control, image_backed: bool = False) -> None:
+    def _fit_compact_control(self, control, image_backed: bool = False, row_height: int | None = None) -> None:
         if self._compact:
-            height = self.compact_control_height - 4 if image_backed else 1
+            row_height = row_height or self.compact_control_height
+            # Image-backed controls take a height in pixels; text-only buttons take lines.
+            height = row_height - 4 if image_backed else 1
             control.tk.config(height=height, pady=0)
-            # Applied now so a control that happens to be created last is right either way,
-            # and recorded so _apply_compact_grid can restore it after the sibling that
-            # follows wipes it. The tk.config above is not affected -- only grid options are.
-            control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
-            self._compact_controls.append(control)
+            self._stretch_compact(control)
+
+    def _stretch_compact(self, control) -> None:
+        """Make a control fill its grid cell now, and record it so the fill can be restored.
+
+        Applied immediately so a control that happens to be created last is right either
+        way, and recorded because the sibling created after it wipes these options -- see
+        _apply_compact_grid. Only grid options are affected; tk.config survives.
+        """
+        control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
+        self._compact_controls.append(control)
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized():

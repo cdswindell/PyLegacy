@@ -118,8 +118,18 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     logging = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Logging & Debugging")
     scope = next(box for box in _TitleBox.instances if box.kwargs.get("text") == "Scope")
     assert network.kwargs["height"] == panel.compact_network_height
-    assert logging.kwargs["height"] == panel.compact_section_height
-    assert scope.kwargs["height"] == panel.compact_section_height
+    # The two toggle rows are deliberately shorter than every other section; the pixels
+    # they give up are what pays for the gap above the footer.
+    toggle_section = panel.compact_toggle_height + panel.compact_title_allowance
+    assert logging.kwargs["height"] == toggle_section
+    assert scope.kwargs["height"] == toggle_section
+    assert toggle_section < panel.compact_section_height
+    gap = next(
+        box
+        for box in _TitleBox.instances
+        if box.kwargs.get("height") == panel.compact_footer_gap and "text" not in box.kwargs
+    )
+    assert gap.kwargs["align"] == "top"
     assert admin_actions.kwargs["height"] == panel.compact_admin_actions_height
     checkbox_controls = {
         box.kwargs.get("text"): box for box in _TitleBox.instances if box.kwargs.get("text") in {"Logging", "Debugging"}
@@ -131,7 +141,7 @@ def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatc
     assert (
         checkbox_controls["Logging"].tk.configs
         == checkbox_controls["Debugging"].tk.configs
-        == [{"height": panel.compact_control_height - 4, "pady": 0}]
+        == [{"height": panel.compact_toggle_height - 4, "pady": 0}]
     )
     assert admin_actions.tk.rows[-3:] == [
         (row, {"weight": 0, "minsize": panel.compact_control_height, "uniform": "admin_actions"})
@@ -609,10 +619,11 @@ def test_drag_off_cancel_applies_to_both_platforms(monkeypatch) -> None:
 
 
 class _Rb:
-    """Stands in for a guizero RadioButton: only its `grid` attribute matters here."""
+    """Stands in for a guizero RadioButton: its `grid` attribute and its tk widget."""
 
     def __init__(self) -> None:
         self.grid = None
+        self.tk = _Tk()
 
 
 def test_a_two_option_group_is_regridded_onto_the_checkbox_columns() -> None:
@@ -622,13 +633,40 @@ def test_a_two_option_group_is_regridded_onto_the_checkbox_columns() -> None:
     spacers = []
     panel.spacer = lambda parent, grid: spacers.append((parent, grid))
     left, right = _Rb(), _Rb()
-    group = SimpleNamespace(_rbuttons=[left, right])
+    group = SimpleNamespace(_rbuttons=[left, right], tk=_Tk())
 
     panel._mirror_two_up_columns(group)
 
     assert left.grid == [0, 0]
     assert right.grid == [2, 0]
     assert spacers == [(group, [1, 0])]
+    # Column numbers alone left "All" a different width from "Debugging": the frame sized
+    # its columns to each label. Mirror the TitleBox geometry and stretch into it.
+    assert group.tk.columns == [
+        (0, {"weight": 1, "minsize": panel.compact_control_width, "uniform": "admin_controls"}),
+        (2, {"weight": 1, "minsize": panel.compact_control_width, "uniform": "admin_controls"}),
+        (1, {"weight": 0}),
+    ]
+    assert group.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
+    for option in (left, right):
+        assert option.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
+        assert option.tk.configs == [{"height": panel.compact_toggle_height - 4, "pady": 0}]
+
+
+def test_a_portrait_group_is_regridded_but_not_stretched() -> None:
+    # Portrait has no fixed section heights to stretch into, and never asked for the
+    # compact sizing. The column move is all it needs.
+    panel = _panel(compact=False)
+    panel.spacer = lambda parent, grid: None
+    left, right = _Rb(), _Rb()
+    group = SimpleNamespace(_rbuttons=[left, right], tk=_Tk())
+
+    panel._mirror_two_up_columns(group)
+
+    assert (left.grid, right.grid) == ([0, 0], [2, 0])
+    assert group.tk.columns == []
+    assert group.tk.grid is None
+    assert panel._compact_controls == []
 
 
 def test_a_group_that_is_not_two_up_keeps_guizeros_own_packing() -> None:
