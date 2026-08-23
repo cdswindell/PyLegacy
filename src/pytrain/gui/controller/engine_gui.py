@@ -1828,7 +1828,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
             screen_y = event_screen_y(event)
             # When the parent is the toplevel (portrait), Tk *does* report presses on
             # descendants here, so ignore ones the Picture's own detector handles.
-            on_image = self.image is not None and self.image in event_targets(event)
+            #
+            # Matched on the *Tk* widget, which identifies the Picture under either binding:
+            # event_targets pairs a guizero widget with its .tk, and a raw Tk event names that
+            # same Tk widget directly. It cannot go the other way -- Tk widget to guizero
+            # widget -- so comparing against the guizero Picture matched nothing here, because
+            # this detector is bound with bind_directly and sees raw Tk events. The guard never
+            # fired, both detectors handled every swipe, and each advanced one component: two
+            # advances per gesture, which with two engines lands you back where you started.
+            # That is why portrait looked dead while the Deck, whose area detector hangs off a
+            # pane and so never sees its children's presses, was fine.
+            targets = event_targets(event)
+            on_image = self.image is not None and self.image.tk in targets
             accepted = mapped and not on_image and screen_y is not None and screen_y <= bottom
             log.debug(
                 "swipe region check: screen_y=%s image box bottom=%s mapped=%s on_image=%s -> %s",

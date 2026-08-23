@@ -675,3 +675,69 @@ def test_admin_visible_is_false_without_a_panel() -> None:
 
     assert gui.admin_visible is False
     assert gui.on_admin_command("QUIT") is False
+
+
+class _ImageBoxTk:
+    """Just enough Tk surface for the swipe band test."""
+
+    def __init__(self, mapped: bool = True, rooty: int = 100, height: int = 200) -> None:
+        self._mapped = mapped
+        self._rooty = rooty
+        self._height = height
+
+    def winfo_ismapped(self) -> int:
+        return int(self._mapped)
+
+    def winfo_rooty(self) -> int:
+        return self._rooty
+
+    def winfo_height(self) -> int:
+        return self._height
+
+
+def _band_gui(mapped: bool = True) -> mod.EngineGui:
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui.image_box = SimpleNamespace(tk=_ImageBoxTk(mapped=mapped))
+    # The Picture: a guizero widget wrapping a Tk one. Which of the two an event names
+    # depends on how the detector was bound.
+    gui.image = SimpleNamespace(tk=object())
+    return gui
+
+
+def test_a_press_on_the_picture_is_left_to_its_own_detector_either_binding() -> None:
+    # The area detector is bound with bind_directly, so its events name the *Tk* widget, while
+    # guizero's own hooks name the Picture. Matching the guizero Picture alone meant this never
+    # fired for the area detector: both detectors then handled every swipe, two advances per
+    # gesture, which with two engines lands you back where you started.
+    gui = _band_gui()
+
+    guizero_event = SimpleNamespace(widget=gui.image, y_root=200)
+    raw_tk_event = SimpleNamespace(widget=gui.image.tk, y_root=200)
+
+    assert gui._press_starts_in_image_band(guizero_event) is False
+    assert gui._press_starts_in_image_band(raw_tk_event) is False
+
+
+def test_a_press_beside_the_picture_is_claimed_by_the_area_detector() -> None:
+    # The margin either side of the image belongs to the parent, and that is the whole point
+    # of the area detector -- so a press there must still be accepted.
+    gui = _band_gui()
+
+    beside = SimpleNamespace(widget=object(), y_root=200)
+
+    assert gui._press_starts_in_image_band(beside) is True
+
+
+def test_a_press_below_the_image_band_is_rejected() -> None:
+    # Everything under the image belongs to the controls, not to component switching.
+    gui = _band_gui()
+
+    below = SimpleNamespace(widget=object(), y_root=1000)
+
+    assert gui._press_starts_in_image_band(below) is False
+
+
+def test_nothing_is_claimed_while_the_image_box_is_unmapped() -> None:
+    gui = _band_gui(mapped=False)
+
+    assert gui._press_starts_in_image_band(SimpleNamespace(widget=object(), y_root=200)) is False
