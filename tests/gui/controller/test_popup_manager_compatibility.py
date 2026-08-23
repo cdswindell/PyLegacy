@@ -203,7 +203,11 @@ def test_compact_close_button_uses_reduced_height_without_changing_portrait(monk
     compact = _Widget()
     manager.add_close_btn(manager._host, None, compact)
     assert buttons[-1].tk.configured[-1]["pady"] == 1
-    assert buttons[-1].tk.packed[-1] == {"padx": 4, "pady": 4}
+    # padx stays tight; pady is what gives the row room above and below.
+    assert buttons[-1].tk.packed[-1] == {
+        "padx": mod.FOOTER_BUTTON_PADX_COMPACT,
+        "pady": mod.FOOTER_BUTTON_PADY_COMPACT,
+    }
 
 
 def _footer_button() -> _Widget:
@@ -219,16 +223,19 @@ def test_a_footer_button_records_the_packing_it_was_given() -> None:
 
     mod.style_footer_button(host, btn)
 
-    assert btn.tk.packed[-1] == {"padx": mod.FOOTER_BUTTON_PAD_COMPACT, "pady": mod.FOOTER_BUTTON_PAD_COMPACT}
+    assert btn.tk.packed[-1] == {
+        "padx": mod.FOOTER_BUTTON_PADX_COMPACT,
+        "pady": mod.FOOTER_BUTTON_PADY_COMPACT,
+    }
     assert getattr(btn, mod._FOOTER_PACK_ATTR) == btn.tk.packed[-1]
 
 
 def test_footer_buttons_are_styled_identically_in_each_mode() -> None:
     # The defect was three copies of one style. Whatever a panel puts in its footer has to
     # come out matching Close, in both modes.
-    for compact, size, pady, pad in (
-        (True, 16, 1, mod.FOOTER_BUTTON_PAD_COMPACT),
-        (False, 20, 4, mod.FOOTER_BUTTON_PAD),
+    for compact, size, inner_pady, padx, pady in (
+        (True, 16, 1, mod.FOOTER_BUTTON_PADX_COMPACT, mod.FOOTER_BUTTON_PADY_COMPACT),
+        (False, 20, 4, mod.FOOTER_BUTTON_PAD, mod.FOOTER_BUTTON_PAD),
     ):
         host = SimpleNamespace(compact=compact, s_18=16, s_20=20)
         close, other = _footer_button(), _footer_button()
@@ -239,8 +246,8 @@ def test_footer_buttons_are_styled_identically_in_each_mode() -> None:
         assert close.tk.configured == other.tk.configured, f"compact={compact}"
         assert close.tk.packed == other.tk.packed, f"compact={compact}"
         assert close.text_size == other.text_size == size
-        assert close.tk.configured[-1]["pady"] == pady
-        assert close.tk.packed[-1] == {"padx": pad, "pady": pad}
+        assert close.tk.configured[-1]["pady"] == inner_pady
+        assert close.tk.packed[-1] == {"padx": padx, "pady": pady}
 
 
 def test_restoring_replays_only_the_buttons_that_were_styled() -> None:
@@ -253,7 +260,7 @@ def test_restoring_replays_only_the_buttons_that_were_styled() -> None:
 
     mod.restore_footer_packing(footer)
 
-    assert styled.tk.packed == [{"padx": mod.FOOTER_BUTTON_PAD_COMPACT, "pady": mod.FOOTER_BUTTON_PAD_COMPACT}]
+    assert styled.tk.packed == [{"padx": mod.FOOTER_BUTTON_PADX_COMPACT, "pady": mod.FOOTER_BUTTON_PADY_COMPACT}]
     assert plain.tk.packed == [], "a spacer is re-packed by guizero; it has no padding to restore"
 
 
@@ -275,3 +282,28 @@ def test_adding_close_repairs_the_packing_of_the_button_beside_it(monkeypatch: p
     manager.add_close_btn(host, None, footer)
 
     assert panel_btn.tk.packed[-1] == made[-1].tk.packed[-1]
+
+
+def test_the_footer_row_gets_vertical_room_it_did_not_have() -> None:
+    # The reported symptom: the row sat hard against the section above it with nothing below.
+    # Horizontal inset is still tight -- the pane cannot spare it -- so the two differ.
+    assert mod.FOOTER_BUTTON_PADY_COMPACT > mod.FOOTER_BUTTON_PADX_COMPACT
+    assert mod.FOOTER_BUTTON_PADY_COMPACT < mod.FOOTER_BUTTON_PAD, "still tighter than portrait"
+
+
+def test_the_footer_spacer_tracks_the_mode() -> None:
+    # StateInfoOverlay's copy was a fixed host.s_72 -- an enormous gap beside a compact Close.
+    made: list[_Widget] = []
+
+    for compact, expected in ((True, mod.FOOTER_GAP_COMPACT), (False, mod.FOOTER_GAP)):
+        cached: list[object] = []
+        host = SimpleNamespace(compact=compact, cache=cached.append)
+        original = mod.Text
+        try:
+            mod.Text = lambda master, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1]
+            spacer = mod.footer_spacer(host, object())
+        finally:
+            mod.Text = original
+
+        assert spacer.text_size == expected, f"compact={compact}"
+        assert cached == [spacer], "the spacer has to be cached like any other widget"

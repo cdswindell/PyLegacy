@@ -3,6 +3,7 @@ from threading import Event, RLock
 from types import SimpleNamespace
 
 import src.pytrain.gui.controller.admin_panel as mod
+import src.pytrain.gui.controller.popup_manager as popup_manager
 
 
 class _Tk:
@@ -369,9 +370,11 @@ class _FooterButton:
 def test_footer_button_is_left_aligned_so_close_lands_to_its_right(monkeypatch) -> None:
     _FooterButton.instances = []
     monkeypatch.setattr(mod, "PushButton", _FooterButton)
-    monkeypatch.setattr(mod, "Text", _FooterButton)
+    monkeypatch.setattr(popup_manager, "Text", _FooterButton)
     panel = _panel(compact=True)
-    panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
+    # compact on the gui, not just on the panel: the shared footer helpers read it from the
+    # host, the same attribute AdminPanel.__init__ copies into self._compact.
+    panel._gui = SimpleNamespace(compact=True, s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
 
     panel.build_footer(object())
 
@@ -392,17 +395,22 @@ def test_footer_gap_is_a_spacer_widget_not_pack_padding(monkeypatch) -> None:
     _FooterButton.instances = []
     spacers: list[_FooterButton] = []
     monkeypatch.setattr(mod, "PushButton", _FooterButton)
+    # The spacer is built by popup_manager.footer_spacer now, shared with StateInfoOverlay.
     monkeypatch.setattr(
-        mod, "Text", lambda _parent, **kwargs: spacers.append(_FooterButton(_parent, **kwargs)) or spacers[-1]
+        popup_manager,
+        "Text",
+        lambda _parent, **kwargs: spacers.append(_FooterButton(_parent, **kwargs)) or spacers[-1],
     )
     panel = _panel(compact=True)
-    panel._gui = SimpleNamespace(s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
+    # compact on the gui, not just on the panel: the shared footer helpers read it from the
+    # host, the same attribute AdminPanel.__init__ copies into self._compact.
+    panel._gui = SimpleNamespace(compact=True, s_18=17, s_20=19, cache=lambda _w: None, controller_profile=object())
 
     panel.build_footer(object())
 
     assert len(spacers) == 1, "a spacer widget must separate Controls from Close"
     assert spacers[0].kwargs["align"] == "left", "must pack between Controls and Close"
-    assert spacers[0].text_size == mod.FOOTER_GAP_COMPACT
+    assert spacers[0].text_size == popup_manager.FOOTER_GAP_COMPACT
 
 
 def test_show_controls_closes_the_admin_panel_first(monkeypatch) -> None:

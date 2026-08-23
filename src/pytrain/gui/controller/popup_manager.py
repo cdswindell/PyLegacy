@@ -37,9 +37,16 @@ class PopupState:
     restore_acc_box: bool = False
 
 
-# Pack padding around a footer button. The compact pane cannot afford the portrait inset.
-FOOTER_BUTTON_PAD_COMPACT = 4
+# Pack padding around a footer button. The compact pane cannot afford the portrait inset
+# horizontally, but it does need vertical breathing room: at 4 the row sat hard against the
+# section above it with nothing below, so padx and pady are separate in compact.
+FOOTER_BUTTON_PADX_COMPACT = 4
+FOOTER_BUTTON_PADY_COMPACT = 10
 FOOTER_BUTTON_PAD = 20
+# Horizontal gap between a panel's own footer button and Close, expressed as a text size --
+# the spacer is a single space, so its point size is what sets its width.
+FOOTER_GAP = 40
+FOOTER_GAP_COMPACT = 24
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
 
@@ -68,10 +75,29 @@ def style_footer_button(host, btn) -> None:
         activebackground="#e0e0e0",
         background="#f7f7f7",
     )
-    padding = FOOTER_BUTTON_PAD_COMPACT if compact else FOOTER_BUTTON_PAD
-    options = {"padx": padding, "pady": padding}
+    options = {
+        "padx": FOOTER_BUTTON_PADX_COMPACT if compact else FOOTER_BUTTON_PAD,
+        "pady": FOOTER_BUTTON_PADY_COMPACT if compact else FOOTER_BUTTON_PAD,
+    }
     btn.tk.pack_configure(**options)
     setattr(btn, _FOOTER_PACK_ATTR, options)
+
+
+def footer_spacer(host, footer) -> Text:
+    """Put the gap between a panel's own footer button and Close.
+
+    A widget rather than pack padding: create_popup adds Close to this same footer straight
+    after, and creating it re-packs every sibling, discarding padx. A real widget survives
+    because it is re-packed too.
+
+    Shared so the gap tracks the mode. StateInfoOverlay's copy was a fixed host.s_72, which
+    on a Deck pane is an enormous gap next to a compact Close.
+    """
+    compact = bool(getattr(host, "compact", False))
+    spacer = Text(footer, text=" ", height=1, align="left")
+    spacer.text_size = FOOTER_GAP_COMPACT if compact else FOOTER_GAP
+    host.cache(spacer)
+    return spacer
 
 
 def restore_footer_packing(footer) -> None:

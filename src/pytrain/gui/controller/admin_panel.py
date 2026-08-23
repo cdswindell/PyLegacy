@@ -26,7 +26,7 @@ from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
-from .popup_manager import style_footer_button
+from .popup_manager import footer_spacer, style_footer_button
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -42,8 +42,6 @@ ADMIN_TITLE = f"Manage {PROGRAM_NAME}"
 CONTROLS_BUTTON_TEXT = "Controls..."
 # Width of the spacer between it and the Close button, expressed as a text size (the
 # spacer is a single space, so its point size is what sets its width).
-FOOTER_GAP = 40
-FOOTER_GAP_COMPACT = 24
 
 # How long a hold survives an interrupted touch contact before it counts as released.
 # Steam Deck only -- see the press_recovery_ms argument in _hold_button, and the note at the
@@ -612,9 +610,7 @@ class AdminPanel(OverlayPanel):
         # creating it runs footer.display_widgets(), which pack_forget()s every sibling --
         # discarding any padx set here. A real widget survives that because it is
         # re-packed too. Same trick StateInfoOverlay.build_footer uses.
-        spacer = Text(footer, text=" ", height=1, align="left")
-        spacer.text_size = FOOTER_GAP_COMPACT if self._compact else FOOTER_GAP
-        self._gui.cache(spacer)
+        footer_spacer(self._gui, footer)
 
     def show_controls(self) -> None:
         """Swap this panel for the controls screen.

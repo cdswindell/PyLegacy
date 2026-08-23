@@ -14,7 +14,7 @@ from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .overlay_panel import OverlayPanel
-from .popup_manager import style_footer_button
+from .popup_manager import footer_spacer, style_footer_button
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ...db.accessory_state import AccessoryState
@@ -415,9 +415,7 @@ class StateInfoOverlay(OverlayPanel):
         # admin panel's, and the same root cause.
         style_footer_button(host, btn)
         host.cache(btn)
-        # spacer
-        sp = Text(footer, text=" ", height=1, align="left")
-        sp.text_size = host.s_72
+        footer_spacer(host, footer)
 
     def clear_record(self, state: S = None):
         host = self.gui
