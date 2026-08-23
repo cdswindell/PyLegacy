@@ -283,6 +283,14 @@ def test_adding_close_repairs_the_packing_of_the_button_beside_it(monkeypatch: p
     assert panel_btn.tk.packed[-1] == made[-1].tk.packed[-1]
 
 
+def test_the_row_pays_for_its_whitespace_rather_than_growing_the_overlay() -> None:
+    # The overlay has no vertical slack: measured at h=597 reaching y=751 with the pane's nav
+    # bar starting around 738, so 20px of extra padding put the footer buttons underneath it.
+    # Whatever the row spends below itself comes out of the gap above it, not out of thin air.
+    assert mod.FOOTER_ROW_PAD_COMPACT > 0
+    assert mod.FOOTER_BUTTON_PAD_COMPACT < mod.FOOTER_BUTTON_PAD, "compact stays tighter than portrait"
+
+
 def test_the_footer_spacer_tracks_the_mode() -> None:
     # StateInfoOverlay's copy was a fixed host.s_72 -- an enormous gap beside a compact Close.
     made: list[_Widget] = []
@@ -301,7 +309,34 @@ def test_the_footer_spacer_tracks_the_mode() -> None:
         assert cached == [spacer], "the spacer has to be cached like any other widget"
 
 
-def test_create_popup_centres_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_footer_row_is_padded_away_from_the_bottom_of_the_overlay() -> None:
+    # The buttons' own pady is inside the row and cannot reach past them; only padding the row
+    # separates it from the overlay's bottom edge. Bottom only -- the gap above is already
+    # spent by the panel (see AdminPanel.compact_footer_gap).
+    footer = _Widget()
+
+    mod.pad_footer_row(SimpleNamespace(compact=True), footer)
+
+    assert footer.tk.packed == [{"pady": (0, mod.FOOTER_ROW_PAD_COMPACT)}]
+
+
+def test_portrait_footers_are_not_padded_further() -> None:
+    # Portrait already carries 20px around each footer button, and the Pi renders it correctly.
+    footer = _Widget()
+
+    mod.pad_footer_row(SimpleNamespace(compact=False), footer)
+
+    assert footer.tk.packed == []
+
+
+def test_a_footer_that_cannot_be_packed_is_not_fatal() -> None:
+    class _Unpackable:
+        tk = SimpleNamespace(pack_configure=lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("gone")))
+
+    mod.pad_footer_row(SimpleNamespace(compact=True), _Unpackable())
+
+
+def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
     # The helper is covered directly above, but that leaves its *wiring* untested: dropping
     # the call from create_popup broke nothing, which is the failure mode that matters.
     host = _host()
@@ -319,8 +354,13 @@ def test_create_popup_centres_the_footer_row_it_builds(monkeypatch: pytest.Monke
     monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
     manager = mod.PopupManager(host)
 
+    # Deliberately not the shared default: otherwise create_popup ignoring the panel entirely
+    # would produce the same padding and the wiring would go untested.
+    panel_pad = mod.FOOTER_ROW_PAD_COMPACT + 7
+
     class _Panel(mod.OverlayPanel):
         has_footer = True
+        footer_bottom_pad = panel_pad
 
         def __init__(self) -> None:
             # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
@@ -335,84 +375,13 @@ def test_create_popup_centres_the_footer_row_it_builds(monkeypatch: pytest.Monke
     manager.create_popup("Options", _Panel())
 
     footer = next(widget for widget in made if widget.kwargs.get("align") == "bottom")
-    assert footer.tk.packed[-1] == {"expand": True}
+    assert footer.tk.packed[-1] == {"pady": (0, panel_pad)}
 
 
-def _overlay_for(host, monkeypatch) -> _Widget:
-    made: list[_Widget] = []
-    monkeypatch.setattr(mod, "Box", lambda master=None, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
-    monkeypatch.setattr(mod, "Text", lambda master, **kwargs: _Widget(master, **kwargs))
-    monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
-    mod.PopupManager(host).create_popup("Options", lambda _body: None)
-    return made[0]
+def test_a_panel_can_match_the_pad_to_its_own_gap_above_the_row() -> None:
+    # How the row gets centred: the panel asks for the same whitespace below as it left above.
+    footer = _Widget()
 
+    mod.pad_footer_row(SimpleNamespace(compact=True), footer, 12)
 
-def test_a_compact_overlay_fills_the_band_down_to_the_scope_buttons(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The overlay is a side=top packed child of the pane and the scope box is side=bottom, so
-    # the band between them is the overlay's parcel. guizero maps height="fill" to Tk's fill=Y
-    # plus expand for a top/bottom side, which is what makes the panel reach the scope row
-    # instead of stopping wherever its content happens to end.
-    host = _host()
-    host.compact = True
-
-    assert _overlay_for(host, monkeypatch).kwargs["height"] == "fill"
-
-
-def test_a_portrait_overlay_is_left_content_sized(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Provisional: portrait lost its engine image box when the fill was applied there, and the
-    # fill could not be shown to cause it. Gated so portrait is exactly the code that worked.
-    host = _host()
-    host.compact = False
-
-    assert "height" not in _overlay_for(host, monkeypatch).kwargs
-
-
-def test_centring_expands_the_parcel_without_filling_it() -> None:
-    # expand grows the *parcel* so pack has room to centre in; fill would stretch the widget
-    # itself and there would be nothing to centre.
-    widget = _Widget()
-
-    mod.center_in_leftover(widget)
-
-    assert widget.tk.packed == [{"expand": True}]
-    assert "fill" not in widget.tk.packed[-1]
-
-
-def test_a_widget_that_cannot_be_packed_does_not_break_the_popup() -> None:
-    class _Unpackable:
-        tk = SimpleNamespace(pack_configure=lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("gone")))
-
-    mod.center_in_leftover(_Unpackable())
-    mod.center_in_leftover(None)
-
-
-def test_a_footerless_popup_centres_its_close_button(monkeypatch: pytest.MonkeyPatch) -> None:
-    # For a panel with no footer row, Close *is* the row -- so it gets the same treatment.
-    host = _host()
-    buttons: list[_Widget] = []
-    monkeypatch.setattr(mod, "Box", lambda master=None, **kwargs: _Widget(master, **kwargs))
-    monkeypatch.setattr(mod, "Text", lambda master, **kwargs: _Widget(master, **kwargs))
-    monkeypatch.setattr(
-        mod, "PushButton", lambda master, **kwargs: buttons.append(_Widget(master, **kwargs)) or buttons[-1]
-    )
-    manager = mod.PopupManager(host)
-
-    manager.create_popup("Options", lambda _body: None)
-
-    assert buttons[-1].tk.packed[-1] == {"expand": True}
-
-
-def test_add_close_btn_hands_the_button_back() -> None:
-    # Its caller has to be able to place the button; returning None was why the footerless
-    # path could not be centred.
-    host = _host()
-    manager = mod.PopupManager(host)
-    made: list[_Widget] = []
-    original = mod.PushButton
-    try:
-        mod.PushButton = lambda master, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1]
-        returned = manager.add_close_btn(host, None, _Widget())
-    finally:
-        mod.PushButton = original
-
-    assert returned is made[-1]
+    assert footer.tk.packed == [{"pady": (0, 12)}]

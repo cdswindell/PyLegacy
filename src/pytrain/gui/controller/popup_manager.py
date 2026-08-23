@@ -48,6 +48,19 @@ FOOTER_BUTTON_PAD = 20
 # the spacer is a single space, so its point size is what sets its width.
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
+# Whitespace above *and* below the footer row on a compact pane -- equal on both sides is what
+# centres the row between a panel's last section and the pane's scope buttons. Distinct from
+# the buttons' own pady, which sits inside the row and separates them from its edges; only
+# padding the row itself reaches the bottom of the overlay.
+#
+# Compact only: the portrait footer already carries 20px around its buttons and renders
+# correctly as it is.
+#
+# Whether this can simply be added depends on the panel. StateInfoOverlay is content-sized and
+# far shorter than the pane, so it can afford both halves. AdminPanel cannot -- measured at
+# h=597 reaching y=751 with the nav bar around 738 -- so it halves the band its shortened
+# toggle rows freed instead of growing (see AdminPanel.compact_footer_gap).
+FOOTER_ROW_PAD_COMPACT = 12
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
 
@@ -99,20 +112,24 @@ def footer_spacer(host, footer) -> Text:
     return spacer
 
 
-def center_in_leftover(widget) -> None:
-    """Centre a bottom-packed widget in whatever vertical space the overlay has spare.
+def pad_footer_row(host, footer, pad: int | None = None) -> None:
+    """Leave whitespace below the footer row.
 
-    ``expand`` grows the widget's *parcel* to take the leftover; with no ``fill`` the widget
-    keeps its own height and pack centres it inside that parcel. So the row lands in the middle
-    of the band between the panel's content and the scope buttons, at whatever size that band
-    turns out to be -- which is why this replaced a pair of hand-tuned pads that had to be
-    re-derived every time a section's height changed.
+    Padded on the row rather than on its buttons because the two do different jobs, and only
+    this one reaches past the buttons to the bottom of the overlay.
 
-    Survives because nothing is created in the overlay afterwards: Close goes *inside* the row,
+    ``pad`` lets a panel match the gap it puts *above* the row, which centres the row rather
+    than leaving it flush against the bottom. See OverlayPanel.footer_bottom_pad.
+
+    Survives because nothing is created in the overlay after the row: Close goes *inside* it,
     and creating a child only re-packs that child's siblings -- not the row itself.
     """
+    if not bool(getattr(host, "compact", False)):
+        return
+    if pad is None:
+        pad = FOOTER_ROW_PAD_COMPACT
     try:
-        widget.tk.pack_configure(expand=True)
+        footer.tk.pack_configure(pady=(0, pad))
     except (AttributeError, TclError, RuntimeError):
         pass
 
@@ -235,21 +252,7 @@ class PopupManager:
         # which repacks the full app. Prewarmed overlays are not meant to affect
         # the visible layout until they are explicitly shown.
         with self._suspend_host_layout():
-            # height="fill" is what makes a panel reach the scope buttons. The overlay is a
-            # side=top packed child of the pane and the scope box is side=bottom, so the band
-            # between them is exactly the overlay's parcel: guizero maps "fill" to Tk's fill=Y
-            # and, for a top/bottom side, expand=YES. No measuring of where the scope row
-            # happens to be, and it follows whatever else is packed above.
-            #
-            # Compact only, and provisionally so: portrait lost its engine image box when this
-            # was applied there, and the fill could not be shown to cause that. A hidden
-            # fill sibling leaves its siblings' geometry untouched in every probe -- App-rooted
-            # and Box-rooted, across a full show/place/close cycle -- and both roots use the
-            # same pack layout. Gated rather than reverted so the Deck keeps the behaviour it
-            # was asked for, and so the next portrait run is a clean test: if the image box is
-            # still missing with this off, the cause is somewhere else entirely.
-            fill = {"height": "fill"} if bool(getattr(host, "compact", False)) else {}
-            overlay = Box(parent, align="top", border=2, visible=False, **fill)
+            overlay = Box(parent, align="top", border=2, visible=False)
         if post_close_action:
             self._post_close_actions[id(overlay)] = post_close_action
         overlay.bg = "white"
@@ -279,13 +282,13 @@ class PopupManager:
                 button_row = Box(overlay, align="bottom")
                 body_src.build_footer(button_row)
                 self.add_close_btn(host, on_close, button_row, close_target=overlay, align="right", width=8)
-                center_in_leftover(button_row)
+                pad_footer_row(host, button_row, body_src.footer_bottom_pad)
             else:
-                center_in_leftover(self.add_close_btn(host, on_close, overlay))
+                self.add_close_btn(host, on_close, overlay)
         else:
             body = Box(overlay, align="top", layout="auto")
             body_src(body)
-            center_in_leftover(self.add_close_btn(host, on_close, overlay))
+            self.add_close_btn(host, on_close, overlay)
 
         if overlay.visible:
             with self._suspend_host_layout():
@@ -316,7 +319,6 @@ class PopupManager:
         # Creating this button discarded the packing of everything already in the footer.
         restore_footer_packing(overlay)
         host.cache(btn)
-        return btn
 
     def add_close_acc_btn(
         self,
