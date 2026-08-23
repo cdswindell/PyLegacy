@@ -649,8 +649,8 @@ class AdminPanel(OverlayPanel):
 
         Called once at the end of build(), when nothing further will be created.
         """
-        for control in self._compact_controls:
-            control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
+        for control, options in self._compact_controls:
+            control.tk.grid_configure(**options)
 
     def spacer(self, tb: TitleBox, grid: tuple[int, int], width: int = 2) -> Text:
         sp = Text(
@@ -902,16 +902,23 @@ class AdminPanel(OverlayPanel):
         is_height = "height" in kwargs
         height = kwargs.pop("height", self._gui.button_size)
         if is_height:
+            # In compact the box is stretched to its column instead of asserting a width.
+            # self._width is the whole pane, but a section sits inside admin_box, which is
+            # packed with padx=2 a side and carries a 1px border -- so a box asking for the
+            # pane width can never get it, and grid_propagate(False) leaves it unable to
+            # negotiate. The result was a margin the panel never used and a right-hand
+            # column flush against the frame. Filling gets the real width, whatever it is.
             tb = TitleBox(
                 parent,
                 text=text,
                 layout="grid",  # use grid INSIDE the TitleBox
                 align="top",
                 grid=grid,
-                width=self._width,
                 height=height,
+                **({} if self._compact else {"width": self._width}),
             )
-            tb.tk.config(width=self._width)
+            if not self._compact:
+                tb.tk.config(width=self._width)
         else:
             tb = TitleBox(
                 parent,
@@ -924,6 +931,9 @@ class AdminPanel(OverlayPanel):
         tb.text_size = self._gui.s_10
         tb.tk.grid_configure(column=grid[0], row=grid[1], columnspan=grid[2], rowspan=grid[3], sticky="nsew")
         if self._compact:
+            # Persisted through the restore pass: creating the next section re-grids this
+            # one from align="top" alone, i.e. sticky="N", which would stop it filling.
+            self._stretch_compact(tb, padx=0, pady=0)
             tb.tk.grid_propagate(False)
         elif is_height:
             tb.tk.pack_propagate(False)
@@ -992,15 +1002,19 @@ class AdminPanel(OverlayPanel):
             control.tk.config(height=height, pady=0)
             self._stretch_compact(control)
 
-    def _stretch_compact(self, control) -> None:
+    def _stretch_compact(self, control, padx: int = 2, pady: int = 2) -> None:
         """Make a control fill its grid cell now, and record it so the fill can be restored.
 
         Applied immediately so a control that happens to be created last is right either
         way, and recorded because the sibling created after it wipes these options -- see
         _apply_compact_grid. Only grid options are affected; tk.config survives.
+
+        Section boxes pass padx=pady=0: they are the outermost thing in the column and any
+        padding here comes straight off the width their own columns have to share.
         """
-        control.tk.grid_configure(sticky="nsew", padx=2, pady=2)
-        self._compact_controls.append(control)
+        options = {"sticky": "nsew", "padx": padx, "pady": pady}
+        control.tk.grid_configure(**options)
+        self._compact_controls.append((control, options))
 
     def _on_sync_state(self) -> None:
         if self._gui.sync_state.is_synchronized():

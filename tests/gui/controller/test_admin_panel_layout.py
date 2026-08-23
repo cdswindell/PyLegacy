@@ -83,6 +83,46 @@ def test_compact_titlebox_has_bounded_height_and_equal_control_columns(monkeypat
         (2, {"weight": 1, "minsize": panel.compact_control_width, "uniform": "admin_controls"}),
     ]
     assert titlebox.tk.rows == [(0, {"weight": 0, "minsize": panel.compact_control_height})]
+    # No asserted width: self._width is the whole pane, which a section inside admin_box
+    # (padx=2 a side, 1px border) can never be given. It fills its column instead, with no
+    # padding of its own -- padding here would come off the width its columns share.
+    assert "width" not in titlebox.kwargs
+    assert titlebox.tk.grid == {"sticky": "nsew", "padx": 0, "pady": 0}
+    assert panel._compact_controls == [(titlebox, {"sticky": "nsew", "padx": 0, "pady": 0})]
+
+
+def test_portrait_titlebox_still_asserts_the_panel_width(monkeypatch) -> None:
+    # Portrait has no fixed section heights and no column to stretch into, so it keeps the
+    # explicit width it has always had.
+    monkeypatch.setattr(mod, "TitleBox", _TitleBox)
+    panel = _panel(compact=False)
+
+    # Two portrait paths: without a height it is built bare and given the width by config;
+    # with one it takes the same branch compact does, and still gets the explicit width.
+    bare = panel._titlebox(object(), "Reload/Refresh", grid=[0, 1, 2, 1])
+    sized = panel._titlebox(object(), "Base 3 Database", grid=[0, 2, 2, 1], height=90)
+
+    assert "width" not in bare.kwargs
+    assert bare.tk.configs[0] == {"width": panel._width}
+    assert sized.kwargs["width"] == panel._width
+    assert sized.tk.configs[0] == {"width": panel._width}
+    assert panel._compact_controls == []
+
+
+def test_the_restore_pass_keeps_each_controls_own_padding() -> None:
+    # Sections fill edge to edge; the controls inside them keep their 2px inset. One shared
+    # padding value for both would either pad the sections or crowd the controls.
+    panel = _panel(compact=True)
+    section, control = SimpleNamespace(tk=_Tk()), SimpleNamespace(tk=_Tk())
+    panel._stretch_compact(section, padx=0, pady=0)
+    panel._fit_compact_control(control)
+    section.tk.grid = {"sticky": "N"}  # what display_widgets leaves behind
+    control.tk.grid = {"sticky": "W"}
+
+    panel._apply_compact_grid()
+
+    assert section.tk.grid == {"sticky": "nsew", "padx": 0, "pady": 0}
+    assert control.tk.grid == {"sticky": "nsew", "padx": 2, "pady": 2}
 
 
 def test_compact_admin_action_rows_are_fixed_to_shared_control_height(monkeypatch) -> None:
