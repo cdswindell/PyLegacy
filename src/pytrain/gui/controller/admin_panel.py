@@ -682,6 +682,24 @@ class AdminPanel(OverlayPanel):
         except (AttributeError, TclError, RuntimeError):
             return
         log.debug("admingeom panel width=%s (the value sections are sized from)", self._width)
+        # Vertical slack, so the next round does not have to guess whether the overlay can
+        # afford to grow: anything added below the footer comes out of parent_h - h.
+        # getattr, not self._overlay: this method promises never to break the panel, so it
+        # cannot assume the base class has run.
+        overlay = getattr(self, "_overlay", None)
+        if overlay is not None:
+            try:
+                tk = overlay.tk
+                log.debug(
+                    "admingeom %-18s map=%s y=%-4s h=%-4s parent_h=%-4s",
+                    "OVERLAY",
+                    int(tk.winfo_ismapped()),
+                    tk.winfo_rooty(),
+                    tk.winfo_height(),
+                    tk.master.winfo_height(),
+                )
+            except (AttributeError, TclError, RuntimeError, TypeError):
+                pass
         for widget, options in self._compact_controls:
             try:
                 tk = widget.tk

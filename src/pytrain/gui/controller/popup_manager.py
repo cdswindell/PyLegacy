@@ -47,6 +47,11 @@ FOOTER_BUTTON_PAD = 20
 # the spacer is a single space, so its point size is what sets its width.
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
+# Whitespace below the whole footer row. Distinct from the buttons' own pady, which sits
+# *inside* the row and separates the buttons from its edges -- this separates the row from the
+# bottom of the overlay, and is the only thing that can. Compact only: the portrait footer
+# already carries 20px around its buttons and renders correctly as it is.
+FOOTER_ROW_BOTTOM_PAD_COMPACT = 8
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
 
@@ -98,6 +103,23 @@ def footer_spacer(host, footer) -> Text:
     spacer.text_size = FOOTER_GAP_COMPACT if compact else FOOTER_GAP
     host.cache(spacer)
     return spacer
+
+
+def pad_footer_row(host, footer) -> None:
+    """Leave whitespace below the footer row.
+
+    Padded on the row rather than on its buttons because the two do different jobs, and only
+    this one reaches past the buttons to the bottom of the overlay.
+
+    Survives because nothing is created in the overlay after the row: Close goes *inside* it,
+    and creating a child only re-packs that child's siblings -- not the row itself.
+    """
+    if not bool(getattr(host, "compact", False)):
+        return
+    try:
+        footer.tk.pack_configure(pady=(0, FOOTER_ROW_BOTTOM_PAD_COMPACT))
+    except (AttributeError, TclError, RuntimeError):
+        pass
 
 
 def restore_footer_packing(footer) -> None:
@@ -248,6 +270,7 @@ class PopupManager:
                 button_row = Box(overlay, align="bottom")
                 body_src.build_footer(button_row)
                 self.add_close_btn(host, on_close, button_row, close_target=overlay, align="right", width=8)
+                pad_footer_row(host, button_row)
             else:
                 self.add_close_btn(host, on_close, overlay)
         else:

@@ -307,3 +307,67 @@ def test_the_footer_spacer_tracks_the_mode() -> None:
 
         assert spacer.text_size == expected, f"compact={compact}"
         assert cached == [spacer], "the spacer has to be cached like any other widget"
+
+
+def test_the_footer_row_is_padded_away_from_the_bottom_of_the_overlay() -> None:
+    # The buttons' own pady is inside the row and cannot reach past them; only padding the row
+    # separates it from the overlay's bottom edge. Bottom only -- the gap above is already
+    # spent by the panel (see AdminPanel.compact_footer_gap).
+    footer = _Widget()
+
+    mod.pad_footer_row(SimpleNamespace(compact=True), footer)
+
+    assert footer.tk.packed == [{"pady": (0, mod.FOOTER_ROW_BOTTOM_PAD_COMPACT)}]
+
+
+def test_portrait_footers_are_not_padded_further() -> None:
+    # Portrait already carries 20px around each footer button, and the Pi renders it correctly.
+    footer = _Widget()
+
+    mod.pad_footer_row(SimpleNamespace(compact=False), footer)
+
+    assert footer.tk.packed == []
+
+
+def test_a_footer_that_cannot_be_packed_is_not_fatal() -> None:
+    class _Unpackable:
+        tk = SimpleNamespace(pack_configure=lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("gone")))
+
+    mod.pad_footer_row(SimpleNamespace(compact=True), _Unpackable())
+
+
+def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The helper is covered directly above, but that leaves its *wiring* untested: dropping
+    # the call from create_popup broke nothing, which is the failure mode that matters.
+    host = _host()
+    host.compact = True
+    host.s_18 = 16
+    host.s_20 = 20
+    made: list[_Widget] = []
+
+    def make_box(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(mod, "Box", make_box)
+    monkeypatch.setattr(mod, "Text", lambda master, **kwargs: _Widget(master, **kwargs))
+    monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
+    manager = mod.PopupManager(host)
+
+    class _Panel(mod.OverlayPanel):
+        has_footer = True
+
+        def __init__(self) -> None:
+            # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
+            self._overlay = None
+
+        def build(self, body) -> None:
+            pass
+
+        def build_footer(self, footer) -> None:
+            pass
+
+    manager.create_popup("Options", _Panel())
+
+    footer = next(widget for widget in made if widget.kwargs.get("align") == "bottom")
+    assert footer.tk.packed[-1] == {"pady": (0, mod.FOOTER_ROW_BOTTOM_PAD_COMPACT)}
