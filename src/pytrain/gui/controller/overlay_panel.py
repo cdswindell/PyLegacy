@@ -54,16 +54,6 @@ class OverlayPanel(metaclass=ABCMeta):
     def build_footer(self, footer: Box) -> None:
         pass
 
-    @property
-    def footer_bottom_pad(self) -> int | None:
-        """Whitespace below the footer row on a compact pane; None takes the shared default.
-
-        A panel that also puts a gap *above* the row should return the same value here. Equal
-        above and below is what centres the row in the band between the panel's last section
-        and the pane's scope buttons, instead of leaving it flush against one edge.
-        """
-        return None
-
     def refresh_footer(self) -> None:
         pass
 

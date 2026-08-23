@@ -546,9 +546,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # will be used for other combo boxes
         self._popup.is_combo_hackable = hasattr(cb, "_selected")
 
-        # Reserve the bottom edge before compact top-aligned content is packed.
-        if self._compact:
-            self.make_scope_box(root)
+        # Reserve the bottom edge before any top-aligned content is packed.
+        #
+        # Both modes, deliberately. pack allots parcels in creation order, so a later child that
+        # expands -- which is what makes a popup panel reach down to these buttons -- takes its
+        # space out of whatever has not been claimed yet. With the scope box created last, as
+        # portrait used to do, that includes the scope box itself and the controller keypad. The
+        # box renders at the bottom either way, so there is no visible difference today; the
+        # difference is that an expanding sibling can no longer push these buttons off the
+        # bottom edge. make_scope_box is idempotent and make_scope goes through it, so this is
+        # purely a matter of when the widget joins the pack order.
+        self.make_scope_box(root)
 
         # Make the emergency buttons, including Halt and Reset
         self.make_emergency_buttons(root)

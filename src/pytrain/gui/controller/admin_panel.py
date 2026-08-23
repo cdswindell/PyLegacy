@@ -179,26 +179,6 @@ class AdminPanel(OverlayPanel):
         return max(40, int(self.compact_control_height * 0.78))
 
     @property
-    def compact_footer_gap(self) -> int:
-        """Whitespace above the Controls/Close row, in pixels.
-
-        Half of what the two toggle rows gave up; footer_bottom_pad spends the other half
-        below the row, which centres it between the last section and the pane's scope buttons.
-
-        Halving rather than adding is the load-bearing part: the overlay has no vertical slack.
-        Measured at h=597 reaching y=751 with the pane's nav bar starting around 738, so
-        whitespace below the row is not free -- it has to come out of the space above it, or
-        the buttons slide under the nav bar.
-        """
-        reclaimed = 2 * (self.compact_control_height - self.compact_toggle_height)
-        return reclaimed // 2
-
-    @property
-    def footer_bottom_pad(self) -> int:
-        """Matched to compact_footer_gap, which is what centres the footer row."""
-        return self.compact_footer_gap
-
-    @property
     def compact_section_height(self) -> int:
         return self.compact_control_height + self.compact_title_allowance
 
@@ -569,10 +549,9 @@ class AdminPanel(OverlayPanel):
             on_hold=(self.do_admin_command, [TMCC1SyncCommandEnum.SHUTDOWN]),
         )
 
-        if self._compact:
-            # Spend what the two toggle rows gave up on separating the destructive actions
-            # from the Controls/Close row, which sat directly against them.
-            Box(body, align="top", width=self._width, height=self.compact_footer_gap)
+        # No spacer between the destructive actions and the Controls/Close row: the row is no
+        # longer flush against them. popup_manager.center_footer_row shares the whole band below
+        # this section around it, so what the two toggle rows gave up lands there automatically.
 
         # Last thing in build(): every control is created, so nothing further will re-grid
         # them out from under this.

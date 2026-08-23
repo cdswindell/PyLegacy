@@ -38,31 +38,27 @@ class PopupState:
 
 
 # Pack padding around a footer button. The compact pane cannot afford the portrait inset.
-# Kept tight deliberately: the overlay has no vertical slack (it already ends within a dozen
-# pixels of the pane's nav bar), so the row's outer spacing is set on the row itself -- see
-# pad_footer_row and AdminPanel.compact_footer_gap -- where it can be traded against the gap
-# above rather than silently growing the overlay and pushing the buttons under the nav bar.
+# Kept tight deliberately: this is spacing *inside* the row, separating the buttons from its
+# edges. The row's own position in the overlay is not padding at all any more -- see
+# center_footer_row, which shares the leftover space around it.
 FOOTER_BUTTON_PAD_COMPACT = 4
 FOOTER_BUTTON_PAD = 20
 # Horizontal gap between a panel's own footer button and Close, expressed as a text size --
 # the spacer is a single space, so its point size is what sets its width.
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
-# Whitespace above *and* below the footer row on a compact pane -- equal on both sides is what
-# centres the row between a panel's last section and the pane's scope buttons. Distinct from
-# the buttons' own pady, which sits inside the row and separates them from its edges; only
-# padding the row itself reaches the bottom of the overlay.
-#
-# Compact only: the portrait footer already carries 20px around its buttons and renders
-# correctly as it is.
-#
-# Whether this can simply be added depends on the panel. StateInfoOverlay is content-sized and
-# far shorter than the pane, so it can afford both halves. AdminPanel cannot -- measured at
-# h=597 reaching y=751 with the nav bar around 738 -- so it halves the band its shortened
-# toggle rows freed instead of growing (see AdminPanel.compact_footer_gap).
-FOOTER_ROW_PAD_COMPACT = 12
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
+# Where an overlay remembers the height it was built with, so expanding it is reversible.
+_OVERLAY_HEIGHT_ATTR = "_pytrain_overlay_height"
+# Set on an overlay that must never be expanded. Only the configured-accessory popups: those
+# mount a foreign GUI that owns its own layout, and accessory images were the one thing still
+# working through the regression that backed this feature out the first time.
+_NO_EXPAND_ATTR = "_pytrain_no_expand"
+# How long to wait after showing a popup before measuring it. A sample taken any earlier is
+# worthless: winfo_height reads 1 and winfo_rooty reads 0 until Tk has laid the widget out, which
+# is how the first run of the admin panel's geometry trace produced a page of w=1 parent_w=1.
+POPUP_GEOM_DELAY_MS = 500
 
 
 def style_footer_button(host, btn) -> None:
@@ -112,25 +108,129 @@ def footer_spacer(host, footer) -> Text:
     return spacer
 
 
-def pad_footer_row(host, footer, pad: int | None = None) -> None:
-    """Leave whitespace below the footer row.
+def center_footer_row(overlay: Box) -> tuple[Box, Box]:
+    """Split whatever vertical space an expanded panel has spare, half above the footer row.
 
-    Padded on the row rather than on its buttons because the two do different jobs, and only
-    this one reaches past the buttons to the bottom of the overlay.
+    Two empty ``height="fill"`` boxes, one on each side. guizero gives each of them ``fill=Y``
+    plus ``expand=YES``, and Tk shares leftover space equally between widgets that expand, so
+    the row lands in the middle of the band below the panel's content -- at whatever size that
+    band turns out to be, with no measuring and no constant to re-derive whenever a section's
+    height changes. It is also self-limiting: with the overlay collapsed there is no leftover,
+    both boxes are zero-high, and the layout is what it was before.
 
-    ``pad`` lets a panel match the gap it puts *above* the row, which centres the row rather
-    than leaving it flush against the bottom. See OverlayPanel.footer_bottom_pad.
+    **Call this after the body and before the row.** pack fills a side in creation order, so the
+    bottom box has to be created first to claim the bottom edge and leave the row above it.
 
-    Survives because nothing is created in the overlay after the row: Close goes *inside* it,
-    and creating a child only re-packs that child's siblings -- not the row itself.
+    Replaces a pair of hand-tuned pads (``pad_footer_row`` and ``AdminPanel.compact_footer_gap``)
+    that only ever ran on the compact pane and had to be kept in sync with each other by hand.
+    Unlike ``pack_configure`` padding, this survives a repack: ``Container._pack_widget`` rebuilds
+    its option dict from scratch every pass and reads fill back off each widget's own ``height``.
     """
-    if not bool(getattr(host, "compact", False)):
+    bottom = Box(overlay, align="bottom", height="fill")
+    top = Box(overlay, align="top", height="fill")
+    return top, bottom
+
+
+def expand_overlay(overlay) -> None:
+    """Make a panel reach down to the scope buttons, for as long as it is on screen.
+
+    ``height="fill"`` is guizero's own vocabulary for this: ``Container._pack_widget`` maps it to
+    Tk's ``fill=Y`` and, for a top or bottom side, adds ``expand=YES``. The overlay is a top-side
+    child of its root and the scope box a bottom-side one, so the band between them is exactly
+    the overlay's parcel -- no measuring of where the scope row happens to sit, and it follows
+    whatever else is packed above.
+
+    That depends on the scope box already being in the pack order when this expands: pack allots
+    parcels in creation order, and an expanding child takes its space out of whatever is still
+    unclaimed. ``EngineGui.build_gui`` reserves the bottom edge first, in both modes, for exactly
+    this reason -- portrait used to create the scope buttons last.
+
+    Reading it off the widget's own attribute is also what makes it durable. A raw
+    ``pack_configure(expand=True)`` is discarded by the next ``display_widgets()`` pass, because
+    that rebuilds the option dict from scratch and only ever consults ``width``/``height``.
+
+    **At show time, not construction time.** A fill widget present while EngineGui measures the
+    widget tree for its image baseline is how portrait lost its engine image box last time. The
+    baseline is computed once, at the end of ``build_gui``, so nothing measured afterwards can be
+    disturbed by this -- see collapse_overlay for the other half of the promise.
+    """
+    if getattr(overlay, _NO_EXPAND_ATTR, False):
         return
-    if pad is None:
-        pad = FOOTER_ROW_PAD_COMPACT
     try:
-        footer.tk.pack_configure(pady=(0, pad))
+        if not hasattr(overlay, _OVERLAY_HEIGHT_ATTR):
+            setattr(overlay, _OVERLAY_HEIGHT_ATTR, overlay.height)
+        overlay.height = "fill"
     except (AttributeError, TclError, RuntimeError):
+        pass
+
+
+def collapse_overlay(overlay) -> None:
+    """Give back the height expand_overlay took, so a closed popup leaves no trace in the pack.
+
+    Called before ``hide()``, which is what triggers the repack: assigning a height that is not
+    ``"fill"`` deliberately does *not* (``SizeMixin.resize`` only repacks for a fill), and
+    ``_set_tk_config`` restores the tk default when handed ``None``.
+    """
+    try:
+        overlay.height = getattr(overlay, _OVERLAY_HEIGHT_ATTR, None)
+    except (AttributeError, TclError, RuntimeError):
+        pass
+
+
+def log_popup_geometry(host, overlay) -> None:
+    """Schedule a report of where an overlay and its children actually landed.
+
+    Both halves of "panels reach the scope buttons and the footer row is centred" are claims
+    about pixels, and the last attempt at them was unpicked by bisect because nothing in the
+    running program measured anything. Run with -debug and grep the log for "popupgeom".
+
+    Deliberately *not* gated on ``compact``, unlike the admin panel's trace: portrait is the mode
+    that regressed, so it is the mode that needs numbers.
+
+    Diagnostics only -- it must never be able to break a popup, hence the broad guards and the
+    single call site after the overlay is on screen.
+    """
+    if not log.isEnabledFor(logging.DEBUG):
+        return
+    try:
+        host.app.tk.after(POPUP_GEOM_DELAY_MS, lambda: _report_popup_geometry(host, overlay))
+    except (AttributeError, TclError, RuntimeError):
+        pass
+
+
+def _report_popup_geometry(host, overlay) -> None:
+    """Log the overlay's reach and every child's band, once Tk has laid them out."""
+    try:
+        host.app.tk.update_idletasks()
+        tk = overlay.tk
+        bottom = tk.winfo_rooty() + tk.winfo_height()
+        scope = getattr(host, "scope_box", None)
+        # The target the panel is supposed to reach. gap= is the whole question: 0 means the
+        # panel extends to the scope row, a large positive number means it stopped short, and a
+        # negative one means it has run underneath.
+        scope_top = scope.tk.winfo_rooty() if scope is not None else None
+        log.debug(
+            "popupgeom OVERLAY map=%s y=%s h=%s bottom=%s scope_top=%s gap=%s",
+            int(tk.winfo_ismapped()),
+            tk.winfo_rooty(),
+            tk.winfo_height(),
+            bottom,
+            scope_top,
+            None if scope_top is None else scope_top - bottom,
+        )
+        for child in getattr(overlay, "children", ()) or ():
+            ctk = child.tk
+            # Per-child tops and bottoms, so the footer row's centre can be compared against the
+            # centre of the band left below the content without re-deriving either by hand.
+            log.debug(
+                "popupgeom   %-14s map=%s y=%-4s h=%-4s bottom=%-4s",
+                ctk.winfo_class(),
+                int(ctk.winfo_ismapped()),
+                ctk.winfo_rooty(),
+                ctk.winfo_height(),
+                ctk.winfo_rooty() + ctk.winfo_height(),
+            )
+    except (AttributeError, TclError, RuntimeError, TypeError):
         pass
 
 
@@ -271,6 +371,7 @@ class PopupManager:
             setattr(overlay, "title", title)
 
         if isinstance(body_src, ConfiguredAccessoryAdapter):
+            setattr(overlay, _NO_EXPAND_ATTR, True)
             body_src.ensure_gui(aggregator=self._host)
             body_src.gui.mount_gui(overlay)
             self.add_close_acc_btn(host, body_src, on_close, overlay)
@@ -278,16 +379,19 @@ class PopupManager:
         elif isinstance(body_src, OverlayPanel):
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
+            center_footer_row(overlay)
             if body_src.has_footer:
                 button_row = Box(overlay, align="bottom")
                 body_src.build_footer(button_row)
                 self.add_close_btn(host, on_close, button_row, close_target=overlay, align="right", width=8)
-                pad_footer_row(host, button_row, body_src.footer_bottom_pad)
             else:
                 self.add_close_btn(host, on_close, overlay)
         else:
             body = Box(overlay, align="top", layout="auto")
             body_src(body)
+            center_footer_row(overlay)
+            # No footer row of its own: add_close_btn already defaults to align="bottom", so the
+            # spacers centre the bare Close button just as they would a row.
             self.add_close_btn(host, on_close, overlay)
 
         if overlay.visible:
@@ -509,10 +613,13 @@ class PopupManager:
             if host.acc_overlay and host.acc_overlay.visible:
                 host.acc_overlay.hide()
                 self._state.restore_acc_box = True
+        shown = False
         try:
             x, y = position if position else host.popup_position
             overlay.tk.place(x=x, y=y)
+            expand_overlay(overlay)
             overlay.show()
+            shown = True
         except (AttributeError, RuntimeError, TclError):
             log.warning(f"Failed to place/show overlay: {overlay}")
             with host.locked():
@@ -531,6 +638,10 @@ class PopupManager:
                     self._state.on_close_show = None
         finally:
             self._restore_button_state(op=op, modifier=modifier, button=button)
+        if shown:
+            # Outside the try on purpose: a measurement that failed must not be mistaken for a
+            # popup that failed to appear, which would run the rollback above on a live overlay.
+            log_popup_geometry(host, overlay)
 
     def close(self, overlay: Box | None = None) -> None:
         host = self._host
@@ -541,6 +652,9 @@ class PopupManager:
 
             if overlay:
                 try:
+                    # Before hide(), which is the call that repacks: a closed popup has to leave
+                    # the host's pack exactly as it found it.
+                    collapse_overlay(overlay)
                     overlay.hide()
                     overlay.tk.place_forget()
                 except (AttributeError, RuntimeError, TclError):

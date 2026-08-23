@@ -14,7 +14,7 @@ from guizero import Box, ListBox, Text, TitleBox
 
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .overlay_panel import OverlayPanel
-from .popup_manager import FOOTER_ROW_PAD_COMPACT, footer_spacer, style_footer_button
+from .popup_manager import footer_spacer, style_footer_button
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ...db.accessory_state import AccessoryState
@@ -211,14 +211,6 @@ class StateInfoOverlay(OverlayPanel):
                 choices=choices,
                 on_edit=callback,
             )
-
-        if host.compact:
-            # Matches the whitespace pad_footer_row leaves below the Clear/Close row, which
-            # centres it rather than leaving it flush against the bottom of the overlay. This
-            # panel is content-sized and much shorter than the pane, so unlike the admin panel
-            # it can afford both halves outright. Width as well as height: guizero warns when
-            # given one without the other.
-            Box(body, align="top", width=host.emergency_box_width, height=FOOTER_ROW_PAD_COMPACT)
 
     # noinspection string-format
     def update(self, state: S, new: bool = False):

@@ -424,6 +424,43 @@ def test_compact_image_baseline_is_positive_and_bounded_by_pane() -> None:
     assert gui.avail_image_width == 324
 
 
+def test_portrait_image_baseline_matches_the_measurements_taken_on_the_pi() -> None:
+    """The number the Pi's engine image box is sized from, pinned to a real device reading.
+
+    Every figure here came off the Pi's own log line -- "Computed engine image baseline
+    height=296 (hdr=69, em=112, info=89, scope=70, ctrl=624)" -- during the session where
+    portrait lost its image box. The baseline was healthy at the time, which is what ruled out
+    mis-sizing and pointed at the layout instead. It is here so the next change to what sits in
+    the app's pack has to notice if it moves one of these reqheights.
+
+    Portrait keeps whatever fit_image_box_size is given (the 3:1 clamp is compact-only), so the
+    baseline reaches the image box unmodified.
+    """
+
+    def widget(width: int, height: int):
+        return SimpleNamespace(tk=SimpleNamespace(winfo_reqwidth=lambda: width, winfo_reqheight=lambda: height))
+
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._app = SimpleNamespace(tk=SimpleNamespace(update_idletasks=lambda: None))
+    gui._compact = False
+    gui.width = 800
+    gui.height = 1280
+    gui.header = widget(800, 69)
+    gui.emergency_box = widget(780, 112)
+    gui.emergency_box_width = 780
+    gui.emergency_box_height = 112
+    gui.info_box = widget(800, 89)
+    gui.scope_box = widget(800, 70)
+    gui.controller_box = widget(800, 624)
+
+    gui._compute_engine_image_baseline()
+
+    # 1280 - 69 - 112 - 89 - 70 - 624 - 20 = 296
+    assert gui.avail_image_height == 296
+    assert gui.avail_image_height_engine == 296
+    assert gui.avail_image_width == 780
+
+
 def test_compact_image_box_is_three_times_wider_and_height_limited() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._compact = True
@@ -528,7 +565,9 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
     gui._controller_view = SimpleNamespace(build=lambda root: roots.append(("controller", root)))
     gui._popup = SimpleNamespace(
         is_combo_hackable=False,
-        get_or_create=lambda *_args: None,
+        # Recorded, not ignored: this is the prewarmed overlay whose position in the pack order
+        # decides whether an expanding panel can starve the scope buttons.
+        get_or_create=lambda *_args: roots.append(("prewarmed_popup", pane)),
         preload_images=lambda: None,
     )
     gui._compute_engine_image_baseline = lambda: None
@@ -559,12 +598,90 @@ def test_embedded_build_uses_pane_root_and_relative_popup_position(monkeypatch: 
         ("emergency", pane),
         ("info", pane),
         ("keypad", pane),
+        ("prewarmed_popup", pane),
         ("controller", pane),
         ("scope", pane),
     ]
     assert font_requests == [("DigitalDream", "DigitalDream")]
     assert gui.digital_font == "DigitalDream"
     assert gui.popup_position == (10, 50)
+
+
+def test_portrait_build_reserves_the_bottom_edge_before_anything_is_packed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Portrait creates the scope box first too, not last.
+
+    pack allots parcels in creation order, so a child that expands takes its space out of what
+    has not been claimed yet. Portrait used to create the scope box last, which put both it and
+    the controller keypad behind the prewarmed popup overlay in that queue. Compact already
+    reserved the bottom edge; this is the same reservation, ungated.
+    """
+    roots: list[tuple[str, object]] = []
+    app_tk = SimpleNamespace(after_idle=lambda _func: None, after=lambda *_args: None)
+    app = SimpleNamespace(tk=app_tk)
+    combo = SimpleNamespace(tk=SimpleNamespace(children={}), _selected=object(), text_size=None, text_bold=False)
+    monkeypatch.setattr(mod, "Combo", lambda root, **_kwargs: roots.append(("header", root)) or combo)
+    monkeypatch.setattr(
+        mod,
+        "resolve_font_family",
+        lambda _root, preferred, fallback: fallback,
+    )
+    monkeypatch.setattr(
+        mod.PdiDispatcher,
+        "get",
+        staticmethod(lambda: SimpleNamespace(subscribe_delete=lambda _target: None)),
+    )
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._app = app
+    gui._parent = None
+    gui._compact = False
+    gui.title = "Engine/Train Control"
+    gui.s_24 = 24
+    gui.get_options = lambda: []
+    gui.make_emergency_buttons = lambda root: roots.append(("emergency", root))
+    gui.make_info_box = lambda root: roots.append(("info", root))
+    gui.make_scope_box = lambda root: roots.append(("scope_box", root))
+    gui.make_scope = lambda root: roots.append(("scope", root))
+    gui._engine_buttons_future = _ImmediateExecutor.submit(None)
+    gui._keypad_view = SimpleNamespace(build=lambda root: roots.append(("keypad", root)))
+    gui._controller_view = SimpleNamespace(build=lambda root: roots.append(("controller", root)))
+    gui._popup = SimpleNamespace(
+        is_combo_hackable=False,
+        get_or_create=lambda *_args: roots.append(("prewarmed_popup", app)),
+        preload_images=lambda: None,
+    )
+    gui._compute_engine_image_baseline = lambda: None
+    gui.avail_image_height = 300
+    gui.avail_image_width = 500
+    gui.image_box = SimpleNamespace(tk=SimpleNamespace(config=lambda **_kwargs: None))
+    gui.info_box = SimpleNamespace(
+        tk=SimpleNamespace(winfo_rootx=lambda: 0, winfo_rooty=lambda: 100, winfo_reqheight=lambda: 30)
+    )
+    gui._sensor_track_id = None
+    gui.initial = None
+    gui.power_on_path = None
+    gui.power_off_path = None
+    gui.turn_off_image = None
+    gui.op_acc_image = None
+    gui._start_accessory_overlay_prewarm = lambda: None
+    gui._start_accessory_config_watcher = lambda: None
+
+    gui.build_gui()
+
+    names = [name for name, _root in roots]
+    assert names.index("scope_box") < names.index("prewarmed_popup")
+    assert names.index("scope_box") < names.index("controller")
+    assert names == [
+        "header",
+        "scope_box",
+        "emergency",
+        "info",
+        "keypad",
+        "prewarmed_popup",
+        "controller",
+        "scope",
+    ]
 
 
 def test_linked_car_contract_is_read_only_and_selects_through_public_transition() -> None:

@@ -157,28 +157,13 @@ def _build_body(compact: bool, monkeypatch) -> list[_GapBox]:
     return _GapBox.instances
 
 
-def test_compact_leaves_a_gap_above_the_footer_row(monkeypatch) -> None:
-    # Matched to the pad pad_footer_row leaves below the row: equal above and below is what
-    # centres Clear/Close rather than leaving them flush against the bottom of the overlay.
-    boxes = _build_body(compact=True, monkeypatch=monkeypatch)
+def test_the_panel_leaves_its_own_footer_whitespace_to_the_popup(monkeypatch) -> None:
+    # It used to add a spacer of its own below the fields, to match a pad the popup put below
+    # the Clear/Close row. Both are gone: popup_manager.center_footer_row shares the whole band
+    # below the content around the row, in either mode, so a panel that adds its own spacer is
+    # now double-counting and pushes the row off centre.
+    for compact in (True, False):
+        boxes = _build_body(compact=compact, monkeypatch=monkeypatch)
 
-    gap = next(box for box in boxes if box.kwargs.get("height") == mod.FOOTER_ROW_PAD_COMPACT)
-    assert gap.kwargs["align"] == "top"
-    # Width as well as height, or guizero warns that one was given without the other.
-    assert gap.kwargs["width"] == 632
-
-
-def test_portrait_adds_no_footer_gap(monkeypatch) -> None:
-    # Portrait already carries 20px around each footer button and renders correctly as it is.
-    boxes = _build_body(compact=False, monkeypatch=monkeypatch)
-
-    assert all(box.kwargs.get("height") != mod.FOOTER_ROW_PAD_COMPACT for box in boxes)
-
-
-def test_the_gap_matches_what_is_left_below_the_row() -> None:
-    # The invariant that makes it centred. StateInfoOverlay does not override
-    # footer_bottom_pad, so the row falls back to the shared default -- the same constant.
-    info = mod.StateInfoOverlay.__new__(mod.StateInfoOverlay)
-
-    assert info.footer_bottom_pad is None, "inherits the shared default rather than its own"
-    assert mod.FOOTER_ROW_PAD_COMPACT > 0
+        trailing = [box for box in boxes if "text" not in box.kwargs and box.kwargs.get("height")]
+        assert trailing == [], f"compact={compact}: {[box.kwargs for box in trailing]}"

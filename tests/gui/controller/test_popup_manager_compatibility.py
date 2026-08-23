@@ -37,6 +37,21 @@ class _Widget:
         self.kwargs = kwargs
         self.visible = visible
         self.tk = _Tk(fail_place=fail_place)
+        self._height = kwargs.get("height")
+        # Every value ever assigned to height, in order. guizero derives a widget's pack fill
+        # from this attribute on each repack (Container._pack_widget), so it is the whole
+        # mechanism behind a panel reaching down to the scope row -- and the sequence matters:
+        # "fill" on show, back to what it was on close.
+        self.height_history: list = []
+
+    @property
+    def height(self):
+        return self._height
+
+    @height.setter
+    def height(self, value) -> None:
+        self._height = value
+        self.height_history.append(value)
 
     def hide(self) -> None:
         self.visible = False
@@ -283,12 +298,11 @@ def test_adding_close_repairs_the_packing_of_the_button_beside_it(monkeypatch: p
     assert panel_btn.tk.packed[-1] == made[-1].tk.packed[-1]
 
 
-def test_the_row_pays_for_its_whitespace_rather_than_growing_the_overlay() -> None:
-    # The overlay has no vertical slack: measured at h=597 reaching y=751 with the pane's nav
-    # bar starting around 738, so 20px of extra padding put the footer buttons underneath it.
-    # Whatever the row spends below itself comes out of the gap above it, not out of thin air.
-    assert mod.FOOTER_ROW_PAD_COMPACT > 0
-    assert mod.FOOTER_BUTTON_PAD_COMPACT < mod.FOOTER_BUTTON_PAD, "compact stays tighter than portrait"
+def test_compact_footer_buttons_stay_tighter_than_portrait() -> None:
+    # Inside the row only. The row's distance from the overlay's edges is no longer padding at
+    # all -- center_footer_row shares the leftover space around it -- so the pane's lack of
+    # vertical slack no longer has to be paid for out of these numbers.
+    assert mod.FOOTER_BUTTON_PAD_COMPACT < mod.FOOTER_BUTTON_PAD
 
 
 def test_the_footer_spacer_tracks_the_mode() -> None:
@@ -309,40 +323,87 @@ def test_the_footer_spacer_tracks_the_mode() -> None:
         assert cached == [spacer], "the spacer has to be cached like any other widget"
 
 
-def test_the_footer_row_is_padded_away_from_the_bottom_of_the_overlay() -> None:
-    # The buttons' own pady is inside the row and cannot reach past them; only padding the row
-    # separates it from the overlay's bottom edge. Bottom only -- the gap above is already
-    # spent by the panel (see AdminPanel.compact_footer_gap).
-    footer = _Widget()
+def test_the_footer_row_is_centred_by_two_equal_expanding_spacers(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Tk shares leftover space equally between widgets that expand, and guizero gives a
+    # height="fill" box exactly that. Equal on both sides is the whole mechanism: one spacer
+    # would leave the row flush against an edge.
+    made: list[_Widget] = []
+    monkeypatch.setattr(mod, "Box", lambda master, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
+    overlay = _Widget()
 
-    mod.pad_footer_row(SimpleNamespace(compact=True), footer)
+    top, bottom = mod.center_footer_row(overlay)
 
-    assert footer.tk.packed == [{"pady": (0, mod.FOOTER_ROW_PAD_COMPACT)}]
-
-
-def test_portrait_footers_are_not_padded_further() -> None:
-    # Portrait already carries 20px around each footer button, and the Pi renders it correctly.
-    footer = _Widget()
-
-    mod.pad_footer_row(SimpleNamespace(compact=False), footer)
-
-    assert footer.tk.packed == []
+    assert top.kwargs == {"align": "top", "height": "fill"}
+    assert bottom.kwargs == {"align": "bottom", "height": "fill"}
+    assert top.kwargs["height"] == bottom.kwargs["height"], "unequal spacers do not centre"
+    assert top.master is overlay and bottom.master is overlay
 
 
-def test_a_footer_that_cannot_be_packed_is_not_fatal() -> None:
-    class _Unpackable:
-        tk = SimpleNamespace(pack_configure=lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("gone")))
+def test_the_bottom_spacer_is_created_first_so_the_row_lands_above_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    # pack fills a side in creation order. Create the bottom spacer after the row and it takes
+    # the slot above it instead of below, which pushes the row onto the overlay's bottom edge.
+    made: list[_Widget] = []
+    monkeypatch.setattr(mod, "Box", lambda master, **kwargs: made.append(_Widget(master, **kwargs)) or made[-1])
 
-    mod.pad_footer_row(SimpleNamespace(compact=True), _Unpackable())
+    mod.center_footer_row(_Widget())
+
+    assert [widget.kwargs["align"] for widget in made] == ["bottom", "top"]
 
 
-def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The helper is covered directly above, but that leaves its *wiring* untested: dropping
-    # the call from create_popup broke nothing, which is the failure mode that matters.
+def test_create_popup_centres_the_footer_row_of_every_panel_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The helper is covered directly above, but that leaves its *wiring* untested: dropping the
+    # call from create_popup broke nothing, which is the failure mode that matters. Both
+    # branches, because a panel without its own footer button gets a bare Close and used to be
+    # the case nobody centred.
+    made: list[_Widget] = []
+
+    def make_box(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(mod, "Box", make_box)
+    monkeypatch.setattr(mod, "Text", lambda master, **kwargs: _Widget(master, **kwargs))
+    monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
+
+    class _Panel(mod.OverlayPanel):
+        def __init__(self, has_footer: bool) -> None:
+            # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
+            self._overlay = None
+            self._has_footer = has_footer
+
+        @property
+        def has_footer(self) -> bool:
+            return self._has_footer
+
+        def build(self, body) -> None:
+            pass
+
+        def build_footer(self, footer) -> None:
+            pass
+
+    for compact in (False, True):
+        for label, body_src in (("callable", lambda body: None), ("footer", _Panel(True)), ("bare", _Panel(False))):
+            host = _host()
+            host.compact = compact
+            host.s_18 = 16
+            host.s_20 = 20
+            manager = mod.PopupManager(host)
+            made.clear()
+
+            overlay = manager.create_popup("Options", body_src)
+
+            spacers = [w for w in made if w.master is overlay and w.kwargs.get("height") == "fill"]
+            aligns = sorted(w.kwargs["align"] for w in spacers)
+            assert aligns == ["bottom", "top"], f"compact={compact} panel={label}"
+
+
+def test_create_popup_leaves_the_overlay_unsized(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The invariant the previous attempt at extending panels broke. Sizing the overlay at
+    # construction time -- height="fill" in particular -- puts a fill widget in the host's pack
+    # before EngineGui measures the tree for its image baseline, and portrait lost its engine
+    # image box. Whatever the mechanism, construction must stay inert: the extension belongs at
+    # show time, where no measurement is taken afterwards.
     host = _host()
-    host.compact = True
-    host.s_18 = 16
-    host.s_20 = 20
     made: list[_Widget] = []
 
     def make_box(master=None, **kwargs):
@@ -354,16 +415,10 @@ def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
     manager = mod.PopupManager(host)
 
-    # Deliberately not the shared default: otherwise create_popup ignoring the panel entirely
-    # would produce the same padding and the wiring would go untested.
-    panel_pad = mod.FOOTER_ROW_PAD_COMPACT + 7
-
     class _Panel(mod.OverlayPanel):
         has_footer = True
-        footer_bottom_pad = panel_pad
 
         def __init__(self) -> None:
-            # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
             self._overlay = None
 
         def build(self, body) -> None:
@@ -372,16 +427,201 @@ def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPa
         def build_footer(self, footer) -> None:
             pass
 
-    manager.create_popup("Options", _Panel())
+    # Both branches: a plain callable body and an OverlayPanel with a footer.
+    for body_src in (lambda body: None, _Panel()):
+        made.clear()
+        overlay = manager.create_popup("Options", body_src)
 
-    footer = next(widget for widget in made if widget.kwargs.get("align") == "bottom")
-    assert footer.tk.packed[-1] == {"pady": (0, panel_pad)}
+        assert "height" not in overlay.kwargs
+        assert "width" not in overlay.kwargs
 
 
-def test_a_panel_can_match_the_pad_to_its_own_gap_above_the_row() -> None:
-    # How the row gets centred: the panel asks for the same whitespace below as it left above.
-    footer = _Widget()
+def _geom_tk(*, y: int, h: int, cls: str = "Frame", mapped: int = 1):
+    return SimpleNamespace(
+        winfo_rooty=lambda: y,
+        winfo_height=lambda: h,
+        winfo_ismapped=lambda: mapped,
+        winfo_class=lambda: cls,
+        update_idletasks=lambda: None,
+    )
 
-    mod.pad_footer_row(SimpleNamespace(compact=True), footer, 12)
 
-    assert footer.tk.packed == [{"pady": (0, 12)}]
+def test_show_schedules_the_geometry_report_once_the_overlay_is_on_screen(caplog) -> None:
+    # The report itself is covered below; this pins its *wiring*, which is the half that goes
+    # missing silently -- a diagnostic nobody calls looks exactly like a panel with no problem.
+    host = _host()
+    scheduled: list[tuple[int, object]] = []
+    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append((ms, fn)))
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False)
+
+    with caplog.at_level("DEBUG", logger=mod.log.name):
+        manager.show(overlay)
+
+    assert [ms for ms, _ in scheduled] == [mod.POPUP_GEOM_DELAY_MS]
+    assert callable(scheduled[0][1])
+
+
+def test_a_popup_that_never_appeared_is_not_measured(caplog) -> None:
+    # fail_place sends show() down its rollback path. Measuring there would report the geometry
+    # of an overlay that was just hidden again.
+    host = _host()
+    scheduled: list[tuple[int, object]] = []
+    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append((ms, fn)))
+    manager = mod.PopupManager(host)
+
+    with caplog.at_level("DEBUG", logger=mod.log.name):
+        manager.show(_Widget(visible=False, fail_place=True))
+
+    assert scheduled == []
+
+
+def test_the_geometry_report_names_the_gap_left_to_the_scope_row(caplog) -> None:
+    host = _host()
+    host.app.tk = SimpleNamespace(update_idletasks=lambda: None)
+    host.scope_box = SimpleNamespace(tk=_geom_tk(y=700, h=70))
+    overlay = SimpleNamespace(
+        tk=_geom_tk(y=100, h=480),
+        children=[SimpleNamespace(tk=_geom_tk(y=500, h=40, cls="Frame"))],
+    )
+
+    with caplog.at_level("DEBUG", logger=mod.log.name):
+        mod._report_popup_geometry(host, overlay)
+
+    report = "\n".join(caplog.messages)
+    # 100 + 480 = 580; the scope row starts at 700, so the panel stops 120px short.
+    assert "bottom=580" in report
+    assert "scope_top=700" in report
+    assert "gap=120" in report
+    # The child's own band, so a footer row's centre can be checked against the band below the
+    # content without re-deriving either by hand: 500..540 inside an overlay ending at 580.
+    assert "y=500" in report
+    assert "bottom=540" in report
+
+
+def test_the_geometry_report_survives_a_widget_that_cannot_be_measured(caplog) -> None:
+    # It runs half a second after the popup opened, by which time the popup may be gone.
+    host = _host()
+    host.app.tk = SimpleNamespace(update_idletasks=lambda: None)
+
+    def boom():
+        raise RuntimeError("destroyed")
+
+    with caplog.at_level("DEBUG", logger=mod.log.name):
+        mod._report_popup_geometry(host, SimpleNamespace(tk=SimpleNamespace(winfo_rooty=boom)))
+
+
+def test_geometry_is_not_measured_when_debug_logging_is_off() -> None:
+    # Every line costs two Tk round-trips per child; nobody pays for them in normal operation.
+    host = _host()
+    scheduled: list[object] = []
+    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append(fn))
+
+    previous = mod.log.level
+    mod.log.setLevel("INFO")
+    try:
+        mod.log_popup_geometry(host, _Widget())
+    finally:
+        mod.log.setLevel(previous)
+
+    assert scheduled == []
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_showing_a_panel_extends_it_to_the_scope_row_and_closing_gives_it_back(compact: bool) -> None:
+    # Both modes: the ask covers portrait as well as the Deck, and portrait is the one that broke
+    # when this was attempted at construction time instead.
+    host = _host()
+    host.compact = compact
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False)
+
+    manager.show(overlay)
+
+    assert overlay.height == "fill"
+
+    manager.close()
+
+    assert overlay.height is None
+    assert overlay.height_history == ["fill", None]
+
+
+def test_a_popup_that_failed_to_appear_is_left_collapsed() -> None:
+    # place() raises before the overlay is expanded, so the rollback has nothing to undo. An
+    # overlay left carrying a fill it never got to use would claim the pane's leftover space
+    # while invisible.
+    host = _host()
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False, fail_place=True)
+
+    manager.show(overlay)
+
+    assert overlay.height_history == []
+    assert overlay.height is None
+
+
+def test_closing_restores_whatever_height_the_overlay_was_built_with() -> None:
+    # Reversible rather than reset-to-None: create_popup builds the overlay unsized today, and a
+    # test says so, but collapse should not be the thing that silently discards a size if that
+    # ever changes.
+    host = _host()
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False, height=240)
+
+    manager.show(overlay)
+    assert overlay.height == "fill"
+
+    manager.close()
+
+    assert overlay.height == 240
+
+
+def test_an_overlay_marked_no_expand_is_left_alone() -> None:
+    # The configured-accessory popups: they mount a GUI that owns its own layout.
+    host = _host()
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False)
+    setattr(overlay, mod._NO_EXPAND_ATTR, True)
+
+    manager.show(overlay)
+
+    assert overlay.height_history == []
+    assert overlay.height is None
+
+
+def test_accessory_popups_are_marked_no_expand_when_built(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Covers the wiring, not the helper: create_popup is the only place that knows which overlay
+    # hosts a mounted accessory GUI.
+    host = _host()
+    made: list[_Widget] = []
+
+    def make_box(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(mod, "Box", make_box)
+    monkeypatch.setattr(mod, "Text", lambda master, **kwargs: _Widget(master, **kwargs))
+    monkeypatch.setattr(mod, "HoldButton", lambda master, **kwargs: _Widget(master, **kwargs))
+    monkeypatch.setattr(mod.PopupManager, "_get_close_acc_images", lambda *_a: (None, None))
+    host.add_vspace = lambda *_args: None
+    host.button_size = 90
+    manager = mod.PopupManager(host)
+
+    class _Adapter(mod.ConfiguredAccessoryAdapter):
+        # Only the surface create_popup touches; the real adapter needs a live accessory config,
+        # and both state and gui are read-only properties on it.
+        state = SimpleNamespace(is_asc2=False)
+        gui = SimpleNamespace(mount_gui=lambda _overlay: None)
+
+        def __init__(self) -> None:
+            pass
+
+        def ensure_gui(self, *, aggregator=None, extra_kwargs=None):
+            return self.gui
+
+        def attach_overlay(self, overlay) -> None:
+            pass
+
+    overlay = manager.create_popup("Station", _Adapter())
+
+    assert getattr(overlay, mod._NO_EXPAND_ATTR, False) is True
