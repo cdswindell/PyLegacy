@@ -26,7 +26,7 @@ from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
-from .popup_manager import FOOTER_ROW_BOTTOM_PAD_COMPACT, footer_spacer, style_footer_button
+from .popup_manager import footer_spacer, style_footer_button
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -182,17 +182,21 @@ class AdminPanel(OverlayPanel):
     def compact_footer_gap(self) -> int:
         """Whitespace above the Controls/Close row, in pixels.
 
-        What the two toggle rows gave up, minus what the footer row now spends below itself.
-        Both halves are derived rather than written down, so changing either moves this in
-        step instead of leaving the footer crowded or floating.
+        Half of what the two toggle rows gave up; footer_bottom_pad spends the other half
+        below the row, which centres it between the last section and the pane's scope buttons.
 
-        The subtraction is the load-bearing part: the overlay has no vertical slack. Measured
-        at h=597 reaching y=751, with the pane's nav bar starting around 738 -- so whitespace
-        below the row is not free, and taking it from the gap above keeps the overlay the
-        height that already fit rather than sliding the buttons under the nav bar.
+        Halving rather than adding is the load-bearing part: the overlay has no vertical slack.
+        Measured at h=597 reaching y=751 with the pane's nav bar starting around 738, so
+        whitespace below the row is not free -- it has to come out of the space above it, or
+        the buttons slide under the nav bar.
         """
         reclaimed = 2 * (self.compact_control_height - self.compact_toggle_height)
-        return max(0, reclaimed - FOOTER_ROW_BOTTOM_PAD_COMPACT)
+        return reclaimed // 2
+
+    @property
+    def footer_bottom_pad(self) -> int:
+        """Matched to compact_footer_gap, which is what centres the footer row."""
+        return self.compact_footer_gap
 
     @property
     def compact_section_height(self) -> int:

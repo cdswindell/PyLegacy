@@ -354,8 +354,13 @@ def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
     manager = mod.PopupManager(host)
 
+    # Deliberately not the shared default: otherwise create_popup ignoring the panel entirely
+    # would produce the same padding and the wiring would go untested.
+    panel_pad = mod.FOOTER_ROW_BOTTOM_PAD_COMPACT + 7
+
     class _Panel(mod.OverlayPanel):
         has_footer = True
+        footer_bottom_pad = panel_pad
 
         def __init__(self) -> None:
             # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
@@ -370,4 +375,13 @@ def test_create_popup_pads_the_footer_row_it_builds(monkeypatch: pytest.MonkeyPa
     manager.create_popup("Options", _Panel())
 
     footer = next(widget for widget in made if widget.kwargs.get("align") == "bottom")
-    assert footer.tk.packed[-1] == {"pady": (0, mod.FOOTER_ROW_BOTTOM_PAD_COMPACT)}
+    assert footer.tk.packed[-1] == {"pady": (0, panel_pad)}
+
+
+def test_a_panel_can_match_the_pad_to_its_own_gap_above_the_row() -> None:
+    # How the row gets centred: the panel asks for the same whitespace below as it left above.
+    footer = _Widget()
+
+    mod.pad_footer_row(SimpleNamespace(compact=True), footer, 12)
+
+    assert footer.tk.packed == [{"pady": (0, 12)}]

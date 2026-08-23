@@ -108,19 +108,24 @@ def footer_spacer(host, footer) -> Text:
     return spacer
 
 
-def pad_footer_row(host, footer) -> None:
+def pad_footer_row(host, footer, pad: int | None = None) -> None:
     """Leave whitespace below the footer row.
 
     Padded on the row rather than on its buttons because the two do different jobs, and only
     this one reaches past the buttons to the bottom of the overlay.
+
+    ``pad`` lets a panel match the gap it puts *above* the row, which centres the row rather
+    than leaving it flush against the bottom. See OverlayPanel.footer_bottom_pad.
 
     Survives because nothing is created in the overlay after the row: Close goes *inside* it,
     and creating a child only re-packs that child's siblings -- not the row itself.
     """
     if not bool(getattr(host, "compact", False)):
         return
+    if pad is None:
+        pad = FOOTER_ROW_BOTTOM_PAD_COMPACT
     try:
-        footer.tk.pack_configure(pady=(0, FOOTER_ROW_BOTTOM_PAD_COMPACT))
+        footer.tk.pack_configure(pady=(0, pad))
     except (AttributeError, TclError, RuntimeError):
         pass
 
@@ -273,7 +278,7 @@ class PopupManager:
                 button_row = Box(overlay, align="bottom")
                 body_src.build_footer(button_row)
                 self.add_close_btn(host, on_close, button_row, close_target=overlay, align="right", width=8)
-                pad_footer_row(host, button_row)
+                pad_footer_row(host, button_row, body_src.footer_bottom_pad)
             else:
                 self.add_close_btn(host, on_close, overlay)
         else:
