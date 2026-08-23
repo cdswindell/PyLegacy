@@ -266,7 +266,14 @@ class AdminPanel(OverlayPanel):
             # That hide/show is a display_widgets() on the Scope box, which re-grids the
             # group and drops the fill applied during build. Put it back.
             self._apply_compact_grid()
-        self._log_compact_geometry()
+        # Scheduled, not called inline. This property returns the overlay to a caller that
+        # then place()s and shows it, so an inline dump measures widgets Tk has never laid
+        # out -- and an unmapped widget reports width 1 regardless of its real size, which
+        # is exactly what the first attempt produced.
+        try:
+            self._gui.app.tk.after(500, self._log_compact_geometry)
+        except (AttributeError, TclError, RuntimeError):
+            pass
         return overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -666,10 +673,16 @@ class AdminPanel(OverlayPanel):
                 name = tk.cget("text") if "text" in tk.keys() else tk.winfo_class()
                 info = tk.grid_info()
                 log.debug(
-                    "admingeom %-18s x=%-4s w=%-4s h=%-3s parent_w=%-4s col=%s span=%s sticky=%s asked=%s",
+                    "admingeom %-18s map=%s x=%-4s w=%-4s reqw=%-4s h=%-3s parent_w=%-4s "
+                    "col=%s span=%s sticky=%s asked=%s",
                     str(name)[:18],
+                    # A sample taken before the overlay is mapped is worthless -- width
+                    # reads 1 whatever the widget really is -- so say so in the line itself
+                    # rather than leaving the reader to infer it from absurd numbers.
+                    int(tk.winfo_ismapped()),
                     tk.winfo_rootx(),
                     tk.winfo_width(),
+                    tk.winfo_reqwidth(),
                     tk.winfo_height(),
                     tk.master.winfo_width(),
                     info.get("column"),

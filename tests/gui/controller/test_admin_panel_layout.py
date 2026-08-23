@@ -792,6 +792,12 @@ class _GeomTk(_Tk):
             raise RuntimeError("not mapped")
         return 100
 
+    def winfo_ismapped(self):
+        return True
+
+    def winfo_reqwidth(self):
+        return 632
+
     def winfo_width(self):
         return 620
 
@@ -864,3 +870,40 @@ def test_no_titlebox_is_given_a_height_without_a_width(monkeypatch) -> None:
             box = panel._titlebox(object(), "Section", grid=[0, 0, 2, 1], **kwargs)
             sized = {"width", "height"} & box.kwargs.keys()
             assert sized in ({"width", "height"}, set()), f"compact={compact} kwargs={box.kwargs}"
+
+
+def test_the_report_is_scheduled_rather_than_taken_before_the_overlay_is_shown() -> None:
+    # The overlay is placed by the caller after the property returns, so an inline sample
+    # measures unmapped widgets: every width reads 1, which is what the first run produced.
+    panel = _panel(compact=True)
+    scheduled = []
+    panel._gui = SimpleNamespace(
+        app=SimpleNamespace(tk=SimpleNamespace(after=lambda ms, fn: scheduled.append((ms, fn))))
+    )
+    panel._needs_scope_fix = False
+    panel._start_wifi_query = lambda: None
+    panel._refresh_wifi_display = lambda: None
+    panel._ensure_wifi_refresh = lambda: None
+    panel._overlay = object()
+    panel._title = "t"
+    panel._post_close = None
+
+    _ = panel.overlay
+
+    assert len(scheduled) == 1
+    delay, callback = scheduled[0]
+    assert delay > 0
+    assert callback == panel._log_compact_geometry
+
+
+def test_the_report_says_whether_the_sample_was_mapped(caplog) -> None:
+    import logging
+
+    panel = _geom_panel(compact=True)
+    panel._compact_controls = [(SimpleNamespace(tk=_GeomTk(text="Scope")), {})]
+
+    with caplog.at_level(logging.DEBUG, logger=mod.log.name):
+        panel._log_compact_geometry()
+
+    assert "map=1" in caplog.text
+    assert "reqw=632" in caplog.text
