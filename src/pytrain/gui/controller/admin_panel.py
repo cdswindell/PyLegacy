@@ -562,7 +562,7 @@ class AdminPanel(OverlayPanel):
         """Whether there are controller bindings worth showing a help screen for.
 
         A portrait EngineGui runs stand-alone with no hosting SteamDeckGui, so it has no
-        profile and the screen would have nothing to describe. Keyed off the profile
+        profile, and the screen would have nothing to describe. Keyed off the profile
         rather than the platform so the button appears exactly when it leads somewhere.
         """
         return self._gui.controller_profile is not None
@@ -872,7 +872,7 @@ class AdminPanel(OverlayPanel):
         Both call master.display_widgets(), which re-packs every sibling. The wifi state
         rarely changes, so calling them on every refresh repacked the panel for nothing --
         and a repack mid-hold moves windows under the pointer, generating the crossings
-        that cancelled the hold.
+        that canceled the hold.
         """
         if bool(widget.visible) == visible:
             return
@@ -1101,13 +1101,13 @@ class AdminPanel(OverlayPanel):
             self._stretch_compact(control)
 
     def _stretch_compact(self, control, padx: int = 2, pady: int = 2) -> None:
-        """Make a control fill its grid cell now, and record it so the fill can be restored.
+        """Make a control fill its grid cell and record it so the fill can be restored.
 
         Applied immediately so a control that happens to be created last is right either
         way, and recorded because the sibling created after it wipes these options -- see
         _apply_compact_grid. Only grid options are affected; tk.config survives.
 
-        Section boxes pass padx=pady=0: they are the outermost thing in the column and any
+        Section boxes pass padx=pady=0: they are the outermost thing in the column, and any
         padding here comes straight off the width their own columns have to share.
         """
         options = {"sticky": "nsew", "padx": padx, "pady": pady}
