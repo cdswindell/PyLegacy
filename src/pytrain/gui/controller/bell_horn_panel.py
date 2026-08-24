@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from guizero import Box, Text
 
-from .engine_gui_conf import CYCLE_KEY, PLAY_KEY, PLAY_PAUSE_KEY
+from .engine_gui_conf import CYCLE_KEY, PLAY_KEY, PLAY_PAUSE_KEY, PLAY_PAUSE_KEY_COMPACT
 from .overlay_panel import OverlayPanel
 from ...utils.path_utils import find_file
 
@@ -53,7 +53,9 @@ class BellHornPanel(OverlayPanel):
         )
         _, bp = host.make_keypad_button(
             overlay,
-            PLAY_PAUSE_KEY,
+            # Two glyphs for one button: U+23F8 is claimed by a color emoji font on the Deck. See
+            # the note beside these constants.
+            PLAY_PAUSE_KEY_COMPACT if getattr(host, "compact", False) else PLAY_PAUSE_KEY,
             0,
             2,
             align="left",

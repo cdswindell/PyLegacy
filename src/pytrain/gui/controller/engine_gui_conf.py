@@ -34,7 +34,24 @@ SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
 CYCLE_KEY = "↻"
 PLAY_KEY = "▶"
+# U+23F8 DOUBLE VERTICAL BAR has *emoji* as its default Unicode presentation, so any font stack
+# with a color emoji font claims it. SteamOS ships Noto Color Emoji, whose glyph is a blue rounded
+# square with white bars -- and being a bitmap it ignores the button's foreground color entirely,
+# which is why only half of "play slash pause" came out wrong on the Deck. The Pi has no color
+# emoji font ahead of its text fonts, so the same string renders monochrome there and is correct.
+#
+# A U+FE0E text-presentation selector is the usual remedy and is what FOCUS_ARROW_RIGHT uses, but
+# it was probed on the Deck and does not work: nothing in that font stack has a monochrome U+23F8,
+# so the emoji glyph wins regardless. The only reliable fix is to avoid the codepoint.
+#
+# U+25AE BLACK VERTICAL RECTANGLE has no emoji form at all and sits in the same Geometric Shapes
+# block as the play triangle, so a single font serves the whole label. It is also ~10% narrower
+# than the emoji glyph, which matters: a keypad cell is a fixed square with pack_propagate(False),
+# so an over-wide label is silently clipped rather than given room.
 PLAY_PAUSE_KEY = "▶/⏸"
+PLAY_PAUSE_KEY_COMPACT = "▶/▮▮"
+# Kept for symmetry with PLAY_KEY and currently unrendered. Anything that starts *displaying* this
+# needs the compact treatment above -- on a Deck pane it would come out as the blue emoji box.
 PAUSE_KEY = "⏸"
 CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
@@ -435,6 +452,7 @@ FONT_SIZE_EXCEPTIONS = {
     CYCLE_KEY,
     PLAY_KEY,
     PLAY_PAUSE_KEY,
+    PLAY_PAUSE_KEY_COMPACT,
     PAUSE_KEY,
 }
 SENSOR_TRACK_OPTS = [
