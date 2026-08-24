@@ -869,15 +869,17 @@ def test_a_compact_editor_is_a_panel_in_the_app_window_not_a_window_of_its_own(
     assert host.kwargs["relief"] == "raised", "its own border separates it from the panel beneath"
 
 
-def test_the_compact_keyboard_spans_the_display_and_is_as_tall_as_its_own_keys(
+def test_the_compact_keyboard_spans_the_display_and_drops_out_of_the_field(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Full width across both panes, but anchored to the field rather than to the window. Anchored
+    # to the window it landed on top of the row it was editing: the Road Name label was left
+    # peeking above the keyboard's top edge with its value hidden behind it.
     _deck_screen(editable_text_module, monkeypatch)
     widget = _open_keyboard(editable_text_module, compact=True)
 
-    # Full width buys bigger keys; 800 - 360 leaves the panel above it -- including the field
-    # being edited -- on screen, which is what the Pi shows and what was asked for.
-    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 440, "width": 1280, "height": 360}
+    # The stub field occupies the window's top 24px, so the editor starts just below it.
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 28, "width": 1280, "height": 360}
 
 
 def test_the_compact_keypad_takes_only_the_pane_that_owns_the_field(
@@ -888,13 +890,13 @@ def test_the_compact_keypad_takes_only_the_pane_that_owns_the_field(
     _deck_screen(editable_text_module, monkeypatch)
     widget = _open_keyboard(editable_text_module, compact=True, editor=editable_text_module.EditorType.KEYPAD)
 
-    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 440, "width": 640, "height": 360}
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 28, "width": 640, "height": 360}
 
 
-def test_the_compact_chooser_takes_one_pane_and_is_centered_in_it(
+def test_the_compact_chooser_takes_one_pane_and_drops_out_of_the_field(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A list to point at, not something to type on, so it sits where the eye already is.
+    # Centered in the window, this covered the Type field it was editing outright.
     _deck_screen(editable_text_module, monkeypatch)
     monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
     monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
@@ -911,7 +913,7 @@ def test_the_compact_chooser_takes_one_pane_and_is_centered_in_it(
 
     widget.begin_edit()
 
-    assert widget._choice_window.place_kwargs == {"x": 0, "y": 220, "width": 640, "height": 360}
+    assert widget._choice_window.place_kwargs == {"x": 0, "y": 28, "width": 640, "height": 360}
 
 
 def test_a_pane_editor_follows_the_field_to_the_right_hand_pane(
@@ -941,16 +943,17 @@ def test_a_compact_editor_is_built_before_it_is_placed(editable_text_module, mon
     assert widget._keyboard_window.place_child_counts[0] > 0
 
 
-def test_a_compact_editor_never_takes_more_than_its_share_of_the_display(
+def test_a_compact_editor_is_clamped_to_the_room_below_the_field(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Content height with no ceiling would let a long choice list cover the whole window.
+    # The room on the side it lands on is the only ceiling it needs. A fraction-of-the-display cap
+    # was doing nothing this does not, except masking the fact that the keys were far too big.
     _deck_screen(editable_text_module, monkeypatch)
     monkeypatch.setattr(DummyFrame, "req_height", 5000, raising=False)
     widget = _open_keyboard(editable_text_module, compact=True)
 
-    capped = int(800 * editable_text_module.COMPACT_MAX_HEIGHT_FRACTION)
-    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 800 - capped, "width": 1280, "height": capped}
+    # 800 window - 24 field - 4 gap
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 28, "width": 1280, "height": 772}
 
 
 def test_portrait_editor_geometry_is_untouched(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -996,4 +999,47 @@ def test_a_compact_editor_is_measured_against_the_app_window_not_the_screen(
     widget.begin_edit()
     widget.tk.run_after(widget._keyboard_after_id)
 
-    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 240, "width": 1000, "height": 360}
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 28, "width": 1000, "height": 360}
+
+
+def test_a_compact_editor_flips_above_a_field_with_no_room_beneath_it(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The lower rows of a StateInfo panel have almost nothing under them, so dropping downward
+    # would leave a few-pixel sliver. Flips up instead, the way a dropdown does.
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = editable_text_module.EditableText(
+        None, text="Old", debounce_ms=0, compact=True, editor=editable_text_module.EditorType.KEYBOARD
+    )
+    _size_app_window(widget)
+    widget.tk.winfo_rooty = lambda: 720  # 700 below the window's top, 24 tall
+
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+
+    # 72px below against 696 above, so it sits above: 700 - 4 gap - 360 tall.
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 336, "width": 1280, "height": 360}
+
+
+def test_compact_keys_are_smaller_than_portrait_keys(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # At portrait's metrics a six-row keyboard wanted more than 60% of the window, which is why
+    # the keys filled the display and the field it was meant to sit under ended up behind it.
+    def key_font(compact: bool) -> int:
+        DummyButton.instances = []
+        _deck_screen(editable_text_module, monkeypatch)
+        _open_keyboard(editable_text_module, compact=compact)
+        return next(btn for btn in DummyButton.instances if btn.text == "Q").kwargs["font"][1]
+
+    assert key_font(compact=True) < key_font(compact=False)
+
+
+def test_the_shrink_applies_to_widget_sizes_and_not_to_portrait_geometry(editable_text_module) -> None:
+    # _ui and _scaled pull in opposite directions on purpose: _scaled converts the portrait
+    # geometry constants up for a larger display, _ui takes a key's font and padding down for a
+    # panel that has only the space below a field to live in.
+    compact = editable_text_module.EditableText(None, text="", debounce_ms=0, compact=True)
+    portrait = editable_text_module.EditableText(None, text="", debounce_ms=0, compact=False)
+
+    assert compact._ui(18) < 18
+    assert portrait._ui(18) == portrait._scaled(18)
+    assert compact._scaled(18) == 18, "geometry scaling is untouched by the shrink"

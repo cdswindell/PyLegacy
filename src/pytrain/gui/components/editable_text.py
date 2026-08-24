@@ -32,10 +32,14 @@ class EditorType(Enum):
 PORTRAIT_KEYBOARD_SIZE = (980, 420)
 PORTRAIT_KEYPAD_SIZE = (520, 420)
 PORTRAIT_CHOICES_SIZE = (680, 560)
-# Fraction of the screen an editor may occupy on a compact pane before it is capped. The height
-# is the number that matters: these constants are only a backstop, because a compact editor is
-# sized to its own content and only clamped if that content is somehow enormous.
-COMPACT_MAX_HEIGHT_FRACTION = 0.62
+# How much a key's font and padding shrink on a compact pane. The editor has to fit between the
+# field being edited and the edge of the window -- on a Deck that is a few hundred pixels, not the
+# 800 of the whole display -- and at portrait's metrics a six-row keyboard did not come close: it
+# wanted more than 62% of the window and got clamped, which is why the keys were enormous and the
+# Road Name row it was supposed to sit under ended up behind its top edge.
+COMPACT_UI_SHRINK = 0.7
+# Whitespace between the field being edited and the editor that drops out of it.
+EDITOR_FOLLOW_GAP = 4
 # The editors' own backdrop. Named because on a compact pane it is what the user sees covering
 # the app if the editor is hosted in a window rather than in-window -- see _new_editor_host.
 EDITOR_BG = "#202020"
@@ -397,9 +401,9 @@ class EditableText(Text):
         if picker is None:
             return
         if self.compact:
-            # A chooser is a short list; half the display is ample and leaves the other pane read-
-            # able, which the user asked for explicitly. Only the keyboard earns the full width.
-            self._position_compact_editor(picker, anchor="center", span="pane")
+            # A chooser is a short list; half the display is ample and leaves the other pane
+            # readable, which was asked for explicitly. Only the keyboard earns the full width.
+            self._position_compact_editor(picker, span="pane")
             return
 
         try:
@@ -428,14 +432,14 @@ class EditableText(Text):
             picker,
             text=f"Current: {current_label}",
             anchor="w",
-            font=("TkDefaultFont", self._scaled(20), "bold"),
+            font=("TkDefaultFont", self._ui(20), "bold"),
             background="#202020",
             foreground="#ffffff",
         )
-        title.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(12), self._scaled(6)))
+        title.pack(fill="x", padx=self._ui(12), pady=(self._ui(12), self._ui(6)))
 
         action_row = tk.Frame(picker, background="#202020")
-        action_row.pack(side="bottom", fill="x", padx=self._scaled(8), pady=(self._scaled(6), self._scaled(12)))
+        action_row.pack(side="bottom", fill="x", padx=self._ui(8), pady=(self._ui(6), self._ui(12)))
         self._make_repeat_key(action_row, "↑", lambda: self._move_choice(-1), weight=1)
         self._make_repeat_key(action_row, "↓", lambda: self._move_choice(1), weight=1)
         self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
@@ -446,12 +450,12 @@ class EditableText(Text):
             picker,
             activestyle="dotbox",
             exportselection=False,
-            font=("TkDefaultFont", self._scaled(20)),
+            font=("TkDefaultFont", self._ui(20)),
             height=self.choice_rows,
             relief="solid",
             bd=1,
         )
-        self._choice_listbox.pack(fill="both", expand=True, padx=self._scaled(12), pady=self._scaled(6))
+        self._choice_listbox.pack(fill="both", expand=True, padx=self._ui(12), pady=self._ui(6))
         self._choice_listbox.bind("<Up>", lambda _event: self._move_choice(-1), add="+")
         self._choice_listbox.bind("<Down>", lambda _event: self._move_choice(1), add="+")
         self._choice_listbox.bind("<Return>", lambda _event: self.commit_edit(), add="+")
@@ -710,7 +714,7 @@ class EditableText(Text):
 
     def _position_builtin_keyboard(self, kb: tk.Toplevel) -> None:
         if self.compact:
-            self._position_compact_editor(kb, anchor="bottom", span="display")
+            self._position_compact_editor(kb, span="display")
             return
         try:
             top = self.tk.winfo_toplevel()
@@ -728,7 +732,7 @@ class EditableText(Text):
 
     def _position_builtin_keypad(self, kb: tk.Toplevel) -> None:
         if self.compact:
-            self._position_compact_editor(kb, anchor="bottom", span="pane")
+            self._position_compact_editor(kb, span="pane")
             return
         try:
             top = self.tk.winfo_toplevel()
@@ -775,22 +779,21 @@ class EditableText(Text):
         except (TclError, TypeError, ValueError):
             return True
 
-    def _position_compact_editor(self, window, *, anchor: str, span: str) -> None:
-        """Place an in-window editor panel, as tall as its own content.
+    def _position_compact_editor(self, window, *, span: str) -> None:
+        """Place an in-window editor panel directly below the field being edited.
 
-        Modelled on the Deck's controls help screen, which grids across all three columns of the
-        body -- both panes and the divider -- and takes no height of its own, so it is "as short
-        as it can be and centered on the display rather than a full-height panel with a void under
-        the text". Both ideas apply here.
+        Anchored to the field, not to the window. Anchoring to the window put the panel on top of
+        the very thing it was editing: the keyboard's top edge cut through the Road Name row it was
+        supposed to sit under, and the centered chooser covered the Type field completely -- which
+        defeats the point of hosting the editor in-window at all.
 
-        ``span="display"`` for the keyboard, which earns the full width in bigger keys, and
-        ``span="pane"`` for the keypad and the choice picker, which are narrow enough that half the
-        display is plenty and leaves the other pane readable.
+        Flips above the field when there is more room there, the way a dropdown does. The lower
+        fields of a StateInfo panel have almost nothing beneath them, so without this they would
+        get a few-pixel sliver.
 
-        Content height is what keeps the field you are editing visible. Anchored to the bottom at
-        its natural height, the keyboard leaves the panel above it on screen, so the entry stays
-        the one source of truth for the text and there is nothing to mirror. ``anchor="center"``
-        for the choice picker, which is a list to point at rather than something to type on.
+        Height is the content's own request, clamped to the room on the side it lands on. That
+        room is the only ceiling it needs -- a fraction-of-the-display cap was doing nothing the
+        available space was not already doing, except hiding the fact that the keys were too big.
 
         Measured against the app's own toplevel rather than the screen: the placement is inside
         that window, so its coordinates are the ones that mean anything.
@@ -806,8 +809,19 @@ class EditableText(Text):
             wanted = int(window.winfo_reqheight())
             # reqheight is 1 for a container with nothing in it; fall back rather than show a sliver.
             if wanted <= 1:
-                wanted = self._scaled(PORTRAIT_KEYBOARD_SIZE[1])
-            height = max(1, min(wanted, int(top_h * COMPACT_MAX_HEIGHT_FRACTION)))
+                wanted = self._ui(PORTRAIT_KEYBOARD_SIZE[1])
+
+            field_top = int(self.tk.winfo_rooty()) - int(top.winfo_rooty())
+            field_bottom = field_top + int(self.tk.winfo_height())
+            below = max(0, top_h - field_bottom - EDITOR_FOLLOW_GAP)
+            above = max(0, field_top - EDITOR_FOLLOW_GAP)
+            if wanted <= below or below >= above:
+                height = max(1, min(wanted, below))
+                y = field_bottom + EDITOR_FOLLOW_GAP
+            else:
+                height = max(1, min(wanted, above))
+                y = max(0, field_top - EDITOR_FOLLOW_GAP - height)
+
             if span == "pane":
                 # Half the window, on the side the field is on. One pixel of the 2px divider gets
                 # covered; nothing reads it.
@@ -816,7 +830,6 @@ class EditableText(Text):
             else:
                 width = top_w
                 x = 0
-            y = max(0, top_h - height) if anchor == "bottom" else max(0, (top_h - height) // 2)
             window.place(x=x, y=y, width=width, height=height)
             window.lift()
         except (TclError, TypeError, ValueError):
@@ -830,7 +843,7 @@ class EditableText(Text):
             pass
 
         action_row = tk.Frame(kb, background="#202020")
-        action_row.pack(fill="x", padx=self._scaled(8), pady=(self._scaled(8), 0))
+        action_row.pack(fill="x", padx=self._ui(8), pady=(self._ui(8), 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
         self._make_key(action_row, "Save", self.commit_edit, weight=1)
@@ -840,15 +853,15 @@ class EditableText(Text):
             row.pack(
                 fill="both",
                 expand=True,
-                padx=self._scaled(8),
-                pady=(self._scaled(6 if row_idx == 0 else 5), 0),
+                padx=self._ui(8),
+                pady=(self._ui(6 if row_idx == 0 else 5), 0),
             )
             for key in keys:
                 label, value, weight = self._parse_key(key)
                 self._make_key(row, label, lambda v=value: self._on_keyboard_key(v), weight=weight)
 
         controls = tk.Frame(kb, background="#202020")
-        controls.pack(fill="both", expand=True, padx=self._scaled(8), pady=self._scaled(8))
+        controls.pack(fill="both", expand=True, padx=self._ui(8), pady=self._ui(8))
         if self._keyboard_mode == "symbols":
             self._make_key(controls, "ABC", lambda: self._set_keyboard_mode("upper"), weight=1)
             self._make_key(controls, "abc", lambda: self._set_keyboard_mode("lower"), weight=1)
@@ -869,19 +882,19 @@ class EditableText(Text):
             pass
 
         action_row = tk.Frame(kb, background="#202020")
-        action_row.pack(fill="x", padx=self._scaled(8), pady=(self._scaled(8), 0))
+        action_row.pack(fill="x", padx=self._ui(8), pady=(self._ui(8), 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
         self._make_key(action_row, "Save", self.commit_edit, weight=1)
 
         for keys in (("7", "8", "9"), ("4", "5", "6"), ("1", "2", "3")):
             row = tk.Frame(kb, background="#202020")
-            row.pack(fill="both", expand=True, padx=self._scaled(8), pady=self._scaled(6))
+            row.pack(fill="both", expand=True, padx=self._ui(8), pady=self._ui(6))
             for key in keys:
                 self._make_key(row, key, lambda k=key: self._insert_text(k), weight=1)
 
         controls = tk.Frame(kb, background="#202020")
-        controls.pack(fill="both", expand=True, padx=self._scaled(8), pady=self._scaled(6))
+        controls.pack(fill="both", expand=True, padx=self._ui(8), pady=self._ui(6))
         self._make_key(controls, "←", self._move_cursor_left, weight=1)
         self._make_key(controls, "0", lambda: self._insert_text("0"), weight=1)
         self._make_key(controls, "→", self._move_cursor_right, weight=1)
@@ -902,12 +915,12 @@ class EditableText(Text):
             takefocus=False,
             relief="raised",
             bd=2,
-            font=("TkDefaultFont", self._scaled(18)),
+            font=("TkDefaultFont", self._ui(18)),
             background="#f7f7f7",
             activebackground="#d8d8d8",
             **button_kwargs,
         )
-        btn.pack(side="left", fill="both", expand=True, padx=self._scaled(4), ipady=self._scaled(11))
+        btn.pack(side="left", fill="both", expand=True, padx=self._ui(4), ipady=self._ui(11))
         if weight > 1:
             btn.configure(width=5 * weight)
         return btn
@@ -925,6 +938,18 @@ class EditableText(Text):
             return min(short_side / 720, long_side / 1280)
         except TclError:
             return 1.0
+
+    def _ui(self, value: int) -> int:
+        """A font size or a pad for one of the editor's own widgets.
+
+        Distinct from _scaled, which converts the *geometry* constants for a larger display. This
+        one goes the other way on a compact pane: the editor is a panel inside the app window with
+        only the space below the field to work in, so its keys have to be smaller than portrait's,
+        not larger.
+        """
+        if self.compact:
+            return max(1, int(round(value * COMPACT_UI_SHRINK)))
+        return self._scaled(value)
 
     def _scaled(self, value: int, scale: float | None = None) -> int:
         if scale is None:
