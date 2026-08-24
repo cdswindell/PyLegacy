@@ -38,6 +38,9 @@ class DummyTk:
     def config(self, **kwargs: Any) -> None:
         self._config.update(kwargs)
 
+    def update_idletasks(self) -> None:
+        return
+
     def configure(self, **kwargs: Any) -> None:
         self.config(**kwargs)
 
@@ -269,12 +272,22 @@ class DummyWindow(DummyTk):
 
 
 class DummyFrame:
-    instances = []
+    """A Tk Frame -- also what hosts a compact editor, which is a panel in-window, not a window."""
 
-    def __init__(self, master=None, **_kwargs) -> None:
+    instances = []
+    # The height a real Frame would request once it has content.
+    req_height = 360
+
+    def __init__(self, master=None, **kwargs) -> None:
         self.master = master
+        self.kwargs = kwargs
         self.children = []
         self.pack_kwargs: dict[str, Any] = {}
+        self.place_kwargs: dict[str, Any] | None = None
+        # How much content existed each time it was placed, so build-before-place is testable.
+        self.place_child_counts: list[int] = []
+        self.lifted = 0
+        self.destroyed = False
         DummyFrame.instances.append(self)
         if hasattr(master, "children"):
             master.children.append(self)
@@ -285,8 +298,28 @@ class DummyFrame:
     def pack_configure(self, **_kwargs) -> None:
         return
 
-    def destroy(self) -> None:
+    def place(self, **kwargs) -> None:
+        self.place_kwargs = kwargs
+        self.place_child_counts.append(len(self.children))
+
+    def lift(self) -> None:
+        self.lifted += 1
+
+    def configure(self, **kwargs) -> None:
+        self.kwargs.update(kwargs)
+
+    def update_idletasks(self) -> None:
         return
+
+    def winfo_reqheight(self) -> int:
+        # As with a real container: 1 until it holds something.
+        return self.req_height if self.children else 1
+
+    def winfo_children(self):
+        return self.children
+
+    def destroy(self) -> None:
+        self.destroyed = True
 
 
 class DummyButton:
@@ -316,7 +349,10 @@ class DummyButton:
 class DummyText:
     def __init__(self, *_args: Any, text: str = "", **_kwargs: Any) -> None:
         self._text = str(text)
-        self.tk = DummyTk()
+        # A distinct toplevel, as in the real thing. The label's own geometry is not the app
+        # window's, and a compact editor compares the two to work out which pane owns the field --
+        # which was untestable while the stub let a widget be its own toplevel.
+        self.tk = DummyTk(top=DummyTk())
 
     @property
     def value(self) -> str:
@@ -777,12 +813,22 @@ def test_cancel_restores_original_value(editable_text_module) -> None:
 
 
 def _deck_screen(module, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A Steam Deck display: 1280x800, landscape, both panes side by side."""
+    """A Steam Deck: a 1280x800 app window with two panes side by side, under gamescope."""
     monkeypatch.setattr(DummyTk, "winfo_screenwidth", staticmethod(lambda: 1280), raising=True)
     monkeypatch.setattr(DummyTk, "winfo_screenheight", staticmethod(lambda: 800), raising=True)
     monkeypatch.setattr(module.tk, "Toplevel", DummyWindow, raising=True)
     monkeypatch.setattr(module.tk, "Frame", DummyFrame, raising=True)
     monkeypatch.setattr(module.tk, "Button", DummyButton, raising=True)
+
+
+def _size_app_window(widget, width: int = 1280, height: int = 800) -> None:
+    """Give the app window Deck dimensions, per instance -- the field keeps its own, smaller size.
+
+    A compact editor is placed inside this window, so these are the numbers it measures against.
+    """
+    top = widget.tk.winfo_toplevel()
+    top.winfo_width = lambda: width
+    top.winfo_height = lambda: height
 
 
 def _open_keyboard(module, *, compact: bool, editor=None):
@@ -793,38 +839,62 @@ def _open_keyboard(module, *, compact: bool, editor=None):
         compact=compact,
         editor=editor or module.EditorType.KEYBOARD,
     )
+    if compact:
+        _size_app_window(widget)
     widget.begin_edit()
     widget.tk.run_after(widget._keyboard_after_id)
     return widget
 
 
-def test_compact_keyboard_spans_the_display_and_is_as_tall_as_its_own_keys(
+def test_a_compact_editor_is_a_panel_in_the_app_window_not_a_window_of_its_own(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # 980x420 centred on the screen is a phone keyboard, and on a 1280x800 Deck it straddled both
-    # 639px panes and took 53% of the height -- so opening it from one pane buried the other. Full
-    # width, content height, anchored to the bottom: modelled on the controls help screen, which
-    # grids across both panes and takes no height of its own.
+    """The whole point. A second toplevel is no good on the Deck.
+
+    Under gamescope nothing honors geometry() for a secondary toplevel -- it is promoted to fill
+    the display, so the editor's own dark background covered PyTrain and none of the field being
+    edited was left visible. The 980x420 keyboard had the same symptom for the same reason: the
+    size was never applied, so no choice of size could have fixed it. A Frame placed inside the
+    app's own window needs no window manager to agree to anything, which is exactly why the
+    controls help screen works there.
+    """
     _deck_screen(editable_text_module, monkeypatch)
     widget = _open_keyboard(editable_text_module, compact=True)
 
-    # 800 - 360 = 440, so the panel above the keyboard -- including the field being edited --
-    # stays on screen and there is nothing to mirror.
-    assert widget._keyboard_window.geometry_value == "1280x360+0+440"
+    host = widget._keyboard_window
+    assert isinstance(host, DummyFrame), "a Frame in the app window, not a Toplevel"
+    assert not isinstance(host, DummyWindow)
+    # No window-manager calls to make, so it does not pretend to: a Frame has no title or topmost.
+    assert host.kwargs["background"] == editable_text_module.EDITOR_BG
+    assert host.kwargs["relief"] == "raised", "its own border separates it from the panel beneath"
 
 
-def test_compact_keypad_spans_the_display_too(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_compact_keyboard_spans_the_display_and_is_as_tall_as_its_own_keys(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = _open_keyboard(editable_text_module, compact=True)
+
+    # Full width buys bigger keys; 800 - 360 leaves the panel above it -- including the field
+    # being edited -- on screen, which is what the Pi shows and what was asked for.
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 440, "width": 1280, "height": 360}
+
+
+def test_the_compact_keypad_takes_only_the_pane_that_owns_the_field(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Asked for explicitly: only the keyboard spans both panes. A keypad is narrow enough that
+    # half the display is ample, and it leaves the other pane readable.
     _deck_screen(editable_text_module, monkeypatch)
     widget = _open_keyboard(editable_text_module, compact=True, editor=editable_text_module.EditorType.KEYPAD)
 
-    assert widget._keyboard_window.geometry_value == "1280x360+0+440"
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 440, "width": 640, "height": 360}
 
 
-def test_compact_choice_picker_is_centred_rather_than_bottom_anchored(
+def test_the_compact_chooser_takes_one_pane_and_is_centered_in_it(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A list to point at, not something to type on, so it goes where the eye already is. The
-    # controls screen does the same thing for the same reason.
+    # A list to point at, not something to type on, so it sits where the eye already is.
     _deck_screen(editable_text_module, monkeypatch)
     monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
     monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
@@ -837,36 +907,50 @@ def test_compact_choice_picker_is_centred_rather_than_bottom_anchored(
         choices={1: "Steam", 2: "Diesel"},
         initial_value=1,
     )
+    _size_app_window(widget)
 
     widget.begin_edit()
 
-    # 360 tall, so (800 - 360) // 2 = 220 above and below it.
-    assert widget._choice_window.geometry_value == "1280x360+0+220"
+    assert widget._choice_window.place_kwargs == {"x": 0, "y": 220, "width": 640, "height": 360}
 
 
-def test_a_compact_editor_is_built_before_it_is_positioned(
+def test_a_pane_editor_follows_the_field_to_the_right_hand_pane(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # The height comes from the content's own request, so the content has to exist first. Position
-    # first and the window is still empty, reqheight reads 1, and the fallback height is used --
-    # which is what this catches, because 420 is not 360.
+    # Worked out from the field's own position, so the component needs no notion of a "pane".
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = editable_text_module.EditableText(
+        None, text="7", debounce_ms=0, compact=True, editor=editable_text_module.EditorType.KEYPAD
+    )
+    _size_app_window(widget)
+    widget.tk.winfo_rootx = lambda: 700  # the field sits in the right-hand pane
+    widget.tk.winfo_width = lambda: 200
+
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+
+    assert widget._keyboard_window.place_kwargs["x"] == 640
+
+
+def test_a_compact_editor_is_built_before_it_is_placed(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The height is the content's own requested height, so the content has to exist first. Place
+    # it while still empty and reqheight reads 1, which is what the fallback covers.
     _deck_screen(editable_text_module, monkeypatch)
     widget = _open_keyboard(editable_text_module, compact=True)
 
-    assert widget._keyboard_window.children, "the keys were built"
-    assert "x360+" in widget._keyboard_window.geometry_value
+    assert widget._keyboard_window.place_child_counts[0] > 0
 
 
 def test_a_compact_editor_never_takes_more_than_its_share_of_the_display(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Content height with no ceiling would let a long choice list cover the whole display.
+    # Content height with no ceiling would let a long choice list cover the whole window.
     _deck_screen(editable_text_module, monkeypatch)
-    monkeypatch.setattr(DummyWindow, "req_height", 5000, raising=False)
+    monkeypatch.setattr(DummyFrame, "req_height", 5000, raising=False)
     widget = _open_keyboard(editable_text_module, compact=True)
 
     capped = int(800 * editable_text_module.COMPACT_MAX_HEIGHT_FRACTION)
-    assert widget._keyboard_window.geometry_value == f"1280x{capped}+0+{800 - capped}"
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 800 - capped, "width": 1280, "height": capped}
 
 
 def test_portrait_editor_geometry_is_untouched(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -897,9 +981,19 @@ def test_portrait_sizes_the_window_before_filling_it(editable_text_module, monke
     assert widget._keyboard_window.geometry_child_counts == [0], "sized before any keys existed"
 
 
-def test_compact_fills_the_window_before_sizing_it(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
-    # The other order, for the other reason: the height is the content's own requested height.
+def test_a_compact_editor_is_measured_against_the_app_window_not_the_screen(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # They are the same 1280x800 on a Deck, which is exactly why this needs saying: the panel is
+    # placed *inside* the window, so the window's coordinates are the ones that mean anything. A
+    # screen-sized placement in a smaller window overhangs it and the keys fall off the edge.
     _deck_screen(editable_text_module, monkeypatch)
-    widget = _open_keyboard(editable_text_module, compact=True)
+    widget = editable_text_module.EditableText(
+        None, text="Old", debounce_ms=0, compact=True, editor=editable_text_module.EditorType.KEYBOARD
+    )
+    _size_app_window(widget, width=1000, height=600)
 
-    assert widget._keyboard_window.geometry_child_counts[0] > 0, "sized only once the keys existed"
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+
+    assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 240, "width": 1000, "height": 360}

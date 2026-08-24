@@ -36,6 +36,9 @@ PORTRAIT_CHOICES_SIZE = (680, 560)
 # is the number that matters: these constants are only a backstop, because a compact editor is
 # sized to its own content and only clamped if that content is somehow enormous.
 COMPACT_MAX_HEIGHT_FRACTION = 0.62
+# The editors' own backdrop. Named because on a compact pane it is what the user sees covering
+# the app if the editor is hosted in a window rather than in-window -- see _new_editor_host.
+EDITOR_BG = "#202020"
 
 
 class EditableText(Text):
@@ -382,17 +385,8 @@ class EditableText(Text):
                 pass
             return
 
-        top = self.tk.winfo_toplevel()
-        picker = tk.Toplevel(top)
+        picker = self._new_editor_host("Choices")
         self._choice_window = picker
-        picker.transient(top)
-        picker.title("Choices")
-        picker.configure(background="#202020")
-        try:
-            picker.attributes("-topmost", True)
-        except TclError:
-            pass
-        picker.protocol("WM_DELETE_WINDOW", self.cancel_edit)
         self._place_editor(picker, self._build_choice_picker, lambda _w: self._position_choice_picker())
         picker.lift()
         if self._choice_listbox is not None:
@@ -403,7 +397,9 @@ class EditableText(Text):
         if picker is None:
             return
         if self.compact:
-            self._position_compact_editor(picker, anchor="center")
+            # A chooser is a short list; half the display is ample and leaves the other pane read-
+            # able, which the user asked for explicitly. Only the keyboard earns the full width.
+            self._position_compact_editor(picker, anchor="center", span="pane")
             return
 
         try:
@@ -646,18 +642,9 @@ class EditableText(Text):
             return
 
         try:
-            top = self.tk.winfo_toplevel()
-            kb = tk.Toplevel(top)
+            kb = self._new_editor_host("Keyboard")
             self._keyboard_window = kb
             self._keyboard_mode = "upper"
-            kb.transient(top)
-            kb.title("Keyboard")
-            kb.configure(background="#202020")
-            try:
-                kb.attributes("-topmost", True)
-            except TclError:
-                pass
-            kb.protocol("WM_DELETE_WINDOW", self.cancel_edit)
             self._place_editor(kb, self._build_builtin_keyboard, self._position_builtin_keyboard)
             kb.lift()
             self._entry.focus_set()
@@ -676,17 +663,8 @@ class EditableText(Text):
             return
 
         try:
-            top = self.tk.winfo_toplevel()
-            kb = tk.Toplevel(top)
+            kb = self._new_editor_host("Keypad")
             self._keyboard_window = kb
-            kb.transient(top)
-            kb.title("Keypad")
-            kb.configure(background="#202020")
-            try:
-                kb.attributes("-topmost", True)
-            except TclError:
-                pass
-            kb.protocol("WM_DELETE_WINDOW", self.cancel_edit)
             self._place_editor(kb, self._build_builtin_keypad, self._position_builtin_keypad)
             kb.lift()
             self._entry.focus_set()
@@ -694,9 +672,45 @@ class EditableText(Text):
             self._keyboard_window = None
             log.debug("Unable to show built-in keypad", exc_info=True)
 
+    def _new_editor_host(self, title: str):
+        """The container an editor is built into: a window on portrait, a panel in-window on a pane.
+
+        Portrait gets a real ``tk.Toplevel``, sized and positioned by a window manager that honors
+        ``geometry()``. That is what the Pi actually shows: a titled keyboard window across the
+        bottom, with the panel and the field being edited still visible above it.
+
+        A compact pane cannot use one. Under gamescope there is no window manager cooperating like
+        that -- a secondary toplevel is promoted to fill the display -- so the editor's own
+        background covered PyTrain entirely and nothing of the field being edited was left on
+        screen. The 980x420 keyboard had the same symptom for the same reason: that size was never
+        applied. Sizing it differently could not have helped, because the size was not the problem.
+
+        So a compact editor is built into a ``tk.Frame`` placed inside the app's own toplevel.
+        That is exactly why the controls help screen works on the Deck -- it is a Box gridded into
+        ``body`` rather than a window, so no window manager has to agree to anything. Everything
+        the editors do afterwards (``lift``, ``destroy``, ``winfo_children``, packing rows into it)
+        means the same for a Frame as for a Toplevel, so the key-building code is shared as it is.
+        """
+        top = self.tk.winfo_toplevel()
+        if self.compact:
+            # No transient/title/topmost/protocol: a Frame has no window manager to tell. Its own
+            # border is what separates it from the panel it covers, the way the controls screen's
+            # raised border does.
+            return tk.Frame(top, background=EDITOR_BG, relief="raised", borderwidth=3)
+        host = tk.Toplevel(top)
+        host.transient(top)
+        host.title(title)
+        host.configure(background=EDITOR_BG)
+        try:
+            host.attributes("-topmost", True)
+        except TclError:
+            pass
+        host.protocol("WM_DELETE_WINDOW", self.cancel_edit)
+        return host
+
     def _position_builtin_keyboard(self, kb: tk.Toplevel) -> None:
         if self.compact:
-            self._position_compact_editor(kb, anchor="bottom")
+            self._position_compact_editor(kb, anchor="bottom", span="display")
             return
         try:
             top = self.tk.winfo_toplevel()
@@ -714,7 +728,7 @@ class EditableText(Text):
 
     def _position_builtin_keypad(self, kb: tk.Toplevel) -> None:
         if self.compact:
-            self._position_compact_editor(kb, anchor="bottom")
+            self._position_compact_editor(kb, anchor="bottom", span="pane")
             return
         try:
             top = self.tk.winfo_toplevel()
@@ -749,41 +763,62 @@ class EditableText(Text):
             position(window)
             build(window)
 
-    def _position_compact_editor(self, window: tk.Toplevel, *, anchor: str) -> None:
-        """Span the whole display and stand exactly as tall as the editor's own content.
+    def _field_is_in_left_pane(self, top, top_w: int) -> bool:
+        """Which half of the display holds this field, worked out from the field's own position.
+
+        Deliberately not by asking about panes: this component is used by whatever wants an
+        editable label, and a pane is a Steam Deck idea it has no business knowing about.
+        """
+        try:
+            offset = int(self.tk.winfo_rootx()) - int(top.winfo_rootx())
+            return offset + int(self.tk.winfo_width()) // 2 < top_w // 2
+        except (TclError, TypeError, ValueError):
+            return True
+
+    def _position_compact_editor(self, window, *, anchor: str, span: str) -> None:
+        """Place an in-window editor panel, as tall as its own content.
 
         Modelled on the Deck's controls help screen, which grids across all three columns of the
         body -- both panes and the divider -- and takes no height of its own, so it is "as short
-        as it can be and centred on the display rather than a full-height panel with a void under
-        the text". The same two ideas, applied to a Toplevel.
+        as it can be and centered on the display rather than a full-height panel with a void under
+        the text". Both ideas apply here.
 
-        Full width because the alternative is worse in both directions. The portrait constants
-        describe a phone: 980x420 is a keyboard across the bottom third of an 800x1280 panel, and
-        the same 420px is 53% of a 1280x800 one, 980px of it straddling both 639px panes, so the
-        pane you were not editing disappeared along with the one you were. Confining it to a
-        single pane would only make the keys small.
+        ``span="display"`` for the keyboard, which earns the full width in bigger keys, and
+        ``span="pane"`` for the keypad and the choice picker, which are narrow enough that half the
+        display is plenty and leaves the other pane readable.
 
-        Content height is what keeps the field you are editing visible: a keyboard that reaches
-        its natural height, anchored to the bottom, leaves the panel above it on screen, so there
-        is nothing to mirror and the entry stays the one source of truth for the text.
+        Content height is what keeps the field you are editing visible. Anchored to the bottom at
+        its natural height, the keyboard leaves the panel above it on screen, so the entry stays
+        the one source of truth for the text and there is nothing to mirror. ``anchor="center"``
+        for the choice picker, which is a list to point at rather than something to type on.
 
-        ``anchor="bottom"`` for the keyboards, where a keyboard belongs; ``"center"`` for the
-        choice picker, which is a list to point at rather than something to type on.
+        Measured against the app's own toplevel rather than the screen: the placement is inside
+        that window, so its coordinates are the ones that mean anything.
         """
         try:
             top = self.tk.winfo_toplevel()
-            screen_w = int(top.winfo_screenwidth())
-            screen_h = int(top.winfo_screenheight())
-            # Ask the built content how tall it wants to be. Requires the widgets to exist, which
-            # is why the compact path builds before it positions.
+            top.update_idletasks()
+            top_w = max(1, int(top.winfo_width()))
+            top_h = max(1, int(top.winfo_height()))
+            # Ask the built content how tall it wants to be, which needs the content to exist --
+            # see _place_editor for why the compact path builds first.
             window.update_idletasks()
             wanted = int(window.winfo_reqheight())
-            # reqheight is 1 for a window with nothing in it; fall back rather than show a sliver.
+            # reqheight is 1 for a container with nothing in it; fall back rather than show a sliver.
             if wanted <= 1:
                 wanted = self._scaled(PORTRAIT_KEYBOARD_SIZE[1])
-            height = max(1, min(wanted, int(screen_h * COMPACT_MAX_HEIGHT_FRACTION)))
-            y = max(0, screen_h - height) if anchor == "bottom" else max(0, (screen_h - height) // 2)
-            window.geometry(f"{screen_w}x{height}+0+{y}")
+            height = max(1, min(wanted, int(top_h * COMPACT_MAX_HEIGHT_FRACTION)))
+            if span == "pane":
+                # Half the window, on the side the field is on. One pixel of the 2px divider gets
+                # covered; nothing reads it.
+                width = max(1, top_w // 2)
+                x = 0 if self._field_is_in_left_pane(top, top_w) else top_w - width
+            else:
+                width = top_w
+                x = 0
+            y = max(0, top_h - height) if anchor == "bottom" else max(0, (top_h - height) // 2)
+            window.place(x=x, y=y, width=width, height=height)
+            window.lift()
         except (TclError, TypeError, ValueError):
             pass
 
