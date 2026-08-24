@@ -34,24 +34,26 @@ SWITCH_OUT_KEY = "↖↗"
 FIRE_ROUTE_KEY = "⚡"
 CYCLE_KEY = "↻"
 PLAY_KEY = "▶"
-# U+23F8 DOUBLE VERTICAL BAR has *emoji* as its default Unicode presentation, so any font stack
-# with a color emoji font claims it. SteamOS ships Noto Color Emoji, whose glyph is a blue rounded
-# square with white bars -- and being a bitmap it ignores the button's foreground color entirely,
-# which is why only half of "play slash pause" came out wrong on the Deck. The Pi has no color
-# emoji font ahead of its text fonts, so the same string renders monochrome there and is correct.
+# U+23F8 DOUBLE VERTICAL BAR is deliberately *not* used here. Its default Unicode presentation is
+# emoji, so any font stack with a color emoji font claims it -- SteamOS ships Noto Color Emoji,
+# whose glyph is a blue rounded square with white bars, and being a bitmap it ignores the button's
+# foreground color entirely. The Pi has no color emoji font ahead of its text fonts, so the same
+# string rendered correctly there and wrongly on the Deck.
 #
 # A U+FE0E text-presentation selector is the usual remedy and is what FOCUS_ARROW_RIGHT uses, but
 # it was probed on the Deck and does not work: nothing in that font stack has a monochrome U+23F8,
 # so the emoji glyph wins regardless. The only reliable fix is to avoid the codepoint.
 #
 # U+25AE BLACK VERTICAL RECTANGLE has no emoji form at all and sits in the same Geometric Shapes
-# block as the play triangle, so a single font serves the whole label. It is also ~10% narrower
-# than the emoji glyph, which matters: a keypad cell is a fixed square with pack_propagate(False),
-# so an over-wide label is silently clipped rather than given room.
-PLAY_PAUSE_KEY = "▶/⏸"
-PLAY_PAUSE_KEY_COMPACT = "▶/▮▮"
+# block as the play triangle, so one font serves the whole label. Both devices use it -- it was
+# briefly Deck-only, then adopted for portrait too because it simply looks better.
+#
+# Four characters wide against one for every other key on its row, so the button that carries it
+# names a smaller size explicitly rather than taking the s_30 below. A keypad cell is a fixed
+# square with pack_propagate off, so an over-wide label is silently clipped, never given room.
+PLAY_PAUSE_KEY = "▶/▮▮"
 # Kept for symmetry with PLAY_KEY and currently unrendered. Anything that starts *displaying* this
-# needs the compact treatment above -- on a Deck pane it would come out as the blue emoji box.
+# hits the emoji problem described above; use the bars instead.
 PAUSE_KEY = "⏸"
 CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
@@ -451,8 +453,9 @@ REPEAT_EXCEPTIONS = {
 FONT_SIZE_EXCEPTIONS = {
     CYCLE_KEY,
     PLAY_KEY,
+    # Note that the Bell/Horn button overrides this with an explicit size, because its label is
+    # four characters wide. The entry still matters for any other call site that does not.
     PLAY_PAUSE_KEY,
-    PLAY_PAUSE_KEY_COMPACT,
     PAUSE_KEY,
 }
 SENSOR_TRACK_OPTS = [
