@@ -68,9 +68,7 @@ AUX3_KEY = "Aux3"
 CAB_KEY = "Cab"
 SMOKE_ON = "SMOKE_ON"
 SMOKE_OFF = "SMOKE_OFF"
-BELL_KEY = "\U0001f56d"  # RINGING BELL: no emoji form, so no color font can claim it.
-# U+1F514 is unusable: the Deck's color emoji font wins even with a U+FE0E selector,
-# the same probe result recorded for the old pause glyph (see test_bell_horn_panel.py).
+BELL_KEY = "\U0001f514"
 FWD_KEY = "Fwd"
 REV_KEY = "Rev"
 DIR_KEY = "Dir"

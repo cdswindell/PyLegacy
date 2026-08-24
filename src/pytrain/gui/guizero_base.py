@@ -779,13 +779,8 @@ class GuiZeroBase(Thread, ABC):
         preserve_height: bool = False,
         force_lionel: bool = False,
     ):
-        # Returns cached or newly created image data; the cache key includes the
-        # requested size and scaling flags so a hit can never return an image
-        # rendered at a different size than the one requested
-        if isinstance(size, int):
-            size = (size, size)
-        key = (path, size, inverse, scale, preserve_height, force_lionel)
-        if key not in self._image_cache:
+        # Returns cached or newly created image data
+        if path not in self._image_cache:
             img = None
             if scale:
                 normal_tk = self.get_scaled_image(path, preserve_height=preserve_height)
@@ -794,6 +789,8 @@ class GuiZeroBase(Thread, ABC):
             else:
                 img = Image.open(path)
                 if size:
+                    if isinstance(size, int):
+                        size = (size, size)
                     img = img.resize(size)
                 normal_tk = ImageTk.PhotoImage(img)
 
@@ -802,10 +799,10 @@ class GuiZeroBase(Thread, ABC):
                 inverted = ImageOps.invert(img.convert("RGB"))
                 inverted.putalpha(img.split()[-1])
                 inverted_tk = ImageTk.PhotoImage(inverted)
-                self._image_cache[key] = (normal_tk, inverted_tk)
+                self._image_cache[path] = (normal_tk, inverted_tk)
             else:
-                self._image_cache[key] = normal_tk
-        return self._image_cache[key]
+                self._image_cache[path] = normal_tk
+        return self._image_cache[path]
 
     def get_titled_image(self, path):
         key = (path, self.titled_button_size, self.titled_button_size)

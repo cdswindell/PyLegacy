@@ -14,7 +14,6 @@ import tkinter as tk
 from contextlib import contextmanager
 from threading import Condition, RLock
 from tkinter import TclError
-from tkinter import font as tk_font
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
 from guizero import Box, Slider, Text, TitleBox
@@ -249,10 +248,9 @@ class ControllerView:
         btn_row = Box(pair_cell, align="top", layout="grid")  # uses pack internally
         btn_row.tk.pack(expand=True)  # Center the *pair* within the TitleBox
 
-        bell_horn_title = "Bell/Horn..."
         bell_box = TitleBox(
             btn_row,
-            bell_horn_title,
+            "Bell/Horn...",
             grid=[2, 0],
             align="bottom",
         )
@@ -270,20 +268,10 @@ class ControllerView:
 
         # Allow Tk to compute geometry
         host.app.tk.update_idletasks()
-
-        # A LabelFrame sizes itself to its children only, never to its title; when the
-        # bell button is narrower than the title, pad the button so the title isn't clipped
-        title_font = tk_font.Font(font=bell_box.tk.cget("font") or "TkDefaultFont")
-        title_deficit = title_font.measure(bell_horn_title) + 8 - bell_box.tk.winfo_reqwidth()
-        if title_deficit > 0:
-            bell_btn.tk.pack_configure(padx=(title_deficit + 1) // 2)
-
-        # use requested (not actual) heights: the controller box is still hidden here,
-        # so winfo_height() would report 1 for unmapped widgets
         horn_size = max(
             1,
             max(
-                int(bell_box.tk.winfo_reqheight() * 0.85),
+                int(bell_box.tk.winfo_height() * 0.85),
                 int(aux_row_height * 0.70),
             ),
         )
@@ -315,18 +303,6 @@ class ControllerView:
         )
         horn_btn.on_repeat = horn_btn.on_press
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
-
-        # The pair sits in a column whose width is pinned to the sliders above
-        # (grid_propagate is off), and btn_row is packed centered, so any overflow
-        # is clipped at *both* edges: the horn's left side and the title's right.
-        # Shrink the horn until the pair fits; on the Pi the column is wide enough
-        # that nothing binds and the sizes above are kept as-is.
-        host.app.tk.update_idletasks()
-        overflow = btn_row.tk.winfo_reqwidth() - target_sliders_width
-        if overflow > 0:
-            horn_size = max(16, horn_size - overflow)
-            horn_btn.images = host.get_image(image, size=horn_size)
-            horn_btn.tk.config(width=horn_size, height=horn_size)
         host._freight_sounds_bell_horn_box.hide()
 
         # info box to display smoke, rpm, labor, etc.
