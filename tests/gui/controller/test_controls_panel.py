@@ -19,7 +19,7 @@ import src.pytrain.gui.controller.controls_panel as mod
 from src.pytrain.gui.controller.controls_panel import COLUMNS, ROWS_PER_COLUMN, ControlsPanel
 from src.pytrain.gui.controller.steam_deck_input import ControlProfile
 
-BUNDLED = Path("src/pytrain/gui/controller/steam_deck_default.json")
+BUNDLED = Path(mod.__file__).with_name("steam_deck_default.json")
 
 
 def _panel(profile: ControlProfile | None) -> ControlsPanel:
