@@ -19,7 +19,7 @@ from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 from guizero import Box, Slider, Text, TitleBox
 from guizero.base import Widget
 
-from .engine_gui_conf import BELL_KEY, ENGINE_OPS_LAYOUT, MOMENTUM, MOM_TB, TRAIN_BRAKE
+from .engine_gui_conf import ENGINE_OPS_LAYOUT, MOMENTUM, MOM_TB, TRAIN_BRAKE
 from .speed_limit_panel import SpeedLimitPanel
 from .state_info_overlay import StateInfoOverlay
 from ..components.analog_gauge import AnalogGaugeWidget
@@ -34,6 +34,17 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 CAB_1_THROTTLE_REPEAT_MS = 200
+
+
+def freight_pair_size(aux_row_height: int) -> int:
+    """Edge length of both freight-sounds pair buttons, in pixels.
+
+    Derived from the row it sits in, never measured from what is drawn inside it. The size used to
+    come from ``bell_box.winfo_height()``, which tied the pair's dimensions to whether the font
+    could draw the bell glyph -- so a missing glyph collapsed the whole pair, and three rounds of
+    "bell/horn alignment and size logic" were chasing a font problem through the layout.
+    """
+    return max(1, int(aux_row_height * 0.70))
 
 
 class ControllerView:
@@ -254,30 +265,43 @@ class ControllerView:
             grid=[2, 0],
             align="bottom",
         )
+        # Both halves of this pair are images, and their size is computed rather than measured.
+        #
+        # The bell was a text glyph (U+1F514 BELL) and no single codepoint works on both devices:
+        # the Pi has no font containing it, so it drew a missing-glyph rectangle, and the Deck's
+        # color emoji font claims it, so it drew a colored bitmap that ignores the button's
+        # foreground. U+1F56D RINGING BELL was tried instead and is worse -- no emoji form, but
+        # almost no font ships it either. An image needs no font on either device, and it matches
+        # the horn sitting beside it.
+        #
+        # Computed rather than measured because horn_size used to be derived from bell_box's
+        # *rendered height*, which coupled the pair's size to whether the font could draw the
+        # glyph: a missing glyph made the whole pair collapse, so every attempt to fix the size
+        # was chasing the glyph. aux_row_height is the floor that expression already fell back
+        # to, and it is the one knob if the pair wants to be bigger or smaller.
+        pair_size = freight_pair_size(aux_row_height)
+
         host._bell_btn = bell_btn = HoldButton(
             bell_box,
-            BELL_KEY,
+            "",
             align="bottom",
-            text_size=host.s_24,
-            text_bold=True,
             command=host.on_engine_command,
             args=[["BELL_ONE_SHOT_DING", "RING_BELL"]],
         )
-        bell_btn.tk.pack(fill="both", expand=True)
+        bell_image = find_file("bell.jpg")
+        bell_btn.image = bell_image
+        bell_btn.images = host.get_image(bell_image, size=pair_size)
+        bell_btn.tk.config(
+            borderwidth=2,
+            compound="center",
+            width=pair_size,
+            height=pair_size,
+        )
+        bell_btn.tk.pack(padx=(1, 1), pady=(1, 0))
         bell_btn.on_hold = host.on_bell_horn_options_fs
 
-        # Allow Tk to compute geometry
-        host.app.tk.update_idletasks()
-        horn_size = max(
-            1,
-            max(
-                int(bell_box.tk.winfo_height() * 0.85),
-                int(aux_row_height * 0.70),
-            ),
-        )
-
         # spacer box
-        sp_size = int(horn_size * 0.1)
+        sp_size = int(pair_size * 0.1)
         sp = Box(btn_row, grid=[1, 0], height=sp_size, width=sp_size)
         host.cache(sp)
 
@@ -294,12 +318,12 @@ class ControllerView:
         )
         image = find_file("horn.jpg")
         horn_btn.image = image
-        horn_btn.images = host.get_image(image, size=horn_size)
+        horn_btn.images = host.get_image(image, size=pair_size)
         horn_btn.tk.config(
             borderwidth=2,
             compound="center",
-            width=horn_size,
-            height=horn_size,
+            width=pair_size,
+            height=pair_size,
         )
         horn_btn.on_repeat = horn_btn.on_press
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2

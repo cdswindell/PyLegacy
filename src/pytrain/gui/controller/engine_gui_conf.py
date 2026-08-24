@@ -68,6 +68,11 @@ AUX3_KEY = "Aux3"
 CAB_KEY = "Cab"
 SMOKE_ON = "SMOKE_ON"
 SMOKE_OFF = "SMOKE_OFF"
+# No longer rendered anywhere. The freight-sounds bell is bell.jpg now, because no single bell
+# codepoint works on both devices: the Pi has no font with U+1F514 and draws a missing-glyph
+# rectangle, while the Deck's color emoji font claims it and draws a colored bitmap that ignores
+# the button's foreground. U+1F56D RINGING BELL has no emoji form but almost no font ships it.
+# Kept as a constant rather than deleted so nothing outside this package breaks on the name.
 BELL_KEY = "\U0001f514"
 FWD_KEY = "Fwd"
 REV_KEY = "Rev"

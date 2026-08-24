@@ -294,3 +294,78 @@ def test_resolve_font_family_uses_readable_fallback(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(mod.tkfont, "families", lambda _root: ("Helvetica", "TkDefaultFont"))
 
     assert mod.resolve_font_family(object(), "DigitalDream") == "TkDefaultFont"
+
+
+def _sized_png(tmp_path, name: str, size: tuple[int, int] = (200, 200)) -> str:
+    path = tmp_path / name
+    Image.new("RGB", size, "white").save(path, format="PNG")
+    return str(path)
+
+
+def test_get_image_honors_the_requested_size_on_a_cache_hit(tmp_path, monkeypatch) -> None:
+    """The size used to be ignored whenever the path was already cached.
+
+    Keyed on the path alone, the *first* caller for a file decided the size for every later one,
+    silently. bell.jpg and horn.jpg are each requested twice at different sizes -- once by a keypad
+    button at titled_button_size, once by the freight-sounds pair at its own smaller size -- and
+    since the keypad is built first, the pair was handed images far larger than its buttons.
+    """
+    sizes: list[tuple[int, int]] = []
+    monkeypatch.setattr(mod.ImageTk, "PhotoImage", lambda img: sizes.append(img.size) or object())
+    gui = DummyGui()
+    path = _sized_png(tmp_path, "bell.png")
+
+    gui.get_image(path, size=106, inverse=False)
+    gui.get_image(path, size=47, inverse=False)
+
+    assert sizes == [(106, 106), (47, 47)], "the second request was served at its own size"
+
+    gui.close()
+
+
+def test_get_image_still_caches_a_repeated_identical_request(tmp_path, monkeypatch) -> None:
+    # The point is correctness, not abandoning the cache: same path and same size is still one
+    # PhotoImage, so the extra entries are one per *distinct* size, not one per call.
+    built: list[tuple[int, int]] = []
+    monkeypatch.setattr(mod.ImageTk, "PhotoImage", lambda img: built.append(img.size) or object())
+    gui = DummyGui()
+    path = _sized_png(tmp_path, "horn.png")
+
+    first = gui.get_image(path, size=47, inverse=False)
+    second = gui.get_image(path, size=47, inverse=False)
+
+    assert first is second
+    assert built == [(47, 47)]
+
+    gui.close()
+
+
+def test_get_image_treats_an_int_size_and_a_square_tuple_as_one_entry(tmp_path, monkeypatch) -> None:
+    # size is normalized before the key is built, so these are the same request. Normalizing after
+    # would give them separate entries and double the images for no reason.
+    built: list[tuple[int, int]] = []
+    monkeypatch.setattr(mod.ImageTk, "PhotoImage", lambda img: built.append(img.size) or object())
+    gui = DummyGui()
+    path = _sized_png(tmp_path, "cycle.png")
+
+    gui.get_image(path, size=47, inverse=False)
+    gui.get_image(path, size=(47, 47), inverse=False)
+
+    assert built == [(47, 47)]
+
+    gui.close()
+
+
+def test_get_image_separates_entries_that_differ_only_by_flag(tmp_path, monkeypatch) -> None:
+    # inverse changes what is returned (a pair rather than one image), so it belongs in the key.
+    monkeypatch.setattr(mod.ImageTk, "PhotoImage", lambda img: object())
+    gui = DummyGui()
+    path = _sized_png(tmp_path, "load.png")
+
+    plain = gui.get_image(path, size=47, inverse=False)
+    pair = gui.get_image(path, size=47, inverse=True)
+
+    assert not isinstance(plain, tuple)
+    assert isinstance(pair, tuple) and len(pair) == 2
+
+    gui.close()

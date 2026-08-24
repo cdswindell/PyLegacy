@@ -779,8 +779,18 @@ class GuiZeroBase(Thread, ABC):
         preserve_height: bool = False,
         force_lionel: bool = False,
     ):
-        # Returns cached or newly created image data
-        if path not in self._image_cache:
+        # Returns cached or newly created image data. The key includes the requested size and the
+        # scaling flags, so a hit can never hand back an image rendered at a size nobody asked
+        # for. Keyed on the path alone -- as it was -- the *first* caller for a given file decided
+        # the size for every later one, silently: bell.jpg and horn.jpg are each requested both by
+        # a keypad button at titled_button_size and by the freight-sounds pair at its own smaller
+        # size, and since the keypad is built first the pair was being handed ~106px images for
+        # ~47px buttons. That is a real defect, not an optimization; the extra entries are one
+        # PhotoImage per distinct size.
+        if isinstance(size, int):
+            size = (size, size)
+        key = (path, size, inverse, scale, preserve_height, force_lionel)
+        if key not in self._image_cache:
             img = None
             if scale:
                 normal_tk = self.get_scaled_image(path, preserve_height=preserve_height)
@@ -789,8 +799,6 @@ class GuiZeroBase(Thread, ABC):
             else:
                 img = Image.open(path)
                 if size:
-                    if isinstance(size, int):
-                        size = (size, size)
                     img = img.resize(size)
                 normal_tk = ImageTk.PhotoImage(img)
 
@@ -799,10 +807,10 @@ class GuiZeroBase(Thread, ABC):
                 inverted = ImageOps.invert(img.convert("RGB"))
                 inverted.putalpha(img.split()[-1])
                 inverted_tk = ImageTk.PhotoImage(inverted)
-                self._image_cache[path] = (normal_tk, inverted_tk)
+                self._image_cache[key] = (normal_tk, inverted_tk)
             else:
-                self._image_cache[path] = normal_tk
-        return self._image_cache[path]
+                self._image_cache[key] = normal_tk
+        return self._image_cache[key]
 
     def get_titled_image(self, path):
         key = (path, self.titled_button_size, self.titled_button_size)
