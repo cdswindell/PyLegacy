@@ -167,3 +167,71 @@ def test_the_panel_leaves_its_own_footer_whitespace_to_the_popup(monkeypatch) ->
 
         trailing = [box for box in boxes if "text" not in box.kwargs and box.kwargs.get("height")]
         assert trailing == [], f"compact={compact}: {[box.kwargs for box in trailing]}"
+
+
+class _RecordingTitleBox:
+    def __init__(self, _parent=None, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.text_size = None
+        self.text_bold = False
+        self.display_scope = None
+        self.tk = SimpleNamespace(
+            grid_configure=lambda **_kw: None,
+            config=lambda **_kw: None,
+            pack_propagate=lambda _v: None,
+            grid_columnconfigure=lambda *_a, **_kw: None,
+        )
+
+
+class _RecordingEditableText:
+    instances: list["_RecordingEditableText"] = []
+
+    def __init__(self, _parent=None, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.text_bold = False
+        self.text_size = None
+        self.tk = SimpleNamespace(config=lambda **_kw: None)
+        _RecordingEditableText.instances.append(self)
+
+    def add_hold_target(self, _target) -> None:
+        pass
+
+
+def _make_editable_field(compact: bool, monkeypatch):
+    _RecordingEditableText.instances = []
+    monkeypatch.setattr(mod, "TitleBox", _RecordingTitleBox)
+    monkeypatch.setattr(mod, "EditableText", _RecordingEditableText)
+    host = SimpleNamespace(s_18=18, s_10=10, width=632, compact=compact)
+
+    mod.StateInfoOverlay.make_field(
+        host,
+        _RecordingTitleBox(),
+        "Road Name",
+        [0, 0, 4, 1],
+        editor=mod.EditorType.KEYBOARD,
+        max_length=31,
+    )
+
+    return _RecordingEditableText.instances[-1]
+
+
+def test_an_editable_field_is_told_whether_it_is_on_a_compact_pane(monkeypatch) -> None:
+    # The wiring, not the geometry. EditableText sizes its keyboard, keypad and choice picker from
+    # this flag, and it cannot work it out for itself: landscape does not identify a Deck, since
+    # the legacy 800x480 Pi display is landscape too. Dropping this argument left every geometry
+    # test green while the Deck kept its phone-shaped keyboard.
+    assert _make_editable_field(compact=True, monkeypatch=monkeypatch).kwargs["compact"] is True
+    assert _make_editable_field(compact=False, monkeypatch=monkeypatch).kwargs["compact"] is False
+
+
+def test_a_host_that_never_heard_of_compact_is_treated_as_portrait(monkeypatch) -> None:
+    _RecordingEditableText.instances = []
+    monkeypatch.setattr(mod, "TitleBox", _RecordingTitleBox)
+    monkeypatch.setattr(mod, "EditableText", _RecordingEditableText)
+    host = SimpleNamespace(s_18=18, s_10=10, width=632)
+
+    mod.StateInfoOverlay.make_field(
+        host, _RecordingTitleBox(), "Road Name", [0, 0], editor=mod.EditorType.KEYPAD, max_length=4
+    )
+
+    assert _RecordingEditableText.instances[-1].kwargs["compact"] is False

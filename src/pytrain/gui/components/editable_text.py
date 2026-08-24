@@ -27,6 +27,17 @@ class EditorType(Enum):
     CHOICES = auto()
 
 
+# Editor sizes for a portrait display, in pixels, clamped to the screen. Authored for the Pi and
+# left exactly as they were: full width on an 800px-wide panel, a third of a 1280px-tall one.
+PORTRAIT_KEYBOARD_SIZE = (980, 420)
+PORTRAIT_KEYPAD_SIZE = (520, 420)
+PORTRAIT_CHOICES_SIZE = (680, 560)
+# Fraction of the screen an editor may occupy on a compact pane before it is capped. The height
+# is the number that matters: these constants are only a backstop, because a compact editor is
+# sized to its own content and only clamped if that content is somehow enormous.
+COMPACT_MAX_HEIGHT_FRACTION = 0.62
+
+
 class EditableText(Text):
     """
     Drop-in replacement for guizero.Text that becomes editable after a press-and-hold.
@@ -43,6 +54,7 @@ class EditableText(Text):
         debounce_ms: int = 80,
         max_length: int | None = None,
         editor: EditorType | None = EditorType.KEYBOARD,
+        compact: bool = False,
         choices: dict[Any, Any] | None = None,
         initial_value: Any = None,
         choice_rows: int = 12,
@@ -62,6 +74,10 @@ class EditableText(Text):
         self.hold_threshold = float(hold_threshold)
         self.debounce_ms = int(debounce_ms)
         self.editor = editor
+        # Landscape alone cannot stand in for this: the legacy Pi display is 800x480, also
+        # landscape, and its editors are correct as they are. Only the caller knows it is a Deck
+        # pane, so portrait and the 7" Pi are both left untouched by construction.
+        self.compact = bool(compact)
         self._editable = editor is not None
         self.max_length = max_length
         self.choices = choices or {}
@@ -377,8 +393,7 @@ class EditableText(Text):
         except TclError:
             pass
         picker.protocol("WM_DELETE_WINDOW", self.cancel_edit)
-        self._position_choice_picker()
-        self._build_choice_picker(picker)
+        self._place_editor(picker, self._build_choice_picker, lambda _w: self._position_choice_picker())
         picker.lift()
         if self._choice_listbox is not None:
             self._choice_listbox.focus_set()
@@ -387,14 +402,18 @@ class EditableText(Text):
         picker = self._choice_window
         if picker is None:
             return
+        if self.compact:
+            self._position_compact_editor(picker, anchor="center")
+            return
 
         try:
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
             scale = self._screen_scale(screen_w, screen_h)
-            picker_w = min(screen_w, self._scaled(680, scale))
-            picker_h = min(screen_h, self._scaled(560, scale))
+            want_w, want_h = PORTRAIT_CHOICES_SIZE
+            picker_w = min(screen_w, self._scaled(want_w, scale))
+            picker_h = min(screen_h, self._scaled(want_h, scale))
             x = max(0, (screen_w - picker_w) // 2)
             y = max(0, (screen_h - picker_h) // 2)
             picker.geometry(f"{picker_w}x{picker_h}+{x}+{y}")
@@ -639,8 +658,7 @@ class EditableText(Text):
             except TclError:
                 pass
             kb.protocol("WM_DELETE_WINDOW", self.cancel_edit)
-            self._position_builtin_keyboard(kb)
-            self._build_builtin_keyboard(kb)
+            self._place_editor(kb, self._build_builtin_keyboard, self._position_builtin_keyboard)
             kb.lift()
             self._entry.focus_set()
         except TclError:
@@ -669,8 +687,7 @@ class EditableText(Text):
             except TclError:
                 pass
             kb.protocol("WM_DELETE_WINDOW", self.cancel_edit)
-            self._position_builtin_keypad(kb)
-            self._build_builtin_keypad(kb)
+            self._place_editor(kb, self._build_builtin_keypad, self._position_builtin_keypad)
             kb.lift()
             self._entry.focus_set()
         except TclError:
@@ -678,13 +695,17 @@ class EditableText(Text):
             log.debug("Unable to show built-in keypad", exc_info=True)
 
     def _position_builtin_keyboard(self, kb: tk.Toplevel) -> None:
+        if self.compact:
+            self._position_compact_editor(kb, anchor="bottom")
+            return
         try:
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
             scale = self._screen_scale(screen_w, screen_h)
-            kb_w = min(screen_w, self._scaled(980, scale))
-            kb_h = min(screen_h, self._scaled(420, scale))
+            want_w, want_h = PORTRAIT_KEYBOARD_SIZE
+            kb_w = min(screen_w, self._scaled(want_w, scale))
+            kb_h = min(screen_h, self._scaled(want_h, scale))
             x = max(0, (screen_w - kb_w) // 2)
             y = max(0, screen_h - kb_h)
             kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
@@ -692,17 +713,78 @@ class EditableText(Text):
             pass
 
     def _position_builtin_keypad(self, kb: tk.Toplevel) -> None:
+        if self.compact:
+            self._position_compact_editor(kb, anchor="bottom")
+            return
         try:
             top = self.tk.winfo_toplevel()
             screen_w = int(top.winfo_screenwidth())
             screen_h = int(top.winfo_screenheight())
             scale = self._screen_scale(screen_w, screen_h)
-            kb_w = min(screen_w, self._scaled(520, scale))
-            kb_h = min(screen_h, self._scaled(420, scale))
+            want_w, want_h = PORTRAIT_KEYPAD_SIZE
+            kb_w = min(screen_w, self._scaled(want_w, scale))
+            kb_h = min(screen_h, self._scaled(want_h, scale))
             x = max(0, int(top.winfo_rootx()) + (int(top.winfo_width()) - kb_w) // 2)
             y = max(0, screen_h - kb_h)
             kb.geometry(f"{kb_w}x{kb_h}+{x}+{y}")
         except TclError:
+            pass
+
+    def _place_editor(self, window: tk.Toplevel, build: Callable[[Any], None], position: Callable[[Any], None]) -> None:
+        """Build and size an editor window, in the order the mode requires.
+
+        Compact geometry is measured from the content's own requested height, so the content has
+        to exist before the window is sized.
+
+        Portrait geometry is computed from the screen and never looks at the content, so its
+        original order -- size the window, then fill it -- is kept exactly. Not because the
+        resulting geometry would differ, but because a Toplevel is mapped the moment it is
+        created, so the two orders open the window through different intermediate states, and the
+        Pi's editors are not what this change is for.
+        """
+        if self.compact:
+            build(window)
+            position(window)
+        else:
+            position(window)
+            build(window)
+
+    def _position_compact_editor(self, window: tk.Toplevel, *, anchor: str) -> None:
+        """Span the whole display and stand exactly as tall as the editor's own content.
+
+        Modelled on the Deck's controls help screen, which grids across all three columns of the
+        body -- both panes and the divider -- and takes no height of its own, so it is "as short
+        as it can be and centred on the display rather than a full-height panel with a void under
+        the text". The same two ideas, applied to a Toplevel.
+
+        Full width because the alternative is worse in both directions. The portrait constants
+        describe a phone: 980x420 is a keyboard across the bottom third of an 800x1280 panel, and
+        the same 420px is 53% of a 1280x800 one, 980px of it straddling both 639px panes, so the
+        pane you were not editing disappeared along with the one you were. Confining it to a
+        single pane would only make the keys small.
+
+        Content height is what keeps the field you are editing visible: a keyboard that reaches
+        its natural height, anchored to the bottom, leaves the panel above it on screen, so there
+        is nothing to mirror and the entry stays the one source of truth for the text.
+
+        ``anchor="bottom"`` for the keyboards, where a keyboard belongs; ``"center"`` for the
+        choice picker, which is a list to point at rather than something to type on.
+        """
+        try:
+            top = self.tk.winfo_toplevel()
+            screen_w = int(top.winfo_screenwidth())
+            screen_h = int(top.winfo_screenheight())
+            # Ask the built content how tall it wants to be. Requires the widgets to exist, which
+            # is why the compact path builds before it positions.
+            window.update_idletasks()
+            wanted = int(window.winfo_reqheight())
+            # reqheight is 1 for a window with nothing in it; fall back rather than show a sliver.
+            if wanted <= 1:
+                wanted = self._scaled(PORTRAIT_KEYBOARD_SIZE[1])
+            height = max(1, min(wanted, int(screen_h * COMPACT_MAX_HEIGHT_FRACTION)))
+            y = max(0, screen_h - height) if anchor == "bottom" else max(0, (screen_h - height) // 2)
+            window.geometry(f"{screen_w}x{height}+0+{y}")
+        except (TclError, TypeError, ValueError):
             pass
 
     def _build_builtin_keyboard(self, kb: tk.Toplevel) -> None:

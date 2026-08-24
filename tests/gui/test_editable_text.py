@@ -220,11 +220,16 @@ class DummyListbox:
 
 
 class DummyWindow(DummyTk):
+    # Class-level so a test can raise it before the window is built; the height a real toplevel
+    # would request once it has content.
+    req_height = 360
+
     def __init__(self, master=None) -> None:
         super().__init__(top=self)
         self.master = master
         self.destroyed = False
         self.geometry_value = None
+        self.geometry_child_counts: list[int] = []
         self.children = []
 
     def transient(self, _top) -> None:
@@ -241,6 +246,17 @@ class DummyWindow(DummyTk):
 
     def geometry(self, value: str) -> None:
         self.geometry_value = value
+        # How much content existed when the window was sized. Portrait sizes an empty window and
+        # then fills it; compact has to fill it first so it has a height to measure.
+        self.geometry_child_counts.append(len(self.children))
+
+    def update_idletasks(self) -> None:
+        return
+
+    def winfo_reqheight(self) -> int:
+        # What real Tk reports: an empty toplevel requests 1x1, and only takes on a height once it
+        # has content. That is what makes the compact path's build-before-position order testable.
+        return self.req_height if self.children else 1
 
     def lift(self) -> None:
         return
@@ -758,3 +774,132 @@ def test_cancel_restores_original_value(editable_text_module) -> None:
 
     assert widget.value == "Old"
     assert widget.is_editing is False
+
+
+def _deck_screen(module, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A Steam Deck display: 1280x800, landscape, both panes side by side."""
+    monkeypatch.setattr(DummyTk, "winfo_screenwidth", staticmethod(lambda: 1280), raising=True)
+    monkeypatch.setattr(DummyTk, "winfo_screenheight", staticmethod(lambda: 800), raising=True)
+    monkeypatch.setattr(module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(module.tk, "Button", DummyButton, raising=True)
+
+
+def _open_keyboard(module, *, compact: bool, editor=None):
+    widget = module.EditableText(
+        None,
+        text="Old",
+        debounce_ms=0,
+        compact=compact,
+        editor=editor or module.EditorType.KEYBOARD,
+    )
+    widget.begin_edit()
+    widget.tk.run_after(widget._keyboard_after_id)
+    return widget
+
+
+def test_compact_keyboard_spans_the_display_and_is_as_tall_as_its_own_keys(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 980x420 centred on the screen is a phone keyboard, and on a 1280x800 Deck it straddled both
+    # 639px panes and took 53% of the height -- so opening it from one pane buried the other. Full
+    # width, content height, anchored to the bottom: modelled on the controls help screen, which
+    # grids across both panes and takes no height of its own.
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = _open_keyboard(editable_text_module, compact=True)
+
+    # 800 - 360 = 440, so the panel above the keyboard -- including the field being edited --
+    # stays on screen and there is nothing to mirror.
+    assert widget._keyboard_window.geometry_value == "1280x360+0+440"
+
+
+def test_compact_keypad_spans_the_display_too(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = _open_keyboard(editable_text_module, compact=True, editor=editable_text_module.EditorType.KEYPAD)
+
+    assert widget._keyboard_window.geometry_value == "1280x360+0+440"
+
+
+def test_compact_choice_picker_is_centred_rather_than_bottom_anchored(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A list to point at, not something to type on, so it goes where the eye already is. The
+    # controls screen does the same thing for the same reason.
+    _deck_screen(editable_text_module, monkeypatch)
+    monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
+    widget = editable_text_module.EditableText(
+        None,
+        text="Old",
+        debounce_ms=0,
+        compact=True,
+        editor=editable_text_module.EditorType.CHOICES,
+        choices={1: "Steam", 2: "Diesel"},
+        initial_value=1,
+    )
+
+    widget.begin_edit()
+
+    # 360 tall, so (800 - 360) // 2 = 220 above and below it.
+    assert widget._choice_window.geometry_value == "1280x360+0+220"
+
+
+def test_a_compact_editor_is_built_before_it_is_positioned(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The height comes from the content's own request, so the content has to exist first. Position
+    # first and the window is still empty, reqheight reads 1, and the fallback height is used --
+    # which is what this catches, because 420 is not 360.
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = _open_keyboard(editable_text_module, compact=True)
+
+    assert widget._keyboard_window.children, "the keys were built"
+    assert "x360+" in widget._keyboard_window.geometry_value
+
+
+def test_a_compact_editor_never_takes_more_than_its_share_of_the_display(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Content height with no ceiling would let a long choice list cover the whole display.
+    _deck_screen(editable_text_module, monkeypatch)
+    monkeypatch.setattr(DummyWindow, "req_height", 5000, raising=False)
+    widget = _open_keyboard(editable_text_module, compact=True)
+
+    capped = int(800 * editable_text_module.COMPACT_MAX_HEIGHT_FRACTION)
+    assert widget._keyboard_window.geometry_value == f"1280x{capped}+0+{800 - capped}"
+
+
+def test_portrait_editor_geometry_is_untouched(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Pi renders these correctly and must not move. Same 800x480 stub screen as the tests
+    # above it, and compact defaults to False, so the caller has to opt in.
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = _open_keyboard(editable_text_module, compact=False)
+
+    assert widget.compact is False
+    assert widget._keyboard_window.geometry_value == "800x420+0+60"
+    assert editable_text_module.PORTRAIT_KEYBOARD_SIZE == (980, 420)
+    assert editable_text_module.PORTRAIT_KEYPAD_SIZE == (520, 420)
+    assert editable_text_module.PORTRAIT_CHOICES_SIZE == (680, 560)
+
+
+def test_portrait_sizes_the_window_before_filling_it(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Pi's original order, kept exactly. Its geometry comes from the screen and never looks at
+    # the content, so the order does not change the result -- but a Toplevel is mapped as soon as
+    # it is created, so sizing an empty window and sizing a full one open it through different
+    # intermediate states, and the Pi's editors are not what the compact work is for.
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton, raising=True)
+    widget = _open_keyboard(editable_text_module, compact=False)
+
+    assert widget._keyboard_window.geometry_child_counts == [0], "sized before any keys existed"
+
+
+def test_compact_fills_the_window_before_sizing_it(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The other order, for the other reason: the height is the content's own requested height.
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = _open_keyboard(editable_text_module, compact=True)
+
+    assert widget._keyboard_window.geometry_child_counts[0] > 0, "sized only once the keys existed"

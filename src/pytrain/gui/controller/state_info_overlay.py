@@ -115,6 +115,10 @@ class StateInfoOverlay(OverlayPanel):
                     width="fill",
                     height=1,
                     editor=editor,
+                    # The keyboard, keypad and choice picker are sized from this: a Deck pane gets
+                    # a full-width editor as tall as its own content, portrait keeps the phone
+                    # geometry it already renders correctly.
+                    compact=bool(getattr(host, "compact", False)),
                     max_length=max_length,
                     choices=choices,
                     on_commit=on_edit,
