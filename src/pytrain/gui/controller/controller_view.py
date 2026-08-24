@@ -14,6 +14,7 @@ import tkinter as tk
 from contextlib import contextmanager
 from threading import Condition, RLock
 from tkinter import TclError
+from tkinter import font as tk_font
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
 from guizero import Box, Slider, Text, TitleBox
@@ -248,9 +249,10 @@ class ControllerView:
         btn_row = Box(pair_cell, align="top", layout="grid")  # uses pack internally
         btn_row.tk.pack(expand=True)  # Center the *pair* within the TitleBox
 
+        bell_horn_title = "Bell/Horn..."
         bell_box = TitleBox(
             btn_row,
-            "Bell/Horn...",
+            bell_horn_title,
             grid=[2, 0],
             align="bottom",
         )
@@ -268,10 +270,20 @@ class ControllerView:
 
         # Allow Tk to compute geometry
         host.app.tk.update_idletasks()
+
+        # A LabelFrame sizes itself to its children only, never to its title; when the
+        # bell button is narrower than the title, pad the button so the title isn't clipped
+        title_font = tk_font.Font(font=bell_box.tk.cget("font") or "TkDefaultFont")
+        title_deficit = title_font.measure(bell_horn_title) + 8 - bell_box.tk.winfo_reqwidth()
+        if title_deficit > 0:
+            bell_btn.tk.pack_configure(padx=(title_deficit + 1) // 2)
+
+        # use requested (not actual) heights: the controller box is still hidden here,
+        # so winfo_height() would report 1 for unmapped widgets
         horn_size = max(
             1,
             max(
-                int(bell_box.tk.winfo_height() * 0.85),
+                int(bell_box.tk.winfo_reqheight() * 0.85),
                 int(aux_row_height * 0.70),
             ),
         )
