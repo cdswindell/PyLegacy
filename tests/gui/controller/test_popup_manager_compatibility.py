@@ -715,7 +715,7 @@ def _measurable(height: int, *, mapped: int = 1) -> _Tk:
     return tk
 
 
-def _balanceable(monkeypatch: pytest.MonkeyPatch, *, below: int, compact: bool, mapped: int = 1):
+def _balanceable(*, below: int, compact: bool, mapped: int = 1):
     """An overlay whose fill box measures ``below`` pixels, ready for the correction pass."""
     host = _host()
     host.compact = compact
@@ -734,7 +734,7 @@ def test_a_roomy_band_keeps_the_fixed_lead_and_changes_nothing(monkeypatch: pyte
     # The common case, and it has to be a genuine no-op: assigning a height re-packs the overlay,
     # so a correction pass that always writes would repack every panel on every show.
     lead_px = mod.FOOTER_LEAD_COMPACT if compact else mod.FOOTER_LEAD
-    host, overlay, lead, _fill = _balanceable(monkeypatch, below=400, compact=compact)
+    host, overlay, lead, _fill = _balanceable(below=400, compact=compact)
 
     mod.balance_footer_row(host, overlay)
 
@@ -756,7 +756,7 @@ def test_a_band_tighter_than_the_lead_centres_the_row(
 ) -> None:
     # Less room below the row than above it means the fixed lead has pinned the row against the
     # bottom edge. Even the two up.
-    host, overlay, lead, _fill = _balanceable(monkeypatch, below=below, compact=compact)
+    host, overlay, lead, _fill = _balanceable(below=below, compact=compact)
 
     mod.balance_footer_row(host, overlay)
 
@@ -767,7 +767,7 @@ def test_the_correction_settles_instead_of_creeping(monkeypatch: pytest.MonkeyPa
     # It runs on every show, so it has to be stable: once the two sides are level the condition
     # stops firing. Correcting the lead alone is enough because the fill is the expander and
     # re-absorbs the difference, which the second pass sees.
-    host, overlay, lead, fill = _balanceable(monkeypatch, below=4, compact=True)
+    host, overlay, lead, fill = _balanceable(below=4, compact=True)
 
     mod.balance_footer_row(host, overlay)
     settled = lead.height
@@ -782,7 +782,7 @@ def test_the_correction_settles_instead_of_creeping(monkeypatch: pytest.MonkeyPa
 def test_an_unmapped_overlay_is_not_measured(monkeypatch: pytest.MonkeyPatch) -> None:
     # winfo_height reads 1 before Tk lays a widget out, which would look like the tightest
     # possible band and centre the row on a band that does not exist yet.
-    host, overlay, lead, _fill = _balanceable(monkeypatch, below=1, compact=True, mapped=0)
+    host, overlay, lead, _fill = _balanceable(below=1, compact=True, mapped=0)
 
     mod.balance_footer_row(host, overlay)
 
@@ -841,3 +841,60 @@ def test_a_popup_that_failed_to_appear_is_not_balanced() -> None:
     manager.show(overlay)
 
     assert ran == []
+
+
+def _popup_with_title(monkeypatch: pytest.MonkeyPatch, title: str, *, button_size: int = 133):
+    made: list[_Widget] = []
+    texts: list[_Widget] = []
+
+    def make_box(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    def make_text(master=None, **kwargs):
+        texts.append(_Widget(master, **kwargs))
+        return texts[-1]
+
+    monkeypatch.setattr(mod, "Box", make_box)
+    monkeypatch.setattr(mod, "Text", make_text)
+    monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
+    host = _host()
+    host.button_size = button_size
+    manager = mod.PopupManager(host)
+
+    manager.create_popup(title, lambda _body: None)
+
+    title_row = next(w for w in made if w.kwargs.get("width") == host.emergency_box_width)
+    return title_row, texts[0]
+
+
+def test_a_popup_title_is_centered_in_its_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The title used to sit at the top of a fixed-height row on both devices.
+
+    It has no align, so guizero passes no side and Tk packs it at the top; the row's height is
+    button_size // 3 with pack_propagate off, which is 44px on the Pi against 26px on a Deck pane.
+    The Deck looked centered only because its row happens to match its text height, while the Pi
+    left ~20px empty beneath. fill=Y stretches the Label to the row instead, and a Label's anchor
+    defaults to center, so the text lands in the middle of whatever height the row has.
+    """
+    _title_row, title = _popup_with_title(monkeypatch, "Bell/Horn Options")
+
+    assert title.kwargs["height"] == "fill"
+    # No align, which is what makes guizero add expand=YES alongside fill=Y (base.py _pack_widget:
+    # `side is None and fill == Y`). Given a side it would fill without centering.
+    assert "align" not in title.kwargs
+
+
+def test_centering_the_title_does_not_resize_its_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The band itself must not move: only where the text sits inside it changes.
+    for button_size, expected in ((133, 44), (80, 26)):  # Pi, then a Deck pane
+        title_row, _title = _popup_with_title(monkeypatch, "Bell/Horn Options", button_size=button_size)
+
+        assert title_row.kwargs["height"] == expected
+
+
+def test_a_multi_line_title_still_gets_a_taller_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    title_row, title = _popup_with_title(monkeypatch, "Two\nLines")
+
+    assert title_row.kwargs["height"] == 2 * (133 // 3)
+    assert title.kwargs["height"] == "fill", "still centered, in the taller row"

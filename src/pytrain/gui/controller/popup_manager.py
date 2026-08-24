@@ -480,7 +480,18 @@ class PopupManager:
             )
             title_row.bg = "lightgrey"
 
-            title = Text(title_row, text=title_text, bold=True, size=host.s_18)
+            # height="fill" is what centers it. Without it the Text has no align, so guizero
+            # passes no side and Tk packs it at the top of a row whose height is fixed
+            # (button_size // 3, with pack_propagate off) -- and that row is 44px on the Pi
+            # against 26px on a Deck pane, so the same code read as top-aligned on one device and
+            # centered on the other purely because the Deck's row happens to match its text.
+            #
+            # With fill=Y the Label stretches to the row instead, and a Label's own anchor
+            # defaults to center, so the text lands in the middle of whatever height the row has.
+            # Ungated deliberately: it makes both modes centered by construction rather than by
+            # the coincidence of one divisor, so changing LANDSCAPE_BUTTON_DIVISOR cannot make the
+            # Deck drift top-aligned the way the Pi already had.
+            title = Text(title_row, text=title_text, bold=True, size=host.s_18, height="fill")
             title.bg = "lightgrey"
             setattr(overlay, "title", title)
 
