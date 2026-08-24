@@ -1458,6 +1458,41 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return bool(panel is not None and panel.visible)
 
     @property
+    def _open_chooser(self):
+        """The StateInfo field whose choice list is up, if any."""
+        info = self._state_info
+        return info.active_chooser if info is not None else None
+
+    @property
+    def chooser_visible(self) -> bool:
+        """Whether a choice list is open, so the D-pad drives it instead of the train."""
+        return self._open_chooser is not None
+
+    def move_chooser(self, forward: bool = True) -> bool:
+        """Move the highlighted option. Returns whether there was a chooser to move."""
+        chooser = self._open_chooser
+        if chooser is None:
+            return False
+        chooser.move_choice(1 if forward else -1)
+        return True
+
+    def select_chooser(self) -> bool:
+        """Commit the highlighted option -- D-pad right, or the A button."""
+        chooser = self._open_chooser
+        if chooser is None:
+            return False
+        chooser.commit_edit()
+        return True
+
+    def cancel_chooser(self) -> bool:
+        """Abandon the choice and put the field back -- D-pad left."""
+        chooser = self._open_chooser
+        if chooser is None:
+            return False
+        chooser.cancel_edit()
+        return True
+
+    @property
     def admin_visible(self) -> bool:
         panel = self._admin_panel
         return bool(panel is not None and panel.visible)

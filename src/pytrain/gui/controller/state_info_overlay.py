@@ -119,6 +119,9 @@ class StateInfoOverlay(OverlayPanel):
                     # a full-width editor as tall as its own content, portrait keeps the phone
                     # geometry it already renders correctly.
                     compact=bool(getattr(host, "compact", False)),
+                    # A compact chooser is centered over the panel, covering the label that says
+                    # what is being edited, so it repeats the name in its own header.
+                    field_name=title,
                     max_length=max_length,
                     choices=choices,
                     on_commit=on_edit,
@@ -215,6 +218,14 @@ class StateInfoOverlay(OverlayPanel):
                 choices=choices,
                 on_edit=callback,
             )
+
+    @property
+    def active_chooser(self):
+        """The field whose choice list is open, if any -- what the D-pad drives while it is up."""
+        for _title, field in self.details.values():
+            if getattr(field, "choosing", False):
+                return field
+        return None
 
     # noinspection string-format
     def update(self, state: S, new: bool = False):

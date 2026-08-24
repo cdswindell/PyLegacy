@@ -62,6 +62,7 @@ class EditableText(Text):
         max_length: int | None = None,
         editor: EditorType | None = EditorType.KEYBOARD,
         compact: bool = False,
+        field_name: str = "",
         choices: dict[Any, Any] | None = None,
         initial_value: Any = None,
         choice_rows: int = 12,
@@ -85,6 +86,10 @@ class EditableText(Text):
         # landscape, and its editors are correct as they are. Only the caller knows it is a Deck
         # pane, so portrait and the 7" Pi are both left untouched by construction.
         self.compact = bool(compact)
+        # What the field is called ("Type", "Control", "Sound"). Only the chooser uses it, and
+        # only on a compact pane: it is centered there rather than dropping out of the field, so
+        # it covers the label that would otherwise say what is being edited.
+        self.field_name = str(field_name or "")
         self._editable = editor is not None
         self.max_length = max_length
         self.choices = choices or {}
@@ -192,6 +197,15 @@ class EditableText(Text):
         except TclError:
             self._editing = False
             log.debug("Unable to begin inline text edit", exc_info=True)
+
+    @property
+    def choosing(self) -> bool:
+        """Whether a choice list is open, so the D-pad can drive it instead of the train."""
+        return bool(self._editing and self.editor == EditorType.CHOICES and self._choice_window is not None)
+
+    def move_choice(self, delta: int) -> None:
+        """Move the highlighted option, for the D-pad. Same path the on-screen arrows take."""
+        self._move_choice(delta)
 
     def commit_edit(self) -> None:
         if not self._editing:
@@ -403,7 +417,10 @@ class EditableText(Text):
         if self.compact:
             # A chooser is a short list; half the display is ample and leaves the other pane
             # readable, which was asked for explicitly. Only the keyboard earns the full width.
-            self._position_compact_editor(picker, span="pane")
+            # Centered rather than dropped out of the field: it names the field in its own header,
+            # so it does not need the label beneath it to stay visible, and a list is easier to
+            # read where the eye already is.
+            self._position_compact_editor(picker, span="pane", anchor="center")
             return
 
         try:
@@ -428,9 +445,15 @@ class EditableText(Text):
             pass
 
         current_label = self._choice_label_for_key(self._value_before_edit)
+        # Portrait keeps "Current: x" exactly: its chooser sits below the field, which is still on
+        # screen and already labeled. A compact chooser is centered over the panel, so it has to
+        # say which field it belongs to itself.
+        heading = (
+            f"{self.field_name}: {current_label}" if self.compact and self.field_name else f"Current: {current_label}"
+        )
         title = tk.Label(
             picker,
-            text=f"Current: {current_label}",
+            text=heading,
             anchor="w",
             font=("TkDefaultFont", self._ui(20), "bold"),
             background="#202020",
@@ -779,7 +802,7 @@ class EditableText(Text):
         except (TclError, TypeError, ValueError):
             return True
 
-    def _position_compact_editor(self, window, *, span: str) -> None:
+    def _position_compact_editor(self, window, *, span: str, anchor: str = "field") -> None:
         """Place an in-window editor panel directly below the field being edited.
 
         Anchored to the field, not to the window. Anchoring to the window put the panel on top of
@@ -811,16 +834,20 @@ class EditableText(Text):
             if wanted <= 1:
                 wanted = self._ui(PORTRAIT_KEYBOARD_SIZE[1])
 
-            field_top = int(self.tk.winfo_rooty()) - int(top.winfo_rooty())
-            field_bottom = field_top + int(self.tk.winfo_height())
-            below = max(0, top_h - field_bottom - EDITOR_FOLLOW_GAP)
-            above = max(0, field_top - EDITOR_FOLLOW_GAP)
-            if wanted <= below or below >= above:
-                height = max(1, min(wanted, below))
-                y = field_bottom + EDITOR_FOLLOW_GAP
+            if anchor == "center":
+                height = max(1, min(wanted, top_h))
+                y = max(0, (top_h - height) // 2)
             else:
-                height = max(1, min(wanted, above))
-                y = max(0, field_top - EDITOR_FOLLOW_GAP - height)
+                field_top = int(self.tk.winfo_rooty()) - int(top.winfo_rooty())
+                field_bottom = field_top + int(self.tk.winfo_height())
+                below = max(0, top_h - field_bottom - EDITOR_FOLLOW_GAP)
+                above = max(0, field_top - EDITOR_FOLLOW_GAP)
+                if wanted <= below or below >= above:
+                    height = max(1, min(wanted, below))
+                    y = field_bottom + EDITOR_FOLLOW_GAP
+                else:
+                    height = max(1, min(wanted, above))
+                    y = max(0, field_top - EDITOR_FOLLOW_GAP - height)
 
             if span == "pane":
                 # Half the window, on the side the field is on. One pixel of the 2px divider gets

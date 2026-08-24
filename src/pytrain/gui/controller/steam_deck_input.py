@@ -1294,6 +1294,8 @@ class DeckInputRouter:
             return
         if self._controls_only(action):
             return
+        if self._chooser_only(action):
+            return
         if action.name == "throttle":
             if action.value == 0.0:
                 self._throttles.pop(action.target, None)
@@ -1564,6 +1566,35 @@ class DeckInputRouter:
             # manager, so the popup_visible path below would not see it.
             if action.phase == "pressed" and hasattr(gui, "close_controls"):
                 gui.close_controls()
+            return True
+        return True
+
+    def _chooser_only(self, action: DeckAction) -> bool:
+        """True when a choice list is open on this pane and the action belongs to it.
+
+        A choice list is a modal thing: while it is up the D-pad picks an option rather than
+        boosting the engine, and nothing else on that pane should act either. Same shape as
+        _controls_only, and the same exemption -- a global-target action such as HALT resolves no
+        gui and is never gated, because HALT has to work whatever is on screen.
+
+        Up and down move the highlight, right commits, left abandons, and A commits as well, which
+        is what the catalog panel already does with the A button.
+        """
+        gui = self._target_gui(action.target)
+        if gui is None or not getattr(gui, "chooser_visible", False):
+            return False
+        if action.phase != "pressed":
+            # Swallowed rather than ignored: a release that reached the layout would clear a
+            # throttle or latch that the press never set.
+            return True
+        if action.name in (DPAD_UP, DPAD_DOWN):
+            gui.move_chooser(forward=action.name == DPAD_DOWN)
+            return True
+        if action.name == DPAD_RIGHT or action.button == SELECT_BUTTON:
+            gui.select_chooser()
+            return True
+        if action.name == DPAD_LEFT:
+            gui.cancel_chooser()
             return True
         return True
 

@@ -18,6 +18,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     HORN_COMMAND,
     PANEL_COMMANDS,
     QUILLING_HORN,
+    SELECT_BUTTON,
     SEQUENCE_CONTROL,
     SEQUENCE_CONTROL_COMMAND,
     SEQUENCE_CONTROL_DURATION,
@@ -2933,3 +2934,80 @@ def test_show_controls_must_target_global() -> None:
                 "chords": [],
             }
         )
+
+
+def _chooser_gui():
+    """A pane with a choice list open, recording what the D-pad asks of it."""
+    gui = _gui()
+    gui.chooser_visible = True
+    gui.chooser_calls: list[str] = []
+    gui.move_chooser = lambda forward=True: gui.chooser_calls.append(f"move:{'down' if forward else 'up'}")
+    gui.select_chooser = lambda: gui.chooser_calls.append("select")
+    gui.cancel_chooser = lambda: gui.chooser_calls.append("cancel")
+    return gui
+
+
+def test_dpad_drives_an_open_chooser_instead_of_the_engine() -> None:
+    # A choice list is modal: up/down pick an option rather than boosting, right commits and left
+    # abandons. Without this the D-pad would be changing speed behind the list.
+    focused = _chooser_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    for name in (DPAD_DOWN, DPAD_UP, DPAD_RIGHT, DPAD_LEFT):
+        router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.chooser_calls == ["move:down", "move:up", "select", "cancel"]
+    assert focused.speed_calls == [], "nothing reached the engine"
+    assert focused.command_calls == []
+
+
+def test_the_a_button_commits_an_open_chooser() -> None:
+    # Same as the catalog panel, where A confirms the highlighted entry.
+    focused = _chooser_gui()
+    router, _left, _right, _focused, _global = _router(
+        _profile(buttons={str(SELECT_BUTTON): {"action": "front_coupler", "target": "focused"}}),
+        left=focused,
+    )
+
+    router.handle(DeckAction("front_coupler", "focused", 1.0, "pressed", button=SELECT_BUTTON))
+
+    assert focused.chooser_calls == ["select"]
+    assert focused.command_calls == [], "its assigned command did not fire"
+
+
+def test_a_release_is_swallowed_while_a_chooser_is_open() -> None:
+    # Not merely ignored: a release reaching the layout would clear a throttle or latch that the
+    # press never set.
+    focused = _chooser_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
+
+    assert focused.chooser_calls == []
+    assert focused.speed_calls == []
+
+
+def test_halt_still_works_while_a_chooser_is_open() -> None:
+    # A global-target action resolves no gui, so it is never gated. HALT has to work whatever is
+    # on screen.
+    focused = _chooser_gui()
+    router, _left, _right, _focused, global_calls = _router(
+        _profile(buttons={"3": {"action": "halt", "target": "global"}}),
+        left=focused,
+    )
+
+    router.handle(DeckAction("halt", "global", 1.0, "pressed", button=3))
+
+    assert global_calls == ["halt"]
+
+
+def test_the_dpad_reaches_the_engine_again_once_the_chooser_closes() -> None:
+    focused = _chooser_gui()
+    focused.chooser_visible = False
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.tick(1.0)
+
+    assert focused.chooser_calls == []
+    assert focused.speed_calls or focused.command_calls, "the D-pad went back to driving"

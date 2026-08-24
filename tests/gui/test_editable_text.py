@@ -893,10 +893,12 @@ def test_the_compact_keypad_takes_only_the_pane_that_owns_the_field(
     assert widget._keyboard_window.place_kwargs == {"x": 0, "y": 28, "width": 640, "height": 360}
 
 
-def test_the_compact_chooser_takes_one_pane_and_drops_out_of_the_field(
+def test_the_compact_chooser_takes_one_pane_and_is_centered_in_it(
     editable_text_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Centered in the window, this covered the Type field it was editing outright.
+    # The one editor that does not drop out of its field. It names the field in its own header, so
+    # it does not need the label beneath it to stay visible, and a list is easier to read where the
+    # eye already is.
     _deck_screen(editable_text_module, monkeypatch)
     monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel, raising=True)
     monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox, raising=True)
@@ -913,7 +915,8 @@ def test_the_compact_chooser_takes_one_pane_and_drops_out_of_the_field(
 
     widget.begin_edit()
 
-    assert widget._choice_window.place_kwargs == {"x": 0, "y": 28, "width": 640, "height": 360}
+    # (800 - 360) // 2
+    assert widget._choice_window.place_kwargs == {"x": 0, "y": 220, "width": 640, "height": 360}
 
 
 def test_a_pane_editor_follows_the_field_to_the_right_hand_pane(
@@ -1043,3 +1046,76 @@ def test_the_shrink_applies_to_widget_sizes_and_not_to_portrait_geometry(editabl
     assert compact._ui(18) < 18
     assert portrait._ui(18) == portrait._scaled(18)
     assert compact._scaled(18) == 18, "geometry scaling is untouched by the shrink"
+
+
+def _open_chooser(module, monkeypatch: pytest.MonkeyPatch, *, compact: bool, field_name: str = "Type"):
+    DummyLabel.instances = []
+    monkeypatch.setattr(module.tk, "Toplevel", DummyWindow, raising=True)
+    monkeypatch.setattr(module.tk, "Frame", DummyFrame, raising=True)
+    monkeypatch.setattr(module.tk, "Button", DummyButton, raising=True)
+    monkeypatch.setattr(module.tk, "Label", DummyLabel, raising=True)
+    monkeypatch.setattr(module.tk, "Listbox", DummyListbox, raising=True)
+    widget = module.EditableText(
+        None,
+        text="Steam",
+        debounce_ms=0,
+        compact=compact,
+        field_name=field_name,
+        editor=module.EditorType.CHOICES,
+        choices={1: "Steam", 2: "Diesel", 3: "Electric"},
+        initial_value=1,
+    )
+    if compact:
+        _size_app_window(widget)
+    widget.begin_edit()
+    return widget
+
+
+def test_a_compact_chooser_names_the_field_it_is_editing(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # It is centered over the panel, so the "Type" label it belongs to is behind it.
+    _deck_screen(editable_text_module, monkeypatch)
+    _open_chooser(editable_text_module, monkeypatch, compact=True)
+
+    assert DummyLabel.instances[0].text == "Type: Steam"
+
+
+def test_a_portrait_chooser_keeps_its_original_heading(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Pi's chooser sits below the field, which stays on screen and is already labeled, so its
+    # heading is left exactly as it was.
+    _open_chooser(editable_text_module, monkeypatch, compact=False)
+
+    assert DummyLabel.instances[0].text == "Current: Steam"
+
+
+def test_a_compact_chooser_with_no_field_name_falls_back(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    _deck_screen(editable_text_module, monkeypatch)
+    _open_chooser(editable_text_module, monkeypatch, compact=True, field_name="")
+
+    assert DummyLabel.instances[0].text == "Current: Steam"
+
+
+def test_an_open_chooser_reports_itself_and_moves_on_request(
+    editable_text_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # What the D-pad drives. `choosing` is how the input router knows a modal list is up, and
+    # move_choice is the same path the on-screen arrow buttons take.
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = _open_chooser(editable_text_module, monkeypatch, compact=True)
+
+    assert widget.choosing is True
+
+    widget.move_choice(1)
+    assert widget._current_choice_value() == 2
+    widget.move_choice(-1)
+    assert widget._current_choice_value() == 1
+
+    widget.commit_edit()
+    assert widget.choosing is False, "nothing to drive once it is committed"
+
+
+def test_a_text_field_is_never_reported_as_choosing(editable_text_module, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Otherwise the D-pad would be captured while the keyboard was up, where it means nothing.
+    _deck_screen(editable_text_module, monkeypatch)
+    widget = _open_keyboard(editable_text_module, compact=True)
+
+    assert widget.choosing is False

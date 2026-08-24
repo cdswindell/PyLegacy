@@ -858,3 +858,63 @@ def test_nothing_is_claimed_while_the_image_box_is_unmapped() -> None:
     gui = _band_gui(mapped=False)
 
     assert gui._press_starts_in_image_band(SimpleNamespace(widget=object(), y_root=200)) is False
+
+
+class _FakeChooser:
+    def __init__(self, choosing: bool = True) -> None:
+        self.choosing = choosing
+        self.moves: list[int] = []
+        self.committed = 0
+        self.cancelled = 0
+
+    def move_choice(self, delta: int) -> None:
+        self.moves.append(delta)
+
+    def commit_edit(self) -> None:
+        self.committed += 1
+
+    def cancel_edit(self) -> None:
+        self.cancelled += 1
+
+
+def _gui_with_chooser(chooser=None):
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._state_info = SimpleNamespace(active_chooser=chooser)
+    return gui
+
+
+def test_the_pane_exposes_an_open_chooser_for_the_dpad() -> None:
+    # How the input router finds it: the router resolves actions against a pane, not against the
+    # StateInfo overlay, so the pane has to answer for it.
+    chooser = _FakeChooser()
+    gui = _gui_with_chooser(chooser)
+
+    assert gui.chooser_visible is True
+    assert gui.move_chooser(forward=True) is True
+    assert gui.move_chooser(forward=False) is True
+    assert gui.select_chooser() is True
+    assert gui.cancel_chooser() is True
+
+    assert chooser.moves == [1, -1]
+    assert chooser.committed == 1
+    assert chooser.cancelled == 1
+
+
+def test_a_pane_with_no_chooser_reports_nothing_to_drive() -> None:
+    # The router asks every pane; the one that is not showing a list must say so rather than
+    # swallow the D-pad.
+    gui = _gui_with_chooser(None)
+
+    assert gui.chooser_visible is False
+    assert gui.move_chooser() is False
+    assert gui.select_chooser() is False
+    assert gui.cancel_chooser() is False
+
+
+def test_a_pane_with_no_state_info_panel_yet_is_safe_to_ask() -> None:
+    # The overlay is created lazily, so this is the state at startup.
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._state_info = None
+
+    assert gui.chooser_visible is False
+    assert gui.move_chooser() is False

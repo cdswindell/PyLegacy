@@ -215,6 +215,13 @@ def _make_editable_field(compact: bool, monkeypatch):
     return _RecordingEditableText.instances[-1]
 
 
+def test_an_editable_field_is_told_its_own_name(monkeypatch) -> None:
+    # A compact chooser is centered over the panel, covering the "Type"/"Control"/"Sound" label it
+    # belongs to, so it repeats the name in its own header -- and only this call site knows it.
+    # Dropping the argument left every chooser test green and every header saying "Current:".
+    assert _make_editable_field(compact=True, monkeypatch=monkeypatch).kwargs["field_name"] == "Road Name"
+
+
 def test_an_editable_field_is_told_whether_it_is_on_a_compact_pane(monkeypatch) -> None:
     # The wiring, not the geometry. EditableText sizes its keyboard, keypad and choice picker from
     # this flag, and it cannot work it out for itself: landscape does not identify a Deck, since
