@@ -36,15 +36,29 @@ if TYPE_CHECKING:  # pragma: no cover
 CAB_1_THROTTLE_REPEAT_MS = 200
 
 
-def freight_pair_size(aux_row_height: int) -> int:
+# Vertical slack left around the freight pair inside its row: the horn's own pady plus a pixel or
+# two so the buttons do not sit hard against the row's edge.
+FREIGHT_PAIR_INSET = 6
+
+
+def freight_pair_size(aux_row_height: int, title_chrome: int) -> int:
     """Edge length of both freight-sounds pair buttons, in pixels.
 
-    Derived from the row it sits in, never measured from what is drawn inside it. The size used to
-    come from ``bell_box.winfo_height()``, which tied the pair's dimensions to whether the font
-    could draw the bell glyph -- so a missing glyph collapsed the whole pair, and three rounds of
+    The pair shares row 1 of the sliders column with the "Bell/Horn..." label above it, and that
+    row is exactly ``aux_row_height`` tall (grid_rowconfigure minsize, with grid_propagate off),
+    so what the buttons can have is the row less the TitleBox's own chrome. A flat fraction of the
+    row got this wrong in both directions at once: it ignored the label, so on a Deck pane -- where
+    the row is shorter -- chrome plus button overflowed and the bottoms were clipped, while on the
+    Pi almost a third of the row went unused and the buttons looked undersized.
+
+    ``title_chrome`` is required rather than defaulted to zero: defaulted, a call site that simply
+    stopped passing it would go back to overflowing the row on a Deck pane in total silence. It
+    must be measured from the box while it is still **empty**. Measuring it with
+    the bell inside is what the original code did, and that made the button's size depend on its
+    own content: a glyph the font could not draw collapsed the whole pair, so three rounds of
     "bell/horn alignment and size logic" were chasing a font problem through the layout.
     """
-    return max(1, int(aux_row_height * 0.70))
+    return max(1, aux_row_height - max(0, title_chrome) - FREIGHT_PAIR_INSET)
 
 
 class ControllerView:
@@ -265,21 +279,18 @@ class ControllerView:
             grid=[2, 0],
             align="bottom",
         )
-        # Both halves of this pair are images, and their size is computed rather than measured.
+        # Both halves of this pair are images. The bell was a text glyph (U+1F514 BELL) and no
+        # single codepoint works on both devices: the Pi has no font containing it, so it drew a
+        # missing-glyph rectangle, and the Deck's color emoji font claims it, so it drew a colored
+        # bitmap that ignores the button's foreground. U+1F56D RINGING BELL was tried instead and
+        # is worse -- no emoji form, but almost no font ships it either. An image needs no font on
+        # either device, and it matches the horn sitting beside it.
         #
-        # The bell was a text glyph (U+1F514 BELL) and no single codepoint works on both devices:
-        # the Pi has no font containing it, so it drew a missing-glyph rectangle, and the Deck's
-        # color emoji font claims it, so it drew a colored bitmap that ignores the button's
-        # foreground. U+1F56D RINGING BELL was tried instead and is worse -- no emoji form, but
-        # almost no font ships it either. An image needs no font on either device, and it matches
-        # the horn sitting beside it.
-        #
-        # Computed rather than measured because horn_size used to be derived from bell_box's
-        # *rendered height*, which coupled the pair's size to whether the font could draw the
-        # glyph: a missing glyph made the whole pair collapse, so every attempt to fix the size
-        # was chasing the glyph. aux_row_height is the floor that expression already fell back
-        # to, and it is the one knob if the pair wants to be bigger or smaller.
-        pair_size = freight_pair_size(aux_row_height)
+        # Chrome measured while bell_box is still empty -- see freight_pair_size for why that
+        # matters. It is a TitleBox, so its requested height here is the "Bell/Horn..." label plus
+        # its borders and nothing else.
+        host.app.tk.update_idletasks()
+        pair_size = freight_pair_size(aux_row_height, bell_box.tk.winfo_reqheight())
 
         host._bell_btn = bell_btn = HoldButton(
             bell_box,

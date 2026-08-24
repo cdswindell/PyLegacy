@@ -47,14 +47,29 @@ def test_non_throttle_slider_levels_use_host_digital_font(controller_view: mod.C
         assert level.font == "Digital dream"
 
 
-def test_the_freight_pair_size_comes_from_its_row_not_from_what_is_drawn_in_it() -> None:
-    # It used to be max(bell_box.winfo_height() * 0.85, aux_row_height * 0.70), so a bell the font
-    # could not draw shrank the whole pair. Only the row feeds it now.
-    assert mod.freight_pair_size(100) == 70
-    assert mod.freight_pair_size(68) == 47
-    # Never zero: a zero-sized button is unclickable, and Image.resize would raise on it.
-    assert mod.freight_pair_size(1) == 1
-    assert mod.freight_pair_size(0) == 1
+def test_the_freight_pair_fills_its_row_minus_the_label_above_it() -> None:
+    # The pair shares row 1 of the sliders column with the "Bell/Horn..." label, so what the
+    # buttons can have is the row less that chrome. A flat fraction of the row was wrong in both
+    # directions at once: it ignored the label, so a Deck pane clipped the buttons' bottoms while
+    # the Pi left almost a third of the row unused.
+    assert mod.freight_pair_size(100, 20) == 100 - 20 - mod.FREIGHT_PAIR_INSET
+
+    # More chrome, smaller buttons -- monotonic, which is what makes it self-correcting per device.
+    roomy = mod.freight_pair_size(100, 20)
+    tight = mod.freight_pair_size(100, 40)
+    assert tight < roomy
+
+    # A taller row gives bigger buttons, which is what the Pi gains.
+    assert mod.freight_pair_size(140, 20) > mod.freight_pair_size(100, 20)
+
+
+def test_the_freight_pair_size_never_collapses_to_zero() -> None:
+    # A zero-sized button is unclickable, and Image.resize raises on a zero dimension. Chrome can
+    # exceed the row on a very short pane, so the clamp is load-bearing, not decorative.
+    assert mod.freight_pair_size(1, 0) == 1
+    assert mod.freight_pair_size(0, 0) == 1
+    assert mod.freight_pair_size(20, 200) == 1
+    assert mod.freight_pair_size(20, -5) == max(1, 20 - mod.FREIGHT_PAIR_INSET), "negative chrome is ignored"
 
 
 def test_the_freight_bell_is_an_image_asset_that_exists() -> None:
@@ -89,3 +104,23 @@ def test_no_bell_codepoint_is_used_as_a_button_label() -> None:
     assert "\U0001f514" not in literals, "U+1F514 BELL: emoji on the Deck, missing on the Pi"
     assert "\U0001f56d" not in literals, "U+1F56D RINGING BELL: missing on almost every font"
     assert "BELL_KEY" not in source, "the constant is retired; use bell.jpg"
+
+
+def test_the_pair_size_call_site_passes_the_measured_chrome() -> None:
+    """The wiring, which nothing else covers.
+
+    build() is far too large to stub, so no test exercises the call itself. Making title_chrome a
+    required parameter means dropping it is a TypeError at GUI build time rather than a silent
+    revert to overflowing the row -- and PyCharm flags it -- but neither of those is a red test
+    run, so pin it here too.
+    """
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "freight_pair_size"
+    ]
+
+    assert calls, "freight_pair_size is no longer called at all"
+    for call in calls:
+        assert len(call.args) == 2, "the measured chrome has to be passed, not left to a default"
