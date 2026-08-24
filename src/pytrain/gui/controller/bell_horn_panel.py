@@ -51,13 +51,21 @@ class BellHornPanel(OverlayPanel):
             command=host.on_engine_command,
             args=["CYCLE_BELL_TONE"],
         )
+        compact = bool(getattr(host, "compact", False))
         _, bp = host.make_keypad_button(
             overlay,
             # Two glyphs for one button: U+23F8 is claimed by a color emoji font on the Deck. See
             # the note beside these constants.
-            PLAY_PAUSE_KEY_COMPACT if getattr(host, "compact", False) else PLAY_PAUSE_KEY,
+            PLAY_PAUSE_KEY_COMPACT if compact else PLAY_PAUSE_KEY,
             0,
             2,
+            # The only key on either row that needs its size named. It is four characters wide
+            # against one for every other key, and at the shared s_30 that _build_keypad_button
+            # would otherwise pick it filled its cell edge to edge -- a cell being a fixed square
+            # with pack_propagate off, so the label had no margin left and nowhere to grow into.
+            # Compact only: portrait's glyph is a character shorter and fits at the shared size,
+            # and passing nothing leaves that path exactly as it was.
+            size=host.s_24 if compact else None,
             align="left",
             command=host.on_engine_command,
             args=["RING_BELL"],

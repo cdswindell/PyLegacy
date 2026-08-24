@@ -35,25 +35,38 @@ class _Text:
         self.text_bold = None
 
 
-def _build(compact: bool, monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Build the panel and return the labels it asked for, in order."""
-    labels: list[str] = []
+# Whatever the panel asks a button for: its label and the font size it named (None = take the
+# shared default that _build_keypad_button picks from FONT_SIZE_EXCEPTIONS).
+S_24 = 24
+
+
+def _keys(compact: bool, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, int | None]]:
+    labels: list[tuple[str, int | None]] = []
     monkeypatch.setattr(mod, "Box", _Box)
     monkeypatch.setattr(mod, "Text", _Text)
     monkeypatch.setattr(mod, "find_file", lambda name: name)
     host = SimpleNamespace(
         button_size=90,
         s_20=20,
+        s_24=S_24,
         compact=compact,
         cache=lambda *_args: None,
         on_engine_command=lambda *_args: None,
     )
-    host.make_keypad_button = lambda *args, **kwargs: (labels.append(args[1]), (object(), object()))[1]
+    host.make_keypad_button = lambda *args, **kwargs: (
+        labels.append((args[1], kwargs.get("size"))),
+        (object(), object()),
+    )[1]
 
     panel = mod.BellHornPanel.__new__(mod.BellHornPanel)
     panel._gui = host
     panel.build(_Box())
     return labels
+
+
+def _build(compact: bool, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Build the panel and return the labels it asked for, in order."""
+    return [label for label, _size in _keys(compact, monkeypatch)]
 
 
 def test_the_deck_avoids_the_emoji_pause_codepoint(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -112,3 +125,29 @@ def test_every_glyph_label_still_gets_the_large_font() -> None:
     # a new glyph string that is not in the set would silently render at body-text size.
     for key in (CYCLE_KEY, PLAY_KEY, PLAY_PAUSE_KEY, PLAY_PAUSE_KEY_COMPACT, PAUSE_KEY):
         assert key in FONT_SIZE_EXCEPTIONS, key
+
+
+def test_the_deck_names_a_smaller_size_for_the_play_pause_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Four characters against one for every other key on the row. At the shared s_30 that
+    # _build_keypad_button picks for anything in FONT_SIZE_EXCEPTIONS it filled its cell edge to
+    # edge, and a cell is a fixed square with pack_propagate off, so there was no margin left.
+    sizes = dict(_keys(compact=True, monkeypatch=monkeypatch))
+
+    assert sizes[PLAY_PAUSE_KEY_COMPACT] == S_24
+
+
+def test_the_pi_names_no_size_at_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Passing None is what leaves portrait's path untouched: _build_keypad_button then takes the
+    # shared s_30 from FONT_SIZE_EXCEPTIONS exactly as it did before.
+    sizes = dict(_keys(compact=False, monkeypatch=monkeypatch))
+
+    assert sizes[PLAY_PAUSE_KEY] is None
+
+
+def test_no_other_key_gets_its_size_named_in_either_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The whole point of naming one: every other key still resolves its own size from the shared
+    # rule, so this stays a single exception rather than the start of a table.
+    for compact in (True, False):
+        named = [label for label, size in _keys(compact, monkeypatch) if size is not None]
+
+        assert named in ([PLAY_PAUSE_KEY_COMPACT], []), f"compact={compact}: {named}"
