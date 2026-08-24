@@ -47,6 +47,14 @@ FOOTER_BUTTON_PAD = 20
 # the spacer is a single space, so its point size is what sets its width.
 FOOTER_GAP = 40
 FOOTER_GAP_COMPACT = 24
+# Pack padding above a centered panel title, in pixels. Halved in effect, not applied whole: the
+# title is packed with fill=Y, so padding shrinks the parcel it stretches into from the top and the
+# centered text moves by half of it. 4 here reads as a 2px nudge downward.
+#
+# Portrait only. A Deck pane's title row is 26px against the Pi's 44px and its text nearly fills
+# it, so there is no slack to spend -- taking 4px off the top there would push the text into the
+# row's bottom edge rather than nudge it.
+TITLE_TOP_PAD = 4
 # Whitespace between a panel's content and its footer row, in pixels. Fixed rather than a share
 # of the leftover: an expanded panel's spare band ranges from ~24px (the admin panel, which
 # nearly fills the pane) to several hundred (Lights, Tower Dialogs), and a share of the latter
@@ -493,6 +501,14 @@ class PopupManager:
             # Deck drift top-aligned the way the Pi already had.
             title = Text(title_row, text=title_text, bold=True, size=host.s_18, height="fill")
             title.bg = "lightgrey"
+            if not bool(getattr(host, "compact", False)):
+                # Pack padding rather than a spacer widget, which is safe only because the title
+                # is the last thing ever created in this row. guizero packs it once already, at
+                # its own creation -- Widget.__init__ ends by showing itself, which re-packs the
+                # row's children -- and this comes after, so it wins. Nothing repacks it again:
+                # a rebuild needs a *sibling* to be added and none ever is, while setting .bg or
+                # .value afterwards only touches tk config.
+                title.tk.pack_configure(pady=(TITLE_TOP_PAD, 0))
             setattr(overlay, "title", title)
 
         if isinstance(body_src, ConfiguredAccessoryAdapter):

@@ -843,7 +843,7 @@ def test_a_popup_that_failed_to_appear_is_not_balanced() -> None:
     assert ran == []
 
 
-def _popup_with_title(monkeypatch: pytest.MonkeyPatch, title: str, *, button_size: int = 133):
+def _popup_with_title(monkeypatch: pytest.MonkeyPatch, title: str, *, button_size: int = 133, compact: bool = False):
     made: list[_Widget] = []
     texts: list[_Widget] = []
 
@@ -860,6 +860,7 @@ def _popup_with_title(monkeypatch: pytest.MonkeyPatch, title: str, *, button_siz
     monkeypatch.setattr(mod, "PushButton", lambda master, **kwargs: _Widget(master, **kwargs))
     host = _host()
     host.button_size = button_size
+    host.compact = compact
     manager = mod.PopupManager(host)
 
     manager.create_popup(title, lambda _body: None)
@@ -898,3 +899,31 @@ def test_a_multi_line_title_still_gets_a_taller_row(monkeypatch: pytest.MonkeyPa
 
     assert title_row.kwargs["height"] == 2 * (133 // 3)
     assert title.kwargs["height"] == "fill", "still centered, in the taller row"
+
+
+def test_a_portrait_title_is_nudged_down_off_the_rows_top_edge(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Centered was very slightly high to the eye. The nudge is pack padding, which with fill=Y
+    # shrinks the parcel the label stretches into from the top, so the centered text moves by half
+    # of it -- 4 reads as 2px.
+    _title_row, title = _popup_with_title(monkeypatch, "Bell/Horn Options", compact=False)
+
+    # Last wins: guizero packs the title once at its own creation, and the nudge is applied after.
+    assert title.tk.packed[-1] == {"pady": (mod.TITLE_TOP_PAD, 0)}
+    assert mod.TITLE_TOP_PAD > 0
+
+
+def test_a_compact_title_is_not_nudged(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A Deck pane's title row is 26px against the Pi's 44px, and its text nearly fills it. There is
+    # no slack to spend, so padding the top would push the text into the bottom edge instead.
+    _title_row, title = _popup_with_title(monkeypatch, "Bell/Horn Options", button_size=80, compact=True)
+
+    assert all("pady" not in options for options in title.tk.packed)
+
+
+def test_the_nudge_still_leaves_the_title_centered(monkeypatch: pytest.MonkeyPatch) -> None:
+    # It shifts a centered label, it does not replace the centering: drop the fill and the padding
+    # would push a top-packed title further down instead of nudging a centered one.
+    _title_row, title = _popup_with_title(monkeypatch, "Bell/Horn Options", compact=False)
+
+    assert title.kwargs["height"] == "fill"
+    assert "align" not in title.kwargs
