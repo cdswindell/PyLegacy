@@ -315,6 +315,18 @@ class ControllerView:
         )
         horn_btn.on_repeat = horn_btn.on_press
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
+
+        # The pair sits in a column whose width is pinned to the sliders above
+        # (grid_propagate is off), and btn_row is packed centered, so any overflow
+        # is clipped at *both* edges: the horn's left side and the title's right.
+        # Shrink the horn until the pair fits; on the Pi the column is wide enough
+        # that nothing binds and the sizes above are kept as-is.
+        host.app.tk.update_idletasks()
+        overflow = btn_row.tk.winfo_reqwidth() - target_sliders_width
+        if overflow > 0:
+            horn_size = max(16, horn_size - overflow)
+            horn_btn.images = host.get_image(image, size=horn_size)
+            horn_btn.tk.config(width=horn_size, height=horn_size)
         host._freight_sounds_bell_horn_box.hide()
 
         # info box to display smoke, rpm, labor, etc.

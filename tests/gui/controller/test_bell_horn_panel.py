@@ -7,6 +7,7 @@ import pytest
 
 import src.pytrain.gui.controller.bell_horn_panel as mod
 from src.pytrain.gui.controller.engine_gui_conf import (
+    BELL_KEY,
     CYCLE_KEY,
     FONT_SIZE_EXCEPTIONS,
     PAUSE_KEY,
@@ -95,6 +96,15 @@ def test_both_rows_keep_their_other_keys_in_either_mode(monkeypatch: pytest.Monk
         assert labels.count(CYCLE_KEY) == 2, f"compact={compact}: one cycle key per row"
         assert PLAY_KEY in labels
         assert labels.count("On") == 1 and labels.count("Off") == 1
+
+
+def test_the_freight_bell_glyph_avoids_the_emoji_codepoint() -> None:
+    # U+1F514 BELL suffers the exact fate documented above for U+23F8: its default presentation is
+    # emoji, the Deck's color font claims it, and a U+FE0E selector does not win it back -- so the
+    # freight pair's bell must be U+1F56D RINGING BELL, which has no emoji form at all.
+    assert len(BELL_KEY) == 1, "a variation selector would be dead weight; the codepoint must stand alone"
+    assert ud.name(BELL_KEY) == "RINGING BELL"
+    assert "\U0001f514" not in BELL_KEY, "an emoji font would claim it"
 
 
 def test_the_glyph_is_monochrome_by_construction() -> None:
