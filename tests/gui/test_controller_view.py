@@ -57,6 +57,45 @@ def test_the_provisional_size_is_capped_by_both_dimensions_of_the_cell() -> None
     assert mod.freight_pair_size(0, 0) == mod.FREIGHT_PAIR_MIN, "never an unclickable button"
 
 
+@pytest.mark.parametrize("button_size", [90, 110], ids=["pi-like", "deck-like"])
+@pytest.mark.parametrize("title_overhead", [0, 1, 22, 40])
+def test_the_slider_box_lands_on_exactly_four_button_heights(button_size: int, title_overhead: int) -> None:
+    # The whole point: the TitleBox (title + numeric readout) plus the Slider, stacked in the same
+    # box, must total four button-heights -- not the Slider alone, which is what left the box
+    # taller than intended once the title's own height was added on top. Pure in button_size, so
+    # the same formula covers the Pi and the Deck without any device-specific branching.
+    box_height = button_size * 4
+
+    slider_length = mod.slider_length_for_box_height(box_height, title_overhead)
+
+    assert title_overhead + slider_length == box_height
+
+
+def test_slider_length_never_drops_below_one_pixel() -> None:
+    # An overhead larger than the box budget must not go negative; a slider a few pixels tall is
+    # still usable, a slider with negative length is not a valid Tk request.
+    assert mod.slider_length_for_box_height(100, 250) == 1
+
+
+def test_slider_length_ignores_a_negative_overhead_rather_than_trusting_it() -> None:
+    # winfo_reqheight can read oddly before layout settles; subtracting a negative would *add*
+    # room instead of leaving the box alone.
+    assert mod.slider_length_for_box_height(360, -40) == 360
+
+
+def test_aux_row_gets_whatever_is_left_below_the_fixed_slider_row() -> None:
+    # No longer a percentage of the same total the slider row is also a share of -- just the
+    # remainder, now that the slider row is pinned to an exact number of button-heights.
+    assert mod.aux_row_height_after_slider_row(target_sliders_height=500, slider_row_height=360) == 140
+
+
+def test_aux_row_never_drops_below_one_pixel() -> None:
+    # A keypad no taller than the fixed slider-row budget must not produce a zero or negative aux
+    # row -- the RR Speed / Freight Sounds controls still need a cell to live in.
+    assert mod.aux_row_height_after_slider_row(target_sliders_height=300, slider_row_height=360) == 1
+    assert mod.aux_row_height_after_slider_row(target_sliders_height=360, slider_row_height=360) == 1
+
+
 # Measured identically on both devices, from the freightgeom logs.
 CHROME = {"border": 8, "title": 22, "horn_pad": 1, "bell_extra": 6, "horn_extra": 2}
 
@@ -185,6 +224,13 @@ def test_the_provisional_size_and_the_correction_are_both_wired_up() -> None:
     assert len(provisional[0].args) == 2, "row height and column width"
 
     assert len(_calls_to("fit_freight_pair")) == 1, "corrected once, from the show path"
+
+
+def test_the_slider_box_sizing_helpers_are_both_wired_up() -> None:
+    # Same reasoning as above: build() is far too large to stub, so a helper that quietly stopped
+    # being called would look exactly like a slider box that is no longer four button-heights tall.
+    assert len(_calls_to("slider_length_for_box_height")) == 1
+    assert len(_calls_to("aux_row_height_after_slider_row")) == 1
 
 
 class _FitButton:

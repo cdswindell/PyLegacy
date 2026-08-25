@@ -240,6 +240,30 @@ def freight_pair_sizes(row_height: int, column_width: int, chrome: dict) -> tupl
     return max(FREIGHT_PAIR_MIN, bell), max(FREIGHT_PAIR_MIN, horn)
 
 
+def slider_length_for_box_height(box_height: int, title_overhead: int) -> int:
+    """The Slider widget's own ``length`` so its enclosing box lands on exactly ``box_height``.
+
+    Each of the throttle/brake/momentum/horn boxes stacks a TitleBox (title + numeric readout)
+    above the Slider, so the two together -- not just the Slider -- are what has to land on
+    ``box_height``: a slider by itself sized to that many pixels leaves the box taller once the
+    title is added on top, which is what left less room than intended for the controls meant to
+    go below it. ``title_overhead`` is measured after the TitleBox is realized, never modelled --
+    an empty TitleBox reports a requested height of 1, the same trap ``freight_pair_size``'s
+    docstring describes for an empty label.
+    """
+    return max(1, box_height - max(0, title_overhead))
+
+
+def aux_row_height_after_slider_row(target_sliders_height: int, slider_row_height: int) -> int:
+    """Whatever the sliders column has left below the fixed-height slider row.
+
+    The slider row is now pinned to an exact number of button-heights rather than a fraction of
+    the column, so the aux row (RR Speed / Freight Sounds) is simply what remains -- not, as
+    before, a percentage of the same total the slider row was also a percentage of.
+    """
+    return max(1, target_sliders_height - slider_row_height)
+
+
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
         self._cv = Condition(RLock())
@@ -387,12 +411,15 @@ class ControllerView:
             on_release=self.clear_focus,  # or a horn-specific release handler
         )
 
-        # Match sliders-column height to keypad and reserve ~17% for aux controls.
+        # Match sliders-column height to keypad. The slider row itself is pinned to exactly four
+        # button-heights (host.slider_height), not a fraction of the keypad, so the RR Speed /
+        # Freight Sounds controls placed below it (next turn) have a fixed budget to work
+        # against; the aux row simply gets whatever is left over.
         host.app.tk.update_idletasks()
         target_sliders_width = max(1, sliders.tk.winfo_reqwidth())
         target_sliders_height = max(1, keypad_keys.tk.winfo_reqheight())
-        aux_row_height = max(1, int(round(target_sliders_height * 0.17)))
-        slider_row_height = max(1, target_sliders_height - aux_row_height)
+        slider_row_height = host.slider_height
+        aux_row_height = aux_row_height_after_slider_row(target_sliders_height, slider_row_height)
 
         sliders.tk.pack_configure(fill="y", expand=False)
         sliders.tk.grid_propagate(False)
@@ -402,8 +429,12 @@ class ControllerView:
         sliders.tk.grid_rowconfigure(0, minsize=slider_row_height, weight=83)
         sliders.tk.grid_rowconfigure(1, minsize=aux_row_height, weight=17)
 
+        # The TitleBox (title + numeric readout) sits above each slider inside the same box, so
+        # trimming the Slider's own length by that measured overhead is what makes the *box* --
+        # not just the Slider -- land on exactly slider_row_height. See
+        # slider_length_for_box_height.
         slider_row_overhead = max(0, host.throttle_box.tk.winfo_reqheight() - host.throttle.tk.winfo_reqheight())
-        target_slider_length = max(1, slider_row_height - slider_row_overhead)
+        target_slider_length = slider_length_for_box_height(slider_row_height, slider_row_overhead)
         slider_length = max(8, int(target_slider_length / 6))
         for slider in (host.throttle, host.brake, host.momentum, host.horn):
             slider.tk.config(length=target_slider_length, sliderlength=slider_length)
