@@ -742,7 +742,8 @@ class ControllerView:
             else:
                 host.throttle.tk.config(from_=31, to=0)
                 host.momentum.tk.config(resolution=4, showvalue=False)
-                self._controller_info_box.hide()
+                if self._controller_info_box.visible:
+                    self._controller_info_box.hide()
                 if host.speed.enabled:
                     host.speed.disable()
                 if host.throttle.enabled:
