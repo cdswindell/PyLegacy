@@ -58,6 +58,9 @@ FREIGHT_FIT_DELAY_MS = 50
 # The cell's own width tracks its content, so the parent is what says how much room there really
 # is -- reading the cell would peg the limit to whatever happens to be in it already.
 FREIGHT_CELL_BORDER = 2
+# The horn's edge. It has no TitleBox frame around it the way the bell does, and it fills its pad
+# exactly, so without a relief its 2px border is invisible. Same value rr_btn uses above.
+FREIGHT_HORN_RELIEF = "ridge"
 
 
 def fit_freight_pair(host) -> None:
@@ -80,6 +83,36 @@ def fit_freight_pair(host) -> None:
         pass
 
 
+def freight_title_size(host) -> int | None:
+    """Font size for the pair's "Bell/Horn..." title, or ``None`` to leave the default alone.
+
+    A LabelFrame can never be narrower than its own title. At the default font that measured 78px
+    on a Deck pane against a 49px button, so the box stopped shrinking with the button, the row
+    overflowed its column by 19px, and the bell sat centered in 29px of slack. A smaller title
+    removes the floor instead of working around it.
+
+    Portrait keeps the default: its pair renders correctly, and this is not the place to change it.
+    (Its title is truncated too -- ``bell_box`` is 89px showing "Bell/Hom..." -- so dropping the
+    gate would fix that as well, but that is a visible change nobody asked for.)
+    """
+    return host.s_10 if bool(getattr(host, "compact", False)) else None
+
+
+def freight_horn_trim(row_width: int, column_width: int) -> int:
+    """Pixels to take off the *horn* when the row still overflows after sizing.
+
+    The backstop for the flaw that let the Deck keep overflowing: ``freight_pair_sizes`` treats the
+    bell box's extra width as additive chrome, but it is really a *floor* -- a LabelFrame can never
+    be narrower than its own title. Once the bell button shrinks past the label, the box stops
+    shrinking and the arithmetic silently under-counts the row.
+
+    So the residual comes off the horn alone. The horn's cell always tracks its button, while the
+    bell's box may be pinned by its label, and shrinking a pinned bell reduces the row by nothing
+    at all -- which is exactly how the previous fix reported success while still clipping.
+    """
+    return max(0, row_width - column_width)
+
+
 def _freight_chrome(state: dict) -> dict | None:
     """Every inset between a button's requested size and the space its half of the row takes."""
     bell_btn, _bell_asset = state["bell_btn"]
@@ -99,6 +132,17 @@ def _freight_chrome(state: dict) -> dict | None:
     }
 
 
+def _resize_freight(host, state: dict, *, bell: int, horn: int) -> None:
+    """Apply a size to each button, skipping whichever is already there."""
+    for size_key, button_key, size in (("bell", "bell_btn", bell), ("horn", "horn_btn", horn)):
+        if state[size_key] == size:
+            continue
+        button, asset = state[button_key]
+        button.images = host.get_image(asset, size=size)
+        button.tk.config(width=size, height=size)
+        state[size_key] = size
+
+
 def _apply_freight_fit(host, state: dict) -> None:
     """Size each button to the room its own half of the row actually has."""
     try:
@@ -116,13 +160,14 @@ def _apply_freight_fit(host, state: dict) -> None:
         if chrome is None:
             return
         bell, horn = freight_pair_sizes(row_height, column_width, chrome)
-        for size_key, button_key, size in (("bell", "bell_btn", bell), ("horn", "horn_btn", horn)):
-            if state[size_key] == size:
-                continue
-            button, asset = state[button_key]
-            button.images = host.get_image(asset, size=size)
-            button.tk.config(width=size, height=size)
-            state[size_key] = size
+        _resize_freight(host, state, bell=bell, horn=horn)
+
+        # Backstop, measured rather than modelled -- see freight_horn_trim. One pass: the horn's
+        # cell tracks its button exactly, so taking the whole residual off it closes the gap.
+        host.app.tk.update_idletasks()
+        trim = freight_horn_trim(state["row"].tk.winfo_reqwidth(), column_width)
+        if trim:
+            _resize_freight(host, state, bell=bell, horn=max(FREIGHT_PAIR_MIN, horn - trim))
     except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
         pass
 
@@ -447,6 +492,9 @@ class ControllerView:
             grid=[2, 0],
             align="bottom",
         )
+        title_size = freight_title_size(host)
+        if title_size is not None:
+            bell_box.text_size = title_size
         # Both halves of this pair are images. The bell was a text glyph (U+1F514 BELL) and no
         # single codepoint works on both devices: the Pi has no font containing it, so it drew a
         # missing-glyph rectangle, and the Deck's color emoji font claims it, so it drew a colored
@@ -501,6 +549,9 @@ class ControllerView:
         horn_btn.images = host.get_image(image, size=pair_size)
         horn_btn.tk.config(
             borderwidth=2,
+            # Costs no geometry: the border is drawn inside the 8px of button chrome the measured
+            # model already accounts for. See FREIGHT_HORN_RELIEF.
+            relief=FREIGHT_HORN_RELIEF,
             compound="center",
             width=pair_size,
             height=pair_size,

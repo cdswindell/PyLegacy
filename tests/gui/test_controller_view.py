@@ -278,16 +278,28 @@ def test_the_show_site_asks_for_the_geometry_report() -> None:
 
 
 class _FitButton:
+    """A Tk button stub whose requested size follows its configuration, as the real one does.
+
+    Without that, the backstop measures the row as it was *before* the resize and trims a pair that
+    already fits.
+    """
+
     def __init__(self, size: int) -> None:
         self.images = None
         self.applied: list[int] = []
         self._size = size
         self.tk = SimpleNamespace(
-            config=lambda **kw: self.applied.append(kw.get("width")),
+            config=self._config,
             # A Tk button requests its configured size plus its border.
             winfo_reqwidth=lambda: self._size + CHROME["border"],
             winfo_reqheight=lambda: self._size + CHROME["border"],
         )
+
+    def _config(self, **kwargs) -> None:
+        width = kwargs.get("width")
+        self.applied.append(width)
+        if width is not None:
+            self._size = width
 
 
 def _boxed(button: _FitButton, extra_w: int, extra_h: int):
@@ -300,12 +312,23 @@ def _boxed(button: _FitButton, extra_w: int, extra_h: int):
     )
 
 
-def _fit_state(*, row_height: int, parent_width: int, size: int = 99):
+def _fit_state(*, row_height: int, parent_width: int, size: int = 99, label_floor: int = 0):
     bell, horn = _FitButton(size), _FitButton(size)
     return {
         "bell": size,
         "horn": size,
-        "row": SimpleNamespace(tk=SimpleNamespace(winfo_reqwidth=lambda: 0, winfo_reqheight=lambda: 0)),
+        # The row's requested width, as Tk reports it: the horn's cell tracks its button, but the
+        # bell's box is floored by its own label -- which is the whole reason a backstop exists.
+        "row": SimpleNamespace(
+            tk=SimpleNamespace(
+                winfo_reqwidth=lambda: (
+                    (horn._size + CHROME["border"] + CHROME["horn_extra"])
+                    + mod.FREIGHT_PAIR_GAP
+                    + max(label_floor, bell._size + CHROME["border"] + CHROME["bell_extra"])
+                ),
+                winfo_reqheight=lambda: 0,
+            )
+        ),
         "cell": SimpleNamespace(
             tk=SimpleNamespace(
                 winfo_height=lambda: row_height,
@@ -408,3 +431,90 @@ def test_the_fit_survives_a_pair_that_has_gone_away() -> None:
 def test_nothing_is_fitted_before_the_pair_has_been_built() -> None:
     # _freight_pair is only set once build() reaches the pair.
     mod.fit_freight_pair(SimpleNamespace())
+
+
+def test_the_backstop_takes_a_residual_overflow_off_the_horn() -> None:
+    """The Deck's remaining bug: the bell box's extra width is a *floor*, not additive chrome.
+
+    A LabelFrame cannot be narrower than its own title, so once the bell button shrinks past the
+    label the box stops shrinking and freight_pair_sizes under-counts the row. Measured on the Deck
+    as bell_box reqw=78 against a 49px button -- 29px that the additive model booked as 6.
+    """
+    requested: list = []
+    # 78px label floor in a 135px column: exactly the Deck's numbers.
+    state = _fit_state(row_height=71, parent_width=137, label_floor=78)
+
+    mod._apply_freight_fit(_fit_host(requested), state)
+
+    row = (state["horn"] + 8 + 2) + mod.FREIGHT_PAIR_GAP + max(78, state["bell"] + 8 + 6)
+    assert row <= 137 - mod.FREIGHT_CELL_BORDER, f"row still {row}"
+    assert state["horn"] < 62, "the horn gave way, since shrinking a floored bell buys nothing"
+
+
+def test_the_backstop_leaves_the_bell_alone() -> None:
+    # Trimming a bell whose box is pinned by its label reduces the row by nothing, so it would be
+    # pure loss -- a smaller icon for no gain in fit.
+    state = _fit_state(row_height=71, parent_width=137, label_floor=78)
+    unfloored = _fit_state(row_height=71, parent_width=137, label_floor=0)
+
+    mod._apply_freight_fit(_fit_host([]), state)
+    mod._apply_freight_fit(_fit_host([]), unfloored)
+
+    assert state["bell"] == unfloored["bell"], "the floor changed the horn, not the bell"
+
+
+def test_no_backstop_when_the_row_already_fits() -> None:
+    # It costs two images; the settled case has to be free.
+    requested: list = []
+    state = _fit_state(row_height=105, parent_width=220, label_floor=0)
+
+    mod._apply_freight_fit(_fit_host(requested), state)
+
+    assert (state["bell"], state["horn"]) == (75, 96)
+    assert requested == [("bell.jpg", 75), ("horn.jpg", 96)], "sized once, not trimmed again"
+
+
+def test_the_trim_is_the_measured_shortfall() -> None:
+    assert mod.freight_horn_trim(154, 135) == 19
+    assert mod.freight_horn_trim(135, 135) == 0
+    assert mod.freight_horn_trim(100, 135) == 0, "already fitting, nothing to trim"
+
+
+def test_only_a_compact_pane_shrinks_the_pairs_title() -> None:
+    # The Deck's title floors its LabelFrame at 78px against a 49px button -- the box stops
+    # shrinking with the button and the row overflows. Portrait renders correctly and must not move.
+    compact = SimpleNamespace(compact=True, s_10=10)
+    portrait = SimpleNamespace(compact=False, s_10=10)
+
+    assert mod.freight_title_size(compact) == compact.s_10
+    assert mod.freight_title_size(portrait) is None, "None leaves the default font in place"
+    assert mod.freight_title_size(SimpleNamespace(s_10=10)) is None, "a host with no flag is portrait"
+
+
+def test_the_title_size_is_smaller_than_the_default_it_replaces() -> None:
+    # s_18 is what an unstyled TitleBox effectively renders at elsewhere in this file; a "smaller"
+    # size that is not actually smaller would leave the floor exactly where it was.
+    host = SimpleNamespace(compact=True, s_10=10, s_18=18)
+
+    assert mod.freight_title_size(host) < host.s_18
+
+
+def test_the_horn_is_given_a_visible_relief() -> None:
+    # flat or sunken would leave it looking borderless, which is the reported symptom.
+    assert mod.FREIGHT_HORN_RELIEF in {"ridge", "raised", "groove", "solid"}
+
+
+def test_the_horn_config_and_the_title_size_are_both_wired_up() -> None:
+    """Wiring for the two cosmetic fixes, which nothing else covers.
+
+    Both live inside build(), which is too large to stub, and both are invisible to every geometry
+    test -- so all three of these changes survived a mutation pass before this existed.
+    """
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+
+    assert len(_calls_to("freight_title_size")) == 1, "the title size is asked for exactly once"
+
+    relief_uses = [
+        node for node in ast.walk(tree) if isinstance(node, ast.Attribute) and node.attr == "FREIGHT_HORN_RELIEF"
+    ] + [node for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == "FREIGHT_HORN_RELIEF"]
+    assert len(relief_uses) >= 2, "declared and applied; only declared means the horn has no edge"
