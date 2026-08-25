@@ -3011,3 +3011,179 @@ def test_the_dpad_reaches_the_engine_again_once_the_chooser_closes() -> None:
 
     assert focused.chooser_calls == []
     assert focused.speed_calls or focused.command_calls, "the D-pad went back to driving"
+
+
+def _switch_gui(*, switch_active: bool = True):
+    """A pane showing a track switch, recording the throws asked of it.
+
+    It keeps a ``throttle_state`` deliberately: a pane that was driving an engine before a
+    switch was picked in it still has one, so a stick pushed here would move that engine if
+    the switch handling did not claim the action first.
+    """
+    gui = _gui(speed=20)
+    gui.switch_active = switch_active
+    gui.switch_calls: list[bool] = []
+    gui.on_switch_command = lambda thru: gui.switch_calls.append(thru)
+    return gui
+
+
+@pytest.mark.parametrize(
+    ("name", "thru"),
+    [
+        # L2 carries shutdown in the bundled profile and throws through; R2 carries startup
+        # and throws out. Both the name the trigger reports on the squeeze and the
+        # immediate/delayed pair a button would report are covered.
+        ("shutdown", True),
+        (SHUTDOWN_IMMEDIATE, True),
+        (SHUTDOWN_DELAYED, True),
+        ("startup", False),
+        (STARTUP_IMMEDIATE, False),
+        (STARTUP_DELAYED, False),
+    ],
+)
+def test_triggers_throw_the_switch_rather_than_starting_an_engine(name, thru) -> None:
+    focused = _switch_gui()
+    router, _left, _right, _focused, _global = _router(_trigger_long_press_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.switch_calls == [thru]
+    assert focused.command_calls == [], "no engine command reached the panel"
+
+
+def test_triggers_still_start_and_stop_an_engine_in_an_engine_panel() -> None:
+    # The remap is scoped to a panel showing a switch; everywhere else L2/R2 are unchanged.
+    focused = _switch_gui(switch_active=False)
+    router, _left, _right, _focused, _global = _router(_trigger_long_press_profile(), left=focused)
+
+    router.handle(DeckAction(SHUTDOWN_IMMEDIATE, "focused", 1.0, "pressed"))
+
+    assert focused.command_calls == ["SHUTDOWN_IMMEDIATE"]
+    assert focused.switch_calls == []
+
+
+def test_a_stick_pushed_vertically_throws_the_switch_thru_once_per_deflection() -> None:
+    # Up and down both throw through, and holding the stick over throws once: it stands in
+    # for a press of the on-screen key, not for holding that key down.
+    left = _switch_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+
+    assert left.switch_calls == [True], "held over, so a single throw"
+
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.handle(DeckAction("throttle", "left", -0.9, "changed"))
+
+    assert left.switch_calls == [True, True], "re-armed at center, and down throws thru too"
+
+
+def test_a_stick_pushed_sideways_throws_the_switch_out() -> None:
+    left = _switch_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("direction", "left", -0.9, "changed"))
+
+    assert left.switch_calls == [False]
+    assert left.command_calls == [], "no direction command reached the panel"
+
+
+def test_a_stick_short_of_the_threshold_does_not_throw_the_switch() -> None:
+    # Same threshold the direction handling uses, so a resting thumb cannot throw a switch.
+    left = _switch_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 0.5, "changed"))
+
+    assert left.switch_calls == []
+
+
+def test_a_stick_on_a_switch_panel_does_not_drive_the_engine_it_last_held() -> None:
+    left = _switch_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert left.switch_calls == [True]
+    assert left.speed_calls == [], "the stick threw the switch instead of moving an engine"
+
+
+def test_each_stick_throws_the_switch_in_its_own_panel() -> None:
+    left = _switch_gui()
+    right = _switch_gui()
+    router, _left, _right, _focused, _global = _router(left=left, right=right)
+
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+
+    assert left.switch_calls == [True]
+    assert right.switch_calls == [], "the other panel's switch was left alone"
+
+
+def test_a_stick_keeps_driving_the_engine_in_the_other_panel() -> None:
+    # One panel showing a switch must not stop the other from being driven.
+    left = _switch_gui()
+    right = _gui(speed=10)
+    router, _left, _right, _focused, _global = _router(left=left, right=right)
+
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction("throttle", "right", 0.9, "changed"))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert left.switch_calls == [True]
+    assert right.speed_calls, "the engine panel's stick still ramps its throttle"
+
+
+def test_switch_active_resolves_the_panel_a_target_names() -> None:
+    # What the provider asks before deciding whether a trigger fires on the squeeze.
+    left = _switch_gui()
+    right = _gui()
+    router, _left, _right, _focused, _global = _router(left=left, right=right)
+
+    assert router.switch_active("left") is True
+    assert router.switch_active("right") is False
+    assert router.switch_active("focused") is True, "the focused pane is the left one here"
+
+
+def test_provider_trigger_throws_a_switch_on_the_squeeze() -> None:
+    # Waiting for the release only exists to tell a short startup/shutdown press from a held
+    # one, and a switch has no such pair: the throw happens as the trigger moves.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=1, axis=2, value=1.0)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(),
+        switch_active=lambda target: target == "focused",
+    )
+
+    squeezed = provider.poll()
+    events[:] = [SimpleNamespace(type=1, axis=2, value=-1.0)]
+    released = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in squeezed] == [("shutdown", "focused", "pressed")]
+    assert released == [], "the release adds nothing; the throw already happened"
+
+
+def test_provider_trigger_keeps_its_hold_behaviour_for_an_engine_panel() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=2, value=1.0),
+            SimpleNamespace(type=1, axis=2, value=-1.0),
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+        switch_active=lambda target: False,
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(SHUTDOWN_IMMEDIATE, "focused", "pressed")]

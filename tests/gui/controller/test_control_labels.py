@@ -206,6 +206,24 @@ def test_summary_flags_repeating_buttons() -> None:
     assert entries["L1"] == ""
 
 
+def test_the_switch_panel_remap_is_listed() -> None:
+    # A panel showing a switch has no engine to drive, so the sticks and triggers throw the
+    # switch there. Without this the screen would describe only their engine meaning.
+    section = _section(ControlProfile.load(None), "While a switch is on display")
+
+    assert section.fixed is True
+    assert [entry.input for entry in section.entries] == [
+        "L2 / R2",
+        f"Stick {ARROW_VERTICAL}",
+        f"Stick {ARROW_HORIZONTAL}",
+    ]
+    assert [entry.action for entry in section.entries] == [
+        "Throw switch thru / out",
+        "Throw switch thru",
+        "Throw switch out",
+    ]
+
+
 def test_fixed_sections_are_marked_as_such() -> None:
     # The D-pad is handled by the router, not the profile, so a custom profile cannot
     # change it -- the screen must not imply otherwise.

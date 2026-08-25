@@ -258,6 +258,15 @@ FIXED_CATALOG_ENTRIES: tuple[ControlEntry, ...] = (
 
 FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the panel on screen", ""),)
 
+# A panel showing a track switch has no engine to drive, so DeckInputRouter (_handle_switch)
+# claims the controls that would drive one. Stated as its own section rather than as notes on
+# the Sticks and Triggers rows above, which describe what those controls do with an engine.
+FIXED_SWITCH_ENTRIES: tuple[ControlEntry, ...] = (
+    ControlEntry("L2 / R2", "Throw switch thru / out", ""),
+    ControlEntry(f"Stick {ARROW_VERTICAL}", "Throw switch thru", "own pane"),
+    ControlEntry(f"Stick {ARROW_HORIZONTAL}", "Throw switch out", "own pane"),
+)
+
 
 # Reading order within the Sticks section: each pane's throttle before its direction,
 # left pane before right. Sorting by axis index gave direction first, which is not how
@@ -340,5 +349,6 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         ControlSection("D-pad", FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection("While the catalog is open", FIXED_CATALOG_ENTRIES, fixed=True),
         ControlSection("While a panel is open", FIXED_POPUP_ENTRIES, fixed=True),
+        ControlSection("While a switch is on display", FIXED_SWITCH_ENTRIES, fixed=True),
     )
     return tuple(section for section in sections if section.entries)

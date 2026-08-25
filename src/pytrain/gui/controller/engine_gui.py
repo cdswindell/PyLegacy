@@ -39,6 +39,8 @@ from .engine_gui_conf import (
     SMOKE_ON,
     STATION_DIALOGS,
     STEWARD_DIALOGS,
+    SWITCH_OUT_KEY,
+    SWITCH_THRU_KEY,
     TOWER_DIALOGS,
     send_lcs_off_command,
     send_lcs_on_command,
@@ -1989,6 +1991,30 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         cmd(state)
         else:
             log.warning(f"Unknown key: {key}")
+
+    @property
+    def switch_active(self) -> bool:
+        """Whether this panel is controlling a track switch.
+
+        Read by the Steam Deck input layer: a panel showing a switch has no engine to
+        drive, so the triggers and sticks that would drive one throw the switch instead.
+        True while the panel's scope is Switch and one has been selected -- including while
+        a replacement id is being keyed in, so a throw still reaches the switch the panel
+        is displaying rather than being swallowed until the entry is committed.
+        """
+        return self.scope == CommandScope.SWITCH and self.scope_tmcc_id(CommandScope.SWITCH) > 0
+
+    def on_switch_command(self, thru: bool) -> None:
+        """Throw the selected switch through (``thru``) or out.
+
+        The controller's entry point for the switch keys. It goes through ``do_command`` so
+        a switch thrown from the gamepad is indistinguishable from a press of the on-screen
+        key -- same command, same address, same repeats -- and the guard keeps a stray
+        action from addressing a switch command to whatever else the panel is showing.
+        """
+        if not self.switch_active:
+            return
+        self.do_command(SWITCH_THRU_KEY if thru else SWITCH_OUT_KEY)
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:

@@ -101,6 +101,20 @@ LONG_PRESS_ACTIONS = {
     "startup": (STARTUP_IMMEDIATE, STARTUP_DELAYED),
     "shutdown": (SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED),
 }
+# Actions repurposed while the panel they target is showing a track switch. A switch has no
+# engine to drive, so the controls that would drive one throw the switch instead: the
+# trigger that shuts an engine down (L2 in the bundled profile) throws it through and the
+# one that starts an engine (R2) throws it out, while each stick throws its own panel's
+# switch -- pushed up or down (the throttle axis) through, left or right (the direction
+# axis) out. Keyed on the action rather than on the physical axis or button, so a custom
+# profile that puts these bindings elsewhere keeps working; this is the same way the open
+# catalog claims the D-pad and the admin panel claims L1.
+SWITCH_THRU_ACTIONS = frozenset({"throttle", "shutdown", SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED})
+SWITCH_OUT_ACTIONS = frozenset({"direction", "startup", STARTUP_IMMEDIATE, STARTUP_DELAYED})
+# The two of those that arrive as a stick position rather than as a press. They latch: one
+# throw per deflection, re-armed only once the stick comes back near center, so holding a
+# stick over is a single push of the on-screen key rather than a burst of them.
+SWITCH_AXIS_ACTIONS = frozenset({"throttle", "direction"})
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -622,10 +636,17 @@ class SteamDeckInputProvider:
         *,
         pygame_module=None,
         clock: Callable[[], float] | None = None,
+        switch_active: Callable[[Target], bool] | None = None,
     ) -> None:
         self.profile = profile
         self._pygame = pygame_module
         self._clock = clock or time.monotonic
+        # Resolves whether the panel a binding targets is showing a track switch, so a
+        # trigger bound to startup/shutdown can throw the switch on the squeeze instead of
+        # waiting for the release. Supplied by the router, which owns the panel lookup;
+        # ``None`` means no panel is ever a switch, which is what the profile-only tests
+        # and any non-landscape caller want.
+        self._switch_active = switch_active
         self._joysticks: dict[int, Any] = {}
         # The optional ``pygame._sdl2.controller`` module used to open devices as
         # game controllers (required for touchpad events); ``None`` when SDL's
@@ -897,7 +918,14 @@ class SteamDeckInputProvider:
                     if binding.action in TRIGGER_BUTTON_ACTIONS:
                         actions.extend(self._trigger_button_actions(event.axis, binding, float(event.value)))
                     elif binding.action in LONG_PRESS_ACTIONS:
-                        actions.extend(self._trigger_long_press_actions(event.axis, binding, float(event.value)))
+                        if self._switch_target(binding):
+                            # The panel is showing a track switch, so this trigger throws
+                            # it rather than starting or shutting down an engine: fire on
+                            # the squeeze, and leave the short-vs-held distinction (which
+                            # only exists to pick a startup/shutdown dialog) out of it.
+                            actions.extend(self._trigger_button_actions(event.axis, binding, float(event.value)))
+                        else:
+                            actions.extend(self._trigger_long_press_actions(event.axis, binding, float(event.value)))
                     else:
                         if binding.trigger:
                             value = self._normalize_trigger(event.axis, float(event.value))
@@ -1018,6 +1046,17 @@ class SteamDeckInputProvider:
         held = self._clock() - pressed_at
         name = delayed if held >= LONG_PRESS_SECONDS else immediate
         return [DeckAction(name, binding.target, 1.0, "pressed")]
+
+    def _switch_target(self, binding: AxisBinding) -> bool:
+        """Whether the panel this binding targets is showing a track switch.
+
+        Asked of the router rather than worked out here: the provider has no view of the
+        panels, and all it needs to know is that this squeeze throws a switch. That matters
+        because the two behave differently in time -- startup/shutdown reports on release so
+        it can tell a short press from a held one, while a switch throw should happen the
+        moment the trigger moves.
+        """
+        return bool(self._switch_active is not None and self._switch_active(binding.target))
 
     def _normalize_touch_y(self, y: float) -> float:
         # A trackpad reports a finger position with ``y`` running 0.0 at the top
@@ -1286,6 +1325,10 @@ class DeckInputRouter:
         self._held_commands: dict[int, list] = {}
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
+        # ``(target, action)`` pairs whose stick is currently deflected far enough to have
+        # thrown a switch. Keyed by action as well as target because a panel's two axes
+        # throw in opposite directions and each latches on its own.
+        self._switch_latches: set[tuple[Target, str]] = set()
         self._last_tick: float | None = None
 
     def handle(self, action: DeckAction) -> None:
@@ -1295,6 +1338,8 @@ class DeckInputRouter:
         if self._controls_only(action):
             return
         if self._chooser_only(action):
+            return
+        if self._handle_switch(action):
             return
         if action.name == "throttle":
             if action.value == 0.0:
@@ -1515,6 +1560,7 @@ class DeckInputRouter:
         self._held_commands.clear()
         self._sequences.clear()
         self._direction_latches.clear()
+        self._switch_latches.clear()
         self._last_tick = None
 
     def _handle_repeat_command(self, action: DeckAction) -> None:
@@ -1702,6 +1748,61 @@ class DeckInputRouter:
         if (speed != 0 or target_speed != 0) and is_current_direction:
             return
         gui.on_engine_command(command)
+
+    def _handle_switch(self, action: DeckAction) -> bool:
+        """True when the action was claimed to throw the panel's track switch.
+
+        The same idea as the open catalog's hold on the D-pad: while a panel is showing a
+        switch there is no engine in it to drive, so the controls that would drive one throw
+        the switch instead -- L2/R2 through and out, and each stick its own panel's switch.
+        Only those controls are claimed, so HALT, focus, the catalog and everything else
+        keep the meaning they have everywhere else.
+        """
+        thru = action.name in SWITCH_THRU_ACTIONS
+        if not thru and action.name not in SWITCH_OUT_ACTIONS:
+            return False
+        gui = self._target_gui(action.target)
+        if gui is None or not getattr(gui, "switch_active", False):
+            return False
+        if action.name in SWITCH_AXIS_ACTIONS:
+            # Drop any throttle this panel had pending: the stick throws the switch now, and
+            # a value left from before the panel changed scope would otherwise start ramping
+            # whatever engine is put in the panel next.
+            self._throttles.pop(action.target, None)
+            self._commanded_speeds.pop(action.target, None)
+            self._throw_switch_from_axis(gui, action, thru=thru)
+            return True
+        if action.phase == "pressed":
+            gui.on_switch_command(thru)
+        # A release is swallowed rather than ignored: passed on it would clear a throttle or
+        # a latch that the press it belongs to never set.
+        return True
+
+    def _throw_switch_from_axis(self, gui, action: DeckAction, *, thru: bool) -> None:
+        # One throw per deflection, using the same threshold and latch as the direction
+        # handling: a stick held over throws once, and has to come back near center before
+        # it can throw again. Sign is deliberately ignored -- up and down both throw
+        # through, left and right both throw out -- so only how far the stick moved matters.
+        latch = (action.target, action.name)
+        release_threshold = self.profile.direction_threshold - self.profile.hysteresis
+        if abs(action.value) <= release_threshold:
+            self._switch_latches.discard(latch)
+            return
+        if abs(action.value) < self.profile.direction_threshold or latch in self._switch_latches:
+            return
+        self._switch_latches.add(latch)
+        gui.on_switch_command(thru)
+
+    def switch_active(self, target: Target) -> bool:
+        """Whether the panel this target resolves to is showing a track switch.
+
+        Public because the input provider needs it as well: it has no view of the panels,
+        and a trigger bound to startup/shutdown has to decide on the squeeze whether it is
+        throwing a switch (fire now) or starting an engine (wait for the release, which is
+        what tells a short press from a held one).
+        """
+        gui = self._target_gui(target)
+        return bool(gui is not None and getattr(gui, "switch_active", False))
 
     def _target_gui(self, target: Target):
         if target == "left":

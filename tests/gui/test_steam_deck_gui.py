@@ -243,10 +243,12 @@ def test_missing_pygame_keeps_touch_gui_available(monkeypatch: pytest.MonkeyPatc
     gui.left_gui = object()
     gui.right_gui = object()
     gui._app = SimpleNamespace(tk=SimpleNamespace(after=lambda *_args: pytest.fail("poll should not start")))
-    monkeypatch.setattr(mod, "DeckInputRouter", lambda *_args, **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(
+        mod, "DeckInputRouter", lambda *_args, **_kwargs: SimpleNamespace(switch_active=lambda _target: False)
+    )
 
     class UnavailableProvider:
-        def __init__(self, _profile) -> None:
+        def __init__(self, _profile, **_kwargs) -> None:
             return
 
         @staticmethod
@@ -259,6 +261,36 @@ def test_missing_pygame_keeps_touch_gui_available(monkeypatch: pytest.MonkeyPatc
 
     assert gui._input_provider is None
     assert gui._controller_poll_id is None
+
+
+def test_controller_input_tells_the_provider_which_panel_holds_a_switch(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A trigger throwing a track switch fires on the squeeze rather than on the release, and
+    # only the router can say which panel a binding targets -- so it is the router's
+    # resolver the provider is handed.
+    router = SimpleNamespace(switch_active=lambda target: target == "left")
+    monkeypatch.setattr(mod, "DeckInputRouter", lambda *_args, **_kwargs: router)
+    captured: dict[str, object] = {}
+
+    class Provider:
+        def __init__(self, _profile, *, switch_active=None) -> None:
+            captured["switch_active"] = switch_active
+
+        @staticmethod
+        def start() -> None:
+            return
+
+    monkeypatch.setattr(mod, "SteamDeckInputProvider", Provider)
+    gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
+    gui._enable_controller = True
+    gui._controller_profile = object()
+    gui.left_gui = object()
+    gui.right_gui = object()
+    gui._app = SimpleNamespace(tk=SimpleNamespace(after=lambda *_args: "poll-1"))
+
+    gui._start_controller_input()
+
+    assert captured["switch_active"] is router.switch_active
+    assert captured["switch_active"]("left") is True
 
 
 def test_linked_car_transfer_uses_other_panel_and_confirms_occupied_target() -> None:

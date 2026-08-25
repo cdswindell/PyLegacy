@@ -372,7 +372,13 @@ class SteamDeckGui(GuiZeroBase):
                 "show_controls": self.on_show_controls,
             },
         )
-        provider = SteamDeckInputProvider(self._controller_profile)
+        # The router resolves which panel a binding targets, so it is what answers whether
+        # that panel is showing a track switch -- the provider needs to know because a
+        # trigger throwing a switch fires on the squeeze rather than on the release.
+        provider = SteamDeckInputProvider(
+            self._controller_profile,
+            switch_active=self._input_router.switch_active,
+        )
         try:
             provider.start()
         except ControllerUnavailable as exc:
