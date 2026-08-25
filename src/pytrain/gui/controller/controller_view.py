@@ -264,6 +264,18 @@ def aux_row_height_after_slider_row(target_sliders_height: int, slider_row_heigh
     return max(1, target_sliders_height - slider_row_height)
 
 
+def slider_row_height_for_keypad_alignment(row_top: int, row_height: int) -> int:
+    """Target height for the slider row so its bottom lines up with the keypad's 4th button row.
+
+    ``row_top`` and ``row_height`` come from Tk's ``grid_bbox`` for the keypad grid's first four
+    button rows, so ``row_top + row_height`` is that row's real bottom edge in pixels -- not the
+    ``button_size * 4`` estimate this replaces. That estimate was close enough to look plausible
+    but ran a bit short of the real rows once their own padding is counted, which is exactly what
+    left the aux row below it (RR Speed / Freight Sounds) squeezed tighter than intended.
+    """
+    return max(1, row_top + row_height)
+
+
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
         self._cv = Condition(RLock())
@@ -411,14 +423,15 @@ class ControllerView:
             on_release=self.clear_focus,  # or a horn-specific release handler
         )
 
-        # Match sliders-column height to keypad. The slider row itself is pinned to exactly four
-        # button-heights (host.slider_height), not a fraction of the keypad, so the RR Speed /
-        # Freight Sounds controls placed below it (next turn) have a fixed budget to work
-        # against; the aux row simply gets whatever is left over.
+        # Match sliders-column height to keypad. The slider row's bottom is pinned to the real
+        # bottom of the keypad's 4th button row (measured, not the button_size * 4 estimate that
+        # ran a bit short of it) so the RR Speed / Freight Sounds controls placed below it (next
+        # turn) have a fixed budget to work against; the aux row simply gets whatever is left over.
         host.app.tk.update_idletasks()
         target_sliders_width = max(1, sliders.tk.winfo_reqwidth())
         target_sliders_height = max(1, keypad_keys.tk.winfo_reqheight())
-        slider_row_height = host.slider_height
+        _, keypad_row_top, _, keypad_row_height = keypad_keys.tk.grid_bbox(0, 0, 0, 3)
+        slider_row_height = slider_row_height_for_keypad_alignment(keypad_row_top, keypad_row_height)
         aux_row_height = aux_row_height_after_slider_row(target_sliders_height, slider_row_height)
 
         sliders.tk.pack_configure(fill="y", expand=False)

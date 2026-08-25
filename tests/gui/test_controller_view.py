@@ -96,6 +96,22 @@ def test_aux_row_never_drops_below_one_pixel() -> None:
     assert mod.aux_row_height_after_slider_row(target_sliders_height=360, slider_row_height=360) == 1
 
 
+def test_the_slider_row_lands_on_the_keypads_real_fourth_row_bottom() -> None:
+    # The whole point: the previous button_size * 4 estimate ran a bit short of the keypad's real
+    # rows once their own padding is counted, which is what left the aux row below it squeezed
+    # tighter than intended. grid_bbox reports the row's real top and height, so their sum is the
+    # real bottom -- not an estimate of it.
+    assert mod.slider_row_height_for_keypad_alignment(row_top=0, row_height=360) == 360
+    assert mod.slider_row_height_for_keypad_alignment(row_top=4, row_height=360) == 364
+
+
+def test_slider_row_alignment_never_drops_below_one_pixel() -> None:
+    # A keypad reporting a nonsensical (or not-yet-laid-out) bbox must not hand back a zero or
+    # negative target height.
+    assert mod.slider_row_height_for_keypad_alignment(row_top=0, row_height=0) == 1
+    assert mod.slider_row_height_for_keypad_alignment(row_top=-5, row_height=3) == 1
+
+
 # Measured identically on both devices, from the freightgeom logs.
 CHROME = {"border": 8, "title": 22, "horn_pad": 1, "bell_extra": 6, "horn_extra": 2}
 
@@ -231,6 +247,12 @@ def test_the_slider_box_sizing_helpers_are_both_wired_up() -> None:
     # being called would look exactly like a slider box that is no longer four button-heights tall.
     assert len(_calls_to("slider_length_for_box_height")) == 1
     assert len(_calls_to("aux_row_height_after_slider_row")) == 1
+
+
+def test_the_keypad_alignment_helper_is_wired_up() -> None:
+    # Same reasoning again: a helper that quietly stopped being called would look exactly like a
+    # slider box whose bottom no longer lines up with the keypad's real 4th row.
+    assert len(_calls_to("slider_row_height_for_keypad_alignment")) == 1
 
 
 class _FitButton:
