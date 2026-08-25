@@ -77,10 +77,6 @@ _NO_EXPAND_ATTR = "_pytrain_no_expand"
 # Where an overlay keeps its (lead, fill) pair, so the row's position can be corrected on show
 # without walking the children and guessing which boxes are the spacers.
 _FOOTER_BOXES_ATTR = "_pytrain_footer_boxes"
-# How long to wait after showing a popup before measuring it. A sample taken any earlier is
-# worthless: winfo_height reads 1 and winfo_rooty reads 0 until Tk has laid the widget out, which
-# is how the first run of the admin panel's geometry trace produced a page of w=1 parent_w=1.
-POPUP_GEOM_DELAY_MS = 500
 
 
 def style_footer_button(host, btn) -> None:
@@ -278,81 +274,6 @@ def collapse_overlay(overlay) -> None:
     try:
         overlay.height = getattr(overlay, _OVERLAY_HEIGHT_ATTR, None)
     except (AttributeError, TclError, RuntimeError):
-        pass
-
-
-def debug_diagnostics_enabled() -> bool:
-    """Whether a DEBUG record would actually reach a handler, so measuring it is worth paying for.
-
-    ``log.isEnabledFor(logging.DEBUG)`` is not enough on its own here, and on its own is in fact
-    always true: ``set_up_logging`` puts the *root* logger at DEBUG unconditionally -- "required
-    for handler levels to work" -- and filters entirely on the handlers, which is what ``-debug``
-    and the runtime ``-debug`` toggle raise and lower. Guarding on the logger alone therefore
-    buys nothing: every Tk round-trip below gets paid on every popup and the records are then
-    dropped on the floor.
-
-    Consulting the handlers also means the runtime toggle takes effect immediately, with no
-    restart -- turn debug on, open the panel, read the numbers, turn it back off.
-    """
-    if not log.isEnabledFor(logging.DEBUG):
-        return False
-    return any(handler.level <= logging.DEBUG for handler in logging.getLogger().handlers)
-
-
-def log_popup_geometry(host, overlay) -> None:
-    """Schedule a report of where an overlay and its children actually landed.
-
-    Both halves of "panels reach the scope buttons and the footer row is centred" are claims
-    about pixels, and the last attempt at them was unpicked by bisect because nothing in the
-    running program measured anything. Run with -debug and grep the log for "popupgeom".
-
-    Deliberately *not* gated on ``compact``, unlike the admin panel's trace: portrait is the mode
-    that regressed, so it is the mode that needs numbers.
-
-    Diagnostics only -- it must never be able to break a popup, hence the broad guards and the
-    single call site after the overlay is on screen.
-    """
-    if not debug_diagnostics_enabled():
-        return
-    try:
-        host.app.tk.after(POPUP_GEOM_DELAY_MS, lambda: _report_popup_geometry(host, overlay))
-    except (AttributeError, TclError, RuntimeError):
-        pass
-
-
-def _report_popup_geometry(host, overlay) -> None:
-    """Log the overlay's reach and every child's band, once Tk has laid them out."""
-    try:
-        host.app.tk.update_idletasks()
-        tk = overlay.tk
-        bottom = tk.winfo_rooty() + tk.winfo_height()
-        scope = getattr(host, "scope_box", None)
-        # The target the panel is supposed to reach. gap= is the whole question: 0 means the
-        # panel extends to the scope row, a large positive number means it stopped short, and a
-        # negative one means it has run underneath.
-        scope_top = scope.tk.winfo_rooty() if scope is not None else None
-        log.debug(
-            "popupgeom OVERLAY map=%s y=%s h=%s bottom=%s scope_top=%s gap=%s",
-            int(tk.winfo_ismapped()),
-            tk.winfo_rooty(),
-            tk.winfo_height(),
-            bottom,
-            scope_top,
-            None if scope_top is None else scope_top - bottom,
-        )
-        for child in getattr(overlay, "children", ()) or ():
-            ctk = child.tk
-            # Per-child tops and bottoms, so the footer row's centre can be compared against the
-            # centre of the band left below the content without re-deriving either by hand.
-            log.debug(
-                "popupgeom   %-14s map=%s y=%-4s h=%-4s bottom=%-4s",
-                ctk.winfo_class(),
-                int(ctk.winfo_ismapped()),
-                ctk.winfo_rooty(),
-                ctk.winfo_height(),
-                ctk.winfo_rooty() + ctk.winfo_height(),
-            )
-    except (AttributeError, TclError, RuntimeError, TypeError):
         pass
 
 
@@ -801,10 +722,9 @@ class PopupManager:
         finally:
             self._restore_button_state(op=op, modifier=modifier, button=button)
         if shown:
-            # Both outside the try on purpose: a measurement that failed must not be mistaken for
+            # Outside the try on purpose: a measurement that failed must not be mistaken for
             # a popup that failed to appear, which would run the rollback above on a live overlay.
             balance_footer_row(host, overlay)
-            log_popup_geometry(host, overlay)
 
     def close(self, overlay: Box | None = None) -> None:
         host = self._host

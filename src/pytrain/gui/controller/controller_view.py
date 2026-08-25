@@ -26,7 +26,6 @@ from ..components.analog_gauge import AnalogGaugeWidget
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 from ...db.engine_state import EngineState
-from .popup_manager import debug_diagnostics_enabled
 from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
@@ -46,10 +45,6 @@ FREIGHT_PAIR_GAP = 4
 # Never shrink a touch target below this, even if that means overflowing: a 4px button is useless,
 # and a pane that tight has worse problems than a clipped horn.
 FREIGHT_PAIR_MIN = 16
-# Long enough for the pair to be shown and laid out before it is measured: winfo_width reads 1
-# until Tk has allocated the widget, and the pair is hidden at build time and only shown when a
-# freight-sounds or crane engine is selected.
-FREIGHT_GEOM_DELAY_MS = 500
 # Long enough for Tk to allocate the pair's cell after it is shown, short enough that the one-off
 # correction is not a visible jump. The cell reports a width of 1 before that.
 FREIGHT_FIT_DELAY_MS = 50
@@ -188,54 +183,6 @@ def _apply_freight_fit(host, state: dict) -> None:
         if trim:
             _resize_freight(host, state, bell=bell, horn=freight_horn_after_trim(bell, horn, trim))
     except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
-        pass
-
-
-def log_freight_geometry(host, widgets: dict, computed: dict) -> None:
-    """Report what the freight pair was *given* against what it asked for.
-
-    Two rounds of sizing this from photographs produced a formula each time and neither fixed the
-    clipping -- the second was a no-op, because ``min(height, width)`` returns the height budget
-    unchanged whenever the width budget does not bind. Photographs show which edge is cut; they do
-    not show which term in the arithmetic is wrong. This does.
-
-    Grep the log for "freightgeom". Diagnostics only: it must never be able to break the panel,
-    hence the broad guard.
-    """
-    if not debug_diagnostics_enabled():
-        return
-    try:
-        host.app.tk.after(FREIGHT_GEOM_DELAY_MS, lambda: _report_freight_geometry(host, widgets, computed))
-    except (AttributeError, TclError, RuntimeError):
-        pass
-
-
-def _report_freight_geometry(host, widgets: dict, computed: dict) -> None:
-    """Log the inputs the size was derived from, then what Tk actually allocated."""
-    try:
-        host.app.tk.update_idletasks()
-        # Scalars only: the same dict carries the widgets the fit needs, and their reprs would
-        # bury the numbers this line exists to show.
-        scalars = " ".join(f"{k}={v}" for k, v in computed.items() if isinstance(v, (int, float, str)))
-        log.debug("freightgeom computed %s gap=%s inset=%s", scalars, FREIGHT_PAIR_GAP, FREIGHT_PAIR_INSET)
-        for name, widget in widgets.items():
-            tk_widget = getattr(widget, "tk", widget)
-            # reqw/reqh is what the widget asked for; w/h is what it got. They differ exactly when
-            # something above it is pinned -- which is the whole question here.
-            log.debug(
-                "freightgeom %-10s map=%s x=%-4s y=%-4s w=%-4s h=%-4s reqw=%-4s reqh=%-4s parent=%sx%s",
-                name,
-                int(tk_widget.winfo_ismapped()),
-                tk_widget.winfo_rootx(),
-                tk_widget.winfo_rooty(),
-                tk_widget.winfo_width(),
-                tk_widget.winfo_height(),
-                tk_widget.winfo_reqwidth(),
-                tk_widget.winfo_reqheight(),
-                tk_widget.master.winfo_width(),
-                tk_widget.master.winfo_height(),
-            )
-    except (AttributeError, TclError, RuntimeError, TypeError):
         pass
 
 
@@ -578,8 +525,8 @@ class ControllerView:
         horn_btn.on_repeat = horn_btn.on_press
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
 
-        # What fit_freight_pair needs to correct the provisional size once the pair is on screen,
-        # and what the geometry trace reports. "size" is updated in place by the fit.
+        # What fit_freight_pair needs to correct the provisional size once the pair is on screen.
+        # "size" is updated in place by the fit.
         host._freight_pair = {
             "bell": pair_size,
             "horn": pair_size,
@@ -589,15 +536,6 @@ class ControllerView:
             "horn_cell": horn_cell,
             "bell_btn": (bell_btn, bell_image),
             "horn_btn": (horn_btn, image),
-        }
-        host._freight_geom_widgets = {
-            "sliders": sliders,
-            "pair_cell": pair_cell,
-            "btn_row": btn_row,
-            "bell_box": bell_box,
-            "bell_btn": bell_btn,
-            "horn_cell": horn_cell,
-            "horn_btn": horn_btn,
         }
         host._freight_sounds_bell_horn_box.hide()
 
@@ -1101,15 +1039,9 @@ class ControllerView:
             if host._freight_sounds_bell_horn_box:
                 host._freight_sounds_bell_horn_box.show()
                 host._rr_speed_box.hide()
-                # Both only work once the pair is on screen: the cell reports a width of 1 until
-                # Tk has allocated it. The fit runs first and the trace second, so the trace
-                # reports the corrected geometry rather than the provisional.
+                # Only works once the pair is on screen: the cell reports a width of 1 until
+                # Tk has allocated it.
                 fit_freight_pair(host)
-                log_freight_geometry(
-                    host,
-                    getattr(host, "_freight_geom_widgets", {}),
-                    getattr(host, "_freight_pair", {}),
-                )
             # Freight uses the horn-control popup behavior
             self.show_horn_control()
 

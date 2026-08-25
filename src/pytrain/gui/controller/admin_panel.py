@@ -13,8 +13,6 @@ from threading import RLock, Thread
 from typing import TYPE_CHECKING
 
 import psutil
-from tkinter import TclError
-
 from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
 from ...cli.pytrain import PyTrain
@@ -26,7 +24,7 @@ from ...utils.host_info import is_steam_deck
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from .overlay_panel import OverlayPanel
-from .popup_manager import debug_diagnostics_enabled, footer_spacer, style_footer_button
+from .popup_manager import footer_spacer, style_footer_button
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -281,14 +279,6 @@ class AdminPanel(OverlayPanel):
             # That hide/show is a display_widgets() on the Scope box, which re-grids the
             # group and drops the fill applied during build. Put it back.
             self._apply_compact_grid()
-        # Scheduled, not called inline. This property returns the overlay to a caller that
-        # then place()s and shows it, so an inline dump measures widgets Tk has never laid
-        # out -- and an unmapped widget reports width 1 regardless of its real size, which
-        # is exactly what the first attempt produced.
-        try:
-            self._gui.app.tk.after(500, self._log_compact_geometry)
-        except (AttributeError, TclError, RuntimeError):
-            pass
         return overlay
 
     # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -652,83 +642,6 @@ class AdminPanel(OverlayPanel):
         self._stretch_compact(group)
         for option in (left, right):
             self._fit_compact_control(option, image_backed=True, row_height=self.compact_toggle_height)
-
-    def _log_compact_geometry(self) -> None:
-        """Report what Tk actually allocated to every compact section and control.
-
-        Two rounds of reasoning about 5-pixel insets from a photograph produced changes with
-        no visible effect, so this reports measured geometry instead of inferred geometry:
-        each widget's own size and position, its grid options, and its parent's width. Run
-        with -debug on the Deck, open this panel, and grep the log for "admingeom".
-
-        Diagnostics only -- it must never be able to break the panel, hence the broad
-        guard and the single call site after the overlay is on screen.
-        """
-        if not self._compact or not debug_diagnostics_enabled():
-            return
-        try:
-            self._gui.app.tk.update_idletasks()
-        except (AttributeError, TclError, RuntimeError):
-            return
-        log.debug("admingeom panel width=%s (the value sections are sized from)", self._width)
-        # Vertical slack, so the next round does not have to guess whether the overlay can
-        # afford to grow: anything added below the footer comes out of parent_h - h.
-        # getattr, not self._overlay: this method promises never to break the panel, so it
-        # cannot assume the base class has run.
-        overlay = getattr(self, "_overlay", None)
-        if overlay is not None:
-            try:
-                tk = overlay.tk
-                log.debug(
-                    # parent_h is the whole pane and overstates the room available: the
-                    # usable region ends where the pane's nav bar begins. bottom= is the
-                    # number that matters -- what the overlay actually reaches.
-                    "admingeom %-18s map=%s y=%-4s h=%-4s bottom=%-4s parent_h=%-4s",
-                    "OVERLAY",
-                    int(tk.winfo_ismapped()),
-                    tk.winfo_rooty(),
-                    tk.winfo_height(),
-                    tk.winfo_rooty() + tk.winfo_height(),
-                    tk.master.winfo_height(),
-                )
-                for child in getattr(overlay, "children", ()) or ():
-                    ctk = child.tk
-                    log.debug(
-                        "admingeom %-18s map=%s y=%-4s h=%-4s",
-                        f"  {ctk.winfo_class()}",
-                        int(ctk.winfo_ismapped()),
-                        ctk.winfo_rooty(),
-                        ctk.winfo_height(),
-                    )
-            except (AttributeError, TclError, RuntimeError, TypeError):
-                pass
-        for widget, options in self._compact_controls:
-            try:
-                tk = widget.tk
-                # LabelFrames and buttons both carry -text, which identifies them far better
-                # than a Tk widget path; frames without one fall back to their class.
-                name = tk.cget("text") if "text" in tk.keys() else tk.winfo_class()
-                info = tk.grid_info()
-                log.debug(
-                    "admingeom %-18s map=%s x=%-4s w=%-4s reqw=%-4s h=%-3s parent_w=%-4s "
-                    "col=%s span=%s sticky=%s asked=%s",
-                    str(name)[:18],
-                    # A sample taken before the overlay is mapped is worthless -- width
-                    # reads 1 whatever the widget really is -- so say so in the line itself
-                    # rather than leaving the reader to infer it from absurd numbers.
-                    int(tk.winfo_ismapped()),
-                    tk.winfo_rootx(),
-                    tk.winfo_width(),
-                    tk.winfo_reqwidth(),
-                    tk.winfo_height(),
-                    tk.master.winfo_width(),
-                    info.get("column"),
-                    info.get("columnspan"),
-                    info.get("sticky"),
-                    options,
-                )
-            except (AttributeError, TclError, RuntimeError, TypeError):
-                continue
 
     def _apply_compact_grid(self) -> None:
         """Re-assert the compact grid options that widget creation wipes.

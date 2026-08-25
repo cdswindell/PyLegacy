@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from contextlib import nullcontext
 from types import SimpleNamespace
 
@@ -496,116 +495,6 @@ def test_create_popup_leaves_the_overlay_unsized(monkeypatch: pytest.MonkeyPatch
 
         assert "height" not in overlay.kwargs
         assert "width" not in overlay.kwargs
-
-
-def _geom_tk(*, y: int, h: int, cls: str = "Frame", mapped: int = 1):
-    return SimpleNamespace(
-        winfo_rooty=lambda: y,
-        winfo_height=lambda: h,
-        winfo_ismapped=lambda: mapped,
-        winfo_class=lambda: cls,
-        update_idletasks=lambda: None,
-    )
-
-
-def test_show_schedules_the_geometry_report_once_the_overlay_is_on_screen(caplog) -> None:
-    # The report itself is covered below; this pins its *wiring*, which is the half that goes
-    # missing silently -- a diagnostic nobody calls looks exactly like a panel with no problem.
-    host = _host()
-    scheduled: list[tuple[int, object]] = []
-    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append((ms, fn)))
-    manager = mod.PopupManager(host)
-    overlay = _Widget(visible=False)
-
-    with caplog.at_level("DEBUG", logger=mod.log.name):
-        manager.show(overlay)
-
-    assert [ms for ms, _ in scheduled] == [mod.POPUP_GEOM_DELAY_MS]
-    assert callable(scheduled[0][1])
-
-
-def test_a_popup_that_never_appeared_is_not_measured(caplog) -> None:
-    # fail_place sends show() down its rollback path. Measuring there would report the geometry
-    # of an overlay that was just hidden again.
-    host = _host()
-    scheduled: list[tuple[int, object]] = []
-    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append((ms, fn)))
-    manager = mod.PopupManager(host)
-
-    with caplog.at_level("DEBUG", logger=mod.log.name):
-        manager.show(_Widget(visible=False, fail_place=True))
-
-    assert scheduled == []
-
-
-def test_the_geometry_report_names_the_gap_left_to_the_scope_row(caplog) -> None:
-    host = _host()
-    host.app.tk = SimpleNamespace(update_idletasks=lambda: None)
-    host.scope_box = SimpleNamespace(tk=_geom_tk(y=700, h=70))
-    overlay = SimpleNamespace(
-        tk=_geom_tk(y=100, h=480),
-        children=[SimpleNamespace(tk=_geom_tk(y=500, h=40, cls="Frame"))],
-    )
-
-    with caplog.at_level("DEBUG", logger=mod.log.name):
-        mod._report_popup_geometry(host, overlay)
-
-    report = "\n".join(caplog.messages)
-    # 100 + 480 = 580; the scope row starts at 700, so the panel stops 120px short.
-    assert "bottom=580" in report
-    assert "scope_top=700" in report
-    assert "gap=120" in report
-    # The child's own band, so a footer row's centre can be checked against the band below the
-    # content without re-deriving either by hand: 500..540 inside an overlay ending at 580.
-    assert "y=500" in report
-    assert "bottom=540" in report
-
-
-def test_the_geometry_report_survives_a_widget_that_cannot_be_measured(caplog) -> None:
-    # It runs half a second after the popup opened, by which time the popup may be gone.
-    host = _host()
-    host.app.tk = SimpleNamespace(update_idletasks=lambda: None)
-
-    def boom():
-        raise RuntimeError("destroyed")
-
-    with caplog.at_level("DEBUG", logger=mod.log.name):
-        mod._report_popup_geometry(host, SimpleNamespace(tk=SimpleNamespace(winfo_rooty=boom)))
-
-
-def _only_root_handler(monkeypatch: pytest.MonkeyPatch, level: int) -> None:
-    monkeypatch.setattr(logging.getLogger(), "handlers", [logging.NullHandler(level=level)])
-
-
-def test_geometry_is_not_measured_when_no_handler_wants_debug(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Every report costs two Tk round-trips per child, and nobody should pay them in normal
-    # operation. Checking the logger alone would not save it: set_up_logging puts the root logger
-    # at DEBUG unconditionally and filters on the handlers, so isEnabledFor is always true and
-    # -debug is visible only in the handler levels.
-    host = _host()
-    scheduled: list[object] = []
-    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append(fn))
-    _only_root_handler(monkeypatch, logging.INFO)
-
-    mod.log_popup_geometry(host, _Widget())
-
-    assert scheduled == []
-    assert mod.log.isEnabledFor(logging.DEBUG), "the logger says yes; only the handler says no"
-    assert mod.debug_diagnostics_enabled() is False
-
-
-def test_geometry_is_measured_as_soon_as_a_handler_wants_debug(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The other half: flipping -debug at runtime moves handler levels, so the trace comes back
-    # without a restart.
-    host = _host()
-    scheduled: list[object] = []
-    host.app.tk = SimpleNamespace(after=lambda ms, fn: scheduled.append(fn))
-    _only_root_handler(monkeypatch, logging.DEBUG)
-
-    mod.log_popup_geometry(host, _Widget())
-
-    assert len(scheduled) == 1
-    assert mod.debug_diagnostics_enabled() is True
 
 
 @pytest.mark.parametrize("compact", [False, True])
