@@ -39,26 +39,64 @@ CAB_1_THROTTLE_REPEAT_MS = 200
 # Vertical slack left around the freight pair inside its row: the horn's own pady plus a pixel or
 # two so the buttons do not sit hard against the row's edge.
 FREIGHT_PAIR_INSET = 6
+# Gap between the two buttons. Fixed rather than a fraction of the button size, so the fit below
+# only has one dimension to solve for.
+FREIGHT_PAIR_GAP = 4
+# Never shrink a touch target below this, even if that means overflowing: a 4px button is useless,
+# and a pane that tight has worse problems than a clipped horn.
+FREIGHT_PAIR_MIN = 16
 
 
-def freight_pair_size(aux_row_height: int, title_chrome: int) -> int:
+def freight_pair_size(
+    aux_row_height: int,
+    title_chrome_height: int,
+    available_width: int,
+    title_label_width: int,
+) -> int:
     """Edge length of both freight-sounds pair buttons, in pixels.
 
-    The pair shares row 1 of the sliders column with the "Bell/Horn..." label above it, and that
-    row is exactly ``aux_row_height`` tall (grid_rowconfigure minsize, with grid_propagate off),
-    so what the buttons can have is the row less the TitleBox's own chrome. A flat fraction of the
-    row got this wrong in both directions at once: it ignored the label, so on a Deck pane -- where
-    the row is shorter -- chrome plus button overflowed and the bottoms were clipped, while on the
-    Pi almost a third of the row went unused and the buttons looked undersized.
+    Bounded by *both* dimensions of the cell the pair shares with the "Bell/Horn..." label, because
+    either one can bind and they bind on different devices.
 
-    ``title_chrome`` is required rather than defaulted to zero: defaulted, a call site that simply
-    stopped passing it would go back to overflowing the row on a Deck pane in total silence. It
-    must be measured from the box while it is still **empty**. Measuring it with
-    the bell inside is what the original code did, and that made the button's size depend on its
-    own content: a glyph the font could not draw collapsed the whole pair, so three rounds of
-    "bell/horn alignment and size logic" were chasing a font problem through the layout.
+    Height: the pair sits in row 1 of the sliders column, which is exactly ``aux_row_height`` tall
+    (``grid_rowconfigure`` minsize, with ``grid_propagate`` off), and the TitleBox's label sits
+    above the buttons inside it.
+
+    Width: the column's width is pinned too, and ``btn_row`` is packed centered, so a row wider
+    than the column is clipped at *both* ends -- the horn's outer edge and the title's, which is
+    why the label reads "Bell/Hor" when it overflows. The row is ``button + gap + bell_box``, and
+    the bell's TitleBox can never be narrower than its own label, so the width has two regimes and
+    the wider one is not always available::
+
+        both halves scale:  2p + gap          <= width   ->  p <= (width - gap) // 2
+        bell pinned by label:  p + gap + label <= width   ->  p <= width - gap - label
+
+    Solved rather than searched. Shrinking by half the overflow and re-measuring does converge, but
+    only slowly once the label floors the bell -- past that point each pixel off the buttons buys
+    one pixel of row, not two -- and every pass regenerates both images.
+
+    All four inputs are measured from the *empty* TitleBox and the pinned column, never from what
+    ends up drawn inside. That is the distinction from the original defect, which measured the
+    bell's own rendered content to decide the bell's size, so a glyph the font could not draw
+    collapsed the whole pair.
     """
-    return max(1, aux_row_height - max(0, title_chrome) - FREIGHT_PAIR_INSET)
+    height_budget = aux_row_height - max(0, title_chrome_height) - FREIGHT_PAIR_INSET
+
+    # Only the chrome height is clamped above. A negative label needs no guard: it would still
+    # take the scaled regime below, which is what a zero label does, so clamping it changes
+    # nothing -- whereas a negative chrome would inflate the height budget.
+    label = title_label_width
+    scaled = (available_width - FREIGHT_PAIR_GAP) // 2
+    if scaled >= label:
+        width_budget = scaled
+    else:
+        # No size in the first regime fits, so the bell is stuck at its label width and only the
+        # horn can give anything back.
+        width_budget = available_width - FREIGHT_PAIR_GAP - label
+
+    # A column narrower than its own label cannot fit whatever we do. Overflowing with a pressable
+    # button beats a perfect fit with an invisible one.
+    return max(FREIGHT_PAIR_MIN, min(height_budget, width_budget))
 
 
 class ControllerView:
@@ -286,11 +324,16 @@ class ControllerView:
         # is worse -- no emoji form, but almost no font ships it either. An image needs no font on
         # either device, and it matches the horn sitting beside it.
         #
-        # Chrome measured while bell_box is still empty -- see freight_pair_size for why that
-        # matters. It is a TitleBox, so its requested height here is the "Bell/Horn..." label plus
-        # its borders and nothing else.
+        # Measured while bell_box is still empty -- see freight_pair_size for why that matters. It
+        # is a TitleBox, so what it requests here is its "Bell/Horn..." label plus borders: the
+        # height the label costs the buttons, and the width below which the box cannot shrink.
         host.app.tk.update_idletasks()
-        pair_size = freight_pair_size(aux_row_height, bell_box.tk.winfo_reqheight())
+        pair_size = freight_pair_size(
+            aux_row_height,
+            bell_box.tk.winfo_reqheight(),
+            target_sliders_width,
+            bell_box.tk.winfo_reqwidth(),
+        )
 
         host._bell_btn = bell_btn = HoldButton(
             bell_box,
@@ -312,8 +355,7 @@ class ControllerView:
         bell_btn.on_hold = host.on_bell_horn_options_fs
 
         # spacer box
-        sp_size = int(pair_size * 0.1)
-        sp = Box(btn_row, grid=[1, 0], height=sp_size, width=sp_size)
+        sp = Box(btn_row, grid=[1, 0], height=FREIGHT_PAIR_GAP, width=FREIGHT_PAIR_GAP)
         host.cache(sp)
 
         # Horn button
@@ -338,6 +380,7 @@ class ControllerView:
         )
         horn_btn.on_repeat = horn_btn.on_press
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
+
         host._freight_sounds_bell_horn_box.hide()
 
         # info box to display smoke, rpm, labor, etc.
