@@ -9,8 +9,11 @@
 import pytest
 
 from src.pytrain.gui.controller.control_labels import (
-    ADMIN_CHORD_TITLE,
+    ADMIN_CHORD_NOTE,
+    ADMIN_PANEL_TITLE,
+    CATALOG_PANEL_TITLE,
     GLOBAL_CHORD_TITLE,
+    SWITCH_PANEL_TITLE,
     ARROW_HORIZONTAL,
     ARROW_VERTICAL,
     action_label,
@@ -158,17 +161,20 @@ def test_triggers_describe_their_hold_behaviour() -> None:
 
 
 def test_chords_are_grouped_by_where_they_work() -> None:
-    # Both caveats live in headings rather than on every row: as per-row notes they made
-    # this the widest column, then wrapped every entry and pushed Close off the display.
+    # Where a chord works lives in its heading rather than on every row: as per-row notes
+    # they made this the widest column, then wrapped every entry and pushed Close off the
+    # display.
     sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
 
     everywhere = sections[GLOBAL_CHORD_TITLE]
     assert [entry.input for entry in everywhere.entries] == ["L1 + R1", "L3 + R3"]
     assert all(entry.note == "" for entry in everywhere.entries)
 
-    admin = sections[ADMIN_CHORD_TITLE]
+    admin = sections[ADMIN_PANEL_TITLE]
     assert [entry.input for entry in admin.entries] == ["L1 + X", "L1 + Y", "L1 + B", "L1 + A"]
-    assert all(entry.note == "" for entry in admin.entries)
+    # The heading names the panel now, so the three-second hold -- which it used to carry --
+    # is said per row. Losing it would make these read like an ordinary chord.
+    assert all(entry.note == ADMIN_CHORD_NOTE for entry in admin.entries)
 
     # Nothing left over: the plain "Chords" heading is dropped when it would be empty.
     assert "Chords" not in sections
@@ -209,19 +215,44 @@ def test_summary_flags_repeating_buttons() -> None:
 def test_the_switch_panel_remap_is_listed() -> None:
     # A panel showing a switch has no engine to drive, so the sticks and triggers throw the
     # switch there. Without this the screen would describe only their engine meaning.
-    section = _section(ControlProfile.load(None), "While a switch is on display")
+    section = _section(ControlProfile.load(None), SWITCH_PANEL_TITLE)
 
     assert section.fixed is True
     assert [entry.input for entry in section.entries] == [
         "L2 / R2",
-        f"Stick {ARROW_VERTICAL}",
-        f"Stick {ARROW_HORIZONTAL}",
+        f"Left stick {ARROW_VERTICAL} / {ARROW_HORIZONTAL}",
+        f"Right stick {ARROW_VERTICAL} / {ARROW_HORIZONTAL}",
     ]
+    # Each stick's own pane, and the arrows pair off against the actions: vertical throws
+    # thru, horizontal throws out. The heading supplies the word "switch".
     assert [entry.action for entry in section.entries] == [
-        "Throw switch thru / out",
-        "Throw switch thru",
-        "Throw switch out",
+        "Throw thru / out",
+        "Throw thru / out LEFT",
+        "Throw thru / out RIGHT",
     ]
+
+
+def test_the_switch_panel_names_its_sticks_as_the_sticks_section_does() -> None:
+    # One vocabulary for one control: a row saying "Stick" where the section above says
+    # "Left stick" reads like a third stick nobody has, and leaves which pane it throws to
+    # the reader to work out.
+    profile = ControlProfile.load(None)
+    named_above = {entry.input.rsplit(" ", 1)[0] for entry in _section(profile, "Sticks").entries}
+
+    switch_sticks = [entry.input for entry in _section(profile, SWITCH_PANEL_TITLE).entries if "stick" in entry.input]
+
+    assert named_above == {"Left stick", "Right stick"}
+    assert len(switch_sticks) == 2
+    assert all(any(row.startswith(name) for name in named_above) for row in switch_sticks)
+
+
+def test_context_sections_are_titled_by_the_panel_they_apply_to() -> None:
+    # These three describe one kind of panel each, so they are titled the same way: the
+    # reader should not have to notice that "Admin panel only" and "While the catalog is
+    # open" are the same kind of heading. Routes and Aux will join them.
+    titles = {section.title for section in controls_summary(ControlProfile.load(None))}
+
+    assert {"Active Admin Panel", "Active Catalog Panel", "Active Switch Panel"} <= titles
 
 
 def test_fixed_sections_are_marked_as_such() -> None:
@@ -230,7 +261,7 @@ def test_fixed_sections_are_marked_as_such() -> None:
     sections = {section.title: section.fixed for section in controls_summary(ControlProfile.load(None))}
 
     assert sections["D-pad"] is True
-    assert sections["While the catalog is open"] is True
+    assert sections[CATALOG_PANEL_TITLE] is True
     assert sections["Buttons"] is False
 
 
