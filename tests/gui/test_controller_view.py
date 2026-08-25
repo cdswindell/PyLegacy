@@ -255,6 +255,43 @@ def test_the_keypad_alignment_helper_is_wired_up() -> None:
     assert len(_calls_to("slider_row_height_for_keypad_alignment")) == 1
 
 
+def _pack_calls_on(name: str) -> list[ast.Call]:
+    """Every ``<name>.tk.pack(...)`` call in the module, by the receiver's own variable name.
+
+    ``_calls_to`` only matches plain function calls (``ast.Name`` targets); this is a method call
+    on an attribute chain, so it needs its own AST walk.
+    """
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "pack"
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "tk"
+        and isinstance(node.func.value.value, ast.Name)
+        and node.func.value.value.id == name
+    ]
+
+
+def test_the_rr_speed_button_is_centered_in_the_free_space() -> None:
+    """The bug this fixes: the button was pinned near the top of its row by a fixed ``pady=(9,
+    0)`` offset, leaving the rest of the row's free space unused below it rather than around it.
+
+    ``expand=True`` gives the pack parcel the whole row instead of just the button's own height,
+    so ``anchor="center"`` then centers it within that free space -- the same technique
+    ``btn_row`` already uses to center the freight-sounds pair, which this leaves untouched.
+    """
+    calls = _pack_calls_on("rr_btn")
+
+    assert len(calls) == 1, "packed exactly once, at build time"
+    kwargs = {kw.arg: kw.value for kw in calls[0].keywords}
+    assert kwargs.get("anchor") is not None and kwargs["anchor"].value == "center"
+    assert kwargs.get("expand") is not None and kwargs["expand"].value is True
+    assert "pady" not in kwargs, "a fixed offset would re-pin the button off-center"
+
+
 class _FitButton:
     """A Tk button stub whose requested size follows its configuration, as the real one does.
 

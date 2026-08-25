@@ -247,7 +247,7 @@ def slider_length_for_box_height(box_height: int, title_overhead: int) -> int:
     above the Slider, so the two together -- not just the Slider -- are what has to land on
     ``box_height``: a slider by itself sized to that many pixels leaves the box taller once the
     title is added on top, which is what left less room than intended for the controls meant to
-    go below it. ``title_overhead`` is measured after the TitleBox is realized, never modelled --
+    go below it. ``title_overhead`` is measured after the TitleBox is realized, never modeled --
     an empty TitleBox reports a requested height of 1, the same trap ``freight_pair_size``'s
     docstring describes for an empty label.
     """
@@ -481,7 +481,7 @@ class ControllerView:
             highlightthickness=0,
         )
         rr_btn.images = (img, inverted_img)
-        rr_btn.tk.pack(anchor="center", pady=(9, 0))
+        rr_btn.tk.pack(anchor="center", expand=True)  # Center the button within the free space of the row
         rr_box.hide()
 
         # Bell/horn buttons for freight sounds
