@@ -275,6 +275,64 @@ def _pack_calls_on(name: str) -> list[ast.Call]:
     ]
 
 
+def _box_call_for(name: str) -> ast.Call | None:
+    """The ``Box(...)`` call assigned (possibly via a chained assignment) to ``name``."""
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and getattr(node.value.func, "id", None) == "Box"
+            and any(isinstance(t, ast.Name) and t.id == name for t in node.targets)
+        ):
+            return node.value
+    return None
+
+
+def _grid_configure_calls_on(name: str) -> list[ast.Call]:
+    """Every ``<name>.tk.grid_configure(...)`` call in the module, mirroring ``_pack_calls_on``."""
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "grid_configure"
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "tk"
+        and isinstance(node.func.value.value, ast.Name)
+        and node.func.value.value.id == name
+    ]
+
+
+def test_the_rr_speed_box_has_no_align_that_a_later_show_would_reapply() -> None:
+    """The bug this fixes: ``rr_box`` was built with ``align="top"``.
+
+    ``apply_engine_type()`` calls ``rr_box.show()``/``hide()`` on every engine-state change, and
+    each ``show()`` makes guizero ``grid_forget()`` then re-grid the cell -- reapplying a sticky
+    derived from ``align`` ("N" for "top") if one is set, regardless of anything configured
+    manually beforehand. That silently pinned the box, and the button inside it, to the top on
+    the very next engine-state change. Leaving ``align`` unset is what stops that re-grid from
+    ever touching sticky again.
+    """
+    call = _box_call_for("rr_box")
+
+    assert call is not None, "rr_box is still built from a Box(...) call"
+    assert not any(kw.arg == "align" for kw in call.keywords), "align survives every later show()"
+
+
+def test_the_rr_speed_box_does_not_rely_on_a_sticky_override() -> None:
+    """A ``grid_configure(sticky=...)`` call here would look like a fix but not survive one.
+
+    Since ``rr_box.show()`` is called from ``apply_engine_type()`` on every engine-state change,
+    and each ``show()`` re-grids the cell from scratch, any sticky set once at build time is gone
+    by the next engine-state change (see the ``align`` test above). Centering has to come from
+    Tk's own default (no sticky at all), which is the only setting stable across repeated
+    show()/hide() cycles.
+    """
+    assert _grid_configure_calls_on("rr_box") == [], "a sticky override here would not survive show()"
+
+
 def test_the_rr_speed_button_is_centered_in_the_free_space() -> None:
     """The bug this fixes: the button was pinned near the top of its row by a fixed ``pady=(9,
     0)`` offset, leaving the rest of the row's free space unused below it rather than around it.
@@ -290,6 +348,58 @@ def test_the_rr_speed_button_is_centered_in_the_free_space() -> None:
     assert kwargs.get("anchor") is not None and kwargs["anchor"].value == "center"
     assert kwargs.get("expand") is not None and kwargs["expand"].value is True
     assert "pady" not in kwargs, "a fixed offset would re-pin the button off-center"
+
+
+def _call_assigned_to(func_name: str, target_name: str) -> ast.Call | None:
+    """The ``<func_name>(...)`` call assigned (possibly via a chained assignment) to ``target_name``.
+
+    Generalizes ``_box_call_for`` to any constructor, so the same source-inspection pattern can
+    confirm both what a widget is (a ``TitleBox``) and what it was built with (its title, its
+    parent), without a running Tk display.
+    """
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and getattr(node.value.func, "id", None) == func_name
+            and any(isinstance(t, ast.Name) and t.id == target_name for t in node.targets)
+        ):
+            return node.value
+    return None
+
+
+def test_the_rr_speed_button_now_sits_inside_a_titled_speed_limit_box() -> None:
+    """The RR Speeds button is now built inside its own titled box, titled "Speed Limit...", the
+    same treatment already given to throttle/brake/momentum/horn and to the freight
+    "Bell/Horn..." pair -- so its purpose reads on screen instead of being a bare, unlabeled
+    button. Applies to both the Pi and Steam Deck layouts, since both go through this same
+    build() method.
+    """
+    title_box_call = _call_assigned_to("TitleBox", "rr_title_box")
+    assert title_box_call is not None, "rr_title_box is still built from a TitleBox(...) call"
+    title_arg = title_box_call.args[1]
+    assert isinstance(title_arg, ast.Constant) and title_arg.value == "Speed Limit..."
+
+    # A titled box built next to the button, rather than around it, would look identical in a
+    # diff but not on screen -- so the button's own parent has to be checked too.
+    button_call = _call_assigned_to("HoldButton", "rr_btn")
+    assert button_call is not None, "rr_btn is still built from a HoldButton(...) call"
+    parent_arg = button_call.args[0]
+    assert isinstance(parent_arg, ast.Name) and parent_arg.id == "rr_title_box"
+
+
+def test_the_rr_speed_titlebox_is_also_centered_in_the_free_space() -> None:
+    """Wrapping the button in a titled box adds a second widget between it and ``rr_box``; if
+    that new widget were not centered too, the button inside it would still end up pinned
+    off-center despite the button's own pack call still asking to be centered.
+    """
+    calls = _pack_calls_on("rr_title_box")
+
+    assert len(calls) == 1, "packed exactly once, at build time"
+    kwargs = {kw.arg: kw.value for kw in calls[0].keywords}
+    assert kwargs.get("anchor") is not None and kwargs["anchor"].value == "center"
+    assert kwargs.get("expand") is not None and kwargs["expand"].value is True
 
 
 class _FitButton:

@@ -258,7 +258,7 @@ def aux_row_height_after_slider_row(target_sliders_height: int, slider_row_heigh
     """Whatever the sliders column has left below the fixed-height slider row.
 
     The slider row is now pinned to an exact number of button-heights rather than a fraction of
-    the column, so the aux row (RR Speed / Freight Sounds) is simply what remains -- not, as
+    the column. The aux row (RR Speed / Freight Sounds) is simply what remains -- not, as
     before, a percentage of the same total the slider row was also a percentage of.
     """
     return max(1, target_sliders_height - slider_row_height)
@@ -462,12 +462,22 @@ class ControllerView:
         host._rr_speed_box = rr_box = Box(
             sliders,
             grid=[0, 1, 2, 1],  # spans two columns under sliders
-            align="top",
         )
-        rr_box.tk.grid_configure(sticky="nsew")
+        # Deliberately no align and no grid_configure(sticky=...) here: apply_engine_type() calls
+        # rr_box.show()/hide() on every engine-state change, and each show() makes guizero
+        # grid_forget() then re-grid this cell -- dropping any sticky that isn't backed by
+        # `align`. A previous sticky="nsew" (paired with align="top") looked right once, but
+        # every later show() replaced it with the single-direction sticky "top" maps to ("N"),
+        # which pins the box -- and the button inside it -- to the top instead of centering it.
+        # Leaving both unset lets Tk's own default (centered, unstretched) survive every
+        # show/hide cycle instead of a setting that keeps getting silently overwritten.
 
-        # RR Speeds button
-        host._rr_speed_btn = rr_btn = HoldButton(rr_box, "", hold_threshold=1.25, command=host.on_rr_speed)
+        # RR Speeds button, inside a titled box -- same pattern as the "Bell/Horn..." box below --
+        # so it reads as what it does: sets the RR speed limit for the active engine.
+        rr_title_box = TitleBox(rr_box, "Speed Limit...")
+        rr_title_box.tk.pack(anchor="center", expand=True)
+
+        host._rr_speed_btn = rr_btn = HoldButton(rr_title_box, "", hold_threshold=1.25, command=host.on_rr_speed)
         img, inverted_img = host.get_image(find_file("RR-Speeds.jpg"), size=(rr_btn_width, rr_btn_height))
         rr_btn.tk.config(
             image=img,
@@ -481,7 +491,7 @@ class ControllerView:
             highlightthickness=0,
         )
         rr_btn.images = (img, inverted_img)
-        rr_btn.tk.pack(anchor="center", expand=True)  # Center the button within the free space of the row
+        rr_btn.tk.pack(anchor="center", expand=True)  # Center the button within the free space of the title box
         rr_box.hide()
 
         # Bell/horn buttons for freight sounds
