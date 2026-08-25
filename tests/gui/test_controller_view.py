@@ -57,54 +57,81 @@ def test_the_provisional_size_is_capped_by_both_dimensions_of_the_cell() -> None
     assert mod.freight_pair_size(0, 0) == mod.FREIGHT_PAIR_MIN, "never an unclickable button"
 
 
-def test_the_shrink_takes_whichever_axis_overflows_more() -> None:
-    # A pixel off each button buys two of width but only one of height: both halves scale
-    # horizontally, while vertically only the bell's box grows -- the label above it is fixed.
-    assert mod.freight_pair_shrink(6, 23) == 23, "height dominated"
-    assert mod.freight_pair_shrink(40, 5) == 20, "width dominated, halved"
-    assert mod.freight_pair_shrink(0, 0) == 0
-    assert mod.freight_pair_shrink(-10, -10) == 0, "already fitting, nothing to give back"
-    assert mod.freight_pair_shrink(1, 0) == 1, "a 1px overflow still costs a pixel, not zero"
+# Measured identically on both devices, from the freightgeom logs.
+CHROME = {"border": 8, "title": 22, "horn_pad": 1, "bell_extra": 6, "horn_extra": 2}
 
 
-def test_one_correction_lands_on_the_fitting_size_from_any_overflow() -> None:
-    """The property that makes a single pass enough, checked against the Pi's measured geometry.
+def _row_width(bell: int, horn: int, chrome: dict | None = None) -> int:
+    chrome = chrome or CHROME
+    return (
+        (horn + chrome["border"] + chrome["horn_extra"])
+        + mod.FREIGHT_PAIR_GAP
+        + (bell + chrome["border"] + chrome["bell_extra"])
+    )
 
-    At ``pair_size=98`` the log gave ``btn_row reqw=224 reqh=128`` inside a ``218x105`` cell, so the
-    row is ``2 * size + 28`` wide and ``size + 30`` tall. The overflow therefore grows with the
-    size at exactly the rate the shrink removes it, so the fixed point does not depend on where the
-    provisional happened to land.
+
+def test_the_horn_is_bigger_than_the_bell_because_it_has_no_label_above_it() -> None:
+    """The bug this fixes: both buttons were sized to the bell's budget.
+
+    guizero_base reduces a titled button via titled_button_size precisely so its *cell* matches an
+    untitled one. Applying that reduction to an untitled button just leaves the label's height
+    idle -- measured on the Pi as bell_box using all 105px of the row while horn_cell used 84.
     """
-    cell_w, cell_h = 218, 105
-    fits = lambda p: 2 * p + 28 <= cell_w and p + 30 <= cell_h  # noqa: E731
+    bell, horn = mod.freight_pair_sizes(105, 218, CHROME)
 
-    landed = set()
-    for start in range(75, 200):
-        shrink = mod.freight_pair_shrink((2 * start + 28) - cell_w, (start + 30) - cell_h)
-        landed.add(max(mod.FREIGHT_PAIR_MIN, start - shrink))
-
-    assert landed == {75}, landed
-    assert fits(75) and not fits(76), "75 is the largest size that fits, not merely one that does"
+    assert horn > bell
+    assert horn - bell == CHROME["title"] - CHROME["horn_pad"], "exactly the label's height, reclaimed"
 
 
-def test_the_correction_only_ever_shrinks() -> None:
-    """A size already inside the cell is left alone, which is safe because the provisional
-    over-shoots by construction: it caps against both cell dimensions *without* subtracting any
-    chrome, and chrome can only reduce the true optimum. So there is never an under-shoot to grow.
+def test_each_button_fills_the_height_of_its_own_half_of_the_row() -> None:
+    row = 105
+    bell, horn = mod.freight_pair_sizes(row, 400, CHROME)
+
+    assert CHROME["title"] + bell + CHROME["border"] == row, "bell box fills the row"
+    assert CHROME["horn_pad"] + horn + CHROME["border"] == row, "horn cell fills the row"
+
+
+def test_a_shared_width_overflow_comes_off_both_buttons() -> None:
+    # The row is centered, so it is clipped at both ends -- neither half can be spared.
+    roomy_bell, roomy_horn = mod.freight_pair_sizes(105, 400, CHROME)
+    bell, horn = mod.freight_pair_sizes(105, 120, CHROME)
+
+    assert bell < roomy_bell and horn < roomy_horn
+    assert _row_width(bell, horn) <= 120
+
+
+def test_the_sizes_never_drop_below_a_usable_touch_target() -> None:
+    bell, horn = mod.freight_pair_sizes(20, 20, CHROME)
+
+    assert (bell, horn) == (mod.FREIGHT_PAIR_MIN, mod.FREIGHT_PAIR_MIN)
+
+
+def test_negative_insets_are_ignored_rather_than_trusted() -> None:
+    # winfo_* can report oddly before layout settles; subtracting a negative would *add* room.
+    odd = dict(CHROME, title=-40, horn_pad=-40, border=-8, bell_extra=-6, horn_extra=-2)
+
+    bell, horn = mod.freight_pair_sizes(105, 400, odd)
+
+    assert bell <= 105 and horn <= 105
+
+
+@pytest.mark.parametrize(
+    "name,row_height,parent_width,expected",
+    [("pi", 105, 220, (75, 96)), ("deck", 71, 137, (41, 62))],
+)
+def test_the_model_reproduces_both_devices(name: str, row_height: int, parent_width: int, expected: tuple) -> None:
+    """Pinned to the freightgeom logs from the real devices.
+
+    Every inset above was read off those logs and is identical on both, which is what makes a
+    measured correction trustworthy rather than another guess. If a layout change moves these, the
+    numbers here should be re-derived from a fresh log rather than adjusted to make this pass.
     """
-    cell_w, cell_h = 218, 105
+    column_width = parent_width - mod.FREIGHT_CELL_BORDER
 
-    for start in (20, 40, 60, 74):
-        shrink = mod.freight_pair_shrink((2 * start + 28) - cell_w, (start + 30) - cell_h)
-        assert shrink == 0, start
+    sizes = mod.freight_pair_sizes(row_height, column_width, CHROME)
 
-    # And the provisional really is on the shrink side of the optimum for the Pi's numbers.
-    assert mod.freight_pair_size(105, 221) >= 75
-
-
-def test_a_pair_that_already_fits_is_not_resized() -> None:
-    # Every correction regenerates two images, so the common case has to be free.
-    assert mod.freight_pair_shrink(-6, -23) == 0
+    assert sizes == expected, name
+    assert _row_width(*sizes) <= column_width, f"{name}: row still overflows"
 
 
 def test_the_freight_bell_is_an_image_asset_that_exists() -> None:
@@ -251,22 +278,44 @@ def test_the_show_site_asks_for_the_geometry_report() -> None:
 
 
 class _FitButton:
-    def __init__(self) -> None:
+    def __init__(self, size: int) -> None:
         self.images = None
-        self.sizes: list[int] = []
-        self.tk = SimpleNamespace(config=lambda **kw: self.sizes.append(kw.get("width")))
+        self.applied: list[int] = []
+        self._size = size
+        self.tk = SimpleNamespace(
+            config=lambda **kw: self.applied.append(kw.get("width")),
+            # A Tk button requests its configured size plus its border.
+            winfo_reqwidth=lambda: self._size + CHROME["border"],
+            winfo_reqheight=lambda: self._size + CHROME["border"],
+        )
 
 
-def _fit_state(*, cell: tuple[int, int], row_req: tuple[int, int], size: int = 98):
-    """A pair whose row asks for ``row_req`` inside a cell allocated ``cell``."""
-    bell, horn = _FitButton(), _FitButton()
+def _boxed(button: _FitButton, extra_w: int, extra_h: int):
+    """A container whose requested size is its button plus the chrome around it."""
+    return SimpleNamespace(
+        tk=SimpleNamespace(
+            winfo_reqwidth=lambda: button.tk.winfo_reqwidth() + extra_w,
+            winfo_reqheight=lambda: button.tk.winfo_reqheight() + extra_h,
+        )
+    )
+
+
+def _fit_state(*, row_height: int, parent_width: int, size: int = 99):
+    bell, horn = _FitButton(size), _FitButton(size)
     return {
-        "size": size,
-        "row": SimpleNamespace(
-            tk=SimpleNamespace(winfo_reqwidth=lambda: row_req[0], winfo_reqheight=lambda: row_req[1])
+        "bell": size,
+        "horn": size,
+        "row": SimpleNamespace(tk=SimpleNamespace(winfo_reqwidth=lambda: 0, winfo_reqheight=lambda: 0)),
+        "cell": SimpleNamespace(
+            tk=SimpleNamespace(
+                winfo_height=lambda: row_height,
+                master=SimpleNamespace(winfo_width=lambda: parent_width),
+            )
         ),
-        "cell": SimpleNamespace(tk=SimpleNamespace(winfo_width=lambda: cell[0], winfo_height=lambda: cell[1])),
-        "buttons": ((bell, "bell.jpg"), (horn, "horn.jpg")),
+        "bell_box": _boxed(bell, CHROME["bell_extra"], CHROME["title"]),
+        "horn_cell": _boxed(horn, CHROME["horn_extra"], CHROME["horn_pad"]),
+        "bell_btn": (bell, "bell.jpg"),
+        "horn_btn": (horn, "horn.jpg"),
     }
 
 
@@ -277,62 +326,81 @@ def _fit_host(requested: list):
     )
 
 
-def test_the_fit_resizes_both_buttons_to_the_measured_overflow() -> None:
-    # The Pi's numbers: a 224x128 row in a 218x105 cell at size 98 -> 23 off each button.
+def test_the_fit_gives_the_horn_the_labels_height_and_the_bell_its_own() -> None:
+    # End to end against the Pi's geometry: a 105px row in a 220px column.
     requested: list = []
-    state = _fit_state(cell=(218, 105), row_req=(224, 128), size=98)
+    state = _fit_state(row_height=105, parent_width=220)
 
     mod._apply_freight_fit(_fit_host(requested), state)
 
-    assert state["size"] == 75
-    assert requested == [("bell.jpg", 75), ("horn.jpg", 75)], "both halves, one image each"
-    for button, _asset in state["buttons"]:
-        assert button.sizes == [75]
+    assert (state["bell"], state["horn"]) == (75, 96)
+    assert requested == [("bell.jpg", 75), ("horn.jpg", 96)], "one image each, at its own size"
+
+
+def test_the_fit_measures_the_column_not_the_cell() -> None:
+    """The cell's width tracks its content, so reading it would freeze the horn at its current size.
+
+    Once the buttons shrink, the cell shrinks with them -- the Pi log after the first fix showed
+    pair_cell w=178 where the column still allowed 218. Measuring the cell would make that 178 the
+    ceiling and the horn could never reclaim the label's height.
+    """
+    state = _fit_state(row_height=105, parent_width=220)
+    # A cell already narrowed to its content, as Tk actually reports it.
+    state["cell"].tk.winfo_width = lambda: 178
+
+    mod._apply_freight_fit(_fit_host([]), state)
+
+    assert state["horn"] == 96, "grew past the cell's current width"
 
 
 def test_the_fit_leaves_a_pair_that_already_fits_untouched() -> None:
-    # Every correction regenerates two images, and this runs on every engine selection.
     requested: list = []
-    state = _fit_state(cell=(218, 105), row_req=(180, 100), size=75)
+    state = _fit_state(row_height=105, parent_width=220, size=75)
+    state["horn"] = 96
+    state["horn_btn"][0]._size = 96
 
     mod._apply_freight_fit(_fit_host(requested), state)
 
-    assert state["size"] == 75
-    assert requested == []
+    assert (state["bell"], state["horn"]) == (75, 96)
+    assert requested == [], "every correction costs two images; the settled case must be free"
 
 
 def test_the_fit_refuses_to_measure_a_cell_that_is_not_laid_out_yet() -> None:
-    """winfo_width reports 1 before Tk allocates the widget.
-
-    Taken at face value that reads as a colossal overflow and would cut both buttons straight to
-    FREIGHT_PAIR_MIN -- turning "slightly clipped" into "unusable". Leaving the provisional size
-    alone is the safe failure.
-    """
+    # winfo_* reports 1 before Tk allocates a widget; taken at face value that cuts to the minimum.
     requested: list = []
-    state = _fit_state(cell=(1, 1), row_req=(224, 128), size=98)
+    state = _fit_state(row_height=1, parent_width=1)
 
     mod._apply_freight_fit(_fit_host(requested), state)
 
-    assert state["size"] == 98
+    assert (state["bell"], state["horn"]) == (99, 99)
     assert requested == []
 
 
 def test_the_fit_never_shrinks_below_a_usable_touch_target() -> None:
-    requested: list = []
-    state = _fit_state(cell=(30, 20), row_req=(400, 300), size=98)
+    state = _fit_state(row_height=30, parent_width=30)
 
-    mod._apply_freight_fit(_fit_host(requested), state)
+    mod._apply_freight_fit(_fit_host([]), state)
 
-    assert state["size"] == mod.FREIGHT_PAIR_MIN
+    assert state["bell"] == mod.FREIGHT_PAIR_MIN
+    assert state["horn"] == mod.FREIGHT_PAIR_MIN
+
+
+def test_the_fit_ignores_chrome_that_measures_impossibly() -> None:
+    # A button smaller than the size it was given means nothing has been laid out coherently.
+    state = _fit_state(row_height=105, parent_width=220)
+    state["bell_btn"][0]._size = -40
+
+    mod._apply_freight_fit(_fit_host([]), state)
+
+    assert state["bell"] == 99, "left alone rather than sized from nonsense"
 
 
 def test_the_fit_survives_a_pair_that_has_gone_away() -> None:
-    # It is scheduled, so the engine may have changed by the time it runs.
     def boom():
         raise RuntimeError("destroyed")
 
-    state = _fit_state(cell=(218, 105), row_req=(224, 128))
-    state["cell"] = SimpleNamespace(tk=SimpleNamespace(winfo_width=boom))
+    state = _fit_state(row_height=105, parent_width=220)
+    state["cell"] = SimpleNamespace(tk=SimpleNamespace(winfo_height=boom))
 
     mod._apply_freight_fit(_fit_host([]), state)
 

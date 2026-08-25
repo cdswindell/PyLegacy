@@ -53,6 +53,11 @@ FREIGHT_GEOM_DELAY_MS = 500
 # Long enough for Tk to allocate the pair's cell after it is shown, short enough that the one-off
 # correction is not a visible jump. The cell reports a width of 1 before that.
 FREIGHT_FIT_DELAY_MS = 50
+# What the pair's cell loses to its parent's border. Measured identically on both devices: the
+# sliders column is 220 wide and the cell is clipped at 218 on the Pi, 137 and 135 on the Deck.
+# The cell's own width tracks its content, so the parent is what says how much room there really
+# is -- reading the cell would peg the limit to whatever happens to be in it already.
+FREIGHT_CELL_BORDER = 2
 
 
 def fit_freight_pair(host) -> None:
@@ -75,27 +80,49 @@ def fit_freight_pair(host) -> None:
         pass
 
 
+def _freight_chrome(state: dict) -> dict | None:
+    """Every inset between a button's requested size and the space its half of the row takes."""
+    bell_btn, _bell_asset = state["bell_btn"]
+    horn_btn, _horn_asset = state["horn_btn"]
+    bell, horn = bell_btn.tk, horn_btn.tk
+    box, cell = state["bell_box"].tk, state["horn_cell"].tk
+    border = bell.winfo_reqheight() - state["bell"]
+    if border < 0:
+        # The button is smaller than the size it was given, so nothing here is trustworthy yet.
+        return None
+    return {
+        "border": border,
+        "title": box.winfo_reqheight() - bell.winfo_reqheight(),
+        "horn_pad": cell.winfo_reqheight() - horn.winfo_reqheight(),
+        "bell_extra": box.winfo_reqwidth() - bell.winfo_reqwidth(),
+        "horn_extra": cell.winfo_reqwidth() - horn.winfo_reqwidth(),
+    }
+
+
 def _apply_freight_fit(host, state: dict) -> None:
-    """Measure the overflow and take it off both buttons, once."""
+    """Size each button to the room its own half of the row actually has."""
     try:
         host.app.tk.update_idletasks()
-        row, cell = state["row"].tk, state["cell"].tk
-        available_width, available_height = cell.winfo_width(), cell.winfo_height()
-        if available_width <= 1 or available_height <= 1:
-            # Not laid out yet. Leaving the provisional size alone is the safe failure: it may be
-            # clipped, but cutting it against a placeholder 1 would shrink it to nothing.
+        cell = state["cell"].tk
+        row_height = cell.winfo_height()
+        # The parent, not the cell: the cell's width tracks its content, so measuring it would peg
+        # the limit to whatever is in it already and never allow the horn to grow.
+        column_width = cell.master.winfo_width() - FREIGHT_CELL_BORDER
+        if row_height <= 1 or column_width <= 1:
+            # Not laid out yet. Leaving the provisional sizes alone is the safe failure: they may
+            # be clipped, but measuring against a placeholder 1 would cut them to nothing.
             return
-        shrink = freight_pair_shrink(
-            row.winfo_reqwidth() - available_width,
-            row.winfo_reqheight() - available_height,
-        )
-        size = max(FREIGHT_PAIR_MIN, state["size"] - shrink)
-        if size == state["size"]:
+        chrome = _freight_chrome(state)
+        if chrome is None:
             return
-        for button, asset in state["buttons"]:
+        bell, horn = freight_pair_sizes(row_height, column_width, chrome)
+        for size_key, button_key, size in (("bell", "bell_btn", bell), ("horn", "horn_btn", horn)):
+            if state[size_key] == size:
+                continue
+            button, asset = state[button_key]
             button.images = host.get_image(asset, size=size)
             button.tk.config(width=size, height=size)
-        state["size"] = size
+            state[size_key] = size
     except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
         pass
 
@@ -165,23 +192,41 @@ def freight_pair_size(aux_row_height: int, available_width: int) -> int:
     return max(FREIGHT_PAIR_MIN, min(aux_row_height - FREIGHT_PAIR_INSET, (available_width - FREIGHT_PAIR_GAP) // 2))
 
 
-def freight_pair_shrink(overflow_width: int, overflow_height: int) -> int:
-    """Pixels to take off each button so the row fits the cell it was given.
+def freight_pair_sizes(row_height: int, column_width: int, chrome: dict) -> tuple[int, int]:
+    """``(bell, horn)`` button sizes for the freight pair, from measured insets.
 
-    Derived from measured overflow rather than from a model of the chrome, which is the point: the
-    chrome cannot be predicted at build time and does not need to be, because the row's *own*
-    requested size already contains it.
+    **The two are not equal.** The bell sits inside a TitleBox and shares its cell with the
+    "Bell/Horn..." label; the horn sits in a plain Box and has nothing above it. Sizing both to the
+    bell's budget is the same mistake ``guizero_base`` avoids with ``titled_button_size`` -- it
+    reduces a titled button so the *cell* matches an untitled one, and applying that reduction to
+    an untitled button just wastes the label's height. Measured on the Pi: ``bell_box`` used all 105
+    pixels of the row while ``horn_cell`` used 84, leaving 21 idle.
 
-    The two axes shrink at different rates, measured on the Pi at ``pair_size=98``::
+    Height is per-button, so each fills the row::
 
-        horn_cell = size + 10      bell_box = size + 14      row width = 2 * size + 28
-        bell_box height = 22 + size + 8                      row height = size + 30
+        bell = row - title_label - button_border
+        horn = row - horn_padding - button_border
 
-    So a pixel off each button buys two pixels of width but only one of height -- the label above
-    the bell is fixed, and only the bell's box grows with the button. Take whichever axis demands
-    more, and one pass is exact.
+    Width is shared, so an overflow comes off both. The insets are identical on both devices --
+    border 8, label 22, horn pad 1, box border 6, horn pad width 2 -- but they are measured rather
+    than assumed, because a build-time guess at them is what clipped these buttons twice.
     """
-    return max(0, -(-max(0, overflow_width) // 2), max(0, overflow_height))
+    border = max(0, chrome["border"])
+    bell = row_height - max(0, chrome["title"]) - border
+    horn = row_height - max(0, chrome["horn_pad"]) - border
+
+    needed = (
+        (horn + border + max(0, chrome["horn_extra"]))
+        + FREIGHT_PAIR_GAP
+        + (bell + border + max(0, chrome["bell_extra"]))
+    )
+    overflow = needed - column_width
+    if overflow > 0:
+        # Both halves give way together: the row is centered, so it is clipped at both ends.
+        cut = -(-overflow // 2)
+        bell -= cut
+        horn -= cut
+    return max(FREIGHT_PAIR_MIN, bell), max(FREIGHT_PAIR_MIN, horn)
 
 
 class ControllerView:
@@ -466,10 +511,14 @@ class ControllerView:
         # What fit_freight_pair needs to correct the provisional size once the pair is on screen,
         # and what the geometry trace reports. "size" is updated in place by the fit.
         host._freight_pair = {
-            "size": pair_size,
+            "bell": pair_size,
+            "horn": pair_size,
             "row": btn_row,
             "cell": pair_cell,
-            "buttons": ((bell_btn, bell_image), (horn_btn, image)),
+            "bell_box": bell_box,
+            "horn_cell": horn_cell,
+            "bell_btn": (bell_btn, bell_image),
+            "horn_btn": (horn_btn, image),
         }
         host._freight_geom_widgets = {
             "sliders": sliders,
