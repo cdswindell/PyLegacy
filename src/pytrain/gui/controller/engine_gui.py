@@ -1501,7 +1501,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def controls_visible(self) -> bool:
         """Whether the host's controls screen is on display.
 
-        Delegated, and read through this pane because the input router resolves actions
+        Delegated and read through this pane because the input router resolves actions
         against the focused pane rather than the host.
         """
         return bool(getattr(self._parent_gui, "controls_visible", False))
@@ -1514,7 +1514,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return host.page_controls(forward)
 
     def close_controls(self) -> bool:
-        """Close the host's controls screen, for the X button while it is displayed."""
+        """Close the host's controls screen for the X button while it is displayed."""
         host = self._parent_gui
         if host is None or not hasattr(host, "close_controls"):
             return False
@@ -1530,9 +1530,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         therefore gets the same dwell and the same feedback as the button it stands in
         for, with no second copy of the timing logic.
 
-        A press is only honoured while the panel is on screen, so a chord cannot
+        A press is only honored while the panel is on screen, so a chord cannot
         reboot or shut down the machine from an ordinary operating screen. A release
-        is always forwarded, so an in-flight hold can always be cancelled.
+        is always forwarded, so an in-flight hold can always be canceled.
         """
         panel = self._admin_panel
         if panel is None:

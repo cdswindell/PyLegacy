@@ -480,23 +480,33 @@ def test_the_trim_is_the_measured_shortfall() -> None:
     assert mod.freight_horn_trim(100, 135) == 0, "already fitting, nothing to trim"
 
 
+def _deck(**overrides):
+    """A host with the Deck's real font ladder: scale_by is 0.9, so s_10 lands on 9."""
+    ladder = {f"s_{n}": round(n * 0.9) for n in (18, 14, 12, 10, 8, 6)}
+    return SimpleNamespace(compact=True, **{**ladder, **overrides})
+
+
 def test_only_a_compact_pane_shrinks_the_pairs_title() -> None:
     # The Deck's title floors its LabelFrame at 78px against a 49px button -- the box stops
     # shrinking with the button and the row overflows. Portrait renders correctly and must not move.
-    compact = SimpleNamespace(compact=True, s_10=10)
-    portrait = SimpleNamespace(compact=False, s_10=10)
+    portrait = SimpleNamespace(compact=False, s_8=12)
 
-    assert mod.freight_title_size(compact) == compact.s_10
+    assert mod.freight_title_size(_deck()) == _deck().s_8
     assert mod.freight_title_size(portrait) is None, "None leaves the default font in place"
-    assert mod.freight_title_size(SimpleNamespace(s_10=10)) is None, "a host with no flag is portrait"
+    assert mod.freight_title_size(SimpleNamespace(s_8=12)) is None, "a host with no flag is portrait"
 
 
-def test_the_title_size_is_smaller_than_the_default_it_replaces() -> None:
-    # s_18 is what an unstyled TitleBox effectively renders at elsewhere in this file; a "smaller"
-    # size that is not actually smaller would leave the floor exactly where it was.
-    host = SimpleNamespace(compact=True, s_10=10, s_18=18)
+def test_the_compact_title_is_smaller_than_the_default_it_replaces() -> None:
+    """Nothing sets a global text size, so an unstyled TitleBox uses Tk's ~9-10pt default.
 
-    assert mod.freight_title_size(host) < host.s_18
+    The Deck's scale_by is 0.9, so ``s_10`` there renders at 9 -- no smaller than that default. The
+    first attempt asked for exactly that and changed the label's width by nothing, which is why the
+    backstop still had to gut the horn. The size chosen has to be visibly below the default, not
+    merely below the *portrait* default.
+    """
+    tk_default_ish = 9
+
+    assert mod.freight_title_size(_deck()) < tk_default_ish, "s_10 would have tied it at 9"
 
 
 def test_the_horn_is_given_a_visible_relief() -> None:
@@ -513,8 +523,34 @@ def test_the_horn_config_and_the_title_size_are_both_wired_up() -> None:
     tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
 
     assert len(_calls_to("freight_title_size")) == 1, "the title size is asked for exactly once"
+    # Inlining max(MIN, horn - trim) at the call site is the same code minus the bell floor, so it
+    # reads as harmless and silently allows the lopsided pair back.
+    assert len(_calls_to("freight_horn_after_trim")) == 1, "the trim goes through the balance guard"
 
     relief_uses = [
         node for node in ast.walk(tree) if isinstance(node, ast.Attribute) and node.attr == "FREIGHT_HORN_RELIEF"
     ] + [node for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == "FREIGHT_HORN_RELIEF"]
     assert len(relief_uses) >= 2, "declared and applied; only declared means the horn has no edge"
+
+
+def test_the_trim_never_leaves_the_horn_smaller_than_the_bell() -> None:
+    """A backstop against the trim overrunning, not the cause of the reported symptom.
+
+    The horn has strictly more room than the bell -- no label above it -- so a horn that ends up
+    smaller means the trim overran rather than that the horn deserves less. A few pixels of clipped
+    title edge is a better trade than a visibly lopsided pair.
+
+    Note the Deck's measured case does *not* reach this floor: a 19px trim takes 62 to 43, still
+    above the 41px bell. So this guard was never what made the horn look small there -- the label
+    floor forcing the trim in the first place was, and that is what the smaller title font fixes.
+    """
+    assert mod.freight_horn_after_trim(bell=41, horn=62, trim=19) == 43, "the Deck's case, unclamped"
+    assert mod.freight_horn_after_trim(bell=41, horn=62, trim=30) == 41, "a deeper trim is clamped"
+    assert mod.freight_horn_after_trim(bell=41, horn=62, trim=5) == 57, "a trim that fits is applied"
+    assert mod.freight_horn_after_trim(bell=41, horn=62, trim=0) == 62
+
+
+def test_the_trim_still_respects_the_touch_target_floor() -> None:
+    # Both floors apply; whichever is higher wins.
+    assert mod.freight_horn_after_trim(bell=4, horn=20, trim=100) == mod.FREIGHT_PAIR_MIN
+    assert mod.freight_horn_after_trim(bell=60, horn=70, trim=100) == 60

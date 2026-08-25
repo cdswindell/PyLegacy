@@ -91,11 +91,16 @@ def freight_title_size(host) -> int | None:
     overflowed its column by 19px, and the bell sat centered in 29px of slack. A smaller title
     removes the floor instead of working around it.
 
+    ``s_8``, not ``s_10``. The Deck's ``scale_by`` is 0.9, so ``s_10`` renders at 9pt -- and since
+    nothing sets a global text size, an unstyled TitleBox was already using Tk's ~9-10pt default.
+    Asking for ``s_10`` there changed nothing at all, which is why the first attempt at this left
+    the label exactly as wide as before and the backstop still had to gut the horn.
+
     Portrait keeps the default: its pair renders correctly, and this is not the place to change it.
     (Its title is truncated too -- ``bell_box`` is 89px showing "Bell/Hom..." -- so dropping the
     gate would fix that as well, but that is a visible change nobody asked for.)
     """
-    return host.s_10 if bool(getattr(host, "compact", False)) else None
+    return host.s_8 if bool(getattr(host, "compact", False)) else None
 
 
 def freight_horn_trim(row_width: int, column_width: int) -> int:
@@ -111,6 +116,20 @@ def freight_horn_trim(row_width: int, column_width: int) -> int:
     at all -- which is exactly how the previous fix reported success while still clipping.
     """
     return max(0, row_width - column_width)
+
+
+def freight_horn_after_trim(bell: int, horn: int, trim: int) -> int:
+    """The horn's size once a residual width overflow has come off it.
+
+    Floored at the bell's size, not just at the minimum. The horn has strictly more room than the
+    bell -- no label above it -- so a horn that ends up *smaller* means the trim overran, not that
+    the horn deserves less. That is what the Deck showed: a 19px trim took the horn from 62 to 43
+    while the bell sat at 41, and the pair read as lopsided rather than merely tight.
+
+    When the floor bites, the row may still overflow by a few pixels. That is the better trade: a
+    slightly clipped title edge is far less noticeable than a horn half the size of the bell.
+    """
+    return max(bell, FREIGHT_PAIR_MIN, horn - trim)
 
 
 def _freight_chrome(state: dict) -> dict | None:
@@ -167,7 +186,7 @@ def _apply_freight_fit(host, state: dict) -> None:
         host.app.tk.update_idletasks()
         trim = freight_horn_trim(state["row"].tk.winfo_reqwidth(), column_width)
         if trim:
-            _resize_freight(host, state, bell=bell, horn=max(FREIGHT_PAIR_MIN, horn - trim))
+            _resize_freight(host, state, bell=bell, horn=freight_horn_after_trim(bell, horn, trim))
     except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
         pass
 
