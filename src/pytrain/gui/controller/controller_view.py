@@ -26,6 +26,7 @@ from ..components.analog_gauge import AnalogGaugeWidget
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 from ...db.engine_state import EngineState
+from .popup_manager import debug_diagnostics_enabled
 from ...utils.path_utils import find_file
 
 log = logging.getLogger(__name__)
@@ -45,6 +46,55 @@ FREIGHT_PAIR_GAP = 4
 # Never shrink a touch target below this, even if that means overflowing: a 4px button is useless,
 # and a pane that tight has worse problems than a clipped horn.
 FREIGHT_PAIR_MIN = 16
+# Long enough for the pair to be shown and laid out before it is measured: winfo_width reads 1
+# until Tk has allocated the widget, and the pair is hidden at build time and only shown when a
+# freight-sounds or crane engine is selected.
+FREIGHT_GEOM_DELAY_MS = 500
+
+
+def log_freight_geometry(host, widgets: dict, computed: dict) -> None:
+    """Report what the freight pair was *given* against what it asked for.
+
+    Two rounds of sizing this from photographs produced a formula each time and neither fixed the
+    clipping -- the second was a no-op, because ``min(height, width)`` returns the height budget
+    unchanged whenever the width budget does not bind. Photographs show which edge is cut; they do
+    not show which term in the arithmetic is wrong. This does.
+
+    Grep the log for "freightgeom". Diagnostics only: it must never be able to break the panel,
+    hence the broad guard.
+    """
+    if not debug_diagnostics_enabled():
+        return
+    try:
+        host.app.tk.after(FREIGHT_GEOM_DELAY_MS, lambda: _report_freight_geometry(host, widgets, computed))
+    except (AttributeError, TclError, RuntimeError):
+        pass
+
+
+def _report_freight_geometry(host, widgets: dict, computed: dict) -> None:
+    """Log the inputs the size was derived from, then what Tk actually allocated."""
+    try:
+        host.app.tk.update_idletasks()
+        log.debug("freightgeom computed %s", " ".join(f"{k}={v}" for k, v in computed.items()))
+        for name, widget in widgets.items():
+            tk_widget = getattr(widget, "tk", widget)
+            # reqw/reqh is what the widget asked for; w/h is what it got. They differ exactly when
+            # something above it is pinned -- which is the whole question here.
+            log.debug(
+                "freightgeom %-10s map=%s x=%-4s y=%-4s w=%-4s h=%-4s reqw=%-4s reqh=%-4s parent=%sx%s",
+                name,
+                int(tk_widget.winfo_ismapped()),
+                tk_widget.winfo_rootx(),
+                tk_widget.winfo_rooty(),
+                tk_widget.winfo_width(),
+                tk_widget.winfo_height(),
+                tk_widget.winfo_reqwidth(),
+                tk_widget.winfo_reqheight(),
+                tk_widget.master.winfo_width(),
+                tk_widget.master.winfo_height(),
+            )
+    except (AttributeError, TclError, RuntimeError, TypeError):
+        pass
 
 
 def freight_pair_size(
@@ -328,12 +378,20 @@ class ControllerView:
         # is a TitleBox, so what it requests here is its "Bell/Horn..." label plus borders: the
         # height the label costs the buttons, and the width below which the box cannot shrink.
         host.app.tk.update_idletasks()
-        pair_size = freight_pair_size(
-            aux_row_height,
-            bell_box.tk.winfo_reqheight(),
-            target_sliders_width,
-            bell_box.tk.winfo_reqwidth(),
-        )
+        chrome_height = bell_box.tk.winfo_reqheight()
+        label_width = bell_box.tk.winfo_reqwidth()
+        pair_size = freight_pair_size(aux_row_height, chrome_height, target_sliders_width, label_width)
+        # Every input the size was derived from, kept so a log line can be compared against what Tk
+        # actually hands out. See log_freight_geometry.
+        host._freight_geom = {
+            "aux_row_height": aux_row_height,
+            "chrome_height": chrome_height,
+            "column_width": target_sliders_width,
+            "label_width": label_width,
+            "pair_size": pair_size,
+            "gap": FREIGHT_PAIR_GAP,
+            "inset": FREIGHT_PAIR_INSET,
+        }
 
         host._bell_btn = bell_btn = HoldButton(
             bell_box,
@@ -381,6 +439,15 @@ class ControllerView:
         horn_btn.on_repeat = horn_btn.on_press
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
 
+        host._freight_geom_widgets = {
+            "sliders": sliders,
+            "pair_cell": pair_cell,
+            "btn_row": btn_row,
+            "bell_box": bell_box,
+            "bell_btn": bell_btn,
+            "horn_cell": horn_cell,
+            "horn_btn": horn_btn,
+        }
         host._freight_sounds_bell_horn_box.hide()
 
         # info box to display smoke, rpm, labor, etc.
@@ -879,6 +946,13 @@ class ControllerView:
             if host._freight_sounds_bell_horn_box:
                 host._freight_sounds_bell_horn_box.show()
                 host._rr_speed_box.hide()
+                # Measured here rather than at build: the pair is hidden until a freight-sounds or
+                # crane engine is selected, and an unmapped widget reports a width of 1.
+                log_freight_geometry(
+                    host,
+                    getattr(host, "_freight_geom_widgets", {}),
+                    getattr(host, "_freight_geom", {}),
+                )
             # Freight uses the horn-control popup behavior
             self.show_horn_control()
 

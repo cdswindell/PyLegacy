@@ -158,3 +158,93 @@ def test_the_pair_size_call_site_passes_every_measurement() -> None:
     assert calls, "freight_pair_size is no longer called at all"
     for call in calls:
         assert len(call.args) == 4, "row height, chrome height, column width and label width"
+
+
+def _geom_widget(*, w: int, h: int, reqw: int, reqh: int, parent: tuple[int, int] = (400, 200)):
+    return SimpleNamespace(
+        tk=SimpleNamespace(
+            winfo_ismapped=lambda: 1,
+            winfo_rootx=lambda: 10,
+            winfo_rooty=lambda: 20,
+            winfo_width=lambda: w,
+            winfo_height=lambda: h,
+            winfo_reqwidth=lambda: reqw,
+            winfo_reqheight=lambda: reqh,
+            master=SimpleNamespace(winfo_width=lambda: parent[0], winfo_height=lambda: parent[1]),
+        )
+    )
+
+
+def _geom_host(scheduled: list):
+    return SimpleNamespace(
+        app=SimpleNamespace(
+            tk=SimpleNamespace(
+                after=lambda ms, fn: scheduled.append((ms, fn)),
+                update_idletasks=lambda: None,
+            )
+        )
+    )
+
+
+def test_the_geometry_report_shows_what_was_asked_for_beside_what_was_given(caplog) -> None:
+    # The whole point: a photograph shows which edge is clipped, not which term in the arithmetic
+    # is wrong. reqw against w is what distinguishes "the button is too big" from "the column is
+    # pinned narrower than the row needs".
+    host = _geom_host([])
+    widgets = {"btn_row": _geom_widget(w=150, h=60, reqw=192, reqh=66)}
+    computed = {"pair_size": 94, "label_width": 80}
+
+    with caplog.at_level("DEBUG", logger=mod.log.name):
+        mod._report_freight_geometry(host, widgets, computed)
+
+    report = "\n".join(caplog.messages)
+    assert "pair_size=94" in report and "label_width=80" in report
+    assert "w=150" in report and "reqw=192" in report, "allocated and requested, side by side"
+    assert "parent=400x200" in report
+
+
+def test_the_geometry_report_is_scheduled_rather_than_taken_immediately(monkeypatch) -> None:
+    # The pair is hidden until a freight or crane engine is selected, and an unmapped widget
+    # reports width 1 -- so measuring at the moment of show() would report nothing useful.
+    monkeypatch.setattr(mod, "debug_diagnostics_enabled", lambda: True)
+    scheduled: list = []
+
+    mod.log_freight_geometry(_geom_host(scheduled), {}, {})
+
+    assert [ms for ms, _ in scheduled] == [mod.FREIGHT_GEOM_DELAY_MS]
+    assert callable(scheduled[0][1])
+
+
+def test_no_geometry_is_measured_unless_debug_output_is_wanted(monkeypatch) -> None:
+    # Two Tk round-trips per widget, every time a freight engine is selected.
+    monkeypatch.setattr(mod, "debug_diagnostics_enabled", lambda: False)
+    scheduled: list = []
+
+    mod.log_freight_geometry(_geom_host(scheduled), {}, {})
+
+    assert scheduled == []
+
+
+def test_the_geometry_report_survives_a_widget_that_cannot_be_measured(caplog) -> None:
+    # It runs half a second after selection, by which time the engine may have changed again.
+    def boom():
+        raise RuntimeError("destroyed")
+
+    host = _geom_host([])
+    widgets = {"gone": SimpleNamespace(tk=SimpleNamespace(winfo_ismapped=boom))}
+
+    with caplog.at_level("DEBUG", logger=mod.log.name):
+        mod._report_freight_geometry(host, widgets, {"pair_size": 1})
+
+
+def test_the_show_site_asks_for_the_geometry_report() -> None:
+    # Wiring. build() is too large to stub, and a diagnostic nobody calls looks exactly like a
+    # panel with no problem -- which is how this whole sizing question stayed unmeasured.
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "log_freight_geometry"
+    ]
+
+    assert len(calls) == 1, "called exactly once, from the show path"

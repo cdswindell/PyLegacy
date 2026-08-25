@@ -1572,7 +1572,7 @@ class DeckInputRouter:
     def _chooser_only(self, action: DeckAction) -> bool:
         """True when a choice list is open on this pane and the action belongs to it.
 
-        A choice list is a modal thing: while it is up the D-pad picks an option rather than
+        A choice list is a modal thing: while it is up, the D-pad picks an option rather than
         boosting the engine, and nothing else on that pane should act either. Same shape as
         _controls_only, and the same exemption -- a global-target action such as HALT resolves no
         gui and is never gated, because HALT has to work whatever is on screen.
