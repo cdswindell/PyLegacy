@@ -50,6 +50,54 @@ FREIGHT_PAIR_MIN = 16
 # until Tk has allocated the widget, and the pair is hidden at build time and only shown when a
 # freight-sounds or crane engine is selected.
 FREIGHT_GEOM_DELAY_MS = 500
+# Long enough for Tk to allocate the pair's cell after it is shown, short enough that the one-off
+# correction is not a visible jump. The cell reports a width of 1 before that.
+FREIGHT_FIT_DELAY_MS = 50
+
+
+def fit_freight_pair(host) -> None:
+    """Shrink the freight pair to the cell Tk actually gave it.
+
+    The build-time size is provisional -- see freight_pair_size for why the chrome cannot be known
+    then -- so the real correction happens here, from the row's requested size against the cell's
+    allocated size. Both are only meaningful once the pair is on screen, which is why this is
+    scheduled from the show path rather than done during build.
+
+    Idempotent: once the row fits, the overflow is zero and nothing is touched, so showing the same
+    engine again costs one measurement and no image work.
+    """
+    state = getattr(host, "_freight_pair", None)
+    if not state:
+        return
+    try:
+        host.app.tk.after(FREIGHT_FIT_DELAY_MS, lambda: _apply_freight_fit(host, state))
+    except (AttributeError, TclError, RuntimeError):
+        pass
+
+
+def _apply_freight_fit(host, state: dict) -> None:
+    """Measure the overflow and take it off both buttons, once."""
+    try:
+        host.app.tk.update_idletasks()
+        row, cell = state["row"].tk, state["cell"].tk
+        available_width, available_height = cell.winfo_width(), cell.winfo_height()
+        if available_width <= 1 or available_height <= 1:
+            # Not laid out yet. Leaving the provisional size alone is the safe failure: it may be
+            # clipped, but cutting it against a placeholder 1 would shrink it to nothing.
+            return
+        shrink = freight_pair_shrink(
+            row.winfo_reqwidth() - available_width,
+            row.winfo_reqheight() - available_height,
+        )
+        size = max(FREIGHT_PAIR_MIN, state["size"] - shrink)
+        if size == state["size"]:
+            return
+        for button, asset in state["buttons"]:
+            button.images = host.get_image(asset, size=size)
+            button.tk.config(width=size, height=size)
+        state["size"] = size
+    except (AttributeError, TclError, RuntimeError, TypeError, ValueError):
+        pass
 
 
 def log_freight_geometry(host, widgets: dict, computed: dict) -> None:
@@ -75,7 +123,10 @@ def _report_freight_geometry(host, widgets: dict, computed: dict) -> None:
     """Log the inputs the size was derived from, then what Tk actually allocated."""
     try:
         host.app.tk.update_idletasks()
-        log.debug("freightgeom computed %s", " ".join(f"{k}={v}" for k, v in computed.items()))
+        # Scalars only: the same dict carries the widgets the fit needs, and their reprs would
+        # bury the numbers this line exists to show.
+        scalars = " ".join(f"{k}={v}" for k, v in computed.items() if isinstance(v, (int, float, str)))
+        log.debug("freightgeom computed %s gap=%s inset=%s", scalars, FREIGHT_PAIR_GAP, FREIGHT_PAIR_INSET)
         for name, widget in widgets.items():
             tk_widget = getattr(widget, "tk", widget)
             # reqw/reqh is what the widget asked for; w/h is what it got. They differ exactly when
@@ -97,56 +148,40 @@ def _report_freight_geometry(host, widgets: dict, computed: dict) -> None:
         pass
 
 
-def freight_pair_size(
-    aux_row_height: int,
-    title_chrome_height: int,
-    available_width: int,
-    title_label_width: int,
-) -> int:
-    """Edge length of both freight-sounds pair buttons, in pixels.
+def freight_pair_size(aux_row_height: int, available_width: int) -> int:
+    """Provisional edge length for the freight-sounds pair buttons, in pixels.
 
-    Bounded by *both* dimensions of the cell the pair shares with the "Bell/Horn..." label, because
-    either one can bind and they bind on different devices.
+    Deliberately ignores the "Bell/Horn..." label's chrome, because at build time there is no way
+    to know it. An empty TitleBox is not geometry-computed yet and ``winfo_reqheight`` returns
+    Tk's placeholder 1 even after ``update_idletasks`` -- measured on the Pi as
+    ``chrome_height=1 label_width=1`` while the same pass read the sliders column correctly at 221,
+    because that box already had children. Two rounds of arithmetic were built on those 1s.
 
-    Height: the pair sits in row 1 of the sliders column, which is exactly ``aux_row_height`` tall
-    (``grid_rowconfigure`` minsize, with ``grid_propagate`` off), and the TitleBox's label sits
-    above the buttons inside it.
-
-    Width: the column's width is pinned too, and ``btn_row`` is packed centered, so a row wider
-    than the column is clipped at *both* ends -- the horn's outer edge and the title's, which is
-    why the label reads "Bell/Hor" when it overflows. The row is ``button + gap + bell_box``, and
-    the bell's TitleBox can never be narrower than its own label, so the width has two regimes and
-    the wider one is not always available::
-
-        both halves scale:  2p + gap          <= width   ->  p <= (width - gap) // 2
-        bell pinned by label:  p + gap + label <= width   ->  p <= width - gap - label
-
-    Solved rather than searched. Shrinking by half the overflow and re-measuring does converge, but
-    only slowly once the label floors the bell -- past that point each pixel off the buttons buys
-    one pixel of row, not two -- and every pass regenerates both images.
-
-    All four inputs are measured from the *empty* TitleBox and the pinned column, never from what
-    ends up drawn inside. That is the distinction from the original defect, which measured the
-    bell's own rendered content to decide the bell's size, so a glyph the font could not draw
-    collapsed the whole pair.
+    So this is only a starting size that renders something sensible; ``fit_freight_pair`` corrects
+    it from real measurements once the pair is actually on screen. Both dimensions are still capped
+    here so the provisional value is never wildly wrong: the row is ``2 * size + gap`` wide before
+    any chrome, and ``aux_row_height`` tall.
     """
-    height_budget = aux_row_height - max(0, title_chrome_height) - FREIGHT_PAIR_INSET
+    return max(FREIGHT_PAIR_MIN, min(aux_row_height - FREIGHT_PAIR_INSET, (available_width - FREIGHT_PAIR_GAP) // 2))
 
-    # Only the chrome height is clamped above. A negative label needs no guard: it would still
-    # take the scaled regime below, which is what a zero label does, so clamping it changes
-    # nothing -- whereas a negative chrome would inflate the height budget.
-    label = title_label_width
-    scaled = (available_width - FREIGHT_PAIR_GAP) // 2
-    if scaled >= label:
-        width_budget = scaled
-    else:
-        # No size in the first regime fits, so the bell is stuck at its label width and only the
-        # horn can give anything back.
-        width_budget = available_width - FREIGHT_PAIR_GAP - label
 
-    # A column narrower than its own label cannot fit whatever we do. Overflowing with a pressable
-    # button beats a perfect fit with an invisible one.
-    return max(FREIGHT_PAIR_MIN, min(height_budget, width_budget))
+def freight_pair_shrink(overflow_width: int, overflow_height: int) -> int:
+    """Pixels to take off each button so the row fits the cell it was given.
+
+    Derived from measured overflow rather than from a model of the chrome, which is the point: the
+    chrome cannot be predicted at build time and does not need to be, because the row's *own*
+    requested size already contains it.
+
+    The two axes shrink at different rates, measured on the Pi at ``pair_size=98``::
+
+        horn_cell = size + 10      bell_box = size + 14      row width = 2 * size + 28
+        bell_box height = 22 + size + 8                      row height = size + 30
+
+    So a pixel off each button buys two pixels of width but only one of height -- the label above
+    the bell is fixed, and only the bell's box grows with the button. Take whichever axis demands
+    more, and one pass is exact.
+    """
+    return max(0, -(-max(0, overflow_width) // 2), max(0, overflow_height))
 
 
 class ControllerView:
@@ -378,20 +413,9 @@ class ControllerView:
         # is a TitleBox, so what it requests here is its "Bell/Horn..." label plus borders: the
         # height the label costs the buttons, and the width below which the box cannot shrink.
         host.app.tk.update_idletasks()
-        chrome_height = bell_box.tk.winfo_reqheight()
-        label_width = bell_box.tk.winfo_reqwidth()
-        pair_size = freight_pair_size(aux_row_height, chrome_height, target_sliders_width, label_width)
-        # Every input the size was derived from, kept so a log line can be compared against what Tk
-        # actually hands out. See log_freight_geometry.
-        host._freight_geom = {
-            "aux_row_height": aux_row_height,
-            "chrome_height": chrome_height,
-            "column_width": target_sliders_width,
-            "label_width": label_width,
-            "pair_size": pair_size,
-            "gap": FREIGHT_PAIR_GAP,
-            "inset": FREIGHT_PAIR_INSET,
-        }
+        # Provisional only: the label's chrome is unknowable here -- an empty TitleBox reports 1 --
+        # so fit_freight_pair corrects this from real geometry once the pair is shown.
+        pair_size = freight_pair_size(aux_row_height, target_sliders_width)
 
         host._bell_btn = bell_btn = HoldButton(
             bell_box,
@@ -439,6 +463,14 @@ class ControllerView:
         horn_btn.on_repeat = horn_btn.on_press
         horn_btn.repeat_interval = horn_btn.hold_threshold = 0.2
 
+        # What fit_freight_pair needs to correct the provisional size once the pair is on screen,
+        # and what the geometry trace reports. "size" is updated in place by the fit.
+        host._freight_pair = {
+            "size": pair_size,
+            "row": btn_row,
+            "cell": pair_cell,
+            "buttons": ((bell_btn, bell_image), (horn_btn, image)),
+        }
         host._freight_geom_widgets = {
             "sliders": sliders,
             "pair_cell": pair_cell,
@@ -946,12 +978,14 @@ class ControllerView:
             if host._freight_sounds_bell_horn_box:
                 host._freight_sounds_bell_horn_box.show()
                 host._rr_speed_box.hide()
-                # Measured here rather than at build: the pair is hidden until a freight-sounds or
-                # crane engine is selected, and an unmapped widget reports a width of 1.
+                # Both only work once the pair is on screen: the cell reports a width of 1 until
+                # Tk has allocated it. The fit runs first and the trace second, so the trace
+                # reports the corrected geometry rather than the provisional.
+                fit_freight_pair(host)
                 log_freight_geometry(
                     host,
                     getattr(host, "_freight_geom_widgets", {}),
-                    getattr(host, "_freight_geom", {}),
+                    getattr(host, "_freight_pair", {}),
                 )
             # Freight uses the horn-control popup behavior
             self.show_horn_control()
