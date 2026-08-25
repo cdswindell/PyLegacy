@@ -988,6 +988,9 @@ class ControllerView:
         # Logic: Assign current on_press to on_repeat and set the interval
         repeats = [
             (("AUX1_OPTION_ONE", "e"), 0.2),  # Standard repeat
+            (("BLOW_HORN_ONE", "d"), 0.2),
+            (("BLOW_HORN_ONE", "s"), 0.2),
+            (("BLOW_HORN_ONE", "l"), 0.2),
             (("BOOST_SPEED", "bs"), 0.3),
             (("BOOST_SPEED", "t"), 0.3),
             (("BOOST_SPEED", "l"), 0.3),
