@@ -18,6 +18,7 @@ from src.pytrain.gui.controller.control_labels import (
     ADMIN_PANEL_TITLE,
     CATALOG_PANEL_TITLE,
     GLOBAL_CHORD_TITLE,
+    GLOBAL_SECTION_BUTTONS,
     POPUP_PANEL_TITLE,
     SWITCH_PANEL_TITLE,
     ControlEntry,
@@ -49,11 +50,14 @@ def _oversized_profile() -> ControlProfile:
     """A profile far larger than the bundled one, to force pagination.
 
     Sized past COLUMNS * ROWS_PER_COLUMN so it spans pages however those constants are
-    later tuned -- the point is the paging behaviour, not any particular capacity.
+    later tuned -- the point is the paging behaviour, not any particular capacity. The
+    buttons clear a whole column by themselves, allowing for the handful of indices the
+    global section takes, so the Buttons section is still one that has to be split.
     """
     data = copy.deepcopy(json.loads(BUNDLED.read_text(encoding="utf-8")))
-    data["buttons"] = {str(index): {"action": "bell", "target": "focused"} for index in range(20)}
-    pairs = list(itertools.combinations(range(20), 2))[: COLUMNS * ROWS_PER_COLUMN]
+    buttons = ROWS_PER_COLUMN + len(GLOBAL_SECTION_BUTTONS) + 1
+    data["buttons"] = {str(index): {"action": "bell", "target": "focused"} for index in range(buttons)}
+    pairs = list(itertools.combinations(range(buttons), 2))[: COLUMNS * ROWS_PER_COLUMN]
     data["chords"] = [{"buttons": list(pair), "action": "halt", "target": "global"} for pair in pairs]
     return ControlProfile.from_dict(data)
 

@@ -169,16 +169,17 @@ ADMIN_CHORD_NOTE = "hold 3s"
 # Named for the scope rather than the input, because it now heads the first column: what
 # these two chords do applies everywhere, which is the first thing worth reading, and
 # "Chords - global" spent half its width repeating a word the rows already show. It also
-# leaves the heading true of the two buttons below, which are no chords at all.
+# leaves the heading true of the buttons listed above them, which are no chords at all.
 GLOBAL_CHORD_TITLE = "Global"
 
 # Buttons drawn in that section rather than with the rest of the buttons. Named by index
-# because no binding says it: in the bundled profile View is on a global action and Menu
-# on a pane-scoped one, so ``target`` sorts them apart. What they share is what the
-# heading claims -- neither does anything to the engine in front of you, and both keep
-# working whatever is on screen -- which is worth more at the top of the screen than as
-# two rows in the middle of a list of engine commands.
-GLOBAL_SECTION_BUTTONS = frozenset({6, 7})
+# because no binding says it: in the bundled profile View and the stick clicks are on
+# global actions and Menu on a pane-scoped one, so ``target`` sorts them apart. What they
+# share is what the heading claims -- none of them does anything to the engine in front of
+# you, and all of them keep working whatever is on screen. What they do instead is decide
+# which pane the rest of the screen is talking about, which is worth reading before those
+# commands rather than as four rows in the middle of them.
+GLOBAL_SECTION_BUTTONS = frozenset({6, 7, 9, 10})
 
 # Where the trigger rows land among the buttons. The triggers are analog and once had a
 # section of their own, but with the quilling horn moved to the trackpads they do what a
@@ -311,7 +312,12 @@ FIXED_CATALOG_ENTRIES: tuple[ControlEntry, ...] = (
     ControlEntry("Up / Down", "Scroll entries", ""),
     ControlEntry("R1 + Up / Down", "Jump to first / last", ""),
     ControlEntry("Right or A", "Select entry", ""),
-    ControlEntry("Left", "Close catalog", ""),
+    # X as well as D-pad left: the catalog is one of the pane's popups, so the router's
+    # close-popup button dismisses it too. Stated here rather than left to the popup
+    # section further down the column, because a reader looking at the catalog is asking
+    # how to get out of the catalog -- and both ways out on one row read as "Right or A"
+    # already does for choosing an entry.
+    ControlEntry("Left or X", "Close catalog", ""),
 )
 
 FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the panel on screen", ""),)

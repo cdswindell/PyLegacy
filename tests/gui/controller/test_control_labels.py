@@ -24,7 +24,7 @@ from src.pytrain.gui.controller.control_labels import (
     controls_summary,
     touchpad_label,
 )
-from src.pytrain.gui.controller.steam_deck_input import ControlProfile
+from src.pytrain.gui.controller.steam_deck_input import CLOSE_POPUP_BUTTON, ControlProfile
 
 CUSTOM_PROFILE = {
     "dead_zone": 0.15,
@@ -125,18 +125,21 @@ def test_summary_of_the_bundled_profile_names_the_deck_buttons() -> None:
 
     assert rendered["L1"] == "Rear coupler"
     assert rendered["R4"] == "Volume up"
-    assert rendered["L3"] == "Focus left pane"
+    assert rendered["R5"] == "Tower chatter"
 
 
 def test_the_system_buttons_read_with_what_works_anywhere() -> None:
-    # View and Menu do nothing to the engine in front of you and go on working whatever is
-    # on screen, so they lead the global section instead of sitting in the middle of a list
-    # of engine commands. No binding says that -- the bundled profile has View on a global
-    # action and Menu on a pane-scoped one -- so it is the button that files them.
+    # View, Menu and the stick clicks do nothing to the engine in front of you and go on
+    # working whatever is on screen -- between them they say which pane the rest of the
+    # screen is about -- so they lead the global section instead of sitting in the middle of
+    # a list of engine commands. No binding says that: the bundled profile has View and the
+    # stick clicks on global actions and Menu on a pane-scoped one, so it is the button that
+    # files them.
+    system = ["View", "Menu", "L3", "R3"]
     sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
 
-    assert [entry.input for entry in sections[GLOBAL_CHORD_TITLE].entries][:2] == ["View", "Menu"]
-    assert not {"View", "Menu"} & {entry.input for entry in sections["Buttons"].entries}
+    assert [entry.input for entry in sections[GLOBAL_CHORD_TITLE].entries][: len(system)] == system
+    assert not set(system) & {entry.input for entry in sections["Buttons"].entries}
 
 
 def test_summary_marks_pane_scoped_bindings() -> None:
@@ -177,10 +180,10 @@ def test_chords_are_grouped_by_where_they_work() -> None:
     # display.
     sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
 
-    # The two buttons that work anywhere lead the section, chords after them: a press is
+    # The buttons that work anywhere lead the section, chords after them: a press is
     # simpler than a chord, so it reads first.
     everywhere = sections[GLOBAL_CHORD_TITLE]
-    assert [entry.input for entry in everywhere.entries] == ["View", "Menu", "L1 + R1", "L3 + R3"]
+    assert [entry.input for entry in everywhere.entries] == ["View", "Menu", "L3", "R3", "L1 + R1", "L3 + R3"]
     assert all(entry.note == "" for entry in everywhere.entries)
 
     admin = sections[ADMIN_PANEL_TITLE]
@@ -278,6 +281,16 @@ def test_context_sections_are_titled_by_the_panel_they_apply_to() -> None:
 
     assert {"Active Admin Panel", "Active Catalog Panel"} <= titles
     assert SWITCH_PANEL_TITLE == "Switches"
+
+
+def test_the_catalog_lists_both_ways_out_of_it() -> None:
+    # X closes the catalog as surely as D-pad left does: the catalog is one of the pane's
+    # popups, so the router's close-popup button dismisses it. Both on one row because a
+    # reader looking at the catalog is asking how to leave it, and named from the router's
+    # own constant so the row cannot go on promising a button that no longer closes popups.
+    entries = {entry.input: entry.action for entry in _section(ControlProfile.load(None), CATALOG_PANEL_TITLE).entries}
+
+    assert entries[f"Left or {button_label(CLOSE_POPUP_BUTTON)}"] == "Close catalog"
 
 
 def test_fixed_sections_are_marked_as_such() -> None:
