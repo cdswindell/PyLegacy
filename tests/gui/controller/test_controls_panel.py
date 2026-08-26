@@ -14,7 +14,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.pytrain.gui.controller.control_labels import ControlEntry, ControlSection, controls_summary
+from src.pytrain.gui.controller.control_labels import (
+    ADMIN_PANEL_TITLE,
+    CATALOG_PANEL_TITLE,
+    GLOBAL_CHORD_TITLE,
+    POPUP_PANEL_TITLE,
+    SWITCH_PANEL_TITLE,
+    ControlEntry,
+    ControlSection,
+    controls_summary,
+)
 import src.pytrain.gui.controller.controls_panel as mod
 from src.pytrain.gui.controller.controls_panel import COLUMNS, ROWS_PER_COLUMN, ControlsPanel
 from src.pytrain.gui.controller.steam_deck_input import ControlProfile
@@ -54,6 +63,56 @@ def test_bundled_profile_fits_on_one_page() -> None:
     panel = _panel(ControlProfile.load(None))
 
     assert len(panel.paginate()) == 1
+
+
+@pytest.mark.parametrize("budget", range(ROWS_PER_COLUMN - 2, ROWS_PER_COLUMN + 5))
+def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
+    # The column order is the section order in controls_summary, so this is the assertion
+    # that keeps it: the reader asking what a control does while a panel is up has one
+    # column to read, and the D-pad -- which answers a different question -- closes the
+    # column before it rather than sitting in the middle of that list.
+    #
+    # Asserted across budgets because the budget is derived from the display rather than
+    # fixed: with the break left to arithmetic, the panel sections led the last column at
+    # 20 rows and the first of them was pulled up into the bottom of the middle one at 22,
+    # which is what the Deck itself derives. The layout cannot depend on the machine.
+    panel = _panel(ControlProfile.load(None))
+    panel._rows_per_column = budget
+
+    columns = panel.paginate()[0]
+
+    assert [section.title for section in columns[-1]] == [
+        SWITCH_PANEL_TITLE,
+        ADMIN_PANEL_TITLE,
+        CATALOG_PANEL_TITLE,
+        POPUP_PANEL_TITLE,
+    ]
+    assert columns[0][0].title == GLOBAL_CHORD_TITLE
+    assert columns[1][-1].title == "D-pad"
+
+
+def test_a_section_that_starts_a_column_gets_one_of_its_own(monkeypatch) -> None:
+    # Room left in the column in progress is no reason to fill it: a section that has to
+    # head a column says so, and the packer obeys that before it obeys the budget.
+    row = (ControlEntry("A", "Ring bell"),)
+    sections = (ControlSection("First", row), ControlSection("Second", row, False, True))
+    monkeypatch.setattr(mod, "controls_summary", lambda profile: sections)
+    panel = _panel(ControlProfile.load(None))
+
+    columns = panel.paginate()[0]
+
+    assert [[section.title for section in column] for column in columns] == [["First"], ["Second"]]
+
+
+def test_only_the_first_chunk_of_a_split_section_starts_a_column() -> None:
+    # A continuation already opens a column by being a full one's worth; flagging every
+    # chunk would leave the column before each of them half empty.
+    entries = (ControlEntry("A", "Ring bell"),) * (ROWS_PER_COLUMN + 2)
+
+    chunks = ControlsPanel._split_to_fit((ControlSection("Tall", entries, False, True),))
+
+    assert len(chunks) > 1
+    assert [chunk.starts_column for chunk in chunks] == [True] + [False] * (len(chunks) - 1)
 
 
 def test_no_column_exceeds_its_row_budget() -> None:

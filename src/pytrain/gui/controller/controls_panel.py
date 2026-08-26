@@ -241,6 +241,11 @@ class ControlsPanel:
         A custom profile can bind far more than the bundled one, so the screen has to
         cope with overflowing rather than silently dropping the tail: sections fill
         columns, ``COLUMNS`` columns make a page, and the D-pad moves between pages.
+
+        Filling is greedy, so where one column ends and the next begins follows from the
+        row budget -- which is derived from the display and therefore not the same number
+        everywhere. A section that has to head a column says so (``starts_column``) rather
+        than relying on the rows before it happening to add up.
         """
         profile = self.profile
         if profile is None:
@@ -250,7 +255,7 @@ class ControlsPanel:
         used = 0
         for section in self._split_to_fit(controls_summary(profile), budget, self._ruler):
             cost = self.section_rows(section, self._ruler)
-            if used and used + cost > budget:
+            if used and (section.starts_column or used + cost > budget):
                 columns.append([])
                 used = 0
             columns[-1].append(section)
@@ -292,16 +297,22 @@ class ControlsPanel:
             # Accumulate by rendered height, not entry count: a wrapped entry is two rows.
             batch: list[ControlEntry] = []
             used = 0
+            # Only the first chunk carries the section's column break; the rest start a
+            # column anyway, by being a full column's worth.
+            first = True
             for entry in section.entries:
                 rows = ControlsPanel.entry_rows(entry, ruler)
                 if batch and used + rows > capacity:
-                    title = section.title if not chunks or chunks[-1].title != section.title else section.title
-                    chunks.append(ControlSection(title, tuple(batch), section.fixed))
-                    batch, used = [], 0
+                    chunks.append(
+                        ControlSection(section.title, tuple(batch), section.fixed, first and section.starts_column)
+                    )
+                    batch, used, first = [], 0, False
                 batch.append(entry)
                 used += rows
             if batch:
-                chunks.append(ControlSection(section.title, tuple(batch), section.fixed))
+                chunks.append(
+                    ControlSection(section.title, tuple(batch), section.fixed, first and section.starts_column)
+                )
         # Mark every chunk after the first as a continuation of its section.
         seen: set[str] = set()
         marked: list[ControlSection] = []

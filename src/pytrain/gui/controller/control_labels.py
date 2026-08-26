@@ -146,9 +146,13 @@ ACTION_NOTES: dict[str, str] = {
 # while that panel is the focused one, which is what "Active" says. Panel type first (bar
 # that one word) so they read as a family and sort together in the eye, and so the panel
 # types still to come -- Routes, Aux -- need no new phrasing invented for them.
+#
+# The switch section is the exception: it leads the column that holds nothing but panel
+# sections, where the heading is read as that column's subject rather than as one of a
+# list, so the plain plural says it.
 ADMIN_PANEL_TITLE = "Active Admin Panel"
 CATALOG_PANEL_TITLE = "Active Catalog Panel"
-SWITCH_PANEL_TITLE = "Active Switch Panel"
+SWITCH_PANEL_TITLE = "Switches"
 POPUP_PANEL_TITLE = "While a panel is open"
 
 # Chord actions the router drops unless the admin panel is displayed. Split into their
@@ -162,7 +166,25 @@ ADMIN_CHORD_NOTE = "hold 3s"
 # Chords that work whatever is on screen get their own heading too. Said per row as
 # "(anywhere)" it wrapped both entries onto a second line, which made this column tall
 # enough to push the Close button off the bottom of the display.
-GLOBAL_CHORD_TITLE = "Chords - global"
+# Named for the scope rather than the input, because it now heads the first column: what
+# these two chords do applies everywhere, which is the first thing worth reading, and
+# "Chords - global" spent half its width repeating a word the rows already show. It also
+# leaves the heading true of the two buttons below, which are no chords at all.
+GLOBAL_CHORD_TITLE = "Global"
+
+# Buttons drawn in that section rather than with the rest of the buttons. Named by index
+# because no binding says it: in the bundled profile View is on a global action and Menu
+# on a pane-scoped one, so ``target`` sorts them apart. What they share is what the
+# heading claims -- neither does anything to the engine in front of you, and both keep
+# working whatever is on screen -- which is worth more at the top of the screen than as
+# two rows in the middle of a list of engine commands.
+GLOBAL_SECTION_BUTTONS = frozenset({6, 7})
+
+# Where the trigger rows land among the buttons. The triggers are analog and once had a
+# section of their own, but with the quilling horn moved to the trackpads they do what a
+# button does -- one action on a pull -- and a two-row section spent a heading saying so.
+# On the Deck L2/R2 sit directly under L1/R1, so they read directly after them.
+TRIGGER_AFTER_BUTTON = 5
 
 
 def _sentence_case(text: str) -> str:
@@ -223,8 +245,8 @@ def stick_label(vertical_axis: int) -> str:
     """Both of one stick's axes on a single row: "Left stick ↕ / ↔".
 
     Named from DECK_AXIS_LABELS rather than written out, so a row about a stick cannot end
-    up calling it something the Sticks section does not: the vertical label already reads
-    "<side> stick ↕", leaving only the other arrow to append.
+    up calling it something the Joysticks section does not: the vertical label already
+    reads "<side> stick ↕", leaving only the other arrow to append.
     """
     return f"{axis_label(vertical_axis)} / {ARROW_HORIZONTAL}"
 
@@ -268,6 +290,12 @@ class ControlSection:
     # True for sections a custom profile cannot change. Rendered differently so the
     # screen does not imply the D-pad is remappable when it is not.
     fixed: bool = False
+    # True for a section that opens a column rather than filling out the one in progress.
+    # Without it a column break is an accident of arithmetic: ControlsPanel packs greedily
+    # against a row budget it derives from the display, so the panel sections led the last
+    # column at a budget of 20 rows and were pulled up into the bottom of the middle one
+    # at 22 -- the budget the Deck itself derives.
+    starts_column: bool = False
 
 
 # The D-pad is handled directly by DeckInputRouter (_handle_scroll_boost /
@@ -290,9 +318,9 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 
 # A panel showing a track switch has no engine to drive, so DeckInputRouter (_handle_switch)
 # claims the controls that would drive one. Stated as its own section rather than as notes on
-# the Sticks and Triggers rows above, which describe what those controls do with an engine.
+# the joystick and trigger rows above, which describe what those controls do with an engine.
 #
-# Each stick is named as the Sticks section names it, and carries the same LEFT/RIGHT pane
+# Each stick is named as the Joysticks section names it, and carries the same LEFT/RIGHT pane
 # suffix: the reader here is asking what that very same control does once a switch is on
 # display, and "Stick" with an "own pane" note named no stick at all. One row per stick
 # rather than one per axis, with the arrows pairing off against "thru / out" the way the
@@ -307,7 +335,7 @@ FIXED_SWITCH_ENTRIES: tuple[ControlEntry, ...] = (
 )
 
 
-# Reading order within the Sticks section: each pane's throttle before its direction,
+# Reading order within the Joysticks section: each pane's throttle before its direction,
 # left pane before right. Sorting by axis index gave direction first, which is not how
 # anyone thinks about a throttle.
 _STICK_ACTION_ORDER = ("throttle", "direction")
@@ -348,16 +376,21 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         for index in sorted(profile.touchpads)
     ]
 
-    buttons = []
+    buttons: list[ControlEntry] = []
+    global_buttons: list[ControlEntry] = []
     for index in sorted(profile.buttons):
         binding = profile.buttons[index]
-        buttons.append(
-            ControlEntry(
-                button_label(index),
-                action_label(binding.action) + target_suffix(binding.target),
-                ACTION_NOTES.get(binding.action, "repeats" if binding.repeat else ""),
-            )
+        entry = ControlEntry(
+            button_label(index),
+            action_label(binding.action) + target_suffix(binding.target),
+            ACTION_NOTES.get(binding.action, "repeats" if binding.repeat else ""),
         )
+        (global_buttons if index in GLOBAL_SECTION_BUTTONS else buttons).append(entry)
+        if index == TRIGGER_AFTER_BUTTON:
+            buttons.extend(triggers)
+            triggers = []
+    # A profile that binds nothing to the bumper still has to show its triggers.
+    buttons.extend(triggers)
 
     chords: list[ControlEntry] = []
     global_chords: list[ControlEntry] = []
@@ -377,17 +410,24 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
             # heading that promises the binding works anywhere.
             chords.append(entry)
 
+    # Reading order, which is also column order: ControlsPanel flows these into columns in
+    # sequence, so this tuple is where the layout is decided. The bundled profile lands as
+    # three columns -- what works anywhere and the analog controls, then everything you
+    # press, then nothing but the per-panel sections. Keeping every panel section together
+    # in the last column is the point: a reader asking "what does this do while a panel is
+    # up" has one place to look, and the D-pad, which answers a different question, closes
+    # the column before rather than sitting in the middle of that list. starts_column says
+    # that in the layout instead of leaving it to how the rows happen to add up.
     sections = (
-        ControlSection("Sticks", tuple(sticks)),
-        ControlSection("Triggers", tuple(triggers)),
+        ControlSection(GLOBAL_CHORD_TITLE, tuple(global_buttons + global_chords)),
+        ControlSection("Joysticks", tuple(sticks)),
         ControlSection("Trackpads", tuple(pads)),
         ControlSection("Buttons", tuple(buttons)),
-        ControlSection(GLOBAL_CHORD_TITLE, tuple(global_chords)),
         ControlSection("Chords", tuple(chords)),
-        ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords)),
         ControlSection("D-pad", FIXED_DPAD_ENTRIES, fixed=True),
+        ControlSection(SWITCH_PANEL_TITLE, FIXED_SWITCH_ENTRIES, fixed=True, starts_column=True),
+        ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords)),
         ControlSection(CATALOG_PANEL_TITLE, FIXED_CATALOG_ENTRIES, fixed=True),
         ControlSection(POPUP_PANEL_TITLE, FIXED_POPUP_ENTRIES, fixed=True),
-        ControlSection(SWITCH_PANEL_TITLE, FIXED_SWITCH_ENTRIES, fixed=True),
     )
     return tuple(section for section in sections if section.entries)

@@ -125,12 +125,23 @@ def test_summary_of_the_bundled_profile_names_the_deck_buttons() -> None:
 
     assert rendered["L1"] == "Rear coupler"
     assert rendered["R4"] == "Volume up"
-    assert rendered["Menu"] == "Open catalog"
+    assert rendered["L3"] == "Focus left pane"
+
+
+def test_the_system_buttons_read_with_what_works_anywhere() -> None:
+    # View and Menu do nothing to the engine in front of you and go on working whatever is
+    # on screen, so they lead the global section instead of sitting in the middle of a list
+    # of engine commands. No binding says that -- the bundled profile has View on a global
+    # action and Menu on a pane-scoped one -- so it is the button that files them.
+    sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
+
+    assert [entry.input for entry in sections[GLOBAL_CHORD_TITLE].entries][:2] == ["View", "Menu"]
+    assert not {"View", "Menu"} & {entry.input for entry in sections["Buttons"].entries}
 
 
 def test_summary_marks_pane_scoped_bindings() -> None:
     # Which pane a stick drives is the thing people get wrong in landscape mode.
-    entries = _section(ControlProfile.load(None), "Sticks").entries
+    entries = _section(ControlProfile.load(None), "Joysticks").entries
 
     assert (f"Left stick {ARROW_VERTICAL}", "Throttle LEFT") == (entries[0].input, entries[0].action)
     assert any(entry.action == "Throttle RIGHT" for entry in entries)
@@ -139,7 +150,7 @@ def test_summary_marks_pane_scoped_bindings() -> None:
 def test_sticks_list_throttle_before_direction_per_pane() -> None:
     # Sorting by axis index put Direction first, which is not how anyone thinks about a
     # throttle.
-    actions = [entry.action for entry in _section(ControlProfile.load(None), "Sticks").entries]
+    actions = [entry.action for entry in _section(ControlProfile.load(None), "Joysticks").entries]
 
     assert actions == ["Throttle LEFT", "Direction LEFT", "Throttle RIGHT", "Direction RIGHT"]
 
@@ -147,14 +158,14 @@ def test_sticks_list_throttle_before_direction_per_pane() -> None:
 def test_axis_inversion_is_not_surfaced() -> None:
     # The throttle behaves correctly; whether the profile inverts the axis to achieve
     # that is an implementation detail, not something to read on a help screen.
-    entries = _section(ControlProfile.load(None), "Sticks").entries
+    entries = _section(ControlProfile.load(None), "Joysticks").entries
 
     assert all("invert" not in entry.note.lower() for entry in entries)
 
 
 def test_triggers_describe_their_hold_behaviour() -> None:
     # L2/R2 split a tap from a hold via LONG_PRESS_ACTIONS, which the screen has to say.
-    entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), "Triggers").entries}
+    entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), "Buttons").entries}
 
     assert entries["L2"] == "hold: with dialog"
     assert entries["R2"] == "hold: with dialog"
@@ -166,8 +177,10 @@ def test_chords_are_grouped_by_where_they_work() -> None:
     # display.
     sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
 
+    # The two buttons that work anywhere lead the section, chords after them: a press is
+    # simpler than a chord, so it reads first.
     everywhere = sections[GLOBAL_CHORD_TITLE]
-    assert [entry.input for entry in everywhere.entries] == ["L1 + R1", "L3 + R3"]
+    assert [entry.input for entry in everywhere.entries] == ["View", "Menu", "L1 + R1", "L3 + R3"]
     assert all(entry.note == "" for entry in everywhere.entries)
 
     admin = sections[ADMIN_PANEL_TITLE]
@@ -198,11 +211,20 @@ def test_a_pane_scoped_chord_is_not_filed_under_anywhere() -> None:
     assert [entry.action for entry in sections["Chords"].entries] == ["Ring bell"]
 
 
-def test_summary_separates_triggers_from_sticks() -> None:
+def test_the_triggers_are_listed_with_the_buttons() -> None:
+    # A section of their own spent a heading saying "these two are analog", which is not
+    # what anyone reads a help screen to find out: L2/R2 do one thing on a pull, like a
+    # button. They read where they sit on the Deck, directly under the bumpers.
     profile = ControlProfile.load(None)
 
-    assert [entry.input for entry in _section(profile, "Triggers").entries] == ["L2", "R2"]
-    assert all(entry.input.startswith(("Left stick", "Right stick")) for entry in _section(profile, "Sticks").entries)
+    assert "Triggers" not in [section.title for section in controls_summary(profile)]
+    inputs = [entry.input for entry in _section(profile, "Buttons").entries]
+    after_bumper = inputs.index("R1") + 1
+    assert inputs[after_bumper : after_bumper + 2] == ["L2", "R2"]
+    # And the joysticks keep their section to themselves.
+    assert all(
+        entry.input.startswith(("Left stick", "Right stick")) for entry in _section(profile, "Joysticks").entries
+    )
 
 
 def test_summary_flags_repeating_buttons() -> None:
@@ -232,12 +254,12 @@ def test_the_switch_panel_remap_is_listed() -> None:
     ]
 
 
-def test_the_switch_panel_names_its_sticks_as_the_sticks_section_does() -> None:
+def test_the_switch_panel_names_its_sticks_as_the_joysticks_section_does() -> None:
     # One vocabulary for one control: a row saying "Stick" where the section above says
     # "Left stick" reads like a third stick nobody has, and leaves which pane it throws to
     # the reader to work out.
     profile = ControlProfile.load(None)
-    named_above = {entry.input.rsplit(" ", 1)[0] for entry in _section(profile, "Sticks").entries}
+    named_above = {entry.input.rsplit(" ", 1)[0] for entry in _section(profile, "Joysticks").entries}
 
     switch_sticks = [entry.input for entry in _section(profile, SWITCH_PANEL_TITLE).entries if "stick" in entry.input]
 
@@ -247,12 +269,15 @@ def test_the_switch_panel_names_its_sticks_as_the_sticks_section_does() -> None:
 
 
 def test_context_sections_are_titled_by_the_panel_they_apply_to() -> None:
-    # These three describe one kind of panel each, so they are titled the same way: the
-    # reader should not have to notice that "Admin panel only" and "While the catalog is
-    # open" are the same kind of heading. Routes and Aux will join them.
+    # These describe one kind of panel each, so they are titled the same way: the reader
+    # should not have to notice that "Admin panel only" and "While the catalog is open"
+    # are the same kind of heading. Routes and Aux will join them. The switch section is
+    # deliberately outside that family: it heads the panel column, where the heading is
+    # read as that column's subject rather than as one of a list.
     titles = {section.title for section in controls_summary(ControlProfile.load(None))}
 
-    assert {"Active Admin Panel", "Active Catalog Panel", "Active Switch Panel"} <= titles
+    assert {"Active Admin Panel", "Active Catalog Panel"} <= titles
+    assert SWITCH_PANEL_TITLE == "Switches"
 
 
 def test_fixed_sections_are_marked_as_such() -> None:
@@ -274,13 +299,14 @@ def test_summary_follows_a_custom_profile() -> None:
     assert buttons == {"A": "Ring bell LEFT", "Button 11": "Reset"}
     # halt targets global, so it files under the "works anywhere" heading.
     assert [entry.input for entry in _section(profile, GLOBAL_CHORD_TITLE).entries] == ["R1 + Y"]
-    assert [entry.action for entry in _section(profile, "Sticks").entries] == ["Throttle RIGHT"]
+    assert [entry.action for entry in _section(profile, "Joysticks").entries] == ["Throttle RIGHT"]
 
 
 def test_empty_sections_are_dropped() -> None:
-    # The custom profile binds no trackpads, so that heading must not appear empty.
+    # The custom profile binds no trackpads and no pane-scoped chord, so neither heading
+    # may appear empty.
     titles = [section.title for section in controls_summary(ControlProfile.from_dict(CUSTOM_PROFILE))]
 
     assert "Trackpads" not in titles
-    assert "Triggers" not in titles
+    assert "Chords" not in titles
     assert "Buttons" in titles
