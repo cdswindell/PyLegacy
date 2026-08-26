@@ -369,6 +369,17 @@ class _CallableTk:
         return
 
 
+class _MeasuredTk(_CallableTk):
+    """A tk stand-in that answers winfo_reqheight, as the real title band does."""
+
+    def __init__(self, height: int) -> None:
+        super().__init__()
+        self._height = height
+
+    def winfo_reqheight(self) -> int:
+        return self._height
+
+
 class _ShowableWidget(_Widget):
     """A widget that tracks show()/hide(), which the controls overlay relies on."""
 
@@ -402,7 +413,7 @@ def _deck_with_body(monkeypatch: pytest.MonkeyPatch) -> tuple[mod.SteamDeckGui, 
     monkeypatch.setattr(mod, "Box", make)
     monkeypatch.setattr(mod, "Text", make)
     monkeypatch.setattr(mod, "PushButton", make)
-    monkeypatch.setattr(mod.ControlsPanel, "build", lambda _self, _body: None)
+    monkeypatch.setattr(mod.ControlsPanel, "build", lambda _self, _body, height_px=0: None)
     gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui.width = 1280
     gui.height = 800
@@ -470,6 +481,44 @@ def test_paging_only_works_while_the_screen_is_up(monkeypatch: pytest.MonkeyPatc
 
     gui.close_controls()
     assert gui.page_controls(True) is False
+
+
+def test_close_sits_in_the_title_band_not_below_the_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Packed after the columns, Close was the first thing off the bottom of the display
+    # whenever a column came out taller than the row budget promised: the only way out of
+    # the screen, clipped by a help row. In the band it is out of the content flow, so a
+    # mis-measured column costs a help row instead.
+    gui, made = _deck_with_body(monkeypatch)
+
+    gui.on_show_controls()
+
+    overlay, header = made[0], made[1]
+    close = next(widget for widget in made if widget.kwargs.get("text") == mod.CONTROLS_CLOSE_TEXT)
+    title = next(widget for widget in made if str(widget.kwargs.get("text", "")).startswith(mod.CONTROLS_TITLE))
+
+    assert close.master is header
+    assert close.master is not overlay
+    assert close.kwargs["align"] == "right"
+    # Created before the title, because pack fills from the edges in child order: the
+    # button takes the right edge, then the title centres in what is left of the band.
+    assert made.index(close) < made.index(title)
+
+
+def test_the_help_columns_are_budgeted_the_room_under_the_title_band(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The row budget is divided out of this figure, so it is what keeps a column inside
+    # the display -- and the band's height is not something this module gets to assume,
+    # since it depends on the font Tk picked and on the Close button now inside it.
+    gui, _made = _deck_with_body(monkeypatch)
+    measured = _ShowableWidget()
+    measured.tk = _MeasuredTk(120)
+
+    assert gui._controls_body_height(measured) == 800 - 120 - 2 * mod.CONTROLS_BORDER_PX
+
+    # A band Tk will not measure falls back to a documented height, not to zero: zero
+    # would hand the columns the whole display and put their last rows off the bottom.
+    unmeasurable = _ShowableWidget()  # _CallableTk cannot report a height
+    expected = 800 - mod.CONTROLS_HEADER_FALLBACK_PX - 2 * mod.CONTROLS_BORDER_PX
+    assert gui._controls_body_height(unmeasurable) == expected
 
 
 def test_controls_panel_is_not_an_overlay_panel() -> None:

@@ -54,6 +54,16 @@ CONTROLS_BG = "white"
 CONTROLS_HEADER_BG = FOCUS_COLOR
 CONTROLS_HEADER_FG = "white"
 CONTROLS_TITLE_SIZE = 24
+CONTROLS_CLOSE_TEXT = "Close"
+# The overlay's raised border, counted twice: it is drawn inside the widget's own
+# allocation, top and bottom.
+CONTROLS_BORDER_PX = 3
+# Height to assume for the title band when Tk will not say what it came out at -- one line
+# of CONTROLS_TITLE_SIZE text plus the Close button's padding, which measures ~56px on the
+# Deck. Used as a floor, not an override: assuming the band is taller than it is only
+# leaves the columns a row of slack, while assuming it is shorter would cost them a row
+# they had already been promised.
+CONTROLS_HEADER_FALLBACK_PX = 56
 LANDSCAPE_FONT_SCALE = 0.9
 LANDSCAPE_BUTTON_DIVISOR = 8.0
 COMPACT_SCALE = LANDSCAPE_FONT_SCALE
@@ -245,26 +255,16 @@ class SteamDeckGui(GuiZeroBase):
         # display rather than a full-height panel with a void under the text.
         overlay = Box(self.body, grid=[0, 0, 3, 1], layout="auto", visible=False)
         overlay.bg = CONTROLS_BG
-        overlay.tk.config(relief="raised", borderwidth=3)
+        overlay.tk.config(relief="raised", borderwidth=CONTROLS_BORDER_PX)
 
         header = Box(overlay, align="top", width="fill")
         header.bg = CONTROLS_HEADER_BG
-        title = Text(
-            header,
-            text=f"{CONTROLS_TITLE}   {self.version}",
-            align="top",
-            bold=True,
-            size=CONTROLS_TITLE_SIZE,
-            color=CONTROLS_HEADER_FG,
-        )
-        title.tk.config(padx=16, pady=6)
-        self.cache(header, title)
-
-        body = Box(overlay, align="top", layout="auto")
-        self._controls_panel = ControlsPanel(self, self._controller_profile)
-        self._controls_panel.build(body)
-
-        close = PushButton(overlay, text="Close", align="bottom", width=10, command=self.close_controls)
+        # Close rides in the title band rather than under the columns. Packed after the
+        # content it was the first thing off the bottom of the display whenever the row
+        # budget came out short: the only way out of the screen, clipped by a help row.
+        # Created before the title because pack fills from the edges in child order -- the
+        # button claims the right edge, then the title centres in what is left of the band.
+        close = PushButton(header, text=CONTROLS_CLOSE_TEXT, align="right", command=self.close_controls)
         close.text_size = self.s_20
         close.tk.config(
             borderwidth=3,
@@ -276,9 +276,37 @@ class SteamDeckGui(GuiZeroBase):
             activebackground="#e0e0e0",
             background="#f7f7f7",
         )
-        close.tk.pack_configure(pady=10)
-        self.cache(close)
+        close.tk.pack_configure(padx=(0, 12), pady=6)
+        title = Text(
+            header,
+            text=f"{CONTROLS_TITLE}   {self.version}",
+            align="top",
+            bold=True,
+            size=CONTROLS_TITLE_SIZE,
+            color=CONTROLS_HEADER_FG,
+        )
+        title.tk.config(padx=16, pady=6)
+        self.cache(header, close, title)
+
+        body = Box(overlay, align="top", layout="auto")
+        self._controls_panel = ControlsPanel(self, self._controller_profile)
+        self._controls_panel.build(body, height_px=self._controls_body_height(header))
         return overlay
+
+    def _controls_body_height(self, header: Box) -> int:
+        """Pixels the help columns may use: the display, less the chrome around them.
+
+        Asked of the widget rather than assumed, because the band's height depends on the
+        font Tk picked and on the Close button now inside it -- and the row budget divided
+        out of this figure is what keeps a column inside the display.
+        """
+        band = CONTROLS_HEADER_FALLBACK_PX
+        try:
+            header.tk.update_idletasks()  # pack sizes the band at idle; ask after that
+            band = max(band, header.tk.winfo_reqheight())
+        except (AttributeError, TclError) as exception:
+            log.debug("Controls header height unavailable (%s); assuming %d px", exception, band)
+        return max(0, self.height - band - 2 * CONTROLS_BORDER_PX)
 
     def _build_focus_arrow(self) -> None:
         # An arrow that sits on the divider, in the same row as each pane's top
