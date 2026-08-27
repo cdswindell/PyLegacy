@@ -16,7 +16,9 @@ import pytest
 
 from src.pytrain.gui.controller.control_labels import (
     ADMIN_PANEL_TITLE,
+    BUTTONS_TITLE,
     CATALOG_PANEL_TITLE,
+    DPAD_TITLE,
     GLOBAL_CHORD_TITLE,
     GLOBAL_SECTION_BUTTONS,
     POPUP_PANEL_TITLE,
@@ -96,7 +98,7 @@ def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
         POPUP_PANEL_TITLE,
     ]
     assert columns[0][0].title == GLOBAL_CHORD_TITLE
-    assert columns[1][-1].title == "D-pad"
+    assert columns[1][-1].title == DPAD_TITLE
 
 
 def test_a_section_that_starts_a_column_gets_one_of_its_own(monkeypatch) -> None:
@@ -150,8 +152,8 @@ def test_a_section_taller_than_a_column_is_split_and_marked() -> None:
 
     titles = [section.title for page in panel.paginate() for column in page for section in column]
 
-    assert "Buttons" in titles
-    assert "Buttons (cont.)" in titles
+    assert BUTTONS_TITLE in titles
+    assert f"{BUTTONS_TITLE} (cont.)" in titles
 
 
 def test_split_preserves_the_fixed_flag() -> None:
@@ -534,10 +536,10 @@ def test_a_section_wraps_within_what_its_keycaps_leave_of_the_column() -> None:
     panel._ruler = mod.TextRuler(measure=len, row_px=30, footnote_px=15)
     sections = _sections(panel)
 
-    keycap = max(len(mod.keycap_text(entry)) for entry in sections["Buttons"].entries)
-    assert panel.action_wrap_px(sections["Buttons"], 400) == 400 - keycap - mod.ENTRY_CHROME_PX
+    keycap = max(len(mod.keycap_text(entry)) for entry in sections[BUTTONS_TITLE].entries)
+    assert panel.action_wrap_px(sections[BUTTONS_TITLE], 400) == 400 - keycap - mod.ENTRY_CHROME_PX
     # Wider keycaps, less room for the action beside them.
-    assert panel.action_wrap_px(sections["Joysticks"], 400) < panel.action_wrap_px(sections["Buttons"], 400)
+    assert panel.action_wrap_px(sections["Joysticks"], 400) < panel.action_wrap_px(sections[BUTTONS_TITLE], 400)
     # A column too narrow for its keycaps costs the page its width budget rather than
     # wrapping every row into a stack of single words.
     assert panel.action_wrap_px(sections["Joysticks"], 60) == mod.MIN_ACTION_WRAP_PX
@@ -550,7 +552,7 @@ def test_a_section_is_priced_by_the_column_it_is_packed_into() -> None:
     # rows the wide columns never needed.
     panel = _panel(ControlProfile.load(None))
     panel._column_px = (500, 200, 500)
-    section = _sections(panel)["Buttons"]
+    section = _sections(panel)[BUTTONS_TITLE]
 
     assert panel._column_wrap_px(section, 1) < panel._column_wrap_px(section, 0)
     # Columns run on across pages; the width belongs to the position on the page.

@@ -11,7 +11,9 @@ import pytest
 from src.pytrain.gui.controller.control_labels import (
     ADMIN_PANEL_NOTE,
     ADMIN_PANEL_TITLE,
+    BUTTONS_TITLE,
     CATALOG_PANEL_TITLE,
+    DPAD_TITLE,
     GLOBAL_CHORD_TITLE,
     SWITCH_PANEL_TITLE,
     ARROW_HORIZONTAL,
@@ -74,7 +76,9 @@ def test_awkward_enum_names_are_overridden(action, expected) -> None:
 def test_app_actions_have_labels_of_their_own() -> None:
     # These drive the GUI rather than an engine, so no enum names them.
     assert action_label("focus_toggle") == "Swap focused pane"
-    assert action_label("scope_catalog") == "Open catalog"
+    # Alone among these it says which pane it acts on: the bundled profile files it under
+    # the global heading, which cannot speak for a binding scoped to the focused pane.
+    assert action_label("scope_catalog") == "Open catalog (w focus)"
     assert action_label("show_controls") == "Show these controls"
 
 
@@ -120,7 +124,7 @@ def _section(profile: ControlProfile, title: str):
 
 
 def test_summary_of_the_bundled_profile_names_the_deck_buttons() -> None:
-    entries = _section(ControlProfile.load(None), "Buttons").entries
+    entries = _section(ControlProfile.load(None), BUTTONS_TITLE).entries
     rendered = {entry.input: entry.action for entry in entries}
 
     assert rendered["L1"] == "Rear coupler"
@@ -139,7 +143,7 @@ def test_the_system_buttons_read_with_what_works_anywhere() -> None:
     sections = {section.title: section for section in controls_summary(ControlProfile.load(None))}
 
     assert [entry.input for entry in sections[GLOBAL_CHORD_TITLE].entries][: len(system)] == system
-    assert not set(system) & {entry.input for entry in sections["Buttons"].entries}
+    assert not set(system) & {entry.input for entry in sections[BUTTONS_TITLE].entries}
 
 
 def test_summary_marks_pane_scoped_bindings() -> None:
@@ -170,7 +174,7 @@ def test_triggers_describe_their_hold_behaviour() -> None:
     # L2/R2 split a tap from a hold via LONG_PRESS_ACTIONS, which the screen has to say.
     # Abbreviated: these two rows sit in the narrow middle column and were the pair that
     # wrapped there, and "w" reads as the qualifier it is.
-    entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), "Buttons").entries}
+    entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), BUTTONS_TITLE).entries}
 
     assert entries["L2"] == "hold: w dialog"
     assert entries["R2"] == "hold: w dialog"
@@ -225,7 +229,7 @@ def test_the_triggers_are_listed_with_the_buttons() -> None:
     profile = ControlProfile.load(None)
 
     assert "Triggers" not in [section.title for section in controls_summary(profile)]
-    inputs = [entry.input for entry in _section(profile, "Buttons").entries]
+    inputs = [entry.input for entry in _section(profile, BUTTONS_TITLE).entries]
     after_bumper = inputs.index("R1") + 1
     assert inputs[after_bumper : after_bumper + 2] == ["L2", "R2"]
     # And the joysticks keep their section to themselves.
@@ -235,7 +239,7 @@ def test_the_triggers_are_listed_with_the_buttons() -> None:
 
 
 def test_summary_flags_repeating_buttons() -> None:
-    entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), "Buttons").entries}
+    entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), BUTTONS_TITLE).entries}
 
     assert entries["X"] == "repeats"
     assert entries["L1"] == ""
@@ -278,13 +282,14 @@ def test_the_switch_panel_names_its_sticks_as_the_joysticks_section_does() -> No
 def test_context_sections_are_titled_by_the_panel_they_apply_to() -> None:
     # These describe one kind of panel each, so they are titled the same way: the reader
     # should not have to notice that "Admin panel only" and "While the catalog is open"
-    # are the same kind of heading. Routes and Aux will join them. The switch section is
-    # deliberately outside that family: it heads the panel column, where the heading is
-    # read as that column's subject rather than as one of a list.
+    # are the same kind of heading. Routes and Aux will join them. The qualifier is the
+    # same one the focus-scoped input sections carry, so "only while that panel has focus"
+    # is read the same way wherever it appears.
     titles = {section.title for section in controls_summary(ControlProfile.load(None))}
 
-    assert {"Active Admin Panel", "Active Catalog Panel"} <= titles
-    assert SWITCH_PANEL_TITLE == "Switches"
+    assert {"Admin Panel (w focus)", "Catalog Panel (w focus)"} <= titles
+    assert SWITCH_PANEL_TITLE == "Switches (w focus)"
+    assert {BUTTONS_TITLE, DPAD_TITLE} <= titles
 
 
 def test_the_catalog_lists_both_ways_out_of_it() -> None:
@@ -302,9 +307,9 @@ def test_fixed_sections_are_marked_as_such() -> None:
     # change it -- the screen must not imply otherwise.
     sections = {section.title: section.fixed for section in controls_summary(ControlProfile.load(None))}
 
-    assert sections["D-pad"] is True
+    assert sections[DPAD_TITLE] is True
     assert sections[CATALOG_PANEL_TITLE] is True
-    assert sections["Buttons"] is False
+    assert sections[BUTTONS_TITLE] is False
 
 
 def test_summary_follows_a_custom_profile() -> None:
@@ -312,7 +317,7 @@ def test_summary_follows_a_custom_profile() -> None:
     # layout is baked into the help screen.
     profile = ControlProfile.from_dict(CUSTOM_PROFILE)
 
-    buttons = {entry.input: entry.action for entry in _section(profile, "Buttons").entries}
+    buttons = {entry.input: entry.action for entry in _section(profile, BUTTONS_TITLE).entries}
     assert buttons == {"A": "Ring bell LEFT", "Button 11": "Reset"}
     # halt targets global, so it files under the "works anywhere" heading.
     assert [entry.input for entry in _section(profile, GLOBAL_CHORD_TITLE).entries] == ["R1 + Y"]
@@ -326,4 +331,4 @@ def test_empty_sections_are_dropped() -> None:
 
     assert "Trackpads" not in titles
     assert "Chords" not in titles
-    assert "Buttons" in titles
+    assert BUTTONS_TITLE in titles

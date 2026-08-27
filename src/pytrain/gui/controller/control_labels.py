@@ -109,7 +109,11 @@ ACTION_LABELS: dict[str, str] = {
     "focus_left": "Focus left pane",
     "focus_right": "Focus right pane",
     "focus_toggle": "Swap focused pane",
-    "scope_catalog": "Open catalog",
+    # Qualified on the row rather than left to a heading: the bundled profile has this on
+    # Menu, which GLOBAL_SECTION_BUTTONS files under the global heading, yet the binding
+    # targets the focused pane -- so it is the one row up there that the heading cannot
+    # speak for. Same words as the focus-scoped section titles below.
+    "scope_catalog": "Open catalog (w focus)",
     "show_controls": "Show these controls",
     "admin_quit": "Quit PyTrain **",
     "admin_update": "Update PyTrain **",
@@ -147,17 +151,25 @@ ACTION_NOTES: dict[str, str] = {
 }
 
 # Headings for the sections that describe one kind of panel: the bindings there apply only
-# while that panel is the focused one, which is what "Active" says. Panel type first (bar
-# that one word) so they read as a family and sort together in the eye, and so the panel
-# types still to come -- Routes, Aux -- need no new phrasing invented for them.
+# while that panel is the focused one, which is what "(w focus)" says. Panel type first, the
+# qualifier trailing in the same words every focus-scoped section uses, so they read as a
+# family and sort together in the eye, and so the panel types still to come -- Routes, Aux --
+# need no new phrasing invented for them. "w" rather than "with" throughout: these headings
+# lead the narrow columns, and the spelt-out word wrapped them.
 #
-# The switch section is the exception: it leads the column that holds nothing but panel
-# sections, where the heading is read as that column's subject rather than as one of a
-# list, so the plain plural says it.
-ADMIN_PANEL_TITLE = "Active Admin Panel"
-CATALOG_PANEL_TITLE = "Active Catalog Panel"
-SWITCH_PANEL_TITLE = "Switches"
+# The popup section is the exception: what it describes is not one kind of panel but any of
+# them, which a "<type> (w focus)" heading cannot say.
+ADMIN_PANEL_TITLE = "Admin Panel (w focus)"
+CATALOG_PANEL_TITLE = "Catalog Panel (w focus)"
+SWITCH_PANEL_TITLE = "Switches (w focus)"
 POPUP_PANEL_TITLE = "While a panel is open"
+
+# The two sections whose bindings act on whichever pane has focus rather than on a pane of
+# their own. Named, like the panel titles above, so the help screen and its tests cannot
+# drift apart over a string. Joysticks and Trackpads want no such qualifier: every one of
+# their rows already carries LEFT or RIGHT.
+BUTTONS_TITLE = "Buttons (w focus)"
+DPAD_TITLE = "D-pad (w focus)"
 
 # Chord actions the router drops unless the admin panel is displayed. Split into their
 # own section so that caveat is stated once in the heading rather than repeated on every
@@ -187,6 +199,9 @@ GLOBAL_CHORD_TITLE = "Global"
 # you, and all of them keep working whatever is on screen. What they do instead is decide
 # which pane the rest of the screen is talking about, which is worth reading before those
 # commands rather than as four rows in the middle of them.
+#
+# Which pane they act on is not shared: Menu's bundled action targets the focused pane, so
+# its label says so itself (see "scope_catalog" above) rather than leaning on the heading.
 GLOBAL_SECTION_BUTTONS = frozenset({6, 7, 9, 10})
 
 # Where the trigger rows land among the buttons. The triggers are analog and once had a
@@ -442,9 +457,9 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         ControlSection(GLOBAL_CHORD_TITLE, tuple(global_buttons + global_chords)),
         ControlSection("Joysticks", tuple(sticks)),
         ControlSection("Trackpads", tuple(pads)),
-        ControlSection("Buttons", tuple(buttons)),
+        ControlSection(BUTTONS_TITLE, tuple(buttons)),
         ControlSection("Chords", tuple(chords)),
-        ControlSection("D-pad", FIXED_DPAD_ENTRIES, fixed=True),
+        ControlSection(DPAD_TITLE, FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection(SWITCH_PANEL_TITLE, FIXED_SWITCH_ENTRIES, fixed=True, starts_column=True),
         ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords), note=ADMIN_PANEL_NOTE),
         ControlSection(CATALOG_PANEL_TITLE, FIXED_CATALOG_ENTRIES, fixed=True),
