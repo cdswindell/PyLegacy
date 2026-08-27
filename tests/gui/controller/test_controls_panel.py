@@ -22,6 +22,7 @@ from src.pytrain.gui.controller.control_labels import (
     GLOBAL_CHORD_TITLE,
     GLOBAL_SECTION_BUTTONS,
     POPUP_PANEL_TITLE,
+    ROUTE_PANEL_TITLE,
     SWITCH_PANEL_TITLE,
     ControlEntry,
     ControlSection,
@@ -75,17 +76,24 @@ def test_bundled_profile_fits_on_one_page() -> None:
     assert len(panel.paginate()) == 1
 
 
-@pytest.mark.parametrize("budget", range(ROWS_PER_COLUMN - 2, ROWS_PER_COLUMN + 5))
+@pytest.mark.parametrize("budget", range(ROWS_PER_COLUMN - 1, ROWS_PER_COLUMN + 5))
 def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
     # The column order is the section order in controls_summary, so this is the assertion
-    # that keeps it: the reader asking what a control does while a panel is up has one
-    # column to read, and the D-pad -- which answers a different question -- closes the
-    # column before it rather than sitting in the middle of that list.
+    # that keeps it: the reader asking what a control does while a panel of some kind is up
+    # has one column to read, and the sections that answer a different question -- the
+    # D-pad, and the X that closes whatever popup is on screen -- close the column before it
+    # rather than sitting in the middle of that list.
     #
     # Asserted across budgets because the budget is derived from the display rather than
     # fixed: with the break left to arithmetic, the panel sections led the last column at
     # 20 rows and the first of them was pulled up into the bottom of the middle one at 22,
     # which is what the Deck itself derives. The layout cannot depend on the machine.
+    #
+    # The sweep's floor is a row under ROWS_PER_COLUMN, which is what these four sections
+    # and the admin note come to: below that they do not fit at all, a question of capacity
+    # rather than of packing. ROWS_PER_COLUMN itself is the floor the screen is ever drawn
+    # at, being the fallback for when there is no Tk to measure with, so the layout holds
+    # with a row in hand.
     panel = _panel(ControlProfile.load(None))
     panel._rows_per_column = budget
 
@@ -93,12 +101,13 @@ def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
 
     assert [section.title for section in columns[-1]] == [
         SWITCH_PANEL_TITLE,
+        ROUTE_PANEL_TITLE,
         ADMIN_PANEL_TITLE,
         CATALOG_PANEL_TITLE,
-        POPUP_PANEL_TITLE,
     ]
     assert columns[0][0].title == GLOBAL_CHORD_TITLE
-    assert columns[1][-1].title == DPAD_TITLE
+    assert columns[1][-1].title == POPUP_PANEL_TITLE
+    assert DPAD_TITLE in [section.title for section in columns[1]]
 
 
 def test_a_section_that_starts_a_column_gets_one_of_its_own(monkeypatch) -> None:

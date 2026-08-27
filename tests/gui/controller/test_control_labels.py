@@ -15,8 +15,11 @@ from src.pytrain.gui.controller.control_labels import (
     CATALOG_PANEL_TITLE,
     DPAD_TITLE,
     GLOBAL_CHORD_TITLE,
+    ROUTE_PANEL_TITLE,
     SWITCH_PANEL_TITLE,
     ARROW_HORIZONTAL,
+    ARROW_RIGHT,
+    ARROW_UP,
     ARROW_VERTICAL,
     action_label,
     axis_label,
@@ -265,30 +268,75 @@ def test_the_switch_panel_remap_is_listed() -> None:
     ]
 
 
-def test_the_switch_panel_names_its_sticks_as_the_joysticks_section_does() -> None:
+def test_the_route_panel_remap_is_listed() -> None:
+    # The switch section's twin, and directly under it: a panel showing a route has no
+    # engine either, so the same controls fire the route there. One action rather than two,
+    # because a route has no un-fire -- both triggers do the one thing.
+    #
+    # Row for row as the switch section above, each stick naming the pane it fires, because
+    # the reader here is asking what that very same stick does now a route is on display.
+    # One row for both sticks fitted the column more easily and is what this said first, but
+    # it left the pane to be worked out from an "own pane" note rather than read off the row.
+    section = _section(ControlProfile.load(None), ROUTE_PANEL_TITLE)
+
+    assert section.fixed is True
+    assert [(entry.input, entry.action, entry.note) for entry in section.entries] == [
+        ("L2 / R2", "Fire route", ""),
+        (f"Left stick {ARROW_UP} / {ARROW_RIGHT}", "Fire route LEFT", ""),
+        (f"Right stick {ARROW_UP} / {ARROW_RIGHT}", "Fire route RIGHT", ""),
+    ]
+
+
+def test_the_route_rows_name_only_the_deflections_that_fire() -> None:
+    # The switch rows carry the two-headed arrows because sign is ignored there: all four
+    # deflections throw. A route fires on up and right alone, and "a / b" would promise
+    # four. The distinction is the reader's only clue that pulling back does nothing.
+    routes = _section(ControlProfile.load(None), ROUTE_PANEL_TITLE)
+    switches = _section(ControlProfile.load(None), SWITCH_PANEL_TITLE)
+
+    assert all(ARROW_VERTICAL not in entry.input for entry in routes.entries)
+    assert all(ARROW_HORIZONTAL not in entry.input for entry in routes.entries)
+    assert any(ARROW_VERTICAL in entry.input for entry in switches.entries)
+
+
+def test_the_route_section_follows_the_switch_section() -> None:
+    # Directly under it, which is also what puts it in the column that holds nothing but
+    # the per-panel sections -- the switch section is the one that opens that column.
+    titles = [section.title for section in controls_summary(ControlProfile.load(None))]
+
+    assert titles[titles.index(SWITCH_PANEL_TITLE) + 1] == ROUTE_PANEL_TITLE
+
+
+@pytest.mark.parametrize("title", [SWITCH_PANEL_TITLE, ROUTE_PANEL_TITLE])
+def test_the_panel_remaps_name_their_sticks_as_the_joysticks_section_does(title) -> None:
     # One vocabulary for one control: a row saying "Stick" where the section above says
     # "Left stick" reads like a third stick nobody has, and leaves which pane it throws to
-    # the reader to work out.
+    # the reader to work out. Both remap sections, so a panel type added later has one
+    # pattern to copy rather than two to choose between.
     profile = ControlProfile.load(None)
     named_above = {entry.input.rsplit(" ", 1)[0] for entry in _section(profile, "Joysticks").entries}
 
-    switch_sticks = [entry.input for entry in _section(profile, SWITCH_PANEL_TITLE).entries if "stick" in entry.input]
+    sticks = [entry for entry in _section(profile, title).entries if "stick" in entry.input]
 
     assert named_above == {"Left stick", "Right stick"}
-    assert len(switch_sticks) == 2
-    assert all(any(row.startswith(name) for name in named_above) for row in switch_sticks)
+    assert len(sticks) == 2
+    assert all(any(entry.input.startswith(name) for name in named_above) for entry in sticks)
+    # And the pane on the row rather than in a note: one row per stick is worth the room it
+    # costs only if it says which pane that stick works.
+    assert [entry.action.rsplit(" ", 1)[-1] for entry in sticks] == ["LEFT", "RIGHT"]
 
 
 def test_context_sections_are_titled_by_the_panel_they_apply_to() -> None:
     # These describe one kind of panel each, so they are titled the same way: the reader
     # should not have to notice that "Admin panel only" and "While the catalog is open"
-    # are the same kind of heading. Routes and Aux will join them. The qualifier is the
+    # are the same kind of heading. Aux will join them, as Routes did. The qualifier is the
     # same one the focus-scoped input sections carry, so "only while that panel has focus"
     # is read the same way wherever it appears.
     titles = {section.title for section in controls_summary(ControlProfile.load(None))}
 
     assert {"Admin Panel (w focus)", "Catalog Panel (w focus)"} <= titles
     assert SWITCH_PANEL_TITLE == "Switches (w focus)"
+    assert ROUTE_PANEL_TITLE == "Routes (w focus)"
     assert {BUTTONS_TITLE, DPAD_TITLE} <= titles
 
 
@@ -309,6 +357,7 @@ def test_fixed_sections_are_marked_as_such() -> None:
 
     assert sections[DPAD_TITLE] is True
     assert sections[CATALOG_PANEL_TITLE] is True
+    assert sections[ROUTE_PANEL_TITLE] is True
     assert sections[BUTTONS_TITLE] is False
 
 

@@ -115,6 +115,16 @@ SWITCH_OUT_ACTIONS = frozenset({"direction", "startup", STARTUP_IMMEDIATE, START
 # throw per deflection, re-armed only once the stick comes back near center, so holding a
 # stick over is a single push of the on-screen key rather than a burst of them.
 SWITCH_AXIS_ACTIONS = frozenset({"throttle", "direction"})
+# The same repurposing for a panel showing a route, which has no engine to drive either. A
+# route has one thing to do rather than two, so both triggers fire it and there is nothing
+# for the thru/out split above to distinguish: one set, not two.
+ROUTE_FIRE_ACTIONS = SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS
+# The two of those that arrive as a stick position. They latch as the switch ones do, but
+# the test is signed rather than absolute: only up (a positive throttle, the sticks being
+# inverted in the profile) and right (a positive direction) fire. The other two deflections
+# are still claimed -- see _handle_route -- so a stick pulled back on a route panel cannot
+# ramp an engine that is not there; they simply fire nothing.
+ROUTE_AXIS_ACTIONS = frozenset({"throttle", "direction"})
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -636,17 +646,17 @@ class SteamDeckInputProvider:
         *,
         pygame_module=None,
         clock: Callable[[], float] | None = None,
-        switch_active: Callable[[Target], bool] | None = None,
+        fires_on_press: Callable[[Target], bool] | None = None,
     ) -> None:
         self.profile = profile
         self._pygame = pygame_module
         self._clock = clock or time.monotonic
-        # Resolves whether the panel a binding targets is showing a track switch, so a
-        # trigger bound to startup/shutdown can throw the switch on the squeeze instead of
-        # waiting for the release. Supplied by the router, which owns the panel lookup;
-        # ``None`` means no panel is ever a switch, which is what the profile-only tests
+        # Resolves whether the panel a binding targets is showing a track switch or a route,
+        # so a trigger bound to startup/shutdown can work that panel on the squeeze instead
+        # of waiting for the release. Supplied by the router, which owns the panel lookup;
+        # ``None`` means every panel holds an engine, which is what the profile-only tests
         # and any non-landscape caller want.
-        self._switch_active = switch_active
+        self._fires_on_press = fires_on_press
         self._joysticks: dict[int, Any] = {}
         # The optional ``pygame._sdl2.controller`` module used to open devices as
         # game controllers (required for touchpad events); ``None`` when SDL's
@@ -918,11 +928,12 @@ class SteamDeckInputProvider:
                     if binding.action in TRIGGER_BUTTON_ACTIONS:
                         actions.extend(self._trigger_button_actions(event.axis, binding, float(event.value)))
                     elif binding.action in LONG_PRESS_ACTIONS:
-                        if self._switch_target(binding):
-                            # The panel is showing a track switch, so this trigger throws
-                            # it rather than starting or shutting down an engine: fire on
-                            # the squeeze, and leave the short-vs-held distinction (which
-                            # only exists to pick a startup/shutdown dialog) out of it.
+                        if self._target_fires_on_press(binding):
+                            # The panel is showing a track switch or a route, so this trigger
+                            # throws or fires it rather than starting or shutting down an
+                            # engine: act on the squeeze, and leave the short-vs-held
+                            # distinction (which only exists to pick a startup/shutdown
+                            # dialog) out of it.
                             actions.extend(self._trigger_button_actions(event.axis, binding, float(event.value)))
                         else:
                             actions.extend(self._trigger_long_press_actions(event.axis, binding, float(event.value)))
@@ -1047,16 +1058,16 @@ class SteamDeckInputProvider:
         name = delayed if held >= LONG_PRESS_SECONDS else immediate
         return [DeckAction(name, binding.target, 1.0, "pressed")]
 
-    def _switch_target(self, binding: AxisBinding) -> bool:
-        """Whether the panel this binding targets is showing a track switch.
+    def _target_fires_on_press(self, binding: AxisBinding) -> bool:
+        """Whether this binding's panel acts the moment the trigger is squeezed.
 
         Asked of the router rather than worked out here: the provider has no view of the
-        panels, and all it needs to know is that this squeeze throws a switch. That matters
-        because the two behave differently in time -- startup/shutdown reports on release so
-        it can tell a short press from a held one, while a switch throw should happen the
-        moment the trigger moves.
+        panels, and all it needs to know is that this squeeze acts now. That matters because
+        the two behave differently in time -- startup/shutdown reports on release so it can
+        tell a short press from a held one, while a switch throw or a route fire should
+        happen the moment the trigger moves.
         """
-        return bool(self._switch_active is not None and self._switch_active(binding.target))
+        return bool(self._fires_on_press is not None and self._fires_on_press(binding.target))
 
     def _normalize_touch_y(self, y: float) -> float:
         # A trackpad reports a finger position with ``y`` running 0.0 at the top
@@ -1329,6 +1340,9 @@ class DeckInputRouter:
         # thrown a switch. Keyed by action as well as target because a panel's two axes
         # throw in opposite directions and each latches on its own.
         self._switch_latches: set[tuple[Target, str]] = set()
+        # The same, for the panels showing a route. Kept apart from the switch latches so a
+        # panel that changes from one to the other cannot arrive holding the other's latch.
+        self._route_latches: set[tuple[Target, str]] = set()
         self._last_tick: float | None = None
 
     def handle(self, action: DeckAction) -> None:
@@ -1340,6 +1354,8 @@ class DeckInputRouter:
         if self._chooser_only(action):
             return
         if self._handle_switch(action):
+            return
+        if self._handle_route(action):
             return
         if action.name == "throttle":
             if action.value == 0.0:
@@ -1561,6 +1577,7 @@ class DeckInputRouter:
         self._sequences.clear()
         self._direction_latches.clear()
         self._switch_latches.clear()
+        self._route_latches.clear()
         self._last_tick = None
 
     def _handle_repeat_command(self, action: DeckAction) -> None:
@@ -1793,16 +1810,67 @@ class DeckInputRouter:
         self._switch_latches.add(latch)
         gui.on_switch_command(thru)
 
-    def switch_active(self, target: Target) -> bool:
-        """Whether the panel this target resolves to is showing a track switch.
+    def _handle_route(self, action: DeckAction) -> bool:
+        """True when the action was claimed to fire the panel's route.
 
-        Public because the input provider needs it as well: it has no view of the panels,
-        and a trigger bound to startup/shutdown has to decide on the squeeze whether it is
-        throwing a switch (fire now) or starting an engine (wait for the release, which is
-        what tells a short press from a held one).
+        _handle_switch's twin, and claimed on the same terms: a panel showing a route has no
+        engine in it either, so the controls that would drive one fire the route instead --
+        L2 and R2 both, and each stick its own panel's route. Everything else keeps the
+        meaning it has everywhere else.
+        """
+        if action.name not in ROUTE_FIRE_ACTIONS:
+            return False
+        gui = self._target_gui(action.target)
+        if gui is None or not getattr(gui, "route_active", False):
+            return False
+        if action.name in ROUTE_AXIS_ACTIONS:
+            # Drop any throttle this panel had pending, for the reason _handle_switch drops
+            # it: a value left from before the panel changed scope would otherwise start
+            # ramping whatever engine is put in the panel next.
+            self._throttles.pop(action.target, None)
+            self._commanded_speeds.pop(action.target, None)
+            self._fire_route_from_axis(gui, action)
+            return True
+        if action.phase == "pressed":
+            gui.on_route_command()
+        # A release is swallowed rather than ignored, as it is for a switch: passed on it
+        # would clear a throttle or a latch that the press it belongs to never set.
+        return True
+
+    def _fire_route_from_axis(self, gui, action: DeckAction) -> None:
+        # One fire per deflection, on the same threshold and latch as the switch throws: a
+        # stick held over fires once, and has to come back near center before it can fire
+        # again. Unlike a switch the sign matters -- a route has no un-fire, so rather than
+        # give the other two deflections a meaning they cannot have, only up and right act.
+        # The latch is taken either way, so the stick still has to re-center: coming back
+        # from a pull is a movement through the firing range, not a fire.
+        latch = (action.target, action.name)
+        release_threshold = self.profile.direction_threshold - self.profile.hysteresis
+        if abs(action.value) <= release_threshold:
+            self._route_latches.discard(latch)
+            return
+        if abs(action.value) < self.profile.direction_threshold or latch in self._route_latches:
+            return
+        self._route_latches.add(latch)
+        if action.value > 0:
+            gui.on_route_command()
+
+    def fires_on_press(self, target: Target) -> bool:
+        """Whether a trigger aimed at this target acts the moment it is squeezed.
+
+        Public because the input provider needs it: it has no view of the panels, and a
+        trigger bound to startup/shutdown has to decide on the squeeze whether it is working
+        the panel's switch or route (act now) or starting an engine (wait for the release,
+        which is what tells a short press from a held one).
+
+        True for both panel types the triggers are repurposed on, because the question is
+        about the timing rather than about which of them is on display: neither a throw nor
+        a fire has a held variant to wait for.
         """
         gui = self._target_gui(target)
-        return bool(gui is not None and getattr(gui, "switch_active", False))
+        if gui is None:
+            return False
+        return bool(getattr(gui, "switch_active", False) or getattr(gui, "route_active", False))
 
     def _target_gui(self, target: Target):
         if target == "left":

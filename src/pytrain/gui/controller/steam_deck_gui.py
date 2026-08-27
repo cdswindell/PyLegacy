@@ -419,11 +419,12 @@ class SteamDeckGui(GuiZeroBase):
             },
         )
         # The router resolves which panel a binding targets, so it is what answers whether
-        # that panel is showing a track switch -- the provider needs to know because a
-        # trigger throwing a switch fires on the squeeze rather than on the release.
+        # that panel is showing a track switch or a route -- the provider needs to know
+        # because a trigger working either of those acts on the squeeze rather than on the
+        # release.
         provider = SteamDeckInputProvider(
             self._controller_profile,
-            switch_active=self._input_router.switch_active,
+            fires_on_press=self._input_router.fires_on_press,
         )
         try:
             provider.start()

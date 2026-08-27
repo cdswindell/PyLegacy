@@ -244,7 +244,7 @@ def test_missing_pygame_keeps_touch_gui_available(monkeypatch: pytest.MonkeyPatc
     gui.right_gui = object()
     gui._app = SimpleNamespace(tk=SimpleNamespace(after=lambda *_args: pytest.fail("poll should not start")))
     monkeypatch.setattr(
-        mod, "DeckInputRouter", lambda *_args, **_kwargs: SimpleNamespace(switch_active=lambda _target: False)
+        mod, "DeckInputRouter", lambda *_args, **_kwargs: SimpleNamespace(fires_on_press=lambda _target: False)
     )
 
     class UnavailableProvider:
@@ -263,17 +263,17 @@ def test_missing_pygame_keeps_touch_gui_available(monkeypatch: pytest.MonkeyPatc
     assert gui._controller_poll_id is None
 
 
-def test_controller_input_tells_the_provider_which_panel_holds_a_switch(monkeypatch: pytest.MonkeyPatch) -> None:
-    # A trigger throwing a track switch fires on the squeeze rather than on the release, and
-    # only the router can say which panel a binding targets -- so it is the router's
-    # resolver the provider is handed.
-    router = SimpleNamespace(switch_active=lambda target: target == "left")
+def test_controller_input_tells_the_provider_which_panel_acts_on_the_squeeze(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A trigger throwing a track switch or firing a route acts on the squeeze rather than on
+    # the release, and only the router can say which panel a binding targets -- so it is the
+    # router's resolver the provider is handed.
+    router = SimpleNamespace(fires_on_press=lambda target: target == "left")
     monkeypatch.setattr(mod, "DeckInputRouter", lambda *_args, **_kwargs: router)
     captured: dict[str, object] = {}
 
     class Provider:
-        def __init__(self, _profile, *, switch_active=None) -> None:
-            captured["switch_active"] = switch_active
+        def __init__(self, _profile, *, fires_on_press=None) -> None:
+            captured["fires_on_press"] = fires_on_press
 
         @staticmethod
         def start() -> None:
@@ -289,8 +289,8 @@ def test_controller_input_tells_the_provider_which_panel_holds_a_switch(monkeypa
 
     gui._start_controller_input()
 
-    assert captured["switch_active"] is router.switch_active
-    assert captured["switch_active"]("left") is True
+    assert captured["fires_on_press"] is router.fires_on_press
+    assert captured["fires_on_press"]("left") is True
 
 
 def test_linked_car_transfer_uses_other_panel_and_confirms_occupied_target() -> None:

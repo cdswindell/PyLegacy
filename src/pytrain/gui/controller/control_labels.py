@@ -67,6 +67,12 @@ DECK_BUTTON_LABELS: dict[int, str] = {
 # Axis index -> label. Sticks name their axis of travel; the triggers are just L2/R2.
 ARROW_HORIZONTAL = "\u2194\ufe0e"  # left-right arrow
 ARROW_VERTICAL = "\u2195\ufe0e"  # up-down arrow
+# For the rows where only one way along an axis does anything, which the two-headed arrows
+# above would misreport as four live deflections. Carrying the same U+FE0E text-presentation
+# selector: without it the Deck's font stack renders the arrow as a colour emoji, at a size
+# that does not match the row it sits in.
+ARROW_UP = "\u2191\ufe0e"  # upwards arrow
+ARROW_RIGHT = "\u2192\ufe0e"  # rightwards arrow
 
 # The stick axes, by the index the profile's ``axes`` section uses. Named because the
 # context sections below have to name a particular stick rather than whatever the profile
@@ -153,15 +159,16 @@ ACTION_NOTES: dict[str, str] = {
 # Headings for the sections that describe one kind of panel: the bindings there apply only
 # while that panel is the focused one, which is what "(w focus)" says. Panel type first, the
 # qualifier trailing in the same words every focus-scoped section uses, so they read as a
-# family and sort together in the eye, and so the panel types still to come -- Routes, Aux --
-# need no new phrasing invented for them. "w" rather than "with" throughout: these headings
-# lead the narrow columns, and the spelt-out word wrapped them.
+# family and sort together in the eye, and so the panel types still to come -- Aux -- need no
+# new phrasing invented for them, as Routes did not. "w" rather than "with" throughout: these
+# headings lead the narrow columns, and the spelt-out word wrapped them.
 #
 # The popup section is the exception: what it describes is not one kind of panel but any of
 # them, which a "<type> (w focus)" heading cannot say.
 ADMIN_PANEL_TITLE = "Admin Panel (w focus)"
 CATALOG_PANEL_TITLE = "Catalog Panel (w focus)"
 SWITCH_PANEL_TITLE = "Switches (w focus)"
+ROUTE_PANEL_TITLE = "Routes (w focus)"
 POPUP_PANEL_TITLE = "While a panel is open"
 
 # The two sections whose bindings act on whichever pane has focus rather than on a pane of
@@ -275,6 +282,18 @@ def stick_label(vertical_axis: int) -> str:
     return f"{axis_label(vertical_axis)} / {ARROW_HORIZONTAL}"
 
 
+def stick_deflection_label(vertical_axis: int) -> str:
+    """One stick's two live deflections on a single row: "Left stick ↑ / →".
+
+    stick_label's twin for the rows where only one way along each axis does anything. The
+    side comes from DECK_AXIS_LABELS for the same reason it does there -- one vocabulary for
+    one stick -- but the arrow it carries is replaced rather than appended to, because the
+    two-headed one would promise four live deflections out of two.
+    """
+    side = axis_label(vertical_axis).replace(ARROW_VERTICAL, "").strip()
+    return f"{side} {ARROW_UP} / {ARROW_RIGHT}"
+
+
 def chord_label(buttons: frozenset[int]) -> str:
     """Render a chord's buttons modifier-first, e.g. "L1 + X"."""
 
@@ -367,6 +386,25 @@ FIXED_SWITCH_ENTRIES: tuple[ControlEntry, ...] = (
     ControlEntry(stick_label(RIGHT_STICK_VERTICAL), "Throw thru / out" + target_suffix("right")),
 )
 
+# The same story one panel type along: a panel showing a route has no engine in it either,
+# so DeckInputRouter (_handle_route) claims those same controls to fire the route.
+#
+# Laid out row for row as the switch section above is, and for its reason: the reader here is
+# asking what that very same stick does once a route is on display, so it is named the way
+# that section names it and carries the same LEFT/RIGHT pane suffix. One row saying "either
+# stick" and "own pane" fitted the column with a row to spare, but it made the reader work
+# out which pane fires from a sentence rather than read it off the row, and it named no stick
+# at all -- the objection that put the sides into the switch rows in the first place.
+#
+# What differs from a switch is the arrows and the single action. A route has no un-fire, so
+# both triggers do the one thing, and only a positive deflection fires -- hence "↑ / →" where
+# the switch rows carry "↕ / ↔", which here would promise four live deflections out of two.
+FIXED_ROUTE_ENTRIES: tuple[ControlEntry, ...] = (
+    ControlEntry("L2 / R2", "Fire route", ""),
+    ControlEntry(stick_deflection_label(LEFT_STICK_VERTICAL), "Fire route" + target_suffix("left")),
+    ControlEntry(stick_deflection_label(RIGHT_STICK_VERTICAL), "Fire route" + target_suffix("right")),
+)
+
 
 # Reading order within the Joysticks section: each pane's throttle before its direction,
 # left pane before right. Sorting by axis index gave direction first, which is not how
@@ -448,11 +486,20 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
     # Reading order, which is also column order: ControlsPanel flows these into columns in
     # sequence, so this tuple is where the layout is decided. The bundled profile lands as
     # three columns -- what works anywhere and the analog controls, then everything you
-    # press, then nothing but the per-panel sections. Keeping every panel section together
+    # press, then nothing but the sections about one kind of panel. Keeping those together
     # in the last column is the point: a reader asking "what does this do while a panel is
     # up" has one place to look, and the D-pad, which answers a different question, closes
     # the column before rather than sitting in the middle of that list. starts_column says
     # that in the layout instead of leaving it to how the rows happen to add up.
+    #
+    # The popup section is the one that closes the middle column instead, which is where the
+    # row the Routes sticks needed came from: those four panel sections and the admin note
+    # fill the last column to within a row of the budget ROWS_PER_COLUMN falls back to, and a
+    # row more put the catalog behind a page turn nobody would think to take. It is the
+    # section that could move, because it is the one that is not about a kind of panel at all
+    # -- it is X, closing whatever is on screen -- so it reads as well at the foot of the
+    # buttons as it did at the head of a list of panel types, and the catalog states its own
+    # way out on its own rows regardless.
     sections = (
         ControlSection(GLOBAL_CHORD_TITLE, tuple(global_buttons + global_chords)),
         ControlSection("Joysticks", tuple(sticks)),
@@ -460,9 +507,10 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         ControlSection(BUTTONS_TITLE, tuple(buttons)),
         ControlSection("Chords", tuple(chords)),
         ControlSection(DPAD_TITLE, FIXED_DPAD_ENTRIES, fixed=True),
+        ControlSection(POPUP_PANEL_TITLE, FIXED_POPUP_ENTRIES, fixed=True),
         ControlSection(SWITCH_PANEL_TITLE, FIXED_SWITCH_ENTRIES, fixed=True, starts_column=True),
+        ControlSection(ROUTE_PANEL_TITLE, FIXED_ROUTE_ENTRIES, fixed=True),
         ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords), note=ADMIN_PANEL_NOTE),
         ControlSection(CATALOG_PANEL_TITLE, FIXED_CATALOG_ENTRIES, fixed=True),
-        ControlSection(POPUP_PANEL_TITLE, FIXED_POPUP_ENTRIES, fixed=True),
     )
     return tuple(section for section in sections if section.entries)

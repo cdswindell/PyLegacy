@@ -31,6 +31,7 @@ from .engine_gui_conf import (
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
     EXTRA_FUNCTIONS,
+    FIRE_ROUTE_KEY,
     HALT_KEY,
     KEY_TO_COMMAND,
     REPEAT_EXCEPTIONS,
@@ -2015,6 +2016,30 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if not self.switch_active:
             return
         self.do_command(SWITCH_THRU_KEY if thru else SWITCH_OUT_KEY)
+
+    @property
+    def route_active(self) -> bool:
+        """Whether this panel is controlling a route.
+
+        The switch story one panel type along, and read by the Steam Deck input layer for
+        the same reason: a panel showing a route has no engine to drive, so the triggers
+        and sticks that would drive one fire the route instead. True on the same terms as
+        ``switch_active`` -- scope is Route and one has been selected, including while a
+        replacement id is being keyed in.
+        """
+        return self.scope == CommandScope.ROUTE and self.scope_tmcc_id(CommandScope.ROUTE) > 0
+
+    def on_route_command(self) -> None:
+        """Fire the selected route.
+
+        The controller's entry point for the fire key, and ``on_switch_command``'s twin: it
+        goes through ``do_command`` so a route fired from the gamepad is indistinguishable
+        from a press of the on-screen key. No argument, because a route has nothing to be
+        fired the other way.
+        """
+        if not self.route_active:
+            return
+        self.do_command(FIRE_ROUTE_KEY)
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:

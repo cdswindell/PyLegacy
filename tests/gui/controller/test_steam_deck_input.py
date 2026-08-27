@@ -3137,15 +3137,143 @@ def test_a_stick_keeps_driving_the_engine_in_the_other_panel() -> None:
     assert right.speed_calls, "the engine panel's stick still ramps its throttle"
 
 
-def test_switch_active_resolves_the_panel_a_target_names() -> None:
-    # What the provider asks before deciding whether a trigger fires on the squeeze.
-    left = _switch_gui()
-    right = _gui()
+def _route_gui(*, route_active: bool = True):
+    """A pane showing a route, recording the fires asked of it.
+
+    Keeps a ``throttle_state`` for the reason _switch_gui does: a pane that was driving an
+    engine before a route was picked in it still has one, so a stick pushed here would move
+    that engine if the route handling did not claim the action first.
+    """
+    gui = _gui(speed=20)
+    gui.route_active = route_active
+    gui.route_calls: list[bool] = []
+    gui.on_route_command = lambda: gui.route_calls.append(True)
+    return gui
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        # Both triggers fire, where for a switch L2 throws through and R2 out: a route has
+        # no un-fire for the second of them to mean. Both the name a trigger reports on the
+        # squeeze and the immediate/delayed pair a button would report are covered.
+        "shutdown",
+        SHUTDOWN_IMMEDIATE,
+        SHUTDOWN_DELAYED,
+        "startup",
+        STARTUP_IMMEDIATE,
+        STARTUP_DELAYED,
+    ],
+)
+def test_triggers_fire_the_route_rather_than_starting_an_engine(name) -> None:
+    focused = _route_gui()
+    router, _left, _right, _focused, _global = _router(_trigger_long_press_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.route_calls == [True]
+    assert focused.command_calls == [], "no engine command reached the panel"
+
+
+def test_triggers_still_start_and_stop_an_engine_in_a_panel_holding_no_route() -> None:
+    # The remap is scoped to a panel showing a route; everywhere else L2/R2 are unchanged.
+    focused = _route_gui(route_active=False)
+    router, _left, _right, _focused, _global = _router(_trigger_long_press_profile(), left=focused)
+
+    router.handle(DeckAction(SHUTDOWN_IMMEDIATE, "focused", 1.0, "pressed"))
+
+    assert focused.command_calls == ["SHUTDOWN_IMMEDIATE"]
+    assert focused.route_calls == []
+
+
+def test_a_stick_pushed_up_fires_the_route_once_per_deflection() -> None:
+    # The axis is inverted in the profile, so stick up arrives positive. Holding it up fires
+    # once: it stands in for a press of the on-screen key, not for holding that key down.
+    left = _route_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+
+    assert left.route_calls == [True], "held up, so a single fire"
+
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+
+    assert left.route_calls == [True, True], "re-armed at center"
+
+
+def test_a_stick_pushed_right_fires_the_route() -> None:
+    # Positive direction is the way _handle_direction reads as forward, which is the stick
+    # pushed right.
+    left = _route_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("direction", "left", 0.9, "changed"))
+
+    assert left.route_calls == [True]
+    assert left.command_calls == [], "no direction command reached the panel"
+
+
+@pytest.mark.parametrize("name", ["throttle", "direction"])
+def test_a_stick_pulled_the_other_way_fires_nothing_and_drives_nothing(name) -> None:
+    # Down and left are claimed but do nothing: a route has no un-fire to give them, and a
+    # pane showing one has no engine for them to ramp or reverse either. Unlike a switch,
+    # where sign is ignored and every deflection acts.
+    left = _route_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction(name, "left", -0.9, "changed"))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert left.route_calls == []
+    assert left.speed_calls == [], "the pulled-back stick did not ramp the engine it last held"
+    assert left.command_calls == []
+
+
+def test_a_stick_short_of_the_threshold_does_not_fire_the_route() -> None:
+    # Same threshold the switch throws use, so a resting thumb cannot fire a route.
+    left = _route_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 0.5, "changed"))
+
+    assert left.route_calls == []
+
+
+def test_each_stick_fires_the_route_in_its_own_panel() -> None:
+    # And a panel showing a route must not stop the other from being driven.
+    left = _route_gui()
+    right = _gui(speed=10)
     router, _left, _right, _focused, _global = _router(left=left, right=right)
 
-    assert router.switch_active("left") is True
-    assert router.switch_active("right") is False
-    assert router.switch_active("focused") is True, "the focused pane is the left one here"
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction("throttle", "right", 0.9, "changed"))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert left.route_calls == [True]
+    assert left.speed_calls == [], "the stick fired the route instead of moving an engine"
+    assert right.speed_calls, "the engine panel's stick still ramps its throttle"
+
+
+def test_fires_on_press_resolves_the_panel_a_target_names() -> None:
+    # What the provider asks before deciding whether a trigger acts on the squeeze. Both
+    # panel types answer yes: the question is about the timing, and neither a throw nor a
+    # fire has a held variant worth waiting for.
+    left = _switch_gui()
+    right = _gui()
+    router, _left, _right, focused, _global = _router(left=left, right=right)
+
+    assert router.fires_on_press("left") is True
+    assert router.fires_on_press("right") is False
+    assert router.fires_on_press("focused") is True, "the focused pane is the left one here"
+
+    focused.value = _route_gui()
+
+    assert router.fires_on_press("focused") is True
+    assert router.fires_on_press("global") is False, "a global action resolves no panel"
 
 
 def test_provider_trigger_throws_a_switch_on_the_squeeze() -> None:
@@ -3158,7 +3286,7 @@ def test_provider_trigger_throws_a_switch_on_the_squeeze() -> None:
         _trigger_long_press_profile(),
         pygame_module=pygame,
         clock=_clock(),
-        switch_active=lambda target: target == "focused",
+        fires_on_press=lambda target: target == "focused",
     )
 
     squeezed = provider.poll()
@@ -3181,7 +3309,7 @@ def test_provider_trigger_keeps_its_hold_behaviour_for_an_engine_panel() -> None
         _trigger_long_press_profile(),
         pygame_module=pygame,
         clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
-        switch_active=lambda target: False,
+        fires_on_press=lambda target: False,
     )
 
     actions = provider.poll()
