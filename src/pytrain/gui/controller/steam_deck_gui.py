@@ -68,6 +68,18 @@ LANDSCAPE_FONT_SCALE = 0.9
 LANDSCAPE_BUTTON_DIVISOR = 8.0
 COMPACT_SCALE = LANDSCAPE_FONT_SCALE
 CONTROLLER_POLL_MS = 20
+# How long after the panes are up to build the controls help screen, hidden, rather than
+# on the press that asks for it -- the same trick EngineGui plays on its operating
+# accessory overlays, for the same reason. The screen is forty-odd rows whose point size is
+# settled by measuring them at each size in turn (ControlsPanel._fit_text), then a widget
+# per row: 75ms on a desk machine and several times that on the Deck, which is long enough
+# to read as a stutter between the press and the screen.
+#
+# A quarter-second behind the accessory prewarm rather than alongside it. Tk runs these on
+# one queue, so whichever is scheduled first is in front of the other; this one is a single
+# indivisible build, where the accessory queue has a tick per accessory to give away, and
+# an accessory overlay is what a user reaches for while running trains.
+CONTROLS_PREWARM_MS = 1000
 
 PanelName = Literal["left", "right"]
 log = logging.getLogger(__name__)
@@ -113,6 +125,7 @@ class SteamDeckGui(GuiZeroBase):
         self._input_provider: SteamDeckInputProvider | None = None
         self._input_router: DeckInputRouter | None = None
         self._controller_poll_id = None
+        self._controls_prewarm_id = None
 
         self.body = None
         self.left_pane = self.right_pane = self.divider = None
@@ -167,6 +180,10 @@ class SteamDeckGui(GuiZeroBase):
         self._build_focus_arrow()
         self._refresh_focus_indicator()
         self._start_controller_input()
+        # Have the help screen ready before it is asked for -- see CONTROLS_PREWARM_MS.
+        # Scheduled here rather than built here so the panes reach the display first: the
+        # whole point is that this work happens where nobody is waiting on it.
+        self._controls_prewarm_id = self.app.tk.after(CONTROLS_PREWARM_MS, self._prewarm_controls_overlay)
 
     def _build_pane(self, side: PanelName, column: int) -> Box:
         pane = Box(
@@ -212,14 +229,45 @@ class SteamDeckGui(GuiZeroBase):
 
     def on_show_controls(self) -> None:
         """Show the controls help screen across both panes."""
-        if self._controls_overlay is None:
-            self._controls_overlay = self._build_controls_overlay()
-        self._controls_overlay.show()
+        self._ensure_controls_overlay().show()
         # show()/hide() run body.display_widgets(), which re-grids every child of body --
         # including the focus arrow, cancelling the place() that tucks it into the
         # divider. Without this it drops back into its full-height grid cell and floats
         # at mid-screen.
         self._position_focus_arrow()
+
+    def _ensure_controls_overlay(self) -> Box:
+        """The help screen, built if the prewarm has not built it already.
+
+        One place, two callers, so a press that beats the prewarm to it gets the same
+        screen the prewarm would have made rather than a second path to the same widgets.
+        """
+        if self._controls_overlay is None:
+            self._controls_overlay = self._build_controls_overlay()
+        return self._controls_overlay
+
+    def _prewarm_controls_overlay(self) -> None:
+        """Build the help screen ahead of the press that shows it.
+
+        Hidden, and that is what makes it free: the overlay is created ``visible=False``
+        and guizero grids only the children it considers visible, so nothing on screen
+        moves and no page is drawn until show() -- the measuring and the forty-odd row
+        widgets are simply paid for here instead of between the press and the screen.
+
+        Failure is logged and dropped rather than raised. A prewarm that throws leaves
+        ``_controls_overlay`` as None, which is precisely the state the first press already
+        knows how to handle, so the worst case is losing the head start; raising out of an
+        after() callback would instead break a screen that was working. The half-built
+        panel goes with it, so the press builds a whole one rather than adopting it.
+        """
+        self._controls_prewarm_id = None
+        if self.is_shutting_down or self.body is None or self._controls_overlay is not None:
+            return
+        try:
+            self._ensure_controls_overlay()
+        except Exception as exception:
+            log.exception("Unable to prewarm the controls help screen", exc_info=exception)
+            self._controls_panel = None
 
     def close_controls(self) -> bool:
         """Hide the controls help screen. Returns whether it was open."""
@@ -451,6 +499,15 @@ class SteamDeckGui(GuiZeroBase):
             log.exception("Steam Deck controller polling failed", exc_info=exc)
         self._controller_poll_id = self.app.tk.after(CONTROLLER_POLL_MS, self._poll_controller)
 
+    def _stop_controls_prewarm(self) -> None:
+        prewarm_id = getattr(self, "_controls_prewarm_id", None)
+        if prewarm_id is not None:
+            try:
+                self.app.tk.after_cancel(prewarm_id)
+            except (AttributeError, RuntimeError, TclError):
+                pass
+        self._controls_prewarm_id = None
+
     def _stop_controller_input(self) -> None:
         poll_id = getattr(self, "_controller_poll_id", None)
         if poll_id is not None:
@@ -469,6 +526,7 @@ class SteamDeckGui(GuiZeroBase):
         self._input_router = None
 
     def destroy_gui(self) -> None:
+        self._stop_controls_prewarm()
         self._stop_controller_input()
         for child_name in ("left_gui", "right_gui"):
             child = getattr(self, child_name, None)
@@ -480,6 +538,11 @@ class SteamDeckGui(GuiZeroBase):
         self.left_pane = self.right_pane = self.divider = None
         self.focus_arrow = None
         self.left_root = self.right_root = None
+        # Dropped with the other widgets they belong to: body owned the overlay, so these
+        # two are references to destroyed widgets from here on -- and controls_visible asks
+        # the overlay whether it is showing.
+        self._controls_overlay = None
+        self._controls_panel = None
         self.clear_cache()
 
     def calc_image_box_size(self) -> tuple[int, int]:

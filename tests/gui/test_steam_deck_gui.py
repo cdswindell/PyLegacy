@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from threading import Event
 from types import SimpleNamespace
 
 import pytest
@@ -11,6 +12,10 @@ class _Tk:
     def __init__(self) -> None:
         self.config: dict[str, object] = {}
         self.bindings: dict[str, object] = {}
+        # Delayed work, recorded rather than run: build_gui schedules the controls prewarm
+        # and never builds it itself, which is the whole point of the prewarm.
+        self.scheduled: list[tuple[int, object]] = []
+        self.cancelled: list[str] = []
 
     def configure(self, **kwargs) -> None:
         self.config.update(kwargs)
@@ -19,6 +24,13 @@ class _Tk:
 
     def bind(self, event, callback) -> None:
         self.bindings[event] = callback
+
+    def after(self, delay, callback) -> str:
+        self.scheduled.append((delay, callback))
+        return f"after-{len(self.scheduled)}"
+
+    def after_cancel(self, task_id) -> None:
+        self.cancelled.append(task_id)
 
     @staticmethod
     def place(**_kwargs) -> None:
@@ -103,6 +115,7 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     gui._left_options = {"tmcc_id": 12}
     gui._right_options = {"tmcc_id": 34}
     gui.left_gui = gui.right_gui = None
+    gui._controls_panel = gui._controls_overlay = None
 
     gui.build_gui()
 
@@ -124,6 +137,11 @@ def test_build_creates_two_independent_compact_controllers(monkeypatch: pytest.M
     assert not any(widget.value in {"Left", "Right", "Pair Panels", mod.HALT_KEY} for widget in widgets)
     assert gui.left_root is gui.left_pane
     assert gui.right_root is gui.right_pane
+    # The help screen is scheduled, not built: the panes have to reach the display first,
+    # and building forty-odd measured rows here is time spent with the user waiting on it.
+    assert gui._app.tk.scheduled == [(mod.CONTROLS_PREWARM_MS, gui._prewarm_controls_overlay)]
+    assert gui._controls_prewarm_id == "after-1"
+    assert gui._controls_overlay is None
 
 
 def test_focus_changes_without_altering_other_controller() -> None:
@@ -187,6 +205,10 @@ def test_destroy_gui_tears_down_both_children() -> None:
     right.destroy_embedded = lambda: setattr(right, "calls", right.calls + 1)
     gui.left_gui = left
     gui.right_gui = right
+    gui._app = SimpleNamespace(tk=_Tk())
+    gui._controls_prewarm_id = "prewarm-1"
+    gui._controls_overlay = _Widget()
+    gui._controls_panel = object()
     gui._elements = set()
     gui.clear_cache = lambda: None
 
@@ -196,6 +218,13 @@ def test_destroy_gui_tears_down_both_children() -> None:
     assert right.calls == 1
     assert gui.left_gui is None
     assert gui.right_gui is None
+    # A prewarm still on the clock would build a screen inside a body that has just been
+    # destroyed; and the overlay went down with the body, so holding a reference to it
+    # leaves controls_visible asking a destroyed widget whether it is showing.
+    assert gui._app.tk.cancelled == ["prewarm-1"]
+    assert gui._controls_prewarm_id is None
+    assert gui._controls_overlay is None
+    assert gui._controls_panel is None
 
 
 def test_controller_poll_routes_actions_on_tk_thread_and_reschedules(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -426,8 +455,11 @@ def _deck_with_body(monkeypatch: pytest.MonkeyPatch) -> tuple[mod.SteamDeckGui, 
     gui.width = 1280
     gui.height = 800
     gui.body = _ShowableWidget()
+    gui._app = SimpleNamespace(tk=_Tk())
     gui._controls_panel = None
     gui._controls_overlay = None
+    gui._controls_prewarm_id = None
+    gui._shutdown_flag = Event()
     gui._controller_profile = object()
     monkeypatch.setattr(type(gui), "version", property(lambda _self: "v2.9.3+"), raising=False)
     monkeypatch.setattr(type(gui), "s_20", property(lambda _self: 20), raising=False)
@@ -550,6 +582,89 @@ def test_controls_panel_is_not_an_overlay_panel() -> None:
     from src.pytrain.gui.controller.overlay_panel import OverlayPanel
 
     assert not issubclass(mod.ControlsPanel, OverlayPanel)
+
+
+def test_the_help_screen_is_prewarmed_hidden_and_the_press_reuses_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The same trick EngineGui plays on its operating accessory overlays: build the screen
+    # while nobody is waiting on it, so the press only has to show it. Hidden is what makes
+    # it free -- guizero grids only the children it considers visible, so an overlay built
+    # visible=False changes nothing on the display until show().
+    gui, made = _deck_with_body(monkeypatch)
+
+    gui._prewarm_controls_overlay()
+
+    assert gui._controls_overlay is not None
+    assert made[0].kwargs["visible"] is False
+    assert gui.controls_visible is False
+    assert positioned == [], "a prewarm must not re-lay out the screen"
+    assert budgeted, "the columns are laid out now, not on the press"
+    built = len(made)
+
+    gui.on_show_controls()
+
+    assert len(made) == built, "the press must show what the prewarm built, not build again"
+    assert gui.controls_visible is True
+
+
+def test_a_press_before_the_prewarm_runs_still_builds_one_screen(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The prewarm is a head start, not a precondition: press Show Controls inside the second
+    # it waits and the press builds the screen itself, after which the prewarm has nothing
+    # left to do.
+    gui, made = _deck_with_body(monkeypatch)
+
+    gui.on_show_controls()
+    built = len(made)
+    gui._prewarm_controls_overlay()
+
+    assert len(made) == built
+    assert gui.controls_visible is True, "the prewarm must not disturb a screen already up"
+
+
+def test_a_prewarm_during_shutdown_builds_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    # after() callbacks outlive the decision to quit, and the body these widgets would be
+    # parented to is on its way out.
+    gui, made = _deck_with_body(monkeypatch)
+    gui._shutdown_flag.set()
+
+    gui._prewarm_controls_overlay()
+
+    assert made == []
+    assert gui._controls_overlay is None
+
+    # Same for a body already gone: destroy_gui drops it before the last callbacks drain.
+    gui._shutdown_flag.clear()
+    gui.body = None
+    gui._prewarm_controls_overlay()
+
+    assert made == []
+    assert gui._controls_overlay is None
+
+
+def test_a_prewarm_that_fails_leaves_the_screen_to_the_press(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The head start is worth having and worth nothing at the price of a working screen: a
+    # prewarm that throws must land back on the state the first press already handles,
+    # rather than raise out of an after() callback or hand the press a half-built panel.
+    gui, made = _deck_with_body(monkeypatch)
+    fails = [True]
+
+    def build(_self, _body, height_px=0, width_px=0) -> None:
+        if fails[0]:
+            fails[0] = False
+            raise RuntimeError("no font to measure")
+        budgeted.append({"height_px": height_px, "width_px": width_px})
+
+    monkeypatch.setattr(mod.ControlsPanel, "build", build)
+
+    gui._prewarm_controls_overlay()
+
+    assert gui._controls_overlay is None
+    assert gui._controls_panel is None
+
+    gui.on_show_controls()
+
+    assert gui.controls_visible is True
+    assert budgeted, "the press builds a whole screen, not the one the prewarm abandoned"
+    assert len(made) > 0
 
 
 def test_showing_and_hiding_re_tucks_the_focus_arrow(monkeypatch: pytest.MonkeyPatch) -> None:

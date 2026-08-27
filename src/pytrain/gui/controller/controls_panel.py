@@ -91,7 +91,7 @@ MIN_ENTRY_SIZE = 16
 # with a budget divided out of the width the display actually has. As the only answer it
 # let every column ask for whatever its longest line wanted, and on the Deck the three
 # together asked for more than the 1280px it has.
-ACTION_WRAP_PX = 320
+ACTION_WRAP_PX = 380
 # What the middle column gives up, as a fraction of an even share of the page. The
 # columns used to be sized by their content, and the middle one -- the engine commands,
 # which carry the longest action strings on the screen -- took the most: the three
@@ -274,7 +274,7 @@ def keycap_text(entry: ControlEntry) -> str:
     """The input column as drawn: the input, spaced out into a keycap.
 
     A function rather than an f-string at the point of drawing, because the width budget
-    has to measure the same string the renderer will draw -- a keycap measured a space
+    has to measure the same string the renderer will draw. A keycap measured a space
     narrower than it is drawn is a column that overflows by a space.
     """
     return f" {entry.input} "
@@ -355,7 +355,7 @@ class ControlsPanel:
         Even shares, less a trim off the middle column which is split between the two
         beside it. The total never exceeds ``width_px`` -- which is the point of dividing
         the width up rather than letting each column ask for what its longest line wants.
-        ``width_px`` of 0 means the caller does not know, and returns no budget at all.
+        ``width_px`` of 0 means the caller does not know and returns no budget at all.
         """
         if width_px <= 0:
             return ()
@@ -744,7 +744,7 @@ class ControlsPanel:
         self._fill_columns(holders)
 
     def _match_outer_columns(self, box: Box) -> None:
-        """Make the first and last column the same width, and no column wider than it needs.
+        """Make the first and last column the same width and no column wider than it needs.
 
         The width budget is a limit, not an allowance: it decides where the text wraps, and
         so keeps the page inside the display, but a column that then uses less than its
@@ -765,7 +765,7 @@ class ControlsPanel:
         two by the difference between them, which has to come out of the room the columns
         left over; charged to a page that has none, it pushes the far side of the last
         column and the Close button off the display -- the whole failure the width budget
-        exists to prevent. Tidiness is not worth that, so an unaffordable pin is skipped
+        exists to prevent. Tidiness is not worth that, so an unaffordable pin is skipped,
         and the columns keep their own widths.
         """
         try:
@@ -782,7 +782,8 @@ class ControlsPanel:
         except (AttributeError, IndexError, TclError) as exception:
             log.debug("Column widths unavailable (%s); leaving each column its own", exception)
 
-    def _fill_columns(self, holders: list[Box]) -> None:
+    @staticmethod
+    def _fill_columns(holders: list[Box]) -> None:
         """Have each column spend the whole width of the cell it was given.
 
         align="top" grids a column sticky="N", which centres it in a cell wider than its
@@ -790,7 +791,7 @@ class ControlsPanel:
         own width in the middle of the difference, half of it showing as blank before the
         next column. "new" hands that width to the sections instead, which are packed to
         fill, so the two outer columns really are one width and each column's frames end
-        where its neighbour's begin.
+        where its neighbor's begin.
 
         The section headings and their rows stay left, so a column with room to spare shows
         it as space inside its frames rather than as a gap between them.
@@ -822,7 +823,7 @@ class ControlsPanel:
     def _render_note(self, parent: TitleBox, text: str, row: int, column_px: int = 0) -> None:
         """Draw a section's note under its rows, across the width of the section.
 
-        Footnote-sized and grey, like the "*" line under the columns: it says something
+        Footnote-sized and gray, like the "*" line under the columns: it says something
         about the rows above it rather than being one of them, so an eye scanning keycaps
         should pass over it. Spanned across both of the section's columns because it belongs
         to the section and not to any one input -- there is no keycap to draw beside it.
