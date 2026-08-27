@@ -80,7 +80,7 @@ FOOTNOTE_SIZE = 12
 # Deck than on a desk machine, which is the difference between a screen of single lines and
 # three broken rows. Three points is as far as it goes; below that the screen is being read
 # at arm's length and something else has to give.
-MIN_ENTRY_SIZE = 16
+MIN_ENTRY_SIZE = 14
 
 # Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
 # this is what actually decides where a line breaks. 320 clears the longest current
@@ -91,7 +91,7 @@ MIN_ENTRY_SIZE = 16
 # with a budget divided out of the width the display actually has. As the only answer it
 # let every column ask for whatever its longest line wanted, and on the Deck the three
 # together asked for more than the 1280px it has.
-ACTION_WRAP_PX = 380
+ACTION_WRAP_PX = 320
 # What the middle column gives up, as a fraction of an even share of the page. The
 # columns used to be sized by their content, and the middle one -- the engine commands,
 # which carry the longest action strings on the screen -- took the most: the three
