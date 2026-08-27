@@ -21,8 +21,14 @@ Run it from the repo:
     ../bin/python scripts/controlspreview.py
 
 Close closes it. Up/Down page, standing in for the D-pad, should a profile ever grow past
-one page. The lines it prints -- band, body height, rows per column, page count, and the
-width budget each column was given -- are the arithmetic the columns were laid out to.
+one page. The lines it prints -- band, body height, entry size, rows per column, page
+count, and the width budget each column was given -- are the arithmetic the columns were
+laid out to.
+
+The entry size is worth a look, and is the reason this is worth running on the machine
+that will show the screen: the panel gives a point back rather than let a row wrap, so a
+size under ControlsPanel's ENTRY_SIZE is this display's font asking for one. The line
+after the budgets says whether that was enough.
 """
 
 import os
@@ -113,7 +119,8 @@ def main() -> None:
     panel = ControlsPanel(PreviewHost(), ControlProfile.load(None))
     panel.build(body, height_px=height_px, width_px=width_px)
     print(
-        f"band={band}px body={height_px}px rows_per_column={panel.rows_per_column} pages={panel.page_count}",
+        f"band={band}px body={height_px}px entry={panel.entry_size}pt "
+        f"rows_per_column={panel.rows_per_column} pages={panel.page_count}",
         flush=True,
     )
     # The width budget each column was given, against the room there is: the arithmetic
@@ -121,6 +128,11 @@ def main() -> None:
     # at is its content, up to this -- the window is where to see that.
     shares = " + ".join(str(width) for width in panel.column_px)
     print(f"  budgets {shares} = {sum(panel.column_px)}px of {width_px}px", flush=True)
+    # And the question the budgets are there to answer: every row on one line, or not. Not
+    # a promise the code can make on a display it has not measured, which is what running
+    # this on that display is for.
+    fits = panel.rows_fit_their_columns()
+    print(f"  every row on one line: {'yes' if fits else 'no'}", flush=True)
     # The columns the packer produced, so a section that was meant to move can be checked
     # against the row budget that produced it without reading the window.
     for page, columns in enumerate(panel.paginate()):

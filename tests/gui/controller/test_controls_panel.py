@@ -393,6 +393,43 @@ def test_the_action_text_is_configured_to_wrap(monkeypatch) -> None:
     assert not any("wraplength" in cfg for cfg in keycap.tk.configs)
 
 
+def test_the_action_text_is_drawn_a_weight_lighter_than_its_keycap(monkeypatch) -> None:
+    # Said rather than left alone, as the section note also has to say it: the row's
+    # TitleBox bolds everything drawn inside it, so an action left to inherit came out
+    # exactly as emphatic as the keycap beside it. That cost the keycap the one job its
+    # bold is there for -- being found without reading the row -- and cost the row some 7%
+    # of its width against a budget measured in the lighter weight, which is what broke
+    # four lines on the Deck.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_w: None)
+
+    panel._render_entry(object(), ControlEntry("Up / Down", "Boost / brake speed", "repeats"), 0)
+
+    keycap, action = _FakeText.instances
+    assert keycap.text_bold is True
+    assert action.text_bold is False
+
+
+def test_the_rows_are_drawn_at_the_size_that_was_fitted(monkeypatch) -> None:
+    # _fit_text gives back a point when a row will not fit its column, so the renderer has
+    # to ask what size it settled on rather than reading the constant: drawing at 15pt what
+    # was measured at 13 wraps exactly the rows the point was given back to save.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_w: None)
+    panel._entry_size = mod.MIN_ENTRY_SIZE
+
+    panel._render_entry(object(), ControlEntry("A", "Ring bell"), 0)
+
+    keycap, action = _FakeText.instances
+    assert keycap.kwargs["size"] == action.kwargs["size"] == mod.MIN_ENTRY_SIZE
+    # And a panel that has not been built draws at the size as written.
+    assert _panel(None)._entry_size == mod.ENTRY_SIZE
+
+
 def test_the_wrap_predictor_agrees_with_the_pixel_budget() -> None:
     # The bug this guards: WRAP_CHARS and ACTION_WRAP_PX were written down separately and
     # drifted, so a 29-character line was budgeted one row while Tk wrapped it onto two.
@@ -479,12 +516,17 @@ def test_the_budget_never_promises_more_rows_than_the_display_holds() -> None:
     assert tallest * row_px + mod.FOOTER_LINES * footnote_px <= room
 
 
+def _fixed_ruler(*_args, **_kwargs) -> mod.TextRuler:
+    """A measuring ruler whatever size it is asked for -- see _fit_text."""
+    return mod.TextRuler(len, 30, 15, len)
+
+
 def test_build_derives_the_budget_from_the_room_it_is_given(monkeypatch) -> None:
     # build() is where the two halves meet: the caller says how much room is left once its
     # own chrome is accounted for, and the panel divides it into rows it can measure.
     monkeypatch.setattr(mod, "Box", _FakeText)
     monkeypatch.setattr(mod, "Text", _FakeText)
-    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(lambda _cls, _widget: mod.TextRuler(len, 30, 15)))
+    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(_fixed_ruler))
     panel = _panel(ControlProfile.load(None))
     panel._gui = SimpleNamespace(cache=lambda *_widgets: None)
     panel._render_page = lambda: None
@@ -492,6 +534,64 @@ def test_build_derives_the_budget_from_the_room_it_is_given(monkeypatch) -> None
     panel.build(_FakeText(None), height_px=600)
 
     assert panel.rows_per_column == (600 - 2 * 15) // 30
+
+
+def test_the_entry_size_comes_down_only_until_the_rows_fit(monkeypatch) -> None:
+    # A point of text size is a legibility decision -- these rows were 10pt once, which
+    # read on a desk and not at arm's length -- so it is given back one at a time and only
+    # to save a row. And it has to be measured rather than written down: the same 15pt rows
+    # draw some 6-12% wider on the Deck than on a desk machine, which is the difference
+    # between a screen of single lines and three broken ones.
+    tried: list[int] = []
+    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(_fixed_ruler))
+
+    def fits(self) -> bool:
+        tried.append(self._entry_size)
+        return self._entry_size == mod.ENTRY_SIZE - 1
+
+    monkeypatch.setattr(ControlsPanel, "rows_fit_their_columns", fits)
+    panel = _panel(ControlProfile.load(None))
+
+    panel._fit_text(object(), 600, 1274)
+
+    assert tried == [mod.ENTRY_SIZE, mod.ENTRY_SIZE - 1]
+    assert panel.entry_size == mod.ENTRY_SIZE - 1
+    # And what it settled on is measured at that size, not left as the first pass had it.
+    assert panel.rows_per_column == (600 - 2 * 15) // 30
+    assert panel.column_px
+
+
+def test_the_entry_size_is_never_given_back_past_the_floor(monkeypatch) -> None:
+    # A display too small for these rows at any legible size gets the smallest one and the
+    # wrapping, which the packer has counted rows for. Shrinking on past it would answer a
+    # help screen nobody can read to a screen with a broken line in it.
+    tried: list[int] = []
+    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(_fixed_ruler))
+
+    def never(self) -> bool:
+        tried.append(self._entry_size)
+        return False
+
+    monkeypatch.setattr(ControlsPanel, "rows_fit_their_columns", never)
+    panel = _panel(ControlProfile.load(None))
+
+    panel._fit_text(object(), 600, 1274)
+
+    assert tried == list(range(mod.ENTRY_SIZE, mod.MIN_ENTRY_SIZE - 1, -1))
+    assert panel.entry_size == mod.MIN_ENTRY_SIZE
+
+
+def test_an_unmeasurable_screen_draws_at_the_size_as_written() -> None:
+    # Measuring is an improvement on the constants, never a requirement for drawing: with
+    # no font to measure, the first size stands, as the calibrated row budget and the even
+    # split do.
+    panel = _panel(ControlProfile.load(None))
+
+    panel._fit_text(object(), 600, 1274)
+
+    assert panel.entry_size == mod.ENTRY_SIZE
+    assert panel.rows_per_column == ROWS_PER_COLUMN
+    assert panel.column_px == ControlsPanel.column_widths(1274)
 
 
 def test_no_bundled_entry_is_predicted_to_wrap() -> None:
@@ -508,6 +608,10 @@ def test_the_middle_column_hands_its_width_to_the_two_beside_it() -> None:
     # commands, whose actions are the longest strings on the screen, so left to its content
     # it took the most room on a screen that had none to spare. It gives up a share of an
     # even third, and the two columns beside it get half of that each.
+    #
+    # This is the fallback now -- what a screen with nothing to measure with draws to. A
+    # screen that can measure divides the width by what its rows need instead; see
+    # test_the_columns_are_cut_to_what_their_rows_need.
     widths = ControlsPanel.column_widths(1274)
 
     even = 1274 // COLUMNS
@@ -525,6 +629,69 @@ def test_the_columns_never_add_up_past_the_room_they_were_given(width) -> None:
     assert sum(ControlsPanel.column_widths(width)) <= width
 
 
+@pytest.mark.parametrize("width", [640, 1024, 1274, 1280, 1920])
+@pytest.mark.parametrize("needs", [(100, 400, 400), (400, 400, 400), (900, 100, 100), (0, 0, 0)])
+def test_the_measured_columns_never_add_up_past_the_room_either(width, needs) -> None:
+    # The same invariant, and it has to hold of what the columns *asked* for as much as of
+    # an even split: the room is the display's, and a page wider than it is cut.
+    assert sum(ControlsPanel._shared_widths(width, needs)) <= width
+
+
+def test_the_columns_are_cut_to_what_their_rows_need() -> None:
+    # The bug in one line: a flat trim took a fixed 15% off the middle column -- the one
+    # holding "Boost / brake speed (repeats)", the longest string on the screen -- and gave
+    # it to the column with the shortest rows, which wrapped rows while ~130px of the
+    # Deck's display went unspent.
+    panel = _panel(ControlProfile.load(None))
+    panel._ruler = mod.TextRuler(
+        measure=lambda text: 8 * len(text),
+        row_px=30,
+        footnote_px=15,
+        keycap_measure=lambda text: 9 * len(text),
+    )
+
+    panel._column_px = panel._fitted_column_widths(1274)
+    needs = panel._column_needs()
+
+    assert sum(panel.column_px) <= 1274
+    assert all(width >= need for width, need in zip(panel.column_px, needs)), (panel.column_px, needs)
+    # The widest column is the one with the widest rows, which a fixed trim could not say:
+    # it narrowed the middle column whichever column the longest row was in.
+    assert panel.column_px.index(max(panel.column_px)) == needs.index(max(needs))
+    # And nothing is held back for a column that had no use for it: the page is spent.
+    assert 1274 - sum(panel.column_px) < COLUMNS
+
+
+def test_a_column_that_fits_an_even_share_is_not_trimmed_for_one_that_cannot() -> None:
+    # Fair shares, but only among the columns that will not fit whatever they are given: a
+    # column whose rows fit an even share keeps them on one line rather than paying for a
+    # column that is going to wrap anyway. Trimming it would buy the page nothing and cost
+    # it a row.
+    widths = ControlsPanel._shared_widths(600, (100, 400, 400))
+
+    assert widths[0] == 100
+    assert widths[1] == widths[2] == 250
+
+
+def test_the_slack_is_handed_to_the_columns_rather_than_held_back() -> None:
+    # An unspent budget is not drawn as a gap -- the columns size themselves to their
+    # content -- so holding it back buys nothing, while spending it covers ENTRY_CHROME_PX
+    # guessing a pixel low.
+    widths = ControlsPanel._shared_widths(1000, (300, 300, 300))
+
+    assert widths == (333,) * COLUMNS
+
+
+def test_nothing_to_measure_with_leaves_the_even_split() -> None:
+    # Measuring is an improvement on the fixed trim, never a requirement for drawing: a
+    # headless run, or a stand-in widget, still has to lay the page out.
+    panel = _panel(ControlProfile.load(None))
+
+    assert panel._ruler.exact is False
+    assert panel._fitted_column_widths(1274) == ControlsPanel.column_widths(1274)
+    assert panel._fitted_column_widths(0) == ()
+
+
 def test_no_width_known_leaves_every_column_sizing_to_its_content() -> None:
     # A headless run, or a caller that does not know how much room it has: the screen still
     # has to lay itself out, so a width budget is an improvement on the fallback, never a
@@ -536,6 +703,26 @@ def test_no_width_known_leaves_every_column_sizing_to_its_content() -> None:
     assert panel.column_px == ()
     assert panel.action_wrap_px(section) == mod.ACTION_WRAP_PX
     assert panel._column_wrap_px(section, 1) == mod.ACTION_WRAP_PX
+
+
+def test_a_keycap_is_measured_in_the_weight_it_is_drawn_in() -> None:
+    # The bug this exists for, and it is the one that wrapped four rows on the Deck against
+    # a screen whose own tests said nothing wrapped: _render_entry draws a keycap bold, and
+    # bold is some 7% wider. Measured light, the keycap is charged less of the column than
+    # it takes, the action beside it is handed a budget the row does not have -- and Tk
+    # breaks a line the packer counted as one.
+    panel = _panel(ControlProfile.load(None))
+    panel._ruler = mod.TextRuler(measure=len, row_px=30, footnote_px=15, keycap_measure=lambda text: 2 * len(text))
+    section = _sections(panel)[BUTTONS_TITLE]
+
+    keycap = max(2 * len(mod.keycap_text(entry)) for entry in section.entries)
+    action = max(len(mod.entry_text(entry)) for entry in section.entries)
+
+    assert panel.action_wrap_px(section, 400) == 400 - keycap - mod.ENTRY_CHROME_PX
+    assert panel.section_px(section) == keycap + action + mod.ENTRY_CHROME_PX
+    # The estimate draws no such distinction and does not need to: a character count at the
+    # high end of what a character measures is already generous enough for the bold.
+    assert mod.ESTIMATED_RULER.keycap_width("Right stick") == mod.ESTIMATED_RULER.width("Right stick")
 
 
 def test_a_section_wraps_within_what_its_keycaps_leave_of_the_column() -> None:
@@ -598,6 +785,37 @@ def test_only_the_outer_columns_are_pinned_and_only_to_each_other(monkeypatch) -
     # line up with its neighbour. Pinned, a column has to spend what it was pinned to.
     stretched = [widget for widget in _FakeText.instances if {"sticky": "new"} in widget.tk.grids]
     assert len(stretched) == COLUMNS
+
+
+def test_the_outer_columns_are_not_matched_past_the_display(monkeypatch) -> None:
+    # Pinning widens the narrower of the two outer columns by the difference between them,
+    # and that has to come out of the room the columns left over. Charged to a page with
+    # none, it pushes the far side of the last column -- and the Close button in the title
+    # band, which is the only way off this screen -- past the edge of the display. Tidiness
+    # is not worth that.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Box", _FakeText)
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    monkeypatch.setattr(mod, "TitleBox", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_widgets: None, s_12=12)
+    panel._pages = panel.paginate()
+    panel._page_box = _FakeText(None)
+    panel._page_box.children = []
+    drawn = (300, 340, 380)
+    panel._page_box.tk.holders = [SimpleNamespace(winfo_reqwidth=lambda width=width: width) for width in drawn]
+    # Pinning the outer pair to 380 costs the page another 80px, and it has 20.
+    panel._width_px = sum(drawn) + 20
+
+    panel._render_page()
+
+    assert panel._page_box.tk.columns == []
+    # With room for it, the same page is matched: what is being tested is the affording,
+    # not the matching.
+    panel._page_box.tk.columns = []
+    panel._width_px = sum(drawn) + 80
+    panel._render_page()
+    assert panel._page_box.tk.columns == [(0, {"minsize": 380}), (COLUMNS - 1, {"minsize": 380})]
 
 
 def test_the_columns_are_filled_after_everything_else_is_on_the_page(monkeypatch) -> None:

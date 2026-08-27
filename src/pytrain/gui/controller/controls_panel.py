@@ -53,15 +53,32 @@ MIN_ROWS_PER_COLUMN = 4
 
 # Text sizes. The Deck GUI is built with scale_by=1.0, so these are points as written.
 # Entries were s_10, which was legible on a desk and not at arm's length on a handheld.
+#
+# ENTRY_SIZE came down from 16 for the last of the wrapping: on the Deck's font -- some
+# 6-12% wider than a desk machine's at the same point size -- the three columns wanted
+# about 1345px of the 1274 there are, so "Boost / brake speed  (repeats)" and the two
+# "Throw thru / out LEFT/RIGHT" rows broke onto a second line whatever the width was
+# divided into. A point buys about 6%, which covers it on the measurements that could be
+# taken here -- and where it does not, _fit_text takes another rather than leaving a row
+# broken. The alternative was cutting words out of those three rows, and the wording is
+# worth more than the point.
 TITLE_SIZE = 24
 SECTION_SIZE = 14
-ENTRY_SIZE = 16
+ENTRY_SIZE = 15
 FOOTNOTE_SIZE = 12
+# How far the entry text may shrink when a display still cannot hold its rows at
+# ENTRY_SIZE, a point at a time -- see _fit_text. A floor rather than one fixed size
+# because the font a display draws in is not knowable from here: the same 15pt rows
+# measure 6-12% wider on the Deck than on a desk machine, which is the difference between
+# a screen of single lines and three broken rows. Two points is as far as it goes; below
+# that the screen is being read at arm's length and something else has to give.
+MIN_ENTRY_SIZE = 13
 
 # Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
 # this is what actually decides where a line breaks. 320 clears the longest current
-# string ("Boost / brake speed  (repeats)", measured at 276px) with room for a wider font
-# than the one this was measured on.
+# string ("Boost / brake speed  (repeats)", measured at 276px at the 16pt these rows were
+# drawn at then, and less since) with room for a wider font than the one this was measured
+# on.
 #
 # This is the fallback, for the same reason ROWS_PER_COLUMN is one: build() replaces it
 # with a budget divided out of the width the display actually has. As the only answer it
@@ -77,6 +94,13 @@ ACTION_WRAP_PX = 320
 # handed out here instead, so the total is the display's by construction. The middle
 # column is the one trimmed because its rows are the ones that can afford to wrap, and
 # what it gives up is split evenly between the two beside it.
+#
+# This is the fallback, for the same reason ROWS_PER_COLUMN and ACTION_WRAP_PX are:
+# build() re-cuts the shares to what each column's own rows measure (_shared_widths). As
+# the only answer a flat trim was the wrong shape for columns that are not alike -- it
+# took 15% off the column holding "Boost / brake speed (repeats)", the longest string on
+# the screen, and gave it to the column with the shortest rows, which wrapped rows while
+# ~130px of the Deck's display went unspent.
 CENTER_COLUMN_TRIM = 0.15
 # A floor for a derived action budget, for the same reason MIN_ROWS_PER_COLUMN is one: a
 # column too narrow for its keycaps should cost the page its width budget, not wrap every
@@ -90,7 +114,8 @@ ENTRY_CHROME_PX = 48
 # Rendered width of one character at ENTRY_SIZE, for predicting wraps. Measured across
 # the real strings at 9.2-10.5 px/char; the high end is deliberate, because
 # under-estimating means budgeting one row for a line Tk will wrap onto two -- which
-# overflows the column. Over-estimating only leaves slack.
+# overflows the column. Over-estimating only leaves slack -- and it now leaves a little
+# more of it, ENTRY_SIZE having come down a point since this was measured.
 APPROX_CHAR_PX = 10.0
 # Characters that fit in the budget. Derived, not written down separately: as independent
 # constants they drifted apart, and a predictor that said "fits" while Tk wrapped anyway
@@ -142,25 +167,37 @@ class TextRuler:
         measure: Callable[[str], int] | None = None,
         row_px: int = 0,
         footnote_px: int = 0,
+        keycap_measure: Callable[[str], int] | None = None,
     ) -> None:
         self._measure = measure
         self._row_px = row_px
         self._footnote_px = footnote_px
+        self._keycap_measure = keycap_measure
 
     @classmethod
-    def measured(cls, widget) -> "TextRuler":
-        """A ruler backed by Tk's own metrics, or an estimating one if Tk cannot be asked."""
+    def measured(cls, widget, entry_size: int = ENTRY_SIZE) -> "TextRuler":
+        """A ruler backed by Tk's own metrics, or an estimating one if Tk cannot be asked.
+
+        ``entry_size`` is the point size the rows are to be drawn at, which _fit_text
+        varies: a ruler is only worth having if it measures the size it is asked about.
+        """
         try:
             root = getattr(widget, "tk", widget)
             family = tkfont.nametofont(DEFAULT_FONT_NAME, root=root).actual("family")
-            entry = tkfont.Font(root=root, family=family, size=ENTRY_SIZE)
+            entry = tkfont.Font(root=root, family=family, size=entry_size)
+            # Keycaps are drawn bold, and bold is about 7% wider in this family -- 11px on
+            # " Right stick \u2195 / \u2194 ". Measured in the weight it is drawn in because
+            # the keycap's width is what the action text beside it does not get: measuring
+            # it light hands the action a budget the row does not have, and Tk then wraps a
+            # line the packer counted as one.
+            keycap = tkfont.Font(root=root, family=family, size=entry_size, weight="bold")
             heading = tkfont.Font(root=root, family=family, size=SECTION_SIZE, weight="bold")
             footnote = tkfont.Font(root=root, family=family, size=FOOTNOTE_SIZE)
             # One height for both kinds of row, and the taller of the two: the row model
             # charges a heading a single row, so charging it the shorter height would let a
             # column of headings run off the bottom of the display.
             row_px = max(entry.metrics("linespace"), heading.metrics("linespace") + TITLE_BOX_BORDER_PX)
-            return cls(entry.measure, row_px + ROW_PADDING_PX, footnote.metrics("linespace"))
+            return cls(entry.measure, row_px + ROW_PADDING_PX, footnote.metrics("linespace"), keycap.measure)
         except MEASURE_EXCEPTIONS as exception:
             log.debug("Controls screen cannot measure its font (%s); estimating instead", exception)
             return cls()
@@ -180,6 +217,16 @@ class TextRuler:
         if self._measure is None:
             return int(len(text) * APPROX_CHAR_PX)
         return self._measure(text)
+
+    def keycap_width(self, text: str) -> int:
+        """Rendered width of a keycap, which is drawn a weight heavier than the rest.
+
+        The estimate cannot tell the two apart -- one character count, one pixel figure --
+        and does not need to: it is deliberately generous, so it already covers the bold.
+        """
+        if self._keycap_measure is None:
+            return self.width(text)
+        return self._keycap_measure(text)
 
     def rows_in(self, height_px: int) -> int:
         """Help rows that fit in ``height_px``, or the calibrated fallback if unmeasured."""
@@ -240,6 +287,13 @@ class ControlsPanel:
     # so a panel built without __init__ -- which is how the pagination tests reach
     # paginate() -- still reads a budget rather than an AttributeError.
     _column_px: tuple[int, ...] = ()
+    # The room the whole page was given, kept for the one decision taken after the columns
+    # are drawn rather than before: whether the outer pair can afford to be pinned to each
+    # other. 0 means the caller did not say, and nothing is capped.
+    _width_px: int = 0
+    # The point size the rows are drawn at, which _fit_text settles against the room there
+    # is. ENTRY_SIZE until it has run, which is what a headless run draws at.
+    _entry_size: int = ENTRY_SIZE
 
     def __init__(self, gui: "GuiZeroBase", profile: ControlProfile | None):
         self._gui = gui
@@ -248,11 +302,13 @@ class ControlsPanel:
         self._pages: tuple[tuple[tuple[ControlSection, ...], ...], ...] = ()
         self._page_box = None
         self._page_label = None
-        # All three are replaced in build(), which has a widget to measure with and is told
-        # how much room the columns have been left.
+        # All of these are settled in build(), which has a widget to measure with and is
+        # told how much room the columns have been left.
         self._ruler = ESTIMATED_RULER
         self._rows_per_column = ROWS_PER_COLUMN
         self._column_px = ()
+        self._width_px = 0
+        self._entry_size = ENTRY_SIZE
 
     @property
     def gui(self) -> "GuiZeroBase":
@@ -274,6 +330,11 @@ class ControlsPanel:
     def rows_per_column(self) -> int:
         """The row budget in force: derived in build(), ROWS_PER_COLUMN until then."""
         return self._rows_per_column
+
+    @property
+    def entry_size(self) -> int:
+        """The point size the rows are drawn at: settled in build(), ENTRY_SIZE until then."""
+        return self._entry_size
 
     @property
     def column_px(self) -> tuple[int, ...]:
@@ -298,6 +359,98 @@ class ControlsPanel:
         widths[COLUMNS // 2] = even - trim
         return tuple(widths)
 
+    @staticmethod
+    def _shared_widths(width_px: int, needs: tuple[int, ...]) -> tuple[int, ...]:
+        """How wide each column of a page may be, given what its own rows need.
+
+        What each column asks for, when the page can afford all of them, with the slack
+        handed out rather than held back: an unspent budget is not drawn as a gap (the
+        columns size themselves to their content), so keeping it back buys nothing and
+        spending it covers ENTRY_CHROME_PX guessing a pixel low.
+
+        When the columns between them want more than the page has, the ones that fit an
+        even share keep what they need and the rest divide what is left -- so a column
+        with short rows is never trimmed on behalf of one whose rows will not fit anyway,
+        which is exactly what a flat CENTER_COLUMN_TRIM did. Repeated until no column is
+        under its share, because handing a share back can bring another column inside
+        its own.
+
+        Unequal columns are only safe because _match_outer_columns will not pin the outer
+        pair to a width the page cannot afford: pinning charges the wider one's width to
+        both, which is how the far side of the last column ends up off the display.
+        """
+        if width_px <= 0 or not needs:
+            return ()
+        spare = width_px - sum(needs)
+        if spare >= 0:
+            share = spare // len(needs)
+            return tuple(need + share for need in needs)
+        widths, room, short = [0] * len(needs), width_px, list(range(len(needs)))
+        while short:
+            share = room // len(short)
+            fits = [index for index in short if needs[index] <= share]
+            if not fits:  # nothing fits its share: divide what is left evenly
+                for index in short:
+                    widths[index] = share
+                break
+            for index in fits:
+                widths[index] = needs[index]
+                room -= needs[index]
+            short = [index for index in short if index not in fits]
+        return tuple(widths)
+
+    def section_px(self, section: ControlSection) -> int:
+        """Width ``section`` needs to draw every row of it on one line.
+
+        The width counterpart of section_rows, and the figure action_wrap_px works back
+        from: the keycap column is as wide as the section's widest keycap, so that is
+        where the action text starts on every row of it, not just on the row that keycap
+        belongs to.
+
+        A section's note is not counted. It is drawn a size down and wraps as an aside
+        rather than as a row, so a long one should cost the column rows -- which the
+        packer already charges it -- and not the width its rows need.
+        """
+        keycap = max((self._ruler.keycap_width(keycap_text(entry)) for entry in section.entries), default=0)
+        action = max((self._ruler.width(entry_text(entry)) for entry in section.entries), default=0)
+        return keycap + action + ENTRY_CHROME_PX
+
+    def _column_needs(self) -> tuple[int, ...]:
+        """What each column position needs to draw the rows packed into it on one line.
+
+        Per position rather than per column, because columns run on across pages and the
+        width belongs to the place on the page -- the same rule _column_wrap_px follows.
+        """
+        needs = [0] * COLUMNS
+        for page in self.paginate():
+            for index, column in enumerate(page):
+                for section in column:
+                    needs[index % COLUMNS] = max(needs[index % COLUMNS], self.section_px(section))
+        return tuple(needs)
+
+    def _fitted_column_widths(self, width_px: int) -> tuple[int, ...]:
+        """The page's width, cut to what its columns measure rather than into even shares.
+
+        Measured, so the shares hold on the display this is running on rather than on the
+        one they were calibrated against: the Deck's font draws these strings about 15%
+        wider than the desk machine's does, which is the whole difference between a row
+        fitting and a row wrapping.
+
+        With nothing to measure with -- a headless run, a stand-in widget -- the even
+        split stands, as ROWS_PER_COLUMN does for the row budget.
+        """
+        widths = self.column_widths(width_px)
+        if not widths or not self._ruler.exact or self.profile is None:
+            return widths
+        # Which sections share a column follows from the width they were packed to, so the
+        # needs are read off a first pass laid out to the even split -- today's answer --
+        # and build() packs the page again to what comes out of it. One refinement rather
+        # than a loop to a fixed point: the total is inside the display in either pass by
+        # construction, so the worst a section moved by the second pass can cost is the
+        # wrap it would have had anyway.
+        self._column_px = widths
+        return self._shared_widths(width_px, self._column_needs())
+
     def action_wrap_px(self, section: ControlSection, column_px: int = 0) -> int:
         """Pixels the action text of ``section`` may use in a column ``column_px`` wide.
 
@@ -308,7 +461,7 @@ class ControlsPanel:
         """
         if column_px <= 0:
             return ACTION_WRAP_PX
-        keycap = max((self._ruler.width(keycap_text(entry)) for entry in section.entries), default=0)
+        keycap = max((self._ruler.keycap_width(keycap_text(entry)) for entry in section.entries), default=0)
         return max(MIN_ACTION_WRAP_PX, column_px - keycap - ENTRY_CHROME_PX)
 
     def _column_wrap_px(self, section: ControlSection, column: int) -> int:
@@ -487,9 +640,8 @@ class ControlsPanel:
         does not know, and the fallbacks stand -- the calibrated row budget, and columns
         that size themselves to their content.
         """
-        self._ruler = TextRuler.measured(body)
-        self._rows_per_column = self._rows_that_fit(height_px)
-        self._column_px = self.column_widths(width_px)
+        self._width_px = width_px
+        self._fit_text(body, height_px, width_px)
         self._pages = self.paginate()
         self._page = min(self._page, max(0, self.page_count - 1))
         self._page_box = Box(body, align="top", layout="grid")
@@ -500,6 +652,45 @@ class ControlsPanel:
         note.text_size = FOOTNOTE_SIZE
         note.text_color = FOOTNOTE_FG
         self.gui.cache(note)
+
+    def _fit_text(self, body: Box, height_px: int, width_px: int) -> None:
+        """Settle the size the rows are drawn at, and the budgets that follow from it.
+
+        ENTRY_SIZE if the columns can hold their rows on one line at it, and a point less
+        at a time down to MIN_ENTRY_SIZE if they cannot. The size cannot simply be written
+        down because the room a row takes is not knowable from here: the Deck draws the
+        same point size some 6-12% wider than a desk machine does, which was the whole of
+        what was left of the wrapping once the width was being divided by measurement. A
+        screen that measures its own rows does not have to be told.
+
+        Down rather than up: the size is a legibility decision, taken once at 16 and taken
+        again at 15 for the last of the wrapping, so this gives back a point to save a row
+        and never spends one it does not have to. With nothing to measure with the first
+        size stands, as it does for the row and width budgets.
+        """
+        for size in range(ENTRY_SIZE, MIN_ENTRY_SIZE - 1, -1):
+            self._entry_size = size
+            self._ruler = TextRuler.measured(body, size)
+            self._rows_per_column = self._rows_that_fit(height_px)
+            # After the row budget: _fitted_column_widths packs a first pass against it.
+            self._column_px = self._fitted_column_widths(width_px)
+            if not self._ruler.exact or not self._column_px or self.rows_fit_their_columns():
+                return
+        # Out of points to give back. The smallest tried stands: the rows that still do not
+        # fit wrap, and the packer has counted the rows they wrap into.
+        log.debug("Controls rows do not fit at %dpt; drawing at the floor", self._entry_size)
+
+    def rows_fit_their_columns(self) -> bool:
+        """Whether every column is wide enough to draw its rows on one line.
+
+        Asked of the needs rather than of the rows themselves because they are the same
+        question: a column at least as wide as its widest row's keycap, action and chrome
+        wraps none of them.
+
+        Public because it is the question a reader of this screen has about it, and the one
+        scripts/controlspreview.py is run to answer on a display this cannot measure.
+        """
+        return all(need <= width for need, width in zip(self._column_needs(), self._column_px))
 
     def _rows_that_fit(self, height_px: int) -> int:
         """The row budget for one column, given the room the caller left it.
@@ -561,11 +752,23 @@ class ControlsPanel:
         The width a column is pinned to it then has to spend, which is _fill_columns' half
         of this: pinned but not filled, the narrower column is centred in the difference,
         and the half of it that lands on the inside is the gap this was meant to close.
+
+        And it is only done when the page can afford it. Pinning widens the narrower of the
+        two by the difference between them, which has to come out of the room the columns
+        left over; charged to a page that has none, it pushes the far side of the last
+        column and the Close button off the display -- the whole failure the width budget
+        exists to prevent. Tidiness is not worth that, so an unaffordable pin is skipped
+        and the columns keep their own widths.
         """
         try:
             box.tk.update_idletasks()  # grid sizes the columns at idle; ask after that
             holders = box.tk.winfo_children()
-            widest = max(holders[0].winfo_reqwidth(), holders[-1].winfo_reqwidth())
+            drawn = [holder.winfo_reqwidth() for holder in holders[:COLUMNS]]
+            widest = max(drawn[0], drawn[-1])
+            cost = 2 * widest - drawn[0] - drawn[-1]
+            if self._width_px and cost > self._width_px - sum(drawn):
+                log.debug("No room to match the outer columns (%dpx short); leaving each its own", cost)
+                return
             for index in (0, COLUMNS - 1):
                 box.tk.grid_columnconfigure(index, minsize=widest)
         except (AttributeError, IndexError, TclError) as exception:
@@ -632,15 +835,21 @@ class ControlsPanel:
         # The input is drawn as a raised keycap so the eye can find "L1" or "View"
         # without reading the whole line -- this is a reference table, scanned rather
         # than read.
-        name = Text(parent, text=keycap_text(entry), grid=[0, row], align="left", size=ENTRY_SIZE)
+        name = Text(parent, text=keycap_text(entry), grid=[0, row], align="left", size=self._entry_size)
         name.text_bold = True
         name.text_color = KEYCAP_FG
         name.bg = KEYCAP_BG
         name.tk.config(relief="raised", borderwidth=1)
         name.tk.grid_configure(padx=(4, 8), pady=2, sticky="w")
 
-        action = Text(parent, text=entry_text(entry), grid=[1, row], align="left", size=ENTRY_SIZE)
+        action = Text(parent, text=entry_text(entry), grid=[1, row], align="left", size=self._entry_size)
         action.text_color = ENTRY_FG
+        # Said rather than left alone, as the section note also has to say it: the row's
+        # TitleBox bolds everything drawn inside it, so an action left to inherit came out
+        # exactly as emphatic as the keycap beside it -- which cost the keycap the one job
+        # the bold is there for, and cost every row about 7% of its width, wrapping four of
+        # them on the Deck against a budget measured in the lighter weight.
+        action.text_bold = False
         # wraplength wraps instead of truncating or forcing the column wider. justify
         # keeps the second line aligned under the first rather than centred.
         action.tk.config(wraplength=wrap_px, justify="left")
