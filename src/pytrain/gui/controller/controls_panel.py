@@ -80,7 +80,7 @@ FOOTNOTE_SIZE = 12
 # Deck than on a desk machine, which is the difference between a screen of single lines and
 # three broken rows. Three points is as far as it goes; below that the screen is being read
 # at arm's length and something else has to give.
-MIN_ENTRY_SIZE = 13
+MIN_ENTRY_SIZE = 16
 
 # Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
 # this is what actually decides where a line breaks. 320 clears the longest current
