@@ -128,7 +128,7 @@ class QueryPkg:
         self.offset: int = offset
         self.length: int = length
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, QueryPkg) or self.__class__ != other.__class__:
             return False
         return self.field == other.field and self.offset == other.offset and self.length == other.length
@@ -296,7 +296,7 @@ BASE_MEMORY_ENGINE_READ_MAP = {
     0x08: CompDataHandler("_target_speed", default=0),
     0x09: CompDataHandler("_train_brake", default=0),
     0x0A: CompDataHandler("_control_id", default=0),
-    0x0B: CompDataHandler("_unk_b", default=0),
+    0x0B: CompDataHandler("_soft_status", default=0),
     0x0C: CompDataHandler("_rpm_labor", default=0),  # Sound on/off on passenger and freight cars
     0x0D: CompDataHandler("_fuel_level"),
     0x0E: CompDataHandler("_water_level"),
@@ -1133,6 +1133,7 @@ class EngineData(CompData):
         self._momentum_setting: int | None = None
         self._rpm_labor: int | None = None
         self._smoke: int | None = None
+        self._soft_status: int | None = None
         self._sound_type: int | None = None
         self._speed: int | None = None
         self._speed_limit: int | None = None
@@ -1155,7 +1156,6 @@ class EngineData(CompData):
         self._unk_68: int | None = None
         self._unk_6c: int | None = None
         self._unk_6: int | None = None
-        self._unk_b: int | None = None
         super().__init__(data, scope, tmcc_id=tmcc_id)
 
     @property

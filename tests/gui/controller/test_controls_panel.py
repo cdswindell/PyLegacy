@@ -46,6 +46,10 @@ def _panel(profile: ControlProfile | None) -> ControlsPanel:
     return panel
 
 
+def _sections(panel: ControlsPanel) -> dict[str, ControlSection]:
+    return {section.title: section for section in controls_summary(panel.profile)}
+
+
 def _oversized_profile() -> ControlProfile:
     """A profile far larger than the bundled one, to force pagination.
 
@@ -249,9 +253,12 @@ def test_pane_without_a_host_reports_no_controls_screen() -> None:
 
 def test_a_long_entry_is_budgeted_two_rows() -> None:
     # Tk wraps the action text with wraplength; pagination has to know a wrapped entry is
-    # taller, or the column overflows the display it was measured against.
+    # taller, or the column overflows the display it was measured against. The long text is
+    # written for this test rather than copied off the screen -- what is under test is the
+    # arithmetic, and a sample sitting a few pixels either side of the budget would turn
+    # this into a test of one label's length.
     short = ControlEntry("A", "Ring bell")
-    long = ControlEntry("L2", "Engine shutdown", "hold: with dialog")
+    long = ControlEntry("L2", "Engine shutdown, with the dialog it opens", "hold")
 
     assert ControlsPanel.entry_rows(short) == 1
     assert ControlsPanel.entry_rows(long) == 2
@@ -261,12 +268,41 @@ def test_section_rows_counts_the_header_and_wrapped_entries() -> None:
     section = ControlSection(
         "Triggers",
         (
-            ControlEntry("L2", "Engine shutdown", "hold: with dialog"),
-            ControlEntry("R2", "Engine startup", "hold: with dialog"),
+            ControlEntry("L2", "Engine shutdown, with the dialog it opens", "hold"),
+            ControlEntry("R2", "Engine startup, with the dialog it opens", "hold"),
         ),
     )
 
     assert ControlsPanel.section_rows(section) == 1 + 2 + 2
+
+
+def test_a_section_note_costs_the_column_a_row() -> None:
+    # A note is drawn inside the section's frame, so it takes room off the bottom of the
+    # column exactly as a row of it does. Uncounted, the column it lands in is budgeted to
+    # fit and does not -- and what runs off the display is whatever was drawn last.
+    rows = (ControlEntry("L1 + X", "Quit PyTrain"),)
+    plain = ControlSection(ADMIN_PANEL_TITLE, rows)
+    annotated = ControlSection(ADMIN_PANEL_TITLE, rows, note="Hold for 3 seconds")
+
+    assert ControlsPanel.note_rows(plain) == 0
+    assert ControlsPanel.note_rows(annotated) == 1
+    assert ControlsPanel.section_rows(annotated) == ControlsPanel.section_rows(plain) + 1
+
+
+def test_a_split_section_keeps_its_note_on_the_last_chunk() -> None:
+    # A section too tall for a column is dealt out over several, and a note true of all of
+    # them reads under the last of its rows -- once, which is the point of a note. Every
+    # chunk is charged for it even so: which one ends up with it is not known until the rows
+    # have been dealt out, and a chunk budgeted a row short is a chunk that overflows.
+    note = "Hold for 3 seconds"
+    entries = (ControlEntry("A", "Ring bell"),) * (ROWS_PER_COLUMN + 2)
+
+    chunks = ControlsPanel._split_to_fit((ControlSection("Tall", entries, note=note),))
+
+    assert len(chunks) > 1
+    assert [chunk.note for chunk in chunks] == [""] * (len(chunks) - 1) + [note]
+    for chunk in chunks:
+        assert ControlsPanel.section_rows(chunk) <= ROWS_PER_COLUMN, chunk.title
 
 
 def test_columns_respect_the_row_budget_once_wrapping_is_counted() -> None:
@@ -287,12 +323,29 @@ class _FakeTextTk:
     def __init__(self) -> None:
         self.configs: list[dict] = []
         self.grids: list[dict] = []
+        self.columns: list[tuple[int, dict]] = []
+        # The sticky in force, as opposed to every sticky ever asked for: Tk keeps the last
+        # one, and what a column ends up gridded with is the question here.
+        self.sticky: str | None = None
 
     def config(self, **kwargs) -> None:
         self.configs.append(kwargs)
 
     def grid_configure(self, **kwargs) -> None:
         self.grids.append(kwargs)
+        if "sticky" in kwargs:
+            self.sticky = kwargs["sticky"]
+
+    def grid_columnconfigure(self, index, **kwargs) -> None:
+        self.columns.append((index, kwargs))
+
+    def update_idletasks(self) -> None:
+        self.updated = True
+
+    def winfo_children(self):
+        # Whatever the test says the rendered columns came out to; nothing, by default,
+        # which is a render Tk cannot measure.
+        return getattr(self, "holders", [])
 
 
 class _FakeText:
@@ -304,6 +357,9 @@ class _FakeText:
         self.text_bold = None
         self.text_color = None
         self.bg = None
+        # Widgets added to this one, in creation order -- what guizero re-grids each time
+        # another joins them, and so what a test about that ordering has to look at.
+        self.gridded: list["_FakeText"] = []
         _FakeText.instances.append(self)
 
 
@@ -434,3 +490,232 @@ def test_no_bundled_entry_is_predicted_to_wrap() -> None:
     for section in controls_summary(ControlProfile.load(None)):
         for entry in section.entries:
             assert ControlsPanel.entry_rows(entry) == 1, (section.title, entry.input, entry.action)
+
+
+def test_the_middle_column_hands_its_width_to_the_two_beside_it() -> None:
+    # What the width budget is for beyond fitting: the middle column carries the engine
+    # commands, whose actions are the longest strings on the screen, so left to its content
+    # it took the most room on a screen that had none to spare. It gives up a share of an
+    # even third, and the two columns beside it get half of that each.
+    widths = ControlsPanel.column_widths(1274)
+
+    even = 1274 // COLUMNS
+    assert len(widths) == COLUMNS
+    assert widths[0] == widths[-1] > widths[1]
+    assert widths[1] == even - int(even * mod.CENTER_COLUMN_TRIM)
+    assert widths[0] - even == (even - widths[1]) // 2
+
+
+@pytest.mark.parametrize("width", [640, 1024, 1274, 1280, 1920])
+def test_the_columns_never_add_up_past_the_room_they_were_given(width) -> None:
+    # The bug in one line: three columns that between them ask for more than the display
+    # has. The overlay is gridded from the left edge of a window that cannot grow, so the
+    # excess is not scaled or scrolled -- it is cut.
+    assert sum(ControlsPanel.column_widths(width)) <= width
+
+
+def test_no_width_known_leaves_every_column_sizing_to_its_content() -> None:
+    # A headless run, or a caller that does not know how much room it has: the screen still
+    # has to lay itself out, so a width budget is an improvement on the fallback, never a
+    # requirement -- exactly as the row budget is.
+    panel = _panel(ControlProfile.load(None))
+    section = _sections(panel)[GLOBAL_CHORD_TITLE]
+
+    assert ControlsPanel.column_widths(0) == ()
+    assert panel.column_px == ()
+    assert panel.action_wrap_px(section) == mod.ACTION_WRAP_PX
+    assert panel._column_wrap_px(section, 1) == mod.ACTION_WRAP_PX
+
+
+def test_a_section_wraps_within_what_its_keycaps_leave_of_the_column() -> None:
+    # Per section, not per column: the action text starts where the keycaps end, and
+    # "Right stick" leaves a good deal less of a column than "A" does.
+    panel = _panel(ControlProfile.load(None))
+    panel._ruler = mod.TextRuler(measure=len, row_px=30, footnote_px=15)
+    sections = _sections(panel)
+
+    keycap = max(len(mod.keycap_text(entry)) for entry in sections["Buttons"].entries)
+    assert panel.action_wrap_px(sections["Buttons"], 400) == 400 - keycap - mod.ENTRY_CHROME_PX
+    # Wider keycaps, less room for the action beside them.
+    assert panel.action_wrap_px(sections["Joysticks"], 400) < panel.action_wrap_px(sections["Buttons"], 400)
+    # A column too narrow for its keycaps costs the page its width budget rather than
+    # wrapping every row into a stack of single words.
+    assert panel.action_wrap_px(sections["Joysticks"], 60) == mod.MIN_ACTION_WRAP_PX
+
+
+def test_a_section_is_priced_by_the_column_it_is_packed_into() -> None:
+    # The columns are no longer the same width, so neither is the cost of a section: the
+    # same rows wrap in the narrow middle column and not beside it. Counting one width for
+    # all three either overflows the narrow column or spills the page onto a second one for
+    # rows the wide columns never needed.
+    panel = _panel(ControlProfile.load(None))
+    panel._column_px = (500, 200, 500)
+    section = _sections(panel)["Buttons"]
+
+    assert panel._column_wrap_px(section, 1) < panel._column_wrap_px(section, 0)
+    # Columns run on across pages; the width belongs to the position on the page.
+    assert panel._column_wrap_px(section, COLUMNS + 1) == panel._column_wrap_px(section, 1)
+    # Splitting a too-tall section happens before it has a column, so it is measured
+    # against the narrowest one: fitting there, a chunk fits wherever it is packed.
+    assert panel._narrowest_wrap_px(section) == panel._column_wrap_px(section, 1)
+
+
+def test_only_the_outer_columns_are_pinned_and_only_to_each_other(monkeypatch) -> None:
+    # The width budget is a limit, not an allowance: a column that used less than its share
+    # must not hold the difference open, or the leftover reads as a gap before the next
+    # column. So the columns keep their own width and only the outer two are matched -- to
+    # the wider of the two, since three columns whose outer pair differ read as a mistake.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Box", _FakeText)
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    monkeypatch.setattr(mod, "TitleBox", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_widgets: None, s_12=12)
+    panel._column_px = ControlsPanel.column_widths(1274)
+    panel._pages = panel.paginate()
+    panel._page_box = _FakeText(None)
+    panel._page_box.children = []
+    panel._page_box.tk.holders = [
+        SimpleNamespace(winfo_reqwidth=lambda width=width: width) for width in (300, 340, 320)
+    ]
+
+    panel._render_page()
+
+    assert panel._page_box.tk.columns == [(0, {"minsize": 320}), (COLUMNS - 1, {"minsize": 320})]
+    # align="top" alone grids a column sticky="N", which centres it in a cell wider than
+    # its content: the narrower outer column would sit in a gap on both sides rather than
+    # line up with its neighbour. Pinned, a column has to spend what it was pinned to.
+    stretched = [widget for widget in _FakeText.instances if {"sticky": "new"} in widget.tk.grids]
+    assert len(stretched) == COLUMNS
+
+
+def test_the_columns_are_filled_after_everything_else_is_on_the_page(monkeypatch) -> None:
+    # The bug this guards, and it is guizero's, not Tk's: adding a widget to a grid
+    # container re-grids the widgets already in it, each from its own align -- so the
+    # sticky that makes a column spend its cell was replaced by "N" the moment the next
+    # column was created, and the first column drew at its text width, centred in the cell
+    # it had been widened to, with half the difference showing as a gap before the middle
+    # column. Filling them last is the fix, and "last" includes after the page label.
+    class _Regridding(_FakeText):
+        """A stand-in that re-grids its siblings the way guizero does."""
+
+        def __init__(self, parent, **kwargs) -> None:
+            super().__init__(parent, **kwargs)
+            if isinstance(parent, _FakeText):
+                for sibling in parent.gridded:
+                    sibling.tk.sticky = "N"  # from align="top", which is what these are
+                parent.gridded.append(self)
+
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Box", _Regridding)
+    monkeypatch.setattr(mod, "Text", _Regridding)
+    monkeypatch.setattr(mod, "TitleBox", _Regridding)
+    panel = _panel(_oversized_profile())
+    panel._gui = SimpleNamespace(cache=lambda *_widgets: None, s_12=12)
+    panel._pages = panel.paginate()
+    panel._page_box = _Regridding(None)
+    panel._page_box.children = []
+    assert panel.page_count > 1, "the page label has to be one of the widgets added after the columns"
+
+    panel._render_page()
+
+    columns = panel._page_box.gridded[:COLUMNS]
+    assert [holder.tk.sticky for holder in columns] == ["new"] * COLUMNS
+
+
+def test_a_render_tk_cannot_measure_leaves_the_columns_alone(monkeypatch) -> None:
+    # A fake render, or a page Tk has not laid out yet: the screen is drawn either way,
+    # with each column its own width, rather than raising on a widget that cannot be asked.
+    monkeypatch.setattr(mod, "Box", _FakeText)
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    monkeypatch.setattr(mod, "TitleBox", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_widgets: None, s_12=12)
+    panel._pages = panel.paginate()
+    panel._page_box = _FakeText(None)
+    panel._page_box.children = []
+
+    panel._render_page()  # no holders to measure
+
+    assert panel._page_box.tk.columns == []
+
+
+def test_a_section_note_is_drawn_under_its_rows(monkeypatch) -> None:
+    # Footnote-sized and grey, like the "*" line under the columns: it says something about
+    # the rows above it rather than being one of them. It spans both of the section's
+    # columns because it belongs to the section, not to any one input -- there is no keycap
+    # to draw beside it, so it gets the whole width of the column less its chrome.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_w: None)
+
+    panel._render_note(object(), "Hold for 3 seconds", 4, 400)
+
+    (note,) = _FakeText.instances
+    assert note.kwargs["text"] == "Hold for 3 seconds"
+    assert note.kwargs["grid"] == [0, 4, 2, 1]
+    assert note.kwargs["size"] == mod.FOOTNOTE_SIZE
+    assert note.text_color == mod.FOOTNOTE_FG
+    # Said rather than left alone: the section's TitleBox bolds everything inside it, so an
+    # inherited font makes the aside as emphatic as the rows it qualifies.
+    assert note.text_bold is False
+    wrap = [cfg for cfg in note.tk.configs if "wraplength" in cfg]
+    assert wrap[0]["wraplength"] == 400 - mod.ENTRY_CHROME_PX
+
+
+def test_every_section_note_on_the_page_is_drawn(monkeypatch) -> None:
+    # The bundled screen has one: the admin panel's three-second hold, which used to be
+    # four copies of "(hold 3s)" on the four rows it is true of. A note the packer counts
+    # and the renderer forgets would leave the reader nothing to explain them.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Box", _FakeText)
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    monkeypatch.setattr(mod, "TitleBox", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_widgets: None, s_12=12)
+    panel._pages = panel.paginate()
+    panel._page_box = _FakeText(None)
+    panel._page_box.children = []
+
+    panel._render_page()
+
+    notes = {section.note for column in panel._pages[0] for section in column if section.note}
+    drawn = {widget.kwargs.get("text") for widget in _FakeText.instances}
+    assert notes, "the bundled admin section carries one"
+    assert notes <= drawn
+
+
+def test_the_action_text_wraps_within_its_own_column(monkeypatch) -> None:
+    # The renderer has to wrap where the packer counted it would, or a column that was
+    # budgeted to fit runs past the bottom of the display.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_w: None)
+
+    panel._render_entry(object(), ControlEntry("Up / Down", "Boost / brake speed", "repeats"), 0, 203)
+
+    _keycap, action = _FakeText.instances
+    assert [cfg for cfg in action.tk.configs if "wraplength" in cfg][0]["wraplength"] == 203
+
+
+def test_every_bundled_section_is_drawable_within_its_column() -> None:
+    # What the width budget promises, checked against the strings the screen really draws:
+    # at the Deck's budget every section fits the column it is packed into, keycaps and all,
+    # so no column has to grow past its share and take the page off the edge of the display.
+    # (What Tk makes of it is what scripts/controlspreview.py is for -- laying the real
+    # widgets out here hangs a headless run.)
+    panel = _panel(ControlProfile.load(None))
+    panel._column_px = ControlsPanel.column_widths(1274)
+
+    for page in panel.paginate():
+        for index, column in enumerate(page):
+            budget = panel.column_px[index]
+            for section in column:
+                wrap_px = panel.action_wrap_px(section, budget)
+                keycap = max(panel._ruler.width(mod.keycap_text(entry)) for entry in section.entries)
+                assert keycap + wrap_px + mod.ENTRY_CHROME_PX <= budget, (section.title, index)
+                # And the budget is one text really fits in, not the floor a column too
+                # narrow for its keycaps falls back to.
+                assert wrap_px > mod.MIN_ACTION_WRAP_PX, (section.title, index)

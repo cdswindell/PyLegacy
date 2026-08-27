@@ -399,11 +399,15 @@ class _ShowableWidget(_Widget):
 # Records _position_focus_arrow calls; the overlay has to re-tuck the arrow whenever it
 # shows or hides, because body.display_widgets() cancels the arrow's place().
 positioned: list[bool] = []
+# The budgets handed to ControlsPanel.build, which is stubbed out here: the room the
+# columns are laid out to is this module's half of that arrangement.
+budgeted: list[dict] = []
 
 
 def _deck_with_body(monkeypatch: pytest.MonkeyPatch) -> tuple[mod.SteamDeckGui, list[_ShowableWidget]]:
     made: list[_ShowableWidget] = []
     positioned.clear()
+    budgeted.clear()
 
     def make(master=None, **kwargs):
         widget = _ShowableWidget(master, **kwargs)
@@ -413,7 +417,11 @@ def _deck_with_body(monkeypatch: pytest.MonkeyPatch) -> tuple[mod.SteamDeckGui, 
     monkeypatch.setattr(mod, "Box", make)
     monkeypatch.setattr(mod, "Text", make)
     monkeypatch.setattr(mod, "PushButton", make)
-    monkeypatch.setattr(mod.ControlsPanel, "build", lambda _self, _body, height_px=0: None)
+    monkeypatch.setattr(
+        mod.ControlsPanel,
+        "build",
+        lambda _self, _body, height_px=0, width_px=0: budgeted.append({"height_px": height_px, "width_px": width_px}),
+    )
     gui = mod.SteamDeckGui.__new__(mod.SteamDeckGui)
     gui.width = 1280
     gui.height = 800
@@ -519,6 +527,21 @@ def test_the_help_columns_are_budgeted_the_room_under_the_title_band(monkeypatch
     unmeasurable = _ShowableWidget()  # _CallableTk cannot report a height
     expected = 800 - mod.CONTROLS_HEADER_FALLBACK_PX - 2 * mod.CONTROLS_BORDER_PX
     assert gui._controls_body_height(unmeasurable) == expected
+
+
+def test_the_help_columns_are_budgeted_the_width_of_the_display(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The regression: the columns were sized by their content, and on the Deck's font the
+    # three of them came out wider than the display. The overlay is gridded from the left
+    # edge of a window that cannot grow, so the excess was cut -- the last column's actions
+    # mid-word, and the Close button at the end of the title band with them.
+    gui, _made = _deck_with_body(monkeypatch)
+
+    gui.on_show_controls()
+
+    assert gui._controls_body_width() == 1280 - 2 * mod.CONTROLS_BORDER_PX
+    # Handed over, not merely available: a width the panel is never told is a width it
+    # goes on ignoring.
+    assert budgeted[0]["width_px"] == gui._controls_body_width()
 
 
 def test_controls_panel_is_not_an_overlay_panel() -> None:

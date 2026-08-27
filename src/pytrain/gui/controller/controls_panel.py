@@ -59,12 +59,34 @@ ENTRY_SIZE = 16
 FOOTNOTE_SIZE = 12
 
 # Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
-# this is what actually decides where a line breaks. Raising it past ~300 costs no extra
-# width: at that point every column is already sized by its longest line or its section
-# heading rather than by this budget. 320 clears the longest current string ("Boost /
-# brake speed  (repeats)", measured at 276px) with room for a wider font than the one
-# this was measured on.
+# this is what actually decides where a line breaks. 320 clears the longest current
+# string ("Boost / brake speed  (repeats)", measured at 276px) with room for a wider font
+# than the one this was measured on.
+#
+# This is the fallback, for the same reason ROWS_PER_COLUMN is one: build() replaces it
+# with a budget divided out of the width the display actually has. As the only answer it
+# let every column ask for whatever its longest line wanted, and on the Deck the three
+# together asked for more than the 1280px it has.
 ACTION_WRAP_PX = 320
+# What the middle column gives up, as a fraction of an even share of the page. The
+# columns used to be sized by their content, and the middle one -- the engine commands,
+# which carry the longest action strings on the screen -- took the most: the three
+# together came out wider than the Deck's display, and because the overlay is gridded
+# from its left edge the excess is not scaled or scrolled but cut, taking the far side of
+# the last column and the Close button at the end of the title band with it. Widths are
+# handed out here instead, so the total is the display's by construction. The middle
+# column is the one trimmed because its rows are the ones that can afford to wrap, and
+# what it gives up is split evenly between the two beside it.
+CENTER_COLUMN_TRIM = 0.15
+# A floor for a derived action budget, for the same reason MIN_ROWS_PER_COLUMN is one: a
+# column too narrow for its keycaps should cost the page its width budget, not wrap every
+# row into a stack of single words.
+MIN_ACTION_WRAP_PX = 140
+# Per-row chrome between a column's edges and the two strings it draws: the keycap's
+# border and grid padding, the action's, and the section frame's border. Measured at
+# 41-44px across the bundled sections and rounded up -- overstating it wraps a line early,
+# understating it lets a column outgrow the share it was given, which is the whole bug.
+ENTRY_CHROME_PX = 48
 # Rendered width of one character at ENTRY_SIZE, for predicting wraps. Measured across
 # the real strings at 9.2-10.5 px/char; the high end is deliberate, because
 # under-estimating means budgeting one row for a line Tk will wrap onto two -- which
@@ -194,6 +216,16 @@ def entry_text(entry: ControlEntry) -> str:
     return entry.action if not entry.note else f"{entry.action}  ({entry.note})"
 
 
+def keycap_text(entry: ControlEntry) -> str:
+    """The input column as drawn: the input, spaced out into a keycap.
+
+    A function rather than an f-string at the point of drawing, because the width budget
+    has to measure the same string the renderer will draw -- a keycap measured a space
+    narrower than it is drawn is a column that overflows by a space.
+    """
+    return f" {entry.input} "
+
+
 class ControlsPanel:
     """Content of the controls help screen.
 
@@ -202,6 +234,13 @@ class ControlsPanel:
     panes, so SteamDeckGui owns its overlay and calls build() to fill it.
     """
 
+    # Width budget per column, once build() has been told how wide the display is. Empty
+    # until then, and in a headless run: with no width to divide up, every column sizes to
+    # its own content and the action text gets the fallback budget. Declared on the class
+    # so a panel built without __init__ -- which is how the pagination tests reach
+    # paginate() -- still reads a budget rather than an AttributeError.
+    _column_px: tuple[int, ...] = ()
+
     def __init__(self, gui: "GuiZeroBase", profile: ControlProfile | None):
         self._gui = gui
         self._profile = profile
@@ -209,10 +248,11 @@ class ControlsPanel:
         self._pages: tuple[tuple[tuple[ControlSection, ...], ...], ...] = ()
         self._page_box = None
         self._page_label = None
-        # Both are replaced in build(), which has a widget to measure with and is told how
-        # much room the columns have been left.
+        # All three are replaced in build(), which has a widget to measure with and is told
+        # how much room the columns have been left.
         self._ruler = ESTIMATED_RULER
         self._rows_per_column = ROWS_PER_COLUMN
+        self._column_px = ()
 
     @property
     def gui(self) -> "GuiZeroBase":
@@ -235,6 +275,75 @@ class ControlsPanel:
         """The row budget in force: derived in build(), ROWS_PER_COLUMN until then."""
         return self._rows_per_column
 
+    @property
+    def column_px(self) -> tuple[int, ...]:
+        """The width budget in force: derived in build(), empty (content-sized) until then."""
+        return self._column_px
+
+    @staticmethod
+    def column_widths(width_px: int) -> tuple[int, ...]:
+        """How wide each column of a page may be, given the room the page has.
+
+        Even shares, less a trim off the middle column which is split between the two
+        beside it. The total never exceeds ``width_px`` -- which is the point of dividing
+        the width up rather than letting each column ask for what its longest line wants.
+        ``width_px`` of 0 means the caller does not know, and returns no budget at all.
+        """
+        if width_px <= 0:
+            return ()
+        even = width_px // COLUMNS
+        # Nothing to trim in favour of when there is no column beside the middle one.
+        trim = int(even * CENTER_COLUMN_TRIM) if COLUMNS > 1 else 0
+        widths = [even + trim // (COLUMNS - 1) for _ in range(COLUMNS)] if COLUMNS > 1 else [even]
+        widths[COLUMNS // 2] = even - trim
+        return tuple(widths)
+
+    def action_wrap_px(self, section: ControlSection, column_px: int = 0) -> int:
+        """Pixels the action text of ``section`` may use in a column ``column_px`` wide.
+
+        Per section rather than per column, because what is left of a column is whatever
+        its keycaps do not take: "Right stick \u2195" leaves a good deal less room than "A".
+        ``column_px`` of 0 -- no width budget -- falls back to ACTION_WRAP_PX, which is
+        what a headless run gets.
+        """
+        if column_px <= 0:
+            return ACTION_WRAP_PX
+        keycap = max((self._ruler.width(keycap_text(entry)) for entry in section.entries), default=0)
+        return max(MIN_ACTION_WRAP_PX, column_px - keycap - ENTRY_CHROME_PX)
+
+    def _column_wrap_px(self, section: ControlSection, column: int) -> int:
+        """The action budget for ``section`` drawn in the ``column``-th column packed.
+
+        Counted per column because the columns are no longer the same width: the same
+        section wraps into more rows in the narrow middle one than beside it, and packing
+        that guessed one width for all three either overflowed the short column or spilled
+        the page onto a second one for rows the wide columns never needed.
+        """
+        if not self._column_px:
+            return ACTION_WRAP_PX
+        return self.action_wrap_px(section, self._column_px[column % len(self._column_px)])
+
+    @staticmethod
+    def note_wrap_px(column_px: int = 0) -> int:
+        """Pixels a section's note may use in a column ``column_px`` wide.
+
+        The whole column less its chrome, not what an entry's action gets: the note spans
+        both of the section's columns, so no keycap comes off its width.
+        """
+        if column_px <= 0:
+            return ACTION_WRAP_PX
+        return max(MIN_ACTION_WRAP_PX, column_px - ENTRY_CHROME_PX)
+
+    def _narrowest_wrap_px(self, section: ControlSection) -> int:
+        """The action budget for ``section`` wherever it lands: the narrowest column's.
+
+        For the one decision taken before a section has a column -- whether it is too tall
+        for any column and has to be split. The narrowest column is the safe answer there:
+        every wider one wraps the same text into no more rows, so a chunk that fits this
+        budget fits the column it ends up in.
+        """
+        return self.action_wrap_px(section, min(self._column_px, default=0))
+
     def paginate(self) -> tuple[tuple[tuple[ControlSection, ...], ...], ...]:
         """Group sections into columns, and columns into pages.
 
@@ -246,6 +355,9 @@ class ControlsPanel:
         row budget -- which is derived from the display and therefore not the same number
         everywhere. A section that has to head a column says so (``starts_column``) rather
         than relying on the rows before it happening to add up.
+
+        A section costs what it costs *in the column it is being packed into*: the middle
+        column is the narrow one, so it wraps text the outer two do not.
         """
         profile = self.profile
         if profile is None:
@@ -253,11 +365,14 @@ class ControlsPanel:
         budget = self._rows_per_column
         columns: list[list[ControlSection]] = [[]]
         used = 0
-        for section in self._split_to_fit(controls_summary(profile), budget, self._ruler):
-            cost = self.section_rows(section, self._ruler)
+        for section in self._split_to_fit(controls_summary(profile), budget, self._ruler, self._narrowest_wrap_px):
+            cost = self.section_rows(section, self._ruler, self._column_wrap_px(section, len(columns) - 1))
             if used and (section.starts_column or used + cost > budget):
                 columns.append([])
                 used = 0
+                # Priced again: the column it moved to may not be as wide as the one it
+                # would not fit, or may be wider.
+                cost = self.section_rows(section, self._ruler, self._column_wrap_px(section, len(columns) - 1))
             columns[-1].append(section)
             used += cost
         pages = [
@@ -267,20 +382,45 @@ class ControlsPanel:
         return tuple(pages)
 
     @staticmethod
-    def entry_rows(entry: ControlEntry, ruler: TextRuler | None = None) -> int:
-        """Rows an entry will occupy once Tk has wrapped its action text."""
-        return (ruler or ESTIMATED_RULER).wrapped_rows(entry_text(entry))
+    def entry_rows(entry: ControlEntry, ruler: TextRuler | None = None, wrap_px: int = ACTION_WRAP_PX) -> int:
+        """Rows an entry will occupy once Tk has wrapped its action text within ``wrap_px``."""
+        return (ruler or ESTIMATED_RULER).wrapped_rows(entry_text(entry), wrap_px)
+
+    @staticmethod
+    def note_rows(
+        section: ControlSection,
+        ruler: TextRuler | None = None,
+        wrap_px: int = ACTION_WRAP_PX,
+    ) -> int:
+        """Rows a section's note occupies, 0 for a section without one.
+
+        Charged against the same budget its entries are, because it is drawn inside the
+        same frame and takes the same room off the bottom of the column. Priced with the
+        entry font and the entry's share of the width, though the note is drawn smaller and
+        given more room than that: both errors are in the safe direction, and a budget that
+        decides what runs off the display should never promise more room than it has.
+        """
+        if not section.note:
+            return 0
+        return (ruler or ESTIMATED_RULER).wrapped_rows(section.note, wrap_px)
 
     @classmethod
-    def section_rows(cls, section: ControlSection, ruler: TextRuler | None = None) -> int:
-        """Rows a section occupies: its header plus its (possibly wrapped) entries."""
-        return 1 + sum(cls.entry_rows(entry, ruler) for entry in section.entries)
+    def section_rows(
+        cls,
+        section: ControlSection,
+        ruler: TextRuler | None = None,
+        wrap_px: int = ACTION_WRAP_PX,
+    ) -> int:
+        """Rows a section occupies: its header, its (possibly wrapped) entries, its note."""
+        rows = 1 + sum(cls.entry_rows(entry, ruler, wrap_px) for entry in section.entries)
+        return rows + cls.note_rows(section, ruler, wrap_px)
 
     @staticmethod
     def _split_to_fit(
         sections: tuple[ControlSection, ...],
         rows_per_column: int = ROWS_PER_COLUMN,
         ruler: TextRuler | None = None,
+        wrap_px: Callable[[ControlSection], int] | None = None,
     ) -> list[ControlSection]:
         """Break any section taller than a column into continuation chunks.
 
@@ -288,12 +428,19 @@ class ControlsPanel:
         taller than the screen and the tail is simply clipped -- a silent cap, and the
         worst kind, because a clipped help screen looks complete.
         """
-        capacity = rows_per_column - 1  # the header takes a row
         chunks: list[ControlSection] = []
         for section in sections:
-            if ControlsPanel.section_rows(section, ruler) <= rows_per_column:
+            # Measured against the narrowest column a section could land in, so a chunk
+            # that fits here fits wherever it is packed.
+            budget = ACTION_WRAP_PX if wrap_px is None else wrap_px(section)
+            if ControlsPanel.section_rows(section, ruler, budget) <= rows_per_column:
                 chunks.append(section)
                 continue
+            # The header takes a row, and the note -- which the last chunk carries -- takes
+            # what it takes. Charged to every chunk rather than to the one that ends up
+            # with it, which is not known until the entries have been dealt out: the cost
+            # is a row on a section long enough to be split in the first place.
+            capacity = rows_per_column - 1 - ControlsPanel.note_rows(section, ruler, budget)
             # Accumulate by rendered height, not entry count: a wrapped entry is two rows.
             batch: list[ControlEntry] = []
             used = 0
@@ -301,7 +448,7 @@ class ControlsPanel:
             # column anyway, by being a full column's worth.
             first = True
             for entry in section.entries:
-                rows = ControlsPanel.entry_rows(entry, ruler)
+                rows = ControlsPanel.entry_rows(entry, ruler, budget)
                 if batch and used + rows > capacity:
                     chunks.append(
                         ControlSection(section.title, tuple(batch), section.fixed, first and section.starts_column)
@@ -310,28 +457,39 @@ class ControlsPanel:
                 batch.append(entry)
                 used += rows
             if batch:
+                # The note goes on the last chunk: it qualifies the rows above it, and the
+                # rows it qualifies end here.
                 chunks.append(
-                    ControlSection(section.title, tuple(batch), section.fixed, first and section.starts_column)
+                    ControlSection(
+                        section.title,
+                        tuple(batch),
+                        section.fixed,
+                        first and section.starts_column,
+                        section.note,
+                    )
                 )
         # Mark every chunk after the first as a continuation of its section.
         seen: set[str] = set()
         marked: list[ControlSection] = []
         for chunk in chunks:
             if chunk.title in seen:
-                marked.append(ControlSection(f"{chunk.title} (cont.)", chunk.entries, chunk.fixed))
+                marked.append(ControlSection(f"{chunk.title} (cont.)", chunk.entries, chunk.fixed, note=chunk.note))
             else:
                 seen.add(chunk.title)
                 marked.append(chunk)
         return marked
 
-    def build(self, body: Box, height_px: int = 0) -> None:
+    def build(self, body: Box, height_px: int = 0, width_px: int = 0) -> None:
         """Fill ``body`` with the help columns.
 
-        ``height_px`` is the vertical room the caller has left for them, its own chrome
-        already deducted; 0 means it does not know, and the fallback budget stands.
+        ``height_px`` is the vertical room the caller has left for them and ``width_px``
+        the horizontal, each with the caller's own chrome already deducted; 0 means it
+        does not know, and the fallbacks stand -- the calibrated row budget, and columns
+        that size themselves to their content.
         """
         self._ruler = TextRuler.measured(body)
         self._rows_per_column = self._rows_that_fit(height_px)
+        self._column_px = self.column_widths(width_px)
         self._pages = self.paginate()
         self._page = min(self._page, max(0, self.page_count - 1))
         self._page_box = Box(body, align="top", layout="grid")
@@ -369,8 +527,8 @@ class ControlsPanel:
         if not self._pages:
             Text(box, text="No controller profile loaded.", grid=[0, 0], size=self.gui.s_12)
             return
-        for index, column in enumerate(self._pages[self._page]):
-            self._render_column(box, column, index)
+        holders = [self._render_column(box, column, index) for index, column in enumerate(self._pages[self._page])]
+        self._match_outer_columns(box)
         if self.page_count > 1:
             self._page_label = Text(
                 box,
@@ -379,9 +537,62 @@ class ControlsPanel:
                 size=FOOTNOTE_SIZE,
                 color=FOOTNOTE_FG,
             )
+        # Last of all, once nothing more will be added to this box: guizero re-grids every
+        # child of a grid container each time another one is added, from that child's align
+        # -- so a sticky set on a column is undone by the next column, and by the page label
+        # after them. The column widths above survive it (they are set on the container, not
+        # its children); this does not.
+        self._fill_columns(holders)
 
-    def _render_column(self, parent: Box, sections: tuple[ControlSection, ...], column: int) -> None:
+    def _match_outer_columns(self, box: Box) -> None:
+        """Make the first and last column the same width, and no column wider than it needs.
+
+        The width budget is a limit, not an allowance: it decides where the text wraps, and
+        so keeps the page inside the display, but a column that then uses less than its
+        share must not hold the difference open -- that reads as a gap before the next
+        column rather than as a column that came out narrow.
+
+        So the columns size themselves to their content, and only the outer two are pinned,
+        to the wider of the two, because three columns whose outer pair are visibly
+        different widths read as a mistake. Tk is asked how wide they came out rather than
+        told, because Tk is what laid the text out; where it cannot say -- a fake render in
+        the tests -- every column simply keeps its own width.
+
+        The width a column is pinned to it then has to spend, which is _fill_columns' half
+        of this: pinned but not filled, the narrower column is centred in the difference,
+        and the half of it that lands on the inside is the gap this was meant to close.
+        """
+        try:
+            box.tk.update_idletasks()  # grid sizes the columns at idle; ask after that
+            holders = box.tk.winfo_children()
+            widest = max(holders[0].winfo_reqwidth(), holders[-1].winfo_reqwidth())
+            for index in (0, COLUMNS - 1):
+                box.tk.grid_columnconfigure(index, minsize=widest)
+        except (AttributeError, IndexError, TclError) as exception:
+            log.debug("Column widths unavailable (%s); leaving each column its own", exception)
+
+    def _fill_columns(self, holders: list[Box]) -> None:
+        """Have each column spend the whole width of the cell it was given.
+
+        align="top" grids a column sticky="N", which centres it in a cell wider than its
+        content: the outer column that was widened to match the other one then draws at its
+        own width in the middle of the difference, half of it showing as blank before the
+        next column. "new" hands that width to the sections instead, which are packed to
+        fill, so the two outer columns really are one width and each column's frames end
+        where its neighbour's begin.
+
+        The section headings and their rows stay left, so a column with room to spare shows
+        it as space inside its frames rather than as a gap between them.
+        """
+        for holder in holders:
+            try:
+                holder.tk.grid_configure(sticky="new")
+            except (AttributeError, TclError) as exception:  # pragma: no cover - no display
+                log.debug("Column %s cannot be filled (%s); leaving it centred", holder, exception)
+
+    def _render_column(self, parent: Box, sections: tuple[ControlSection, ...], column: int) -> Box:
         host = self.gui
+        width_px = self._column_px[column] if column < len(self._column_px) else 0
         holder = Box(parent, grid=[column, 0], align="top", layout="auto")
         for section in sections:
             title = section.title if not section.fixed else f"{section.title} *"
@@ -389,15 +600,39 @@ class ControlsPanel:
             tb.text_size = SECTION_SIZE
             tb.text_color = SECTION_FG
             tb.text_bold = True
+            wrap_px = self.action_wrap_px(section, width_px)
             for row, entry in enumerate(section.entries):
-                self._render_entry(tb, entry, row)
+                self._render_entry(tb, entry, row, wrap_px)
+            if section.note:
+                self._render_note(tb, section.note, len(section.entries), width_px)
             host.cache(tb)
+        return holder
 
-    def _render_entry(self, parent: TitleBox, entry, row: int) -> None:
+    def _render_note(self, parent: TitleBox, text: str, row: int, column_px: int = 0) -> None:
+        """Draw a section's note under its rows, across the width of the section.
+
+        Footnote-sized and grey, like the "*" line under the columns: it says something
+        about the rows above it rather than being one of them, so an eye scanning keycaps
+        should pass over it. Spanned across both of the section's columns because it belongs
+        to the section and not to any one input -- there is no keycap to draw beside it.
+
+        Unbolded for the same reason, and it has to be said rather than left alone: the
+        section's TitleBox sets bold on everything drawn inside it, so a note left to
+        inherit comes out as emphatic as the rows it qualifies -- where the page's other
+        footnote, which sits outside any section, does not.
+        """
+        note = Text(parent, text=text, grid=[0, row, 2, 1], align="left", size=FOOTNOTE_SIZE)
+        note.text_color = FOOTNOTE_FG
+        note.text_bold = False
+        note.tk.config(wraplength=self.note_wrap_px(column_px), justify="left")
+        note.tk.grid_configure(padx=(4, 6), pady=(0, 2), sticky="w")
+        self.gui.cache(note)
+
+    def _render_entry(self, parent: TitleBox, entry, row: int, wrap_px: int = ACTION_WRAP_PX) -> None:
         # The input is drawn as a raised keycap so the eye can find "L1" or "View"
         # without reading the whole line -- this is a reference table, scanned rather
         # than read.
-        name = Text(parent, text=f" {entry.input} ", grid=[0, row], align="left", size=ENTRY_SIZE)
+        name = Text(parent, text=keycap_text(entry), grid=[0, row], align="left", size=ENTRY_SIZE)
         name.text_bold = True
         name.text_color = KEYCAP_FG
         name.bg = KEYCAP_BG
@@ -408,6 +643,6 @@ class ControlsPanel:
         action.text_color = ENTRY_FG
         # wraplength wraps instead of truncating or forcing the column wider. justify
         # keeps the second line aligned under the first rather than centred.
-        action.tk.config(wraplength=ACTION_WRAP_PX, justify="left")
+        action.tk.config(wraplength=wrap_px, justify="left")
         action.tk.grid_configure(padx=(0, 6), pady=2, sticky="w")
         self.gui.cache(name, action)

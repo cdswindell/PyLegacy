@@ -10,7 +10,7 @@
 
 SteamDeckGui builds that screen inside a running GUI that needs a base, a state store and
 a controller; none of that changes a word of what the help screen says. So this rebuilds
-just the overlay -- the same header band, Close button and height budget as
+just the overlay -- the same header band, Close button and height and width budgets as
 SteamDeckGui._build_controls_overlay -- and hands the body to the real ControlsPanel with
 the real bundled profile. What appears is what appears on the Deck, which is the point:
 edits to the section order, the titles or the row budget can be looked at without a layout
@@ -21,8 +21,8 @@ Run it from the repo:
     ../bin/python scripts/controlspreview.py
 
 Close closes it. Up/Down page, standing in for the D-pad, should a profile ever grow past
-one page. The line it prints -- band, body height, rows per column, page count -- is the
-pagination arithmetic the columns were laid out to.
+one page. The lines it prints -- band, body height, rows per column, page count, and the
+width budget each column was given -- are the arithmetic the columns were laid out to.
 """
 
 import os
@@ -101,19 +101,26 @@ def main() -> None:
     )
     title.tk.config(padx=16, pady=6)
 
-    # The row budget the columns are laid out to, derived exactly as the real screen
-    # derives it: the display less the title band and the overlay's border.
+    # The budgets the columns are laid out to, derived exactly as the real screen derives
+    # them: the display less the title band and the overlay's border down, less the border
+    # across.
     header.tk.update_idletasks()
     band = max(CONTROLS_HEADER_FALLBACK_PX, header.tk.winfo_reqheight())
     height_px = max(0, STEAM_DECK_HEIGHT - band - 2 * CONTROLS_BORDER_PX)
+    width_px = max(0, STEAM_DECK_WIDTH - 2 * CONTROLS_BORDER_PX)
 
     body = Box(overlay, align="top", layout="auto")
     panel = ControlsPanel(PreviewHost(), ControlProfile.load(None))
-    panel.build(body, height_px=height_px)
+    panel.build(body, height_px=height_px, width_px=width_px)
     print(
         f"band={band}px body={height_px}px rows_per_column={panel.rows_per_column} pages={panel.page_count}",
         flush=True,
     )
+    # The width budget each column was given, against the room there is: the arithmetic
+    # that keeps the last column and the Close button on screen. What each column is drawn
+    # at is its content, up to this -- the window is where to see that.
+    shares = " + ".join(str(width) for width in panel.column_px)
+    print(f"  budgets {shares} = {sum(panel.column_px)}px of {width_px}px", flush=True)
     # The columns the packer produced, so a section that was meant to move can be checked
     # against the row budget that produced it without reading the window.
     for page, columns in enumerate(panel.paginate()):

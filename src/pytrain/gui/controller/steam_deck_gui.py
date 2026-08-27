@@ -252,7 +252,10 @@ class SteamDeckGui(GuiZeroBase):
         """
         # No width/height and no align: the Box sizes to its content and, with no sticky,
         # grid centres it in the cell -- so it is as short as it can be and centred on the
-        # display rather than a full-height panel with a void under the text.
+        # display rather than a full-height panel with a void under the text. Across, the
+        # content is what is held to the display's width: the panel is handed a width
+        # budget to divide between its columns (ControlsPanel.column_widths), because a Box
+        # sized by its content in a cell that cannot grow is a Box whose overflow is cut.
         overlay = Box(self.body, grid=[0, 0, 3, 1], layout="auto", visible=False)
         overlay.bg = CONTROLS_BG
         overlay.tk.config(relief="raised", borderwidth=CONTROLS_BORDER_PX)
@@ -290,7 +293,11 @@ class SteamDeckGui(GuiZeroBase):
 
         body = Box(overlay, align="top", layout="auto")
         self._controls_panel = ControlsPanel(self, self._controller_profile)
-        self._controls_panel.build(body, height_px=self._controls_body_height(header))
+        self._controls_panel.build(
+            body,
+            height_px=self._controls_body_height(header),
+            width_px=self._controls_body_width(),
+        )
         return overlay
 
     def _controls_body_height(self, header: Box) -> int:
@@ -307,6 +314,17 @@ class SteamDeckGui(GuiZeroBase):
         except (AttributeError, TclError) as exception:
             log.debug("Controls header height unavailable (%s); assuming %d px", exception, band)
         return max(0, self.height - band - 2 * CONTROLS_BORDER_PX)
+
+    def _controls_body_width(self) -> int:
+        """Pixels the help columns may use across: the display, less the overlay's border.
+
+        Stated rather than measured, unlike the height: nothing about the font can change
+        it. What makes it worth handing over is that the overlay is gridded from the left
+        edge of a window that cannot grow, so a page wider than this is neither scaled nor
+        scrolled -- it is cut, and what is cut is the far side of the last column and the
+        Close button at the end of the title band.
+        """
+        return max(0, self.width - 2 * CONTROLS_BORDER_PX)
 
     def _build_focus_arrow(self) -> None:
         # An arrow that sits on the divider, in the same row as each pane's top

@@ -9,7 +9,7 @@
 import pytest
 
 from src.pytrain.gui.controller.control_labels import (
-    ADMIN_CHORD_NOTE,
+    ADMIN_PANEL_NOTE,
     ADMIN_PANEL_TITLE,
     CATALOG_PANEL_TITLE,
     GLOBAL_CHORD_TITLE,
@@ -168,10 +168,12 @@ def test_axis_inversion_is_not_surfaced() -> None:
 
 def test_triggers_describe_their_hold_behaviour() -> None:
     # L2/R2 split a tap from a hold via LONG_PRESS_ACTIONS, which the screen has to say.
+    # Abbreviated: these two rows sit in the narrow middle column and were the pair that
+    # wrapped there, and "w" reads as the qualifier it is.
     entries = {entry.input: entry.note for entry in _section(ControlProfile.load(None), "Buttons").entries}
 
-    assert entries["L2"] == "hold: with dialog"
-    assert entries["R2"] == "hold: with dialog"
+    assert entries["L2"] == "hold: w dialog"
+    assert entries["R2"] == "hold: w dialog"
 
 
 def test_chords_are_grouped_by_where_they_work() -> None:
@@ -188,9 +190,11 @@ def test_chords_are_grouped_by_where_they_work() -> None:
 
     admin = sections[ADMIN_PANEL_TITLE]
     assert [entry.input for entry in admin.entries] == ["L1 + X", "L1 + Y", "L1 + B", "L1 + A"]
-    # The heading names the panel now, so the three-second hold -- which it used to carry --
-    # is said per row. Losing it would make these read like an ordinary chord.
-    assert all(entry.note == ADMIN_CHORD_NOTE for entry in admin.entries)
+    # The hold is the same three seconds for all four, so it is the section's note rather
+    # than four copies of itself on the rows. Losing it altogether would make these read
+    # like an ordinary chord, which is the one thing they are not.
+    assert admin.note == ADMIN_PANEL_NOTE
+    assert all(entry.note == "" for entry in admin.entries)
 
     # Nothing left over: the plain "Chords" heading is dropped when it would be empty.
     assert "Chords" not in sections

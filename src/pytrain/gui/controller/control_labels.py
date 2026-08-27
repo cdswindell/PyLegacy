@@ -111,10 +111,10 @@ ACTION_LABELS: dict[str, str] = {
     "focus_toggle": "Swap focused pane",
     "scope_catalog": "Open catalog",
     "show_controls": "Show these controls",
-    "admin_quit": "Quit PyTrain",
-    "admin_update": "Update PyTrain",
-    "admin_reboot": "Reboot",
-    "admin_shutdown": "Shut down",
+    "admin_quit": "Quit PyTrain **",
+    "admin_update": "Update PyTrain **",
+    "admin_reboot": "Reboot **",
+    "admin_shutdown": "Shut down **",
     # Phrasing overrides. "horn" resolves to BLOW_HORN_ONE ("Blow Horn One") and the
     # startup/shutdown pair splits into IMMEDIATE/DELAYED variants, none of which is
     # what you want to read on a help screen.
@@ -137,9 +137,13 @@ ACTION_LABELS: dict[str, str] = {
 # Per-action notes the profile cannot express. Kept next to ACTION_LABELS so a new action
 # gets both in one place.
 ACTION_NOTES: dict[str, str] = {
-    # LONG_PRESS_ACTIONS splits these into IMMEDIATE and DELAYED variants.
-    "startup": "hold: with dialog",
-    "shutdown": "hold: with dialog",
+    # LONG_PRESS_ACTIONS splits these into IMMEDIATE and DELAYED variants. "w" rather than
+    # "with": these two rows live in the middle column, which is the narrow one, and they
+    # were the pair that wrapped onto a second line there once the Deck's font came out
+    # wider than the one this was measured on. Nothing is lost -- the note is read as a
+    # qualifier on the action beside it, not as a sentence.
+    "startup": "hold: w dialog",
+    "shutdown": "hold: w dialog",
 }
 
 # Headings for the sections that describe one kind of panel: the bindings there apply only
@@ -157,12 +161,16 @@ POPUP_PANEL_TITLE = "While a panel is open"
 
 # Chord actions the router drops unless the admin panel is displayed. Split into their
 # own section so that caveat is stated once in the heading rather than repeated on every
-# row -- four copies of it made the Chords column the widest thing on screen. The hold,
-# though, is per row: it used to ride along in the heading, and the heading now names the
-# panel instead, so it says its three seconds where it applies. Short enough not to widen
-# the column: "Update PyTrain  (hold 3s)" is still narrower than the D-pad's longest row.
+# row -- four copies of it made the Chords column the widest thing on screen. The hold is
+# the same story one level down: all four take the same three seconds, so it is said once
+# under them as the section's note rather than four times as "(hold 3s)" on the rows.
+#
+# Worded as the admin panel words it: the chord starts that panel's own button hold (see
+# ADMIN_COMMANDS in steam_deck_input.py), and the panel labels those buttons "Hold for 3
+# seconds" -- so the screen describing it says the same thing rather than an abbreviation
+# of it. Three seconds is AdminPanel's hold_threshold default, not a number of its own.
 ADMIN_CHORD_ACTIONS = frozenset({"admin_quit", "admin_update", "admin_reboot", "admin_shutdown"})
-ADMIN_CHORD_NOTE = "hold 3s"
+ADMIN_PANEL_NOTE = "** Hold for 3 seconds"
 # Chords that work whatever is on screen get their own heading too. Said per row as
 # "(anywhere)" it wrapped both entries onto a second line, which made this column tall
 # enough to push the Close button off the bottom of the display.
@@ -297,6 +305,10 @@ class ControlSection:
     # column at a budget of 20 rows and were pulled up into the bottom of the middle one
     # at 22 -- the budget the Deck itself derives.
     starts_column: bool = False
+    # A footnote for the section as a whole, drawn under its rows. For what is true of
+    # every row in it: as a per-row note it is the same words two, three, four times over,
+    # widening the narrowest thing on the screen to say once what it says repeatedly.
+    note: str = ""
 
 
 # The D-pad is handled directly by DeckInputRouter (_handle_scroll_boost /
@@ -408,7 +420,9 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
             ACTION_NOTES.get(chord.action, ""),
         )
         if chord.action in ADMIN_CHORD_ACTIONS:
-            admin_chords.append(ControlEntry(entry.input, entry.action, ADMIN_CHORD_NOTE))
+            # The hold these all share is the section's note, so the rows say only what
+            # differs between them.
+            admin_chords.append(entry)
         elif chord.target == "global":
             global_chords.append(entry)
         else:
@@ -432,7 +446,7 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         ControlSection("Chords", tuple(chords)),
         ControlSection("D-pad", FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection(SWITCH_PANEL_TITLE, FIXED_SWITCH_ENTRIES, fixed=True, starts_column=True),
-        ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords)),
+        ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords), note=ADMIN_PANEL_NOTE),
         ControlSection(CATALOG_PANEL_TITLE, FIXED_CATALOG_ENTRIES, fixed=True),
         ControlSection(POPUP_PANEL_TITLE, FIXED_POPUP_ENTRIES, fixed=True),
     )
