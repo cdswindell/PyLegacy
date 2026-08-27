@@ -54,31 +54,38 @@ MIN_ROWS_PER_COLUMN = 4
 # Text sizes. The Deck GUI is built with scale_by=1.0, so these are points as written.
 # Entries were s_10, which was legible on a desk and not at arm's length on a handheld.
 #
-# ENTRY_SIZE came down from 16 for the last of the wrapping: on the Deck's font -- some
-# 6-12% wider than a desk machine's at the same point size -- the three columns wanted
-# about 1345px of the 1274 there are, so "Boost / brake speed  (repeats)" and the two
-# "Throw thru / out LEFT/RIGHT" rows broke onto a second line whatever the width was
-# divided into. A point buys about 6%, which covers it on the measurements that could be
-# taken here -- and where it does not, _fit_text takes another rather than leaving a row
-# broken. The alternative was cutting words out of those three rows, and the wording is
-# worth more than the point.
+# ENTRY_SIZE is a ceiling rather than the size drawn: _fit_text gives points back, down to
+# MIN_ENTRY_SIZE, on a display whose font is too wide to hold its rows on one line. 16 is
+# the ceiling because it is the largest size the three columns fit the Deck's 1274px at on
+# any font that could be measured here -- 1250px of it, where 17pt wants 1345 -- so a
+# higher one would only ever be handed straight back. Height is not what limits it: a row
+# is as tall as the taller of its own text and a SECTION_SIZE heading, and the heading wins
+# up to 17pt, so the derived budget stays at the 22 rows the Deck's height buys against the
+# 19 the bundled sections need.
+#
+# A wider font pays nothing for the ceiling being here rather than a point lower: on the
+# Deck's own -- some 6-12% wider than a desk machine's at the same point size -- 16pt wants
+# 1313-1380px, so _fit_text settles at 15 or below there exactly as it did when 15 was
+# written here. The alternative to that shrink was cutting words out of "Boost / brake
+# speed  (repeats)" and the two "Throw thru / out LEFT/RIGHT" rows, which are what the
+# middle and last columns are measured against, and the wording is worth more than the
+# point.
 TITLE_SIZE = 24
 SECTION_SIZE = 14
-ENTRY_SIZE = 15
+ENTRY_SIZE = 16
 FOOTNOTE_SIZE = 12
-# How far the entry text may shrink when a display still cannot hold its rows at
-# ENTRY_SIZE, a point at a time -- see _fit_text. A floor rather than one fixed size
-# because the font a display draws in is not knowable from here: the same 15pt rows
-# measure 6-12% wider on the Deck than on a desk machine, which is the difference between
-# a screen of single lines and three broken rows. Two points is as far as it goes; below
-# that the screen is being read at arm's length and something else has to give.
+# How far the entry text may shrink when a display cannot hold its rows at ENTRY_SIZE, a
+# point at a time -- see _fit_text. A floor rather than one fixed size because the font a
+# display draws in is not knowable from here: the same 16pt rows measure 6-12% wider on the
+# Deck than on a desk machine, which is the difference between a screen of single lines and
+# three broken rows. Three points is as far as it goes; below that the screen is being read
+# at arm's length and something else has to give.
 MIN_ENTRY_SIZE = 13
 
 # Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
 # this is what actually decides where a line breaks. 320 clears the longest current
-# string ("Boost / brake speed  (repeats)", measured at 276px at the 16pt these rows were
-# drawn at then, and less since) with room for a wider font than the one this was measured
-# on.
+# string ("Boost / brake speed  (repeats)", measured at 276px at the 16pt ENTRY_SIZE
+# names) with room for a wider font than the one this was measured on.
 #
 # This is the fallback, for the same reason ROWS_PER_COLUMN is one: build() replaces it
 # with a budget divided out of the width the display actually has. As the only answer it
@@ -114,8 +121,8 @@ ENTRY_CHROME_PX = 48
 # Rendered width of one character at ENTRY_SIZE, for predicting wraps. Measured across
 # the real strings at 9.2-10.5 px/char; the high end is deliberate, because
 # under-estimating means budgeting one row for a line Tk will wrap onto two -- which
-# overflows the column. Over-estimating only leaves slack -- and it now leaves a little
-# more of it, ENTRY_SIZE having come down a point since this was measured.
+# overflows the column. Over-estimating only leaves slack. Measured at 16pt, which is what
+# ENTRY_SIZE says again, so the estimate and the size it estimates for agree.
 APPROX_CHAR_PX = 10.0
 # Characters that fit in the budget. Derived, not written down separately: as independent
 # constants they drifted apart, and a predictor that said "fits" while Tk wrapped anyway
@@ -663,10 +670,11 @@ class ControlsPanel:
         what was left of the wrapping once the width was being divided by measurement. A
         screen that measures its own rows does not have to be told.
 
-        Down rather than up: the size is a legibility decision, taken once at 16 and taken
-        again at 15 for the last of the wrapping, so this gives back a point to save a row
-        and never spends one it does not have to. With nothing to measure with the first
-        size stands, as it does for the row and width budgets.
+        Down rather than up: ENTRY_SIZE is already the largest size these columns fit the
+        Deck's width at on any font that could be measured here, so there is nothing above
+        it worth trying -- this gives a point back to save a row and never spends one it
+        does not have to. With nothing to measure with the first size stands, as it does for
+        the row and width budgets.
         """
         for size in range(ENTRY_SIZE, MIN_ENTRY_SIZE - 1, -1):
             self._entry_size = size

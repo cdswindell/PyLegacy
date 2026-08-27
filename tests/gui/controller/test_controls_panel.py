@@ -538,10 +538,11 @@ def test_build_derives_the_budget_from_the_room_it_is_given(monkeypatch) -> None
 
 def test_the_entry_size_comes_down_only_until_the_rows_fit(monkeypatch) -> None:
     # A point of text size is a legibility decision -- these rows were 10pt once, which
-    # read on a desk and not at arm's length -- so it is given back one at a time and only
-    # to save a row. And it has to be measured rather than written down: the same 15pt rows
-    # draw some 6-12% wider on the Deck than on a desk machine, which is the difference
-    # between a screen of single lines and three broken ones.
+    # read on a desk and not at arm's length -- so ENTRY_SIZE is a ceiling and a point is
+    # given back one at a time and only to save a row. Which point it settles on has to be
+    # measured rather than written down: the same 16pt rows draw some 6-12% wider on the
+    # Deck than on a desk machine, which is the difference between a screen of single lines
+    # and three broken ones.
     tried: list[int] = []
     monkeypatch.setattr(mod.TextRuler, "measured", classmethod(_fixed_ruler))
 
@@ -579,6 +580,27 @@ def test_the_entry_size_is_never_given_back_past_the_floor(monkeypatch) -> None:
 
     assert tried == list(range(mod.ENTRY_SIZE, mod.MIN_ENTRY_SIZE - 1, -1))
     assert panel.entry_size == mod.MIN_ENTRY_SIZE
+
+
+def test_the_size_ceiling_does_not_cost_the_screen_a_page(monkeypatch) -> None:
+    # The other half of raising ENTRY_SIZE, and the half _fit_text does not test for: a
+    # taller row buys fewer of them, and a budget under what the sections need spills the
+    # shipped screen onto a second page nobody would think to turn to. Modelled with a row
+    # that grows with the point size, which is the worst case -- on the fonts measured here
+    # a row is as tall as the taller of its text and a SECTION_SIZE heading, and the heading
+    # wins at every size the ceiling can reach, so the real budget does not move at all.
+    def sized_ruler(_cls, _widget, entry_size: int = mod.ENTRY_SIZE) -> mod.TextRuler:
+        return mod.TextRuler(len, entry_size + 16, 15, len)
+
+    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(sized_ruler))
+    panel = _panel(ControlProfile.load(None))
+
+    # The room the Deck's own display leaves the columns, which is what the ceiling was
+    # measured against: 800px less the title band and the overlay's border.
+    panel._fit_text(object(), 738, 1274)
+
+    assert panel.entry_size == mod.ENTRY_SIZE
+    assert len(panel.paginate()) == 1
 
 
 def test_an_unmeasurable_screen_draws_at_the_size_as_written() -> None:
