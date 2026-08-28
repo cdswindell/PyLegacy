@@ -9,6 +9,7 @@
 import pytest
 
 from src.pytrain.gui.controller.control_labels import (
+    ACTION_NOTES,
     ADMIN_PANEL_NOTE,
     ADMIN_PANEL_TITLE,
     BUTTONS_TITLE,
@@ -79,10 +80,19 @@ def test_awkward_enum_names_are_overridden(action, expected) -> None:
 def test_app_actions_have_labels_of_their_own() -> None:
     # These drive the GUI rather than an engine, so no enum names them.
     assert action_label("focus_toggle") == "Swap focused pane"
-    # Alone among these it says which pane it acts on: the bundled profile files it under
-    # the global heading, which cannot speak for a binding scoped to the focused pane.
-    assert action_label("scope_catalog") == "Open catalog (w focus)"
+    assert action_label("scope_catalog") == "Open catalog"
     assert action_label("show_controls") == "Show these controls"
+
+
+def test_the_catalog_row_says_which_pane_it_opens_and_says_it_as_a_note() -> None:
+    # Alone among the actions above it says which pane it acts on: the bundled profile files
+    # it under the global heading, which cannot speak for a binding scoped to the focused
+    # pane. The qualifier is a note rather than part of the label, in the words the
+    # focus-scoped headings use -- so the help screen draws it as it draws every other
+    # parenthesised aside, a size down, instead of leaving one of them at full size.
+    assert ACTION_NOTES["scope_catalog"] == "w focus"
+    assert "(" not in action_label("scope_catalog")
+    assert f"({ACTION_NOTES['scope_catalog']})" in CATALOG_PANEL_TITLE
 
 
 def test_an_unknown_action_is_still_readable() -> None:
@@ -193,7 +203,9 @@ def test_chords_are_grouped_by_where_they_work() -> None:
     # simpler than a chord, so it reads first.
     everywhere = sections[GLOBAL_CHORD_TITLE]
     assert [entry.input for entry in everywhere.entries] == ["View", "Menu", "L3", "R3", "L1 + R1", "L3 + R3"]
-    assert all(entry.note == "" for entry in everywhere.entries)
+    # Nothing here is qualified except the one row the heading cannot speak for: Menu opens
+    # the catalog of whichever pane has focus, where everything else here works anywhere.
+    assert {entry.input: entry.note for entry in everywhere.entries if entry.note} == {"Menu": "w focus"}
 
     admin = sections[ADMIN_PANEL_TITLE]
     assert [entry.input for entry in admin.entries] == ["L1 + X", "L1 + Y", "L1 + B", "L1 + A"]

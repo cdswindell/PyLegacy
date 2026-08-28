@@ -76,7 +76,7 @@ def test_bundled_profile_fits_on_one_page() -> None:
     assert len(panel.paginate()) == 1
 
 
-@pytest.mark.parametrize("budget", range(ROWS_PER_COLUMN - 1, ROWS_PER_COLUMN + 5))
+@pytest.mark.parametrize("budget", range(ROWS_PER_COLUMN - 1, ROWS_PER_COLUMN + 9))
 def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
     # The column order is the section order in controls_summary, so this is the assertion
     # that keeps it: the reader asking what a control does while a panel of some kind is up
@@ -94,6 +94,13 @@ def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
     # rather than of packing. ROWS_PER_COLUMN itself is the floor the screen is ever drawn
     # at, being the fallback for when there is no Tk to measure with, so the layout holds
     # with a row in hand.
+    #
+    # The ceiling is well above what any display derives, and has to be: a row is as tall as
+    # the taller of its text and a section heading, so thinning the section outlines to
+    # SECTION_BORDER took the heading's two border pixels off every row and handed this
+    # machine 24 rows where it had 22. Above 30 the layout does break -- the middle column
+    # runs out of sections to hold and the D-pad moves up into the first -- which is a
+    # different screen from the one these assertions describe.
     panel = _panel(ControlProfile.load(None))
     panel._rows_per_column = budget
 
@@ -374,6 +381,45 @@ class _FakeText:
         _FakeText.instances.append(self)
 
 
+class _FakeFrameTk:
+    """Stand-in for a section's LabelFrame: what it was told, and what it can be asked.
+
+    Separate from _FakeTextTk because a heading is the one place the panel asks Tk a
+    question -- the frame's own background, so the labels it packs match it -- rather than
+    only telling it things.
+    """
+
+    def __init__(self) -> None:
+        self.configs: list[dict] = []
+
+    def config(self, **kwargs) -> None:
+        self.configs.append(kwargs)
+
+    def cget(self, _option) -> str:
+        return "#FFFFFF"
+
+
+class _FakeFrame:
+    """The plain Tk frame a split heading is packed into, and handed over as labelwidget."""
+
+    def __init__(self, parent, **kwargs) -> None:
+        self.parent = parent
+        self.kwargs = kwargs
+
+
+class _FakeLabel:
+    instances: list["_FakeLabel"] = []
+
+    def __init__(self, parent, **kwargs) -> None:
+        self.parent = parent
+        self.kwargs = kwargs
+        self.packed: dict = {}
+        _FakeLabel.instances.append(self)
+
+    def pack(self, **kwargs) -> None:
+        self.packed = kwargs
+
+
 def test_the_action_text_is_configured_to_wrap(monkeypatch) -> None:
     # Without wraplength Tk neither wraps nor shrinks: the line is truncated, which is
     # what "Boost / brake speed (repeats)" was doing on the Deck.
@@ -381,16 +427,22 @@ def test_the_action_text_is_configured_to_wrap(monkeypatch) -> None:
     monkeypatch.setattr(mod, "Text", _FakeText)
     panel = _panel(ControlProfile.load(None))
     panel._gui = SimpleNamespace(cache=lambda *_w: None)
+    entry = ControlEntry("Up / Down", "Boost / brake speed", "repeats")
 
-    panel._render_entry(object(), ControlEntry("Up / Down", "Boost / brake speed", "repeats"), 0)
+    panel._render_entry(object(), entry, 0)
 
-    keycap, action = _FakeText.instances
+    keycap, action, note = _FakeText.instances
     wrap = [cfg for cfg in action.tk.configs if "wraplength" in cfg]
     assert wrap, "action text must be given a wrap width"
-    assert wrap[0]["wraplength"] == mod.ACTION_WRAP_PX
+    # The row's whole share less this row's own note, which is drawn beside it: the same sum
+    # entry_rows does, or the packer counts one row and Tk draws two.
+    assert wrap[0]["wraplength"] == mod.ACTION_WRAP_PX - panel._note_px(entry)
     assert wrap[0]["justify"] == "left"
     # The keycap must not wrap -- "L1 + R1" splitting across lines would look broken.
     assert not any("wraplength" in cfg for cfg in keycap.tk.configs)
+    # Nor the note: its column was measured to hold it, and a note broken over two lines
+    # would cost the row a second one to say the same words.
+    assert not any("wraplength" in cfg for cfg in note.tk.configs)
 
 
 def test_the_action_text_is_drawn_a_weight_lighter_than_its_keycap(monkeypatch) -> None:
@@ -407,9 +459,10 @@ def test_the_action_text_is_drawn_a_weight_lighter_than_its_keycap(monkeypatch) 
 
     panel._render_entry(object(), ControlEntry("Up / Down", "Boost / brake speed", "repeats"), 0)
 
-    keycap, action = _FakeText.instances
+    keycap, action, note = _FakeText.instances
     assert keycap.text_bold is True
     assert action.text_bold is False
+    assert note.text_bold is False
 
 
 def test_the_rows_are_drawn_at_the_size_that_was_fitted(monkeypatch) -> None:
@@ -763,8 +816,8 @@ def test_no_bundled_row_wraps_however_wide_the_display_draws_it(monkeypatch, px_
             for section in column:
                 wrap_px = panel._column_wrap_px(section, index)
                 for entry in section.entries:
-                    text = mod.entry_text(entry)
-                    assert panel._ruler.wrapped_rows(text, wrap_px) == 1, (section.title, text, wrap_px)
+                    rows = ControlsPanel.entry_rows(entry, panel._ruler, wrap_px)
+                    assert rows == 1, (section.title, entry.action, entry.note, wrap_px)
                 if section.note:
                     note_px = panel.note_wrap_px(panel.column_px[index % COLUMNS])
                     assert panel._ruler.wrapped_rows(section.note, note_px) == 1, (section.title, section.note)
@@ -865,13 +918,79 @@ def test_a_keycap_is_measured_in_the_weight_it_is_drawn_in() -> None:
     section = _sections(panel)[BUTTONS_TITLE]
 
     keycap = max(2 * len(mod.keycap_text(entry)) for entry in section.entries)
-    action = max(len(mod.entry_text(entry)) for entry in section.entries)
+    noted = [entry for entry in section.entries if entry.note]
+    row = max(len(entry.action) for entry in noted) + max(panel._note_px(entry) for entry in noted)
 
     assert panel.action_wrap_px(section, 400) == 400 - keycap - mod.ENTRY_CHROME_PX
-    assert panel.section_px(section) == keycap + action + mod.ENTRY_CHROME_PX
+    assert panel.section_px(section) == keycap + row + mod.ENTRY_CHROME_PX
     # The estimate draws no such distinction and does not need to: a character count at the
     # high end of what a character measures is already generous enough for the bold.
     assert mod.ESTIMATED_RULER.keycap_width("Right stick") == mod.ESTIMATED_RULER.width("Right stick")
+
+
+def test_a_rows_note_is_priced_at_the_size_it_is_drawn_at() -> None:
+    # The whole of what this bought. "(hold: w dialog)" and "(repeats)" were measured at the
+    # entry size because they were inside the action's own label, and all seven notes on the
+    # bundled screen are in the middle column -- the one whose need decides how wide the page
+    # is. Charged at NOTE_SIZE, that column comes down 19px and stops being the widest.
+    panel = _panel(ControlProfile.load(None))
+    entry = ControlEntry("Up / Down", "Boost / brake speed", "repeats")
+    smaller = mod.TextRuler(measure=lambda text: 10 * len(text), row_px=30, footnote_px=15, keycap_measure=len)
+    same = mod.TextRuler(measure=lambda text: 10 * len(text), row_px=30, footnote_px=15, keycap_measure=len)
+    smaller._note_measure = lambda text: 7 * len(text)
+
+    panel._ruler = same
+    at_entry_size = panel._note_px(entry)
+    panel._ruler = smaller
+
+    assert panel._note_px(entry) < at_entry_size
+    # And a ruler with nothing to measure with charges the full size, which is the safe
+    # direction: a column budgeted wider than its rows need, never narrower.
+    assert mod.ESTIMATED_RULER.note_width("(repeats)") == mod.ESTIMATED_RULER.width("(repeats)")
+    # A row with no note is charged nothing at all, padding included.
+    assert panel._note_px(ControlEntry("Up / Down", "Smoke down / up")) == 0
+
+
+def test_a_section_is_only_charged_for_the_notes_it_has() -> None:
+    # The trap this exists for, and it cost the bundled Global section 75px before it was
+    # caught: charge every row the widest action *and* the widest note, and a section pays
+    # for both even when they are on different rows -- "HALT - emergency stop" carries no
+    # note, and the only note up there is on the much shorter "Open catalog". The rows with
+    # no note span the note column instead, so the section is as wide as its longest row.
+    panel = _panel(ControlProfile.load(None))
+    panel._ruler = mod.TextRuler(measure=len, row_px=30, footnote_px=15, keycap_measure=len)
+    long_action = ControlEntry("A", "A very long action indeed")
+    short_with_note = ControlEntry("B", "Short", "a long note")
+    section = ControlSection("Mixed", (long_action, short_with_note))
+    keycap = max(len(mod.keycap_text(entry)) for entry in section.entries)
+
+    widest_row = max(len(long_action.action), len(short_with_note.action) + panel._note_px(short_with_note))
+
+    assert panel.section_px(section) == keycap + widest_row + mod.ENTRY_CHROME_PX
+    # Which is less than the two maxima added together -- what the section would have cost.
+    assert panel.section_px(section) < keycap + len(long_action.action) + panel._note_px(short_with_note) + (
+        mod.ENTRY_CHROME_PX
+    )
+    # And a section whose longest row is the annotated one is charged for both of its parts.
+    together = ControlSection("Annotated", (short_with_note, ControlEntry("A", "Mid", "n")))
+    assert (
+        panel.section_px(together)
+        == max(len(mod.keycap_text(entry)) for entry in together.entries)
+        + len(short_with_note.action)
+        + panel._note_px(short_with_note)
+        + mod.ENTRY_CHROME_PX
+    )
+
+
+def test_a_note_is_never_drawn_larger_than_the_row_it_qualifies() -> None:
+    # An aside a size down, which is what it is for -- so on a display whose rows have come
+    # down to meet it (a lowered MIN_ENTRY_SIZE) it comes down with them rather than ending
+    # up the largest thing on the row.
+    panel = _panel(ControlProfile.load(None))
+
+    assert panel.note_size == mod.NOTE_SIZE < mod.ENTRY_SIZE
+    panel._entry_size = mod.NOTE_SIZE - 2
+    assert panel.note_size == mod.NOTE_SIZE - 2
 
 
 def test_a_section_wraps_within_what_its_keycaps_leave_of_the_column() -> None:
@@ -1032,7 +1151,7 @@ def test_a_section_note_is_drawn_under_its_rows(monkeypatch) -> None:
 
     (note,) = _FakeText.instances
     assert note.kwargs["text"] == "Hold for 3 seconds"
-    assert note.kwargs["grid"] == [0, 4, 2, 1]
+    assert note.kwargs["grid"] == [0, 4, mod.ENTRY_COLUMNS, 1]
     assert note.kwargs["size"] == mod.FOOTNOTE_SIZE
     assert note.text_color == mod.FOOTNOTE_FG
     # Said rather than left alone: the section's TitleBox bolds everything inside it, so an
@@ -1071,11 +1190,200 @@ def test_the_action_text_wraps_within_its_own_column(monkeypatch) -> None:
     monkeypatch.setattr(mod, "Text", _FakeText)
     panel = _panel(ControlProfile.load(None))
     panel._gui = SimpleNamespace(cache=lambda *_w: None)
+    plain = ControlEntry("Up / Down", "Smoke down / up")
 
-    panel._render_entry(object(), ControlEntry("Up / Down", "Boost / brake speed", "repeats"), 0, 203)
+    panel._render_entry(object(), plain, 0, 203)
 
     _keycap, action = _FakeText.instances
     assert [cfg for cfg in action.tk.configs if "wraplength" in cfg][0]["wraplength"] == 203
+
+    # And a row with a note gets what is left of that once the note is drawn beside it.
+    _FakeText.instances = []
+    noted = ControlEntry("Up / Down", "Boost / brake speed", "repeats")
+
+    panel._render_entry(object(), noted, 0, 400)
+
+    _keycap, action, _note = _FakeText.instances
+    wrapped = [cfg for cfg in action.tk.configs if "wraplength" in cfg][0]["wraplength"]
+    assert wrapped == 400 - panel._note_px(noted)
+    # One sum, done in both places: what the packer charged the row is what Tk is told to
+    # wrap it at. Priced apart, the note is the row the column was not budgeted for.
+    assert ControlsPanel.entry_rows(noted, panel._ruler, 400) == panel._ruler.wrapped_rows(noted.action, wrapped)
+
+    # A row whose note would leave the action nothing gets the floor, not a negative wrap:
+    # Tk reads that as "no wrapping" and truncates the line at the edge of the column.
+    _FakeText.instances = []
+
+    panel._render_entry(object(), noted, 0, panel._note_px(noted))
+
+    _keycap, action, _note = _FakeText.instances
+    assert [cfg for cfg in action.tk.configs if "wraplength" in cfg][0]["wraplength"] == mod.MIN_ACTION_WRAP_PX
+    assert ControlsPanel.entry_rows(noted, panel._ruler, panel._note_px(noted)) >= 1
+
+
+def test_a_rows_note_is_drawn_beside_it_a_size_down(monkeypatch) -> None:
+    # What was asked for, and where the width came from: the parenthesised phrase is an
+    # aside on the action rather than part of it, so it is drawn at NOTE_SIZE -- the size
+    # every other aside on the screen is drawn at -- in a column of its own, which also
+    # lines the parentheses up down the section.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_w: None)
+
+    panel._render_entry(object(), ControlEntry("Up / Down", "Boost / brake speed", "repeats"), 3)
+
+    _keycap, action, note = _FakeText.instances
+    assert action.kwargs["text"] == "Boost / brake speed", "the note must not be inside the action any more"
+    assert action.kwargs["size"] == mod.ENTRY_SIZE
+    assert note.kwargs["text"] == "(repeats)"
+    assert note.kwargs["size"] == mod.NOTE_SIZE < mod.ENTRY_SIZE
+    # Its own grid column, on the row it belongs to.
+    assert action.kwargs["grid"] == [1, 3]
+    assert note.kwargs["grid"] == [2, 3]
+    # And the same colour as the action: these two words are sometimes the whole of what a
+    # row is telling you, and greying them as well as shrinking them puts them past reading.
+    assert note.text_color == mod.ENTRY_FG == action.text_color
+
+
+def test_a_row_with_no_note_spans_the_column_the_notes_use(monkeypatch) -> None:
+    # Otherwise the note column is empty on that row and the section pays for it anyway --
+    # 75px on the bundled Global section, whose longest row carries no note. Spanning is what
+    # makes an aligned note column free; see test_a_section_is_only_charged_for_the_notes.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_w: None)
+
+    panel._render_entry(object(), ControlEntry("Left / Right", "Smoke down / up"), 2)
+
+    keycap, action = _FakeText.instances
+    assert keycap.kwargs["grid"] == [0, 2]
+    assert action.kwargs["grid"] == [1, 2, 2, 1]
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        # The four focus-scoped panel headings, and the one that carries the "*" as well.
+        (CATALOG_PANEL_TITLE, ("Catalog Panel", "(w focus)", "")),
+        (f"{CATALOG_PANEL_TITLE} *", ("Catalog Panel", "(w focus)", "*")),
+        # A section too tall for its column: both parentheses go small together, since both
+        # say when rather than what.
+        (f"{BUTTONS_TITLE} (cont.)", ("Buttons", "(w focus) (cont.)", "")),
+        # Nothing to shrink, which is most of them -- returned whole rather than as a head
+        # with an empty qualifier, so the renderer leaves the frame's own title alone.
+        (POPUP_PANEL_TITLE, (POPUP_PANEL_TITLE, "", "")),
+        (f"{GLOBAL_CHORD_TITLE} *", (f"{GLOBAL_CHORD_TITLE} *", "", "")),
+    ],
+)
+def test_a_heading_splits_into_what_is_scanned_and_what_qualifies_it(title, expected) -> None:
+    assert mod.heading_parts(title) == expected
+
+
+def test_a_heading_qualifier_is_drawn_a_size_down(monkeypatch) -> None:
+    # "(w focus)" says when the rows below apply, which is read once and then known, where
+    # the panel type is what an eye scanning the headings comes back to. A LabelFrame's own
+    # title is one string in one font, so two sizes means handing it a labelwidget.
+    #
+    # The "*" stays the size of the heading it marks: it points at the footnote under the
+    # columns rather than saying anything itself.
+    _FakeLabel.instances = []
+    monkeypatch.setattr(mod, "Frame", _FakeFrame)
+    monkeypatch.setattr(mod, "Label", _FakeLabel)
+    monkeypatch.setattr(mod.tkfont, "nametofont", lambda *_a, **_k: SimpleNamespace(actual=lambda _key: "Helvetica"))
+    panel = _panel(ControlProfile.load(None))
+    box = SimpleNamespace(tk=_FakeFrameTk())
+
+    panel._render_heading(box, f"{CATALOG_PANEL_TITLE} *")
+
+    assert [label.kwargs["text"] for label in _FakeLabel.instances] == ["Catalog Panel", "(w focus)", "*"]
+    assert [label.kwargs["font"][1] for label in _FakeLabel.instances] == [
+        mod.SECTION_SIZE,
+        mod.NOTE_SIZE,
+        mod.SECTION_SIZE,
+    ]
+    # Bold and the heading colour throughout: the qualifier is part of the heading, not a
+    # footnote to it, and 12pt unbolded grey is close to invisible at arm's length.
+    assert all(label.kwargs["font"][2] == "bold" for label in _FakeLabel.instances)
+    assert all(label.kwargs["foreground"] == mod.SECTION_FG for label in _FakeLabel.instances)
+    assert [config for config in box.tk.configs if "labelwidget" in config], "the frame has to be given the widget"
+
+
+def test_a_heading_with_nothing_to_qualify_is_left_as_one_string(monkeypatch) -> None:
+    # Most of them: no parentheses, nothing to shrink, and no reason to build three widgets
+    # and a frame to draw what the LabelFrame draws itself.
+    _FakeLabel.instances = []
+    monkeypatch.setattr(mod, "Frame", _FakeFrame)
+    monkeypatch.setattr(mod, "Label", _FakeLabel)
+    panel = _panel(ControlProfile.load(None))
+    box = SimpleNamespace(tk=_FakeFrameTk())
+
+    panel._render_heading(box, f"{POPUP_PANEL_TITLE} *")
+
+    assert _FakeLabel.instances == []
+    assert box.tk.configs == []
+
+
+def test_a_heading_tk_cannot_split_is_drawn_in_one_size(monkeypatch) -> None:
+    # Measuring and building widgets is an improvement on the plain title, never a
+    # requirement for drawing it: a stand-in widget, or no display, leaves the heading as the
+    # frame was created with it rather than raising on the way to a smaller "(w focus)".
+    monkeypatch.setattr(mod, "Frame", _FakeFrame)
+    monkeypatch.setattr(mod, "Label", _FakeLabel)
+    panel = _panel(ControlProfile.load(None))
+
+    panel._render_heading(SimpleNamespace(tk=object()), CATALOG_PANEL_TITLE)
+
+
+def test_a_real_labelframe_accepts_the_split_heading() -> None:
+    # The fakes above cannot say whether Tk will take a labelwidget on a LabelFrame that also
+    # grids the section's rows inside it, which is the one thing about this that could fail
+    # on the machine rather than in the arithmetic.
+    tk = pytest.importorskip("tkinter")
+    from tkinter import font as tkfont
+
+    try:
+        root = tk.Tk()
+    except tk.TclError as exception:  # pragma: no cover - depends on the display
+        pytest.skip(f"no display to draw against: {exception}")
+    try:
+        frame = tk.LabelFrame(root, text=CATALOG_PANEL_TITLE)
+        panel = _panel(ControlProfile.load(None))
+
+        panel._render_heading(SimpleNamespace(tk=frame), f"{CATALOG_PANEL_TITLE} *")
+
+        name = frame.cget("labelwidget")
+        assert name, "without this the heading is drawn in one size"
+        parts = root.nametowidget(name).winfo_children()
+        assert [part.cget("text") for part in parts] == ["Catalog Panel", "(w focus)", "*"]
+        sizes = [tkfont.Font(root=root, font=part.cget("font")).actual("size") for part in parts]
+        assert sizes == [mod.SECTION_SIZE, mod.NOTE_SIZE, mod.SECTION_SIZE]
+    finally:
+        root.destroy()
+
+
+def test_the_sections_are_outlined_in_a_single_line(monkeypatch) -> None:
+    # The gap between the columns, which is not padding: the columns are flush (padx=0, every
+    # section packed fill="x"), and what showed between them was two section frames' own
+    # 2px groove -- dark, light, light, dark -- of which the two light pixels read as a gap.
+    # One line each, and two neighbours meet in a single rule with no white in it.
+    _FakeText.instances = []
+    monkeypatch.setattr(mod, "Box", _FakeText)
+    monkeypatch.setattr(mod, "Text", _FakeText)
+    monkeypatch.setattr(mod, "TitleBox", _FakeText)
+    panel = _panel(ControlProfile.load(None))
+    panel._gui = SimpleNamespace(cache=lambda *_widgets: None, s_12=12)
+
+    panel._render_column(_FakeText(None), panel.paginate()[0][0], 0)
+
+    frames = [widget for widget in _FakeText.instances if widget.kwargs.get("layout") == "grid"]
+    assert frames, "the sections are the frames drawn with a border"
+    assert all(frame.kwargs["border"] == mod.SECTION_BORDER == 1 for frame in frames)
+    assert all({"relief": mod.SECTION_RELIEF} in frame.tk.configs for frame in frames)
+    # And the row model follows it, or the columns are budgeted for a taller heading than
+    # they draw and give back a row they could have had.
+    assert mod.TITLE_BOX_BORDER_PX == 2 * mod.SECTION_BORDER
 
 
 def test_every_bundled_section_is_drawable_within_its_column() -> None:

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
-from tkinter import TclError
+from tkinter import Frame, Label, TclError
 from tkinter import font as tkfont
 from typing import TYPE_CHECKING, Callable
 
@@ -57,18 +57,21 @@ MIN_ROWS_PER_COLUMN = 4
 # ENTRY_SIZE is the size the rows are drawn at, on every display: MIN_ENTRY_SIZE below is
 # the same number, so _fit_text has one size to try and never gives a point back. 16 is
 # that number because it is the largest the three columns hold the Deck's 1274px at on the
-# font that could be measured here -- 1250px of it, where 17pt wants 1345. Height is not
+# font that could be measured here -- 1229px of it, where 17pt wants 1321. Height is not
 # what limits it: a row is as tall as the taller of its own text and a SECTION_SIZE
-# heading, and the heading wins up to 17pt, so the derived budget stays at the 22 rows the
-# Deck's height buys against the 19 the bundled sections need.
+# heading, and the heading wins up to 17pt, so the derived budget stays at the rows the
+# Deck's height buys (24 here, 21 on a font 12% wider) against the 19 the bundled sections
+# need.
 #
 # On a font wider than this machine's the size no longer moves and the page does. The Deck
-# draws these strings some 6-12% wider, where the columns ask for 1313-1380px of the 1274
+# draws these strings some 6-12% wider, where the columns ask for 1290-1423px of the 1274
 # there are. Less of that is lost than it sounds: a budget is what a column may use, and
 # the page draws its content, which is narrower -- rendered at 17pt and 18pt as stand-ins
-# for those two ends, the page comes out 1255px and 1304px, so nothing is cut at the narrow
-# end and some 30px at the wide one, which is the right-hand side of the Close button in
-# the title band. Survivable because Close is also X on the gamepad.
+# for those two ends, the page comes out 1269px and 1278px, so nothing is cut at the narrow
+# end and 4px at the wide one. It was 1255px and 1304px before the notes came down to
+# NOTE_SIZE and the section outlines to SECTION_BORDER, so what those two bought was 26px
+# of the 30 that used to be cut off the right-hand side of the Close button. Survivable in
+# any case, because Close is also X on the gamepad.
 #
 # That is the trade this screen is asked to make: a broken row costs a reader more than a
 # page that runs over. It replaced giving points back until the rows fit, which answered a
@@ -77,6 +80,19 @@ TITLE_SIZE = 24
 SECTION_SIZE = 14
 ENTRY_SIZE = 16
 FOOTNOTE_SIZE = 12
+# The size a row's parenthesised note is drawn at -- "(repeats)", "(hold: w dialog)",
+# "(w focus)". FOOTNOTE_SIZE, so every aside on the screen is one size: the same as the "*"
+# line under the columns and a section's own note, which is what these are -- something
+# said about the row rather than part of it.
+#
+# It is also the width this screen had left to find. Eight notes are drawn on the bundled
+# page and seven of them are in the middle column, which is the one that prices the page: at
+# NOTE_SIZE that column's need drops 21px, from 441 to 420, and it stops being the widest.
+# The last column saves nothing (its longest row, "Throw thru / out RIGHT", carries no note)
+# and neither does the first, whose one note -- the catalog row's, which used to be spelt out
+# inside its label -- sits on a row far shorter than "HALT - emergency stop" above it. So
+# this is not a general economy; it is the one column it had to come out of.
+NOTE_SIZE = FOOTNOTE_SIZE
 # The floor _fit_text may give points back to, and it is ENTRY_SIZE itself: the size is
 # settled, not fitted. It was 14, and those two points bought exactly one thing -- the
 # columns back inside a display too narrow for them at 16 -- at a price paid by every
@@ -90,10 +106,11 @@ FOOTNOTE_SIZE = 12
 # able to move rather than a leftover.
 MIN_ENTRY_SIZE = 16
 
-# Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
-# this is what actually decides where a line breaks. 320 clears the longest current
-# string ("Boost / brake speed  (repeats)", measured at 276px at the 16pt ENTRY_SIZE
-# names) with room for a wider font than the one this was measured on.
+# Width budget for an entry's action and its note, in pixels -- what is left of it after the
+# note is handed to Tk as the action's wraplength, so this is what actually decides where a
+# line breaks. 320 clears the longest current row ("Boost / brake speed" at 182px beside its
+# "(repeats)" at 69px, measured at ENTRY_SIZE and NOTE_SIZE) with room for a wider font than
+# the one this was measured on.
 #
 # This is the fallback, for the same reason ROWS_PER_COLUMN is one: build() replaces it
 # with a budget measured off the rows the column actually holds. As the only answer it let
@@ -136,10 +153,12 @@ MIN_ACTION_WRAP_PX = 140
 # need. Four is a cap on the work, not an expectation: the bundled screen settles on the
 # second, and the passes only ever widen a column, so each one can only remove wraps.
 WIDTH_PASSES = 4
-# Per-row chrome between a column's edges and the two strings it draws: the keycap's
-# border and grid padding, the action's, and the section frame's border. Measured at
-# 41-44px across the bundled sections and rounded up -- overstating it wraps a line early,
-# understating it lets a column outgrow the share it was given, which is the whole bug.
+# Per-row chrome between a column's edges and the strings it draws: the keycap's border and
+# grid padding, the action's, and the section frame's border. Measured at 41-44px across the
+# bundled sections and rounded up -- overstating it wraps a line early, understating it lets
+# a column outgrow the share it was given, which is the whole bug. Two of those pixels went
+# when the frames came down to SECTION_BORDER, and a row's note carries its own padding
+# (NOTE_CHROME_PX) rather than being charged here, where every row would pay for it.
 ENTRY_CHROME_PX = 48
 # Rendered width of one character at ENTRY_SIZE, for predicting wraps. Measured across
 # the real strings at 9.2-10.5 px/char; the high end is deliberate, because
@@ -154,9 +173,30 @@ WRAP_CHARS = int(ACTION_WRAP_PX / APPROX_CHAR_PX)
 
 # Vertical padding _render_entry puts on every row: pady=2, above and below.
 ROW_PADDING_PX = 4
+# Grid padding on a row's note: the gap after it, the gap before it being the padding the
+# action already carries. Charged where a note is drawn rather than folded into
+# ENTRY_CHROME_PX, which every row pays whether it has one or not.
+NOTE_CHROME_PX = 6
+# Grid columns a row is drawn in: the keycap, the action, and the note beside it. A
+# section's own note spans all three -- it belongs to the section rather than to any one
+# input, so there is no keycap to draw beside it.
+ENTRY_COLUMNS = 3
+# The outline every section is drawn with, and the gap that used to sit between the
+# columns. A TitleBox is a Tk LabelFrame, and guizero draws one with a 2px border in Tk's
+# default groove relief -- which is a dark line and a light line. So between the text of
+# one column and the next there were four pixels: dark, light, light, dark. The two light
+# ones read as a gap between columns that are in fact flush (the grid cells are padx=0 and
+# every section is packed fill="x"), which is what made it look like padding somebody could
+# take out.
+#
+# A 1px solid outline draws one line per column, so two neighbours meet in a single 2px
+# rule with no white in it. Worth 6px of page width, measured -- the small half of what
+# closing the gap bought.
+SECTION_BORDER = 1
+SECTION_RELIEF = "solid"
 # A section heading is a TitleBox -- a Tk LabelFrame -- so it costs its label's height
-# plus the frame's border, top and bottom.
-TITLE_BOX_BORDER_PX = 4
+# plus the frame's border, top and bottom: SECTION_BORDER of each.
+TITLE_BOX_BORDER_PX = 2 * SECTION_BORDER
 # Lines under the columns that are not help rows: the "*" footnote and the page label.
 # Counted against the height budget rather than left to be squeezed out of it.
 FOOTER_LINES = 2
@@ -167,8 +207,15 @@ DEFAULT_FONT_NAME = "TkDefaultFont"
 # one. Measuring is an improvement on estimating, never a requirement for drawing.
 MEASURE_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError)
 # A word and the whitespace before it, so a candidate line is measured with the spacing it
-# will be drawn with -- "action  (note)" carries two spaces.
+# will be drawn with.
 WORD = re.compile(r"\s*\S+")
+# A section heading's parenthesised qualifier -- "(w focus)", "(cont.)" -- and whatever
+# trails it, which is the "*" a fixed section carries. Split off so the qualifier can be
+# drawn a size down: the panel type is what an eye scanning the headings comes back to,
+# where "(w focus)" is read once and then known. Greedy, so a continued section's
+# "(w focus) (cont.)" goes small as one piece -- both are parentheses, and both say when
+# rather than what.
+HEADING_QUALIFIER = re.compile(r"^(?P<head>[^(]*?)\s*(?P<qualifier>\(.*\))(?P<rest>.*)$")
 
 # Palette. Kept in the app's existing family: FOCUS_COLOR (#3B82F6) is the Deck GUI's
 # accent, and the greys match the popup chrome PopupManager already uses.
@@ -198,11 +245,13 @@ class TextRuler:
         row_px: int = 0,
         footnote_px: int = 0,
         keycap_measure: Callable[[str], int] | None = None,
+        note_measure: Callable[[str], int] | None = None,
     ) -> None:
         self._measure = measure
         self._row_px = row_px
         self._footnote_px = footnote_px
         self._keycap_measure = keycap_measure
+        self._note_measure = note_measure
 
     @classmethod
     def measured(cls, widget, entry_size: int = ENTRY_SIZE) -> "TextRuler":
@@ -223,11 +272,24 @@ class TextRuler:
             keycap = tkfont.Font(root=root, family=family, size=entry_size, weight="bold")
             heading = tkfont.Font(root=root, family=family, size=SECTION_SIZE, weight="bold")
             footnote = tkfont.Font(root=root, family=family, size=FOOTNOTE_SIZE)
+            # A row's note is drawn a size down, and measured in the size it is drawn in for
+            # the reason the keycap is: what the note takes of a column is what the action
+            # beside it does not get, and measured at the entry size it is charged 17-29px
+            # more than it spends. Capped at the row's own size, since _fit_text can in
+            # principle bring the rows below it (see MIN_ENTRY_SIZE) and a note drawn larger
+            # than the action it qualifies is no longer an aside.
+            note = tkfont.Font(root=root, family=family, size=min(NOTE_SIZE, entry_size))
             # One height for both kinds of row, and the taller of the two: the row model
             # charges a heading a single row, so charging it the shorter height would let a
             # column of headings run off the bottom of the display.
             row_px = max(entry.metrics("linespace"), heading.metrics("linespace") + TITLE_BOX_BORDER_PX)
-            return cls(entry.measure, row_px + ROW_PADDING_PX, footnote.metrics("linespace"), keycap.measure)
+            return cls(
+                entry.measure,
+                row_px + ROW_PADDING_PX,
+                footnote.metrics("linespace"),
+                keycap.measure,
+                note.measure,
+            )
         except MEASURE_EXCEPTIONS as exception:
             log.debug("Controls screen cannot measure its font (%s); estimating instead", exception)
             return cls()
@@ -257,6 +319,18 @@ class TextRuler:
         if self._keycap_measure is None:
             return self.width(text)
         return self._keycap_measure(text)
+
+    def note_width(self, text: str) -> int:
+        """Rendered width of a row's note, which is drawn a size down from the row.
+
+        Falls back to the entry width for the same reason keycap_width falls the other way:
+        an unmeasured ruler has one figure for a character and both errors it can make with
+        it are in the safe direction -- a note charged full size is a column budgeted wider
+        than its rows need, never narrower.
+        """
+        if self._note_measure is None:
+            return self.width(text)
+        return self._note_measure(text)
 
     def rows_in(self, height_px: int) -> int:
         """Help rows that fit in ``height_px``, or the calibrated fallback if unmeasured."""
@@ -288,9 +362,31 @@ class TextRuler:
 ESTIMATED_RULER = TextRuler()
 
 
-def entry_text(entry: ControlEntry) -> str:
-    """The action column as drawn: the action, with its note in parentheses."""
-    return entry.action if not entry.note else f"{entry.action}  ({entry.note})"
+def note_text(entry: ControlEntry) -> str:
+    """The note column as drawn: the entry's note, parenthesised. Empty without one.
+
+    A column of its own rather than the tail of the action string it used to be, which is
+    what lets it be drawn a size down -- one Tk label is one font. The parentheses then
+    also line up down a section instead of ragging along behind actions of different
+    lengths.
+    """
+    return f"({entry.note})" if entry.note else ""
+
+
+def heading_parts(title: str) -> tuple[str, str, str]:
+    """A section heading split into what is scanned, what qualifies it, and what marks it.
+
+    ``"Catalog Panel (w focus) *"`` -> ``("Catalog Panel", "(w focus)", "*")``, for a
+    heading drawn in two sizes -- see ControlsPanel._render_heading. The "*" is kept out of
+    the qualifier: it points at the footnote under the columns rather than saying anything
+    itself, so it stays the size of the heading it marks.
+
+    A heading with no parentheses comes back whole, which is what most of them are.
+    """
+    match = HEADING_QUALIFIER.match(title)
+    if match is None:
+        return title, "", ""
+    return match.group("head"), match.group("qualifier"), match.group("rest").strip()
 
 
 def keycap_text(entry: ControlEntry) -> str:
@@ -367,6 +463,17 @@ class ControlsPanel:
         return self._entry_size
 
     @property
+    def note_size(self) -> int:
+        """The point size a row's note is drawn at: NOTE_SIZE, never over the row's own.
+
+        Capped because _fit_text can in principle bring the rows below it (see
+        MIN_ENTRY_SIZE), and a note drawn larger than the action it qualifies is not an
+        aside any more. The ruler caps its note measure the same way, so what is charged is
+        what is drawn.
+        """
+        return min(NOTE_SIZE, self._entry_size)
+
+    @property
     def column_px(self) -> tuple[int, ...]:
         """The width budget in force: derived in build(), empty (content-sized) until then."""
         return self._column_px
@@ -426,21 +533,48 @@ class ControlsPanel:
         share = spare // len(needs)
         return tuple(need + share for need in needs)
 
+    def _note_px(self, entry: ControlEntry) -> int:
+        """Width a row's note takes off its column, its own padding included; 0 without one.
+
+        Measured at note_size, which is what it is drawn at. That is the whole point of
+        giving it a widget of its own: inside the action's label it was charged 17-29px more
+        than it spends, on the one column that could least afford it.
+        """
+        if not entry.note:
+            return 0
+        return self._ruler.note_width(note_text(entry)) + NOTE_CHROME_PX
+
     def section_px(self, section: ControlSection) -> int:
         """Width ``section`` needs to draw every row of it on one line.
 
-        The width counterpart of section_rows, and the figure action_wrap_px works back
-        from: the keycap column is as wide as the section's widest keycap, so that is
-        where the action text starts on every row of it, not just on the row that keycap
-        belongs to.
+        The width counterpart of section_rows. The keycap column is as wide as the section's
+        widest keycap, so that is where the action text starts on every row of it and not
+        just on the row that keycap belongs to; what follows is whatever the widest row needs
+        for its action and its note together.
 
-        A section's note is not counted. It is drawn a size down and wraps as an aside
-        rather than as a row, so a long one should cost the column rows -- which the
-        packer already charges it -- and not the width its rows need.
+        Which is priced exactly as Tk will lay it out, and the arithmetic is the point.
+        Charging every row the widest action *and* the widest note would cost a section the
+        two put together even when they are on different rows -- 75px on the bundled Global
+        section, whose widest action ("HALT - emergency stop") carries no note and whose only
+        note is on a short one. So a row with no note spans the note column instead of
+        leaving it empty (see _render_entry), and only the rows that have one are charged for
+        it: the notes still line up down the section, and the section is no wider than its
+        longest row.
+
+        A *section's* note is a different thing and is not counted. It is drawn a size down
+        and wraps as an aside rather than as a row, so a long one should cost the column
+        rows -- which the packer already charges it -- and not the width its rows need.
         """
         keycap = max((self._ruler.keycap_width(keycap_text(entry)) for entry in section.entries), default=0)
-        action = max((self._ruler.width(entry_text(entry)) for entry in section.entries), default=0)
-        return keycap + action + ENTRY_CHROME_PX
+        noted = [entry for entry in section.entries if entry.note]
+        # The two grid columns a noted row uses: as wide as the widest of each, which is what
+        # lines the parentheses up and what Tk therefore demands of them.
+        annotated = max((self._ruler.width(entry.action) for entry in noted), default=0) + max(
+            (self._note_px(entry) for entry in noted), default=0
+        )
+        # And the rows with no note, which span both of them.
+        plain = max((self._ruler.width(entry.action) for entry in section.entries if not entry.note), default=0)
+        return keycap + max(annotated, plain) + ENTRY_CHROME_PX
 
     def _column_needs(self) -> tuple[int, ...]:
         """What each column position needs to draw the rows packed into it on one line.
@@ -498,10 +632,15 @@ class ControlsPanel:
         return widths
 
     def action_wrap_px(self, section: ControlSection, column_px: int = 0) -> int:
-        """Pixels the action text of ``section`` may use in a column ``column_px`` wide.
+        """Pixels a row of ``section`` may use in a column ``column_px`` wide.
 
-        Per section rather than per column, because what is left of a column is whatever
-        its keycaps do not take: "Right stick \u2195" leaves a good deal less room than "A".
+        What is left of the column once the keycaps and the chrome are off it, for the action
+        and its note between them -- a row with no note has the lot, and a row with one has
+        this less its own note (see entry_rows and _render_entry, which both take it from
+        here).
+
+        Per section rather than per column, because what is left of a column is whatever its
+        keycaps do not take: "Right stick \u2195" leaves a good deal less room than "A".
         ``column_px`` of 0 -- no width budget -- falls back to ACTION_WRAP_PX, which is
         what a headless run gets.
         """
@@ -582,8 +721,22 @@ class ControlsPanel:
 
     @staticmethod
     def entry_rows(entry: ControlEntry, ruler: TextRuler | None = None, wrap_px: int = ACTION_WRAP_PX) -> int:
-        """Rows an entry will occupy once Tk has wrapped its action text within ``wrap_px``."""
-        return (ruler or ESTIMATED_RULER).wrapped_rows(entry_text(entry), wrap_px)
+        """Rows an entry will occupy once Tk has wrapped it within ``wrap_px``.
+
+        ``wrap_px`` is the whole of what the row has (action_wrap_px), so what the action
+        gets is that less this row's own note -- drawn beside it, at note_size, and never
+        wrapped. The row then comes out as tall as the taller of the two, which is the
+        action.
+
+        Pricing the pair coherently is what keeps splitting the note off from costing a page
+        rather than saving one: measured as "action  (note)" at the entry size, against a
+        budget that no longer holds the note at that size, rows that fit on one line are
+        counted as two -- and the prototype of this change went to two pages with a column of
+        white space on the first.
+        """
+        ruler = ruler or ESTIMATED_RULER
+        note_px = ruler.note_width(note_text(entry)) + NOTE_CHROME_PX if entry.note else 0
+        return ruler.wrapped_rows(entry.action, max(wrap_px - note_px, MIN_ACTION_WRAP_PX))
 
     @staticmethod
     def note_rows(
@@ -861,10 +1014,14 @@ class ControlsPanel:
         holder = Box(parent, grid=[column, 0], align="top", layout="auto")
         for section in sections:
             title = section.title if not section.fixed else f"{section.title} *"
-            tb = TitleBox(holder, text=title, layout="grid", align="top", width="fill")
+            tb = TitleBox(holder, text=title, layout="grid", align="top", width="fill", border=SECTION_BORDER)
             tb.text_size = SECTION_SIZE
             tb.text_color = SECTION_FG
             tb.text_bold = True
+            # A single line rather than guizero's default groove, which is two -- see
+            # SECTION_BORDER for what that cost the space between the columns.
+            tb.tk.config(relief=SECTION_RELIEF)
+            self._render_heading(tb, title)
             wrap_px = self.action_wrap_px(section, width_px)
             for row, entry in enumerate(section.entries):
                 self._render_entry(tb, entry, row, wrap_px)
@@ -873,12 +1030,61 @@ class ControlsPanel:
             host.cache(tb)
         return holder
 
+    def _render_heading(self, box: TitleBox, title: str) -> None:
+        """Draw ``title`` with its parenthesised qualifier a size down, where it has one.
+
+        A LabelFrame's own title is one string in one font, so two sizes means handing it a
+        labelwidget: a frame of plain Tk labels, packed in reading order. Raw Tk rather than
+        guizero widgets because the label of a LabelFrame is managed by the frame itself --
+        a guizero child would be gridded in among the section's rows, which is where the
+        entries go.
+
+        Worth nothing in width, and that is not what it is for: section_px does not count
+        headings, and every one of them measures 100-200px narrower than its own rows -- the
+        widest, "Catalog Panel (w focus) *" at ~245px, sits in a column whose rows need 425.
+        It is for the reading. "(w focus)" is read once and then known, where the panel type
+        is what an eye scanning the headings comes back to, and it is the same aside the rows
+        below now draw a size down.
+
+        A heading with no parentheses is left exactly as it was, which is most of them. So is
+        every heading on a screen with no Tk to build widgets with: the frame keeps the plain
+        title it was created with, and the only thing lost is the size difference.
+        """
+        head, qualifier, rest = heading_parts(title)
+        if not qualifier:
+            return
+        try:
+            family = tkfont.nametofont(DEFAULT_FONT_NAME, root=box.tk).actual("family")
+            background = box.tk.cget("background")
+            frame = Frame(box.tk, background=background)
+            # Bold and SECTION_FG throughout: the qualifier is part of the heading, not a
+            # footnote to it, and 12pt unbolded grey is close to invisible at arm's length on
+            # a handheld. Only the size says "read this once".
+            for text, size, pad in (
+                (head, SECTION_SIZE, 0),
+                (qualifier, self.note_size, 4),
+                (rest, SECTION_SIZE, 4),
+            ):
+                if not text:
+                    continue
+                label = Label(
+                    frame,
+                    text=text,
+                    font=(family, size, "bold"),
+                    foreground=SECTION_FG,
+                    background=background,
+                )
+                label.pack(side="left", padx=(pad, 0))
+            box.tk.config(labelwidget=frame)
+        except MEASURE_EXCEPTIONS as exception:
+            log.debug("Controls heading %r cannot be split (%s); drawing it in one size", title, exception)
+
     def _render_note(self, parent: TitleBox, text: str, row: int, column_px: int = 0) -> None:
         """Draw a section's note under its rows, across the width of the section.
 
         Footnote-sized and gray, like the "*" line under the columns: it says something
         about the rows above it rather than being one of them, so an eye scanning keycaps
-        should pass over it. Spanned across both of the section's columns because it belongs
+        should pass over it. Spanned across all of the section's columns because it belongs
         to the section and not to any one input -- there is no keycap to draw beside it.
 
         Unbolded for the same reason, and it has to be said rather than left alone: the
@@ -886,7 +1092,7 @@ class ControlsPanel:
         inherit comes out as emphatic as the rows it qualifies -- where the page's other
         footnote, which sits outside any section, does not.
         """
-        note = Text(parent, text=text, grid=[0, row, 2, 1], align="left", size=FOOTNOTE_SIZE)
+        note = Text(parent, text=text, grid=[0, row, ENTRY_COLUMNS, 1], align="left", size=FOOTNOTE_SIZE)
         note.text_color = FOOTNOTE_FG
         note.text_bold = False
         note.tk.config(wraplength=self.note_wrap_px(column_px), justify="left")
@@ -904,7 +1110,11 @@ class ControlsPanel:
         name.tk.config(relief="raised", borderwidth=1)
         name.tk.grid_configure(padx=(4, 8), pady=2, sticky="w")
 
-        action = Text(parent, text=entry_text(entry), grid=[1, row], align="left", size=self._entry_size)
+        # A row with no note spans the note column rather than leaving it empty, so a section
+        # is only charged for the notes it has and on the rows that have them -- see
+        # section_px, where doing otherwise cost the Global section 75px.
+        cell = [1, row] if entry.note else [1, row, 2, 1]
+        action = Text(parent, text=entry.action, grid=cell, align="left", size=self._entry_size)
         action.text_color = ENTRY_FG
         # Said rather than left alone, as the section note also has to say it: the row's
         # TitleBox bolds everything drawn inside it, so an action left to inherit came out
@@ -913,7 +1123,36 @@ class ControlsPanel:
         # them on the Deck against a budget measured in the lighter weight.
         action.text_bold = False
         # wraplength wraps instead of truncating or forcing the column wider. justify
-        # keeps the second line aligned under the first rather than centred.
-        action.tk.config(wraplength=wrap_px, justify="left")
+        # keeps the second line aligned under the first rather than centred. ``wrap_px`` is
+        # the whole row's share, so the note beside it comes off first -- the same sum
+        # entry_rows does, or the packer counts a row the renderer then breaks.
+        action.tk.config(wraplength=max(wrap_px - self._note_px(entry), MIN_ACTION_WRAP_PX), justify="left")
         action.tk.grid_configure(padx=(0, 6), pady=2, sticky="w")
         self.gui.cache(name, action)
+        if entry.note:
+            self._render_entry_note(parent, entry, row)
+
+    def _render_entry_note(self, parent: TitleBox, entry: ControlEntry, row: int) -> None:
+        """Draw a row's note beside its action, a size down, in a column of its own.
+
+        "(repeats)", "(hold: w dialog)", "(w focus)": what the note says qualifies the action
+        rather than being part of it, and inside the action's own label it was read at full
+        size and priced at full width -- 17-29px a row, all of it in the middle column, which
+        is the one that decides how wide the page is. A column of its own also lines the
+        parentheses up down the section instead of leaving them to rag along behind actions
+        of different lengths, which costs nothing because the rows with no note span it (see
+        _render_entry).
+
+        Kept the same colour as the action, unlike the section note beside which it is drawn:
+        the two words in here are sometimes the whole of what a row is telling you ("hold"),
+        and greying them as well as shrinking them puts them past reading on a handheld.
+
+        No wraplength, unlike the action: the note's column was measured to hold the widest
+        note in the section (section_px), so there is nothing for Tk to break -- and a note
+        broken over two lines would cost the row a second one to say the same words.
+        """
+        note = Text(parent, text=note_text(entry), grid=[2, row], align="left", size=self.note_size)
+        note.text_color = ENTRY_FG
+        note.text_bold = False
+        note.tk.grid_configure(padx=(0, NOTE_CHROME_PX), pady=2, sticky="w")
+        self.gui.cache(note)

@@ -118,8 +118,10 @@ ACTION_LABELS: dict[str, str] = {
     # Qualified on the row rather than left to a heading: the bundled profile has this on
     # Menu, which GLOBAL_SECTION_BUTTONS files under the global heading, yet the binding
     # targets the focused pane -- so it is the one row up there that the heading cannot
-    # speak for. Same words as the focus-scoped section titles below.
-    "scope_catalog": "Open catalog (w focus)",
+    # speak for. The qualifier itself is in ACTION_NOTES below, in the same words as the
+    # focus-scoped section titles: it is an aside on the action, and the help screen draws
+    # every aside a size down.
+    "scope_catalog": "Open catalog",
     "show_controls": "Show these controls",
     "admin_quit": "Quit PyTrain **",
     "admin_update": "Update PyTrain **",
@@ -154,6 +156,11 @@ ACTION_NOTES: dict[str, str] = {
     # qualifier on the action beside it, not as a sentence.
     "startup": "hold: w dialog",
     "shutdown": "hold: w dialog",
+    # A note rather than part of the label (see "scope_catalog" above), so the one
+    # parenthesised phrase that used to be baked into an action string is drawn like the
+    # other six -- a size down, in the note column. Left in the label it would have been the
+    # only full-size parenthesis on the screen, beside six small ones.
+    "scope_catalog": "w focus",
 }
 
 # Headings for the sections that describe one kind of panel: the bindings there apply only

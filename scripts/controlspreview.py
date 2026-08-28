@@ -123,7 +123,7 @@ def main() -> None:
     panel = ControlsPanel(PreviewHost(), ControlProfile.load(None))
     panel.build(body, height_px=height_px, width_px=width_px)
     print(
-        f"band={band}px body={height_px}px entry={panel.entry_size}pt "
+        f"band={band}px body={height_px}px entry={panel.entry_size}pt note={panel.note_size}pt "
         f"rows_per_column={panel.rows_per_column} pages={panel.page_count}",
         flush=True,
     )
