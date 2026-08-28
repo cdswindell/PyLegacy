@@ -21,7 +21,7 @@ they differ by roughly two orders of magnitude in cost:
 | Section / row | Already in the profile | Actually hard-coded | Job |
 | --- | --- | --- | --- |
 | `Catalog Panel` — `R1 + Up / Down` | the modifier, action-keyed via `CATALOG_JUMP_MODIFIER` | only the **label** `"R1 + …"` | **A** — label |
-| `Switches` / `Routes` — `L2 / R2` rows | the triggers, action-keyed via `SWITCH_THRU_ACTIONS` / `SWITCH_OUT_ACTIONS` | only the **label** `"L2 / R2"` | **A** — label |
+| `Switches` / `Routes` — the trigger rows | the triggers *and* both face buttons, action-keyed via `SWITCH_THRU_ACTIONS` / `SWITCH_OUT_ACTIONS` / `ROUTE_FIRE_BUTTON_ACTIONS` | only the **labels** `"A / Y or L2 / R2"` and `"A or L2 / R2"` | **A** — label |
 | `Catalog Panel` — `A`, `X`; `While a panel is open` — `X` | the buttons are bound (`sequence_control`, `reset`) | the **override**, by index: `SELECT_BUTTON = 0`, `CLOSE_POPUP_BUTTON = 2` | **B** — schema |
 | `D-pad` — every row, and the D-pad rows of `Catalog Panel` | **nothing** | the whole input, all four directions in every context | **C** — new binding type |
 
@@ -84,9 +84,9 @@ Only **A** corrects something currently incorrect. **B** and **C** add configura
 What is hard-coded is the row in `control_labels.py` that names them:
 
 ```python
-ControlEntry("R1 + Up / Down", "Jump to first / last", ""),   # FIXED_CATALOG_ENTRIES
-ControlEntry("L2 / R2", "Throw thru / out", ""),              # FIXED_SWITCH_ENTRIES
-ControlEntry("L2 / R2", "Fire route", ""),                    # FIXED_ROUTE_ENTRIES
+ControlEntry("R1 + Up / Down", "Jump to first / last", ""),    # FIXED_CATALOG_ENTRIES
+ControlEntry("A / Y or L2 / R2", "Throw thru / out", ""),      # FIXED_SWITCH_ENTRIES
+ControlEntry("A or L2 / R2", "Fire route", ""),                # FIXED_ROUTE_ENTRIES
 ```
 
 R1 is the jump modifier only because `steam_deck_default.json` binds button `5` to `front_coupler` and
@@ -122,8 +122,10 @@ at all, apart from the jump modifier. There is nothing to move — there is some
 
 - Build the catalog row as `f"{button_label(index)} + Up / Down"` from `catalog_jump_modifier_buttons`; render nothing
   when the set is empty.
-- Build the switch/route trigger rows from the axes whose bindings carry `SWITCH_THRU_ACTIONS` / `SWITCH_OUT_ACTIONS`
-  (`ROUTE_FIRE_ACTIONS` being the union), via `axis_label()`; likewise drop the row when unbound.
+- Build the switch/route trigger rows from the axes *and buttons* carrying `SWITCH_THRU_ACTIONS` / `SWITCH_OUT_ACTIONS`, via
+  `axis_label()` and `button_label()`; likewise drop a half whose binding is unbound. A route takes the thru button
+  alone (`ROUTE_FIRE_BUTTON_ACTIONS`) and swallows the out one, so its row names one face button where the switch row
+  names two — `ROUTE_FIRE_ACTIONS` is what fires, `ROUTE_CLAIMED_ACTIONS` what a route panel takes.
 - `FIXED_CATALOG_ENTRIES` / `FIXED_SWITCH_ENTRIES` / `FIXED_ROUTE_ENTRIES` stop being module constants and become
   functions of the profile, as the derived sections already are.
 - The `fixed=True` flag on those three sections becomes untrue, so **either** the `*` moves to individual entries
@@ -280,7 +282,8 @@ fake-pygame provider tests in `test_steam_deck_input.py`, plus profile-parsing t
 column-packing consequences are asserted in `test_controls_panel.py`.
 
 ### Key Scenarios
-- **(A)** With the bundled profile, the rows read `R1 + Up / Down`, `L2 / R2` — unchanged from today.
+- **(A)** With the bundled profile, the rows read `R1 + Up / Down`, `A / Y or L2 / R2` and `A or L2 / R2` — unchanged
+  from today.
 - **(A)** With `front_coupler` on button 4, the row reads `L1 + Up / Down`.
 - **(A)** With the switch triggers moved to other axes, the trigger rows name those axes.
 - **(B)** A profile with no `roles` block behaves exactly as today at all four override call sites.

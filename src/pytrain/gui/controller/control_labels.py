@@ -414,9 +414,15 @@ FIXED_SWITCH_ENTRIES: tuple[ControlEntry, ...] = (
 # the switch rows carry "↕ / ↔", which here would promise four live deflections out of two.
 #
 # It is also why one face button appears here where the switch row names two: A fires, and Y
-# is left saying what it says in every other panel. So this row reads "A or L2 / R2" rather
-# than repeating the switch section's "A / Y or L2 / R2" -- three ways to say the one thing,
-# all on the row that has room for them.
+# is claimed but fires nothing -- the swallow the down and left deflections get -- so naming
+# it would promise a second way to fire that does not exist. So this row reads "A or L2 / R2"
+# rather than repeating the switch section's "A / Y or L2 / R2" -- three ways to say the one
+# thing, all on the row that has room for them.
+#
+# Nothing on the screen states the swallow. A control that does nothing is not worth a row,
+# and this section already leaves the other two deflections unsaid for that reason -- the
+# switch section has none to state, every control it claims doing one of the two things a
+# switch can be asked to do.
 FIXED_ROUTE_ENTRIES: tuple[ControlEntry, ...] = (
     ControlEntry("A or L2 / R2", "Fire route", ""),
     ControlEntry(stick_deflection_label(LEFT_STICK_VERTICAL), "Fire route" + target_suffix("left")),

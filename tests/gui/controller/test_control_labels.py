@@ -33,6 +33,7 @@ from src.pytrain.gui.controller.control_labels import (
 from src.pytrain.gui.controller.steam_deck_input import (
     CLOSE_POPUP_BUTTON,
     ROUTE_FIRE_BUTTON_ACTIONS,
+    ROUTE_SWALLOW_BUTTON_ACTIONS,
     SWITCH_OUT_BUTTON_ACTIONS,
     SWITCH_THRU_BUTTON_ACTIONS,
     ControlProfile,
@@ -330,20 +331,22 @@ def test_the_route_row_names_the_one_face_button_that_fires() -> None:
     # the bundled profile has it running sequence control, so a profile that moves that
     # binding moves the fire with it and this row would otherwise name a dead button.
     #
-    # Y's absence is the point of the second assertion. The switch row names both face
-    # buttons because a switch has two things to do; a route has no un-fire for the second to
-    # mean, so Y goes on sounding the horn here -- and this row is the reader's only clue.
+    # Y's absence is the point of the last assertion. The switch row names both face buttons
+    # because a switch has two things to do; a route has no un-fire for the second to mean, so
+    # Y is claimed there and fires nothing, and a row naming it would promise a second way to
+    # fire that does not exist.
     profile = ControlProfile.load(None)
-    fires = [button_label(index) for index, b in profile.buttons.items() if b.action in ROUTE_FIRE_BUTTON_ACTIONS]
-    keeps = [button_label(index) for index, b in profile.buttons.items() if b.action in SWITCH_OUT_BUTTON_ACTIONS]
+    named = {index: button_label(index) for index in profile.buttons}
+    fires = [named[i] for i, b in profile.buttons.items() if b.action in ROUTE_FIRE_BUTTON_ACTIONS]
+    swallowed = [named[i] for i, b in profile.buttons.items() if b.action in ROUTE_SWALLOW_BUTTON_ACTIONS]
     routes = _section(profile, ROUTE_PANEL_TITLE)
 
-    assert fires == ["A"] and keeps == ["Y"], "the bundled profile puts sequence control on A and the horn on Y"
+    assert fires == ["A"] and swallowed == ["Y"], "the bundled profile puts sequence control on A and the horn on Y"
     # "A or L2 / R2": three ways to say the one thing, on the row that has room for them --
     # the trigger halves stay literal, as they do in the switch row.
     assert routes.entries[0].input.startswith(f"{fires[0]} or ")
     assert routes.entries[0].action == "Fire route"
-    assert all(keeps[0] not in entry.input for entry in routes.entries)
+    assert all(swallowed[0] not in entry.input for entry in routes.entries)
 
 
 def test_the_route_rows_name_only_the_deflections_that_fire() -> None:

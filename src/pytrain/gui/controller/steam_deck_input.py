@@ -113,9 +113,9 @@ LONG_PRESS_ACTIONS = {
 #
 # The two face buttons are named apart from the rest for two reasons. The open catalog has
 # to be able to take them back -- a switch is chosen from that catalog and A is how an entry
-# in it is confirmed, so _handle_switch declines both while it is up. And a route gets only
-# one of them: ROUTE_FIRE_ACTIONS below is built from these sets, and it takes the "thru"
-# button alone.
+# in it is confirmed, so _handle_switch declines both while it is up. And a route tells them
+# apart where a switch does not: the sets below hand it the "thru" button to fire with and
+# leave it the other to swallow.
 SWITCH_THRU_BUTTON_ACTIONS = frozenset({"sequence_control"})
 SWITCH_OUT_BUTTON_ACTIONS = frozenset({"horn"})
 SWITCH_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS | SWITCH_OUT_BUTTON_ACTIONS
@@ -131,11 +131,15 @@ SWITCH_AXIS_ACTIONS = frozenset({"throttle", "direction"})
 # route has one thing to do rather than two, so both triggers fire it and there is nothing
 # for the thru/out split above to distinguish: one set, not two.
 #
-# Of the two face buttons only the one that throws a switch through comes across -- A in the
-# bundled profile, the button that confirms an entry in the catalog and so already reads as
-# "do it". Y is left out rather than made a second way to say the one thing: a route has no
-# un-fire for it to mean, and it keeps the horn it sounds in every other panel.
+# Of the two face buttons only the one that throws a switch through fires -- A in the bundled
+# profile, the button that confirms an entry in the catalog and so already reads as "do it".
+# Y is not made a second way to say the one thing, a route having no un-fire for it to mean;
+# it is claimed all the same and does nothing, which is the swallow the down and left stick
+# deflections get and is taken for their reason: the panel has no engine in it, so a horn
+# passed on would sound at whichever engine the panel held before the route was picked.
 ROUTE_FIRE_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS
+ROUTE_SWALLOW_BUTTON_ACTIONS = SWITCH_OUT_BUTTON_ACTIONS
+ROUTE_BUTTON_ACTIONS = ROUTE_FIRE_BUTTON_ACTIONS | ROUTE_SWALLOW_BUTTON_ACTIONS
 ROUTE_FIRE_ACTIONS = ((SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS) - SWITCH_BUTTON_ACTIONS) | ROUTE_FIRE_BUTTON_ACTIONS
 # The two of those that arrive as a stick position. They latch as the switch ones do, but
 # the test is signed rather than absolute: only up (a positive throttle, the sticks being
@@ -143,6 +147,12 @@ ROUTE_FIRE_ACTIONS = ((SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS) - SWITCH_BUTTON
 # are still claimed -- see _handle_route -- so a stick pulled back on a route panel cannot
 # ramp an engine that is not there; they simply fire nothing.
 ROUTE_AXIS_ACTIONS = frozenset({"throttle", "direction"})
+# Everything a panel showing a route takes: what fires it, plus what is swallowed so that it
+# cannot reach an engine which is not there. That comes out equal to what a panel showing a
+# switch takes -- the two panel types claim the same controls and differ in what those
+# controls then do -- but it is written as the union of the two route sets rather than as
+# that equality, so moving one of them cannot quietly unclaim a control.
+ROUTE_CLAIMED_ACTIONS = ROUTE_FIRE_ACTIONS | ROUTE_SWALLOW_BUTTON_ACTIONS
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -1848,10 +1858,12 @@ class DeckInputRouter:
 
         _handle_switch's twin, and claimed on the same terms: a panel showing a route has no
         engine in it either, so the controls that would drive one fire the route instead -- A,
-        L2 and R2 all three, and each stick its own panel's route. Everything else keeps the
+        L2 and R2 all three, and each stick its own panel's route. The rest of what the switch
+        claim takes is taken here too and fires nothing, there being no second thing a route
+        can be asked to do: Y, and a stick pulled down or left. Everything else keeps the
         meaning it has everywhere else.
         """
-        if action.name not in ROUTE_FIRE_ACTIONS:
+        if action.name not in ROUTE_CLAIMED_ACTIONS:
             return False
         gui = self._target_gui(action.target)
         if gui is None or not getattr(gui, "route_active", False):
@@ -1864,19 +1876,21 @@ class DeckInputRouter:
             self._commanded_speeds.pop(action.target, None)
             self._fire_route_from_axis(gui, action)
             return True
-        if action.name in ROUTE_FIRE_BUTTON_ACTIONS:
+        if action.name in ROUTE_BUTTON_ACTIONS:
             if getattr(gui, "catalog_visible", False):
-                # As on a switch panel: the catalog is where the route in this panel is
-                # picked and A is how an entry in it is confirmed, so the button is not
-                # claimed while the list is up. The triggers and sticks have no job there.
+                # As on a switch panel, and for its reason: the catalog is where the route in
+                # this panel is picked and A is how an entry in it is confirmed, so neither
+                # face button is claimed while the list is up. The triggers and sticks have
+                # no job there.
                 return False
             # The same clean-up the stick path does above, for what a face button can leave
-            # running: A starts a sequence-control burst that tick() re-sends, and a profile
-            # that puts the route fire on a repeat-flagged button would leave that repeating
-            # too. The release below is swallowed, so nothing else would stop either.
+            # running: Y sounds the horn every repeat_interval while it is held and A starts
+            # a sequence-control burst, either of which may have been under way when the
+            # panel changed scope. The release below is swallowed, so nothing else would stop
+            # tick() re-sending a command at a panel with no engine in it.
             self._held_commands.pop(action.button, None)
             self._sequences.pop(action.target, None)
-        if action.phase == "pressed":
+        if action.phase == "pressed" and action.name not in ROUTE_SWALLOW_BUTTON_ACTIONS:
             gui.on_route_command()
         # A release is swallowed rather than ignored, as it is for a switch: passed on it
         # would clear a throttle or a latch that the press it belongs to never set.
