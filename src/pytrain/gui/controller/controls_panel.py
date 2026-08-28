@@ -62,14 +62,17 @@ MIN_ROWS_PER_COLUMN = 4
 # heading, and the heading wins up to 17pt, so the derived budget stays at the 22 rows the
 # Deck's height buys against the 19 the bundled sections need.
 #
-# On a font wider than this machine's the size no longer moves and the page does. The
-# Deck's own draws these strings some 6-12% wider, where the columns want 1313-1380px of
-# the 1274 there are, so the screen runs 39-106px past the right edge and what is past it
-# is cut: the far side of the last column, and the Close button in the title band with it.
-# That is the trade this screen is asked to make -- a broken row costs a reader more than a
-# page that runs over -- and it is survivable because Close is also X on the gamepad. What
-# it replaced was giving points back until the rows fit, which answered a display too
-# narrow for the screen with a screen too small to read at arm's length.
+# On a font wider than this machine's the size no longer moves and the page does. The Deck
+# draws these strings some 6-12% wider, where the columns ask for 1313-1380px of the 1274
+# there are. Less of that is lost than it sounds: a budget is what a column may use, and
+# the page draws its content, which is narrower -- rendered at 17pt and 18pt as stand-ins
+# for those two ends, the page comes out 1255px and 1304px, so nothing is cut at the narrow
+# end and some 30px at the wide one, which is the right-hand side of the Close button in
+# the title band. Survivable because Close is also X on the gamepad.
+#
+# That is the trade this screen is asked to make: a broken row costs a reader more than a
+# page that runs over. It replaced giving points back until the rows fit, which answered a
+# display too narrow for the screen with a screen too small to read at arm's length.
 TITLE_SIZE = 24
 SECTION_SIZE = 14
 ENTRY_SIZE = 16
