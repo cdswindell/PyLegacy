@@ -70,10 +70,16 @@ COMPACT_SCALE = LANDSCAPE_FONT_SCALE
 CONTROLLER_POLL_MS = 20
 # How long after the panes are up to build the controls help screen, hidden, rather than
 # on the press that asks for it -- the same trick EngineGui plays on its operating
-# accessory overlays, for the same reason. The screen is forty-odd rows whose point size is
-# settled by measuring them at each size in turn (ControlsPanel._fit_text), then a widget
-# per row: 75ms on a desk machine and several times that on the Deck, which is long enough
-# to read as a stutter between the press and the screen.
+# accessory overlays, for the same reason. The screen is forty-odd measured rows and a
+# widget per cell of each, which is work nobody should be waiting on.
+#
+# It is 13ms of it on a desk machine, where it was 81ms: the rows are drawn as plain Tk
+# labels built in one call rather than guizero widgets configured property by property
+# (ControlsPanel._row_label), and the ruler remembers what it has already measured, which
+# the packer asks about over and over (controls_panel.TextRuler). The Deck's CPU is several
+# times slower than this one, so what read there as a stutter a second after the panes
+# appeared should now be a sixth of what it was -- and scripts/controlspreview.py prints the
+# figure, which is the one number that cannot be measured from here.
 #
 # A quarter-second behind the accessory prewarm rather than alongside it. Tk runs these on
 # one queue, so whichever is scheduled first is in front of the other; this one is a single

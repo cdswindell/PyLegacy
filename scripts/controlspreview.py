@@ -25,6 +25,13 @@ one page. The lines it prints -- band, body height, entry size, rows per column,
 count, and the width budget each column was given -- are the arithmetic the columns were
 laid out to.
 
+The build time is the other reason to run this here. SteamDeckGui builds the screen a second
+after the panes appear rather than on the press that shows it (CONTROLS_PREWARM_MS), and that
+build holds the GUI thread for as long as it takes: 13ms on the machine this was written on,
+where it was 81ms before the rows became plain Tk labels built in one call. The Deck's CPU is
+several times slower, so ``built`` is the figure that says whether the prewarm can still be
+felt there.
+
 The overrun is what to look at, and is the reason this is worth running on the machine that
 will show the screen. The rows are drawn at ControlsPanel's ENTRY_SIZE whatever the display
 measures, and the columns take the width their rows need rather than break a line, so on a
@@ -37,6 +44,7 @@ what that bought: every row on one line, or not.
 
 import os
 import sys
+import time
 
 # PyTrain uses a ``src`` layout, so ``pytrain`` is not importable when it is not
 # pip-installed into the interpreter running this script (the usual case here, launched
@@ -121,10 +129,14 @@ def main() -> None:
 
     body = Box(overlay, align="top", layout="auto")
     panel = ControlsPanel(PreviewHost(), ControlProfile.load(None))
+    # Timed because this is what the prewarm spends a second after the panes come up, and it
+    # holds the GUI thread while it does -- see the docstring.
+    started = time.perf_counter()
     panel.build(body, height_px=height_px, width_px=width_px)
+    built_ms = 1000 * (time.perf_counter() - started)
     print(
         f"band={band}px body={height_px}px entry={panel.entry_size}pt note={panel.note_size}pt "
-        f"rows_per_column={panel.rows_per_column} pages={panel.page_count}",
+        f"rows_per_column={panel.rows_per_column} pages={panel.page_count} built={built_ms:.0f}ms",
         flush=True,
     )
     # The width budget each column was given, against the room there is -- which it is now

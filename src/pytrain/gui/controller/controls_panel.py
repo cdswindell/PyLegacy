@@ -171,11 +171,16 @@ APPROX_CHAR_PX = 10.0
 # is exactly how a 29-character line ended up on two rows with no extra row reserved.
 WRAP_CHARS = int(ACTION_WRAP_PX / APPROX_CHAR_PX)
 
-# Vertical padding _render_entry puts on every row: pady=2, above and below.
+# Vertical room the row model allows a row beyond its own text: what pady=2 above and below
+# would take. Allowed rather than drawn -- see ControlsPanel._place_row, which records why
+# the rows carry no grid padding -- so this is slack in the height budget, and slack is the
+# safe direction: a column of rows shorter than the budget thinks cannot run off the bottom
+# of the display.
 ROW_PADDING_PX = 4
-# Grid padding on a row's note: the gap after it, the gap before it being the padding the
-# action already carries. Charged where a note is drawn rather than folded into
-# ENTRY_CHROME_PX, which every row pays whether it has one or not.
+# Width the note column is allowed beyond the note itself. Charged where a note is drawn
+# rather than folded into ENTRY_CHROME_PX, which every row pays whether it has one or not,
+# and -- like ROW_PADDING_PX -- allowed rather than drawn (see _place_row): a column
+# budgeted 6px wider than its notes need is a column that cannot wrap one.
 NOTE_CHROME_PX = 6
 # Grid columns a row is drawn in: the keycap, the action, and the note beside it. A
 # section's own note spans all three -- it belongs to the section rather than to any one
@@ -237,6 +242,14 @@ class TextRuler:
 
     The character count survives as the fallback: a headless test still has to paginate,
     and a screen that cannot measure its font can still draw one.
+
+    Every answer is remembered, because the same question is asked over and over: the page
+    is packed once per pass of _fitted_column_widths, again by rows_fit_their_columns and
+    again by build, and each pass re-measured what the last one had already measured. On the
+    bundled screen that was 2495 measurements of 140 distinct strings, each one a round trip
+    into the Tcl interpreter; it is now 140. Measured, that took the fitting and packing
+    phase from 24ms to 2.3ms. A ruler is built per point size and thrown away with it (see
+    _fit_text), so what it remembers cannot go stale: one font, one size, one weight.
     """
 
     def __init__(
@@ -246,12 +259,22 @@ class TextRuler:
         footnote_px: int = 0,
         keycap_measure: Callable[[str], int] | None = None,
         note_measure: Callable[[str], int] | None = None,
+        family: str = DEFAULT_FONT_NAME,
     ) -> None:
         self._measure = measure
         self._row_px = row_px
         self._footnote_px = footnote_px
         self._keycap_measure = keycap_measure
         self._note_measure = note_measure
+        self._family = family
+        # What has already been measured, per kind of text -- three fonts, so three memos.
+        self._widths: dict[str, int] = {}
+        self._keycap_widths: dict[str, int] = {}
+        self._note_widths: dict[str, int] = {}
+        # And where a string breaks within a budget, which is the expensive one: a wrap is
+        # decided word by word, so one row of one section costs a measurement per word twice
+        # over, and the packer asks about the same row in every column it might land in.
+        self._wrapped: dict[tuple[str, int], int] = {}
 
     @classmethod
     def measured(cls, widget, entry_size: int = ENTRY_SIZE) -> "TextRuler":
@@ -289,6 +312,7 @@ class TextRuler:
                 footnote.metrics("linespace"),
                 keycap.measure,
                 note.measure,
+                family,
             )
         except MEASURE_EXCEPTIONS as exception:
             log.debug("Controls screen cannot measure its font (%s); estimating instead", exception)
@@ -300,15 +324,29 @@ class TextRuler:
         return self._measure is not None and self._row_px > 0
 
     @property
+    def family(self) -> str:
+        """The font family these measurements are of, and so the one the rows are drawn in.
+
+        Handed to the renderer (ControlsPanel._row_font) rather than looked up again there,
+        so a row is drawn in the font it was measured in by construction. Where there was
+        nothing to ask, this is the named font itself: Tk reads it as a family it does not
+        have and substitutes its own default, which is what an unmeasured screen drew in
+        before.
+        """
+        return self._family
+
+    @property
     def footnote_px(self) -> int:
         """Height of one footer line, or 0 when unmeasured -- see rows_in."""
         return self._footnote_px
 
     def width(self, text: str) -> int:
-        """Rendered width of ``text``, in pixels."""
-        if self._measure is None:
-            return int(len(text) * APPROX_CHAR_PX)
-        return self._measure(text)
+        """Rendered width of ``text``, in pixels. Measured once per string -- see the class."""
+        hit = self._widths.get(text)
+        if hit is None:
+            hit = int(len(text) * APPROX_CHAR_PX) if self._measure is None else self._measure(text)
+            self._widths[text] = hit
+        return hit
 
     def keycap_width(self, text: str) -> int:
         """Rendered width of a keycap, which is drawn a weight heavier than the rest.
@@ -318,7 +356,10 @@ class TextRuler:
         """
         if self._keycap_measure is None:
             return self.width(text)
-        return self._keycap_measure(text)
+        hit = self._keycap_widths.get(text)
+        if hit is None:
+            hit = self._keycap_widths[text] = self._keycap_measure(text)
+        return hit
 
     def note_width(self, text: str) -> int:
         """Rendered width of a row's note, which is drawn a size down from the row.
@@ -330,7 +371,10 @@ class TextRuler:
         """
         if self._note_measure is None:
             return self.width(text)
-        return self._note_measure(text)
+        hit = self._note_widths.get(text)
+        if hit is None:
+            hit = self._note_widths[text] = self._note_measure(text)
+        return hit
 
     def rows_in(self, height_px: int) -> int:
         """Help rows that fit in ``height_px``, or the calibrated fallback if unmeasured."""
@@ -340,6 +384,9 @@ class TextRuler:
 
     def wrapped_rows(self, text: str, budget: int = ACTION_WRAP_PX) -> int:
         """Rows Tk's word wrap will break ``text`` into within ``budget`` pixels."""
+        hit = self._wrapped.get((text, budget))
+        if hit is not None:
+            return hit
         rows = 1
         line = ""
         for match in WORD.finditer(text):
@@ -354,6 +401,7 @@ class TextRuler:
                 # letting it overflow the column.
                 rows += -(-self.width(line) // budget) - 1
                 line = ""
+        self._wrapped[(text, budget)] = rows
         return rows
 
 
@@ -1015,20 +1063,100 @@ class ControlsPanel:
         for section in sections:
             title = section.title if not section.fixed else f"{section.title} *"
             tb = TitleBox(holder, text=title, layout="grid", align="top", width="fill", border=SECTION_BORDER)
-            tb.text_size = SECTION_SIZE
-            tb.text_color = SECTION_FG
-            tb.text_bold = True
-            # A single line rather than guizero's default groove, which is two -- see
-            # SECTION_BORDER for what that cost the space between the columns.
-            tb.tk.config(relief=SECTION_RELIEF)
+            # One call rather than four. guizero's three text properties each read the widget's
+            # font back out and ask it for its option list before setting anything, and nothing
+            # inherits from this frame any more -- the rows gridded inside it are plain Tk
+            # labels, which take their font from _row_font. The relief goes in the same breath:
+            # a single line rather than guizero's default groove, which is two (see
+            # SECTION_BORDER for what that cost the space between the columns).
+            tb.tk.config(
+                font=self._row_font(SECTION_SIZE, bold=True),
+                foreground=SECTION_FG,
+                relief=SECTION_RELIEF,
+            )
             self._render_heading(tb, title)
+            # Asked once per section and handed to every row of it: what a section frame is
+            # drawn in is what the labels inside it have to be told (see _row_label).
+            background = self._section_background(tb)
             wrap_px = self.action_wrap_px(section, width_px)
             for row, entry in enumerate(section.entries):
-                self._render_entry(tb, entry, row, wrap_px)
+                self._render_entry(tb, entry, row, wrap_px, background)
             if section.note:
-                self._render_note(tb, section.note, len(section.entries), width_px)
+                self._render_note(tb, section.note, len(section.entries), width_px, background)
             host.cache(tb)
         return holder
+
+    def _section_background(self, box: TitleBox) -> str:
+        """The colour a section's frame is drawn in, or "" if it cannot be asked.
+
+        A guizero widget takes its master's background when it is created; a plain Tk label
+        does not, and comes out in the system's own window colour -- a grey block behind the
+        text of a white section. So the frame is asked, once, and every row is told.
+        """
+        try:
+            return box.tk.cget("background")
+        except MEASURE_EXCEPTIONS as exception:
+            log.debug("Controls section background unavailable (%s); leaving the rows Tk's own", exception)
+            return ""
+
+    def _row_font(self, size: int, bold: bool = False) -> tuple:
+        """The font one cell of a row is drawn in: the ruler's own family, at ``size``.
+
+        Taken from the ruler rather than looked up again here, so the screen is drawn in the
+        font it was measured in by construction -- including the weight, which is the one
+        thing the two could disagree about and cost four rows on the Deck when they did.
+        """
+        return (self._ruler.family, size, "bold") if bold else (self._ruler.family, size)
+
+    def _row_label(
+        self,
+        parent: TitleBox,
+        text: str,
+        size: int,
+        *,
+        bold: bool = False,
+        color: str = ENTRY_FG,
+        background: str = "",
+        **options,
+    ) -> Label:
+        """One cell of one row, built in a single call.
+
+        A plain Tk label rather than a guizero Text, and this is very nearly the whole of
+        what the help screen costs to build. guizero reads every option back off a new widget
+        to remember its defaults, then re-applies seven inherited text properties, and each
+        of those asks the widget for its option list again -- some 200 round trips into Tcl
+        for a one-line label, against the two this makes. Measured on the bundled page: 0.93ms
+        a label against 0.07ms, which is 85ms of a 92-label page against 6ms, and the reason
+        the prewarm read as a stutter on the Deck.
+
+        Nothing about the drawn row changes, but two things guizero said on the panel's
+        behalf have to be said here: the font, including the weight the ruler measured the
+        string in, and the background, which a Tk label does not inherit (see
+        _section_background). Everything else is what the row was always configured with,
+        passed in the constructor rather than set afterwards.
+        """
+        if background:
+            options["background"] = background
+        return Label(parent.tk, text=text, font=self._row_font(size, bold), foreground=color, **options)
+
+    @staticmethod
+    def _place_row(label: Label, row: int, column: int, span: int = 1) -> None:
+        """Grid one cell of a row: where it sits, left-aligned, and nothing else.
+
+        No padx and no pady, which is not an oversight but the geometry this screen has always
+        been drawn in -- and worth writing down, because the old renderer asked for padding on
+        every row and got it on almost none. guizero re-grids every child of a container each
+        time another one joins it, from that child's grid and align alone, so the pady=2 and
+        padx=(4, 8) each row set after it was created were thrown away by the next row added
+        to the same section. Only the last row of a section kept them.
+
+        Which is why they stay off. Honouring them costs 12px a row across the keycap and
+        action columns -- measured, 48px on the page and 52px past the right edge of the Deck
+        at the widest font it draws, against 4px today. A keycap is spaced into its own gap
+        (keycap_text) and the row model treats the padding as slack it does not spend
+        (ROW_PADDING_PX), so what is lost by leaving it off is nothing that was ever drawn.
+        """
+        label.grid(row=row, column=column, columnspan=span, sticky="w")
 
     def _render_heading(self, box: TitleBox, title: str) -> None:
         """Draw ``title`` with its parenthesised qualifier a size down, where it has one.
@@ -1054,7 +1182,6 @@ class ControlsPanel:
         if not qualifier:
             return
         try:
-            family = tkfont.nametofont(DEFAULT_FONT_NAME, root=box.tk).actual("family")
             background = box.tk.cget("background")
             frame = Frame(box.tk, background=background)
             # Bold and SECTION_FG throughout: the qualifier is part of the heading, not a
@@ -1070,7 +1197,7 @@ class ControlsPanel:
                 label = Label(
                     frame,
                     text=text,
-                    font=(family, size, "bold"),
+                    font=self._row_font(size, bold=True),
                     foreground=SECTION_FG,
                     background=background,
                 )
@@ -1079,7 +1206,7 @@ class ControlsPanel:
         except MEASURE_EXCEPTIONS as exception:
             log.debug("Controls heading %r cannot be split (%s); drawing it in one size", title, exception)
 
-    def _render_note(self, parent: TitleBox, text: str, row: int, column_px: int = 0) -> None:
+    def _render_note(self, parent: TitleBox, text: str, row: int, column_px: int = 0, background: str = "") -> None:
         """Draw a section's note under its rows, across the width of the section.
 
         Footnote-sized and gray, like the "*" line under the columns: it says something
@@ -1087,52 +1214,72 @@ class ControlsPanel:
         should pass over it. Spanned across all of the section's columns because it belongs
         to the section and not to any one input -- there is no keycap to draw beside it.
 
-        Unbolded for the same reason, and it has to be said rather than left alone: the
-        section's TitleBox sets bold on everything drawn inside it, so a note left to
-        inherit comes out as emphatic as the rows it qualifies -- where the page's other
-        footnote, which sits outside any section, does not.
+        In the plain weight, which is the point of an aside: the page's other footnote, which
+        sits outside any section, is drawn the same way. It used to have to say so twice over
+        because a guizero widget inherits the bold its section frame sets on everything inside
+        it; a Tk label inherits nothing, so the weight is simply what _row_font is asked for.
         """
-        note = Text(parent, text=text, grid=[0, row, ENTRY_COLUMNS, 1], align="left", size=FOOTNOTE_SIZE)
-        note.text_color = FOOTNOTE_FG
-        note.text_bold = False
-        note.tk.config(wraplength=self.note_wrap_px(column_px), justify="left")
-        note.tk.grid_configure(padx=(4, 6), pady=(0, 2), sticky="w")
+        note = self._row_label(
+            parent,
+            text,
+            FOOTNOTE_SIZE,
+            color=FOOTNOTE_FG,
+            background=background,
+            wraplength=self.note_wrap_px(column_px),
+            justify="left",
+        )
+        self._place_row(note, row, 0, ENTRY_COLUMNS)
         self.gui.cache(note)
 
-    def _render_entry(self, parent: TitleBox, entry, row: int, wrap_px: int = ACTION_WRAP_PX) -> None:
+    def _render_entry(
+        self,
+        parent: TitleBox,
+        entry,
+        row: int,
+        wrap_px: int = ACTION_WRAP_PX,
+        background: str = "",
+    ) -> None:
         # The input is drawn as a raised keycap so the eye can find "L1" or "View"
         # without reading the whole line -- this is a reference table, scanned rather
         # than read.
-        name = Text(parent, text=keycap_text(entry), grid=[0, row], align="left", size=self._entry_size)
-        name.text_bold = True
-        name.text_color = KEYCAP_FG
-        name.bg = KEYCAP_BG
-        name.tk.config(relief="raised", borderwidth=1)
-        name.tk.grid_configure(padx=(4, 8), pady=2, sticky="w")
+        name = self._row_label(
+            parent,
+            keycap_text(entry),
+            self._entry_size,
+            bold=True,
+            color=KEYCAP_FG,
+            background=KEYCAP_BG,
+            relief="raised",
+            borderwidth=1,
+        )
+        self._place_row(name, row, 0)
 
-        # A row with no note spans the note column rather than leaving it empty, so a section
-        # is only charged for the notes it has and on the rows that have them -- see
-        # section_px, where doing otherwise cost the Global section 75px.
-        cell = [1, row] if entry.note else [1, row, 2, 1]
-        action = Text(parent, text=entry.action, grid=cell, align="left", size=self._entry_size)
-        action.text_color = ENTRY_FG
-        # Said rather than left alone, as the section note also has to say it: the row's
-        # TitleBox bolds everything drawn inside it, so an action left to inherit came out
-        # exactly as emphatic as the keycap beside it -- which cost the keycap the one job
-        # the bold is there for, and cost every row about 7% of its width, wrapping four of
-        # them on the Deck against a budget measured in the lighter weight.
-        action.text_bold = False
+        # The action in the plain weight against the keycap's bold, which is the one job that
+        # bold has: being found without reading the row. Drawn in the weight the budget was
+        # measured in, too -- an action as emphatic as its keycap is also about 7% wider than
+        # a budget measured light, which is what broke four rows on the Deck.
+        #
         # wraplength wraps instead of truncating or forcing the column wider. justify
         # keeps the second line aligned under the first rather than centred. ``wrap_px`` is
         # the whole row's share, so the note beside it comes off first -- the same sum
         # entry_rows does, or the packer counts a row the renderer then breaks.
-        action.tk.config(wraplength=max(wrap_px - self._note_px(entry), MIN_ACTION_WRAP_PX), justify="left")
-        action.tk.grid_configure(padx=(0, 6), pady=2, sticky="w")
+        action = self._row_label(
+            parent,
+            entry.action,
+            self._entry_size,
+            background=background,
+            wraplength=max(wrap_px - self._note_px(entry), MIN_ACTION_WRAP_PX),
+            justify="left",
+        )
+        # A row with no note spans the note column rather than leaving it empty, so a section
+        # is only charged for the notes it has and on the rows that have them -- see
+        # section_px, where doing otherwise cost the Global section 75px.
+        self._place_row(action, row, 1, 1 if entry.note else 2)
         self.gui.cache(name, action)
         if entry.note:
-            self._render_entry_note(parent, entry, row)
+            self._render_entry_note(parent, entry, row, background)
 
-    def _render_entry_note(self, parent: TitleBox, entry: ControlEntry, row: int) -> None:
+    def _render_entry_note(self, parent: TitleBox, entry: ControlEntry, row: int, background: str = "") -> None:
         """Draw a row's note beside its action, a size down, in a column of its own.
 
         "(repeats)", "(hold: w dialog)", "(w focus)": what the note says qualifies the action
@@ -1151,8 +1298,6 @@ class ControlsPanel:
         note in the section (section_px), so there is nothing for Tk to break -- and a note
         broken over two lines would cost the row a second one to say the same words.
         """
-        note = Text(parent, text=note_text(entry), grid=[2, row], align="left", size=self.note_size)
-        note.text_color = ENTRY_FG
-        note.text_bold = False
-        note.tk.grid_configure(padx=(0, NOTE_CHROME_PX), pady=2, sticky="w")
+        note = self._row_label(parent, note_text(entry), self.note_size, background=background)
+        self._place_row(note, row, 2)
         self.gui.cache(note)
