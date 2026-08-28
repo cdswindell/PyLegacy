@@ -3283,19 +3283,84 @@ def test_triggers_still_start_and_stop_an_engine_in_a_panel_holding_no_route() -
     assert focused.route_calls == []
 
 
-@pytest.mark.parametrize(("name", "button"), [(SEQUENCE_CONTROL, 0), ("horn", 3)])
-def test_the_face_buttons_are_a_switchs_alone_and_do_not_fire_a_route(name, button) -> None:
-    # A route has no un-fire for the second of them to mean, so claiming them here would buy
-    # a third and fourth way to fire at the cost of a button that already has a job -- A
-    # confirming a catalog entry. ROUTE_FIRE_ACTIONS is built by taking them back out of the
-    # switch sets, and this is the assertion that keeps them out.
+def test_the_a_button_fires_the_route_rather_than_working_an_engine() -> None:
+    # The face button that throws a switch through fires a route: A in the bundled profile,
+    # keyed on the action it carries there rather than on its index, so a profile that moves
+    # sequence control moves the fire with it. One fire on the press, and the release adds
+    # none -- a route stands in for a press of the on-screen key, not for holding it down.
     focused = _route_gui()
     router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
 
-    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 0.0, "released", button=0))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert focused.route_calls == [True], "one fire on the press, and the release adds none"
+    assert focused.command_calls == [], "no engine command reached the panel"
+
+
+def test_the_horn_button_is_not_a_second_way_to_fire_a_route() -> None:
+    # A switch has two things to do, so it takes both face buttons; a route has no un-fire
+    # for the second to mean. ROUTE_FIRE_ACTIONS is built by taking both back out of the
+    # switch sets and putting only the "thru" one in, and this is what keeps Y out.
+    focused = _route_gui()
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
 
     assert focused.route_calls == []
-    assert focused.command_calls, "they keep the engine meaning the profile gives them"
+    assert focused.command_calls, "it keeps the horn the profile gives it"
+
+
+def test_the_a_button_still_works_the_engine_in_a_panel_holding_no_route() -> None:
+    # The remap is scoped to a panel showing a route; everywhere else A is unchanged.
+    focused = _route_gui(route_active=False)
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+
+    assert focused.command_calls == [SEQUENCE_CONTROL_COMMAND]
+    assert focused.route_calls == []
+
+
+def test_the_a_button_stands_aside_while_the_route_catalog_is_open() -> None:
+    # A route is picked from the catalog and A is how an entry in it is confirmed, exactly as
+    # on a switch panel: a reader looking at that list is re-scoping the panel rather than
+    # working the route it already holds, so the button is not claimed while it is up.
+    focused = _route_gui()
+    focused.catalog_visible = True
+    focused.select_calls = 0
+    focused.select_catalog_entry = lambda: setattr(focused, "select_calls", focused.select_calls + 1)
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+
+    assert focused.select_calls == 1, "A confirmed the highlighted entry"
+    assert focused.route_calls == [], "and did not fire the route behind the list"
+
+    # Only the face button stands aside. The triggers have no job in the catalog, so holding
+    # them back would cost a fire for nothing.
+    router.handle(DeckAction(SHUTDOWN_IMMEDIATE, "focused", 1.0, "pressed"))
+
+    assert focused.route_calls == [True]
+
+
+def test_a_sequence_burst_running_as_the_panel_became_a_route_stops() -> None:
+    # A's press starts a sequence-control burst that tick() re-sends, and the release that
+    # would let it finish is swallowed once the panel is showing a route. So the claim has to
+    # drop it, the way the stick path drops a throttle the panel had pending.
+    focused = _route_gui(route_active=False)
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+    focused.route_active = True
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 0.0, "released", button=0))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert focused.command_calls == [SEQUENCE_CONTROL_COMMAND], "the press did its engine job once, then nothing"
+    assert focused.route_calls == [], "a release fires nothing"
 
 
 def test_a_stick_pushed_up_fires_the_route_once_per_deflection() -> None:

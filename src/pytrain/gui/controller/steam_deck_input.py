@@ -113,9 +113,9 @@ LONG_PRESS_ACTIONS = {
 #
 # The two face buttons are named apart from the rest for two reasons. The open catalog has
 # to be able to take them back -- a switch is chosen from that catalog and A is how an entry
-# in it is confirmed, so _handle_switch declines both while it is up. And a route does not
-# get them: ROUTE_FIRE_ACTIONS below is built from these sets, and a route's controls are
-# the sticks and the triggers alone.
+# in it is confirmed, so _handle_switch declines both while it is up. And a route gets only
+# one of them: ROUTE_FIRE_ACTIONS below is built from these sets, and it takes the "thru"
+# button alone.
 SWITCH_THRU_BUTTON_ACTIONS = frozenset({"sequence_control"})
 SWITCH_OUT_BUTTON_ACTIONS = frozenset({"horn"})
 SWITCH_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS | SWITCH_OUT_BUTTON_ACTIONS
@@ -129,10 +129,14 @@ SWITCH_OUT_ACTIONS = frozenset({"direction", "startup", STARTUP_IMMEDIATE, START
 SWITCH_AXIS_ACTIONS = frozenset({"throttle", "direction"})
 # The same repurposing for a panel showing a route, which has no engine to drive either. A
 # route has one thing to do rather than two, so both triggers fire it and there is nothing
-# for the thru/out split above to distinguish: one set, not two. The face buttons are left
-# out: a route has no second thing for the second of them to mean, so claiming them would
-# buy a third and fourth way to fire at the cost of a button that already has a job.
-ROUTE_FIRE_ACTIONS = (SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS) - SWITCH_BUTTON_ACTIONS
+# for the thru/out split above to distinguish: one set, not two.
+#
+# Of the two face buttons only the one that throws a switch through comes across -- A in the
+# bundled profile, the button that confirms an entry in the catalog and so already reads as
+# "do it". Y is left out rather than made a second way to say the one thing: a route has no
+# un-fire for it to mean, and it keeps the horn it sounds in every other panel.
+ROUTE_FIRE_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS
+ROUTE_FIRE_ACTIONS = ((SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS) - SWITCH_BUTTON_ACTIONS) | ROUTE_FIRE_BUTTON_ACTIONS
 # The two of those that arrive as a stick position. They latch as the switch ones do, but
 # the test is signed rather than absolute: only up (a positive throttle, the sticks being
 # inverted in the profile) and right (a positive direction) fire. The other two deflections
@@ -1843,8 +1847,8 @@ class DeckInputRouter:
         """True when the action was claimed to fire the panel's route.
 
         _handle_switch's twin, and claimed on the same terms: a panel showing a route has no
-        engine in it either, so the controls that would drive one fire the route instead --
-        L2 and R2 both, and each stick its own panel's route. Everything else keeps the
+        engine in it either, so the controls that would drive one fire the route instead -- A,
+        L2 and R2 all three, and each stick its own panel's route. Everything else keeps the
         meaning it has everywhere else.
         """
         if action.name not in ROUTE_FIRE_ACTIONS:
@@ -1860,6 +1864,18 @@ class DeckInputRouter:
             self._commanded_speeds.pop(action.target, None)
             self._fire_route_from_axis(gui, action)
             return True
+        if action.name in ROUTE_FIRE_BUTTON_ACTIONS:
+            if getattr(gui, "catalog_visible", False):
+                # As on a switch panel: the catalog is where the route in this panel is
+                # picked and A is how an entry in it is confirmed, so the button is not
+                # claimed while the list is up. The triggers and sticks have no job there.
+                return False
+            # The same clean-up the stick path does above, for what a face button can leave
+            # running: A starts a sequence-control burst that tick() re-sends, and a profile
+            # that puts the route fire on a repeat-flagged button would leave that repeating
+            # too. The release below is swallowed, so nothing else would stop either.
+            self._held_commands.pop(action.button, None)
+            self._sequences.pop(action.target, None)
         if action.phase == "pressed":
             gui.on_route_command()
         # A release is swallowed rather than ignored, as it is for a switch: passed on it
