@@ -3062,6 +3062,103 @@ def test_triggers_still_start_and_stop_an_engine_in_an_engine_panel() -> None:
     assert focused.switch_calls == []
 
 
+def _face_button_profile() -> ControlProfile:
+    """A and Y as the bundled profile binds them: sequence control on A, the horn on Y.
+
+    The horn keeps its ``repeat`` flag, which is what makes the release matter: without the
+    switch claim stopping it, ``tick()`` goes on sounding a horn at a panel with no engine.
+    """
+    return _profile(
+        buttons={
+            "0": {"action": "sequence_control", "target": "focused"},
+            "3": {"action": "horn", "target": "focused", "repeat": True},
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "button", "thru"),
+    [
+        # A carries sequence control in the bundled profile and throws through; Y carries the
+        # horn and throws out. Keyed on the action rather than on the index, so a profile that
+        # moves either binding moves the throw with it.
+        (SEQUENCE_CONTROL, 0, True),
+        ("horn", 3, False),
+    ],
+)
+def test_the_face_buttons_throw_the_switch_rather_than_working_an_engine(name, button, thru) -> None:
+    focused = _switch_gui()
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+    router.handle(DeckAction(name, "focused", 0.0, "released", button=button))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert focused.switch_calls == [thru], "one throw on the press, and the release adds none"
+    assert focused.command_calls == [], "no engine command reached the panel"
+
+
+def test_the_face_buttons_still_work_the_engine_in_an_engine_panel() -> None:
+    # The remap is scoped to a panel showing a switch; everywhere else A and Y are unchanged.
+    focused = _switch_gui(switch_active=False)
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+
+    assert focused.command_calls == [SEQUENCE_CONTROL_COMMAND, PANEL_COMMANDS["horn"]]
+    assert focused.switch_calls == []
+
+
+def test_the_face_buttons_stand_aside_while_the_switch_catalog_is_open() -> None:
+    # A switch is picked from the catalog and A is how an entry in it is confirmed, so a panel
+    # already holding a switch must not take that button back while the list is up: the reader
+    # is re-scoping the panel rather than working the switch behind it.
+    focused = _switch_gui()
+    focused.catalog_visible = True
+    focused.select_calls = 0
+    focused.select_catalog_entry = lambda: setattr(focused, "select_calls", focused.select_calls + 1)
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=0))
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+
+    assert focused.select_calls == 1, "A confirmed the highlighted entry"
+    assert focused.switch_calls == [], "neither face button threw the switch behind the list"
+
+    # Only the face buttons stand aside. L2/R2 have no job in the catalog, so holding them
+    # back would cost a throw for nothing.
+    router.handle(DeckAction(SHUTDOWN_IMMEDIATE, "focused", 1.0, "pressed"))
+
+    assert focused.switch_calls == [True]
+
+
+@pytest.mark.parametrize(
+    ("name", "button", "command"),
+    [
+        (SEQUENCE_CONTROL, 0, SEQUENCE_CONTROL_COMMAND),
+        ("horn", 3, PANEL_COMMANDS["horn"]),
+    ],
+)
+def test_a_face_button_held_as_the_panel_became_a_switch_stops_repeating(name, button, command) -> None:
+    # Both of these outlive their press -- Y re-sends the horn every repeat_interval while it
+    # is held, A runs a sequence-control burst -- and the release that would stop them is
+    # swallowed once the panel is showing a switch. So the claim has to stop them, the way the
+    # stick path drops a throttle the panel had pending.
+    focused = _switch_gui(switch_active=False)
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+    focused.switch_active = True
+    router.handle(DeckAction(name, "focused", 0.0, "released", button=button))
+    router.tick(0.0)
+    router.tick(1.0)
+
+    assert focused.command_calls == [command], "the press did its engine job once and nothing repeated"
+    assert focused.switch_calls == [], "a release throws nothing"
+
+
 def test_a_stick_pushed_vertically_throws_the_switch_thru_once_per_deflection() -> None:
     # Up and down both throw through, and holding the stick over throws once: it stands in
     # for a press of the on-screen key, not for holding that key down.
@@ -3184,6 +3281,21 @@ def test_triggers_still_start_and_stop_an_engine_in_a_panel_holding_no_route() -
 
     assert focused.command_calls == ["SHUTDOWN_IMMEDIATE"]
     assert focused.route_calls == []
+
+
+@pytest.mark.parametrize(("name", "button"), [(SEQUENCE_CONTROL, 0), ("horn", 3)])
+def test_the_face_buttons_are_a_switchs_alone_and_do_not_fire_a_route(name, button) -> None:
+    # A route has no un-fire for the second of them to mean, so claiming them here would buy
+    # a third and fourth way to fire at the cost of a button that already has a job -- A
+    # confirming a catalog entry. ROUTE_FIRE_ACTIONS is built by taking them back out of the
+    # switch sets, and this is the assertion that keeps them out.
+    focused = _route_gui()
+    router, _left, _right, _focused, _global = _router(_face_button_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+
+    assert focused.route_calls == []
+    assert focused.command_calls, "they keep the engine meaning the profile gives them"
 
 
 def test_a_stick_pushed_up_fires_the_route_once_per_deflection() -> None:

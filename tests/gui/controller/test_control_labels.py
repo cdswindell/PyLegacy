@@ -30,7 +30,12 @@ from src.pytrain.gui.controller.control_labels import (
     controls_summary,
     touchpad_label,
 )
-from src.pytrain.gui.controller.steam_deck_input import CLOSE_POPUP_BUTTON, ControlProfile
+from src.pytrain.gui.controller.steam_deck_input import (
+    CLOSE_POPUP_BUTTON,
+    SWITCH_OUT_BUTTON_ACTIONS,
+    SWITCH_THRU_BUTTON_ACTIONS,
+    ControlProfile,
+)
 
 CUSTOM_PROFILE = {
     "dead_zone": 0.15,
@@ -261,13 +266,14 @@ def test_summary_flags_repeating_buttons() -> None:
 
 
 def test_the_switch_panel_remap_is_listed() -> None:
-    # A panel showing a switch has no engine to drive, so the sticks and triggers throw the
-    # switch there. Without this the screen would describe only their engine meaning.
+    # A panel showing a switch has no engine to drive, so the face buttons, the triggers and
+    # the sticks throw the switch there. Without this the screen would describe only their
+    # engine meaning.
     section = _section(ControlProfile.load(None), SWITCH_PANEL_TITLE)
 
     assert section.fixed is True
     assert [entry.input for entry in section.entries] == [
-        "L2 / R2",
+        "A / Y or L2 / R2",
         f"Left stick {ARROW_VERTICAL} / {ARROW_HORIZONTAL}",
         f"Right stick {ARROW_VERTICAL} / {ARROW_HORIZONTAL}",
     ]
@@ -278,6 +284,25 @@ def test_the_switch_panel_remap_is_listed() -> None:
         "Throw thru / out LEFT",
         "Throw thru / out RIGHT",
     ]
+
+
+def test_the_switch_row_names_the_buttons_the_router_claims() -> None:
+    # Named from the router's own action sets, as the catalog's way out is named from
+    # CLOSE_POPUP_BUTTON: the buttons are claimed by what the profile has them doing on an
+    # engine, so a profile that moves sequence control or the horn moves the throw with it,
+    # and this row would then be naming a button that does nothing.
+    profile = ControlProfile.load(None)
+    thru = [button_label(index) for index, b in profile.buttons.items() if b.action in SWITCH_THRU_BUTTON_ACTIONS]
+    out = [button_label(index) for index, b in profile.buttons.items() if b.action in SWITCH_OUT_BUTTON_ACTIONS]
+
+    row = _section(profile, SWITCH_PANEL_TITLE).entries[0]
+
+    assert thru == ["A"] and out == ["Y"], "the bundled profile puts sequence control on A and the horn on Y"
+    # Both ways of throwing on the one row, in the order the action pairs off against it:
+    # thru is A or L2, out is Y or R2. The trigger halves stay literal -- they are the axes
+    # DECK_AXIS_LABELS names, and deriving them is Job A of the parked bindings plan.
+    assert row.input.startswith(f"{thru[0]} / {out[0]}")
+    assert row.action == "Throw thru / out"
 
 
 def test_the_route_panel_remap_is_listed() -> None:
@@ -297,6 +322,16 @@ def test_the_route_panel_remap_is_listed() -> None:
         (f"Left stick {ARROW_UP} / {ARROW_RIGHT}", "Fire route LEFT", ""),
         (f"Right stick {ARROW_UP} / {ARROW_RIGHT}", "Fire route RIGHT", ""),
     ]
+
+
+def test_only_the_switch_section_names_the_face_buttons() -> None:
+    # A route has no un-fire for a second button to mean, so A and Y are a switch's alone --
+    # which is also what keeps A confirming a catalog entry. If the router ever claims them
+    # for a route too, this is the row that has to say so.
+    routes = _section(ControlProfile.load(None), ROUTE_PANEL_TITLE)
+
+    assert [entry.input for entry in routes.entries][0] == "L2 / R2"
+    assert all("A / Y" not in entry.input for entry in routes.entries)
 
 
 def test_the_route_rows_name_only_the_deflections_that_fire() -> None:

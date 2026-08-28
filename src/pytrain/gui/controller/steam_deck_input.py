@@ -102,23 +102,37 @@ LONG_PRESS_ACTIONS = {
     "shutdown": (SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED),
 }
 # Actions repurposed while the panel they target is showing a track switch. A switch has no
-# engine to drive, so the controls that would drive one throw the switch instead: the
-# trigger that shuts an engine down (L2 in the bundled profile) throws it through and the
-# one that starts an engine (R2) throws it out, while each stick throws its own panel's
-# switch -- pushed up or down (the throttle axis) through, left or right (the direction
-# axis) out. Keyed on the action rather than on the physical axis or button, so a custom
-# profile that puts these bindings elsewhere keeps working; this is the same way the open
-# catalog claims the D-pad and the admin panel claims L1.
-SWITCH_THRU_ACTIONS = frozenset({"throttle", "shutdown", SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED})
-SWITCH_OUT_ACTIONS = frozenset({"direction", "startup", STARTUP_IMMEDIATE, STARTUP_DELAYED})
+# engine to drive, so the controls that would drive one throw the switch instead: the face
+# button that runs an engine's sequence control (A in the bundled profile) and the trigger
+# that shuts one down (L2) throw it through, the button that sounds the horn (Y) and the
+# trigger that starts one up (R2) throw it out, and each stick throws its own panel's switch
+# -- pushed up or down (the throttle axis) through, left or right (the direction axis) out.
+# Keyed on the action rather than on the physical axis or button, so a custom profile that
+# puts these bindings elsewhere keeps working; this is the same way the open catalog claims
+# the D-pad and the admin panel claims L1.
+#
+# The two face buttons are named apart from the rest for two reasons. The open catalog has
+# to be able to take them back -- a switch is chosen from that catalog and A is how an entry
+# in it is confirmed, so _handle_switch declines both while it is up. And a route does not
+# get them: ROUTE_FIRE_ACTIONS below is built from these sets, and a route's controls are
+# the sticks and the triggers alone.
+SWITCH_THRU_BUTTON_ACTIONS = frozenset({"sequence_control"})
+SWITCH_OUT_BUTTON_ACTIONS = frozenset({"horn"})
+SWITCH_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS | SWITCH_OUT_BUTTON_ACTIONS
+SWITCH_THRU_ACTIONS = (
+    frozenset({"throttle", "shutdown", SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED}) | SWITCH_THRU_BUTTON_ACTIONS
+)
+SWITCH_OUT_ACTIONS = frozenset({"direction", "startup", STARTUP_IMMEDIATE, STARTUP_DELAYED}) | SWITCH_OUT_BUTTON_ACTIONS
 # The two of those that arrive as a stick position rather than as a press. They latch: one
 # throw per deflection, re-armed only once the stick comes back near center, so holding a
 # stick over is a single push of the on-screen key rather than a burst of them.
 SWITCH_AXIS_ACTIONS = frozenset({"throttle", "direction"})
 # The same repurposing for a panel showing a route, which has no engine to drive either. A
 # route has one thing to do rather than two, so both triggers fire it and there is nothing
-# for the thru/out split above to distinguish: one set, not two.
-ROUTE_FIRE_ACTIONS = SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS
+# for the thru/out split above to distinguish: one set, not two. The face buttons are left
+# out: a route has no second thing for the second of them to mean, so claiming them would
+# buy a third and fourth way to fire at the cost of a button that already has a job.
+ROUTE_FIRE_ACTIONS = (SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS) - SWITCH_BUTTON_ACTIONS
 # The two of those that arrive as a stick position. They latch as the switch ones do, but
 # the test is signed rather than absolute: only up (a positive throttle, the sticks being
 # inverted in the profile) and right (a positive direction) fire. The other two deflections
@@ -1771,9 +1785,9 @@ class DeckInputRouter:
 
         The same idea as the open catalog's hold on the D-pad: while a panel is showing a
         switch there is no engine in it to drive, so the controls that would drive one throw
-        the switch instead -- L2/R2 through and out, and each stick its own panel's switch.
-        Only those controls are claimed, so HALT, focus, the catalog and everything else
-        keep the meaning they have everywhere else.
+        the switch instead -- A/Y and L2/R2 through and out, and each stick its own panel's
+        switch. Only those controls are claimed, so HALT, focus, the catalog and everything
+        else keep the meaning they have everywhere else.
         """
         thru = action.name in SWITCH_THRU_ACTIONS
         if not thru and action.name not in SWITCH_OUT_ACTIONS:
@@ -1789,6 +1803,21 @@ class DeckInputRouter:
             self._commanded_speeds.pop(action.target, None)
             self._throw_switch_from_axis(gui, action, thru=thru)
             return True
+        if action.name in SWITCH_BUTTON_ACTIONS:
+            if getattr(gui, "catalog_visible", False):
+                # The catalog is where a switch is picked, and A is how an entry in it is
+                # confirmed: a reader looking at that list is re-scoping the panel rather
+                # than working the switch it already holds, so neither face button is
+                # claimed while it is up. The triggers and sticks have no job there, so they
+                # are not held back.
+                return False
+            # The same clean-up the stick path does above, for what a face button can leave
+            # running: Y sounds the horn every repeat_interval while it is held and A starts
+            # a sequence-control burst, either of which may have been under way when the
+            # panel changed scope. The release below is swallowed, so nothing else would
+            # stop tick() re-sending a command at a panel with no engine in it.
+            self._held_commands.pop(action.button, None)
+            self._sequences.pop(action.target, None)
         if action.phase == "pressed":
             gui.on_switch_command(thru)
         # A release is swallowed rather than ignored: passed on it would clear a throttle or

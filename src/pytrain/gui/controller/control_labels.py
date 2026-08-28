@@ -387,8 +387,14 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 # where five sent the whole section onto a second page nobody would think to turn to.
 # The heading says "Switch", so the rows do not repeat it; that also keeps every row on
 # one line, which the "(own pane)" wording did not manage.
+#
+# The face buttons share the trigger row rather than taking one of their own, the way the
+# catalog section's "Right or A" names both ways of choosing an entry: they say the very
+# same thing -- thru is A or L2, out is Y or R2 -- and a second row saying it again would
+# fill the last column to exactly the budget ROWS_PER_COLUMN falls back to. It is free on
+# width as well: the combined keycap measures narrower than the "Right stick" row below it.
 FIXED_SWITCH_ENTRIES: tuple[ControlEntry, ...] = (
-    ControlEntry("L2 / R2", "Throw thru / out", ""),
+    ControlEntry("A / Y or L2 / R2", "Throw thru / out", ""),
     ControlEntry(stick_label(LEFT_STICK_VERTICAL), "Throw thru / out" + target_suffix("left")),
     ControlEntry(stick_label(RIGHT_STICK_VERTICAL), "Throw thru / out" + target_suffix("right")),
 )
