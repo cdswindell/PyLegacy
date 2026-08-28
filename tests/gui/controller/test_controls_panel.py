@@ -536,15 +536,36 @@ def test_build_derives_the_budget_from_the_room_it_is_given(monkeypatch) -> None
     assert panel.rows_per_column == (600 - 2 * 15) // 30
 
 
-def test_the_entry_size_comes_down_only_until_the_rows_fit(monkeypatch) -> None:
-    # A point of text size is a legibility decision -- these rows were 10pt once, which
-    # read on a desk and not at arm's length -- so ENTRY_SIZE is a ceiling and a point is
-    # given back one at a time and only to save a row. Which point it settles on has to be
-    # measured rather than written down: the same 16pt rows draw some 6-12% wider on the
-    # Deck than on a desk machine, which is the difference between a screen of single lines
-    # and three broken ones.
+def test_the_entry_size_is_not_traded_for_a_wrapped_row(monkeypatch) -> None:
+    # The size the screen is read at is not currency, which is what MIN_ENTRY_SIZE being
+    # ENTRY_SIZE says: rows that do not fit are answered with width -- the columns take
+    # what they need and the page overruns the display (_shared_widths) -- and never with a
+    # smaller screen. So there is one size to try, and a display that cannot hold it still
+    # gets it.
     tried: list[int] = []
     monkeypatch.setattr(mod.TextRuler, "measured", classmethod(_fixed_ruler))
+
+    def never(self) -> bool:
+        tried.append(self._entry_size)
+        return False
+
+    monkeypatch.setattr(ControlsPanel, "rows_fit_their_columns", never)
+    panel = _panel(ControlProfile.load(None))
+
+    panel._fit_text(object(), 600, 1274)
+
+    assert mod.MIN_ENTRY_SIZE == mod.ENTRY_SIZE, "the floor is the ceiling: one size, always"
+    assert tried == [mod.ENTRY_SIZE]
+    assert panel.entry_size == mod.ENTRY_SIZE
+
+
+def test_a_lowered_floor_brings_the_shrink_back(monkeypatch) -> None:
+    # The floor is a lever rather than a leftover, so the machinery under it stays tested:
+    # lower it and a display too narrow for its rows is answered with a point at a time
+    # again, stopping at the first size that fits rather than walking to the bottom.
+    tried: list[int] = []
+    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(_fixed_ruler))
+    monkeypatch.setattr(mod, "MIN_ENTRY_SIZE", mod.ENTRY_SIZE - 2)
 
     def fits(self) -> bool:
         tried.append(self._entry_size)
@@ -563,11 +584,13 @@ def test_the_entry_size_comes_down_only_until_the_rows_fit(monkeypatch) -> None:
 
 
 def test_the_entry_size_is_never_given_back_past_the_floor(monkeypatch) -> None:
-    # A display too small for these rows at any legible size gets the smallest one and the
-    # wrapping, which the packer has counted rows for. Shrinking on past it would answer a
-    # help screen nobody can read to a screen with a broken line in it.
+    # A display too small for these rows at any size the floor allows gets the smallest one
+    # and the wrapping, which the packer has counted rows for. Shrinking on past it would
+    # answer a help screen nobody can read to a screen with a broken line in it. Driven
+    # with the floor lowered, since as shipped there is nothing to give back.
     tried: list[int] = []
     monkeypatch.setattr(mod.TextRuler, "measured", classmethod(_fixed_ruler))
+    monkeypatch.setattr(mod, "MIN_ENTRY_SIZE", mod.ENTRY_SIZE - 2)
 
     def never(self) -> bool:
         tried.append(self._entry_size)
@@ -578,8 +601,8 @@ def test_the_entry_size_is_never_given_back_past_the_floor(monkeypatch) -> None:
 
     panel._fit_text(object(), 600, 1274)
 
-    assert tried == list(range(mod.ENTRY_SIZE, mod.MIN_ENTRY_SIZE - 1, -1))
-    assert panel.entry_size == mod.MIN_ENTRY_SIZE
+    assert tried == list(range(mod.ENTRY_SIZE, mod.ENTRY_SIZE - 3, -1))
+    assert panel.entry_size == mod.ENTRY_SIZE - 2
 
 
 def test_the_size_ceiling_does_not_cost_the_screen_a_page(monkeypatch) -> None:
@@ -644,19 +667,34 @@ def test_the_middle_column_hands_its_width_to_the_two_beside_it() -> None:
 
 
 @pytest.mark.parametrize("width", [640, 1024, 1274, 1280, 1920])
-def test_the_columns_never_add_up_past_the_room_they_were_given(width) -> None:
-    # The bug in one line: three columns that between them ask for more than the display
-    # has. The overlay is gridded from the left edge of a window that cannot grow, so the
-    # excess is not scaled or scrolled -- it is cut.
+def test_the_even_split_never_adds_up_past_the_room_it_was_given(width) -> None:
+    # Three columns that between them ask for more than the display has: the overlay is
+    # gridded from the left edge of a window that cannot grow, so the excess is not scaled
+    # or scrolled -- it is cut.
+    #
+    # This holds of the even split, and of nothing else now. A screen that can measure its
+    # own rows deliberately spends more than the display has rather than break a line; the
+    # split is what a screen with no font to measure falls back to, and it cannot tell
+    # whether a column it starved was going to wrap, so it starves none of them.
     assert sum(ControlsPanel.column_widths(width)) <= width
 
 
 @pytest.mark.parametrize("width", [640, 1024, 1274, 1280, 1920])
 @pytest.mark.parametrize("needs", [(100, 400, 400), (400, 400, 400), (900, 100, 100), (0, 0, 0)])
-def test_the_measured_columns_never_add_up_past_the_room_either(width, needs) -> None:
-    # The same invariant, and it has to hold of what the columns *asked* for as much as of
-    # an even split: the room is the display's, and a page wider than it is cut.
-    assert sum(ControlsPanel._shared_widths(width, needs)) <= width
+def test_no_measured_column_is_handed_less_than_its_rows_need(width, needs) -> None:
+    # The reversal of the invariant above, and the whole of this change: the even split is
+    # held to the display, but a column that measured its own rows gets what they need
+    # whether or not the page can afford all three. A column handed less is a column with a
+    # broken line in it, and a page that runs past the right edge costs its reader less
+    # than that.
+    widths = ControlsPanel._shared_widths(width, needs)
+
+    assert all(width_px >= need for width_px, need in zip(widths, needs))
+    if sum(needs) <= width:
+        # Affordable: the slack is handed out rather than held back, to within the rounding.
+        assert 0 <= width - sum(widths) < COLUMNS
+    else:
+        assert sum(widths) == sum(needs) > width, "the page overruns rather than trimming a column"
 
 
 def test_the_columns_are_cut_to_what_their_rows_need() -> None:
@@ -684,15 +722,104 @@ def test_the_columns_are_cut_to_what_their_rows_need() -> None:
     assert 1274 - sum(panel.column_px) < COLUMNS
 
 
-def test_a_column_that_fits_an_even_share_is_not_trimmed_for_one_that_cannot() -> None:
-    # Fair shares, but only among the columns that will not fit whatever they are given: a
-    # column whose rows fit an even share keeps them on one line rather than paying for a
-    # column that is going to wrap anyway. Trimming it would buy the page nothing and cost
-    # it a row.
+def test_a_page_too_narrow_for_its_columns_overruns_rather_than_trimming_them() -> None:
+    # What used to happen to these needs on this page: the column that fit an even share
+    # kept 100 and the other two divided what was left, 250 each -- 150px short of what
+    # their rows measured, so both wrapped. Nothing is divided now. Each column takes its
+    # own need and the page is 300px too wide, which is a choice about where the cost of a
+    # narrow display falls: on the edge of the page rather than in the middle of a line.
     widths = ControlsPanel._shared_widths(600, (100, 400, 400))
 
-    assert widths[0] == 100
-    assert widths[1] == widths[2] == 250
+    assert widths == (100, 400, 400)
+    assert sum(widths) - 600 == 300
+
+
+@pytest.mark.parametrize("px_per_char", [8, 10, 12, 14])
+def test_no_bundled_row_wraps_however_wide_the_display_draws_it(monkeypatch, px_per_char) -> None:
+    # The whole of what the width policy is for, in one assertion: whatever the font
+    # measures, every row of the shipped screen is drawn on one line -- and at the size it
+    # is meant to be read at, not a point given back to buy the fit. How wide these strings
+    # come out is not knowable from here (the Deck draws them some 6-12% wider than a desk
+    # machine), so it is driven across a range that brackets both ends and well past them:
+    # at the wide end the page runs off the display, which is the trade, and no line breaks.
+    def ruler(_cls, _widget, entry_size: int = mod.ENTRY_SIZE) -> mod.TextRuler:
+        return mod.TextRuler(
+            measure=lambda text: px_per_char * len(text),
+            row_px=30,
+            footnote_px=15,
+            # Keycaps are drawn bold, and bold is wider: charged here as it is charged there.
+            keycap_measure=lambda text: px_per_char * len(text) + 8,
+        )
+
+    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(ruler))
+    panel = _panel(ControlProfile.load(None))
+
+    panel._fit_text(object(), 738, 1274)
+
+    assert panel.entry_size == mod.ENTRY_SIZE
+    assert panel.rows_fit_their_columns()
+    for page in panel.paginate():
+        for index, column in enumerate(page):
+            for section in column:
+                wrap_px = panel._column_wrap_px(section, index)
+                for entry in section.entries:
+                    text = mod.entry_text(entry)
+                    assert panel._ruler.wrapped_rows(text, wrap_px) == 1, (section.title, text, wrap_px)
+                if section.note:
+                    note_px = panel.note_wrap_px(panel.column_px[index % COLUMNS])
+                    assert panel._ruler.wrapped_rows(section.note, note_px) == 1, (section.title, section.note)
+
+
+def test_the_columns_are_grown_until_the_sections_that_moved_fit(monkeypatch) -> None:
+    # Why one pass is no longer enough. A column that takes more than an even share holds
+    # more sections than it was measured with, and a section that lands in a column priced
+    # without it wraps there -- modelled at 17pt on a font 12% wider than this machine's,
+    # the second pass moved five rows into columns some 50px too narrow. So the packing is
+    # followed up until no column is under its need, widening only: a column that already
+    # holds its rows on one line cannot be made to break one by being handed more room.
+    panel = _panel(ControlProfile.load(None))
+    panel._ruler = mod.TextRuler(measure=len, row_px=30, footnote_px=15, keycap_measure=len)
+    packed: list[tuple[int, ...]] = []
+    # What the sections in each column need, pass by pass: the second packing pulls a
+    # section into the middle column that the first did not price, and the third confirms.
+    answers = iter([(600, 400, 400), (600, 500, 400), (600, 500, 400)])
+
+    def needs(self) -> tuple[int, ...]:
+        packed.append(tuple(self._column_px))
+        return next(answers)
+
+    monkeypatch.setattr(ControlsPanel, "_column_needs", needs)
+
+    widths = panel._fitted_column_widths(1274)
+
+    assert widths == (600, 500, 400)
+    # Measured against the even split first -- what a screen with no font to measure draws
+    # -- then against its own answer, then once more to find it settled.
+    assert packed == [ControlsPanel.column_widths(1274), (600, 400, 400), (600, 500, 400)]
+
+
+def test_the_columns_stop_growing_after_a_bounded_number_of_passes(monkeypatch) -> None:
+    # The passes converge because they only ever widen, and a column cannot outgrow the
+    # widest section on the screen -- but that is an argument, not a guarantee against a
+    # profile nobody has written yet, and this runs on the press of a button. So the work
+    # is capped, and a page that has not settled is drawn with whatever wrapping is left,
+    # which the packer has counted the rows for.
+    panel = _panel(ControlProfile.load(None))
+    panel._ruler = mod.TextRuler(measure=len, row_px=30, footnote_px=15, keycap_measure=len)
+    passes = itertools.count(1)
+
+    def always_more(self) -> tuple[int, ...]:
+        # Past the page every time, so the growth is never satisfied: a need the page can
+        # afford is met out of the slack on the pass that finds it.
+        step = 500 * next(passes)
+        return (step,) * COLUMNS
+
+    monkeypatch.setattr(ControlsPanel, "_column_needs", always_more)
+
+    widths = panel._fitted_column_widths(1274)
+
+    assert next(passes) == mod.WIDTH_PASSES + 1, "one packing per WIDTH_PASSES and no more"
+    assert widths == (500 * mod.WIDTH_PASSES,) * COLUMNS
 
 
 def test_the_slack_is_handed_to_the_columns_rather_than_held_back() -> None:

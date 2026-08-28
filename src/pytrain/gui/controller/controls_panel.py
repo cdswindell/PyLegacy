@@ -54,33 +54,38 @@ MIN_ROWS_PER_COLUMN = 4
 # Text sizes. The Deck GUI is built with scale_by=1.0, so these are points as written.
 # Entries were s_10, which was legible on a desk and not at arm's length on a handheld.
 #
-# ENTRY_SIZE is a ceiling rather than the size drawn: _fit_text gives points back, down to
-# MIN_ENTRY_SIZE, on a display whose font is too wide to hold its rows on one line. 16 is
-# the ceiling because it is the largest size the three columns fit the Deck's 1274px at on
-# any font that could be measured here -- 1250px of it, where 17pt wants 1345 -- so a
-# higher one would only ever be handed straight back. Height is not what limits it: a row
-# is as tall as the taller of its own text and a SECTION_SIZE heading, and the heading wins
-# up to 17pt, so the derived budget stays at the 22 rows the Deck's height buys against the
-# 19 the bundled sections need.
+# ENTRY_SIZE is the size the rows are drawn at, on every display: MIN_ENTRY_SIZE below is
+# the same number, so _fit_text has one size to try and never gives a point back. 16 is
+# that number because it is the largest the three columns hold the Deck's 1274px at on the
+# font that could be measured here -- 1250px of it, where 17pt wants 1345. Height is not
+# what limits it: a row is as tall as the taller of its own text and a SECTION_SIZE
+# heading, and the heading wins up to 17pt, so the derived budget stays at the 22 rows the
+# Deck's height buys against the 19 the bundled sections need.
 #
-# A wider font pays nothing for the ceiling being here rather than a point lower: on the
-# Deck's own -- some 6-12% wider than a desk machine's at the same point size -- 16pt wants
-# 1313-1380px, so _fit_text settles at 15 or below there exactly as it did when 15 was
-# written here. The alternative to that shrink was cutting words out of "Boost / brake
-# speed  (repeats)" and the two "Throw thru / out LEFT/RIGHT" rows, which are what the
-# middle and last columns are measured against, and the wording is worth more than the
-# point.
+# On a font wider than this machine's the size no longer moves and the page does. The
+# Deck's own draws these strings some 6-12% wider, where the columns want 1313-1380px of
+# the 1274 there are, so the screen runs 39-106px past the right edge and what is past it
+# is cut: the far side of the last column, and the Close button in the title band with it.
+# That is the trade this screen is asked to make -- a broken row costs a reader more than a
+# page that runs over -- and it is survivable because Close is also X on the gamepad. What
+# it replaced was giving points back until the rows fit, which answered a display too
+# narrow for the screen with a screen too small to read at arm's length.
 TITLE_SIZE = 24
 SECTION_SIZE = 14
 ENTRY_SIZE = 16
 FOOTNOTE_SIZE = 12
-# How far the entry text may shrink when a display cannot hold its rows at ENTRY_SIZE, a
-# point at a time -- see _fit_text. A floor rather than one fixed size because the font a
-# display draws in is not knowable from here: the same 16pt rows measure 6-12% wider on the
-# Deck than on a desk machine, which is the difference between a screen of single lines and
-# three broken rows. Three points is as far as it goes; below that the screen is being read
-# at arm's length and something else has to give.
-MIN_ENTRY_SIZE = 14
+# The floor _fit_text may give points back to, and it is ENTRY_SIZE itself: the size is
+# settled, not fitted. It was 14, and those two points bought exactly one thing -- the
+# columns back inside a display too narrow for them at 16 -- at a price paid by every
+# reader of the screen. The columns are let past the edge of the display instead
+# (_shared_widths).
+#
+# The two halves go together, and lowering this alone would not undo it: the columns now
+# take what their rows need, so the rows fit them on the first pass and _fit_text never
+# reaches a second size. It stays a loop rather than an assignment because the floor is
+# where a display too small for 16pt would be answered, and that is a decision worth being
+# able to move rather than a leftover.
+MIN_ENTRY_SIZE = 16
 
 # Width budget for an entry's action text, in pixels -- handed to Tk as wraplength, so
 # this is what actually decides where a line breaks. 320 clears the longest current
@@ -88,9 +93,10 @@ MIN_ENTRY_SIZE = 14
 # names) with room for a wider font than the one this was measured on.
 #
 # This is the fallback, for the same reason ROWS_PER_COLUMN is one: build() replaces it
-# with a budget divided out of the width the display actually has. As the only answer it
-# let every column ask for whatever its longest line wanted, and on the Deck the three
-# together asked for more than the 1280px it has.
+# with a budget measured off the rows the column actually holds. As the only answer it let
+# every column ask for whatever its longest line wanted with nothing measuring the total,
+# which is not the same thing as what the measured path now does deliberately -- that one
+# knows what it is spending and how far past the display it goes.
 ACTION_WRAP_PX = 320
 # What the middle column gives up, as a fraction of an even share of the page. The
 # columns used to be sized by their content, and the middle one -- the engine commands,
@@ -108,11 +114,25 @@ ACTION_WRAP_PX = 320
 # took 15% off the column holding "Boost / brake speed (repeats)", the longest string on
 # the screen, and gave it to the column with the shortest rows, which wrapped rows while
 # ~130px of the Deck's display went unspent.
+#
+# It is also the only place the promise above still holds. A screen that can measure its
+# own rows hands each column what its rows need and lets the total run past the display if
+# it must, because the cut that costs is the one through the middle of a line of text.
 CENTER_COLUMN_TRIM = 0.15
 # A floor for a derived action budget, for the same reason MIN_ROWS_PER_COLUMN is one: a
 # column too narrow for its keycaps should cost the page its width budget, not wrap every
 # row into a stack of single words.
 MIN_ACTION_WRAP_PX = 140
+# How many times build() may pack the page and re-measure the columns before their widths
+# stand -- see _fitted_column_widths. More than one because the two decisions feed each
+# other: which sections share a column follows from the width they were packed to, and
+# what a column needs follows from the sections in it. One pass was enough while the
+# widths were held to the display, since a section that moved could only cost the wrap it
+# would have had anyway; now that a column can take what it needs, a section that moves
+# into one measured without it wraps there, so the passes run until no column is under its
+# need. Four is a cap on the work, not an expectation: the bundled screen settles on the
+# second, and the passes only ever widen a column, so each one can only remove wraps.
+WIDTH_PASSES = 4
 # Per-row chrome between a column's edges and the two strings it draws: the keycap's
 # border and grid padding, the action's, and the section frame's border. Measured at
 # 41-44px across the bundled sections and rounded up -- overstating it wraps a line early,
@@ -353,9 +373,11 @@ class ControlsPanel:
         """How wide each column of a page may be, given the room the page has.
 
         Even shares, less a trim off the middle column which is split between the two
-        beside it. The total never exceeds ``width_px`` -- which is the point of dividing
-        the width up rather than letting each column ask for what its longest line wants.
-        ``width_px`` of 0 means the caller does not know and returns no budget at all.
+        beside it. The total never exceeds ``width_px``, which is the whole of what this
+        answer has over letting each column ask for what its longest line wants -- and it
+        is the fallback for exactly that reason: a screen that can measure its own rows
+        lets them ask (_shared_widths). ``width_px`` of 0 means the caller does not know
+        and returns no budget at all.
         """
         if width_px <= 0:
             return ()
@@ -370,41 +392,36 @@ class ControlsPanel:
     def _shared_widths(width_px: int, needs: tuple[int, ...]) -> tuple[int, ...]:
         """How wide each column of a page may be, given what its own rows need.
 
-        What each column asks for, when the page can afford all of them, with the slack
-        handed out rather than held back: an unspent budget is not drawn as a gap (the
-        columns size themselves to their content), so keeping it back buys nothing and
-        spending it covers ENTRY_CHROME_PX guessing a pixel low.
+        What each column asks for, and never less. A column handed less than its rows
+        measure is a column with a broken line in it, and this screen is a reference table
+        scanned at arm's length: a wrapped row costs its reader more than a page that runs
+        past the edge of the display. So when the three between them want more than the
+        page has, they get it anyway and the page overruns -- taking the far side of the
+        last column and the Close button in the title band off a display that cannot
+        afford it, which is survivable only because Close is also X on the gamepad.
 
-        When the columns between them want more than the page has, the ones that fit an
-        even share keep what they need and the rest divide what is left -- so a column
-        with short rows is never trimmed on behalf of one whose rows will not fit anyway,
-        which is exactly what a flat CENTER_COLUMN_TRIM did. Repeated until no column is
-        under its share, because handing a share back can bring another column inside
-        its own.
+        That is a reversal, and a deliberate one. The shortfall used to be paid for out of
+        the reading: first by trimming the columns that would not fit whatever they were
+        given (a flat CENTER_COLUMN_TRIM before that), then by _fit_text giving back a
+        point of text size, down to a floor two points under the size the screen is meant
+        to be read at. Both bought a page inside the display at the price of the page.
 
-        Unequal columns are only safe because _match_outer_columns will not pin the outer
-        pair to a width the page cannot afford: pinning charges the wider one's width to
-        both, which is how the far side of the last column ends up off the display.
+        Slack, where the page has any, is handed out rather than held back: an unspent
+        budget is not drawn as a gap (the columns size themselves to their content), so
+        keeping it back buys nothing and spending it covers ENTRY_CHROME_PX guessing a
+        pixel low.
+
+        Unequal columns are safe to hand out because _match_outer_columns will not pin the
+        outer pair to a width the page cannot afford -- pinning charges the wider one's
+        width to both -- and on an overrunning page it never can.
         """
         if width_px <= 0 or not needs:
             return ()
         spare = width_px - sum(needs)
-        if spare >= 0:
-            share = spare // len(needs)
-            return tuple(need + share for need in needs)
-        widths, room, short = [0] * len(needs), width_px, list(range(len(needs)))
-        while short:
-            share = room // len(short)
-            fits = [index for index in short if needs[index] <= share]
-            if not fits:  # nothing fits its share: divide what is left evenly
-                for index in short:
-                    widths[index] = share
-                break
-            for index in fits:
-                widths[index] = needs[index]
-                room -= needs[index]
-            short = [index for index in short if index not in fits]
-        return tuple(widths)
+        if spare < 0:
+            return tuple(needs)
+        share = spare // len(needs)
+        return tuple(need + share for need in needs)
 
     def section_px(self, section: ControlSection) -> int:
         """Width ``section`` needs to draw every row of it on one line.
@@ -443,20 +460,39 @@ class ControlsPanel:
         wider than the desk machine's does, which is the whole difference between a row
         fitting and a row wrapping.
 
+        Which sections share a column follows from the width they were packed to, and what
+        a column needs follows from the sections in it, so this goes round: the needs are
+        read off a pass laid out to the even split -- what a screen with no font to measure
+        still draws -- and the page is packed again to what comes out of it. That repacking
+        has to be followed up rather than accepted now that a column can take more than an
+        even share, because a wider column takes more sections and a section that lands in
+        one measured without it wraps there: modelled at 17pt on a font 12% wider than this
+        machine's, the second pass moved five rows into columns some 50px too narrow for
+        them.
+
+        So each pass widens any column its own packing outran, and never narrows one --
+        growth can only remove a wrap, so a row that fits on a line stays on it -- until no
+        column is under its need. WIDTH_PASSES caps the work; the bundled screen settles on
+        the second pass, and a page that has not settled by the last is drawn with whatever
+        wrapping is left, which the packer has counted rows for.
+
         With nothing to measure with -- a headless run, a stand-in widget -- the even
         split stands, as ROWS_PER_COLUMN does for the row budget.
         """
         widths = self.column_widths(width_px)
         if not widths or not self._ruler.exact or self.profile is None:
             return widths
-        # Which sections share a column follows from the width they were packed to, so the
-        # needs are read off a first pass laid out to the even split -- today's answer --
-        # and build() packs the page again to what comes out of it. One refinement rather
-        # than a loop to a fixed point: the total is inside the display in either pass by
-        # construction, so the worst a section moved by the second pass can cost is the
-        # wrap it would have had anyway.
         self._column_px = widths
-        return self._shared_widths(width_px, self._column_needs())
+        widths = self._shared_widths(width_px, self._column_needs())
+        for _ in range(WIDTH_PASSES - 1):
+            self._column_px = widths
+            needs = self._column_needs()
+            if all(need <= width for need, width in zip(needs, widths)):
+                break
+            widths = tuple(max(width, need) for width, need in zip(widths, needs))
+        else:
+            log.debug("Controls columns unsettled after %d passes; some rows may wrap", WIDTH_PASSES)
+        return widths
 
     def action_wrap_px(self, section: ControlSection, column_px: int = 0) -> int:
         """Pixels the action text of ``section`` may use in a column ``column_px`` wide.
@@ -663,18 +699,19 @@ class ControlsPanel:
     def _fit_text(self, body: Box, height_px: int, width_px: int) -> None:
         """Settle the size the rows are drawn at, and the budgets that follow from it.
 
-        ENTRY_SIZE if the columns can hold their rows on one line at it, and a point less
-        at a time down to MIN_ENTRY_SIZE if they cannot. The size cannot simply be written
-        down because the room a row takes is not knowable from here: the Deck draws the
-        same point size some 6-12% wider than a desk machine does, which was the whole of
-        what was left of the wrapping once the width was being divided by measurement. A
-        screen that measures its own rows does not have to be told.
+        One size, as the constants stand: MIN_ENTRY_SIZE is ENTRY_SIZE, so the loop runs
+        once and the rows are drawn at 16pt whatever the display's font measures. Giving a
+        point back is what a display too narrow for its rows used to be answered with, and
+        it is answered with width now -- the columns take what their rows need and the page
+        overruns the display if it must (_shared_widths).
 
-        Down rather than up: ENTRY_SIZE is already the largest size these columns fit the
-        Deck's width at on any font that could be measured here, so there is nothing above
-        it worth trying -- this gives a point back to save a row and never spends one it
-        does not have to. With nothing to measure with the first size stands, as it does for
-        the row and width budgets.
+        The loop stays because the floor is a decision worth being able to move rather than
+        a leftover. Both halves would have to move together, though: with the columns
+        taking what they need, rows_fit_their_columns() is satisfied on the first pass and
+        there is nothing left for a second size to fix.
+
+        With nothing to measure with the first size stands, as it does for the row and
+        width budgets.
         """
         for size in range(ENTRY_SIZE, MIN_ENTRY_SIZE - 1, -1):
             self._entry_size = size
@@ -684,8 +721,10 @@ class ControlsPanel:
             self._column_px = self._fitted_column_widths(width_px)
             if not self._ruler.exact or not self._column_px or self.rows_fit_their_columns():
                 return
-        # Out of points to give back. The smallest tried stands: the rows that still do not
-        # fit wrap, and the packer has counted the rows they wrap into.
+        # Nothing left to try, and with the floor at the ceiling there was only ever the
+        # one size -- so this says the columns could not be widened into fitting either
+        # (see rows_fit_their_columns for the two ways that happens). The size stands and
+        # what still does not fit wraps, which the packer has counted the rows for.
         log.debug("Controls rows do not fit at %dpt; drawing at the floor", self._entry_size)
 
     def rows_fit_their_columns(self) -> bool:
@@ -694,6 +733,12 @@ class ControlsPanel:
         Asked of the needs rather than of the rows themselves because they are the same
         question: a column at least as wide as its widest row's keycap, action and chrome
         wraps none of them.
+
+        On a screen that can measure itself this is now an invariant rather than an open
+        question -- the columns are handed what they need and the page overruns the display
+        rather than trim them -- so a False here means one of the two things that can still
+        go wrong: a page that had not settled by the last of WIDTH_PASSES, or a column so
+        narrow that MIN_ACTION_WRAP_PX floored its budget.
 
         Public because it is the question a reader of this screen has about it, and the one
         scripts/controlspreview.py is run to answer on a display this cannot measure.
@@ -764,9 +809,14 @@ class ControlsPanel:
         And it is only done when the page can afford it. Pinning widens the narrower of the
         two by the difference between them, which has to come out of the room the columns
         left over; charged to a page that has none, it pushes the far side of the last
-        column and the Close button off the display -- the whole failure the width budget
-        exists to prevent. Tidiness is not worth that, so an unaffordable pin is skipped,
-        and the columns keep their own widths.
+        column and the Close button further off the display. Tidiness is not worth that, so
+        an unaffordable pin is skipped, and the columns keep their own widths.
+
+        On a page that already overruns -- which is what a display too narrow for these
+        rows now gets, rather than a smaller font -- there is by definition nothing to
+        afford it with, so the pin is simply never taken there. Outer columns of visibly
+        different widths read as a mistake; another column's worth of rows pushed past the
+        right edge is one.
         """
         try:
             box.tk.update_idletasks()  # grid sizes the columns at idle; ask after that

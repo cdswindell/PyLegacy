@@ -25,10 +25,14 @@ one page. The lines it prints -- band, body height, entry size, rows per column,
 count, and the width budget each column was given -- are the arithmetic the columns were
 laid out to.
 
-The entry size is worth a look, and is the reason this is worth running on the machine
-that will show the screen: the panel gives a point back rather than let a row wrap, so a
-size under ControlsPanel's ENTRY_SIZE is this display's font asking for one. The line
-after the budgets says whether that was enough.
+The overrun is what to look at, and is the reason this is worth running on the machine that
+will show the screen. The rows are drawn at ControlsPanel's ENTRY_SIZE whatever the display
+measures, and the columns take the width their rows need rather than break a line, so on a
+font wider than the one they were measured on the page runs past the right edge -- and what
+is past it is cut: the far side of the last column, and the Close button in the title band
+with it (Close is also X on the gamepad, which is the way back off a screen whose button is
+off the display). The `drawn` line says how far over it went, and the line after it says
+what that bought: every row on one line, or not.
 """
 
 import os
@@ -123,11 +127,21 @@ def main() -> None:
         f"rows_per_column={panel.rows_per_column} pages={panel.page_count}",
         flush=True,
     )
-    # The width budget each column was given, against the room there is: the arithmetic
-    # that keeps the last column and the Close button on screen. What each column is drawn
-    # at is its content, up to this -- the window is where to see that.
+    # The width budget each column was given, against the room there is -- which it is now
+    # allowed to exceed, that being what keeps every row on one line. A budget over the room
+    # is the arithmetic saying the last column and the Close button are off the display;
+    # what each column is drawn at is its content, up to this.
     shares = " + ".join(str(width) for width in panel.column_px)
-    print(f"  budgets {shares} = {sum(panel.column_px)}px of {width_px}px", flush=True)
+    over = sum(panel.column_px) - width_px
+    past = f" -- {over}px past the right edge" if over > 0 else ""
+    print(f"  budgets {shares} = {sum(panel.column_px)}px of {width_px}px{past}", flush=True)
+    # And what was drawn, which is what actually gets cut: a budget is what a column may
+    # use for its text, and the columns come out narrower than that -- so this is the
+    # smaller number, and the honest one.
+    body.tk.update_idletasks()
+    drawn = body.tk.winfo_reqwidth()
+    past = f" -- {drawn - width_px}px past the right edge" if drawn > width_px else ""
+    print(f"  drawn {drawn}px of {width_px}px{past}", flush=True)
     # And the question the budgets are there to answer: every row on one line, or not. Not
     # a promise the code can make on a display it has not measured, which is what running
     # this on that display is for.

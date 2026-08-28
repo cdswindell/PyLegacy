@@ -371,6 +371,13 @@ class SteamDeckGui(GuiZeroBase):
         edge of a window that cannot grow, so a page wider than this is neither scaled nor
         scrolled -- it is cut, and what is cut is the far side of the last column and the
         Close button at the end of the title band.
+
+        Which the panel may now decide to spend anyway: a column takes the width its rows
+        need rather than break a line of text, so on a display whose font draws these rows
+        wider than the one they were measured on this is the figure the page overruns and
+        the amount it overruns by, not a limit the page is held to. Close going off the
+        right edge is survivable because X on the gamepad closes the screen too
+        (DeckInputRouter._controls_only), and a page that fits is still laid out to this.
         """
         return max(0, self.width - 2 * CONTROLS_BORDER_PX)
 
