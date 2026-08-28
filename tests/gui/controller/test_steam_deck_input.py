@@ -3160,31 +3160,31 @@ def test_a_face_button_held_as_the_panel_became_a_switch_stops_repeating(name, b
     assert focused.switch_calls == [], "a release throws nothing"
 
 
-def test_a_stick_pushed_vertically_throws_the_switch_thru_once_per_deflection() -> None:
-    # Up and down both throw through, and holding the stick over throws once: it stands in
+def test_a_stick_pushed_sideways_throws_the_switch_thru_once_per_deflection() -> None:
+    # Left and right both throw through, and holding the stick over throws once: it stands in
     # for a press of the on-screen key, not for holding that key down.
     left = _switch_gui()
     router, _left, _right, _focused, _global = _router(left=left)
 
-    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
-    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.handle(DeckAction("direction", "left", 0.9, "changed"))
+    router.handle(DeckAction("direction", "left", 1.0, "changed"))
 
     assert left.switch_calls == [True], "held over, so a single throw"
 
-    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
-    router.handle(DeckAction("throttle", "left", -0.9, "changed"))
+    router.handle(DeckAction("direction", "left", 0.0, "changed"))
+    router.handle(DeckAction("direction", "left", -0.9, "changed"))
 
-    assert left.switch_calls == [True, True], "re-armed at center, and down throws thru too"
+    assert left.switch_calls == [True, True], "re-armed at center, and left throws thru too"
+    assert left.command_calls == [], "no direction command reached the panel"
 
 
-def test_a_stick_pushed_sideways_throws_the_switch_out() -> None:
+def test_a_stick_pushed_vertically_throws_the_switch_out() -> None:
     left = _switch_gui()
     router, _left, _right, _focused, _global = _router(left=left)
 
-    router.handle(DeckAction("direction", "left", -0.9, "changed"))
+    router.handle(DeckAction("throttle", "left", -0.9, "changed"))
 
     assert left.switch_calls == [False]
-    assert left.command_calls == [], "no direction command reached the panel"
 
 
 def test_a_stick_short_of_the_threshold_does_not_throw_the_switch() -> None:
@@ -3198,6 +3198,8 @@ def test_a_stick_short_of_the_threshold_does_not_throw_the_switch() -> None:
 
 
 def test_a_stick_on_a_switch_panel_does_not_drive_the_engine_it_last_held() -> None:
+    # The throttle axis, which is the one that would have moved it: it throws the switch out
+    # rather than ramping a speed.
     left = _switch_gui()
     router, _left, _right, _focused, _global = _router(left=left)
 
@@ -3205,7 +3207,7 @@ def test_a_stick_on_a_switch_panel_does_not_drive_the_engine_it_last_held() -> N
     router.tick(0.0)
     router.tick(1.0)
 
-    assert left.switch_calls == [True]
+    assert left.switch_calls == [False]
     assert left.speed_calls == [], "the stick threw the switch instead of moving an engine"
 
 
@@ -3214,7 +3216,7 @@ def test_each_stick_throws_the_switch_in_its_own_panel() -> None:
     right = _switch_gui()
     router, _left, _right, _focused, _global = _router(left=left, right=right)
 
-    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction("direction", "left", 0.9, "changed"))
 
     assert left.switch_calls == [True]
     assert right.switch_calls == [], "the other panel's switch was left alone"
@@ -3226,7 +3228,7 @@ def test_a_stick_keeps_driving_the_engine_in_the_other_panel() -> None:
     right = _gui(speed=10)
     router, _left, _right, _focused, _global = _router(left=left, right=right)
 
-    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction("direction", "left", 0.9, "changed"))
     router.handle(DeckAction("throttle", "right", 0.9, "changed"))
     router.tick(0.0)
     router.tick(1.0)

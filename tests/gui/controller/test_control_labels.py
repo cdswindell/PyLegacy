@@ -34,7 +34,10 @@ from src.pytrain.gui.controller.steam_deck_input import (
     CLOSE_POPUP_BUTTON,
     ROUTE_FIRE_BUTTON_ACTIONS,
     ROUTE_SWALLOW_BUTTON_ACTIONS,
+    SWITCH_AXIS_ACTIONS,
+    SWITCH_OUT_ACTIONS,
     SWITCH_OUT_BUTTON_ACTIONS,
+    SWITCH_THRU_ACTIONS,
     SWITCH_THRU_BUTTON_ACTIONS,
     ControlProfile,
 )
@@ -276,11 +279,11 @@ def test_the_switch_panel_remap_is_listed() -> None:
     assert section.fixed is True
     assert [entry.input for entry in section.entries] == [
         "A / Y or L2 / R2",
-        f"Left stick {ARROW_VERTICAL} / {ARROW_HORIZONTAL}",
-        f"Right stick {ARROW_VERTICAL} / {ARROW_HORIZONTAL}",
+        f"Left stick {ARROW_HORIZONTAL} / {ARROW_VERTICAL}",
+        f"Right stick {ARROW_HORIZONTAL} / {ARROW_VERTICAL}",
     ]
-    # Each stick's own pane, and the arrows pair off against the actions: vertical throws
-    # thru, horizontal throws out. The heading supplies the word "switch".
+    # Each stick's own pane, and the arrows pair off against the actions: horizontal throws
+    # thru, vertical throws out. The heading supplies the word "switch".
     assert [entry.action for entry in section.entries] == [
         "Throw thru / out",
         "Throw thru / out LEFT",
@@ -305,6 +308,33 @@ def test_the_switch_row_names_the_buttons_the_router_claims() -> None:
     # DECK_AXIS_LABELS names, and deriving them is Job A of the parked bindings plan.
     assert row.input.startswith(f"{thru[0]} / {out[0]}")
     assert row.action == "Throw thru / out"
+
+
+@pytest.mark.parametrize(
+    ("row", "target", "side"),
+    [(1, "left", "Left"), (2, "right", "Right")],
+)
+def test_the_switch_stick_rows_lead_with_the_axis_that_throws_thru(row, target, side) -> None:
+    # The row pairs its two arrows off against "thru / out" by position, so the order is
+    # load-bearing in a way the other rows' is not: reversed, the screen tells the reader to
+    # push the stick the wrong way. Named from the router's own action sets and the profile's
+    # own bindings, as the trigger row's face buttons are, since between them they are what
+    # decides which deflection throws which way.
+    profile = ControlProfile.load(None)
+    thru = SWITCH_THRU_ACTIONS & SWITCH_AXIS_ACTIONS
+    out = SWITCH_OUT_ACTIONS & SWITCH_AXIS_ACTIONS
+    named = {
+        "thru": [axis_label(i) for i, b in profile.axes.items() if b.action in thru and b.target == target],
+        "out": [axis_label(i) for i, b in profile.axes.items() if b.action in out and b.target == target],
+    }
+
+    entry = _section(profile, SWITCH_PANEL_TITLE).entries[row]
+
+    # The direction axis throws thru and is the horizontal one; the throttle axis throws out
+    # and is the vertical one.
+    assert named == {"thru": [f"{side} stick {ARROW_HORIZONTAL}"], "out": [f"{side} stick {ARROW_VERTICAL}"]}
+    assert entry.input == f"{named['thru'][0]} / {ARROW_VERTICAL}", "the arrow that throws thru leads"
+    assert entry.action == f"Throw thru / out {side.upper()}"
 
 
 def test_the_route_panel_remap_is_listed() -> None:

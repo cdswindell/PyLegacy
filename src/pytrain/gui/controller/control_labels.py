@@ -279,14 +279,19 @@ def touchpad_label(index: int) -> str:
     return DECK_TOUCHPAD_LABELS.get(index, f"Touchpad {index}")
 
 
-def stick_label(vertical_axis: int) -> str:
-    """Both of one stick's axes on a single row: "Left stick ↕ / ↔".
+def stick_label(horizontal_axis: int) -> str:
+    """Both of one stick's axes on a single row: "Left stick ↔ / ↕".
 
     Named from DECK_AXIS_LABELS rather than written out, so a row about a stick cannot end
-    up calling it something the Joysticks section does not: the vertical label already
-    reads "<side> stick ↕", leaving only the other arrow to append.
+    up calling it something the Joysticks section does not: the horizontal label already
+    reads "<side> stick ↔", leaving only the other arrow to append.
+
+    Horizontal first, and taken from that axis for the same reason: the only row using this
+    pairs the arrows off against "thru / out", and it is the direction axis that throws a
+    switch through. Reversing the words instead would leave the two rows of that section
+    naming the two throws in opposite orders.
     """
-    return f"{axis_label(vertical_axis)} / {ARROW_HORIZONTAL}"
+    return f"{axis_label(horizontal_axis)} / {ARROW_VERTICAL}"
 
 
 def stick_deflection_label(vertical_axis: int) -> str:
@@ -388,6 +393,11 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 # The heading says "Switch", so the rows do not repeat it; that also keeps every row on
 # one line, which the "(own pane)" wording did not manage.
 #
+# That pairing is why the horizontal arrow leads: left or right throws a switch through and
+# up or down throws it out, so a row reading "↕ / ↔" would hand the reader the two throws
+# the wrong way round. The words stay "thru / out" here and in the row above, rather than
+# one row of the section naming the two throws in the opposite order to the other.
+#
 # The face buttons share the trigger row rather than taking one of their own, the way the
 # catalog section's "Right or A" names both ways of choosing an entry: they say the very
 # same thing -- thru is A or L2, out is Y or R2 -- and a second row saying it again would
@@ -395,8 +405,8 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 # width as well: the combined keycap measures narrower than the "Right stick" row below it.
 FIXED_SWITCH_ENTRIES: tuple[ControlEntry, ...] = (
     ControlEntry("A / Y or L2 / R2", "Throw thru / out", ""),
-    ControlEntry(stick_label(LEFT_STICK_VERTICAL), "Throw thru / out" + target_suffix("left")),
-    ControlEntry(stick_label(RIGHT_STICK_VERTICAL), "Throw thru / out" + target_suffix("right")),
+    ControlEntry(stick_label(LEFT_STICK_HORIZONTAL), "Throw thru / out" + target_suffix("left")),
+    ControlEntry(stick_label(RIGHT_STICK_HORIZONTAL), "Throw thru / out" + target_suffix("right")),
 )
 
 # The same story one panel type along: a panel showing a route has no engine in it either,

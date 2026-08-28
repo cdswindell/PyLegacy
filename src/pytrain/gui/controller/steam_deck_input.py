@@ -106,7 +106,7 @@ LONG_PRESS_ACTIONS = {
 # button that runs an engine's sequence control (A in the bundled profile) and the trigger
 # that shuts one down (L2) throw it through, the button that sounds the horn (Y) and the
 # trigger that starts one up (R2) throw it out, and each stick throws its own panel's switch
-# -- pushed up or down (the throttle axis) through, left or right (the direction axis) out.
+# -- pushed left or right (the direction axis) through, up or down (the throttle axis) out.
 # Keyed on the action rather than on the physical axis or button, so a custom profile that
 # puts these bindings elsewhere keeps working; this is the same way the open catalog claims
 # the D-pad and the admin panel claims L1.
@@ -120,9 +120,9 @@ SWITCH_THRU_BUTTON_ACTIONS = frozenset({"sequence_control"})
 SWITCH_OUT_BUTTON_ACTIONS = frozenset({"horn"})
 SWITCH_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS | SWITCH_OUT_BUTTON_ACTIONS
 SWITCH_THRU_ACTIONS = (
-    frozenset({"throttle", "shutdown", SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED}) | SWITCH_THRU_BUTTON_ACTIONS
+    frozenset({"direction", "shutdown", SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED}) | SWITCH_THRU_BUTTON_ACTIONS
 )
-SWITCH_OUT_ACTIONS = frozenset({"direction", "startup", STARTUP_IMMEDIATE, STARTUP_DELAYED}) | SWITCH_OUT_BUTTON_ACTIONS
+SWITCH_OUT_ACTIONS = frozenset({"throttle", "startup", STARTUP_IMMEDIATE, STARTUP_DELAYED}) | SWITCH_OUT_BUTTON_ACTIONS
 # The two of those that arrive as a stick position rather than as a press. They latch: one
 # throw per deflection, re-armed only once the stick comes back near center, so holding a
 # stick over is a single push of the on-screen key rather than a burst of them.
@@ -1841,8 +1841,8 @@ class DeckInputRouter:
     def _throw_switch_from_axis(self, gui, action: DeckAction, *, thru: bool) -> None:
         # One throw per deflection, using the same threshold and latch as the direction
         # handling: a stick held over throws once, and has to come back near center before
-        # it can throw again. Sign is deliberately ignored -- up and down both throw
-        # through, left and right both throw out -- so only how far the stick moved matters.
+        # it can throw again. Sign is deliberately ignored -- left and right both throw
+        # through, up and down both throw out -- so only how far the stick moved matters.
         latch = (action.target, action.name)
         release_threshold = self.profile.direction_threshold - self.profile.hysteresis
         if abs(action.value) <= release_threshold:
