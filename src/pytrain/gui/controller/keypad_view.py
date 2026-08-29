@@ -119,10 +119,10 @@ class KeypadView(Generic[S]):
         accessory scope with nothing selected yet.
 
         The single place that decision is made: ``apply_ops_mode_ui_non_engine`` reads it to
-        pick the keys it shows and the input layer reads it to pick the gamepad context, so the
+        pick the keys it shows, and the input layer reads it to pick the gamepad context, so the
         panel on screen and the context claiming the pad cannot disagree. Note in particular
         that ``is_lcs_component`` is not consulted -- an LCS port that is none of the four named
-        kinds shows the generic panel, and is reported as showing it.
+        kinds shows the generic panel and is reported as showing it.
         """
         return self._panel_kind_for(self.active_state)
 
@@ -130,7 +130,7 @@ class KeypadView(Generic[S]):
     def _panel_kind_for(self, state: S | None) -> str | None:
         """``accessory_panel_kind`` for a given state, which need not be the active one.
 
-        The ops-mode UI is handed the state it is about to display, and asks about that.
+        The ops-mode UI is handed the state it is about to display and asks about that.
         """
         if not self.is_accessory_or_bpc2 or state is None:
             return None
