@@ -382,7 +382,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # row spills off the bottom of the compact (Steam Deck) pane. Trimming the per-row
         # padding reclaims ~60px there, which clears the shortfall with room to spare.
         # The taller portrait pane has no such problem, so it keeps the standard padding.
-        return 4 if self._compact else 6
+        return 5 if self._compact else 6
 
     def fit_image_box_size(self, available_height: int, available_width: int) -> tuple[int, int]:
         if not self._compact:
