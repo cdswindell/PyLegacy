@@ -419,7 +419,7 @@ class KeypadView(Generic[S]):
             size=host.s_19,
             width=host.emergency_box_width,
             align="top",
-            pady=6,
+            pady=host.sensor_track_row_pady,
             style="radio",
             options=SENSOR_TRACK_OPTS,
             command=self.on_sensor_track_change,

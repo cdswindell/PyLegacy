@@ -373,6 +373,17 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def info_name_text_size(self) -> int:
         return self.s_18
 
+    @property
+    def sensor_track_row_pady(self) -> int:
+        # The image box above the keypad is sized once, from the keypad's height, and
+        # ImagePresenter.calc_box_size caches that in avail_image_height. When the taller
+        # Sequence box replaces the keypad, the image keeps its keypad-sized allocation,
+        # so the extra height the 10 radio rows need has nowhere to come from and the last
+        # row spills off the bottom of the compact (Steam Deck) pane. Trimming the per-row
+        # padding reclaims ~60px there, which clears the shortfall with room to spare.
+        # The taller portrait pane has no such problem, so it keeps the standard padding.
+        return 3 if self._compact else 6
+
     def fit_image_box_size(self, available_height: int, available_width: int) -> tuple[int, int]:
         if not self._compact:
             return available_height, available_width

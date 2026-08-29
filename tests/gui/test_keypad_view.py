@@ -213,6 +213,7 @@ def _new_host() -> SimpleNamespace:
     host.slider_height = 320
     host.grid_pad_by = 2
     host.emergency_box_width = 180
+    host.sensor_track_row_pady = 6
     host.s_22 = 22
     host.s_24 = 24
     host.s_30 = 30
