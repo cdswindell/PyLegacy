@@ -238,6 +238,22 @@ class KeypadView(Generic[S]):
 
         cell, btn = host.make_keypad_button(
             keypad_keys,
+            None,
+            row - 2,
+            2,
+            size=host.s_18,
+            visible=False,
+            image=find_file("toggle.jpg"),
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.aux_cells.add(cell)
+        setattr(cell, "render_grid", [3, row - 3])
+        btn.on_press = (host.on_acc_command, ["TOGGLE_DIRECTION"])
+
+        cell, btn = host.make_keypad_button(
+            keypad_keys,
             AUX1_KEY,
             row - 1,
             2,
