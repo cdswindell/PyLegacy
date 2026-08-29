@@ -46,6 +46,26 @@
       "target": "right"
     }
   },
+  "dpad": {
+    "up": {
+      "action": "boost",
+      "target": "focused",
+      "repeat": true
+    },
+    "down": {
+      "action": "brake",
+      "target": "focused",
+      "repeat": true
+    },
+    "left": {
+      "action": "smoke_down",
+      "target": "focused"
+    },
+    "right": {
+      "action": "smoke_up",
+      "target": "focused"
+    }
+  },
   "buttons": {
     "0": {
       "action": "sequence_control",

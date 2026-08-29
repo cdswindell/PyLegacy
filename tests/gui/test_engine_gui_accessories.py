@@ -514,3 +514,148 @@ def test_accessory_config_change_load_failure_keeps_current_set(
 
     assert gui._caa is original_config
     assert gui.app.tk.after_calls == []
+
+
+def _acc_engine(kind: str | None, *, scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> mod.EngineGui:
+    gui = _new_engine()
+    gui.scope = scope
+    gui._scope_tmcc_ids = {scope: tmcc_id}
+    gui._keypad_view = SimpleNamespace(accessory_panel_kind=kind)
+    return gui
+
+
+@pytest.mark.parametrize(
+    "kind, expected",
+    [
+        ("generic", ("acc_generic", "acc")),
+        ("bpc2", ("acc_bpc2", "acc")),
+        ("asc2", ("acc_asc2", "acc_bpc2", "acc")),
+    ],
+)
+def test_input_contexts_follow_the_accessory_panel_displayed(kind: str, expected: tuple[str, ...]) -> None:
+    assert _acc_engine(kind).input_contexts == expected
+
+
+@pytest.mark.parametrize("kind", ["sensor_track", "amc2", None])
+def test_input_contexts_are_empty_where_no_accessory_context_is_defined(kind: str | None) -> None:
+    # Sensor Track and AMC2 have no gamepad bindings yet, and a chain of nothing but the base
+    # would claim every control and send none of them.
+    assert _acc_engine(kind).input_contexts == ()
+
+
+def test_input_contexts_are_empty_with_nothing_selected() -> None:
+    assert _acc_engine("generic", tmcc_id=0).input_contexts == ()
+
+
+def test_input_contexts_report_bpc2_for_a_train_scope_power_district() -> None:
+    # is_accessory_or_bpc2, not scope == ACC: a power district reached under TRAIN scope shows
+    # the BPC2 panel, so it is bound like one.
+    gui = _acc_engine("bpc2", scope=CommandScope.TRAIN, tmcc_id=4)
+    assert gui.input_contexts == ("acc_bpc2", "acc")
+
+
+def test_input_contexts_do_not_consult_the_panel_when_a_switch_or_route_is_shown() -> None:
+    gui = _acc_engine("generic", scope=CommandScope.SWITCH, tmcc_id=7)
+    assert gui.input_contexts == ("switch",)
+
+    gui = _acc_engine("generic", scope=CommandScope.ROUTE, tmcc_id=7)
+    assert gui.input_contexts == ("route",)
+
+
+def test_acc_base_context_claims_what_it_does_not_bind() -> None:
+    from src.pytrain.gui.controller import accessory_bindings as ab
+
+    spec = ab.DEFAULT_CONTEXTS[ab.ACC_CONTEXT]
+    assert spec.claims_unbound is True
+    assert dict(spec.bindings) == {}
+
+    resolution = ab.resolve(("acc_generic", "acc"), "bell")
+    assert resolution is not None
+    assert resolution.context is spec
+    assert resolution.claimed_only is True
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (
+            3,
+            [("RELATIVE_SPEED", 3)],
+        ),
+        (
+            -3,
+            [("RELATIVE_SPEED", -3)],
+        ),
+        # Clamped to the range the on-screen slider offers, so the pad cannot ask for a step
+        # the slider has no notch for.
+        (
+            9,
+            [("RELATIVE_SPEED", 5)],
+        ),
+        (
+            -9,
+            [("RELATIVE_SPEED", -5)],
+        ),
+        # A step of zero is no request at all.
+        (0, []),
+        ("fast", []),
+    ],
+)
+def test_on_acc_speed_command_sends_a_clamped_relative_step(value, expected) -> None:
+    gui = _new_engine()
+    sent: list[tuple[str, int | None]] = []
+    gui.on_acc_command = lambda target, data=None: sent.append((target, data))
+
+    gui.on_acc_speed_command(value)
+
+    assert sent == expected
+
+
+@pytest.mark.parametrize("on", [True, False])
+def test_on_lcs_command_sends_the_same_thing_the_on_and_off_keys_do(
+    monkeypatch: pytest.MonkeyPatch,
+    on: bool,
+) -> None:
+    sent: list[tuple[str, object]] = []
+    monkeypatch.setattr(mod, "send_lcs_on_command", lambda state: sent.append(("on", state)), raising=True)
+    monkeypatch.setattr(mod, "send_lcs_off_command", lambda state: sent.append(("off", state)), raising=True)
+
+    gui = _acc_engine("bpc2")
+    state = object()
+    gui._state_store = SimpleNamespace(get_state=lambda _scope, _tmcc_id, _create: state)
+
+    gui.on_lcs_command(on)
+
+    assert sent == [("on" if on else "off", state)]
+
+
+def test_on_lcs_command_sends_nothing_with_nothing_selected(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(mod, "send_lcs_on_command", lambda _state: sent.append("on"), raising=True)
+
+    gui = _acc_engine("bpc2", tmcc_id=0)
+    gui._state_store = SimpleNamespace(get_state=lambda _scope, _tmcc_id, _create: None)
+
+    gui.on_lcs_command(True)
+
+    assert sent == []
+
+    gui = _acc_engine("bpc2")
+    gui._state_store = SimpleNamespace(get_state=lambda _scope, _tmcc_id, _create: None)
+
+    gui.on_lcs_command(True)
+
+    assert sent == [], "and nothing is sent for a port with no state either"
+
+
+@pytest.mark.parametrize("pressed", [True, False])
+def test_on_asc2_momentary_delegates_to_the_keypad(pressed: bool) -> None:
+    # Both phases go to the same place the on-screen key sends from, so the pad and the touch
+    # screen cannot send different requests.
+    gui = _acc_engine("asc2")
+    calls: list[bool] = []
+    gui._keypad_view = SimpleNamespace(asc2_control=calls.append)
+
+    gui.on_asc2_momentary(pressed)
+
+    assert calls == [pressed]

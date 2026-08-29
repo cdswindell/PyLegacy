@@ -19,6 +19,7 @@ from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
 
+from .accessory_bindings import PANEL_CONTEXT_CHAINS, ROUTE_CONTEXT, SWITCH_CONTEXT
 from .admin_panel import ADMIN_TITLE, AdminPanel
 from .amc2_ops_panel import Amc2OpsPanel
 from .bell_horn_panel import BellHornPanel
@@ -47,7 +48,7 @@ from .engine_gui_conf import (
     send_lcs_on_command,
 )
 from .image_presenter import ImagePresenter
-from .keypad_view import KeypadView
+from .keypad_view import ACCESSORY_THROTTLE_MAX, ACCESSORY_THROTTLE_MIN, KeypadView
 from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
@@ -2018,6 +2019,38 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.do_command(SWITCH_THRU_KEY if thru else SWITCH_OUT_KEY)
 
     @property
+    def input_contexts(self) -> tuple[str, ...]:
+        """The gamepad contexts this panel is in, most specific first.
+
+        Read by the Steam Deck input layer, which looks each control up in the context table
+        and takes the first entry the chain defines. An empty tuple means an engine panel:
+        nothing is remapped and nothing is claimed, so every control keeps the meaning it has
+        everywhere else.
+
+        Stated here rather than re-derived in the input layer so that the pad and the screen
+        cannot disagree about what this panel is showing.
+        """
+        if self.switch_active:
+            return (SWITCH_CONTEXT,)
+        if self.route_active:
+            return (ROUTE_CONTEXT,)
+        return self._accessory_contexts
+
+    @property
+    def _accessory_contexts(self) -> tuple[str, ...]:
+        """The chain for whichever accessory panel the keypad is showing, if any.
+
+        Built from ``KeypadView.accessory_panel_kind`` rather than from the state flags again,
+        so the pad follows the panel: a port that shows the generic panel is bound like any
+        other accessory, LCS device or not. Sensor Track and AMC2 report nothing this pass, and
+        so does an accessory scope with nothing selected -- there is no panel to claim for.
+        """
+        if self.scope == CommandScope.ACC and self.scope_tmcc_id(CommandScope.ACC) <= 0:
+            return ()
+        kind = self._keypad_view.accessory_panel_kind
+        return PANEL_CONTEXT_CHAINS.get(kind, ())
+
+    @property
     def route_active(self) -> bool:
         """Whether this panel is controlling a route.
 
@@ -2040,6 +2073,34 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if not self.route_active:
             return
         self.do_command(FIRE_ROUTE_KEY)
+
+    def on_lcs_command(self, on: bool) -> None:
+        """Switch the selected power district or ASC2 output on or off.
+
+        The controller's entry point for the On and Off keys, and ``on_switch_command``'s
+        counterpart for an accessory: it resolves the state the same way ``do_command`` does
+        for those keys and calls the same sender, so a district switched from the gamepad is
+        indistinguishable from a press of the key on screen.
+        """
+        tmcc_id = self.scope_tmcc_id(self.scope)
+        if tmcc_id <= 0:
+            return
+        state = self._state_store.get_state(self.scope, tmcc_id, False)
+        if state is None:
+            return
+        if on:
+            send_lcs_on_command(state)
+        else:
+            send_lcs_off_command(state)
+
+    def on_asc2_momentary(self, pressed: bool) -> None:
+        """Hold an ASC2 output on while a control is held, and drop it on the release.
+
+        Delegates to the keypad, which is where the on-screen momentary key sends from, so
+        the two cannot send different requests. The release is delivered even if the panel's
+        scope has changed since the press, so nothing is left energised.
+        """
+        self._keypad_view.asc2_control(pressed)
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
@@ -2545,6 +2606,23 @@ class EngineGui(GuiZeroBase, Generic[S]):
             else:
                 return TMCC2EffectsControl.SMOKE_OFF
         return None
+
+    def on_acc_speed_command(self, value: int) -> None:
+        """Ask the selected accessory for a relative speed step.
+
+        The controller's entry point for the accessory speed slider, and the reason a gamepad
+        stick and the slider cannot ask for different things: both end in the same
+        ``RELATIVE_SPEED`` command, clamped to the range the slider offers. A step of zero is
+        no request at all, and is dropped rather than sent.
+        """
+        try:
+            speed = int(value)
+        except (TypeError, ValueError):
+            return
+        speed = max(ACCESSORY_THROTTLE_MIN, min(ACCESSORY_THROTTLE_MAX, speed))
+        if speed == 0:
+            return
+        self.on_acc_command("RELATIVE_SPEED", speed)
 
     def on_acc_command(self, target: str, data: int | None = None) -> None:
         state = self.active_state

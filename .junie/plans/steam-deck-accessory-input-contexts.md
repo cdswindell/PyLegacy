@@ -16,40 +16,63 @@ Yes — understood. To restate it in my own words so we are aligned before any c
 6. **The Controls help page is explicitly out of scope this turn.** I have recorded exactly what it will need in the "Controls Page Notes" tab, and I will not touch it.
 7. **A new Controls page may be needed** just for accessories; I have costed that but not committed to it.
 
-### Your three initial requirements, as I read them
+### Amendments received on this pass
+
+Two, both folded in below.
+
+**A-1 — The generic ACC bindings follow the *panel*, not the component.** The hard buttons bind **whenever the generic ACC control panel is displayed, even for an LCS device.** The earlier predicate (`is_lcs_component is False`) was wrong, and the code shows exactly why: `apply_ops_mode_ui_non_engine` (`keypad_view.py:788-830`) branches Sensor Track → AMC2 → BPC2-or-ASC2 → **else**, and that `else` is the generic panel. An **LCS STM2** is `is_lcs_component is True` and matches none of the four, so it lands on the generic panel today — as does any LCS port whose `_control_req` / `_config_req` has not identified it yet. Under the old predicate those ports showed a full set of aux keys on screen and claimed nothing on the pad.
+
+**A-2 — Stick ↔ sends `TMCC1AuxCommandEnum.TOGGLE_DIRECTION`.** This costs nothing new: the generic panel already carries a `toggle.jpg` key wired to `host.on_acc_command(["TOGGLE_DIRECTION"])` (`keypad_view.py:239-253`), and `on_acc_command` resolves any name through `TMCC1AuxCommandEnum.by_name`. The stick simply reaches the command that button already sends.
+
+### Your requirements, as I now read them
 
 | Context | Predicate | Bindings |
 |---|---|---|
-| Generic ACC panel | `scope == ACC` and `is_lcs_component` is False | Stick ↕ → Throttle (relative speed); L1 → Rear Coupler; R1 → Front Coupler; D-pad ↑/↓ → Boost / Brake |
-| BPC2 panel | `scope == ACC` and `is_power_district` is True | R2 and D-pad → `send_lcs_on_command`; L2 and D-pad ← → `send_lcs_off_command` |
-| ASC2 panel | `scope == ACC` and `is_asc2` is True | R2 and D-pad → On; L2 and D-pad ← → Off; A and D-pad ↑ → `KeypadView.when_pressed` on press, `when_released` on release |
+| Generic ACC panel | the generic ACC panel is the one displayed — **regardless of `is_lcs_component`** | Stick ↕ → Throttle (relative speed); **Stick ↔ → `TOGGLE_DIRECTION`**; L1 → Rear Coupler; R1 → Front Coupler; D-pad ↑/↓ → Boost / Brake |
+| BPC2 panel | `is_power_district` is True | R2 and D-pad → `send_lcs_on_command`; L2 and D-pad ← → `send_lcs_off_command` |
+| ASC2 panel | `is_asc2` is True | R2 and D-pad → On; L2 and D-pad ← → Off; A and D-pad ↑ → `KeypadView.when_pressed` on press, `when_released` on release |
+
+Every binding in that table now has an on-screen twin on the panel it belongs to, which is a useful check that the mapping is honest rather than invented.
+
+### One structural consequence of A-1
+
+Because the generic bindings are now keyed to *the generic panel being shown*, they must **not** be inherited by the BPC2 and ASC2 contexts — those panels do not show the aux keys, so a coupler or a Boost has nothing to act on there. The chain therefore gains a base:
+
+- `acc` — base for **any** accessory panel: swallow engine-only controls, nothing more.
+- `acc_generic` — the aux-key bindings, reached only when the generic panel is up.
+- `acc_bpc2`, `acc_asc2` — as before, over the same `acc` base.
+
+This is a rename of what the earlier draft called `acc`, not a new mechanism.
 
 ### Decisions you have already made
 
 - **Defaults in Python, overridable from `steam_deck_default.json`.**
 - **Migrate switches and routes onto the new mechanism now**, so there is one mechanism rather than two.
-- **Ordered context chain** — a pane reports `("acc_asc2", "acc")` and the most specific entry wins.
+- **Ordered context chain** — a pane reports `("acc_asc2", "acc_bpc2", "acc")` and the most specific entry wins.
 - **Full profile `dpad` section** — the D-pad stops being hard-coded and becomes as bindable as buttons and axes.
 - **Verb-plus-payload entries** — each binding names a dispatch verb and its payload.
 - **AMC2, Sensor Track, operating-accessory overlay and unassigned ports are deferred** to a later pass.
+- **The generic bindings follow the displayed panel**, so an LCS device on the generic panel is bound like any other accessory.
 
 ### Open questions I would like settled in the next pass
 
 These are deliberately *not* resolved in this spec — they are what the next round of back-and-forth should decide:
 
 1. **Numeric keypad on the generic ACC panel.** You listed it as a feature of that panel but gave it no binding. A gamepad has no clean way to offer 1–9; a chooser-style overlay (reusing `chooser_visible`) is the obvious candidate.
-2. **What the generic ACC stick throttle sends.** `AccessoryState` carries `_relative_speed` and `KeypadView` has an `acc_throttle` slider with its own repeat loop. Should the stick drive `RELATIVE_SPEED` directly, or reuse the slider's send-and-repeat path so gamepad and touch cannot diverge?
+2. **What the generic ACC stick throttle sends.** `AccessoryState` carries `_relative_speed` and `KeypadView` has an `acc_throttle` slider with its own repeat loop. Should the stick drive `RELATIVE_SPEED` directly, or reuse the slider's send-and-repeat path so gamepad and touch cannot diverge? (Stick ↔ is now settled by A-2; this is only about stick ↕.)
 3. **AUX1 on the ASC2 panel.** `KeypadView` shows `ac_aux1_cell` for ASC2 but your requirements do not bind it.
 4. **Whether the operating-accessory overlay is a context or a page.** It is a popup with `OperationAssets`-driven buttons, so it may want a chooser rather than fixed bindings — this is most likely the "new page" you mentioned.
 5. **Does an unassigned port claim controls or ignore them?** Claiming prevents a stray stick reaching a stale engine; ignoring is less surprising.
 6. **Should the ACC contexts be pane-scoped or focused-only?** Switches and routes are per-pane; accessories may want the same.
-
+7. **`SET_ADDRESS` and `AUX1_OPT_ONE` on the generic panel.** Both are aux keys on the panel that A-1 now binds, and neither has a control assigned. `SET_ADDRESS` in particular is one I would rather leave unbound than put on a button somebody can brush.
 
 # Requirements
 
 ### Overview & Goals
 
-Give the Steam Deck gamepad meaningful control over the ACC scope, and do it through a **data-driven context mechanism** rather than another bespoke handler. The mechanism is the deliverable; the three accessory contexts you specified are its first consumers, and switches and routes are migrated onto it to prove it can carry what already works.
+Give the Steam Deck gamepad meaningful control over the ACC scope, and do it through a **data-driven context mechanism** rather than another bespoke handler. The mechanism is the deliverable; the accessory contexts you specified are its first consumers, and switches and routes are migrated onto it to prove it can carry what already works.
+
+A context is chosen by **the panel a pane is displaying**, not by a flag re-tested in the input layer — the correction behind amendment A-1, and the reason `KeypadView` gains a single property naming the panel it drew.
 
 The end state: *what a control does in a given situation* is a table entry, editable from the bundled profile JSON, not a branch in `DeckInputRouter`.
 
@@ -60,7 +83,8 @@ The end state: *what a control does in a given situation* is a table entry, edit
 - A context-resolution mechanism: ordered context chains, per-context binding tables, Python defaults, profile overrides.
 - A `dpad` section in the profile schema, making the D-pad bindable for the first time.
 - A dispatch-verb registry so an entry can say *how* to send, not just *what*.
-- Three accessory contexts: `acc` (generic), `acc_bpc2`, `acc_asc2`.
+- Four accessory contexts: `acc` (base — claim only), `acc_generic`, `acc_bpc2`, `acc_asc2`.
+- A single source of truth for *which accessory panel is displayed*, so the pad and the screen cannot disagree.
 - Migration of `_handle_switch` / `_handle_route` onto the mechanism, behavior-for-behavior.
 - A widget-free ASC2 momentary entry point on `EngineGui`.
 
@@ -74,6 +98,8 @@ The end state: *what a control does in a given situation* is a table entry, edit
 ### User Stories
 
 - As an operator with a generic accessory selected, I want the stick and shoulder buttons to work the way they do for an engine, so I do not have to relearn the pad per scope.
+- As an operator with an LCS port that shows the generic panel (an STM2, or one not yet identified), I want the pad to drive the keys I can see, rather than going dead because the port happens to be an LCS device.
+- As an operator with a reversible accessory selected, I want a flick of the stick to reverse it, so I do not have to find the toggle key on screen.
 - As an operator with a power district selected, I want a trigger or a D-pad press to switch the block on and off without reaching for the screen.
 - As an operator with an ASC2 selected, I want a button I can *hold* for a momentary output, because that is what the on-screen key does.
 - As a user with an unusual layout, I want to retune any of this in my own profile without editing Python.
@@ -81,22 +107,29 @@ The end state: *what a control does in a given situation* is a table entry, edit
 
 ### Functional Requirements
 
-**FR-1 — Generic ACC context (`acc`)**
+**FR-0 — Base accessory context (`acc`)**
 
-Active when the pane's scope is ACC, an id is selected, and `is_lcs_component` is False.
+Active whenever a pane is showing **any** accessory panel. It binds nothing; it exists so that engine-only controls are **claimed and dropped** on every accessory panel, exactly as the switch and route contexts already do, and so a stick or trigger cannot address an engine the pane no longer holds. Each of FR-1 to FR-3 sits over it.
+
+**FR-1 — Generic ACC context (`acc_generic`)**
+
+Active when **the generic ACC control panel is the panel displayed** — that is, an accessory panel is up, an id is selected, and the state is neither Sensor Track, AMC2, BPC2 nor ASC2. **`is_lcs_component` is not consulted**: an LCS STM2, or an LCS port not yet identified, shows the generic panel and is bound here like any other accessory (amendment A-1).
 
 | Control | Effect |
 |---|---|
 | Stick ↕ (own pane) | Accessory throttle / relative speed |
+| Stick ↔ (own pane) | `TOGGLE_DIRECTION` — one toggle per deflection |
 | L1 | Rear coupler |
 | R1 | Front coupler |
 | D-pad ↑ / ↓ | Boost / Brake, repeating while held |
 
-Engine-only controls that have no accessory meaning are **claimed and dropped**, exactly as the switch and route contexts already do, so a stick or trigger cannot address an engine the pane no longer holds.
+Every one of these is a command the generic panel already offers on screen (`keypad_view.py:160-269`), so nothing new is invented for the pad.
+
+Stick ↔ is **latched**: one `TOGGLE_DIRECTION` per push, re-armed only once the stick comes back near center, and the **sign is ignored** — left and right both toggle, because the command is a toggle and there is no left-hand or right-hand version of it. This is the same latch `_handle_direction` and `_throw_switch_from_axis` already use, driven by `direction_threshold` and `hysteresis`.
 
 **FR-2 — BPC2 context (`acc_bpc2`)**
 
-Active when scope is ACC, an id is selected, and `is_power_district` is True.
+Active when the pane is showing an accessory panel, an id is selected, and `is_power_district` is True. Note this is **not** ACC-scope-only: `KeypadView.is_accessory_or_bpc2` (`keypad_view.py:99-104`) also admits a `LcsProxyState` power district under TRAIN scope, and that pane shows the BPC2 panel — so the context must follow that same predicate, not `scope == ACC`.
 
 | Control | Effect |
 |---|---|
@@ -105,7 +138,7 @@ Active when scope is ACC, an id is selected, and `is_power_district` is True.
 
 **FR-3 — ASC2 context (`acc_asc2`)**
 
-Active when scope is ACC, an id is selected, and `is_asc2` is True. Inherits `acc_bpc2`'s On/Off pair through the chain rather than restating it.
+Active when the pane is showing an accessory panel, an id is selected, and `is_asc2` is True. Inherits `acc_bpc2`'s On/Off pair through the chain rather than restating it.
 
 | Control | Effect |
 |---|---|
@@ -130,8 +163,8 @@ Switch and route behavior after migration is **identical**, verified by the exis
 
 - **No new per-event allocation.** Context resolution runs on every action inside the Tk-driven poll that also services the touch screen; resolution is a dict lookup over a short tuple.
 - **Contexts are resolved fresh per action, never cached across actions** — a pane's scope can change between two presses of the same button, which is exactly the `_handle_switch` clean-up case.
+- **The pad and the screen agree by construction.** The context reported must be derived from the *same* branch that chose the panel, so no accessory can show one set of keys and answer to another.
 - **Tk-free tables.** `accessory_bindings.py` imports no `tkinter` and no `guizero`, so the whole map is testable headless, as `control_labels.py` already is.
-
 
 # Technical Design
 
@@ -169,11 +202,24 @@ GUI-side entry points that already exist and that the verbs will call:
 Two details shape the design:
 
 - `when_pressed` / `when_released` take a guizero `EventData` **only** to read `event.widget.enabled`. Extracting a widget-free `on_asc2_momentary(pressed: bool)` is therefore a genuine refactor, not a reimplementation.
-- `KeypadView.update_accessory_view` (`keypad_view.py:780-814`) already branches Sensor Track / AMC2 / BPC2-or-ASC2 / generic — **the same four-way split the contexts need**. The context names should mirror those branches so the panel on screen and the context claiming the pad cannot drift.
+- `KeypadView.apply_ops_mode_ui_non_engine` (`keypad_view.py:788-830`) already branches Sensor Track / AMC2 / BPC2-or-ASC2 / **else = generic** — **the same four-way split the contexts need**. Amendment A-1 is precisely a statement about that `else`: an LCS STM2 (`is_stm2`, and `is_lcs_component is True`) matches none of the first three and lands on the generic panel, as does any LCS port not yet identified by its `_control_req` / `_config_req`. So the context must be chosen by *the branch taken*, not by a flag re-tested elsewhere.
+- The generic panel's aux keys are all `on_acc_command` calls, already wired: `FRONT_COUPLER` / `REAR_COUPLER` (`keypad_view.py:173, 189`), `BOOST` / `BRAKE` (205, 221), `SET_ADDRESS` (237), `TOGGLE_DIRECTION` (253) and `AUX1_OPT_ONE` (269). Amendment A-2 therefore needs no new verb or GUI method — `on_acc_command("TOGGLE_DIRECTION")` is the same call the on-screen key makes.
+- `_handle_direction` (`steam_deck_input.py:1773-1795`) already gives a horizontal stick one fire per deflection via `direction_threshold` minus `hysteresis` and a per-target latch set. Stick ↔ → `TOGGLE_DIRECTION` reuses that shape rather than adding a second notion of "the stick was pushed".
 
 ### Key Decisions
 
-**KD-1 — Ordered context chain, reported by the pane.** `EngineGui.input_contexts` returns a tuple, most specific first, e.g. `("acc_asc2", "acc")`. The router walks it and takes the first context defining the action. Chosen over one flat name per context because `acc_asc2` then states only its *differences* from `acc_bpc2`, which is exactly how your ASC2 requirement reads.
+**KD-1 — Ordered context chain, reported by the pane.** `EngineGui.input_contexts` returns a tuple, most specific first, e.g. `("acc_asc2", "acc_bpc2", "acc")`. The router walks it and takes the first context defining the action. Chosen over one flat name per context because `acc_asc2` then states only its *differences* from `acc_bpc2`, which is exactly how your ASC2 requirement reads.
+
+After amendment A-1 the chains are:
+
+| Panel displayed | Chain |
+|---|---|
+| Generic ACC | `("acc_generic", "acc")` |
+| BPC2 | `("acc_bpc2", "acc")` |
+| ASC2 | `("acc_asc2", "acc_bpc2", "acc")` |
+| Sensor Track / AMC2 | deferred — no context reported this pass |
+
+The aux-key bindings live in `acc_generic`, **not** in the shared `acc` base. That is the structural half of A-1: because they are keyed to the generic panel, they cannot leak onto a BPC2 or ASC2 panel, where there is no coupler or Boost key to correspond to them. `acc` carries only the claim.
 
 **KD-2 — Defaults in Python, overrides in JSON.** `accessory_bindings.py` holds `DEFAULT_CONTEXTS`; `ControlProfile.from_dict` merges a `contexts` section over it. Code-reviewed defaults, user-retunable behavior.
 
@@ -198,6 +244,10 @@ Two details shape the design:
 
 **KD-6 — `_controls_only` and `_chooser_only` stay as they are.** They are modal gates over *every* action, not per-action remaps, and folding them in would make the table describe two different things.
 
+**KD-7 — One source of truth for the displayed panel: `KeypadView.accessory_panel_kind`.** Rather than have `EngineGui.input_contexts` re-derive "is this the generic panel?" as a four-way negation, extract the branch in `apply_ops_mode_ui_non_engine` into a property returning `"sensor_track" | "amc2" | "bpc2" | "asc2" | "generic" | None`, and have the UI code *and* `input_contexts` both read it. This is what makes A-1 stay true: the pad follows the panel because there is only one place that decides which panel it is. A duplicated negation is the exact drift the risk list already worried about, and re-testing `is_lcs_component` separately is how the first draft got A-1 wrong.
+
+**KD-8 — Stick ↔ is a latched, sign-blind axis binding.** The `direction` action is bound in `acc_generic` to `acc_command TOGGLE_DIRECTION` and marked `axis_latched`, reusing the `direction_threshold` / `hysteresis` latch that `_handle_direction` and `_throw_switch_from_axis` share. Sign is ignored, as `_throw_switch_from_axis` already ignores it: the command is a toggle, so there is nothing for left and right to mean differently. A held stick toggles once, not repeatedly — the alternative would flip a crane or a gantry back and forth for as long as a thumb rested on it.
+
 ### Proposed Changes
 
 **1. `accessory_bindings.py` (new)** — Tk-free, `control_labels.py`-style.
@@ -207,6 +257,7 @@ Two details shape the design:
 class Dispatch:
     verb: str
     command: str | None = None
+    axis_latched: bool = False                # one fire per deflection, sign ignored
     data: int | None = None
     repeat: bool = False
     both_phases: bool = False
@@ -214,12 +265,14 @@ class Dispatch:
 @dataclass(frozen=True)
 class ContextSpec:
     name: str
+    inherits: str | None = None               # next link in the chain
     bindings: Mapping[str, Dispatch | None]   # action -> dispatch; None = unbind
     claims_unbound: bool = False              # swallow anything not bound here
-    axis_latched: bool = False                # one fire per deflection
     yields_to_catalog: frozenset[str] = frozenset()
 
-DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {...}   # acc, acc_bpc2, acc_asc2, switch, route
+# acc, acc_generic, acc_bpc2, acc_asc2, switch, route
+
+DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {...}
 ```
 
 **2. `steam_deck_input.py`**
@@ -230,22 +283,38 @@ DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {...}   # acc, acc_bpc2, acc_asc2,
 
 **3. `engine_gui.py`**
 
-- `input_contexts` property — derived from `scope`, the selected id, and `AccessoryState` flags, mirroring `update_accessory_view`'s branch order.
+- `input_contexts` property — built from `KeypadView.accessory_panel_kind` (KD-7) plus `switch_active` / `route_active`, so it names a panel rather than re-deriving one.
 - `on_lcs_command(on)` — resolves state, calls `send_lcs_on_command` / `send_lcs_off_command`, matching `do_command`'s existing branch at lines 1985-1992.
 - `on_asc2_momentary(pressed)` — delegates to `KeypadView`.
 - `on_acc_speed_command(value)` — relative-speed entry point (**pending open question 2**).
 
-**4. `keypad_view.py`** — extract the bodies of `when_pressed` / `when_released` into `asc2_control(pressed: bool)`; the existing event handlers become one-line wrappers that keep the `event.widget.enabled` check. No behavior change for touch.
+**4. `keypad_view.py`**
 
-**5. `steam_deck_default.json`** — add `dpad` (carrying today's boost/brake/smoke as defaults) and `contexts` (carrying the three accessory contexts).
+- Add `accessory_panel_kind` (KD-7), lifting the branch out of `apply_ops_mode_ui_non_engine` so that method reads the property instead of re-testing the flags inline. Pure refactor; the branch order and its outcomes are unchanged.
+- Extract the bodies of `when_pressed` / `when_released` into `asc2_control(pressed: bool)`; the existing event handlers become one-line wrappers that keep the `event.widget.enabled` check. No behavior change for touch.
+
+**5. `steam_deck_default.json`** — add `dpad` (carrying today's boost/brake/smoke as defaults) and `contexts` (carrying the four accessory contexts: `acc`, `acc_generic`, `acc_bpc2`, `acc_asc2`).
 
 ### Data Models / Contracts
 
 ```python
+
+# KeypadView
+
+@property
+def accessory_panel_kind(self) -> str | None:
+    """Which accessory panel is displayed: sensor_track | amc2 | bpc2 | asc2 | generic.
+
+    None when this pane is not showing an accessory panel at all. The single
+    decision point: apply_ops_mode_ui_non_engine reads this too, so the panel on
+    screen and the context claiming the pad cannot disagree.
+    """
+
 # EngineGui
+
 @property
 def input_contexts(self) -> tuple[str, ...]:
-    """Most specific first, e.g. ("acc_asc2", "acc"). Empty = an engine panel."""
+    """Most specific first, e.g. ("acc_asc2", "acc_bpc2", "acc"). Empty = an engine panel."""
 
 def on_lcs_command(self, on: bool) -> None: ...
 def on_asc2_momentary(self, pressed: bool) -> None: ...
@@ -260,8 +329,23 @@ def on_acc_speed_command(self, value: int) -> None: ...
   "right": {"action": "smoke_up",   "target": "focused"}
 },
 "contexts": {
-  "acc_bpc2": {
+  "acc": {
     "claims_unbound": true,
+    "bindings": {}
+  },
+  "acc_generic": {
+    "inherits": "acc",
+    "bindings": {
+      "throttle":  {"verb": "acc_throttle"},
+      "direction": {"verb": "acc_command", "command": "TOGGLE_DIRECTION", "axis_latched": true},
+      "rear_coupler":  {"verb": "acc_command", "command": "REAR_COUPLER"},
+      "front_coupler": {"verb": "acc_command", "command": "FRONT_COUPLER"},
+      "dpad_up":   {"verb": "acc_command", "command": "BOOST", "repeat": true},
+      "dpad_down": {"verb": "acc_command", "command": "BRAKE", "repeat": true}
+    }
+  },
+  "acc_bpc2": {
+    "inherits": "acc",
     "bindings": {
       "startup":  {"verb": "lcs_on"},
       "shutdown": {"verb": "lcs_off"},
@@ -279,7 +363,7 @@ def on_acc_speed_command(self, value: int) -> None: ...
 }
 ```
 
-Note that R2/L2 are reached as `startup` / `shutdown` — the actions the bundled profile puts on those triggers — not as axis indices, so a user who moves them keeps the accessory behavior. This is the same action-keyed indirection the existing `SWITCH_*` constants and `CATALOG_JUMP_MODIFIER` use.
+Note that R2/L2 are reached as `startup` / `shutdown`, and L1/R1 as `rear_coupler` / `front_coupler` — the actions the bundled profile puts on those controls — not as axis or button indices, so a user who moves them keeps the accessory behavior. This is the same action-keyed indirection the existing `SWITCH_*` constants and `CATALOG_JUMP_MODIFIER` use. It also means amendment A-2 is expressed as a remap of the `direction` action, which is what the profile calls the horizontal stick axes (`steam_deck_default.json` axes 0 and 3), rather than as a new action name.
 
 ### Architecture Diagram
 
@@ -292,7 +376,8 @@ graph TD
   CO --> CH[_chooser_only]
   CH --> HC[_handle_contexts]
 
-  G[EngineGui.input_contexts] -->|acc_asc2, acc| HC
+  K[KeypadView.accessory_panel_kind] --> G[EngineGui.input_contexts]
+  G -->|acc_asc2, acc_bpc2, acc| HC
   D[DEFAULT_CONTEXTS<br/>accessory_bindings.py] --> M[Merged context map]
   J[profile contexts + dpad<br/>steam_deck_default.json] --> M
   M --> HC
@@ -309,10 +394,11 @@ graph TD
 
 - **The switch/route migration is the real risk.** Those handlers carry hard-won detail: axis latching with hysteresis, the catalog reclaiming A/Y, dropping pending `_throttles` / `_commanded_speeds` / `_held_commands` / `_sequences` when a pane changes scope. Mitigation: migrate with the existing tests unmodified, and treat any diff as a defect. If a behavior genuinely cannot be expressed as a flag, that is a signal to add a flag — not to accept the change.
 - **`_handle_contexts` runs on every action** in the thread that also services the touch screen. Mitigation: resolution is a dict lookup over a tuple of ≤2 names; no allocation on the miss path.
-- **`is_asc2` and `is_power_district` are not mutually exclusive in principle** (`is_power_district` is `is_bpc2`, and both read `_control_req` / `_config_req`). Mitigation: the chain is ordered, mirroring `update_accessory_view`'s branch order, so the most specific wins deterministically.
+- **`is_asc2` and `is_power_district` are not mutually exclusive in principle** (`is_power_district` is `is_bpc2`, and both read `_control_req` / `_config_req`). Mitigation: `accessory_panel_kind` resolves them in one ordered branch, and the chain follows it, so the most specific wins deterministically and identically for the screen and the pad.
+- **A-1 widens what the generic context claims.** Ports that were previously left alone — an STM2, an LCS port not yet identified — now claim the engine-driving controls. That is the intent, but it means a control that did nothing on such a pane now sends an aux command. Mitigation: the bindings are exactly the keys that pane already shows, so anything the pad can now send was already reachable by touch.
 - **Profile override surface is wide** — a user can unbind HALT. Mitigation: refuse overrides for `global`-target safety actions, as `_validate_action_target` already refuses a non-global HALT.
-- **The context name and the panel on screen can drift.** Mitigation: derive `input_contexts` from the same flags `update_accessory_view` branches on, and assert the correspondence in a test.
-
+- **The context name and the panel on screen can drift.** This is not hypothetical: the first draft of this spec keyed the generic context off `is_lcs_component`, which is *not* what the panel branch tests, and it would have left an STM2 showing aux keys that answered to nothing. Mitigation: KD-7 — one property decides, both readers use it, and a test asserts each panel kind maps to the chain that binds the keys that panel shows.
+- **`TOGGLE_DIRECTION` on an axis is easy to fire by accident.** A thumb resting on a stick would flip a gantry or a crane repeatedly. Mitigation: `axis_latched` plus `direction_threshold` — one toggle per full deflection, re-armed only near center.
 
 # Controls Page Notes
 
@@ -354,6 +440,7 @@ My recommendation is the second page, because it is what the paging support was 
 
 **7. `tests/gui/controller/test_control_labels.py` and `test_controls_panel.py`** will both need updating — they assert section titles, ordering and column packing.
 
+**8. Two consequences of this pass's amendments.** The accessory section must show **stick ↔ as Toggle Direction**, which means `ACTION_LABELS` cannot keep resolving `direction` to one fixed label — it means Forward/Reverse on an engine panel and Toggle Direction on the generic accessory panel, so labels become context-aware, not merely profile-aware. And the generic section's heading must not imply "non-LCS": it applies to any port showing the generic panel, an STM2 included.
 
 # Testing
 
@@ -370,9 +457,13 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 ### Key Scenarios
 
 - Generic ACC: stick ↕ drives accessory throttle; L1/R1 send rear/front coupler; D-pad ↑/↓ send Boost/Brake and repeat while held.
+- Generic ACC on an **LCS** component: a state that is `is_lcs_component is True` but is none of Sensor Track / AMC2 / BPC2 / ASC2 — an STM2 — reports `("acc_generic", "acc")` and takes every binding above. This is amendment A-1's regression test, and it fails against the first draft.
+- Stick ↔ sends `TOGGLE_DIRECTION` once per deflection, for a push either way, and does not send again until the stick returns inside `direction_threshold - hysteresis`.
+- A BPC2 or ASC2 panel does **not** take the aux bindings: a coupler or Boost action there resolves no entry in `acc_bpc2` / `acc_asc2` and is claimed by `acc`, not sent.
+- A BPC2 reached as a `LcsProxyState` power district under **TRAIN** scope reports the BPC2 chain, matching `is_accessory_or_bpc2`.
 - BPC2: R2 and D-pad → each reach `on_lcs_command(on=True)`; L2 and D-pad ← each reach `on_lcs_command(on=False)`.
 - ASC2: the On/Off pair is inherited from `acc_bpc2` through the chain, not restated; A and D-pad ↑ call `on_asc2_momentary(True)` on press and `(False)` on release.
-- Chain precedence: a pane reporting `("acc_asc2", "acc")` takes the ASC2 entry where both define an action, and falls through to `acc` where only it does.
+- Chain precedence: a pane reporting `("acc_asc2", "acc_bpc2", "acc")` takes the ASC2 entry where both it and `acc_bpc2` define an action, and falls through where only the outer link does.
 - Profile override: a `contexts` entry replaces a default; `null` unbinds; the default survives untouched where the override is silent.
 - An engine panel (empty `input_contexts`) reaches the existing engine handling completely unchanged.
 
@@ -381,7 +472,9 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Scope changes mid-press** — press on an engine panel, release after the pane becomes an accessory. This is the exact case `_handle_switch`'s `_held_commands` / `_sequences` clean-up exists for (tests at lines 3148-3156 and 3369-3377); it must hold for accessories too.
 - **Catalog open over an accessory panel** — A must still confirm the highlighted entry, matching `yields_to_catalog` and the existing switch/route carve-out.
 - **Controls or chooser open** — `_controls_only` / `_chooser_only` still gate everything ahead of context resolution.
-- **`is_asc2` and `is_bpc2` both true** — chain order decides, deterministically.
+- **`is_asc2` and `is_bpc2` both true** — chain order decides, deterministically, and identically for `accessory_panel_kind` and `input_contexts`.
+- **Stick ↔ held over while the pane changes scope** — the latch must not survive into the next panel and toggle something the operator never pushed the stick for.
+- **Stick pushed diagonally** — ↕ throttle and ↔ toggle arrive as two independent axis actions; both must resolve, and the toggle latch must not be re-armed by throttle movement.
 - **Malformed profile** — an unknown context, action or verb logs and is skipped; the bundled default still loads. Mirrors `ControlProfile.load`'s existing fallback, which is already tested.
 - **ACC scope with id 0** (entry mode, nothing selected) — no accessory context is reported, so nothing is claimed.
 - **HALT** — resolves no gui, is never gated, and no override may unbind it.
@@ -393,13 +486,13 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Extend** `tests/gui/controller/test_steam_deck_input.py` — `_acc_gui(kind=...)` stub plus per-context cases, written in the shape of the existing switch/route blocks.
 - **Extend** `tests/gui/controller/test_steam_deck_packaging.py` — the profile now has `dpad` and `contexts` sections to validate.
 - **Extend** `tests/gui/test_keypad_view.py` — `asc2_control(pressed)` sends the same `Asc2Req` the event handlers did.
-- **Extend** `tests/gui/test_engine_gui_accessories.py` — `input_contexts` for each accessory kind, and that it tracks `update_accessory_view`'s branches.
+- **Extend** `tests/gui/test_keypad_view.py` — `accessory_panel_kind` returns each of the five kinds for the matching state, including `"generic"` for an STM2, and `None` off an accessory panel.
+- **Extend** `tests/gui/test_engine_gui_accessories.py` — `input_contexts` for each accessory kind, and that it follows `accessory_panel_kind` rather than any flag of its own.
 - **Unmodified** — the existing switch and route suites, which are the migration's proof.
-
 
 # Delivery Steps
 
-###   Step 1: Build the context mechanism with switches and routes migrated onto it
+### ✓ Step 1: Build the context mechanism with switches and routes migrated onto it
 One data-driven context mechanism carries the existing switch and route remaps, with their test suites passing unmodified.
 
 - Add `src/pytrain/gui/controller/accessory_bindings.py` with `Dispatch`, `ContextSpec` and `DEFAULT_CONTEXTS`; Tk-free and guizero-free, in the style of `control_labels.py`.
@@ -410,7 +503,7 @@ One data-driven context mechanism carries the existing switch and route remaps, 
 - Retain `SWITCH_*` and `ROUTE_*` module names as thin aliases over the table so `control_labels.py` keeps importing what it imports and the Controls page stays untouched.
 - Add `tests/gui/controller/test_accessory_bindings.py` for chain resolution and table shape; run the existing switch and route suites unmodified as the acceptance criterion.
 
-###   Step 2: Make the D-pad and the context tables profile-configurable
+### ✓ Step 2: Make the D-pad and the context tables profile-configurable
 The profile JSON can bind the D-pad and override any context entry, with Python defaults behind it.
 
 - Extend `ControlProfile.from_dict` to parse a `dpad` section binding `up`/`down`/`left`/`right` like `buttons`, with `repeat` support.
@@ -420,17 +513,27 @@ The profile JSON can bind the D-pad and override any context entry, with Python 
 - Move today's hard-coded D-pad behavior out of `_handle_scroll_boost` / `_handle_select_smoke` and into the bundled `steam_deck_default.json` `dpad` section, so boost/brake and smoke become visible defaults with unchanged behavior.
 - Extend `tests/gui/controller/test_steam_deck_packaging.py` for the new sections, and cover merge, unbind, inherit and malformed-input paths.
 
-###   Step 3: Add the generic ACC context
-A pane holding a non-LCS accessory drives it from the stick, shoulders and D-pad.
+### ✓ Step 3: Report which accessory panel is displayed
+One property names the accessory panel on screen, and the input layer reads it instead of re-deriving it.
 
-- Report `("acc",)` from `EngineGui.input_contexts` when scope is ACC, an id is selected, and `is_lcs_component` is False, deriving the branch order from `KeypadView.update_accessory_view`.
-- Define the `acc` context: stick ↕ to accessory throttle, L1 to rear coupler, R1 to front coupler, D-pad ↑/↓ to Boost/Brake with repeat.
-- Add `EngineGui.on_acc_speed_command(value)` for the relative-speed path, routed through the `acc_command` verb to `on_acc_command`.
-- Set `claims_unbound` so engine-only controls are swallowed rather than reaching a stale engine.
-- Add an `_acc_gui(kind="generic")` stub to `tests/gui/controller/test_steam_deck_input.py` in the shape of `_switch_gui` / `_route_gui`, and cover each binding plus the claim.
-- Cover `input_contexts` for the generic accessory in `tests/gui/test_engine_gui_accessories.py`, asserting it tracks the panel actually shown.
+- Add `KeypadView.accessory_panel_kind`, returning `"sensor_track" | "amc2" | "bpc2" | "asc2" | "generic" | None`, by lifting the existing branch out of `apply_ops_mode_ui_non_engine` (`keypad_view.py:788-830`) without changing its order or its outcomes.
+- Have `apply_ops_mode_ui_non_engine` read the property, so there is one decision point rather than two — the point of amendment A-1.
+- Base it on `is_accessory_or_bpc2`, not `scope == ACC`, so a `LcsProxyState` power district under TRAIN scope is reported like the BPC2 panel it shows.
+- Extend `EngineGui.input_contexts` to build the accessory chains from it: `("acc_generic", "acc")`, `("acc_bpc2", "acc")`, `("acc_asc2", "acc_bpc2", "acc")`, and nothing for Sensor Track or AMC2 this pass.
+- Define the `acc` base context with `claims_unbound` and no bindings, so every accessory panel swallows engine-only controls.
+- Cover each kind in `tests/gui/test_keypad_view.py` — notably `"generic"` for an STM2, which is `is_lcs_component is True` — and the chains in `tests/gui/test_engine_gui_accessories.py`.
 
-###   Step 4: Add the BPC2 and ASC2 contexts with the momentary output
+### ✓ Step 4: Add the generic ACC panel bindings
+Whenever the generic ACC panel is displayed — LCS device or not — the stick, shoulders and D-pad drive the keys that panel shows.
+
+- Define the `acc_generic` context over the `acc` base: stick ↕ to accessory throttle, L1 to `REAR_COUPLER`, R1 to `FRONT_COUPLER`, D-pad ↑/↓ to `BOOST`/`BRAKE` with repeat, keyed on the `throttle`, `rear_coupler`, `front_coupler` and `dpad_*` action names so a remapped control keeps its accessory meaning.
+- Bind the `direction` action to `acc_command TOGGLE_DIRECTION` with `axis_latched` (amendment A-2), reusing the `direction_threshold` / `hysteresis` latch from `_handle_direction` so a push either way toggles exactly once and a held stick does not flip the accessory repeatedly.
+- Ignore the sign of the `direction` value, as `_throw_switch_from_axis` already does: the command is a toggle with no left-hand or right-hand form.
+- Add `EngineGui.on_acc_speed_command(value)` for the relative-speed path; every other binding reaches the existing `on_acc_command`, which resolves names through `TMCC1AuxCommandEnum.by_name`.
+- Leave `SET_ADDRESS` and `AUX1_OPT_ONE` unbound pending your decision, so nothing re-addresses an accessory by accident.
+- Add an `_acc_gui(kind="generic")` stub to `tests/gui/controller/test_steam_deck_input.py` in the shape of `_switch_gui` / `_route_gui`, and cover each binding, the latch on stick ↔, the claim of engine-only controls, and an STM2 taking the full set.
+
+### ✓ Step 5: Add the BPC2 and ASC2 contexts with the momentary output
 Power districts switch on and off from the pad, and ASC2 outputs respond to a held button.
 
 - Extract the bodies of `KeypadView.when_pressed` / `when_released` into `asc2_control(pressed: bool)`, leaving the event handlers as wrappers that keep the `event.widget.enabled` check so touch behavior is unchanged.
@@ -438,6 +541,6 @@ Power districts switch on and off from the pad, and ASC2 outputs respond to a he
 - Add `EngineGui.on_asc2_momentary(pressed)`, delegating to `KeypadView.asc2_control`.
 - Define the `acc_bpc2` context: R2 and D-pad → to `lcs_on`, L2 and D-pad ← to `lcs_off`, keyed on the `startup` / `shutdown` actions so a remapped trigger keeps working.
 - Define the `acc_asc2` context inheriting `acc_bpc2`, adding A and D-pad ↑ on the `asc2_momentary` verb with `both_phases` so press and release are both delivered.
-- Report `("acc_bpc2", "acc")` and `("acc_asc2", "acc_bpc2", "acc")` from `input_contexts`, ordered so an ambiguous state resolves deterministically.
-- Cover both contexts in the router tests, including inheritance, the release path, and a scope change between press and release leaving no output latched on.
+- Confirm neither context inherits `acc_generic`, so a coupler or Boost action on a BPC2 or ASC2 panel is claimed by `acc` and sent nowhere — there is no such key on those panels.
+- Cover both contexts in the router tests, including inheritance from `acc_bpc2`, the release path, a scope change between press and release leaving no output latched on, and the aux bindings being absent.
 - Cover `asc2_control` in `tests/gui/test_keypad_view.py`, asserting the same `Asc2Req` the event handlers sent.

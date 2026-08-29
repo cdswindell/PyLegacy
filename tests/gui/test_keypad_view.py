@@ -299,6 +299,142 @@ def test_accessory_throttle_repeats_until_release() -> None:
     assert host.acc_throttle.tk._after_calls == {}
 
 
+def _kind_for(**flags: bool) -> str | None:
+    host = _new_host()
+    state = DummyAccessoryState()
+    for name, value in flags.items():
+        setattr(state, name, value)
+    host.active_state = state
+    return mod.KeypadView(host).accessory_panel_kind
+
+
+def test_accessory_panel_kind_reports_each_panel() -> None:
+    assert _kind_for(is_sensor_track=True) == "sensor_track"
+    assert _kind_for(is_amc2=True) == "amc2"
+    assert _kind_for(is_bpc2=True) == "bpc2"
+    assert _kind_for(is_asc2=True) == "asc2"
+    assert _kind_for() == "generic"
+
+
+def test_accessory_panel_kind_prefers_the_more_specific_panel() -> None:
+    # Both flags read true for a port whose control request has not settled: the panel drawn
+    # is the ASC2 one, which shows everything the BPC2 panel does, so that is what is reported.
+    assert _kind_for(is_bpc2=True, is_asc2=True) == "asc2"
+    assert _kind_for(is_sensor_track=True, is_asc2=True) == "sensor_track"
+
+
+def test_accessory_panel_kind_is_generic_for_an_lcs_component() -> None:
+    # An STM2 is an LCS component and none of the four named kinds, so it shows -- and is
+    # reported as showing -- the generic panel. is_lcs_component is deliberately not consulted.
+    assert _kind_for(is_lcs_component=True, is_stm2=True) == "generic"
+
+
+def test_accessory_panel_kind_is_none_off_an_accessory_panel() -> None:
+    host = _new_host()
+    host.scope = CommandScope.ENGINE
+    host.active_state = DummyAccessoryState()
+    assert mod.KeypadView(host).accessory_panel_kind is None
+
+    host = _new_host()
+    host.active_state = None
+    assert mod.KeypadView(host).accessory_panel_kind is None
+
+
+def test_accessory_panel_kind_reports_bpc2_for_a_train_scope_power_district(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyLcsProxyState:
+        def __init__(self) -> None:
+            self.tmcc_id = 4
+            self.is_power_district = True
+
+    monkeypatch.setattr(mod, "LcsProxyState", DummyLcsProxyState, raising=True)
+    host = _new_host()
+    host.scope = CommandScope.TRAIN
+    host.active_state = DummyLcsProxyState()
+
+    assert mod.KeypadView(host).accessory_panel_kind == "bpc2"
+
+
+def test_accessory_panel_kind_unwraps_a_configured_accessory_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyAdapter:
+        def __init__(self, state) -> None:
+            self.state = state
+            self.tmcc_id = state.tmcc_id
+
+    monkeypatch.setattr(mod, "ConfiguredAccessoryAdapter", DummyAdapter, raising=True)
+    host = _new_host()
+    inner = DummyAccessoryState()
+    inner.is_asc2 = True
+    host.active_state = DummyAdapter(inner)
+
+    assert mod.KeypadView(host).accessory_panel_kind == "asc2"
+
+
+def _asc2_host(monkeypatch: pytest.MonkeyPatch, *, is_asc2: bool = True):
+    """A pane holding an ASC2, with the request class recording what it is asked to send."""
+    sent: list[tuple] = []
+
+    class DummyAsc2Req:
+        def __init__(self, address, pdi_command, action, values=None) -> None:
+            self.args = (address, pdi_command, action, values)
+
+        def send(self) -> None:
+            sent.append(self.args)
+
+    monkeypatch.setattr(mod, "Asc2Req", DummyAsc2Req, raising=True)
+    host = _new_host()
+    state = DummyAccessoryState()
+    state.address = 7
+    state.is_asc2 = is_asc2
+    host.state_store = SimpleNamespace(get_state=lambda _scope, _tmcc_id, _create: state)
+    return host, sent
+
+
+def _expected_asc2(values: int) -> tuple:
+    return 7, mod.PdiCommand.ASC2_SET, mod.Asc2Action.CONTROL1, values
+
+
+def test_asc2_control_sends_the_same_request_the_key_did(monkeypatch: pytest.MonkeyPatch) -> None:
+    host, sent = _asc2_host(monkeypatch)
+    view = mod.KeypadView(host)
+
+    view.asc2_control(True)
+    view.asc2_control(False)
+
+    assert sent == [_expected_asc2(1), _expected_asc2(0)]
+
+
+def test_the_on_screen_key_still_sends_through_the_enabled_widget(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The wrappers keep the widget guard: a disabled key sends nothing, an enabled one sends
+    # exactly what asc2_control does.
+    host, sent = _asc2_host(monkeypatch)
+    view = mod.KeypadView(host)
+    button = DummyButton()
+
+    button.enabled = False
+    view.when_pressed(SimpleNamespace(widget=button))
+    view.when_released(SimpleNamespace(widget=button))
+
+    assert sent == []
+
+    button.enabled = True
+    view.when_pressed(SimpleNamespace(widget=button))
+    view.when_released(SimpleNamespace(widget=button))
+
+    assert sent == [_expected_asc2(1), _expected_asc2(0)]
+
+
+def test_asc2_control_sends_nothing_for_a_port_that_is_not_an_asc2(monkeypatch: pytest.MonkeyPatch) -> None:
+    host, sent = _asc2_host(monkeypatch, is_asc2=False)
+
+    mod.KeypadView(host).asc2_control(True)
+
+    assert sent == []
+
+
 def test_external_accessory_throttle_update_repaints_slider() -> None:
     host = _new_host()
     view = mod.KeypadView(host)

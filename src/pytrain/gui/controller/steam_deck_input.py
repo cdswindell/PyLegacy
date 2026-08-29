@@ -23,6 +23,29 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping
 
+from .accessory_bindings import (
+    DEFAULT_CONTEXTS,
+    ROUTE_CONTEXT,
+    SWITCH_CONTEXT,
+    VERB_ACC_COMMAND,
+    VERB_ACC_THROTTLE,
+    VERB_ASC2_MOMENTARY,
+    VERB_CLAIM,
+    VERB_ENGINE_COMMAND,
+    VERB_LCS_OFF,
+    VERB_LCS_ON,
+    VERB_ROUTE_FIRE,
+    VERB_SWITCH_OUT,
+    VERB_SWITCH_THRU,
+    ContextSpec,
+    Dispatch,
+    actions_with_verb,
+    axis_actions,
+    bound_actions,
+    merge_contexts,
+    resolve,
+)
+
 log = logging.getLogger(__name__)
 
 Target = Literal["left", "right", "focused", "global"]
@@ -82,6 +105,25 @@ DPAD_UP = "dpad_up"
 DPAD_DOWN = "dpad_down"
 DPAD_LEFT = "dpad_left"
 DPAD_RIGHT = "dpad_right"
+# The profile keys a ``dpad`` section uses, and the runtime action each one emits. Spelled
+# without the prefix in the profile because "up" reads better next to a button index than
+# "dpad_up" does; the runtime name keeps the prefix because it travels with every other
+# action name.
+DPAD_DIRECTIONS = {
+    "up": DPAD_UP,
+    "down": DPAD_DOWN,
+    "left": DPAD_LEFT,
+    "right": DPAD_RIGHT,
+}
+# The commands a D-pad direction may be bound to that no button offers. Boost and brake
+# resolve for both Legacy and TMCC; SMOKE_ON/SMOKE_OFF step a Legacy target's smoke level
+# up and down (Off/Low/Medium/High) and simply switch a non-Legacy target's smoke on and off.
+DPAD_COMMANDS = {
+    "boost": "BOOST_SPEED",
+    "brake": "BRAKE_SPEED",
+    "smoke_up": "SMOKE_ON",
+    "smoke_down": "SMOKE_OFF",
+}
 # A button assigned the "startup" or "shutdown" action distinguishes a short
 # press from a long press: a short press emits the ``*_IMMEDIATE`` action
 # (START_UP_IMMEDIATE / SHUTDOWN_IMMEDIATE) while a hold of at least
@@ -92,6 +134,11 @@ STARTUP_IMMEDIATE = "startup_immediate"
 STARTUP_DELAYED = "startup_delayed"
 SHUTDOWN_IMMEDIATE = "shutdown_immediate"
 SHUTDOWN_DELAYED = "shutdown_delayed"
+# The furthest an accessory's relative speed goes either way, matching the on-screen speed
+# slider's range (KeypadView's ACCESSORY_THROTTLE_MIN/MAX). A stick pushed to its stop asks
+# for the same step the slider's end offers, so the pad and the slider cannot ask for
+# different things.
+ACC_RELATIVE_SPEED_MAX = 5
 LONG_PRESS_SECONDS = 1.0
 # Backwards-compatible alias for the shared long-press threshold.
 STARTUP_LONG_PRESS_SECONDS = LONG_PRESS_SECONDS
@@ -101,58 +148,63 @@ LONG_PRESS_ACTIONS = {
     "startup": (STARTUP_IMMEDIATE, STARTUP_DELAYED),
     "shutdown": (SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED),
 }
-# Actions repurposed while the panel they target is showing a track switch. A switch has no
-# engine to drive, so the controls that would drive one throw the switch instead: the face
-# button that runs an engine's sequence control (A in the bundled profile) and the trigger
-# that shuts one down (L2) throw it through, the button that sounds the horn (Y) and the
-# trigger that starts one up (R2) throw it out, and each stick throws its own panel's switch
-# -- pushed left or right (the direction axis) through, up or down (the throttle axis) out.
-# Keyed on the action rather than on the physical axis or button, so a custom profile that
-# puts these bindings elsewhere keeps working; this is the same way the open catalog claims
-# the D-pad and the admin panel claims L1.
+# The runtime names those emit, flattened. A context binds these as well as the profile-level
+# ``startup`` / ``shutdown``, because a trigger acting on a panel with no engine in it never
+# waits to tell a short press from a held one and so arrives under either name.
+LONG_PRESS_RUNTIME_ACTIONS = frozenset(name for pair in LONG_PRESS_ACTIONS.values() for name in pair)
+# Actions no context may rebind or swallow. HALT has to work whatever is on screen, and the
+# focus and help actions are how an operator gets out of a pane that is misbehaving -- the
+# same reasoning that makes ``_validate_action_target`` refuse a HALT that is not global.
+PROTECTED_ACTIONS = frozenset({"halt", "focus_left", "focus_right", "focus_toggle", "show_controls"})
+# What a panel showing a track switch or a route does with the controls that would otherwise
+# drive an engine now lives in ``accessory_bindings`` as data -- one table entry per control
+# per panel type, rather than a pair of module constants and a hand-written handler apiece.
+# _handle_contexts below reads that table; the names in this block are derived from it and kept
+# because control_labels renders the help screen from them.
 #
+# The switch entries: the face button that runs an engine's sequence control (A in the bundled
+# profile) and the trigger that shuts one down (L2) throw it through, the button that sounds the
+# horn (Y) and the trigger that starts one up (R2) throw it out, and each stick throws its own
+# panel's switch -- pushed left or right (the direction axis) through, up or down (the throttle
+# axis) out. The route entries are the same controls with one thing to do rather than two.
+_SWITCH_SPEC = DEFAULT_CONTEXTS[SWITCH_CONTEXT]
+_ROUTE_SPEC = DEFAULT_CONTEXTS[ROUTE_CONTEXT]
 # The two face buttons are named apart from the rest for two reasons. The open catalog has
 # to be able to take them back -- a switch is chosen from that catalog and A is how an entry
-# in it is confirmed, so _handle_switch declines both while it is up. And a route tells them
+# in it is confirmed, so a context declines both while it is up. And a route tells them
 # apart where a switch does not: the sets below hand it the "thru" button to fire with and
 # leave it the other to swallow.
-SWITCH_THRU_BUTTON_ACTIONS = frozenset({"sequence_control"})
-SWITCH_OUT_BUTTON_ACTIONS = frozenset({"horn"})
-SWITCH_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS | SWITCH_OUT_BUTTON_ACTIONS
-SWITCH_THRU_ACTIONS = (
-    frozenset({"direction", "shutdown", SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED}) | SWITCH_THRU_BUTTON_ACTIONS
-)
-SWITCH_OUT_ACTIONS = frozenset({"throttle", "startup", STARTUP_IMMEDIATE, STARTUP_DELAYED}) | SWITCH_OUT_BUTTON_ACTIONS
+SWITCH_BUTTON_ACTIONS = _SWITCH_SPEC.yields_to_catalog
+SWITCH_THRU_ACTIONS = actions_with_verb(_SWITCH_SPEC, VERB_SWITCH_THRU)
+SWITCH_OUT_ACTIONS = actions_with_verb(_SWITCH_SPEC, VERB_SWITCH_OUT)
+SWITCH_THRU_BUTTON_ACTIONS = SWITCH_THRU_ACTIONS & SWITCH_BUTTON_ACTIONS
+SWITCH_OUT_BUTTON_ACTIONS = SWITCH_OUT_ACTIONS & SWITCH_BUTTON_ACTIONS
 # The two of those that arrive as a stick position rather than as a press. They latch: one
 # throw per deflection, re-armed only once the stick comes back near center, so holding a
 # stick over is a single push of the on-screen key rather than a burst of them.
-SWITCH_AXIS_ACTIONS = frozenset({"throttle", "direction"})
-# The same repurposing for a panel showing a route, which has no engine to drive either. A
-# route has one thing to do rather than two, so both triggers fire it and there is nothing
-# for the thru/out split above to distinguish: one set, not two.
-#
-# Of the two face buttons only the one that throws a switch through fires -- A in the bundled
-# profile, the button that confirms an entry in the catalog and so already reads as "do it".
-# Y is not made a second way to say the one thing, a route having no un-fire for it to mean;
-# it is claimed all the same and does nothing, which is the swallow the down and left stick
-# deflections get and is taken for their reason: the panel has no engine in it, so a horn
+SWITCH_AXIS_ACTIONS = axis_actions(_SWITCH_SPEC)
+# Of the two face buttons only the one that throws a switch through fires a route -- A in the
+# bundled profile, the button that confirms an entry in the catalog and so already reads as
+# "do it". Y is not made a second way to say the one thing, a route having no un-fire for it to
+# mean; it is claimed all the same and does nothing, which is the swallow the down and left
+# stick deflections get and is taken for their reason: the panel has no engine in it, so a horn
 # passed on would sound at whichever engine the panel held before the route was picked.
-ROUTE_FIRE_BUTTON_ACTIONS = SWITCH_THRU_BUTTON_ACTIONS
-ROUTE_SWALLOW_BUTTON_ACTIONS = SWITCH_OUT_BUTTON_ACTIONS
-ROUTE_BUTTON_ACTIONS = ROUTE_FIRE_BUTTON_ACTIONS | ROUTE_SWALLOW_BUTTON_ACTIONS
-ROUTE_FIRE_ACTIONS = ((SWITCH_THRU_ACTIONS | SWITCH_OUT_ACTIONS) - SWITCH_BUTTON_ACTIONS) | ROUTE_FIRE_BUTTON_ACTIONS
+ROUTE_BUTTON_ACTIONS = _ROUTE_SPEC.yields_to_catalog
+ROUTE_FIRE_ACTIONS = actions_with_verb(_ROUTE_SPEC, VERB_ROUTE_FIRE)
+ROUTE_FIRE_BUTTON_ACTIONS = ROUTE_FIRE_ACTIONS & ROUTE_BUTTON_ACTIONS
+ROUTE_SWALLOW_BUTTON_ACTIONS = ROUTE_BUTTON_ACTIONS - ROUTE_FIRE_ACTIONS
 # The two of those that arrive as a stick position. They latch as the switch ones do, but
 # the test is signed rather than absolute: only up (a positive throttle, the sticks being
 # inverted in the profile) and right (a positive direction) fire. The other two deflections
-# are still claimed -- see _handle_route -- so a stick pulled back on a route panel cannot
-# ramp an engine that is not there; they simply fire nothing.
-ROUTE_AXIS_ACTIONS = frozenset({"throttle", "direction"})
+# are still claimed, so a stick pulled back on a route panel cannot ramp an engine that is not
+# there; they simply fire nothing.
+ROUTE_AXIS_ACTIONS = axis_actions(_ROUTE_SPEC)
 # Everything a panel showing a route takes: what fires it, plus what is swallowed so that it
 # cannot reach an engine which is not there. That comes out equal to what a panel showing a
 # switch takes -- the two panel types claim the same controls and differ in what those
-# controls then do -- but it is written as the union of the two route sets rather than as
-# that equality, so moving one of them cannot quietly unclaim a control.
-ROUTE_CLAIMED_ACTIONS = ROUTE_FIRE_ACTIONS | ROUTE_SWALLOW_BUTTON_ACTIONS
+# controls then do -- but each is read off its own context, so moving one of them cannot
+# quietly unclaim a control.
+ROUTE_CLAIMED_ACTIONS = bound_actions(_ROUTE_SPEC)
 PANEL_COMMANDS = {
     "reset": "RESET",
     "horn": "BLOW_HORN_ONE",
@@ -171,6 +223,10 @@ PANEL_COMMANDS = {
     "engineer_chatter": "ENGINEER_CHATTER",
     "tower_chatter": "TOWER_CHATTER",
 }
+# What a D-pad direction may be bound to: its own four commands plus anything a button can
+# send, there being no reason a direction should not ring the bell if that is what somebody
+# wants of it.
+DPAD_ACTIONS = {**DPAD_COMMANDS, **PANEL_COMMANDS}
 # The A button runs the engine's "automatic sequence control": it sends the
 # AUX1_OPTION_ONE command every ``repeat_interval`` (100 ms) for
 # ``SEQUENCE_CONTROL_DURATION`` seconds, mirroring holding the physical AUX1
@@ -467,6 +523,32 @@ class ButtonBinding:
 
 
 @dataclass(frozen=True)
+class DpadBinding:
+    """What one D-pad direction sends when nothing modal has taken the D-pad first.
+
+    The catalog and the chooser still claim the D-pad ahead of this, as they always did: those
+    are modal panels rather than remaps, and a direction that scrolled a list one moment and
+    boosted an engine the next would be unusable.
+    """
+
+    action: str
+    target: Target = "focused"
+    repeat: bool = False
+
+
+# The D-pad's behaviour before it was bindable, kept as the default so a profile without a
+# ``dpad`` section -- the bundled one until this change, and any hand-written one still --
+# behaves exactly as it did: up boosts and down brakes, each repeating while held, and
+# right/left raise and lower the smoke output one press at a time.
+DEFAULT_DPAD: Mapping[str, DpadBinding] = {
+    DPAD_UP: DpadBinding("boost", "focused", True),
+    DPAD_DOWN: DpadBinding("brake", "focused", True),
+    DPAD_RIGHT: DpadBinding("smoke_up", "focused"),
+    DPAD_LEFT: DpadBinding("smoke_down", "focused"),
+}
+
+
+@dataclass(frozen=True)
 class TouchpadBinding:
     action: str
     target: Target
@@ -492,6 +574,12 @@ class ControlProfile:
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
     touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
     touch_dead_zone: float = DEFAULT_TOUCH_DEAD_ZONE
+    # The D-pad, which was hard-coded until it became as bindable as everything else. The
+    # default is what it did before, so a profile that says nothing about it is unaffected.
+    dpad: Mapping[str, DpadBinding] = field(default_factory=lambda: dict(DEFAULT_DPAD))
+    # The per-panel-type remap tables, the Python defaults with the profile's ``contexts``
+    # section laid over them.
+    contexts: Mapping[str, ContextSpec] = field(default_factory=lambda: dict(DEFAULT_CONTEXTS))
 
     @property
     def catalog_jump_modifier_buttons(self) -> frozenset[int]:
@@ -580,6 +668,36 @@ class ControlProfile:
                 raise ProfileError(f"Touchpad {index} requires a fixed panel target")
             touchpads[index] = TouchpadBinding(action, target)
 
+        # The D-pad. A profile that says nothing keeps what it always did; one that names a
+        # direction replaces that direction alone, so a section binding only "left" leaves the
+        # other three as they were. A direction bound to ``null`` is switched off.
+        dpad: dict[str, DpadBinding] = dict(DEFAULT_DPAD)
+        for raw_direction, raw_binding in cls._mapping(data, "dpad").items():
+            name = DPAD_DIRECTIONS.get(str(raw_direction))
+            if name is None:
+                raise ProfileError(f"Unknown dpad direction: {raw_direction!r}")
+            if raw_binding is None:
+                dpad.pop(name, None)
+                continue
+            if not isinstance(raw_binding, Mapping):
+                raise ProfileError(f"dpad {raw_direction} must be an object")
+            action = raw_binding.get("action")
+            if action not in DPAD_ACTIONS:
+                raise ProfileError(f"Action {action!r} cannot be assigned to the dpad")
+            target = raw_binding.get("target", "focused")
+            if target not in ("left", "right", "focused"):
+                raise ProfileError(f"dpad {raw_direction} requires a panel target")
+            dpad[name] = DpadBinding(action, target, bool(raw_binding.get("repeat", False)))
+
+        # The per-panel-type remap tables. Unlike everything above, a malformed entry here is
+        # logged and skipped rather than raised: the tables are additive over Python defaults
+        # that are already known good, so one bad line costs that line and not the profile.
+        contexts = merge_contexts(
+            data.get("contexts"),
+            known_actions=SUPPORTED_ACTIONS | set(LONG_PRESS_RUNTIME_ACTIONS) | set(DPAD_DIRECTIONS.values()),
+            protected_actions=PROTECTED_ACTIONS,
+        )
+
         chords = []
         raw_chords = data.get("chords", [])
         if not isinstance(raw_chords, list):
@@ -605,6 +723,8 @@ class ControlProfile:
             trigger_dead_zone=trigger_dead_zone,
             touchpads=touchpads,
             touch_dead_zone=touch_dead_zone,
+            dpad=dpad,
+            contexts=contexts,
         )
 
     @classmethod
@@ -1229,6 +1349,14 @@ class SteamDeckInputProvider:
         x = int(x)
         y = int(y)
         actions: list[DeckAction] = []
+
+        def target_for(name: str) -> Target:
+            # The panel the profile aims this direction at. "focused" for all four in the
+            # bundled profile, which is what the D-pad did before it was bindable, but a
+            # profile may pin a direction to one pane as it can an axis or a button.
+            binding = self.profile.dpad.get(name)
+            return binding.target if binding is not None else "focused"
+
         if y != self._hat_y:
             previous_y = self._hat_y
             self._hat_y = y
@@ -1240,13 +1368,13 @@ class SteamDeckInputProvider:
             # router can stop repeating the catalog scroll it fires while the
             # D-pad up/down is held.
             if previous_y > 0:
-                actions.append(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+                actions.append(DeckAction(DPAD_UP, target_for(DPAD_UP), 0.0, "released"))
             elif previous_y < 0:
-                actions.append(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
+                actions.append(DeckAction(DPAD_DOWN, target_for(DPAD_DOWN), 0.0, "released"))
             if y > 0:
-                actions.append(DeckAction(DPAD_UP, "focused", 1.0, "pressed", jump_modifier=jump))
+                actions.append(DeckAction(DPAD_UP, target_for(DPAD_UP), 1.0, "pressed", jump_modifier=jump))
             elif y < 0:
-                actions.append(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed", jump_modifier=jump))
+                actions.append(DeckAction(DPAD_DOWN, target_for(DPAD_DOWN), 1.0, "pressed", jump_modifier=jump))
         if x != self._hat_x:
             previous_x = self._hat_x
             self._hat_x = x
@@ -1254,13 +1382,13 @@ class SteamDeckInputProvider:
             # router can stop repeating the boost/brake command it fires while
             # the D-pad left/right is held.
             if previous_x > 0:
-                actions.append(DeckAction(DPAD_RIGHT, "focused", 0.0, "released"))
+                actions.append(DeckAction(DPAD_RIGHT, target_for(DPAD_RIGHT), 0.0, "released"))
             elif previous_x < 0:
-                actions.append(DeckAction(DPAD_LEFT, "focused", 0.0, "released"))
+                actions.append(DeckAction(DPAD_LEFT, target_for(DPAD_LEFT), 0.0, "released"))
             if x > 0:
-                actions.append(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+                actions.append(DeckAction(DPAD_RIGHT, target_for(DPAD_RIGHT), 1.0, "pressed"))
             elif x < 0:
-                actions.append(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
+                actions.append(DeckAction(DPAD_LEFT, target_for(DPAD_LEFT), 1.0, "pressed"))
         return actions
 
     def _add_device(self, device_index: int) -> None:
@@ -1354,6 +1482,20 @@ class DeckInputRouter:
         self._commanded_speeds: dict[Target, float] = {}
         self._quills: dict[Target, float] = {}
         self._boosts: dict[Target, str] = {}
+        # A stick working an accessory's speed, as a fraction of full deflection. Kept apart
+        # from ``_throttles`` because the two ramp differently: an engine's throttle
+        # accumulates a speed to hold, while an accessory is asked for a relative step at the
+        # slider's own cadence.
+        self._acc_throttles: dict[Target, float] = {}
+        # A repeat-flagged context binding, keyed by the target and action holding it down.
+        # ``tick`` re-sends each one, which is how a context's D-pad entry repeats without
+        # borrowing ``_boosts``, whose commands go to an engine this pane does not have.
+        self._context_repeats: dict[tuple[Target, str], tuple[DeckAction, Dispatch]] = {}
+        # The controls holding a momentary output on, keyed by the target and action holding
+        # them. Remembered so the release can be delivered even if the pane has changed scope
+        # in the meantime: without it a pane re-scoped between press and release would leave
+        # an ASC2 output energised with nothing left to turn it off.
+        self._momentary_holds: set[tuple[Target, str]] = set()
         # Maps a target to ``[delta, next_scroll_time]`` for a held catalog
         # scroll. ``next_scroll_time`` is ``None`` until the auto-repeat is armed
         # on the first ``tick()`` after the press (arming it ``tick()``-side keeps
@@ -1365,12 +1507,18 @@ class DeckInputRouter:
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
         # ``(target, action)`` pairs whose stick is currently deflected far enough to have
-        # thrown a switch. Keyed by action as well as target because a panel's two axes
-        # throw in opposite directions and each latches on its own.
+        # acted, one set per context. Keyed by action as well as target because a panel's two
+        # axes act in opposite directions and each latches on its own, and kept per context so
+        # a panel that changes from one to another cannot arrive holding the other's latch.
         self._switch_latches: set[tuple[Target, str]] = set()
-        # The same, for the panels showing a route. Kept apart from the switch latches so a
-        # panel that changes from one to the other cannot arrive holding the other's latch.
         self._route_latches: set[tuple[Target, str]] = set()
+        self._context_latches: dict[str, set[tuple[Target, str]]] = {
+            SWITCH_CONTEXT: self._switch_latches,
+            ROUTE_CONTEXT: self._route_latches,
+        }
+        # The context table this router dispatches through. A profile may replace it with one
+        # of its own merged over the defaults; until then it is the defaults.
+        self.contexts: Mapping[str, ContextSpec] = getattr(profile, "contexts", None) or DEFAULT_CONTEXTS
         self._last_tick: float | None = None
 
     def handle(self, action: DeckAction) -> None:
@@ -1381,11 +1529,10 @@ class DeckInputRouter:
             return
         if self._chooser_only(action):
             return
-        if self._handle_switch(action):
-            return
-        if self._handle_route(action):
+        if self._handle_contexts(action):
             return
         if action.name == "throttle":
+            self._acc_throttles.pop(action.target, None)
             if action.value == 0.0:
                 self._throttles.pop(action.target, None)
                 self._commanded_speeds.pop(action.target, None)
@@ -1536,6 +1683,22 @@ class DeckInputRouter:
             # engine falls through to the plain Blow Horn (intensity ignored).
             intensity = max(1, min(HORN_MAX_INTENSITY, round(fraction * HORN_MAX_INTENSITY)))
             gui.on_engine_command(HORN_COMMAND, data=intensity)
+        for target, value in tuple(self._acc_throttles.items()):
+            # Re-send the accessory's relative speed every ``repeat_interval`` while the stick
+            # is held over, the same way the on-screen slider repeats while it is held away
+            # from zero.
+            gui = self._target_gui(target)
+            if gui is None:
+                continue
+            gui.on_acc_speed_command(self._acc_relative_speed(value))
+        for (target, _name), (repeat_action, dispatch) in tuple(self._context_repeats.items()):
+            # Re-send a repeat-flagged context binding while its control is held: the D-pad's
+            # Boost and Brake on an accessory panel, where ``_boosts`` would send at an engine
+            # this pane does not have.
+            gui = self._target_gui(target)
+            if gui is None:
+                continue
+            self._dispatch(gui, repeat_action, dispatch, pressed=True)
         for target, command in tuple(self._boosts.items()):
             # Re-send the boost/brake command every ``repeat_interval`` (100 ms)
             # for as long as the D-pad left/right is held.
@@ -1600,12 +1763,15 @@ class DeckInputRouter:
         self._commanded_speeds.clear()
         self._quills.clear()
         self._boosts.clear()
+        self._acc_throttles.clear()
+        self._context_repeats.clear()
+        self._momentary_holds.clear()
         self._scrolls.clear()
         self._held_commands.clear()
         self._sequences.clear()
         self._direction_latches.clear()
-        self._switch_latches.clear()
-        self._route_latches.clear()
+        for latches in self._context_latches.values():
+            latches.clear()
         self._last_tick = None
 
     def _handle_repeat_command(self, action: DeckAction) -> None:
@@ -1708,16 +1874,19 @@ class DeckInputRouter:
     def _handle_scroll_boost(self, action: DeckAction) -> None:
         if action.phase != "pressed":
             # D-pad released: stop repeating both the catalog scroll and the
-            # boost/brake command.
+            # boost/brake command. A context repeat is dropped here too: the press may have
+            # been taken by an accessory panel that the pane has since scoped away from, and
+            # this release is the only word that the key is no longer held.
             self._scrolls.pop(action.target, None)
             self._boosts.pop(action.target, None)
+            self._context_repeats.pop((action.target, action.name), None)
             return
         gui = self._target_gui(action.target)
         if gui is None:
             return
         if getattr(gui, "catalog_visible", False):
             # While the catalog panel is open, D-pad up/down scroll the
-            # highlighted catalog entry (never boost/brake).
+            # highlighted catalog entry (never the bound command).
             self._boosts.pop(action.target, None)
             if action.jump_modifier:
                 # R1 is held: jump the highlight to the first (up) or last (down)
@@ -1737,18 +1906,39 @@ class DeckInputRouter:
             self._scrolls[action.target] = [delta, None]
             gui.scroll_catalog(delta)
             return
-        # Otherwise D-pad up boosts and D-pad down brakes the engine/train speed.
-        # Fire once immediately for responsiveness, then ``tick()`` re-sends the
-        # command every ``repeat_interval`` while it is held (``BOOST_SPEED`` /
-        # ``BRAKE_SPEED`` resolve for both Legacy and TMCC).
+        # Otherwise the direction sends whatever the profile binds it to -- boost and brake by
+        # default, each flagged to repeat. A repeating binding fires once immediately for
+        # responsiveness and ``tick()`` re-sends it every ``repeat_interval`` while it is held.
         self._scrolls.pop(action.target, None)
-        command = "BOOST_SPEED" if action.name == DPAD_UP else "BRAKE_SPEED"
-        self._boosts[action.target] = command
+        self._boosts.pop(action.target, None)
+        self._send_dpad_command(gui, action)
+
+    def _send_dpad_command(self, gui, action: DeckAction) -> None:
+        """Send what the profile binds this D-pad direction to, if anything.
+
+        Nothing bound means nothing sent: a profile may switch a direction off outright, which
+        is the point of making the D-pad bindable rather than merely re-labelled.
+        """
+        binding = self.profile.dpad.get(action.name)
+        if binding is None:
+            return
+        command = DPAD_ACTIONS.get(binding.action)
+        if command is None:
+            log.warning(f"Unknown dpad action: {binding.action}")
+            return
+        if binding.repeat:
+            self._boosts[action.target] = command
         gui.on_engine_command(command)
 
     def _handle_select_smoke(self, action: DeckAction) -> None:
         if action.phase != "pressed":
-            # D-pad left/right do not repeat, so only the press matters.
+            # Left/right do not repeat by default, so ordinarily only the press matters. A
+            # profile may flag them repeat all the same, and then the release is what stops
+            # tick() re-sending. Guarded on that flag so releasing a one-shot direction does
+            # not cancel a repeat the other axis of the D-pad has running.
+            binding = self.profile.dpad.get(action.name)
+            if binding is not None and binding.repeat:
+                self._boosts.pop(action.target, None)
             return
         gui = self._target_gui(action.target)
         if gui is None:
@@ -1762,13 +1952,12 @@ class DeckInputRouter:
             else:
                 gui.hide_scope_catalog()
             return
-        # Otherwise the D-pad adjusts the engine/train smoke output as a one-shot
-        # (no repeat): right raises it (``SMOKE_ON``) and left lowers it
-        # (``SMOKE_OFF``). ``SMOKE_ON``/``SMOKE_OFF`` resolve automatically per
-        # control type: for a Legacy target they step the smoke level up/down
-        # (Off/Low/Medium/High), and for a non-Legacy (TMCC/Cab-1/R100) target
-        # they simply turn smoke on/off.
-        gui.on_engine_command("SMOKE_ON" if action.name == DPAD_RIGHT else "SMOKE_OFF")
+        # Otherwise the direction sends whatever the profile binds it to, which by default is
+        # the smoke output as a one-shot: right raises it (``SMOKE_ON``) and left lowers it
+        # (``SMOKE_OFF``). Both resolve automatically per control type -- for a Legacy target
+        # they step the smoke level up/down (Off/Low/Medium/High), and for a non-Legacy
+        # (TMCC/Cab-1/R100) target they simply turn smoke on/off.
+        self._send_dpad_command(gui, action)
 
     def _handle_direction(self, action: DeckAction) -> None:
         release_threshold = self.profile.direction_threshold - self.profile.hysteresis
@@ -1794,125 +1983,189 @@ class DeckInputRouter:
             return
         gui.on_engine_command(command)
 
-    def _handle_switch(self, action: DeckAction) -> bool:
-        """True when the action was claimed to throw the panel's track switch.
+    def _context_chain(self, gui) -> tuple[str, ...]:
+        """The contexts this pane is in, most specific first.
 
-        The same idea as the open catalog's hold on the D-pad: while a panel is showing a
-        switch there is no engine in it to drive, so the controls that would drive one throw
-        the switch instead -- A/Y and L2/R2 through and out, and each stick its own panel's
-        switch. Only those controls are claimed, so HALT, focus, the catalog and everything
-        else keep the meaning they have everywhere else.
+        A pane says so itself where it can: ``input_contexts`` is the property the GUI grew
+        for this, and an empty tuple from it means an engine panel with nothing to remap. The
+        fallback below reads the two predicates that came first, so a pane which only knows
+        how to answer ``switch_active`` / ``route_active`` still gets its controls claimed.
         """
-        thru = action.name in SWITCH_THRU_ACTIONS
-        if not thru and action.name not in SWITCH_OUT_ACTIONS:
-            return False
+        chain = getattr(gui, "input_contexts", None)
+        if chain is not None:
+            return tuple(chain)
+        if getattr(gui, "switch_active", False):
+            return (SWITCH_CONTEXT,)
+        if getattr(gui, "route_active", False):
+            return (ROUTE_CONTEXT,)
+        return ()
+
+    def _handle_contexts(self, action: DeckAction) -> bool:
+        """True when one of the pane's contexts claimed the action.
+
+        The same idea as the open catalog's hold on the D-pad, generalised: while a pane is
+        showing something other than an engine there is nothing in it to drive, so the
+        controls that would drive one do that pane's job instead -- throw its switch, fire its
+        route, work its accessory. Only the controls a context names are claimed, so HALT,
+        focus, the catalog and everything else keep the meaning they have everywhere else.
+
+        What each control does is a table entry rather than a branch here; this method holds
+        only the parts a table cannot state -- the axis latch, the catalog's claw-back of the
+        face buttons, and the clean-up of anything the pane had left running.
+        """
         gui = self._target_gui(action.target)
-        if gui is None or not getattr(gui, "switch_active", False):
+        if gui is None:
             return False
-        if action.name in SWITCH_AXIS_ACTIONS:
-            # Drop any throttle this panel had pending: the stick throws the switch now, and
-            # a value left from before the panel changed scope would otherwise start ramping
-            # whatever engine is put in the panel next.
+        momentary_key = (action.target, action.name)
+        if action.phase == "released" and momentary_key in self._momentary_holds:
+            # A momentary output this control turned on is turned off by its release, whatever
+            # the pane is showing by then. Resolving the chain again would miss it the moment
+            # the pane's scope changed under the thumb, and the output would stay on.
+            self._momentary_holds.discard(momentary_key)
+            gui.on_asc2_momentary(False)
+            return True
+        chain = self._context_chain(gui)
+        if not chain:
+            return False
+        # Resolved fresh every time rather than cached: a pane's scope can change between two
+        # presses of the same button, which is the clean-up case below.
+        resolution = resolve(chain, action.name, self.contexts)
+        if resolution is None:
+            return False
+        spec = resolution.context
+        dispatch = resolution.dispatch
+        if action.name == ADMIN_CHORD_MODIFIER and getattr(gui, "admin_visible", False):
+            # L1 is the admin chord modifier while that panel is up, whatever the pane is
+            # showing: a context that binds it has to let go, or the first half of a chord
+            # would work the accessory as well as arming the chord.
+            return False
+        if action.name in spec.yields_to_catalog and getattr(gui, "catalog_visible", False):
+            # The catalog is where the thing this pane shows gets picked, and A is how an
+            # entry in it is confirmed: a reader looking at that list is re-scoping the pane
+            # rather than working what it already holds, so neither face button is claimed
+            # while it is up. The triggers and sticks have no job there, so they are not held
+            # back.
+            return False
+        if dispatch is not None and (dispatch.axis_latched or dispatch.is_analog):
+            # Drop any throttle this pane had pending: the stick does the pane's job now, and
+            # a value left from before the pane changed scope would otherwise start ramping
+            # whatever engine is put in the pane next.
             self._throttles.pop(action.target, None)
             self._commanded_speeds.pop(action.target, None)
-            self._throw_switch_from_axis(gui, action, thru=thru)
+            if dispatch.is_analog:
+                self._dispatch_analog(gui, action, dispatch)
+            else:
+                self._dispatch_axis(gui, action, spec, dispatch)
             return True
-        if action.name in SWITCH_BUTTON_ACTIONS:
-            if getattr(gui, "catalog_visible", False):
-                # The catalog is where a switch is picked, and A is how an entry in it is
-                # confirmed: a reader looking at that list is re-scoping the panel rather
-                # than working the switch it already holds, so neither face button is
-                # claimed while it is up. The triggers and sticks have no job there, so they
-                # are not held back.
-                return False
+        if action.name in spec.clears_held:
             # The same clean-up the stick path does above, for what a face button can leave
-            # running: Y sounds the horn every repeat_interval while it is held and A starts
-            # a sequence-control burst, either of which may have been under way when the
-            # panel changed scope. The release below is swallowed, so nothing else would
-            # stop tick() re-sending a command at a panel with no engine in it.
+            # running: Y sounds the horn every repeat_interval while it is held and A starts a
+            # sequence-control burst, either of which may have been under way when the pane
+            # changed scope. The release below is swallowed, so nothing else would stop tick()
+            # re-sending a command at a pane with no engine in it.
             self._held_commands.pop(action.button, None)
             self._sequences.pop(action.target, None)
-        if action.phase == "pressed":
-            gui.on_switch_command(thru)
-        # A release is swallowed rather than ignored: passed on it would clear a throttle or
-        # a latch that the press it belongs to never set.
+        if dispatch is not None:
+            if dispatch.repeat:
+                # Held-down repeat, the counterpart of the D-pad's boost/brake loop: the press
+                # registers the binding and ``tick`` re-sends it until the release drops it.
+                repeat_key = (action.target, action.name)
+                if action.phase == "pressed":
+                    self._context_repeats[repeat_key] = (action, dispatch)
+                else:
+                    self._context_repeats.pop(repeat_key, None)
+            if dispatch.verb == VERB_ASC2_MOMENTARY:
+                if action.phase == "pressed":
+                    self._momentary_holds.add((action.target, action.name))
+                else:
+                    self._momentary_holds.discard((action.target, action.name))
+            if action.phase == "pressed":
+                self._dispatch(gui, action, dispatch, pressed=True)
+            elif dispatch.both_phases:
+                self._dispatch(gui, action, dispatch, pressed=False)
+        # A release is swallowed rather than ignored: passed on it would clear a throttle or a
+        # latch that the press it belongs to never set.
         return True
 
-    def _throw_switch_from_axis(self, gui, action: DeckAction, *, thru: bool) -> None:
-        # One throw per deflection, using the same threshold and latch as the direction
-        # handling: a stick held over throws once, and has to come back near center before
-        # it can throw again. Sign is deliberately ignored -- left and right both throw
-        # through, up and down both throw out -- so only how far the stick moved matters.
+    def _dispatch_axis(self, gui, action: DeckAction, spec: ContextSpec, dispatch: Dispatch) -> None:
+        # One fire per deflection, using the same threshold and latch as the direction
+        # handling: a stick held over acts once, and has to come back near center before it
+        # can act again.
+        #
+        # Each context keeps its own latch set, so a pane that changes from one to another
+        # cannot arrive holding the other's latch.
+        latches = self._context_latches.setdefault(spec.name, set())
         latch = (action.target, action.name)
         release_threshold = self.profile.direction_threshold - self.profile.hysteresis
         if abs(action.value) <= release_threshold:
-            self._switch_latches.discard(latch)
+            latches.discard(latch)
             return
-        if abs(action.value) < self.profile.direction_threshold or latch in self._switch_latches:
+        if abs(action.value) < self.profile.direction_threshold or latch in latches:
             return
-        self._switch_latches.add(latch)
-        gui.on_switch_command(thru)
+        latches.add(latch)
+        if dispatch.axis_signed and action.value <= 0:
+            # Only up and right act. The latch is taken either way, so the stick still has to
+            # re-center: coming back from a pull is a movement through the firing range rather
+            # than a fire.
+            return
+        self._dispatch(gui, action, dispatch, pressed=True)
 
-    def _handle_route(self, action: DeckAction) -> bool:
-        """True when the action was claimed to fire the panel's route.
+    def _dispatch_analog(self, gui, action: DeckAction, dispatch: Dispatch) -> None:
+        """Track a stick that drives a value rather than firing a command.
 
-        _handle_switch's twin, and claimed on the same terms: a panel showing a route has no
-        engine in it either, so the controls that would drive one fire the route instead -- A,
-        L2 and R2 all three, and each stick its own panel's route. The rest of what the switch
-        claim takes is taken here too and fires nothing, there being no second thing a route
-        can be asked to do: Y, and a stick pulled down or left. Everything else keeps the
-        meaning it has everywhere else.
+        The position is remembered and sent again on every ``tick`` for as long as the stick
+        is held over, which is what makes a held stick keep an accessory moving: the command
+        is a relative step, so one send would nudge it once and stop. Back at center the entry
+        is dropped and the sending stops with it.
         """
-        if action.name not in ROUTE_CLAIMED_ACTIONS:
-            return False
-        gui = self._target_gui(action.target)
-        if gui is None or not getattr(gui, "route_active", False):
-            return False
-        if action.name in ROUTE_AXIS_ACTIONS:
-            # Drop any throttle this panel had pending, for the reason _handle_switch drops
-            # it: a value left from before the panel changed scope would otherwise start
-            # ramping whatever engine is put in the panel next.
-            self._throttles.pop(action.target, None)
-            self._commanded_speeds.pop(action.target, None)
-            self._fire_route_from_axis(gui, action)
-            return True
-        if action.name in ROUTE_BUTTON_ACTIONS:
-            if getattr(gui, "catalog_visible", False):
-                # As on a switch panel, and for its reason: the catalog is where the route in
-                # this panel is picked and A is how an entry in it is confirmed, so neither
-                # face button is claimed while the list is up. The triggers and sticks have
-                # no job there.
-                return False
-            # The same clean-up the stick path does above, for what a face button can leave
-            # running: Y sounds the horn every repeat_interval while it is held and A starts
-            # a sequence-control burst, either of which may have been under way when the
-            # panel changed scope. The release below is swallowed, so nothing else would stop
-            # tick() re-sending a command at a panel with no engine in it.
-            self._held_commands.pop(action.button, None)
-            self._sequences.pop(action.target, None)
-        if action.phase == "pressed" and action.name not in ROUTE_SWALLOW_BUTTON_ACTIONS:
-            gui.on_route_command()
-        # A release is swallowed rather than ignored, as it is for a switch: passed on it
-        # would clear a throttle or a latch that the press it belongs to never set.
-        return True
+        if dispatch.verb != VERB_ACC_THROTTLE:
+            log.warning(f"Unknown analog dispatch verb: {dispatch.verb}")
+            return
+        if action.value == 0.0:
+            self._acc_throttles.pop(action.target, None)
+            return
+        self._acc_throttles[action.target] = max(-1.0, min(1.0, action.value))
+        gui.on_acc_speed_command(self._acc_relative_speed(action.value))
 
-    def _fire_route_from_axis(self, gui, action: DeckAction) -> None:
-        # One fire per deflection, on the same threshold and latch as the switch throws: a
-        # stick held over fires once, and has to come back near center before it can fire
-        # again. Unlike a switch the sign matters -- a route has no un-fire, so rather than
-        # give the other two deflections a meaning they cannot have, only up and right act.
-        # The latch is taken either way, so the stick still has to re-center: coming back
-        # from a pull is a movement through the firing range, not a fire.
-        latch = (action.target, action.name)
-        release_threshold = self.profile.direction_threshold - self.profile.hysteresis
-        if abs(action.value) <= release_threshold:
-            self._route_latches.discard(latch)
-            return
-        if abs(action.value) < self.profile.direction_threshold or latch in self._route_latches:
-            return
-        self._route_latches.add(latch)
-        if action.value > 0:
+    @staticmethod
+    def _acc_relative_speed(value: float) -> int:
+        """A stick fraction as one of the speed slider's steps, never rounding down to zero.
+
+        The same shaping the Cab-1 throttle uses: a light push is still a step, because a stick
+        past its dead zone is a request for movement rather than for none.
+        """
+        magnitude = max(1, round(abs(value) * ACC_RELATIVE_SPEED_MAX))
+        return int(math.copysign(min(ACC_RELATIVE_SPEED_MAX, magnitude), value))
+
+    # noinspection PyUnusedLocal
+    def _dispatch(self, gui, action: DeckAction, dispatch: Dispatch, *, pressed: bool) -> None:
+        """Send what one resolved binding asks for.
+
+        The whole of the verb registry: the table says which verb applies and this says what
+        each one costs in calls to the GUI. ``claim`` is the verb for a control a context takes
+        and does nothing with, and so is the one that does not appear below.
+        """
+        verb = dispatch.verb
+        if verb == VERB_SWITCH_THRU:
+            gui.on_switch_command(True)
+        elif verb == VERB_SWITCH_OUT:
+            gui.on_switch_command(False)
+        elif verb == VERB_ROUTE_FIRE:
             gui.on_route_command()
+        elif verb == VERB_ACC_COMMAND:
+            gui.on_acc_command(dispatch.command, dispatch.data)
+        elif verb == VERB_ENGINE_COMMAND:
+            gui.on_engine_command(dispatch.command, data=dispatch.data or 0)
+        elif verb == VERB_LCS_ON:
+            gui.on_lcs_command(True)
+        elif verb == VERB_LCS_OFF:
+            gui.on_lcs_command(False)
+        elif verb == VERB_ASC2_MOMENTARY:
+            gui.on_asc2_momentary(pressed)
+        elif verb != VERB_CLAIM:
+            # An unknown verb is logged and dropped rather than raised, matching the profile
+            # loader's fallback discipline: a bad table entry must not take the gamepad out.
+            log.warning(f"Unknown dispatch verb: {verb}")
 
     def fires_on_press(self, target: Target) -> bool:
         """Whether a trigger aimed at this target acts the moment it is squeezed.

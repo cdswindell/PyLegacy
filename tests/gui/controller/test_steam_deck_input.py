@@ -7,6 +7,16 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.pytrain.gui.controller.accessory_bindings import (
+    ACC_ASC2_CONTEXT,
+    ACC_BPC2_CONTEXT,
+    ACC_GENERIC_CONTEXT,
+    DEFAULT_CONTEXTS,
+    PANEL_ASC2,
+    PANEL_BPC2,
+    PANEL_CONTEXT_CHAINS,
+    PANEL_GENERIC,
+)
 from src.pytrain.gui.controller.steam_deck_input import (
     DPAD_DOWN,
     DPAD_LEFT,
@@ -3510,3 +3520,469 @@ def test_provider_trigger_keeps_its_hold_behaviour_for_an_engine_panel() -> None
     actions = provider.poll()
 
     assert [(a.name, a.target, a.phase) for a in actions] == [(SHUTDOWN_IMMEDIATE, "focused", "pressed")]
+
+
+# --------------------------------------------------------------------------------------- #
+# The D-pad as a profile section rather than a hard-coded branch.
+# --------------------------------------------------------------------------------------- #
+
+
+def test_a_profile_with_no_dpad_section_keeps_what_the_dpad_always_did() -> None:
+    # The default is the old behavior verbatim, so every hand-written profile predating the
+    # section is unaffected by its arrival.
+    profile = _profile()
+
+    assert profile.dpad[DPAD_UP].action == "boost"
+    assert profile.dpad[DPAD_UP].repeat is True
+    assert profile.dpad[DPAD_DOWN].action == "brake"
+    assert profile.dpad[DPAD_RIGHT].action == "smoke_up"
+    assert profile.dpad[DPAD_RIGHT].repeat is False
+    assert profile.dpad[DPAD_LEFT].action == "smoke_down"
+
+
+def test_a_dpad_section_rebinds_one_direction_and_leaves_the_others() -> None:
+    profile = _profile(dpad={"left": {"action": "bell", "target": "right"}})
+
+    assert profile.dpad[DPAD_LEFT].action == "bell"
+    assert profile.dpad[DPAD_LEFT].target == "right"
+    assert profile.dpad[DPAD_UP].action == "boost"
+
+
+def test_a_dpad_direction_bound_to_null_is_switched_off_entirely() -> None:
+    profile = _profile(dpad={"right": None})
+    router, left, _right, _focused, _global_calls = _router(profile)
+
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+
+    assert left.command_calls == []
+
+
+def test_a_dpad_section_rejects_a_bad_direction_action_or_target() -> None:
+    with pytest.raises(ProfileError, match="Unknown dpad direction"):
+        _profile(dpad={"diagonal": {"action": "boost", "target": "focused"}})
+    with pytest.raises(ProfileError, match="cannot be assigned to the dpad"):
+        _profile(dpad={"up": {"action": "halt", "target": "global"}})
+    with pytest.raises(ProfileError, match="requires a panel target"):
+        _profile(dpad={"up": {"action": "boost", "target": "global"}})
+
+
+def test_a_rebound_dpad_direction_sends_what_the_profile_says() -> None:
+    profile = _profile(dpad={"up": {"action": "bell", "target": "focused"}})
+    router, left, _right, _focused, _global_calls = _router(profile)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+
+    assert left.command_calls == ["RING_BELL"]
+
+
+def test_a_repeat_flag_on_a_dpad_direction_is_what_makes_it_repeat() -> None:
+    # Boost repeats because the profile says so, not because the router knows it is boost.
+    profile = _profile(dpad={"right": {"action": "smoke_up", "target": "focused", "repeat": True}})
+    router, left, _right, _focused, _global_calls = _router(profile)
+
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert left.command_calls == ["SMOKE_ON", "SMOKE_ON"]
+
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 0.0, "released"))
+    router.tick(0.4)
+
+    assert left.command_calls == ["SMOKE_ON", "SMOKE_ON"]
+
+
+def test_an_unrepeated_direction_release_does_not_cancel_a_repeat_running_on_the_other_axis() -> None:
+    router, left, _right, _focused, _global_calls = _router()
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 0.0, "released"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert left.command_calls == ["BOOST_SPEED", "SMOKE_ON", "BOOST_SPEED"]
+
+
+def test_a_dpad_target_in_the_profile_is_the_target_the_provider_reports() -> None:
+    profile = _profile(dpad={"up": {"action": "boost", "target": "right"}})
+    provider = SteamDeckInputProvider(profile, pygame_module=SimpleNamespace())
+
+    actions = provider._hat_actions((0, 1))
+
+    assert [(a.name, a.target) for a in actions] == [(DPAD_UP, "right")]
+
+
+# --------------------------------------------------------------------------------------- #
+# The context tables as a profile section.
+# --------------------------------------------------------------------------------------- #
+
+
+def test_a_profile_context_override_changes_what_a_control_does_on_a_panel() -> None:
+    profile = _profile(
+        contexts={"switch": {"bindings": {"horn": {"verb": "switch_thru"}}}},
+    )
+    router, left, _right, _focused, _global_calls = _router(profile)
+    left.switch_active = True
+    left.switch_calls = []
+    left.on_switch_command = lambda thru: left.switch_calls.append(thru)
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+
+    # Out by default; the profile says through.
+    assert left.switch_calls == [True]
+
+
+def test_a_profile_may_unbind_a_context_entry() -> None:
+    # "Unbind this" has to be expressible, which is why null is a value rather than an
+    # omission. The switch context claims only what it binds, so an unbound horn falls
+    # through to the ordinary engine handling -- exactly as it would on an engine panel.
+    profile = _profile(contexts={"switch": {"bindings": {"horn": None}}})
+    router, left, _right, _focused, _global_calls = _router(profile)
+    left.switch_active = True
+    left.switch_calls = []
+    left.on_switch_command = lambda thru: left.switch_calls.append(thru)
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+
+    assert left.switch_calls == []
+    assert left.command_calls == ["BLOW_HORN_ONE"]
+
+
+def test_an_unbound_entry_is_still_swallowed_where_the_context_claims_what_it_has_not_bound() -> None:
+    profile = _profile(
+        contexts={"switch": {"claims_unbound": True, "bindings": {"horn": None}}},
+    )
+    router, left, _right, _focused, _global_calls = _router(profile)
+    left.switch_active = True
+    left.switch_calls = []
+    left.on_switch_command = lambda thru: left.switch_calls.append(thru)
+
+    router.handle(DeckAction("horn", "focused", 1.0, "pressed", button=3))
+
+    assert left.switch_calls == []
+    assert left.command_calls == []
+
+
+def test_a_malformed_contexts_section_is_logged_and_the_defaults_stand() -> None:
+    profile = _profile(contexts={"switch": {"bindings": {"horn": {"verb": "teleport"}}}})
+
+    assert profile.contexts["switch"].bindings["horn"].verb == "switch_out"
+
+
+# --------------------------------------------------------------------------------------- #
+# The generic accessory panel.
+# --------------------------------------------------------------------------------------- #
+
+
+def _acc_gui(kind: str = PANEL_GENERIC):
+    """A pane showing an accessory panel, recording what is asked of the accessory.
+
+    Keeps a ``throttle_state`` for the reason ``_switch_gui`` and ``_route_gui`` do: a pane
+    that was driving an engine before an accessory was picked in it still has one, so a stick
+    or a shoulder button pushed here would reach that engine if the accessory context did not
+    claim the action first.
+
+    The chain comes from ``PANEL_CONTEXT_CHAINS`` rather than being written out, so the stub
+    reports exactly what ``EngineGui.input_contexts`` reports for the same panel: the point of
+    naming the panel in one place is that a test cannot disagree with the screen either.
+    """
+    gui = _gui(speed=20)
+    gui.input_contexts = PANEL_CONTEXT_CHAINS.get(kind, ())
+    gui.acc_calls: list[tuple[str, int | None]] = []
+    gui.acc_speed_calls: list[int] = []
+    gui.on_acc_command = lambda command, data=None: gui.acc_calls.append((command, data))
+    gui.on_acc_speed_command = lambda value: gui.acc_speed_calls.append(value)
+    gui.lcs_calls: list[bool] = []
+    gui.momentary_calls: list[bool] = []
+    gui.on_lcs_command = lambda on: gui.lcs_calls.append(on)
+    gui.on_asc2_momentary = lambda pressed: gui.momentary_calls.append(pressed)
+    return gui
+
+
+def _coupler_profile() -> ControlProfile:
+    """L1 and R1 as the bundled profile binds them: the rear coupler on L1, the front on R1."""
+    return _profile(
+        buttons={
+            "4": {"action": "rear_coupler", "target": "focused"},
+            "5": {"action": "front_coupler", "target": "focused"},
+        }
+    )
+
+
+def test_the_stick_drives_the_accessorys_speed_rather_than_an_engines() -> None:
+    # The vertical stick works the panel's speed slider: a relative step, re-sent while the
+    # stick is held over, exactly as the on-screen slider repeats while it is held off zero.
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 1.0, "changed"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.acc_speed_calls == [5, 5], "one step on the push, and tick re-sent it"
+    assert focused.speed_calls == [], "no engine speed reached the panel"
+
+    router.handle(DeckAction("throttle", "focused", 0.0, "changed"))
+    router.tick(0.4)
+
+    assert focused.acc_speed_calls == [5, 5], "back at center, the sending stops"
+
+
+def test_a_light_push_of_the_stick_is_still_a_step() -> None:
+    # The shaping the Cab-1 throttle uses: a stick past its dead zone asks for movement, so a
+    # light push must not round down to a request for none.
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", -0.2, "changed"))
+
+    assert focused.acc_speed_calls == [-1]
+
+
+@pytest.mark.parametrize("value", [0.9, -0.9])
+def test_the_horizontal_stick_toggles_the_accessorys_direction_either_way(value) -> None:
+    # TOGGLE_DIRECTION has no left-hand or right-hand form, so the sign is ignored: a push
+    # either way is one toggle, which is what the on-screen toggle key does.
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("direction", "focused", value, "changed"))
+
+    assert focused.acc_calls == [("TOGGLE_DIRECTION", None)]
+    assert focused.command_calls == [], "no engine direction reached the panel"
+
+
+def test_a_held_stick_toggles_the_accessory_once_and_re_arms_only_near_center() -> None:
+    # A thumb resting on the stick would otherwise flip a crane back and forth for as long as
+    # it rested there. The latch is the one the direction handling already uses: one fire per
+    # deflection, re-armed only inside direction_threshold - hysteresis.
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("direction", "focused", 0.9, "changed"))
+    router.handle(DeckAction("direction", "focused", 1.0, "changed"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.acc_calls == [("TOGGLE_DIRECTION", None)], "one toggle while it is held"
+
+    router.handle(DeckAction("direction", "focused", 0.72, "changed"))
+    router.handle(DeckAction("direction", "focused", 0.9, "changed"))
+
+    assert focused.acc_calls == [("TOGGLE_DIRECTION", None)], "0.72 is not yet near center"
+
+    router.handle(DeckAction("direction", "focused", 0.1, "changed"))
+    router.handle(DeckAction("direction", "focused", -0.9, "changed"))
+
+    assert focused.acc_calls == [("TOGGLE_DIRECTION", None), ("TOGGLE_DIRECTION", None)]
+
+
+@pytest.mark.parametrize(
+    ("name", "button", "command"),
+    [
+        ("rear_coupler", 4, "REAR_COUPLER"),
+        ("front_coupler", 5, "FRONT_COUPLER"),
+    ],
+)
+def test_the_shoulder_buttons_open_the_accessorys_couplers(name, button, command) -> None:
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(_coupler_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+    router.handle(DeckAction(name, "focused", 0.0, "released", button=button))
+
+    assert focused.acc_calls == [(command, None)], "one on the press, and the release adds none"
+    assert focused.command_calls == [], "no engine coupler reached the panel"
+
+
+@pytest.mark.parametrize(
+    ("name", "command"),
+    [
+        (DPAD_UP, "BOOST"),
+        (DPAD_DOWN, "BRAKE"),
+    ],
+)
+def test_the_dpad_boosts_and_brakes_the_accessory_and_repeats_while_held(name, command) -> None:
+    # The context entry wins over the profile's own D-pad binding because _handle_contexts runs
+    # ahead of the D-pad branches, and it repeats through its own loop: the profile's boost goes
+    # to an engine this pane does not have.
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.acc_calls == [(command, None), (command, None)]
+    assert focused.command_calls == [], "no engine boost or brake reached the panel"
+
+    router.handle(DeckAction(name, "focused", 0.0, "released"))
+    router.tick(0.4)
+
+    assert focused.acc_calls == [(command, None), (command, None)], "the release stopped it"
+
+
+def test_a_dpad_repeat_started_on_an_accessory_panel_stops_when_the_pane_changes_scope() -> None:
+    # The press is claimed by the accessory context and the release arrives after the pane has
+    # been re-scoped, so the release is the only word that the key is no longer held.
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    focused.input_contexts = ()
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.acc_calls == [("BOOST", None)], "nothing was left repeating at the accessory"
+
+
+def test_an_engine_only_control_is_claimed_and_dropped_on_the_accessory_panel() -> None:
+    # The acc base claims what it has not bound, so a control the panel has no key for cannot
+    # reach whatever engine the pane held before the accessory was picked.
+    focused = _acc_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("bell", "focused", 1.0, "pressed", button=0))
+
+    assert focused.command_calls == []
+    assert focused.acc_calls == []
+
+
+def test_an_lcs_port_showing_the_generic_panel_takes_the_whole_set() -> None:
+    # Amendment A-1: the bindings follow the panel, not the device. An STM2 is an LCS component
+    # and matches none of Sensor Track, AMC2, BPC2 or ASC2, so it shows the generic panel and is
+    # bound here like any other accessory -- rather than showing a full set of keys on screen
+    # and answering to nothing on the pad.
+    focused = _acc_gui()
+    focused.is_lcs_component = True
+    router, _left, _right, _focused, _global = _router(_coupler_profile(), left=focused)
+
+    router.handle(DeckAction("rear_coupler", "focused", 1.0, "pressed", button=4))
+    router.handle(DeckAction("direction", "focused", 0.9, "changed"))
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.handle(DeckAction("throttle", "focused", 1.0, "changed"))
+
+    assert focused.acc_calls == [
+        ("REAR_COUPLER", None),
+        ("TOGGLE_DIRECTION", None),
+        ("BOOST", None),
+    ]
+    assert focused.acc_speed_calls == [5]
+
+
+def test_the_generic_panel_leaves_set_address_alone() -> None:
+    # SET_ADDRESS and AUX1_OPT_ONE are keys on this panel and are deliberately unbound: nothing
+    # a thumb can brush should re-address an accessory.
+    spec = DEFAULT_CONTEXTS[ACC_GENERIC_CONTEXT]
+    commands = {dispatch.command for dispatch in spec.bindings.values() if dispatch is not None and dispatch.command}
+
+    assert "SET_ADDRESS" not in commands
+    assert "AUX1_OPT_ONE" not in commands
+
+
+def test_an_engine_panel_is_untouched_by_the_accessory_context() -> None:
+    focused = _acc_gui(kind="sensor_track")
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 1.0, "changed"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.acc_speed_calls == [], "no accessory context is reported for Sensor Track"
+    assert focused.speed_calls, "the stick still ramps the engine the pane holds"
+
+
+# --------------------------------------------------------------------------------------- #
+# Power districts and ASC2 outputs.
+# --------------------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("kind", [PANEL_BPC2, PANEL_ASC2])
+@pytest.mark.parametrize(
+    ("name", "on"),
+    [
+        ("startup", True),
+        (STARTUP_IMMEDIATE, True),
+        (STARTUP_DELAYED, True),
+        (DPAD_RIGHT, True),
+        ("shutdown", False),
+        (SHUTDOWN_IMMEDIATE, False),
+        (SHUTDOWN_DELAYED, False),
+        (DPAD_LEFT, False),
+    ],
+)
+def test_the_triggers_and_the_dpad_switch_a_power_district(kind, name, on) -> None:
+    # Both ways of reaching the panel's On and Off keys, and the ASC2 panel gets them by
+    # inheriting acc_bpc2 rather than by restating them.
+    focused = _acc_gui(kind=kind)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=6))
+    router.handle(DeckAction(name, "focused", 0.0, "released", button=6))
+
+    assert focused.lcs_calls == [on], "one on the press, and the release adds none"
+    assert focused.command_calls == [], "no engine startup or shutdown reached the panel"
+
+
+def test_the_asc2_panel_inherits_the_power_district_pair_rather_than_restating_it() -> None:
+    assert ACC_ASC2_CONTEXT in PANEL_CONTEXT_CHAINS[PANEL_ASC2]
+    assert DEFAULT_CONTEXTS[ACC_ASC2_CONTEXT].inherits == ACC_BPC2_CONTEXT
+    assert "startup" not in DEFAULT_CONTEXTS[ACC_ASC2_CONTEXT].bindings
+
+
+@pytest.mark.parametrize(("name", "button"), [(SEQUENCE_CONTROL, 3), (DPAD_UP, None)])
+def test_a_held_button_energises_the_asc2_output_and_the_release_drops_it(name, button) -> None:
+    # The only binding in the table that needs both phases: the on-screen key holds the output
+    # on while it is held, and a button that did only the press would leave it on.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.momentary_calls == [True], "held, not repeated"
+
+    router.handle(DeckAction(name, "focused", 0.0, "released", button=button))
+
+    assert focused.momentary_calls == [True, False]
+
+
+def test_an_asc2_output_is_not_left_on_when_the_pane_changes_scope_under_the_thumb() -> None:
+    # The press is claimed by the ASC2 context and the pane is re-scoped before the release
+    # arrives. Resolving the chain again would find nothing, and the output would stay on.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=3))
+    focused.input_contexts = ()
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 0.0, "released", button=3))
+
+    assert focused.momentary_calls == [True, False]
+    assert focused.command_calls == [], "and the release did not reach the engine either"
+
+
+@pytest.mark.parametrize("kind", [PANEL_BPC2, PANEL_ASC2])
+@pytest.mark.parametrize("name", ["rear_coupler", "front_coupler", DPAD_DOWN])
+def test_the_generic_aux_keys_are_absent_from_a_power_district_or_asc2_panel(kind, name) -> None:
+    # Neither context inherits acc_generic: there is no coupler and no Brake key on these
+    # panels, so the action is claimed by the acc base and sent nowhere.
+    focused = _acc_gui(kind=kind)
+    router, _left, _right, _focused, _global = _router(_coupler_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=4))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.acc_calls == []
+    assert focused.command_calls == []
+    assert focused.speed_calls == []
+
+
+@pytest.mark.parametrize("context", [ACC_BPC2_CONTEXT, ACC_ASC2_CONTEXT])
+def test_neither_power_district_context_inherits_the_generic_one(context) -> None:
+    assert ACC_GENERIC_CONTEXT not in PANEL_CONTEXT_CHAINS[PANEL_BPC2]
+    assert ACC_GENERIC_CONTEXT not in PANEL_CONTEXT_CHAINS[PANEL_ASC2]
+    assert DEFAULT_CONTEXTS[context].inherits != ACC_GENERIC_CONTEXT

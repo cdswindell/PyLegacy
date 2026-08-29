@@ -13,6 +13,13 @@ from typing import Generic, TYPE_CHECKING, TypeVar
 from guizero import App, Box, TitleBox
 from guizero.event import EventData
 
+from .accessory_bindings import (
+    PANEL_AMC2,
+    PANEL_ASC2,
+    PANEL_BPC2,
+    PANEL_GENERIC,
+    PANEL_SENSOR_TRACK,
+)
 from .amc2_ops_panel import Amc2OpsPanel
 from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import (
@@ -102,6 +109,47 @@ class KeypadView(Generic[S]):
         return host.scope == CommandScope.ACC or (
             isinstance(self.active_state, LcsProxyState) and self.active_state.is_power_district
         )
+
+    @property
+    def accessory_panel_kind(self) -> str | None:
+        """Which accessory panel this pane is displaying.
+
+        One of ``sensor_track``, ``amc2``, ``bpc2``, ``asc2`` or ``generic``, and None when the
+        pane is not showing an accessory panel at all -- an engine, a switch, a route, or an
+        accessory scope with nothing selected yet.
+
+        The single place that decision is made: ``apply_ops_mode_ui_non_engine`` reads it to
+        pick the keys it shows and the input layer reads it to pick the gamepad context, so the
+        panel on screen and the context claiming the pad cannot disagree. Note in particular
+        that ``is_lcs_component`` is not consulted -- an LCS port that is none of the four named
+        kinds shows the generic panel, and is reported as showing it.
+        """
+        return self._panel_kind_for(self.active_state)
+
+    # noinspection PyUnresolvedReferences
+    def _panel_kind_for(self, state: S | None) -> str | None:
+        """``accessory_panel_kind`` for a given state, which need not be the active one.
+
+        The ops-mode UI is handed the state it is about to display, and asks about that.
+        """
+        if not self.is_accessory_or_bpc2 or state is None:
+            return None
+        acc_state = state.state if isinstance(state, ConfiguredAccessoryAdapter) else state
+        if isinstance(acc_state, AccessoryState):
+            if acc_state.is_sensor_track:
+                return PANEL_SENSOR_TRACK
+            if acc_state.is_amc2:
+                return PANEL_AMC2
+            # An ASC2 shows everything a BPC2 does and its own AUX1 key besides, so where both
+            # flags read true the more specific one is the panel drawn -- as it is below.
+            if acc_state.is_asc2:
+                return PANEL_ASC2
+            if acc_state.is_bpc2:
+                return PANEL_BPC2
+            return PANEL_GENERIC
+        if isinstance(acc_state, LcsProxyState) and acc_state.is_power_district:
+            return PANEL_BPC2
+        return None
 
     def build(self, app: App = None):
         host = self._host
@@ -794,12 +842,15 @@ class KeypadView(Generic[S]):
 
             acc_state = state.state if isinstance(state, ConfiguredAccessoryAdapter) else state
             if isinstance(acc_state, AccessoryState):
-                # Shows accessory controls based on accessory state
-                if acc_state.is_sensor_track:
+                # Shows accessory controls based on accessory state. Which panel that is, is
+                # decided in one place -- see accessory_panel_kind -- so the keys on screen and
+                # the gamepad context claiming them cannot disagree.
+                kind = self._panel_kind_for(state)
+                if kind == PANEL_SENSOR_TRACK:
                     host.sensor_track_box.show()
                     host.keypad_box.hide()
                     show_keypad = False
-                elif acc_state.is_amc2:
+                elif kind == PANEL_AMC2:
                     if host.amc2_ops_box and not host.amc2_ops_box.visible:
                         host.amc2_ops_box.show()
                     if host.amc2_ops_panel:
@@ -807,16 +858,16 @@ class KeypadView(Generic[S]):
                         host.amc2_ops_panel.refresh_layout()
                     host.keypad_box.hide()
                     show_keypad = False
-                elif acc_state.is_bpc2 or acc_state.is_asc2:
+                elif kind in (PANEL_BPC2, PANEL_ASC2):
                     host.ac_off_cell.show()
                     host.ac_status_cell.show()
                     host.ac_on_cell.show()
-                    if acc_state.is_asc2:
+                    if kind == PANEL_ASC2:
                         host.ac_aux1_cell.show()
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                             host.ac_op_cell.grid = [2, 3]
                             self.enable_acc_view(acc_state)
-                else:
+                elif kind == PANEL_GENERIC:
                     for cell in host.aux_cells:
                         if cell and not cell.visible:
                             cell.show()
@@ -895,25 +946,29 @@ class KeypadView(Generic[S]):
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=host.repeat)
 
     # noinspection PyProtectedMember
+    def asc2_control(self, pressed: bool) -> None:
+        """Sends the `Asc2` momentary control command for the pane's accessory.
+
+        Widget-free on purpose: the on-screen key reaches it through the event handlers
+        below, and the gamepad reaches it through ``EngineGui.on_asc2_momentary``, so both
+        send exactly the same request.
+        """
+        host = self._host
+        scope = host.scope
+        tmcc_id = host._scope_tmcc_ids[scope]
+        state = host.state_store.get_state(scope, tmcc_id, False)
+        if isinstance(state, AccessoryState) and state.is_asc2:
+            values = 1 if pressed else 0
+            Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=values).send()
+
     def when_pressed(self, event: EventData) -> None:
         """Sends `Asc2` control command when button pressed"""
-        host = self._host
         pb = event.widget
         if pb.enabled:
-            scope = host.scope
-            tmcc_id = host._scope_tmcc_ids[scope]
-            state = host.state_store.get_state(scope, tmcc_id, False)
-            if isinstance(state, AccessoryState) and state.is_asc2:
-                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=1).send()
+            self.asc2_control(True)
 
-    # noinspection PyProtectedMember
     def when_released(self, event: EventData) -> None:
         """Sends `Asc2` release command when button released"""
-        host = self._host
         pb = event.widget
         if pb.enabled:
-            scope = host.scope
-            tmcc_id = host._scope_tmcc_ids[scope]
-            state = host.state_store.get_state(scope, tmcc_id, False)
-            if isinstance(state, AccessoryState) and state.is_asc2:
-                Asc2Req(state.address, PdiCommand.ASC2_SET, Asc2Action.CONTROL1, values=0).send()
+            self.asc2_control(False)
