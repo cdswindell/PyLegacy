@@ -223,6 +223,22 @@ class KeypadView(Generic[S]):
 
         cell, btn = host.make_keypad_button(
             keypad_keys,
+            SET_KEY,
+            row - 2,
+            2,
+            size=host.s_18,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.aux_cells.add(cell)
+        setattr(cell, "render_grid", [3, row - 2])
+        setattr(cell, "reset_grid", [2, row - 2])
+        btn.on_press = (host.on_acc_command, ["SET_ADDRESS"])
+
+        cell, btn = host.make_keypad_button(
+            keypad_keys,
             AUX1_KEY,
             row - 1,
             2,
