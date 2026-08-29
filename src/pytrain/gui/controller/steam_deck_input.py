@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Mapping
 
 from .accessory_bindings import (
+    AXIS_DIRECTION_NAMES,
+    AXIS_VARIANT_ACTIONS,
     DEFAULT_CONTEXTS,
     ROUTE_CONTEXT,
     SWITCH_CONTEXT,
@@ -44,6 +46,7 @@ from .accessory_bindings import (
     bound_actions,
     merge_contexts,
     resolve,
+    resolve_axis,
 )
 
 log = logging.getLogger(__name__)
@@ -694,7 +697,13 @@ class ControlProfile:
         # that are already known good, so one bad line costs that line and not the profile.
         contexts = merge_contexts(
             data.get("contexts"),
-            known_actions=SUPPORTED_ACTIONS | set(LONG_PRESS_RUNTIME_ACTIONS) | set(DPAD_DIRECTIONS.values()),
+            known_actions=(
+                SUPPORTED_ACTIONS
+                | set(LONG_PRESS_RUNTIME_ACTIONS)
+                | set(DPAD_DIRECTIONS.values())
+                | set(AXIS_DIRECTION_NAMES)
+                | AXIS_VARIANT_ACTIONS
+            ),
             protected_actions=PROTECTED_ACTIONS,
         )
 
@@ -1765,7 +1774,10 @@ class DeckInputRouter:
         self._boosts.clear()
         self._acc_throttles.clear()
         self._context_repeats.clear()
-        self._momentary_holds.clear()
+        # Released rather than forgotten: a pad that disconnects with the stick pushed over
+        # would otherwise leave an accessory output energised, and this is the one case where
+        # no further input arrives to correct it.
+        self._release_all_momentary()
         self._scrolls.clear()
         self._held_commands.clear()
         self._sequences.clear()
@@ -2021,16 +2033,28 @@ class DeckInputRouter:
             # A momentary output this control turned on is turned off by its release, whatever
             # the pane is showing by then. Resolving the chain again would miss it the moment
             # the pane's scope changed under the thumb, and the output would stay on.
-            self._momentary_holds.discard(momentary_key)
-            gui.on_asc2_momentary(False)
+            self._release_momentary(gui, momentary_key)
             return True
+        if action.phase == "changed" and momentary_key in self._momentary_holds:
+            # The same for a stick, whose letting go is a value rather than an event: back
+            # inside the hysteresis band is a release. Checked here, ahead of the chain, for
+            # the reason above -- a pane re-scoped under the thumb must still be able to drop
+            # the output. The action then carries on to whatever its context says now, so a
+            # stick that has become an engine's throttle again is not left half-handled.
+            if abs(action.value) <= self.profile.direction_threshold - self.profile.hysteresis:
+                self._release_momentary(gui, momentary_key)
         chain = self._context_chain(gui)
         if not chain:
             return False
         # Resolved fresh every time rather than cached: a pane's scope can change between two
         # presses of the same button, which is the clean-up case below.
-        resolution = resolve(chain, action.name, self.contexts)
+        if action.name in AXIS_DIRECTION_NAMES:
+            resolution = resolve_axis(chain, action.name, action.value, self.contexts)
+        else:
+            resolution = resolve(chain, action.name, self.contexts)
         if resolution is None:
+            if action.name in AXIS_DIRECTION_NAMES:
+                self._clear_context_latches(action.target, action.name)
             return False
         spec = resolution.context
         dispatch = resolution.dispatch
@@ -2046,14 +2070,20 @@ class DeckInputRouter:
             # while it is up. The triggers and sticks have no job there, so they are not held
             # back.
             return False
-        if dispatch is not None and (dispatch.axis_latched or dispatch.is_analog):
+        if dispatch is None and action.name in AXIS_DIRECTION_NAMES:
+            self._clear_context_latches(action.target, action.name)
+        if dispatch is not None and (dispatch.is_axis or dispatch.is_analog):
             # Drop any throttle this pane had pending: the stick does the pane's job now, and
             # a value left from before the pane changed scope would otherwise start ramping
             # whatever engine is put in the pane next.
             self._throttles.pop(action.target, None)
             self._commanded_speeds.pop(action.target, None)
+            # Ordered rather than assumed exclusive: the loader drops a binding claiming two
+            # axis modes, but the outcome is defined here even if one slips past it.
             if dispatch.is_analog:
                 self._dispatch_analog(gui, action, dispatch)
+            elif dispatch.axis_held:
+                self._dispatch_axis_held(gui, action, dispatch)
             else:
                 self._dispatch_axis(gui, action, spec, dispatch)
             return True
@@ -2076,9 +2106,14 @@ class DeckInputRouter:
                     self._context_repeats.pop(repeat_key, None)
             if dispatch.verb == VERB_ASC2_MOMENTARY:
                 if action.phase == "pressed":
-                    self._momentary_holds.add((action.target, action.name))
+                    self._momentary_holds.add(momentary_key)
                 else:
-                    self._momentary_holds.discard((action.target, action.name))
+                    # A release with no hold recorded -- the press went to a pane with no gui,
+                    # or clear() has been through since. The off goes through the hold
+                    # book-keeping either way, so it cannot switch off an output another
+                    # control is still holding.
+                    self._release_momentary(gui, momentary_key)
+                    return True
             if action.phase == "pressed":
                 self._dispatch(gui, action, dispatch, pressed=True)
             elif dispatch.both_phases:
@@ -2086,6 +2121,49 @@ class DeckInputRouter:
         # A release is swallowed rather than ignored: passed on it would clear a throttle or a
         # latch that the press it belongs to never set.
         return True
+
+    def _release_momentary(self, gui, hold: tuple[Target, str]) -> None:
+        """Let go of one momentary hold, switching the output off if it was the last.
+
+        More than one control can hold the same output: the face button and the D-pad both
+        reach an ASC2's momentary key, and so does the vertical stick. The off therefore
+        belongs to whichever of them lets go last -- releasing the stick must not kill an
+        output a thumb is still holding the button down for.
+
+        "The same output" is the pane rather than the target name, because the two are not the
+        same thing: the bundled profile aims the sticks at ``left`` and ``right`` and the
+        buttons at ``focused``, so two holds on one accessory routinely wear different target
+        names. Comparing the panes they resolve to is what makes them count as one.
+        """
+        if hold not in self._momentary_holds:
+            # Nothing held here: a stick resting inside the dead band reports its position
+            # every poll, and none of those is a release of something never pressed.
+            return
+        self._momentary_holds.discard(hold)
+        if gui is None:
+            return
+        if any(self._target_gui(target) is gui for target, _ in self._momentary_holds):
+            return
+        if hasattr(gui, "on_asc2_momentary"):
+            gui.on_asc2_momentary(False)
+
+    def _release_all_momentary(self) -> None:
+        """Switch off every held output, rather than merely forgetting that it is held.
+
+        What ``clear`` needs on a disconnect: a pad unplugged with the stick pushed over would
+        otherwise leave a real relay closed with nothing left to open it. Each hold goes
+        through ``_release_momentary``, so an output held by two controls is still switched off
+        once.
+        """
+        for hold in tuple(self._momentary_holds):
+            self._release_momentary(self._target_gui(hold[0]), hold)
+        self._momentary_holds.clear()
+
+    def _clear_context_latches(self, target: Target, action_name: str) -> None:
+        """Clear every context's latch for a physical axis action."""
+        latch = (target, action_name)
+        for latches in self._context_latches.values():
+            latches.discard(latch)
 
     def _dispatch_axis(self, gui, action: DeckAction, spec: ContextSpec, dispatch: Dispatch) -> None:
         # One fire per deflection, using the same threshold and latch as the direction
@@ -2108,6 +2186,35 @@ class DeckInputRouter:
             # re-center: coming back from a pull is a movement through the firing range rather
             # than a fire.
             return
+        self._dispatch(gui, action, dispatch, pressed=True)
+
+    def _dispatch_axis_held(self, gui, action: DeckAction, dispatch: Dispatch) -> None:
+        """A stick that holds something on for as long as it is pushed over.
+
+        The third axis mode, and the only one with two phases: the press when the deflection
+        first crosses the profile's ``direction_threshold``, the release when it falls back
+        inside ``direction_threshold - hysteresis``. The same band the latch uses, so a stick
+        too light to throw a switch is too light to energise an output, and a value wandering
+        either side of the threshold cannot chatter it.
+
+        The hold is recorded rather than the press being counted, which is what makes the
+        release survive a pane re-scoped under the thumb: ``_handle_contexts`` reads that
+        record before it resolves the chain, so the off is sent from what is held rather than
+        from what the pane is showing by the time the stick comes back.
+
+        The sign is not consulted. A binding that wants up and down to differ says so by
+        binding the two directional variants instead of the plain action, and never reaches
+        here with the plain one.
+        """
+        hold = (action.target, action.name)
+        if abs(action.value) <= self.profile.direction_threshold - self.profile.hysteresis:
+            self._release_momentary(gui, hold)
+            return
+        if abs(action.value) < self.profile.direction_threshold or hold in self._momentary_holds:
+            # Inside the hysteresis band, or already holding: a stick held over reports its
+            # position every poll and none of those is a fresh press.
+            return
+        self._momentary_holds.add(hold)
         self._dispatch(gui, action, dispatch, pressed=True)
 
     def _dispatch_analog(self, gui, action: DeckAction, dispatch: Dispatch) -> None:

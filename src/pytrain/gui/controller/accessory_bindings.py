@@ -22,6 +22,9 @@ type would have been a third copy. Here the differences are fields:
 * ``axis_signed`` -- a route fires only when the stick goes up or right, because a route has no
   un-fire for the other two deflections to mean. A switch ignores the sign, having two things
   it can be asked to do and a pair of axes to ask them with.
+* ``axis_held`` -- an ASC2's momentary output stays energised for as long as the stick is away
+  from center, because that is what the on-screen key does while a finger rests on it. A
+  latched axis has no release to give it, and an analog one sends a value rather than a phase.
 * ``yields_to_catalog`` -- the face buttons are how an entry in the scope catalog is confirmed,
   so a context lets go of them while that list is up.
 * ``claim`` -- the verb for a control a context takes and does nothing with. A route claims the
@@ -74,6 +77,16 @@ VERB_CLAIM = "claim"
 # center -- as against the latched axis bindings, which fire once per deflection.
 ANALOG_VERBS = frozenset({VERB_ACC_THROTTLE})
 
+# Axis actions may provide a dispatch for each sign before falling back to the plain action.
+# The positive member is deliberately second: the router uses the first entry for a negative
+# value and the second for a positive value. Keeping this mapping here makes the sign convention
+# part of the data-driven binding mechanism rather than a special case in the input router.
+AXIS_DIRECTION_NAMES: Mapping[str, tuple[str, str]] = {
+    "direction": ("direction_left", "direction_right"),
+    "throttle": ("throttle_down", "throttle_up"),
+}
+AXIS_VARIANT_ACTIONS = frozenset(name for pair in AXIS_DIRECTION_NAMES.values() for name in pair)
+
 KNOWN_VERBS = frozenset(
     {
         VERB_SWITCH_THRU,
@@ -110,6 +123,12 @@ class Dispatch:
     # matters. The latch is taken either way, so returning from a pull is a movement through
     # the firing range rather than a fire.
     axis_signed: bool = False
+    # The action arrives as a stick position and holds something on while it is deflected: the
+    # press when the value first crosses the profile's direction threshold, the release when it
+    # falls back inside the hysteresis band. The third of the three axis modes, and the only one
+    # with a release: a momentary output has to be let go of, and a stick's letting go is a
+    # value rather than an event.
+    axis_held: bool = False
     data: int | None = None
     # Re-send while the control is held, on the profile's repeat interval.
     repeat: bool = False
@@ -125,6 +144,26 @@ class Dispatch:
     def is_analog(self) -> bool:
         """True when the value matters rather than the press: a stick driving a speed."""
         return self.verb in ANALOG_VERBS
+
+    @property
+    def is_axis(self) -> bool:
+        """True for a binding driven by a stick position rather than by a press.
+
+        Latched and held alike, which is what the derived ``*_AXIS_ACTIONS`` name sets want:
+        either way the action arrives as a value and none of the button handling applies.
+        """
+        return self.axis_latched or self.axis_held
+
+    @property
+    def axis_modes(self) -> int:
+        """How many of the three axis modes this binding claims; more than one is invalid.
+
+        Nothing in the dataclass can stop a table entry asking for two, so the count is stated
+        here and checked where the verbs are checked. The three are mutually exclusive in
+        practice -- one fire per deflection, a press held for as long as the deflection lasts,
+        or a value sent every time it changes -- and there is no sensible reading of a pair.
+        """
+        return sum((self.axis_latched, self.axis_held, self.is_analog))
 
 
 @dataclass(frozen=True)
@@ -279,6 +318,8 @@ _ACC_BPC2_BINDINGS: Mapping[str, Dispatch | None] = {
     SHUTDOWN_DELAYED: Dispatch(VERB_LCS_OFF),
     "dpad_right": Dispatch(VERB_LCS_ON),
     "dpad_left": Dispatch(VERB_LCS_OFF),
+    "direction_right": Dispatch(VERB_LCS_ON, axis_latched=True),
+    "direction_left": Dispatch(VERB_LCS_OFF, axis_latched=True),
 }
 
 # An ASC2 is a power district plus one key more, so this context states only that key and
@@ -287,9 +328,14 @@ _ACC_BPC2_BINDINGS: Mapping[str, Dispatch | None] = {
 # The momentary output is the only binding in the whole table that needs the release as well
 # as the press: the on-screen key energises the output while it is held and drops it when it
 # is let go, and a button that did only the first half would leave it on.
+#
+# The vertical stick reaches that same output, and is bound as the plain ``throttle`` action
+# rather than as the up/down pair: the variant lookup finds neither and falls back here, so a
+# push either way energises it. There is no second output for one of them to mean instead.
 _ACC_ASC2_BINDINGS: Mapping[str, Dispatch | None] = {
     "sequence_control": Dispatch(VERB_ASC2_MOMENTARY, both_phases=True),
     "dpad_up": Dispatch(VERB_ASC2_MOMENTARY, both_phases=True),
+    "throttle": Dispatch(VERB_ASC2_MOMENTARY, axis_held=True, both_phases=True),
 }
 
 DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {
@@ -467,15 +513,23 @@ def _parse_dispatch(
     if data is not None and (isinstance(data, bool) or not isinstance(data, int)):
         log.warning(f"Ignoring binding {action!r} in context {context!r}: invalid data {data!r}")
         return None
-    return Dispatch(
+    dispatch = Dispatch(
         verb=verb,
         command=command,
         axis_latched=bool(raw.get("axis_latched", False)),
         axis_signed=bool(raw.get("axis_signed", False)),
+        axis_held=bool(raw.get("axis_held", False)),
         data=data,
         repeat=bool(raw.get("repeat", False)),
         both_phases=bool(raw.get("both_phases", False)),
     )
+    if dispatch.axis_modes > 1:
+        # Two axis modes at once has no reading: the router would have to pick one, and which
+        # one it picked would be an accident of the order of its branches. Logged and dropped,
+        # the discipline the rest of this loader keeps.
+        log.warning(f"Ignoring binding {action!r} in context {context!r}: claims more than one axis mode")
+        return None
+    return dispatch
 
 
 def _flag(entry: Mapping[str, Any], key: str, default: bool, context: str) -> bool:
@@ -546,6 +600,33 @@ def resolve(
     return Resolution(claimer, None) if claimer is not None else None
 
 
+def resolve_axis(
+    chain: tuple[str, ...],
+    action: str,
+    value: float,
+    contexts: Mapping[str, ContextSpec] = DEFAULT_CONTEXTS,
+) -> Resolution | None:
+    """Resolve an axis variant before its plain action, based on the value's sign.
+
+    A context that claims unbound actions must not prevent the plain-action fallback: ``acc``
+    claims every unmatched action, but its claim is not a directional variant binding. An
+    explicit ``None`` *is* a binding, however, and therefore masks the plain action for that
+    sign, allowing a profile to unbind one side independently.
+    """
+    variants = AXIS_DIRECTION_NAMES.get(action)
+    if variants is not None:
+        variant = variants[1] if value > 0 else variants[0]
+        if _has_binding(chain, variant, contexts):
+            return resolve(chain, variant, contexts)
+    return resolve(chain, action, contexts)
+
+
+def _has_binding(chain: tuple[str, ...], action: str, contexts: Mapping[str, ContextSpec]) -> bool:
+    """Whether an action is explicitly listed in any context in the expanded chain."""
+    seen: set[str] = set()
+    return any(action in contexts[name].bindings for name in _expand(chain, contexts, seen) if name in contexts)
+
+
 def _expand(
     chain: tuple[str, ...],
     contexts: Mapping[str, ContextSpec],
@@ -575,7 +656,10 @@ def bound_actions(spec: ContextSpec) -> frozenset[str]:
 
 
 def axis_actions(spec: ContextSpec) -> frozenset[str]:
-    """The actions ``spec`` binds that arrive as a stick position rather than as a press."""
-    return frozenset(
-        action for action, dispatch in spec.bindings.items() if dispatch is not None and dispatch.axis_latched
-    )
+    """The actions ``spec`` binds that arrive as a stick position rather than as a press.
+
+    Every axis mode counts, not the latched one alone: a held binding is as much a stick as a
+    latched one, and leaving it out would give the derived name sets a second, narrower idea of
+    what an axis is.
+    """
+    return frozenset(action for action, dispatch in spec.bindings.items() if dispatch is not None and dispatch.is_axis)

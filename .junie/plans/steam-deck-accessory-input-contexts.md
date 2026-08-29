@@ -18,19 +18,32 @@ Yes — understood. To restate it in my own words so we are aligned before any c
 
 ### Amendments received on this pass
 
-Two, both folded in below.
+Four, all folded in below.
 
 **A-1 — The generic ACC bindings follow the *panel*, not the component.** The hard buttons bind **whenever the generic ACC control panel is displayed, even for an LCS device.** The earlier predicate (`is_lcs_component is False`) was wrong, and the code shows exactly why: `apply_ops_mode_ui_non_engine` (`keypad_view.py:788-830`) branches Sensor Track → AMC2 → BPC2-or-ASC2 → **else**, and that `else` is the generic panel. An **LCS STM2** is `is_lcs_component is True` and matches none of the four, so it lands on the generic panel today — as does any LCS port whose `_control_req` / `_config_req` has not identified it yet. Under the old predicate those ports showed a full set of aux keys on screen and claimed nothing on the pad.
 
 **A-2 — Stick ↔ sends `TMCC1AuxCommandEnum.TOGGLE_DIRECTION`.** This costs nothing new: the generic panel already carries a `toggle.jpg` key wired to `host.on_acc_command(["TOGGLE_DIRECTION"])` (`keypad_view.py:239-253`), and `on_acc_command` resolves any name through `TMCC1AuxCommandEnum.by_name`. The stick simply reaches the command that button already sends.
+
+**A-3 — On a power district, the stick pushed right turns the power on and pushed left turns it off.** This was never specified: your original BPC2 requirement named R2, L2 and the D-pad pair only, and `direction` is bound in exactly one place in the table — `_ACC_GENERIC_BINDINGS` — which `acc_bpc2` deliberately does not inherit (the structural half of A-1). So the stick resolves nothing there and is claimed by the `acc` base under FR-0, which is the "does nothing" you saw. Working as specified; the specification was short.
+
+The part of A-3 that is a genuine gap rather than a missing row: **the table cannot express it today.** `Dispatch.axis_signed` gates only *whether* a positive deflection fires — a route uses it to mean "up and right fire, down and left are swallowed" — and there is no way to give left and right **different** dispatches. That is the one new piece of mechanism this pass adds, and it is KD-9.
+
+**A-4 — On an ASC2, the stick works the whole panel: pushed right On, pushed left Off, pushed up *or* down the momentary output.** Confirmed, and it splits cleanly into a half that is already specced and a half that is not:
+
+- **The left/right pair is A-3 arriving by inheritance.** `acc_asc2` inherits `acc_bpc2`, so the `direction_left` / `direction_right` rows Step 6 adds reach the ASC2 panel with no entry of their own. This also settles open question 8 — the pair reaches ASC2, which is what you have just asked for — so nothing new is needed for it beyond building Step 6.
+- **The vertical stick is genuinely new mechanism.** A momentary output has to stay energised for as long as the stick is held and drop the moment it recenters, and neither existing axis mode can say that: `axis_latched` fires once on deflection and has **no release at all**, and the analog mode (`acc_throttle`) sends a value rather than a press/release pair. So `Dispatch` gains a third axis mode — a held axis — which is KD-10.
+
+A-4 answers the vertical half of open question 7 for the ASC2 panel. It stays open for a bare BPC2, where there is no momentary output for a held stick to hold.
+
+One consequence worth stating up front, because it is the one place this could go quietly wrong: on the ASC2 panel **two controls can now hold the same output at once** — A (or D-pad ↑) and the stick. The off must therefore be sent when the *last* holder lets go, not when either does, or letting the stick recenter would kill an output the operator is still holding A down for.
 
 ### Your requirements, as I now read them
 
 | Context | Predicate | Bindings |
 |---|---|---|
 | Generic ACC panel | the generic ACC panel is the one displayed — **regardless of `is_lcs_component`** | Stick ↕ → Throttle (relative speed); **Stick ↔ → `TOGGLE_DIRECTION`**; L1 → Rear Coupler; R1 → Front Coupler; D-pad ↑/↓ → Boost / Brake |
-| BPC2 panel | `is_power_district` is True | R2 and D-pad → `send_lcs_on_command`; L2 and D-pad ← → `send_lcs_off_command` |
-| ASC2 panel | `is_asc2` is True | R2 and D-pad → On; L2 and D-pad ← → Off; A and D-pad ↑ → `KeypadView.when_pressed` on press, `when_released` on release |
+| BPC2 panel | `is_power_district` is True | R2, D-pad → and **stick pushed right** → `send_lcs_on_command`; L2, D-pad ← and **stick pushed left** → `send_lcs_off_command` |
+| ASC2 panel | `is_asc2` is True | R2, D-pad → and **stick pushed right** → On; L2, D-pad ← and **stick pushed left** → Off; A, D-pad ↑ and **stick pushed up or down** → `KeypadView.when_pressed` while held, `when_released` on release / recenter |
 
 Every binding in that table now has an on-screen twin on the panel it belongs to, which is a useful check that the mapping is honest rather than invented.
 
@@ -64,7 +77,10 @@ These are deliberately *not* resolved in this spec — they are what the next ro
 4. **Whether the operating-accessory overlay is a context or a page.** It is a popup with `OperationAssets`-driven buttons, so it may want a chooser rather than fixed bindings — this is most likely the "new page" you mentioned.
 5. **Does an unassigned port claim controls or ignore them?** Claiming prevents a stray stick reaching a stale engine; ignoring is less surprising.
 6. **Should the ACC contexts be pane-scoped or focused-only?** Switches and routes are per-pane; accessories may want the same.
-7. **`SET_ADDRESS` and `AUX1_OPT_ONE` on the generic panel.** Both are aux keys on the panel that A-1 now binds, and neither has a control assigned. `SET_ADDRESS` in particular is one I would rather leave unbound than put on a button somebody can brush.
+7. **The vertical stick on a bare power district.** A-4 settles ↕ for the ASC2 panel (it holds the momentary output) but a BPC2 has no momentary output, so ↕ stays claimed and dropped there. The obvious symmetry would be `throttle_up` → On and `throttle_down` → Off, which KD-9's variant table would carry in two rows — but with the stick already meaning On/Off left and right, a second pair on the same stick may be more confusing than useful. Your call.
+8. ~~**Should the A-3 stick pair be BPC2-only, or reach ASC2 as well?**~~ **Settled by A-4:** it reaches both, by inheritance.
+9. **`SET_ADDRESS` and `AUX1_OPT_ONE` on the generic panel.** Both are aux keys on the panel that A-1 now binds, and neither has a control assigned. `SET_ADDRESS` in particular is one I would rather leave unbound than put on a button somebody can brush.
+10. **Should a held stick on an ASC2 also drive `AUX1`?** A-4 gives the vertical stick the `CONTROL1` momentary. `AUX1` is the only other key on that panel and is still unbound (question 3), so if you want it on the pad it needs a control of its own.
 
 # Requirements
 
@@ -133,8 +149,12 @@ Active when the pane is showing an accessory panel, an id is selected, and `is_p
 
 | Control | Effect |
 |---|---|
-| R2, D-pad → | `send_lcs_on_command` |
-| L2, D-pad ← | `send_lcs_off_command` |
+| R2, D-pad →, **stick pushed right** | `send_lcs_on_command` |
+| L2, D-pad ←, **stick pushed left** | `send_lcs_off_command` |
+
+The stick pair (amendment A-3) is **latched and sign-specific**: one command per deflection, and the direction of the push chooses which. Push left for Off, let the stick come back through center, push right for On. A thumb resting on a deflected stick sends once, not once per poll.
+
+The **vertical** stick on a *bare* power district stays claimed and dropped under FR-0 — there is no momentary output on that panel for it to hold. On an ASC2 it drives the momentary output, which is FR-3 below, and open question 7 is what remains: whether a BPC2 wants ↕ for On/Off as well.
 
 **FR-3 — ASC2 context (`acc_asc2`)**
 
@@ -142,11 +162,20 @@ Active when the pane is showing an accessory panel, an id is selected, and `is_a
 
 | Control | Effect |
 |---|---|
-| R2, D-pad → | `send_lcs_on_command` |
-| L2, D-pad ← | `send_lcs_off_command` |
+| R2, D-pad →, stick pushed right | `send_lcs_on_command` |
+| L2, D-pad ←, stick pushed left | `send_lcs_off_command` |
 | A, D-pad ↑ | **Momentary**: press → `when_pressed`, release → `when_released` |
+| **Stick ↕, either way** | **Momentary**: held past `direction_threshold` → `when_pressed`; recentered → `when_released` |
 
-The momentary pair is the only binding in this spec that needs both phases, and it is why the dispatch verb carries the phase.
+The momentary bindings are the only ones in this spec that need both phases, and they are why the dispatch verb carries the phase.
+
+The stick ↕ row (amendment A-4) is **sign-blind and held, not latched**: up and down both energise the output, and it stays energised for as long as the stick is away from center. This is a third axis mode — see KD-10 — because the latched mode has no release and the analog mode sends a value rather than a phase.
+
+The left/right pair arrives here **by inheritance from `acc_bpc2`**, with no entry of its own, which is what the chain is for.
+
+**FR-3a — Last holder wins**
+
+A (or D-pad ↑) and the stick ↕ drive the *same* `CONTROL1` output. While more than one of them is held the output stays on, and `when_released` is sent when the **last** one lets go. Releasing one control must never turn off an output another is still holding, and no control may be left holding an output that has already been switched off.
 
 **FR-4 — Configurability**
 
@@ -248,6 +277,25 @@ The aux-key bindings live in `acc_generic`, **not** in the shared `acc` base. Th
 
 **KD-8 — Stick ↔ is a latched, sign-blind axis binding.** The `direction` action is bound in `acc_generic` to `acc_command TOGGLE_DIRECTION` and marked `axis_latched`, reusing the `direction_threshold` / `hysteresis` latch that `_handle_direction` and `_throw_switch_from_axis` share. Sign is ignored, as `_throw_switch_from_axis` already ignores it: the command is a toggle, so there is nothing for left and right to mean differently. A held stick toggles once, not repeatedly — the alternative would flip a crane or a gantry back and forth for as long as a thumb rested on it.
 
+**KD-9 — A left/right split is expressed as directional pseudo-actions, not as a nested negative branch.** An axis action resolves `direction_left` / `direction_right` (and, by symmetry, `throttle_down` / `throttle_up`) **before** the plain action name, falling back to it when no variant is bound. Chosen over adding a `negative: Dispatch` field to `Dispatch` for three reasons:
+
+1. **It already exists in the table, one row up.** `acc_bpc2` binds `dpad_right` → `lcs_on` and `dpad_left` → `lcs_off`. A-3 is that same pair on the stick, so it should read the same way — and the D-pad and the stick then become visibly two ways to reach one thing, which is what `startup` / `startup_immediate` / `startup_delayed` already do for the triggers.
+2. **It survives the JSON round trip.** A profile override names `direction_left` as a flat key under `bindings`, needing no schema change; a nested negative branch would need both new schema and a second merge rule.
+3. **The generic panel is untouched.** `acc_generic` binds plain `direction`, the fallback finds it, and `TOGGLE_DIRECTION` stays sign-blind per KD-8.
+
+The sign-to-name mapping is a table in `accessory_bindings.py` rather than arithmetic in the router: `direction` → (`direction_left`, `direction_right`) and `throttle` → (`throttle_down`, `throttle_up`), positive taking the second. The bundled profile inverts axes 1 and 4, so positive already means up.
+
+**The latch stays keyed on the physical action** (`direction`), not on the resolved variant name. Two independent latch sets would let a sweep straight across the stick fire both Off and On; one set means crossing center passes through `direction_threshold - hysteresis`, drops the latch and re-arms exactly once. That is also what makes "left for Off, back through center, right for On" behave the way an operator expects.
+
+**KD-10 — A held axis is a third axis mode, beside latched and analog.** `Dispatch` gains `axis_held`. Where `axis_latched` fires once per deflection and never releases, and `is_analog` sends a value every time the stick moves, `axis_held` delivers a **press/release pair driven by position**: the press when `abs(value)` first crosses `profile.direction_threshold`, the release when it falls back inside `direction_threshold - hysteresis`. The thresholds are the ones the latched mode already uses, so a stick too light to throw a switch is too light to energise an output.
+
+Four points make this the right shape rather than a variant of what already exists:
+
+1. **It reuses the release path already built for the button.** `_handle_contexts` records a momentary press in `_momentary_holds`, keyed `(target, action)`, and delivers the release from that record rather than by re-resolving the chain — precisely so a pane re-scoped under the thumb cannot leave an output energised. A held axis records itself the same way; the only difference is what counts as a release. **A stick needs this more than a button does**, because a button's release event always arrives, while a stick's "release" is a value that may simply stop being reported.
+2. **Sign-blindness is free.** `acc_asc2` binds plain `throttle`, so KD-9's variant resolution finds no `throttle_up` / `throttle_down` and falls back to it — up and down both energise, which is what A-4 asks for. A profile that wants them to differ binds the variants, and the mechanism carries it with no new code.
+3. **Last-holder-wins is a predicate, not a new structure.** `_momentary_holds` is already a set of `(target, action)`; the release becomes "discard mine, and send the off only when no hold remains for this target". With a single holder that is identical to today's behavior, so FR-3a costs a condition rather than a reference count.
+4. **`clear()` must release, not merely forget.** It currently empties `_momentary_holds` without sending anything. Harmless while only a button can hold — the release always arrives — but a pad that disconnects with the stick pushed would leave an accessory output energised with nothing left to turn it off. `clear()` therefore sends the off for any hold it drops.
+
 ### Proposed Changes
 
 **1. `accessory_bindings.py` (new)** — Tk-free, `control_labels.py`-style.
@@ -258,6 +306,7 @@ class Dispatch:
     verb: str
     command: str | None = None
     axis_latched: bool = False                # one fire per deflection, sign ignored
+    axis_held: bool = False                   # press on deflection, release on recenter
     data: int | None = None
     repeat: bool = False
     both_phases: bool = False
@@ -399,6 +448,9 @@ graph TD
 - **Profile override surface is wide** — a user can unbind HALT. Mitigation: refuse overrides for `global`-target safety actions, as `_validate_action_target` already refuses a non-global HALT.
 - **The context name and the panel on screen can drift.** This is not hypothetical: the first draft of this spec keyed the generic context off `is_lcs_component`, which is *not* what the panel branch tests, and it would have left an STM2 showing aux keys that answered to nothing. Mitigation: KD-7 — one property decides, both readers use it, and a test asserts each panel kind maps to the chain that binds the keys that panel shows.
 - **`TOGGLE_DIRECTION` on an axis is easy to fire by accident.** A thumb resting on a stick would flip a gantry or a crane repeatedly. Mitigation: `axis_latched` plus `direction_threshold` — one toggle per full deflection, re-armed only near center.
+- **A held axis can leave an accessory output energised.** The most consequential failure in the whole spec, because a real relay stays closed. Three ways it could happen, each with its own mitigation: the pane is re-scoped under the thumb (release delivered from `_momentary_holds` rather than by re-resolving the chain), the pad disconnects while deflected (`clear()` sends the off for every hold it drops), and a second control releases first (FR-3a's last-holder-wins). Each gets its own test.
+- **Three axis modes over one field set.** `axis_latched`, `axis_held` and `is_analog` are mutually exclusive in practice and nothing in the dataclass says so. Mitigation: validate the combination where the verbs are validated, log and drop a binding claiming two, and keep the router's branch ordered so the outcome is defined even if one slips through.
+- **`axis_actions()` filters on `axis_latched` alone.** It derives the legacy `*_AXIS_ACTIONS` name sets `control_labels.py` still imports, so a held-axis binding would be invisible to it. Mitigation: widen it to any axis mode as part of adding the field, rather than leaving a second definition of "is this an axis" behind.
 
 # Controls Page Notes
 
@@ -428,7 +480,7 @@ The heading vocabulary was designed with an accessory section in mind.
 
 **4. `ACTION_LABELS` additions** (lines 109-146) for the new verbs and any new action names: LCS on/off, ASC2 momentary, accessory throttle, boost/brake and smoke as *bound* actions rather than fixed D-pad text. `DPAD_UP`'s label is currently the literal `"Boost speed"`; once bindable it must resolve through the profile.
 
-**5. The momentary hold needs a note.** `ACTION_NOTES` (line 151) has `"hold: w dialog"` for startup/shutdown. ASC2 momentary needs something like `"hold: output on"` — it is the only binding in the set whose *release* does something.
+**5. The momentary hold needs a note.** `ACTION_NOTES` (line 151) has `"hold: w dialog"` for startup/shutdown. ASC2 momentary needs something like `"hold: output on"` — it is the only binding in the set whose *release* does something. It now applies to the **stick** as well as to A, so whatever phrasing is chosen has to read sensibly against an axis row, where "hold" means "held away from center".
 
 **6. Column budget is the hard constraint.** The comments at lines 520-536 record that the last column already fills "to within a row of the budget `ROWS_PER_COLUMN` falls back to", and that adding one row "put the catalog behind a page turn nobody would think to take." **Three new panel sections cannot fit.** Options, for you to choose from next pass:
 
@@ -462,7 +514,13 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - A BPC2 or ASC2 panel does **not** take the aux bindings: a coupler or Boost action there resolves no entry in `acc_bpc2` / `acc_asc2` and is claimed by `acc`, not sent.
 - A BPC2 reached as a `LcsProxyState` power district under **TRAIN** scope reports the BPC2 chain, matching `is_accessory_or_bpc2`.
 - BPC2: R2 and D-pad → each reach `on_lcs_command(on=True)`; L2 and D-pad ← each reach `on_lcs_command(on=False)`.
+- BPC2 stick: pushed right reaches `on_lcs_command(on=True)` and pushed left `on_lcs_command(on=False)`, once per deflection, re-armed only inside `direction_threshold - hysteresis` — and the same pair arrives on the ASC2 panel by inheritance rather than restatement.
+- The generic panel still resolves plain `direction` to `TOGGLE_DIRECTION` for a push either way, exercising KD-9's fallback: no directional variant is bound there.
 - ASC2: the On/Off pair is inherited from `acc_bpc2` through the chain, not restated; A and D-pad ↑ call `on_asc2_momentary(True)` on press and `(False)` on release.
+- ASC2 stick ↕: a push past `direction_threshold` calls `on_asc2_momentary(True)` once — not once per poll while it is held — and the value falling back inside `direction_threshold - hysteresis` calls `(False)` once. A push the other way does exactly the same, the binding being sign-blind.
+- ASC2 stick ↕ held while the pane is re-scoped: the recenter still delivers `on_asc2_momentary(False)`, from the hold record rather than from the chain.
+- A held and the stick pushed at once: releasing either leaves the output on, and only the second release sends `on_asc2_momentary(False)` — FR-3a.
+- A BPC2 panel: stick ↕ resolves nothing in `acc_bpc2`, is claimed by `acc`, and never reaches `on_asc2_momentary`, which does not apply to a power district.
 - Chain precedence: a pane reporting `("acc_asc2", "acc_bpc2", "acc")` takes the ASC2 entry where both it and `acc_bpc2` define an action, and falls through where only the outer link does.
 - Profile override: a `contexts` entry replaces a default; `null` unbinds; the default survives untouched where the override is silent.
 - An engine panel (empty `input_contexts`) reaches the existing engine handling completely unchanged.
@@ -474,11 +532,19 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Controls or chooser open** — `_controls_only` / `_chooser_only` still gate everything ahead of context resolution.
 - **`is_asc2` and `is_bpc2` both true** — chain order decides, deterministically, and identically for `accessory_panel_kind` and `input_contexts`.
 - **Stick ↔ held over while the pane changes scope** — the latch must not survive into the next panel and toggle something the operator never pushed the stick for.
+- **Stick swept straight across center on a power district** — Off then On, once each, not twice and not four times. This is what KD-9's single physical-action latch exists for.
+- **A directional variant bound with no plain fallback** — a power district binds `direction_left` and `direction_right` but no `direction`, so a value at rest must still drop the latch rather than leave it held because neither variant resolved.
+- **A profile that overrides only one side** — binding `direction_right` and leaving `direction_left` alone must not disturb the other, and `null` on one side must unbind only it.
 - **Stick pushed diagonally** — ↕ throttle and ↔ toggle arrive as two independent axis actions; both must resolve, and the toggle latch must not be re-armed by throttle movement.
 - **Malformed profile** — an unknown context, action or verb logs and is skipped; the bundled default still loads. Mirrors `ControlProfile.load`'s existing fallback, which is already tested.
 - **ACC scope with id 0** (entry mode, nothing selected) — no accessory context is reported, so nothing is claimed.
 - **HALT** — resolves no gui, is never gated, and no override may unbind it.
-- **Momentary release lost** — if a pane changes scope between press and release, the ASC2 output must not be left latched on.
+- **Momentary release lost** — if a pane changes scope between press and release, the ASC2 output must not be left latched on. The same must hold for a held stick, whose release is a *value* rather than an event.
+- **Pad disconnects with the stick deflected** — `clear()` must switch a held output off rather than merely forgetting it held one. This is the one case where no further input arrives to correct the state.
+- **Stick jitter around the threshold** — a value oscillating either side of `direction_threshold` must not chatter the output; the press/release pair uses the hysteresis band, exactly as the latch does.
+- **Stick sitting at rest under the threshold** — a small resting offset must not energise anything, and must not accumulate a hold that a later recenter releases.
+- **Stick pushed diagonally on an ASC2** — ↕ holds the momentary output and ↔ switches the district on or off, from the same physical stick; both must work and neither may consume the other's latch or hold.
+- **A binding claiming two axis modes** — `axis_held` together with `axis_latched` is invalid; it is logged and dropped rather than resolved arbitrarily.
 
 ### Test Changes
 
@@ -488,6 +554,9 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Extend** `tests/gui/test_keypad_view.py` — `asc2_control(pressed)` sends the same `Asc2Req` the event handlers did.
 - **Extend** `tests/gui/test_keypad_view.py` — `accessory_panel_kind` returns each of the five kinds for the matching state, including `"generic"` for an STM2, and `None` off an accessory panel.
 - **Extend** `tests/gui/test_engine_gui_accessories.py` — `input_contexts` for each accessory kind, and that it follows `accessory_panel_kind` rather than any flag of its own.
+- **Extend** `tests/gui/controller/test_accessory_bindings.py` — the directional-variant resolution order, the fallback to the plain action name, and the sign-to-name table.
+- **Extend** `tests/gui/controller/test_accessory_bindings.py` — `axis_held` on the `acc_asc2` `throttle` entry, the mode-exclusivity validation, and `axis_actions()` seeing a held binding.
+- **Extend** `tests/gui/controller/test_steam_deck_input.py` — the held-axis press/release pair, the hysteresis band, last-holder-wins across A and the stick, the re-scope case, and `clear()` releasing a held output.
 - **Unmodified** — the existing switch and route suites, which are the migration's proof.
 
 # Delivery Steps
@@ -544,3 +613,25 @@ Power districts switch on and off from the pad, and ASC2 outputs respond to a he
 - Confirm neither context inherits `acc_generic`, so a coupler or Boost action on a BPC2 or ASC2 panel is claimed by `acc` and sent nowhere — there is no such key on those panels.
 - Cover both contexts in the router tests, including inheritance from `acc_bpc2`, the release path, a scope change between press and release leaving no output latched on, and the aux bindings being absent.
 - Cover `asc2_control` in `tests/gui/test_keypad_view.py`, asserting the same `Asc2Req` the event handlers sent.
+
+### ✓ Step 6: Bind the stick left/right on a power district to Off/On
+On a BPC2 or ASC2 panel, pushing the stick right switches the block on and pushing it left switches it off.
+
+- Add the directional-variant resolution of KD-9 to `accessory_bindings.py`: an `AXIS_DIRECTION_NAMES` table mapping `direction` → (`direction_left`, `direction_right`) and `throttle` → (`throttle_down`, `throttle_up`), with positive taking the second, and a resolver that tries the variant for the value's sign before the plain action name.
+- Have `DeckInputRouter._handle_contexts` / `_dispatch_axis` use it, keeping the latch keyed on the **physical** action name so a sweep across center fires Off then On once each, and so a stick at rest drops the latch even when no directional variant resolves.
+- Add `"direction_right": Dispatch(VERB_LCS_ON, axis_latched=True)` and `"direction_left": Dispatch(VERB_LCS_OFF, axis_latched=True)` to `_ACC_BPC2_BINDINGS`, beside the `dpad_right` / `dpad_left` pair they mirror; `acc_asc2` picks them up by inheritance with no entry of its own.
+- Leave `acc_generic` as it is: it binds plain `direction`, so the fallback keeps `TOGGLE_DIRECTION` sign-blind, and the vertical stick on a power district stays claimed and dropped pending open question 7.
+- Allow a profile to override either side independently, including `null` to unbind one, and validate the variant names the same way plain action names are validated — log and skip an unknown one.
+- Extend `tests/gui/controller/test_accessory_bindings.py` for the resolution order, the fallback, and the one-sided override; extend the `_acc_gui(kind="bpc2")` and `kind="asc2"` router tests for each direction, the latch, the sweep across center, and the generic panel still toggling for either sign.
+
+### ✓ Step 7: Hold the ASC2 momentary output from the vertical stick
+On an ASC2 panel, pushing the stick up or down energises the momentary output for as long as it is held, and letting it recenter switches it off.
+
+- Add `Dispatch.axis_held` to `accessory_bindings.py` as the third axis mode (KD-10), with an `is_axis` property covering latched and held alike, and widen `axis_actions()` to use it so the derived `*_AXIS_ACTIONS` name sets do not miss a held binding.
+- Reject a binding that claims two axis modes where the verbs are already validated: log and drop it, matching `ControlProfile.load`'s fallback discipline rather than resolving it arbitrarily.
+- Add `"throttle": Dispatch(VERB_ASC2_MOMENTARY, axis_held=True, both_phases=True)` to `_ACC_ASC2_BINDINGS` — plain `throttle`, not the `throttle_up` / `throttle_down` variants, so KD-9's fallback makes it sign-blind and a push either way energises the output.
+- Add the held branch to `DeckInputRouter._handle_contexts` / `_dispatch_axis`: press when `abs(value)` first crosses `profile.direction_threshold`, release when it falls back inside `direction_threshold - hysteresis`, recording the hold in the existing `_momentary_holds` set so the release survives a pane re-scoped under the thumb.
+- Send the off only when the **last** holder for that target lets go (FR-3a), so releasing the stick cannot kill an output A is still holding, and releasing A cannot kill one the stick is still holding.
+- Have `clear()` release every hold it drops instead of merely emptying the set, so a pad that disconnects with the stick deflected cannot leave a relay closed.
+- Leave `acc_bpc2` alone: a power district has no momentary output, so ↕ stays claimed and dropped there pending open question 7.
+- Cover the pair, the hysteresis band, jitter at the threshold, a resting offset, last-holder-wins, the re-scope case and `clear()` in `tests/gui/controller/test_steam_deck_input.py`; cover the table entry, the mode validation and `axis_actions()` in `tests/gui/controller/test_accessory_bindings.py`.

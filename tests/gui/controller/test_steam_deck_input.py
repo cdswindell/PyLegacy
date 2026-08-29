@@ -3778,6 +3778,37 @@ def test_a_held_stick_toggles_the_accessory_once_and_re_arms_only_near_center() 
     assert focused.acc_calls == [("TOGGLE_DIRECTION", None), ("TOGGLE_DIRECTION", None)]
 
 
+@pytest.mark.parametrize("kind", [PANEL_BPC2, PANEL_ASC2])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(-0.9, [False]), (0.9, [True])],
+)
+def test_the_power_district_stick_selects_off_or_on_by_sign(kind, value, expected) -> None:
+    focused = _acc_gui(kind)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("direction", "focused", value, "changed"))
+
+    assert focused.lcs_calls == expected
+    assert focused.command_calls == []
+
+
+@pytest.mark.parametrize("kind", [PANEL_BPC2, PANEL_ASC2])
+def test_the_power_district_stick_latches_by_physical_axis_and_rearms_after_center(kind) -> None:
+    focused = _acc_gui(kind)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("direction", "focused", 0.9, "changed"))
+    router.handle(DeckAction("direction", "focused", 1.0, "changed"))
+    router.handle(DeckAction("direction", "focused", -0.9, "changed"))
+    assert focused.lcs_calls == [True], "crossing directly to the other side does not re-fire"
+
+    router.handle(DeckAction("direction", "focused", 0.1, "changed"))
+    router.handle(DeckAction("direction", "focused", -0.9, "changed"))
+
+    assert focused.lcs_calls == [True, False]
+
+
 @pytest.mark.parametrize(
     ("name", "button", "command"),
     [
@@ -3962,6 +3993,177 @@ def test_an_asc2_output_is_not_left_on_when_the_pane_changes_scope_under_the_thu
 
     assert focused.momentary_calls == [True, False]
     assert focused.command_calls == [], "and the release did not reach the engine either"
+
+
+@pytest.mark.parametrize("value", [0.9, -0.9])
+def test_the_vertical_stick_energises_the_asc2_output_while_it_is_held(value) -> None:
+    # A momentary output has to stay on for as long as the stick is away from center, and the
+    # sign is not consulted: there is one output, so up and down both energise it.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", value, "changed"))
+    router.handle(DeckAction("throttle", "focused", value, "changed"))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.momentary_calls == [True], "once on the push, not once per poll"
+
+    router.handle(DeckAction("throttle", "focused", 0.0, "changed"))
+
+    assert focused.momentary_calls == [True, False], "recentered, and the output drops"
+    assert focused.speed_calls == [], "no engine speed reached the panel"
+    assert focused.acc_speed_calls == [], "and no accessory speed either"
+
+
+def test_the_asc2_stick_uses_the_same_hysteresis_band_as_the_latch() -> None:
+    # A stick too light to throw a switch is too light to energise an output, and a value
+    # wandering either side of the threshold must not chatter it.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 0.7, "changed"))
+
+    assert focused.momentary_calls == [], "0.7 is under direction_threshold"
+
+    router.handle(DeckAction("throttle", "focused", 0.8, "changed"))
+    router.handle(DeckAction("throttle", "focused", 0.72, "changed"))
+    router.handle(DeckAction("throttle", "focused", 0.8, "changed"))
+
+    assert focused.momentary_calls == [True], "0.72 is inside the band, so it stays on"
+
+    router.handle(DeckAction("throttle", "focused", 0.7, "changed"))
+
+    assert focused.momentary_calls == [True, False], "back inside the band, and it drops once"
+
+
+def test_a_stick_resting_under_the_threshold_energises_nothing() -> None:
+    # A small resting offset must neither switch the output on nor accumulate a hold for a
+    # later recenter to release.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 0.1, "changed"))
+    router.handle(DeckAction("throttle", "focused", 0.0, "changed"))
+
+    assert focused.momentary_calls == []
+
+
+def test_the_asc2_output_stays_on_until_the_last_holder_lets_go() -> None:
+    # FR-3a: the button and the stick drive the same output. Releasing either while the other
+    # is held must not switch it off, and the off belongs to whichever lets go last.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=3))
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 0.0, "released", button=3))
+
+    assert focused.momentary_calls == [True, True], "the stick is still holding it"
+
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+
+    assert focused.momentary_calls == [True, True, False], "and the last holder switched it off"
+
+
+def test_the_asc2_output_survives_the_stick_letting_go_first() -> None:
+    # The other order, which is the one that would kill an output the operator still has a
+    # thumb on the button for.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=3))
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+
+    assert focused.momentary_calls == [True, True], "the button is still holding it"
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 0.0, "released", button=3))
+
+    assert focused.momentary_calls == [True, True, False]
+
+
+def test_a_held_stick_drops_the_asc2_output_even_after_the_pane_changes_scope() -> None:
+    # The release of a stick is a value rather than an event, so it is delivered from the hold
+    # record rather than by resolving the chain again: re-scoped under the thumb, the chain
+    # would say something else entirely and the output would stay energised.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 0.9, "changed"))
+    focused.input_contexts = ()
+    router.handle(DeckAction("throttle", "focused", 0.0, "changed"))
+
+    assert focused.momentary_calls == [True, False]
+
+
+def test_a_pad_that_disconnects_with_the_stick_pushed_over_does_not_leave_the_output_on() -> None:
+    # The one case where no further input arrives to correct the state: clear() has to switch
+    # a held output off rather than merely forget that it held one.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 0.9, "changed"))
+    router.handle(DeckAction("disconnect", "global", 0.0, "disconnected"))
+
+    assert focused.momentary_calls == [True, False]
+
+    router.handle(DeckAction("throttle", "focused", 0.0, "changed"))
+
+    assert focused.momentary_calls == [True, False], "and it is not switched off twice"
+
+
+def test_clear_switches_off_an_output_held_by_two_controls_once() -> None:
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=3))
+    router.handle(DeckAction("throttle", "left", 0.9, "changed"))
+    router.clear()
+
+    assert focused.momentary_calls == [True, True, False]
+
+
+def test_the_vertical_stick_does_nothing_on_a_bare_power_district() -> None:
+    # A power district has no momentary output for a held stick to hold, so the action is
+    # claimed by the acc base and dropped -- not passed to the engine the pane held before.
+    focused = _acc_gui(kind=PANEL_BPC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 0.9, "changed"))
+    router.tick(0.0)
+    router.tick(0.2)
+    router.handle(DeckAction("throttle", "focused", 0.0, "changed"))
+
+    assert focused.momentary_calls == []
+    assert focused.lcs_calls == []
+    assert focused.speed_calls == []
+    assert focused.acc_speed_calls == []
+
+
+def test_a_diagonal_stick_holds_the_asc2_output_and_switches_the_district_at_once() -> None:
+    # Two independent axis actions from one physical stick: neither may consume the other's
+    # hold or latch.
+    focused = _acc_gui(kind=PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction("throttle", "focused", 0.9, "changed"))
+    router.handle(DeckAction("direction", "focused", 0.9, "changed"))
+
+    assert focused.momentary_calls == [True]
+    assert focused.lcs_calls == [True]
+
+    router.handle(DeckAction("throttle", "focused", 0.95, "changed"))
+
+    assert focused.momentary_calls == [True], "the vertical movement did not re-arm anything"
+    assert focused.lcs_calls == [True]
+
+    router.handle(DeckAction("throttle", "focused", 0.0, "changed"))
+    router.handle(DeckAction("direction", "focused", 0.0, "changed"))
+    router.handle(DeckAction("direction", "focused", -0.9, "changed"))
+
+    assert focused.momentary_calls == [True, False]
+    assert focused.lcs_calls == [True, False]
 
 
 @pytest.mark.parametrize("kind", [PANEL_BPC2, PANEL_ASC2])

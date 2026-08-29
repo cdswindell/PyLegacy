@@ -25,6 +25,7 @@ from src.pytrain.gui.controller.accessory_bindings import (
     ACC_CONTEXT,
     ACC_GENERIC_CONTEXT,
     ANALOG_VERBS,
+    AXIS_DIRECTION_NAMES,
     DEFAULT_CONTEXTS,
     KNOWN_VERBS,
     PANEL_ASC2,
@@ -52,6 +53,7 @@ from src.pytrain.gui.controller.accessory_bindings import (
     merge_contexts,
     bound_actions,
     resolve,
+    resolve_axis,
 )
 
 
@@ -379,6 +381,16 @@ def test_an_unknown_action_is_skipped_when_the_caller_says_which_are_known() -> 
     assert "launch_missiles" not in merged["acc_bpc2"].bindings
 
 
+def test_an_unknown_axis_variant_is_skipped_when_the_caller_says_which_are_known() -> None:
+    merged = merge_contexts(
+        {"acc_bpc2": {"bindings": {"direction_sideways": {"verb": "lcs_on"}}}},
+        base=_base(),
+        known_actions={"direction_left", "direction_right"},
+    )
+
+    assert "direction_sideways" not in merged["acc_bpc2"].bindings
+
+
 def test_a_protected_action_cannot_be_rebound_or_swallowed() -> None:
     # HALT has to work whatever is on screen, so no context may claim it -- the same rule
     # _validate_action_target keeps for a HALT that is not global.
@@ -438,6 +450,42 @@ def test_the_generic_stick_toggle_is_latched_and_sign_blind() -> None:
     assert "direction" in axis_actions(DEFAULT_CONTEXTS[ACC_GENERIC_CONTEXT])
 
 
+@pytest.mark.parametrize(
+    ("value", "verb"),
+    [(-1.0, VERB_LCS_OFF), (1.0, VERB_LCS_ON)],
+)
+def test_an_axis_variant_is_resolved_before_the_plain_action(value, verb) -> None:
+    resolution = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "direction", value)
+
+    assert resolution.context.name == ACC_BPC2_CONTEXT
+    assert resolution.dispatch.verb == verb
+
+
+@pytest.mark.parametrize("value", [-1.0, 1.0])
+def test_an_axis_without_variants_falls_back_to_the_plain_action(value) -> None:
+    resolution = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_GENERIC], "direction", value)
+
+    assert resolution.context.name == ACC_GENERIC_CONTEXT
+    assert resolution.dispatch.command == "TOGGLE_DIRECTION"
+
+
+def test_a_one_sided_axis_override_unbinds_only_that_sign() -> None:
+    merged = merge_contexts({ACC_BPC2_CONTEXT: {"bindings": {"direction_right": None}}})
+
+    positive = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "direction", 1.0, merged)
+    negative = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "direction", -1.0, merged)
+
+    assert positive.claimed_only is True
+    assert negative.dispatch.verb == VERB_LCS_OFF
+
+
+def test_axis_variant_names_are_the_sign_pair_for_each_supported_axis() -> None:
+    assert AXIS_DIRECTION_NAMES == {
+        "direction": ("direction_left", "direction_right"),
+        "throttle": ("throttle_down", "throttle_up"),
+    }
+
+
 def test_the_generic_dpad_entries_repeat_while_held() -> None:
     spec = DEFAULT_CONTEXTS[ACC_GENERIC_CONTEXT]
 
@@ -490,11 +538,23 @@ def test_the_power_district_pair_is_reached_from_both_panels(chain, action, verb
     assert resolution.dispatch.verb == verb
 
 
+@pytest.mark.parametrize(
+    ("value", "verb"),
+    [(-1.0, VERB_LCS_OFF), (1.0, VERB_LCS_ON)],
+)
+def test_the_power_district_stick_pair_is_reached_from_both_panels(value, verb) -> None:
+    for panel in (PANEL_BPC2, PANEL_ASC2):
+        resolution = resolve_axis(PANEL_CONTEXT_CHAINS[panel], "direction", value)
+
+        assert resolution.context.name == ACC_BPC2_CONTEXT
+        assert resolution.dispatch.verb == verb
+
+
 def test_the_asc2_context_states_only_its_difference() -> None:
     spec = DEFAULT_CONTEXTS[ACC_ASC2_CONTEXT]
 
     assert spec.inherits == ACC_BPC2_CONTEXT
-    assert set(spec.bindings) == {"sequence_control", "dpad_up"}
+    assert set(spec.bindings) == {"sequence_control", "dpad_up", "throttle"}
 
 
 @pytest.mark.parametrize("action", ["sequence_control", "dpad_up"])
@@ -508,14 +568,93 @@ def test_the_asc2_momentary_entry_carries_both_phases(action) -> None:
 
 
 @pytest.mark.parametrize("panel", [PANEL_BPC2, PANEL_ASC2])
-@pytest.mark.parametrize("action", ["front_coupler", "rear_coupler", "dpad_down", "throttle", "direction"])
+@pytest.mark.parametrize("action", ["front_coupler", "rear_coupler", "dpad_down", "direction"])
 def test_the_generic_aux_bindings_do_not_reach_the_power_district_panels(panel, action) -> None:
-    # Neither context inherits acc_generic: there is no coupler, Brake or speed slider on
-    # these panels, so the action is claimed by the base and sent nowhere.
+    # Neither context inherits acc_generic: there is no coupler, Brake or toggle key on these
+    # panels, so the action is claimed by the base and sent nowhere.
     resolution = resolve(PANEL_CONTEXT_CHAINS[panel], action)
 
     assert resolution.context.name == ACC_CONTEXT
     assert resolution.claimed_only is True
+
+
+def test_the_vertical_stick_holds_the_asc2_output_and_is_sign_blind() -> None:
+    # The plain action rather than the throttle_up / throttle_down pair, so the variant lookup
+    # finds neither and falls back to it: a push either way energises the one output there is.
+    for value in (1.0, -1.0):
+        resolution = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_ASC2], "throttle", value)
+
+        assert resolution.context.name == ACC_ASC2_CONTEXT
+        assert resolution.dispatch.verb == VERB_ASC2_MOMENTARY
+        assert resolution.dispatch.axis_held is True
+        assert resolution.dispatch.both_phases is True
+
+
+def test_the_asc2_stick_is_bound_as_the_plain_action_rather_than_the_sign_pair() -> None:
+    bindings = DEFAULT_CONTEXTS[ACC_ASC2_CONTEXT].bindings
+
+    assert "throttle_up" not in bindings
+    assert "throttle_down" not in bindings
+
+
+def test_the_vertical_stick_stays_unbound_on_a_bare_power_district() -> None:
+    # There is no momentary output on that panel for a held stick to hold, so it is claimed by
+    # the base and dropped rather than reaching an ASC2 entry it does not have.
+    resolution = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "throttle", 1.0)
+
+    assert resolution.context.name == ACC_CONTEXT
+    assert resolution.claimed_only is True
+
+
+def test_a_held_axis_counts_as_an_axis_for_the_derived_name_sets() -> None:
+    # axis_actions feeds the legacy *_AXIS_ACTIONS names the help screen is built from: a mode
+    # it did not know about would leave a stick binding invisible to it.
+    spec = DEFAULT_CONTEXTS[ACC_ASC2_CONTEXT]
+
+    assert spec.bindings["throttle"].is_axis is True
+    assert spec.bindings["sequence_control"].is_axis is False
+    assert axis_actions(spec) == {"throttle"}
+
+
+def test_a_latched_axis_is_still_an_axis() -> None:
+    assert DEFAULT_CONTEXTS[ACC_BPC2_CONTEXT].bindings["direction_right"].is_axis is True
+    assert axis_actions(DEFAULT_CONTEXTS[ACC_BPC2_CONTEXT]) == {"direction_left", "direction_right"}
+
+
+def test_each_default_binding_claims_at_most_one_axis_mode() -> None:
+    # Latched, held and analog are mutually exclusive: the router would have to pick one, and
+    # which it picked would be an accident of the order of its branches.
+    for spec in DEFAULT_CONTEXTS.values():
+        for action, dispatch in spec.bindings.items():
+            if dispatch is None:
+                continue
+            assert dispatch.axis_modes <= 1, f"{spec.name}.{action} claims two axis modes"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {"verb": VERB_ASC2_MOMENTARY, "axis_held": True, "axis_latched": True},
+        {"verb": VERB_ACC_THROTTLE, "axis_held": True},
+        {"verb": VERB_ACC_THROTTLE, "axis_latched": True},
+    ],
+)
+def test_a_binding_claiming_two_axis_modes_is_skipped_rather_than_resolved_arbitrarily(raw) -> None:
+    merged = merge_contexts({ACC_ASC2_CONTEXT: {"bindings": {"throttle": raw}}})
+
+    assert merged[ACC_ASC2_CONTEXT].bindings["throttle"].verb == VERB_ASC2_MOMENTARY
+    assert merged[ACC_ASC2_CONTEXT].bindings["throttle"].axis_held is True
+    assert merged[ACC_ASC2_CONTEXT].bindings["throttle"].axis_latched is False
+
+
+def test_a_profile_may_bind_a_held_axis_of_its_own() -> None:
+    merged = merge_contexts(
+        {ACC_BPC2_CONTEXT: {"bindings": {"throttle": {"verb": VERB_ASC2_MOMENTARY, "axis_held": True}}}}
+    )
+    dispatch = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "throttle", 1.0, merged).dispatch
+
+    assert dispatch.axis_held is True
+    assert dispatch.is_axis is True
 
 
 @pytest.mark.parametrize("context", [ACC_BPC2_CONTEXT, ACC_ASC2_CONTEXT])
