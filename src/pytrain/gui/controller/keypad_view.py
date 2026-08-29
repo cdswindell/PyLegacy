@@ -224,8 +224,8 @@ class KeypadView(Generic[S]):
         cell, btn = host.make_keypad_button(
             keypad_keys,
             SET_KEY,
-            row - 4,
-            3,
+            row - 2,
+            2,
             size=host.s_18,
             visible=False,
             is_ops=True,
