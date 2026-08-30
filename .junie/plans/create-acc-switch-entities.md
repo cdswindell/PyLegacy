@@ -2,268 +2,344 @@
 sessionId: session-260829-224403-1glo
 ---
 
-# Plan: BPC2 gets an "LCS..." key; Sensor Track loses its "Acc" button
+# Plan: Speed up GUI launch by fixing filesystem-walking `find_file`
 
 ## Requirements
 
 ### Overview & Goals
 
-Two small, independent layout tweaks to the accessory keypad in
-`src/pytrain/gui/controller/keypad_view.py`:
+The recent accessory/keypad work made the GUI noticeably slower to launch. Profiling pins the
+regression precisely: `pytrain.utils.path_utils.find_file()` performs a full `os.walk` over `.`
+**and** `../` on every uncached lookup, and `../` includes the whole virtualenv
+(`lib`/site-packages, thousands of files). Measured on this machine:
 
-1. **BPC2 native panel** -- add an `LCS...` key in the first column, directly **below the "7"
-   key** (row 3, column 0). Like the ASC2 `LCS...` key added last turn, it is a **visible
-   no-op** placeholder wired to `KeypadView.on_lcs_noop`; its real behavior is a later turn's
-   work.
-2. **Sensor Track panel** -- **remove** the `Acc...` button (`sensor_track_generic_btn`). It
-   does not fit under the Sequence list. This intentionally leaves the Sensor Track panel with
-   no on-screen route to the generic accessory screen for now; a replacement transition will be
-   designed in a later turn.
+- ~220 ms per lookup that finds a file, ~950 ms per lookup that misses (walks the entire tree).
+- Importing `engine_gui_conf.py` alone costs **~2.4 s**, essentially all of it the 12
+  `find_file(...)` calls in the module-level `ENGINE_TYPE_TO_IMAGE` table.
+- ~48 `find_file` call sites fire across import + GUI build; the Steam Deck builds two
+  `EngineGui` panes, doubling the build-time share.
 
-No new panels, icons, commands, or gamepad bindings are introduced.
+The goal is to cut launch time by making file resolution cheap, without changing which files
+get resolved. Per the confirmed direction, the primary fix is to **index each search root once
+and serve later lookups from that cache, while pruning the virtualenv and build/dot dirs out of
+the walk**. Three smaller startup speedups ride along.
 
 ### Scope
 
 **In Scope**
 
-- A new `LCS...` no-op key on the **BPC2** native panel at row 3, column 0 (below "7").
-- Removal of the `Acc...` `HoldButton` from the Sensor Track panel.
-- Reconciling the headless GUI tests that lock these two layouts.
+- Rework `find_file` (and its sibling `find_dir`) in `src/pytrain/utils/path_utils.py` to walk
+  each search root at most once into a cached filename->paths index, and to skip the
+  virtualenv/site-packages and dot/build directories while walking.
+- Preserve current lookup semantics: same inputs resolve to the same path (including the
+  existing first-match-wins ordering and the `Path`-that-exists short-circuit).
+- Remove the leftover debug `print(f"{source} scaled to ...")` in
+  `GuiZeroBase.get_scaled_image` (`guizero_base.py`).
+- Make module-level `find_file` tables lazy so path resolution moves off the import critical
+  path -- primarily `ENGINE_TYPE_TO_IMAGE` in `engine_gui_conf.py`, plus the other eager
+  module-level `find_file(...)` tables reached during launch.
+- Defer icon decoding for keypad cells that start hidden, so `Image.open`/`resize`/
+  `ImageTk.PhotoImage` runs when a panel is first shown rather than during `build`.
 
 **Out of Scope**
 
-- The ASC2 `LCS...`/`Set` keys (column 3) -- unchanged.
-- The BPC2 `Acc...` toggle (`acc_generic_cell`, row 3 col 2) -- unchanged; BPC2 keeps its way
-  to the generic panel.
-- Defining the eventual behavior of any `LCS...` key (still a no-op).
-- Designing a new Sensor-Track-to-generic-Acc transition (explicitly deferred by the user).
-- Engine / Train / Route / Switch / AMC2 behavior.
+- Any change to the accessory/keypad *features* (BPC2/ASC2/Sensor Track/AMC2 behavior, panel
+  toggles, provisional creation, naming) -- purely a performance pass.
+- Re-architecting the image cache or `guizero`/Tk internals beyond the `print` removal and the
+  lazy-decode deferral.
+- Bundling assets differently or moving image files.
+- Changing CLI `find_file` uses that run outside GUI launch (e.g. `make_gui.py`,
+  `make_service.py`) except as they benefit for free from the faster `find_file`.
 
 ### User Stories
 
-1. As an operator on the BPC2 native panel, I want an `LCS...` key below the "7" key, so the
-   BPC2 panel has the same placeholder entry point that ASC2 already has.
-2. As an operator on the Sensor Track panel, I no longer want a cramped `Acc...` button that
-   does not fit under the Sequence list.
+1. As an operator launching the controller, I want the window to appear quickly, so I am not
+   waiting several seconds of filesystem scanning before I can drive trains.
+2. As a developer, I want file resolution to be O(1) after a one-time index, so adding more
+   bundled images/icons does not keep inflating startup time.
 
-### Functional Requirements
+### Non-Functional Requirements
 
-- **FR-1** The BPC2 native panel shows an `LCS...` key at grid `[0, 3]` (column 0, row 3 --
-  below "7"), labelled `LCS_NOOP_KEY` (`"LCS..."`), wired to `KeypadView.on_lcs_noop`.
-- **FR-2** The new BPC2 key is an ops-mode cell (in `ops_cells`, not `entry_cells`), hidden in
-  entry mode and on every non-BPC2 panel (generic, ASC2, switch, route, engine, train).
-- **FR-3** The ASC2 panel is unchanged: it still shows its own `Set` `[3, 0]` and `LCS...`
-  `[3, 1]` keys in column 3 and does **not** show the new BPC2 first-column key.
-- **FR-4** The Sensor Track panel no longer creates or shows the `Acc...` button; the Sequence
-  list is the panel's only content.
-- **FR-5** Behavior is identical on Portrait and both Steam Deck panes, because the change lives
-  in `KeypadView`, which `SteamDeckGui` hosts unchanged. The empty column reflow continues to
-  work (column 3 still collapses on BPC2, since the new key sits in the already-occupied
-  column 0).
+- **NFR-1 (correctness)** Every `find_file` / `find_dir` input that resolves today resolves to
+  the same path afterward; misses still return `None`. Locked by tests.
+- **NFR-2 (speed)** Total `find_file` cost during a cold launch drops from ~48 full tree walks
+  to at most one walk per distinct search root; the `ENGINE_TYPE_TO_IMAGE` import cost
+  (~2.4 s) is removed from the import path.
+- **NFR-3 (safety)** No behavior change for GUI features; the full `pytest` suite stays green
+  and `ruff format --check` is clean.
+- **NFR-4 (parity)** Identical on Portrait and both Steam Deck panes.
 
 ## Technical Design
 
 ### Current Implementation
 
-**The keypad grid.** `KeypadView.build` (`src/pytrain/gui/controller/keypad_view.py`) lays the
-accessory keys onto a shared 5x5 grid via `host.make_keypad_button(box, label, row, col, ...)`.
-The numeric pad comes from `ENTRY_LAYOUT` (`engine_gui_conf.py:102`):
-
-```
-row 0:  1   2   3
-row 1:  4   5   6
-row 2:  7   8   9
-row 3:  CLR 0   ENT      (CLR/ENT are entry_cells, hidden in ops mode)
-```
-
-So the slot **below "7"** is row 3, column 0 -- the `CLEAR` slot, which is an `entry_cell` and
-is therefore hidden in ops mode, leaving it free on the BPC2 ops panel. (Note: `make_keypad_button`
-takes `(row, col)`, but each cell's `.grid` attribute is stored as `[col, row]` -- the order the
-tests assert.)
-
-**Where the BPC2/ASC2 keys already live** (`build`, ~lines 500-544):
-
-- `acc_generic_cell` -- the `Acc...` toggle -- `make_key(..., ACC_PANEL_KEY, 3, 2)` -> grid
-  `[2, 3]` (below "9", above "Off"); shown on **both** BPC2 and ASC2.
-- `acc_set_cell` -- ASC2 `Set` -- `make_key(..., SET_KEY, 0, 3)` -> grid `[3, 0]`; ASC2 only.
-- `lcs_noop_cell` -- ASC2 `LCS...` -- `make_key(..., LCS_NOOP_KEY, 1, 3)` -> grid `[3, 1]`;
-  ASC2 only; wired to `self.on_lcs_noop`.
-
-**Where they are shown** -- `apply_ops_mode_ui_non_engine`, the `PANEL_BPC2 / PANEL_ASC2` branch
-(~lines 1116-1131):
+**The hot path** -- `src/pytrain/utils/path_utils.py`:
 
 ```python
-elif kind in (PANEL_BPC2, PANEL_ASC2):
-    host.ac_off_cell.show()
-    host.ac_status_cell.show()
-    host.ac_on_cell.show()
-    host.acc_generic_cell.show()
-    if kind == PANEL_ASC2:
-        host.ac_aux1_cell.show()
-        host.acc_set_cell.show()
-        host.lcs_noop_cell.show()
-        if host.accessories.configured_by_tmcc_id(state.tmcc_id):
-            host.ac_op_cell.grid = [3, 2]
-            self.enable_alternate_acc_view(acc_state)
+@lru_cache(maxsize=2048)
+def find_file(target: str | Path, places: Tuple = (".", "../")) -> str | None:
+    name, concrete = _normalize_target(target)
+    if concrete and concrete.is_file():
+        return str(concrete)
+    for d in places:
+        if not os.path.isdir(d):
+            continue
+        for root, _, files in os.walk(d):          # <-- walks the whole tree, every call
+            if root.startswith("./.") or root.startswith("./venv/"):
+                continue
+            root_path = Path(root).resolve()
+            parts = root_path.parts
+            if any(p.startswith(".") or p in EXCLUDE for p in parts):
+                continue
+            for file in files:
+                if file.startswith(".") or file in EXCLUDE:
+                    continue
+                if file == name:
+                    return str(root_path / file)
+    return None
 ```
 
-**The Sensor Track `Acc...` button** -- `build`, ~lines 566-576 -- is a `HoldButton`
-(`host.sensor_track_generic_btn`) parented to `host.sensor_track_box` (the `Sequence` TitleBox),
-aligned to the bottom, wired to `host.on_show_generic_acc_panel`. `host.sensor_track_generic_btn`
-is initialized to `None` in `EngineGui.__init__` (`engine_gui.py:279`). Nothing in the gamepad
-/ accessory-bindings layer references it -- the only readers are `build` and the GUI tests.
+`@lru_cache` only helps *repeat* lookups of the *same* target; each distinct file still walks
+the tree from scratch. The default `places=(".", "../")` means every miss also walks `../`,
+which for a typical install is the environment root containing `bin/` and `lib/pythonX/
+site-packages/` -- tens of thousands of files. `EXCLUDE` already lists `venv`, `.tox`, `.git`,
+etc., but the venv here is not named `venv` (it is the parent env's `lib`), so it is not pruned.
+
+**The import-time amplifier** -- `engine_gui_conf.py:538-551`:
+
+```python
+ENGINE_TYPE_TO_IMAGE = {
+    EngineType.ACELA: find_file("acela.jpg"),
+    ...  # 12 entries, each a full tree walk at import time
+}
+```
+
+`engine_gui_conf` is imported transitively by `guizero_base` -> `accessory_base` -> the whole
+controller stack, so these 12 walks run before the window is built. Import profiling
+(`python -X importtime`) attributes ~2.39 s of *self* time to `engine_gui_conf`.
+
+**Other eager `find_file` tables reached during launch** include
+`accessory_base._common_button_image_paths()` (6 lookups) and the per-cell `find_file(...)`
+calls throughout `KeypadView.build` (each keypad image, including cells that start hidden).
+
+**The leftover debug print** -- `guizero_base.py` `get_scaled_image`:
+
+```python
+print(f"{source} scaled to {scaled_width}x{scaled_height} = {orig_width}x{orig_height}")
+```
+
+Synchronous stdout I/O on the Tk thread, once per scaled image.
+
+**Synchronous decode at build** -- `_build_keypad_button` (`guizero_base.py:675-677`) calls
+`self.get_titled_image(image)` immediately for any button given an `image`, decoding it even
+for cells created `visible=False`.
 
 ### Key Decisions
 
 | Decision | Choice | Rationale |
 | --- | --- | --- |
-| BPC2 `LCS...` -- new cell vs. reuse ASC2's | **New dedicated cell** (`bpc2_lcs_noop_cell` / `bpc2_lcs_noop_btn`) at row 3, col 0 | BPC2 and ASC2 panels are mutually exclusive, but a dedicated cell avoids re-griding `lcs_noop_cell` at runtime and keeps `_reflow_keypad_columns` reading one fixed grid per cell -- mirrors the existing `sw_set_cell` vs `acc_set_cell` split (same `SET_KEY`, two cells) |
-| BPC2 `LCS...` behavior | No-op -> `self.on_lcs_noop` | Matches the ASC2 placeholder; real behavior is a later turn |
-| BPC2 `LCS...` scope | BPC2 only (shown in the `kind == PANEL_BPC2` sub-branch) | User asked for it "on the BPC2 control screen"; ASC2 already has its own in column 3 |
-| Sensor Track `Acc...` | Remove the `HoldButton` from `build`; leave `sensor_track_generic_btn = None` | User says it does not fit; the `None` init already covers every other reader |
-| Column reflow | No change needed | New key sits in column 0 (already occupied by 1/4/7), so BPC2's empty column 3 still collapses |
+| `find_file` strategy | **Index once, then prune** (user-confirmed) | Walk each search root at most once into a cached `{filename: [paths]}` index; serve later lookups from it. Same search semantics, but ~48 walks collapse to one per root. Also prune the virtualenv/site-packages and dot/build dirs so even that one walk is cheap. |
+| Ordering / first-match semantics | Preserve exactly | The index records paths in walk order per search root and per `places` tuple, so "first match wins" is unchanged and existing callers keep resolving to the same file. |
+| `Path`-that-exists short-circuit | Keep as-is | `_normalize_target` still returns early for a concrete existing path before consulting the index. |
+| Cache invalidation | Index is process-lifetime, keyed by resolved search-root set | Bundled assets do not appear/disappear mid-run; `prod_info.py` cache-dir lookups that expect freshness keep passing explicit `places` and can opt out of the index (see Risks). |
+| Lazy `ENGINE_TYPE_TO_IMAGE` | Resolve on first access, not at import | Moves ~2.4 s off the import path; a module-level mapping backed by a cached resolver (dict subclass or `functools.cache` accessor) keeps call sites unchanged. |
+| Deferred icon decode | Decode hidden keypad cells lazily on first `show()` | Avoids decoding icons the entry screen never displays; visible cells still decode during build so the first frame is complete. |
+| `print` removal | Delete outright | Pure debug leftover; no replacement needed (module already uses `log`). |
 
 ### Proposed Changes
 
-**1. `build` -- create the BPC2 `LCS...` cell** (alongside the ASC2 keys, ~line 544):
+**1. `path_utils.py` -- index-and-prune `find_file` / `find_dir`.**
+
+- Add a module-level cache mapping a normalized `places` key -> an index built by walking each
+  root once: `{basename: [full_path, ...]}` in walk order, applying the existing dot/`EXCLUDE`
+  pruning **plus** virtualenv/site-packages pruning (e.g. skip any directory named
+  `site-packages`, `lib`, `bin`, `include`, or matching the active `sys.prefix` /
+  `VIRTUAL_ENV`).
+- `find_file(target, places)` becomes: normalize -> concrete short-circuit -> build/fetch the
+  index for `places` -> return the first indexed path for `basename` (or `None`).
+- `find_dir` gets the analogous directory index.
+- Keep the public signatures and return types identical; keep `@lru_cache` on the thin
+  wrapper (or replace with the index lookup, which is already memoized).
+- Add an internal `reset_index()`/cache-clear used by tests.
+
+**2. `engine_gui_conf.py` -- make `ENGINE_TYPE_TO_IMAGE` lazy.**
+
+- Replace the eager dict literal of `find_file(...)` values with a lazy resolver keyed by
+  `EngineType` (e.g. a small mapping of `EngineType -> filename` plus a cached
+  `image_for_engine_type(t)` accessor, or a `dict`-like that resolves on `__getitem__`).
+- Update the (few) readers of `ENGINE_TYPE_TO_IMAGE` to go through the accessor.
+- Give the same treatment to any other module-level `find_file` table on the launch path
+  (audit `accessory_base._common_button_image_paths`, `engine_gui.py`,
+  `controller_view.py`) -- prefer resolving on first use.
+
+**3. `guizero_base.py` -- remove the debug print; defer hidden-cell decode.**
+
+- Delete the `print(...)` line in `get_scaled_image`.
+- In `_build_keypad_button`, when a button is created `visible=False`, store the image name but
+  skip `get_titled_image(...)`; decode lazily the first time the cell is shown (e.g. a small
+  hook on the cell/`show()` path, or a deferred `after_idle` decode) so the icon is present
+  when the panel first appears. Visible-at-build cells keep decoding eagerly.
+
+### Data Models / Contracts
 
 ```python
 
-# BPC2-only LCS... key: a visible no-op placeholder in the first column, directly below the
+# path_utils.py
 
-# "7" key (row 3, col 0 -- the CLEAR slot, free in ops mode). ASC2 carries its own LCS... in
+def find_file(target: str | Path, places: Tuple = (".", "../")) -> str | None   # unchanged signature
+def find_dir(target: str | Path, places: Tuple = (".", "../")) -> str | None    # unchanged signature
+def _index_for(places: Tuple[str, ...]) -> dict[str, list[str]]                 # new, internal, cached
+def reset_path_index() -> None                                                  # new, test hook
 
-# column 3; BPC2 gets this one instead.
+# engine_gui_conf.py
 
-host.bpc2_lcs_noop_cell, host.bpc2_lcs_noop_btn = make_key(
-    keypad_keys,
-    LCS_NOOP_KEY,
-    3,
-    0,
-    size=host.s_16,
-    visible=False,
-    is_ops=True,
-    hover=True,
-    command=self.on_lcs_noop,
-    args=[],
-)
+def image_for_engine_type(engine_type: EngineType) -> str | None               # lazy resolver (or dict-like)
 ```
 
-**2. `build` -- delete the Sensor Track `Acc...` button** (~lines 566-576): remove the
-`host.sensor_track_generic_btn = HoldButton(...)` block. The `None` initialization in
-`EngineGui.__init__` remains, so `host.sensor_track_generic_btn` stays `None`.
+### Architecture Diagram
 
-**3. `apply_ops_mode_ui_non_engine` -- show it on BPC2 only:**
-
-```python
-elif kind in (PANEL_BPC2, PANEL_ASC2):
-    host.ac_off_cell.show()
-    host.ac_status_cell.show()
-    host.ac_on_cell.show()
-    host.acc_generic_cell.show()
-    if kind == PANEL_BPC2:
-        host.bpc2_lcs_noop_cell.show()
-    if kind == PANEL_ASC2:
-        ...  # unchanged
+```mermaid
+graph TD
+    subgraph Before
+        A1[find_file call #1] --> W1[os.walk . and ../ incl. venv]
+        A2[find_file call #2] --> W2[os.walk . and ../ incl. venv]
+        A3[find_file call N] --> W3[os.walk . and ../ incl. venv]
+    end
+    subgraph After
+        B1[find_file call #1] --> IDX{index for places}
+        B2[find_file call #2] --> IDX
+        B3[find_file call N] --> IDX
+        IDX -->|first call, miss| WALK[walk each root once, prune venv/dot/build]
+        WALK --> IDX
+        IDX --> P[return path]
+    end
+    LAZY[ENGINE_TYPE_TO_IMAGE lazy] -.moves 2.4s off import.-> B1
+    DEFER[hidden keypad cells decode on show] -.less decode at build.-> P
 ```
 
 ### Components / Files
 
 | File | Change |
 | --- | --- |
-| `src/pytrain/gui/controller/keypad_view.py` | Add `bpc2_lcs_noop_cell`/`bpc2_lcs_noop_btn` at `[0, 3]`; show it in the `PANEL_BPC2` sub-branch; remove the `sensor_track_generic_btn` `HoldButton` |
-| `tests/gui/test_keypad_view.py` | Assert the BPC2 `LCS...` key (grid, label, `on_lcs_noop`, BPC2-only visibility); remove/replace the `sensor_track_generic_btn` assertions |
-| `tests/gui/test_gui_deck_parity.py` | Add pane/compact parity for the BPC2 key; drop the `sensor_track_generic_btn` parity assertions |
-| `tests/gui/test_gui_checkpoint.py` | Reconcile only the Sensor Track / BPC2 layout assertions that this change touches |
-| `src/pytrain/gui/controller/engine_gui.py` | Optional: `sensor_track_generic_btn` stays `None` (no code change required) |
-| `src/pytrain/gui/controller/steam_deck_gui.py` | **No change** -- hosts `KeypadView` unchanged |
+| `src/pytrain/utils/path_utils.py` | Index-and-prune `find_file`/`find_dir`; add `_index_for`, venv/site-packages pruning, and a test-only `reset_path_index()` |
+| `src/pytrain/gui/controller/engine_gui_conf.py` | Make `ENGINE_TYPE_TO_IMAGE` lazy via an `image_for_engine_type(...)` accessor |
+| `src/pytrain/gui/guizero_base.py` | Remove the debug `print` in `get_scaled_image`; defer decode for `visible=False` keypad cells in `_build_keypad_button` |
+| `src/pytrain/gui/controller/keypad_view.py` | Adjust to the deferred-decode path if a `show()` hook is needed for hidden image cells |
+| `src/pytrain/gui/accessories/accessory_base.py` | Audit/lazy-ify `_common_button_image_paths()` if it is on the import/launch path |
+| `tests/utils/` (new/updated) | Lock `find_file`/`find_dir` correctness and one-walk behavior |
+| `tests/gui/` | Assert the print is gone and hidden-cell icons still render on first show; keep parity suites green |
 
 ### Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| BPC2 `LCS...` collides with a visible key | Row 3 col 0 is the `CLEAR` (entry) slot, hidden in ops mode; the numeric "7" sits in row 2, so the slot is free on the BPC2 ops panel |
-| Reflow miscounts columns after the new key | The key lands in column 0, already occupied by 1/4/7, so column occupancy is unchanged and BPC2's empty column 3 still collapses (`test_the_bpc2_panel_collapses_its_empty_fourth_column`-style checks stay green) |
-| A stale reference to `sensor_track_generic_btn` crashes at runtime | Only `build` and the GUI tests read it; `EngineGui.__init__` keeps it `None`, so any residual `getattr`/`None` guard remains valid |
-| ASC2 accidentally shows the new key | It is shown only inside the `kind == PANEL_BPC2` guard |
+| Indexed lookups change which path wins vs. today | Build the index in the same walk/prune order as the current loop and return the first match; add tests that resolve a set of known files before/after and compare |
+| Cache-dir lookups (`prod_info.py`) that expect freshly written files miss the index | Those calls pass explicit `places` (cwd + cache dir); keep an opt-out (bypass the process-lifetime index for non-default `places`, or expose `use_index=False`) so newly written cache files are still found |
+| Over-aggressive venv pruning skips a legitimately-bundled file living under a pruned dir name | Prune by resolved path against `sys.prefix`/`VIRTUAL_ENV` and known env subdirs rather than by bare name where feasible; cover with a test that a real bundled asset still resolves |
+| Deferred decode leaves a blank icon on first show | Decode on the cell's first `show()` (or `after_idle` right after) so the icon is present when the panel first renders; test that a hidden->shown cell has its image set |
+| Lazy `ENGINE_TYPE_TO_IMAGE` breaks a caller expecting a plain dict | Provide a dict-like/accessor with the same read API and update the handful of readers |
+| Behavior regressions in accessory features | This is a perf-only pass; rely on the full existing GUI suite (2106 tests) staying green |
 
 ## Testing
 
 ### Validation Approach
 
-Extend the existing headless GUI suites (`tests/gui/test_keypad_view.py`,
-`test_gui_deck_parity.py`, `test_gui_checkpoint.py`), which drive `KeypadView` against
-`SimpleNamespace`/dummy fakes -- each keypad cell exposes `.grid`, `.visible`, `.on_press`, and
-`.text`, so placement, visibility, label, and command are all directly observable. All scenarios
-below are agent-checkable; no display or Base 3 is required.
+- **`find_file` correctness & speed** -- headless unit tests in `tests/` that build a temp
+  directory tree, assert `find_file`/`find_dir` return the same paths as a reference walk, and
+  assert the underlying `os.walk` runs **once per search root** across many lookups (e.g. patch
+  `os.walk` with a counting wrapper). Include a miss case and the concrete-`Path` short-circuit.
+- **Import cost** -- a test (or a documented `python -X importtime` check) confirming
+  `engine_gui_conf` no longer resolves image paths at import (e.g. importing it does not call
+  `find_file`; patch/spy `find_file` and assert zero calls at import).
+- **GUI parity** -- the existing headless suites (`test_keypad_view.py`,
+  `test_gui_deck_parity.py`, `test_gui_checkpoint.py`, accessory suites) stay green, proving no
+  feature regression on Portrait or the Steam Deck panes.
 
 ### Key Scenarios
 
-- On a **BPC2** ops panel, `bpc2_lcs_noop_cell.visible is True`, `bpc2_lcs_noop_cell.grid ==
-  [0, 3]`, `bpc2_lcs_noop_btn.text == LCS_NOOP_KEY == "LCS..."`, and
-  `bpc2_lcs_noop_btn.on_press == (view.on_lcs_noop, [])`.
-- The BPC2 `Acc...` toggle (`acc_generic_cell`) is still shown and unchanged.
-- On an **ASC2** ops panel, `bpc2_lcs_noop_cell.visible is False`; the ASC2 `Set` `[3, 0]` and
-  `LCS...` `[3, 1]` keys are shown as before.
-- The Sensor Track panel builds with `sensor_track_generic_btn is None` and
-  `sensor_track_box.children == []` (no appended button).
-- Pressing the new BPC2 `LCS...` key is a harmless no-op (callable, raises nothing).
+- Resolving the 12 `ENGINE_TYPE_TO_IMAGE` files, the 6 common button images, and a handful of
+  keypad icons yields the same paths as before, with a single walk per root.
+- A missing filename returns `None` (and does not trigger a second full walk on the next miss).
+- `get_scaled_image` produces the same `PhotoImage` with no stdout output.
+- A keypad cell created hidden has no decoded image until first shown; after `show()` its image
+  is set and correct (visible-at-build cells are unaffected).
 
 ### Edge Cases
 
-- `bpc2_lcs_noop_cell` is in `ops_cells`, not `entry_cells`, and is hidden after
-  `entry_mode(...)` and on generic / switch / route / engine panels.
-- Column reflow: on BPC2 the new key keeps column 0 occupied (already true) and column 3 still
-  collapses to `_COLLAPSED`.
-- Compact (`_compact=True`) / pane-hosted construction places and shows the BPC2 key
-  identically (Steam Deck parity).
+- Non-default `places` (e.g. cache-dir lookups in `prod_info.py`) still find freshly written
+  files -- covered by the index opt-out.
+- A file that exists in more than one search root resolves to the same one as today
+  (first-match order preserved).
+- Compact (`_compact=True`) / pane-hosted construction: deferred decode and parity hold.
+- Running from a project checkout vs. an installed package (different `.`/`../` layouts) both
+  resolve bundled assets.
 
 ### Test Changes
 
-- **Add** BPC2 `LCS...` coverage in `test_keypad_view.py` (grid, label, command, BPC2-only
-  visibility, ops-not-entry, no-op press) and `test_gui_deck_parity.py` (pane/compact parity).
-- **Remove/replace** the `sensor_track_generic_btn` assertions in `test_keypad_view.py`
-  (~line 946), `test_gui_deck_parity.py` (~lines 220-225), and set-up stubs, replacing the
-  "button exists / is wired" checks with a "button is absent (`None`) / box has no children"
-  check.
-- **Reconcile** only the Sensor Track / BPC2 layout assertions in `test_gui_checkpoint.py` that
-  this change touches; leave every other locked assertion intact.
+- **Add** `tests/utils/test_path_utils.py` (or extend existing): correctness parity, single-walk
+  assertion, miss handling, `Path` short-circuit, index reset, non-default `places` opt-out.
+- **Add** an import-cost guard that `find_file` is not called while importing
+  `engine_gui_conf`.
+- **Add/extend** a GUI test that a hidden keypad image cell decodes on first show.
+- **Verify unchanged** the accessory/keypad/parity/checkpoint suites.
 
 ## Delivery Steps
 
-### Stage 1: Add the BPC2 "LCS..." key below the "7" key
+### Stage 1: Index-and-prune `find_file` / `find_dir`
 
-The BPC2 native panel shows a new no-op `LCS...` key in the first column, directly below the
-"7" key, while ASC2 and every other panel are unaffected.
+`find_file` and `find_dir` walk each search root at most once into a cached index and serve all
+later lookups from it, with the virtualenv/site-packages and dot/build dirs pruned, and
+identical resolution results.
 
-- In `KeypadView.build`, create `host.bpc2_lcs_noop_cell` / `host.bpc2_lcs_noop_btn` via
-  `make_key(keypad_keys, LCS_NOOP_KEY, 3, 0, ...)` (grid `[0, 3]`), `is_ops=True`,
-  `visible=False`, wired to `self.on_lcs_noop`.
-- In `apply_ops_mode_ui_non_engine`, add a `if kind == PANEL_BPC2: host.bpc2_lcs_noop_cell.show()`
-  clause inside the `PANEL_BPC2 / PANEL_ASC2` branch, leaving the ASC2 sub-branch untouched.
-- Add tests in `tests/gui/test_keypad_view.py`: BPC2 shows the key at `[0, 3]` with the
-  `LCS...` label and `on_lcs_noop` command; ASC2 and the generic/switch panels do not show it;
-  the key is an ops cell (hidden in entry mode); pressing it is a harmless no-op.
-- Add a compact/pane-hosted parity assertion in `tests/gui/test_gui_deck_parity.py`.
+- In `src/pytrain/utils/path_utils.py`, add `_index_for(places)` that walks each root once into
+  `{basename: [full_path, ...]}` in current walk order, applying the existing dot/`EXCLUDE`
+  pruning plus virtualenv/site-packages pruning (skip dirs matching `sys.prefix`/`VIRTUAL_ENV`
+  and known env subdirs like `site-packages`, `lib`, `bin`, `include`).
+- Rewrite `find_file`/`find_dir` to normalize, honor the concrete-`Path` short-circuit, then
+  return the first indexed match (or `None`), preserving first-match-wins ordering.
+- Provide an index opt-out (or bypass for non-default `places`) so `prod_info.py`'s cache-dir
+  lookups still see freshly written files.
+- Add `reset_path_index()` for tests.
+- Add `tests/utils/test_path_utils.py`: resolution parity against a reference walk, a
+  single-walk assertion via a counting `os.walk` wrapper, miss handling, the `Path`
+  short-circuit, and the non-default-`places` opt-out.
 - Run `../bin/python -m ruff format --check` on the changed files and
-  `../bin/python -m pytest` for the affected GUI suites.
+  `../bin/python -m pytest` for the affected suites.
 
-### Stage 2: Remove the Sensor Track "Acc..." button and finish the regression pass
+### Stage 2: Move image-path resolution off the import path (lazy `ENGINE_TYPE_TO_IMAGE`)
 
-The Sensor Track panel no longer renders the ill-fitting `Acc...` button, and the whole suite
-(including the reconciled checkpoint) is green on Portrait and both Steam Deck panes.
+Importing `engine_gui_conf` no longer resolves any image paths, removing the ~2.4 s of
+import-time `find_file` walks from launch.
 
-- In `KeypadView.build`, delete the `host.sensor_track_generic_btn = HoldButton(...)` block so
-  the Sequence TitleBox holds only the `CheckBoxGroup`; `EngineGui.__init__` keeps
-  `sensor_track_generic_btn = None`.
-- Update/remove the `sensor_track_generic_btn` assertions in `test_keypad_view.py` and
-  `test_gui_deck_parity.py`, asserting instead that the button is absent (`None`) and the box
-  has no appended child.
-- Reconcile only the Sensor Track / BPC2 layout assertions in `test_gui_checkpoint.py`; leave
-  all other locked assertions untouched as proof of no collateral regression.
-- Confirm the empty-column reflow still collapses column 3 on BPC2 with the new key present.
-- Run `../bin/python -m ruff format --check` on all changed Python files, then the full
-  `../bin/python -m pytest`.
+- In `engine_gui_conf.py`, replace the eager `ENGINE_TYPE_TO_IMAGE` dict of `find_file(...)`
+  values with a lazy resolver (`image_for_engine_type(engine_type)` backed by
+  `functools.cache`, or a dict-like that resolves on `__getitem__`) over a plain
+  `EngineType -> filename` mapping.
+- Update the readers of `ENGINE_TYPE_TO_IMAGE` to use the accessor.
+- Audit and lazy-ify other module-level `find_file` tables on the launch path
+  (`accessory_base._common_button_image_paths`, and any in `engine_gui.py` /
+  `controller_view.py`) so resolution happens on first use.
+- Add an import-cost guard test asserting `find_file` is not called while importing
+  `engine_gui_conf`.
+- Run `../bin/python -m ruff format --check` on the changed files and `../bin/python -m pytest`.
+
+### Stage 3: Trim synchronous startup work in `guizero_base` and finish the pass
+
+The leftover debug print is gone and hidden keypad icons decode lazily on first show, further
+shrinking the work done before the first frame; the full suite is green on Portrait and both
+Steam Deck panes.
+
+- In `guizero_base.py`, delete the `print(f"{source} scaled to ...")` line in
+  `get_scaled_image`.
+- In `_build_keypad_button`, for `visible=False` image cells, store the image name and skip the
+  eager `get_titled_image(...)`; decode on the cell's first `show()` (or an `after_idle`
+  immediately after) so the icon is present when the panel first renders. Keep visible-at-build
+  cells decoding eagerly; wire any needed `show()` hook in `keypad_view.py`.
+- Add a GUI test that a hidden keypad image cell has no decoded image until shown, then has the
+  correct image after `show()`; assert `get_scaled_image` emits no stdout.
+- Confirm the accessory/keypad/parity/checkpoint suites are unchanged.
+- Run `../bin/python -m ruff format --check` on all changed Python files, fix with
+  `ruff format` if needed, then run the full `../bin/python -m pytest`.
 
 <!-- ============================================================================= -->
 <!-- The content below is stale orchestrator briefing / session history and is NOT -->

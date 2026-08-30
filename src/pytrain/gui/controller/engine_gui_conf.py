@@ -9,6 +9,9 @@
 
 from __future__ import annotations
 
+from functools import cache
+from typing import Iterator, Mapping
+
 from ..components.analog_gauge import AnalogGaugeWidget
 from ...db.accessory_state import AccessoryState
 from ...db.engine_state import TrainState
@@ -535,20 +538,61 @@ KEY_TO_COMMAND = {
     SWITCH_OUT_KEY: CommandReq(TMCC1SwitchCommandEnum.OUT),
     SWITCH_THRU_KEY: CommandReq(TMCC1SwitchCommandEnum.THRU),
 }
-ENGINE_TYPE_TO_IMAGE = {
-    EngineType.ACELA: find_file("acela.jpg"),
-    EngineType.CRANE: find_file("generic_crane_car.jpg"),
-    EngineType.DIESEL: find_file("generic_diesel.jpg"),
-    EngineType.DIESEL_PULLMOR: find_file("generic_diesel.jpg"),
-    EngineType.DIESEL_SWITCHER: find_file("generic_diesel_switcher.jpg"),
-    EngineType.ELECTRIC: find_file("generic_electric.jpg"),
-    EngineType.FREIGHT_SOUNDS: find_file("generic_freight.jpg"),
-    EngineType.PASSENGER_CAR: find_file("generic_passenger_car.jpg"),
-    EngineType.STEAM: find_file("generic_steam.jpg"),
-    EngineType.STEAM_PULLMOR: find_file("generic_steam_santa.jpg"),
-    EngineType.STEAM_SWITCHER: find_file("generic_steam_switcher.jpg"),
-    EngineType.TRANSFORMER: find_file("power_master.jpg"),
+# EngineType -> bundled image filename. Kept as plain data so importing this module costs
+# nothing; the filesystem lookup (find_file) is deferred to first access via
+# image_for_engine_type()/ENGINE_TYPE_TO_IMAGE below. Resolving these eagerly at import time
+# used to walk the tree ~12 times and dominated launch cost.
+ENGINE_TYPE_TO_IMAGE_FILE: dict[EngineType, str] = {
+    EngineType.ACELA: "acela.jpg",
+    EngineType.CRANE: "generic_crane_car.jpg",
+    EngineType.DIESEL: "generic_diesel.jpg",
+    EngineType.DIESEL_PULLMOR: "generic_diesel.jpg",
+    EngineType.DIESEL_SWITCHER: "generic_diesel_switcher.jpg",
+    EngineType.ELECTRIC: "generic_electric.jpg",
+    EngineType.FREIGHT_SOUNDS: "generic_freight.jpg",
+    EngineType.PASSENGER_CAR: "generic_passenger_car.jpg",
+    EngineType.STEAM: "generic_steam.jpg",
+    EngineType.STEAM_PULLMOR: "generic_steam_santa.jpg",
+    EngineType.STEAM_SWITCHER: "generic_steam_switcher.jpg",
+    EngineType.TRANSFORMER: "power_master.jpg",
 }
+
+
+@cache
+def image_for_engine_type(engine_type: EngineType) -> str | None:
+    """Resolve (and cache) the bundled image path for an EngineType on first access.
+
+    Returns None for engine types with no bundled image, mirroring find_file's miss.
+    """
+    filename = ENGINE_TYPE_TO_IMAGE_FILE.get(engine_type)
+    if filename is None:
+        return None
+    return find_file(filename)
+
+
+class _EngineTypeImageMap(Mapping):
+    """Read-only, dict-like view over the EngineType->image mapping that resolves paths lazily.
+
+    Preserves the previous ``ENGINE_TYPE_TO_IMAGE`` read API (``[]``, ``.get()``, iteration,
+    ``len``, ``in``) while deferring every ``find_file`` call until the entry is first read.
+    """
+
+    def __getitem__(self, key: EngineType) -> str | None:
+        if key not in ENGINE_TYPE_TO_IMAGE_FILE:
+            raise KeyError(key)
+        return image_for_engine_type(key)
+
+    def __iter__(self) -> Iterator[EngineType]:
+        return iter(ENGINE_TYPE_TO_IMAGE_FILE)
+
+    def __len__(self) -> int:
+        return len(ENGINE_TYPE_TO_IMAGE_FILE)
+
+    def __contains__(self, key: object) -> bool:
+        return key in ENGINE_TYPE_TO_IMAGE_FILE
+
+
+ENGINE_TYPE_TO_IMAGE: Mapping[EngineType, str | None] = _EngineTypeImageMap()
 SCOPE_TO_SET_ENUM: dict[CommandScope, CommandDefEnum] = {
     CommandScope.ENGINE: TMCC1EngineCommandEnum.SET_ADDRESS,
     CommandScope.SWITCH: TMCC1SwitchCommandEnum.SET_ADDRESS,

@@ -369,3 +369,184 @@ def test_get_image_separates_entries_that_differ_only_by_flag(tmp_path, monkeypa
     assert isinstance(pair, tuple) and len(pair) == 2
 
     gui.close()
+
+
+def test_get_scaled_image_emits_no_stdout(capsys, monkeypatch) -> None:
+    # The debug ``print`` in get_scaled_image was synchronous stdout I/O on the Tk thread, once per
+    # scaled image. It has been removed; scaling must now be silent.
+    monkeypatch.setattr(mod.ImageTk, "PhotoImage", lambda img: object())
+    gui = DummyGui()
+    source = BytesIO()
+    Image.new("RGB", (20, 10), "white").save(source, format="PNG")
+
+    gui.get_scaled_image(source)
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+    gui.close()
+
+
+class _FakeTk:
+    """Minimal stand-in for a guizero widget's ``.tk`` handle used by _build_keypad_button."""
+
+    def configure(self, *_args, **_kwargs) -> None:
+        return
+
+    config = configure
+
+    def pack_propagate(self, *_args, **_kwargs) -> None:
+        return
+
+    def grid_rowconfigure(self, *_args, **_kwargs) -> None:
+        return
+
+    def grid_columnconfigure(self, *_args, **_kwargs) -> None:
+        return
+
+    def place_configure(self, *_args, **_kwargs) -> None:
+        return
+
+
+class _FakeCell:
+    """A guizero Box double that records show()/hide() and emulates the visible setter."""
+
+    def __init__(self, *_args, **kwargs) -> None:
+        self.tk = _FakeTk()
+        self._visible = bool(kwargs.get("visible", True))
+        self.show_calls = 0
+        self.hide_calls = 0
+
+    @property
+    def visible(self) -> bool:
+        return self._visible
+
+    @visible.setter
+    def visible(self, value: bool) -> None:
+        # guizero routes ``visible = ...`` through show()/hide(); mirror that so the deferred
+        # decode wrapper (which shadows ``show``) fires whichever way a cell is revealed.
+        if value:
+            self.show()
+        else:
+            self.hide()
+
+    def show(self) -> None:
+        self._visible = True
+        self.show_calls += 1
+
+    def hide(self) -> None:
+        self._visible = False
+        self.hide_calls += 1
+
+
+class _FakeButton:
+    """A HoldButton double exposing the ``image`` / ``images`` attributes the build path sets."""
+
+    def __init__(self, *_args, **kwargs) -> None:
+        self.tk = _FakeTk()
+        self.image = None
+        self.images = None
+        self.on_press = kwargs.get("on_press")
+        self.on_repeat = None
+
+
+def _spy_titled_image(gui, monkeypatch) -> list[str]:
+    decoded: list[str] = []
+
+    def fake_titled(path):
+        decoded.append(path)
+        return (f"normal::{path}", f"inverted::{path}")
+
+    monkeypatch.setattr(gui, "get_titled_image", fake_titled)
+    return decoded
+
+
+def test_hidden_keypad_image_cell_defers_decode_until_first_shown(monkeypatch) -> None:
+    gui = DummyGui()
+    monkeypatch.setattr(mod, "Box", _FakeCell)
+    monkeypatch.setattr(mod, "HoldButton", _FakeButton)
+    decoded = _spy_titled_image(gui, monkeypatch)
+
+    keypad_box = _FakeCell()
+    cell, nb = gui._build_keypad_button(
+        keypad_box=keypad_box,
+        label=None,
+        row=0,
+        col=0,
+        size=0,
+        image="boost.jpg",
+        visible=False,
+        command=None,
+    )
+
+    # Building a hidden image cell must not decode anything; the button carries the image name
+    # but no rendered image yet.
+    assert decoded == []
+    assert nb.image == "boost.jpg"
+    assert nb.images is None
+    assert cell.visible is False
+
+    # The first show decodes exactly once and installs the correct image.
+    cell.show()
+    assert decoded == ["boost.jpg"]
+    assert nb.images == ("normal::boost.jpg", "inverted::boost.jpg")
+    assert cell.visible is True
+
+    # Later shows never decode again.
+    cell.show()
+    assert decoded == ["boost.jpg"]
+
+    gui.close()
+
+
+def test_hidden_keypad_image_cell_decodes_when_revealed_via_visible_setter(monkeypatch) -> None:
+    gui = DummyGui()
+    monkeypatch.setattr(mod, "Box", _FakeCell)
+    monkeypatch.setattr(mod, "HoldButton", _FakeButton)
+    decoded = _spy_titled_image(gui, monkeypatch)
+
+    cell, nb = gui._build_keypad_button(
+        keypad_box=_FakeCell(),
+        label=None,
+        row=0,
+        col=0,
+        size=0,
+        image="brake.jpg",
+        visible=False,
+        command=None,
+    )
+    assert decoded == []
+    assert nb.images is None
+
+    # Revealing through ``cell.visible = True`` (guizero calls show()) also triggers the decode.
+    cell.visible = True
+    assert decoded == ["brake.jpg"]
+    assert nb.images == ("normal::brake.jpg", "inverted::brake.jpg")
+
+    gui.close()
+
+
+def test_visible_keypad_image_cell_decodes_during_build(monkeypatch) -> None:
+    gui = DummyGui()
+    monkeypatch.setattr(mod, "Box", _FakeCell)
+    monkeypatch.setattr(mod, "HoldButton", _FakeButton)
+    decoded = _spy_titled_image(gui, monkeypatch)
+
+    _cell, nb = gui._build_keypad_button(
+        keypad_box=_FakeCell(),
+        label=None,
+        row=0,
+        col=0,
+        size=0,
+        image="front-coupler.jpg",
+        visible=True,
+        command=None,
+    )
+
+    # A visible-at-build image cell keeps decoding eagerly so its first render is unchanged.
+    assert decoded == ["front-coupler.jpg"]
+    assert nb.image == "front-coupler.jpg"
+    assert nb.images == ("normal::front-coupler.jpg", "inverted::front-coupler.jpg")
+
+    gui.close()

@@ -674,7 +674,14 @@ class GuiZeroBase(Thread, ABC):
             # ------------------------------------------------------------
             if image:
                 nb.image = image
-                nb.images = self.get_titled_image(image)
+                if visible:
+                    nb.images = self.get_titled_image(image)
+                else:
+                    # Defer the (expensive) Image.open/resize/ImageTk.PhotoImage work for cells
+                    # that start hidden until the panel that owns them is first shown. Many keypad
+                    # cells are created visible=False and never appear on the entry screen, so
+                    # decoding them all during build needlessly inflates launch time.
+                    self._defer_titled_image_decode(cell, nb, image)
             else:
                 # Make tk.Button fill the entire cell and draw full border
                 # only do this for text buttons
@@ -704,6 +711,31 @@ class GuiZeroBase(Thread, ABC):
         if hasattr(cell, "visible"):
             cell.visible = visible
         return cell, nb
+
+    def _defer_titled_image_decode(self, cell, button, image: str) -> None:
+        """Decode a hidden keypad button's image lazily, on the cell's first show.
+
+        Wraps ``cell.show`` so the expensive ``get_titled_image`` work (Image.open / resize /
+        ImageTk.PhotoImage) runs only when the panel that owns the cell is first displayed,
+        rather than during ``build``. The wrapper restores the original ``show`` after decoding
+        once, so it never repeats. Both ``cell.show()`` and setting ``cell.visible = True`` route
+        through the wrapper because guizero's ``visible`` setter calls ``self.show()``.
+
+        If the cell exposes no callable ``show`` (e.g. a stripped-down test double), the image is
+        decoded eagerly here so the icon is never missing.
+        """
+        original_show = getattr(cell, "show", None)
+        if not callable(original_show):
+            button.images = self.get_titled_image(image)
+            return
+
+        def show_and_decode(*args, **kwargs):
+            # Only intercept the first show; restore the real method for every later call.
+            cell.show = original_show
+            button.images = self.get_titled_image(button.image)
+            return original_show(*args, **kwargs)
+
+        cell.show = show_and_decode
 
     @staticmethod
     def do_tmcc_request(command: E, address: int = None, data: int = None, scope: CommandScope = None) -> None:
@@ -766,7 +798,6 @@ class GuiZeroBase(Thread, ABC):
         scaled_width, scaled_height = self._calc_scaled_image_size(
             orig_width, orig_height, preserve_height, force_lionel
         )
-        print(f"{source} scaled to {scaled_width}x{scaled_height} = {orig_width}x{orig_height}")
         img = ImageTk.PhotoImage(pil_img.resize((scaled_width, scaled_height)))
         return img
 

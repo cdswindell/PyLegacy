@@ -6,6 +6,7 @@ import pytest
 
 import src.pytrain.gui.controller.image_presenter as mod
 from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.utils import path_utils
 
 
 # noinspection PyUnusedLocal
@@ -87,6 +88,27 @@ def _build_host(scope: CommandScope, ids: dict[CommandScope, int], image_cache: 
         get_accessory_view=lambda *_args, **_kwargs: None,
         _image_presenter=None,
     )
+
+
+def test_clear_caches_clears_image_and_path_indexes() -> None:
+    path_utils.reset_path_index()
+    path_utils._INDEX_CACHE[(path_utils.DEFAULT_PLACES, False)] = {"cached": []}
+    host = SimpleNamespace(
+        _image_cache={"cached": object()},
+        reset_prod_info_cache=lambda: None,
+        locked=lambda: _NullContext(),
+    )
+    presenter = mod.ImagePresenter.__new__(mod.ImagePresenter)
+    presenter._host = host
+    presenter._checked_for_custom_images = {1}
+    presenter._pending_custom_images = {2}
+
+    presenter.clear_caches()
+
+    assert host._image_cache == {}
+    assert presenter._checked_for_custom_images == set()
+    assert presenter._pending_custom_images == set()
+    assert path_utils._INDEX_CACHE == {}
 
 
 def test_update_ignores_stale_engine_callback_for_other_scope(monkeypatch: pytest.MonkeyPatch) -> None:

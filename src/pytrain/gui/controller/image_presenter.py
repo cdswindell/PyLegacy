@@ -25,7 +25,7 @@ from ...db.engine_state import EngineState
 from ...db.prod_info import ENGINE_IMAGES_CACHE_DIR, ProdInfo
 from ...protocol.constants import CommandScope, EngineType
 from ...utils.image_utils import center_text_on_image
-from ...utils.path_utils import find_file
+from ...utils.path_utils import find_file, reset_path_index
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -66,8 +66,8 @@ class ImagePresenter:
             host._image_cache.clear()
             self._checked_for_custom_images.clear()
             self._pending_custom_images.clear()
-            # force the file cache to clear as well
-            find_file.cache_clear()
+            # force the file index to clear as well
+            reset_path_index()
             log.debug("Image caches cleared")
 
     def calc_box_size(self) -> tuple[int, int]:

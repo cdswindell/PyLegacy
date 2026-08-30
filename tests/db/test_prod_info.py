@@ -4,6 +4,7 @@ import pytest
 import requests
 
 from src.pytrain.db import prod_info as mod
+from src.pytrain.utils.path_utils import reset_path_index
 
 
 class DummyResponse:
@@ -66,7 +67,7 @@ def _prod_info(image_url: str = "https://example.invalid/resources/images/engine
 def setup_function() -> None:
     mod.ProdInfo._bt_cache.clear()
     mod.ProdInfo._failed_bt_cache.clear()
-    mod.find_file.cache_clear()
+    reset_path_index()
 
 
 def test_get_info_uses_configured_timeouts(monkeypatch) -> None:
