@@ -96,6 +96,11 @@ TURN_OFF_IMAGE = "off_button.jpg"
 BULB_OFF_IMAGE = "bulb-power-off.png"
 BULB_ON_IMAGE = "bulb-power-on.png"
 OP_ACC_IMAGE = "op-acc.jpg"
+# The generic-panel return control's purpose-drawn icons (see engine_gui_conf); preloaded here
+# with every other button image so the first toggle does not stall on disk.
+BPC2_OP_IMAGE = "op-bpc2.jpg"
+ASC2_OP_IMAGE = "op-asc2.jpg"
+OP_SCREEN_IMAGE = "op-screen.jpg"
 
 
 @lru_cache(maxsize=1)
@@ -106,6 +111,9 @@ def _common_button_image_paths() -> dict[str, str | None]:
         BULB_ON_IMAGE: find_file(BULB_ON_IMAGE),
         BULB_OFF_IMAGE: find_file(BULB_OFF_IMAGE),
         OP_ACC_IMAGE: find_file(OP_ACC_IMAGE),
+        BPC2_OP_IMAGE: find_file(BPC2_OP_IMAGE),
+        ASC2_OP_IMAGE: find_file(ASC2_OP_IMAGE),
+        OP_SCREEN_IMAGE: find_file(OP_SCREEN_IMAGE),
     }
 
 

@@ -558,7 +558,8 @@ def test_each_lcs_panel_carries_a_key_to_the_generic_panel() -> None:
     _ops(host, view, DummyAccessoryState(is_asc2=True))
 
     assert host.acc_generic_cell.visible is True
-    assert host.acc_generic_cell.grid == [3, 2], "the slot column 3 left free"
+    # The Acc... toggle sits below "9" (row 3) and above "Off" (row 4) in the numeric column.
+    assert host.acc_generic_cell.grid == [2, 3]
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
     assert host.ac_op_cell.visible is False, "and the one free key is disabled without a configured accessory"
     assert host.ac_op_btn.enabled is False
@@ -610,10 +611,18 @@ def test_generic_accessory_ops_mode_expands_the_fourth_column() -> None:
     assert host.keypad_keys.tk._column_config[3] == _OCCUPIED_COL
 
 
-@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2"])
-def test_the_lcs_panels_expand_the_fourth_column(flag: str) -> None:
+def test_the_bpc2_panel_collapses_the_fourth_column() -> None:
+    # BPC2 carries the Acc... toggle in the numeric column now, so its 4th column is empty.
     host, view = _built()
-    _ops(host, view, DummyAccessoryState(**{flag: True}))
+    _ops(host, view, DummyAccessoryState(is_bpc2=True))
+
+    assert host.keypad_keys.tk._column_config[3] == _COLLAPSED_COL
+
+
+def test_the_asc2_panel_expands_the_fourth_column() -> None:
+    # ASC2 stacks its Set and LCS... keys in the 4th column.
+    host, view = _built()
+    _ops(host, view, DummyAccessoryState(is_asc2=True))
 
     assert host.keypad_keys.tk._column_config[3] == _OCCUPIED_COL
 
@@ -685,7 +694,7 @@ def test_a_configured_accessory_on_an_asc2_panel_moves_the_overlay_key() -> None
 
     _ops(host, view, DummyAccessoryState(is_asc2=True))
 
-    assert host.ac_op_cell.grid == [2, 3]
+    assert host.ac_op_cell.grid == [3, 2]
     assert host.ac_op_cell.visible is True
 
 

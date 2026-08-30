@@ -187,9 +187,14 @@ def test_every_new_cell_lands_in_the_same_slot_on_the_pane_as_in_portrait(compac
 
     assert host.sw_set_cell.grid == [3, 0]
     assert host.info_cell.grid == [3, 2]
-    assert host.acc_generic_cell.grid == [3, 2]
+    # Acc... now sits below "9" in the numeric column; the ASC2 Set/LCS keys stack in column 3.
+    assert host.acc_generic_cell.grid == [2, 3]
+    assert host.acc_set_cell.grid == [3, 0]
+    assert host.lcs_noop_cell.grid == [3, 1]
     assert host.info_btn.on_press == (host.on_info, [])
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
+    assert host.lcs_noop_btn.on_press == (_view.on_lcs_noop, [])
+    assert host.acc_set_btn.on_press[0] == _view.on_acc_set_key
     assert host.sw_set_btn.on_press[0] == _view.on_switch_set_key
 
 
@@ -254,17 +259,21 @@ def test_the_configured_overlay_key_is_sized_from_the_pane_button_size(compact: 
 
 
 @pytest.mark.parametrize("compact", [True, False])
-def test_the_way_back_from_a_forced_generic_panel_needs_no_image_at_all(compact: bool) -> None:
-    # The other meaning of the same key, and the one with no geometry to get wrong: a label.
+def test_the_way_back_from_a_forced_generic_panel_wears_the_device_icon(compact: bool) -> None:
+    # The other meaning of the same key: it returns to the native BPC2 panel and now wears the
+    # BPC2 device icon, asked for at the pane's own button size.
     state = _flagged(is_bpc2=True)
+    sizes: list[int] = []
     host, view = _built(compact, state=state)
-    host.get_image = lambda *_a, **_k: pytest.fail("the return key paints no image")
+    host.get_image = lambda image, size=None: sizes.append(size) or image
     view.set_panel_kind_override("generic")
 
     _ops(host, view, state)
 
     assert view.accessory_panel_kind == "generic", "and the pad reads the same property"
     assert host.ac_op_btn.on_press == (host.on_show_native_acc_panel, [])
+    assert host.ac_op_btn.image == kv_mod.BPC2_OP_IMAGE
+    assert sizes == [host.button_size]
     assert host.info_cell.visible is True
 
 
@@ -310,10 +319,17 @@ def test_generic_accessory_ops_expands_both_extra_columns_on_the_pane(compact: b
 
 
 @pytest.mark.parametrize("compact", [True, False])
-@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2"])
-def test_the_lcs_panels_expand_the_fourth_column_on_the_pane(compact: bool, flag: str) -> None:
+def test_the_bpc2_panel_collapses_the_fourth_column_on_the_pane(compact: bool) -> None:
     host, view = _built(compact)
-    _ops(host, view, _flagged(**{flag: True}))
+    _ops(host, view, _flagged(is_bpc2=True))
+
+    assert host.keypad_keys.tk._column_config[3] == {"weight": 0, "minsize": 0}
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_the_asc2_panel_expands_the_fourth_column_on_the_pane(compact: bool) -> None:
+    host, view = _built(compact)
+    _ops(host, view, _flagged(is_asc2=True))
 
     assert host.keypad_keys.tk._column_config[3] == {"weight": 1, "minsize": _cell_width(host)}
 

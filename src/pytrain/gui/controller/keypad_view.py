@@ -26,8 +26,10 @@ from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
     ACC_PANEL_KEY,
+    ASC2_OP_IMAGE,
     AUX1_KEY,
     AUX2_KEY,
+    BPC2_OP_IMAGE,
     CLEAR_KEY,
     CREATABLE_SCOPES,
     ENGINE_OFF_KEY,
@@ -35,7 +37,9 @@ from .engine_gui_conf import (
     ENTRY_LAYOUT,
     FIRE_ROUTE_KEY,
     INFO_KEY,
+    LCS_NOOP_KEY,
     LCS_PANEL_KEY,
+    OP_SCREEN_IMAGE,
     SENSOR_TRACK_OPTS,
     SET_KEY,
     SWITCH_OUT_KEY,
@@ -58,6 +62,14 @@ log = logging.getLogger(__name__)
 ACCESSORY_THROTTLE_MIN = -5
 ACCESSORY_THROTTLE_MAX = 5
 ACCESSORY_THROTTLE_REPEAT_MS = 200
+
+# Which purpose-drawn device icon the shared return key wears when it points back to a given
+# native LCS panel. Kinds with no icon (a forced-generic Sensor Track or AMC2) fall back to the
+# LCS_PANEL_KEY text label.
+NATIVE_PANEL_RETURN_ICON = {
+    PANEL_BPC2: BPC2_OP_IMAGE,
+    PANEL_ASC2: ASC2_OP_IMAGE,
+}
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -485,18 +497,49 @@ class KeypadView(Generic[S]):
             args=[],
         )
 
-        # Panel toggle key shown on the BPC2/ASC2 panels, where column 3 is otherwise free.
-        # Takes the display to the generic accessory panel -- the only one with Set Address.
+        # Panel toggle key shown on the BPC2/ASC2 panels. It sits below the "9" key and above
+        # the "Off" key (row 3, column 2), so the numeric-pad column carries it rather than the
+        # 4th column -- which lets BPC2 collapse its empty 4th column under the reflow. Takes the
+        # display to the generic accessory panel -- the only one with Set Address.
         host.acc_generic_cell, host.acc_generic_btn = make_key(
             keypad_keys,
             ACC_PANEL_KEY,
-            2,
             3,
+            2,
             size=host.s_16,
             visible=False,
             is_ops=True,
             hover=True,
             command=host.on_show_generic_acc_panel,
+            args=[],
+        )
+
+        # ASC2-only keys, stacked in the free 4th column (column 3). "Set" fires ACC SET_ADDRESS
+        # so the address can be programmed from the native ASC2 panel; "LCS..." is a visible
+        # placeholder whose behavior is specified in a later turn (a no-op for now).
+        host.acc_set_cell, host.acc_set_btn = make_key(
+            keypad_keys,
+            SET_KEY,
+            0,
+            3,
+            size=host.s_16,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.acc_set_btn.on_press = (self.on_acc_set_key, [])
+
+        host.lcs_noop_cell, host.lcs_noop_btn = make_key(
+            keypad_keys,
+            LCS_NOOP_KEY,
+            1,
+            3,
+            size=host.s_16,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=self.on_lcs_noop,
             args=[],
         )
 
@@ -786,6 +829,15 @@ class KeypadView(Generic[S]):
         host = self._host
         host.on_set_key(CommandScope.SWITCH, host.scope_tmcc_id(CommandScope.SWITCH))
 
+    def on_acc_set_key(self) -> None:
+        """Fires ACC SET_ADDRESS for the accessory shown on the native ASC2 panel."""
+        host = self._host
+        host.on_set_key(CommandScope.ACC, host.scope_tmcc_id(CommandScope.ACC))
+
+    def on_lcs_noop(self, _key: str | None = None) -> None:
+        """Placeholder for the native-panel LCS... key; its behavior is a later turn's work."""
+        log.debug("LCS... key pressed; no behavior wired yet")
+
     @staticmethod
     def _can_create(scope: CommandScope, tmcc_id: int) -> bool:
         """
@@ -1068,8 +1120,14 @@ class KeypadView(Generic[S]):
                     host.acc_generic_cell.show()
                     if kind == PANEL_ASC2:
                         host.ac_aux1_cell.show()
+                        # The native ASC2 panel carries its own Set (ACC SET_ADDRESS) and the
+                        # placeholder LCS... key in the 4th column; BPC2 gets neither.
+                        host.acc_set_cell.show()
+                        host.lcs_noop_cell.show()
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
-                            host.ac_op_cell.grid = [2, 3]
+                            # acc_generic now holds [2, 3] (below "9"); the configured-accessory
+                            # key drops into the free 4th-column slot below the LCS... key.
+                            host.ac_op_cell.grid = [3, 2]
                             self.enable_alternate_acc_view(acc_state)
                 elif kind == PANEL_GENERIC:
                     for cell in host.aux_cells:
@@ -1113,17 +1171,41 @@ class KeypadView(Generic[S]):
     def enable_alternate_acc_view(self, state: S) -> None:
         """Points ``ac_op_btn`` at the other view of this component and shows it."""
         if self._alternate_acc_view_kind(state) == "native":
-            self.enable_native_acc_view()
+            self.enable_native_acc_view(self._native_panel_kind_for(state))
         else:
             self.enable_acc_view(state)
 
-    def enable_native_acc_view(self) -> None:
-        """Turns ``ac_op_btn`` into the way back from a forced generic panel to the LCS one."""
+    def enable_native_acc_view(self, native_kind: str | None = None) -> None:
+        """Turns ``ac_op_btn`` into the way back from a forced generic panel to the LCS one.
+
+        The key wears the purpose-drawn icon of the device it returns to (BPC2 or ASC2) rather
+        than the old tiny "LCS" text, which rendered inconsistently. Kinds with no icon fall
+        back to that text so the key is never blank.
+        """
         host = self._host
-        host.ac_op_btn.text = LCS_PANEL_KEY
+        image_name = NATIVE_PANEL_RETURN_ICON.get(native_kind)
+        if image_name is not None:
+            self._paint_ac_op_icon(image_name)
+        else:
+            host.ac_op_btn.image = None
+            host.ac_op_btn.text = LCS_PANEL_KEY
         host.ac_op_btn.update_command(host.on_show_native_acc_panel, [])
         host.ac_op_btn.enable()
         host.ac_op_cell.show()
+
+    def _paint_ac_op_icon(self, image_name: str) -> None:
+        """Dresses ``ac_op_btn`` as a centered B&W icon, clearing any prior text label."""
+        host = self._host
+        image = find_file(image_name)
+        host.ac_op_btn.text = ""
+        host.ac_op_btn.image = image
+        host.ac_op_btn.images = host.get_image(image, size=host.button_size)
+        host.ac_op_btn.tk.config(
+            borderwidth=2,
+            compound="center",
+            width=host.button_size,
+            height=host.button_size,
+        )
 
     # noinspection PyTypeChecker
     def enable_acc_view(self, state: S):
@@ -1135,18 +1217,9 @@ class KeypadView(Generic[S]):
         acc = acc[0]
         acc.activate_tmcc_id(state.tmcc_id)
 
-        image = find_file(acc.op_btn_image_path)
-        # the same key may have been carrying the return-to-LCS label a moment ago
-        host.ac_op_btn.text = ""
-        host.ac_op_btn.image = image
-        host.ac_op_btn.images = host.get_image(image, size=host.button_size)
-        host.ac_op_btn.tk.config(
-            borderwidth=2,
-            compound="center",
-            width=host.button_size,
-            height=host.button_size,
-        )
-
+        # The operating-accessory direction wears the generic operating-screen icon rather than
+        # each accessory's own artwork, so the shared key reads consistently in both directions.
+        self._paint_ac_op_icon(OP_SCREEN_IMAGE)
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
         host.ac_op_btn.enable()
         host.ac_op_cell.show()

@@ -326,6 +326,8 @@ def _new_host() -> SimpleNamespace:
     host.scope_tmcc_id = lambda s=None: host._scope_tmcc_ids.get(s or host.scope, 0)
     host.reset_acc_overlay = lambda: None
     host.update_ac_status = lambda _state: None
+    host.get_image_calls = []
+    host.get_image = lambda image, size=None: (host.get_image_calls.append((image, size)), f"img::{image}")[1]
     host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: False)
     host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: None)
     host.acc_overlay = None
@@ -888,8 +890,44 @@ def test_the_lcs_keypad_panels_carry_the_key_to_the_generic_panel(flag: str) -> 
     host, _view = _ops(state=_flagged(**{flag: True}))
 
     assert host.acc_generic_cell.visible is True
-    assert host.acc_generic_cell.grid == [3, 2]
+    # The Acc... toggle sits below "9" (row 3) and above "Off" (row 4) in the numeric column.
+    assert host.acc_generic_cell.grid == [2, 3]
+    assert host.acc_generic_btn.text == mod.ACC_PANEL_KEY == "Acc..."
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
+
+
+def test_only_the_native_asc2_panel_carries_the_set_and_lcs_keys() -> None:
+    # ASC2 gets its own Set (ACC SET_ADDRESS) and the placeholder LCS... key, stacked in the
+    # 4th column; BPC2 gets neither.
+    host, _view = _ops(state=_flagged(is_asc2=True))
+    assert host.acc_set_cell.visible is True
+    assert host.acc_set_cell.grid == [3, 0]
+    assert host.lcs_noop_cell.visible is True
+    assert host.lcs_noop_cell.grid == [3, 1]
+    assert host.lcs_noop_btn.text == mod.LCS_NOOP_KEY == "LCS..."
+
+    host, _view = _ops(state=_flagged(is_bpc2=True))
+    assert host.acc_set_cell.visible is False
+    assert host.lcs_noop_cell.visible is False
+
+
+def test_the_asc2_set_key_fires_acc_set_address() -> None:
+    host, _view = _ops(state=_flagged(is_asc2=True))
+    command, args = host.acc_set_btn.on_press
+
+    command(*args)
+
+    assert host.on_set_key_calls == [(CommandScope.ACC, 19)]
+
+
+def test_the_lcs_noop_key_does_nothing_harmful() -> None:
+    host, view = _ops(state=_flagged(is_asc2=True))
+    command, args = host.lcs_noop_btn.on_press
+
+    # A no-op for now: it must be callable and raise nothing.
+    command(*args)
+
+    assert command == view.on_lcs_noop
 
 
 def test_the_generic_and_switch_panels_do_not_carry_it() -> None:
@@ -1213,12 +1251,22 @@ def test_generic_accessory_ops_expands_the_fourth_and_fifth_columns() -> None:
     assert cfg[4] == _OCCUPIED
 
 
-@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2"])
-def test_the_lcs_panels_expand_the_fourth_column_for_their_toggle(flag: str) -> None:
-    # BPC2 / ASC2 carry the acc-generic toggle in column 3, but no throttle in column 4.
-    host, _view = _ops(state=_flagged(**{flag: True}))
+def test_the_bpc2_panel_collapses_the_fourth_column() -> None:
+    # BPC2 carries the Acc... toggle in the numeric column now, so its 4th column is empty.
+    host, _view = _ops(state=_flagged(is_bpc2=True))
 
     assert host.acc_generic_cell.visible is True
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[3] == _COLLAPSED
+    assert cfg[4] == _COLLAPSED
+
+
+def test_the_asc2_panel_expands_the_fourth_column_for_its_set_and_lcs_keys() -> None:
+    # ASC2 stacks Set and LCS... in column 3, but has no throttle in column 4.
+    host, _view = _ops(state=_flagged(is_asc2=True))
+
+    assert host.acc_set_cell.visible is True
+    assert host.lcs_noop_cell.visible is True
     cfg = host.keypad_keys.tk._column_config
     assert cfg[3] == _OCCUPIED
     assert cfg[4] == _COLLAPSED
