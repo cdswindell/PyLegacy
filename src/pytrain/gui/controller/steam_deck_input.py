@@ -37,6 +37,7 @@ from .accessory_bindings import (
     VERB_LCS_OFF,
     VERB_LCS_ON,
     VERB_ROUTE_FIRE,
+    VERB_SENSOR_TRACK_STEP,
     VERB_SWITCH_OUT,
     VERB_SWITCH_THRU,
     ContextSpec,
@@ -247,6 +248,11 @@ SEQUENCE_CONTROL_DURATION = 3.1
 # quick to control.
 CATALOG_SCROLL_INITIAL_DELAY = 0.5
 CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
+# How still the D-pad has to be before the Sensor Track's Sequence selection is written. The
+# highlight moves on every press and only the write waits, so crossing the ten options costs
+# one command rather than nine. The same 500 ms the catalog scroll waits before it repeats,
+# and for the same reason: it is about as long as a reader pauses between deliberate presses.
+SENSOR_TRACK_COMMIT_DELAY = CATALOG_SCROLL_INITIAL_DELAY
 # Profile ``buttons`` indices are *joystick* numbers (``JOYBUTTONDOWN``/
 # ``event.button``), which is the only button numbering this module reads. SDL's game
 # controller API numbers the same buttons differently (its fixed
@@ -1514,6 +1520,12 @@ class DeckInputRouter:
         # each repeating button keeps its own cadence.
         self._held_commands: dict[int, list] = {}
         self._sequences: dict[Target, int] = {}
+        # How long each pane's Sensor Track Sequence stepping has been still, in seconds. A
+        # target is in here from the press that moved the highlight until the pause elapses
+        # and the write goes out, so nine quick presses across the list cost one command
+        # rather than nine. Only the timing lives here: what is pending is the GUI's, so the
+        # write survives the pane being re-scoped while the pause runs.
+        self._sensor_track_commits: dict[Target, float] = {}
         self._direction_latches: set[Target] = set()
         # ``(target, action)`` pairs whose stick is currently deflected far enough to have
         # acted, one set per context. Keyed by action as well as target because a panel's two
@@ -1700,12 +1712,20 @@ class DeckInputRouter:
             if gui is None:
                 continue
             gui.on_acc_speed_command(self._acc_relative_speed(value))
-        for (target, _name), (repeat_action, dispatch) in tuple(self._context_repeats.items()):
+        for (target, name), (repeat_action, dispatch) in tuple(self._context_repeats.items()):
             # Re-send a repeat-flagged context binding while its control is held: the D-pad's
             # Boost and Brake on an accessory panel, where ``_boosts`` would send at an engine
             # this pane does not have.
             gui = self._target_gui(target)
             if gui is None:
+                continue
+            if self._catalog_has_taken(gui, name):
+                # The catalog opened under a held D-pad. It is opened from Menu, so the key
+                # doing the repeating has no event of its own to notice that with -- the next
+                # word from it is the release -- and the carve-out in ``_handle_contexts``
+                # would not run until then. Asked here as well, the repeat stops the moment
+                # the list comes up rather than when the thumb comes off.
+                self._context_repeats.pop((target, name), None)
                 continue
             self._dispatch(gui, repeat_action, dispatch, pressed=True)
         for target, command in tuple(self._boosts.items()):
@@ -1753,6 +1773,25 @@ class DeckInputRouter:
                 continue
             gui.on_engine_command(command)
             entry[3] = 0.0
+        for target, waited in tuple(self._sensor_track_commits.items()):
+            # Write the Sequence the D-pad settled on, once it has been still for
+            # ``SENSOR_TRACK_COMMIT_DELAY``. Time is accumulated from this tick's elapsed
+            # figure rather than compared against an absolute deadline, the way the held
+            # panel commands above are, so the pause does not depend on the caller's clock
+            # matching any clock read at press time.
+            #
+            # No catalog check, deliberately: a catalog opened during the pause is not a
+            # cancel. The choice was made before the list came up and still goes out at the
+            # id it was made on.
+            waited += elapsed
+            if waited + 1e-9 < SENSOR_TRACK_COMMIT_DELAY:
+                self._sensor_track_commits[target] = waited
+                continue
+            self._sensor_track_commits.pop(target, None)
+            gui = self._target_gui(target)
+            if gui is None:
+                continue
+            gui.on_sensor_track_commit()
         for target, remaining in tuple(self._sequences.items()):
             # Continue the automatic sequence control started by the A button:
             # emit AUX1_OPTION_ONE once per tick (every ``repeat_interval``)
@@ -1778,6 +1817,11 @@ class DeckInputRouter:
         # would otherwise leave an accessory output energised, and this is the one case where
         # no further input arrives to correct it.
         self._release_all_momentary()
+        # Flushed rather than dropped, for the reason the momentary holds above are released:
+        # the operator has already chosen the Sequence and only the pause stands between that
+        # choice and the wire, and this is the one case where no further input arrives to
+        # carry it there.
+        self._flush_sensor_track_commits()
         self._scrolls.clear()
         self._held_commands.clear()
         self._sequences.clear()
@@ -1785,6 +1829,19 @@ class DeckInputRouter:
         for latches in self._context_latches.values():
             latches.clear()
         self._last_tick = None
+
+    def _flush_sensor_track_commits(self) -> None:
+        """Write every Sequence still waiting out its pause, rather than forgetting it.
+
+        What ``clear`` needs on a disconnect. ``on_sensor_track_commit`` is a no-op where the
+        pane has nothing pending, so a target whose write has already gone out is not written
+        twice.
+        """
+        for target in tuple(self._sensor_track_commits):
+            gui = self._target_gui(target)
+            if gui is not None:
+                gui.on_sensor_track_commit()
+        self._sensor_track_commits.clear()
 
     def _handle_repeat_command(self, action: DeckAction) -> None:
         if action.phase != "pressed":
@@ -2051,7 +2108,16 @@ class DeckInputRouter:
         if action.name in AXIS_DIRECTION_NAMES:
             resolution = resolve_axis(chain, action.name, action.value, self.contexts)
         else:
-            resolution = resolve(chain, action.name, self.contexts)
+            # The popup state travels with the question, one of the table's two carve-outs
+            # being conditional on it: X is let go of while a popup is up so that it can close
+            # it, and claimed like any other engine control when there is none. Only a button
+            # action is carved out that way, so the axis path above has no use for it.
+            resolution = resolve(
+                chain,
+                action.name,
+                self.contexts,
+                popup_visible=bool(getattr(gui, "popup_visible", False)),
+            )
         if resolution is None:
             if action.name in AXIS_DIRECTION_NAMES:
                 self._clear_context_latches(action.target, action.name)
@@ -2063,12 +2129,17 @@ class DeckInputRouter:
             # showing: a context that binds it has to let go, or the first half of a chord
             # would work the accessory as well as arming the chord.
             return False
-        if action.name in spec.yields_to_catalog and getattr(gui, "catalog_visible", False):
+        if self._catalog_has_taken(gui, action.name, spec):
             # The catalog is where the thing this pane shows gets picked, and A is how an
             # entry in it is confirmed: a reader looking at that list is re-scoping the pane
             # rather than working what it already holds, so neither face button is claimed
             # while it is up. The triggers and sticks have no job there, so they are not held
             # back.
+            #
+            # Anything the control had left repeating goes with it, the way the release above
+            # drops a held momentary output: a D-pad direction the catalog has taken must not
+            # go on boosting the accessory underneath the list.
+            self._context_repeats.pop((action.target, action.name), None)
             return False
         if dispatch is None and action.name in AXIS_DIRECTION_NAMES:
             self._clear_context_latches(action.target, action.name)
@@ -2121,6 +2192,26 @@ class DeckInputRouter:
         # A release is swallowed rather than ignored: passed on it would clear a throttle or a
         # latch that the press it belongs to never set.
         return True
+
+    def _catalog_has_taken(self, gui, action_name: str, spec: ContextSpec | None = None) -> bool:
+        """Whether an open catalog has this pane's context let go of ``action_name``.
+
+        ``spec`` is the context the action has already resolved to, where the caller has one.
+        ``tick`` has none -- it is re-sending a binding resolved on a press several ticks old
+        -- so the chain is walked again for it. The catalog is asked about first, so that walk
+        happens only while the list is actually up.
+        """
+        if not getattr(gui, "catalog_visible", False):
+            return False
+        if spec is None:
+            chain = self._context_chain(gui)
+            if not chain:
+                return False
+            resolution = resolve(chain, action_name, self.contexts)
+            if resolution is None:
+                return False
+            spec = resolution.context
+        return action_name in spec.yields_to_catalog
 
     def _release_momentary(self, gui, hold: tuple[Target, str]) -> None:
         """Let go of one momentary hold, switching the output off if it was the last.
@@ -2269,6 +2360,17 @@ class DeckInputRouter:
             gui.on_lcs_command(False)
         elif verb == VERB_ASC2_MOMENTARY:
             gui.on_asc2_momentary(pressed)
+        elif verb == VERB_SENSOR_TRACK_STEP:
+            # The one verb whose press sends nothing. The highlight moves now and the write
+            # follows once the D-pad has been still for ``SENSOR_TRACK_COMMIT_DELAY``, so
+            # crossing the ten options costs one command rather than nine.
+            #
+            # The pause is armed only where the highlight actually moved: a press clamped at
+            # either end of the list has nothing to write, and must not re-arm a pause already
+            # running for a move that did. A move that did re-arms it, which is what makes the
+            # write wait for the *last* press rather than the first.
+            if gui.on_sensor_track_step(dispatch.data or 0):
+                self._sensor_track_commits[action.target] = 0.0
         elif verb != VERB_CLAIM:
             # An unknown verb is logged and dropped rather than raised, matching the profile
             # loader's fallback discipline: a bad table entry must not take the gamepad out.

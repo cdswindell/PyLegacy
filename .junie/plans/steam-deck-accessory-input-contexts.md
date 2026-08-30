@@ -18,7 +18,7 @@ Yes — understood. To restate it in my own words so we are aligned before any c
 
 ### Amendments received on this pass
 
-Four, all folded in below.
+Six, all folded in below.
 
 **A-1 — The generic ACC bindings follow the *panel*, not the component.** The hard buttons bind **whenever the generic ACC control panel is displayed, even for an LCS device.** The earlier predicate (`is_lcs_component is False`) was wrong, and the code shows exactly why: `apply_ops_mode_ui_non_engine` (`keypad_view.py:788-830`) branches Sensor Track → AMC2 → BPC2-or-ASC2 → **else**, and that `else` is the generic panel. An **LCS STM2** is `is_lcs_component is True` and matches none of the four, so it lands on the generic panel today — as does any LCS port whose `_control_req` / `_config_req` has not identified it yet. Under the old predicate those ports showed a full set of aux keys on screen and claimed nothing on the pad.
 
@@ -35,7 +35,27 @@ The part of A-3 that is a genuine gap rather than a missing row: **the table can
 
 A-4 answers the vertical half of open question 7 for the ASC2 panel. It stays open for a bare BPC2, where there is no momentary output for a held stick to hold.
 
-One consequence worth stating up front, because it is the one place this could go quietly wrong: on the ASC2 panel **two controls can now hold the same output at once** — A (or D-pad ↑) and the stick. The off must therefore be sent when the *last* holder lets go, not when either does, or letting the stick recenter would kill an output the operator is still holding A down for.
+One consequence of A-4 worth stating up front, because it is the one place this could go quietly wrong: on the ASC2 panel **two controls can now hold the same output at once** — A (or D-pad ↑) and the stick. The off must therefore be sent when the *last* holder lets go, not when either does, or letting the stick recenter would kill an output the operator is still holding A down for.
+
+**A-5 — On a Sensor Track, D-pad ↑ / ↓ move up and down through the Sequence radio buttons.** This is the first binding for a panel the table has been holding a name for: `PANEL_SENSOR_TRACK` already exists in `accessory_bindings.py:260`, and the comment above `PANEL_CONTEXT_CHAINS` says in as many words why it has no chain yet — *"neither panel's controls have been given gamepad bindings, and a chain of nothing but the base would claim every control and send none of them."* A-5 supplies the bindings, so the chain can now be registered.
+
+The panel is a ten-option radio group — `SENSOR_TRACK_OPTS` (`engine_gui_conf.py:466-477`), values 0 through 9, "No Action" through "Recorded Sequence" — built as a `CheckBoxGroup(style="radio")` whose `command=on_sensor_track_change` reads `.value` and sends `IrdaReq(... IRDA_SET, SEQUENCE)`. Three answers you gave shape the binding:
+
+- **Stop at the ends.** ↑ on "No Action" and ↓ on "Recorded Sequence" do nothing and send nothing. No wrap, so a stray press cannot loop the far end of the list back to the near one.
+- **One step per press.** No repeat while held, so no write is ever sent that a finger did not ask for individually.
+- **Send after a pause.** Stepping moves the highlight immediately; the write goes out once the D-pad has been still for a moment. Crossing the list costs one write rather than nine.
+
+That last one is the only piece of new mechanism A-5 needs, and it is KD-11. It is affordable precisely because moving the highlight and sending are *already* separable: `engine_gui.py:1387` assigns `sensor_track_buttons.value` when incoming state arrives and no command is sent, because the radio group's `command` fires on a click rather than on an assignment. The pad reuses that same assignment.
+
+**A-6 — Not requested, but found while specifying A-5: an accessory panel is currently a navigation dead end.** `acc.claims_unbound` swallows *every* action no accessory context binds, and that turns out to include the controls a pane is navigated *with*. Verified against the live router on all three accessory panels:
+
+| Control | Expected | Actual on an accessory panel |
+|---|---|---|
+| Menu (`scope_catalog`) | opens the scope catalog | claimed, nothing happens |
+| X (`CLOSE_POPUP_BUTTON`) | closes an open popup | claimed, popup stays up |
+| D-pad ← with the catalog open | closes the catalog | sends power **off** to the BPC2 |
+
+The first two mean the pad cannot pick a different component once it is on an accessory panel; the third means an open catalog cannot be scrolled or dismissed from a panel whose context binds the D-pad — which today is ASC2 and BPC2, and **which A-5 is about to make true of the Sensor Track panel, where the D-pad is the whole binding.** So this is not a tidy-up alongside A-5; registering the sensor track chain without it would ship a panel that takes the D-pad and cannot be left. It is specified as FR-7 and fixed first.
 
 ### Your requirements, as I now read them
 
@@ -44,6 +64,7 @@ One consequence worth stating up front, because it is the one place this could g
 | Generic ACC panel | the generic ACC panel is the one displayed — **regardless of `is_lcs_component`** | Stick ↕ → Throttle (relative speed); **Stick ↔ → `TOGGLE_DIRECTION`**; L1 → Rear Coupler; R1 → Front Coupler; D-pad ↑/↓ → Boost / Brake |
 | BPC2 panel | `is_power_district` is True | R2, D-pad → and **stick pushed right** → `send_lcs_on_command`; L2, D-pad ← and **stick pushed left** → `send_lcs_off_command` |
 | ASC2 panel | `is_asc2` is True | R2, D-pad → and **stick pushed right** → On; L2, D-pad ← and **stick pushed left** → Off; A, D-pad ↑ and **stick pushed up or down** → `KeypadView.when_pressed` while held, `when_released` on release / recenter |
+| **Sensor Track panel** | `is_sensor_track` is True | **D-pad ↑ / ↓ → move up / down the Sequence radio group; clamped at both ends; one step per press; the write sent once the D-pad has been still** |
 
 Every binding in that table now has an on-screen twin on the panel it belongs to, which is a useful check that the mapping is honest rather than invented.
 
@@ -64,8 +85,9 @@ This is a rename of what the earlier draft called `acc`, not a new mechanism.
 - **Ordered context chain** — a pane reports `("acc_asc2", "acc_bpc2", "acc")` and the most specific entry wins.
 - **Full profile `dpad` section** — the D-pad stops being hard-coded and becomes as bindable as buttons and axes.
 - **Verb-plus-payload entries** — each binding names a dispatch verb and its payload.
-- **AMC2, Sensor Track, operating-accessory overlay and unassigned ports are deferred** to a later pass.
+- **AMC2, operating-accessory overlay and unassigned ports are deferred** to a later pass. **Sensor Track is no longer deferred** — A-5 specifies it.
 - **The generic bindings follow the displayed panel**, so an LCS device on the generic panel is bound like any other accessory.
+- **On a Sensor Track the D-pad steps the Sequence options**, clamped at the ends, one step per press, with the write sent after a pause.
 
 ### Open questions I would like settled in the next pass
 
@@ -81,6 +103,8 @@ These are deliberately *not* resolved in this spec — they are what the next ro
 8. ~~**Should the A-3 stick pair be BPC2-only, or reach ASC2 as well?**~~ **Settled by A-4:** it reaches both, by inheritance.
 9. **`SET_ADDRESS` and `AUX1_OPT_ONE` on the generic panel.** Both are aux keys on the panel that A-1 now binds, and neither has a control assigned. `SET_ADDRESS` in particular is one I would rather leave unbound than put on a button somebody can brush.
 10. **Should a held stick on an ASC2 also drive `AUX1`?** A-4 gives the vertical stick the `CONTROL1` momentary. `AUX1` is the only other key on that panel and is still unbound (question 3), so if you want it on the pad it needs a control of its own.
+11. **The rest of the Sensor Track panel.** A-5 binds the Sequence group and nothing else. The panel is only that group, so there is nothing else on it to bind — but the sticks and triggers are claimed and dropped there under FR-0, and you may want one of them to mean something.
+12. **AMC2 is now the only accessory panel with no chain.** Once Sensor Track is registered, AMC2 is alone in being left to the engine handling. Its `Amc2OpsPanel` has motor and lamp controls that would map naturally onto the sticks, and it is the obvious next pass.
 
 # Requirements
 
@@ -99,7 +123,8 @@ The end state: *what a control does in a given situation* is a table entry, edit
 - A context-resolution mechanism: ordered context chains, per-context binding tables, Python defaults, profile overrides.
 - A `dpad` section in the profile schema, making the D-pad bindable for the first time.
 - A dispatch-verb registry so an entry can say *how* to send, not just *what*.
-- Four accessory contexts: `acc` (base — claim only), `acc_generic`, `acc_bpc2`, `acc_asc2`.
+- Five accessory contexts: `acc` (base — claim only), `acc_generic`, `acc_bpc2`, `acc_asc2`, `acc_sensor_track`.
+- A navigation carve-out, so no accessory panel can claim the controls it is left by (A-6).
 - A single source of truth for *which accessory panel is displayed*, so the pad and the screen cannot disagree.
 - Migration of `_handle_switch` / `_handle_route` onto the mechanism, behavior-for-behavior.
 - A widget-free ASC2 momentary entry point on `EngineGui`.
@@ -107,7 +132,8 @@ The end state: *what a control does in a given situation* is a table entry, edit
 **Out of scope (this turn)**
 
 - **Any change to `ControlsPanel` or `control_labels.py`.** Recorded as notes only.
-- AMC2, Sensor Track, unassigned-port and operating-accessory-overlay contexts.
+- AMC2, unassigned-port and operating-accessory-overlay contexts.
+- Any binding on the Sensor Track panel beyond the Sequence group — the sticks and triggers stay claimed and dropped there.
 - The numeric keypad on the generic ACC panel.
 - Any change to on-screen accessory panels; the gamepad drives the panels that exist.
 
@@ -118,6 +144,9 @@ The end state: *what a control does in a given situation* is a table entry, edit
 - As an operator with a reversible accessory selected, I want a flick of the stick to reverse it, so I do not have to find the toggle key on screen.
 - As an operator with a power district selected, I want a trigger or a D-pad press to switch the block on and off without reaching for the screen.
 - As an operator with an ASC2 selected, I want a button I can *hold* for a momentary output, because that is what the on-screen key does.
+- As an operator with a Sensor Track selected, I want to step through the Sequence options with the D-pad, so I can change what the track does without aiming at one of ten small radio buttons.
+- As an operator stepping past several Sequence options to reach the one I want, I want only the option I settle on to be written to the track, not every option I passed over.
+- As an operator on any accessory panel, I want the Menu button to still open the catalog and X to still close a popup, so I can leave the panel the same way I arrived at it.
 - As a user with an unusual layout, I want to retune any of this in my own profile without editing Python.
 - As a maintainer, I want one mechanism for context remaps, so the next scope is a table entry rather than a fourth handler.
 
@@ -173,9 +202,43 @@ The stick ↕ row (amendment A-4) is **sign-blind and held, not latched**: up an
 
 The left/right pair arrives here **by inheritance from `acc_bpc2`**, with no entry of its own, which is what the chain is for.
 
+**FR-3b — Sensor Track context (`acc_sensor_track`)**
+
+Active when the pane is showing the Sensor Track panel — `accessory_panel_kind` reports `sensor_track`. Sits directly over the `acc` base and inherits nothing else: the panel shows one radio group and no keys, so there is nothing on it for a generic or power-district binding to act on.
+
+| Control | Effect |
+|---|---|
+| D-pad ↑ | Move the Sequence selection one option **toward** "No Action" |
+| D-pad ↓ | Move it one option **toward** "Recorded Sequence" |
+
+The direction convention matches the catalog's: up is a negative delta, toward the top of the list, exactly as `scroll_catalog(-1)` means up.
+
+- **Clamped, not wrapping.** ↑ with "No Action" already selected, and ↓ with "Recorded Sequence" already selected, move nothing and send nothing.
+- **One step per press.** The binding is not `repeat`-flagged, so a held D-pad steps once. Ten presses cross the list.
+- **The selection moves immediately; the write is sent after a pause.** Each step re-arms the pause, so stepping from "No Action" to "Recorded Sequence" sends **one** `IrdaReq`, not nine. See KD-11.
+- **An unset selection** (the panel has no `IrdaState` yet, so `sensor_track_buttons.value` is `None`) is treated as being at index 0: the first press of either direction highlights "No Action", and a second press moves off it.
+
+Nothing else on the Sensor Track panel is bound. The sticks and triggers are claimed and dropped by the `acc` base under FR-0, as they are on every other accessory panel.
+
 **FR-3a — Last holder wins**
 
 A (or D-pad ↑) and the stick ↕ drive the *same* `CONTROL1` output. While more than one of them is held the output stays on, and `when_released` is sent when the **last** one lets go. Releasing one control must never turn off an output another is still holding, and no control may be left holding an output that has already been switched off.
+
+**FR-7 — An accessory panel must not claim the controls it is navigated by (A-6)**
+
+Three controls keep the meaning they have everywhere else on **every** accessory panel, whatever a context claims:
+
+| Control | Requirement |
+|---|---|
+| `scope_catalog` (Menu) | Always opens or closes the scope catalog. |
+| `CLOSE_POPUP_BUTTON` (X) **while a popup is open** | Always closes it. |
+| D-pad ↑ ↓ ← → **while the catalog is open** | Scroll, confirm and cancel the highlighted entry, never the accessory binding. |
+
+Menu holds whether or not anything is open — being able to *open* the catalog is the point. X does not: FR-7 asks of it only that it close an open popup, and with nothing open it is claimed by the accessory context like any other engine control. Carving it out unconditionally is not free, which is the correction Step 8's review found: an unclaimed X falls through to the ordinary panel-command path, which registers a held repeat and re-sends `RESET` at the pane. On an ACC-scope panel `on_engine_command`'s guard makes that a silent no-op, but a power district reached as an `LcsProxyState` shows the BPC2 panel under **TRAIN** scope, where the guard passes and a repeating TMCC train `RESET` goes out at the district's own address — exactly what `acc`'s `claims_unbound` exists to prevent.
+
+The third row is the existing `yields_to_catalog` carve-out extended from the face buttons to the D-pad, and applies to any accessory context.
+
+A release that arrives while the catalog is open must still reach `_momentary_holds`, so an ASC2 output held by D-pad ↑ when the catalog opened is not left energised. That ordering already holds — the release check precedes the catalog carve-out in `_handle_contexts` — and must not be disturbed. A **repeating** binding the catalog takes is dropped on the same principle: a D-pad ↑ registered as a repeat before the list came up must stop the moment it comes up, not when the thumb comes off, or `tick()` goes on boosting the accessory underneath the list the operator is reading.
 
 **FR-4 — Configurability**
 
@@ -246,7 +309,8 @@ After amendment A-1 the chains are:
 | Generic ACC | `("acc_generic", "acc")` |
 | BPC2 | `("acc_bpc2", "acc")` |
 | ASC2 | `("acc_asc2", "acc_bpc2", "acc")` |
-| Sensor Track / AMC2 | deferred — no context reported this pass |
+| **Sensor Track** | `("acc_sensor_track", "acc")` |
+| AMC2 | deferred — no context reported |
 
 The aux-key bindings live in `acc_generic`, **not** in the shared `acc` base. That is the structural half of A-1: because they are keyed to the generic panel, they cannot leak onto a BPC2 or ASC2 panel, where there is no coupler or Boost key to correspond to them. `acc` carries only the claim.
 
@@ -265,6 +329,7 @@ The aux-key bindings live in `acc_generic`, **not** in the shared `acc` base. Th
 | `switch_thru` / `switch_out` | `gui.on_switch_command(thru)` | pressed |
 | `route_fire` | `gui.on_route_command()` | pressed |
 | `acc_throttle` | `gui.on_acc_speed_command(value)` | analog |
+| `sensor_track_step` | `gui.on_sensor_track_step(delta)`, then arm the commit | pressed |
 | `claim` | nothing — swallow | both |
 
 `claim` is the verb that makes the migration honest: the switch and route handlers' "swallow so it cannot reach an engine that is not there" becomes a table entry rather than a comment.
@@ -295,6 +360,26 @@ Four points make this the right shape rather than a variant of what already exis
 2. **Sign-blindness is free.** `acc_asc2` binds plain `throttle`, so KD-9's variant resolution finds no `throttle_up` / `throttle_down` and falls back to it — up and down both energise, which is what A-4 asks for. A profile that wants them to differ binds the variants, and the mechanism carries it with no new code.
 3. **Last-holder-wins is a predicate, not a new structure.** `_momentary_holds` is already a set of `(target, action)`; the release becomes "discard mine, and send the off only when no hold remains for this target". With a single holder that is identical to today's behavior, so FR-3a costs a condition rather than a reference count.
 4. **`clear()` must release, not merely forget.** It currently empties `_momentary_holds` without sending anything. Harmless while only a button can hold — the release always arrives — but a pad that disconnects with the stick pushed would leave an accessory output energised with nothing left to turn it off. `clear()` therefore sends the off for any hold it drops.
+
+**KD-11 — The pause before the Sensor Track write is a pending entry in `tick()`, and the GUI holds what is pending.** Two halves, split along the line the rest of the input layer already draws:
+
+- **The router owns the timing.** A `_sensor_track_commits: dict[Target, float]` accumulates elapsed time exactly as `_held_commands` does — `waited += elapsed` on each tick, fire at `SENSOR_TRACK_COMMIT_DELAY`, and a further step resets `waited` to zero. Accumulated rather than compared against an absolute deadline, for the reason the comment on `_held_commands` already gives: *"so the repeat does not depend on the caller's clock matching any clock read at press time."* This also keeps `_dispatch` clock-free, which matters because `_dispatch` has no `now` to read.
+- **The GUI owns what will be sent.** `on_sensor_track_step(delta)` moves the highlight and records the `(tmcc_id, sequence)` pair it moved *to*; `on_sensor_track_commit()` sends the recorded pair and clears it. The router's call is therefore no-arg, and the write is immune to a pane re-scoped during the pause: it sends the pair the operator selected, at the id they selected it on, not whatever the panel happens to show when the pause elapses.
+
+`SENSOR_TRACK_COMMIT_DELAY` is 0.5 s, the same figure as `CATALOG_SCROLL_INITIAL_DELAY` — already the file's notion of "the operator has settled", so a second constant with a different value would be a second opinion about the same human pause.
+
+`on_sensor_track_step` returns whether it actually moved, so a press clamped at either end neither arms nor re-arms the pause. And `clear()` **flushes** rather than drops: a pad that disconnects a moment after a step has the write sent, not discarded, so the panel and the device cannot be left disagreeing. This is the same choice `clear()` already makes for a held momentary output, and for the same reason — no further input is coming to correct it.
+
+Also considered and rejected: debouncing GUI-side with Tk's `after`. It would need no router state, but it would put the only timing in this feature behind a Tk event loop, where the rest of the input layer's timing is driven by `tick(now)` and is testable headless.
+
+**KD-12 — Navigation actions are never claimed, and the catalog takes the whole D-pad (A-6).** Two data-driven changes rather than two branches in the router:
+
+1. **Two carve-out sets** in `accessory_bindings.py` — `NEVER_CLAIMED_ACTIONS = {"scope_catalog"}` and `POPUP_ONLY_ACTIONS = {"reset"}`, the actions the bundled profile puts on Menu and X. `resolve()` returns `None` for a member of the first unconditionally, and for a member of the second only when its caller passes `popup_visible=True` — the router reads that from the pane it already asks about the popup. Two sets rather than one flag inside the router, so which carve-out is conditional is visible in the table. Either way `claims_unbound` no longer swallows the action, an explicit binding still wins (a profile that deliberately puts something else on Menu should get it), and an explicit `null` unbind is not a binding for this purpose — unbound is the state the carve-out is written for.
+2. **The D-pad joins `yields_to_catalog`** for every accessory context. `_handle_contexts` already returns False for a `yields_to_catalog` action while `catalog_visible`, and the action then falls through to `_handle_scroll_boost` / `_handle_select_smoke`, which is where the catalog's scroll, confirm and cancel live. So this is one frozenset addition, not new code.
+
+Keyed on action names rather than on button indices, like every other carve-out in the table — `ADMIN_CHORD_MODIFIER` and `CATALOG_JUMP_MODIFIER` are both action-keyed for the same reason: a profile that moves the button keeps the behavior.
+
+Why not simply narrow `claims_unbound`? Because FR-0's swallow is right for what it was written for — a stick or trigger reaching a stale engine. The problem is only that "every unbound action" caught navigation as well as engine driving, and the honest fix is to name the exceptions rather than to weaken the rule.
 
 ### Proposed Changes
 
@@ -342,7 +427,14 @@ DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {...}
 - Add `accessory_panel_kind` (KD-7), lifting the branch out of `apply_ops_mode_ui_non_engine` so that method reads the property instead of re-testing the flags inline. Pure refactor; the branch order and its outcomes are unchanged.
 - Extract the bodies of `when_pressed` / `when_released` into `asc2_control(pressed: bool)`; the existing event handlers become one-line wrappers that keep the `event.widget.enabled` check. No behavior change for touch.
 
-**5. `steam_deck_default.json`** — add `dpad` (carrying today's boost/brake/smoke as defaults) and `contexts` (carrying the four accessory contexts: `acc`, `acc_generic`, `acc_bpc2`, `acc_asc2`).
+**5. `steam_deck_default.json`** — add `dpad` (carrying today's boost/brake/smoke as defaults) and `contexts` (carrying the accessory contexts: `acc`, `acc_generic`, `acc_bpc2`, `acc_asc2`, `acc_sensor_track`).
+
+**6. Sensor Track (A-5 / A-6)**
+
+- `accessory_bindings.py` — `VERB_SENSOR_TRACK_STEP`; `ACC_SENSOR_TRACK_CONTEXT` with `dpad_up` → `data=-1` and `dpad_down` → `data=+1`; `PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK]`; `NEVER_CLAIMED_ACTIONS`; the D-pad added to each accessory context's `yields_to_catalog`.
+- `steam_deck_input.py` — the verb in `_dispatch`, `_sensor_track_commits` with its `tick()` loop, `SENSOR_TRACK_COMMIT_DELAY`, the flush in `clear()`, and `resolve()` honoring the never-claimed set.
+- `keypad_view.py` — `step_sensor_track_sequence(delta)` (move and clamp, no send) and `send_sensor_track_sequence(tmcc_id, value)` (widget-free send), with `on_sensor_track_change` reduced to a wrapper over the latter so touch and pad share one send path — the same shape the `asc2_control` extraction already took.
+- `engine_gui.py` — `on_sensor_track_step(delta)` and `on_sensor_track_commit()`.
 
 ### Data Models / Contracts
 
@@ -368,6 +460,30 @@ def input_contexts(self) -> tuple[str, ...]:
 def on_lcs_command(self, on: bool) -> None: ...
 def on_asc2_momentary(self, pressed: bool) -> None: ...
 def on_acc_speed_command(self, value: int) -> None: ...
+
+def on_sensor_track_step(self, delta: int) -> bool:
+    """Move the Sequence selection by delta, clamped. True when it actually moved.
+
+    Records the (tmcc_id, sequence) pair moved to; sends nothing. False at either
+    end of the list, which is what tells the router not to arm the commit.
+    """
+
+def on_sensor_track_commit(self) -> None:
+    """Send the recorded pair, if any, and forget it. A no-op when nothing is pending."""
+
+# KeypadView
+
+def step_sensor_track_sequence(self, delta: int) -> int | None:
+    """The Sequence value moved to, or None if the move was clamped away.
+
+    Assigns sensor_track_buttons.value, which moves the radio highlight without
+    firing its command -- the same assignment on_new_accessory makes from incoming
+    state. Re-checks that the Sensor Track panel is the one displayed, as
+    asc2_control re-checks its own port.
+    """
+
+def send_sensor_track_sequence(self, tmcc_id: int, sequence: int) -> None:
+    """Send one IRDA SEQUENCE write. The one send path; on_sensor_track_change wraps it."""
 ```
 
 ```json
@@ -408,6 +524,13 @@ def on_acc_speed_command(self, value: int) -> None: ...
       "sequence_control": {"verb": "asc2_momentary", "both_phases": true},
       "dpad_up":          {"verb": "asc2_momentary", "both_phases": true}
     }
+  },
+  "acc_sensor_track": {
+    "inherits": "acc",
+    "bindings": {
+      "dpad_up":   {"verb": "sensor_track_step", "data": -1},
+      "dpad_down": {"verb": "sensor_track_step", "data": 1}
+    }
   }
 }
 ```
@@ -434,9 +557,14 @@ graph TD
   HC -->|acc_command| A1[on_acc_command]
   HC -->|lcs_on / lcs_off| A2[on_lcs_command]
   HC -->|asc2_momentary| A3[on_asc2_momentary]
+  HC -->|sensor_track_step| A5[on_sensor_track_step<br/>moves the highlight]
+  A5 --> TQ[_sensor_track_commits]
+  T[DeckInputRouter.tick] --> TQ
+  TQ -->|after the pause| A6[on_sensor_track_commit<br/>sends one IrdaReq]
   HC -->|switch / route| A4[on_switch_command<br/>on_route_command]
   HC -->|claim| X[swallowed]
-  HC -->|unclaimed| EN[existing engine handling]
+  HC -->|never claimed / yields to catalog| EN[existing engine<br/>and catalog handling]
+  HC -->|unclaimed| EN
 ```
 
 ### Risks
@@ -450,6 +578,10 @@ graph TD
 - **`TOGGLE_DIRECTION` on an axis is easy to fire by accident.** A thumb resting on a stick would flip a gantry or a crane repeatedly. Mitigation: `axis_latched` plus `direction_threshold` — one toggle per full deflection, re-armed only near center.
 - **A held axis can leave an accessory output energised.** The most consequential failure in the whole spec, because a real relay stays closed. Three ways it could happen, each with its own mitigation: the pane is re-scoped under the thumb (release delivered from `_momentary_holds` rather than by re-resolving the chain), the pad disconnects while deflected (`clear()` sends the off for every hold it drops), and a second control releases first (FR-3a's last-holder-wins). Each gets its own test.
 - **Three axis modes over one field set.** `axis_latched`, `axis_held` and `is_analog` are mutually exclusive in practice and nothing in the dataclass says so. Mitigation: validate the combination where the verbs are validated, log and drop a binding claiming two, and keep the router's branch ordered so the outcome is defined even if one slips through.
+- **Registering the Sensor Track chain claims controls that were previously left alone.** The panel currently reports no context, so every control falls through to the engine handling. Once the chain exists, the `acc` base swallows the sticks and triggers. That is the intent of FR-0 — those controls would otherwise address whatever engine the pane held before — but it is a behavior change on a panel nobody asked to change. Mitigation: FR-7 lands **first**, so the panel is never claimable without being leavable.
+- **The pause is a window in which the panel and the device disagree.** For up to `SENSOR_TRACK_COMMIT_DELAY` the highlight shows a sequence the track has not been told about. Unavoidable given the choice to debounce; bounded at half a second, and `clear()` flushes rather than drops so a disconnect inside the window still sends. The remaining exposure is a crash inside the window, which loses a write the operator would repeat.
+- **An incoming `IrdaState` update during the pause could fight the highlight.** `on_new_accessory` assigns `sensor_track_buttons.value` from state, so a report arriving mid-pause would move the highlight away from the pending selection while the pending *pair* still holds the operator's choice. Mitigation: the commit sends the recorded pair rather than reading the widget, so the write is right either way; the visible flicker is the same one the touch path already has and is not made worse.
+- **A-6's `NEVER_CLAIMED_ACTIONS` is keyed on `reset`**, the action the bundled profile puts on X. A profile that moves `reset` elsewhere and puts something else on X would carve out the wrong control. Mitigation: this is the same action-keyed indirection `ADMIN_CHORD_MODIFIER` and `CATALOG_JUMP_MODIFIER` already accept, and the popup path is button-indexed anyway (`CLOSE_POPUP_BUTTON`), so the two agree for any profile that keeps `reset` on X. Worth a comment where the set is defined.
 - **`axis_actions()` filters on `axis_latched` alone.** It derives the legacy `*_AXIS_ACTIONS` name sets `control_labels.py` still imports, so a held-axis binding would be invisible to it. Mitigation: widen it to any axis mode as part of adding the field, rather than leaving a second definition of "is this an axis" behind.
 
 # Controls Page Notes
@@ -492,7 +624,9 @@ My recommendation is the second page, because it is what the paging support was 
 
 **7. `tests/gui/controller/test_control_labels.py` and `test_controls_panel.py`** will both need updating — they assert section titles, ordering and column packing.
 
-**8. Two consequences of this pass's amendments.** The accessory section must show **stick ↔ as Toggle Direction**, which means `ACTION_LABELS` cannot keep resolving `direction` to one fixed label — it means Forward/Reverse on an engine panel and Toggle Direction on the generic accessory panel, so labels become context-aware, not merely profile-aware. And the generic section's heading must not imply "non-LCS": it applies to any port showing the generic panel, an STM2 included.
+**8. Two consequences of A-1 and A-2.** The accessory section must show **stick ↔ as Toggle Direction**, which means `ACTION_LABELS` cannot keep resolving `direction` to one fixed label — it means Forward/Reverse on an engine panel and Toggle Direction on the generic accessory panel, so labels become context-aware, not merely profile-aware. And the generic section's heading must not imply "non-LCS": it applies to any port showing the generic panel, an STM2 included.
+
+**9. Two consequences of A-5 and A-6.** The accessory sections must gain a **Sensor Track** row for the D-pad pair, and the D-pad's own section can no longer describe up/down as Boost/Brake without qualification — they mean stepping a radio group on one panel and holding an output on another. More pointedly, whatever the page says about the D-pad on an accessory panel is now *also* qualified by whether the catalog is open, which is exactly the kind of conditional the `ControlSection.fixed` rework in item 3 has to accommodate.
 
 # Testing
 
@@ -519,6 +653,16 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - ASC2: the On/Off pair is inherited from `acc_bpc2` through the chain, not restated; A and D-pad ↑ call `on_asc2_momentary(True)` on press and `(False)` on release.
 - ASC2 stick ↕: a push past `direction_threshold` calls `on_asc2_momentary(True)` once — not once per poll while it is held — and the value falling back inside `direction_threshold - hysteresis` calls `(False)` once. A push the other way does exactly the same, the binding being sign-blind.
 - ASC2 stick ↕ held while the pane is re-scoped: the recenter still delivers `on_asc2_momentary(False)`, from the hold record rather than from the chain.
+- Sensor Track: D-pad ↓ moves the Sequence selection one option toward "Recorded Sequence" and D-pad ↑ one option toward "No Action", and neither sends anything on the press.
+- Sensor Track: after `SENSOR_TRACK_COMMIT_DELAY` of ticks with no further press, exactly one `IrdaReq` is sent, carrying the option settled on.
+- Sensor Track: nine presses in quick succession send **one** write, not nine — each press re-arms the pause.
+- Sensor Track: ↑ on "No Action" and ↓ on "Recorded Sequence" move nothing, send nothing, and do not arm the pause.
+- Sensor Track: a held D-pad steps exactly once — the binding is not `repeat`-flagged and no `_context_repeats` entry is made.
+- Sensor Track: `clear()` inside the pause sends the pending write rather than dropping it.
+- Sensor Track: a pane re-scoped during the pause still writes the pair the operator selected, at the id they selected it on.
+- Sensor Track: the sticks and triggers are claimed by `acc` and sent nowhere, and `on_sensor_track_step` is never reached by them.
+- On every accessory panel: Menu reaches `show_scope_catalog`, and X with a popup up reaches `close_popup` — FR-7, and each fails against the current code.
+- With the catalog open on an ASC2 or BPC2 panel: D-pad ↑/↓ scroll the highlight, → confirms, ← closes, and none of them reaches `on_asc2_momentary` or `on_lcs_command`.
 - A held and the stick pushed at once: releasing either leaves the output on, and only the second release sends `on_asc2_momentary(False)` — FR-3a.
 - A BPC2 panel: stick ↕ resolves nothing in `acc_bpc2`, is claimed by `acc`, and never reaches `on_asc2_momentary`, which does not apply to a power district.
 - Chain precedence: a pane reporting `("acc_asc2", "acc_bpc2", "acc")` takes the ASC2 entry where both it and `acc_bpc2` define an action, and falls through where only the outer link does.
@@ -545,6 +689,11 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Stick sitting at rest under the threshold** — a small resting offset must not energise anything, and must not accumulate a hold that a later recenter releases.
 - **Stick pushed diagonally on an ASC2** — ↕ holds the momentary output and ↔ switches the district on or off, from the same physical stick; both must work and neither may consume the other's latch or hold.
 - **A binding claiming two axis modes** — `axis_held` together with `axis_latched` is invalid; it is logged and dropped rather than resolved arbitrarily.
+- **A Sensor Track panel with no `IrdaState`** — `sensor_track_buttons.value` is `None`; the first press must highlight "No Action" rather than raising on `int(None)`.
+- **D-pad ↑ held on an ASC2 when the catalog opens** — the release must still reach `_momentary_holds` and drop the output, even though the catalog now has the D-pad. The release check precedes the carve-out in `_handle_contexts`; a test must pin that ordering.
+- **A step, then the catalog opens before the pause elapses** — the pending write still goes out; opening the catalog is not a cancel.
+- **A profile that explicitly binds `scope_catalog` in a context** — the explicit binding wins over `NEVER_CLAIMED_ACTIONS`, so the carve-out is a default rather than a prohibition.
+- **Two panes each mid-pause** — `_sensor_track_commits` is keyed by target, so the left and right panes settle and write independently.
 
 ### Test Changes
 
@@ -557,6 +706,10 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Extend** `tests/gui/controller/test_accessory_bindings.py` — the directional-variant resolution order, the fallback to the plain action name, and the sign-to-name table.
 - **Extend** `tests/gui/controller/test_accessory_bindings.py` — `axis_held` on the `acc_asc2` `throttle` entry, the mode-exclusivity validation, and `axis_actions()` seeing a held binding.
 - **Extend** `tests/gui/controller/test_steam_deck_input.py` — the held-axis press/release pair, the hysteresis band, last-holder-wins across A and the stick, the re-scope case, and `clear()` releasing a held output.
+- **Extend** `tests/gui/controller/test_accessory_bindings.py` — the `acc_sensor_track` context and its chain, `NEVER_CLAIMED_ACTIONS` resolving to nothing under a claiming context and being overridable by an explicit binding, and the D-pad appearing in every accessory context's `yields_to_catalog`.
+- **Extend** `tests/gui/controller/test_steam_deck_input.py` — an `_acc_gui(kind="sensor_track")` stub recording `sensor_track_calls` and `commit_calls`; the step pair, the clamp, the debounce and its re-arming, `clear()` flushing, and the FR-7 cases on all four accessory kinds.
+- **Extend** `tests/gui/test_keypad_view.py` — `step_sensor_track_sequence` clamping at both ends, treating an unset value as index 0, moving the highlight without sending, and `send_sensor_track_sequence` sending the same `IrdaReq` `on_sensor_track_change` did.
+- **Extend** `tests/gui/test_engine_gui_accessories.py` — `input_contexts` reporting the Sensor Track chain, and `on_sensor_track_step` / `on_sensor_track_commit` recording and sending the pair captured at step time rather than re-reading the panel.
 - **Unmodified** — the existing switch and route suites, which are the migration's proof.
 
 # Delivery Steps
@@ -635,3 +788,31 @@ On an ASC2 panel, pushing the stick up or down energises the momentary output fo
 - Have `clear()` release every hold it drops instead of merely emptying the set, so a pad that disconnects with the stick deflected cannot leave a relay closed.
 - Leave `acc_bpc2` alone: a power district has no momentary output, so ↕ stays claimed and dropped there pending open question 7.
 - Cover the pair, the hysteresis band, jitter at the threshold, a resting offset, last-holder-wins, the re-scope case and `clear()` in `tests/gui/controller/test_steam_deck_input.py`; cover the table entry, the mode validation and `axis_actions()` in `tests/gui/controller/test_accessory_bindings.py`.
+
+### ✓ Step 8: Stop an accessory panel from claiming the controls it is left by
+On every accessory panel, Menu opens the catalog, X closes a popup, and an open catalog gets the whole D-pad back.
+
+- Add `NEVER_CLAIMED_ACTIONS = frozenset({"scope_catalog"})` and `POPUP_ONLY_ACTIONS = frozenset({"reset"})` to `accessory_bindings.py` — the actions the bundled profile puts on Menu and X — with a comment recording that they are action-keyed for the same reason `ADMIN_CHORD_MODIFIER` and `CATALOG_JUMP_MODIFIER` are, and why only X is gated.
+- Have `resolve()` return `None` for a member of the first set unless a context binds it **explicitly**, and for a member of the second only under `popup_visible=True`, so `claims_unbound` no longer swallows either while a deliberate override still wins.
+- Pass the pane's popup state from `_handle_contexts` into `resolve()`, so an X pressed with nothing open is claimed and cannot reach the repeating panel-command path — which on a power district under TRAIN scope puts a TMCC train `RESET` on the wire.
+- Drop any pending `_context_repeats` entry as the catalog carve-out yields, and ask the same question of each entry in `tick()`'s repeat loop, so a D-pad held when the catalog opens stops repeating there and then rather than on release.
+- Add the four `dpad_*` action names to `yields_to_catalog` on every accessory context — `acc`, `acc_generic`, `acc_bpc2`, `acc_asc2` — so an open catalog's scroll, confirm and cancel reach `_handle_scroll_boost` / `_handle_select_smoke` instead of working the accessory.
+- Leave the `switch` and `route` contexts alone: neither binds a D-pad action, and neither claims unbound actions, so neither has the defect.
+- Preserve the ordering in `_handle_contexts` that puts the `_momentary_holds` release check **ahead** of the catalog carve-out, so an ASC2 output held by D-pad ↑ when the catalog opens is still dropped on release.
+- Cover in `tests/gui/controller/test_steam_deck_input.py`: Menu reaching `show_scope_catalog` and X reaching `close_popup` on each accessory kind, the D-pad driving the catalog rather than the accessory with it open, and the held-output release surviving the catalog opening under the thumb. Each of the first two fails against the current code, which is the point.
+- Cover X with **no** popup on each accessory kind — nothing sent, nothing registered in `_held_commands`, nothing re-sent by `tick()` — and the same on a stub that applies `on_engine_command`'s own guard for a power district under TRAIN scope, which is the case that reached the wire.
+- Cover the repeat drop: a D-pad ↑ held on the generic panel stops boosting when the catalog opens, is unaffected by a catalog opened over the *other* pane, and still scrolls nothing on its release.
+- Cover the resolution rules in `tests/gui/controller/test_accessory_bindings.py`, including a profile that binds `scope_catalog` or `reset` explicitly and gets it, and an enumeration over every action name asserting that the set falling through equals exactly the carve-out set for each accessory chain.
+
+### ✓ Step 9: Step the Sensor Track Sequence options from the D-pad
+On a Sensor Track panel, D-pad up and down move through the ten Sequence options and the choice settled on is written once.
+
+- Split the send out of `KeypadView.on_sensor_track_change` into `send_sensor_track_sequence(tmcc_id, sequence)`, leaving the change handler a wrapper that reads the widget — the same extraction `asc2_control` already made, so touch and pad share one send path.
+- Add `KeypadView.step_sensor_track_sequence(delta)`: clamp within `SENSOR_TRACK_OPTS`, treat an unset value as index 0, assign `sensor_track_buttons.value` to move the highlight without firing its command, re-check that the Sensor Track panel is the one displayed, and return the value moved to or `None` when clamped.
+- Add `EngineGui.on_sensor_track_step(delta)` recording the `(tmcc_id, sequence)` pair it moved to and returning whether it moved, and `EngineGui.on_sensor_track_commit()` sending that pair and clearing it.
+- Add `VERB_SENSOR_TRACK_STEP` and the `acc_sensor_track` context to `accessory_bindings.py` — `dpad_up` with `data=-1`, `dpad_down` with `data=+1`, no `repeat` — and register `PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK] = (ACC_SENSOR_TRACK_CONTEXT, ACC_CONTEXT)`, replacing the comment that explains why it was absent.
+- Extend `EngineGui.input_contexts` to report that chain for the Sensor Track panel, from `accessory_panel_kind` as every other chain already is.
+- Add the verb to `DeckInputRouter._dispatch`, arming `_sensor_track_commits[target]` only when the step actually moved, and add the `tick()` loop that accumulates `elapsed` and calls `on_sensor_track_commit()` at `SENSOR_TRACK_COMMIT_DELAY` (0.5 s, matching `CATALOG_SCROLL_INITIAL_DELAY`), in the shape `_held_commands` already uses.
+- Have `clear()` flush every pending commit rather than dropping it, as it already releases held momentary outputs.
+- Cover in `tests/gui/controller/test_steam_deck_input.py` with an `_acc_gui(kind="sensor_track")` stub: the step pair and its direction convention, the clamp at both ends arming nothing, nine quick presses sending one write, the re-arming of the pause, a held D-pad stepping once, `clear()` flushing, and the sticks and triggers being claimed and sent nowhere.
+- Cover the widget behavior in `tests/gui/test_keypad_view.py` and the recorded-pair behavior in `tests/gui/test_engine_gui_accessories.py`, including a pane re-scoped during the pause still writing the pair captured at step time.

@@ -263,6 +263,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # Sensor Track
         self.sensor_track_box = self.sensor_track_buttons = None
+        # The (tmcc_id, sequence) the gamepad's stepping has settled on but not yet written.
+        # Held here rather than in the input layer so the write goes to the id the operator
+        # chose it at, whatever the pane has been re-scoped to by the time it goes out.
+        self._pending_sensor_track: tuple[int, int] | None = None
 
         # BPC2/ASC2
         self.ac_on_cell = self.ac_off_cell = self.ac_status_cell = None
@@ -2011,8 +2015,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         Read by the Steam Deck input layer: a panel showing a switch has no engine to
         drive, so the triggers and sticks that would drive one throw the switch instead.
-        True while the panel's scope is Switch and one has been selected -- including while
-        a replacement id is being keyed in, so a throw still reaches the switch the panel
+        True, while the panel's scope is Switch and one has been selected -- including while
+        a replacement id is being keyed in, so a throw still reaches the switch, the panel
         is displaying rather than being swallowed until the entry is committed.
         """
         return self.scope == CommandScope.SWITCH and self.scope_tmcc_id(CommandScope.SWITCH) > 0
@@ -2053,8 +2057,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         Built from ``KeypadView.accessory_panel_kind`` rather than from the state flags again,
         so the pad follows the panel: a port that shows the generic panel is bound like any
-        other accessory, LCS device or not. Sensor Track and AMC2 report nothing this pass, and
-        so does an accessory scope with nothing selected -- there is no panel to claim for.
+        other accessory, LCS device or not. AMC2 reports nothing yet, and neither does an
+        accessory scope with nothing selected -- there is no panel to claim for.
         """
         if self.scope == CommandScope.ACC and self.scope_tmcc_id(CommandScope.ACC) <= 0:
             return ()
@@ -2112,6 +2116,37 @@ class EngineGui(GuiZeroBase, Generic[S]):
         scope has changed since the press, so nothing is left energised.
         """
         self._keypad_view.asc2_control(pressed)
+
+    def on_sensor_track_step(self, delta: int) -> bool:
+        """Move the Sensor Track's Sequence highlight ``delta`` options and remember where.
+
+        The highlight moves at once and nothing is written: the pair moved to is recorded
+        instead, and ``on_sensor_track_commit`` sends it once the D-pad has been still. That
+        is the division KD-11 asks for -- the panel owns what is pending, the input layer owns
+        the timing -- and it is what makes the write immune to the pane being re-scoped during
+        the pause: the id is captured here, alongside the value it was chosen at.
+
+        Returns whether anything moved, so a step clamped at either end of the list arms no
+        pause and leaves any pause already running alone.
+        """
+        sequence = self._keypad_view.step_sensor_track_sequence(delta)
+        if sequence is None:
+            return False
+        self._pending_sensor_track = (self.scope_tmcc_id(self.scope), sequence)
+        return True
+
+    def on_sensor_track_commit(self) -> None:
+        """Write whatever Sequence the stepping settled on, and forget it.
+
+        No-arg and idempotent: it sends the pair ``on_sensor_track_step`` recorded rather than
+        re-reading the panel, and does nothing at all when there is none, so a caller that
+        flushes twice writes once.
+        """
+        pending = self._pending_sensor_track
+        if pending is None:
+            return
+        self._pending_sensor_track = None
+        self._keypad_view.send_sensor_track_sequence(*pending)
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:

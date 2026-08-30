@@ -24,14 +24,21 @@ from src.pytrain.gui.controller.accessory_bindings import (
     ACC_BPC2_CONTEXT,
     ACC_CONTEXT,
     ACC_GENERIC_CONTEXT,
+    ACC_SENSOR_TRACK_CONTEXT,
     ANALOG_VERBS,
     AXIS_DIRECTION_NAMES,
+    AXIS_VARIANT_ACTIONS,
     DEFAULT_CONTEXTS,
+    DPAD_ACTION_NAMES,
     KNOWN_VERBS,
+    NEVER_CLAIMED_ACTIONS,
+    PANEL_AMC2,
     PANEL_ASC2,
     PANEL_BPC2,
     PANEL_CONTEXT_CHAINS,
     PANEL_GENERIC,
+    PANEL_SENSOR_TRACK,
+    POPUP_ONLY_ACTIONS,
     VERB_ACC_COMMAND,
     VERB_ASC2_MOMENTARY,
     VERB_LCS_OFF,
@@ -45,6 +52,7 @@ from src.pytrain.gui.controller.accessory_bindings import (
     SWITCH_CONTEXT,
     VERB_CLAIM,
     VERB_ROUTE_FIRE,
+    VERB_SENSOR_TRACK_STEP,
     VERB_SWITCH_OUT,
     VERB_SWITCH_THRU,
     ContextSpec,
@@ -606,6 +614,68 @@ def test_the_vertical_stick_stays_unbound_on_a_bare_power_district() -> None:
     assert resolution.claimed_only is True
 
 
+# --------------------------------------------------------------------------------------- #
+# The Sensor Track panel.
+# --------------------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(("action", "delta"), [("dpad_up", -1), ("dpad_down", 1)])
+def test_the_dpad_steps_the_sequence_group_the_way_it_reads_on_screen(action, delta) -> None:
+    # Up moves toward "No Action" and down toward "Recorded Sequence", the same convention
+    # scroll_catalog(-1) uses for up: the highlight follows the pad rather than opposing it.
+    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK], action)
+
+    assert resolution.context.name == ACC_SENSOR_TRACK_CONTEXT
+    assert resolution.dispatch.verb == VERB_SENSOR_TRACK_STEP
+    assert resolution.dispatch.data == delta
+
+
+@pytest.mark.parametrize("action", ["dpad_up", "dpad_down"])
+def test_the_sequence_step_does_not_repeat_while_the_dpad_is_held(action) -> None:
+    # Ten options and a write per step: a held D-pad that repeated would cross the list
+    # sending nine commands. One step per press, and the write follows the pause instead.
+    dispatch = resolve(PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK], action).dispatch
+
+    assert dispatch.repeat is False
+    assert dispatch.both_phases is False
+    assert dispatch.is_axis is False
+
+
+def test_the_sensor_track_context_binds_the_dpad_and_nothing_else() -> None:
+    # The panel has one control on it. Everything else -- the sticks, the triggers, the face
+    # buttons -- is left to the acc base, which claims it and sends nowhere.
+    assert set(DEFAULT_CONTEXTS[ACC_SENSOR_TRACK_CONTEXT].bindings) == {"dpad_up", "dpad_down"}
+    assert DEFAULT_CONTEXTS[ACC_SENSOR_TRACK_CONTEXT].inherits == ACC_CONTEXT
+
+
+@pytest.mark.parametrize("action", ["throttle", "direction", "startup", "shutdown", "front_coupler", "horn"])
+def test_the_sensor_track_panel_claims_its_other_controls_and_sends_none_of_them(action) -> None:
+    # FR-0 on the one panel where the base does nearly all the work: a pane showing a Sensor
+    # Track has no engine to drive, so a stick left over from one must not reach it.
+    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK], action)
+
+    assert resolution.context.name == ACC_CONTEXT
+    assert resolution.claimed_only is True
+
+
+def test_the_sensor_track_context_states_its_own_catalog_carve_out() -> None:
+    # Stated rather than inherited, because _handle_contexts reads yields_to_catalog from
+    # whichever context supplied the binding -- and this one binds the D-pad. Inheriting it
+    # from acc would not supply it, and an open catalog over this panel would step the
+    # Sequence group instead of scrolling.
+    spec = DEFAULT_CONTEXTS[ACC_SENSOR_TRACK_CONTEXT]
+
+    assert DPAD_ACTION_NAMES <= spec.yields_to_catalog
+    assert "dpad_up" in spec.bindings and "dpad_up" in spec.yields_to_catalog
+
+
+def test_the_sensor_track_panel_is_the_only_new_chain() -> None:
+    # AMC2 stays out: its panel's controls have no bindings, and a chain of nothing but the
+    # base would claim every control and send none of them.
+    assert PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK] == (ACC_SENSOR_TRACK_CONTEXT, ACC_CONTEXT)
+    assert PANEL_AMC2 not in PANEL_CONTEXT_CHAINS
+
+
 def test_a_held_axis_counts_as_an_axis_for_the_derived_name_sets() -> None:
     # axis_actions feeds the legacy *_AXIS_ACTIONS names the help screen is built from: a mode
     # it did not know about would leave a stick binding invisible to it.
@@ -655,6 +725,166 @@ def test_a_profile_may_bind_a_held_axis_of_its_own() -> None:
 
     assert dispatch.axis_held is True
     assert dispatch.is_axis is True
+
+
+@pytest.mark.parametrize("panel", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+@pytest.mark.parametrize("action", sorted(NEVER_CLAIMED_ACTIONS))
+def test_no_accessory_panel_claims_the_controls_it_is_left_by(panel, action) -> None:
+    # The defect A-6 records: acc claims every unbound action, and that took in Menu as well
+    # as the controls that would drive an engine. A panel the pad cannot leave is worse than
+    # one that passes a stick on, so Menu is never swallowed -- with a popup up or without,
+    # since being able to *open* the catalog is the point of carving it out at all.
+    assert resolve(PANEL_CONTEXT_CHAINS[panel], action) is None
+    assert resolve(PANEL_CONTEXT_CHAINS[panel], action, popup_visible=True) is None
+
+
+@pytest.mark.parametrize("panel", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+@pytest.mark.parametrize("action", sorted(POPUP_ONLY_ACTIONS))
+def test_no_accessory_panel_claims_x_while_a_popup_is_up(panel, action) -> None:
+    # The other half of A-6: a popup is modal, so an X the accessory panel swallowed left the
+    # operator with a panel up and no button that would take it down.
+    assert resolve(PANEL_CONTEXT_CHAINS[panel], action, popup_visible=True) is None
+
+
+@pytest.mark.parametrize("panel", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+@pytest.mark.parametrize("action", sorted(POPUP_ONLY_ACTIONS))
+def test_x_is_claimed_again_once_there_is_no_popup_to_close(panel, action) -> None:
+    # FR-7 asks of X only that it close an open popup, and the carve-out costs something when
+    # it goes further than that: unclaimed, X falls through to the panel-command path and
+    # repeats RESET at the pane, which a power district shown under TRAIN scope answers. With
+    # nothing open it is an engine control like any other and the acc base swallows it.
+    resolution = resolve(PANEL_CONTEXT_CHAINS[panel], action)
+
+    assert resolution is not None
+    assert resolution.context.name == ACC_CONTEXT
+    assert resolution.claimed_only is True
+
+
+@pytest.mark.parametrize("action", sorted(NEVER_CLAIMED_ACTIONS | POPUP_ONLY_ACTIONS))
+def test_the_never_claimed_actions_are_ones_the_profile_can_bind(action) -> None:
+    # Keyed on the action rather than on the button, so the names have to be actions the
+    # profile actually knows -- a typo here would carve out nothing at all.
+    assert action in steam_deck_input.SUPPORTED_ACTIONS
+
+
+def test_the_carve_out_sets_name_menu_and_x_on_their_own_terms() -> None:
+    # Two sets rather than one, so which of them is conditional is visible in the table rather
+    # than hidden in the router.
+    assert NEVER_CLAIMED_ACTIONS == {"scope_catalog"}
+    assert POPUP_ONLY_ACTIONS == {"reset"}
+
+
+def test_an_explicit_binding_wins_over_the_carve_out() -> None:
+    # A default rather than a prohibition: a profile that deliberately puts something else on
+    # Menu gets it, exactly as an explicit binding beats every other default in the table.
+    merged = merge_contexts(
+        {ACC_BPC2_CONTEXT: {"bindings": {"scope_catalog": {"verb": VERB_LCS_ON}}}},
+    )
+    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "scope_catalog", merged)
+
+    assert resolution.context.name == ACC_BPC2_CONTEXT
+    assert resolution.dispatch.verb == VERB_LCS_ON
+
+
+def test_an_explicit_claim_of_menu_is_honoured_too() -> None:
+    # The other half of the same rule: a profile may say "take Menu and do nothing with it",
+    # which is a binding like any other and is not what the carve-out protects against.
+    merged = merge_contexts({ACC_CONTEXT: {"bindings": {"scope_catalog": {"verb": VERB_CLAIM}}}})
+    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_GENERIC], "scope_catalog", merged)
+
+    assert resolution.claimed_only is True
+
+
+def test_an_explicit_unbind_leaves_the_carve_out_standing() -> None:
+    # null is "do not bind this", which is the state the carve-out is written for: the action
+    # is unbound, so it falls through rather than being swallowed by the claiming base.
+    merged = merge_contexts({ACC_BPC2_CONTEXT: {"bindings": {"scope_catalog": None}}})
+
+    assert resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "scope_catalog", merged) is None
+
+
+def test_an_explicit_binding_of_x_wins_over_the_popup_gated_carve_out() -> None:
+    # The conditional carve-out is a default on the same terms as the unconditional one: a
+    # profile that deliberately binds X in a context gets it, popup or no popup.
+    merged = merge_contexts({ACC_BPC2_CONTEXT: {"bindings": {"reset": {"verb": VERB_LCS_ON}}}})
+    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "reset", merged, popup_visible=True)
+
+    assert resolution.context.name == ACC_BPC2_CONTEXT
+    assert resolution.dispatch.verb == VERB_LCS_ON
+
+
+def test_an_explicit_unbind_of_x_leaves_the_popup_gated_carve_out_standing() -> None:
+    # And null is not a binding for this purpose either: unbound is the state the carve-out is
+    # written for, so X still falls through to close the popup.
+    merged = merge_contexts({ACC_BPC2_CONTEXT: {"bindings": {"reset": None}}})
+
+    assert resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "reset", merged, popup_visible=True) is None
+    assert resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "reset", merged).claimed_only is True
+
+
+# Every action name that can reach a context: what a profile may bind, the four D-pad names
+# the router synthesises, the runtime forms a long-press trigger emits, and the directional
+# axis variants. Enumerated rather than sampled, because the failure the carve-out invites is
+# a widening nobody notices -- one more name exempted, and a control the pane has no engine
+# for reaches whatever engine it held before. The equality below is against the sets, and the
+# sets themselves are pinned to their literal members further up, so a widening has to get
+# past both to go unnoticed.
+_EVERY_ACTION = frozenset(
+    steam_deck_input.SUPPORTED_ACTIONS
+    | DPAD_ACTION_NAMES
+    | steam_deck_input.LONG_PRESS_RUNTIME_ACTIONS
+    | AXIS_VARIANT_ACTIONS
+)
+
+
+@pytest.mark.parametrize("panel", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+@pytest.mark.parametrize("popup_visible", [False, True])
+def test_exactly_the_carve_out_falls_through_and_nothing_else(panel, popup_visible) -> None:
+    # The swallow FR-0 asks for, stated as an equality rather than as a spot check: every
+    # action either resolves to something or is claimed, and the only ones that reach the
+    # handling they have everywhere else are the ones the table names.
+    chain = PANEL_CONTEXT_CHAINS[panel]
+    fell_through = {action for action in _EVERY_ACTION if resolve(chain, action, popup_visible=popup_visible) is None}
+
+    assert fell_through == NEVER_CLAIMED_ACTIONS | (POPUP_ONLY_ACTIONS if popup_visible else frozenset())
+
+
+@pytest.mark.parametrize(
+    "context", [ACC_CONTEXT, ACC_GENERIC_CONTEXT, ACC_BPC2_CONTEXT, ACC_ASC2_CONTEXT, ACC_SENSOR_TRACK_CONTEXT]
+)
+def test_every_accessory_context_hands_the_whole_dpad_to_an_open_catalog(context) -> None:
+    # An accessory context is the only kind that binds a D-pad direction, and an open catalog
+    # needs all four back: up and down scroll it, right confirms and left closes.
+    assert DPAD_ACTION_NAMES <= DEFAULT_CONTEXTS[context].yields_to_catalog
+
+
+@pytest.mark.parametrize(
+    "context", [ACC_CONTEXT, ACC_GENERIC_CONTEXT, ACC_BPC2_CONTEXT, ACC_ASC2_CONTEXT, ACC_SENSOR_TRACK_CONTEXT]
+)
+def test_the_face_buttons_still_yield_alongside_the_dpad(context) -> None:
+    # The D-pad is added to that carve-out rather than put in place of it.
+    assert {"sequence_control", "horn"} <= DEFAULT_CONTEXTS[context].yields_to_catalog
+
+
+@pytest.mark.parametrize("context", [SWITCH_CONTEXT, ROUTE_CONTEXT])
+def test_the_switch_and_route_contexts_are_left_alone(context) -> None:
+    # Neither binds a D-pad action and neither claims what it has not bound, so neither has
+    # the defect -- and handing them a carve-out they do not need would be noise in the table.
+    spec = DEFAULT_CONTEXTS[context]
+
+    assert not DPAD_ACTION_NAMES & spec.yields_to_catalog
+    assert not DPAD_ACTION_NAMES & set(spec.bindings)
+    assert spec.claims_unbound is False
+
+
+def test_the_dpad_action_names_agree_with_the_router() -> None:
+    # Spelled out here for the reason the long-press names are, and safe only while they agree.
+    assert DPAD_ACTION_NAMES == {
+        steam_deck_input.DPAD_UP,
+        steam_deck_input.DPAD_DOWN,
+        steam_deck_input.DPAD_LEFT,
+        steam_deck_input.DPAD_RIGHT,
+    }
 
 
 @pytest.mark.parametrize("context", [ACC_BPC2_CONTEXT, ACC_ASC2_CONTEXT])

@@ -149,9 +149,28 @@ class DummySlider(DummyWidget):
 
 
 class DummyCheckBoxGroup(DummyWidget):
+    """``CheckBoxGroup`` as guizero really behaves, strings and all.
+
+    ``CheckBoxGroup`` subclasses guizero's ``ButtonGroup`` without overriding ``value``, and
+    that property is backed by a Tk ``StringVar``: the setter does ``self._selected.set(str(
+    value))`` and the getter hands back what the variable holds. So the group never yields an
+    ``int`` and never yields ``None`` -- clearing it with ``value = None``, which
+    ``EngineGui.on_new_accessory`` does for a Sensor Track with no ``IrdaState``, leaves the
+    literal string ``"None"`` behind. A double that round-tripped whatever it was handed would
+    let code that reads the group pass here and raise on the pane.
+    """
+
     def __init__(self, *_args: Any, **kwargs: Any) -> None:
         super().__init__(*_args, **kwargs)
         self.value = kwargs.get("selected")
+
+    @property
+    def value(self) -> str:
+        return self._selected
+
+    @value.setter
+    def value(self, value: Any) -> None:
+        self._selected = str(value)
 
 
 class DummyAccessoryState:
@@ -433,6 +452,133 @@ def test_asc2_control_sends_nothing_for_a_port_that_is_not_an_asc2(monkeypatch: 
 
     mod.KeypadView(host).asc2_control(True)
 
+    assert sent == []
+
+
+def _sensor_track_host(monkeypatch: pytest.MonkeyPatch, *, value=None, is_sensor_track: bool = True):
+    """A pane showing a Sensor Track, with the request class recording what it is asked to send."""
+    sent: list[tuple] = []
+
+    class DummyIrdaReq:
+        def __init__(self, tmcc_id, pdi_command, action, sequence=None) -> None:
+            self.args = (tmcc_id, pdi_command, action, sequence)
+
+        def send(self, *, repeat) -> None:
+            # Required rather than defaulted, and the pane's repeat is a value no default
+            # would land on: a send that dropped the operator's repeat count would otherwise
+            # go unnoticed here.
+            sent.append(self.args + (repeat,))
+
+    monkeypatch.setattr(mod, "IrdaReq", DummyIrdaReq, raising=True)
+    monkeypatch.setattr(mod, "IrdaSequence", SimpleNamespace(by_value=lambda v: f"SEQ_{v}"), raising=True)
+    host = _new_host()
+    host.repeat = 3
+    state = DummyAccessoryState()
+    state.is_sensor_track = is_sensor_track
+    host.active_state = state
+    host.sensor_track_buttons = DummyCheckBoxGroup(selected=value)
+    return host, sent
+
+
+def _expected_irda(sequence: int, repeat: int = 3) -> tuple:
+    return 19, mod.PdiCommand.IRDA_SET, mod.IrdaAction.SEQUENCE, f"SEQ_{sequence}", repeat
+
+
+def test_the_sequence_send_is_widget_free_and_takes_the_pair_it_is_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The same extraction asc2_control made: the value and the id are arguments rather than
+    # things read off the panel, which is what lets the pad send a pair captured earlier.
+    host, sent = _sensor_track_host(monkeypatch, value=4)
+    view = mod.KeypadView(host)
+
+    view.send_sensor_track_sequence(31, 7)
+
+    assert sent == [(31, mod.PdiCommand.IRDA_SET, mod.IrdaAction.SEQUENCE, "SEQ_7", 3)]
+    assert host.sensor_track_buttons.value == "4", "and the panel was neither read nor written"
+
+
+def test_the_change_handler_still_sends_what_the_group_shows(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The on-screen path is unchanged: the handler reads the widget and hands it to the send.
+    host, sent = _sensor_track_host(monkeypatch, value=6)
+
+    mod.KeypadView(host).on_sensor_track_change()
+
+    assert sent == [_expected_irda(6)]
+
+
+@pytest.mark.parametrize(
+    ("start", "delta", "expected"),
+    [
+        (0, 1, 1),
+        (5, 1, 6),
+        (5, -1, 4),
+        (8, 1, 9),
+        (9, -1, 8),
+    ],
+)
+def test_stepping_moves_one_option_and_reports_where_it_landed(
+    monkeypatch: pytest.MonkeyPatch, start, delta, expected
+) -> None:
+    host, sent = _sensor_track_host(monkeypatch, value=start)
+
+    moved = mod.KeypadView(host).step_sensor_track_sequence(delta)
+
+    assert moved == expected
+    assert host.sensor_track_buttons.value == str(expected), "the group holds it as the string Tk keeps"
+    assert sent == [], "the highlight moves and nothing is written"
+
+
+@pytest.mark.parametrize(("start", "delta"), [(0, -1), (9, 1)])
+def test_stepping_off_either_end_moves_nothing(monkeypatch: pytest.MonkeyPatch, start, delta) -> None:
+    # Clamped rather than wrapping: an operator holding the pad against an end must not find
+    # the selection rolled round to the far one.
+    host, sent = _sensor_track_host(monkeypatch, value=start)
+
+    moved = mod.KeypadView(host).step_sensor_track_sequence(delta)
+
+    assert moved is None
+    assert host.sensor_track_buttons.value == str(start)
+    assert sent == []
+
+
+@pytest.mark.parametrize("delta", [-1, 1])
+def test_an_unset_selection_is_treated_as_the_first_option(monkeypatch: pytest.MonkeyPatch, delta) -> None:
+    # No IrdaState for this Sensor Track yet, so the group shows nothing. The first press
+    # either way lands on "No Action" and the second moves off it.
+    host, sent = _sensor_track_host(monkeypatch, value=None)
+    view = mod.KeypadView(host)
+
+    assert host.sensor_track_buttons.value == "None", "which is all an unset group can say"
+
+    assert view.step_sensor_track_sequence(delta) == 0
+    assert host.sensor_track_buttons.value == "0"
+
+    assert view.step_sensor_track_sequence(1) == 1
+    assert sent == []
+
+
+@pytest.mark.parametrize("value", ["", "None", "Sound Horn", "12"])
+def test_a_selection_the_list_does_not_hold_is_read_as_unset(monkeypatch: pytest.MonkeyPatch, value) -> None:
+    # Whatever the group is holding arrives as a string, and not every string is an option in
+    # it: "None" is what clearing the group leaves behind, and a value outside the list could
+    # only come from somewhere that does not know the list. Each is a state before the list
+    # rather than a position in it, so the press lands on "No Action" instead of raising.
+    host, sent = _sensor_track_host(monkeypatch)
+    host.sensor_track_buttons.value = value
+
+    assert mod.KeypadView(host).step_sensor_track_sequence(-1) == 0
+    assert host.sensor_track_buttons.value == "0"
+    assert sent == []
+
+
+def test_stepping_is_refused_where_the_panel_is_not_a_sensor_track(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Re-checked rather than assumed: the pane may have been re-scoped between the press
+    # being routed and the step being asked for.
+    host, sent = _sensor_track_host(monkeypatch, value=3, is_sensor_track=False)
+
+    assert mod.KeypadView(host).step_sensor_track_sequence(1) is None
+    assert host.sensor_track_buttons.value == "3"
     assert sent == []
 
 

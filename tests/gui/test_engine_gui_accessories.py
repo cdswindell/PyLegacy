@@ -530,16 +530,17 @@ def _acc_engine(kind: str | None, *, scope: CommandScope = CommandScope.ACC, tmc
         ("generic", ("acc_generic", "acc")),
         ("bpc2", ("acc_bpc2", "acc")),
         ("asc2", ("acc_asc2", "acc_bpc2", "acc")),
+        ("sensor_track", ("acc_sensor_track", "acc")),
     ],
 )
 def test_input_contexts_follow_the_accessory_panel_displayed(kind: str, expected: tuple[str, ...]) -> None:
     assert _acc_engine(kind).input_contexts == expected
 
 
-@pytest.mark.parametrize("kind", ["sensor_track", "amc2", None])
+@pytest.mark.parametrize("kind", ["amc2", None])
 def test_input_contexts_are_empty_where_no_accessory_context_is_defined(kind: str | None) -> None:
-    # Sensor Track and AMC2 have no gamepad bindings yet, and a chain of nothing but the base
-    # would claim every control and send none of them.
+    # AMC2 has no gamepad bindings yet, and a chain of nothing but the base would claim every
+    # control and send none of them.
     assert _acc_engine(kind).input_contexts == ()
 
 
@@ -659,3 +660,96 @@ def test_on_asc2_momentary_delegates_to_the_keypad(pressed: bool) -> None:
     gui.on_asc2_momentary(pressed)
 
     assert calls == [pressed]
+
+
+def _sensor_track_engine(moved_to: int | None, *, tmcc_id: int = 19) -> mod.EngineGui:
+    """A Sensor Track pane whose keypad answers a step with ``moved_to`` and records sends.
+
+    ``moved_to`` is what ``KeypadView.step_sensor_track_sequence`` answers: the Sequence value
+    the highlight came to rest on, or ``None`` where the press was clamped at an end of the
+    list and moved nothing.
+    """
+    gui = _acc_engine("sensor_track", tmcc_id=tmcc_id)
+    # ``_new_engine`` builds the pane through ``__new__``, so what ``__init__`` would have
+    # set has to be set here, the way it already seeds ``_amc2_ops_panel``.
+    gui._pending_sensor_track = None
+    sent: list[tuple[int, int]] = []
+    steps: list[int] = []
+
+    def step(delta: int) -> int | None:
+        steps.append(delta)
+        return moved_to
+
+    gui._keypad_view = SimpleNamespace(
+        accessory_panel_kind="sensor_track",
+        step_sensor_track_sequence=step,
+        send_sensor_track_sequence=lambda tmcc, sequence: sent.append((tmcc, sequence)),
+    )
+    gui.sensor_track_sent = sent
+    gui.sensor_track_steps = steps
+    return gui
+
+
+@pytest.mark.parametrize("delta", [-1, 1])
+def test_on_sensor_track_step_records_the_pair_it_moved_to(delta: int) -> None:
+    # KD-11: what is pending is the GUI's, and it is a *pair* -- the id as well as the value
+    # -- because the id is part of the choice the operator made and not of the pane they
+    # happened to be looking at when the pause elapsed.
+    gui = _sensor_track_engine(7, tmcc_id=19)
+
+    moved = gui.on_sensor_track_step(delta)
+
+    assert moved is True
+    assert gui.sensor_track_steps == [delta]
+    assert gui._pending_sensor_track == (19, 7)
+    assert gui.sensor_track_sent == [], "the step itself writes nothing"
+
+
+def test_on_sensor_track_step_records_nothing_where_the_highlight_did_not_move() -> None:
+    # A press clamped at either end. Answering False is what keeps the router from arming --
+    # or re-arming -- a pause for a choice that was never made.
+    gui = _sensor_track_engine(None)
+
+    moved = gui.on_sensor_track_step(-1)
+
+    assert moved is False
+    assert gui._pending_sensor_track is None
+    assert gui.sensor_track_sent == []
+
+
+def test_on_sensor_track_commit_writes_the_recorded_pair_and_forgets_it() -> None:
+    gui = _sensor_track_engine(4, tmcc_id=23)
+    gui.on_sensor_track_step(1)
+
+    gui.on_sensor_track_commit()
+
+    assert gui.sensor_track_sent == [(23, 4)]
+    assert gui._pending_sensor_track is None
+
+    gui.on_sensor_track_commit()
+
+    assert gui.sensor_track_sent == [(23, 4)], "a second commit has nothing left to write"
+
+
+def test_on_sensor_track_commit_with_nothing_pending_is_a_no_op() -> None:
+    # ``clear()`` flushes every armed target, and a target may be armed and settled in the
+    # same breath; a commit with nothing pending must be silent rather than send a stale pair.
+    gui = _sensor_track_engine(4)
+
+    gui.on_sensor_track_commit()
+
+    assert gui.sensor_track_sent == []
+
+
+def test_a_pane_re_scoped_during_the_pause_still_writes_the_pair_chosen_at_step_time() -> None:
+    # The case the recorded pair exists for. The write is half a second behind the press, and
+    # the catalog can re-point the pane inside that half second: reading the id at commit time
+    # would send the Sequence the operator chose for one Sensor Track to a different one.
+    gui = _sensor_track_engine(6, tmcc_id=19)
+    gui.on_sensor_track_step(1)
+
+    gui._scope_tmcc_ids[CommandScope.ACC] = 42
+
+    gui.on_sensor_track_commit()
+
+    assert gui.sensor_track_sent == [(19, 6)], "the id the choice was made at, not the one now shown"

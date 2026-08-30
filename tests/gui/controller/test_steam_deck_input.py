@@ -12,18 +12,21 @@ from src.pytrain.gui.controller.accessory_bindings import (
     ACC_BPC2_CONTEXT,
     ACC_GENERIC_CONTEXT,
     DEFAULT_CONTEXTS,
+    PANEL_AMC2,
     PANEL_ASC2,
     PANEL_BPC2,
     PANEL_CONTEXT_CHAINS,
     PANEL_GENERIC,
+    PANEL_SENSOR_TRACK,
 )
+from src.pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
 from src.pytrain.gui.controller.steam_deck_input import (
-    DPAD_DOWN,
-    DPAD_LEFT,
-    DPAD_RIGHT,
     ADMIN_COMMANDS,
     CATALOG_JUMP_MODIFIER,
     DEFAULT_PROFILE,
+    DPAD_DOWN,
+    DPAD_LEFT,
+    DPAD_RIGHT,
     DPAD_UP,
     HORN_COMMAND,
     PANEL_COMMANDS,
@@ -3697,7 +3700,46 @@ def _acc_gui(kind: str = PANEL_GENERIC):
     gui.momentary_calls: list[bool] = []
     gui.on_lcs_command = lambda on: gui.lcs_calls.append(on)
     gui.on_asc2_momentary = lambda pressed: gui.momentary_calls.append(pressed)
+    _add_sensor_track_recorders(gui)
     return gui
+
+
+def _add_sensor_track_recorders(gui) -> None:
+    """The Sequence group's half of the pane, modelled rather than stubbed to a constant.
+
+    ``on_sensor_track_step`` has to answer *whether it moved* -- that is what arms the commit
+    pause -- so the stub keeps a highlight and clamps it within ``SENSOR_TRACK_OPTS`` exactly
+    as ``KeypadView.step_sensor_track_sequence`` does, including an unset selection counting
+    as the state before the list so the first press of either direction lands on index 0. A
+    test wanting the clamp sets ``sensor_track_index`` to an end of the list and presses
+    outward, rather than telling the stub to answer False.
+
+    ``commit_calls`` records the value that was pending at each commit, so a commit the router
+    made with nothing pending shows up as a ``None`` rather than passing unnoticed.
+    """
+    gui.sensor_track_calls: list[int] = []
+    gui.commit_calls: list[int | None] = []
+    gui.sensor_track_index: int | None = None
+    gui.pending_sensor_track: int | None = None
+
+    def on_sensor_track_step(delta: int) -> bool:
+        gui.sensor_track_calls.append(delta)
+        if gui.sensor_track_index is None:
+            target = 0
+        else:
+            target = gui.sensor_track_index + delta
+            if not 0 <= target < len(SENSOR_TRACK_OPTS):
+                return False
+        gui.sensor_track_index = target
+        gui.pending_sensor_track = target
+        return True
+
+    def on_sensor_track_commit() -> None:
+        gui.commit_calls.append(gui.pending_sensor_track)
+        gui.pending_sensor_track = None
+
+    gui.on_sensor_track_step = on_sensor_track_step
+    gui.on_sensor_track_commit = on_sensor_track_commit
 
 
 def _coupler_profile() -> ControlProfile:
@@ -3914,14 +3956,17 @@ def test_the_generic_panel_leaves_set_address_alone() -> None:
 
 
 def test_an_engine_panel_is_untouched_by_the_accessory_context() -> None:
-    focused = _acc_gui(kind="sensor_track")
+    # AMC2 rather than Sensor Track: Sensor Track has a chain of its own now, and AMC2 is the
+    # panel kind still left out of the table -- no bindings, so no chain, so the pad keeps the
+    # meaning it has everywhere else.
+    focused = _acc_gui(kind=PANEL_AMC2)
     router, _left, _right, _focused, _global = _router(left=focused)
 
     router.handle(DeckAction("throttle", "focused", 1.0, "changed"))
     router.tick(0.0)
     router.tick(0.2)
 
-    assert focused.acc_speed_calls == [], "no accessory context is reported for Sensor Track"
+    assert focused.acc_speed_calls == [], "no accessory context is reported for AMC2"
     assert focused.speed_calls, "the stick still ramps the engine the pane holds"
 
 
@@ -4188,3 +4233,627 @@ def test_neither_power_district_context_inherits_the_generic_one(context) -> Non
     assert ACC_GENERIC_CONTEXT not in PANEL_CONTEXT_CHAINS[PANEL_BPC2]
     assert ACC_GENERIC_CONTEXT not in PANEL_CONTEXT_CHAINS[PANEL_ASC2]
     assert DEFAULT_CONTEXTS[context].inherits != ACC_GENERIC_CONTEXT
+
+
+# --------------------------------------------------------------------------------------- #
+# The Sensor Track panel: stepping the Sequence options.
+# --------------------------------------------------------------------------------------- #
+#
+# The pause these tests wait out is driven by ``tick()``, which contributes at most
+# ``min(elapsed, max(0.25, repeat_interval))`` on each call and returns without doing anything
+# at all on the first. Reaching ``SENSOR_TRACK_COMMIT_DELAY`` therefore takes at least two
+# spaced ticks after the arming one, and no single jump of the clock will do it however large
+# -- ``_settle`` is the cadence that does, and ``_almost_settle`` the one that stops short.
+
+
+def _sensor_track_gui():
+    """A pane showing a Sensor Track panel, with an unset Sequence as a fresh one has."""
+    return _acc_gui(kind=PANEL_SENSOR_TRACK)
+
+
+def _settle(router: DeckInputRouter, start: float = 0.0) -> float:
+    """Tick past ``SENSOR_TRACK_COMMIT_DELAY`` and answer the clock reading left behind.
+
+    Two ticks 0.3 s apart, because the elapsed figure each one contributes is capped at 0.25:
+    0.25 + 0.25 is the 0.5 s the pause wants and one tick could never supply it.
+    """
+    router.tick(start)
+    router.tick(start + 0.3)
+    router.tick(start + 0.6)
+    return start + 0.6
+
+
+def _almost_settle(router: DeckInputRouter, start: float = 0.0) -> float:
+    """Tick enough to be waiting, but not enough to have written: one capped tick, 0.25 s."""
+    router.tick(start)
+    router.tick(start + 0.3)
+    return start + 0.3
+
+
+def test_a_single_tick_however_long_cannot_reach_the_commit_pause() -> None:
+    # The cap the two helpers above are built around, pinned so a change to it is noticed
+    # here rather than silently making every debounce test below wait a different length.
+    focused = _sensor_track_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    router.tick(0.0)
+    router.tick(60.0)
+
+    assert focused.commit_calls == [], "one tick contributes at most 0.25 s, whatever the clock says"
+    assert router._sensor_track_commits == {"focused": 0.25}
+
+
+@pytest.mark.parametrize(("name", "delta"), [(DPAD_UP, -1), (DPAD_DOWN, 1)])
+def test_the_dpad_steps_the_sequence_the_way_the_list_reads(name, delta) -> None:
+    # FR-3b's direction convention, and it is the catalog's: up is towards the top of the
+    # list ("No Action") and so a negative delta, down towards the bottom ("Recorded
+    # Sequence"). The same sign scroll_catalog(-1) carries for the same movement, so the
+    # D-pad does not mean one thing over a list and the opposite over this group.
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 5
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.sensor_track_calls == [delta]
+    assert focused.sensor_track_index == 5 + delta
+    assert focused.commit_calls == [], "the highlight moved, but nothing has been written yet"
+    assert router._sensor_track_commits == {"focused": 0.0}, "and the pause is running"
+
+
+@pytest.mark.parametrize(("name", "delta"), [(DPAD_UP, -1), (DPAD_DOWN, 1)])
+def test_the_step_is_written_once_the_dpad_has_been_still_for_the_pause(name, delta) -> None:
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 5
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+    _settle(router)
+
+    assert focused.commit_calls == [5 + delta]
+    assert router._sensor_track_commits == {}, "and the pause is spent, not left to fire again"
+
+
+def test_nine_quick_presses_across_the_whole_list_send_one_command() -> None:
+    # The reason for the pause at all. Crossing from "No Action" to "Recorded Sequence" is
+    # nine presses, and writing each one would put nine IRDA_SET commands on the wire for one
+    # decision -- the eight the operator passed through were never a choice they made.
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 0
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    for _press in range(len(SENSOR_TRACK_OPTS) - 1):
+        router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+        router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
+        router.tick(0.0)
+
+    assert focused.sensor_track_calls == [1] * 9, "every press moved the highlight"
+    assert focused.commit_calls == [], "and none of the nine has been written"
+
+    _settle(router)
+
+    assert focused.commit_calls == [len(SENSOR_TRACK_OPTS) - 1], "one write, of where it came to rest"
+
+
+def test_each_further_step_re_arms_the_pause_from_the_beginning() -> None:
+    # What makes the write wait for the *last* press rather than the first: a step arriving
+    # while the pause runs restarts it, so a reader still moving is never written out from
+    # under. The first press here is left almost settled before the second arrives.
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 2
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    _almost_settle(router)
+
+    assert focused.commit_calls == [], "not yet"
+    assert router._sensor_track_commits == {"focused": 0.25}
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+
+    assert router._sensor_track_commits == {"focused": 0.0}, "the wait began again"
+
+    router.tick(0.6)
+
+    assert focused.commit_calls == [], "so the pause the first press had banked is not honoured"
+
+    router.tick(0.9)
+
+    assert focused.commit_calls == [4], "and the write, when it comes, is of the second step"
+
+
+@pytest.mark.parametrize(
+    ("name", "index"),
+    [
+        # Clamped rather than wrapping: the list has two ends and the D-pad stops at them.
+        # Wrapping would put "Recorded Sequence" one press above "No Action", which is the
+        # one neighbour a Sequence group must not have.
+        (DPAD_UP, 0),
+        (DPAD_DOWN, len(SENSOR_TRACK_OPTS) - 1),
+    ],
+)
+def test_a_press_clamped_at_either_end_arms_nothing_and_writes_nothing(name, index) -> None:
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = index
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.sensor_track_calls == [1 if name == DPAD_DOWN else -1], "the press was claimed"
+    assert focused.sensor_track_index == index, "and moved nothing"
+    assert router._sensor_track_commits == {}, "so no pause was armed"
+
+    _settle(router)
+
+    assert focused.commit_calls == [], "and nothing was written when it would have elapsed"
+
+
+@pytest.mark.parametrize("name", [DPAD_UP, DPAD_DOWN])
+def test_a_press_clamped_at_the_end_does_not_re_arm_a_pause_already_running(name) -> None:
+    # The half of the clamp that is easy to miss: a press that moves nothing must not push the
+    # write further out either. An operator resting on the D-pad at the end of the list would
+    # otherwise hold their own choice off the wire for as long as they leaned on it.
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 1 if name == DPAD_UP else len(SENSOR_TRACK_OPTS) - 2
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+    settled = _almost_settle(router)
+
+    assert router._sensor_track_commits == {"focused": 0.25}, "the step that moved is waiting"
+
+    router.handle(DeckAction(name, "focused", 0.0, "released"))
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert router._sensor_track_commits == {"focused": 0.25}, "the clamped press left it alone"
+
+    router.tick(settled + 0.3)
+
+    assert focused.commit_calls == [0 if name == DPAD_UP else len(SENSOR_TRACK_OPTS) - 1]
+
+
+def test_a_held_dpad_steps_the_sequence_exactly_once() -> None:
+    # One step per press: the binding carries no repeat flag, because a reader choosing from
+    # ten named options is picking one rather than scrolling. Nothing is registered to repeat,
+    # so tick() has nothing of the sort to re-send however long the thumb rests there.
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 3
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    _settle(router)
+    router.tick(0.9)
+    router.tick(1.2)
+
+    assert focused.sensor_track_calls == [1], "the press, and no repeat behind it"
+    assert focused.sensor_track_index == 4
+    assert router._context_repeats == {}
+    assert focused.commit_calls == [4], "and the one write it earned"
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
+    router.tick(1.5)
+
+    assert focused.sensor_track_calls == [1], "the release stepped nothing on its way out"
+    assert focused.commit_calls == [4], "and wrote nothing a second time"
+
+
+def test_an_unset_sequence_is_stepped_onto_the_first_option_either_way() -> None:
+    # A Sensor Track with no IrdaState yet shows nothing selected, which is a state *before*
+    # the list rather than a position in it: the first press of either direction has to land
+    # on "No Action", and only a second one moves off it.
+    focused = _sensor_track_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    _settle(router)
+
+    assert focused.commit_calls == [0]
+
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    _settle(router, 0.9)
+
+    assert focused.commit_calls == [0], "and at the top of the list it stops there"
+
+
+def test_clear_writes_the_sequence_that_was_still_waiting_rather_than_dropping_it() -> None:
+    # The controller going away is the one case where no further tick arrives to carry the
+    # choice to the wire, so the pause is flushed rather than forgotten -- the same courtesy
+    # clear() already does a held momentary output, which it releases rather than abandoning.
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 6
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    _almost_settle(router)
+
+    assert focused.commit_calls == [], "still inside the pause"
+
+    router.clear()
+
+    assert focused.commit_calls == [7], "the operator's choice went out anyway"
+    assert router._sensor_track_commits == {}
+
+    router.clear()
+
+    assert focused.commit_calls == [7], "and a second clear has nothing left to write"
+
+
+def test_two_panes_each_mid_pause_settle_and_write_independently() -> None:
+    # Keyed by target, as every other pending-state map in the router is: two Sensor Tracks
+    # side by side are two choices, and one settling must neither write nor cancel the other.
+    left_gui = _sensor_track_gui()
+    right_gui = _sensor_track_gui()
+    left_gui.sensor_track_index = 2
+    right_gui.sensor_track_index = 8
+    router, _left, _right, _focused, _global = _router(left=left_gui, right=right_gui)
+
+    router.handle(DeckAction(DPAD_DOWN, "left", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_UP, "right", 1.0, "pressed"))
+
+    assert router._sensor_track_commits == {"left": 0.0, "right": 0.0}
+
+    _settle(router)
+
+    assert left_gui.commit_calls == [3]
+    assert right_gui.commit_calls == [7]
+    assert router._sensor_track_commits == {}
+
+
+def test_a_catalog_opened_during_the_pause_is_not_a_cancel() -> None:
+    # Unlike a held D-pad repeat, which the catalog does stop: a repeat is a stream of
+    # commands the operator is no longer looking at, but this is a single choice they already
+    # made. Opening the list to go somewhere else does not un-make it, and the pause lives in
+    # tick() where the catalog carve-out never reaches.
+    focused = _nav_acc_gui(PANEL_SENSOR_TRACK)
+    focused.sensor_track_index = 1
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    _almost_settle(router)
+    focused.catalog_visible = True
+    router.tick(0.6)
+
+    assert focused.commit_calls == [2], "the choice made before the list came up still went out"
+    assert focused.scroll_calls == [], "and no part of it scrolled the list"
+
+
+@pytest.mark.parametrize("name", ["throttle", "direction"])
+def test_the_sticks_on_a_sensor_track_panel_are_claimed_and_sent_nowhere(name) -> None:
+    # FR-0: the panel binds the D-pad and nothing else, so the sticks fall to the acc base,
+    # which claims what it has not bound. A Sensor Track has no speed and no direction, and
+    # the pane may still be holding the engine it was driving before the track was picked in
+    # it -- so the alternative to claiming them is ramping that engine from this panel.
+    focused = _sensor_track_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "changed"))
+    _settle(router)
+
+    assert focused.speed_calls == [], "no engine speed left the panel"
+    assert focused.command_calls == []
+    assert focused.acc_speed_calls == [], "nor an accessory speed, which this panel has not got"
+    assert focused.acc_calls == []
+    assert focused.sensor_track_calls == [], "and a stick is not a step"
+    assert focused.commit_calls == []
+
+
+@pytest.mark.parametrize("name", ["shutdown", "startup"])
+def test_the_triggers_on_a_sensor_track_panel_are_claimed_and_sent_nowhere(name) -> None:
+    # The same for L2 and R2. A Sensor Track is not an engine to be started or shut down, and
+    # neither trigger is bound here to anything else.
+    focused = _sensor_track_gui()
+    profile = _profile(
+        axes={
+            "2": {"action": "shutdown", "target": "focused", "trigger": True},
+            "5": {"action": "startup", "target": "focused", "trigger": True},
+        }
+    )
+    router, _left, _right, _focused, _global = _router(profile, left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(name, "focused", 0.0, "released"))
+    _settle(router)
+
+    assert focused.command_calls == []
+    assert focused.sensor_track_calls == []
+    assert focused.commit_calls == []
+
+
+# --------------------------------------------------------------------------------------- #
+# Getting back out of an accessory panel.
+# --------------------------------------------------------------------------------------- #
+
+
+def _nav_acc_gui(kind: str = PANEL_GENERIC, **flags):
+    """An accessory pane that also records what the catalog and the popup are asked to do.
+
+    ``_acc_gui`` records only what reaches the accessory, which is the half these tests want
+    to see stay empty; the other half is what the pane is navigated by.
+    """
+    gui = _acc_gui(kind)
+    gui.catalog_visible = flags.get("catalog_visible", False)
+    gui.popup_visible = flags.get("popup_visible", False)
+    gui.catalog_calls: list[str] = []
+    gui.show_scope_catalog = lambda: gui.catalog_calls.append("show")
+    gui.hide_scope_catalog = lambda: gui.catalog_calls.append("hide")
+    gui.select_catalog_entry = lambda: gui.catalog_calls.append("select")
+    gui.scroll_calls: list[int] = []
+    gui.scroll_catalog = lambda delta: gui.scroll_calls.append(delta)
+    gui.close_calls: list[str] = []
+    gui.close_popup = lambda: gui.close_calls.append("close")
+    return gui
+
+
+def _nav_profile() -> ControlProfile:
+    """Menu and X as the bundled profile binds them: the catalog on Menu, reset on X.
+
+    The repeat flag on X is the bundled profile's too, so the press takes the repeating path
+    rather than the plain one -- the path an operator's X actually goes down.
+    """
+    return _profile(
+        buttons={
+            "7": {"action": "scope_catalog", "target": "focused"},
+            "2": {"action": "reset", "target": "focused", "repeat": True},
+        }
+    )
+
+
+@pytest.mark.parametrize("kind", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+def test_menu_opens_the_catalog_from_every_accessory_panel(kind) -> None:
+    # A-6: the acc base claims what it has not bound, and Menu was unbound -- so the one
+    # control that changes what a pane is showing was swallowed by the panel it was meant to
+    # change. An accessory picked by mistake could then only be undone by touching the screen.
+    focused = _nav_acc_gui(kind)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction("scope_catalog", "focused", 1.0, "pressed", button=7))
+
+    assert focused.catalog_calls == ["show"]
+
+
+@pytest.mark.parametrize("kind", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+def test_x_closes_a_popup_over_every_accessory_panel(kind) -> None:
+    # The other half of A-6, and the worse one: a popup is modal, so an X the accessory panel
+    # swallowed left the operator with a panel up and no button that would take it down.
+    focused = _nav_acc_gui(kind, popup_visible=True)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+
+    assert focused.close_calls == ["close"]
+    assert focused.command_calls == [], "and closing it sent no RESET to the engine"
+
+
+@pytest.mark.parametrize("kind", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+def test_x_with_no_popup_up_is_claimed_by_the_accessory_panel(kind) -> None:
+    # The carve-out is for the popup, and only for the popup: FR-7 asks of X that it always
+    # closes an open popup, which says nothing about an X pressed with nothing open. With
+    # nothing open the accessory context claims it as it claims every other engine control,
+    # so no RESET is sent, none is registered to repeat, and tick() has nothing to re-send.
+    focused = _nav_acc_gui(kind)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.command_calls == []
+    assert focused.close_calls == [], "there was no popup to close"
+    assert router._held_commands == {}, "and nothing was left repeating behind it"
+
+
+def _district_gui():
+    """A power district reached as an ``LcsProxyState`` under TRAIN scope.
+
+    ``KeypadView.accessory_panel_kind`` reports ``bpc2`` for one of these and
+    ``EngineGui.input_contexts`` the BPC2 chain, so the pad claims it exactly as it claims
+    the power district panel it draws -- but the pane is a *train* pane still, and
+    ``EngineGui.on_engine_command``'s guard (scope in ENGINE/TRAIN with a tmcc_id) therefore
+    **passes**. That is what makes this the one accessory panel where an engine command the
+    context failed to claim leaves the GUI and goes on the wire, at the district's own
+    address, so the stub applies the same guard rather than recording every call.
+    """
+    gui = _nav_acc_gui(PANEL_BPC2)
+    gui.scope = "TRAIN"
+    gui.tmcc_id = 4
+    gui.wire_calls: list[str] = []
+
+    def on_engine_command(command, data=None):
+        gui.command_calls.append(command)
+        if gui.scope in {"ENGINE", "TRAIN"} and gui.tmcc_id:
+            gui.wire_calls.append(command)
+
+    gui.on_engine_command = on_engine_command
+    return gui
+
+
+def test_x_on_a_power_district_under_train_scope_puts_no_reset_on_the_wire() -> None:
+    # The case the carve-out actually reached, and the reason it is gated. Everywhere else an
+    # unclaimed X is a silent no-op -- on_engine_command drops it for want of an engine scope
+    # -- but a power district shown under TRAIN scope answers that guard, so a repeating TMCC
+    # train RESET went out at the district's address. Precisely what acc's claims_unbound was
+    # written to prevent.
+    focused = _district_gui()
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+    router.tick(0.0)
+    router.tick(0.2)
+
+    assert focused.wire_calls == []
+    assert focused.command_calls == []
+    assert router._held_commands == {}
+
+
+def test_x_still_closes_a_popup_over_a_power_district_under_train_scope() -> None:
+    # And the gate does not cost the popup its button on the one panel that needed it most.
+    focused = _district_gui()
+    focused.popup_visible = True
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+
+    assert focused.close_calls == ["close"]
+    assert focused.wire_calls == []
+
+
+@pytest.mark.parametrize("kind", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+def test_menu_still_opens_the_catalog_with_a_popup_up(kind) -> None:
+    # Menu is not the popup's button, so it keeps its own meaning: the two carve-outs are
+    # independent of each other.
+    focused = _nav_acc_gui(kind, popup_visible=True)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction("scope_catalog", "focused", 1.0, "pressed", button=7))
+
+    assert focused.catalog_calls == ["show"]
+    assert focused.close_calls == []
+
+
+@pytest.mark.parametrize(
+    ("kind", "name", "scrolls", "catalog"),
+    [
+        # Up and down scroll the highlight, right confirms the entry and left closes the
+        # panel -- the same four meanings the D-pad has over an engine pane.
+        (PANEL_GENERIC, DPAD_UP, [-1], []),
+        (PANEL_GENERIC, DPAD_DOWN, [1], []),
+        (PANEL_GENERIC, DPAD_LEFT, [], ["hide"]),
+        (PANEL_GENERIC, DPAD_RIGHT, [], ["select"]),
+        (PANEL_BPC2, DPAD_UP, [-1], []),
+        (PANEL_BPC2, DPAD_DOWN, [1], []),
+        (PANEL_BPC2, DPAD_LEFT, [], ["hide"]),
+        (PANEL_BPC2, DPAD_RIGHT, [], ["select"]),
+        (PANEL_ASC2, DPAD_UP, [-1], []),
+        (PANEL_ASC2, DPAD_DOWN, [1], []),
+        (PANEL_ASC2, DPAD_LEFT, [], ["hide"]),
+        (PANEL_ASC2, DPAD_RIGHT, [], ["select"]),
+        # The panel where the D-pad is the whole binding, and so the one with the most to
+        # lose: up and down are the Sequence group's, and an open catalog takes them back.
+        (PANEL_SENSOR_TRACK, DPAD_UP, [-1], []),
+        (PANEL_SENSOR_TRACK, DPAD_DOWN, [1], []),
+        (PANEL_SENSOR_TRACK, DPAD_LEFT, [], ["hide"]),
+        (PANEL_SENSOR_TRACK, DPAD_RIGHT, [], ["select"]),
+    ],
+)
+def test_an_open_catalog_gets_the_whole_dpad_back_from_an_accessory_panel(kind, name, scrolls, catalog) -> None:
+    # The catalog is where the pane's scope is picked, and a reader looking at that list is no
+    # longer working the accessory: with it up, D-pad left has to close it rather than switch a
+    # power district off under the list the operator is reading.
+    focused = _nav_acc_gui(kind, catalog_visible=True)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.scroll_calls == scrolls
+    assert focused.catalog_calls == catalog
+    assert focused.lcs_calls == [], "and the power district was not switched"
+    assert focused.momentary_calls == [], "nor the ASC2 output energised"
+    assert focused.acc_calls == [], "nor the accessory boosted or braked"
+    assert focused.sensor_track_calls == [], "nor the Sequence highlight moved"
+    assert router._sensor_track_commits == {}, "nor a write left waiting behind the list"
+
+
+@pytest.mark.parametrize("name", [DPAD_LEFT, DPAD_RIGHT])
+def test_the_dpad_works_the_power_district_again_once_the_catalog_is_gone(name) -> None:
+    # The carve-out is conditioned on the catalog being up, not on the panel: closed again,
+    # left and right are the district's Off and On keys as before.
+    focused = _nav_acc_gui(PANEL_BPC2)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.lcs_calls == [name == DPAD_RIGHT]
+    assert focused.catalog_calls == []
+
+
+def test_an_asc2_output_held_by_the_dpad_is_dropped_when_the_catalog_opens_under_the_thumb() -> None:
+    # The ordering _handle_contexts keeps: the hold record is consulted before the catalog
+    # carve-out, so a release that arrives once the catalog is up still switches the output
+    # off. Taken the other way round the release would scroll the catalog and the output
+    # would stay energised with nothing left to drop it.
+    focused = _nav_acc_gui(PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+
+    assert focused.momentary_calls == [True]
+
+    focused.catalog_visible = True
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+
+    assert focused.momentary_calls == [True, False]
+    assert focused.scroll_calls == [], "the release scrolled nothing on its way out"
+
+
+def test_a_dpad_repeat_is_dropped_when_the_catalog_opens_under_the_thumb() -> None:
+    # The repeating half of the case above, and the same discipline: the catalog opens from
+    # Menu, so a D-pad already held has no event of its own to notice it with and the next
+    # word from it is the release. Without the drop, tick() goes on boosting the accessory
+    # underneath the list the operator is reading, for as long as the thumb rests there.
+    focused = _nav_acc_gui(PANEL_GENERIC)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.tick(0.0)
+    router.tick(0.1)
+
+    assert focused.acc_calls == [("BOOST", None), ("BOOST", None)], "the press and one repeat"
+
+    focused.catalog_visible = True
+    router.tick(0.2)
+    router.tick(0.3)
+
+    assert focused.acc_calls == [("BOOST", None), ("BOOST", None)], "the catalog took the D-pad"
+    assert router._context_repeats == {}
+
+
+def test_the_dpad_released_after_the_catalog_took_it_scrolls_nothing_on_its_way_out() -> None:
+    # The release path is unchanged by that drop: it still yields to the catalog, and a
+    # release is not a scroll there any more than it was before.
+    focused = _nav_acc_gui(PANEL_GENERIC)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.tick(0.0)
+    focused.catalog_visible = True
+    router.tick(0.1)
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.tick(0.2)
+
+    assert focused.acc_calls == [("BOOST", None)], "only the press, before the catalog opened"
+    assert focused.scroll_calls == []
+    assert router._context_repeats == {}
+
+
+def test_a_dpad_repeat_survives_a_catalog_open_over_a_pane_that_is_not_this_one() -> None:
+    # Keyed by target, as every other pending-state map in the router is: a catalog opened in
+    # the other pane is not this pane's catalog and must not stop its Boost.
+    focused = _nav_acc_gui(PANEL_GENERIC)
+    other = _nav_acc_gui(PANEL_GENERIC)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused, right=other)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    other.catalog_visible = True
+    router.tick(0.0)
+    router.tick(0.1)
+    router.tick(0.2)
+
+    assert focused.acc_calls == [("BOOST", None), ("BOOST", None), ("BOOST", None)]
+
+
+def test_the_catalog_opened_over_a_panel_is_scrolled_by_the_next_press() -> None:
+    # And the direction that was holding the output is the catalog's again from the next
+    # press: the hold is spent, not permanent.
+    focused = _nav_acc_gui(PANEL_ASC2)
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    focused.catalog_visible = True
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+
+    assert focused.scroll_calls == [-1]
+    assert focused.momentary_calls == [True, False], "and the output was not energised again"

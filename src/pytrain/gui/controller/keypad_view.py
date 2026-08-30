@@ -940,10 +940,76 @@ class KeypadView(Generic[S]):
 
     # noinspection PyProtectedMember
     def on_sensor_track_change(self) -> None:
+        """Sends the Sequence the radio group is now showing.
+
+        The widget-reading half of the pair below: the on-screen group fires this when one of
+        its options is clicked, and it does no more than pick the value up and hand it on.
+        """
         host = self._host
         tmcc_id = host._scope_tmcc_ids[host.scope]
-        st_seq = IrdaSequence.by_value(int(host.sensor_track_buttons.value))
-        IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=host.repeat)
+        self.send_sensor_track_sequence(tmcc_id, host.sensor_track_buttons.value)
+
+    def send_sensor_track_sequence(self, tmcc_id: int, sequence: int | str) -> None:
+        """Writes ``sequence`` to the Sensor Track at ``tmcc_id``.
+
+        Widget-free on purpose, as ``asc2_control`` is: the on-screen group reaches it through
+        the change handler above, and the gamepad reaches it through
+        ``EngineGui.on_sensor_track_commit``, so both send exactly the same request. Taking the
+        id and the value as arguments rather than reading them is what lets the pad send the
+        pair the operator settled on even if the pane has been re-scoped since.
+
+        The two callers hand over different types and the normalising is done here rather than
+        asked of them: the change handler passes what the group holds, which is a ``str``
+        because guizero keeps the selection in a Tk ``StringVar``, while the pad passes the
+        ``int`` the stepping returned.
+        """
+        st_seq = IrdaSequence.by_value(int(sequence))
+        IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self._host.repeat)
+
+    def step_sensor_track_sequence(self, delta: int) -> int | None:
+        """Moves the Sequence highlight ``delta`` options and returns the value moved to.
+
+        Clamped rather than wrapping: a step off either end of ``SENSOR_TRACK_OPTS`` moves
+        nothing and returns None, so the operator can hold the pad against an end without the
+        selection rolling round to the far one.
+
+        An unset group -- no ``IrdaState`` for this Sensor Track yet, so nothing is
+        highlighted -- is a state before the list rather than a position in it: the first
+        press either way lands on "No Action" and only the second moves off it. Reading it as
+        "already on index 0" instead would make that first press either do nothing at all or
+        skip "No Action" altogether, depending on which way it went.
+
+        What "unset" looks like has to be read off the widget rather than assumed: the group
+        keeps its selection in a Tk ``StringVar``, so it answers with a ``str`` whatever was
+        assigned, and the ``value = None`` ``on_new_accessory`` clears it with comes back as
+        the string ``"None"``. Anything that does not parse to an option in the list -- that,
+        an empty group, a value from outside the list -- is the state before it.
+
+        Assigns ``value`` rather than clicking an option, which is what moves the highlight
+        without sending: the group's command fires on a click, so an assignment is silent --
+        the same assignment ``on_new_accessory`` makes from incoming state. Nothing is written
+        here at all; the caller decides when the choice has settled.
+        """
+        host = self._host
+        if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
+            return None
+        buttons = host.sensor_track_buttons
+        if buttons is None:
+            return None
+        values = [int(opt[1]) for opt in SENSOR_TRACK_OPTS]
+        try:
+            index = values.index(int(buttons.value))
+        except (TypeError, ValueError):
+            index = None
+        if index is None:
+            target = 0
+        else:
+            target = index + int(delta)
+            if not 0 <= target < len(values):
+                return None
+        value = values[target]
+        buttons.value = value
+        return value
 
     # noinspection PyProtectedMember
     def asc2_control(self, pressed: bool) -> None:

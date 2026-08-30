@@ -58,6 +58,47 @@ STARTUP_DELAYED = "startup_delayed"
 SHUTDOWN_IMMEDIATE = "shutdown_immediate"
 SHUTDOWN_DELAYED = "shutdown_delayed"
 
+# The four D-pad action names, spelled out here for the same reason: they belong to
+# ``steam_deck_input``, which imports this module rather than the other way about.
+DPAD_UP = "dpad_up"
+DPAD_DOWN = "dpad_down"
+DPAD_LEFT = "dpad_left"
+DPAD_RIGHT = "dpad_right"
+DPAD_ACTION_NAMES = frozenset({DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT})
+
+# The controls a pane is *left* by, which no context takes unless it says so outright. The
+# bundled profile puts ``scope_catalog`` on Menu and ``reset`` on X, and a panel that swallowed
+# them would be a place the pad could arrive at and not get out of: no catalog to pick
+# something else from, and no way to close a popup already up. ``claims_unbound`` was written
+# to stop a stick reaching an engine the pane no longer holds, and catching the navigation
+# controls as well was never the intention -- so the exceptions are named rather than the rule
+# weakened.
+#
+# The two are carved out on different terms, which is why they are two sets rather than one.
+# Menu is unconditional: being able to *open* the catalog is the whole point, so an accessory
+# panel never takes it. X is conditional on there being a popup to close, because that is all
+# FR-7 asks of it -- and an unconditional carve-out costs more than it looks. X falls through
+# to the ordinary panel-command path, which repeats ``RESET`` at the pane while the button is
+# held; that is a silent no-op on an ACC-scope panel, but a power district reached as an
+# ``LcsProxyState`` shows the BPC2 panel under **TRAIN** scope, where ``on_engine_command``'s
+# guard passes and the reset goes out at the district's own address. Gated on the popup, the
+# swallow FR-0 asks for stands everywhere else and nothing is sent.
+#
+# Both are keyed on the action rather than on the button, as ``ADMIN_CHORD_MODIFIER`` and
+# ``CATALOG_JUMP_MODIFIER`` are and for the same reason: a profile that moves the button keeps
+# the behaviour with it. The price of that choice is the mirror case -- a profile that moves
+# ``reset`` elsewhere and puts something else on X carves out the wrong control, the popup path
+# being button-indexed (``CLOSE_POPUP_BUTTON``) where this is not. The two agree for any
+# profile that leaves ``reset`` where the bundled one puts it.
+#
+# A context that binds one of these explicitly still gets it: this is a default rather than a
+# prohibition, so a profile that deliberately puts something else on Menu is obeyed.
+NEVER_CLAIMED_ACTIONS = frozenset({"scope_catalog"})
+
+# The controls carved out only while a popup is up: X, which closes one. See the block above
+# for why this is a set of its own rather than another member of the one above it.
+POPUP_ONLY_ACTIONS = frozenset({"reset"})
+
 # The dispatch verbs a binding may name. Each is the *way* a command is sent, as against the
 # command itself: the router holds the small amount of code each one needs and the table says
 # only which of them applies.
@@ -70,6 +111,11 @@ VERB_LCS_ON = "lcs_on"
 VERB_LCS_OFF = "lcs_off"
 VERB_ASC2_MOMENTARY = "asc2_momentary"
 VERB_ACC_THROTTLE = "acc_throttle"
+# Move the Sensor Track's Sequence selection by ``data`` options, clamped at both ends. The
+# only verb whose press does not send: the highlight moves at once and the write follows once
+# the D-pad has been still, so crossing the ten options costs one command rather than nine.
+# The router owns that pause and the GUI owns what is pending -- see ``on_sensor_track_step``.
+VERB_SENSOR_TRACK_STEP = "sensor_track_step"
 VERB_CLAIM = "claim"
 
 # The verbs that act on a stick position rather than on a press. An action bound to one of
@@ -98,6 +144,7 @@ KNOWN_VERBS = frozenset(
         VERB_LCS_OFF,
         VERB_ASC2_MOMENTARY,
         VERB_ACC_THROTTLE,
+        VERB_SENSOR_TRACK_STEP,
         VERB_CLAIM,
     }
 )
@@ -240,11 +287,18 @@ _ROUTE_BINDINGS: Mapping[str, Dispatch | None] = {
 # the two the catalog takes back and the two that can leave something running behind them.
 _FACE_BUTTON_ACTIONS = frozenset({"sequence_control", "horn"})
 
+# What an accessory panel lets go of while the scope catalog is open: the face buttons every
+# context yields, and the whole D-pad besides. An accessory context is the only kind that binds
+# a D-pad direction -- On and Off on a power district, the momentary output on an ASC2 -- and an
+# open catalog needs all four of them back to scroll, confirm and cancel with. The switch and
+# route contexts bind none, so neither wants this.
+_ACC_CATALOG_ACTIONS = _FACE_BUTTON_ACTIONS | DPAD_ACTION_NAMES
+
 SWITCH_CONTEXT = "switch"
 ROUTE_CONTEXT = "route"
 
 # The accessory contexts. ``acc`` is the base every accessory panel is in, whichever panel that
-# is; the three that follow name the panel actually on screen and are chained over it. Their
+# is; the four that follow name the panel actually on screen and are chained over it. Their
 # bindings arrive with the panels they belong to; the base binds nothing and exists for the
 # swallow, so an accessory panel cannot pass a stick or a trigger on to whatever engine the pane
 # held before its scope changed.
@@ -252,6 +306,7 @@ ACC_CONTEXT = "acc"
 ACC_GENERIC_CONTEXT = "acc_generic"
 ACC_BPC2_CONTEXT = "acc_bpc2"
 ACC_ASC2_CONTEXT = "acc_asc2"
+ACC_SENSOR_TRACK_CONTEXT = "acc_sensor_track"
 
 # The panel kinds ``KeypadView.accessory_panel_kind`` reports, named here rather than in the
 # view so that the table, the view and the input layer all spell them the same way -- and so
@@ -265,13 +320,14 @@ PANEL_GENERIC = "generic"
 
 # Panel on screen -> the context chain that claims the pad for it, most specific first.
 #
-# Sensor Track and AMC2 are absent deliberately: neither panel's controls have been given
-# gamepad bindings, and a chain of nothing but the base would claim every control and send
-# none of them, which is worse than leaving the pad alone.
+# AMC2 is absent deliberately: that panel's controls have not been given gamepad bindings, and
+# a chain of nothing but the base would claim every control and send none of them, which is
+# worse than leaving the pad alone.
 PANEL_CONTEXT_CHAINS: Mapping[str, tuple[str, ...]] = {
     PANEL_GENERIC: (ACC_GENERIC_CONTEXT, ACC_CONTEXT),
     PANEL_BPC2: (ACC_BPC2_CONTEXT, ACC_CONTEXT),
     PANEL_ASC2: (ACC_ASC2_CONTEXT, ACC_BPC2_CONTEXT, ACC_CONTEXT),
+    PANEL_SENSOR_TRACK: (ACC_SENSOR_TRACK_CONTEXT, ACC_CONTEXT),
 }
 
 # The controls a pane showing the generic accessory panel takes. Every one of them is a key
@@ -338,6 +394,23 @@ _ACC_ASC2_BINDINGS: Mapping[str, Dispatch | None] = {
     "throttle": Dispatch(VERB_ASC2_MOMENTARY, axis_held=True, both_phases=True),
 }
 
+# The one control a pane showing a Sensor Track takes: the D-pad, stepping the Sequence radio
+# group the panel already shows. Up moves toward "No Action" and down toward "Recorded
+# Sequence", so the highlight follows the pad the way it reads on screen -- the same convention
+# ``scroll_catalog(-1)`` uses for up.
+#
+# Not ``repeat``: the group is ten options long and every step is a write, so a D-pad held down
+# would otherwise cross it sending nine of them. One step per press, and the write follows the
+# pause the router keeps.
+#
+# Nothing else is bound. The panel has no other control on it, so the sticks and the triggers
+# are claimed by the ``acc`` base and sent nowhere, which is what FR-0 asks of a pane with no
+# engine in it.
+_ACC_SENSOR_TRACK_BINDINGS: Mapping[str, Dispatch | None] = {
+    "dpad_up": Dispatch(VERB_SENSOR_TRACK_STEP, data=-1),
+    "dpad_down": Dispatch(VERB_SENSOR_TRACK_STEP, data=1),
+}
+
 DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {
     SWITCH_CONTEXT: ContextSpec(
         name=SWITCH_CONTEXT,
@@ -354,14 +427,14 @@ DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {
     ACC_CONTEXT: ContextSpec(
         name=ACC_CONTEXT,
         claims_unbound=True,
-        yields_to_catalog=_FACE_BUTTON_ACTIONS,
+        yields_to_catalog=_ACC_CATALOG_ACTIONS,
         clears_held=_FACE_BUTTON_ACTIONS,
     ),
     ACC_GENERIC_CONTEXT: ContextSpec(
         name=ACC_GENERIC_CONTEXT,
         inherits=ACC_CONTEXT,
         bindings=_ACC_GENERIC_BINDINGS,
-        yields_to_catalog=_FACE_BUTTON_ACTIONS | _ACC_GENERIC_MODIFIER_ACTIONS,
+        yields_to_catalog=_ACC_CATALOG_ACTIONS | _ACC_GENERIC_MODIFIER_ACTIONS,
         clears_held=_FACE_BUTTON_ACTIONS,
     ),
     # Neither of the two below inherits ``acc_generic``, deliberately: there is no coupler and
@@ -372,14 +445,25 @@ DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {
         name=ACC_BPC2_CONTEXT,
         inherits=ACC_CONTEXT,
         bindings=_ACC_BPC2_BINDINGS,
-        yields_to_catalog=_FACE_BUTTON_ACTIONS,
+        yields_to_catalog=_ACC_CATALOG_ACTIONS,
         clears_held=_FACE_BUTTON_ACTIONS,
     ),
     ACC_ASC2_CONTEXT: ContextSpec(
         name=ACC_ASC2_CONTEXT,
         inherits=ACC_BPC2_CONTEXT,
         bindings=_ACC_ASC2_BINDINGS,
-        yields_to_catalog=_FACE_BUTTON_ACTIONS,
+        yields_to_catalog=_ACC_CATALOG_ACTIONS,
+        clears_held=_FACE_BUTTON_ACTIONS,
+    ),
+    # ``yields_to_catalog`` is stated here rather than inherited from ``acc`` because the
+    # carve-out is read from whichever context supplied the binding, and this one binds the
+    # D-pad. Leave it off and an open catalog over a Sensor Track panel would step the Sequence
+    # group instead of scrolling -- on the one panel where the D-pad is the whole binding.
+    ACC_SENSOR_TRACK_CONTEXT: ContextSpec(
+        name=ACC_SENSOR_TRACK_CONTEXT,
+        inherits=ACC_CONTEXT,
+        bindings=_ACC_SENSOR_TRACK_BINDINGS,
+        yields_to_catalog=_ACC_CATALOG_ACTIONS,
         clears_held=_FACE_BUTTON_ACTIONS,
     ),
 }
@@ -569,6 +653,8 @@ def resolve(
     chain: tuple[str, ...],
     action: str,
     contexts: Mapping[str, ContextSpec] = DEFAULT_CONTEXTS,
+    *,
+    popup_visible: bool = False,
 ) -> Resolution | None:
     """What ``action`` does for a pane reporting ``chain``, or None if nothing claims it.
 
@@ -577,6 +663,16 @@ def resolve(
     action, which is how a profile expresses "leave this control alone here" as against merely
     not mentioning it. Either way the walk stops, and the action is still claimed if any
     context in the chain claims what it has not bound.
+
+    A ``NEVER_CLAIMED_ACTIONS`` member is the exception to that last part: the swallow does not
+    reach it, so Menu still opens the catalog on a panel whose context claims everything else.
+    A ``POPUP_ONLY_ACTIONS`` member is the same exception on a condition -- ``popup_visible``,
+    which the caller reads from the pane -- so X closes a popup that is up and is claimed like
+    anything else when there is none.
+
+    Only an explicit binding takes either -- a profile that puts something else on Menu is
+    obeyed -- and an explicit unbind is not one, an unbound action being exactly what the
+    carve-out is about.
     """
     seen: set[str] = set()
     claimer: ContextSpec | None = None
@@ -597,7 +693,12 @@ def resolve(
         # Explicitly unbound here: no further binding is looked at, so an override cannot fall
         # through to the entry it was written to remove. A claiming context still swallows it.
         unbound = True
-    return Resolution(claimer, None) if claimer is not None else None
+    if claimer is None or action in NEVER_CLAIMED_ACTIONS or (popup_visible and action in POPUP_ONLY_ACTIONS):
+        # Nothing claims what nothing binds, and nothing at all claims a control the pane is
+        # navigated by: the walk found no binding for it, so the carve-out applies and the
+        # action goes on to the handling it has everywhere else.
+        return None
+    return Resolution(claimer, None)
 
 
 def resolve_axis(
