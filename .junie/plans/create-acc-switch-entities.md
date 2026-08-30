@@ -2,186 +2,266 @@
 sessionId: session-260829-224403-1glo
 ---
 
-# Plan: Operating-accessory return button wears the accessory's own icon
+# Plan: BPC2 gets an "LCS..." key; Sensor Track loses its "Acc" button
 
 ## Requirements
 
 ### Overview & Goals
 
-Two turns ago the shared accessory toggle button (`ac_op_btn`) was reworked to be icon-driven.
-In doing so, the direction that **returns to the operating-accessory control panel** was made
-to always paint the new generic `op-screen.jpg`. That is a regression: when the operator is on
-a native LCS panel (e.g. reached via the `LCS ASC2` / `LCS AMC2` button) the button that takes
-them back to the operating accessory should wear **that accessory's own "op" icon**, as defined
-in its Operating Accessory definition (`op-milk-loader.jpg`, `op-station.jpg`, `op-acc.jpg`,
-etc.). The generic `op-screen.jpg` must be used **only as a fallback** when the accessory
-defines no op icon.
+Two small, independent layout tweaks to the accessory keypad in
+`src/pytrain/gui/controller/keypad_view.py`:
 
-This is a focused, one-method bug fix in `KeypadView.enable_acc_view`; no new keys, panels, or
-assets are added.
+1. **BPC2 native panel** -- add an `LCS...` key in the first column, directly **below the "7"
+   key** (row 3, column 0). Like the ASC2 `LCS...` key added last turn, it is a **visible
+   no-op** placeholder wired to `KeypadView.on_lcs_noop`; its real behavior is a later turn's
+   work.
+2. **Sensor Track panel** -- **remove** the `Acc...` button (`sensor_track_generic_btn`). It
+   does not fit under the Sequence list. This intentionally leaves the Sensor Track panel with
+   no on-screen route to the generic accessory screen for now; a replacement transition will be
+   designed in a later turn.
+
+No new panels, icons, commands, or gamepad bindings are introduced.
 
 ### Scope
 
 **In Scope**
 
-- The operating-accessory-direction of the shared toggle button (`ac_op_btn`, painted by
-  `KeypadView.enable_acc_view`) shows the configured accessory's own op icon
-  (`op_btn_image_path`), falling back to `op-screen.jpg` only when none is defined.
+- A new `LCS...` no-op key on the **BPC2** native panel at row 3, column 0 (below "7").
+- Removal of the `Acc...` `HoldButton` from the Sensor Track panel.
+- Reconciling the headless GUI tests that lock these two layouts.
 
 **Out of Scope**
 
-- The native-return direction (`enable_native_acc_view`), which correctly wears the per-device
-  BPC2/ASC2 icons -- unchanged.
-- Any change to the `Acc...`, `Set`, `Info`, or `LCS...` keys, reflow, creation/naming, or
-  panel-override behavior.
-- Engine / Train / Route / Switch behavior.
+- The ASC2 `LCS...`/`Set` keys (column 3) -- unchanged.
+- The BPC2 `Acc...` toggle (`acc_generic_cell`, row 3 col 2) -- unchanged; BPC2 keeps its way
+  to the generic panel.
+- Defining the eventual behavior of any `LCS...` key (still a no-op).
+- Designing a new Sensor-Track-to-generic-Acc transition (explicitly deferred by the user).
+- Engine / Train / Route / Switch / AMC2 behavior.
 
 ### User Stories
 
-1. As an operator viewing a native LCS panel for an operating accessory (milk loader, station,
-   etc.), I want the button that returns me to the operating-accessory control to show that
-   accessory's own icon, so I recognize what I'm returning to -- not a generic screen icon.
-2. As an operator with an accessory that defines no op icon, I still want a sensible generic
-   icon on that button rather than a blank key.
+1. As an operator on the BPC2 native panel, I want an `LCS...` key below the "7" key, so the
+   BPC2 panel has the same placeholder entry point that ASC2 already has.
+2. As an operator on the Sensor Track panel, I no longer want a cramped `Acc...` button that
+   does not fit under the Sequence list.
 
 ### Functional Requirements
 
-- **FR-1** `KeypadView.enable_acc_view` paints `ac_op_btn` with the configured accessory's
-  `op_btn_image_path` when that is a non-empty value.
-- **FR-2** When the accessory defines no op icon (`op_btn_image_path` is `None`/empty), the
-  button falls back to `OP_SCREEN_IMAGE` (`op-screen.jpg`).
-- **FR-3** The button's command (`on_configured_accessory`), sizing, and visibility are
-  unchanged; only the painted image changes.
-- **FR-4** Behavior is identical on Portrait and both Steam Deck panes, because the fix lives
-  in `KeypadView`, which `SteamDeckGui` hosts unchanged.
+- **FR-1** The BPC2 native panel shows an `LCS...` key at grid `[0, 3]` (column 0, row 3 --
+  below "7"), labelled `LCS_NOOP_KEY` (`"LCS..."`), wired to `KeypadView.on_lcs_noop`.
+- **FR-2** The new BPC2 key is an ops-mode cell (in `ops_cells`, not `entry_cells`), hidden in
+  entry mode and on every non-BPC2 panel (generic, ASC2, switch, route, engine, train).
+- **FR-3** The ASC2 panel is unchanged: it still shows its own `Set` `[3, 0]` and `LCS...`
+  `[3, 1]` keys in column 3 and does **not** show the new BPC2 first-column key.
+- **FR-4** The Sensor Track panel no longer creates or shows the `Acc...` button; the Sequence
+  list is the panel's only content.
+- **FR-5** Behavior is identical on Portrait and both Steam Deck panes, because the change lives
+  in `KeypadView`, which `SteamDeckGui` hosts unchanged. The empty column reflow continues to
+  work (column 3 still collapses on BPC2, since the new key sits in the already-occupied
+  column 0).
 
 ## Technical Design
 
-### Current Implementation (root cause)
+### Current Implementation
 
-`KeypadView.enable_acc_view` (`src/pytrain/gui/controller/keypad_view.py`, ~lines 1210-1225):
+**The keypad grid.** `KeypadView.build` (`src/pytrain/gui/controller/keypad_view.py`) lays the
+accessory keys onto a shared 5x5 grid via `host.make_keypad_button(box, label, row, col, ...)`.
+The numeric pad comes from `ENTRY_LAYOUT` (`engine_gui_conf.py:102`):
 
-```python
-def enable_acc_view(self, state: S):
-    host = self._host
-    acc = host.accessory_provider.adapters_for_tmcc_id(state.tmcc_id)
-    if acc is None:
-        return
-
-    acc = acc[0]
-    acc.activate_tmcc_id(state.tmcc_id)
-
-    # The operating-accessory direction wears the generic operating-screen icon rather than
-    # each accessory's own artwork, so the shared key reads consistently in both directions.
-    self._paint_ac_op_icon(OP_SCREEN_IMAGE)          # <-- regression: always generic
-    host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
-    host.ac_op_btn.enable()
-    host.ac_op_cell.show()
+```
+row 0:  1   2   3
+row 1:  4   5   6
+row 2:  7   8   9
+row 3:  CLR 0   ENT      (CLR/ENT are entry_cells, hidden in ops mode)
 ```
 
-The adapter already exposes the right icon: `ConfiguredAccessoryAdapter.op_btn_image_path`
-(`configured_accessory_adapter.py:129-131`) returns `cfg.op_btn_image_path`, which resolves the
-accessory definition's `op_btn_image` from the registry spec
-(`configured_accessory.py:322-327`; default `"op-acc.jpg"`, overridden per definition, e.g.
-`op-milk-loader.jpg`, `op-station.jpg`, `op-control-tower.jpg`, ...). Before the icon rework
-this is the image the button wore; the rework replaced it with `OP_SCREEN_IMAGE`.
+So the slot **below "7"** is row 3, column 0 -- the `CLEAR` slot, which is an `entry_cell` and
+is therefore hidden in ops mode, leaving it free on the BPC2 ops panel. (Note: `make_keypad_button`
+takes `(row, col)`, but each cell's `.grid` attribute is stored as `[col, row]` -- the order the
+tests assert.)
 
-Note the counterpart direction is already correct: `enable_native_acc_view`
-(`keypad_view.py:1178-1194`) paints the per-device BPC2/ASC2 icon via
-`NATIVE_PANEL_RETURN_ICON` and is out of scope here.
+**Where the BPC2/ASC2 keys already live** (`build`, ~lines 500-544):
+
+- `acc_generic_cell` -- the `Acc...` toggle -- `make_key(..., ACC_PANEL_KEY, 3, 2)` -> grid
+  `[2, 3]` (below "9", above "Off"); shown on **both** BPC2 and ASC2.
+- `acc_set_cell` -- ASC2 `Set` -- `make_key(..., SET_KEY, 0, 3)` -> grid `[3, 0]`; ASC2 only.
+- `lcs_noop_cell` -- ASC2 `LCS...` -- `make_key(..., LCS_NOOP_KEY, 1, 3)` -> grid `[3, 1]`;
+  ASC2 only; wired to `self.on_lcs_noop`.
+
+**Where they are shown** -- `apply_ops_mode_ui_non_engine`, the `PANEL_BPC2 / PANEL_ASC2` branch
+(~lines 1116-1131):
+
+```python
+elif kind in (PANEL_BPC2, PANEL_ASC2):
+    host.ac_off_cell.show()
+    host.ac_status_cell.show()
+    host.ac_on_cell.show()
+    host.acc_generic_cell.show()
+    if kind == PANEL_ASC2:
+        host.ac_aux1_cell.show()
+        host.acc_set_cell.show()
+        host.lcs_noop_cell.show()
+        if host.accessories.configured_by_tmcc_id(state.tmcc_id):
+            host.ac_op_cell.grid = [3, 2]
+            self.enable_alternate_acc_view(acc_state)
+```
+
+**The Sensor Track `Acc...` button** -- `build`, ~lines 566-576 -- is a `HoldButton`
+(`host.sensor_track_generic_btn`) parented to `host.sensor_track_box` (the `Sequence` TitleBox),
+aligned to the bottom, wired to `host.on_show_generic_acc_panel`. `host.sensor_track_generic_btn`
+is initialized to `None` in `EngineGui.__init__` (`engine_gui.py:279`). Nothing in the gamepad
+/ accessory-bindings layer references it -- the only readers are `build` and the GUI tests.
 
 ### Key Decisions
 
 | Decision | Choice | Rationale |
 | --- | --- | --- |
-| Where to fix | `KeypadView.enable_acc_view` only | It is the single place the operating-accessory-direction icon is painted |
-| Icon source | `acc.op_btn_image_path` | Already the accessory-definition op icon the adapter exposes; matches pre-regression behavior |
-| Fallback | `OP_SCREEN_IMAGE` when `op_btn_image_path` is falsy | FR-2: never a blank key; keeps the new generic icon useful as the default-of-last-resort |
+| BPC2 `LCS...` -- new cell vs. reuse ASC2's | **New dedicated cell** (`bpc2_lcs_noop_cell` / `bpc2_lcs_noop_btn`) at row 3, col 0 | BPC2 and ASC2 panels are mutually exclusive, but a dedicated cell avoids re-griding `lcs_noop_cell` at runtime and keeps `_reflow_keypad_columns` reading one fixed grid per cell -- mirrors the existing `sw_set_cell` vs `acc_set_cell` split (same `SET_KEY`, two cells) |
+| BPC2 `LCS...` behavior | No-op -> `self.on_lcs_noop` | Matches the ASC2 placeholder; real behavior is a later turn |
+| BPC2 `LCS...` scope | BPC2 only (shown in the `kind == PANEL_BPC2` sub-branch) | User asked for it "on the BPC2 control screen"; ASC2 already has its own in column 3 |
+| Sensor Track `Acc...` | Remove the `HoldButton` from `build`; leave `sensor_track_generic_btn = None` | User says it does not fit; the `None` init already covers every other reader |
+| Column reflow | No change needed | New key sits in column 0 (already occupied by 1/4/7), so BPC2's empty column 3 still collapses |
 
-### Proposed Change
+### Proposed Changes
+
+**1. `build` -- create the BPC2 `LCS...` cell** (alongside the ASC2 keys, ~line 544):
 
 ```python
-    acc = acc[0]
-    acc.activate_tmcc_id(state.tmcc_id)
 
-    # The operating-accessory direction wears the accessory's own op icon (from its Operating
-    # Accessory definition); the generic operating-screen icon is only a fallback when the
-    # accessory defines none.
-    image_name = getattr(acc, "op_btn_image_path", None) or OP_SCREEN_IMAGE
-    self._paint_ac_op_icon(image_name)
-    host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
-    host.ac_op_btn.enable()
-    host.ac_op_cell.show()
+# BPC2-only LCS... key: a visible no-op placeholder in the first column, directly below the
+
+# "7" key (row 3, col 0 -- the CLEAR slot, free in ops mode). ASC2 carries its own LCS... in
+
+# column 3; BPC2 gets this one instead.
+
+host.bpc2_lcs_noop_cell, host.bpc2_lcs_noop_btn = make_key(
+    keypad_keys,
+    LCS_NOOP_KEY,
+    3,
+    0,
+    size=host.s_16,
+    visible=False,
+    is_ops=True,
+    hover=True,
+    command=self.on_lcs_noop,
+    args=[],
+)
+```
+
+**2. `build` -- delete the Sensor Track `Acc...` button** (~lines 566-576): remove the
+`host.sensor_track_generic_btn = HoldButton(...)` block. The `None` initialization in
+`EngineGui.__init__` remains, so `host.sensor_track_generic_btn` stays `None`.
+
+**3. `apply_ops_mode_ui_non_engine` -- show it on BPC2 only:**
+
+```python
+elif kind in (PANEL_BPC2, PANEL_ASC2):
+    host.ac_off_cell.show()
+    host.ac_status_cell.show()
+    host.ac_on_cell.show()
+    host.acc_generic_cell.show()
+    if kind == PANEL_BPC2:
+        host.bpc2_lcs_noop_cell.show()
+    if kind == PANEL_ASC2:
+        ...  # unchanged
 ```
 
 ### Components / Files
 
 | File | Change |
 | --- | --- |
-| `src/pytrain/gui/controller/keypad_view.py` | `enable_acc_view` paints `acc.op_btn_image_path` with `OP_SCREEN_IMAGE` fallback |
-| `tests/gui/test_keypad_view.py` | New/updated test: the operating-accessory-direction button wears the accessory's op icon, and falls back to `op-screen.jpg` when none is defined |
-| `tests/gui/test_gui_deck_parity.py` | Assert the painted image (not just its size) on the pane-hosted path |
-| `tests/gui/test_gui_checkpoint.py` | Reconcile only assertions that encoded the always-`op-screen.jpg` behavior, if any |
+| `src/pytrain/gui/controller/keypad_view.py` | Add `bpc2_lcs_noop_cell`/`bpc2_lcs_noop_btn` at `[0, 3]`; show it in the `PANEL_BPC2` sub-branch; remove the `sensor_track_generic_btn` `HoldButton` |
+| `tests/gui/test_keypad_view.py` | Assert the BPC2 `LCS...` key (grid, label, `on_lcs_noop`, BPC2-only visibility); remove/replace the `sensor_track_generic_btn` assertions |
+| `tests/gui/test_gui_deck_parity.py` | Add pane/compact parity for the BPC2 key; drop the `sensor_track_generic_btn` parity assertions |
+| `tests/gui/test_gui_checkpoint.py` | Reconcile only the Sensor Track / BPC2 layout assertions that this change touches |
+| `src/pytrain/gui/controller/engine_gui.py` | Optional: `sensor_track_generic_btn` stays `None` (no code change required) |
 | `src/pytrain/gui/controller/steam_deck_gui.py` | **No change** -- hosts `KeypadView` unchanged |
 
 ### Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| Accessory exposes no `op_btn_image_path` attribute at all | Use `getattr(acc, "op_btn_image_path", None)` so a missing attribute falls back to `op-screen.jpg` |
-| An op icon file is missing on disk | `_paint_ac_op_icon` uses the existing `find_file`/`get_image` path shared with every other op icon; the default `op-acc.jpg` and all per-definition icons already ship in `src/pytrain/gui/images/` |
-| Native-return direction accidentally changed | The change is confined to `enable_acc_view`; `enable_native_acc_view` and its device-icon test (`test_gui_deck_parity.py`) are untouched |
+| BPC2 `LCS...` collides with a visible key | Row 3 col 0 is the `CLEAR` (entry) slot, hidden in ops mode; the numeric "7" sits in row 2, so the slot is free on the BPC2 ops panel |
+| Reflow miscounts columns after the new key | The key lands in column 0, already occupied by 1/4/7, so column occupancy is unchanged and BPC2's empty column 3 still collapses (`test_the_bpc2_panel_collapses_its_empty_fourth_column`-style checks stay green) |
+| A stale reference to `sensor_track_generic_btn` crashes at runtime | Only `build` and the GUI tests read it; `EngineGui.__init__` keeps it `None`, so any residual `getattr`/`None` guard remains valid |
+| ASC2 accidentally shows the new key | It is shown only inside the `kind == PANEL_BPC2` guard |
 
 ## Testing
 
 ### Validation Approach
 
 Extend the existing headless GUI suites (`tests/gui/test_keypad_view.py`,
-`test_gui_deck_parity.py`) which already drive `KeypadView` against `SimpleNamespace`/dummy
-fakes with a stubbed `get_image`/`find_file`, so the painted image name is directly
-observable. All scenarios below are agent-checkable.
+`test_gui_deck_parity.py`, `test_gui_checkpoint.py`), which drive `KeypadView` against
+`SimpleNamespace`/dummy fakes -- each keypad cell exposes `.grid`, `.visible`, `.on_press`, and
+`.text`, so placement, visibility, label, and command are all directly observable. All scenarios
+below are agent-checkable; no display or Base 3 is required.
 
 ### Key Scenarios
 
-- `enable_acc_view` for an accessory whose `op_btn_image_path` is `"op-milk-loader.jpg"`
-  paints that image on `ac_op_btn` (not `op-screen.jpg`).
-- The button's command remains `on_configured_accessory` bound to the adapter, and the cell
-  is shown -- unchanged.
-- Pane-hosted (compact) path paints the same accessory icon at the pane's `button_size`.
+- On a **BPC2** ops panel, `bpc2_lcs_noop_cell.visible is True`, `bpc2_lcs_noop_cell.grid ==
+  [0, 3]`, `bpc2_lcs_noop_btn.text == LCS_NOOP_KEY == "LCS..."`, and
+  `bpc2_lcs_noop_btn.on_press == (view.on_lcs_noop, [])`.
+- The BPC2 `Acc...` toggle (`acc_generic_cell`) is still shown and unchanged.
+- On an **ASC2** ops panel, `bpc2_lcs_noop_cell.visible is False`; the ASC2 `Set` `[3, 0]` and
+  `LCS...` `[3, 1]` keys are shown as before.
+- The Sensor Track panel builds with `sensor_track_generic_btn is None` and
+  `sensor_track_box.children == []` (no appended button).
+- Pressing the new BPC2 `LCS...` key is a harmless no-op (callable, raises nothing).
 
 ### Edge Cases
 
-- `op_btn_image_path` is `None`/empty -> the button falls back to `OP_SCREEN_IMAGE`.
-- The adapter lacks the attribute entirely -> `getattr` fallback yields `OP_SCREEN_IMAGE`.
-- The native-return direction still wears the BPC2/ASC2 device icon (regression guard).
+- `bpc2_lcs_noop_cell` is in `ops_cells`, not `entry_cells`, and is hidden after
+  `entry_mode(...)` and on generic / switch / route / engine panels.
+- Column reflow: on BPC2 the new key keeps column 0 occupied (already true) and column 3 still
+  collapses to `_COLLAPSED`.
+- Compact (`_compact=True`) / pane-hosted construction places and shows the BPC2 key
+  identically (Steam Deck parity).
+
+### Test Changes
+
+- **Add** BPC2 `LCS...` coverage in `test_keypad_view.py` (grid, label, command, BPC2-only
+  visibility, ops-not-entry, no-op press) and `test_gui_deck_parity.py` (pane/compact parity).
+- **Remove/replace** the `sensor_track_generic_btn` assertions in `test_keypad_view.py`
+  (~line 946), `test_gui_deck_parity.py` (~lines 220-225), and set-up stubs, replacing the
+  "button exists / is wired" checks with a "button is absent (`None`) / box has no children"
+  check.
+- **Reconcile** only the Sensor Track / BPC2 layout assertions in `test_gui_checkpoint.py` that
+  this change touches; leave every other locked assertion intact.
 
 ## Delivery Steps
 
-### Stage 1: Paint the accessory's own op icon on the return button
+### Stage 1: Add the BPC2 "LCS..." key below the "7" key
 
-The operating-accessory-direction of `ac_op_btn` shows the configured accessory's own op icon,
-falling back to `op-screen.jpg` only when none is defined.
+The BPC2 native panel shows a new no-op `LCS...` key in the first column, directly below the
+"7" key, while ASC2 and every other panel are unaffected.
 
-- In `KeypadView.enable_acc_view`, replace the unconditional `self._paint_ac_op_icon(OP_SCREEN_IMAGE)`
-  with `image_name = getattr(acc, "op_btn_image_path", None) or OP_SCREEN_IMAGE` and paint
-  `image_name`.
-- Leave the command wiring, enable, sizing, and cell visibility untouched.
-- Add/extend a focused test in `tests/gui/test_keypad_view.py` asserting the button wears the
-  accessory's `op_btn_image_path` when defined, and `OP_SCREEN_IMAGE` when it is `None`/absent.
+- In `KeypadView.build`, create `host.bpc2_lcs_noop_cell` / `host.bpc2_lcs_noop_btn` via
+  `make_key(keypad_keys, LCS_NOOP_KEY, 3, 0, ...)` (grid `[0, 3]`), `is_ops=True`,
+  `visible=False`, wired to `self.on_lcs_noop`.
+- In `apply_ops_mode_ui_non_engine`, add a `if kind == PANEL_BPC2: host.bpc2_lcs_noop_cell.show()`
+  clause inside the `PANEL_BPC2 / PANEL_ASC2` branch, leaving the ASC2 sub-branch untouched.
+- Add tests in `tests/gui/test_keypad_view.py`: BPC2 shows the key at `[0, 3]` with the
+  `LCS...` label and `on_lcs_noop` command; ASC2 and the generic/switch panels do not show it;
+  the key is an ops cell (hidden in entry mode); pressing it is a harmless no-op.
+- Add a compact/pane-hosted parity assertion in `tests/gui/test_gui_deck_parity.py`.
 - Run `../bin/python -m ruff format --check` on the changed files and
   `../bin/python -m pytest` for the affected GUI suites.
 
-### Stage 2: Lock parity and run the full regression
+### Stage 2: Remove the Sensor Track "Acc..." button and finish the regression pass
 
-The accessory icon is used consistently on Portrait and both Steam Deck panes, the
-native-return direction is unaffected, and the whole suite is green.
+The Sensor Track panel no longer renders the ill-fitting `Acc...` button, and the whole suite
+(including the reconciled checkpoint) is green on Portrait and both Steam Deck panes.
 
-- Strengthen `tests/gui/test_gui_deck_parity.py` so the configured-overlay-direction test
-  asserts the painted image is the adapter's `op_btn_image_path` (currently `op-acc.jpg`),
-  in addition to the existing button-size assertion, across compact and portrait.
-- Confirm the native-return device-icon test still passes unchanged (BPC2/ASC2 icons).
-- Reconcile any behavior-locking assertion in `test_gui_checkpoint.py` that encoded the
-  always-`op-screen.jpg` return icon, updating only those assertions.
+- In `KeypadView.build`, delete the `host.sensor_track_generic_btn = HoldButton(...)` block so
+  the Sequence TitleBox holds only the `CheckBoxGroup`; `EngineGui.__init__` keeps
+  `sensor_track_generic_btn = None`.
+- Update/remove the `sensor_track_generic_btn` assertions in `test_keypad_view.py` and
+  `test_gui_deck_parity.py`, asserting instead that the button is absent (`None`) and the box
+  has no appended child.
+- Reconcile only the Sensor Track / BPC2 layout assertions in `test_gui_checkpoint.py`; leave
+  all other locked assertions untouched as proof of no collateral regression.
+- Confirm the empty-column reflow still collapses column 3 on BPC2 with the new key present.
 - Run `../bin/python -m ruff format --check` on all changed Python files, then the full
   `../bin/python -m pytest`.
 

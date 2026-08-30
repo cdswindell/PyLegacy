@@ -187,23 +187,12 @@ class DummyAccessoryState:
             setattr(self, name, value)
 
 
-def _hold_button(_parent, text: str = "", command=None, args=None, **_kwargs):
-    """The one plain HoldButton the keypad builds: the Sensor Track panel's way to the generic
-    accessory panel, which replaces the keypad and so has no cell to live in."""
-    btn = DummyButton()
-    btn.text = text
-    if callable(command):
-        btn.on_press = (command, args if args is not None else [])
-    return btn
-
-
 @pytest.fixture(autouse=True)
 def _patch_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mod, "Box", DummyBox, raising=True)
     monkeypatch.setattr(mod, "TitleBox", DummyTitleBox, raising=True)
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
     monkeypatch.setattr(mod, "CheckBoxGroup", DummyCheckBoxGroup, raising=True)
-    monkeypatch.setattr(mod, "HoldButton", _hold_button, raising=True)
     monkeypatch.setattr(
         mod,
         "Amc2OpsPanel",

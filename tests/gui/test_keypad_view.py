@@ -205,18 +205,7 @@ def _patch_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
     monkeypatch.setattr(mod, "CheckBoxGroup", DummyCheckBoxGroup, raising=True)
     monkeypatch.setattr(mod, "Amc2OpsPanel", lambda _host: SimpleNamespace(build=lambda _parent: None), raising=True)
-    monkeypatch.setattr(mod, "HoldButton", _hold_button, raising=True)
     monkeypatch.setattr(mod, "find_file", lambda name: name, raising=True)
-
-
-def _hold_button(_parent, text: str = "", command: Callable | None = None, args: Any = None, **_kwargs: Any):
-    """The keypad builds one plain HoldButton outside the cell grid -- the Sensor Track panel's
-    way to the generic accessory panel, which has no keypad cell to live in."""
-    btn = DummyButton()
-    btn.text = text
-    if callable(command):
-        btn.on_press = (command, args if args is not None else [])
-    return btn
 
 
 def _make_slider(
@@ -909,6 +898,48 @@ def test_only_the_native_asc2_panel_carries_the_set_and_lcs_keys() -> None:
     host, _view = _ops(state=_flagged(is_bpc2=True))
     assert host.acc_set_cell.visible is False
     assert host.lcs_noop_cell.visible is False
+    # ASC2 must not carry the BPC2 first-column LCS... key either.
+    host, _view = _ops(state=_flagged(is_asc2=True))
+    assert host.bpc2_lcs_noop_cell.visible is False
+
+
+def test_only_the_native_bpc2_panel_carries_the_first_column_lcs_key() -> None:
+    # BPC2 gets its own no-op LCS... key in the first column, directly below "7" (row 3, col 0).
+    host, view = _ops(state=_flagged(is_bpc2=True))
+    assert host.bpc2_lcs_noop_cell.visible is True
+    assert host.bpc2_lcs_noop_cell.grid == [0, 3]
+    assert host.bpc2_lcs_noop_btn.text == mod.LCS_NOOP_KEY == "LCS..."
+    assert host.bpc2_lcs_noop_btn.on_press == (view.on_lcs_noop, [])
+    # The BPC2 Acc... toggle is unchanged and still shown.
+    assert host.acc_generic_cell.visible is True
+
+    # ASC2 and the generic/switch panels never show the BPC2 first-column key.
+    host, _view = _ops(state=_flagged(is_asc2=True))
+    assert host.bpc2_lcs_noop_cell.visible is False
+    host, _view = _ops()
+    assert host.bpc2_lcs_noop_cell.visible is False
+    host, _view = _ops(CommandScope.SWITCH, 7)
+    assert host.bpc2_lcs_noop_cell.visible is False
+
+
+def test_the_bpc2_first_column_lcs_key_is_an_ops_cell_hidden_in_entry_mode() -> None:
+    host, view = _ops(state=_flagged(is_bpc2=True))
+    assert host.bpc2_lcs_noop_cell.visible is True
+
+    view.entry_mode(clear_info=False)
+
+    assert host.bpc2_lcs_noop_cell.visible is False
+    assert host.bpc2_lcs_noop_cell not in host.entry_cells
+
+
+def test_the_bpc2_first_column_lcs_key_does_nothing_harmful() -> None:
+    host, view = _ops(state=_flagged(is_bpc2=True))
+    command, args = host.bpc2_lcs_noop_btn.on_press
+
+    # A no-op for now: it must be callable and raise nothing.
+    command(*args)
+
+    assert command == view.on_lcs_noop
 
 
 def test_the_asc2_set_key_fires_acc_set_address() -> None:
@@ -938,12 +969,13 @@ def test_the_generic_and_switch_panels_do_not_carry_it() -> None:
     assert host.acc_generic_cell.visible is False
 
 
-def test_the_keypad_less_panels_carry_their_own_toggle() -> None:
-    # Sensor Track and AMC2 replace the whole keypad, so neither has a cell to put a key in.
+def test_the_sensor_track_panel_no_longer_builds_a_generic_toggle() -> None:
+    # The Sensor Track ``Acc...`` button did not fit under the Sequence list, so it was removed:
+    # the panel now holds only the Sequence list, and no generic-panel toggle is built.
     host = _new_host()
     mod.KeypadView(host).build()
 
-    assert host.sensor_track_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
+    assert host.sensor_track_generic_btn is None
 
 
 def test_the_override_decides_the_panel_drawn_and_the_kind_reported() -> None:

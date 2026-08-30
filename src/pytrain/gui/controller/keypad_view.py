@@ -46,7 +46,6 @@ from .engine_gui_conf import (
     SWITCH_THRU_KEY,
 )
 from ..components.checkbox_group import CheckBoxGroup
-from ..components.hold_button import HoldButton
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState
 from ...db.component_state_store import ComponentStateStore
@@ -543,6 +542,22 @@ class KeypadView(Generic[S]):
             args=[],
         )
 
+        # BPC2-only LCS... key: a visible no-op placeholder in the first column, directly below
+        # the "7" key (row 3, col 0 -- the CLEAR slot, free in ops mode). ASC2 carries its own
+        # LCS... in the 4th column; BPC2 gets this one instead.
+        host.bpc2_lcs_noop_cell, host.bpc2_lcs_noop_btn = make_key(
+            keypad_keys,
+            LCS_NOOP_KEY,
+            3,
+            0,
+            size=host.s_16,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=self.on_lcs_noop,
+            args=[],
+        )
+
         # Sensor Track Buttons
         host.sensor_track_box = cell = TitleBox(app, "Sequence", layout="auto", align="top", visible=False, border=2)
         cell.text_size = host.s_10
@@ -563,17 +578,10 @@ class KeypadView(Generic[S]):
             cursor=True,
         )
 
-        # The Sensor Track panel replaces the whole keypad, so its way to the generic accessory
-        # panel goes below the Sequence list rather than in a keypad cell.
-        host.sensor_track_generic_btn = HoldButton(
-            cell,
-            text=ACC_PANEL_KEY,
-            align="bottom",
-            width="fill",
-            text_size=host.s_12,
-            command=host.on_show_generic_acc_panel,
-            args=[],
-        )
+        # The Sensor Track panel replaces the whole keypad, so it now holds only the Sequence
+        # list; the ill-fitting way to the generic accessory panel has been removed. A
+        # replacement transition will be designed in a later turn. host.sensor_track_generic_btn
+        # stays None (see EngineGui.__init__).
 
         host.amc2_ops_box = Box(app, layout="auto", align="top", visible=False, border=2)
         host.amc2_ops_panel = Amc2OpsPanel(host)
@@ -1118,6 +1126,10 @@ class KeypadView(Generic[S]):
                     host.ac_status_cell.show()
                     host.ac_on_cell.show()
                     host.acc_generic_cell.show()
+                    if kind == PANEL_BPC2:
+                        # BPC2 carries its own no-op LCS... placeholder in the first column,
+                        # below the "7" key; ASC2 keeps its own LCS... in the 4th column.
+                        host.bpc2_lcs_noop_cell.show()
                     if kind == PANEL_ASC2:
                         host.ac_aux1_cell.show()
                         # The native ASC2 panel carries its own Set (ACC SET_ADDRESS) and the

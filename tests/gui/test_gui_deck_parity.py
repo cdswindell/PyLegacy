@@ -34,7 +34,6 @@ from tests.gui.test_keypad_view import (
     DummyCheckBoxGroup,
     DummyTitleBox,
     _flagged,
-    _hold_button,
     _keypad_button,
     _make_slider,
     _new_host,
@@ -74,8 +73,7 @@ def test_the_compact_pane_bounds_the_info_box_and_the_portrait_one_does_not() ->
 
 
 def test_the_sequence_rows_are_padded_more_tightly_on_the_pane() -> None:
-    # The one height the Sensor Track panel cannot spend, now that it also carries a footer
-    # button: the ten radio rows have to fit the keypad-sized allocation either way.
+    # The ten radio rows have to fit the keypad-sized allocation either way.
     assert _geometry(True).sensor_track_row_pady == 5
     assert _geometry(False).sensor_track_row_pady == 6
 
@@ -111,16 +109,6 @@ class RecordingTitleBox(DummyTitleBox):
         self.children: list[Any] = []
 
 
-def _hold_button_in(parent, text: str = "", command=None, args: Any = None, **kwargs: Any):
-    btn = _hold_button(parent, text, command, args, **kwargs)
-    btn.parent = parent
-    btn.width = kwargs.get("width")
-    btn.text_size = kwargs.get("text_size")
-    if isinstance(parent, RecordingTitleBox):
-        parent.children.append(btn)
-    return btn
-
-
 class FakeAmc2Panel:
     """The AMC2 panel as ``build()`` finds it, including the exposed toggle button."""
 
@@ -145,7 +133,6 @@ def _patch_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(kv_mod, "AccessoryState", DummyAccessoryState, raising=True)
     monkeypatch.setattr(kv_mod, "CheckBoxGroup", RecordingCheckBoxGroup, raising=True)
     monkeypatch.setattr(kv_mod, "Amc2OpsPanel", FakeAmc2Panel, raising=True)
-    monkeypatch.setattr(kv_mod, "HoldButton", _hold_button_in, raising=True)
     monkeypatch.setattr(kv_mod, "find_file", lambda name: name, raising=True)
 
 
@@ -191,6 +178,9 @@ def test_every_new_cell_lands_in_the_same_slot_on_the_pane_as_in_portrait(compac
     assert host.acc_generic_cell.grid == [2, 3]
     assert host.acc_set_cell.grid == [3, 0]
     assert host.lcs_noop_cell.grid == [3, 1]
+    # The BPC2-only LCS... key sits in the first column, below "7" (row 3, col 0).
+    assert host.bpc2_lcs_noop_cell.grid == [0, 3]
+    assert host.bpc2_lcs_noop_btn.on_press == (_view.on_lcs_noop, [])
     assert host.info_btn.on_press == (host.on_info, [])
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
     assert host.lcs_noop_btn.on_press == (_view.on_lcs_noop, [])
@@ -213,16 +203,15 @@ def test_the_new_cells_are_ops_cells_on_the_pane_too(compact: bool) -> None:
 
 
 @pytest.mark.parametrize("compact", [True, False])
-def test_the_sensor_track_footer_button_is_built_below_the_sequence_rows(compact: bool) -> None:
+def test_the_sensor_track_panel_has_no_generic_toggle_on_the_pane(compact: bool) -> None:
+    # The ill-fitting ``Acc...`` footer button was removed: the Sequence list is the panel's
+    # only content, on the pane exactly as on portrait.
     host, _view = _built(compact)
 
     assert host.sensor_track_buttons.kwargs["pady"] == host.sensor_track_row_pady
-    assert host.sensor_track_generic_btn.parent is host.sensor_track_box
-    assert host.sensor_track_generic_btn.width == "fill"
-    assert host.sensor_track_generic_btn.text_size == host.s_12
-    assert host.sensor_track_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
-    # Appended after the group, which is what puts it under the last radio row.
-    assert host.sensor_track_box.children == [host.sensor_track_generic_btn]
+    assert host.sensor_track_generic_btn is None
+    # No footer button was appended below the Sequence group.
+    assert host.sensor_track_box.children == []
 
 
 @pytest.mark.parametrize("compact", [True, False])
@@ -346,6 +335,20 @@ def test_the_bpc2_panel_collapses_the_fourth_column_on_the_pane(compact: bool) -
     _ops(host, view, _flagged(is_bpc2=True))
 
     assert host.keypad_keys.tk._column_config[3] == {"weight": 0, "minsize": 0}
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_only_bpc2_shows_the_first_column_lcs_key_on_the_pane(compact: bool) -> None:
+    # The BPC2 first-column LCS... key is shown on BPC2 and never on ASC2, identically on the
+    # pane as in portrait; it lives in column 0, so the 4th column still collapses on BPC2.
+    host, view = _built(compact)
+    _ops(host, view, _flagged(is_bpc2=True))
+    assert host.bpc2_lcs_noop_cell.visible is True
+    assert host.acc_generic_cell.visible is True
+
+    host, view = _built(compact)
+    _ops(host, view, _flagged(is_asc2=True))
+    assert host.bpc2_lcs_noop_cell.visible is False
 
 
 @pytest.mark.parametrize("compact", [True, False])
