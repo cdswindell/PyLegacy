@@ -52,6 +52,7 @@ def title(text: str):
                 "CAR",
                 "DRY",
                 "ICE",
+                "GAS",
                 "MAN",
                 "NEW",
                 "OLD",
