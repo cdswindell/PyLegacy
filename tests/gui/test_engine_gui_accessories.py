@@ -146,6 +146,12 @@ def _new_engine() -> mod.EngineGui:
     gui._acc_tmcc_to_adapter = {}
     gui._accessory_view = {}
     gui._amc2_ops_panel = None
+    # What ``__init__`` would have set, as ``_amc2_ops_panel`` above already is. Both are read
+    # rather than merely written now: ``on_new_accessory`` compares the pair it holds against
+    # the id being reported to decide whether the Sequence cursor is this track's or a previous
+    # one's.
+    gui._sensor_track_selected = None
+    gui._sensor_track_undo = None
     return gui
 
 
@@ -662,55 +668,86 @@ def test_on_asc2_momentary_delegates_to_the_keypad(pressed: bool) -> None:
     assert calls == [pressed]
 
 
-def _sensor_track_engine(highlight: int | None = None, *, tmcc_id: int = 19, clamped: bool = False) -> mod.EngineGui:
-    """A Sensor Track pane over a keypad that keeps a highlight and records what is sent.
+class _SensorTrackView:
+    """The keypad's Sensor Track surface, with the dot and the cursor as two separate things.
 
-    ``highlight`` is the Sequence option the group starts on -- ``None`` for a fresh track
-    with no ``IrdaState`` yet, which is nothing highlighted. ``clamped`` makes every step
-    answer None, as ``KeypadView.step_sensor_track_sequence`` does at either end of the list.
+    ``dot`` is what the track is programmed with -- the radio selection -- and ``bar`` is where
+    the pad is pointing. Modelling them apart is the whole of A-8: a double that kept one
+    highlight would let stepping pass here and still announce a choice on the panel.
+
+    ``clamped`` makes every step answer None, as ``KeypadView.step_sensor_track_sequence`` does
+    at either end of the list.
     """
-    gui = _acc_engine("sensor_track", tmcc_id=tmcc_id)
-    # ``_new_engine`` builds the pane through ``__new__``, so what ``__init__`` would have
-    # set has to be set here, the way it already seeds ``_amc2_ops_panel``.
-    gui._sensor_track_selected = None
-    gui._sensor_track_undo = None
-    sent: list[tuple[int, int]] = []
-    steps: list[int] = []
-    view = SimpleNamespace(accessory_panel_kind="sensor_track", sensor_track_sequence=highlight)
 
-    def step(delta: int) -> int | None:
-        steps.append(delta)
-        if clamped:
-            return None
-        moved_to = 0 if view.sensor_track_sequence is None else view.sensor_track_sequence + delta
-        view.sensor_track_sequence = moved_to
-        return moved_to
+    def __init__(self, dot: int | None, *, clamped: bool = False) -> None:
+        self.accessory_panel_kind = "sensor_track"
+        self.dot = dot
+        self.bar: int | None = None
+        self.clamped = clamped
+        self.sent: list[tuple[int, int]] = []
+        self.steps: list[int] = []
 
-    def move(sequence: int) -> bool:
-        view.sensor_track_sequence = sequence
+    @property
+    def sensor_track_sequence(self) -> int | None:
+        return self.dot
+
+    @property
+    def sensor_track_cursor(self) -> int | None:
+        # Falls back to the dot, as the pane's own reader does: a panel nobody has stepped yet
+        # points at the option the track holds.
+        return self.bar if self.bar is not None else self.dot
+
+    def set_sensor_track_cursor(self, sequence: int | None) -> bool:
+        self.bar = sequence
         return True
 
-    view.step_sensor_track_sequence = step
-    view.set_sensor_track_sequence = move
-    view.send_sensor_track_sequence = lambda tmcc, sequence: sent.append((tmcc, sequence))
+    def set_sensor_track_sequence(self, sequence: int) -> bool:
+        # The dot brings the cursor with it: after a select or a revert the pad is pointing at
+        # exactly what the track now holds.
+        self.dot = sequence
+        self.bar = sequence
+        return True
+
+    def step_sensor_track_sequence(self, delta: int) -> int | None:
+        self.steps.append(delta)
+        if self.clamped:
+            return None
+        current = self.sensor_track_cursor
+        self.bar = 0 if current is None else current + delta
+        return self.bar
+
+    def send_sensor_track_sequence(self, tmcc_id: int, sequence: int) -> None:
+        self.sent.append((tmcc_id, sequence))
+
+
+def _sensor_track_engine(highlight: int | None = None, *, tmcc_id: int = 19, clamped: bool = False) -> mod.EngineGui:
+    """A Sensor Track pane over the view double above.
+
+    ``highlight`` is the Sequence option the radio dot starts on -- ``None`` for a fresh track
+    with no ``IrdaState`` yet, which is nothing selected and nothing pointed at.
+    """
+    gui = _acc_engine("sensor_track", tmcc_id=tmcc_id)
+    view = _SensorTrackView(highlight, clamped=clamped)
     gui._keypad_view = view
     gui.sensor_track_view = view
-    gui.sensor_track_sent = sent
-    gui.sensor_track_steps = steps
+    gui.sensor_track_sent = view.sent
+    gui.sensor_track_steps = view.steps
     return gui
 
 
 @pytest.mark.parametrize("delta", [-1, 1])
-def test_on_sensor_track_step_moves_the_highlight_and_writes_nothing(delta: int) -> None:
+def test_on_sensor_track_step_moves_the_cursor_and_writes_nothing(delta: int) -> None:
     # A-7: the two acts are separate. Stepping is the pad moving its eye down the list, and
     # nothing the track is told about, so crossing the ten options costs no commands at all.
+    # A-8: and nothing the *panel* is told about either -- the dot stays on what the track holds.
     gui = _sensor_track_engine(5)
 
     moved = gui.on_sensor_track_step(delta)
 
     assert moved is True
     assert gui.sensor_track_steps == [delta]
-    assert gui.sensor_track_view.sensor_track_sequence == 5 + delta
+    assert gui.sensor_track_view.bar == 5 + delta
+    assert gui.sensor_track_view.dot == 5, "the radio dot did not move"
     assert gui.sensor_track_sent == [], "the step itself writes nothing"
 
 
@@ -730,6 +767,22 @@ def test_on_sensor_track_select_writes_the_highlighted_option_at_this_pane_s_id(
     assert gui.sensor_track_sent == [(23, 3)]
     assert gui._sensor_track_selected == (23, 3)
     assert gui._sensor_track_undo is None, "there was nothing selected before to go back to"
+
+
+def test_a_select_writes_the_option_under_the_cursor_and_moves_the_dot_onto_it() -> None:
+    # A-8's other half. The pad stepped away from what the track holds, so the option written is
+    # the one under the cursor -- and afterwards the two coincide, which is what "done" looks
+    # like on the panel.
+    gui = _sensor_track_engine(1, tmcc_id=23)
+    gui.on_sensor_track_step(5)
+
+    assert gui.sensor_track_view.dot == 1, "still showing what the track holds"
+
+    gui.on_sensor_track_select()
+
+    assert gui.sensor_track_sent == [(23, 6)]
+    assert gui.sensor_track_view.dot == 6
+    assert gui.sensor_track_view.bar == 6, "and nothing is left pending"
 
 
 def test_on_sensor_track_select_with_nothing_highlighted_writes_nothing() -> None:
@@ -780,7 +833,8 @@ def test_on_sensor_track_revert_puts_back_the_option_the_last_select_replaced() 
     gui.on_sensor_track_revert()
 
     assert gui.sensor_track_sent == [(23, 2), (23, 6), (23, 2)], "the displaced option went back"
-    assert gui.sensor_track_view.sensor_track_sequence == 2, "and the highlight followed it"
+    assert gui.sensor_track_view.dot == 2, "and the dot followed it"
+    assert gui.sensor_track_view.bar == 2, "and so did the cursor, leaving nothing pending"
     assert gui._sensor_track_selected == (23, 2)
 
 
@@ -807,11 +861,12 @@ def test_a_revert_with_nothing_selected_yet_abandons_the_stepping_and_sends_noth
     gui._sensor_track_selected = (23, 4)
     gui.on_sensor_track_step(3)
 
-    assert gui.sensor_track_view.sensor_track_sequence == 7
+    assert gui.sensor_track_view.bar == 7
 
     gui.on_sensor_track_revert()
 
-    assert gui.sensor_track_view.sensor_track_sequence == 4, "back where the track is set"
+    assert gui.sensor_track_view.bar == 4, "back where the track is set"
+    assert gui.sensor_track_view.dot == 4, "which the dot never left"
     assert gui.sensor_track_sent == []
 
 
@@ -848,3 +903,62 @@ def test_on_new_accessory_seeds_what_a_revert_falls_back_to() -> None:
 
     assert gui._sensor_track_selected == (22, 3)
     assert gui._sensor_track_undo is None, "and an undo point from before the report is stale"
+    assert gui.sensor_track_view.bar == 3, "and the cursor starts on the option the track holds"
+
+
+def _report_sensor_track(gui: mod.EngineGui, tmcc_id: int, sequence: int) -> None:
+    """Deliver an ``IrdaState`` for ``tmcc_id``, as an incoming status report does."""
+    gui._scope_tmcc_ids = {CommandScope.ACC: tmcc_id}
+    gui.sensor_track_buttons = SimpleNamespace(value=None)
+    report = SimpleNamespace(sequence=SimpleNamespace(value=sequence))
+    gui._state_store = SimpleNamespace(get_state=lambda _scope, _tmcc_id, _create: report)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
+        patch.setattr(mod, "IrdaState", type(report), raising=True)
+        gui.on_new_accessory(DummyAccessoryState(is_sensor_track=True))
+
+
+def test_a_report_for_the_same_track_moves_the_dot_and_leaves_a_step_in_progress_alone() -> None:
+    # KD-15, and the bug a naive re-seed would ship: on_new_accessory runs on every accessory
+    # state update, so re-seeding unconditionally would snap the cursor back the moment the
+    # track reported itself -- under the operator's thumb, mid-step.
+    gui = _sensor_track_engine(2, tmcc_id=22)
+    gui._sensor_track_selected = (22, 2)
+    gui.on_sensor_track_step(5)
+
+    _report_sensor_track(gui, 22, 2)
+
+    assert gui.sensor_track_view.bar == 7, "the cursor is where the operator left it"
+    assert gui.sensor_track_buttons.value == 2, "and the dot is what the track reported"
+
+
+def test_a_report_for_a_different_track_re_seeds_the_cursor() -> None:
+    # A cursor left somewhere by one Sensor Track must never be presented as another's position.
+    gui = _sensor_track_engine(2, tmcc_id=22)
+    gui._sensor_track_selected = (22, 2)
+    gui.on_sensor_track_step(5)
+
+    _report_sensor_track(gui, 41, 8)
+
+    assert gui._sensor_track_selected == (41, 8)
+    assert gui.sensor_track_view.bar == 8
+
+
+def test_a_track_with_no_report_leaves_nothing_to_point_at() -> None:
+    # Nothing is known about the track, so no row is the pad's position either -- and the first
+    # press then lands on "No Action" rather than one option away from a stale cursor.
+    gui = _sensor_track_engine(3, tmcc_id=22)
+    gui._sensor_track_selected = (22, 3)
+    gui.on_sensor_track_step(4)
+    gui._scope_tmcc_ids = {CommandScope.ACC: 22}
+    gui.sensor_track_buttons = SimpleNamespace(value=1)
+    gui._state_store = SimpleNamespace(get_state=lambda _scope, _tmcc_id, _create: None)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
+        patch.setattr(mod, "IrdaState", SimpleNamespace, raising=True)
+        gui.on_new_accessory(DummyAccessoryState(is_sensor_track=True))
+
+    assert gui._sensor_track_selected is None
+    assert gui.sensor_track_view.bar is None
+    assert gui.sensor_track_buttons.value is None

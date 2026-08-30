@@ -1391,7 +1391,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # keypad_view = getattr(self, "_keypad_view", None)
             if state.is_sensor_track:
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
+                previously = self._sensor_track_selected
                 if isinstance(st_state, IrdaState):
+                    # Assigned to the widget rather than through the keypad's setter, and that
+                    # is the difference that matters: this moves the dot alone and leaves the
+                    # cursor where the operator put it, so a track reporting itself cannot
+                    # cancel a step in progress.
                     self.sensor_track_buttons.value = st_state.sequence.value
                     # The one place the panel learns what the track actually holds, so it is
                     # where the pad's notion of "the option currently selected" is seeded. Any
@@ -1409,6 +1414,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self.sensor_track_buttons.value = None
                     self._sensor_track_selected = None
                 self._sensor_track_undo = None
+                self._seed_sensor_track_cursor(tmcc_id, previously)
             elif state.is_bpc2 or state.is_asc2:
                 self.update_ac_status(state)
             elif state.is_amc2:
@@ -2136,28 +2142,54 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._keypad_view.asc2_control(pressed)
 
     def on_sensor_track_step(self, delta: int) -> bool:
-        """Move the Sensor Track's Sequence highlight ``delta`` options. True, where it moved.
+        """Move the Sensor Track's Sequence cursor ``delta`` options. True, where it moved.
 
-        Nothing is written: the highlight moves and stops there, so crossing the ten options
-        puts nothing on the wire, and the option settled on is the only one the track ever hears
-        about. ``on_sensor_track_select`` is what sends it.
+        Nothing is written and the radio dot does not move: the cursor moves and stops there, so
+        crossing the ten options puts nothing on the wire and claims nothing on screen. The
+        option settled on is the only one the track ever hears about, and
+        ``on_sensor_track_select`` is what sends it.
 
         Returns whether anything moved, so a caller can tell a step from a press clamped at
         either end of the list.
         """
         return self._keypad_view.step_sensor_track_sequence(delta) is not None
 
+    def _seed_sensor_track_cursor(self, tmcc_id: int, previously: tuple[int, int] | None) -> None:
+        """Put the cursor on the option the track holds, where this pane is new to that track.
+
+        The cursor is seeded rather than remembered: a position left somewhere by an earlier
+        session must never be presented as this track's. But ``on_new_accessory`` runs on every
+        accessory state update and not only on a change of id, so seeding unconditionally would
+        yank the cursor out from under a step the moment the track reported itself. Hence the
+        rule: seed on a change of id, or where there is no cursor at all; leave a refresh for
+        the same id to move the dot and nothing else.
+        """
+        view = getattr(self, "_keypad_view", None)
+        if view is None:
+            return
+        selected = self._sensor_track_selected
+        if selected is None:
+            # Nothing is known about this track, so there is nothing to point at either.
+            view.set_sensor_track_cursor(None)
+            return
+        if previously is None or previously[0] != tmcc_id or view.sensor_track_cursor is None:
+            view.set_sensor_track_cursor(selected[1])
+
     def on_sensor_track_select(self) -> None:
-        """Write the Sequence option the panel is highlighting, and remember what it replaced.
+        """Write the Sequence option under the cursor, and remember what it replaced.
+
+        The cursor is what the pad has stepped to, so it -- not the radio dot -- is what a
+        select writes. The dot then moves onto it, and the two coincide, which is what "done"
+        looks like on the panel.
 
         The id and the value are read together, here, so the write cannot go to a track other
-        than the one the highlight belongs to.
+        than the one the choice belongs to.
 
         An undo point is recorded only where the value actually changes: selecting the option
         already showing is a confirmation rather than a change, and taking it as one would
         throw away a real undo and leave the operator with nothing to go back to.
         """
-        sequence = self._keypad_view.sensor_track_sequence
+        sequence = self._keypad_view.sensor_track_cursor
         if sequence is None:
             return
         tmcc_id = self.scope_tmcc_id(self.scope)
@@ -2167,6 +2199,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if selected is not None and selected[0] == tmcc_id and selected[1] != sequence:
             self._sensor_track_undo = selected
         self._sensor_track_selected = (tmcc_id, sequence)
+        self._keypad_view.set_sensor_track_sequence(sequence)
         self._keypad_view.send_sensor_track_sequence(tmcc_id, sequence)
 
     def on_sensor_track_revert(self) -> None:
@@ -2175,12 +2208,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
         Two cases, and the second is what makes revert useful before the first select has
         happened:
 
-        * There is an undo point -- a select displaced something -- so the highlight goes back
-          to it and the write goes with it. One-shot: the undo point is spent, a revert being
-          an undo rather than a way of flipping between two options.
-        * There is none, so the stepping is simply abandoned: the highlight returns to the
-          option the track is believed to hold, and **nothing is sent**, the track already being
-          there. A write would be a command asked for by nobody.
+        * There is an undo point -- a select displaced something -- so the dot and the cursor go
+          back to it and the write goes with it. One-shot: the undo point is spent, a revert
+          being an undo rather than a way of flipping between two options.
+        * There is none, so the stepping is simply abandoned: the cursor returns to the option
+          the track is believed to hold, and **nothing is sent**, the track already being there.
+          A write would be a command asked for by nobody.
+
+        Either way it leaves nothing pending: the dot and the cursor end up on the same option,
+        so no bar is left claiming a choice that has not been made.
 
         A pair belonging to another id is ignored rather than written, so a pane re-scoped to a
         second Sensor Track cannot be reverted to the first one's option.
@@ -2196,7 +2232,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return
         selected = self._sensor_track_selected
         if selected is not None and selected[0] == tmcc_id:
-            self._keypad_view.set_sensor_track_sequence(selected[1])
+            # The dot is already there, so this is the cursor coming back to it -- which is
+            # exactly what abandoning an uncommitted move looks like.
+            self._keypad_view.set_sensor_track_cursor(selected[1])
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:

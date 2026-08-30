@@ -66,6 +66,28 @@ Where nothing has been selected yet, revert has no committed write to undo and i
 
 One genuine conflict this surfaces, and it is a hole in what is already shipped rather than in A-7. `resolve()` returns an explicit binding *before* it applies the popup carve-out, and `POPUP_ONLY_ACTIONS` carves out `reset` — X — only while a popup is up. Nothing bound `reset` until now, so the ordering never mattered; binding it for revert would mean X reverting the Sequence instead of closing an open popup, which is exactly the dead end FR-7 was written to prevent ("while a popup is open ... **Always** closes it"). The popup gate therefore moves ahead of the binding walk for `POPUP_ONLY_ACTIONS` members, and the test that asserted the opposite is rewritten. `NEVER_CLAIMED_ACTIONS` (Menu) keeps the explicit-binding-wins rule: nothing binds it, and being able to *open* the catalog is not a modal obligation.
 
+**A-8 — Stepping must not *look* like selecting. The radio dot stays on the option the track holds; the pad's position becomes a tinted row.** A-7 separated stepping from writing on the wire but not on the screen: `step_sensor_track_sequence` moves the group's real selection, so the panel announces a choice that has not been made. The operator cannot tell an option they are passing over from the option the track is actually programmed with.
+
+The fault is worse than "the dot moved", and this is the part worth recording. These radios are drawn with `indicatoron=False` (`checkbox_group.py:91`), and Tk documents that for a borderless indicator `selectColor` "is used as the background for the **entire widget** ... whenever the widget is selected". Nothing in `CheckBoxGroup`, in guizero's `RadioButton` or in `keypad_view.py` ever sets it, so it is still Tk's own default — verified at runtime against this project's interpreter:
+
+```
+>>> tk.Radiobutton(root, indicatoron=False).cget("selectcolor")
+'#b03060'
+```
+
+So **a stepped row already gains a filled maroon bar today**, which is about the strongest "this is set" signal the panel can produce, and it is one nobody chose — an inherited default that only became visible when the D-pad started moving the selection. That is very likely the effect being reported, rather than the small `LIONEL_BLUE` dot.
+
+What you have chosen, and how it reads once built:
+
+| Element | Means |
+|---|---|
+| The filled dot | **The option the track is programmed with** — what an `IrdaState` last reported, or what the last select wrote. It moves only on a select or a revert. |
+| A tinted bar across a row | **Where the pad is pointing.** Moves on every D-pad ↑ / ↓, writes nothing, and says nothing has happened yet. |
+
+And so the maroon has to go: two filled bars on one ten-row list, one meaning "programmed" and the other "not programmed yet", is a worse confusion than the one being fixed. `selectcolor` is neutralised for this group so the dot is the *only* selection cue and the bar is unambiguously the cursor. You also asked for no third cue — no prompt, no title change — and the reasoning holds: with the dot no longer moving until D-pad → or A is pressed, the *absence* of movement is itself the message.
+
+One constraint the implementation must respect. `CheckBoxGroup` is shared — `admin_panel.py`, `amc2_ops_panel.py` and `catalog_panel.py` all use it or its `decorate_checkbox` classmethod — so both the cursor and the `selectcolor` change are **opt-in per group**, and nothing outside the Sequence list changes appearance. And the indicator images are `PhotoImage`s filled solid (`_fill(unsel, background)`, `background=WHITE`), so a tinted row needs its indicator pair repainted on the tint, or it shows as a white patch around the ring — the artifact already visible on the maroon selected row today.
+
 ### Your requirements, as I now read them
 
 | Context | Predicate | Bindings |
@@ -73,7 +95,7 @@ One genuine conflict this surfaces, and it is a hole in what is already shipped 
 | Generic ACC panel | the generic ACC panel is the one displayed — **regardless of `is_lcs_component`** | Stick ↕ → Throttle (relative speed); **Stick ↔ → `TOGGLE_DIRECTION`**; L1 → Rear Coupler; R1 → Front Coupler; D-pad ↑/↓ → Boost / Brake |
 | BPC2 panel | `is_power_district` is True | R2, D-pad → and **stick pushed right** → `send_lcs_on_command`; L2, D-pad ← and **stick pushed left** → `send_lcs_off_command` |
 | ASC2 panel | `is_asc2` is True | R2, D-pad → and **stick pushed right** → On; L2, D-pad ← and **stick pushed left** → Off; A, D-pad ↑ and **stick pushed up or down** → `KeypadView.when_pressed` while held, `when_released` on release / recenter |
-| **Sensor Track panel** | `is_sensor_track` is True | **D-pad ↑ / ↓ → move up / down the Sequence radio group, clamped at both ends, one step per press, sending nothing; D-pad → and A → write the highlighted option; D-pad ← and X → put back the option the last select replaced** |
+| **Sensor Track panel** | `is_sensor_track` is True | **D-pad ↑ / ↓ → move a *cursor* up / down the Sequence radio group, clamped at both ends, one step per press, sending nothing and leaving the radio dot where it is; D-pad → and A → write the option under the cursor and move the dot onto it; D-pad ← and X → put back the option the last select replaced** |
 
 Every binding in that table now has an on-screen twin on the panel it belongs to, which is a useful check that the mapping is honest rather than invented.
 
@@ -96,7 +118,8 @@ This is a rename of what the earlier draft called `acc`, not a new mechanism.
 - **Verb-plus-payload entries** — each binding names a dispatch verb and its payload.
 - **AMC2, operating-accessory overlay and unassigned ports are deferred** to a later pass. **Sensor Track is no longer deferred** — A-5 specifies it.
 - **The generic bindings follow the displayed panel**, so an LCS device on the generic panel is bound like any other accessory.
-- **On a Sensor Track the D-pad steps the Sequence options**, clamped at the ends, one step per press, with the write sent after a pause.
+- **On a Sensor Track the D-pad steps the Sequence options**, clamped at the ends, one step per press. ~~with the write sent after a pause~~ — superseded by A-7: the write is explicit.
+- **The dot means programmed and a tinted bar means where the pad is** (A-8). The cursor is a filled row tint, the radio dot does not move until a select or a revert, and no further prompt is added.
 
 ### Open questions I would like settled in the next pass
 
@@ -114,6 +137,8 @@ These are deliberately *not* resolved in this spec — they are what the next ro
 10. **Should a held stick on an ASC2 also drive `AUX1`?** A-4 gives the vertical stick the `CONTROL1` momentary. `AUX1` is the only other key on that panel and is still unbound (question 3), so if you want it on the pad it needs a control of its own.
 11. **The rest of the Sensor Track panel.** A-5 binds the Sequence group and nothing else. The panel is only that group, so there is nothing else on it to bind — but the sticks and triggers are claimed and dropped there under FR-0, and you may want one of them to mean something.
 12. **AMC2 is now the only accessory panel with no chain.** Once Sensor Track is registered, AMC2 is alone in being left to the engine handling. Its `Amc2OpsPanel` has motor and lamp controls that would map naturally onto the sticks, and it is the obvious next pass.
+13. **The maroon `selectcolor` everywhere else in the app.** A-8 neutralises it for the Sequence group only, because `CheckBoxGroup` is shared. The same unchosen `#b03060` bar is on every checked `CheckBox` in the Admin panel, on the catalog's sort radios and on the AMC2 page selector. If you would rather it went app-wide, that is a default change and a look at four panels — worth doing deliberately rather than as a side effect of this.
+14. **Whether the cursor should be visible to a touch-only user at all.** As specified it is seeded from the programmed option whenever the panel is shown, so with no pad in use it sits under the dot and is effectively invisible. The alternative is to draw it only once the pad has moved it, which costs one more piece of state but leaves the touch panel pixel-identical to today.
 
 # Requirements
 
@@ -217,9 +242,9 @@ Active when the pane is showing the Sensor Track panel — `accessory_panel_kind
 
 | Control | Effect |
 |---|---|
-| D-pad ↑ | Move the Sequence selection one option **toward** "No Action" |
+| D-pad ↑ | Move the **cursor** one option **toward** "No Action" |
 | D-pad ↓ | Move it one option **toward** "Recorded Sequence" |
-| D-pad →, A | **Select**: write the highlighted option to the track |
+| D-pad →, A | **Select**: write the option under the cursor to the track |
 | D-pad ←, X | **Revert**: put back the option the last select replaced, and write it |
 
 X keeps its first duty: while a popup is up it closes the popup and reverts nothing (FR-7).
@@ -229,9 +254,27 @@ The direction convention matches the catalog's: up is a negative delta, toward t
 - **Clamped, not wrapping.** ↑ with "No Action" already selected, and ↓ with "Recorded Sequence" already selected, move nothing and send nothing.
 - **One step per press.** The binding is not `repeat`-flagged, so a held D-pad steps once. Ten presses cross the list.
 - **Stepping sends nothing at all.** The write is explicit (amendment A-7), so crossing the whole list costs **one** `IrdaReq` and only when it is asked for. Superseded: the 0.5 s pause of the first draft is gone. See KD-11.
-- **An unset selection** (the panel has no `IrdaState` yet, so `sensor_track_buttons.value` is `None`) is treated as being at index 0: the first press of either direction highlights "No Action", and a second press moves off it.
+- **An unset position** (the panel has no `IrdaState` yet, so nothing is selected and nothing is under the cursor) is treated as being before index 0: the first press of either direction puts the cursor on "No Action", and a second press moves off it.
 
 Nothing else on the Sensor Track panel is bound. The sticks and triggers are claimed and dropped by the `acc` base under FR-0, as they are on every other accessory panel.
+
+**FR-3c — The cursor is not the selection (A-8)**
+
+On the Sequence group two things are shown at once, and they must never be confused:
+
+| Shown | Means | Moves on |
+|---|---|---|
+| The radio dot | the option **the track is programmed with** | a select, a revert, or an incoming `IrdaState` — **never** on a step |
+| A tinted bar across one row | **where the pad is pointing**; nothing has been written | every D-pad ↑ / ↓ |
+
+- **Stepping does not move the dot.** D-pad ↑ / ↓ move the bar only. This is the requirement: an option passed over must not read as an option chosen.
+- **Select moves the dot onto the bar** and writes. Afterwards the two coincide, which is what "done" looks like.
+- **Revert moves both** to the option it puts back, so a revert leaves nothing pending.
+- **No third cue.** No prompt, no title change, no wording that appears and disappears. With the dot still, the absence of movement carries it.
+- **The selected row must not also be a filled bar.** Tk's `selectColor` default paints one on a borderless radio; it is neutralised for this group so exactly one filled bar can be on screen and it always means the cursor.
+- **Touch is unchanged.** Tapping a row still selects and writes immediately, as it does today; the cursor follows the tap so the two cannot be left disagreeing.
+- **The cursor is seeded, not remembered.** Whenever the panel is shown for a track it starts on the programmed option, so a cursor left somewhere by an earlier session is never presented as this track's position. It survives an `IrdaState` refresh for the *same* id — a step in progress is not cancelled by the track reporting itself — and is re-seeded when the id changes.
+- **Nothing outside this group changes appearance.** `CheckBoxGroup` is shared with the Admin panel, the catalog and the AMC2 page selector; the cursor and the `selectcolor` change are opt-in per group.
 
 **FR-3a — Last holder wins**
 
@@ -270,6 +313,8 @@ Switch and route behavior after migration is **identical**, verified by the exis
 - **Contexts are resolved fresh per action, never cached across actions** — a pane's scope can change between two presses of the same button, which is exactly the `_handle_switch` clean-up case.
 - **The pad and the screen agree by construction.** The context reported must be derived from the *same* branch that chose the panel, so no accessory can show one set of keys and answer to another.
 - **Tk-free tables.** `accessory_bindings.py` imports no `tkinter` and no `guizero`, so the whole map is testable headless, as `control_labels.py` already is.
+- **The cursor costs two row reconfigurations per step**, the row it leaves and the row it lands on — not a repaint of the group. Its indicator images are cached per tint, as the existing pair already is, so the tint is painted once rather than per press.
+- **The cursor is reachable without a display.** It is a property on the widget wrapper, so `KeypadView` and `EngineGui` logic that moves it stays testable against the lightweight doubles those suites already use (`DummyCheckBoxGroup` in `tests/gui/test_keypad_view.py`). No test in this project opens a real `tkinter.Tk`, and this work must not be the first to need one.
 
 # Technical Design
 
@@ -382,6 +427,28 @@ Select records an undo point only where the value actually changes, so selecting
 
 A widget-free `KeypadView.set_sensor_track_sequence(value)` moves the highlight without sending, which `step_sensor_track_sequence` is refactored onto, and a `sensor_track_sequence` property reads back what is highlighted with guizero's string-backed `value` normalised in one place rather than two.
 
+**KD-14 — The cursor is a property of the widget, not of the panel, and the tint is opt-in (A-8).** `CheckBoxGroup` gains a `cursor` property; `KeypadView` assigns it and never touches a Tk row itself. Four reasons this is the right seam:
+
+1. **It is where the drawing already lives.** `decorate_checkbox` is the only place in the project that knows these rows carry `image` / `selectimage` `PhotoImage`s, that they are `indicatoron=False`, and that those images are filled solid. A tint applied from `keypad_view.py` would be a second place that knew all of it.
+2. **It keeps the logic headless.** These suites drive the panel through doubles — `DummyCheckBoxGroup` in `tests/gui/test_keypad_view.py` models guizero's string-backed `value` and nothing else. A property is one more line in that double, so stepping, selecting and reverting stay testable as logic and only the painting needs a display.
+3. **`value` and `cursor` become symmetrical**, which is the whole point of A-8: one setter for what the track holds, one for where the pad is, neither able to move the other by accident.
+4. **Opt-in protects three other panels.** `admin_panel.py`, `catalog_panel.py` and `amc2_ops_panel.py` share this component. Both the cursor and the `selectcolor` neutralising are enabled per group — a constructor flag — so their appearance is untouched.
+
+How the tint is painted, and the two traps:
+
+- **The indicator images must be repainted on the tint.** `_fill(unsel, background)` fills the whole `PhotoImage`, so a tinted row carrying the white-backed indicator shows a white patch around the ring. `decorate_checkbox` therefore builds a second pair with `background=<tint>`, and a row swaps `image` / `selectimage` as the cursor arrives and leaves. The existing cache key `("unsel", style, indicator_size)` does not include the background and must gain it — as it stands, two backgrounds on one widget would silently share one image.
+- **`selectcolor` must be neutralised, not fought row by row.** With `indicatoron=False` Tk paints `selectColor` — default `#b03060` — across the *whole* selected row, which is the false "it is set" bar A-8 is about. Set it to the row's own background for this group so the dot alone marks the selection and the tint alone marks the cursor; `selectcolor=""` is the documented "no special color" form and is the fallback if a platform objects to a color there.
+- **Moving the cursor touches two rows**, the one it leaves and the one it lands on, so a step is two `config` calls rather than a loop over ten.
+- **The tint is a light form of the accent that already means "where the pad is":** `FOCUS_COLOR` (`#3B82F6`) marks the focused pane and the focus arrow in `steam_deck_gui.py`, so a pale wash of it — `#BFDBFE`, or `#DBEAFE` if that proves loud against `LIONEL_BLUE` — says the same thing one level down without inventing a fourth color. It must stay light: the row's text is `systemTextColor` and the ring is drawn in black, so a saturated fill would fight both.
+
+Why not the alternatives: a `highlightthickness` ring needs *every* row to carry the border or the list jogs 3 px as the cursor moves, and it reads as "focused" rather than "here"; a `▸` prefix in the row text re-measures the widget and is weak at arm's length; a third indicator image in place of the ring puts both cues in one small column, where "cursor" and "programmed" differ by a few pixels.
+
+**KD-15 — The cursor is the position the pad steps from, and the existing records already describe the dot.** `step_sensor_track_sequence` today reads the group's `value` as "where I am" and assigns it to move. Under A-8 both halves change: it reads the **cursor** and moves the **cursor**, falling back to the programmed option when there is no cursor yet — and `sensor_track_sequence`, the reader `on_sensor_track_select` writes from, returns what is under the cursor rather than what the dot shows.
+
+That is the whole behavioral change, and deliberately not a new state machine. `EngineGui._sensor_track_selected` already means "the pair the track is believed to hold", which is now exactly what the dot shows: the two were describing the same thing all along, so A-8 makes the screen agree with the record rather than adding a second record. `_sensor_track_undo` is untouched.
+
+Seeding is the one place to be careful. `on_new_accessory` runs on every accessory state update, not only on selection, so re-seeding unconditionally would yank the cursor out from under a step the moment the track reported itself. The cursor is therefore seeded when the panel is shown for an id it was not showing before, or when it has none at all; a refresh for the same id moves the dot and leaves the cursor where the operator put it.
+
 **KD-11 (superseded by KD-13 — recorded as the reasoning behind what was built and then removed) — The pause before the Sensor Track write was a pending entry in `tick()`, and the GUI held what was pending.** Two halves, split along the line the rest of the input layer already draws:
 
 - **The router owns the timing.** A `_sensor_track_commits: dict[Target, float]` accumulates elapsed time exactly as `_held_commands` does — `waited += elapsed` on each tick, fire at `SENSOR_TRACK_COMMIT_DELAY`, and a further step resets `waited` to zero. Accumulated rather than compared against an absolute deadline, for the reason the comment on `_held_commands` already gives: *"so the repeat does not depend on the caller's clock matching any clock read at press time."* This also keeps `_dispatch` clock-free, which matters because `_dispatch` has no `now` to read.
@@ -453,9 +520,15 @@ DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {...}
 **6. Sensor Track (A-5 / A-6)**
 
 - `accessory_bindings.py` — `VERB_SENSOR_TRACK_STEP`; `ACC_SENSOR_TRACK_CONTEXT` with `dpad_up` → `data=-1` and `dpad_down` → `data=+1`; `PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK]`; `NEVER_CLAIMED_ACTIONS`; the D-pad added to each accessory context's `yields_to_catalog`.
-- `steam_deck_input.py` — the verb in `_dispatch`, `_sensor_track_commits` with its `tick()` loop, `SENSOR_TRACK_COMMIT_DELAY`, the flush in `clear()`, and `resolve()` honoring the never-claimed set.
+- `steam_deck_input.py` — the verbs in `_dispatch`, and `resolve()` honoring the carve-out sets. ~~`_sensor_track_commits`, `SENSOR_TRACK_COMMIT_DELAY`, the `tick()` loop and the flush in `clear()`~~ — built under KD-11 and removed again by A-7.
 - `keypad_view.py` — `step_sensor_track_sequence(delta)` (move and clamp, no send) and `send_sensor_track_sequence(tmcc_id, value)` (widget-free send), with `on_sensor_track_change` reduced to a wrapper over the latter so touch and pad share one send path — the same shape the `asc2_control` extraction already took.
-- `engine_gui.py` — `on_sensor_track_step(delta)` and `on_sensor_track_commit()`.
+- `engine_gui.py` — `on_sensor_track_step(delta)`, `on_sensor_track_select()` and `on_sensor_track_revert()`.
+
+**7. The Sequence cursor (A-8)**
+
+- `components/checkbox_group.py` — a `cursor` property over the existing rows; a `cursor=True` / `cursor_bg=` constructor pair so only the Sequence group opts in; `selectcolor` neutralised for an opting group; a second indicator image pair painted on the tint; the image cache key widened to include the background.
+- `keypad_view.py` — `sensor_track_cursor` / `set_sensor_track_cursor`, `step_sensor_track_sequence` moving the cursor instead of the selection, `sensor_track_sequence` reading the cursor, and `on_sensor_track_change` moving the cursor to a tapped row.
+- `engine_gui.py` — seed the cursor beside `_sensor_track_selected` in `on_new_accessory`, on an id change or when there is none; move it with the dot on select and revert.
 
 ### Data Models / Contracts
 
@@ -483,28 +556,55 @@ def on_asc2_momentary(self, pressed: bool) -> None: ...
 def on_acc_speed_command(self, value: int) -> None: ...
 
 def on_sensor_track_step(self, delta: int) -> bool:
-    """Move the Sequence selection by delta, clamped. True when it actually moved.
+    """Move the Sequence cursor by delta, clamped. True when it actually moved.
 
-    Records the (tmcc_id, sequence) pair moved to; sends nothing. False at either
-    end of the list, which is what tells the router not to arm the commit.
+    Sends nothing and does not move the radio dot. False at either end of the list.
     """
 
-def on_sensor_track_commit(self) -> None:
-    """Send the recorded pair, if any, and forget it. A no-op when nothing is pending."""
+def on_sensor_track_select(self) -> None:
+    """Write the option under the cursor, move the dot onto it, record the undo point."""
+
+def on_sensor_track_revert(self) -> None:
+    """Put back the option the last select replaced. Moves the dot and the cursor.
+
+    With no undo point it abandons the stepping instead: the cursor returns to the
+    programmed option and nothing is sent.
+    """
 
 # KeypadView
 
 def step_sensor_track_sequence(self, delta: int) -> int | None:
-    """The Sequence value moved to, or None if the move was clamped away.
+    """The Sequence value the *cursor* moved to, or None if the move was clamped away.
 
-    Assigns sensor_track_buttons.value, which moves the radio highlight without
-    firing its command -- the same assignment on_new_accessory makes from incoming
-    state. Re-checks that the Sensor Track panel is the one displayed, as
-    asc2_control re-checks its own port.
+    Moves the cursor only. The radio dot -- what the track is programmed with --
+    is untouched, which is A-8: an option stepped over must not read as chosen.
+    Re-checks that the Sensor Track panel is the one displayed, as asc2_control
+    re-checks its own port.
     """
+
+@property
+def sensor_track_cursor(self) -> int | None:
+    """The option under the cursor, falling back to the selected one, else None."""
+
+def set_sensor_track_cursor(self, sequence: int | None) -> bool:
+    """Move the cursor. None clears it. True when it moved. Sends nothing, ever."""
 
 def send_sensor_track_sequence(self, tmcc_id: int, sequence: int) -> None:
     """Send one IRDA SEQUENCE write. The one send path; on_sensor_track_change wraps it."""
+
+# CheckBoxGroup (components/checkbox_group.py) -- opt-in, so the Admin panel,
+
+# the catalog and the AMC2 page selector are unaffected.
+
+def __init__(self, master, ..., cursor: bool = False, cursor_bg: str = CURSOR_BG): ...
+
+@property
+def cursor(self) -> str | None:
+    """The value of the row currently tinted, or None. Never the selection."""
+
+@cursor.setter
+def cursor(self, value) -> None:
+    """Tint that row and un-tint the one it left. Two config calls, not ten."""
 ```
 
 ```json
@@ -550,7 +650,11 @@ def send_sensor_track_sequence(self, tmcc_id: int, sequence: int) -> None:
     "inherits": "acc",
     "bindings": {
       "dpad_up":   {"verb": "sensor_track_step", "data": -1},
-      "dpad_down": {"verb": "sensor_track_step", "data": 1}
+      "dpad_down": {"verb": "sensor_track_step", "data": 1},
+      "dpad_right": {"verb": "sensor_track_select"},
+      "sequence_control": {"verb": "sensor_track_select"},
+      "dpad_left": {"verb": "sensor_track_revert"},
+      "reset": {"verb": "sensor_track_revert"}
     }
   }
 }
@@ -578,10 +682,12 @@ graph TD
   HC -->|acc_command| A1[on_acc_command]
   HC -->|lcs_on / lcs_off| A2[on_lcs_command]
   HC -->|asc2_momentary| A3[on_asc2_momentary]
-  HC -->|sensor_track_step| A5[on_sensor_track_step<br/>moves the highlight]
-  A5 --> TQ[_sensor_track_commits]
-  T[DeckInputRouter.tick] --> TQ
-  TQ -->|after the pause| A6[on_sensor_track_commit<br/>sends one IrdaReq]
+  HC -->|sensor_track_step| A5[on_sensor_track_step<br/>moves the cursor only]
+  A5 --> CB[CheckBoxGroup.cursor<br/>tinted row]
+  HC -->|sensor_track_select| A6[on_sensor_track_select<br/>one IrdaReq]
+  HC -->|sensor_track_revert| A7[on_sensor_track_revert<br/>puts back the last write]
+  A6 --> VD[CheckBoxGroup.value<br/>the radio dot]
+  A7 --> VD
   HC -->|switch / route| A4[on_switch_command<br/>on_route_command]
   HC -->|claim| X[swallowed]
   HC -->|never claimed / yields to catalog| EN[existing engine<br/>and catalog handling]
@@ -600,8 +706,12 @@ graph TD
 - **A held axis can leave an accessory output energised.** The most consequential failure in the whole spec, because a real relay stays closed. Three ways it could happen, each with its own mitigation: the pane is re-scoped under the thumb (release delivered from `_momentary_holds` rather than by re-resolving the chain), the pad disconnects while deflected (`clear()` sends the off for every hold it drops), and a second control releases first (FR-3a's last-holder-wins). Each gets its own test.
 - **Three axis modes over one field set.** `axis_latched`, `axis_held` and `is_analog` are mutually exclusive in practice and nothing in the dataclass says so. Mitigation: validate the combination where the verbs are validated, log and drop a binding claiming two, and keep the router's branch ordered so the outcome is defined even if one slips through.
 - **Registering the Sensor Track chain claims controls that were previously left alone.** The panel currently reports no context, so every control falls through to the engine handling. Once the chain exists, the `acc` base swallows the sticks and triggers. That is the intent of FR-0 — those controls would otherwise address whatever engine the pane held before — but it is a behavior change on a panel nobody asked to change. Mitigation: FR-7 lands **first**, so the panel is never claimable without being leavable.
-- **The pause is a window in which the panel and the device disagree.** For up to `SENSOR_TRACK_COMMIT_DELAY` the highlight shows a sequence the track has not been told about. Unavoidable given the choice to debounce; bounded at half a second, and `clear()` flushes rather than drops so a disconnect inside the window still sends. The remaining exposure is a crash inside the window, which loses a write the operator would repeat.
-- **An incoming `IrdaState` update during the pause could fight the highlight.** `on_new_accessory` assigns `sensor_track_buttons.value` from state, so a report arriving mid-pause would move the highlight away from the pending selection while the pending *pair* still holds the operator's choice. Mitigation: the commit sends the recorded pair rather than reading the widget, so the write is right either way; the visible flicker is the same one the touch path already has and is not made worse.
+- ~~**The pause is a window in which the panel and the device disagree.**~~ Removed with the debounce (A-7). Under A-8 the panel is *never* ahead of the device: the dot only moves when a write goes out, so the disagreement this risk described cannot arise — the cursor sitting off the dot is the accurate statement that nothing has been written.
+- ~~**An incoming `IrdaState` update during the pause could fight the highlight.**~~ Superseded, and inverted: an incoming report now moves the dot, which is exactly what should happen, and the cursor is deliberately left alone for the same id so a step in progress is not cancelled by the track reporting itself (KD-15).
+- **A shared component is being changed for one panel's benefit.** `CheckBoxGroup` and its `decorate_checkbox` classmethod are used by `admin_panel.py`, `catalog_panel.py` and `amc2_ops_panel.py`; a default-valued change to either would alter three panels nobody is looking at. Mitigation: the cursor and the `selectcolor` neutralising are opt-in per group, and the existing callers pass nothing new. A test asserting a default-constructed group is unchanged is cheap and worth having.
+- **The indicator image cache is keyed without the background.** `widget._pytrain_images[("unsel", style, indicator_size)]` would hand a tinted row the white-backed image, or the reverse, once two backgrounds exist on one widget. Latent today because there is only ever one. Mitigation: widen the key as part of adding the tint; this is the single most likely way A-8 ships looking wrong.
+- **Neutralising `selectcolor` changes what a *touch* user sees on this panel**, since the maroon bar they have today disappears and only the blue dot remains. Intended — the bar is the false cue A-8 is about — but it is a visible change nobody asked for on the touch path. Mitigation: the dot is `LIONEL_BLUE` on a painted ring at `s_19`, so it is not a subtle indicator; and leaving the bar would mean two filled bars with opposite meanings.
+- **The cursor could be seeded at the wrong moment.** `on_new_accessory` runs on every accessory state update, so a naive re-seed would snap the cursor back mid-step every time the track reported itself. Mitigation: KD-15's rule — seed on an id change or when there is no cursor, never on a refresh for the same id — with a test that steps, delivers a same-id state update, and asserts the cursor did not move.
 - **A-6's `NEVER_CLAIMED_ACTIONS` is keyed on `reset`**, the action the bundled profile puts on X. A profile that moves `reset` elsewhere and puts something else on X would carve out the wrong control. Mitigation: this is the same action-keyed indirection `ADMIN_CHORD_MODIFIER` and `CATALOG_JUMP_MODIFIER` already accept, and the popup path is button-indexed anyway (`CLOSE_POPUP_BUTTON`), so the two agree for any profile that keeps `reset` on X. Worth a comment where the set is defined.
 - **`axis_actions()` filters on `axis_latched` alone.** It derives the legacy `*_AXIS_ACTIONS` name sets `control_labels.py` still imports, so a held-axis binding would be invisible to it. Mitigation: widen it to any axis mode as part of adding the field, rather than leaving a second definition of "is this an axis" behind.
 
@@ -634,6 +744,8 @@ The heading vocabulary was designed with an accessory section in mind.
 **4. `ACTION_LABELS` additions** (lines 109-146) for the new verbs and any new action names: LCS on/off, ASC2 momentary, accessory throttle, boost/brake and smoke as *bound* actions rather than fixed D-pad text. `DPAD_UP`'s label is currently the literal `"Boost speed"`; once bindable it must resolve through the profile.
 
 **5. The momentary hold needs a note.** `ACTION_NOTES` (line 151) has `"hold: w dialog"` for startup/shutdown. ASC2 momentary needs something like `"hold: output on"` — it is the only binding in the set whose *release* does something. It now applies to the **stick** as well as to A, so whatever phrasing is chosen has to read sensibly against an axis row, where "hold" means "held away from center".
+
+**5a. The Sensor Track rows must say that stepping does not set.** The page will show four D-pad directions on one panel doing four different things, and the distinction A-8 is about — ↑↓ move a cursor, → writes — is exactly the one a help page has to carry in a few words. Something in the shape of "move (no send)" against ↑↓ and "set" against →, with "undo last set" against ←. Whatever is chosen has to survive the column budget in item 6, which is the real constraint.
 
 **6. Column budget is the hard constraint.** The comments at lines 520-536 record that the last column already fills "to within a row of the budget `ROWS_PER_COLUMN` falls back to", and that adding one row "put the catalog behind a page turn nobody would think to take." **Three new panel sections cannot fit.** Options, for you to choose from next pass:
 
@@ -674,13 +786,17 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - ASC2: the On/Off pair is inherited from `acc_bpc2` through the chain, not restated; A and D-pad ↑ call `on_asc2_momentary(True)` on press and `(False)` on release.
 - ASC2 stick ↕: a push past `direction_threshold` calls `on_asc2_momentary(True)` once — not once per poll while it is held — and the value falling back inside `direction_threshold - hysteresis` calls `(False)` once. A push the other way does exactly the same, the binding being sign-blind.
 - ASC2 stick ↕ held while the pane is re-scoped: the recenter still delivers `on_asc2_momentary(False)`, from the hold record rather than from the chain.
-- Sensor Track: D-pad ↓ moves the Sequence selection one option toward "Recorded Sequence" and D-pad ↑ one option toward "No Action", and neither sends anything on the press.
-- Sensor Track: after `SENSOR_TRACK_COMMIT_DELAY` of ticks with no further press, exactly one `IrdaReq` is sent, carrying the option settled on.
-- Sensor Track: nine presses in quick succession send **one** write, not nine — each press re-arms the pause.
-- Sensor Track: ↑ on "No Action" and ↓ on "Recorded Sequence" move nothing, send nothing, and do not arm the pause.
+- Sensor Track: D-pad ↓ moves the Sequence cursor one option toward "Recorded Sequence" and D-pad ↑ one option toward "No Action", and neither sends anything on the press.
+- Sensor Track: stepping the whole list leaves the **radio dot exactly where it was** and sends nothing — A-8's headline case, and the one that fails against what is shipped.
+- Sensor Track: D-pad → and A each write the option under the cursor and move the dot onto it, after which the two coincide.
+- Sensor Track: D-pad ← and X each put back the option the last select replaced, moving the dot **and** the cursor, and are one-shot.
+- Sensor Track: a revert with nothing yet selected moves the cursor back to the programmed option and sends nothing.
+- Sensor Track: ↑ on "No Action" and ↓ on "Recorded Sequence" move nothing and send nothing.
 - Sensor Track: a held D-pad steps exactly once — the binding is not `repeat`-flagged and no `_context_repeats` entry is made.
-- Sensor Track: `clear()` inside the pause sends the pending write rather than dropping it.
-- Sensor Track: a pane re-scoped during the pause still writes the pair the operator selected, at the id they selected it on.
+- Sensor Track: tapping a row on screen still selects and writes immediately, and the cursor follows the tap so the two do not disagree.
+- Sensor Track: an `IrdaState` arriving for the **same** id moves the dot and leaves a cursor mid-step where it is; one for a **different** id re-seeds both.
+- `CheckBoxGroup`: setting `cursor` tints that row and un-tints the one it left; setting it to `None` clears the tint; `value` is unaffected either way, and setting `value` does not move `cursor`.
+- `CheckBoxGroup`: a group constructed without `cursor=True` is configured exactly as it is today — the Admin panel, catalog and AMC2 selector regression.
 - Sensor Track: the sticks and triggers are claimed by `acc` and sent nowhere, and `on_sensor_track_step` is never reached by them.
 - On every accessory panel: Menu reaches `show_scope_catalog`, and X with a popup up reaches `close_popup` — FR-7, and each fails against the current code.
 - With the catalog open on an ASC2 or BPC2 panel: D-pad ↑/↓ scroll the highlight, → confirms, ← closes, and none of them reaches `on_asc2_momentary` or `on_lcs_command`.
@@ -710,11 +826,15 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Stick sitting at rest under the threshold** — a small resting offset must not energise anything, and must not accumulate a hold that a later recenter releases.
 - **Stick pushed diagonally on an ASC2** — ↕ holds the momentary output and ↔ switches the district on or off, from the same physical stick; both must work and neither may consume the other's latch or hold.
 - **A binding claiming two axis modes** — `axis_held` together with `axis_latched` is invalid; it is logged and dropped rather than resolved arbitrarily.
-- **A Sensor Track panel with no `IrdaState`** — `sensor_track_buttons.value` is `None`; the first press must highlight "No Action" rather than raising on `int(None)`.
+- **A Sensor Track panel with no `IrdaState`** — nothing is selected and nothing is under the cursor; the first press must put the cursor on "No Action" rather than raising on `int(None)`, and must still not move the dot. A select from there is the first write the track hears.
 - **D-pad ↑ held on an ASC2 when the catalog opens** — the release must still reach `_momentary_holds` and drop the output, even though the catalog now has the D-pad. The release check precedes the carve-out in `_handle_contexts`; a test must pin that ordering.
-- **A step, then the catalog opens before the pause elapses** — the pending write still goes out; opening the catalog is not a cancel.
+- **A step, then the catalog opens** — nothing is pending and nothing is written, and the cursor is still where it was left when the catalog closes.
+- **A tinted row that is also the selected row** — the cursor sitting on the programmed option must still show the dot, which is what the second indicator image pair is for. This is the state the panel opens in, so it is the *first* thing a user sees.
+- **A group with two backgrounds in play** — the tinted and untinted indicator images must not be the same object; this is the cache-key widening, and it fails silently if missed.
+- **A cursor value the list does not hold** — `None`, `"None"`, an empty string, an out-of-range number — clears the tint rather than raising, matching how the selection reader already normalises guizero's string.
+- **The panel is hidden and shown again for the same track** — the cursor is on the programmed option, not wherever it was left, so a stale position is never presented as the current one.
+- **Two panes each showing a Sensor Track** — each group carries its own cursor; moving one must not tint a row in the other.
 - **A profile that explicitly binds `scope_catalog` in a context** — the explicit binding wins over `NEVER_CLAIMED_ACTIONS`, so the carve-out is a default rather than a prohibition.
-- **Two panes each mid-pause** — `_sensor_track_commits` is keyed by target, so the left and right panes settle and write independently.
 
 ### Test Changes
 
@@ -728,9 +848,12 @@ Per the project guidelines: `../bin/python -m ruff format --check` on every chan
 - **Extend** `tests/gui/controller/test_accessory_bindings.py` — `axis_held` on the `acc_asc2` `throttle` entry, the mode-exclusivity validation, and `axis_actions()` seeing a held binding.
 - **Extend** `tests/gui/controller/test_steam_deck_input.py` — the held-axis press/release pair, the hysteresis band, last-holder-wins across A and the stick, the re-scope case, and `clear()` releasing a held output.
 - **Extend** `tests/gui/controller/test_accessory_bindings.py` — the `acc_sensor_track` context and its chain, `NEVER_CLAIMED_ACTIONS` resolving to nothing under a claiming context and being overridable by an explicit binding, and the D-pad appearing in every accessory context's `yields_to_catalog`.
-- **Extend** `tests/gui/controller/test_steam_deck_input.py` — an `_acc_gui(kind="sensor_track")` stub recording `sensor_track_calls` and `commit_calls`; the step pair, the clamp, the debounce and its re-arming, `clear()` flushing, and the FR-7 cases on all four accessory kinds.
-- **Extend** `tests/gui/test_keypad_view.py` — `step_sensor_track_sequence` clamping at both ends, treating an unset value as index 0, moving the highlight without sending, and `send_sensor_track_sequence` sending the same `IrdaReq` `on_sensor_track_change` did.
-- **Extend** `tests/gui/test_engine_gui_accessories.py` — `input_contexts` reporting the Sensor Track chain, and `on_sensor_track_step` / `on_sensor_track_commit` recording and sending the pair captured at step time rather than re-reading the panel.
+- **Extend** `tests/gui/controller/test_steam_deck_input.py` — an `_acc_gui(kind="sensor_track")` stub recording `sensor_track_calls`, `select_calls` and `revert_calls`; the step pair, the clamp, select and revert from both of their controls, `tick()` writing nothing of its own, and the FR-7 cases on all four accessory kinds.
+- **Extend** `tests/gui/test_keypad_view.py` — `step_sensor_track_sequence` clamping at both ends, treating an unset position as before index 0, moving the cursor without sending, and `send_sensor_track_sequence` sending the same `IrdaReq` `on_sensor_track_change` did.
+- **Extend** `tests/gui/test_engine_gui_accessories.py` — `input_contexts` reporting the Sensor Track chain, and `on_sensor_track_select` / `on_sensor_track_revert` writing and undoing at the id the choice was made on.
+- **New** `tests/gui/test_checkbox_group.py` — the `cursor` property over fake rows, following the `_Tk` / `DummyWidget` pattern the rest of `tests/gui` uses: **no test in this project opens a real `tkinter.Tk`**, and this must not be the first. The rows are doubles recording their `config` calls, so what is asserted is what the component *asked for* — which row was tinted, which was reverted, that a tinted row got the tinted image rather than the white-backed one, that `selectcolor` was neutralised only for an opting group, and that a default-constructed group was configured exactly as it is today.
+- **Extend** `tests/gui/test_keypad_view.py` — `DummyCheckBoxGroup` grows a `cursor` attribute; stepping moves the cursor and never `value`; `sensor_track_sequence` reads the cursor; a tap moves the cursor to the tapped row.
+- **Extend** `tests/gui/test_engine_gui_accessories.py` — the seeding rule: a same-id `IrdaState` leaves a cursor mid-step alone, a different id re-seeds it, and a select or revert moves the dot and the cursor together.
 - **Unmodified** — the existing switch and route suites, which are the migration's proof.
 
 # Delivery Steps
@@ -848,3 +971,17 @@ Stepping the Sequence group sends nothing; D-pad → and A write the highlighted
 - Add `KeypadView.set_sensor_track_sequence(value)` and the `sensor_track_sequence` property, and refactor `step_sensor_track_sequence` onto them so the guizero string normalising lives in one place.
 - Cover in `tests/gui/controller/test_steam_deck_input.py`: select from both controls, revert from both, stepping sending nothing however many steps, a revert with nothing selected sending nothing, revert being one-shot, X closing a popup rather than reverting, an open catalog still taking all four D-pad directions, and `tick()` never writing on its own.
 - Update the tests the removal invalidates: the debounce, re-arming, clamp-arms-nothing and `clear()`-flush cases in the router suite, `test_an_explicit_binding_of_x_wins_over_the_popup_gated_carve_out` in the binding suite, and the commit cases in `tests/gui/test_engine_gui_accessories.py`.
+
+### ✓ Step 11: Show the pad's position as a cursor, and leave the radio dot on what the track holds (A-8)
+Stepping the Sequence list moves a tinted row cursor and the radio dot stays on the option the track is actually programmed with, so passing over an option no longer reads as choosing it.
+
+- Add a `cursor` property to `CheckBoxGroup` (`src/pytrain/gui/components/checkbox_group.py`): tint the named row, revert the row it left, two `config` calls rather than a pass over ten.
+- Gate it behind a `cursor=True` / `cursor_bg=` constructor pair, and pass it only from the Sequence group in `keypad_view.py`, so `admin_panel.py`, `catalog_panel.py` and `amc2_ops_panel.py` are untouched.
+- Paint a second indicator image pair on the tint in `decorate_checkbox`, and widen the `_pytrain_images` cache key to include the background — as it stands two backgrounds on one widget would silently share one image and the tinted row would show a white patch around the ring.
+- Neutralise `selectcolor` for an opting group, so Tk's inherited `#b03060` no longer paints a filled bar across the selected row: that bar is the false "it is set" cue A-8 is about, and with the cursor now owning the bar there must be only one.
+- Add `KeypadView.sensor_track_cursor` and `set_sensor_track_cursor(value)`, and refactor `step_sensor_track_sequence` onto them so it reads and moves the **cursor**, falling back to the programmed option when there is no cursor yet, and never assigns `sensor_track_buttons.value`.
+- Have `on_sensor_track_select` read the **cursor** rather than the dot, so it writes what the operator stepped to and then moves the dot onto it. Built as `sensor_track_cursor` being the reader select uses, rather than by repointing `sensor_track_sequence` at the cursor: the two properties then stay symmetrical with the two setters — one for what the track holds, one for where the pad is — which is what KD-14 asks for, and `sensor_track_cursor`'s fallback needs the dot reader anyway.
+- Move the cursor with the dot in `on_sensor_track_revert`, so a revert leaves nothing pending, and move it to the tapped row from `on_sensor_track_change` so touch and pad cannot leave the two disagreeing.
+- Seed the cursor beside `_sensor_track_selected` in `EngineGui.on_new_accessory`, but only on an id change or when there is none (KD-15) — a same-id state refresh must not snap a cursor back mid-step.
+- Add `tests/gui/test_checkbox_group.py` over row doubles that record their `config` calls, following the `_Tk` / `DummyWidget` pattern the rest of `tests/gui` uses; no test here opens a real `tkinter.Tk` and this must not be the first.
+- Extend `tests/gui/test_keypad_view.py` (a `cursor` attribute on `DummyCheckBoxGroup`; stepping never touching `value`) and `tests/gui/test_engine_gui_accessories.py` (the seeding rule, and select and revert moving both), and prove the headline case: stepping the whole list leaves the dot where it was and sends nothing.

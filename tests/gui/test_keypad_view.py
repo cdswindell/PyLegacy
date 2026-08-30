@@ -163,6 +163,7 @@ class DummyCheckBoxGroup(DummyWidget):
     def __init__(self, *_args: Any, **kwargs: Any) -> None:
         super().__init__(*_args, **kwargs)
         self.value = kwargs.get("selected")
+        self.cursor = kwargs.get("cursor_value")
 
     @property
     def value(self) -> str:
@@ -171,6 +172,18 @@ class DummyCheckBoxGroup(DummyWidget):
     @value.setter
     def value(self, value: Any) -> None:
         self._selected = str(value)
+
+    @property
+    def cursor(self) -> str | None:
+        """Where the pad is pointing, which is not the selection and never becomes it."""
+        return self._cursor
+
+    @cursor.setter
+    def cursor(self, value: Any) -> None:
+        # None clears it; anything else is held as the string the real rows are keyed by. The
+        # real group also drops a value its list does not hold, but only the pane decides what
+        # is in the list, and it checks before assigning.
+        self._cursor = None if value is None else str(value)
 
 
 class DummyAccessoryState:
@@ -455,7 +468,7 @@ def test_asc2_control_sends_nothing_for_a_port_that_is_not_an_asc2(monkeypatch: 
     assert sent == []
 
 
-def _sensor_track_host(monkeypatch: pytest.MonkeyPatch, *, value=None, is_sensor_track: bool = True):
+def _sensor_track_host(monkeypatch: pytest.MonkeyPatch, *, value=None, cursor=None, is_sensor_track: bool = True):
     """A pane showing a Sensor Track, with the request class recording what it is asked to send."""
     sent: list[tuple] = []
 
@@ -476,7 +489,9 @@ def _sensor_track_host(monkeypatch: pytest.MonkeyPatch, *, value=None, is_sensor
     state = DummyAccessoryState()
     state.is_sensor_track = is_sensor_track
     host.active_state = state
-    host.sensor_track_buttons = DummyCheckBoxGroup(selected=value)
+    # ``value`` is the radio dot -- what the track is programmed with. The cursor starts unset,
+    # as it does on a panel nobody has stepped yet, and then falls back to the dot.
+    host.sensor_track_buttons = DummyCheckBoxGroup(selected=value, cursor_value=cursor)
     return host, sent
 
 
@@ -525,19 +540,21 @@ def test_stepping_moves_one_option_and_reports_where_it_landed(
     moved = mod.KeypadView(host).step_sensor_track_sequence(delta)
 
     assert moved == expected
-    assert host.sensor_track_buttons.value == str(expected), "the group holds it as the string Tk keeps"
-    assert sent == [], "the highlight moves and nothing is written"
+    assert host.sensor_track_buttons.cursor == str(expected), "the group holds it as the string Tk keeps"
+    assert host.sensor_track_buttons.value == str(start), "and the radio dot did not move"
+    assert sent == [], "the cursor moves and nothing is written"
 
 
 @pytest.mark.parametrize(("start", "delta"), [(0, -1), (9, 1)])
 def test_stepping_off_either_end_moves_nothing(monkeypatch: pytest.MonkeyPatch, start, delta) -> None:
     # Clamped rather than wrapping: an operator holding the pad against an end must not find
     # the selection rolled round to the far one.
-    host, sent = _sensor_track_host(monkeypatch, value=start)
+    host, sent = _sensor_track_host(monkeypatch, value=start, cursor=start)
 
     moved = mod.KeypadView(host).step_sensor_track_sequence(delta)
 
     assert moved is None
+    assert host.sensor_track_buttons.cursor == str(start)
     assert host.sensor_track_buttons.value == str(start)
     assert sent == []
 
@@ -552,9 +569,10 @@ def test_an_unset_selection_is_treated_as_the_first_option(monkeypatch: pytest.M
     assert host.sensor_track_buttons.value == "None", "which is all an unset group can say"
 
     assert view.step_sensor_track_sequence(delta) == 0
-    assert host.sensor_track_buttons.value == "0"
+    assert host.sensor_track_buttons.cursor == "0"
 
     assert view.step_sensor_track_sequence(1) == 1
+    assert host.sensor_track_buttons.value == "None", "and still nothing is selected"
     assert sent == []
 
 
@@ -568,7 +586,7 @@ def test_a_selection_the_list_does_not_hold_is_read_as_unset(monkeypatch: pytest
     host.sensor_track_buttons.value = value
 
     assert mod.KeypadView(host).step_sensor_track_sequence(-1) == 0
-    assert host.sensor_track_buttons.value == "0"
+    assert host.sensor_track_buttons.cursor == "0"
     assert sent == []
 
 
@@ -587,13 +605,15 @@ def test_the_highlighted_option_is_read_back_through_one_normalising(
 
 
 def test_the_highlight_can_be_moved_to_a_named_option_without_sending(monkeypatch: pytest.MonkeyPatch) -> None:
-    # What a revert puts its option back with, and what the stepping is built on: an
-    # assignment rather than a click, so the group's command does not fire.
+    # What a select and a revert move the dot with: an assignment rather than a click, so the
+    # group's command does not fire. The cursor goes with it, because after either of those the
+    # pad is pointing at exactly what the track now holds.
     host, sent = _sensor_track_host(monkeypatch, value=3)
     view = mod.KeypadView(host)
 
     assert view.set_sensor_track_sequence(8) is True
     assert host.sensor_track_buttons.value == "8"
+    assert host.sensor_track_buttons.cursor == "8"
     assert view.sensor_track_sequence == 8
     assert sent == []
 
@@ -617,8 +637,76 @@ def test_the_highlight_is_not_moved_where_the_panel_is_not_a_sensor_track(monkey
     view = mod.KeypadView(host)
 
     assert view.set_sensor_track_sequence(8) is False
+    assert view.set_sensor_track_cursor(8) is False
     assert view.sensor_track_sequence is None
+    assert view.sensor_track_cursor is None
     assert host.sensor_track_buttons.value == "3"
+    assert host.sensor_track_buttons.cursor is None
+
+
+def test_the_cursor_falls_back_to_the_option_the_track_is_programmed_with(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A panel nobody has stepped yet: the pad starts from the dot, so the first press moves one
+    # option from there rather than from the top of the list.
+    host, _sent = _sensor_track_host(monkeypatch, value=6)
+    view = mod.KeypadView(host)
+
+    assert host.sensor_track_buttons.cursor is None
+    assert view.sensor_track_cursor == 6
+
+    assert view.set_sensor_track_cursor(2) is True
+
+    assert view.sensor_track_cursor == 2
+    assert view.sensor_track_sequence == 6, "and the dot stayed where the track is"
+
+
+def test_the_cursor_can_be_cleared(monkeypatch: pytest.MonkeyPatch) -> None:
+    # What a pane re-scoped to a Sensor Track with no IrdaState leaves behind: nothing is known
+    # about the track, so there is nothing to point at.
+    host, _sent = _sensor_track_host(monkeypatch, value=None, cursor=4)
+    view = mod.KeypadView(host)
+
+    assert view.set_sensor_track_cursor(None) is True
+
+    assert host.sensor_track_buttons.cursor is None
+    assert view.sensor_track_cursor is None
+
+
+@pytest.mark.parametrize("value", [-1, 10, "Sound Horn"])
+def test_the_cursor_is_not_moved_to_an_option_the_list_does_not_hold(monkeypatch: pytest.MonkeyPatch, value) -> None:
+    host, _sent = _sensor_track_host(monkeypatch, value=3, cursor=5)
+
+    assert mod.KeypadView(host).set_sensor_track_cursor(value) is False
+    assert host.sensor_track_buttons.cursor == "5"
+
+
+def test_stepping_the_whole_list_leaves_the_dot_where_it_was_and_sends_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A-8's headline case. Crossing the ten options is the pad moving its eye down the list, and
+    # the panel must go on saying that the track is set to what it is actually set to.
+    host, sent = _sensor_track_host(monkeypatch, value=0)
+    view = mod.KeypadView(host)
+
+    for _press in range(9):
+        view.step_sensor_track_sequence(1)
+
+    assert host.sensor_track_buttons.cursor == "9"
+    assert host.sensor_track_buttons.value == "0", "the dot never moved"
+    assert sent == []
+
+
+def test_a_tap_on_screen_brings_the_cursor_with_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Touch selects outright, so a cursor left where the pad had put it would tint one row as
+    # "where I am" beside a dot elsewhere meaning "and this is set" -- the two disagreeing about
+    # a choice already made.
+    host, sent = _sensor_track_host(monkeypatch, value=8, cursor=2)
+
+    mod.KeypadView(host).on_sensor_track_change()
+
+    assert host.sensor_track_buttons.cursor == "8"
+    assert sent == [_expected_irda(8)], "and the tap still writes, exactly as it did"
 
 
 def test_stepping_is_refused_where_the_panel_is_not_a_sensor_track(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -628,6 +716,7 @@ def test_stepping_is_refused_where_the_panel_is_not_a_sensor_track(monkeypatch: 
 
     assert mod.KeypadView(host).step_sensor_track_sequence(1) is None
     assert host.sensor_track_buttons.value == "3"
+    assert host.sensor_track_buttons.cursor is None
     assert sent == []
 
 

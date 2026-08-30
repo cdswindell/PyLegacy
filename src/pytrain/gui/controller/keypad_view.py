@@ -423,6 +423,10 @@ class KeypadView(Generic[S]):
             style="radio",
             options=SENSOR_TRACK_OPTS,
             command=self.on_sensor_track_change,
+            # The one group in the app that opts into the row cursor: the gamepad steps this
+            # list, so it is the one place where "where the pad is" and "what the track is
+            # programmed with" are two different things that both have to be shown.
+            cursor=True,
         )
 
         host.amc2_ops_box = Box(app, layout="auto", align="top", visible=False, border=2)
@@ -947,6 +951,10 @@ class KeypadView(Generic[S]):
         """
         host = self._host
         tmcc_id = host._scope_tmcc_ids[host.scope]
+        # The cursor follows the tap. Touch selects outright, so leaving the cursor where the
+        # pad had put it would show a row tinted as "where I am" beside a dot somewhere else
+        # meaning "and this is set" -- the two disagreeing about a choice already made.
+        self.set_sensor_track_cursor(self.sensor_track_sequence)
         self.send_sensor_track_sequence(tmcc_id, host.sensor_track_buttons.value)
 
     def send_sensor_track_sequence(self, tmcc_id: int, sequence: int | str) -> None:
@@ -973,16 +981,20 @@ class KeypadView(Generic[S]):
 
     @property
     def sensor_track_sequence(self) -> int | None:
-        """The Sequence option the group is highlighting, or None where none is.
+        """The Sequence option the radio dot is on, or None where nothing is selected.
+
+        What the track is *programmed with* -- what an ``IrdaState`` last reported, or what the
+        last select wrote -- as against ``sensor_track_cursor``, which is where the pad is
+        pointing.
 
         What "none" looks like has to be read off the widget rather than assumed: the group
         keeps its selection in a Tk ``StringVar``, so it answers with a ``str`` whatever was
         assigned, and the ``value = None`` ``on_new_accessory`` clears it with comes back as
         the string ``"None"``. Anything that does not parse to an option in the list -- that,
-        an empty group, a value from outside the list -- is read as nothing highlighted.
+        an empty group, a value from outside the list -- is read as nothing selected.
 
-        The one place that normalising is done: the stepping and the select both want the
-        current option, and two readings of a Tk string is two chances to disagree about it.
+        The one place that normalising is done: two readings of a Tk string is two chances to
+        disagree about which option is showing.
         """
         host = self._host
         if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
@@ -997,11 +1009,18 @@ class KeypadView(Generic[S]):
         return value if value in self.sensor_track_values() else None
 
     def set_sensor_track_sequence(self, sequence: int) -> bool:
-        """Moves the Sequence highlight to ``sequence`` and sends nothing. True where it moved.
+        """Moves the radio dot to ``sequence`` and sends nothing. True where it moved.
 
-        Assigns ``value`` rather than clicking an option, which is what moves the highlight
-        without sending: the group's command fires on a click, so an assignment is silent --
-        the same assignment ``on_new_accessory`` makes from incoming state.
+        The dot is what the track is programmed with, so this is only called where that has
+        actually changed -- a select, or a revert putting one back. The cursor is moved with it,
+        because after either of those the pad is pointing at exactly what the track now holds
+        and a bar left behind elsewhere would claim something is still pending.
+
+        Assigns ``value`` rather than clicking an option, which is what moves the dot without
+        sending: the group's command fires on a click, so an assignment is silent -- the same
+        assignment ``on_new_accessory`` makes from incoming state. That path assigns the widget
+        directly and so does *not* move the cursor, which is the point: a track reporting itself
+        must not cancel a step in progress.
 
         Re-checks that the Sensor Track panel is the one displayed, as ``asc2_control``
         re-checks its own port: the pad's press and the panel it was aimed at are two separate
@@ -1021,6 +1040,55 @@ class KeypadView(Generic[S]):
         if value not in self.sensor_track_values():
             return False
         buttons.value = value
+        self.set_sensor_track_cursor(value)
+        return True
+
+    @property
+    def sensor_track_cursor(self) -> int | None:
+        """The Sequence option the *cursor* is on, falling back to the programmed one.
+
+        Where the pad is pointing, as against ``sensor_track_sequence``, which is what the
+        track is set to. The fallback is what makes a fresh panel behave: with no cursor placed
+        yet the pad starts from the option the dot is on, so the first step moves one option
+        from there rather than from the top of the list.
+
+        This is the reader a select writes from -- the option stepped to, not the option the
+        dot still shows.
+        """
+        buttons = self._host.sensor_track_buttons
+        if self.accessory_panel_kind != PANEL_SENSOR_TRACK or buttons is None:
+            return None
+        try:
+            value = int(getattr(buttons, "cursor", None))
+        except (TypeError, ValueError):
+            value = None
+        if value is not None and value in self.sensor_track_values():
+            return value
+        return self.sensor_track_sequence
+
+    def set_sensor_track_cursor(self, sequence: int | None) -> bool:
+        """Moves the cursor to ``sequence``, or clears it with None. Sends nothing, ever.
+
+        The counterpart of ``set_sensor_track_sequence`` and deliberately its equal: one setter
+        for what the track holds, one for where the pad is, and neither able to move the other
+        by accident. This one never writes and never moves the dot, which is the whole of A-8.
+        """
+        host = self._host
+        if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
+            return False
+        buttons = host.sensor_track_buttons
+        if buttons is None:
+            return False
+        if sequence is None:
+            buttons.cursor = None
+            return True
+        try:
+            value = int(sequence)
+        except (TypeError, ValueError):
+            return False
+        if value not in self.sensor_track_values():
+            return False
+        buttons.cursor = value
         return True
 
     def step_sensor_track_sequence(self, delta: int) -> int | None:
@@ -1036,11 +1104,12 @@ class KeypadView(Generic[S]):
         "already on index 0" instead would make that first press either do nothing at all or
         skip "No Action" altogether, depending on which way it went.
 
-        Nothing is written here at all: the highlight moves and stops there, and the write is
-        asked for outright by the select the pad has of its own.
+        Nothing is written here at all, and the radio dot does not move either: the *cursor*
+        moves and stops there. That is A-8 -- an option stepped over must not read as an option
+        chosen -- and the write is asked for outright by the select the pad has of its own.
         """
         values = self.sensor_track_values()
-        current = self.sensor_track_sequence
+        current = self.sensor_track_cursor
         if current is None:
             target = 0
         else:
@@ -1048,7 +1117,7 @@ class KeypadView(Generic[S]):
             if not 0 <= target < len(values):
                 return None
         value = values[target]
-        return value if self.set_sensor_track_sequence(value) else None
+        return value if self.set_sensor_track_cursor(value) else None
 
     # noinspection PyProtectedMember
     def asc2_control(self, pressed: bool) -> None:
