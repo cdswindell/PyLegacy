@@ -1217,9 +1217,11 @@ class KeypadView(Generic[S]):
         acc = acc[0]
         acc.activate_tmcc_id(state.tmcc_id)
 
-        # The operating-accessory direction wears the generic operating-screen icon rather than
-        # each accessory's own artwork, so the shared key reads consistently in both directions.
-        self._paint_ac_op_icon(OP_SCREEN_IMAGE)
+        # The operating-accessory direction wears the accessory's own op icon (from its Operating
+        # Accessory definition); the generic operating-screen icon is only a fallback when the
+        # accessory defines none.
+        image_name = getattr(acc, "op_btn_image_path", None) or OP_SCREEN_IMAGE
+        self._paint_ac_op_icon(image_name)
         host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
         host.ac_op_btn.enable()
         host.ac_op_cell.show()

@@ -2,204 +2,186 @@
 sessionId: session-260829-224403-1glo
 ---
 
-# Plan: "Acc..." always shows the generic Accessory panel
+# Plan: Operating-accessory return button wears the accessory's own icon
 
 ## Requirements
 
 ### Overview & Goals
 
-Pressing the **`Acc...`** button on an LCS-specific accessory screen (BPC2 / ASC2 / Sensor
-Track / AMC2) must **always** land on the generic Accessory panel -- the one with the
-throttle, coupler keys and, most importantly, `Set Address`. Today, for a TMCC ID that is
-also backed by a *configured operating accessory* (an entry in `accessory_config.json`, e.g.
-a milk loader or station), pressing `Acc...` briefly draws the generic panel and then the
-operating-accessory control overlay is re-opened on top of it, so the operator sees the
-operating-accessory control instead of the generic panel.
+Two turns ago the shared accessory toggle button (`ac_op_btn`) was reworked to be icon-driven.
+In doing so, the direction that **returns to the operating-accessory control panel** was made
+to always paint the new generic `op-screen.jpg`. That is a regression: when the operator is on
+a native LCS panel (e.g. reached via the `LCS ASC2` / `LCS AMC2` button) the button that takes
+them back to the operating accessory should wear **that accessory's own "op" icon**, as defined
+in its Operating Accessory definition (`op-milk-loader.jpg`, `op-station.jpg`, `op-acc.jpg`,
+etc.). The generic `op-screen.jpg` must be used **only as a fallback** when the accessory
+defines no op icon.
 
-This is a focused bug fix in `EngineGui.ops_mode`; no new keys, icons, or panels are added.
+This is a focused, one-method bug fix in `KeypadView.enable_acc_view`; no new keys, panels, or
+assets are added.
 
 ### Scope
 
 **In Scope**
 
-- `Acc...` (and the equivalent generic-panel toggles on Sensor Track and AMC2) always shows
-  the generic Accessory panel, even for a TMCC ID that has a configured operating accessory.
-- The way back is unchanged: the LCS/device return button (`ac_op_btn`) still returns to the
-  native LCS panel, and selecting a configured operating accessory fresh still opens its
-  operating-accessory control panel as its initial view.
+- The operating-accessory-direction of the shared toggle button (`ac_op_btn`, painted by
+  `KeypadView.enable_acc_view`) shows the configured accessory's own op icon
+  (`op_btn_image_path`), falling back to `op-screen.jpg` only when none is defined.
 
 **Out of Scope**
 
-- Any change to the generic panel's own contents, the `Info`/`Set`/`LCS...` keys, or the
-  panel toggle buttons themselves.
-- Any change to icons, the reflow behavior, or the naming/creation flow.
-- Engine / Train / Route behavior.
+- The native-return direction (`enable_native_acc_view`), which correctly wears the per-device
+  BPC2/ASC2 icons -- unchanged.
+- Any change to the `Acc...`, `Set`, `Info`, or `LCS...` keys, reflow, creation/naming, or
+  panel-override behavior.
+- Engine / Train / Route / Switch behavior.
 
 ### User Stories
 
-1. As an operator on an ASC2-backed operating accessory, when I press `Acc...` I want the
-   generic Accessory panel (with `Set Address`) to stay on screen, not the operating
-   accessory control, so I can re-address or configure the device.
-2. As an operator, I still want a configured operating accessory to open in its
-   operating-accessory control panel when I first select it, and I still want the device
-   return button to take me back to the native LCS panel.
+1. As an operator viewing a native LCS panel for an operating accessory (milk loader, station,
+   etc.), I want the button that returns me to the operating-accessory control to show that
+   accessory's own icon, so I recognize what I'm returning to -- not a generic screen icon.
+2. As an operator with an accessory that defines no op icon, I still want a sensible generic
+   icon on that button rather than a blank key.
 
 ### Functional Requirements
 
-- **FR-1** With the generic-panel override in force (`panel_kind_override == PANEL_GENERIC`),
-  `ops_mode` must not open the configured operating-accessory overlay.
-- **FR-2** With no override in force, initial selection of a configured operating accessory
-  still opens its operating-accessory control panel (today's correct behavior, unchanged).
-- **FR-3** Pressing the device return button (`on_show_native_acc_panel`) clears the override
-  and, for a configured accessory, restores the operating-accessory control panel.
+- **FR-1** `KeypadView.enable_acc_view` paints `ac_op_btn` with the configured accessory's
+  `op_btn_image_path` when that is a non-empty value.
+- **FR-2** When the accessory defines no op icon (`op_btn_image_path` is `None`/empty), the
+  button falls back to `OP_SCREEN_IMAGE` (`op-screen.jpg`).
+- **FR-3** The button's command (`on_configured_accessory`), sizing, and visibility are
+  unchanged; only the painted image changes.
 - **FR-4** Behavior is identical on Portrait and both Steam Deck panes, because the fix lives
-  in `EngineGui`, which `SteamDeckGui` hosts unchanged.
+  in `KeypadView`, which `SteamDeckGui` hosts unchanged.
 
 ## Technical Design
 
 ### Current Implementation (root cause)
 
-`EngineGui.ops_mode` (`src/pytrain/gui/controller/engine_gui.py`, non-engine branch, ~lines
-2349-2359):
+`KeypadView.enable_acc_view` (`src/pytrain/gui/controller/keypad_view.py`, ~lines 1210-1225):
 
 ```python
-else:
-    self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-    if isinstance(self.active_state, AccessoryState):
-        tmcc_id = self.active_state.tmcc_id
-        if self.scope == CommandScope.ACC and self.is_accessory_view(tmcc_id):
-            view = self.get_accessory_view(tmcc_id)
-            acc = getattr(view, "caa", None)
-            if acc is None:
-                acc = self.get_configured_accessory(tmcc_id)
-            self.on_configured_accessory(acc)   # <-- re-opens the operating-accessory overlay
+def enable_acc_view(self, state: S):
+    host = self._host
+    acc = host.accessory_provider.adapters_for_tmcc_id(state.tmcc_id)
+    if acc is None:
+        return
+
+    acc = acc[0]
+    acc.activate_tmcc_id(state.tmcc_id)
+
+    # The operating-accessory direction wears the generic operating-screen icon rather than
+    # each accessory's own artwork, so the shared key reads consistently in both directions.
+    self._paint_ac_op_icon(OP_SCREEN_IMAGE)          # <-- regression: always generic
+    host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
+    host.ac_op_btn.enable()
+    host.ac_op_cell.show()
 ```
 
-The `Acc...` key is wired to `KeypadView` -> `EngineGui.on_show_generic_acc_panel`
-(`engine_gui.py` ~1759), which does:
+The adapter already exposes the right icon: `ConfiguredAccessoryAdapter.op_btn_image_path`
+(`configured_accessory_adapter.py:129-131`) returns `cfg.op_btn_image_path`, which resolves the
+accessory definition's `op_btn_image` from the registry spec
+(`configured_accessory.py:322-327`; default `"op-acc.jpg"`, overridden per definition, e.g.
+`op-milk-loader.jpg`, `op-station.jpg`, `op-control-tower.jpg`, ...). Before the icon rework
+this is the image the button wore; the rework replaced it with `OP_SCREEN_IMAGE`.
 
-```python
-self._popup.close()
-self._keypad_view.set_panel_kind_override(PANEL_GENERIC)
-self.ops_mode(update_info=False)
-```
-
-`apply_ops_mode_ui_non_engine` correctly draws the generic panel (its `_panel_kind_for`
-returns `PANEL_GENERIC` while the override is set) and, for `scope == ACC`, calls
-`reset_acc_overlay()` first (`keypad_view.py` ~1067). But the block above then unconditionally
-calls `on_configured_accessory(acc)` for any TMCC ID that `is_accessory_view()` reports as a
-configured accessory -- re-opening the very overlay that was just cleared, on top of the
-generic panel. That is why `Acc...` appears to show an operating accessory control.
+Note the counterpart direction is already correct: `enable_native_acc_view`
+(`keypad_view.py:1178-1194`) paints the per-device BPC2/ASC2 icon via
+`NATIVE_PANEL_RETURN_ICON` and is out of scope here.
 
 ### Key Decisions
 
 | Decision | Choice | Rationale |
 | --- | --- | --- |
-| Where to fix | Guard the auto-open block in `EngineGui.ops_mode` | It is the single place the operating-accessory overlay is auto-opened during a non-engine ops transition; the generic keys are already drawn correctly by `apply_ops_mode_ui_non_engine` |
-| Guard condition | Skip when `self._keypad_view.panel_kind_override == PANEL_GENERIC` | The override is an explicit request for the generic panel; `PANEL_GENERIC` is already imported into `engine_gui.py` |
-| Return path | No new code | `on_show_native_acc_panel` clears the override, so the next `ops_mode` runs the block again and restores the operating-accessory overlay -- FR-3 falls out for free |
+| Where to fix | `KeypadView.enable_acc_view` only | It is the single place the operating-accessory-direction icon is painted |
+| Icon source | `acc.op_btn_image_path` | Already the accessory-definition op icon the adapter exposes; matches pre-regression behavior |
+| Fallback | `OP_SCREEN_IMAGE` when `op_btn_image_path` is falsy | FR-2: never a blank key; keeps the new generic icon useful as the default-of-last-resort |
 
 ### Proposed Change
 
-Guard the auto-open so a forced generic panel is respected:
-
 ```python
-else:
-    self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-    # A forced generic panel is an explicit request for the generic accessory controls
-    # (the Set Address panel); do not re-open the configured operating-accessory overlay
-    # on top of it. Selecting the device fresh, or returning via the device button (which
-    # clears the override), still opens the operating-accessory control panel.
-    if (
-        self._keypad_view.panel_kind_override != PANEL_GENERIC
-        and isinstance(self.active_state, AccessoryState)
-    ):
-        tmcc_id = self.active_state.tmcc_id
-        if self.scope == CommandScope.ACC and self.is_accessory_view(tmcc_id):
-            view = self.get_accessory_view(tmcc_id)
-            acc = getattr(view, "caa", None)
-            if acc is None:
-                acc = self.get_configured_accessory(tmcc_id)
-            self.on_configured_accessory(acc)
+    acc = acc[0]
+    acc.activate_tmcc_id(state.tmcc_id)
+
+    # The operating-accessory direction wears the accessory's own op icon (from its Operating
+    # Accessory definition); the generic operating-screen icon is only a fallback when the
+    # accessory defines none.
+    image_name = getattr(acc, "op_btn_image_path", None) or OP_SCREEN_IMAGE
+    self._paint_ac_op_icon(image_name)
+    host.ac_op_btn.update_command(host.on_configured_accessory, [acc])
+    host.ac_op_btn.enable()
+    host.ac_op_cell.show()
 ```
 
 ### Components / Files
 
 | File | Change |
 | --- | --- |
-| `src/pytrain/gui/controller/engine_gui.py` | One guard added to the non-engine branch of `ops_mode` |
-| `tests/gui/test_engine_gui_accessories.py` | New test(s): `Acc...` does not open the overlay for a configured accessory; return path restores it |
-| `tests/gui/test_engine_gui_transitions.py` | (if needed) lock the override/overlay interaction across toggle sources |
-| `src/pytrain/gui/controller/keypad_view.py` | **No change** -- generic keys already draw correctly |
-| `src/pytrain/gui/controller/steam_deck_gui.py` | **No change** -- hosts `EngineGui` unchanged |
+| `src/pytrain/gui/controller/keypad_view.py` | `enable_acc_view` paints `acc.op_btn_image_path` with `OP_SCREEN_IMAGE` fallback |
+| `tests/gui/test_keypad_view.py` | New/updated test: the operating-accessory-direction button wears the accessory's op icon, and falls back to `op-screen.jpg` when none is defined |
+| `tests/gui/test_gui_deck_parity.py` | Assert the painted image (not just its size) on the pane-hosted path |
+| `tests/gui/test_gui_checkpoint.py` | Reconcile only assertions that encoded the always-`op-screen.jpg` behavior, if any |
+| `src/pytrain/gui/controller/steam_deck_gui.py` | **No change** -- hosts `KeypadView` unchanged |
 
 ### Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| Suppressing the overlay in a case where it should still show | The guard is narrow: only when the override is exactly `PANEL_GENERIC`, which is set only by the generic-panel toggles and cleared on selection/scope change, entry mode, and the return button |
-| Return path no longer restores the operating-accessory panel | Covered by a test asserting `on_show_native_acc_panel` clears the override and re-opens the overlay for a configured accessory |
+| Accessory exposes no `op_btn_image_path` attribute at all | Use `getattr(acc, "op_btn_image_path", None)` so a missing attribute falls back to `op-screen.jpg` |
+| An op icon file is missing on disk | `_paint_ac_op_icon` uses the existing `find_file`/`get_image` path shared with every other op icon; the default `op-acc.jpg` and all per-definition icons already ship in `src/pytrain/gui/images/` |
+| Native-return direction accidentally changed | The change is confined to `enable_acc_view`; `enable_native_acc_view` and its device-icon test (`test_gui_deck_parity.py`) are untouched |
 
 ## Testing
 
 ### Validation Approach
 
-Extend the existing headless GUI suites (`tests/gui/test_engine_gui_accessories.py`,
-`test_engine_gui_transitions.py`) which already drive `EngineGui`/`KeypadView` against
-`SimpleNamespace`/dummy fakes with no display. All scenarios below are agent-checkable.
+Extend the existing headless GUI suites (`tests/gui/test_keypad_view.py`,
+`test_gui_deck_parity.py`) which already drive `KeypadView` against `SimpleNamespace`/dummy
+fakes with a stubbed `get_image`/`find_file`, so the painted image name is directly
+observable. All scenarios below are agent-checkable.
 
 ### Key Scenarios
 
-- With `panel_kind_override == PANEL_GENERIC` and a configured operating accessory selected,
-  `ops_mode` does **not** call `on_configured_accessory` / leaves `acc_overlay` closed.
-- `on_show_generic_acc_panel` on an ASC2-backed configured accessory ends with the generic
-  panel shown and no operating-accessory overlay.
-- With no override, initial selection of a configured operating accessory still opens its
-  operating-accessory control panel (regression guard, unchanged behavior).
-- `on_show_native_acc_panel` clears the override and restores the operating-accessory
-  overlay for a configured accessory.
+- `enable_acc_view` for an accessory whose `op_btn_image_path` is `"op-milk-loader.jpg"`
+  paints that image on `ac_op_btn` (not `op-screen.jpg`).
+- The button's command remains `on_configured_accessory` bound to the adapter, and the cell
+  is shown -- unchanged.
+- Pane-hosted (compact) path paints the same accessory icon at the pane's `button_size`.
 
 ### Edge Cases
 
-- A generic (non-configured) accessory under the override: nothing to suppress, generic panel
-  shows as before.
-- Sensor Track / AMC2 generic toggles (which also set `PANEL_GENERIC`) do not spuriously open
-  the operating-accessory overlay.
+- `op_btn_image_path` is `None`/empty -> the button falls back to `OP_SCREEN_IMAGE`.
+- The adapter lacks the attribute entirely -> `getattr` fallback yields `OP_SCREEN_IMAGE`.
+- The native-return direction still wears the BPC2/ASC2 device icon (regression guard).
 
 ## Delivery Steps
 
-### Stage 1: Respect the forced generic panel in ops_mode
+### Stage 1: Paint the accessory's own op icon on the return button
 
-Pressing `Acc...` on a configured operating accessory shows the generic Accessory panel and
-no operating-accessory control overlay.
+The operating-accessory-direction of `ac_op_btn` shows the configured accessory's own op icon,
+falling back to `op-screen.jpg` only when none is defined.
 
-- In `EngineGui.ops_mode` (non-engine branch), add a guard so the configured
-  operating-accessory overlay is only auto-opened when
-  `self._keypad_view.panel_kind_override != PANEL_GENERIC`.
-- Confirm `PANEL_GENERIC` is already imported in `engine_gui.py` (it is, from
-  `accessory_bindings`).
-- Add a focused test in `tests/gui/test_engine_gui_accessories.py` asserting that, with the
-  override set to `PANEL_GENERIC` and a configured ASC2 accessory active, `ops_mode` does not
-  call `on_configured_accessory` and leaves `acc_overlay` closed.
+- In `KeypadView.enable_acc_view`, replace the unconditional `self._paint_ac_op_icon(OP_SCREEN_IMAGE)`
+  with `image_name = getattr(acc, "op_btn_image_path", None) or OP_SCREEN_IMAGE` and paint
+  `image_name`.
+- Leave the command wiring, enable, sizing, and cell visibility untouched.
+- Add/extend a focused test in `tests/gui/test_keypad_view.py` asserting the button wears the
+  accessory's `op_btn_image_path` when defined, and `OP_SCREEN_IMAGE` when it is `None`/absent.
 - Run `../bin/python -m ruff format --check` on the changed files and
   `../bin/python -m pytest` for the affected GUI suites.
 
-### Stage 2: Lock the toggle round-trip and run the full regression
+### Stage 2: Lock parity and run the full regression
 
-The generic override is coherent across every entry point, the return path restores the
-operating-accessory panel, and the whole suite is green.
+The accessory icon is used consistently on Portrait and both Steam Deck panes, the
+native-return direction is unaffected, and the whole suite is green.
 
-- Add/extend tests covering:
-  - `on_show_generic_acc_panel` end state (generic panel, no overlay) for an ASC2-backed
-    configured accessory.
-  - `on_show_native_acc_panel` clearing the override and restoring the operating-accessory
-    overlay for a configured accessory.
-  - No-override initial selection still opening the operating-accessory control panel
-    (regression guard).
-  - Sensor Track / AMC2 generic toggles not opening the operating-accessory overlay.
-- Reconcile any behavior-locking assertion in `test_gui_checkpoint.py` /
-  `test_engine_gui_transitions.py` that encoded the old (overlay-over-generic) behavior,
-  updating only those assertions.
+- Strengthen `tests/gui/test_gui_deck_parity.py` so the configured-overlay-direction test
+  asserts the painted image is the adapter's `op_btn_image_path` (currently `op-acc.jpg`),
+  in addition to the existing button-size assertion, across compact and portrait.
+- Confirm the native-return device-icon test still passes unchanged (BPC2/ASC2 icons).
+- Reconcile any behavior-locking assertion in `test_gui_checkpoint.py` that encoded the
+  always-`op-screen.jpg` return icon, updating only those assertions.
 - Run `../bin/python -m ruff format --check` on all changed Python files, then the full
   `../bin/python -m pytest`.
 

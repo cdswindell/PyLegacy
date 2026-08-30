@@ -253,6 +253,8 @@ def test_the_configured_overlay_key_is_sized_from_the_pane_button_size(compact: 
 
     assert host.ac_op_cell.visible is True
     assert host.ac_op_btn.on_press == (host.on_configured_accessory, [adapter])
+    # The pane-hosted key wears the accessory's own op icon, not the generic op-screen.jpg.
+    assert host.ac_op_btn.image == "op-acc.jpg"
     assert sizes == [host.button_size]
     assert host.ac_op_btn.tk._config["width"] == host.button_size
     assert host.ac_op_btn.tk._config["height"] == host.button_size

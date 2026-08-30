@@ -995,6 +995,54 @@ def test_without_an_override_the_shared_key_still_opens_the_configured_overlay()
 
     assert host.ac_op_cell.visible is True
     assert host.ac_op_btn.on_press == (host.on_configured_accessory, [adapter])
+    # The operating-accessory direction wears the accessory's own op icon.
+    assert host.ac_op_btn.image == "op-acc.jpg"
+
+
+def test_the_operating_accessory_key_wears_the_accessorys_own_op_icon() -> None:
+    # A milk-loader definition exposes its own op icon: the return key wears it, not op-screen.jpg.
+    adapter = SimpleNamespace(op_btn_image_path="op-milk-loader.jpg", activate_tmcc_id=lambda _tmcc_id: None)
+    host, view = _ops()
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.on_configured_accessory = lambda _acc: None
+    host.get_image = lambda _image, size=None: None
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(host.active_state)
+
+    assert host.ac_op_btn.image == "op-milk-loader.jpg"
+    assert host.ac_op_btn.on_press == (host.on_configured_accessory, [adapter])
+
+
+def test_the_operating_accessory_key_falls_back_to_op_screen_when_no_icon_is_defined() -> None:
+    # No op icon defined (None) -> the generic operating-screen icon is the fallback.
+    adapter = SimpleNamespace(op_btn_image_path=None, activate_tmcc_id=lambda _tmcc_id: None)
+    host, view = _ops()
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.on_configured_accessory = lambda _acc: None
+    host.get_image = lambda _image, size=None: None
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(host.active_state)
+
+    assert host.ac_op_btn.image == mod.OP_SCREEN_IMAGE
+
+
+def test_the_operating_accessory_key_falls_back_when_the_attribute_is_absent() -> None:
+    # An adapter lacking op_btn_image_path entirely still yields the generic fallback, never blank.
+    adapter = SimpleNamespace(activate_tmcc_id=lambda _tmcc_id: None)
+    host, view = _ops()
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.on_configured_accessory = lambda _acc: None
+    host.get_image = lambda _image, size=None: None
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(host.active_state)
+
+    assert host.ac_op_btn.image == mod.OP_SCREEN_IMAGE
 
 
 def test_a_generic_component_forced_generic_has_no_other_view_to_offer() -> None:
