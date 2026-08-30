@@ -279,6 +279,26 @@ def test_the_way_back_from_a_forced_generic_panel_wears_the_device_icon(compact:
     assert host.info_cell.visible is True
 
 
+@pytest.mark.parametrize("compact", [True, False])
+def test_the_way_back_wears_the_configured_accessory_icon_on_the_pane(compact: bool) -> None:
+    # When the forced-generic panel sits over a configured operating accessory, the way-back key
+    # wears that accessory's own op icon -- asked for at the pane's button size, not op-asc2.jpg.
+    state = _flagged(is_asc2=True)
+    adapter = SimpleNamespace(op_btn_image_path="op-station.jpg", activate_tmcc_id=lambda _tmcc_id: None)
+    sizes: list[int] = []
+    host, view = _built(compact, state=state)
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.get_image = lambda image, size=None: sizes.append(size) or image
+    view.set_panel_kind_override("generic")
+
+    _ops(host, view, state)
+
+    assert host.ac_op_btn.on_press == (host.on_show_native_acc_panel, [])
+    assert host.ac_op_btn.image == "op-station.jpg"
+    assert sizes == [host.button_size]
+
+
 # ---------------------------------------------------------------------------
 # The empty 4th column collapses through the compact geometry too
 # ---------------------------------------------------------------------------

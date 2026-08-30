@@ -982,6 +982,41 @@ def test_the_forced_generic_panel_offers_the_way_back_on_the_shared_key() -> Non
     assert host.ac_op_btn.on_press == (host.on_show_native_acc_panel, [])
 
 
+def test_the_way_back_wears_the_configured_accessorys_own_op_icon() -> None:
+    # A configured operating accessory backed by an ASC2: the way-back key wears the accessory's
+    # own op icon -- the very image shown on the native LCS device screen -- not op-asc2.jpg.
+    state = _flagged(is_asc2=True)
+    adapter = SimpleNamespace(op_btn_image_path="op-milk-loader.jpg", activate_tmcc_id=lambda _tmcc_id: None)
+    host, view = _ops(state=state)
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.get_image = lambda _image, size=None: None
+    view.set_panel_kind_override("generic")
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(state)
+
+    assert host.ac_op_btn.image == "op-milk-loader.jpg"
+    assert host.ac_op_btn.on_press == (host.on_show_native_acc_panel, [])
+
+
+def test_the_way_back_falls_back_to_the_device_icon_when_the_accessory_defines_no_op_icon() -> None:
+    # A configured accessory with no op icon (None) -> the device icon is the fallback, never blank.
+    state = _flagged(is_asc2=True)
+    adapter = SimpleNamespace(op_btn_image_path=None, activate_tmcc_id=lambda _tmcc_id: None)
+    host, view = _ops(state=state)
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.get_image = lambda _image, size=None: None
+    view.set_panel_kind_override("generic")
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(state)
+
+    assert host.ac_op_btn.image == mod.ASC2_OP_IMAGE
+    assert host.ac_op_btn.on_press == (host.on_show_native_acc_panel, [])
+
+
 def test_without_an_override_the_shared_key_still_opens_the_configured_overlay() -> None:
     adapter = SimpleNamespace(op_btn_image_path="op-acc.jpg", activate_tmcc_id=lambda _tmcc_id: None)
     host, view = _ops()

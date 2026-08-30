@@ -348,3 +348,6 @@ When selecting the TMCC of an Asc2-backed operating accessory, the initial displ
 
 This task has no prior planning phase. Before implementation, analyze the task and codebase, define acceptance criteria if not explicitly provided in the task description, and plan your approach. 
 The Reviewer must independently define its own acceptance criteria and will verify them.
+
+### ✓ Step 2: Update / Follow-up
+We are very close. On an Operating accessory, the transition from Operating screen to the LCS device control screen is as I want. That screen now shows the operating-accessory-specific image to return to the Operating control screen, and pressing "Acc..." correctly goes to the generic accessory screen. That screen shows your new "op-asc2.jpg" icon, which, upon press, returns to the Operating screen. This is incorrect. That icon should be the same operating-accessory-specific image shown on the LCS device screen.

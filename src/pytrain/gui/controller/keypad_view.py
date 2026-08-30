@@ -1171,19 +1171,30 @@ class KeypadView(Generic[S]):
     def enable_alternate_acc_view(self, state: S) -> None:
         """Points ``ac_op_btn`` at the other view of this component and shows it."""
         if self._alternate_acc_view_kind(state) == "native":
-            self.enable_native_acc_view(self._native_panel_kind_for(state))
+            self.enable_native_acc_view(self._native_panel_kind_for(state), state)
         else:
             self.enable_acc_view(state)
 
-    def enable_native_acc_view(self, native_kind: str | None = None) -> None:
+    def _configured_acc_op_icon(self, state: S | None) -> str | None:
+        """The configured operating accessory's own op icon for this ID, if any."""
+        if state is None:
+            return None
+        acc = self._host.accessory_provider.adapters_for_tmcc_id(state.tmcc_id)
+        if not acc:
+            return None
+        return getattr(acc[0], "op_btn_image_path", None) or None
+
+    def enable_native_acc_view(self, native_kind: str | None = None, state: S | None = None) -> None:
         """Turns ``ac_op_btn`` into the way back from a forced generic panel to the LCS one.
 
-        The key wears the purpose-drawn icon of the device it returns to (BPC2 or ASC2) rather
-        than the old tiny "LCS" text, which rendered inconsistently. Kinds with no icon fall
-        back to that text so the key is never blank.
+        When the ID is a configured operating accessory the key wears that accessory's own op
+        icon -- the very image shown on the native LCS device screen -- so both directions match.
+        Otherwise it wears the purpose-drawn icon of the device it returns to (BPC2 or ASC2)
+        rather than the old tiny "LCS" text, which rendered inconsistently. Kinds with no icon
+        fall back to that text so the key is never blank.
         """
         host = self._host
-        image_name = NATIVE_PANEL_RETURN_ICON.get(native_kind)
+        image_name = self._configured_acc_op_icon(state) or NATIVE_PANEL_RETURN_ICON.get(native_kind)
         if image_name is not None:
             self._paint_ac_op_icon(image_name)
         else:
