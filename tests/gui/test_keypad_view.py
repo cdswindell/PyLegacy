@@ -203,7 +203,18 @@ def _patch_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
     monkeypatch.setattr(mod, "CheckBoxGroup", DummyCheckBoxGroup, raising=True)
     monkeypatch.setattr(mod, "Amc2OpsPanel", lambda _host: SimpleNamespace(build=lambda _parent: None), raising=True)
+    monkeypatch.setattr(mod, "HoldButton", _hold_button, raising=True)
     monkeypatch.setattr(mod, "find_file", lambda name: name, raising=True)
+
+
+def _hold_button(_parent, text: str = "", command: Callable | None = None, args: Any = None, **_kwargs: Any):
+    """The keypad builds one plain HoldButton outside the cell grid -- the Sensor Track panel's
+    way to the generic accessory panel, which has no keypad cell to live in."""
+    btn = DummyButton()
+    btn.text = text
+    if callable(command):
+        btn.on_press = (command, args if args is not None else [])
+    return btn
 
 
 def _make_slider(
@@ -231,6 +242,32 @@ def _make_slider(
     return box, title_box, level, slider
 
 
+def _keypad_button(
+    host: SimpleNamespace,
+    _parent,
+    label: str | None = None,
+    row: int = 0,
+    col: int = 0,
+    _size: int | None = None,
+    *_args: Any,
+    **kwargs: Any,
+):
+    """Mirrors ``EngineGui.make_keypad_button``: files cells into ops_cells / entry_cells and
+    wires the command exactly as the real one does, because which set a cell lands in is what
+    ``entry_mode`` and ``enter_ops_mode_base`` act on."""
+    cell = DummyBox(visible=kwargs.get("visible", True), grid=[col, row])
+    btn = DummyButton()
+    btn.text = label
+    if kwargs.get("is_ops"):
+        host.ops_cells.add(cell)
+    if kwargs.get("is_entry"):
+        host.entry_cells.add(cell)
+    command = kwargs.get("command")
+    if callable(command):
+        btn.on_press = (command, kwargs["args"] if kwargs.get("args") is not None else [label])
+    return cell, btn
+
+
 def _new_host() -> SimpleNamespace:
     @contextmanager
     def locked():
@@ -253,6 +290,7 @@ def _new_host() -> SimpleNamespace:
     host.s_16 = 16
     host.s_19 = 19
     host.s_10 = 10
+    host.s_12 = 12
     host.turn_on_image = "on.jpg"
     host.turn_off_image = "off.jpg"
     host.turn_on_path = "on.jpg"
@@ -268,7 +306,7 @@ def _new_host() -> SimpleNamespace:
     host.aux_cells = set()
     host.numeric_btns = {}
     host.locked = locked
-    host.make_keypad_button = lambda *_args, **kwargs: (DummyBox(visible=kwargs.get("visible", True)), DummyButton())
+    host.make_keypad_button = lambda *args, **kwargs: _keypad_button(host, *args, **kwargs)
     host.on_acc_command_calls = []
     host.on_acc_command = lambda target, data=None: host.on_acc_command_calls.append((target, data))
     host.on_engine_command = lambda *_args, **_kwargs: None
@@ -276,6 +314,14 @@ def _new_host() -> SimpleNamespace:
     host.on_new_accessory = lambda *_args, **_kwargs: None
     host.on_new_route = lambda: None
     host.on_new_switch = lambda: None
+    host.on_show_panel_calls = []
+    host.on_show_generic_acc_panel = lambda: host.on_show_panel_calls.append("generic")
+    host.on_show_native_acc_panel = lambda: host.on_show_panel_calls.append("native")
+    host.on_info_calls = []
+    host.on_info = lambda state=None: host.on_info_calls.append(state)
+    host.on_set_key_calls = []
+    host.on_set_key = lambda scope_, tmcc_id_: host.on_set_key_calls.append((scope_, tmcc_id_))
+    host.scope_tmcc_id = lambda s=None: host._scope_tmcc_ids.get(s or host.scope, 0)
     host.reset_acc_overlay = lambda: None
     host.update_ac_status = lambda _state: None
     host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: False)
@@ -285,6 +331,7 @@ def _new_host() -> SimpleNamespace:
     host.amc2_ops_panel = SimpleNamespace(update_from_state=lambda _state: None, refresh_layout=lambda: None)
     host.sensor_track_box = DummyBox(visible=False)
     host.sensor_track_buttons = DummyCheckBoxGroup(selected=None)
+    host.sensor_track_generic_btn = None
     host.reset_btn = DummyButton()
     host.controller_view = SimpleNamespace(make_slider=_make_slider)
     host._controller_view = host.controller_view
@@ -731,3 +778,201 @@ def test_external_accessory_throttle_update_repaints_slider() -> None:
 
     assert host.acc_throttle.value == -2
     assert host.acc_throttle_level.value == "-2"
+
+
+# ---------------------------------------------------------------------------
+# The Info and Set keys on the generic accessory and switch screens
+# ---------------------------------------------------------------------------
+
+
+def _ops(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19, state=None):
+    host = _new_host()
+    host.scope = scope
+    host._scope_tmcc_ids = {s: 0 for s in CommandScope}
+    host._scope_tmcc_ids[scope] = tmcc_id
+    host.active_state = DummyAccessoryState() if scope == CommandScope.ACC else None
+    view = mod.KeypadView(host)
+    view.build()
+    # build() replaces the panel with the patched stand-in; the AMC2 branch calls into it.
+    host.amc2_ops_panel = SimpleNamespace(update_from_state=lambda _state: None, refresh_layout=lambda: None)
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(state if state is not None else host.active_state)
+    return host, view
+
+
+def test_the_new_keys_take_the_free_slots_in_the_fourth_column() -> None:
+    host = _new_host()
+    mod.KeypadView(host).build()
+
+    # Verified free before this stage: the aux Set renders at [3, 0] and only on the generic
+    # accessory panel, and [3, 2] was left empty for exactly this.
+    assert host.sw_set_cell.grid == [3, 0]
+    assert host.info_cell.grid == [3, 2]
+
+
+def test_the_generic_accessory_screen_carries_an_info_key() -> None:
+    host, _view = _ops()
+
+    assert host.info_cell.visible is True
+    assert host.sw_set_cell.visible is False, "the aux Set key serves the generic panel"
+
+
+def test_the_switch_screen_carries_both_a_set_and_an_info_key() -> None:
+    host, _view = _ops(CommandScope.SWITCH, 7)
+
+    assert host.sw_set_cell.visible is True
+    assert host.info_cell.visible is True
+
+
+def test_neither_key_appears_on_a_route_screen() -> None:
+    host, _view = _ops(CommandScope.ROUTE, 5)
+
+    assert host.sw_set_cell.visible is False
+    assert host.info_cell.visible is False
+
+
+@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2", "is_sensor_track", "is_amc2"])
+def test_the_info_key_stays_off_the_lcs_specific_panels(flag: str) -> None:
+    state = DummyAccessoryState()
+    setattr(state, flag, True)
+    host, _view = _ops(state=state)
+
+    assert host.info_cell.visible is False
+
+
+def test_entry_mode_hides_both_new_keys() -> None:
+    host, view = _ops(CommandScope.SWITCH, 7)
+
+    view.entry_mode(clear_info=False)
+
+    assert host.sw_set_cell.visible is False
+    assert host.info_cell.visible is False
+    assert host.info_cell not in host.entry_cells
+    assert host.sw_set_cell not in host.entry_cells
+
+
+def test_the_info_key_opens_the_state_info_panel() -> None:
+    host, _view = _ops()
+    command, args = host.info_btn.on_press
+
+    command(*args)
+
+    assert host.on_info_calls == [None], "on_info falls back to the active state, as the long press does"
+
+
+def test_the_switch_set_key_fires_set_address_for_the_displayed_switch() -> None:
+    host, _view = _ops(CommandScope.SWITCH, 7)
+    command, args = host.sw_set_btn.on_press
+
+    command(*args)
+
+    assert host.on_set_key_calls == [(CommandScope.SWITCH, 7)]
+
+
+# ---------------------------------------------------------------------------
+# Toggling between the LCS-specific panels and the generic accessory one
+# ---------------------------------------------------------------------------
+
+
+def _flagged(**flags: bool) -> DummyAccessoryState:
+    state = DummyAccessoryState()
+    for name, value in flags.items():
+        setattr(state, name, value)
+    return state
+
+
+@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2"])
+def test_the_lcs_keypad_panels_carry_the_key_to_the_generic_panel(flag: str) -> None:
+    host, _view = _ops(state=_flagged(**{flag: True}))
+
+    assert host.acc_generic_cell.visible is True
+    assert host.acc_generic_cell.grid == [3, 2]
+    assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
+
+
+def test_the_generic_and_switch_panels_do_not_carry_it() -> None:
+    host, _view = _ops()
+    assert host.acc_generic_cell.visible is False
+
+    host, _view = _ops(CommandScope.SWITCH, 7)
+    assert host.acc_generic_cell.visible is False
+
+
+def test_the_keypad_less_panels_carry_their_own_toggle() -> None:
+    # Sensor Track and AMC2 replace the whole keypad, so neither has a cell to put a key in.
+    host = _new_host()
+    mod.KeypadView(host).build()
+
+    assert host.sensor_track_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
+
+
+def test_the_override_decides_the_panel_drawn_and_the_kind_reported() -> None:
+    state = _flagged(is_bpc2=True)
+    host, view = _ops(state=state)
+    host.active_state = state
+    assert view.accessory_panel_kind == "bpc2"
+    assert view.panel_kind_override is None
+
+    view.set_panel_kind_override("generic")
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(state)
+
+    assert view.panel_kind_override == "generic"
+    # The one property the drawn keys and the gamepad context chain both read.
+    assert view.accessory_panel_kind == "generic"
+    assert host.acc_throttle_box.visible is True
+    assert host.info_cell.visible is True
+    assert host.ac_on_cell.visible is False
+    assert host.acc_generic_cell.visible is False
+
+
+def test_the_forced_generic_panel_offers_the_way_back_on_the_shared_key() -> None:
+    # ``ac_op_btn`` means "the other view of this id"; with an override in force that is the
+    # component's own LCS panel, and it says so even where no configured accessory exists.
+    state = _flagged(is_bpc2=True)
+    host, view = _ops(state=state)
+    view.set_panel_kind_override("generic")
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(state)
+
+    assert host.ac_op_cell.visible is True
+    assert host.ac_op_cell.grid == [1, 4]
+    assert host.ac_op_btn.enabled is True
+    assert host.ac_op_btn.on_press == (host.on_show_native_acc_panel, [])
+
+
+def test_without_an_override_the_shared_key_still_opens_the_configured_overlay() -> None:
+    adapter = SimpleNamespace(op_btn_image_path="op-acc.jpg", activate_tmcc_id=lambda _tmcc_id: None)
+    host, view = _ops()
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.on_configured_accessory = lambda _acc: None
+    host.get_image = lambda _image, size=None: None
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(host.active_state)
+
+    assert host.ac_op_cell.visible is True
+    assert host.ac_op_btn.on_press == (host.on_configured_accessory, [adapter])
+
+
+def test_a_generic_component_forced_generic_has_no_other_view_to_offer() -> None:
+    # Nothing to go back to and no configured accessory: the shared key stays out of the way.
+    host, view = _ops()
+    view.set_panel_kind_override("generic")
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(host.active_state)
+
+    assert host.ac_op_cell.visible is False
+
+
+def test_the_override_does_not_survive_a_return_to_entry_mode() -> None:
+    host, view = _ops(state=_flagged(is_bpc2=True))
+    view.set_panel_kind_override("generic")
+
+    view.entry_mode(clear_info=False)
+
+    assert view.panel_kind_override is None
+    assert host.acc_generic_cell.visible is False

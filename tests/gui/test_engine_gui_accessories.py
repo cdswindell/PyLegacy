@@ -569,6 +569,51 @@ def test_input_contexts_do_not_consult_the_panel_when_a_switch_or_route_is_shown
     assert gui.input_contexts == ("route",)
 
 
+def _toggle_engine() -> mod.EngineGui:
+    """An EngineGui shell for the two panel-toggle handlers, whose whole job is to move the
+    keypad's override and re-enter ops mode without disturbing the selection."""
+    gui = _new_engine()
+    gui.scope = CommandScope.ACC
+    gui._scope_tmcc_ids = {CommandScope.ACC: 19}
+    gui._popup_closed = 0
+    gui._popup = SimpleNamespace(close=lambda: setattr(gui, "_popup_closed", gui._popup_closed + 1))
+    gui._ops_mode_calls: list[bool] = []
+    gui.ops_mode = lambda update_info=True, state=None: gui._ops_mode_calls.append(update_info)
+
+    keypad = SimpleNamespace(_forced=None)
+    keypad.set_panel_kind_override = lambda k: setattr(keypad, "_forced", k)
+    gui._keypad_view = keypad
+    return gui
+
+
+def test_show_generic_acc_panel_forces_the_generic_panel_and_re_enters_ops_mode() -> None:
+    gui = _toggle_engine()
+
+    gui.on_show_generic_acc_panel()
+
+    assert gui._keypad_view._forced == "generic"
+    assert gui._ops_mode_calls == [False], "the selection has not changed, so the info is not rebuilt"
+    assert gui._popup_closed == 1
+
+
+def test_show_native_acc_panel_drops_the_override_and_re_enters_ops_mode() -> None:
+    gui = _toggle_engine()
+    gui.on_show_generic_acc_panel()
+
+    gui.on_show_native_acc_panel()
+
+    assert gui._keypad_view._forced is None
+    assert gui._ops_mode_calls == [False, False]
+    assert gui._popup_closed == 2
+
+
+def test_the_pad_follows_a_forced_generic_panel() -> None:
+    # The invariant the whole design rests on: the override lives inside the one property both
+    # the drawn keys and the context chain read, so a forced generic screen is bound as one.
+    gui = _acc_engine("generic")
+    assert gui.input_contexts == ("acc_generic", "acc")
+
+
 def test_acc_base_context_claims_what_it_does_not_bind() -> None:
     from src.pytrain.gui.controller import accessory_bindings as ab
 

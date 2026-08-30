@@ -19,6 +19,7 @@ from guizero import Box, Slider, Text
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
+from .engine_gui_conf import ACC_PANEL_KEY
 from ...db.accessory_state import AccessoryState
 from ...pdi.amc2_req import Amc2Req
 from ...pdi.constants import Amc2Action, PdiCommand
@@ -58,6 +59,7 @@ class Amc2OpsPanel:
         self._parent: Box | None = None
         self._root: Box | None = None
         self._header: Box | None = None
+        self._panel_toggle_btn: HoldButton | None = None
         self._page_selector: CheckBoxGroup | None = None
         self._suspend_page_selector = False
         self._controls: Box | None = None
@@ -69,6 +71,15 @@ class Amc2OpsPanel:
     @property
     def visible(self) -> bool:
         return bool(self._root and self._root.visible)
+
+    @property
+    def panel_toggle_button(self) -> HoldButton | None:
+        """The header key that leaves this panel for the generic accessory one.
+
+        Exposed rather than wired here so KeypadView keeps the command, as it does for every
+        other key; this panel replaces the keypad entirely, so the key has nowhere else to go.
+        """
+        return self._panel_toggle_btn
 
     def build(self, parent: Box) -> Box:
         if self._root is not None:
@@ -95,8 +106,17 @@ class Amc2OpsPanel:
             style="radio",
             command=self._on_page_selected,
         )
+        self._panel_toggle_btn = HoldButton(
+            header,
+            text=ACC_PANEL_KEY,
+            grid=[2, 0],
+            align="top",
+            text_size=host.s_12,
+            padx=max(2, int(round(4 * host.scale_by))),
+            pady=max(4, int(round(6 * host.scale_by))),
+        )
         try:
-            for col in range(2):
+            for col in range(3):
                 header.tk.grid_columnconfigure(col, weight=1)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass

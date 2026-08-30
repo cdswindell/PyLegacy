@@ -19,7 +19,7 @@ from typing import Any, Callable, Generic, TypeVar, cast
 
 from guizero import App, Box, Combo, Picture, PushButton, Text, TitleBox
 
-from .accessory_bindings import PANEL_CONTEXT_CHAINS, ROUTE_CONTEXT, SWITCH_CONTEXT
+from .accessory_bindings import PANEL_CONTEXT_CHAINS, PANEL_GENERIC, ROUTE_CONTEXT, SWITCH_CONTEXT
 from .admin_panel import ADMIN_TITLE, AdminPanel
 from .amc2_ops_panel import Amc2OpsPanel
 from .bell_horn_panel import BellHornPanel
@@ -61,6 +61,7 @@ from ..components.swipe_detector import SwipeDetector, event_screen_y, event_tar
 from ..guizero_base import GuiZeroBase, resolve_font_family
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState, RouteState, SwitchState
+from ...db.component_state_store import ComponentStateStore
 from ...db.engine_state import EngineState, TrainState
 from ...db.irda_state import IrdaState
 from ...db.state_watcher import StateWatcher
@@ -225,6 +226,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._recents_queue: dict[CommandScope, UniqueDeque[S]] = {}
         self._train_linked_queue: UniqueDeque[EngineState] = UniqueDeque()
         self._options_to_state = {}
+        # components we created ourselves from the keypad, and that the Base 3 has not yet
+        # confirmed; they stay out of the recents queue and the scope catalog until named
+        self._provisional: set[tuple[CommandScope, int]] = set()
 
         self.entry_cells = set()
         self.ops_cells = set()
@@ -250,6 +254,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # various buttons
         self.halt_btn = self.reset_btn = self.linked_cars_btn = self.off_btn = self.on_btn = self.set_btn = None
         self.fire_route_btn = self.switch_thru_btn = self.switch_out_btn = self.keypad_keys = None
+        self.sw_set_btn = self.info_btn = self.acc_generic_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
@@ -258,11 +263,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.image = None
         self._acc_overlay = None
         self.clear_key_cell = self.enter_key_cell = self.set_key_cell = self.fire_route_cell = None
-        self.switch_thru_cell = self.switch_out_cell = None
+        self.switch_thru_cell = self.switch_out_cell = self.sw_set_cell = self.info_cell = None
+        self.acc_generic_cell = None
         self.avail_image_height_engine = None
 
         # Sensor Track
-        self.sensor_track_box = self.sensor_track_buttons = None
+        self.sensor_track_box = self.sensor_track_buttons = self.sensor_track_generic_btn = None
         # The (tmcc_id, sequence) this Sensor Track is believed to hold: what an incoming
         # IrdaState last reported, or what the pad last wrote. Read as "where a revert with
         # nothing to undo goes back to".
@@ -1175,6 +1181,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def _rebuild_state_caches(self, state: S):
         if state:
             with self._cv:
+                self._provisional.discard((state.scope, state.tmcc_id))
                 reselect_current = False
                 if self._scope_tmcc_ids.get(state.scope, 0) == state.tmcc_id:
                     self._scope_tmcc_ids[state.scope] = 0
@@ -1366,6 +1373,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if state is None:
             tmcc_id = self._scope_tmcc_ids[CommandScope.SWITCH]
             state = self._state_store.get_state(CommandScope.SWITCH, tmcc_id, False) if 1 <= tmcc_id < 99 else None
+        self._promote_if_populated(state)
         if state:
             if state.is_thru:
                 self.add_hover_action(self.switch_thru_btn, hover_color="lightgreen", background=self._active_bg)
@@ -1387,6 +1395,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return
         state = state if state else self.active_state
         tmcc_id = self._scope_tmcc_ids[CommandScope.ACC]
+        self._promote_if_populated(state)
         if isinstance(state, AccessoryState):
             # keypad_view = getattr(self, "_keypad_view", None)
             if state.is_sensor_track:
@@ -1640,6 +1649,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
         self._begin_transition()
         try:
+            # a forced accessory panel does not survive a scope press
+            self._keypad_view.set_panel_kind_override(None)
             self.scope_box.hide()
             force_entry_mode = False
             clear_info = True
@@ -1698,6 +1709,72 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if isinstance(recents, UniqueDeque) and len(recents) > 0:
                 state = recents[0]
                 self._scope_tmcc_ids[scope] = state.tmcc_id
+
+    def create_provisional_component(self, scope: CommandScope, tmcc_id: int) -> S:
+        """
+        Materialize a provisional component record for the given scope and TMCC ID, using the
+        same primitive the Set key does. The record is a real store entry with empty comp data,
+        but is kept out of recents and the catalog until it is named.
+        """
+        state = self.state_store.get_state(scope, tmcc_id, False)
+        if state is None:
+            state = ComponentStateStore.get_state(scope, tmcc_id, create=True)
+            state.initialize(scope=scope, tmcc_id=tmcc_id)
+        with self._cv:
+            self._provisional.add((scope, tmcc_id))
+            self._scope_tmcc_ids[scope] = tmcc_id
+        return state
+
+    def is_provisional(self, scope: CommandScope, tmcc_id: int) -> bool:
+        return (scope, tmcc_id) in self._provisional
+
+    def promote_component(self, state: S = None) -> bool:
+        """
+        Promote a provisional component into a fully-fledged one: it now belongs in the recents
+        queue, the header options, and the scope catalog. Called once the component has been
+        named, or once the Base 3 reports real data for it. A no-op for anything that isn't
+        provisional.
+        """
+        state = state if state is not None else self.active_state
+        if state is None:
+            return False
+        key = (state.scope, state.tmcc_id)
+        with self._cv:
+            if key not in self._provisional:
+                return False
+            self._provisional.discard(key)
+        self.make_recent(state.scope, state.tmcc_id, state)
+        self._request_options_rebuild()
+        self._reset_catalog_configured_accessories()
+        return True
+
+    def on_show_generic_acc_panel(self) -> None:
+        """Switch the display from an LCS-specific accessory panel to the generic one.
+
+        The generic panel is the only one that carries Set Address, so it is the way to program
+        a new device to this address. Routed through the keypad's panel override, the single
+        decision point both the drawn keys and the gamepad context chain read, so the pad
+        follows the screen without being told separately.
+        """
+        self._popup.close()
+        self._keypad_view.set_panel_kind_override(PANEL_GENERIC)
+        self.ops_mode(update_info=False)
+
+    def on_show_native_acc_panel(self) -> None:
+        """Return the display to whatever panel this component's own flags call for."""
+        self._popup.close()
+        self._keypad_view.set_panel_kind_override(None)
+        self.ops_mode(update_info=False)
+
+    def _promote_if_populated(self, state: S = None) -> None:
+        """
+        Promote a provisional component the moment the Base 3 answers for it; an empty comp
+        data record is the marker that says we're still waiting.
+        """
+        if state is None or getattr(state, "is_comp_data_empty", True):
+            return
+        if self.is_provisional(state.scope, state.tmcc_id):
+            self.promote_component(state)
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
         self._popup.close()
@@ -2327,7 +2404,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         selection_changed: bool,
     ) -> None:
         if state and selection_changed:
-            self.make_recent(self.scope, tmcc_id, state)
+            if self.is_provisional(self.scope, tmcc_id):
+                # a provisional record stays out of recents (and so out of the header
+                # combo) until it is named; still track it as the current selection
+                self._scope_tmcc_ids[self.scope] = tmcc_id
+            else:
+                self.make_recent(self.scope, tmcc_id, state)
             if not in_ops_mode:
                 self.ops_mode(update_info=False)
 
@@ -2395,6 +2477,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 state = None
                 selection_changed = not self._is_same_display_selection(tmcc_id)
                 self._clear_component_display(tmcc_id, num_chars)
+            if selection_changed:
+                # a forced accessory panel belongs to the component it was forced on
+                self._keypad_view.set_panel_kind_override(None)
             self._refresh_component_view(state, update_button_state, tmcc_id, selection_changed)
         finally:
             self._end_transition()

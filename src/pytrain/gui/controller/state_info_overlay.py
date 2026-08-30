@@ -345,6 +345,8 @@ class StateInfoOverlay(OverlayPanel):
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_name_req(new_value)
                 BaseReq.process_sync_reqs([req, state], do_async=True)
+                # naming is what promotes a provisional record into recents and the catalog
+                self.gui.promote_component(state)
 
     def _on_road_number_edited(self, _field: EditableText, new_value: str, old_value: str) -> None:
         if _field.is_changed:
@@ -353,6 +355,8 @@ class StateInfoOverlay(OverlayPanel):
             if isinstance(state, ComponentState):
                 req = state.comp_data.set_road_number_req(new_value)
                 BaseReq.process_sync_reqs([req, state], do_async=True)
+                # naming is what promotes a provisional record into recents and the catalog
+                self.gui.promote_component(state)
 
     def _on_type_edited(self, _field: EditableText, new_value: int, old_value: int) -> None:
         self._persist_edit(_field, new_value, old_value, "ENGINE_TYPE")

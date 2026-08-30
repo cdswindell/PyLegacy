@@ -58,6 +58,12 @@ PAUSE_KEY = "⏸"
 CLEAR_KEY = "clr"
 ENTER_KEY = "↵"
 SET_KEY = "Set"
+INFO_KEY = "Info"
+# The two directions of the accessory panel toggle. An LCS-specific screen (BPC2, ASC2, Sensor
+# Track, AMC2) carries ACC_PANEL_KEY, which forces the generic accessory panel -- the only one
+# that has Set Address on it; the generic panel carries LCS_PANEL_KEY, the way back.
+ACC_PANEL_KEY = "Acc"
+LCS_PANEL_KEY = "LCS"
 ENGINE_ON_KEY = "ENGINE ON"
 ENGINE_OFF_KEY = "ENGINE OFF"
 AC_ON_KEY = "AC ON"
@@ -535,3 +541,7 @@ SCOPE_TO_SET_ENUM: dict[CommandScope, CommandDefEnum] = {
     CommandScope.SWITCH: TMCC1SwitchCommandEnum.SET_ADDRESS,
     CommandScope.ACC: TMCC1AuxCommandEnum.SET_ADDRESS,
 }
+# Scopes whose components can be created from the gui by entering an undefined TMCC ID.
+# Derived from SCOPE_TO_SET_ENUM, as creation relies on the scope's SET_ADDRESS command;
+# Engines are deliberately excluded for now.
+CREATABLE_SCOPES: frozenset[CommandScope] = frozenset(SCOPE_TO_SET_ENUM.keys() - {CommandScope.ENGINE})

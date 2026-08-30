@@ -82,6 +82,7 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui.scope = scope
     gui._scope_tmcc_ids = {CommandScope.ENGINE: 0, CommandScope.TRAIN: 0, scope: 0}
     gui._scope_watchers = {}
+    gui._provisional = set()
     gui._shutdown_flag = SimpleNamespace(is_set=lambda: False)
     gui._popup_closed = 0
     gui._popup = SimpleNamespace(close=lambda: setattr(gui, "_popup_closed", gui._popup_closed + 1))
@@ -90,12 +91,15 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui.name_text = SimpleNamespace(value="")
     gui.image_box = image_box = SimpleNamespace(visible=True)
     gui.image_box.hide = lambda: setattr(image_box, "visible", False)
+    gui._panel_kind_overrides: list[str | None] = []
     gui._keypad_view = SimpleNamespace(
         reset_on_keystroke=False,
         is_entry_mode=True,
         scope_keypad=lambda force_entry_mode, clear_info: setattr(
             gui, "_scope_keypad_args", (force_entry_mode, clear_info)
         ),
+        panel_kind_override=None,
+        set_panel_kind_override=lambda kind: gui._panel_kind_overrides.append(kind),
     )
     gui._controller_view = SimpleNamespace(update=lambda **_kwargs: None)
     gui._train_linked_queue = UniqueDeque()
@@ -359,6 +363,31 @@ def test_update_component_info_zero_clears_image_and_resets_keystroke_flag() -> 
     assert gui._image_clears == 1
     assert gui._image_updates == [0]
     assert gui._keypad_view.reset_on_keystroke is False
+
+
+def test_a_forced_accessory_panel_does_not_outlive_a_change_of_selection() -> None:
+    # FR-5's transient lifetime: the override belongs to the component it was forced on.
+    gui = _new_engine(CommandScope.ACC)
+    gui._last_displayed_scope = CommandScope.ACC
+    gui._last_displayed_tmcc_id = 19
+
+    gui.update_component_info(0)
+    assert gui._panel_kind_overrides == [None]
+
+    gui._panel_kind_overrides.clear()
+    gui._last_displayed_tmcc_id = 0
+    gui.update_component_info(0)
+    assert gui._panel_kind_overrides == [], "and is left alone where the selection did not change"
+
+
+def test_a_forced_accessory_panel_does_not_survive_a_scope_press() -> None:
+    gui = _new_engine(CommandScope.ACC)
+    gui._scope_buttons = {CommandScope.ACC: SimpleNamespace(bg="white", text_color="black")}
+    gui.monitor_state = lambda: None
+
+    gui.on_scope(CommandScope.ACC)
+
+    assert gui._panel_kind_overrides[0] is None
 
 
 def test_update_component_info_accessory_uses_configured_accessory_name(monkeypatch: pytest.MonkeyPatch) -> None:

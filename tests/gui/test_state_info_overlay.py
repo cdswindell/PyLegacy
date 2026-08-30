@@ -242,3 +242,68 @@ def test_a_host_that_never_heard_of_compact_is_treated_as_portrait(monkeypatch) 
     )
 
     assert _RecordingEditableText.instances[-1].kwargs["compact"] is False
+
+
+# ---------------------------------------------------------------------------
+# Naming is what promotes a provisional record into recents and the catalog
+# ---------------------------------------------------------------------------
+
+
+class _NamingField:
+    def __init__(self, value: str = "") -> None:
+        self.value = value
+        self.is_changed = True
+
+
+def _naming_setup(monkeypatch) -> tuple[mod.StateInfoOverlay, SimpleNamespace, list]:
+    # ComponentState is only used for an isinstance gate; widening it to object lets the
+    # fake state through without dragging the real state hierarchy into the test.
+    monkeypatch.setattr(mod, "ComponentState", object)
+    dispatched: list = []
+    monkeypatch.setattr(
+        mod.BaseReq,
+        "process_sync_reqs",
+        staticmethod(lambda reqs, do_async=False: dispatched.append((reqs, do_async))),
+    )
+
+    promoted: list = []
+    comp_data = SimpleNamespace(
+        set_road_name_req=lambda value: ("name", value),
+        set_road_number_req=lambda value: ("number", value),
+    )
+    state = SimpleNamespace(comp_data=comp_data)
+    host = SimpleNamespace(active_state=state, promote_component=lambda s: promoted.append(s))
+
+    info = mod.StateInfoOverlay.__new__(mod.StateInfoOverlay)
+    info._gui = host
+    return info, SimpleNamespace(state=state, dispatched=dispatched, promoted=promoted), promoted
+
+
+def test_committing_a_road_name_promotes_the_record(monkeypatch) -> None:
+    info, ctx, promoted = _naming_setup(monkeypatch)
+
+    info._on_road_name_edited(_NamingField(), "  Water Tower  ", "")
+
+    assert ctx.dispatched == [([("name", "Water Tower"), ctx.state], True)]
+    assert promoted == [ctx.state], "the request goes out first, then the record is promoted"
+
+
+def test_committing_a_road_number_promotes_the_record(monkeypatch) -> None:
+    info, ctx, promoted = _naming_setup(monkeypatch)
+
+    info._on_road_number_edited(_NamingField(), "42", "")
+
+    assert ctx.dispatched == [([("number", "0042"), ctx.state], True)]
+    assert promoted == [ctx.state]
+
+
+def test_an_unchanged_field_neither_dispatches_nor_promotes(monkeypatch) -> None:
+    info, ctx, promoted = _naming_setup(monkeypatch)
+    field = _NamingField("Water Tower")
+    field.is_changed = False
+
+    info._on_road_name_edited(field, "Water Tower", "Water Tower")
+    info._on_road_number_edited(field, "0042", "0042")
+
+    assert ctx.dispatched == []
+    assert promoted == []

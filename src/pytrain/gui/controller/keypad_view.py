@@ -25,19 +25,24 @@ from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .engine_gui_conf import (
     AC_OFF_KEY,
     AC_ON_KEY,
+    ACC_PANEL_KEY,
     AUX1_KEY,
     AUX2_KEY,
     CLEAR_KEY,
+    CREATABLE_SCOPES,
     ENGINE_OFF_KEY,
     ENTER_KEY,
     ENTRY_LAYOUT,
     FIRE_ROUTE_KEY,
+    INFO_KEY,
+    LCS_PANEL_KEY,
     SENSOR_TRACK_OPTS,
     SET_KEY,
     SWITCH_OUT_KEY,
     SWITCH_THRU_KEY,
 )
 from ..components.checkbox_group import CheckBoxGroup
+from ..components.hold_button import HoldButton
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import ComponentState, LcsProxyState
 from ...db.component_state_store import ComponentStateStore
@@ -67,6 +72,9 @@ class KeypadView(Generic[S]):
         self._entry_mode = True
         self._numeric_keys = True
         self._accessory_throttle_after_id: int | None = None
+        # Transient accessory panel override; see set_panel_kind_override. Cleared on any change
+        # of selected TMCC ID, any change of scope, and on return to entry mode.
+        self._forced_panel_kind: str | None = None
 
     @property
     def active_state(self) -> ComponentState | None:
@@ -126,6 +134,22 @@ class KeypadView(Generic[S]):
         """
         return self._panel_kind_for(self.active_state)
 
+    @property
+    def panel_kind_override(self) -> str | None:
+        """The accessory panel forced onto the display, if any; None where none is."""
+        return self._forced_panel_kind
+
+    def set_panel_kind_override(self, kind: str | None) -> None:
+        """Force (or stop forcing) a particular accessory panel for the current selection.
+
+        A single transient flag, deliberately: it lives inside ``_panel_kind_for``, the one
+        property both the drawn keys and the gamepad context chain read, so the screen and the
+        pad cannot disagree about which panel is up. It is cleared on any change of selected
+        TMCC ID, any change of scope, and on return to entry mode, so leaving a device and
+        coming back shows its native panel again.
+        """
+        self._forced_panel_kind = kind
+
     # noinspection PyUnresolvedReferences
     def _panel_kind_for(self, state: S | None) -> str | None:
         """``accessory_panel_kind`` for a given state, which need not be the active one.
@@ -133,6 +157,15 @@ class KeypadView(Generic[S]):
         The ops-mode UI is handed the state it is about to display and asks about that.
         """
         if not self.is_accessory_or_bpc2 or state is None:
+            return None
+        if self._forced_panel_kind is not None:
+            return self._forced_panel_kind
+        return self._native_panel_kind_for(state)
+
+    # noinspection PyUnresolvedReferences
+    def _native_panel_kind_for(self, state: S | None) -> str | None:
+        """The panel a state's own flags call for, ignoring any override in force."""
+        if state is None:
             return None
         acc_state = state.state if isinstance(state, ConfiguredAccessoryAdapter) else state
         if isinstance(acc_state, AccessoryState):
@@ -409,6 +442,51 @@ class KeypadView(Generic[S]):
             is_ops=True,
         )
 
+        # switch Set Address key; the aux Set key at the same slot only ever renders on the
+        # generic accessory panel, so the two cannot be on screen at once.
+        host.sw_set_cell, host.sw_set_btn = host.make_keypad_button(
+            keypad_keys,
+            SET_KEY,
+            0,
+            3,
+            size=host.s_16,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=False,
+        )
+        host.sw_set_btn.on_press = (self.on_switch_set_key, [])
+
+        # Info key; the only route to the state info panel on the switch panel, as that scope
+        # hides the image box and with it the long-press target.
+        host.info_cell, host.info_btn = host.make_keypad_button(
+            keypad_keys,
+            INFO_KEY,
+            2,
+            3,
+            size=host.s_16,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=host.on_info,
+            args=[],
+        )
+
+        # Panel toggle key shown on the BPC2/ASC2 panels, where column 3 is otherwise free.
+        # Takes the display to the generic accessory panel -- the only one with Set Address.
+        host.acc_generic_cell, host.acc_generic_btn = host.make_keypad_button(
+            keypad_keys,
+            ACC_PANEL_KEY,
+            2,
+            3,
+            size=host.s_16,
+            visible=False,
+            is_ops=True,
+            hover=True,
+            command=host.on_show_generic_acc_panel,
+            args=[],
+        )
+
         # Sensor Track Buttons
         host.sensor_track_box = cell = TitleBox(app, "Sequence", layout="auto", align="top", visible=False, border=2)
         cell.text_size = host.s_10
@@ -429,10 +507,27 @@ class KeypadView(Generic[S]):
             cursor=True,
         )
 
+        # The Sensor Track panel replaces the whole keypad, so its way to the generic accessory
+        # panel goes below the Sequence list rather than in a keypad cell.
+        host.sensor_track_generic_btn = HoldButton(
+            cell,
+            text=ACC_PANEL_KEY,
+            align="bottom",
+            width="fill",
+            text_size=host.s_12,
+            command=host.on_show_generic_acc_panel,
+            args=[],
+        )
+
         host.amc2_ops_box = Box(app, layout="auto", align="top", visible=False, border=2)
         host.amc2_ops_panel = Amc2OpsPanel(host)
         host.amc2_ops_panel.build(host.amc2_ops_box)
         host.ops_cells.add(host.amc2_ops_box)
+        # AMC2 replaces the keypad too; its toggle lives in the panel header, which exposes the
+        # button rather than the command so the wiring stays here with every other key.
+        amc2_toggle = getattr(host.amc2_ops_panel, "panel_toggle_button", None)
+        if amc2_toggle is not None:
+            amc2_toggle.update_command(host.on_show_generic_acc_panel, [])
 
         # BPC2/ASC2 Buttons
         host.ac_on_cell, host.ac_on_btn = host.make_keypad_button(
@@ -588,11 +683,15 @@ class KeypadView(Generic[S]):
                     host.on_info(state=state)
                     return
         elif key == ENTER_KEY:
-            # if a valid (existing) entry was entered, go to ops mode,
-            # otherwise, stay in entry mode
+            # if a valid (existing) entry was entered, go to ops mode; if it is an undefined,
+            # but creatable, component, create it and go to ops mode; otherwise, stay in entry mode
             self._reset_on_keystroke = False
-            if host.make_recent(host.scope, int(tmcc_id)):
+            entered = int(tmcc_id)
+            if host.make_recent(host.scope, entered):
                 host.ops_mode()
+            elif self._can_create(host.scope, entered):
+                state = host.create_provisional_component(host.scope, entered)
+                host.ops_mode(update_info=True, state=state)
             else:
                 self.entry_mode(clear_info=False)
         else:
@@ -603,6 +702,21 @@ class KeypadView(Generic[S]):
             tmcc_id = int(tmcc_id)
             log.debug(f"on_keypress calling update_component_info; TMCC ID: {tmcc_id}")
             host.update_component_info(tmcc_id, not_found_value="")
+
+    def on_switch_set_key(self) -> None:
+        """Fires SET_ADDRESS for the currently displayed switch"""
+        host = self._host
+        host.on_set_key(CommandScope.SWITCH, host.scope_tmcc_id(CommandScope.SWITCH))
+
+    @staticmethod
+    def _can_create(scope: CommandScope, tmcc_id: int) -> bool:
+        """
+        True if a component of the given scope can be created at the given TMCC ID. Applies
+        the same range rule the Set key does; only Accessories and Switches qualify for now.
+        """
+        if scope not in CREATABLE_SCOPES:
+            return False
+        return bool(tmcc_id) and 2 <= tmcc_id <= 98 and tmcc_id != 99
 
     def _collapse_acc_aux_cells(self) -> None:
         """Hides accelerator and auxiliary keys when not in ops mode"""
@@ -733,6 +847,8 @@ class KeypadView(Generic[S]):
         """Manages entry mode keypad display and button states"""
         host = self._host
         self._entry_mode = True
+        # returning to entry mode ends the life of any forced accessory panel
+        self._forced_panel_kind = None
         if clear_info:
             host.update_component_info(0)
         else:
@@ -832,6 +948,8 @@ class KeypadView(Generic[S]):
             host.on_new_switch()
             host.switch_thru_cell.show()
             host.switch_out_cell.show()
+            host.sw_set_cell.show()
+            host.info_cell.show()
             if not host.keypad_box.visible:
                 host.keypad_box.show()
             return
@@ -866,11 +984,12 @@ class KeypadView(Generic[S]):
                     host.ac_off_cell.show()
                     host.ac_status_cell.show()
                     host.ac_on_cell.show()
+                    host.acc_generic_cell.show()
                     if kind == PANEL_ASC2:
                         host.ac_aux1_cell.show()
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                             host.ac_op_cell.grid = [2, 3]
-                            self.enable_acc_view(acc_state)
+                            self.enable_alternate_acc_view(acc_state)
                 elif kind == PANEL_GENERIC:
                     for cell in host.aux_cells:
                         if cell and not cell.visible:
@@ -880,13 +999,48 @@ class KeypadView(Generic[S]):
                     # self.update_accessory_throttle_from_state(acc_state)
                     if host.acc_throttle_box and not host.acc_throttle_box.visible:
                         host.acc_throttle_box.show()
-                    if host.accessories.configured_by_tmcc_id(state.tmcc_id):
+                    host.info_cell.show()
+                    if self._alternate_acc_view_kind(acc_state) is not None:
                         host.ac_op_cell.grid = [1, 4]
-                        self.enable_acc_view(acc_state)
+                        self.enable_alternate_acc_view(acc_state)
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
                 host.app.tk.after_idle(host.image_presenter.update, host.scope_tmcc_id())
+
+    def _alternate_acc_view_kind(self, state: S | None) -> str | None:
+        """Which other view of this component ``ac_op_btn`` should offer, if any.
+
+        One key, one meaning -- the other view of this ID. Where a panel override is in force
+        the other view is the component's own LCS panel, and that wins: the override is an
+        explicit request for the generic panel, so the way back to what was left is the one
+        thing the key must offer. Otherwise it keeps today's meaning, the configured-accessory
+        overlay, and where there is neither there is nothing to offer.
+        """
+        if state is None:
+            return None
+        if self._forced_panel_kind is not None:
+            native = self._native_panel_kind_for(state)
+            if native is not None and native != self._forced_panel_kind:
+                return "native"
+        if self._host.accessories.configured_by_tmcc_id(state.tmcc_id):
+            return "configured"
+        return None
+
+    def enable_alternate_acc_view(self, state: S) -> None:
+        """Points ``ac_op_btn`` at the other view of this component and shows it."""
+        if self._alternate_acc_view_kind(state) == "native":
+            self.enable_native_acc_view()
+        else:
+            self.enable_acc_view(state)
+
+    def enable_native_acc_view(self) -> None:
+        """Turns ``ac_op_btn`` into the way back from a forced generic panel to the LCS one."""
+        host = self._host
+        host.ac_op_btn.text = LCS_PANEL_KEY
+        host.ac_op_btn.update_command(host.on_show_native_acc_panel, [])
+        host.ac_op_btn.enable()
+        host.ac_op_cell.show()
 
     # noinspection PyTypeChecker
     def enable_acc_view(self, state: S):
@@ -899,6 +1053,8 @@ class KeypadView(Generic[S]):
         acc.activate_tmcc_id(state.tmcc_id)
 
         image = find_file(acc.op_btn_image_path)
+        # the same key may have been carrying the return-to-LCS label a moment ago
+        host.ac_op_btn.text = ""
         host.ac_op_btn.image = image
         host.ac_op_btn.images = host.get_image(image, size=host.button_size)
         host.ac_op_btn.tk.config(
