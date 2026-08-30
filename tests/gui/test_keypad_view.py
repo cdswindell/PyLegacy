@@ -17,6 +17,9 @@ class DummyTk:
         self._after_calls: dict[int, tuple[int, Callable, tuple[Any, ...]]] = {}
         self._next_after_id = 1
         self._focus_owner = None
+        # Records the last per-column grid_columnconfigure so the reflow tests can assert which
+        # columns were collapsed (weight=0, minsize=0) and which were restored to a cell width.
+        self._column_config: dict[int, dict[str, Any]] = {}
 
     def config(self, **kwargs: Any) -> None:
         self._config.update(kwargs)
@@ -55,9 +58,8 @@ class DummyTk:
     def grid_rowconfigure(_row: int, **_kwargs: Any) -> None:
         return
 
-    @staticmethod
-    def grid_columnconfigure(_col: int, **_kwargs: Any) -> None:
-        return
+    def grid_columnconfigure(self, col: int, **kwargs: Any) -> None:
+        self._column_config[col] = dict(kwargs)
 
     @staticmethod
     def grid_propagate(_value: bool) -> None:
@@ -976,3 +978,258 @@ def test_the_override_does_not_survive_a_return_to_entry_mode() -> None:
 
     assert view.panel_kind_override is None
     assert host.acc_generic_cell.visible is False
+
+
+# ---------------------------------------------------------------------------
+# Collapsing keypad columns that hold no visible cell (_reflow_keypad_columns)
+# ---------------------------------------------------------------------------
+
+# A single occupied column reserves the build-time cell width: button_size + 2 * grid_pad_by,
+# which _new_host sets to 96 + 2 * 2 = 100.
+_CELL_W = 100
+
+
+def _reflow_host() -> SimpleNamespace:
+    """A host carrying just the two keypad boxes the reflow reads and writes."""
+    host = _new_host()
+    host.keypad_box = DummyBox()
+    host.keypad_keys = DummyBox()
+    return host
+
+
+def _grid_cell(col: int, row: int = 0, *, visible: bool = True) -> DummyBox:
+    return DummyBox(visible=visible, grid=[col, row])
+
+
+def test_reflow_collapses_columns_with_no_visible_cell() -> None:
+    host = _reflow_host()
+    view = mod.KeypadView(host)
+    view._keypad_cells = [
+        _grid_cell(0),
+        _grid_cell(1),
+        _grid_cell(2),
+        _grid_cell(3, visible=False),  # the empty 4th column
+        _grid_cell(4, visible=False),  # the throttle, hidden off the generic panel
+    ]
+
+    view._reflow_keypad_columns()
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[0] == {"weight": 1, "minsize": _CELL_W}
+    assert cfg[1] == {"weight": 1, "minsize": _CELL_W}
+    assert cfg[2] == {"weight": 1, "minsize": _CELL_W}
+    assert cfg[3] == {"weight": 0, "minsize": 0}
+    assert cfg[4] == {"weight": 0, "minsize": 0}
+
+
+def test_reflow_restores_a_column_once_one_of_its_cells_is_visible() -> None:
+    host = _reflow_host()
+    view = mod.KeypadView(host)
+    # Two cells share column 3 (a Set at one row, an Info at another): the column is occupied as
+    # long as either is visible, so a single visible cell restores it.
+    view._keypad_cells = [
+        _grid_cell(0),
+        _grid_cell(1),
+        _grid_cell(2),
+        _grid_cell(3, row=0, visible=False),
+        _grid_cell(3, row=2, visible=True),
+    ]
+
+    view._reflow_keypad_columns()
+
+    assert host.keypad_keys.tk._column_config[3] == {"weight": 1, "minsize": _CELL_W}
+
+
+def test_reflow_counts_an_aux_cell_relocated_to_the_fourth_column() -> None:
+    # Aux cells are built at column 2 and only moved to column 3 at runtime via render_grid;
+    # the reflow reads .grid[0] late, so the relocation is what it sees.
+    host = _reflow_host()
+    view = mod.KeypadView(host)
+    relocated_aux = _grid_cell(2, row=1, visible=True)
+    relocated_aux.grid = [3, 1]
+    view._keypad_cells = [
+        _grid_cell(0),
+        _grid_cell(1),
+        _grid_cell(2),
+        relocated_aux,
+        _grid_cell(4, visible=False),
+    ]
+
+    view._reflow_keypad_columns()
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[3] == {"weight": 1, "minsize": _CELL_W}, "the relocated aux cell holds column 3"
+    assert cfg[4] == {"weight": 0, "minsize": 0}
+
+
+def test_reflow_keeps_the_numeric_columns_even_with_a_hidden_cell_among_them() -> None:
+    # Columns 0-2 always carry a visible numeric key, so a hidden aux cell parked in one of them
+    # never collapses the column: the occupancy rule keeps it.
+    host = _reflow_host()
+    view = mod.KeypadView(host)
+    view._keypad_cells = [
+        _grid_cell(0),
+        _grid_cell(1),
+        _grid_cell(2),
+        _grid_cell(2, row=1, visible=False),  # a parked aux cell, hidden
+        _grid_cell(3, visible=False),
+    ]
+
+    view._reflow_keypad_columns()
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[2] == {"weight": 1, "minsize": _CELL_W}
+    assert cfg[3] == {"weight": 0, "minsize": 0}
+
+
+def test_reflow_tightens_the_pad_to_the_occupied_column_count() -> None:
+    host = _reflow_host()
+    view = mod.KeypadView(host)
+    view._keypad_cells = [
+        _grid_cell(0),
+        _grid_cell(1),
+        _grid_cell(2),
+        _grid_cell(3, visible=False),
+        _grid_cell(4, visible=False),
+    ]
+
+    view._reflow_keypad_columns()
+
+    # Three occupied columns -> the pad is three cells wide, not five, so it does not float.
+    assert host.keypad_keys.tk._config["width"] == 3 * _CELL_W
+    assert host.keypad_box.tk._config["width"] == 3 * _CELL_W
+
+
+def test_reflow_widens_the_pad_when_the_fourth_column_fills() -> None:
+    host = _reflow_host()
+    view = mod.KeypadView(host)
+    view._keypad_cells = [
+        _grid_cell(0),
+        _grid_cell(1),
+        _grid_cell(2),
+        _grid_cell(3, visible=True),
+        _grid_cell(4, visible=False),
+    ]
+
+    view._reflow_keypad_columns()
+
+    assert host.keypad_keys.tk._config["width"] == 4 * _CELL_W
+    assert host.keypad_box.tk._config["width"] == 4 * _CELL_W
+
+
+def test_build_files_every_keypad_cell_including_the_throttle_into_the_roster() -> None:
+    host = _new_host()
+    view = mod.KeypadView(host)
+    view.build()
+
+    roster = view._keypad_cells
+    # Column 4 (the throttle) rides the same rule as the keypad cells.
+    assert host.acc_throttle_box in roster
+    # A representative cell from every group the factory builds.
+    for cell in (
+        host.on_key_cell,
+        host.off_key_cell,
+        host.set_key_cell,
+        host.fire_route_cell,
+        host.switch_thru_cell,
+        host.switch_out_cell,
+        host.sw_set_cell,
+        host.info_cell,
+        host.acc_generic_cell,
+    ):
+        assert cell in roster
+    for cell in host.aux_cells:
+        assert cell in roster, "aux cells are filed too, so their move to column 3 is seen"
+
+
+def test_reflow_after_build_collapses_the_empty_fourth_and_fifth_columns() -> None:
+    # The end-to-end shape of entry mode: with only the numeric pad and the entry keys showing,
+    # columns 0-2 stand and columns 3-4 collapse.
+    host = _new_host()
+    view = mod.KeypadView(host)
+    view.build()
+
+    view._reflow_keypad_columns()
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[0]["weight"] == 1
+    assert cfg[1]["weight"] == 1
+    assert cfg[2]["weight"] == 1
+    assert cfg[3] == {"weight": 0, "minsize": 0}
+    assert cfg[4] == {"weight": 0, "minsize": 0}
+
+
+# ---------------------------------------------------------------------------
+# The reflow rides every keypad mode transition (entry and the ops branches),
+# so the empty 4th column disappears on entry and any empty-column view and
+# reappears the moment a column-3 key is shown.
+# ---------------------------------------------------------------------------
+
+_OCCUPIED = {"weight": 1, "minsize": _CELL_W}
+_COLLAPSED = {"weight": 0, "minsize": 0}
+
+
+def test_entry_mode_collapses_the_fourth_and_fifth_columns() -> None:
+    host = _new_host()
+    view = mod.KeypadView(host)
+    view.build()
+
+    view.entry_mode(clear_info=False)
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[0] == _OCCUPIED
+    assert cfg[1] == _OCCUPIED
+    assert cfg[2] == _OCCUPIED
+    assert cfg[3] == _COLLAPSED, "the ops-only 4th column is gone in entry mode"
+    assert cfg[4] == _COLLAPSED, "the throttle column stays collapsed off the generic panel"
+
+
+def test_route_ops_leaves_the_fourth_column_collapsed() -> None:
+    # The fire key lands in column 1, so the ops-only 4th column has nothing to hold.
+    host, _view = _ops(CommandScope.ROUTE, 5)
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[3] == _COLLAPSED
+    assert cfg[4] == _COLLAPSED
+
+
+def test_switch_ops_expands_the_fourth_column() -> None:
+    # Both the switch Set and Info keys sit in column 3.
+    host, _view = _ops(CommandScope.SWITCH, 7)
+
+    assert host.sw_set_cell.visible is True
+    assert host.info_cell.visible is True
+    assert host.keypad_keys.tk._column_config[3] == _OCCUPIED
+
+
+def test_generic_accessory_ops_expands_the_fourth_and_fifth_columns() -> None:
+    # The generic panel shows Info in column 3 and the accessory throttle in column 4.
+    host, _view = _ops()
+
+    assert host.info_cell.visible is True
+    assert host.acc_throttle_box.visible is True
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[3] == _OCCUPIED
+    assert cfg[4] == _OCCUPIED
+
+
+@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2"])
+def test_the_lcs_panels_expand_the_fourth_column_for_their_toggle(flag: str) -> None:
+    # BPC2 / ASC2 carry the acc-generic toggle in column 3, but no throttle in column 4.
+    host, _view = _ops(state=_flagged(**{flag: True}))
+
+    assert host.acc_generic_cell.visible is True
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[3] == _OCCUPIED
+    assert cfg[4] == _COLLAPSED
+
+
+def test_returning_to_entry_after_ops_recollapses_the_fourth_column() -> None:
+    host, view = _ops(CommandScope.SWITCH, 7)
+    assert host.keypad_keys.tk._column_config[3] == _OCCUPIED
+
+    view.entry_mode(clear_info=False)
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[3] == _COLLAPSED
+    assert cfg[4] == _COLLAPSED

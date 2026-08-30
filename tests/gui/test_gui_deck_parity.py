@@ -269,6 +269,84 @@ def test_the_way_back_from_a_forced_generic_panel_needs_no_image_at_all(compact:
 
 
 # ---------------------------------------------------------------------------
+# The empty 4th column collapses through the compact geometry too
+# ---------------------------------------------------------------------------
+#
+# The reflow lands wholly in ``KeypadView``, so a compact host reaches it by the same path a
+# portrait one does; the widths simply derive from the pane's own ``button_size``.
+
+
+def _cell_width(host) -> int:
+    return host.button_size + (2 * host.grid_pad_by)
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_entry_collapses_the_fourth_column_on_the_pane(compact: bool) -> None:
+    host, view = _built(compact)
+    view.entry_mode(clear_info=False)
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[0] == {"weight": 1, "minsize": _cell_width(host)}
+    assert cfg[3] == {"weight": 0, "minsize": 0}
+    assert cfg[4] == {"weight": 0, "minsize": 0}
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_switch_ops_expands_the_fourth_column_on_the_pane(compact: bool) -> None:
+    host, view = _built(compact, CommandScope.SWITCH, 7)
+    _ops(host, view)
+
+    assert host.keypad_keys.tk._column_config[3] == {"weight": 1, "minsize": _cell_width(host)}
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_generic_accessory_ops_expands_both_extra_columns_on_the_pane(compact: bool) -> None:
+    host, view = _built(compact)
+    _ops(host, view)
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[3] == {"weight": 1, "minsize": _cell_width(host)}
+    assert cfg[4] == {"weight": 1, "minsize": _cell_width(host)}
+
+
+@pytest.mark.parametrize("compact", [True, False])
+@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2"])
+def test_the_lcs_panels_expand_the_fourth_column_on_the_pane(compact: bool, flag: str) -> None:
+    host, view = _built(compact)
+    _ops(host, view, _flagged(**{flag: True}))
+
+    assert host.keypad_keys.tk._column_config[3] == {"weight": 1, "minsize": _cell_width(host)}
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_the_pad_width_tightens_to_the_occupied_columns_on_the_pane(compact: bool) -> None:
+    # Entry: three numeric columns stand, the 4th and the throttle collapse -> three cells wide.
+    host, view = _built(compact)
+    cell = _cell_width(host)
+    view.entry_mode(clear_info=False)
+
+    assert host.keypad_keys.tk._config["width"] == 3 * cell
+    assert host.keypad_box.tk._config["width"] == 3 * cell
+
+    # Generic accessory: the 4th column and the throttle both fill -> five cells wide.
+    host, view = _built(compact)
+    _ops(host, view)
+
+    assert host.keypad_keys.tk._config["width"] == 5 * cell
+    assert host.keypad_box.tk._config["width"] == 5 * cell
+
+
+@pytest.mark.parametrize("compact", [True, False])
+def test_returning_to_entry_recollapses_the_fourth_column_on_the_pane(compact: bool) -> None:
+    host, view = _built(compact, CommandScope.SWITCH, 7)
+    _ops(host, view)
+    assert host.keypad_keys.tk._column_config[3] == {"weight": 1, "minsize": _cell_width(host)}
+
+    view.entry_mode(clear_info=False)
+    assert host.keypad_keys.tk._column_config[3] == {"weight": 0, "minsize": 0}
+
+
+# ---------------------------------------------------------------------------
 # The Sensor Track cursor contract, with the footer button in place
 # ---------------------------------------------------------------------------
 

@@ -75,6 +75,10 @@ class KeypadView(Generic[S]):
         # Transient accessory panel override; see set_panel_kind_override. Cleared on any change
         # of selected TMCC ID, any change of scope, and on return to entry mode.
         self._forced_panel_kind: str | None = None
+        # Every cell parented to ``keypad_keys`` (numeric, entry, ops and aux cells) plus the
+        # accessory throttle box, recorded so ``_reflow_keypad_columns`` can collapse the grid
+        # columns that hold no visible cell. See build() / _register_keypad_cell.
+        self._keypad_cells: list = []
 
     @property
     def active_state(self) -> ComponentState | None:
@@ -200,6 +204,15 @@ class KeypadView(Generic[S]):
             align="top",
         )
 
+        # Rebuild the reflow roster from scratch; every cell parented to keypad_keys is filed
+        # here through make_key so _reflow_keypad_columns can read live occupancy.
+        self._keypad_cells = []
+
+        def make_key(*args, **kwargs):
+            cell, nb = host.make_keypad_button(*args, **kwargs)
+            self._register_keypad_cell(cell)
+            return cell, nb
+
         row = 0
         for r, kr in enumerate(ENTRY_LAYOUT):
             for c, label in enumerate(kr):
@@ -209,7 +222,7 @@ class KeypadView(Generic[S]):
                 else:
                     image = None
 
-                cell, nb = host.make_keypad_button(
+                cell, nb = make_key(
                     keypad_keys,
                     label,
                     row,
@@ -238,7 +251,7 @@ class KeypadView(Generic[S]):
 
         # fill in last row; contents depends on scope
         # accessory keys
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             None,
             row - 1,
@@ -254,7 +267,7 @@ class KeypadView(Generic[S]):
         btn.on_press = (host.on_acc_command, ["FRONT_COUPLER"])
         btn.on_repeat = btn.on_press
 
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             None,
             row,
@@ -270,7 +283,7 @@ class KeypadView(Generic[S]):
         btn.on_press = (host.on_acc_command, ["REAR_COUPLER"])
         btn.on_repeat = btn.on_press
 
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             None,
             row - 1,
@@ -286,7 +299,7 @@ class KeypadView(Generic[S]):
         btn.on_press = (host.on_acc_command, ["BOOST"])
         btn.on_repeat = btn.on_press
 
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             None,
             row,
@@ -302,7 +315,7 @@ class KeypadView(Generic[S]):
         btn.on_press = (host.on_acc_command, ["BRAKE"])
         btn.on_repeat = btn.on_press
 
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             SET_KEY,
             row - 2,
@@ -317,7 +330,7 @@ class KeypadView(Generic[S]):
         setattr(cell, "render_grid", [3, row - 4])
         btn.on_press = (host.on_acc_command, ["SET_ADDRESS"])
 
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             None,
             row - 2,
@@ -333,7 +346,7 @@ class KeypadView(Generic[S]):
         setattr(cell, "render_grid", [3, row - 3])
         btn.on_press = (host.on_acc_command, ["TOGGLE_DIRECTION"])
 
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             AUX1_KEY,
             row - 1,
@@ -350,7 +363,7 @@ class KeypadView(Generic[S]):
         btn.on_press = (host.on_acc_command, ["AUX1_OPT_ONE"])
         btn.on_repeat = btn.on_press
 
-        cell, btn = host.make_keypad_button(
+        cell, btn = make_key(
             keypad_keys,
             AUX2_KEY,
             row,
@@ -368,7 +381,7 @@ class KeypadView(Generic[S]):
         btn.on_repeat = btn.on_press
 
         # ASC2/BPC2 keys
-        host.on_key_cell, host.on_btn = host.make_keypad_button(
+        host.on_key_cell, host.on_btn = make_key(
             keypad_keys,
             None,
             row,
@@ -382,7 +395,7 @@ class KeypadView(Generic[S]):
         host.on_btn.on_press = (host.on_engine_command, ["START_UP_IMMEDIATE"], {"do_ops": True})
         host.on_btn.on_hold = (host.on_engine_command, [["START_UP_DELAYED", "START_UP_IMMEDIATE"]], {"do_ops": True})
 
-        host.off_key_cell, host.off_btn = host.make_keypad_button(
+        host.off_key_cell, host.off_btn = make_key(
             keypad_keys,
             ENGINE_OFF_KEY,
             row,
@@ -396,7 +409,7 @@ class KeypadView(Generic[S]):
         host.off_btn.on_hold = (host.on_engine_command, [["SHUTDOWN_DELAYED", "SHUTDOWN_IMMEDIATE"]])
 
         # set button
-        host.set_key_cell, host.set_btn = host.make_keypad_button(
+        host.set_key_cell, host.set_btn = make_key(
             keypad_keys,
             SET_KEY,
             row,
@@ -411,7 +424,7 @@ class KeypadView(Generic[S]):
         )
 
         # fire route button
-        host.fire_route_cell, host.fire_route_btn = host.make_keypad_button(
+        host.fire_route_cell, host.fire_route_btn = make_key(
             keypad_keys,
             FIRE_ROUTE_KEY,
             row,
@@ -423,7 +436,7 @@ class KeypadView(Generic[S]):
         )
 
         # switch button
-        host.switch_thru_cell, host.switch_thru_btn = host.make_keypad_button(
+        host.switch_thru_cell, host.switch_thru_btn = make_key(
             keypad_keys,
             SWITCH_THRU_KEY,
             row,
@@ -432,7 +445,7 @@ class KeypadView(Generic[S]):
             visible=False,
             is_ops=True,
         )
-        host.switch_out_cell, host.switch_out_btn = host.make_keypad_button(
+        host.switch_out_cell, host.switch_out_btn = make_key(
             keypad_keys,
             SWITCH_OUT_KEY,
             row,
@@ -444,7 +457,7 @@ class KeypadView(Generic[S]):
 
         # switch Set Address key; the aux Set key at the same slot only ever renders on the
         # generic accessory panel, so the two cannot be on screen at once.
-        host.sw_set_cell, host.sw_set_btn = host.make_keypad_button(
+        host.sw_set_cell, host.sw_set_btn = make_key(
             keypad_keys,
             SET_KEY,
             0,
@@ -459,7 +472,7 @@ class KeypadView(Generic[S]):
 
         # Info key; the only route to the state info panel on the switch panel, as that scope
         # hides the image box and with it the long-press target.
-        host.info_cell, host.info_btn = host.make_keypad_button(
+        host.info_cell, host.info_btn = make_key(
             keypad_keys,
             INFO_KEY,
             2,
@@ -474,7 +487,7 @@ class KeypadView(Generic[S]):
 
         # Panel toggle key shown on the BPC2/ASC2 panels, where column 3 is otherwise free.
         # Takes the display to the generic accessory panel -- the only one with Set Address.
-        host.acc_generic_cell, host.acc_generic_btn = host.make_keypad_button(
+        host.acc_generic_cell, host.acc_generic_btn = make_key(
             keypad_keys,
             ACC_PANEL_KEY,
             2,
@@ -530,7 +543,7 @@ class KeypadView(Generic[S]):
             amc2_toggle.update_command(host.on_show_generic_acc_panel, [])
 
         # BPC2/ASC2 Buttons
-        host.ac_on_cell, host.ac_on_btn = host.make_keypad_button(
+        host.ac_on_cell, host.ac_on_btn = make_key(
             keypad_keys,
             AC_ON_KEY,
             row,
@@ -542,7 +555,7 @@ class KeypadView(Generic[S]):
             titlebox_text="On",
         )
 
-        host.ac_status_cell, host.ac_status_btn = host.make_keypad_button(
+        host.ac_status_cell, host.ac_status_btn = make_key(
             keypad_keys,
             None,
             row,
@@ -554,7 +567,7 @@ class KeypadView(Generic[S]):
             command=False,
         )
 
-        host.ac_off_cell, host.ac_off_btn = host.make_keypad_button(
+        host.ac_off_cell, host.ac_off_btn = make_key(
             keypad_keys,
             AC_OFF_KEY,
             row,
@@ -567,7 +580,7 @@ class KeypadView(Generic[S]):
         )
 
         # Acs2 Momentary Action Button
-        host.ac_aux1_cell, host.ac_aux1_btn = host.make_keypad_button(
+        host.ac_aux1_cell, host.ac_aux1_btn = make_key(
             keypad_keys,
             AUX1_KEY,
             row - 1,
@@ -581,7 +594,7 @@ class KeypadView(Generic[S]):
         host.ac_aux1_btn.when_left_button_released = self.when_released
 
         # operating accessory controls key
-        host.ac_op_cell, host.ac_op_btn = host.make_keypad_button(
+        host.ac_op_cell, host.ac_op_btn = make_key(
             keypad_keys,
             None,
             row - 1,
@@ -619,6 +632,9 @@ class KeypadView(Generic[S]):
         )
 
         host.ops_cells.add(host.acc_throttle_box)
+        # The throttle occupies column 4, so it joins the reflow roster too: when hidden its
+        # column collapses like any other, when shown (the generic panel) it holds column 4.
+        self._register_keypad_cell(host.acc_throttle_box)
         host.acc_throttle_box.tk.config(
             height=acc_throttle_height,
         )
@@ -651,6 +667,68 @@ class KeypadView(Generic[S]):
         min_total_height = num_rows * min_cell_height
         min_total_width = num_cols * min_cell_width
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
+
+    def _register_keypad_cell(self, cell) -> None:
+        """Files a cell parented to ``keypad_keys`` into the reflow roster.
+
+        The single choke point every keypad cell passes through -- numeric, entry, ops and aux
+        cells go through ``make_key`` in build(), and the accessory throttle box is added
+        alongside them -- so ``_reflow_keypad_columns`` can read column occupancy from one list.
+        """
+        if cell is not None and cell not in self._keypad_cells:
+            self._keypad_cells.append(cell)
+
+    def _min_keypad_cell_width(self) -> int:
+        """The width a single occupied keypad column reserves; the build-time cell width."""
+        host = self._host
+        return host.button_size + (2 * host.grid_pad_by)
+
+    def _reflow_keypad_columns(self) -> None:
+        """Collapses keypad grid columns that hold no visible cell; restores occupied ones.
+
+        Reads each tracked cell's live ``.grid[0]`` and ``.visible`` -- late, so aux cells that
+        ``_expand_acc_aux_cells`` relocated to column 3 count as occupancy -- and reconfigures
+        ``keypad_keys`` one column at a time: an occupied column gets ``weight=1`` and the
+        build-time cell width, an empty one collapses to ``weight=0, minsize=0``. The numeric
+        columns 0-2 always hold visible keys, so the rule keeps them and never has to special
+        case them. Finally the keypad boxes are tightened to the occupied-column count so the
+        numeric pad does not float, leaving a gap where a collapsed column used to be.
+        """
+        host = self._host
+        keypad_keys = host.keypad_keys
+        keypad_box = host.keypad_box
+        if keypad_keys is None:
+            return
+
+        min_cell_width = self._min_keypad_cell_width()
+
+        # Group tracked cells by their live grid column, noting which columns hold a visible one.
+        occupied: dict[int, bool] = {}
+        max_col = -1
+        for cell in self._keypad_cells:
+            grid = getattr(cell, "grid", None)
+            if not grid:
+                continue
+            col = int(grid[0])
+            max_col = max(max_col, col)
+            if getattr(cell, "visible", False):
+                occupied[col] = True
+            else:
+                occupied.setdefault(col, False)
+
+        occupied_cols = 0
+        for col in range(max_col + 1):
+            if occupied.get(col, False):
+                keypad_keys.tk.grid_columnconfigure(col, weight=1, minsize=min_cell_width)
+                occupied_cols += 1
+            else:
+                keypad_keys.tk.grid_columnconfigure(col, weight=0, minsize=0)
+
+        # Tighten the keypad to the occupied columns so it does not leave a right-side gap.
+        total_width = occupied_cols * min_cell_width
+        keypad_keys.tk.configure(width=total_width)
+        if keypad_box is not None:
+            keypad_box.tk.configure(width=total_width)
 
     def on_keypress(self, key: str) -> None:
         host = self._host
@@ -873,6 +951,7 @@ class KeypadView(Generic[S]):
             host.reset_btn.enable()
         else:
             host.reset_btn.disable()
+        self._reflow_keypad_columns()
 
     def enter_ops_mode_base(self) -> None:
         """
@@ -942,6 +1021,7 @@ class KeypadView(Generic[S]):
             host.fire_route_cell.show()
             if not host.keypad_box.visible:
                 host.keypad_box.show()
+            self._reflow_keypad_columns()
             return
 
         if host.scope == CommandScope.SWITCH:
@@ -952,6 +1032,7 @@ class KeypadView(Generic[S]):
             host.info_cell.show()
             if not host.keypad_box.visible:
                 host.keypad_box.show()
+            self._reflow_keypad_columns()
             return
 
         # Handles accessory or BPC2 state and UI visibility
@@ -1007,6 +1088,8 @@ class KeypadView(Generic[S]):
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
                 host.app.tk.after_idle(host.image_presenter.update, host.scope_tmcc_id())
+
+            self._reflow_keypad_columns()
 
     def _alternate_acc_view_kind(self, state: S | None) -> str | None:
         """Which other view of this component ``ac_op_btn`` should offer, if any.

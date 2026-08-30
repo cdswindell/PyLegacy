@@ -49,6 +49,9 @@ class DummyTk:
         self._config: dict[str, Any] = {}
         self._bindings: dict[str, list[Callable]] = {}
         self.after_idle_calls: list[tuple[Callable, tuple[Any, ...]]] = []
+        # Records the last per-column grid_columnconfigure so the keypad-column lock can assert
+        # which columns the reflow collapses (weight=0, minsize=0) and which it keeps.
+        self._column_config: dict[int, dict[str, Any]] = {}
 
     def config(self, **kwargs: Any) -> None:
         self._config.update(kwargs)
@@ -67,9 +70,8 @@ class DummyTk:
     def grid_rowconfigure(_row: int, **_kwargs: Any) -> None:
         return
 
-    @staticmethod
-    def grid_columnconfigure(_col: int, **_kwargs: Any) -> None:
-        return
+    def grid_columnconfigure(self, col: int, **kwargs: Any) -> None:
+        self._column_config[col] = dict(kwargs)
 
     @staticmethod
     def grid_propagate(_value: bool) -> None:
@@ -560,6 +562,69 @@ def test_each_lcs_panel_carries_a_key_to_the_generic_panel() -> None:
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
     assert host.ac_op_cell.visible is False, "and the one free key is disabled without a configured accessory"
     assert host.ac_op_btn.enabled is False
+
+
+# ---------------------------------------------------------------------------
+# The width of the ops-only 4th keypad column, locked per view
+# ---------------------------------------------------------------------------
+#
+# The one intended change of this stage: the 4th column (grid column 3) reserves
+# space only where a view puts a visible key in it. Entry and the empty-column
+# views (Route) collapse it; the views that fill it (Switch, generic accessory,
+# BPC2 / ASC2) restore it. Every other locked expectation above is untouched.
+
+# button_size + 2 * grid_pad_by -> 96 + 4 = 100 in this host.
+_OCCUPIED_COL = {"weight": 1, "minsize": 100}
+_COLLAPSED_COL = {"weight": 0, "minsize": 0}
+
+
+def test_entry_mode_collapses_the_fourth_column() -> None:
+    host, view = _built()
+    view.entry_mode(clear_info=False)
+
+    cfg = host.keypad_keys.tk._column_config
+    assert cfg[0] == _OCCUPIED_COL
+    assert cfg[1] == _OCCUPIED_COL
+    assert cfg[2] == _OCCUPIED_COL
+    assert cfg[3] == _COLLAPSED_COL
+
+
+def test_route_ops_mode_collapses_the_fourth_column() -> None:
+    host, view = _built(CommandScope.ROUTE, 5)
+    _ops(host, view, state=None)
+
+    assert host.keypad_keys.tk._column_config[3] == _COLLAPSED_COL
+
+
+def test_switch_ops_mode_expands_the_fourth_column() -> None:
+    host, view = _built(CommandScope.SWITCH, 7)
+    _ops(host, view, state=None)
+
+    assert host.keypad_keys.tk._column_config[3] == _OCCUPIED_COL
+
+
+def test_generic_accessory_ops_mode_expands_the_fourth_column() -> None:
+    host, view = _built()
+    _ops(host, view)
+
+    assert host.keypad_keys.tk._column_config[3] == _OCCUPIED_COL
+
+
+@pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2"])
+def test_the_lcs_panels_expand_the_fourth_column(flag: str) -> None:
+    host, view = _built()
+    _ops(host, view, DummyAccessoryState(**{flag: True}))
+
+    assert host.keypad_keys.tk._column_config[3] == _OCCUPIED_COL
+
+
+def test_returning_to_entry_recollapses_the_fourth_column() -> None:
+    host, view = _built(CommandScope.SWITCH, 7)
+    _ops(host, view, state=None)
+    assert host.keypad_keys.tk._column_config[3] == _OCCUPIED_COL
+
+    view.entry_mode(clear_info=False)
+    assert host.keypad_keys.tk._column_config[3] == _COLLAPSED_COL
 
 
 def test_sensor_track_ops_mode_replaces_the_keypad_with_the_sequence_box() -> None:
