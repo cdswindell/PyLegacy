@@ -662,94 +662,189 @@ def test_on_asc2_momentary_delegates_to_the_keypad(pressed: bool) -> None:
     assert calls == [pressed]
 
 
-def _sensor_track_engine(moved_to: int | None, *, tmcc_id: int = 19) -> mod.EngineGui:
-    """A Sensor Track pane whose keypad answers a step with ``moved_to`` and records sends.
+def _sensor_track_engine(highlight: int | None = None, *, tmcc_id: int = 19, clamped: bool = False) -> mod.EngineGui:
+    """A Sensor Track pane over a keypad that keeps a highlight and records what is sent.
 
-    ``moved_to`` is what ``KeypadView.step_sensor_track_sequence`` answers: the Sequence value
-    the highlight came to rest on, or ``None`` where the press was clamped at an end of the
-    list and moved nothing.
+    ``highlight`` is the Sequence option the group starts on -- ``None`` for a fresh track
+    with no ``IrdaState`` yet, which is nothing highlighted. ``clamped`` makes every step
+    answer None, as ``KeypadView.step_sensor_track_sequence`` does at either end of the list.
     """
     gui = _acc_engine("sensor_track", tmcc_id=tmcc_id)
     # ``_new_engine`` builds the pane through ``__new__``, so what ``__init__`` would have
     # set has to be set here, the way it already seeds ``_amc2_ops_panel``.
-    gui._pending_sensor_track = None
+    gui._sensor_track_selected = None
+    gui._sensor_track_undo = None
     sent: list[tuple[int, int]] = []
     steps: list[int] = []
+    view = SimpleNamespace(accessory_panel_kind="sensor_track", sensor_track_sequence=highlight)
 
     def step(delta: int) -> int | None:
         steps.append(delta)
+        if clamped:
+            return None
+        moved_to = 0 if view.sensor_track_sequence is None else view.sensor_track_sequence + delta
+        view.sensor_track_sequence = moved_to
         return moved_to
 
-    gui._keypad_view = SimpleNamespace(
-        accessory_panel_kind="sensor_track",
-        step_sensor_track_sequence=step,
-        send_sensor_track_sequence=lambda tmcc, sequence: sent.append((tmcc, sequence)),
-    )
+    def move(sequence: int) -> bool:
+        view.sensor_track_sequence = sequence
+        return True
+
+    view.step_sensor_track_sequence = step
+    view.set_sensor_track_sequence = move
+    view.send_sensor_track_sequence = lambda tmcc, sequence: sent.append((tmcc, sequence))
+    gui._keypad_view = view
+    gui.sensor_track_view = view
     gui.sensor_track_sent = sent
     gui.sensor_track_steps = steps
     return gui
 
 
 @pytest.mark.parametrize("delta", [-1, 1])
-def test_on_sensor_track_step_records_the_pair_it_moved_to(delta: int) -> None:
-    # KD-11: what is pending is the GUI's, and it is a *pair* -- the id as well as the value
-    # -- because the id is part of the choice the operator made and not of the pane they
-    # happened to be looking at when the pause elapsed.
-    gui = _sensor_track_engine(7, tmcc_id=19)
+def test_on_sensor_track_step_moves_the_highlight_and_writes_nothing(delta: int) -> None:
+    # A-7: the two acts are separate. Stepping is the pad moving its eye down the list, and
+    # nothing the track is told about, so crossing the ten options costs no commands at all.
+    gui = _sensor_track_engine(5)
 
     moved = gui.on_sensor_track_step(delta)
 
     assert moved is True
     assert gui.sensor_track_steps == [delta]
-    assert gui._pending_sensor_track == (19, 7)
+    assert gui.sensor_track_view.sensor_track_sequence == 5 + delta
     assert gui.sensor_track_sent == [], "the step itself writes nothing"
 
 
-def test_on_sensor_track_step_records_nothing_where_the_highlight_did_not_move() -> None:
-    # A press clamped at either end. Answering False is what keeps the router from arming --
-    # or re-arming -- a pause for a choice that was never made.
+def test_on_sensor_track_step_answers_false_where_the_highlight_did_not_move() -> None:
+    # A press clamped at either end, which a caller may want to tell from one that moved.
+    gui = _sensor_track_engine(0, clamped=True)
+
+    assert gui.on_sensor_track_step(-1) is False
+    assert gui.sensor_track_sent == []
+
+
+def test_on_sensor_track_select_writes_the_highlighted_option_at_this_pane_s_id() -> None:
+    gui = _sensor_track_engine(3, tmcc_id=23)
+
+    gui.on_sensor_track_select()
+
+    assert gui.sensor_track_sent == [(23, 3)]
+    assert gui._sensor_track_selected == (23, 3)
+    assert gui._sensor_track_undo is None, "there was nothing selected before to go back to"
+
+
+def test_on_sensor_track_select_with_nothing_highlighted_writes_nothing() -> None:
+    # A fresh track with no IrdaState shows nothing selected, and "the option showing" is then
+    # not a thing there is one of. Writing index 0 for it would be the pad choosing.
     gui = _sensor_track_engine(None)
 
-    moved = gui.on_sensor_track_step(-1)
+    gui.on_sensor_track_select()
 
-    assert moved is False
-    assert gui._pending_sensor_track is None
     assert gui.sensor_track_sent == []
+    assert gui._sensor_track_selected is None
 
 
-def test_on_sensor_track_commit_writes_the_recorded_pair_and_forgets_it() -> None:
+def test_a_second_select_records_the_option_it_displaced() -> None:
+    # The undo point, which is the whole of what revert works from: the option that was
+    # selected *before* this write, so a select the operator regrets can be taken back.
+    gui = _sensor_track_engine(2, tmcc_id=23)
+    gui.on_sensor_track_select()
+    gui.on_sensor_track_step(4)
+
+    gui.on_sensor_track_select()
+
+    assert gui.sensor_track_sent == [(23, 2), (23, 6)]
+    assert gui._sensor_track_undo == (23, 2)
+
+
+def test_selecting_the_option_already_showing_keeps_the_undo_point() -> None:
+    # Re-selecting what is already selected is a confirmation rather than a change, and taking
+    # it as one would spend the undo point on nothing -- leaving the operator's real previous
+    # choice unreachable after a stray press of the select key.
+    gui = _sensor_track_engine(2, tmcc_id=23)
+    gui.on_sensor_track_select()
+    gui.on_sensor_track_step(4)
+    gui.on_sensor_track_select()
+
+    gui.on_sensor_track_select()
+
+    assert gui.sensor_track_sent == [(23, 2), (23, 6), (23, 6)], "the write is still made"
+    assert gui._sensor_track_undo == (23, 2), "and the option to go back to is still the old one"
+
+
+def test_on_sensor_track_revert_puts_back_the_option_the_last_select_replaced() -> None:
+    gui = _sensor_track_engine(2, tmcc_id=23)
+    gui.on_sensor_track_select()
+    gui.on_sensor_track_step(4)
+    gui.on_sensor_track_select()
+
+    gui.on_sensor_track_revert()
+
+    assert gui.sensor_track_sent == [(23, 2), (23, 6), (23, 2)], "the displaced option went back"
+    assert gui.sensor_track_view.sensor_track_sequence == 2, "and the highlight followed it"
+    assert gui._sensor_track_selected == (23, 2)
+
+
+def test_a_revert_is_one_shot_rather_than_a_way_of_flipping_between_two_options() -> None:
+    # An undo, not a toggle: spent by the revert that uses it. Otherwise a second press would
+    # re-apply the very write the first one was asked to take back.
+    gui = _sensor_track_engine(2, tmcc_id=23)
+    gui.on_sensor_track_select()
+    gui.on_sensor_track_step(4)
+    gui.on_sensor_track_select()
+    gui.on_sensor_track_revert()
+
+    gui.on_sensor_track_revert()
+
+    assert gui.sensor_track_sent == [(23, 2), (23, 6), (23, 2)], "the second revert wrote nothing"
+    assert gui._sensor_track_undo is None
+
+
+def test_a_revert_with_nothing_selected_yet_abandons_the_stepping_and_sends_nothing() -> None:
+    # What makes revert useful before the first select: it takes the highlight back to the
+    # option the track actually holds. No write, the track already being there -- one would be
+    # a command asked for by nobody.
     gui = _sensor_track_engine(4, tmcc_id=23)
-    gui.on_sensor_track_step(1)
+    gui._sensor_track_selected = (23, 4)
+    gui.on_sensor_track_step(3)
 
-    gui.on_sensor_track_commit()
+    assert gui.sensor_track_view.sensor_track_sequence == 7
 
-    assert gui.sensor_track_sent == [(23, 4)]
-    assert gui._pending_sensor_track is None
+    gui.on_sensor_track_revert()
 
-    gui.on_sensor_track_commit()
-
-    assert gui.sensor_track_sent == [(23, 4)], "a second commit has nothing left to write"
-
-
-def test_on_sensor_track_commit_with_nothing_pending_is_a_no_op() -> None:
-    # ``clear()`` flushes every armed target, and a target may be armed and settled in the
-    # same breath; a commit with nothing pending must be silent rather than send a stale pair.
-    gui = _sensor_track_engine(4)
-
-    gui.on_sensor_track_commit()
-
+    assert gui.sensor_track_view.sensor_track_sequence == 4, "back where the track is set"
     assert gui.sensor_track_sent == []
 
 
-def test_a_pane_re_scoped_during_the_pause_still_writes_the_pair_chosen_at_step_time() -> None:
-    # The case the recorded pair exists for. The write is half a second behind the press, and
-    # the catalog can re-point the pane inside that half second: reading the id at commit time
-    # would send the Sequence the operator chose for one Sensor Track to a different one.
-    gui = _sensor_track_engine(6, tmcc_id=19)
-    gui.on_sensor_track_step(1)
+def test_a_revert_on_a_pane_re_scoped_to_another_sensor_track_writes_nothing() -> None:
+    # The reason both records carry the id as well as the value. The catalog can re-point the
+    # pane between the select and the revert, and an id-blind undo would then write the option
+    # chosen for one Sensor Track to a different one.
+    gui = _sensor_track_engine(2, tmcc_id=19)
+    gui.on_sensor_track_select()
+    gui.on_sensor_track_step(4)
+    gui.on_sensor_track_select()
 
     gui._scope_tmcc_ids[CommandScope.ACC] = 42
 
-    gui.on_sensor_track_commit()
+    gui.on_sensor_track_revert()
 
-    assert gui.sensor_track_sent == [(19, 6)], "the id the choice was made at, not the one now shown"
+    assert gui.sensor_track_sent == [(19, 2), (19, 6)], "nothing was written at the new id"
+
+
+def test_on_new_accessory_seeds_what_a_revert_falls_back_to() -> None:
+    # The one place the panel learns what the track actually holds, so the one place the pad's
+    # notion of "currently selected" can start out right rather than being guessed.
+    gui = _sensor_track_engine(None, tmcc_id=22)
+    gui._scope_tmcc_ids = {CommandScope.ACC: 22}
+    gui.sensor_track_buttons = SimpleNamespace(value=None)
+    gui._sensor_track_undo = (22, 1)
+    monkey = SimpleNamespace(sequence=SimpleNamespace(value=3))
+    gui._state_store = SimpleNamespace(get_state=lambda scope, tmcc_id, include: monkey)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
+        patch.setattr(mod, "IrdaState", type(monkey), raising=True)
+        gui.on_new_accessory(DummyAccessoryState(is_sensor_track=True))
+
+    assert gui._sensor_track_selected == (22, 3)
+    assert gui._sensor_track_undo is None, "and an undo point from before the report is stale"

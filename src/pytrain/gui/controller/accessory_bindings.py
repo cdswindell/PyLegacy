@@ -91,12 +91,19 @@ DPAD_ACTION_NAMES = frozenset({DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT})
 # being button-indexed (``CLOSE_POPUP_BUTTON``) where this is not. The two agree for any
 # profile that leaves ``reset`` where the bundled one puts it.
 #
-# A context that binds one of these explicitly still gets it: this is a default rather than a
-# prohibition, so a profile that deliberately puts something else on Menu is obeyed.
+# A context that binds ``scope_catalog`` explicitly still gets it: that set is a default rather
+# than a prohibition, so a profile that deliberately puts something else on Menu is obeyed. The
+# popup-gated set below is stronger while its condition holds -- see the note on it.
 NEVER_CLAIMED_ACTIONS = frozenset({"scope_catalog"})
 
 # The controls carved out only while a popup is up: X, which closes one. See the block above
 # for why this is a set of its own rather than another member of the one above it.
+#
+# Unlike the set above, this one outranks an explicit binding for as long as its condition
+# holds. A popup is modal and X is the only way down from it, so a context that took X while
+# one was up would be a panel the pad could not leave -- and the Sensor Track context does bind
+# X, for the revert of its Sequence choice. That meaning is the one X has when there is nothing
+# to close, which is every other moment on the panel.
 POPUP_ONLY_ACTIONS = frozenset({"reset"})
 
 # The dispatch verbs a binding may name. Each is the *way* a command is sent, as against the
@@ -112,10 +119,15 @@ VERB_LCS_OFF = "lcs_off"
 VERB_ASC2_MOMENTARY = "asc2_momentary"
 VERB_ACC_THROTTLE = "acc_throttle"
 # Move the Sensor Track's Sequence selection by ``data`` options, clamped at both ends. The
-# only verb whose press does not send: the highlight moves at once and the write follows once
-# the D-pad has been still, so crossing the ten options costs one command rather than nine.
-# The router owns that pause and the GUI owns what is pending -- see ``on_sensor_track_step``.
+# only verb that sends nothing at all: it moves the highlight and stops there, so crossing the
+# ten options costs no commands rather than nine. The write is asked for outright by the two
+# verbs below, which is what leaves the operator somewhere to change their mind.
 VERB_SENSOR_TRACK_STEP = "sensor_track_step"
+# Write the option the Sequence group is highlighting, and remember what it replaced.
+VERB_SENSOR_TRACK_SELECT = "sensor_track_select"
+# Put back the option the last select replaced. One-shot: there is nothing further to undo
+# until the next select, a revert being an undo rather than a second stepping pair.
+VERB_SENSOR_TRACK_REVERT = "sensor_track_revert"
 VERB_CLAIM = "claim"
 
 # The verbs that act on a stick position rather than on a press. An action bound to one of
@@ -145,6 +157,8 @@ KNOWN_VERBS = frozenset(
         VERB_ASC2_MOMENTARY,
         VERB_ACC_THROTTLE,
         VERB_SENSOR_TRACK_STEP,
+        VERB_SENSOR_TRACK_SELECT,
+        VERB_SENSOR_TRACK_REVERT,
         VERB_CLAIM,
     }
 )
@@ -394,14 +408,25 @@ _ACC_ASC2_BINDINGS: Mapping[str, Dispatch | None] = {
     "throttle": Dispatch(VERB_ASC2_MOMENTARY, axis_held=True, both_phases=True),
 }
 
-# The one control a pane showing a Sensor Track takes: the D-pad, stepping the Sequence radio
-# group the panel already shows. Up moves toward "No Action" and down toward "Recorded
-# Sequence", so the highlight follows the pad the way it reads on screen -- the same convention
-# ``scroll_catalog(-1)`` uses for up.
+# What a pane showing a Sensor Track takes: the D-pad and the two face-adjacent keys that
+# confirm and cancel everywhere else on the pad.
 #
-# Not ``repeat``: the group is ten options long and every step is a write, so a D-pad held down
-# would otherwise cross it sending nine of them. One step per press, and the write follows the
-# pause the router keeps.
+# Up and down step the Sequence radio group the panel already shows -- up toward "No Action"
+# and down toward "Recorded Sequence", so the highlight follows the pad the way the list reads
+# on screen, the same convention ``scroll_catalog(-1)`` uses for up. Neither sends anything.
+#
+# Right and A write the option the stepping settled on; left and X put back the option that
+# write replaced. Stepping and sending are separate on purpose: the group is ten options long,
+# so crossing it would otherwise put nine writes on the wire to reach the one that was wanted.
+# Two ways to reach each of them, as the power district's On and Off have, the D-pad pointing
+# the way the choice reads and the face key meaning what it means elsewhere.
+#
+# Not ``repeat``: one step per press, so no write is ever asked for that a finger did not ask
+# for individually.
+#
+# ``reset`` is X, and binding it here does not take it away from an open popup: the popup
+# carve-out in ``resolve`` is asked first, so X closes what is up and reverts only when there
+# is nothing to close.
 #
 # Nothing else is bound. The panel has no other control on it, so the sticks and the triggers
 # are claimed by the ``acc`` base and sent nowhere, which is what FR-0 asks of a pane with no
@@ -409,6 +434,10 @@ _ACC_ASC2_BINDINGS: Mapping[str, Dispatch | None] = {
 _ACC_SENSOR_TRACK_BINDINGS: Mapping[str, Dispatch | None] = {
     "dpad_up": Dispatch(VERB_SENSOR_TRACK_STEP, data=-1),
     "dpad_down": Dispatch(VERB_SENSOR_TRACK_STEP, data=1),
+    "dpad_right": Dispatch(VERB_SENSOR_TRACK_SELECT),
+    "sequence_control": Dispatch(VERB_SENSOR_TRACK_SELECT),
+    "dpad_left": Dispatch(VERB_SENSOR_TRACK_REVERT),
+    "reset": Dispatch(VERB_SENSOR_TRACK_REVERT),
 }
 
 DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {
@@ -666,14 +695,20 @@ def resolve(
 
     A ``NEVER_CLAIMED_ACTIONS`` member is the exception to that last part: the swallow does not
     reach it, so Menu still opens the catalog on a panel whose context claims everything else.
-    A ``POPUP_ONLY_ACTIONS`` member is the same exception on a condition -- ``popup_visible``,
-    which the caller reads from the pane -- so X closes a popup that is up and is claimed like
-    anything else when there is none.
-
-    Only an explicit binding takes either -- a profile that puts something else on Menu is
+    An explicit binding takes it all the same -- a profile that puts something else on Menu is
     obeyed -- and an explicit unbind is not one, an unbound action being exactly what the
     carve-out is about.
+
+    A ``POPUP_ONLY_ACTIONS`` member is carved out on a condition instead -- ``popup_visible``,
+    which the caller reads from the pane -- and while that condition holds it is carved out
+    from a binding too, which is why it is asked before the walk rather than after it. A popup
+    is modal and X is the only way down from it, so a context that bound X while one was up
+    would be a panel the pad could not leave: exactly the dead end the carve-out exists for.
+    The Sensor Track context does bind X, to revert its Sequence choice, and that meaning is
+    the one X has when there is nothing to close.
     """
+    if popup_visible and action in POPUP_ONLY_ACTIONS:
+        return None
     seen: set[str] = set()
     claimer: ContextSpec | None = None
     unbound = False
@@ -693,7 +728,7 @@ def resolve(
         # Explicitly unbound here: no further binding is looked at, so an override cannot fall
         # through to the entry it was written to remove. A claiming context still swallows it.
         unbound = True
-    if claimer is None or action in NEVER_CLAIMED_ACTIONS or (popup_visible and action in POPUP_ONLY_ACTIONS):
+    if claimer is None or action in NEVER_CLAIMED_ACTIONS:
         # Nothing claims what nothing binds, and nothing at all claims a control the pane is
         # navigated by: the walk found no binding for it, so the carve-out applies and the
         # action goes on to the handling it has everywhere else.

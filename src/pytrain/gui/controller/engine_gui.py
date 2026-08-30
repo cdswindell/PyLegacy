@@ -263,10 +263,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         # Sensor Track
         self.sensor_track_box = self.sensor_track_buttons = None
-        # The (tmcc_id, sequence) the gamepad's stepping has settled on but not yet written.
-        # Held here rather than in the input layer so the write goes to the id the operator
-        # chose it at, whatever the pane has been re-scoped to by the time it goes out.
-        self._pending_sensor_track: tuple[int, int] | None = None
+        # The (tmcc_id, sequence) this Sensor Track is believed to hold: what an incoming
+        # IrdaState last reported, or what the pad last wrote. Read as "where a revert with
+        # nothing to undo goes back to".
+        self._sensor_track_selected: tuple[int, int] | None = None
+        # The pair the most recent select displaced, and so what a revert puts back. One-shot:
+        # cleared by the revert that spends it. Carries the id as well as the value so a pane
+        # re-scoped to another Sensor Track cannot be reverted to this one's option.
+        self._sensor_track_undo: tuple[int, int] | None = None
 
         # BPC2/ASC2
         self.ac_on_cell = self.ac_off_cell = self.ac_status_cell = None
@@ -1389,8 +1393,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 st_state = self._state_store.get_state(CommandScope.IRDA, tmcc_id, False)
                 if isinstance(st_state, IrdaState):
                     self.sensor_track_buttons.value = st_state.sequence.value
+                    # The one place the panel learns what the track actually holds, so it is
+                    # where the pad's notion of "the option currently selected" is seeded. Any
+                    # undo point goes with it: it belonged to a select made against whatever
+                    # was showing before, which this report supersedes.
+                    #
+                    # Read defensively rather than trusted: the widget takes whatever it is
+                    # given, but a value the pad cannot compare is one it cannot revert to, so
+                    # it is better forgotten than half-remembered.
+                    try:
+                        self._sensor_track_selected = (tmcc_id, int(st_state.sequence.value))
+                    except (TypeError, ValueError):
+                        self._sensor_track_selected = None
                 else:
                     self.sensor_track_buttons.value = None
+                    self._sensor_track_selected = None
+                self._sensor_track_undo = None
             elif state.is_bpc2 or state.is_asc2:
                 self.update_ac_status(state)
             elif state.is_amc2:
@@ -2016,7 +2034,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         Read by the Steam Deck input layer: a panel showing a switch has no engine to
         drive, so the triggers and sticks that would drive one throw the switch instead.
         True, while the panel's scope is Switch and one has been selected -- including while
-        a replacement id is being keyed in, so a throw still reaches the switch, the panel
+        a replacement id is being keyed in, so a throw still reaches the switch. The panel
         is displaying rather than being swallowed until the entry is committed.
         """
         return self.scope == CommandScope.SWITCH and self.scope_tmcc_id(CommandScope.SWITCH) > 0
@@ -2026,7 +2044,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         The controller's entry point for the switch keys. It goes through ``do_command`` so
         a switch thrown from the gamepad is indistinguishable from a press of the on-screen
-        key -- same command, same address, same repeats -- and the guard keeps a stray
+        key -- same command, same address, same repeats. The guard keeps a stray
         action from addressing a switch command to whatever else the panel is showing.
         """
         if not self.switch_active:
@@ -2069,10 +2087,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def route_active(self) -> bool:
         """Whether this panel is controlling a route.
 
-        The switch story one panel type along, and read by the Steam Deck input layer for
+        The switch story one-panel type along, and read by the Steam Deck input layer for
         the same reason: a panel showing a route has no engine to drive, so the triggers
         and sticks that would drive one fire the route instead. True on the same terms as
-        ``switch_active`` -- scope is Route and one has been selected, including while a
+        ``switch_active`` -- scope is Route, and one has been selected, including while a
         replacement id is being keyed in.
         """
         return self.scope == CommandScope.ROUTE and self.scope_tmcc_id(CommandScope.ROUTE) > 0
@@ -2109,44 +2127,76 @@ class EngineGui(GuiZeroBase, Generic[S]):
             send_lcs_off_command(state)
 
     def on_asc2_momentary(self, pressed: bool) -> None:
-        """Hold an ASC2 output on while a control is held, and drop it on the release.
+        """Hold an ASC2 output on while a control is held and drop it on the release.
 
         Delegates to the keypad, which is where the on-screen momentary key sends from, so
         the two cannot send different requests. The release is delivered even if the panel's
-        scope has changed since the press, so nothing is left energised.
+        scope has changed since the press, so nothing is left energized.
         """
         self._keypad_view.asc2_control(pressed)
 
     def on_sensor_track_step(self, delta: int) -> bool:
-        """Move the Sensor Track's Sequence highlight ``delta`` options and remember where.
+        """Move the Sensor Track's Sequence highlight ``delta`` options. True, where it moved.
 
-        The highlight moves at once and nothing is written: the pair moved to is recorded
-        instead, and ``on_sensor_track_commit`` sends it once the D-pad has been still. That
-        is the division KD-11 asks for -- the panel owns what is pending, the input layer owns
-        the timing -- and it is what makes the write immune to the pane being re-scoped during
-        the pause: the id is captured here, alongside the value it was chosen at.
+        Nothing is written: the highlight moves and stops there, so crossing the ten options
+        puts nothing on the wire, and the option settled on is the only one the track ever hears
+        about. ``on_sensor_track_select`` is what sends it.
 
-        Returns whether anything moved, so a step clamped at either end of the list arms no
-        pause and leaves any pause already running alone.
+        Returns whether anything moved, so a caller can tell a step from a press clamped at
+        either end of the list.
         """
-        sequence = self._keypad_view.step_sensor_track_sequence(delta)
+        return self._keypad_view.step_sensor_track_sequence(delta) is not None
+
+    def on_sensor_track_select(self) -> None:
+        """Write the Sequence option the panel is highlighting, and remember what it replaced.
+
+        The id and the value are read together, here, so the write cannot go to a track other
+        than the one the highlight belongs to.
+
+        An undo point is recorded only where the value actually changes: selecting the option
+        already showing is a confirmation rather than a change, and taking it as one would
+        throw away a real undo and leave the operator with nothing to go back to.
+        """
+        sequence = self._keypad_view.sensor_track_sequence
         if sequence is None:
-            return False
-        self._pending_sensor_track = (self.scope_tmcc_id(self.scope), sequence)
-        return True
-
-    def on_sensor_track_commit(self) -> None:
-        """Write whatever Sequence the stepping settled on, and forget it.
-
-        No-arg and idempotent: it sends the pair ``on_sensor_track_step`` recorded rather than
-        re-reading the panel, and does nothing at all when there is none, so a caller that
-        flushes twice writes once.
-        """
-        pending = self._pending_sensor_track
-        if pending is None:
             return
-        self._pending_sensor_track = None
-        self._keypad_view.send_sensor_track_sequence(*pending)
+        tmcc_id = self.scope_tmcc_id(self.scope)
+        if tmcc_id <= 0:
+            return
+        selected = self._sensor_track_selected
+        if selected is not None and selected[0] == tmcc_id and selected[1] != sequence:
+            self._sensor_track_undo = selected
+        self._sensor_track_selected = (tmcc_id, sequence)
+        self._keypad_view.send_sensor_track_sequence(tmcc_id, sequence)
+
+    def on_sensor_track_revert(self) -> None:
+        """Put back the option the last select replaced, or abandon a move not yet selected.
+
+        Two cases, and the second is what makes revert useful before the first select has
+        happened:
+
+        * There is an undo point -- a select displaced something -- so the highlight goes back
+          to it and the write goes with it. One-shot: the undo point is spent, a revert being
+          an undo rather than a way of flipping between two options.
+        * There is none, so the stepping is simply abandoned: the highlight returns to the
+          option the track is believed to hold, and **nothing is sent**, the track already being
+          there. A write would be a command asked for by nobody.
+
+        A pair belonging to another id is ignored rather than written, so a pane re-scoped to a
+        second Sensor Track cannot be reverted to the first one's option.
+        """
+        tmcc_id = self.scope_tmcc_id(self.scope)
+        undo = self._sensor_track_undo
+        if undo is not None and undo[0] == tmcc_id:
+            self._sensor_track_undo = None
+            if not self._keypad_view.set_sensor_track_sequence(undo[1]):
+                return
+            self._sensor_track_selected = undo
+            self._keypad_view.send_sensor_track_sequence(*undo)
+            return
+        selected = self._sensor_track_selected
+        if selected is not None and selected[0] == tmcc_id:
+            self._keypad_view.set_sensor_track_sequence(selected[1])
 
     # noinspection PyTypeChecker
     def ops_mode(self, update_info: bool = True, state: S | None = None) -> None:
@@ -2659,7 +2709,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         The controller's entry point for the accessory speed slider, and the reason a gamepad
         stick and the slider cannot ask for different things: both end in the same
         ``RELATIVE_SPEED`` command, clamped to the range the slider offers. A step of zero is
-        no request at all, and is dropped rather than sent.
+        no request at all and is dropped rather than sent.
         """
         try:
             speed = int(value)

@@ -954,9 +954,9 @@ class KeypadView(Generic[S]):
 
         Widget-free on purpose, as ``asc2_control`` is: the on-screen group reaches it through
         the change handler above, and the gamepad reaches it through
-        ``EngineGui.on_sensor_track_commit``, so both send exactly the same request. Taking the
-        id and the value as arguments rather than reading them is what lets the pad send the
-        pair the operator settled on even if the pane has been re-scoped since.
+        ``EngineGui.on_sensor_track_select``, so both send exactly the same request. Taking the
+        id and the value as arguments rather than reading them is what lets a revert send the
+        pair it is putting back rather than whatever the group happens to show.
 
         The two callers hand over different types and the normalising is done here rather than
         asked of them: the change handler passes what the group holds, which is a ``str``
@@ -965,6 +965,63 @@ class KeypadView(Generic[S]):
         """
         st_seq = IrdaSequence.by_value(int(sequence))
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self._host.repeat)
+
+    @staticmethod
+    def sensor_track_values() -> list[int]:
+        """The Sequence option values, in the order the group shows them."""
+        return [int(opt[1]) for opt in SENSOR_TRACK_OPTS]
+
+    @property
+    def sensor_track_sequence(self) -> int | None:
+        """The Sequence option the group is highlighting, or None where none is.
+
+        What "none" looks like has to be read off the widget rather than assumed: the group
+        keeps its selection in a Tk ``StringVar``, so it answers with a ``str`` whatever was
+        assigned, and the ``value = None`` ``on_new_accessory`` clears it with comes back as
+        the string ``"None"``. Anything that does not parse to an option in the list -- that,
+        an empty group, a value from outside the list -- is read as nothing highlighted.
+
+        The one place that normalising is done: the stepping and the select both want the
+        current option, and two readings of a Tk string is two chances to disagree about it.
+        """
+        host = self._host
+        if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
+            return None
+        buttons = host.sensor_track_buttons
+        if buttons is None:
+            return None
+        try:
+            value = int(buttons.value)
+        except (TypeError, ValueError):
+            return None
+        return value if value in self.sensor_track_values() else None
+
+    def set_sensor_track_sequence(self, sequence: int) -> bool:
+        """Moves the Sequence highlight to ``sequence`` and sends nothing. True where it moved.
+
+        Assigns ``value`` rather than clicking an option, which is what moves the highlight
+        without sending: the group's command fires on a click, so an assignment is silent --
+        the same assignment ``on_new_accessory`` makes from incoming state.
+
+        Re-checks that the Sensor Track panel is the one displayed, as ``asc2_control``
+        re-checks its own port: the pad's press and the panel it was aimed at are two separate
+        moments, and a highlight moved on a panel that is no longer showing one would be a
+        change nobody could see.
+        """
+        host = self._host
+        if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
+            return False
+        buttons = host.sensor_track_buttons
+        if buttons is None:
+            return False
+        try:
+            value = int(sequence)
+        except (TypeError, ValueError):
+            return False
+        if value not in self.sensor_track_values():
+            return False
+        buttons.value = value
+        return True
 
     def step_sensor_track_sequence(self, delta: int) -> int | None:
         """Moves the Sequence highlight ``delta`` options and returns the value moved to.
@@ -979,37 +1036,19 @@ class KeypadView(Generic[S]):
         "already on index 0" instead would make that first press either do nothing at all or
         skip "No Action" altogether, depending on which way it went.
 
-        What "unset" looks like has to be read off the widget rather than assumed: the group
-        keeps its selection in a Tk ``StringVar``, so it answers with a ``str`` whatever was
-        assigned, and the ``value = None`` ``on_new_accessory`` clears it with comes back as
-        the string ``"None"``. Anything that does not parse to an option in the list -- that,
-        an empty group, a value from outside the list -- is the state before it.
-
-        Assigns ``value`` rather than clicking an option, which is what moves the highlight
-        without sending: the group's command fires on a click, so an assignment is silent --
-        the same assignment ``on_new_accessory`` makes from incoming state. Nothing is written
-        here at all; the caller decides when the choice has settled.
+        Nothing is written here at all: the highlight moves and stops there, and the write is
+        asked for outright by the select the pad has of its own.
         """
-        host = self._host
-        if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
-            return None
-        buttons = host.sensor_track_buttons
-        if buttons is None:
-            return None
-        values = [int(opt[1]) for opt in SENSOR_TRACK_OPTS]
-        try:
-            index = values.index(int(buttons.value))
-        except (TypeError, ValueError):
-            index = None
-        if index is None:
+        values = self.sensor_track_values()
+        current = self.sensor_track_sequence
+        if current is None:
             target = 0
         else:
-            target = index + int(delta)
+            target = values.index(current) + int(delta)
             if not 0 <= target < len(values):
                 return None
         value = values[target]
-        buttons.value = value
-        return value
+        return value if self.set_sensor_track_sequence(value) else None
 
     # noinspection PyProtectedMember
     def asc2_control(self, pressed: bool) -> None:

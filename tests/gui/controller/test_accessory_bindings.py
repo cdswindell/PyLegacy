@@ -52,6 +52,8 @@ from src.pytrain.gui.controller.accessory_bindings import (
     SWITCH_CONTEXT,
     VERB_CLAIM,
     VERB_ROUTE_FIRE,
+    VERB_SENSOR_TRACK_REVERT,
+    VERB_SENSOR_TRACK_SELECT,
     VERB_SENSOR_TRACK_STEP,
     VERB_SWITCH_OUT,
     VERB_SWITCH_THRU,
@@ -641,10 +643,19 @@ def test_the_sequence_step_does_not_repeat_while_the_dpad_is_held(action) -> Non
     assert dispatch.is_axis is False
 
 
-def test_the_sensor_track_context_binds_the_dpad_and_nothing_else() -> None:
-    # The panel has one control on it. Everything else -- the sticks, the triggers, the face
-    # buttons -- is left to the acc base, which claims it and sends nowhere.
-    assert set(DEFAULT_CONTEXTS[ACC_SENSOR_TRACK_CONTEXT].bindings) == {"dpad_up", "dpad_down"}
+def test_the_sensor_track_context_binds_the_dpad_and_the_two_keys_that_choose() -> None:
+    # The panel has one control on it, and choosing from it takes three acts: step, select,
+    # revert. Each of the last two has two ways to it, as the power district's On and Off have
+    # -- the D-pad pointing the way it reads, and the face key that means the same elsewhere.
+    # Everything else -- the sticks, the triggers, the horn -- is left to the acc base.
+    bindings = DEFAULT_CONTEXTS[ACC_SENSOR_TRACK_CONTEXT].bindings
+
+    assert set(bindings) == {"dpad_up", "dpad_down", "dpad_right", "dpad_left", "sequence_control", "reset"}
+    assert bindings["dpad_up"].data == -1
+    assert bindings["dpad_down"].data == 1
+    assert bindings["dpad_right"].verb == bindings["sequence_control"].verb == VERB_SENSOR_TRACK_SELECT
+    assert bindings["dpad_left"].verb == bindings["reset"].verb == VERB_SENSOR_TRACK_REVERT
+    assert not any(dispatch.repeat for dispatch in bindings.values()), "one act per press"
     assert DEFAULT_CONTEXTS[ACC_SENSOR_TRACK_CONTEXT].inherits == ACC_CONTEXT
 
 
@@ -746,7 +757,7 @@ def test_no_accessory_panel_claims_x_while_a_popup_is_up(panel, action) -> None:
     assert resolve(PANEL_CONTEXT_CHAINS[panel], action, popup_visible=True) is None
 
 
-@pytest.mark.parametrize("panel", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+@pytest.mark.parametrize("panel", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2])
 @pytest.mark.parametrize("action", sorted(POPUP_ONLY_ACTIONS))
 def test_x_is_claimed_again_once_there_is_no_popup_to_close(panel, action) -> None:
     # FR-7 asks of X only that it close an open popup, and the carve-out costs something when
@@ -758,6 +769,18 @@ def test_x_is_claimed_again_once_there_is_no_popup_to_close(panel, action) -> No
     assert resolution is not None
     assert resolution.context.name == ACC_CONTEXT
     assert resolution.claimed_only is True
+
+
+@pytest.mark.parametrize("action", sorted(POPUP_ONLY_ACTIONS))
+def test_the_sensor_track_panel_gives_x_a_meaning_of_its_own_with_no_popup_up(action) -> None:
+    # The one accessory panel that binds X rather than swallowing it: with nothing open it is
+    # the revert of the Sequence choice (A-7). Sent somewhere rather than dropped, but still
+    # not to the engine the pane used to hold, which is all FR-0 asks.
+    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_SENSOR_TRACK], action)
+
+    assert resolution is not None
+    assert resolution.context.name == ACC_SENSOR_TRACK_CONTEXT
+    assert resolution.dispatch.verb == VERB_SENSOR_TRACK_REVERT
 
 
 @pytest.mark.parametrize("action", sorted(NEVER_CLAIMED_ACTIONS | POPUP_ONLY_ACTIONS))
@@ -803,11 +826,19 @@ def test_an_explicit_unbind_leaves_the_carve_out_standing() -> None:
     assert resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "scope_catalog", merged) is None
 
 
-def test_an_explicit_binding_of_x_wins_over_the_popup_gated_carve_out() -> None:
-    # The conditional carve-out is a default on the same terms as the unconditional one: a
-    # profile that deliberately binds X in a context gets it, popup or no popup.
+def test_the_popup_gated_carve_out_wins_over_an_explicit_binding_of_x() -> None:
+    # Where the two carve-outs part company. Menu's is a default an explicit binding beats,
+    # but a popup is modal and X is the only way down from it, so a context that took X while
+    # one was up would be a panel the pad could not leave -- the dead end the carve-out exists
+    # for. The binding is what X means with nothing open, which is the case below.
+    #
+    # Not hypothetical: the Sensor Track context binds X for its revert (A-7), so a rule that
+    # let a binding through here would cost that panel its popup button.
     merged = merge_contexts({ACC_BPC2_CONTEXT: {"bindings": {"reset": {"verb": VERB_LCS_ON}}}})
-    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "reset", merged, popup_visible=True)
+
+    assert resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "reset", merged, popup_visible=True) is None
+
+    resolution = resolve(PANEL_CONTEXT_CHAINS[PANEL_BPC2], "reset", merged)
 
     assert resolution.context.name == ACC_BPC2_CONTEXT
     assert resolution.dispatch.verb == VERB_LCS_ON

@@ -57,6 +57,15 @@ That last one is the only piece of new mechanism A-5 needs, and it is KD-11. It 
 
 The first two mean the pad cannot pick a different component once it is on an accessory panel; the third means an open catalog cannot be scrolled or dismissed from a panel whose context binds the D-pad — which today is ASC2 and BPC2, and **which A-5 is about to make true of the Sensor Track panel, where the D-pad is the whole binding.** So this is not a tidy-up alongside A-5; registering the sensor track chain without it would ship a panel that takes the D-pad and cannot be left. It is specified as FR-7 and fixed first.
 
+**A-7 — The Sensor Track write becomes explicit: D-pad → and A select the highlighted option, D-pad ← and X revert to the previously selected one.** This supersedes the half of A-5 that sent the write after a pause. Two answers shape it:
+
+- **The pause goes away entirely.** Stepping now only moves the highlight; nothing reaches the track until select is pressed. The 0.5 s auto-write and select cannot coexist — the pause would win the race on almost every press and leave revert with nothing to undo.
+- **Revert undoes the last committed write.** It restores the option that was selected *before* the most recent select and writes it, so a select the operator regrets is recoverable from the pad. It is one-shot: after a revert there is nothing further to undo until the next select.
+
+Where nothing has been selected yet, revert has no committed write to undo and instead abandons an uncommitted move — the highlight snaps back to the option the track is actually set to and **nothing is sent**, the track already being there. That is the only reading that leaves both buttons meaningful before the first select.
+
+One genuine conflict this surfaces, and it is a hole in what is already shipped rather than in A-7. `resolve()` returns an explicit binding *before* it applies the popup carve-out, and `POPUP_ONLY_ACTIONS` carves out `reset` — X — only while a popup is up. Nothing bound `reset` until now, so the ordering never mattered; binding it for revert would mean X reverting the Sequence instead of closing an open popup, which is exactly the dead end FR-7 was written to prevent ("while a popup is open ... **Always** closes it"). The popup gate therefore moves ahead of the binding walk for `POPUP_ONLY_ACTIONS` members, and the test that asserted the opposite is rewritten. `NEVER_CLAIMED_ACTIONS` (Menu) keeps the explicit-binding-wins rule: nothing binds it, and being able to *open* the catalog is not a modal obligation.
+
 ### Your requirements, as I now read them
 
 | Context | Predicate | Bindings |
@@ -64,7 +73,7 @@ The first two mean the pad cannot pick a different component once it is on an ac
 | Generic ACC panel | the generic ACC panel is the one displayed — **regardless of `is_lcs_component`** | Stick ↕ → Throttle (relative speed); **Stick ↔ → `TOGGLE_DIRECTION`**; L1 → Rear Coupler; R1 → Front Coupler; D-pad ↑/↓ → Boost / Brake |
 | BPC2 panel | `is_power_district` is True | R2, D-pad → and **stick pushed right** → `send_lcs_on_command`; L2, D-pad ← and **stick pushed left** → `send_lcs_off_command` |
 | ASC2 panel | `is_asc2` is True | R2, D-pad → and **stick pushed right** → On; L2, D-pad ← and **stick pushed left** → Off; A, D-pad ↑ and **stick pushed up or down** → `KeypadView.when_pressed` while held, `when_released` on release / recenter |
-| **Sensor Track panel** | `is_sensor_track` is True | **D-pad ↑ / ↓ → move up / down the Sequence radio group; clamped at both ends; one step per press; the write sent once the D-pad has been still** |
+| **Sensor Track panel** | `is_sensor_track` is True | **D-pad ↑ / ↓ → move up / down the Sequence radio group, clamped at both ends, one step per press, sending nothing; D-pad → and A → write the highlighted option; D-pad ← and X → put back the option the last select replaced** |
 
 Every binding in that table now has an on-screen twin on the panel it belongs to, which is a useful check that the mapping is honest rather than invented.
 
@@ -210,12 +219,16 @@ Active when the pane is showing the Sensor Track panel — `accessory_panel_kind
 |---|---|
 | D-pad ↑ | Move the Sequence selection one option **toward** "No Action" |
 | D-pad ↓ | Move it one option **toward** "Recorded Sequence" |
+| D-pad →, A | **Select**: write the highlighted option to the track |
+| D-pad ←, X | **Revert**: put back the option the last select replaced, and write it |
+
+X keeps its first duty: while a popup is up it closes the popup and reverts nothing (FR-7).
 
 The direction convention matches the catalog's: up is a negative delta, toward the top of the list, exactly as `scroll_catalog(-1)` means up.
 
 - **Clamped, not wrapping.** ↑ with "No Action" already selected, and ↓ with "Recorded Sequence" already selected, move nothing and send nothing.
 - **One step per press.** The binding is not `repeat`-flagged, so a held D-pad steps once. Ten presses cross the list.
-- **The selection moves immediately; the write is sent after a pause.** Each step re-arms the pause, so stepping from "No Action" to "Recorded Sequence" sends **one** `IrdaReq`, not nine. See KD-11.
+- **Stepping sends nothing at all.** The write is explicit (amendment A-7), so crossing the whole list costs **one** `IrdaReq` and only when it is asked for. Superseded: the 0.5 s pause of the first draft is gone. See KD-11.
 - **An unset selection** (the panel has no `IrdaState` yet, so `sensor_track_buttons.value` is `None`) is treated as being at index 0: the first press of either direction highlights "No Action", and a second press moves off it.
 
 Nothing else on the Sensor Track panel is bound. The sticks and triggers are claimed and dropped by the `acc` base under FR-0, as they are on every other accessory panel.
@@ -361,7 +374,15 @@ Four points make this the right shape rather than a variant of what already exis
 3. **Last-holder-wins is a predicate, not a new structure.** `_momentary_holds` is already a set of `(target, action)`; the release becomes "discard mine, and send the off only when no hold remains for this target". With a single holder that is identical to today's behavior, so FR-3a costs a condition rather than a reference count.
 4. **`clear()` must release, not merely forget.** It currently empties `_momentary_holds` without sending anything. Harmless while only a button can hold — the release always arrives — but a pad that disconnects with the stick pushed would leave an accessory output energised with nothing left to turn it off. `clear()` therefore sends the off for any hold it drops.
 
-**KD-11 — The pause before the Sensor Track write is a pending entry in `tick()`, and the GUI holds what is pending.** Two halves, split along the line the rest of the input layer already draws:
+**KD-13 — Select and revert are two more verbs, and the undo point lives with the panel.** `sensor_track_select` writes whatever the Sequence group is highlighting; `sensor_track_revert` puts back what the last select replaced. Both are no-arg, as `asc2_momentary` is, because everything they need is on the pane.
+
+`EngineGui` keeps two pairs rather than one: `_sensor_track_selected`, the `(tmcc_id, sequence)` the track is believed to hold — seeded where `on_new_accessory` already assigns the highlight from an incoming `IrdaState`, so it starts out right rather than being guessed — and `_sensor_track_undo`, the pair the most recent select displaced. Both are `(tmcc_id, value)` rather than bare values, so a pane re-scoped to a different Sensor Track cannot revert one track to another's option; a pair whose id does not match the pane is ignored.
+
+Select records an undo point only where the value actually changes, so selecting the option already showing does not quietly destroy a real undo. Revert is one-shot: it clears the undo point, moves the highlight and writes. With no undo point it restores the highlight to the believed value and sends nothing — the track is already there.
+
+A widget-free `KeypadView.set_sensor_track_sequence(value)` moves the highlight without sending, which `step_sensor_track_sequence` is refactored onto, and a `sensor_track_sequence` property reads back what is highlighted with guizero's string-backed `value` normalised in one place rather than two.
+
+**KD-11 (superseded by KD-13 — recorded as the reasoning behind what was built and then removed) — The pause before the Sensor Track write was a pending entry in `tick()`, and the GUI held what was pending.** Two halves, split along the line the rest of the input layer already draws:
 
 - **The router owns the timing.** A `_sensor_track_commits: dict[Target, float]` accumulates elapsed time exactly as `_held_commands` does — `waited += elapsed` on each tick, fire at `SENSOR_TRACK_COMMIT_DELAY`, and a further step resets `waited` to zero. Accumulated rather than compared against an absolute deadline, for the reason the comment on `_held_commands` already gives: *"so the repeat does not depend on the caller's clock matching any clock read at press time."* This also keeps `_dispatch` clock-free, which matters because `_dispatch` has no `now` to read.
 - **The GUI owns what will be sent.** `on_sensor_track_step(delta)` moves the highlight and records the `(tmcc_id, sequence)` pair it moved *to*; `on_sensor_track_commit()` sends the recorded pair and clears it. The router's call is therefore no-arg, and the write is immune to a pane re-scoped during the pause: it sends the pair the operator selected, at the id they selected it on, not whatever the panel happens to show when the pause elapses.
@@ -816,3 +837,14 @@ On a Sensor Track panel, D-pad up and down move through the ten Sequence options
 - Have `clear()` flush every pending commit rather than dropping it, as it already releases held momentary outputs.
 - Cover in `tests/gui/controller/test_steam_deck_input.py` with an `_acc_gui(kind="sensor_track")` stub: the step pair and its direction convention, the clamp at both ends arming nothing, nine quick presses sending one write, the re-arming of the pause, a held D-pad stepping once, `clear()` flushing, and the sticks and triggers being claimed and sent nowhere.
 - Cover the widget behavior in `tests/gui/test_keypad_view.py` and the recorded-pair behavior in `tests/gui/test_engine_gui_accessories.py`, including a pane re-scoped during the pause still writing the pair captured at step time.
+
+### ✓ Step 10: Make the Sensor Track write explicit, with select and revert (A-7)
+Stepping the Sequence group sends nothing; D-pad → and A write the highlighted option, and D-pad ← and X put back the option the last select replaced.
+
+- Remove the debounce entirely: `SENSOR_TRACK_COMMIT_DELAY`, `_sensor_track_commits`, its `tick()` loop, `_flush_sensor_track_commits` and the flush in `clear()`. Nothing is written by the passage of time any more, so there is no pending write for a disconnect to flush.
+- Add `VERB_SENSOR_TRACK_SELECT` and `VERB_SENSOR_TRACK_REVERT` to `accessory_bindings.py` and to `KNOWN_VERBS`, and bind them in `_ACC_SENSOR_TRACK_BINDINGS`: `dpad_right` and `sequence_control` to select, `dpad_left` and `reset` to revert. Keyed on the action names the bundled profile puts on A and X, as every other binding in the table is.
+- Move the `POPUP_ONLY_ACTIONS` gate in `resolve()` **ahead** of the binding walk, so X closes an open popup even on a panel whose context binds `reset` — FR-7's "always". Leave `NEVER_CLAIMED_ACTIONS` alone: an explicit binding still wins there.
+- Add `EngineGui.on_sensor_track_select()` and `on_sensor_track_revert()`, replacing `on_sensor_track_commit`, over `_sensor_track_selected` and `_sensor_track_undo` as KD-13 describes; seed the believed value where `on_new_accessory` assigns the highlight from an incoming `IrdaState`, and drop `_pending_sensor_track`.
+- Add `KeypadView.set_sensor_track_sequence(value)` and the `sensor_track_sequence` property, and refactor `step_sensor_track_sequence` onto them so the guizero string normalising lives in one place.
+- Cover in `tests/gui/controller/test_steam_deck_input.py`: select from both controls, revert from both, stepping sending nothing however many steps, a revert with nothing selected sending nothing, revert being one-shot, X closing a popup rather than reverting, an open catalog still taking all four D-pad directions, and `tick()` never writing on its own.
+- Update the tests the removal invalidates: the debounce, re-arming, clamp-arms-nothing and `clear()`-flush cases in the router suite, `test_an_explicit_binding_of_x_wins_over_the_popup_gated_carve_out` in the binding suite, and the commit cases in `tests/gui/test_engine_gui_accessories.py`.

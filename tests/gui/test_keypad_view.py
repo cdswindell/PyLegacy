@@ -572,6 +572,55 @@ def test_a_selection_the_list_does_not_hold_is_read_as_unset(monkeypatch: pytest
     assert sent == []
 
 
+@pytest.mark.parametrize(("value", "expected"), [(0, 0), (7, 7), (9, 9), (None, None), ("", None), ("12", None)])
+def test_the_highlighted_option_is_read_back_through_one_normalising(
+    monkeypatch: pytest.MonkeyPatch, value, expected
+) -> None:
+    # The reader the select works from. Every caller wanting "the option showing" comes here,
+    # so the Tk string -- and the "None" an unset group answers with -- is understood once
+    # rather than in each of them.
+    host, sent = _sensor_track_host(monkeypatch)
+    host.sensor_track_buttons.value = value
+
+    assert mod.KeypadView(host).sensor_track_sequence == expected
+    assert sent == []
+
+
+def test_the_highlight_can_be_moved_to_a_named_option_without_sending(monkeypatch: pytest.MonkeyPatch) -> None:
+    # What a revert puts its option back with, and what the stepping is built on: an
+    # assignment rather than a click, so the group's command does not fire.
+    host, sent = _sensor_track_host(monkeypatch, value=3)
+    view = mod.KeypadView(host)
+
+    assert view.set_sensor_track_sequence(8) is True
+    assert host.sensor_track_buttons.value == "8"
+    assert view.sensor_track_sequence == 8
+    assert sent == []
+
+
+@pytest.mark.parametrize("value", [-1, 10, None, "Sound Horn"])
+def test_the_highlight_is_not_moved_to_an_option_the_list_does_not_hold(monkeypatch: pytest.MonkeyPatch, value) -> None:
+    # A value from outside the group is a caller that has lost track of the list, and moving
+    # the highlight to it would leave the panel showing a selection with no option under it.
+    host, sent = _sensor_track_host(monkeypatch, value=3)
+
+    assert mod.KeypadView(host).set_sensor_track_sequence(value) is False
+    assert host.sensor_track_buttons.value == "3"
+    assert sent == []
+
+
+def test_the_highlight_is_not_moved_where_the_panel_is_not_a_sensor_track(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Re-checked as the stepping is, and for the same reason: the press and the panel it was
+    # aimed at are two moments, and a highlight moved on a panel no longer showing the group
+    # would be a change nobody could see.
+    host, sent = _sensor_track_host(monkeypatch, value=3, is_sensor_track=False)
+    view = mod.KeypadView(host)
+
+    assert view.set_sensor_track_sequence(8) is False
+    assert view.sensor_track_sequence is None
+    assert host.sensor_track_buttons.value == "3"
+
+
 def test_stepping_is_refused_where_the_panel_is_not_a_sensor_track(monkeypatch: pytest.MonkeyPatch) -> None:
     # Re-checked rather than assumed: the pane may have been re-scoped between the press
     # being routed and the step being asked for.

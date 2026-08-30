@@ -3707,20 +3707,21 @@ def _acc_gui(kind: str = PANEL_GENERIC):
 def _add_sensor_track_recorders(gui) -> None:
     """The Sequence group's half of the pane, modelled rather than stubbed to a constant.
 
-    ``on_sensor_track_step`` has to answer *whether it moved* -- that is what arms the commit
-    pause -- so the stub keeps a highlight and clamps it within ``SENSOR_TRACK_OPTS`` exactly
-    as ``KeypadView.step_sensor_track_sequence`` does, including an unset selection counting
-    as the state before the list so the first press of either direction lands on index 0. A
-    test wanting the clamp sets ``sensor_track_index`` to an end of the list and presses
-    outward, rather than telling the stub to answer False.
+    The highlight is kept and clamped within ``SENSOR_TRACK_OPTS`` exactly as
+    ``KeypadView.step_sensor_track_sequence`` does, including an unset selection counting as
+    the state before the list so the first press of either direction lands on index 0. A test
+    wanting the clamp sets ``sensor_track_index`` to an end of the list and presses outward,
+    rather than telling the stub to answer False.
 
-    ``commit_calls`` records the value that was pending at each commit, so a commit the router
-    made with nothing pending shows up as a ``None`` rather than passing unnoticed.
+    ``select_calls`` and ``revert_calls`` record the highlight as it stood when each arrived,
+    so a select of the wrong option, or one the router never made, is visible. What either of
+    them then *does* -- which pair is written, which undo point is spent -- belongs to
+    ``EngineGui`` and is tested there; these tests are about which of the two the pad reaches.
     """
     gui.sensor_track_calls: list[int] = []
-    gui.commit_calls: list[int | None] = []
+    gui.select_calls: list[int | None] = []
+    gui.revert_calls: list[int | None] = []
     gui.sensor_track_index: int | None = None
-    gui.pending_sensor_track: int | None = None
 
     def on_sensor_track_step(delta: int) -> bool:
         gui.sensor_track_calls.append(delta)
@@ -3731,15 +3732,11 @@ def _add_sensor_track_recorders(gui) -> None:
             if not 0 <= target < len(SENSOR_TRACK_OPTS):
                 return False
         gui.sensor_track_index = target
-        gui.pending_sensor_track = target
         return True
 
-    def on_sensor_track_commit() -> None:
-        gui.commit_calls.append(gui.pending_sensor_track)
-        gui.pending_sensor_track = None
-
     gui.on_sensor_track_step = on_sensor_track_step
-    gui.on_sensor_track_commit = on_sensor_track_commit
+    gui.on_sensor_track_select = lambda: gui.select_calls.append(gui.sensor_track_index)
+    gui.on_sensor_track_revert = lambda: gui.revert_calls.append(gui.sensor_track_index)
 
 
 def _coupler_profile() -> ControlProfile:
@@ -4236,52 +4233,19 @@ def test_neither_power_district_context_inherits_the_generic_one(context) -> Non
 
 
 # --------------------------------------------------------------------------------------- #
-# The Sensor Track panel: stepping the Sequence options.
+# The Sensor Track panel: stepping the Sequence options, and choosing one.
 # --------------------------------------------------------------------------------------- #
 #
-# The pause these tests wait out is driven by ``tick()``, which contributes at most
-# ``min(elapsed, max(0.25, repeat_interval))`` on each call and returns without doing anything
-# at all on the first. Reaching ``SENSOR_TRACK_COMMIT_DELAY`` therefore takes at least two
-# spaced ticks after the arming one, and no single jump of the clock will do it however large
-# -- ``_settle`` is the cadence that does, and ``_almost_settle`` the one that stops short.
+# Stepping and writing are two separate acts here (A-7). The D-pad up and down move the
+# highlight and send nothing at all; right and A write what the highlight is on; left and X put
+# back what the last write replaced. So a test that expects nothing on the wire asserts on
+# ``select_calls`` rather than waiting anything out -- there is no longer any elapsed time in
+# this feature for a write to arrive after.
 
 
 def _sensor_track_gui():
     """A pane showing a Sensor Track panel, with an unset Sequence as a fresh one has."""
     return _acc_gui(kind=PANEL_SENSOR_TRACK)
-
-
-def _settle(router: DeckInputRouter, start: float = 0.0) -> float:
-    """Tick past ``SENSOR_TRACK_COMMIT_DELAY`` and answer the clock reading left behind.
-
-    Two ticks 0.3 s apart, because the elapsed figure each one contributes is capped at 0.25:
-    0.25 + 0.25 is the 0.5 s the pause wants and one tick could never supply it.
-    """
-    router.tick(start)
-    router.tick(start + 0.3)
-    router.tick(start + 0.6)
-    return start + 0.6
-
-
-def _almost_settle(router: DeckInputRouter, start: float = 0.0) -> float:
-    """Tick enough to be waiting, but not enough to have written: one capped tick, 0.25 s."""
-    router.tick(start)
-    router.tick(start + 0.3)
-    return start + 0.3
-
-
-def test_a_single_tick_however_long_cannot_reach_the_commit_pause() -> None:
-    # The cap the two helpers above are built around, pinned so a change to it is noticed
-    # here rather than silently making every debounce test below wait a different length.
-    focused = _sensor_track_gui()
-    router, _left, _right, _focused, _global = _router(left=focused)
-
-    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
-    router.tick(0.0)
-    router.tick(60.0)
-
-    assert focused.commit_calls == [], "one tick contributes at most 0.25 s, whatever the clock says"
-    assert router._sensor_track_commits == {"focused": 0.25}
 
 
 @pytest.mark.parametrize(("name", "delta"), [(DPAD_UP, -1), (DPAD_DOWN, 1)])
@@ -4298,27 +4262,75 @@ def test_the_dpad_steps_the_sequence_the_way_the_list_reads(name, delta) -> None
 
     assert focused.sensor_track_calls == [delta]
     assert focused.sensor_track_index == 5 + delta
-    assert focused.commit_calls == [], "the highlight moved, but nothing has been written yet"
-    assert router._sensor_track_commits == {"focused": 0.0}, "and the pause is running"
+    assert focused.select_calls == [], "the highlight moved, and nothing was written"
+    assert focused.revert_calls == []
 
 
-@pytest.mark.parametrize(("name", "delta"), [(DPAD_UP, -1), (DPAD_DOWN, 1)])
-def test_the_step_is_written_once_the_dpad_has_been_still_for_the_pause(name, delta) -> None:
+@pytest.mark.parametrize(
+    ("name", "button"),
+    [
+        # Two ways to the one act, as the power district's On has: the D-pad pointing the way
+        # the choice reads, and the face key that means "do it" everywhere else on the pad.
+        (DPAD_RIGHT, None),
+        (SEQUENCE_CONTROL, 0),
+    ],
+)
+def test_the_highlighted_sequence_is_written_when_it_is_selected(name, button) -> None:
     focused = _sensor_track_gui()
     focused.sensor_track_index = 5
     router, _left, _right, _focused, _global = _router(left=focused)
 
-    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
-    _settle(router)
+    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
 
-    assert focused.commit_calls == [5 + delta]
-    assert router._sensor_track_commits == {}, "and the pause is spent, not left to fire again"
+    assert focused.select_calls == [], "the step alone wrote nothing"
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+
+    assert focused.select_calls == [6], "and the select wrote where the stepping had got to"
+    assert focused.revert_calls == []
 
 
-def test_nine_quick_presses_across_the_whole_list_send_one_command() -> None:
-    # The reason for the pause at all. Crossing from "No Action" to "Recorded Sequence" is
-    # nine presses, and writing each one would put nine IRDA_SET commands on the wire for one
-    # decision -- the eight the operator passed through were never a choice they made.
+@pytest.mark.parametrize(
+    ("name", "button"),
+    [
+        (DPAD_LEFT, None),
+        ("reset", 2),
+    ],
+)
+def test_the_previous_sequence_is_put_back_when_the_choice_is_reverted(name, button) -> None:
+    focused = _nav_acc_gui(PANEL_SENSOR_TRACK)
+    focused.sensor_track_index = 5
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction(name, "focused", 1.0, "pressed", button=button))
+
+    assert focused.revert_calls == [5]
+    assert focused.select_calls == []
+    assert focused.command_calls == [], "and no RESET went to the engine the pane used to hold"
+    assert router._held_commands == {}, "nor was one left repeating behind it"
+
+
+def test_x_closes_a_popup_over_a_sensor_track_rather_than_reverting() -> None:
+    # The one collision A-7 has to settle. X is bound here, and a popup is modal: taken by the
+    # panel while one is up it would be a panel the pad could not leave, which is the dead end
+    # FR-7's carve-out exists for. So the popup is asked first and the revert is what X means
+    # with nothing open -- which is every other moment on this panel.
+    focused = _nav_acc_gui(PANEL_SENSOR_TRACK, popup_visible=True)
+    focused.sensor_track_index = 5
+    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=2))
+
+    assert focused.close_calls == ["close"]
+    assert focused.revert_calls == [], "the Sequence choice was left exactly as it was"
+    assert focused.command_calls == []
+
+
+def test_crossing_the_whole_list_writes_nothing_until_it_is_selected() -> None:
+    # The reason stepping and writing are separate acts. Crossing from "No Action" to
+    # "Recorded Sequence" is nine presses, and writing each one would put nine IRDA_SET
+    # commands on the wire for one decision -- the eight passed through were never a choice.
     focused = _sensor_track_gui()
     focused.sensor_track_index = 0
     router, _left, _right, _focused, _global = _router(left=focused)
@@ -4326,42 +4338,53 @@ def test_nine_quick_presses_across_the_whole_list_send_one_command() -> None:
     for _press in range(len(SENSOR_TRACK_OPTS) - 1):
         router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
         router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
-        router.tick(0.0)
 
     assert focused.sensor_track_calls == [1] * 9, "every press moved the highlight"
-    assert focused.commit_calls == [], "and none of the nine has been written"
+    assert focused.select_calls == [], "and none of the nine was written"
 
-    _settle(router)
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
 
-    assert focused.commit_calls == [len(SENSOR_TRACK_OPTS) - 1], "one write, of where it came to rest"
+    assert focused.select_calls == [len(SENSOR_TRACK_OPTS) - 1], "one write, of where it came to rest"
 
 
-def test_each_further_step_re_arms_the_pause_from_the_beginning() -> None:
-    # What makes the write wait for the *last* press rather than the first: a step arriving
-    # while the pause runs restarts it, so a reader still moving is never written out from
-    # under. The first press here is left almost settled before the second arrives.
+def test_tick_never_writes_a_sequence_of_its_own_accord() -> None:
+    # The half-second pause A-7 removed. Nothing in this feature is driven by elapsed time any
+    # more, so a pane left mid-choice stays mid-choice however long it is left: the operator
+    # who walks away from a highlight has not chosen it.
     focused = _sensor_track_gui()
     focused.sensor_track_index = 2
     router, _left, _right, _focused, _global = _router(left=focused)
 
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
-    _almost_settle(router)
-
-    assert focused.commit_calls == [], "not yet"
-    assert router._sensor_track_commits == {"focused": 0.25}
-
     router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
-    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
+    for elapsed in (0.0, 0.3, 0.6, 0.9, 60.0):
+        router.tick(elapsed)
 
-    assert router._sensor_track_commits == {"focused": 0.0}, "the wait began again"
+    assert focused.sensor_track_index == 3, "the highlight is where the press left it"
+    assert focused.select_calls == [], "and no clock reading turned that into a write"
+    assert focused.revert_calls == []
 
-    router.tick(0.6)
 
-    assert focused.commit_calls == [], "so the pause the first press had banked is not honoured"
+def test_a_held_select_writes_once_rather_than_repeatedly() -> None:
+    # The select binding carries no repeat flag: a thumb resting on the key is one decision,
+    # not a stream of them, and an IRDA write per repeat interval is a write per decision the
+    # operator never made.
+    focused = _sensor_track_gui()
+    focused.sensor_track_index = 4
+    router, _left, _right, _focused, _global = _router(left=focused)
 
-    router.tick(0.9)
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+    router.tick(0.0)
+    router.tick(0.1)
+    router.tick(0.2)
 
-    assert focused.commit_calls == [4], "and the write, when it comes, is of the second step"
+    assert focused.select_calls == [4]
+    assert router._context_repeats == {}
+
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 0.0, "released"))
+    router.tick(0.3)
+
+    assert focused.select_calls == [4], "and the release wrote nothing on its way out"
 
 
 @pytest.mark.parametrize(
@@ -4374,7 +4397,7 @@ def test_each_further_step_re_arms_the_pause_from_the_beginning() -> None:
         (DPAD_DOWN, len(SENSOR_TRACK_OPTS) - 1),
     ],
 )
-def test_a_press_clamped_at_either_end_arms_nothing_and_writes_nothing(name, index) -> None:
+def test_a_press_clamped_at_either_end_moves_nothing_and_writes_nothing(name, index) -> None:
     focused = _sensor_track_gui()
     focused.sensor_track_index = index
     router, _left, _right, _focused, _global = _router(left=focused)
@@ -4383,35 +4406,7 @@ def test_a_press_clamped_at_either_end_arms_nothing_and_writes_nothing(name, ind
 
     assert focused.sensor_track_calls == [1 if name == DPAD_DOWN else -1], "the press was claimed"
     assert focused.sensor_track_index == index, "and moved nothing"
-    assert router._sensor_track_commits == {}, "so no pause was armed"
-
-    _settle(router)
-
-    assert focused.commit_calls == [], "and nothing was written when it would have elapsed"
-
-
-@pytest.mark.parametrize("name", [DPAD_UP, DPAD_DOWN])
-def test_a_press_clamped_at_the_end_does_not_re_arm_a_pause_already_running(name) -> None:
-    # The half of the clamp that is easy to miss: a press that moves nothing must not push the
-    # write further out either. An operator resting on the D-pad at the end of the list would
-    # otherwise hold their own choice off the wire for as long as they leaned on it.
-    focused = _sensor_track_gui()
-    focused.sensor_track_index = 1 if name == DPAD_UP else len(SENSOR_TRACK_OPTS) - 2
-    router, _left, _right, _focused, _global = _router(left=focused)
-
-    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
-    settled = _almost_settle(router)
-
-    assert router._sensor_track_commits == {"focused": 0.25}, "the step that moved is waiting"
-
-    router.handle(DeckAction(name, "focused", 0.0, "released"))
-    router.handle(DeckAction(name, "focused", 1.0, "pressed"))
-
-    assert router._sensor_track_commits == {"focused": 0.25}, "the clamped press left it alone"
-
-    router.tick(settled + 0.3)
-
-    assert focused.commit_calls == [0 if name == DPAD_UP else len(SENSOR_TRACK_OPTS) - 1]
+    assert focused.select_calls == [], "and wrote nothing"
 
 
 def test_a_held_dpad_steps_the_sequence_exactly_once() -> None:
@@ -4423,20 +4418,18 @@ def test_a_held_dpad_steps_the_sequence_exactly_once() -> None:
     router, _left, _right, _focused, _global = _router(left=focused)
 
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
-    _settle(router)
-    router.tick(0.9)
-    router.tick(1.2)
+    router.tick(0.0)
+    router.tick(0.3)
+    router.tick(0.6)
 
     assert focused.sensor_track_calls == [1], "the press, and no repeat behind it"
     assert focused.sensor_track_index == 4
     assert router._context_repeats == {}
-    assert focused.commit_calls == [4], "and the one write it earned"
 
     router.handle(DeckAction(DPAD_DOWN, "focused", 0.0, "released"))
-    router.tick(1.5)
+    router.tick(0.9)
 
     assert focused.sensor_track_calls == [1], "the release stepped nothing on its way out"
-    assert focused.commit_calls == [4], "and wrote nothing a second time"
 
 
 def test_an_unset_sequence_is_stepped_onto_the_first_option_either_way() -> None:
@@ -4447,43 +4440,41 @@ def test_an_unset_sequence_is_stepped_onto_the_first_option_either_way() -> None
     router, _left, _right, _focused, _global = _router(left=focused)
 
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
-    _settle(router)
 
-    assert focused.commit_calls == [0]
+    assert focused.sensor_track_index == 0
 
     router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
-    _settle(router, 0.9)
 
-    assert focused.commit_calls == [0], "and at the top of the list it stops there"
+    assert focused.sensor_track_index == 0, "and at the top of the list it stops there"
+
+    router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
+
+    assert focused.select_calls == [0], "which is the option a select then writes"
 
 
-def test_clear_writes_the_sequence_that_was_still_waiting_rather_than_dropping_it() -> None:
-    # The controller going away is the one case where no further tick arrives to carry the
-    # choice to the wire, so the pause is flushed rather than forgotten -- the same courtesy
-    # clear() already does a held momentary output, which it releases rather than abandoning.
+def test_clear_writes_nothing_because_a_stepped_highlight_is_not_a_choice() -> None:
+    # What the removal of the pause takes with it. There was a case for flushing a *pending
+    # write* on a disconnect -- the operator had chosen and only the clock stood in the way --
+    # but a highlight nobody has selected is not a choice, and sending it would be the pad
+    # writing something on its way out that was never asked for.
     focused = _sensor_track_gui()
     focused.sensor_track_index = 6
     router, _left, _right, _focused, _global = _router(left=focused)
 
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
-    _almost_settle(router)
 
-    assert focused.commit_calls == [], "still inside the pause"
-
-    router.clear()
-
-    assert focused.commit_calls == [7], "the operator's choice went out anyway"
-    assert router._sensor_track_commits == {}
+    assert focused.sensor_track_index == 7, "the highlight moved"
 
     router.clear()
 
-    assert focused.commit_calls == [7], "and a second clear has nothing left to write"
+    assert focused.select_calls == [], "and the disconnect wrote nothing"
+    assert focused.revert_calls == []
 
 
-def test_two_panes_each_mid_pause_settle_and_write_independently() -> None:
-    # Keyed by target, as every other pending-state map in the router is: two Sensor Tracks
-    # side by side are two choices, and one settling must neither write nor cancel the other.
+def test_two_panes_step_and_select_independently() -> None:
+    # Two Sensor Tracks side by side are two choices, and each control is aimed at its own
+    # pane: selecting in one must neither write nor disturb the other.
     left_gui = _sensor_track_gui()
     right_gui = _sensor_track_gui()
     left_gui.sensor_track_index = 2
@@ -4492,32 +4483,11 @@ def test_two_panes_each_mid_pause_settle_and_write_independently() -> None:
 
     router.handle(DeckAction(DPAD_DOWN, "left", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_UP, "right", 1.0, "pressed"))
+    router.handle(DeckAction(DPAD_RIGHT, "left", 1.0, "pressed"))
 
-    assert router._sensor_track_commits == {"left": 0.0, "right": 0.0}
-
-    _settle(router)
-
-    assert left_gui.commit_calls == [3]
-    assert right_gui.commit_calls == [7]
-    assert router._sensor_track_commits == {}
-
-
-def test_a_catalog_opened_during_the_pause_is_not_a_cancel() -> None:
-    # Unlike a held D-pad repeat, which the catalog does stop: a repeat is a stream of
-    # commands the operator is no longer looking at, but this is a single choice they already
-    # made. Opening the list to go somewhere else does not un-make it, and the pause lives in
-    # tick() where the catalog carve-out never reaches.
-    focused = _nav_acc_gui(PANEL_SENSOR_TRACK)
-    focused.sensor_track_index = 1
-    router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
-
-    router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
-    _almost_settle(router)
-    focused.catalog_visible = True
-    router.tick(0.6)
-
-    assert focused.commit_calls == [2], "the choice made before the list came up still went out"
-    assert focused.scroll_calls == [], "and no part of it scrolled the list"
+    assert left_gui.select_calls == [3]
+    assert right_gui.select_calls == [], "the other pane's choice is still its own to make"
+    assert right_gui.sensor_track_index == 7
 
 
 @pytest.mark.parametrize("name", ["throttle", "direction"])
@@ -4530,14 +4500,16 @@ def test_the_sticks_on_a_sensor_track_panel_are_claimed_and_sent_nowhere(name) -
     router, _left, _right, _focused, _global = _router(left=focused)
 
     router.handle(DeckAction(name, "focused", 1.0, "changed"))
-    _settle(router)
+    router.tick(0.0)
+    router.tick(0.3)
 
     assert focused.speed_calls == [], "no engine speed left the panel"
     assert focused.command_calls == []
     assert focused.acc_speed_calls == [], "nor an accessory speed, which this panel has not got"
     assert focused.acc_calls == []
     assert focused.sensor_track_calls == [], "and a stick is not a step"
-    assert focused.commit_calls == []
+    assert focused.select_calls == []
+    assert focused.revert_calls == []
 
 
 @pytest.mark.parametrize("name", ["shutdown", "startup"])
@@ -4555,11 +4527,13 @@ def test_the_triggers_on_a_sensor_track_panel_are_claimed_and_sent_nowhere(name)
 
     router.handle(DeckAction(name, "focused", 1.0, "pressed"))
     router.handle(DeckAction(name, "focused", 0.0, "released"))
-    _settle(router)
+    router.tick(0.0)
+    router.tick(0.3)
 
     assert focused.command_calls == []
     assert focused.sensor_track_calls == []
-    assert focused.commit_calls == []
+    assert focused.select_calls == []
+    assert focused.revert_calls == []
 
 
 # --------------------------------------------------------------------------------------- #
@@ -4627,12 +4601,16 @@ def test_x_closes_a_popup_over_every_accessory_panel(kind) -> None:
     assert focused.command_calls == [], "and closing it sent no RESET to the engine"
 
 
-@pytest.mark.parametrize("kind", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2, PANEL_SENSOR_TRACK])
+@pytest.mark.parametrize("kind", [PANEL_GENERIC, PANEL_BPC2, PANEL_ASC2])
 def test_x_with_no_popup_up_is_claimed_by_the_accessory_panel(kind) -> None:
     # The carve-out is for the popup, and only for the popup: FR-7 asks of X that it always
     # closes an open popup, which says nothing about an X pressed with nothing open. With
     # nothing open the accessory context claims it as it claims every other engine control,
     # so no RESET is sent, none is registered to repeat, and tick() has nothing to re-send.
+    #
+    # The Sensor Track panel is the exception, and by binding rather than by fall-through: X
+    # is its revert. Covered above, where the assertion is that nothing reaches the *engine*
+    # either way.
     focused = _nav_acc_gui(kind)
     router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
 
@@ -4753,7 +4731,8 @@ def test_an_open_catalog_gets_the_whole_dpad_back_from_an_accessory_panel(kind, 
     assert focused.momentary_calls == [], "nor the ASC2 output energised"
     assert focused.acc_calls == [], "nor the accessory boosted or braked"
     assert focused.sensor_track_calls == [], "nor the Sequence highlight moved"
-    assert router._sensor_track_commits == {}, "nor a write left waiting behind the list"
+    assert focused.select_calls == [], "nor a Sequence written from behind the list"
+    assert focused.revert_calls == []
 
 
 @pytest.mark.parametrize("name", [DPAD_LEFT, DPAD_RIGHT])

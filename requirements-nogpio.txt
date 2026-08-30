@@ -12,4 +12,4 @@ requests>=2.34.2
 setuptools>=84.0.0
 setuptools_scm>=10.2.0
 smbus2>=0.6.1
-zeroconf>=0.150.0
+zeroconf>=0.150.2
