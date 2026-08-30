@@ -607,6 +607,103 @@ def test_show_native_acc_panel_drops_the_override_and_re_enters_ops_mode() -> No
     assert gui._popup_closed == 2
 
 
+def _ops_mode_engine(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    override: str | None,
+    tmcc_id: int = 19,
+    configured: bool = True,
+) -> tuple[mod.EngineGui, list]:
+    """An EngineGui wired to drive the *real* ``ops_mode`` non-engine branch.
+
+    The keypad fake reports a non-engine panel and carries a settable ``panel_kind_override``,
+    so the guard added to ``ops_mode`` is exercised end to end rather than stubbed. Returns the
+    gui plus a list that records every ``on_configured_accessory`` call, so a test can assert
+    whether the operating-accessory overlay was (re)opened.
+    """
+    gui = _new_engine()
+    gui.scope = CommandScope.ACC
+    gui._scope_tmcc_ids = {CommandScope.ACC: tmcc_id}
+
+    state = DummyAccessoryState(is_asc2=True)
+    state.tmcc_id = tmcc_id
+    state.scope = CommandScope.ACC
+    monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
+    gui._state_store = SimpleNamespace(get_state=lambda scope, tid, include: state if tid == tmcc_id else None)
+
+    if configured:
+        adapter = DummyAdapter()
+        gui._accessory_view = {tmcc_id: SimpleNamespace()}
+        gui._acc_tmcc_to_adapter = {tmcc_id: adapter}
+
+    keypad = SimpleNamespace(
+        is_engine_or_train=False,
+        panel_kind_override=override,
+    )
+    keypad.enter_ops_mode_base = lambda: None
+    keypad.apply_ops_mode_ui_non_engine = lambda state=None: None
+    keypad.set_panel_kind_override = lambda k: setattr(keypad, "panel_kind_override", k)
+    gui._keypad_view = keypad
+
+    gui._popup = SimpleNamespace(close=lambda: None)
+
+    opened: list = []
+    gui.on_configured_accessory = lambda acc: opened.append(acc)
+    return gui, opened
+
+
+def test_ops_mode_with_generic_override_does_not_reopen_configured_overlay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Pressing Acc... forces the generic panel; the operating-accessory overlay must not be
+    # rebuilt on top of it.
+    gui, opened = _ops_mode_engine(monkeypatch, override=mod.PANEL_GENERIC)
+
+    gui.ops_mode(update_info=False)
+
+    assert opened == [], "the configured operating-accessory overlay must stay closed"
+
+
+def test_ops_mode_without_override_opens_configured_overlay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression guard: selecting a configured operating accessory fresh (no override in force)
+    # still opens its operating-accessory control panel.
+    gui, opened = _ops_mode_engine(monkeypatch, override=None)
+
+    gui.ops_mode(update_info=False)
+
+    assert len(opened) == 1, "a configured accessory still opens its operating-accessory panel"
+
+
+def test_native_return_restores_configured_overlay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # After Acc... suppresses the overlay, the device return button clears the override and the
+    # next ops_mode restores the operating-accessory control panel.
+    gui, opened = _ops_mode_engine(monkeypatch, override=mod.PANEL_GENERIC)
+
+    gui.ops_mode(update_info=False)
+    assert opened == []
+
+    gui.on_show_native_acc_panel()
+
+    assert gui._keypad_view.panel_kind_override is None
+    assert len(opened) == 1, "returning to the native panel restores the operating-accessory overlay"
+
+
+def test_ops_mode_generic_override_on_unconfigured_id_leaves_generic_panel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A generic (non-configured) accessory under the override has nothing to suppress; the
+    # generic panel simply shows and no operating-accessory overlay is opened.
+    gui, opened = _ops_mode_engine(monkeypatch, override=mod.PANEL_GENERIC, configured=False)
+
+    gui.ops_mode(update_info=False)
+
+    assert opened == []
+
+
 def test_the_pad_follows_a_forced_generic_panel() -> None:
     # The invariant the whole design rests on: the override lives inside the one property both
     # the drawn keys and the context chain read, so a forced generic screen is bound as one.

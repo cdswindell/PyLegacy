@@ -2,6 +2,212 @@
 sessionId: session-260829-224403-1glo
 ---
 
+# Plan: "Acc..." always shows the generic Accessory panel
+
+## Requirements
+
+### Overview & Goals
+
+Pressing the **`Acc...`** button on an LCS-specific accessory screen (BPC2 / ASC2 / Sensor
+Track / AMC2) must **always** land on the generic Accessory panel -- the one with the
+throttle, coupler keys and, most importantly, `Set Address`. Today, for a TMCC ID that is
+also backed by a *configured operating accessory* (an entry in `accessory_config.json`, e.g.
+a milk loader or station), pressing `Acc...` briefly draws the generic panel and then the
+operating-accessory control overlay is re-opened on top of it, so the operator sees the
+operating-accessory control instead of the generic panel.
+
+This is a focused bug fix in `EngineGui.ops_mode`; no new keys, icons, or panels are added.
+
+### Scope
+
+**In Scope**
+
+- `Acc...` (and the equivalent generic-panel toggles on Sensor Track and AMC2) always shows
+  the generic Accessory panel, even for a TMCC ID that has a configured operating accessory.
+- The way back is unchanged: the LCS/device return button (`ac_op_btn`) still returns to the
+  native LCS panel, and selecting a configured operating accessory fresh still opens its
+  operating-accessory control panel as its initial view.
+
+**Out of Scope**
+
+- Any change to the generic panel's own contents, the `Info`/`Set`/`LCS...` keys, or the
+  panel toggle buttons themselves.
+- Any change to icons, the reflow behavior, or the naming/creation flow.
+- Engine / Train / Route behavior.
+
+### User Stories
+
+1. As an operator on an ASC2-backed operating accessory, when I press `Acc...` I want the
+   generic Accessory panel (with `Set Address`) to stay on screen, not the operating
+   accessory control, so I can re-address or configure the device.
+2. As an operator, I still want a configured operating accessory to open in its
+   operating-accessory control panel when I first select it, and I still want the device
+   return button to take me back to the native LCS panel.
+
+### Functional Requirements
+
+- **FR-1** With the generic-panel override in force (`panel_kind_override == PANEL_GENERIC`),
+  `ops_mode` must not open the configured operating-accessory overlay.
+- **FR-2** With no override in force, initial selection of a configured operating accessory
+  still opens its operating-accessory control panel (today's correct behavior, unchanged).
+- **FR-3** Pressing the device return button (`on_show_native_acc_panel`) clears the override
+  and, for a configured accessory, restores the operating-accessory control panel.
+- **FR-4** Behavior is identical on Portrait and both Steam Deck panes, because the fix lives
+  in `EngineGui`, which `SteamDeckGui` hosts unchanged.
+
+## Technical Design
+
+### Current Implementation (root cause)
+
+`EngineGui.ops_mode` (`src/pytrain/gui/controller/engine_gui.py`, non-engine branch, ~lines
+2349-2359):
+
+```python
+else:
+    self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
+    if isinstance(self.active_state, AccessoryState):
+        tmcc_id = self.active_state.tmcc_id
+        if self.scope == CommandScope.ACC and self.is_accessory_view(tmcc_id):
+            view = self.get_accessory_view(tmcc_id)
+            acc = getattr(view, "caa", None)
+            if acc is None:
+                acc = self.get_configured_accessory(tmcc_id)
+            self.on_configured_accessory(acc)   # <-- re-opens the operating-accessory overlay
+```
+
+The `Acc...` key is wired to `KeypadView` -> `EngineGui.on_show_generic_acc_panel`
+(`engine_gui.py` ~1759), which does:
+
+```python
+self._popup.close()
+self._keypad_view.set_panel_kind_override(PANEL_GENERIC)
+self.ops_mode(update_info=False)
+```
+
+`apply_ops_mode_ui_non_engine` correctly draws the generic panel (its `_panel_kind_for`
+returns `PANEL_GENERIC` while the override is set) and, for `scope == ACC`, calls
+`reset_acc_overlay()` first (`keypad_view.py` ~1067). But the block above then unconditionally
+calls `on_configured_accessory(acc)` for any TMCC ID that `is_accessory_view()` reports as a
+configured accessory -- re-opening the very overlay that was just cleared, on top of the
+generic panel. That is why `Acc...` appears to show an operating accessory control.
+
+### Key Decisions
+
+| Decision | Choice | Rationale |
+| --- | --- | --- |
+| Where to fix | Guard the auto-open block in `EngineGui.ops_mode` | It is the single place the operating-accessory overlay is auto-opened during a non-engine ops transition; the generic keys are already drawn correctly by `apply_ops_mode_ui_non_engine` |
+| Guard condition | Skip when `self._keypad_view.panel_kind_override == PANEL_GENERIC` | The override is an explicit request for the generic panel; `PANEL_GENERIC` is already imported into `engine_gui.py` |
+| Return path | No new code | `on_show_native_acc_panel` clears the override, so the next `ops_mode` runs the block again and restores the operating-accessory overlay -- FR-3 falls out for free |
+
+### Proposed Change
+
+Guard the auto-open so a forced generic panel is respected:
+
+```python
+else:
+    self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
+    # A forced generic panel is an explicit request for the generic accessory controls
+    # (the Set Address panel); do not re-open the configured operating-accessory overlay
+    # on top of it. Selecting the device fresh, or returning via the device button (which
+    # clears the override), still opens the operating-accessory control panel.
+    if (
+        self._keypad_view.panel_kind_override != PANEL_GENERIC
+        and isinstance(self.active_state, AccessoryState)
+    ):
+        tmcc_id = self.active_state.tmcc_id
+        if self.scope == CommandScope.ACC and self.is_accessory_view(tmcc_id):
+            view = self.get_accessory_view(tmcc_id)
+            acc = getattr(view, "caa", None)
+            if acc is None:
+                acc = self.get_configured_accessory(tmcc_id)
+            self.on_configured_accessory(acc)
+```
+
+### Components / Files
+
+| File | Change |
+| --- | --- |
+| `src/pytrain/gui/controller/engine_gui.py` | One guard added to the non-engine branch of `ops_mode` |
+| `tests/gui/test_engine_gui_accessories.py` | New test(s): `Acc...` does not open the overlay for a configured accessory; return path restores it |
+| `tests/gui/test_engine_gui_transitions.py` | (if needed) lock the override/overlay interaction across toggle sources |
+| `src/pytrain/gui/controller/keypad_view.py` | **No change** -- generic keys already draw correctly |
+| `src/pytrain/gui/controller/steam_deck_gui.py` | **No change** -- hosts `EngineGui` unchanged |
+
+### Risks
+
+| Risk | Mitigation |
+| --- | --- |
+| Suppressing the overlay in a case where it should still show | The guard is narrow: only when the override is exactly `PANEL_GENERIC`, which is set only by the generic-panel toggles and cleared on selection/scope change, entry mode, and the return button |
+| Return path no longer restores the operating-accessory panel | Covered by a test asserting `on_show_native_acc_panel` clears the override and re-opens the overlay for a configured accessory |
+
+## Testing
+
+### Validation Approach
+
+Extend the existing headless GUI suites (`tests/gui/test_engine_gui_accessories.py`,
+`test_engine_gui_transitions.py`) which already drive `EngineGui`/`KeypadView` against
+`SimpleNamespace`/dummy fakes with no display. All scenarios below are agent-checkable.
+
+### Key Scenarios
+
+- With `panel_kind_override == PANEL_GENERIC` and a configured operating accessory selected,
+  `ops_mode` does **not** call `on_configured_accessory` / leaves `acc_overlay` closed.
+- `on_show_generic_acc_panel` on an ASC2-backed configured accessory ends with the generic
+  panel shown and no operating-accessory overlay.
+- With no override, initial selection of a configured operating accessory still opens its
+  operating-accessory control panel (regression guard, unchanged behavior).
+- `on_show_native_acc_panel` clears the override and restores the operating-accessory
+  overlay for a configured accessory.
+
+### Edge Cases
+
+- A generic (non-configured) accessory under the override: nothing to suppress, generic panel
+  shows as before.
+- Sensor Track / AMC2 generic toggles (which also set `PANEL_GENERIC`) do not spuriously open
+  the operating-accessory overlay.
+
+## Delivery Steps
+
+### Stage 1: Respect the forced generic panel in ops_mode
+
+Pressing `Acc...` on a configured operating accessory shows the generic Accessory panel and
+no operating-accessory control overlay.
+
+- In `EngineGui.ops_mode` (non-engine branch), add a guard so the configured
+  operating-accessory overlay is only auto-opened when
+  `self._keypad_view.panel_kind_override != PANEL_GENERIC`.
+- Confirm `PANEL_GENERIC` is already imported in `engine_gui.py` (it is, from
+  `accessory_bindings`).
+- Add a focused test in `tests/gui/test_engine_gui_accessories.py` asserting that, with the
+  override set to `PANEL_GENERIC` and a configured ASC2 accessory active, `ops_mode` does not
+  call `on_configured_accessory` and leaves `acc_overlay` closed.
+- Run `../bin/python -m ruff format --check` on the changed files and
+  `../bin/python -m pytest` for the affected GUI suites.
+
+### Stage 2: Lock the toggle round-trip and run the full regression
+
+The generic override is coherent across every entry point, the return path restores the
+operating-accessory panel, and the whole suite is green.
+
+- Add/extend tests covering:
+  - `on_show_generic_acc_panel` end state (generic panel, no overlay) for an ASC2-backed
+    configured accessory.
+  - `on_show_native_acc_panel` clearing the override and restoring the operating-accessory
+    overlay for a configured accessory.
+  - No-override initial selection still opening the operating-accessory control panel
+    (regression guard).
+  - Sensor Track / AMC2 generic toggles not opening the operating-accessory overlay.
+- Reconcile any behavior-locking assertion in `test_gui_checkpoint.py` /
+  `test_engine_gui_transitions.py` that encoded the old (overlay-over-generic) behavior,
+  updating only those assertions.
+- Run `../bin/python -m ruff format --check` on all changed Python files, then the full
+  `../bin/python -m pytest`.
+
+<!-- ============================================================================= -->
+<!-- The content below is stale orchestrator briefing / session history and is NOT -->
+<!-- part of the plan. It is retained only because those lines are not editable.   -->
+<!-- ============================================================================= -->
+
 # Delivery Steps
 
 ### ✓ Step 1: Implementation

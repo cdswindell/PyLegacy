@@ -2349,7 +2349,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # 3) Non-engine path (already moved)
         else:
             self._keypad_view.apply_ops_mode_ui_non_engine(state=state)
-            if isinstance(self.active_state, AccessoryState):
+            # A forced generic panel is an explicit request for the generic accessory
+            # controls (the Set Address panel); do not re-open the configured
+            # operating-accessory overlay on top of it. Selecting the device fresh, or
+            # returning via the device button (which clears the override), still opens the
+            # operating-accessory control panel.
+            if self._keypad_view.panel_kind_override != PANEL_GENERIC and isinstance(self.active_state, AccessoryState):
                 tmcc_id = self.active_state.tmcc_id
                 if self.scope == CommandScope.ACC and self.is_accessory_view(tmcc_id):
                     view = self.get_accessory_view(tmcc_id)
