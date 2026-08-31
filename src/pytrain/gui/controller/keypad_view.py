@@ -731,7 +731,7 @@ class KeypadView(Generic[S]):
         ``keypad_keys`` one column at a time: an occupied column gets ``weight=1`` and the
         build-time cell width, an empty one collapses to ``weight=0, minsize=0``. The numeric
         columns 0-2 always hold visible keys, so the rule keeps them and never has to special
-        case them. Finally the keypad boxes are tightened to the occupied-column count so the
+        case them. Finally, the keypad boxes are tightened to the occupied-column count so the
         numeric pad does not float, leaving a gap where a collapsed column used to be.
         """
         host = self._host
@@ -1189,11 +1189,11 @@ class KeypadView(Generic[S]):
     def _alternate_acc_view_kind(self, state: S | None) -> str | None:
         """Which other view of this component ``ac_op_btn`` should offer, if any.
 
-        One key, one meaning -- the other view of this ID. Where a panel override is in force
+        One key, one meaning -- the other view of this ID. Where a panel override is in force,
         the other view is the component's own LCS panel, and that wins: the override is an
         explicit request for the generic panel, so the way back to what was left is the one
-        thing the key must offer. Otherwise it keeps today's meaning, the configured-accessory
-        overlay, and where there is neither there is nothing to offer.
+        thing the key must offer. Otherwise, it keeps today's meaning, the configured-accessory
+        overlay, and where there is neither, there is nothing to offer.
         """
         if state is None:
             return None
@@ -1224,11 +1224,11 @@ class KeypadView(Generic[S]):
     def enable_native_acc_view(self, native_kind: str | None = None, state: S | None = None) -> None:
         """Turns ``ac_op_btn`` into the way back from a forced generic panel to the LCS one.
 
-        When the ID is a configured operating accessory the key wears that accessory's own op
+        When the ID is a configured operating accessory, the key wears that accessory's own op
         icon -- the very image shown on the native LCS device screen -- so both directions match.
-        Otherwise it wears the purpose-drawn icon of the device it returns to (BPC2 or ASC2)
+        Otherwise, it wears the purpose-drawn icon of the device it returns to (BPC2 or ASC2)
         rather than the old tiny "LCS" text, which rendered inconsistently. Kinds with no icon
-        fall back to that text so the key is never blank.
+        fall back to that text, so the key is never blank.
         """
         host = self._host
         image_name = self._configured_acc_op_icon(state) or NATIVE_PANEL_RETURN_ICON.get(native_kind)
@@ -1355,7 +1355,7 @@ class KeypadView(Generic[S]):
         the string ``"None"``. Anything that does not parse to an option in the list -- that,
         an empty group, a value from outside the list -- is read as nothing selected.
 
-        The one place that normalizing is done: two readings of a Tk string is two chances to
+        The one place that normalizing is done: two readings of a Tk string are two chances to
         disagree about which option is showing.
         """
         host = self._host
@@ -1371,7 +1371,7 @@ class KeypadView(Generic[S]):
         return value if value in self.sensor_track_values() else None
 
     def set_sensor_track_sequence(self, sequence: int) -> bool:
-        """Moves the radio dot to ``sequence`` and sends nothing. True where it moved.
+        """Moves the radio dot to ``sequence`` and sends nothing. True, where it moved.
 
         The dot is what the track is programmed with, so this is only called where that has
         actually changed -- a select, or a revert putting one back. The cursor is moved with it,
@@ -1411,7 +1411,7 @@ class KeypadView(Generic[S]):
 
         Where the pad is pointing, as against ``sensor_track_sequence``, which is what the
         track is set to. The fallback is what makes a fresh panel behave: with no cursor placed
-        yet the pad starts from the option the dot is on, so the first step moves one option
+         yet, the pad starts from the option the dot is on, so the first step moves one option
         from there rather than from the top of the list.
 
         This is the reader a select writes from -- the option stepped to, not the option the
