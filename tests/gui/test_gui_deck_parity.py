@@ -177,13 +177,13 @@ def test_every_new_cell_lands_in_the_same_slot_on_the_pane_as_in_portrait(compac
     # Acc... now sits below "9" in the numeric column; the ASC2 Set/LCS keys stack in column 3.
     assert host.acc_generic_cell.grid == [2, 3]
     assert host.acc_set_cell.grid == [3, 0]
-    assert host.lcs_noop_cell.grid == [3, 1]
+    assert host.lcs_panel_cell.grid == [3, 1]
     # The BPC2-only LCS... key sits in the first column, below "7" (row 3, col 0).
-    assert host.bpc2_lcs_noop_cell.grid == [0, 3]
-    assert host.bpc2_lcs_noop_btn.on_press == (_view.on_lcs_noop, [])
+    assert host.bpc2_lcs_panel_cell.grid == [0, 3]
+    assert host.bpc2_lcs_panel_btn.on_press == (_view.on_lcs_panel, [])
     assert host.info_btn.on_press == (host.on_info, [])
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
-    assert host.lcs_noop_btn.on_press == (_view.on_lcs_noop, [])
+    assert host.lcs_panel_btn.on_press == (_view.on_lcs_panel, [])
     assert host.acc_set_btn.on_press[0] == _view.on_acc_set_key
     assert host.sw_set_btn.on_press[0] == _view.on_switch_set_key
 
@@ -343,12 +343,12 @@ def test_only_bpc2_shows_the_first_column_lcs_key_on_the_pane(compact: bool) -> 
     # pane as in portrait; it lives in column 0, so the 4th column still collapses on BPC2.
     host, view = _built(compact)
     _ops(host, view, _flagged(is_bpc2=True))
-    assert host.bpc2_lcs_noop_cell.visible is True
+    assert host.bpc2_lcs_panel_cell.visible is True
     assert host.acc_generic_cell.visible is True
 
     host, view = _built(compact)
     _ops(host, view, _flagged(is_asc2=True))
-    assert host.bpc2_lcs_noop_cell.visible is False
+    assert host.bpc2_lcs_panel_cell.visible is False
 
 
 @pytest.mark.parametrize("compact", [True, False])

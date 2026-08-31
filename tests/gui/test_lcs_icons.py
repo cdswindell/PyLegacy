@@ -42,4 +42,4 @@ def test_the_return_key_icon_map_covers_both_lcs_panels() -> None:
 
 def test_the_navigation_key_labels_carry_their_ellipses() -> None:
     assert conf.ACC_PANEL_KEY == "Acc..."
-    assert conf.LCS_NOOP_KEY == "LCS..."
+    assert conf.LCS_PANEL_KEY == "LCS..."

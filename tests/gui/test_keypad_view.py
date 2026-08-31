@@ -891,55 +891,55 @@ def test_only_the_native_asc2_panel_carries_the_set_and_lcs_keys() -> None:
     host, _view = _ops(state=_flagged(is_asc2=True))
     assert host.acc_set_cell.visible is True
     assert host.acc_set_cell.grid == [3, 0]
-    assert host.lcs_noop_cell.visible is True
-    assert host.lcs_noop_cell.grid == [3, 1]
-    assert host.lcs_noop_btn.text == mod.LCS_NOOP_KEY == "LCS..."
+    assert host.lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.grid == [3, 1]
+    assert host.lcs_panel_btn.text == mod.LCS_PANEL_KEY == "LCS..."
 
     host, _view = _ops(state=_flagged(is_bpc2=True))
     assert host.acc_set_cell.visible is False
-    assert host.lcs_noop_cell.visible is False
+    assert host.lcs_panel_cell.visible is False
     # ASC2 must not carry the BPC2 first-column LCS... key either.
     host, _view = _ops(state=_flagged(is_asc2=True))
-    assert host.bpc2_lcs_noop_cell.visible is False
+    assert host.bpc2_lcs_panel_cell.visible is False
 
 
 def test_only_the_native_bpc2_panel_carries_the_first_column_lcs_key() -> None:
     # BPC2 gets its own no-op LCS... key in the first column, directly below "7" (row 3, col 0).
     host, view = _ops(state=_flagged(is_bpc2=True))
-    assert host.bpc2_lcs_noop_cell.visible is True
-    assert host.bpc2_lcs_noop_cell.grid == [0, 3]
-    assert host.bpc2_lcs_noop_btn.text == mod.LCS_NOOP_KEY == "LCS..."
-    assert host.bpc2_lcs_noop_btn.on_press == (view.on_lcs_noop, [])
+    assert host.bpc2_lcs_panel_cell.visible is True
+    assert host.bpc2_lcs_panel_cell.grid == [0, 3]
+    assert host.bpc2_lcs_panel_btn.text == mod.LCS_PANEL_KEY == "LCS..."
+    assert host.bpc2_lcs_panel_btn.on_press == (view.on_lcs_panel, [])
     # The BPC2 Acc... toggle is unchanged and still shown.
     assert host.acc_generic_cell.visible is True
 
     # ASC2 and the generic/switch panels never show the BPC2 first-column key.
     host, _view = _ops(state=_flagged(is_asc2=True))
-    assert host.bpc2_lcs_noop_cell.visible is False
+    assert host.bpc2_lcs_panel_cell.visible is False
     host, _view = _ops()
-    assert host.bpc2_lcs_noop_cell.visible is False
+    assert host.bpc2_lcs_panel_cell.visible is False
     host, _view = _ops(CommandScope.SWITCH, 7)
-    assert host.bpc2_lcs_noop_cell.visible is False
+    assert host.bpc2_lcs_panel_cell.visible is False
 
 
 def test_the_bpc2_first_column_lcs_key_is_an_ops_cell_hidden_in_entry_mode() -> None:
     host, view = _ops(state=_flagged(is_bpc2=True))
-    assert host.bpc2_lcs_noop_cell.visible is True
+    assert host.bpc2_lcs_panel_cell.visible is True
 
     view.entry_mode(clear_info=False)
 
-    assert host.bpc2_lcs_noop_cell.visible is False
-    assert host.bpc2_lcs_noop_cell not in host.entry_cells
+    assert host.bpc2_lcs_panel_cell.visible is False
+    assert host.bpc2_lcs_panel_cell not in host.entry_cells
 
 
 def test_the_bpc2_first_column_lcs_key_does_nothing_harmful() -> None:
     host, view = _ops(state=_flagged(is_bpc2=True))
-    command, args = host.bpc2_lcs_noop_btn.on_press
+    command, args = host.bpc2_lcs_panel_btn.on_press
 
     # A no-op for now: it must be callable and raise nothing.
     command(*args)
 
-    assert command == view.on_lcs_noop
+    assert command == view.on_lcs_panel
 
 
 def test_the_asc2_set_key_fires_acc_set_address() -> None:
@@ -951,14 +951,14 @@ def test_the_asc2_set_key_fires_acc_set_address() -> None:
     assert host.on_set_key_calls == [(CommandScope.ACC, 19)]
 
 
-def test_the_lcs_noop_key_does_nothing_harmful() -> None:
+def test_the_lcs_panel_key_does_nothing_harmful() -> None:
     host, view = _ops(state=_flagged(is_asc2=True))
-    command, args = host.lcs_noop_btn.on_press
+    command, args = host.lcs_panel_btn.on_press
 
     # A no-op for now: it must be callable and raise nothing.
     command(*args)
 
-    assert command == view.on_lcs_noop
+    assert command == view.on_lcs_panel
 
 
 def test_the_generic_and_switch_panels_do_not_carry_it() -> None:
@@ -1381,7 +1381,7 @@ def test_the_asc2_panel_expands_the_fourth_column_for_its_set_and_lcs_keys() -> 
     host, _view = _ops(state=_flagged(is_asc2=True))
 
     assert host.acc_set_cell.visible is True
-    assert host.lcs_noop_cell.visible is True
+    assert host.lcs_panel_cell.visible is True
     cfg = host.keypad_keys.tk._column_config
     assert cfg[3] == _OCCUPIED
     assert cfg[4] == _COLLAPSED

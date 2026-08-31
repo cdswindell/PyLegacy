@@ -68,10 +68,8 @@ INFO_KEY = "Info"
 # ellipsis on ACC_PANEL_KEY marks it as a navigation key that opens another screen rather than
 # firing a command, matching the "Crew...", "Tower..." convention used on the engine panels.
 ACC_PANEL_KEY = "Acc..."
-LCS_PANEL_KEY = "LCS"
-# A placeholder key shown on the native ASC2 panel. Its behavior is specified in a later turn;
-# for now it is a visible no-op, and the ellipsis signals the screen it will eventually open.
-LCS_NOOP_KEY = "LCS..."
+LCS_PANEL_KEY = "LCS..."
+
 # Purpose-drawn black-and-white icons (op-*.jpg style) for the generic-panel return control.
 # The device icons say "go back to this LCS device's own panel"; the screen icon says "open the
 # operating-accessory control screen". They replace the tiny "LCS" text and the ambiguous
@@ -90,12 +88,6 @@ AUX3_KEY = "Aux3"
 CAB_KEY = "Cab"
 SMOKE_ON = "SMOKE_ON"
 SMOKE_OFF = "SMOKE_OFF"
-# No longer rendered anywhere. The freight-sounds bell is bell.jpg now, because no single bell
-# codepoint works on both devices: the Pi has no font with U+1F514 and draws a missing-glyph
-# rectangle, while the Deck's color emoji font claims it and draws a colored bitmap that ignores
-# the button's foreground. U+1F56D RINGING BELL has no emoji form but almost no font ships it.
-# Kept as a constant rather than deleted so nothing outside this package breaks on the name.
-BELL_KEY = "\U0001f514"
 FWD_KEY = "Fwd"
 REV_KEY = "Rev"
 DIR_KEY = "Dir"
@@ -480,8 +472,6 @@ REPEAT_EXCEPTIONS = {
 FONT_SIZE_EXCEPTIONS = {
     CYCLE_KEY,
     PLAY_KEY,
-    # Note that the Bell/Horn button overrides this with an explicit size, because its label is
-    # four characters wide. The entry still matters for any other call site that does not.
     PLAY_PAUSE_KEY,
     PAUSE_KEY,
 }

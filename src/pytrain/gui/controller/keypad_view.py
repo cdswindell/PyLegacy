@@ -37,7 +37,6 @@ from .engine_gui_conf import (
     ENTRY_LAYOUT,
     FIRE_ROUTE_KEY,
     INFO_KEY,
-    LCS_NOOP_KEY,
     LCS_PANEL_KEY,
     OP_SCREEN_IMAGE,
     SENSOR_TRACK_OPTS,
@@ -178,8 +177,9 @@ class KeypadView(Generic[S]):
         return self._native_panel_kind_for(state)
 
     # noinspection PyUnresolvedReferences
-    def _native_panel_kind_for(self, state: S | None) -> str | None:
-        """The panel a state's own flags call for, ignoring any override in force."""
+    @staticmethod
+    def _native_panel_kind_for(state: S | None) -> str | None:
+        """The panel a state's own flags call for ignoring any override in force."""
         if state is None:
             return None
         acc_state = state.state if isinstance(state, ConfiguredAccessoryAdapter) else state
@@ -220,9 +220,9 @@ class KeypadView(Generic[S]):
         self._keypad_cells = []
 
         def make_key(*args, **kwargs):
-            cell, nb = host.make_keypad_button(*args, **kwargs)
-            self._register_keypad_cell(cell)
-            return cell, nb
+            cell_k, nb_k = host.make_keypad_button(*args, **kwargs)
+            self._register_keypad_cell(cell_k)
+            return cell_k, nb_k
 
         row = 0
         for r, kr in enumerate(ENTRY_LAYOUT):
@@ -529,32 +529,32 @@ class KeypadView(Generic[S]):
         )
         host.acc_set_btn.on_press = (self.on_acc_set_key, [])
 
-        host.lcs_noop_cell, host.lcs_noop_btn = make_key(
+        host.lcs_panel_cell, host.lcs_panel_btn = make_key(
             keypad_keys,
-            LCS_NOOP_KEY,
+            LCS_PANEL_KEY,
             1,
             3,
             size=host.s_16,
             visible=False,
             is_ops=True,
             hover=True,
-            command=self.on_lcs_noop,
+            command=self.on_lcs_panel,
             args=[],
         )
 
         # BPC2-only LCS... key: a visible no-op placeholder in the first column, directly below
         # the "7" key (row 3, col 0 -- the CLEAR slot, free in ops mode). ASC2 carries its own
         # LCS... in the 4th column; BPC2 gets this one instead.
-        host.bpc2_lcs_noop_cell, host.bpc2_lcs_noop_btn = make_key(
+        host.bpc2_lcs_panel_cell, host.bpc2_lcs_panel_btn = make_key(
             keypad_keys,
-            LCS_NOOP_KEY,
+            LCS_PANEL_KEY,
             3,
             0,
             size=host.s_16,
             visible=False,
             is_ops=True,
             hover=True,
-            command=self.on_lcs_noop,
+            command=self.on_lcs_panel,
             args=[],
         )
 
@@ -842,7 +842,7 @@ class KeypadView(Generic[S]):
         host = self._host
         host.on_set_key(CommandScope.ACC, host.scope_tmcc_id(CommandScope.ACC))
 
-    def on_lcs_noop(self, _key: str | None = None) -> None:
+    def on_lcs_panel(self, _key: str | None = None) -> None:
         """Placeholder for the native-panel LCS... key; its behavior is a later turn's work."""
         log.debug("LCS... key pressed; no behavior wired yet")
 
@@ -1129,13 +1129,13 @@ class KeypadView(Generic[S]):
                     if kind == PANEL_BPC2:
                         # BPC2 carries its own no-op LCS... placeholder in the first column,
                         # below the "7" key; ASC2 keeps its own LCS... in the 4th column.
-                        host.bpc2_lcs_noop_cell.show()
+                        host.bpc2_lcs_panel_cell.show()
                     if kind == PANEL_ASC2:
                         host.ac_aux1_cell.show()
                         # The native ASC2 panel carries its own Set (ACC SET_ADDRESS) and the
                         # placeholder LCS... key in the 4th column; BPC2 gets neither.
                         host.acc_set_cell.show()
-                        host.lcs_noop_cell.show()
+                        host.lcs_panel_cell.show()
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                             # acc_generic now holds [2, 3] (below "9"); the configured-accessory
                             # key drops into the free 4th-column slot below the LCS... key.
