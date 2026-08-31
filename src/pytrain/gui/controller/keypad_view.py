@@ -513,9 +513,9 @@ class KeypadView(Generic[S]):
             args=[],
         )
 
-        # ASC2-only keys, stacked in the free 4th column (column 3). "Set" fires ACC SET_ADDRESS
-        # so the address can be programmed from the native ASC2 panel; "LCS..." is a visible
-        # placeholder whose behavior is specified in a later turn (a no-op for now).
+        # ASC2-only Set key in the free 4th column (column 3): fires ACC SET_ADDRESS so the
+        # address can be programmed from the native ASC2 panel. The LCS... key that also appears
+        # in this column on the ASC2 panel is the single shared one built just below.
         host.acc_set_cell, host.acc_set_btn = make_key(
             keypad_keys,
             SET_KEY,
@@ -529,6 +529,12 @@ class KeypadView(Generic[S]):
         )
         host.acc_set_btn.on_press = (self.on_acc_set_key, [])
 
+        # One shared LCS... key (a no-op placeholder for now) reused on every screen that offers
+        # it, re-gridded per context by _show_lcs_panel_key. It is deliberately in neither the
+        # entry_cells nor the ops_cells set: it must appear both in entry mode (Accessory/Switch
+        # scopes) and on the accessory ops panels, and the set-based show/hide cannot straddle
+        # the two. Slots (0-based [col, row]): entry [0, 4] under Delete, generic accessory
+        # [1, 4] under "0", native ASC2 [3, 1], native BPC2 [0, 3].
         host.lcs_panel_cell, host.lcs_panel_btn = make_key(
             keypad_keys,
             LCS_PANEL_KEY,
@@ -536,23 +542,6 @@ class KeypadView(Generic[S]):
             3,
             size=host.s_16,
             visible=False,
-            is_ops=True,
-            hover=True,
-            command=self.on_lcs_panel,
-            args=[],
-        )
-
-        # BPC2-only LCS... key: a visible no-op placeholder in the first column, directly below
-        # the "7" key (row 3, col 0 -- the CLEAR slot, free in ops mode). ASC2 carries its own
-        # LCS... in the 4th column; BPC2 gets this one instead.
-        host.bpc2_lcs_panel_cell, host.bpc2_lcs_panel_btn = make_key(
-            keypad_keys,
-            LCS_PANEL_KEY,
-            3,
-            0,
-            size=host.s_16,
-            visible=False,
-            is_ops=True,
             hover=True,
             command=self.on_lcs_panel,
             args=[],
@@ -722,7 +711,7 @@ class KeypadView(Generic[S]):
     def _register_keypad_cell(self, cell) -> None:
         """Files a cell parented to ``keypad_keys`` into the reflow roster.
 
-        The single choke point every keypad cell passes through -- numeric, entry, ops and aux
+        The single choke point every keypad cell passes through -- numeric, entry, ops, and aux
         cells go through ``make_key`` in build(), and the accessory throttle box is added
         alongside them -- so ``_reflow_keypad_columns`` can read column occupancy from one list.
         """
@@ -843,8 +832,29 @@ class KeypadView(Generic[S]):
         host.on_set_key(CommandScope.ACC, host.scope_tmcc_id(CommandScope.ACC))
 
     def on_lcs_panel(self, _key: str | None = None) -> None:
-        """Placeholder for the native-panel LCS... key; its behavior is a later turn's work."""
+        """Placeholder for the shared LCS... key; its behavior is a later turn's work."""
         log.debug("LCS... key pressed; no behavior wired yet")
+
+    def _show_lcs_panel_key(self, grid: list[int]) -> None:
+        """Places the single shared LCS... key at ``grid`` (0-based [col, row]) and shows it.
+
+        One widget serves every screen that offers the key, so each caller names the slot it
+        belongs in for that screen -- entry [0, 4] under Delete, generic accessory [1, 4] under
+        "0", native ASC2 [3, 1], native BPC2 [0, 3]. Those screens are mutually exclusive, so
+        the one widget is never wanted in two places at once.
+        """
+        cell = getattr(self._host, "lcs_panel_cell", None)
+        if cell is None:
+            return
+        cell.grid = grid
+        if not cell.visible:
+            cell.show()
+
+    def _hide_lcs_panel_key(self) -> None:
+        """Hides the shared LCS... key; the counterpart of ``_show_lcs_panel_key``."""
+        cell = getattr(self._host, "lcs_panel_cell", None)
+        if cell is not None and cell.visible:
+            cell.hide()
 
     @staticmethod
     def _can_create(scope: CommandScope, tmcc_id: int) -> bool:
@@ -1011,6 +1021,12 @@ class KeypadView(Generic[S]):
             host.reset_btn.enable()
         else:
             host.reset_btn.disable()
+        # The shared LCS... key rides the entry keypad for Accessory and Switch scopes only,
+        # under the Delete key ([0, 4], free once the engine On/Off keys are hidden here).
+        if host.scope in {CommandScope.ACC, CommandScope.SWITCH}:
+            self._show_lcs_panel_key([0, 4])
+        else:
+            self._hide_lcs_panel_key()
         self._reflow_keypad_columns()
 
     def enter_ops_mode_base(self) -> None:
@@ -1029,6 +1045,10 @@ class KeypadView(Generic[S]):
         for cell in host.ops_cells:
             if cell.visible:
                 cell.hide()
+
+        # The shared LCS... key is in neither cell set, so hide it by hand on every ops entry;
+        # the specific accessory panel below re-shows and re-grids it where it belongs.
+        self._hide_lcs_panel_key()
 
         self._collapse_acc_aux_cells()
         self.activate_numeric_keys()
@@ -1127,15 +1147,16 @@ class KeypadView(Generic[S]):
                     host.ac_on_cell.show()
                     host.acc_generic_cell.show()
                     if kind == PANEL_BPC2:
-                        # BPC2 carries its own no-op LCS... placeholder in the first column,
-                        # below the "7" key; ASC2 keeps its own LCS... in the 4th column.
-                        host.bpc2_lcs_panel_cell.show()
+                        # BPC2 shows the shared LCS... key in the first column, below "7"
+                        # (row 3, col 0 -- the CLEAR slot, free in ops mode).
+                        self._show_lcs_panel_key([0, 3])
                     if kind == PANEL_ASC2:
                         host.ac_aux1_cell.show()
                         # The native ASC2 panel carries its own Set (ACC SET_ADDRESS) and the
-                        # placeholder LCS... key in the 4th column; BPC2 gets neither.
+                        # shared LCS... key stacked below it in the 4th column; BPC2 gets the Set
+                        # nowhere and shows the shared LCS... key in the first column instead.
                         host.acc_set_cell.show()
-                        host.lcs_panel_cell.show()
+                        self._show_lcs_panel_key([3, 1])
                         if host.accessories.configured_by_tmcc_id(state.tmcc_id):
                             # acc_generic now holds [2, 3] (below "9"); the configured-accessory
                             # key drops into the free 4th-column slot below the LCS... key.
@@ -1154,6 +1175,10 @@ class KeypadView(Generic[S]):
                     if self._alternate_acc_view_kind(acc_state) is not None:
                         host.ac_op_cell.grid = [1, 4]
                         self.enable_alternate_acc_view(acc_state)
+                    else:
+                        # No way-back/op key claims [1, 4] on the default accessory screen, so
+                        # the shared LCS... key takes the slot directly under "0".
+                        self._show_lcs_panel_key([1, 4])
 
             if show_keypad and not host.keypad_box.visible:
                 host.keypad_box.show()
@@ -1303,7 +1328,7 @@ class KeypadView(Generic[S]):
         id and the value as arguments rather than reading them is what lets a revert send the
         pair it is putting back rather than whatever the group happens to show.
 
-        The two callers hand over different types and the normalising is done here rather than
+        The two callers hand over different types, and the normalizing is done here rather than
         asked of them: the change handler passes what the group holds, which is a ``str``
         because guizero keeps the selection in a Tk ``StringVar``, while the pad passes the
         ``int`` the stepping returned.
@@ -1330,7 +1355,7 @@ class KeypadView(Generic[S]):
         the string ``"None"``. Anything that does not parse to an option in the list -- that,
         an empty group, a value from outside the list -- is read as nothing selected.
 
-        The one place that normalising is done: two readings of a Tk string is two chances to
+        The one place that normalizing is done: two readings of a Tk string is two chances to
         disagree about which option is showing.
         """
         host = self._host

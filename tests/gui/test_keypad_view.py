@@ -885,9 +885,9 @@ def test_the_lcs_keypad_panels_carry_the_key_to_the_generic_panel(flag: str) -> 
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
 
 
-def test_only_the_native_asc2_panel_carries_the_set_and_lcs_keys() -> None:
-    # ASC2 gets its own Set (ACC SET_ADDRESS) and the placeholder LCS... key, stacked in the
-    # 4th column; BPC2 gets neither.
+def test_the_native_asc2_panel_carries_the_set_key_and_the_shared_lcs_key() -> None:
+    # ASC2 gets its own Set (ACC SET_ADDRESS) and the shared LCS... key stacked below it in the
+    # 4th column; BPC2 gets the Set nowhere.
     host, _view = _ops(state=_flagged(is_asc2=True))
     assert host.acc_set_cell.visible is True
     assert host.acc_set_cell.grid == [3, 0]
@@ -897,49 +897,97 @@ def test_only_the_native_asc2_panel_carries_the_set_and_lcs_keys() -> None:
 
     host, _view = _ops(state=_flagged(is_bpc2=True))
     assert host.acc_set_cell.visible is False
-    assert host.lcs_panel_cell.visible is False
-    # ASC2 must not carry the BPC2 first-column LCS... key either.
-    host, _view = _ops(state=_flagged(is_asc2=True))
-    assert host.bpc2_lcs_panel_cell.visible is False
 
 
-def test_only_the_native_bpc2_panel_carries_the_first_column_lcs_key() -> None:
-    # BPC2 gets its own no-op LCS... key in the first column, directly below "7" (row 3, col 0).
+def test_the_native_bpc2_panel_carries_the_shared_lcs_key_in_the_first_column() -> None:
+    # BPC2 shows the shared LCS... key in the first column, directly below "7" (row 3, col 0),
+    # rather than the 4th-column slot the ASC2 panel puts it in.
     host, view = _ops(state=_flagged(is_bpc2=True))
-    assert host.bpc2_lcs_panel_cell.visible is True
-    assert host.bpc2_lcs_panel_cell.grid == [0, 3]
-    assert host.bpc2_lcs_panel_btn.text == mod.LCS_PANEL_KEY == "LCS..."
-    assert host.bpc2_lcs_panel_btn.on_press == (view.on_lcs_panel, [])
+    assert host.lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.grid == [0, 3]
+    assert host.lcs_panel_btn.text == mod.LCS_PANEL_KEY == "LCS..."
+    assert host.lcs_panel_btn.on_press == (view.on_lcs_panel, [])
     # The BPC2 Acc... toggle is unchanged and still shown.
     assert host.acc_generic_cell.visible is True
 
-    # ASC2 and the generic/switch panels never show the BPC2 first-column key.
-    host, _view = _ops(state=_flagged(is_asc2=True))
-    assert host.bpc2_lcs_panel_cell.visible is False
-    host, _view = _ops()
-    assert host.bpc2_lcs_panel_cell.visible is False
-    host, _view = _ops(CommandScope.SWITCH, 7)
-    assert host.bpc2_lcs_panel_cell.visible is False
+
+def test_the_lcs_key_is_a_single_shared_widget_re_gridded_across_the_native_panels() -> None:
+    # One widget, one identity: the cell the ASC2 panel shows is the very cell the BPC2 panel
+    # shows, only re-gridded -- there is no separate BPC2 button any more.
+    host_asc2, _view = _ops(state=_flagged(is_asc2=True))
+    host_bpc2, _view = _ops(state=_flagged(is_bpc2=True))
+
+    assert not hasattr(host_asc2, "bpc2_lcs_panel_cell")
+    assert not hasattr(host_asc2, "bpc2_lcs_panel_btn")
+    assert host_asc2.lcs_panel_cell.grid == [3, 1]
+    assert host_bpc2.lcs_panel_cell.grid == [0, 3]
 
 
-def test_the_bpc2_first_column_lcs_key_is_an_ops_cell_hidden_in_entry_mode() -> None:
-    host, view = _ops(state=_flagged(is_bpc2=True))
-    assert host.bpc2_lcs_panel_cell.visible is True
+def test_the_shared_lcs_key_rides_the_entry_keypad_for_accessory_and_switch_scopes() -> None:
+    # In entry mode the shared LCS... key sits under the Delete key ([0, 4]) for Accessory and
+    # Switch scopes -- the slot the engine On/Off keys vacate there.
+    for scope in (CommandScope.ACC, CommandScope.SWITCH):
+        host = _new_host()
+        host.scope = scope
+        host._scope_tmcc_ids = {s: 0 for s in CommandScope}
+        view = mod.KeypadView(host)
+        view.build()
+
+        view.entry_mode(clear_info=False)
+
+        assert host.lcs_panel_cell.visible is True
+        assert host.lcs_panel_cell.grid == [0, 4]
+        assert host.lcs_panel_cell not in host.entry_cells
+        assert host.lcs_panel_cell not in host.ops_cells
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ROUTE])
+def test_the_shared_lcs_key_stays_off_the_entry_keypad_for_other_scopes(scope: CommandScope) -> None:
+    host = _new_host()
+    host.scope = scope
+    host._scope_tmcc_ids = {s: 0 for s in CommandScope}
+    view = mod.KeypadView(host)
+    view.build()
 
     view.entry_mode(clear_info=False)
 
-    assert host.bpc2_lcs_panel_cell.visible is False
-    assert host.bpc2_lcs_panel_cell not in host.entry_cells
+    assert host.lcs_panel_cell.visible is False
 
 
-def test_the_bpc2_first_column_lcs_key_does_nothing_harmful() -> None:
+def test_the_generic_accessory_screen_carries_the_shared_lcs_key_under_zero() -> None:
+    # The default accessory operating screen shows the shared LCS... key directly under "0"
+    # ([1, 4]) -- the one free slot there when no way-back/op key claims it.
+    host, _view = _ops()
+
+    assert host.lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.grid == [1, 4]
+
+
+def test_the_generic_screen_yields_the_slot_to_the_way_back_key_when_configured() -> None:
+    # A configured operating accessory puts the way-back/op key at [1, 4]; the shared LCS... key
+    # steps aside there, as [1, 4] is the only free generic slot.
+    adapter = SimpleNamespace(op_btn_image_path="op-acc.jpg", activate_tmcc_id=lambda _tmcc_id: None)
+    host, view = _ops()
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [adapter])
+    host.on_configured_accessory = lambda _acc: None
+    host.get_image = lambda _image, size=None: None
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(host.active_state)
+
+    assert host.ac_op_cell.grid == [1, 4]
+    assert host.lcs_panel_cell.visible is False
+
+
+def test_the_shared_lcs_key_is_hidden_when_it_returns_to_entry_mode_from_an_ops_panel() -> None:
     host, view = _ops(state=_flagged(is_bpc2=True))
-    command, args = host.bpc2_lcs_panel_btn.on_press
+    assert host.lcs_panel_cell.visible is True
 
-    # A no-op for now: it must be callable and raise nothing.
-    command(*args)
+    host.scope = CommandScope.ENGINE
+    view.entry_mode(clear_info=False)
 
-    assert command == view.on_lcs_panel
+    assert host.lcs_panel_cell.visible is False
 
 
 def test_the_asc2_set_key_fires_acc_set_address() -> None:

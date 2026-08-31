@@ -174,13 +174,12 @@ def test_every_new_cell_lands_in_the_same_slot_on_the_pane_as_in_portrait(compac
 
     assert host.sw_set_cell.grid == [3, 0]
     assert host.info_cell.grid == [3, 2]
-    # Acc... now sits below "9" in the numeric column; the ASC2 Set/LCS keys stack in column 3.
+    # Acc... now sits below "9" in the numeric column; the ASC2 Set key and the shared LCS...
+    # key stack in column 3.
     assert host.acc_generic_cell.grid == [2, 3]
     assert host.acc_set_cell.grid == [3, 0]
+    # The shared LCS... key is built at its ASC2 slot [3, 1] and re-gridded per screen.
     assert host.lcs_panel_cell.grid == [3, 1]
-    # The BPC2-only LCS... key sits in the first column, below "7" (row 3, col 0).
-    assert host.bpc2_lcs_panel_cell.grid == [0, 3]
-    assert host.bpc2_lcs_panel_btn.on_press == (_view.on_lcs_panel, [])
     assert host.info_btn.on_press == (host.on_info, [])
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
     assert host.lcs_panel_btn.on_press == (_view.on_lcs_panel, [])
@@ -338,17 +337,19 @@ def test_the_bpc2_panel_collapses_the_fourth_column_on_the_pane(compact: bool) -
 
 
 @pytest.mark.parametrize("compact", [True, False])
-def test_only_bpc2_shows_the_first_column_lcs_key_on_the_pane(compact: bool) -> None:
-    # The BPC2 first-column LCS... key is shown on BPC2 and never on ASC2, identically on the
-    # pane as in portrait; it lives in column 0, so the 4th column still collapses on BPC2.
+def test_the_shared_lcs_key_sits_in_column_zero_on_bpc2_on_the_pane(compact: bool) -> None:
+    # The shared LCS... key sits in column 0 on BPC2 and in column 3 on ASC2, identically on the
+    # pane as in portrait; on BPC2 it lives in column 0, so the 4th column still collapses.
     host, view = _built(compact)
     _ops(host, view, _flagged(is_bpc2=True))
-    assert host.bpc2_lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.grid == [0, 3]
     assert host.acc_generic_cell.visible is True
 
     host, view = _built(compact)
     _ops(host, view, _flagged(is_asc2=True))
-    assert host.bpc2_lcs_panel_cell.visible is False
+    assert host.lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.grid == [3, 1]
 
 
 @pytest.mark.parametrize("compact", [True, False])
