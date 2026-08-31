@@ -50,6 +50,7 @@ def title(text: str):
                 "BEE",
                 "CAN",
                 "CAR",
+                "CO",
                 "DRY",
                 "ICE",
                 "GAS",
