@@ -56,7 +56,7 @@ class AccessoryState(TmccState, LcsProxyState):
     def payload(self) -> str:
         aux1 = aux2 = aux_num = ""
         if self.is_bpc2:
-            aux = f"BPC2 Port {self.port}: {' ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+            aux = f"BPC2 Port {self.port:>2}: {' ON' if self.aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
         elif self.is_sensor_track:
             aux = "Sensor Track" if self.is_road_name and not self.road_name.startswith("Sensor Track") else ""
         elif self.is_amc2:
@@ -74,7 +74,7 @@ class AccessoryState(TmccState, LcsProxyState):
                 aux = "AMC2"
         else:
             if self.is_asc2:
-                aux = f"ASC2 Port {self.port}: {' ON' if self._aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
+                aux = f"ASC2 Port {self.port:>2}: {' ON' if self._aux_state == Aux.AUX1_OPT_ONE else 'OFF'}"
             else:
                 aux, aux1, aux2, aux_num = self._get_aux_state()
         return f"{aux}{aux1}{aux2}{aux_num}"
