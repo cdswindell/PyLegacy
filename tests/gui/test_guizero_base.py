@@ -527,6 +527,42 @@ def test_hidden_keypad_image_cell_decodes_when_revealed_via_visible_setter(monke
     gui.close()
 
 
+def test_hidden_keypad_image_cell_decodes_from_original_path_after_image_reassigned(monkeypatch) -> None:
+    # Regression: a live button's ``image`` can be swapped to a rendered ImageTk.PhotoImage
+    # before the cell is first shown (e.g. update_ac_status repaints the BPC2 status bulb). The
+    # deferred decode must use the original build-time path, not ``button.image`` -- feeding a
+    # PhotoImage back through get_titled_image/Image.open raised and aborted the panel's show
+    # cascade, dropping the BPC2 buttons and device image on first display.
+    gui = DummyGui()
+    monkeypatch.setattr(mod, "Box", _FakeCell)
+    monkeypatch.setattr(mod, "HoldButton", _FakeButton)
+    decoded = _spy_titled_image(gui, monkeypatch)
+
+    cell, nb = gui._build_keypad_button(
+        keypad_box=_FakeCell(),
+        label=None,
+        row=0,
+        col=0,
+        size=0,
+        image="bulb-power-off.png",
+        visible=False,
+        command=None,
+    )
+    assert decoded == []
+
+    # Simulate update_ac_status swapping in a rendered image object before the first show.
+    rendered_image = object()
+    nb.image = rendered_image
+
+    # The first show must not blow up and must decode from the original path, not the object.
+    cell.show()
+    assert decoded == ["bulb-power-off.png"]
+    assert nb.images == ("normal::bulb-power-off.png", "inverted::bulb-power-off.png")
+    assert cell.visible is True
+
+    gui.close()
+
+
 def test_visible_keypad_image_cell_decodes_during_build(monkeypatch) -> None:
     gui = DummyGui()
     monkeypatch.setattr(mod, "Box", _FakeCell)

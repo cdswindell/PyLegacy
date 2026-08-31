@@ -732,7 +732,13 @@ class GuiZeroBase(Thread, ABC):
         def show_and_decode(*args, **kwargs):
             # Only intercept the first show; restore the real method for every later call.
             cell.show = original_show
-            button.images = self.get_titled_image(button.image)
+            # Decode from the original image path captured at build time, not from
+            # ``button.image``. A live button's ``image`` can be reassigned to a rendered
+            # ImageTk.PhotoImage before the cell is first shown (e.g. update_ac_status swaps
+            # the BPC2 status bulb), and feeding that back through get_titled_image ->
+            # Image.open raises, aborting the whole panel's show cascade -- which dropped the
+            # BPC2 buttons and device image on first display.
+            button.images = self.get_titled_image(image)
             return original_show(*args, **kwargs)
 
         cell.show = show_and_decode

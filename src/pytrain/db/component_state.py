@@ -844,11 +844,12 @@ class SwitchState(TmccState, LcsProxyState):
 
     @property
     def payload(self) -> str:
-        sn = f"{self._state.name if self._state is not None else 'Unknown'}"
+        snt = self._state.name if self._state is not None else "Unk"
+        sn = f"{snt:<4}"
         if self.is_asc2:
-            sn = f"ASC2 Port {self.port}: {sn}"
+            sn = f"ASC2 Port {self.port:>2}: {sn}"
         if self.is_stm2:
-            sn = f"STM2 Port {self.port}: {sn}"
+            sn = f"STM2 Port {self.port:>2}: {sn}"
         return sn
 
     def register_route(self, route: RouteState) -> None:
