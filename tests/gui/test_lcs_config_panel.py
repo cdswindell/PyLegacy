@@ -37,10 +37,28 @@ class _DummyTk:
         _ = add
         return
 
+    @staticmethod
+    def update_idletasks() -> None:
+        return
+
+    @staticmethod
+    def winfo_reqwidth() -> int:
+        return 160
+
+    @staticmethod
+    def pack_propagate(_flag: bool) -> None:
+        return
+
 
 class _DummyWidget:
-    def __init__(self, *_args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.tk = _DummyTk()
+        self.kwargs = dict(kwargs)
+        # Children are recorded in creation order, which is what the whitespace tests read.
+        self.children: list[Any] = []
+        parent = args[0] if args else None
+        if isinstance(getattr(parent, "children", None), list):
+            parent.children.append(self)
         self.visible = True
         self.enabled = True
         self.text = kwargs.get("text", "")
@@ -185,7 +203,14 @@ class FakeHost(SimpleNamespace):
             cache=lambda _widget: None,
             app=FakeApp(),
             sent=[],
+            vspaces=[],
         )
+
+    def add_vspace(self, parent: Any, pixels: int) -> None:
+        """Record the spacer and stand one in among the parent's children, as guizero would."""
+        self.vspaces.append((parent, pixels))
+        if isinstance(getattr(parent, "children", None), list):
+            parent.children.append(SimpleNamespace(vspace=pixels))
 
     def submit_request(self, request: Any, repeat: int = 1, delay: float = 0.0) -> None:
         self.sent.append((request, repeat, delay))
@@ -805,3 +830,191 @@ def test_on_synchronized_is_idempotent() -> None:
 
     assert (panel.device, panel.mode, panel.base_id) == (device, mode, base_id)
     assert panel.sync_pending is False
+
+
+#
+# Equal-width device rows
+#
+class _RecordingRowTk:
+    def __init__(self) -> None:
+        self.grid_options: dict[str, Any] = {}
+
+    def grid_configure(self, **kwargs: Any) -> None:
+        self.grid_options.update(kwargs)
+
+
+class _RecordingGroupTk:
+    def __init__(self) -> None:
+        self.columns: dict[int, dict[str, Any]] = {}
+
+    def grid_columnconfigure(self, col: int, **kwargs: Any) -> None:
+        self.columns.setdefault(col, {}).update(kwargs)
+
+
+class _RecordingGroup:
+    def __init__(self, rows: int) -> None:
+        self.tk = _RecordingGroupTk()
+        self._rbuttons = [SimpleNamespace(tk=_RecordingRowTk()) for _ in range(rows)]
+
+
+def test_equalize_group_rows_stretches_every_row_into_the_column() -> None:
+    group = _RecordingGroup(len(mod.LcsConfigPanel.device_options()))
+
+    mod.LcsConfigPanel._equalize_group_rows(group)
+
+    assert group.tk.columns == {0: {"weight": 1}}
+    assert [row.tk.grid_options for row in group._rbuttons] == [{"sticky": "ew"}] * len(group._rbuttons)
+
+
+@pytest.mark.parametrize("rows", [None, []])
+def test_equalize_group_rows_is_a_no_op_without_rows(rows: Any) -> None:
+    group = _RecordingGroup(0)
+    if rows is None:
+        del group._rbuttons
+    else:
+        group._rbuttons = rows
+
+    mod.LcsConfigPanel._equalize_group_rows(group)  # must not raise
+
+    assert group.tk.columns in ({}, {0: {"weight": 1}})
+
+
+def test_equalize_group_rows_swallows_a_tcl_error() -> None:
+    group = _RecordingGroup(1)
+
+    def _raise(**_kwargs: Any) -> None:
+        raise mod.TclError("no such widget")
+
+    group._rbuttons[0].tk.grid_configure = _raise
+
+    mod.LcsConfigPanel._equalize_group_rows(group)  # must not raise
+
+
+def test_device_group_is_built_without_an_explicit_width() -> None:
+    panel = _new_panel()
+
+    assert "width" not in panel._device_group.kwargs
+
+
+#
+# Tight whitespace
+#
+def _build_with_body(compact: bool = False):
+    host = _new_host()
+    host.compact = compact
+    panel = mod.LcsConfigPanel(host)
+    body = DummyBox()
+    panel.build(body)
+    return panel, body, host
+
+
+def test_exactly_two_spacers_are_requested() -> None:
+    panel, body, host = _build_with_body()
+
+    parents = [parent for parent, _pixels in host.vspaces]
+    assert parents == [body, panel._pages[mod.PAGE_DEVICE]]
+
+
+def test_the_body_spacer_comes_before_the_sync_line_and_the_pages() -> None:
+    panel, body, _host = _build_with_body()
+
+    assert getattr(body.children[0], "vspace", None) == mod.SECTION_GAP
+    assert body.children[1] is panel._sync_line
+    assert body.children[2] is panel._pages[mod.PAGE_DEVICE]
+
+
+def test_the_device_page_spacer_sits_between_the_prompt_and_the_group() -> None:
+    panel, _body, _host = _build_with_body()
+    page = panel._pages[mod.PAGE_DEVICE]
+
+    assert page.children[0].value == "Which module are you configuring?"
+    assert getattr(page.children[1], "vspace", None) == mod.SECTION_GAP
+    assert page.children[2] is panel._device_group
+
+
+@pytest.mark.parametrize(
+    "compact, gap",
+    [(False, mod.SECTION_GAP), (True, mod.SECTION_GAP_COMPACT)],
+)
+def test_the_gap_is_tighter_on_a_compact_host(compact: bool, gap: int) -> None:
+    _panel, _body, host = _build_with_body(compact=compact)
+
+    assert [pixels for _parent, pixels in host.vspaces] == [gap, gap]
+
+
+#
+# Footer: Back is hidden on the first page, Next never moves
+#
+def test_back_is_hidden_and_its_slot_shown_on_the_device_page() -> None:
+    panel = _new_panel()
+
+    assert panel.page_index == mod.PAGE_DEVICE
+    assert panel._back_btn.visible is False
+    assert panel._back_slot.visible is True
+
+
+def test_back_is_visible_and_enabled_on_every_later_page() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+
+    for expected in (mod.PAGE_ID, mod.PAGE_OPTIONS, mod.PAGE_REVIEW):
+        panel.next_page()
+        assert panel.page_index == expected
+        assert panel._back_btn.visible is True
+        assert panel._back_btn.enabled is True
+        assert panel._back_slot.visible is False
+
+
+def test_stepping_forward_and_back_restores_the_initial_visibility() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    before = (panel._back_btn.visible, panel._back_slot.visible)
+
+    panel.next_page()
+    panel.previous_page()
+
+    assert (panel._back_btn.visible, panel._back_slot.visible) == before
+
+
+def test_footer_packing_is_replayed_after_every_toggle(monkeypatch) -> None:
+    calls: list[Any] = []
+    monkeypatch.setattr(mod, "restore_footer_packing", lambda footer: calls.append(footer), raising=True)
+
+    panel = mod.LcsConfigPanel(_new_host())
+    panel.build(DummyBox())
+    footer = DummyBox()
+    panel.build_footer(footer)
+    built = len(calls)
+    assert built >= 1
+
+    panel._on_device_selected("asc2")
+    panel.next_page()
+    panel.previous_page()
+
+    assert len(calls) > built
+    assert set(calls) == {footer}
+
+
+def test_next_enablement_is_unchanged_by_the_hidden_back_button() -> None:
+    panel = _new_panel()
+
+    assert panel._next_btn.enabled is False
+    panel._on_device_selected("asc2")
+    panel.refresh_footer()
+    assert panel._next_btn.enabled is True
+
+    for _ in range(3):
+        panel.next_page()
+    assert panel.page_index == mod.PAGE_REVIEW
+    assert panel._next_btn.enabled is False
+
+
+def test_button_slot_falls_back_when_the_button_cannot_be_measured() -> None:
+    panel = mod.LcsConfigPanel(_new_host())
+    footer = DummyBox()
+    unmeasurable = SimpleNamespace(tk=SimpleNamespace())
+
+    slot = panel._button_slot(footer, unmeasurable)
+
+    assert slot.kwargs["width"] == mod.FOOTER_SLOT_FALLBACK + 2 * mod.FOOTER_BUTTON_PAD
+    assert slot.visible is False

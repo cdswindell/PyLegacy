@@ -25,6 +25,7 @@ read-back that does not arrive is reported rather than passed over in silence.
 from __future__ import annotations
 
 import logging
+from tkinter import TclError
 from typing import Any, Callable, TYPE_CHECKING
 
 from guizero import Box, CheckBox, Text
@@ -44,7 +45,13 @@ from .lcs_device_registry import (
 from .lcs_id_map import LcsOccupant, occupant_of, overlaps
 from .lcs_sequence_builder import LcsProgram, build_program
 from .overlay_panel import OverlayPanel
-from .popup_manager import footer_spacer, style_footer_button
+from .popup_manager import (
+    FOOTER_BUTTON_PAD,
+    FOOTER_BUTTON_PAD_COMPACT,
+    footer_spacer,
+    restore_footer_packing,
+    style_footer_button,
+)
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
@@ -77,6 +84,18 @@ SENSOR_TRACK_REVIEW_NOTE = (
     "The sequence is only complete once the Action Command has been assigned; "
     "pressing PROGRAM again aborts it with no change."
 )
+
+# Tight whitespace under the popup title row, and under a page's prompt. Real spacer
+# widgets (host.add_vspace), never pack padding: padding is discarded the next time
+# anything in the container is created or shown -- the same reason footer_spacer and
+# footer_lead are widgets. The compact pane cannot afford the portrait value.
+SECTION_GAP = 10
+SECTION_GAP_COMPACT = 6
+
+# Fallback slot width for the hidden Back button, used only when the real button cannot
+# be measured (a headless stand-in). Chosen from the measured 184 px request of a styled
+# width=8 footer button at portrait size.
+FOOTER_SLOT_FALLBACK = 184
 
 # Presses are staggered so the base sees them as separate gestures, and the read-back
 # GETs are held off until the module has had a moment to act on the last of them.
@@ -121,7 +140,9 @@ class LcsConfigPanel(OverlayPanel):
         self._goto_btn: HoldButton | None = None
         self._new_btn: HoldButton | None = None
         self._back_btn: HoldButton | None = None
+        self._back_slot: Box | None = None
         self._next_btn: HoldButton | None = None
+        self._footer: Box | None = None
         self._suspend_device_selector = False
         self._suspend_option_selectors = False
         # Set only by a stand-alone host that opens the window ahead of synchronization;
@@ -237,9 +258,15 @@ class LcsConfigPanel(OverlayPanel):
     #
     # Construction
     #
+    @property
+    def _section_gap(self) -> int:
+        return SECTION_GAP_COMPACT if self.compact else SECTION_GAP
+
     def build(self, body: Box) -> None:
         host = self._gui
         self._body = body
+        # First child of the body, so every page sits this far below the title row.
+        host.add_vspace(body, self._section_gap)
         # Above the pages, so the banner shows on whichever page is up.
         self._sync_line = self._label(body, "", bold=True)
         self._refresh_sync_line()
@@ -250,7 +277,6 @@ class LcsConfigPanel(OverlayPanel):
             self._build_review_page(body),
         ]
         self._show_page(self._page_index)
-        _ = host
 
     def _label(self, parent: Box, text: str, size: int | None = None, bold: bool = False, **kwargs) -> Text:
         host = self._gui
@@ -263,6 +289,7 @@ class LcsConfigPanel(OverlayPanel):
         host = self._gui
         page = Box(body, align="top", border=0)
         self._label(page, "Which module are you configuring?", size=host.s_16, bold=True)
+        host.add_vspace(page, self._section_gap)
         self._device_group = CheckBoxGroup(
             page,
             size=host.s_14,
@@ -272,7 +299,35 @@ class LcsConfigPanel(OverlayPanel):
             style="radio",
             command=self._on_device_selected,
         )
+        self._equalize_group_rows(self._device_group)
         return page
+
+    @staticmethod
+    def _equalize_group_rows(group: CheckBoxGroup) -> None:
+        """Make every row of a vertical ButtonGroup as wide as the widest one.
+
+        guizero grids a vertical group's rows into one column with align="left", i.e.
+        sticky="W", so each row keeps its natural width and a short label leaves a short
+        box -- measured 326 / 317 / 225 / 318 px for ASC2 / BPC2 / STM2 / Sensor Track.
+        Giving the column weight and stretching each row into it makes them all the
+        column's width, which is the widest row's.
+
+        Deliberately not CheckBoxGroup(width=...): Tk honors an explicit -width by
+        *dropping* the row's padx (306 px at width=300 regardless of padx), which would
+        pull every radio dot flush against the left edge.
+
+        Only safe on a group whose rows are not rebuilt. ButtonGroup._refresh_options
+        destroys and recreates them, and creating a widget re-grids every sibling and wipes
+        sticky -- see admin_panel._apply_compact_grid. The device group never rebuilds; the
+        mode and option groups do, and are left alone.
+        """
+        rows = getattr(group, "_rbuttons", None) or ()
+        try:
+            group.tk.grid_columnconfigure(0, weight=1)
+            for row in rows:
+                row.tk.grid_configure(sticky="ew")
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     def _build_id_page(self, body: Box) -> Box:
         host = self._gui
@@ -1027,18 +1082,64 @@ class LcsConfigPanel(OverlayPanel):
 
     def build_footer(self, footer: Box) -> None:
         host = self._gui
+        self._footer = footer
         self._back_btn = back = HoldButton(footer, text="Back", align="left", width=8, command=self.previous_page)
         style_footer_button(host, back)
         host.cache(back)
+        # Holds Back's place while it is hidden, so Next never moves between pages.
+        self._back_slot = self._button_slot(footer, back)
         self._next_btn = nxt = HoldButton(footer, text="Next", align="left", width=8, command=self.next_page)
         style_footer_button(host, nxt)
         host.cache(nxt)
         footer_spacer(host, footer)
         self.refresh_footer()
 
+    def _button_slot(self, footer: Box, button: HoldButton) -> Box:
+        """An empty Box exactly as wide as ``button``'s footer slot, created hidden.
+
+        Measured rather than guessed: a styled width=8 footer button requests 184x52 while
+        an identically padded Label of the same width requests only 156x48, so a label
+        stand-in would let Next drift 28 px. An empty frame is also genuinely invisible on
+        Aqua, where a tk.Button background is not dependable.
+        """
+        pad = FOOTER_BUTTON_PAD_COMPACT if self.compact else FOOTER_BUTTON_PAD
+        try:
+            button.tk.update_idletasks()
+            width = int(button.tk.winfo_reqwidth()) + 2 * pad
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            width = FOOTER_SLOT_FALLBACK + 2 * pad
+        slot = Box(footer, align="left", width=width, height=1)
+        try:
+            slot.tk.pack_propagate(False)
+        except (AttributeError, RuntimeError, TclError):
+            pass
+        slot.hide()
+        return slot
+
     def refresh_footer(self) -> None:
-        if self._back_btn is not None:
-            self._enable(self._back_btn, self._page_index > 0)
+        self._show_back(self._page_index > 0)
         if self._next_btn is not None:
             can_advance = self._page_index < len(self._pages) - 1 and self._device is not None
             self._enable(self._next_btn, can_advance)
+
+    def _show_back(self, visible: bool) -> None:
+        """Back is meaningless on the first page, so it is hidden rather than greyed.
+
+        Its slot stays behind: _back_slot is an empty Box of Back's own requested width,
+        shown exactly when Back is not, so Next keeps the same x on every page. Both hide()
+        and show() run the footer's display_widgets(), which rebuilds pack options from
+        scratch and discards the padding style_footer_button recorded, so it is replayed.
+        """
+        if self._back_btn is not None:
+            if visible:
+                self._back_btn.show()
+                self._enable(self._back_btn, True)
+            else:
+                self._back_btn.hide()
+        if self._back_slot is not None:
+            if visible:
+                self._back_slot.hide()
+            else:
+                self._back_slot.show()
+        if self._footer is not None:
+            restore_footer_packing(self._footer)

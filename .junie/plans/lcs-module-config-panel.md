@@ -80,7 +80,7 @@ All three items live in one file, `src/pytrain/gui/controller/lcs_config_panel.p
 
 - **`build(body)`** L240-253 — creates `_sync_line` and then the four page Boxes directly on `body`. There is nothing between the popup's title row and that first line.
 - **`_build_device_page(body)`** L262-275 — the prompt `_label(page, "Which module are you configuring?", size=host.s_16, bold=True)` immediately followed by `CheckBoxGroup(page, size=host.s_14, options=self.device_options(), style="radio", ...)`. **No `width` is passed**, which is why each row sizes itself to its own label.
-- **`build_footer(footer)`** L1028-1037 — `Back` then `Next`, both `HoldButton(..., align="left", width=8)`, each passed to `style_footer_button`, then `footer_spacer(host, footer)`. `create_popup` (`popup_manager.py` L441-454) appends `Close` afterwards and then calls `restore_footer_packing`.
+- **`build_footer(footer)`** L1028-1037 — `Back` then `Next`, both `HoldButton(..., align="left", width=8)`, each passed to `style_footer_button`, then `footer_spacer(host, footer)`. `create_popup` (`popup_manager.py` L441-454) appends `Close` afterwards and then calls `restore_footer_packing`. Note: it does **not** currently keep a reference to `footer`, so `self._footer = footer` has to be added before `_show_back` can replay the footer's packing.
 - **`refresh_footer()`** L1039-1044 — `Back` is *enabled* when `_page_index > 0` and `Next` when a device is chosen and a page remains. `Back` is therefore present but greyed on page 0 today.
 - **`_show_page`** calls `refresh_footer()`, and `build()` calls `_show_page` **before** `build_footer` runs, so `refresh_footer` must stay tolerant of `None` footer widgets.
 
@@ -323,7 +323,7 @@ Two layers, because this is a styling change and Tk geometry is not assertable h
 
 # Delivery Steps
 
-###   Step 1: Give the four device selection boxes one width
+### ✓ Step 1: Give the four device selection boxes one width
 The Device page shows four radio rows of identical width — the widest row's — with their current inset and text size intact.
 
 - Add `_equalize_group_rows(group)` to `src/pytrain/gui/controller/lcs_config_panel.py`: `group.tk.grid_columnconfigure(0, weight=1)` plus `sticky="ew"` on every row in `group._rbuttons`, wrapped in the same `(AttributeError, RuntimeError, TclError, TypeError, ValueError)` guard `amc2_ops_panel` uses (L118-122).
@@ -332,7 +332,7 @@ The Device page shows four radio rows of identical width — the widest row's �
 - Document in the helper's docstring why the grid column is used rather than an explicit width (measured 306 px at `width=300` regardless of `padx`, against 326 px natural), and that it is only safe on a group whose rows are never rebuilt — the device group qualifies, the mode and option groups do not.
 - Extend `tests/gui/test_lcs_config_panel.py`: a stand-in group with recording `tk` stubs proves column 0 gets `weight=1` and every row gets `sticky="ew"`; a group without `_rbuttons` is a silent no-op; a raised `TclError` is swallowed; and the device group is still built with no `width` argument.
 
-###   Step 2: Add tight whitespace under the title row and the module prompt
+### ✓ Step 2: Add tight whitespace under the title row and the module prompt
 Every page sits a little below the popup title, and the device list sits a little below the question.
 
 - Add `SECTION_GAP = 10` / `SECTION_GAP_COMPACT = 6` module constants and a `_section_gap` property selecting between them on the existing `self.compact`.
@@ -341,13 +341,14 @@ Every page sits a little below the popup title, and the device list sits a littl
 - Use `GuiZeroBase.add_vspace` (`guizero_base.py` L756-758) rather than `pack_configure` padding, because padding is discarded on the next repack — the documented reason `footer_spacer` and `footer_lead` are widgets.
 - Extend `tests/gui/test_lcs_config_panel.py`: give `FakeHost` a recording `add_vspace`, then assert exactly two spacers are requested, in the right order relative to the sync line and the prompt, at 10 px normally and 6 px when compact.
 
-###   Step 3: Hide Back on the first page without moving Next
+### ✓ Step 3: Hide Back on the first page without moving Next
 `Back` is absent on the Device page and appears from the ID page onward, while `Next` keeps the same position throughout.
 
 - Add `FOOTER_SLOT_FALLBACK = 184` and a `_button_slot(footer, button)` helper that measures `button.tk.winfo_reqwidth()` after `update_idletasks()`, adds `2 * FOOTER_BUTTON_PAD` (or the compact value), and returns a hidden `Box(footer, align="left", width=..., height=1)` with `pack_propagate(False)`.
 - In `build_footer` (L1028-1037), create that slot between `Back` and `Next` so it occupies `Back`'s position in the packed row; keep `Next`, `footer_spacer`, and the `Close` button that `create_popup` adds exactly as they are.
 - Replace the `Back` enable/disable in `refresh_footer` (L1039-1044) with a `_show_back(visible)` helper that hides `Back` and shows the slot on page 0, does the reverse on every later page, and enables `Back` whenever it is shown.
 - Call `restore_footer_packing(self._footer)` at the end of `_show_back`, because `hide()`/`show()` run the footer's `display_widgets()`, which rebuilds pack options from scratch and drops the padding `style_footer_button` recorded.
+- Store the footer box in `build_footer` (`self._footer = footer`, with a `_footer: Box | None = None` initializer), because the method does not keep it today and `_show_back` needs it for the packing replay.
 - Import `restore_footer_packing`, `FOOTER_BUTTON_PAD`, and `FOOTER_BUTTON_PAD_COMPACT` alongside the existing `popup_manager` imports (L47).
 - Extend `tests/gui/test_lcs_config_panel.py`: `Back` hidden and the slot visible on page 0; `Back` visible and enabled with the slot hidden on pages 1-3; visibility restored exactly after stepping forward and back; `restore_footer_packing` called on every toggle; `Next`'s enablement rule unchanged; and the fallback slot width used without raising when the button cannot be measured.
 - Confirm on the Mac with `pylcs`: equal device boxes, the new gaps, no `Back` on the first screen, and `Next` in the same place on the first and second screens.
