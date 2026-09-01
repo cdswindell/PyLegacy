@@ -6,300 +6,348 @@ sessionId: session-260831-101511-13ot
 
 ### Overview & Goals
 
-Make the stand-alone **`pylcs`** window actually open on macOS, and give it honest feedback while the Base 3 is still synchronizing.
+Three presentational corrections to the LCS configuration panel's first screen. Nothing about *what* gets programmed changes — no new presses, no new options, no change to the registry, the sequence builder, the ID map, or the macOS main-thread fix that is now working.
 
-### Why it still crashes: none of this has been built yet
+1. **All four LCS device selection boxes get the same width.** They are ragged today because guizero sizes each radio row to its own label.
+2. **Tighter whitespace** below the popup title line, and below the "Which module are you configuring?" prompt.
+3. **Back is hidden on the first page**, while **Next stays at exactly the same position** it occupies on every other page.
 
-I checked the files before rewriting anything. **The fix was planned last round but never written.** The code on disk is unchanged:
+### What is actually wrong today, measured
 
-- `src/pytrain/gui/controller/lcs_gui.py` has **no** `start()` override and **no** `run_window()` — the class is still a plain `GuiZeroBase` subclass that gets started as a thread.
-- `src/pytrain/cli/lcs.py` L84-96 still calls `wait_for_sync()`, constructs `LcsGui(...)`, then blocks on `destroy_complete.wait()` and `join(timeout=10)` — it never drives the Tk loop itself.
+The device rows are sized by their labels. Measured with real Tk at the panel's own text size, the four rows request:
 
-So the second crash is not a new defect and not a partial fix misbehaving; it is the *same* untouched code producing the *same* abort. Your new trace confirms the path is identical under `-client`:
+| Row | Requested width |
+|---|---|
+| `ASC2 (Accessory / Switch)` | **326 px** |
+| `Sensor Track (Accessory)` | 318 px |
+| `BPC2 (Track / Accessory)` | 317 px |
+| `STM2 (Switch)` | **225 px** |
 
-```
-Opening LCS configuration window...          <- cli/lcs.py L86, still there
-*** Terminating app due to uncaught exception 'NSInternalInconsistencyException',
-    reason: 'NSWindow should only be instantiated on the main thread!'
-...
-29  Python  thread_run + 180                 <- the App is built inside a Python thread
-```
+So STM2's box is 101 px shorter than ASC2's — exactly the raggedness you are seeing. The cause is in guizero itself: `ButtonGroup` grids its rows into a single column with `align="left"`, which becomes `sticky="W"`, so every row keeps its natural width instead of filling the column.
 
-`-client` and `-base` differ only in the arguments `CommandBase.__init__` (`command_base.py` L67-88) hands to `PyTrain`; the window is created the same way in both, so both abort. This plan is unchanged in substance — what it gains is an explicit statement that it starts from zero, and a **proof step** so it cannot be reported done again without a real window having opened.
-
-Right now `cli/lcs.py -client` (and `-base <ip>`) aborts before a single pixel is drawn:
-
-```
-*** Terminating app due to uncaught exception 'NSInternalInconsistencyException',
-    reason: 'NSWindow should only be instantiated on the main thread!'
-```
-
-**This is not a slip in `LcsGui`.** It is the one assumption the whole GUI layer rests on. `GuiZeroBase` *is* a `Thread` (`guizero_base.py` L205), `run()` creates the guizero `App` inside the thread body (L500-505), and `_on_initial_sync` calls `self.start()` from the sync watcher's thread (L439). Every PyTrain GUI therefore builds its window on a worker thread. Under X11 on the Pi that is legal - which is why this has never surfaced - but macOS Aqua requires every `NSWindow` on the main thread, so Tk aborts in `TkMacOSXMakeRealWindowExist`. Your stack trace confirms it: frame 29 is `thread_run`, and the two nested `slot_tp_init` frames below `_tkinter_create` are `App.__init__` calling `Tk.__init__`.
-
-The irony is that `pylcs` is *already* on the main thread when it builds the host: `main()` -> `LcsCli.__init__` -> `cmd.fire()` -> `LcsGuiCmd.send()` all run there. The window is exactly one hop from being legal, and that hop is `Thread.start()`.
+On the footer, `Back` and `Next` are both packed `align="left"`, so `Back` is simply the first thing in the row. Hiding it on its own would let `Next` slide left into its place — which is what you explicitly do not want.
 
 ### Scope
 
 **In scope**
-- `pylcs` runs its Tk event loop on the process's **main thread**, so the window opens on macOS.
-- The window opens **immediately**, before Base 3 synchronization, and fills in when sync completes.
-- A visible "waiting for Base 3" state, with **Configure** disabled until the state store is populated.
-- A clean process exit when the window is closed.
-- A written recipe so the next stand-alone entry point does not repeat the mistake.
-- **A real window, opened and closed on this Mac, as the acceptance evidence** — not only headless assertions.
+- The four device rows on the Device page share one width: the widest row's (your choice).
+- A tight gap under the popup title row, on all four pages (your choice), and a tight gap under the Device page's prompt.
+- `Back` hidden on the Device page, with `Next` pinned to the same x position on every page.
 
 **Out of scope**
-- **Any change to `GuiZeroBase`** (your choice: keep the fix local to `LcsGui`). The Pi/thread path is untouched, byte for byte.
-- `EngineGui`, `SteamDeckGui`, and the generated `buttons_gui.py` launcher path. They are constructed from inside a running PyTrain, on PyTrain's own thread, and must keep running Tk in a thread.
-- Making the other GUIs macOS-capable. Only the recipe is written down.
-- The device registry, sequence builder, ID map, and everything about how the panel programs a module. None of it changes.
+- The mode radio group on the ID page and the option groups on the Options page. You asked about the *device selection* boxes; those groups keep their present natural widths, and unlike the device group they are torn down and rebuilt whenever the device changes.
+- `popup_manager.py`, `guizero_base.py`, and every other panel (`AdminPanel`, `StateInfoOverlay`, `Amc2OpsPanel`). The shared footer helpers are reused, not modified.
+- Any change to behavior: the same presses, the same `Next` enablement rule (a device must be chosen), the same `Configure` gating (a valid program, and no pending sync).
+- `Close`, the footer gap before it, and the waiting-for-Base-3 banner, all unchanged.
 
 ### User Stories
 
-1. As a Mac user, I want `pylcs -base <ip>` to open a window instead of dumping core, so I can configure LCS modules from my laptop.
-2. As a user on a layout that takes a while to sync, I want the window to appear at once and tell me it is waiting, rather than a silent terminal that might be hung.
-3. As a user, I do not want to press **Configure** while the panel cannot yet see which TMCC IDs are in use, because the occupancy banner would be lying to me.
-4. As a user, when I close the window I want the process to exit instead of lingering.
-5. As a developer, I want the main-thread requirement written down where the next stand-alone GUI's author will read it.
+1. As an operator, I want the four module choices to read as one tidy column of equal boxes, so the list looks deliberate rather than ragged.
+2. As an operator, I want a little air below the title bar and below the question, so the first screen does not feel crowded against the window frame.
+3. As an operator, I do not want a dead **Back** button on the first screen, because there is nothing behind it.
+4. As an operator stepping through the pages, I want **Next** to stay under my thumb — it must not jump sideways when **Back** appears on page 2.
 
 ### Functional Requirements
 
-**Launch**
-- The argument surface is unchanged: `pylcs [-client | -server <host> | -base <ip>] [-width] [-height] [-scale_by] [-full_screen]`.
-- The guizero `App` is created on the process main thread. On macOS no `NSWindow` exception occurs; on Windows Tk is likewise no longer driven from a secondary thread.
-- The window appears without waiting for synchronization, at the requested geometry (default 480x800).
-- The panel opens on its device page with base ID 1 and no device pre-selected, exactly as it does today when nothing is on screen.
+**Device selection boxes**
+- All four rows render at one width: the widest row's natural width (today ASC2's, 326 px on this Mac; the exact number varies with font scaling and is never hard-coded).
+- Each row keeps its current text size, radio indicator, and left inset. No label is clipped or wrapped.
+- The group as a whole is never wider than it already is today, so nothing new can overflow the Steam Deck's compact pane.
+- When AMC2 is added to the registry next turn, its row joins at whatever the new widest width is, with no constant to update.
 
-**While waiting for the Base 3**
-- A single status line, visible on every page, reads `Waiting for Base 3...`.
-- **Configure** is disabled for as long as that line is showing; the footnote and press preview still render, so the operator can read the sequence they are about to send.
-- Back / Next and every other control work normally: device, ID, and options can all be chosen during the wait.
-- The ID page's occupancy line reads `Not currently in use` while the store is empty, which is the truthful answer to "what do I know about this ID" at that moment.
+**Whitespace**
+- A tight gap sits between the popup title row and the panel's first content line, on all four pages — Device, ID, Options, and Review.
+- The same tight gap sits between "Which module are you configuring?" and the first device row.
+- "Tight" is **10 px** on the Pi portrait overlay and **6 px** on the compact pane, which has far less vertical room to spend.
+- The `Waiting for Base 3...` banner, when showing, sits below the title gap and still appears on whichever page is up.
 
-**When synchronization completes**
-- The status line disappears and **Configure** becomes available.
-- The window title becomes the base's name, as it does for every other GUI.
-- The panel re-resolves what it derives from the store: the occupancy banner, the overlap advisory, and the Sensor Track Action Command prefill.
-- **The operator's choices are never clobbered.** If a device has already been selected during the wait, that selection, the ID, and the options are all left alone and only the derived lines refresh. Only when no device has been chosen yet does the panel re-seed itself from the store.
-- If synchronization never arrives, the window stays open and usable, the status line stays, and **Configure** stays disabled. Nothing hangs.
-
-**Closing**
-- Closing the window ends the Tk loop, PyTrain is shut down, and the process exits with status 0.
-- No attempt is made to `join()` a thread that was never started.
+**Footer on the first page**
+- On the Device page, **Back** is not visible at all — not merely greyed out as it is today.
+- **Next** occupies the same horizontal position on all four pages. Stepping to the ID page must not move it.
+- From the ID page onward, **Back** is visible and enabled, exactly as now.
+- **Close** stays at the right of the row, and the padding around every footer button survives the show/hide.
 
 ### Non-Functional Requirements
-- Zero behavior change for the panel embedded in `EngineGui` or `SteamDeckGui`; the new waiting state is inert unless a host turns it on.
-- Zero change to `GuiZeroBase`, so nothing on the Pi can regress.
-- The full suite keeps passing (2272 tests today), with `ruff format --check` clean on every changed file.
-- **The change is not considered done until a real Tk window has been opened on the main thread on this machine and closed cleanly.** Headless tests can prove *where* the loop runs; only a real window proves the `NSWindow` abort is gone.
+- Every page still fits the portrait `EngineGui` overlay and the `SteamDeckGui` compact pane; the compact gap values are used on the Deck.
+- No functional regression: the existing panel tests, including the waiting-for-sync cases, keep passing unchanged.
+- `ruff format --check` clean on every changed file, and the full `pytest` suite green.
 
 # Technical Design
 
 ### Current Implementation
 
-- **`guizero_base.py`** - `GuiZeroBase(Thread, ABC)`; `Thread.__init__(daemon=True, name=title)` at L205. `run()` (L500-583) is fully self-contained: it creates the `App` (L505), applies geometry, registers `_poll_shutdown` via `app.repeat(20, ...)` (L565), calls `build_gui()` (L553), blocks in `app.display()` (L573), then tears down and sets `destroy_complete` (L583). Nothing in it depends on being a thread body, so it is legal to invoke directly.
-- **`_on_initial_sync`** (L422-439) runs on the sync `StateWatcher`'s thread: it retires the watcher, sets `self.title` from `BaseState.base_name`, waits on `_init_complete_flag`, then calls `self.start()`. **That call is the entire bug on macOS.**
-- **`queue_message(fn, *args)`** (L441-442) puts a callable on `_message_queue`; `_poll_shutdown` drains up to `MAX_GUI_MESSAGES_PER_POLL` of them every 20 ms **on the Tk thread**. Messages queued before the app exists simply wait in the queue.
-- **`_atexit_close`** (L342-350) already guards its `join` behind `self.is_alive()`, which is `False` for a thread that was never started - so a directly-run host needs no special handling there.
-- **`__init__` L213-220** builds a throwaway `tkinter.Tk()` to measure the screen when `width`/`height` are omitted. `LcsGui` passes `width or DEFAULT_WIDTH`, so it is never reached - but it is a live trap for any future host, and belongs in the recipe.
-- **`cli/lcs.py`** - `LcsGuiCmd.send()` calls `wait_for_sync()` (L84), constructs `LcsGui` (L87-92), then `destroy_complete.wait()` and `join(timeout=10)` (L95-96). It overrides `send` and ignores `shutdown`, so `CommandBase.fire()` never tears the comm buffer down. **This is still exactly what is on disk** - nothing from the previous plan was applied.
-- **`lcs_gui.py`** - `LcsGui.__init__` (L55-96) ends in `init_complete()`, which notifies the sync synchronizer; the watcher thread then runs `_on_initial_sync` -> `start()` -> `run()` -> `App(...)`. There is no `start()` override and no `run_window()` today. Because it passes `width or DEFAULT_WIDTH` / `height or DEFAULT_HEIGHT`, the screen-measuring `Tk()` in `GuiZeroBase.__init__` (L213-220) is never reached, so the *only* Tk object in play is the one `run()` builds.
-- **`-client` vs `-base`** - `CommandBase.__init__` (L67-88) only varies the `PyTrain` argument string (`-client` vs `-headless -base <ip>`). Neither touches the GUI, which is why both connection modes abort identically.
-- **`cli/pytrain.py`** - `PyTrain.shutdown()` (L671-709) closes zeroconf, the comm buffer, both listeners, the state store, and GPIO. The `-api` thread is a daemon (L297), so it dies with the process.
-- **`lcs_config_panel.py`** - `build(body)` (L195) builds the page Boxes into one body Box; `_refresh_review_page` (L476-483) is the single place **Configure** is enabled (`self._enable(self._configure_btn, program is not None)`); `_refresh_occupancy` (L892), `overlap_text` (L932), `_seed_sensor_track_action` (L723) and `configure(...)` (L669) are the store-derived refresh points.
+All three items live in one file, `src/pytrain/gui/controller/lcs_config_panel.py`:
+
+- **`build(body)`** L240-253 — creates `_sync_line` and then the four page Boxes directly on `body`. There is nothing between the popup's title row and that first line.
+- **`_build_device_page(body)`** L262-275 — the prompt `_label(page, "Which module are you configuring?", size=host.s_16, bold=True)` immediately followed by `CheckBoxGroup(page, size=host.s_14, options=self.device_options(), style="radio", ...)`. **No `width` is passed**, which is why each row sizes itself to its own label.
+- **`build_footer(footer)`** L1028-1037 — `Back` then `Next`, both `HoldButton(..., align="left", width=8)`, each passed to `style_footer_button`, then `footer_spacer(host, footer)`. `create_popup` (`popup_manager.py` L441-454) appends `Close` afterwards and then calls `restore_footer_packing`.
+- **`refresh_footer()`** L1039-1044 — `Back` is *enabled* when `_page_index > 0` and `Next` when a device is chosen and a page remains. `Back` is therefore present but greyed on page 0 today.
+- **`_show_page`** calls `refresh_footer()`, and `build()` calls `_show_page` **before** `build_footer` runs, so `refresh_footer` must stay tolerant of `None` footer widgets.
+
+What the change reuses, unmodified:
+
+- **`GuiZeroBase.add_vspace(parent, pixels)`** (`guizero_base.py` L756-758) — `Box(parent, height=pixels, width="fill", align="top")` with `pack_propagate(False)`. A real, fixed-height spacer widget; already used by `popup_manager.add_close_acc_btn` L517.
+- **`popup_manager.style_footer_button`** L82-109 — records its pack padding (`FOOTER_BUTTON_PAD` 20, `FOOTER_BUTTON_PAD_COMPACT` 4) on the widget, and **`restore_footer_packing`** L280-292 replays it, because `Container._pack_widget` rebuilds pack options from scratch and keeps only side/fill.
+- **guizero `ButtonGroup`** — `__init__` passes layout `"grid"` for its own frame and `_refresh_options` grids each `RadioButton` at `[0, n]` with `align="left"` (sticky `"W"`). That single fact is the whole cause of item 1.
+- **`admin_panel._mirror_two_up_columns`** L603-644 — the in-repo precedent for exactly this fix: `group.tk.grid_columnconfigure(column, weight=1)` plus stretching each option into its cell, complete with the warning in `_apply_compact_grid` L646-659 that creating any widget in a container re-grids every sibling and wipes sticky.
 
 ### Key Decisions
 
-1. **The override lives in `LcsGui`, not the base class** (your choice). `LcsGui.start()` is overridden to *not* spawn a thread: it records that the host is ready and hands the sync notification to the Tk loop. `cli/lcs.py` then calls the inherited `run()` itself, on the main thread. `GuiZeroBase` is not touched, so no other GUI's startup can change.
-2. **The window comes up first; sync arrives afterwards** (your choice). `LcsGuiCmd.send()` stops calling `wait_for_sync()` and goes straight into the window, so a Mac user sees something immediately.
-3. **Sync crosses threads through the queue that already exists.** `_on_initial_sync` runs on the watcher thread and must not touch a single widget. The overridden `start()` therefore only calls `queue_message(self._on_synchronized)`; `_poll_shutdown` runs it on the Tk thread 20 ms later. This is the same mechanism the panel's read-back already uses, and it works whether or not the app exists yet.
-4. **The waiting state is a panel capability, off by default.** `LcsConfigPanel.sync_pending` starts `False`, so the panel embedded in `EngineGui` is bit-for-bit unchanged. Only `LcsGui` sets it, and only until sync lands.
-5. **On sync, refresh but never re-seed over the operator.** Re-running `configure()` would wipe a device chosen during the wait. `on_synchronized()` re-seeds only when `device is None`; otherwise it refreshes just the derived lines.
-6. **The CLI owns the loop and the exit.** After `run()` returns, `send()` calls `self.pytrain.shutdown()` and returns; `main()` returns 0. The `join(timeout=10)` goes away, because there is no thread to join.
+1. **Equal widths come from the group's own grid column, not an explicit pixel width** (your choice: "widest label sets the width"). Give the group's column 0 `weight=1` and each row `sticky="ew"`; every row then fills the column, whose width is the widest row's. Measured rationale for *not* using `CheckBoxGroup(width=...)`: with an explicit `-width`, Tk **drops the row's `padx`** — a row measured 306 px at `width=300` whether `padx` was 18 or 0, against 326 px natural with `padx=18` — so the radio dots would slide flush against the left edge. Stretching in the column keeps today's inset, needs no magic number, and lets AMC2's label set the new shared width automatically next turn.
+2. **Only the device group is touched.** Its rows are built once — `_refresh_device_selector` L840-847 only assigns `.value` — whereas the mode and option groups are rebuilt with `clear()` / `append()` (L902-904), which destroys and recreates their rows and would silently discard grid options. That matches your scope: the *device selection* boxes.
+3. **Whitespace is real spacer widgets via the existing `host.add_vspace`,** not `pack_configure` padding. Padding is discarded the next time anything in the container is created or shown — the documented reason `footer_spacer` and `footer_lead` are widgets rather than padding. One call at the top of `build()` (before `_sync_line`, so it sits under the title on all four pages) and one in `_build_device_page` after the prompt.
+4. **Tight means 10 px portrait / 6 px compact** (your choice: tighter than the 16/8 I proposed). One constant pair in the panel, selected by the existing `self.compact`.
+5. **`Back` is hidden and its slot is held by an invisible spacer Box sized from `Back`'s own measured width** — not by blanking the button and not by a look-alike widget. Measured: a styled `Button(width=8)` requests **184x52** while an identically padded `Label(width=8)` requests only **156x48**, so a label stand-in would let `Next` drift 28 px; and a blank *button* would still draw a button face. A `Box` with `pack_propagate(False)` at `Back`'s requested width plus its pack padding holds the slot exactly, and an empty frame is genuinely invisible on Aqua where a `tk.Button` background is not dependable.
+6. **Every show/hide of a footer child is followed by `restore_footer_packing(footer)`.** `hide()` / `show()` run the footer's `display_widgets()`, which rebuilds pack options from scratch; without the replay, `Back`, `Next`, and `Close` would all lose their 20 px insets the first time you stepped off page 0.
 
 ### Proposed Changes
 
-**1. `src/pytrain/gui/controller/lcs_gui.py`**
+One source file changes. New module constants:
 
 ```python
-def start(self) -> None:
-    """Deliberately does NOT start a thread.
 
-    GuiZeroBase._on_initial_sync calls this from the sync watcher's thread. On macOS a
-    window built on that thread aborts the process, so the Tk loop is owned by whoever
-    called run_window() -- the process main thread -- and this only reports that the
-    Base 3 is now synchronized.
+# Tight whitespace under the popup title row, and under a page's prompt. Real spacer
+
+# widgets (host.add_vspace), never pack padding: padding is discarded the next time
+
+# anything in the container is created or shown -- the same reason footer_spacer and
+
+# footer_lead are widgets. The compact pane cannot afford the portrait value.
+
+SECTION_GAP = 10
+SECTION_GAP_COMPACT = 6
+
+# Fallback slot width for the hidden Back button, used only when the real button cannot
+
+# be measured (a headless stand-in). Chosen from the measured 184 px request of a styled
+
+# width=8 footer button at portrait size.
+
+FOOTER_SLOT_FALLBACK = 184
+```
+
+**1. Whitespace (item 2)**
+
+```python
+@property
+def _section_gap(self) -> int:
+    return SECTION_GAP_COMPACT if self.compact else SECTION_GAP
+
+def build(self, body: Box) -> None:
+    host = self._gui
+    self._body = body
+    # First child of the body, so every page sits this far below the title row.
+    host.add_vspace(body, self._section_gap)
+    self._sync_line = self._label(body, "", bold=True)
+    ...
+
+def _build_device_page(self, body: Box) -> Box:
+    page = Box(body, align="top", border=0)
+    self._label(page, "Which module are you configuring?", size=host.s_16, bold=True)
+    host.add_vspace(page, self._section_gap)
+    self._device_group = CheckBoxGroup(...)          # unchanged arguments
+    self._equalize_group_rows(self._device_group)
+    return page
+```
+
+**2. Equal-width device rows (item 1)**
+
+```python
+@staticmethod
+def _equalize_group_rows(group: CheckBoxGroup) -> None:
+    """Make every row of a vertical ButtonGroup as wide as the widest one.
+
+    guizero grids a vertical group's rows into one column with align="left", i.e.
+    sticky="W", so each row keeps its natural width and a short label leaves a short
+    box -- measured 326 / 317 / 225 / 318 px for ASC2 / BPC2 / STM2 / Sensor Track.
+    Giving the column weight and stretching each row into it makes them all the
+    column's width, which is the widest row's.
+
+    Deliberately not CheckBoxGroup(width=...): Tk honors an explicit -width by
+    *dropping* the row's padx (306 px at width=300 regardless of padx), which would
+    pull every radio dot flush against the left edge.
+
+    Only safe on a group whose rows are not rebuilt. ButtonGroup._refresh_options
+    destroys and recreates them, and creating a widget re-grids every sibling and wipes
+    sticky -- see admin_panel._apply_compact_grid. The device group never rebuilds; the
+    mode and option groups do, and are left alone.
     """
-    self._synced.set()
-    self.queue_message(self._on_synchronized)
-
-def run_window(self) -> None:
-    """Own the Tk event loop on the calling thread. Must be the main thread."""
-    if current_thread() is not main_thread():
-        raise RuntimeError("LcsGui.run_window() must be called on the main thread")
-    self.run()          # inherited: App + build_gui + app.display(), all right here
-
-def _on_synchronized(self) -> None:
-    """On the Tk thread: title, then let the panel refresh what it reads from the store."""
-    if self.app is not None:
-        self.app.title = self.title
-    if self._panel is not None:
-        self._panel.on_synchronized()
-
-@property
-def is_synchronized(self) -> bool:
-    """GuiZeroBase keeps `_synchronized` private and exposes no such property."""
-    if self._synchronized:
-        return True
-    return self._sync_state is not None and self._sync_state.is_synchronized()
+    rows = getattr(group, "_rbuttons", None) or ()
+    try:
+        group.tk.grid_columnconfigure(0, weight=1)
+        for row in rows:
+            row.tk.grid_configure(sticky="ew")
+    except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+        pass
 ```
 
-`build_gui()` additionally calls `self._panel.set_sync_pending(not self.is_synchronized)` before `show_popup`, so a window that opens pre-sync shows the banner and one that opens post-sync does not. Note that `is_synchronized` is a small addition **on `LcsGui`**: `GuiZeroBase` sets `_synchronized` (L314, L428) but publishes no property for it, and per your choice the base class is not touched.
+Guarded exactly as `amc2_ops_panel` guards its own `grid_columnconfigure` calls (L118-122, L126-130), so a headless stand-in or a future guizero change degrades to today's ragged-but-working layout instead of raising. `TclError` is added to the imports.
 
-The module docstring gains **the recipe** - what a stand-alone GUI must do to run on macOS or Windows: construct the host on the main thread; always pass explicit `width`/`height` so the base class's screen-measuring `Tk()` (L213-220) is never built; override `start()` so the sync watcher cannot spawn the Tk thread; call `run()` from the main thread; marshal every cross-thread update through `queue_message`.
-
-**2. `src/pytrain/gui/controller/lcs_config_panel.py`**
+**3. Footer: hide `Back`, pin `Next` (item 3)**
 
 ```python
-@property
-def sync_pending(self) -> bool: ...
-def set_sync_pending(self, pending: bool) -> None:   # shows/hides the banner, re-gates Configure
-def on_synchronized(self) -> None:                   # sync landed: refresh, re-seed only if untouched
+def build_footer(self, footer: Box) -> None:
+    host = self._gui
+    self._footer = footer
+    self._back_btn = back = HoldButton(footer, text="Back", align="left", width=8, command=self.previous_page)
+    style_footer_button(host, back)
+    host.cache(back)
+    # Holds Back's place while it is hidden, so Next never moves between pages.
+    self._back_slot = self._button_slot(footer, back)
+    self._next_btn = nxt = HoldButton(footer, text="Next", align="left", width=8, command=self.next_page)
+    ...                                              # unchanged from here down
+
+def _button_slot(self, footer: Box, button: HoldButton) -> Box:
+    """An empty Box exactly as wide as `button`'s footer slot, created hidden."""
+    pad = FOOTER_BUTTON_PAD_COMPACT if self.compact else FOOTER_BUTTON_PAD
+    try:
+        button.tk.update_idletasks()
+        width = int(button.tk.winfo_reqwidth()) + 2 * pad
+    except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+        width = FOOTER_SLOT_FALLBACK + 2 * pad
+    slot = Box(footer, align="left", width=width, height=1)
+    try:
+        slot.tk.pack_propagate(False)
+    except (AttributeError, RuntimeError, TclError):
+        pass
+    slot.hide()
+    return slot
+
+def refresh_footer(self) -> None:
+    self._show_back(self._page_index > 0)
+    if self._next_btn is not None:
+        can_advance = self._page_index < len(self._pages) - 1 and self._device is not None
+        self._enable(self._next_btn, can_advance)
+
+def _show_back(self, visible: bool) -> None:
+    """Back is meaningless on the first page, so it is hidden rather than greyed.
+
+    Its slot stays behind: _back_slot is an empty Box of Back's own requested width,
+    shown exactly when Back is not, so Next keeps the same x on every page. Both hide()
+    and show() run the footer's display_widgets(), which rebuilds pack options from
+    scratch and discards the padding style_footer_button recorded, so it is replayed.
+    """
 ```
 
-- `build(body)` adds one `_sync_line` `Text` to `body` **above** the page Boxes, so the banner shows on whichever page is up. Hidden while `sync_pending` is `False`.
-- `_refresh_review_page` gains one condition: `self._enable(self._configure_btn, program is not None and not self._sync_pending)`.
-- `on_synchronized()` clears the flag, hides the banner, then: if `self._device is None`, re-seeds from the store via the existing `configure()` path; otherwise calls only `_seed_sensor_track_action()`, `_refresh_id_page()` and `_refresh_review_page()`, leaving the operator's device, ID, and options exactly as they left them.
+`_show_back` enables `Back` when it is shown (preserving today's rule that it is only live off page 0), toggles the slot inversely, and finishes with `restore_footer_packing(self._footer)`. `restore_footer_packing`, `FOOTER_BUTTON_PAD`, and `FOOTER_BUTTON_PAD_COMPACT` join `footer_spacer` and `style_footer_button` in the existing import from `popup_manager` (L47).
 
-**3. `src/pytrain/cli/lcs.py`**
+### Components
 
-```python
-def send(self, ...):
-    from ..gui.controller.lcs_gui import LcsGui
-    # No wait_for_sync(): the window opens now and populates when the Base 3 syncs.
-    self._gui = LcsGui(width=..., height=..., scale_by=..., full_screen=...)
-    self._gui.run_window()        # blocks on the MAIN thread until the window is closed
-    self.pytrain.shutdown()       # so the process exits instead of lingering
-```
+| Component | Change |
+|---|---|
+| `LcsConfigPanel.build` | one `add_vspace` before `_sync_line` |
+| `LcsConfigPanel._build_device_page` | one `add_vspace` after the prompt; `_equalize_group_rows` on the device group |
+| `LcsConfigPanel._equalize_group_rows` | **new**; grid-column stretch for a vertical `CheckBoxGroup` |
+| `LcsConfigPanel.build_footer` | creates `_back_slot` between `Back` and `Next` |
+| `LcsConfigPanel._button_slot`, `_show_back` | **new**; measure the slot, toggle `Back`, replay footer packing |
+| `LcsConfigPanel.refresh_footer` | `Back` is shown/hidden instead of enabled/disabled; `Next` rule unchanged |
+
+### File Structure
+
+- **Modified** `src/pytrain/gui/controller/lcs_config_panel.py`
+- **Modified** `tests/gui/test_lcs_config_panel.py`
+- Nothing else. `popup_manager.py`, `guizero_base.py`, `checkbox_group.py`, `lcs_gui.py`, `cli/lcs.py`, and the registry / sequence-builder / ID-map modules are untouched.
 
 ### Architecture Diagram
 
 ```mermaid
 graph TD
-    MAIN["pylcs main() - process main thread"] --> CLI["LcsGuiCmd.send()"]
-    CLI --> HOST["LcsGui constructed (main thread)"]
-    HOST --> LOOP["LcsGui.run_window() -> GuiZeroBase.run(): App + build_gui + app.display()"]
-    SW["sync StateWatcher thread"] -->|"_on_initial_sync calls self.start()"| OVR["LcsGui.start() override: NO thread spawned"]
-    OVR -->|"queue_message"| Q["GuiZeroBase._message_queue"]
-    Q -->|"drained by _poll_shutdown, on the Tk thread"| SYNCED["LcsGui._on_synchronized()"]
-    SYNCED -->|"title + on_synchronized()"| PANEL["LcsConfigPanel: hide banner, enable Configure, refresh occupancy"]
-    LOOP -->|"window closed"| EXIT["PyTrain.shutdown(); main() returns 0"]
+    OVERLAY["popup overlay (create_popup)"] --> TITLE["title row - unchanged"]
+    OVERLAY --> BODY["panel body"]
+    OVERLAY --> FOOTER["footer row"]
+    BODY --> GAP1["add_vspace 10 / 6 px - NEW, under the title on all four pages"]
+    BODY --> BANNER["Waiting for Base 3 line - unchanged"]
+    BODY --> PAGES["Device | ID | Options | Review"]
+    PAGES --> PROMPT["'Which module are you configuring?'"]
+    PROMPT --> GAP2["add_vspace 10 / 6 px - NEW"]
+    GAP2 --> GROUP["device CheckBoxGroup"]
+    GROUP -->|"grid_columnconfigure(0, weight=1) + sticky=ew - NEW"| ROWS["four rows, all the widest row's width"]
+    FOOTER --> BACK["Back - hidden on page 0"]
+    FOOTER --> SLOT["empty slot Box at Back's measured width - NEW"]
+    FOOTER --> NEXT["Next - same x on every page"]
+    FOOTER --> CLOSE["spacer + Close - unchanged"]
 ```
 
 ### Risks
 
-- **`start()` is a `Thread` method, and overriding it to do nothing is surprising.** Mitigated by a blunt docstring explaining exactly why, and by `run_window()` raising if it is ever called off the main thread - so the failure is a clear Python exception rather than an Objective-C abort.
-- **A message queued before the app exists.** If sync completes between construction and `run()`, `queue_message` just parks the callable; `_poll_shutdown` drains it once the loop is up. Nothing is lost and nothing touches Tk early.
-- **The panel now renders against an empty store.** `occupant_of` / `overlaps` return nothing and `_seed_sensor_track_action` finds no IRDA state, which the panel already treats as "not in use" - the same path as a genuinely unused ID. The gate on **Configure** is what keeps that honest rather than misleading.
-- **`is_alive()` is `False` for a host that was run directly.** `_atexit_close` already checks it before joining, and the CLI no longer joins at all.
-- **Real Tk rendering cannot be verified by the unit suite.** No headless assertion reaches `TkMacOSXMakeRealWindowExist`, which is why a green suite coexisted with an abort. Mitigated by promoting the real-window smoke run in the Testing tab to a gating step inside Step 1, rather than leaving it as an optional manual note.
+- **Grid sticky is wiped whenever a sibling is created in the same container.** Documented in `admin_panel._apply_compact_grid`. Mitigated because the device group's rows are created once and never rebuilt, `_equalize_group_rows` runs immediately after construction, and the constraint is spelled out in its docstring so the AMC2 pass keeps it true.
+- **The slot measurement runs before the window is mapped.** `winfo_reqwidth()` is valid after `update_idletasks()` on an unmapped widget — verified, a styled `width=8` button reports 184x52 unmapped — and the `try` falls back to `FOOTER_SLOT_FALLBACK` if a stand-in has no `tk` methods.
+- **Two 10 px gaps push content ~20 px down.** `footer_fill` and `balance_footer_row` absorb it out of the overlay's spare band, and the compact pane uses 6 px. The Review page is the tallest; if it ever crowds the row on the Deck, these gaps are the first thing to trim.
+- **A future `width=` on the device group would silently undo item 1** by making Tk drop the padx again. Called out in the helper docstring with the measured numbers.
+- **Tk geometry cannot be asserted headlessly.** The dummy-widget suite can prove the grid options and the show/hide bookkeeping, but only a real window proves the boxes look equal — hence the visual check in Testing.
 
 # Testing
 
 ### Validation Approach
 
-Two layers, because the headless layer alone is exactly what let this be reported done while still crashing.
+Two layers, because this is a styling change and Tk geometry is not assertable headlessly:
 
-1. **A real window is opened on the main thread on this machine** and closed from a timer - the only check that actually exercises `TkMacOSXMakeRealWindowExist`, and the one that must pass before anything is called complete.
-2. **Headless assertions about *where* things happen**: that `start()` spawns nothing, that `run_window()` refuses a non-main thread, that the sync callback is delivered through the message queue rather than invoked inline, and that the CLI calls `run_window()` and then shuts PyTrain down. The panel's waiting state is driven through `set_sync_pending` / `on_synchronized`, in the established style of `tests/gui/test_lcs_config_panel.py`.
+1. **Headless assertions about the layout instructions the panel issues** — which spacers it asks for and how tall, which grid options it applies to the device group, and which footer widget is visible on which page. This is the established style of `tests/gui/test_lcs_config_panel.py`, whose dummy widgets record their construction arguments.
+2. **One real-window visual check** on the Mac via `pylcs`, because only a rendered window proves the four boxes actually line up and that `Next` did not move.
 
 ### Key Scenarios
 
-**Real-window proof (run once, by hand, on this Mac)**
+**Whitespace (`tests/gui/test_lcs_config_panel.py`)**
+- `FakeHost` gains a recording `add_vspace(parent, pixels)`; building the panel records exactly two calls — one on the body, one on the device page.
+- The body spacer is requested **before** `_sync_line` and the pages, so it renders under the title on all four pages.
+- The device-page spacer is requested **after** the prompt label and before the device group.
+- Both are 10 px on a non-compact host and 6 px when `compact` is `True`.
 
-This is the check that was missing, and the reason the crash was reported twice. It needs no Base 3 and no server: it builds a real guizero `App` on the main thread with the runtime singletons stubbed the way `tests/cli/test_lcs.py`'s `_patch_runtime` fixture already does, opens the window, closes it from a timer, and exits.
+**Equal-width device rows (`tests/gui/test_lcs_config_panel.py`)**
+- Against a stand-in group that exposes `_rbuttons` with recording `tk` stubs, `_equalize_group_rows` configures column 0 with `weight=1` and applies `sticky="ew"` to **every** row — one per registry device.
+- It is a silent no-op when `_rbuttons` is missing or empty, which is the plain `DummyCheckBoxGroup` case, so the existing tests keep passing untouched.
+- It swallows a `TclError` from `grid_configure` rather than propagating it, matching the `amc2_ops_panel` guard style.
+- The device group is still constructed with **no** `width` argument — asserted, because passing one would make Tk drop the row inset and quietly undo the fix.
 
-```python
+**Footer (`tests/gui/test_lcs_config_panel.py`)**
+- On page 0: `Back` is **not visible** and `_back_slot` **is** visible.
+- On pages 1, 2, and 3: `Back` is visible and enabled, and `_back_slot` is hidden.
+- Stepping page 0 -> 1 -> 0 restores the initial visibility exactly, so the slot cannot end up doubled with the button.
+- `restore_footer_packing` (patched to record) is called after every toggle.
+- `Next` enablement is unchanged: disabled with no device chosen, enabled once a device is selected, disabled on the last page.
+- `_button_slot` falls back to `FOOTER_SLOT_FALLBACK` — without raising — when the button stand-in cannot be measured.
 
-# run as a one-off command during implementation; nothing is committed
-
-from unittest.mock import patch
-with patch("pytrain.gui.guizero_base.CommandDispatcher.get"), \
-     patch("pytrain.gui.guizero_base.ComponentStateStore.get"), \
-     patch("pytrain.gui.guizero_base.GpioHandler.cache_handler"):
-    from pytrain.gui.controller.lcs_gui import LcsGui
-    gui = LcsGui(width=480, height=800, stand_alone=False)
-    gui.queue_message(lambda: gui.app.after(2500, gui.close))
-    gui.run_window()      # main thread; aborts here today, must not after the fix
-print("window opened and closed on the main thread")
-```
-
-Pass = the LCS panel is visible for a couple of seconds and the command exits 0. Fail = the `NSInternalInconsistencyException` abort, i.e. the fix is not real. If the agent's terminal has no window-server access, this must be handed to the operator to run rather than skipped silently.
-
-**Main-thread ownership (`tests/cli/test_lcs.py`)**
-- `LcsGui.start()` returns without spawning a thread: `is_alive()` stays `False` and `threading.active_count()` is unchanged across the call.
-- `LcsGui.start()` puts exactly one callable on the message queue instead of invoking it inline, proving no widget is touched from the watcher's thread.
-- `run_window()` calls the inherited `run()` on the caller's thread; called from a worker thread it raises `RuntimeError`.
-- `LcsGuiCmd.send()` does **not** call `wait_for_sync()`, calls `run_window()`, and then calls `pytrain.shutdown()`. The existing `join_calls == [10]` assertion (`tests/cli/test_lcs.py` L144-156) is replaced by these.
-- `main(["-base", "10.0.0.9"])` still returns 0 against a stand-in CLI.
-
-**Sync delivery (`tests/cli/test_lcs.py`)**
-- Draining the queued message runs `_on_synchronized`, which sets the app title and calls `panel.on_synchronized()` exactly once.
-- `_on_synchronized` with no app and no panel is a no-op rather than an error, covering sync that lands before `run()`.
-- `build_gui()` sets the panel's `sync_pending` from the host's synchronized state: `True` when unsynced, `False` when already synced.
-
-**Waiting state (`tests/gui/test_lcs_config_panel.py`)**
-- With `sync_pending` set, the banner line carries the waiting text and **Configure** is disabled even when the press program is fully valid; clearing it re-enables Configure.
-- Every other control stays usable while pending: device selection, `_set_base_id`, Next / Back.
-- `on_synchronized()` with **no device chosen** re-seeds from the store - a known BPC2 at the current ID pre-selects BPC2 and its mode.
-- `on_synchronized()` with a device already chosen **keeps** it, along with the ID and the options, and refreshes only the occupancy and overlap lines.
-- An unsynchronized panel reports `Not currently in use` for an ID that will later resolve to a module, and reports the module after `on_synchronized()`.
+**Real-window visual check (`pylcs` on this Mac)**
+- The four device boxes are visibly the same width, with the radio dots still inset as they are today and no label clipped.
+- There is visible air under the title bar and under the question, on the first page, and the same air under the title on the ID, Options, and Review pages.
+- **Back** is absent on the first page, and stepping to the ID page makes it appear **without `Next` moving** — the point of the whole footer change.
 
 ### Edge Cases
-- Sync completing before `run()` is called: the message waits in the queue and is applied once the loop starts.
-- Sync never completing: the banner stays, **Configure** stays disabled, every other control still works.
-- Two sync notifications: `on_synchronized()` is idempotent.
-- Window closed during the wait: `run()` returns, `pytrain.shutdown()` runs, `main()` returns 0.
-- `sync_pending` is never set by `EngineGui`, so the embedded panel's Configure gating is unchanged - asserted explicitly.
+- `refresh_footer()` is called from `_show_page` during `build()`, before `build_footer` exists: no crash with `_back_btn` and `_back_slot` still `None`.
+- A host with `compact=True`: gaps are 6 px, the slot padding is 4 px rather than 20, and the group is no wider than today, so nothing clips.
+- Sync banner and the new gap coexist: the existing waiting-state tests still pass, with the banner visible on whichever page is up.
+- `Close` and the footer spacer are untouched: still present, still to the right of `Next`.
 
 ### Test Changes
-`tests/cli/test_lcs.py` is **modified** rather than only extended: `FakeGui` gains `run_window` and the geometry test drops `join_calls`. `tests/gui/test_lcs_config_panel.py` gains the waiting-state cases. No other test file changes. Per the project instructions, `ruff format --check` runs on every changed Python file and the full `pytest` suite runs before hand-off.
-
-### Manual checks
-- The real-window proof above, run before anything is reported complete.
-- `cli/lcs.py -client` and `cli/lcs.py -base 192.168.3.124` on the Mac: the window opens at once showing `Waiting for Base 3...`, the banner clears and the title becomes the base name when sync lands, **Configure** becomes available, and closing the window returns the shell prompt.
-- The same on Windows, confirming the window opens and closes cleanly.
-- Unchanged behavior of the **LCS...** key inside `EngineGui` on the Pi and in the `SteamDeckGui` compact pane: no banner, and **Configure** gated only by the press program as before.
+`tests/gui/test_lcs_config_panel.py` is extended: `FakeHost` gains a recording `add_vspace`, the widget dummies gain what the new assertions read, and `restore_footer_packing` is patched to record calls. No existing assertion is weakened, and no other test file changes. Per the project instructions, `ruff format --check` runs on every changed Python file and the full `pytest` suite runs before hand-off.
 
 # Delivery Steps
 
-### ✓ Step 1: Give `pylcs` ownership of the Tk event loop on the main thread
-`pylcs` opens its window on macOS instead of aborting, because the guizero `App` is created on the process main thread.
+###   Step 1: Give the four device selection boxes one width
+The Device page shows four radio rows of identical width — the widest row's — with their current inset and text size intact.
 
-- Override `start()` in `src/pytrain/gui/controller/lcs_gui.py` so it does **not** spawn a thread: `GuiZeroBase._on_initial_sync` (`guizero_base.py` L439) calls it from the sync watcher's thread, and that call is what built the window off-main-thread.
-- Add `LcsGui.run_window()`, which raises `RuntimeError` unless it is on the main thread and otherwise calls the inherited `GuiZeroBase.run()` - the `App`, `build_gui()`, and `app.display()` all then happen right there on the main thread.
-- Change `LcsGuiCmd.send()` in `src/pytrain/cli/lcs.py` to call `run_window()` instead of relying on the thread, and drop the `destroy_complete.wait()` / `join(timeout=10)` pair, since there is no thread to join.
-- Call `self.pytrain.shutdown()` (`cli/pytrain.py` L671-709) after the window closes so the process exits instead of lingering.
-- Write the macOS/Windows recipe into the `lcs_gui.py` module docstring: construct the host on the main thread, always pass explicit `width`/`height` so the base class's screen-measuring `Tk()` (`guizero_base.py` L213-220) is never built, override `start()`, call `run()` from the main thread, and marshal every cross-thread update through `queue_message`.
-- Update `tests/cli/test_lcs.py`: assert `start()` spawns no thread, that `run_window()` rejects a worker thread, and that `send()` calls `run_window()` then `pytrain.shutdown()`; replace the `join_calls == [10]` assertion and give `FakeGui` a `run_window`.
-- Leave `src/pytrain/gui/guizero_base.py` untouched, so no other GUI's startup can change.
-- **Prove it with a real window before going further**: run the one-off main-thread smoke command from the Testing tab - real guizero `App`, runtime singletons stubbed, auto-closed from a timer - and confirm it exits 0 instead of aborting with `NSInternalInconsistencyException`. Headless assertions alone are what let this ship broken twice.
+- Add `_equalize_group_rows(group)` to `src/pytrain/gui/controller/lcs_config_panel.py`: `group.tk.grid_columnconfigure(0, weight=1)` plus `sticky="ew"` on every row in `group._rbuttons`, wrapped in the same `(AttributeError, RuntimeError, TclError, TypeError, ValueError)` guard `amc2_ops_panel` uses (L118-122).
+- Call it from `_build_device_page` (L262-275) immediately after the `CheckBoxGroup` is constructed, and leave that construction otherwise unchanged — in particular **do not** pass `width=`, which makes Tk drop the row's `padx` and pull every radio dot flush left.
+- Add `from tkinter import TclError` to the imports.
+- Document in the helper's docstring why the grid column is used rather than an explicit width (measured 306 px at `width=300` regardless of `padx`, against 326 px natural), and that it is only safe on a group whose rows are never rebuilt — the device group qualifies, the mode and option groups do not.
+- Extend `tests/gui/test_lcs_config_panel.py`: a stand-in group with recording `tk` stubs proves column 0 gets `weight=1` and every row gets `sticky="ew"`; a group without `_rbuttons` is a silent no-op; a raised `TclError` is swallowed; and the device group is still built with no `width` argument.
 
-### ✓ Step 2: Add a waiting-for-Base-3 state to the panel
-The panel can be told it is running ahead of synchronization, shows that plainly, and refuses to send presses until the state store is populated.
+###   Step 2: Add tight whitespace under the title row and the module prompt
+Every page sits a little below the popup title, and the device list sits a little below the question.
 
-- Add `sync_pending`, `set_sync_pending(pending)`, and `on_synchronized()` to `src/pytrain/gui/controller/lcs_config_panel.py`, defaulting to **not** pending so the panel embedded in `EngineGui` is unchanged.
-- Build one `_sync_line` `Text` into the body in `build(body)` (L195), above the page Boxes, so the `Waiting for Base 3...` banner is visible on whichever page is showing; hidden whenever `sync_pending` is `False`.
-- Extend the single Configure gate in `_refresh_review_page` (L476-483) to `program is not None and not self._sync_pending`, leaving the press preview and the program-mode footnote fully rendered.
-- Implement `on_synchronized()` to clear the flag and hide the banner, then re-seed from the store through the existing `configure()` path **only when no device has been chosen**; otherwise refresh just the derived views via `_seed_sensor_track_action()`, `_refresh_id_page()`, and `_refresh_review_page()`, so an operator's device, ID, and options are never overwritten.
-- Make `on_synchronized()` idempotent, since two sync notifications are possible.
-- Extend `tests/gui/test_lcs_config_panel.py`: Configure disabled while pending and enabled after, other controls still usable while pending, re-seed only when untouched, selection preserved when touched, and occupancy going from `Not currently in use` to the real module.
+- Add `SECTION_GAP = 10` / `SECTION_GAP_COMPACT = 6` module constants and a `_section_gap` property selecting between them on the existing `self.compact`.
+- In `build(body)` (L240-253), call `host.add_vspace(body, self._section_gap)` as the **first** child, before `_sync_line` and the page Boxes, so the gap is under the title on all four pages and the waiting banner stays below it.
+- In `_build_device_page`, call `host.add_vspace(page, self._section_gap)` between the prompt label and the device group.
+- Use `GuiZeroBase.add_vspace` (`guizero_base.py` L756-758) rather than `pack_configure` padding, because padding is discarded on the next repack — the documented reason `footer_spacer` and `footer_lead` are widgets.
+- Extend `tests/gui/test_lcs_config_panel.py`: give `FakeHost` a recording `add_vspace`, then assert exactly two spacers are requested, in the right order relative to the sync line and the prompt, at 10 px normally and 6 px when compact.
 
-### ✓ Step 3: Open the window before sync and deliver synchronization into the Tk loop
-The stand-alone window appears immediately, and fills itself in when the Base 3 finishes synchronizing.
+###   Step 3: Hide Back on the first page without moving Next
+`Back` is absent on the Device page and appears from the ID page onward, while `Next` keeps the same position throughout.
 
-- Remove the `wait_for_sync()` call from `LcsGuiCmd.send()` (`cli/lcs.py` L84) so the window is built at once rather than after the store is loaded.
-- Have the overridden `LcsGui.start()` post `queue_message(self._on_synchronized)` instead of doing any work itself, so nothing touches a widget from the sync watcher's thread; `_poll_shutdown` (`guizero_base.py` L517-551) drains it on the Tk thread within 20 ms, and a message queued before the app exists simply waits.
-- Add `LcsGui._on_synchronized()`: set the window title from `self.title` (the base name that `_on_initial_sync` has already resolved) and call `panel.on_synchronized()`; a no-op when there is no app or panel yet.
-- Have `LcsGui.build_gui()` call `panel.set_sync_pending(not self.is_synchronized)` before `show_popup`, so a window opened pre-sync shows the banner and one opened post-sync does not.
-- Extend `tests/cli/test_lcs.py`: draining the queued message applies the title and calls `panel.on_synchronized()` once, `_on_synchronized` with no app/panel is safe, and `build_gui()` sets `sync_pending` from the host's synchronized state.
+- Add `FOOTER_SLOT_FALLBACK = 184` and a `_button_slot(footer, button)` helper that measures `button.tk.winfo_reqwidth()` after `update_idletasks()`, adds `2 * FOOTER_BUTTON_PAD` (or the compact value), and returns a hidden `Box(footer, align="left", width=..., height=1)` with `pack_propagate(False)`.
+- In `build_footer` (L1028-1037), create that slot between `Back` and `Next` so it occupies `Back`'s position in the packed row; keep `Next`, `footer_spacer`, and the `Close` button that `create_popup` adds exactly as they are.
+- Replace the `Back` enable/disable in `refresh_footer` (L1039-1044) with a `_show_back(visible)` helper that hides `Back` and shows the slot on page 0, does the reverse on every later page, and enables `Back` whenever it is shown.
+- Call `restore_footer_packing(self._footer)` at the end of `_show_back`, because `hide()`/`show()` run the footer's `display_widgets()`, which rebuilds pack options from scratch and drops the padding `style_footer_button` recorded.
+- Import `restore_footer_packing`, `FOOTER_BUTTON_PAD`, and `FOOTER_BUTTON_PAD_COMPACT` alongside the existing `popup_manager` imports (L47).
+- Extend `tests/gui/test_lcs_config_panel.py`: `Back` hidden and the slot visible on page 0; `Back` visible and enabled with the slot hidden on pages 1-3; visibility restored exactly after stepping forward and back; `restore_footer_packing` called on every toggle; `Next`'s enablement rule unchanged; and the fallback slot width used without raising when the button cannot be measured.
+- Confirm on the Mac with `pylcs`: equal device boxes, the new gaps, no `Back` on the first screen, and `Next` in the same place on the first and second screens.
