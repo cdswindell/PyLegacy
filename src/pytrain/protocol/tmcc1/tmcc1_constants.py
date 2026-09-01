@@ -331,6 +331,36 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
     RESET = TMCC1CommandDef(
         TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=0, interval=100
     )
+    AUX_NUMBER_0 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 0, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=0, aux1=True
+    )
+    AUX_NUMBER_1 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 1, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=1, aux1=True
+    )
+    AUX_NUMBER_2 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 2, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=2, aux1=True
+    )
+    AUX_NUMBER_3 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 3, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=3, aux1=True
+    )
+    AUX_NUMBER_4 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 4, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=4, aux1=True
+    )
+    AUX_NUMBER_5 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 5, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=5, aux1=True
+    )
+    AUX_NUMBER_6 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 6, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=6, aux1=True
+    )
+    AUX_NUMBER_7 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 7, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=7, aux1=True
+    )
+    AUX_NUMBER_8 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 8, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=8, aux1=True
+    )
+    AUX_NUMBER_9 = TMCC1CommandDef(
+        TMCC1_ACC_NUMERIC_COMMAND | 9, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=9, aux1=True
+    )
     RELATIVE_SPEED = TMCC1CommandDef(
         TMCC1_ACC_RELATIVE_SPEED_COMMAND, TMCC1CommandIdentifier.ACC, d_map=RELATIVE_SPEED_MAP
     )

@@ -1,0 +1,147 @@
+from __future__ import annotations
+
+import pytest
+
+import src.pytrain.gui.controller.lcs_device_registry as reg
+from src.pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
+from src.pytrain.pdi.irda_req import IrdaSequence
+from src.pytrain.pdi.pdi_device import PdiDevice
+from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
+
+
+class TestRegistryShape:
+    def test_four_devices(self):
+        assert tuple(d.key for d in reg.LCS_DEVICES) == ("asc2", "bpc2", "stm2", "sensor_track")
+
+    def test_every_mode_is_complete(self):
+        for device in reg.LCS_DEVICES:
+            assert device.modes
+            for mode in device.modes:
+                assert isinstance(mode.scope, CommandScope)
+                assert mode.ports >= 1
+                assert mode.presses, f"{device.key}/{mode.key} declares no presses"
+
+    def test_asc2_has_four_modes(self):
+        assert len(reg.ASC2.modes) == 4
+        assert [m.ports for m in reg.ASC2.modes] == [8, 1, 4, 4]
+        assert [m.pdi_mode for m in reg.ASC2.modes] == [0, 1, 2, 3]
+        assert [m.scope for m in reg.ASC2.modes] == [
+            CommandScope.ACC,
+            CommandScope.ACC,
+            CommandScope.SWITCH,
+            CommandScope.SWITCH,
+        ]
+
+    def test_bpc2_one_id_modes_are_reserved(self):
+        for key in ("tr_1", "acc_1"):
+            mode = reg.BPC2.mode(key)
+            assert mode.enabled is False
+            assert mode.note == "reserved, no Cab support"
+        assert [m.key for m in reg.enabled_modes(reg.BPC2)] == ["tr_8", "acc_8"]
+        assert reg.BPC2.mode("tr_8").scope == CommandScope.TRAIN
+        assert reg.BPC2.mode("acc_8").scope == CommandScope.ACC
+
+    def test_stm2_modes(self):
+        assert reg.STM2.mode("single_wire").ports == 16
+        assert reg.STM2.mode("two_wire").ports == 8
+        assert all(m.scope == CommandScope.SWITCH for m in reg.STM2.modes)
+
+    def test_pdi_devices(self):
+        assert reg.ASC2.pdi_device == PdiDevice.ASC2
+        assert reg.BPC2.pdi_device == PdiDevice.BPC2
+        assert reg.STM2.pdi_device == PdiDevice.STM2
+        assert reg.SENSOR_TRACK.pdi_device == PdiDevice.IRDA
+
+
+class TestSensorTrack:
+    def test_single_acc_mode(self):
+        assert len(reg.SENSOR_TRACK.modes) == 1
+        mode = reg.SENSOR_TRACK.modes[0]
+        assert mode.scope == CommandScope.ACC
+        assert mode.ports == 1
+        assert mode.pdi_mode is None
+
+    def test_action_choices_track_sensor_track_opts(self):
+        option = reg.SENSOR_TRACK.option("action")
+        assert option.required is True
+        assert option.kind == reg.OptionKind.RADIO
+        assert len(option.choices) == 10
+        assert [label for label, _ in option.choices] == [label for label, _ in SENSOR_TRACK_OPTS]
+        assert [value.value for _, value in option.choices] == list(range(10))
+        assert all(isinstance(value, IrdaSequence) for _, value in option.choices)
+
+    def test_default_action_is_no_action(self):
+        assert reg.SENSOR_TRACK.option("action").default == IrdaSequence.NONE
+
+
+class TestMaxBase:
+    @pytest.mark.parametrize(
+        "device, mode_key, expected",
+        [
+            (reg.ASC2, "acc_8", 91),
+            (reg.ASC2, "acc_1", 98),
+            (reg.ASC2, "sw_momentary", 95),
+            (reg.ASC2, "sw_latching", 95),
+            (reg.STM2, "single_wire", 83),
+            (reg.STM2, "two_wire", 91),
+            (reg.SENSOR_TRACK, "acc", 98),
+        ],
+    )
+    def test_max_base(self, device, mode_key, expected):
+        mode = device.mode(mode_key)
+        assert reg.max_base(mode) == expected
+        assert mode.max_base == expected
+
+    def test_never_above_98(self):
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                assert 1 <= reg.max_base(mode) <= 98
+
+
+class TestLookups:
+    def test_device_for_key(self):
+        assert reg.device_for_key("bpc2") is reg.BPC2
+        with pytest.raises(ValueError):
+            reg.device_for_key("amc2")
+
+    def test_device_for_state(self):
+        class _State:
+            is_asc2 = False
+            is_bpc2 = True
+            is_stm2 = False
+            is_sensor_track = False
+
+        assert reg.device_for_state(_State()) is reg.BPC2
+        assert reg.device_for_state(None) is None
+        assert reg.device_for_state(object()) is None
+
+    def test_device_for_pdi_device(self):
+        assert reg.device_for_pdi_device(PdiDevice.IRDA) is reg.SENSOR_TRACK
+        assert reg.device_for_pdi_device(PdiDevice.AMC2) is None
+
+    def test_mode_for_pdi_mode(self):
+        assert reg.ASC2.mode_for_pdi_mode(3).key == "sw_latching"
+        assert reg.ASC2.mode_for_pdi_mode(7) is None
+
+    def test_default_mode_skips_disabled(self):
+        assert reg.BPC2.default_mode.key == "tr_8"
+
+    def test_unknown_option_raises(self):
+        with pytest.raises(ValueError):
+            reg.ASC2.option("restore")
+
+
+class TestAuxNumber:
+    def test_acc_scope(self):
+        assert reg.aux_number(0, CommandScope.ACC) == TMCC1AuxCommandEnum.AUX_NUMBER_0
+        assert reg.aux_number(9, CommandScope.ACC) == TMCC1AuxCommandEnum.AUX_NUMBER_9
+
+    def test_train_scope(self):
+        assert reg.aux_number(0, CommandScope.TRAIN) == TMCC1EngineCommandEnum.AUX_NUMBER_0
+
+    def test_invalid(self):
+        with pytest.raises(ValueError):
+            reg.aux_number(10, CommandScope.ACC)
+        with pytest.raises(ValueError):
+            reg.aux_number(1, CommandScope.SWITCH)

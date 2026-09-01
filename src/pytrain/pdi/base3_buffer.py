@@ -158,7 +158,7 @@ class Base3Buffer(Thread):
                                     # received bytes into 8 ASCII characters, then interpret that
                                     # ASCII string as Hex representation to arrive at 0xd12729df...
                                 if self._listener and received:
-                                    if log.is_enabled_for(logging.DEBUG):
+                                    if log.isEnabledFor(logging.DEBUG):
                                         log.debug(f"Received from Base 3: {received.hex(' ').upper()}")
                                     self._listener.offer(received)
                             keep_trying = 10

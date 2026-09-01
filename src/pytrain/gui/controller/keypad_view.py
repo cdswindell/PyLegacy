@@ -832,8 +832,17 @@ class KeypadView(Generic[S]):
         host.on_set_key(CommandScope.ACC, host.scope_tmcc_id(CommandScope.ACC))
 
     def on_lcs_panel(self, _key: str | None = None) -> None:
-        """Placeholder for the shared LCS... key; its behavior is a later turn's work."""
-        log.debug("LCS... key pressed; no behavior wired yet")
+        """Opens the LCS module configuration panel over whatever is on screen.
+
+        The key is shared by four screens, so the host decides what the panel is seeded
+        with; a host that has no such panel (a test double, say) simply does nothing.
+        """
+        host = self._host
+        opener = getattr(host, "on_lcs_config_panel", None)
+        if opener is None:
+            log.debug("LCS... key pressed; %s has no LCS configuration panel", type(host).__name__)
+            return
+        opener()
 
     def _show_lcs_panel_key(self, grid: list[int]) -> None:
         """Places the single shared LCS... key at ``grid`` (0-based [col, row]) and shows it.

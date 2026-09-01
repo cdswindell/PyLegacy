@@ -49,6 +49,7 @@ from .engine_gui_conf import (
 )
 from .image_presenter import ImagePresenter
 from .keypad_view import ACCESSORY_THROTTLE_MAX, ACCESSORY_THROTTLE_MIN, KeypadView
+from .lcs_config_panel import LcsConfigPanel
 from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
 from .rr_speed_panel import RrSpeedPanel
@@ -310,6 +311,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._isd_area = None  # swipe detector for the margin beside the image
         self._image_parent = None  # container that owns that margin
         self._admin_panel = None
+        self._lcs_config_panel = None
         self._catalog_panel = None
         self._lighting_panel = None
         self._rr_speed_panel = None
@@ -1085,6 +1087,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if self._admin_panel is None:
                 self._admin_panel = AdminPanel(self, width=self.emergency_box_width, height=int(self.height / 2))
         overlay = self._admin_panel.overlay
+        self.show_popup(overlay, hide_image_box=True)
+
+    def on_lcs_config_panel(self) -> None:
+        """Opens the LCS module configuration panel, seeded from the current selection."""
+        with self._cv:
+            if self._lcs_config_panel is None:
+                self._lcs_config_panel = LcsConfigPanel(self)
+        panel = self._lcs_config_panel
+        overlay = panel.overlay
+        panel.configure(self.scope, self.scope_tmcc_id(), self.active_state)
         self.show_popup(overlay, hide_image_box=True)
 
     @property
