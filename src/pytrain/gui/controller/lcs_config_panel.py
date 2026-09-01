@@ -28,7 +28,7 @@ import logging
 from tkinter import TclError
 from typing import Any, Callable, TYPE_CHECKING
 
-from guizero import Box, CheckBox, Text
+from guizero import Box, CheckBox, Text, TitleBox
 
 from .lcs_device_registry import (
     LCS_DEVICES,
@@ -57,6 +57,7 @@ from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ...db.state_watcher import StateWatcher
 from ...protocol.constants import CommandScope
+from ...utils.host_info import is_linux
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -71,6 +72,15 @@ PAGE_OPTIONS = 2
 PAGE_REVIEW = 3
 
 MIN_TMCC_ID = 1
+
+# The ID page's heading names the module being programmed -- "BPC2 TMCC ID" -- so the
+# operator can see at a glance which device the ID belongs to. Only reachable with a
+# device chosen; the fallback covers the page as it is first built.
+ID_HEADING = "{module} TMCC ID"
+ID_HEADING_FALLBACK = "Base"
+
+# The label on the box around the mode radios.
+MODE_TITLE = "Mode"
 
 NOT_IN_USE = "Not currently in use"
 WAITING_FOR_BASE = "Waiting for Base 3..."
@@ -111,6 +121,18 @@ SCOPE_LABEL: dict[CommandScope, str] = {
 }
 
 
+def touch_only_editing() -> bool:
+    """True where an on-screen editor is the only keyboard: the Pi and the Steam Deck.
+
+    Both are Linux, and ``is_linux()`` is what the rest of the project already uses to tell
+    the appliance platform from a desktop. Taken from ``utils.host_info``, never from the
+    ``pytrain`` package root: that package imports ``EngineGui`` -- and through it this
+    module -- before it defines anything of its own, so importing it back is circular.
+    ``admin_panel`` reads ``is_steam_deck`` from the same leaf module for the same reason.
+    """
+    return is_linux()
+
+
 class LcsConfigPanel(OverlayPanel):
     """
     A stepped overlay that walks the operator through programming an LCS module.
@@ -130,7 +152,9 @@ class LcsConfigPanel(OverlayPanel):
         self._pages: list[Box] = []
         self._body: Box | None = None
         self._device_group: CheckBoxGroup | None = None
+        self._mode_box: TitleBox | None = None
         self._mode_group: CheckBoxGroup | None = None
+        self._id_heading: Text | None = None
         self._id_field: EditableText | None = None
         self._minus_btn: HoldButton | None = None
         self._plus_btn: HoldButton | None = None
@@ -210,6 +234,21 @@ class LcsConfigPanel(OverlayPanel):
     @property
     def compact(self) -> bool:
         return bool(getattr(self._gui, "compact", False))
+
+    @property
+    def touch_editing(self) -> bool:
+        """
+        Whether the ID field needs an on-screen editor; see :func:`touch_only_editing`.
+        """
+        return touch_only_editing()
+
+    @property
+    def id_heading_text(self) -> str:
+        """
+        The ID page's heading, naming the selected module: "BPC2 TMCC ID".
+        """
+        module = self._device.label if self._device else ID_HEADING_FALLBACK
+        return ID_HEADING.format(module=module)
 
     @property
     def _store(self) -> Any:
@@ -332,7 +371,7 @@ class LcsConfigPanel(OverlayPanel):
     def _build_id_page(self, body: Box) -> Box:
         host = self._gui
         page = Box(body, align="top", border=0)
-        self._label(page, "Base TMCC ID", size=host.s_16, bold=True)
+        self._id_heading = self._label(page, self.id_heading_text, size=host.s_16, bold=True)
 
         row = Box(page, layout="grid", align="top", border=0)
         self._minus_btn = HoldButton(
@@ -343,19 +382,27 @@ class LcsConfigPanel(OverlayPanel):
             width=3,
             command=self.step_down,
         )
+        # A desktop has a real keyboard, so the ID is an ordinary text box the system
+        # keyboard types into; the Pi and the Deck are touch-only and get the on-screen
+        # keypad. Both cases stay one EditableText, so everything that reads or writes the
+        # field -- _refresh_id_field, _on_id_committed -- is the same on either platform.
+        touch = self.touch_editing
         self._id_field = EditableText(
             row,
             grid=[1, 0],
             align=None,
             width=4,
             height=1,
-            editor=EditorType.KEYPAD,
+            editor=EditorType.KEYPAD if touch else EditorType.KEYBOARD,
+            # Only a touch appliance needs an editor drawn on screen.
+            show_keyboard_on_edit=touch,
             compact=self.compact,
-            field_name="Base TMCC ID",
+            field_name=self.id_heading_text,
             max_length=2,
             on_commit=self._on_id_committed,
         )
         self._id_field.text_size = host.s_20
+        self._style_id_field(self._id_field)
         self._plus_btn = HoldButton(
             row,
             text="+",
@@ -367,8 +414,12 @@ class LcsConfigPanel(OverlayPanel):
         for btn in (self._minus_btn, self._plus_btn):
             btn.text_size = host.s_20
 
+        # The mode radios are the only choice on this page besides the ID itself, so they
+        # are given a titled box that says what they are choosing.
+        self._mode_box = TitleBox(page, text=MODE_TITLE, align="top")
+        self._mode_box.text_size = host.s_12
         self._mode_group = CheckBoxGroup(
-            page,
+            self._mode_box,
             size=host.s_14,
             options=self.mode_options(),
             selected=None,
@@ -386,7 +437,30 @@ class LcsConfigPanel(OverlayPanel):
         for btn in (self._goto_btn, self._new_btn):
             btn.text_size = host.s_12
             btn.hide()
+        # No device is chosen yet, so the mode box starts hidden rather than empty.
+        self._refresh_mode_selector()
         return page
+
+    def _style_id_field(self, field: EditableText) -> None:
+        """Draw the ID as a text box, and open it on a click where there is a mouse.
+
+        The field is a guizero Text, which renders as a bare label. The sunken border in the
+        editor's own colors is what tells the operator it can be typed into, and it means the
+        box does not change appearance when the Tk entry is placed over it.
+
+        Press-and-hold is a touchscreen gesture: a mouse click is released long before any
+        hold threshold, so on a desktop the box also opens for editing on a plain click.
+        """
+        try:
+            field.tk.config(bg=field.edit_bg, fg=field.edit_fg, relief="sunken", bd=2)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        if self.touch_editing:
+            return
+        try:
+            field.tk.bind("<Button-1>", lambda _event: field.begin_edit(), add="+")
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     #
     # Options page
@@ -938,10 +1012,23 @@ class LcsConfigPanel(OverlayPanel):
         if self._id_field is not None:
             self._id_field.value = f"{self._base_id}"
 
+    def _refresh_id_heading(self) -> None:
+        """
+        Name the selected module in the heading, and in the editor's own header with it.
+        """
+        heading = self.id_heading_text
+        if self._id_heading is not None:
+            self._id_heading.value = heading
+        if self._id_field is not None:
+            # A compact editor is centered over the panel, covering the heading, so it
+            # repeats the field's name in its own header.
+            self._id_field.field_name = heading
+
     #
     # ID page refresh
     #
     def _refresh_id_page(self) -> None:
+        self._refresh_id_heading()
         self._refresh_id_field()
         self._refresh_mode_selector()
         self._refresh_block_line()
@@ -958,10 +1045,13 @@ class LcsConfigPanel(OverlayPanel):
         for label, key in options:
             self._mode_group.append([label, key])
         self._mode_group.value = self._mode.key if self._mode else None
+        # The titled box goes with the group it labels: a bare "Mode" frame with nothing in
+        # it would be left behind for a device that declares no modes.
+        container = self._mode_box if self._mode_box is not None else self._mode_group
         if options:
-            self._mode_group.show()
+            container.show()
         else:
-            self._mode_group.hide()
+            container.hide()
 
     @property
     def block_text(self) -> str:

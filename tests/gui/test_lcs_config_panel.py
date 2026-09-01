@@ -16,6 +16,11 @@ from src.pytrain.protocol.tmcc1.tmcc1_constants import (
 
 
 class _DummyTk:
+    def __init__(self) -> None:
+        # What the widget was asked to bind, which is how the click-to-edit test reads the
+        # desktop wiring without a real Tk event loop.
+        self.binds: list[tuple[str, Any]] = []
+
     @staticmethod
     def config(**_kwargs: Any) -> None:
         return
@@ -32,10 +37,9 @@ class _DummyTk:
     def grid_columnconfigure(_col: int, **_kwargs: Any) -> None:
         return
 
-    @staticmethod
-    def bind(_event: str, _func, add: str | None = None) -> None:
+    def bind(self, event: str, func, add: str | None = None) -> None:
         _ = add
-        return
+        self.binds.append((event, func))
 
     @staticmethod
     def update_idletasks() -> None:
@@ -84,6 +88,10 @@ class DummyBox(_DummyWidget):
     pass
 
 
+class DummyTitleBox(_DummyWidget):
+    pass
+
+
 class DummyText(_DummyWidget):
     pass
 
@@ -101,7 +109,15 @@ class DummyEditableText(_DummyWidget):
         self.compact = kwargs.get("compact", False)
         self.max_length = kwargs.get("max_length")
         self.editor = kwargs.get("editor")
+        self.show_keyboard_on_edit = kwargs.get("show_keyboard_on_edit", True)
+        self.field_name = kwargs.get("field_name", "")
+        self.edit_bg = "white"
+        self.edit_fg = "black"
+        self.edits = 0
         self.value = ""
+
+    def begin_edit(self) -> None:
+        self.edits += 1
 
 
 class DummyCheckBox(_DummyWidget):
@@ -226,6 +242,7 @@ def _new_host(store: FakeStore | None = None) -> Any:
 @pytest.fixture(autouse=True)
 def _patch_widgets(monkeypatch):
     monkeypatch.setattr(mod, "Box", DummyBox, raising=True)
+    monkeypatch.setattr(mod, "TitleBox", DummyTitleBox, raising=True)
     monkeypatch.setattr(mod, "Text", DummyText, raising=True)
     monkeypatch.setattr(mod, "HoldButton", DummyHoldButton, raising=True)
     monkeypatch.setattr(mod, "EditableText", DummyEditableText, raising=True)
@@ -234,6 +251,11 @@ def _patch_widgets(monkeypatch):
     monkeypatch.setattr(mod, "StateWatcher", lambda _state, _action: None, raising=True)
     monkeypatch.setattr(mod, "style_footer_button", lambda _host, _btn: None, raising=True)
     monkeypatch.setattr(mod, "footer_spacer", lambda _host, _footer: None, raising=True)
+    # Pinned so the ID field's editor does not depend on the machine running the tests;
+    # the platform-specific cases patch it themselves. Patched on the panel module, which
+    # is only possible because is_linux is imported there at module scope rather than
+    # reached for inside touch_only_editing.
+    monkeypatch.setattr(mod, "is_linux", lambda: False, raising=True)
 
 
 def _new_panel(store: FakeStore | None = None):
@@ -1018,3 +1040,93 @@ def test_button_slot_falls_back_when_the_button_cannot_be_measured() -> None:
 
     assert slot.kwargs["width"] == mod.FOOTER_SLOT_FALLBACK + 2 * mod.FOOTER_BUTTON_PAD
     assert slot.visible is False
+
+
+#
+# The ID page names the module
+#
+def test_the_id_heading_names_the_selected_module() -> None:
+    panel = _new_panel()
+
+    assert panel._id_heading.value == "Base TMCC ID"
+
+    panel._on_device_selected("bpc2")
+    assert panel.id_heading_text == "BPC2 TMCC ID"
+    assert panel._id_heading.value == "BPC2 TMCC ID"
+
+    panel._on_device_selected("stm2")
+    assert panel._id_heading.value == "STM2 TMCC ID"
+
+
+def test_the_editors_own_header_is_named_with_the_heading() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+
+    assert panel._id_field.field_name == "BPC2 TMCC ID"
+
+
+#
+# The ID box is typed into with whatever keyboard the platform has
+#
+@pytest.mark.parametrize(
+    "touch, editor, on_screen",
+    [(True, mod.EditorType.KEYPAD, True), (False, mod.EditorType.KEYBOARD, False)],
+)
+def test_the_id_editor_follows_the_platform(monkeypatch, touch: bool, editor: Any, on_screen: bool) -> None:
+    monkeypatch.setattr(mod, "is_linux", lambda: touch, raising=True)
+    panel = _new_panel()
+
+    assert panel._id_field.editor is editor
+    assert panel._id_field.show_keyboard_on_edit is on_screen
+
+
+def test_a_desktop_id_box_opens_for_typing_on_a_click(monkeypatch) -> None:
+    monkeypatch.setattr(mod, "is_linux", lambda: False, raising=True)
+    panel = _new_panel()
+
+    bound = dict(panel._id_field.tk.binds)
+    assert "<Button-1>" in bound
+
+    bound["<Button-1>"](None)
+    assert panel._id_field.edits == 1
+
+
+def test_a_touch_id_box_keeps_press_and_hold_only(monkeypatch) -> None:
+    monkeypatch.setattr(mod, "is_linux", lambda: True, raising=True)
+    panel = _new_panel()
+
+    assert panel._id_field.tk.binds == []
+
+
+@pytest.mark.parametrize("linux", [True, False])
+def test_touch_only_editing_asks_the_platform_helper(monkeypatch, linux: bool) -> None:
+    # The Pi and the Deck are the Linux hosts, and the answer comes from utils.host_info:
+    # importing it from the pytrain package root instead would be circular, because that
+    # package imports EngineGui -- and through it this panel -- before defining anything.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+
+    assert mod.touch_only_editing() is linux
+    assert mod.LcsConfigPanel(_new_host()).touch_editing is linux
+
+
+#
+# The mode radios live in a titled box
+#
+def test_the_mode_radios_are_in_a_box_titled_mode() -> None:
+    panel = _new_panel()
+
+    assert panel._mode_box.text == mod.MODE_TITLE
+    assert panel._mode_group in panel._mode_box.children
+
+
+def test_the_mode_box_is_hidden_until_a_device_declares_modes() -> None:
+    panel = _new_panel()
+
+    assert panel._mode_box.visible is False
+
+    panel._on_device_selected("asc2")
+    assert panel._mode_box.visible is True
+
+    panel._select_device(None)
+    panel._refresh_mode_selector()
+    assert panel._mode_box.visible is False

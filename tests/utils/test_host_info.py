@@ -12,6 +12,7 @@ from src.pytrain.utils.host_info import (
     PLATFORM_ENV_VAR,
     STEAM_DECK_PLATFORM,
     installed_platform,
+    is_linux,
     is_steam_deck,
 )
 
@@ -54,3 +55,22 @@ def test_an_unrelated_platform_is_not_the_steam_deck(monkeypatch) -> None:
 
     assert installed_platform() == "raspberrypi"
     assert is_steam_deck() is False
+
+
+@pytest.mark.parametrize("system, expected", [("Linux", True), ("linux", True), ("Darwin", False), ("Windows", False)])
+def test_is_linux_reports_the_running_system(monkeypatch, system: str, expected: bool) -> None:
+    monkeypatch.setattr("platform.system", lambda: system, raising=True)
+
+    assert is_linux() is expected
+
+
+def test_is_linux_does_not_probe_the_hardware(monkeypatch) -> None:
+    # It has to stay cheap enough for a GUI to call while laying itself out, which is why
+    # it is a module function and not a HostInfo member: building that singleton shells out
+    # to `cat` and `free`.
+    def explode(*_args, **_kwargs):
+        raise AssertionError("is_linux must not run a subprocess")
+
+    monkeypatch.setattr("subprocess.run", explode, raising=True)
+
+    assert is_linux() in (True, False)

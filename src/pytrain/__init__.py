@@ -7,7 +7,6 @@
 # SPDX-License-Identifier: LPGL
 
 import importlib.metadata
-import platform
 import sys
 from importlib.metadata import PackageNotFoundError
 
@@ -132,6 +131,7 @@ from .protocol.tmcc2.tmcc2_constants import (
     TMCC2RRSpeedsEnum,  # noqa: F401
     TMCC2RouteCommandEnum,  # noqa: F401
 )
+from .utils.host_info import is_linux  # noqa: F401
 from .utils.path_utils import (
     find_dir,  # noqa: F401
     find_file,  # noqa: F401
@@ -158,10 +158,6 @@ def is_package() -> bool:
         return True
     except PackageNotFoundError:
         return False
-
-
-def is_linux() -> bool:
-    return platform.system().lower() == "linux"
 
 
 def get_version() -> str:

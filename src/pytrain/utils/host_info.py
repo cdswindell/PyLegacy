@@ -39,6 +39,20 @@ def is_steam_deck() -> bool:
     return installed_platform() == STEAM_DECK_PLATFORM
 
 
+def is_linux() -> bool:
+    """True on a Linux host: the Raspberry Pi and the Steam Deck, not a Mac or a PC.
+
+    Lives here, in a leaf module, rather than only in ``pytrain/__init__``: that package
+    imports every GUI before it defines anything of its own, so a module the package
+    imports cannot import the package back without a circular import. A plain function
+    rather than a ``HostInfo`` member for the same reason :func:`installed_platform` is --
+    a caller should not have to build that singleton, which probes the hardware with
+    ``cat`` and ``free``, to answer one question. ``pytrain/__init__`` re-exports it, so
+    ``from pytrain import is_linux`` still works for anything outside the package.
+    """
+    return platform.system().lower() == "linux"
+
+
 @singleton
 class HostInfo:
     def __init__(self) -> None:
