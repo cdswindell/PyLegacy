@@ -82,7 +82,9 @@ ID_HEADING_FALLBACK = "Base"
 # The label on the box around the mode radios.
 MODE_TITLE = "Mode"
 
-NOT_IN_USE = "Not currently in use"
+# The label on the box around the line that says what already answers to this TMCC ID.
+ASSIGNED_TITLE = "Currently Assigned"
+UNASSIGNED = "Unassigned"
 WAITING_FOR_BASE = "Waiting for Base 3..."
 NO_OPTIONS = "This module needs no further settings."
 AWAITING_READBACK = "Waiting for the module to report..."
@@ -118,6 +120,16 @@ SCOPE_LABEL: dict[CommandScope, str] = {
     CommandScope.ACC: "ACC",
     CommandScope.SWITCH: "SW",
     CommandScope.TRAIN: "TR",
+}
+
+# What each of those remote keys is for. The mode labels name the key -- "ACCessory",
+# "SWitch", "TRack" -- but not what it is good for, which is the one thing an operator
+# choosing between them needs. Only the keys the selected module actually offers are
+# shown, so the footnote never states a fact that does not apply to the module in hand.
+SCOPE_USE: dict[CommandScope, str] = {
+    CommandScope.ACC: "ACC: Use for lighting and operating accessories",
+    CommandScope.SWITCH: "SW: Use for Switches/Turnouts",
+    CommandScope.TRAIN: "TR: Use for track power blocks",
 }
 
 
@@ -159,6 +171,8 @@ class LcsConfigPanel(OverlayPanel):
         self._minus_btn: HoldButton | None = None
         self._plus_btn: HoldButton | None = None
         self._block_line: Text | None = None
+        self._mode_footnote_line: Text | None = None
+        self._assigned_box: TitleBox | None = None
         self._occupancy_line: Text | None = None
         self._overlap_line: Text | None = None
         self._goto_btn: HoldButton | None = None
@@ -414,22 +428,36 @@ class LcsConfigPanel(OverlayPanel):
         for btn in (self._minus_btn, self._plus_btn):
             btn.text_size = host.s_20
 
+        # What already answers to this ID, directly under the ID row it describes: it tells
+        # the operator whether they are about to reprogram a module that is already out
+        # there, which they need to know before choosing a mode, not after. Titled, because
+        # a bare line naming some other module beside the one being programmed reads as a
+        # contradiction until you know it is reporting the layout rather than the choice.
+        # A step below the page's body size: context, not a choice.
+        self._assigned_box = TitleBox(page, text=ASSIGNED_TITLE, align="top")
+        self._assigned_box.text_size = host.s_12
+        self._occupancy_line = self._label(self._assigned_box, UNASSIGNED, size=host.s_12)
+
         # The mode radios are the only choice on this page besides the ID itself, so they
-        # are given a titled box that says what they are choosing.
+        # are given a titled box that says what they are choosing -- and a step above the
+        # page's body size, since each label also carries the port count.
         self._mode_box = TitleBox(page, text=MODE_TITLE, align="top")
         self._mode_box.text_size = host.s_12
         self._mode_group = CheckBoxGroup(
             self._mode_box,
-            size=host.s_14,
+            size=host.s_16,
             options=self.mode_options(),
             selected=None,
             align="top",
             style="radio",
             command=self._on_mode_selected,
         )
-        self._block_line = self._label(page, "")
-        self._occupancy_line = self._label(page, NOT_IN_USE)
-        self._overlap_line = self._label(page, "")
+        # The block the chosen mode claims, and any module it runs into. Both are derived
+        # from the ID and the mode above them, so they are the quietest lines on the page.
+        self._block_line = self._label(page, "", size=host.s_10)
+        # A footnote to the mode radios: what each remote key above is actually for.
+        self._mode_footnote_line = self._label(page, "", size=host.s_10)
+        self._overlap_line = self._label(page, "", size=host.s_12)
 
         choices = Box(page, align="top", border=0)
         self._goto_btn = HoldButton(choices, text="Go to", align="left", command=self.go_to_owning_base)
@@ -859,11 +887,10 @@ class LcsConfigPanel(OverlayPanel):
         base_id = tmcc_id if isinstance(tmcc_id, int) and tmcc_id >= MIN_TMCC_ID else MIN_TMCC_ID
         self._base_id = min(max(base_id, MIN_TMCC_ID), self.max_base)
         if device is None:
-            occupant = occupant_of(self._base_id, self._store)
+            occupant = self._discovery_occupant(scope)
             if occupant is not None and occupant.base_id == self._base_id:
                 self._seed_from_occupant(occupant)
         self._seed_sensor_track_action()
-        _ = scope
         self._refresh_device_selector()
         self._refresh_id_page()
         self._show_page(PAGE_DEVICE)
@@ -893,6 +920,23 @@ class LcsConfigPanel(OverlayPanel):
                 value = seeded
             options[option.key] = value
         return options
+
+    def _discovery_occupant(self, scope: CommandScope = None) -> LcsOccupant | None:
+        """
+        What holds the entered ID, before any module has been chosen to program.
+
+        No mode has been picked yet, so the panel has no address space of its own to
+        search in. The screen the operator came from is the best hint there is -- the
+        LCS... key pressed from the switch screen means switch IDs -- so its scope is
+        tried first. Only when that turns up nothing, or the screen is not on an LCS
+        key at all, does the search widen to every module, because the whole point of
+        this lookup is to discover what kind of module is out there.
+        """
+        if scope is not None:
+            occupant = occupant_of(self._base_id, self._store, scope=scope)
+            if occupant is not None:
+                return occupant
+        return occupant_of(self._base_id, self._store)
 
     def _seed_from_occupant(self, occupant: LcsOccupant) -> None:
         self._select_device(occupant.device, seed_mode_from=occupant.state, mode=occupant.mode)
@@ -1032,6 +1076,7 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_id_field()
         self._refresh_mode_selector()
         self._refresh_block_line()
+        self._refresh_mode_footnote()
         self._refresh_step_keys()
         self._refresh_occupancy()
         self._refresh_options_page()
@@ -1055,16 +1100,41 @@ class LcsConfigPanel(OverlayPanel):
 
     @property
     def block_text(self) -> str:
+        """The TMCC IDs the chosen mode claims: "Uses TMCC IDs 12 - 19".
+
+        The count is not spelled out again -- the mode label above already says how many
+        TMCC IDs the mode uses, and the range says it a second time.
+        """
         if self._mode is None:
             return ""
         ports = self.ports
         if ports <= 1:
-            return f"Claims ID {self._base_id} (1 port)"
-        return f"Claims IDs {self._base_id}-{self._base_id + ports - 1} ({ports} ports)"
+            return f"Uses TMCC ID {self._base_id}"
+        return f"Uses TMCC IDs {self._base_id} - {self._base_id + ports - 1}"
 
     def _refresh_block_line(self) -> None:
         if self._block_line is not None:
             self._block_line.value = self.block_text
+
+    @property
+    def mode_footnote(self) -> str:
+        """What each remote key the selected module offers is used for, one line each.
+
+        Taken from the module's own enabled modes, in the order the radios list them, so
+        a BPC2 reads TR before ACC and an STM2 says nothing about accessories.
+        """
+        if self._device is None:
+            return ""
+        lines: list[str] = []
+        for mode in enabled_modes(self._device):
+            use = SCOPE_USE.get(mode.scope)
+            if use and use not in lines:
+                lines.append(use)
+        return "\n".join(lines)
+
+    def _refresh_mode_footnote(self) -> None:
+        if self._mode_footnote_line is not None:
+            self._mode_footnote_line.value = self.mode_footnote
 
     def _refresh_step_keys(self) -> None:
         if self._minus_btn is not None:
@@ -1104,42 +1174,75 @@ class LcsConfigPanel(OverlayPanel):
 
     def occupancy(self) -> tuple[str, LcsOccupant | None]:
         """
-        The occupancy banner text, and the module that owns the current ID, if any.
+        The "Currently Assigned" text, and the module that owns the current ID, if any.
+
+        Only modules answering to the same remote key as the mode being programmed can
+        own the ID: an STM2 is always a switch, so a BPC2 holding ACC 1 does not stand
+        in the way of an STM2 based at SW 1, and reporting it would read as a conflict
+        where there is none. Before a mode is chosen there is no key yet, and the
+        unfiltered answer is the honest one.
         """
-        occupant = occupant_of(self._base_id, self._store)
+        occupant = occupant_of(self._base_id, self._store, scope=self.scope)
         if occupant is None:
-            return NOT_IN_USE, None
+            return UNASSIGNED, None
+        summary = self._occupant_summary(occupant)
         if occupant.base_id == self._base_id:
-            scope = occupant.mode.scope if occupant.mode else occupant.scope
-            scope_label = SCOPE_LABEL.get(scope, scope.title if scope is not None else "")
-            return (
-                f"{occupant.device.label} at {occupant.base_id} - {scope_label}, {occupant.ports} IDs".strip(),
-                occupant,
-            )
+            return summary, occupant
+        # The entered ID is inside somebody else's block. The module is named the same way
+        # either way -- that is what the box reports -- with the port the ID really is
+        # appended, since that is the fact that makes reprogramming it a decision.
         port = occupant.port_index or (self._base_id - occupant.base_id + 1)
-        return (
-            f"ID {self._base_id} is port {port} of the {occupant.device.label} based at {occupant.base_id}",
-            occupant,
-        )
+        return f"{summary} ({self._base_id} is port {port})", occupant
+
+    @staticmethod
+    def _occupant_summary(occupant: LcsOccupant) -> str:
+        """A module and the block it answers to: "BPC2 ACC TMCC IDs 12 - 19".
+
+        Named the way the operator would program it: the module, the remote key that
+        addresses it, and the TMCC IDs it holds. The port count is not spelled out
+        separately -- the range already says it.
+        """
+        scope = occupant.effective_scope
+        scope_label = SCOPE_LABEL.get(scope, scope.title if scope is not None else "")
+        if occupant.last_id > occupant.base_id:
+            ids = f"TMCC IDs {occupant.base_id} - {occupant.last_id}"
+        else:
+            ids = f"TMCC ID {occupant.base_id}"
+        return " ".join(part for part in (occupant.device.label, scope_label, ids) if part)
 
     def overlap_text(self) -> str:
+        """
+        The modules the chosen block runs into, named the way the assigned box names them.
+
+        Scoped like :meth:`occupancy`, because two blocks in different key namespaces
+        cannot collide however far they run into one another: an STM2 claiming SW 20-35
+        overlaps an ASC2 based at SW 25, and nothing at all on the accessory keys.
+        """
         if self._mode is None:
             return ""
         neighbors = [
             occupant
-            for occupant in overlaps(self._base_id, self.ports, self._store, ignore_base=self._base_id)
+            for occupant in overlaps(
+                self._base_id,
+                self.ports,
+                self._store,
+                ignore_base=self._base_id,
+                scope=self._mode.scope,
+            )
             if occupant.base_id != self._base_id
         ]
         if not neighbors:
             return ""
-        parts = [f"{o.device.label} at {o.base_id}-{o.last_id}" for o in neighbors]
-        return "Overlaps " + ", ".join(parts)
+        return "Overlaps " + ", ".join(self._occupant_summary(o) for o in neighbors)
 
     def go_to_owning_base(self) -> None:
         """
         Retarget the panel at the module that owns the entered ID, pre-filled from it.
+
+        Scoped like :meth:`occupancy`, so the button always goes to the module the
+        assigned box named and never to some other one on a different remote key.
         """
-        occupant = occupant_of(self._base_id, self._store)
+        occupant = occupant_of(self._base_id, self._store, scope=self.scope)
         if occupant is None:
             return
         self._seed_from_occupant(occupant)

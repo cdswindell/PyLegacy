@@ -25,6 +25,14 @@ alone: the panel never constructs an ``Asc2Req`` carrying a mode and never calls
 ``num_addressable_ports``. This registry is the single source of truth for a mode's
 scope and block size. Read-back GETs carry no mode, so they are unaffected.
 
+How a mode is labeled
+---------------------
+A mode label reads the way the operator's manual and the Cab remote do: the addressing
+mode carries its remote button inside the word -- ``ACCessory``, ``SWitch``, ``TRack``,
+matching the ACC, SW and TR keys that begin the programming sequence -- the port count
+is a digit rather than a word, and the count is of ``TMCC IDs``, never of bare "IDs" or
+"ports". So the ASC2's eight-accessory configuration is "ACCessory, 8 TMCC IDs".
+
 No Tk or guizero symbols are imported at module scope; the registry is pure data and
 is unit-testable in isolation.
 """
@@ -252,7 +260,7 @@ ASC2 = LcsDevice(
     modes=(
         LcsMode(
             key="acc_8",
-            label="Accessory, Eight ID",
+            label="ACCessory, 8 TMCC IDs",
             scope=CommandScope.ACC,
             ports=8,
             pdi_mode=0,
@@ -264,7 +272,7 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            label="Accessory, Single ID",
+            label="ACCessory, 1 TMCC ID",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=1,
@@ -276,7 +284,7 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="sw_momentary",
-            label="Switch, momentary",
+            label="SWitch, momentary",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=2,
@@ -288,7 +296,7 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="sw_latching",
-            label="Switch, latching",
+            label="SWitch, latching",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=3,
@@ -321,7 +329,7 @@ BPC2 = LcsDevice(
     modes=(
         LcsMode(
             key="tr_8",
-            label="Track, 8 TMCC ID",
+            label="TRack, 8 TMCC IDs",
             scope=CommandScope.TRAIN,
             ports=8,
             pdi_mode=0,
@@ -339,7 +347,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="tr_1",
-            label="Track, 1 TMCC ID",
+            label="TRack, 1 TMCC ID",
             scope=CommandScope.TRAIN,
             ports=1,
             pdi_mode=1,
@@ -349,7 +357,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_8",
-            label="Accessory, 8 TMCC ID",
+            label="ACCessory, 8 TMCC IDs",
             scope=CommandScope.ACC,
             ports=8,
             pdi_mode=2,
@@ -367,7 +375,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            label="Accessory, 1 TMCC ID",
+            label="ACCessory, 1 TMCC ID",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=3,
@@ -438,8 +446,12 @@ SENSOR_TRACK = LcsDevice(
     program_button="PROGRAM",
     modes=(
         LcsMode(
+            # The longest mode label of any module, and deliberately so: setting the ID and
+            # assigning an Action Command are one programming gesture on a Sensor Track, and
+            # the manual describes them together. Measured 340 px at the panel's mode size and
+            # 476 px at the Pi's 1.5x font scale, so it fits the portrait pane.
             key="acc",
-            label="Accessory ID and Action Command",
+            label="ACCessory TMCC ID and Action Command",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=None,

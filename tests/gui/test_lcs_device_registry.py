@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 
 import src.pytrain.gui.controller.lcs_device_registry as reg
@@ -145,3 +147,42 @@ class TestAuxNumber:
             reg.aux_number(10, CommandScope.ACC)
         with pytest.raises(ValueError):
             reg.aux_number(1, CommandScope.SWITCH)
+
+
+class TestModeLabels:
+    """
+    The label conventions the module docstring sets out: the addressing mode carries its
+    Cab key inside the word, counts are digits, and what is counted is TMCC IDs.
+    """
+
+    EXPECTED = {
+        "asc2": ("ACCessory, 8 TMCC IDs", "ACCessory, 1 TMCC ID", "SWitch, momentary", "SWitch, latching"),
+        "bpc2": ("TRack, 8 TMCC IDs", "TRack, 1 TMCC ID", "ACCessory, 8 TMCC IDs", "ACCessory, 1 TMCC ID"),
+        "stm2": ("Single-wire (up to 16 switches)", "Two-wire (up to 8 switches)"),
+        "sensor_track": ("ACCessory TMCC ID and Action Command",),
+    }
+
+    def test_every_label_is_as_the_operator_reads_it(self):
+        assert {d.key: tuple(m.label for m in d.modes) for d in reg.LCS_DEVICES} == self.EXPECTED
+
+    def test_an_id_is_always_a_tmcc_id(self):
+        # A bare "ID" is ambiguous beside a PDI address or a port number.
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                assert not re.findall(r"(?<!TMCC )\bIDs?\b", mode.label), f"{device.key}/{mode.key}: {mode.label}"
+
+    NUMBER_WORDS = ("one", "single", "two", "three", "four", "five", "six", "seven", "eight", "sixteen")
+
+    def test_a_count_is_a_digit(self):
+        # "Eight ID" was the old spelling; a digit is read at a glance.
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                for word in re.findall(r"(\w+)\s+TMCC IDs?\b", mode.label):
+                    assert word.lower() not in self.NUMBER_WORDS, f"{device.key}/{mode.key}: {mode.label}"
+
+    def test_a_counted_label_agrees_with_the_mode(self):
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                counted = re.search(r"(\d+) TMCC IDs?\b", mode.label)
+                if counted:
+                    assert int(counted.group(1)) == mode.ports, f"{device.key}/{mode.key}: {mode.label}"

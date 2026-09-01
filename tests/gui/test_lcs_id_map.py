@@ -154,6 +154,79 @@ class TestOverlaps:
         assert overlaps(9, 8, store, ignore_base=9) == []
 
 
+class TestScope:
+    """
+    A TMCC ID is only an address together with the remote key that reaches it.
+    """
+
+    @staticmethod
+    def crowded_id_1() -> FakeStore:
+        # The reported layout: an STM2 based at SW 1 and a BPC2 on ACC 1. Two addresses.
+        return FakeStore(
+            acc=[FakeState(1, "bpc2", mode=3, num_ids=1)],
+            switch=[FakeState(1, "stm2", mode=0, num_ids=16)],
+        )
+
+    def test_scope_picks_between_two_modules_on_the_same_number(self):
+        store = self.crowded_id_1()
+
+        assert occupant_of(1, store, scope=CommandScope.SWITCH).device is STM2
+        assert occupant_of(1, store, scope=CommandScope.ACC).device is BPC2
+        assert occupant_of(1, store, scope=CommandScope.TRAIN) is None
+
+    def test_the_switch_block_extends_past_the_accessory_on_its_base(self):
+        store = self.crowded_id_1()
+
+        assert occupant_of(9, store, scope=CommandScope.SWITCH).device is STM2
+        assert occupant_of(9, store, scope=CommandScope.ACC) is None
+
+    def test_omitting_the_scope_still_returns_every_module(self):
+        store = self.crowded_id_1()
+
+        assert {o.device for o in occupants(store)} == {STM2, BPC2}
+        assert occupant_of(1, store) is not None
+
+    def test_effective_scope_comes_from_the_registry_not_the_store(self):
+        # asc2_req.py files a switch-mode ASC2 with the accessories; the registry knows
+        # mode 2 is a switch, and that is the key the module really answers to.
+        store = FakeStore(acc=[FakeState(25, "asc2", mode=2, num_ids=4)])
+        occupant = occupant_of(25, store)
+
+        assert occupant.scope == CommandScope.ACC
+        assert occupant.effective_scope == CommandScope.SWITCH
+        assert occupant_of(25, store, scope=CommandScope.SWITCH).device is ASC2
+        assert occupant_of(25, store, scope=CommandScope.ACC) is None
+
+    def test_the_store_scope_is_the_fallback_when_the_mode_is_unknown(self):
+        store = FakeStore(acc=[FakeState(50, "asc2", mode="NA")])
+        occupant = occupant_of(50, store)
+
+        assert occupant.mode is None
+        assert occupant.effective_scope == CommandScope.ACC
+
+    def test_overlaps_only_reports_blocks_on_the_same_key(self):
+        # An STM2 based at SW 20 with 16 inputs runs through a switch-mode ASC2 at 25,
+        # and through nothing at all on the accessory keys.
+        store = FakeStore(
+            acc=[FakeState(25, "asc2", mode=2, num_ids=4), FakeState(22, "bpc2", mode=2, num_ids=8)],
+        )
+        found = overlaps(20, 16, store, scope=CommandScope.SWITCH)
+
+        assert [(o.device, o.base_id, o.last_id) for o in found] == [(ASC2, 25, 28)]
+        assert overlaps(1, 16, self.crowded_id_1(), ignore_base=1, scope=CommandScope.SWITCH) == []
+
+    def test_the_same_module_kind_on_two_keys_is_two_modules(self):
+        # De-duplication is per module, and a base under two remote keys is two of them.
+        store = FakeStore(
+            acc=[FakeState(9, "asc2", mode=0, num_ids=8)],
+            switch=[FakeState(9, "asc2", mode=2, num_ids=4)],
+        )
+
+        assert len(occupants(store)) == 2
+        assert occupant_of(9, store, scope=CommandScope.ACC).ports == 8
+        assert occupant_of(9, store, scope=CommandScope.SWITCH).ports == 4
+
+
 class TestStoreDefault:
     def test_no_store_built_is_not_an_error(self, monkeypatch):
         monkeypatch.setattr(lcs_id_map, "_store", lambda store=None: None)

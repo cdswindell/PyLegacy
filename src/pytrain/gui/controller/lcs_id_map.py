@@ -15,6 +15,14 @@ of TMCC IDs starting at its own address. The block size is the module's own
 ``LcsState.num_ids``, reported in its PDI INFO packet; when INFO has not arrived, the
 registry's ``mode.ports`` is used instead.
 
+A TMCC ID only means something together with the remote key that addresses it: ACC 1,
+SW 1 and TR 1 are three different addresses on three different modules. Every lookup
+here therefore takes an optional ``scope``, and a caller that knows which key it is
+programming should pass it -- an STM2 is a switch, and an accessory holding ACC 1 is
+simply not in its way. The scope compared against is the occupant's
+:attr:`LcsOccupant.effective_scope`, the registry's scope for the mode the module
+reports, not the store scope the state happened to be filed under.
+
 No Tk or guizero symbols are imported; the map is pure logic over the state store and
 is unit-testable with any object exposing ``get_all(scope)``.
 """
@@ -51,6 +59,19 @@ class LcsOccupant:
     @property
     def last_id(self) -> int:
         return self.base_id + self.ports - 1
+
+    @property
+    def effective_scope(self) -> CommandScope | None:
+        """
+        The remote key that actually addresses this module: ACC, SW, or TR.
+
+        The registry's scope for the mode the module reports, in preference to the store
+        scope the state was filed under, because the registry is the panel's source of
+        truth for scope: ``asc2_req.py`` reads ``SWITCH if mode == 2 else ACC``, so a
+        mode-3 (switch, latching) ASC2 is filed with the accessories. The store scope is
+        the fallback for a module whose mode has not been parsed.
+        """
+        return self.mode.scope if self.mode is not None else self.scope
 
     @property
     def is_base(self) -> bool:
@@ -121,18 +142,22 @@ def _occupant_of_state(state: Any, scope: CommandScope) -> LcsOccupant | None:
     )
 
 
-def occupants(store: Any = None) -> List[LcsOccupant]:
+def occupants(store: Any = None, scope: CommandScope | None = None) -> List[LcsOccupant]:
     """
     Return every LCS module currently known to the state store, one per module base.
+
+    ``scope`` keeps only the modules addressed by that remote key, compared against each
+    occupant's :attr:`LcsOccupant.effective_scope`. Omit it while still working out what
+    kind of module is being looked at, when every module is a candidate.
     """
     store = _store(store)
     if store is None:
         return []
     found: List[LcsOccupant] = []
-    seen: set[tuple[str, int]] = set()
-    for scope in LCS_SCOPES:
+    seen: set[tuple[str, int, Any]] = set()
+    for store_scope in LCS_SCOPES:
         try:
-            states = store.get_all(scope) or []
+            states = store.get_all(store_scope) or []
         except Exception:  # pragma: no cover - defensive; store shapes vary
             continue
         for state in states:
@@ -141,10 +166,14 @@ def occupants(store: Any = None) -> List[LcsOccupant]:
             # the same address and the proxy is still the module's base state.
             if getattr(state, "parent", None) is not None and getattr(state, "port", 1) > 1:
                 continue
-            occupant = _occupant_of_state(state, scope)
+            occupant = _occupant_of_state(state, store_scope)
             if occupant is None:
                 continue
-            key = (occupant.device.key, occupant.base_id)
+            if scope is not None and occupant.effective_scope != scope:
+                continue
+            # One entry per module: the same base under two remote keys is two modules,
+            # so the key that de-duplicates has to say which key addresses this one.
+            key = (occupant.device.key, occupant.base_id, occupant.effective_scope)
             if key in seen:
                 continue
             seen.add(key)
@@ -153,25 +182,36 @@ def occupants(store: Any = None) -> List[LcsOccupant]:
     return found
 
 
-def occupant_of(tmcc_id: int, store: Any = None) -> LcsOccupant | None:
+def occupant_of(tmcc_id: int, store: Any = None, scope: CommandScope | None = None) -> LcsOccupant | None:
     """
     Return the LCS module claiming ``tmcc_id``, with its 1-based ``port_index``, or None.
+
+    ``scope`` limits the answer to modules answering to that remote key; see
+    :func:`occupants`.
     """
-    for occupant in occupants(store):
+    for occupant in occupants(store, scope):
         if occupant.claims(tmcc_id):
             return occupant.at(tmcc_id)
     return None
 
 
-def overlaps(base_id: int, ports: int, store: Any = None, ignore_base: int | None = None) -> List[LcsOccupant]:
+def overlaps(
+    base_id: int,
+    ports: int,
+    store: Any = None,
+    ignore_base: int | None = None,
+    scope: CommandScope | None = None,
+) -> List[LcsOccupant]:
     """
     Return the known modules whose blocks intersect ``base_id .. base_id + ports - 1``.
 
     ``ignore_base`` omits the module being reconfigured, which necessarily overlaps itself.
+    ``scope`` limits the answer to modules answering to that remote key; blocks in two
+    different key namespaces cannot collide, however far they run into one another.
     """
     last_id = base_id + max(ports, 1) - 1
     found: List[LcsOccupant] = []
-    for occupant in occupants(store):
+    for occupant in occupants(store, scope):
         if ignore_base is not None and occupant.base_id == ignore_base:
             continue
         if occupant.base_id <= last_id and base_id <= occupant.last_id:
