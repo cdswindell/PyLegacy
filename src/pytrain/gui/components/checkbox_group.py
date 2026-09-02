@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Literal
+from typing import Literal, Mapping
 
 from guizero import ButtonGroup, CheckBox
 
@@ -142,6 +142,7 @@ class CheckBoxGroup(ButtonGroup):
         cursor: bool = False,
         cursor_bg: str = CURSOR_BG,
         stretch: bool = False,
+        row_leads: Mapping[str, int] = None,
         **kwargs,
     ):
         # Recorded before the parent class is initialized, because it builds the rows from its
@@ -153,6 +154,7 @@ class CheckBoxGroup(ButtonGroup):
         self._row_style = style
         self._row_thickness = thickness
         self._stretch = stretch
+        self._row_leads = self._as_leads(row_leads)
         if stretch:
             # The frame has to fill its container before the rows can fill the frame, and
             # guizero packs a container with fill=X only when its own width is the string
@@ -166,6 +168,7 @@ class CheckBoxGroup(ButtonGroup):
         # Repainting is cheap -- the indicator images are cached on the row.
         self.decorate_rows()
         self.stretch_rows()
+        self.lead_rows()
 
         # Opt-in, and deliberately so: this component is shared with the Admin panel, the
         # catalog's sort radios and the AMC2 page selector, and a cursor -- or the selectcolor
@@ -194,6 +197,7 @@ class CheckBoxGroup(ButtonGroup):
         super()._refresh_options()
         self.decorate_rows()
         self.stretch_rows()
+        self.lead_rows()
 
     def resize(self, width, height) -> None:
         """Stretch the rows again once the parent class has resized them.
@@ -202,10 +206,11 @@ class CheckBoxGroup(ButtonGroup):
         hands the group's own width to every row -- which for a filling group means setting a
         row's width to "fill", and guizero re-displays a container whenever that happens. That
         re-grid drops the sticky ``stretch_rows`` sets, so the stretch has to follow the resize
-        as well as the rebuild.
+        as well as the rebuild -- and with it the leads, which are grid options of the same kind.
         """
         super().resize(width, height)
         self.stretch_rows()
+        self.lead_rows()
 
     def decorate_rows(self) -> None:
         """Give every row of the group the indicator, font and padding it was asked for.
@@ -259,6 +264,63 @@ class CheckBoxGroup(ButtonGroup):
                 self.tk.grid_columnconfigure(grid[0] if grid else 0, weight=1)
                 row.tk.grid_configure(sticky="ew")
             except (AttributeError, IndexError, RuntimeError, tk.TclError, TypeError, ValueError):
+                continue
+
+    @staticmethod
+    def _as_leads(leads: Mapping[str, int] = None) -> dict[str, int]:
+        """The leads as this class holds them: option values as strings, pixels as ints.
+
+        Values, because that is what a row answers with -- ``_rbuttons`` carries no index --
+        and strings, because guizero stores whatever it was handed and answers in kind.
+        """
+        return {str(value): int(pixels) for value, pixels in (leads or {}).items()}
+
+    @property
+    def row_leads(self) -> dict[str, int]:
+        """How far each named row is held off the row above it, in pixels.
+
+        Whitespace *between groups of rows* rather than between every pair of them, which is
+        what ``pady`` already sets: the LCS panel's mode radios list two accessory modes and
+        then two switch modes, and the operator reading them needs to see two lists rather
+        than one of four. A row not named here is packed as tight against the row above it as
+        every other, so a group that says nothing about its rows is untouched.
+
+        Grid padding, so it lands outside the row's own painted background and reads as a gap
+        between two blocks rather than as a taller row; see :meth:`lead_rows` for why it has
+        to be re-applied rather than set once.
+        """
+        return dict(getattr(self, "_row_leads", None) or {})
+
+    @row_leads.setter
+    def row_leads(self, leads: Mapping[str, int]) -> None:
+        self._row_leads = self._as_leads(leads)
+        self.lead_rows()
+
+    def lead_rows(self) -> None:
+        """Hold every row named in :attr:`row_leads` off the row above it.
+
+        Re-applied after every rebuild and every resize, like ``stretch_rows`` and for the
+        same reason: guizero re-grids a container's children from the options it recorded,
+        and grid padding is not among them. Every row is configured rather than only those
+        named, so a group whose rows are replaced with a differently grouped list -- which
+        is what choosing another LCS module does -- cannot leave a gap standing above a row
+        that no longer begins anything.
+
+        Guarded like ``decorate_rows``: both are reachable before this class has recorded
+        anything, and a group that has said nothing about its rows wants them left alone.
+        A hidden row is left alone as well: Tk's grid configure *manages* a widget the grid
+        has forgotten, so padding one would put it back on screen.
+        """
+        if not hasattr(self, "_row_leads"):
+            return
+        leads = self._row_leads
+        for row in getattr(self, "_rbuttons", None) or ():
+            if not getattr(row, "visible", True):
+                continue
+            lead = leads.get(str(getattr(row, "value", "")), 0)
+            try:
+                row.tk.grid_configure(pady=(lead, 0))
+            except (AttributeError, RuntimeError, tk.TclError, TypeError, ValueError):
                 continue
 
     def _init_cursor(

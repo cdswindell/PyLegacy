@@ -273,10 +273,17 @@ class DummyRadioTk:
 
 
 class DummyRadio:
-    """One row as ``_rbuttons`` holds it: a guizero widget that knows its grid cell."""
+    """One row as ``_rbuttons`` holds it: a guizero widget that knows its grid cell.
 
-    def __init__(self, grid: list[int]) -> None:
+    ``value`` is what guizero answers with -- a string, whatever it was handed -- and what the
+    leads are keyed by; ``visible`` is what tells a row the grid has forgotten from one it is
+    still managing.
+    """
+
+    def __init__(self, grid: list[int], value: str = "", visible: bool = True) -> None:
         self.grid = grid
+        self.value = value
+        self.visible = visible
         self.tk = DummyRadioTk()
 
 
@@ -409,6 +416,142 @@ def test_a_row_that_refuses_the_stretch_does_not_cost_the_others_theirs() -> Non
     group.stretch_rows()  # must not raise
 
     assert rows[1].tk.grid_options == {"sticky": "ew"}
+
+
+def _keyed(*values: str) -> list[DummyRadio]:
+    """A vertical group's rows, each answering with the value it was built from."""
+    return [DummyRadio([0, index + 1], value=value) for index, value in enumerate(values)]
+
+
+def _leading_group(rows: list[DummyRadio], leads: dict[Any, int] = None) -> mod.CheckBoxGroup:
+    """A group that has been told which of its rows begin a new block, and nothing else.
+
+    ``__new__`` as above: a lead is grid padding on the row itself, so a real Tk master would
+    add nothing to assert.
+    """
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._tk = DummyFrameTk()
+    group._rbuttons = rows
+    group._stretch = False
+    group.row_leads = leads
+    return group
+
+
+def test_only_a_named_row_is_held_off_the_row_above_it() -> None:
+    # Whitespace between blocks of rows rather than between every pair of them, which is what
+    # pady already sets: the LCS panel's mode radios are two accessory modes and then two
+    # switch modes, and an operator reading them needs to see two lists rather than one of
+    # four. Above the row, so the gap falls between the blocks rather than inside either.
+    rows = _keyed("acc_8", "acc_1", "sw_momentary", "sw_latching")
+    group = _leading_group(rows, {"sw_momentary": 12})
+
+    group.lead_rows()
+
+    assert [row.tk.grid_options["pady"] for row in rows] == [(0, 0), (0, 0), (12, 0), (0, 0)]
+
+
+def test_a_row_that_no_longer_begins_a_block_loses_its_gap() -> None:
+    # The rows are replaced with a differently grouped list whenever the LCS module changes --
+    # an STM2's modes are all on one key -- and a gap left standing above a row that begins
+    # nothing is whitespace in the middle of a list.
+    rows = _keyed("acc_8", "sw_momentary")
+    group = _leading_group(rows, {"sw_momentary": 12})
+    assert rows[1].tk.grid_options["pady"] == (12, 0), "asking for them applies them"
+
+    group.row_leads = {}
+
+    assert [row.tk.grid_options["pady"] for row in rows] == [(0, 0), (0, 0)]
+
+
+def test_the_leads_are_held_as_pixels_keyed_by_the_value_a_row_answers_with() -> None:
+    # guizero stores whatever it was handed and answers in kind, and a row carries no index
+    # for the mapping to be keyed by.
+    group = _leading_group(_keyed("1"), {1: "12"})
+
+    assert group.row_leads == {"1": 12}
+
+
+def test_the_gaps_can_be_asked_for_when_the_group_is_built(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The LCS panel hands them over at construction as well as on every refresh, since the
+    # group is built before a module has been chosen.
+    rows = _keyed("acc_8", "sw_momentary")
+
+    def _init(self, _master: Any, **_kwargs: Any) -> None:
+        self._tk = DummyFrameTk()
+        self._rbuttons = rows
+
+    monkeypatch.setattr(mod.ButtonGroup, "__init__", _init, raising=True)
+
+    group = mod.CheckBoxGroup(None, size=18, style="radio", row_leads={"sw_momentary": 12})
+
+    assert group.row_leads == {"sw_momentary": 12}
+    assert rows[1].tk.grid_options["pady"] == (12, 0)
+
+
+def test_rebuilding_the_options_leads_every_row_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The same reason the stretch cannot be set once: a rebuilt row is gridded from scratch,
+    # and grid padding is not among the options guizero replays.
+    rows = _keyed("acc_8", "sw_momentary")
+    group = _leading_group(rows, {"sw_momentary": 12})
+    rows[1].tk.grid_options.clear()
+    monkeypatch.setattr(mod.ButtonGroup, "_refresh_options", lambda self: None, raising=True)
+
+    group._refresh_options()
+
+    assert rows[1].tk.grid_options["pady"] == (12, 0)
+
+
+def test_resizing_leads_every_row_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    # And the reason the rebuild alone is not enough: ButtonGroup.append resizes the group
+    # after rebuilding it, and that re-grid is the last word.
+    rows = _keyed("sw_momentary")
+    group = _leading_group(rows, {"sw_momentary": 12})
+    rows[0].tk.grid_options.clear()
+    monkeypatch.setattr(mod.ButtonGroup, "resize", lambda self, width, height: None, raising=True)
+
+    group.resize("fill", None)
+
+    assert rows[0].tk.grid_options["pady"] == (12, 0)
+
+
+def test_a_hidden_row_is_left_where_the_grid_forgot_it() -> None:
+    # Tk's grid configure *manages* a widget the grid has forgotten, so padding a hidden row
+    # would put it back on screen -- which is exactly what padding a hidden footer button did
+    # to the popup's Back key.
+    rows = _keyed("acc_8", "sw_momentary")
+    rows[1].visible = False
+
+    _leading_group(rows, {"sw_momentary": 12})
+
+    assert rows[1].tk.grid_options == {}
+    assert rows[0].tk.grid_options == {"pady": (0, 0)}, "and the row still on screen is"
+
+
+def test_a_group_that_named_no_rows_leaves_them_alone() -> None:
+    # lead_rows is reachable before this class has recorded anything, exactly as decorate_rows
+    # is: guizero calls _refresh_options from its own __init__, and the cursor tests build a
+    # group by __new__.
+    rows = _keyed("acc_8")
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._rbuttons = rows
+
+    group.lead_rows()
+
+    assert rows[0].tk.grid_options == {}
+
+
+def test_a_row_that_refuses_its_gap_does_not_cost_the_others_theirs() -> None:
+    # A row Tk has forgotten, which is what a TclError from grid_configure means.
+    rows = _keyed("acc_8", "sw_momentary")
+
+    def _raise(**_kwargs: Any) -> None:
+        raise mod.tk.TclError("bad window path name")
+
+    rows[0].tk.grid_configure = _raise
+
+    _leading_group(rows, {"sw_momentary": 12})  # must not raise
+
+    assert rows[1].tk.grid_options["pady"] == (12, 0)
 
 
 def test_setting_the_cursor_on_a_group_that_did_not_opt_in_does_nothing() -> None:

@@ -249,7 +249,7 @@ class TestModeNames:
     """
 
     EXPECTED = {
-        "asc2": ("ACC", "ACC (uncouple)", "SW (pulse)", "SW (latching)"),
+        "asc2": ("ACC (mixed)", "ACC (uncouple)", "SW (pulse)", "SW (latching)"),
         "bpc2": ("TR", "TR", "ACC", "ACC"),
         "stm2": ("SW (single-wire)", "SW (two-wire)"),
         "sensor_track": ("ACC",),
@@ -261,7 +261,7 @@ class TestModeNames:
     def test_a_name_opens_with_its_cab_key(self):
         # ACC, SW, TR -- the keys that begin the programming sequence, spelled the way the
         # remote spells them and standing alone at the head of the row, which is also how
-        # the footnote under the radios names them.
+        # the legend above the radios names them.
         keys = {CommandScope.ACC: "ACC", CommandScope.SWITCH: "SW", CommandScope.TRAIN: "TR"}
         for device in reg.configurable_devices():
             for mode in device.modes:
@@ -269,8 +269,8 @@ class TestModeNames:
 
     def test_a_qualifier_is_parenthesized(self):
         # Anything after the key tells this mode from the module's other modes on that key
-        # -- pulse from latching, single-wire from two-wire, uncouple from the plain
-        # accessory mode -- and reads as the aside it is rather than as a second word of
+        # -- pulse from latching, single-wire from two-wire, mixed accessories from
+        # uncoupling tracks -- and reads as the aside it is rather than as a second word of
         # the key.
         for device in reg.LCS_DEVICES:
             for mode in device.modes:
@@ -282,12 +282,14 @@ class TestModeNames:
     def test_a_qualifier_is_read_back_off_the_name(self):
         # What the panel keys the mode's note by, so the sentence below the radios is
         # looked up under the very word the row it explains carries. A mode named by its
-        # key alone qualifies nothing and has nothing to key.
+        # key alone qualifies nothing and has nothing to key: the BPC2 and the Sensor Track
+        # offer one mode per key, so nothing has to be told from anything.
+        assert reg.ASC2.mode("acc_8").qualifier == "mixed"
         assert reg.ASC2.mode("acc_1").qualifier == "uncouple"
         assert reg.ASC2.mode("sw_momentary").qualifier == "pulse"
         assert reg.STM2.mode("single_wire").qualifier == "single-wire"
-        assert reg.ASC2.mode("acc_8").qualifier is None
         assert reg.BPC2.mode("tr_8").qualifier is None
+        assert reg.SENSOR_TRACK.mode("acc").qualifier is None
 
     def test_a_qualifier_is_one_word(self):
         # A radio row is as wide as its label, so the qualifier can say which mode this is
@@ -298,17 +300,23 @@ class TestModeNames:
                     continue
                 assert " " not in mode.qualifier, f"{device.key}/{mode.key}: {mode.name}"
 
-    def test_the_asc2_single_id_accessory_mode_names_its_purpose(self):
-        # The one mode whose purpose cannot be read off the block it claims: one TMCC ID
-        # driving all eight outputs, reserved for uncoupling tracks. The count is left to
-        # the row's tail, which already says the mode takes one address, and the rest is
-        # said by the note the panel prints under the radios.
-        mode = reg.ASC2.mode("acc_1")
-        assert mode.ids_label(1) == "ACC (uncouple) TMCC ID 1"
-        assert mode.note == "Uncoupling tracks only - all 8 outputs pulse from the one TMCC ID"
+    def test_the_asc2_accessory_modes_are_told_apart_by_what_they_are_for(self):
+        # Neither purpose can be read off the block the mode claims, and the two modes are
+        # on the same key: one address driving all eight outputs for uncoupling tracks,
+        # against eight addresses for whatever is wired to them. So each is qualified by
+        # what it is for, the count is left to the row's tail, and the rest is said by the
+        # note the panel prints under the radios.
+        mixed, uncouple = reg.ASC2.mode("acc_8"), reg.ASC2.mode("acc_1")
+
+        assert mixed.ids_label(1) == "ACC (mixed) TMCC IDs 1 - 8"
+        assert mixed.note == "Mixed accessories and lights"
+        assert mixed.ports == 8
+
+        assert uncouple.ids_label(1) == "ACC (uncouple) TMCC ID 1"
+        assert uncouple.note == "Uncoupling tracks only - pulsed output (fixed)"
         # Pulsed, which is what pdi_device.py reads mode 1 back as.
-        assert "pulse" in mode.note
-        assert mode.ports == 1
+        assert "pulse" in uncouple.note
+        assert uncouple.ports == 1
 
     def test_a_name_counts_nothing(self):
         # The count is the label's business, and a name that carried one would say it
@@ -347,7 +355,7 @@ class TestModeLabels:
 
     IDS_AT_1 = {
         "asc2": (
-            "ACC TMCC IDs 1 - 8",
+            "ACC (mixed) TMCC IDs 1 - 8",
             "ACC (uncouple) TMCC ID 1",
             "SW (pulse) TMCC IDs 1 - 4",
             "SW (latching) TMCC IDs 1 - 4",
@@ -364,7 +372,7 @@ class TestModeLabels:
 
     PORTS = {
         "asc2": (
-            "ACC, 8 TMCC IDs",
+            "ACC (mixed), 8 TMCC IDs",
             "ACC (uncouple), 1 TMCC ID",
             "SW (pulse), 4 TMCC IDs",
             "SW (latching), 4 TMCC IDs",
@@ -382,15 +390,15 @@ class TestModeLabels:
 
     def test_a_block_follows_the_address_it_is_based_at(self):
         mode = reg.ASC2.mode("acc_8")
-        assert mode.ids_label(12) == "ACC TMCC IDs 12 - 19"
-        assert mode.ids_label(91) == "ACC TMCC IDs 91 - 98"
+        assert mode.ids_label(12) == "ACC (mixed) TMCC IDs 12 - 19"
+        assert mode.ids_label(91) == "ACC (mixed) TMCC IDs 91 - 98"
 
     def test_a_mode_is_offered_at_the_highest_base_it_fits(self):
         # The Mode radios are labeled from the ID on the page, which a narrower mode can
         # have carried above this one's ceiling: the 4-ID modes reach 95, and an 8-ID mode
         # based there would run off the end. The label names where choosing it lands, which
         # is what the panel clamps the ID to.
-        assert reg.ASC2.mode("acc_8").ids_label(95) == "ACC TMCC IDs 91 - 98"
+        assert reg.ASC2.mode("acc_8").ids_label(95) == "ACC (mixed) TMCC IDs 91 - 98"
         assert reg.STM2.mode("single_wire").ids_label(98) == "SW (single-wire) TMCC IDs 83 - 98"
         # And nothing is named below the first address, whatever it is handed.
         assert reg.ASC2.mode("acc_1").ids_label(0) == "ACC (uncouple) TMCC ID 1"

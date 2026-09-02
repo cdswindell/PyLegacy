@@ -391,7 +391,7 @@ def test_the_mode_rows_name_the_block_each_of_them_would_claim() -> None:
     panel._set_base_id(12)
 
     assert [label for label, _key in panel._mode_group.options] == [
-        "ACC TMCC IDs 12 - 19",
+        "ACC (mixed) TMCC IDs 12 - 19",
         "ACC (uncouple) TMCC ID 12",
         "SW (pulse) TMCC IDs 12 - 15",
         "SW (latching) TMCC IDs 12 - 15",
@@ -407,7 +407,7 @@ def test_stepping_the_id_relabels_every_mode_row() -> None:
     panel.step_up()
 
     assert [label for label, _key in panel._mode_group.options] == [
-        "ACC TMCC IDs 13 - 20",
+        "ACC (mixed) TMCC IDs 13 - 20",
         "ACC (uncouple) TMCC ID 13",
         "SW (pulse) TMCC IDs 13 - 16",
         "SW (latching) TMCC IDs 13 - 16",
@@ -427,11 +427,11 @@ def test_a_mode_row_is_offered_at_the_highest_base_it_fits() -> None:
     panel._on_mode_selected("sw_momentary")
     panel._set_base_id(95)
 
-    assert panel._mode_group.options[0] == ("ACC TMCC IDs 91 - 98", "acc_8")
+    assert panel._mode_group.options[0] == ("ACC (mixed) TMCC IDs 91 - 98", "acc_8")
 
     panel._on_mode_selected("acc_8")
     assert panel.base_id == 91
-    assert panel._mode_group.options[0] == ("ACC TMCC IDs 91 - 98", "acc_8")
+    assert panel._mode_group.options[0] == ("ACC (mixed) TMCC IDs 91 - 98", "acc_8")
 
 
 def test_the_page_says_the_selected_block_once() -> None:
@@ -1334,8 +1334,9 @@ def test_mode_selector_repopulates_correctly_on_device_change() -> None:
     # address every row is labeled from.
     panel._on_device_selected("asc2")
     assert len(panel._mode_group.options) == 4
-    assert panel._mode_group.options[0] == ("ACC TMCC IDs 1 - 8", "acc_8")
-    # Named for what the mode is for, the one thing its single address cannot say.
+    # Both accessory modes are named for what they are for, the one thing the block each
+    # claims cannot say.
+    assert panel._mode_group.options[0] == ("ACC (mixed) TMCC IDs 1 - 8", "acc_8")
     assert panel._mode_group.options[1] == ("ACC (uncouple) TMCC ID 1", "acc_1")
     # Every switch mode names the block it consumes, as the accessory modes do.
     assert panel._mode_group.options[2] == ("SW (pulse) TMCC IDs 1 - 4", "sw_momentary")
@@ -1635,7 +1636,8 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
         body,  # under the popup's title row
         panel._pages[mod.PAGE_DEVICE],  # under that page's prompt
         id_page,  # under the stepper row
-        panel._mode_box,  # between the mode radios and the footnote under them
+        panel._mode_box,  # between the legend of keys and the mode radios
+        panel._mode_box,  # between the radios and the note on the chosen one
         id_page,  # between the titled boxes and the choice buttons
         options_page,  # under that page's heading
         options_page,  # between the module and the settings chosen for it
@@ -1680,20 +1682,21 @@ def test_the_id_pages_sections_are_held_apart() -> None:
 
 
 @pytest.mark.parametrize(
-    "compact, section, page, lead",
+    "compact, section, page, prose",
     [
-        (False, mod.SECTION_GAP, mod.PAGE_GAP, mod.MODE_NOTE_LEAD),
-        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT, mod.MODE_NOTE_LEAD_COMPACT),
+        (False, mod.SECTION_GAP, mod.PAGE_GAP, mod.MODE_PROSE_GAP),
+        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT, mod.MODE_PROSE_GAP_COMPACT),
     ],
 )
-def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, page: int, lead: int) -> None:
+def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, page: int, prose: int) -> None:
     _panel, _body, host = _build_with_body(compact=compact)
 
     assert [pixels for _parent, pixels in host.vspaces] == [
         section,
         section,
         page,
-        lead,
+        prose,
+        prose,
         page,
         section,
         page,
@@ -1997,10 +2000,10 @@ def test_the_three_titled_boxes_are_labelled_at_the_page_body_size() -> None:
     assert panel._mode_group.kwargs["size"] > panel._mode_box.text_size
 
 
-def test_the_module_rows_are_body_size_and_the_footnote_below_it() -> None:
+def test_the_module_rows_are_body_size_and_the_mode_boxs_prose_below_it() -> None:
     # The rows name what already answers to this ID, which is the answer the operator came
-    # to the page for. The footnote is a caption on the radios above it -- context, not a
-    # choice -- and the quietest thing on the page.
+    # to the page for. The two lines either side of the mode radios are captions on them --
+    # context, not a choice -- and the quietest thing on the page.
     store = FakeStore({CommandScope.ACC: [FakeState(30, "is_bpc2", mode=2, num_ids=8)]})
     panel = _new_panel(store)
     panel._on_device_selected("asc2")
@@ -2011,8 +2014,9 @@ def test_the_module_rows_are_body_size_and_the_footnote_below_it() -> None:
     assert [cell.text_size for cell in assigned] == [host.s_14] * mod.ROW_COLUMNS
     # The two boxes read as one list, so their rows are the same size.
     assert all(cell.text_size == host.s_14 for cell in panel._overlap_cells[0])
-    assert panel._mode_footnote_line.text_size == host.s_10
-    assert panel._mode_footnote_line.text_size < assigned[0].text_size
+    for line in (panel._mode_legend_line, panel._mode_note_line):
+        assert line.text_size == host.s_10
+        assert line.text_size < assigned[0].text_size
 
 
 def test_the_mode_sits_directly_under_the_id_row_and_the_reports_below_both() -> None:
@@ -2399,107 +2403,128 @@ def test_the_two_report_colors_are_dark_shades() -> None:
 
 
 #
-# The footnote under the mode radios
+# The prose either side of the mode radios: the legend of keys above them, and below them
+# the note on the row that is chosen
 #
-def test_the_footnote_is_the_last_thing_inside_the_mode_box() -> None:
-    # A caption on the radios above it -- what each remote key they offer is for -- so it
-    # belongs inside their box, not adrift among the page's other derived lines.
+def test_the_legend_heads_the_mode_box_and_the_note_ends_it() -> None:
+    # The order the box is read in: what each remote key is for, the rows that choose
+    # between them, then what the chosen row is for. The legend stands above the rows
+    # because which key to be on is the first half of the choice they offer, and read from
+    # below the list it was a note on a decision already made. The mode's own note stands
+    # below them because it speaks for whichever row is selected, and until one is there is
+    # nothing for it to say.
     panel = _new_panel()
     box = panel._mode_box
 
-    assert box.children[0] is panel._mode_group
-    assert getattr(box.children[1], "vspace", None) == mod.MODE_NOTE_LEAD
-    assert box.children[2] is panel._mode_footnote_line
-    assert panel._mode_footnote_line not in panel._pages[mod.PAGE_ID].children
+    assert box.children[0] is panel._mode_legend_line
+    assert getattr(box.children[1], "vspace", None) == mod.MODE_PROSE_GAP
+    assert box.children[2] is panel._mode_group
+    assert getattr(box.children[3], "vspace", None) == mod.MODE_PROSE_GAP
+    assert box.children[4] is panel._mode_note_line
+    assert len(box.children) == 5
+    # Both inside the radios' own box, not adrift among the page's other derived lines.
+    for line in (panel._mode_legend_line, panel._mode_note_line):
+        assert line not in panel._pages[mod.PAGE_ID].children
 
 
-def test_the_footnote_is_centered_under_the_radios() -> None:
+def test_both_lines_of_prose_are_centered_and_wrapped() -> None:
     # Centered like every other line of prose in the panel: the lines are short and of much
-    # the same length, and centered they read as a caption on the list above rather than as
-    # another row of it. align is where guizero packs it -- "top", so it spans the box and
-    # is centered in it -- and justify how Tk sets the lines within that.
-    panel = _new_panel()
-    line = panel._mode_footnote_line
-
-    assert line.kwargs["align"] == "top"
-    assert line.tk.configured["justify"] == "center"
-    # Wrapped like every other line of prose in the panel.
-    assert line.tk.configured["wraplength"] == panel._wrap_px
-
-
-def test_the_footnote_is_held_just_off_the_last_radio() -> None:
-    # Less than the gap between two radios, so the footnote reads as part of the box rather
-    # than as the next thing on the page -- and a spacer widget rather than padding of the
-    # line's own, which would push it off the bottom of the box as well.
-    assert mod.MODE_NOTE_LEAD < mod.MODE_ROW_PAD
-    assert mod.MODE_NOTE_LEAD <= 5
-    assert mod.MODE_NOTE_LEAD_COMPACT < mod.MODE_NOTE_LEAD
-
-
-def test_no_device_means_no_mode_footnote() -> None:
+    # the same length, and centered they read as a caption on the list beside them rather
+    # than as another row of it. align is where guizero packs it -- "top", so it spans the
+    # box and is centered in it -- and justify how Tk sets the lines within that.
     panel = _new_panel()
 
-    assert panel.mode_footnote == ""
+    for line in (panel._mode_legend_line, panel._mode_note_line):
+        assert line.kwargs["align"] == "top"
+        assert line.tk.configured["justify"] == "center"
+        assert line.tk.configured["wraplength"] == panel._wrap_px
+
+
+def test_the_radios_are_held_off_the_prose_on_either_side_of_them() -> None:
+    # Less than the gap between two radios, so both lines read as part of the box rather
+    # than as the next thing on the page -- and the same above as below, so the rows read as
+    # one block held between the two. Spacer widgets rather than padding of the lines' own,
+    # which would push them off the box's edges as well.
+    assert mod.MODE_PROSE_GAP < mod.MODE_ROW_PAD
+    assert mod.MODE_PROSE_GAP <= 5
+    assert mod.MODE_PROSE_GAP_COMPACT < mod.MODE_PROSE_GAP
+
+
+def test_no_device_means_neither_line_says_anything() -> None:
+    panel = _new_panel()
+
+    assert panel.mode_legend == ""
     assert panel.mode_note == ""
-    assert panel._mode_footnote_line.value == ""
+    assert panel._mode_legend_line.value == ""
+    assert panel._mode_note_line.value == ""
 
 
 @pytest.mark.parametrize(
     "device_key, expected",
     [
-        # In the order the module's own radios list them, so a BPC2 reads TR first, and
-        # then whatever the mode the panel opens on has to say for itself. Taken from the
-        # registry rather than spelled again here, so the prose is settled in one file.
-        (
-            "asc2",
-            [mod.SCOPE_USE[CommandScope.ACC], mod.SCOPE_USE[CommandScope.SWITCH], ASC2.mode("acc_8").note],
-        ),
-        # Neither of the BPC2's offered modes has anything written about it.
+        # In the order the module's own radios list them, so a BPC2 reads TR before ACC and
+        # an STM2 says nothing about accessories.
+        ("asc2", [mod.SCOPE_USE[CommandScope.ACC], mod.SCOPE_USE[CommandScope.SWITCH]]),
         ("bpc2", [mod.SCOPE_USE[CommandScope.TRAIN], mod.SCOPE_USE[CommandScope.ACC]]),
-        ("stm2", [mod.SCOPE_USE[CommandScope.SWITCH], f"single-wire: {STM2.mode('single_wire').note}"]),
+        ("stm2", [mod.SCOPE_USE[CommandScope.SWITCH]]),
         ("sensor_track", [mod.SCOPE_USE[CommandScope.ACC]]),
     ],
 )
-def test_the_footnote_covers_every_key_the_module_offers_and_no_other(device_key: str, expected: list[str]) -> None:
+def test_the_legend_covers_every_key_the_module_offers_and_no_other(device_key: str, expected: list[str]) -> None:
     panel = _new_panel()
     panel._on_device_selected(device_key)
 
-    assert panel.mode_footnote.split("\n") == expected
-    assert panel._mode_footnote_line.value == panel.mode_footnote
+    assert panel.mode_legend.split("\n") == expected
+    assert panel._mode_legend_line.value == panel.mode_legend
 
 
-def test_the_footnote_says_what_each_key_is_for() -> None:
+def test_the_legend_says_what_each_key_is_for() -> None:
     assert mod.SCOPE_USE[CommandScope.ACC] == "ACC: Use for lighting and operating accessories"
     assert mod.SCOPE_USE[CommandScope.SWITCH] == "SW: Use for Switches/Turnouts"
     assert mod.SCOPE_USE[CommandScope.TRAIN].startswith("TR: ")
 
 
-def test_the_footnote_leads_with_the_word_the_rows_lead_with() -> None:
-    # What joins the caption to the list above it: a row reading "SW (pulse) TMCC IDs 1 - 4"
+def test_the_legend_leads_with_the_word_the_rows_lead_with() -> None:
+    # What joins the legend to the list below it: a row reading "SW (pulse) TMCC IDs 1 - 4"
     # is answered by a line beginning "SW:", one word, spelled the same in both places. The
     # two sets are pinned to each other, so a mode named any other way -- or a key the
-    # module does not offer -- shows up here. The selected mode's own note is keyed by its
-    # qualifier rather than by a key, and is read by the tests below.
+    # module does not offer -- shows up here.
     panel = _new_panel()
     panel._on_device_selected("asc2")
 
     rows = {label.split()[0] for label, _key in panel._mode_group.options}
-    keys = {line.split(":")[0] for line in panel.mode_footnote.split("\n") if line != panel.mode_note}
+    keys = {line.split(":")[0] for line in panel.mode_legend.split("\n")}
 
     assert rows == keys == {"ACC", "SW"}
 
 
-def test_the_selected_mode_says_what_it_is_for_below_the_keys() -> None:
+def test_the_legend_speaks_for_the_module_rather_than_for_the_chosen_row() -> None:
+    # What an ACC row is good for is as true before a row is tapped as after, so the legend
+    # does not move with the selection -- the line below the rows is what does.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    legend = panel.mode_legend
+
+    panel._on_mode_selected("acc_1")
+
+    assert panel.mode_legend == legend
+    assert panel._mode_legend_line.value == legend
+    assert panel.mode_note not in panel._mode_legend_line.value
+
+
+def test_the_selected_mode_says_what_it_is_for_below_the_rows() -> None:
     # The row has no room for it: "ACC (uncouple) TMCC ID 1" says which mode and which
     # address, and this says the rest -- keyed by the word in parentheses on the row it
-    # explains, as the lines above it are keyed by the word every row opens with.
+    # explains, as the legend above is keyed by the word every row opens with. The sentence
+    # itself is taken from the registry rather than spelled again here, so the prose is
+    # settled in one file.
     panel = _new_panel()
     panel._on_device_selected("asc2")
     panel._on_mode_selected("acc_1")
 
-    assert panel.mode_note == "uncouple: Uncoupling tracks only - all 8 outputs pulse from the one TMCC ID"
-    assert panel.mode_footnote.split("\n")[-1] == panel.mode_note
-    assert panel._mode_footnote_line.value.endswith(panel.mode_note)
+    assert panel.mode_note == f"uncouple: {ASC2.mode('acc_1').note}"
+    assert panel._mode_note_line.value == panel.mode_note
+    assert panel._mode_note_line.visible is True
     # And the word it is keyed by is the word the chosen row carries.
     labels = {key: label for label, key in panel._mode_group.options}
     assert f"({panel.mode_note.split(':')[0]})" in labels["acc_1"]
@@ -2516,39 +2541,120 @@ def test_the_note_speaks_for_the_row_the_operator_chose() -> None:
     panel._on_mode_selected("acc_1")
 
     assert panel.mode_note == f"uncouple: {ASC2.mode('acc_1').note}"
-    assert ASC2.mode("sw_momentary").note not in panel._mode_footnote_line.value
+    assert ASC2.mode("sw_momentary").note not in panel._mode_note_line.value
 
 
 def test_a_mode_named_by_its_key_alone_keys_nothing() -> None:
-    # Nothing in its name tells it from another mode on the same key, so there is no word
-    # to look the sentence up under and it stands as the plain sentence it is.
+    # Nothing in its name tells it from another mode on the same key, so there is no word to
+    # look the sentence up under and it stands as the plain sentence it is. No module offers
+    # such a mode today -- every offered mode that has anything written about it is one of a
+    # pair on its key -- so the case is reached through the BPC2's reserved 1-ID mode, which
+    # carries a note and is named "TR" like the mode beside it.
     panel = _new_panel()
-    panel._on_device_selected("asc2")
-    panel._on_mode_selected("acc_8")
+    panel._on_device_selected("bpc2")
+    reserved = BPC2.mode("tr_1")
+    panel._on_mode_selected("tr_1")
 
-    assert panel.mode_note == ASC2.mode("acc_8").note
-    assert ":" not in panel.mode_note
+    assert reserved.qualifier is None
+    assert panel.mode_note == reserved.note
+    assert panel._mode_note_line.value == reserved.note
 
 
 def test_a_mode_with_nothing_written_about_it_adds_no_line() -> None:
-    # The box grows only for a row that speaks, and the ID page is the fullest the panel
-    # has: neither BPC2 mode it offers carries a note.
+    # The box grows only for a row that speaks, and the ID page is the fullest the panel has:
+    # neither BPC2 mode it offers carries a note, and an empty Label would still stand a line
+    # tall -- 30px of nothing at the Pi's font scale -- so it is taken off the page instead.
     panel = _new_panel()
+    panel._on_device_selected("asc2")
+    assert panel._mode_note_line.visible is True, "the ASC2's every mode has something to say"
+
     panel._on_device_selected("bpc2")
     panel._on_mode_selected("tr_8")
 
     assert panel.mode_note == ""
-    assert panel.mode_footnote.split("\n") == [
+    assert panel._mode_note_line.value == ""
+    assert panel._mode_note_line.visible is False
+    # The legend is not hidden with it: a module with modes always has keys to name.
+    assert panel._mode_legend_line.visible is True
+    assert panel.mode_legend.split("\n") == [
         mod.SCOPE_USE[CommandScope.TRAIN],
         mod.SCOPE_USE[CommandScope.ACC],
     ]
 
 
-def test_the_footnote_follows_the_device_the_operator_switches_to() -> None:
+def test_the_legend_follows_the_device_the_operator_switches_to() -> None:
     panel = _new_panel()
     panel._on_device_selected("bpc2")
-    assert mod.SCOPE_USE[CommandScope.TRAIN] in panel._mode_footnote_line.value
+    assert mod.SCOPE_USE[CommandScope.TRAIN] in panel._mode_legend_line.value
 
     panel._on_device_selected("stm2")
-    assert panel._mode_footnote_line.value.startswith(mod.SCOPE_USE[CommandScope.SWITCH])
-    assert mod.SCOPE_USE[CommandScope.TRAIN] not in panel._mode_footnote_line.value
+    assert panel._mode_legend_line.value == mod.SCOPE_USE[CommandScope.SWITCH]
+    assert mod.SCOPE_USE[CommandScope.TRAIN] not in panel._mode_legend_line.value
+
+
+#
+# The mode rows are grouped by the remote key they are on
+#
+def test_the_rows_of_one_key_are_held_off_the_rows_of_the_next() -> None:
+    # The ASC2 lists two ACC modes and then two SW modes: only the first SW row asks for a
+    # gap, so the two pairs read as two short lists rather than one list of four -- which is
+    # how the legend above them is written, a line per key.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+
+    assert panel.mode_leads() == {"sw_momentary": mod.MODE_KEY_LEAD}
+
+
+def test_the_gap_falls_wherever_the_key_changes() -> None:
+    # Read off the modes rather than spelled out, so a module is grouped by the order the
+    # registry lists it in: the BPC2 reads TR and then ACC, and its disabled 1-ID modes --
+    # which stand between the two on the list -- are not rows and so break nothing.
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+
+    assert panel.mode_leads() == {"acc_8": mod.MODE_KEY_LEAD}
+
+
+@pytest.mark.parametrize("device_key", ["stm2", "sensor_track"])
+def test_a_module_whose_modes_share_one_key_asks_for_no_gap(device_key: str) -> None:
+    # Both of the STM2's modes are SW, and the Sensor Track offers one mode at all: there is
+    # no second group for a gap to stand between.
+    panel = _new_panel()
+    panel._on_device_selected(device_key)
+
+    assert panel.mode_leads() == {}
+
+
+def test_no_device_means_no_gaps() -> None:
+    assert _new_panel().mode_leads() == {}
+
+
+def test_the_group_is_told_the_gaps_when_it_is_built_and_on_every_refresh() -> None:
+    # The rows are destroyed and rebuilt on every refresh of the page -- that is how they
+    # are relabeled as the ID steps -- and a rebuilt row is gridded from scratch, so the
+    # group has to be holding the gaps rather than have been handed them once.
+    panel = _new_panel()
+
+    # Built before a module is chosen, so it starts with nothing to say.
+    assert panel._mode_group.kwargs["row_leads"] == {}
+
+    panel._on_device_selected("asc2")
+    assert panel._mode_group.row_leads == {"sw_momentary": mod.MODE_KEY_LEAD}
+
+    # And the gaps of the module left behind do not follow the operator to the next one.
+    panel._on_device_selected("stm2")
+    assert panel._mode_group.row_leads == {}
+
+
+def test_the_gap_between_keys_is_tighter_on_a_compact_host() -> None:
+    panel, _body, _host = _build_with_body(compact=True)
+    panel._on_device_selected("asc2")
+
+    assert panel.mode_leads() == {"sw_momentary": mod.MODE_KEY_LEAD_COMPACT}
+
+
+def test_the_gap_between_keys_divides_the_list_rather_than_ending_it() -> None:
+    # Wider than the gap between two rows of the same key, so the break is seen; narrower
+    # than the gaps between the page's own sections, so the four rows are still one list.
+    assert mod.MODE_ROW_PAD < mod.MODE_KEY_LEAD < mod.PAGE_GAP
+    assert mod.MODE_KEY_LEAD_COMPACT < mod.MODE_KEY_LEAD

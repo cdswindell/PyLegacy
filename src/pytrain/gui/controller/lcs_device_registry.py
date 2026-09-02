@@ -356,7 +356,7 @@ ASC2 = LcsDevice(
     modes=(
         LcsMode(
             key="acc_8",
-            name="ACC",
+            name="ACC (mixed)",
             scope=CommandScope.ACC,
             ports=8,
             pdi_mode=0,
@@ -368,16 +368,17 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            # The one mode whose purpose the operator cannot guess from the block it
-            # claims: a single TMCC ID that drives all eight outputs, reserved for
-            # uncoupling tracks. The qualifier names that purpose rather than the count --
-            # the row's tail already says the mode takes one address -- and the note below
-            # the radios, keyed by the same word, says the rest.
+            # The two accessory modes are the pair whose purpose the operator cannot guess
+            # from the block each claims -- eight addresses for whatever is wired to them,
+            # against a single address driving all eight outputs for uncoupling tracks --
+            # so each is qualified by what it is *for* rather than by the count. The row's
+            # tail already says how many addresses the mode takes, and the note below the
+            # radios, keyed by the same word, says the rest.
             name="ACC (uncouple)",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=1,
-            note="Uncoupling tracks only - all 8 outputs pulse from the one TMCC ID",
+            note="Uncoupling tracks only - pulsed output (fixed)",
             presses=(
                 Press("ACC {id} SET", TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC),
                 Press("AUX1 then 1", TMCC1AuxCommandEnum.AUX_NUMBER_1, CommandScope.ACC, note="1-ID sub-mode"),

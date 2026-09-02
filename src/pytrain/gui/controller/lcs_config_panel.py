@@ -168,13 +168,24 @@ RADIO_ROW_PAD_COMPACT = 6
 MODE_ROW_PAD = 6
 MODE_ROW_PAD_COMPACT = 3
 
-# Whitespace between the last mode radio and the footnote that stands under it, in pixels.
-# Small on purpose, and smaller than the gap between two radios: the footnote is a caption
-# on the list above it -- what each remote key in it is for -- so it has to read as part of
-# that box rather than as the next thing on the page. A spacer widget rather than padding
-# of the footnote's own, which would push the two apart at the bottom of the box as well.
-MODE_NOTE_LEAD = 4
-MODE_NOTE_LEAD_COMPACT = 2
+# Whitespace between the mode radios and the prose either side of them, in pixels: above
+# the list stands the legend naming what each remote key is for, below it the chosen mode's
+# own note. Small on purpose, and smaller than the gap between two radios, so both read as
+# part of the Mode box rather than as the next thing on the page -- and the same above as
+# below, so the rows read as one block held between the two. Spacer widgets rather than
+# padding of the lines' own, which would push them off the box's edges as well.
+MODE_PROSE_GAP = 4
+MODE_PROSE_GAP_COMPACT = 2
+
+# Whitespace above the first mode radio of a new remote key, in pixels -- the ASC2's two SW
+# modes held off its two ACC modes, the BPC2's ACC modes off its TR modes. What is chosen on
+# this page is a key and then a mode on that key, so the rows read as two short lists rather
+# than one list of four, which is also how the legend above them is written: a line per key.
+# Wider than the gap between two rows of the same key, and narrower than the gaps between
+# the page's own sections: this divides a list rather than ending it. Grid padding, replayed
+# by the group after every rebuild -- see CheckBoxGroup.row_leads.
+MODE_KEY_LEAD = 12
+MODE_KEY_LEAD_COMPACT = 6
 
 # Pack padding above and below Back and Next, in pixels, replacing the footer button's own
 # 20. That 20 is sized to hold a footer row off the panel above it and the pane below; this
@@ -243,12 +254,13 @@ SCOPE_LABEL: dict[CommandScope, str] = {
     CommandScope.TRAIN: "TR",
 }
 
-# What each of those remote keys is for. Every mode row above the footnote opens with one
-# of these keys and says nothing about what it is good for, which is the one thing an
-# operator choosing between them needs. Each line leads with the key spelled exactly as
-# the rows spell it, so the eye can join the two. Only the keys the selected module
-# actually offers are shown, so the footnote never states a fact that does not apply to
-# the module in hand. The selected mode's own note joins them below the last of them; see
+# What each of those remote keys is for. Every mode row below opens with one of these keys
+# and says nothing about what it is good for, which is the one thing an operator choosing
+# between them needs. Each line leads with the key spelled exactly as the rows spell it, so
+# the eye can join the two, and the lines stand above the rows they name -- what the keys are
+# is read before the list is chosen from, not after. Only the keys the selected module
+# actually offers are shown, so the legend never states a fact that does not apply to the
+# module in hand. The selected mode's own note answers from below the rows; see
 # LcsConfigPanel.mode_note.
 SCOPE_USE: dict[CommandScope, str] = {
     CommandScope.ACC: "ACC: Use for lighting and operating accessories",
@@ -373,7 +385,8 @@ class LcsConfigPanel(OverlayPanel):
         self._id_field: EditableText | None = None
         self._minus_btn: HoldButton | None = None
         self._plus_btn: HoldButton | None = None
-        self._mode_footnote_line: Text | None = None
+        self._mode_legend_line: Text | None = None
+        self._mode_note_line: Text | None = None
         self._assigned_box: TitleBox | None = None
         self._assigned_grid: Box | None = None
         # One tuple of three cells per row: the remote key, the module, and its TMCC IDs.
@@ -543,8 +556,12 @@ class LcsConfigPanel(OverlayPanel):
         return NAV_ROW_PAD_COMPACT if self.compact else NAV_ROW_PAD
 
     @property
-    def _mode_note_lead(self) -> int:
-        return MODE_NOTE_LEAD_COMPACT if self.compact else MODE_NOTE_LEAD
+    def _mode_prose_gap(self) -> int:
+        return MODE_PROSE_GAP_COMPACT if self.compact else MODE_PROSE_GAP
+
+    @property
+    def _mode_key_lead(self) -> int:
+        return MODE_KEY_LEAD_COMPACT if self.compact else MODE_KEY_LEAD
 
     @property
     def _option_row_pad(self) -> int:
@@ -567,7 +584,7 @@ class LcsConfigPanel(OverlayPanel):
         return max(MIN_WRAP_PX, width - WRAP_INSET)
 
     def _wrap(self, widget: Any, justify: str = "center", pady: int = None) -> Any:
-        """Break ``widget``'s text at the popup's width, and hold it off its neighbors.
+        """Break ``widget``'s text at the popup's width and hold it off its neighbors.
 
         Both are Tk widget options rather than layout ones, which is what makes them safe
         here: guizero rebuilds a container's pack and grid options from scratch every time
@@ -705,6 +722,13 @@ class LcsConfigPanel(OverlayPanel):
         # above the body, since each one also carries the block of TMCC IDs it would claim.
         self._mode_box = TitleBox(self._titled_boxes, text=MODE_TITLE, grid=[0, 0], align=None)
         self._mode_box.text_size = host.s_14
+        # The legend heads the box, above the rows it names: what an ACC row and an SW row
+        # are each good for is what the operator needs *before* choosing between them, and
+        # read from below the list it was a note on a decision already made. Inside the box
+        # either way rather than adrift among the page's other reports, where it read as a
+        # statement about the panel at large.
+        self._mode_legend_line = self._wrap(self._label(self._mode_box, "", size=host.s_10))
+        host.add_vspace(self._mode_box, self._mode_prose_gap)
         self._mode_group = CheckBoxGroup(
             self._mode_box,
             size=host.s_18,
@@ -718,17 +742,20 @@ class LcsConfigPanel(OverlayPanel):
             # It has to survive a rebuild: these radios are replaced whenever the module
             # changes, and a rebuilt row goes back to the width of its own label.
             stretch=True,
+            # And the rows of one remote key held off the rows of the next, so the list is
+            # read as the legend above it is written -- a group per key. Set here as well as
+            # on every refresh, since the group is built before a module is chosen.
+            row_leads=self.mode_leads(),
             command=self._on_mode_selected,
         )
-        # A footnote to the radios above it -- what each remote key they offer is actually
-        # for, and what the chosen mode itself is for -- and so inside their box rather than
-        # adrift below the page's other reports, where it read as a statement about the
-        # panel at large. Held just off the last row; see MODE_NOTE_LEAD.
-        host.add_vspace(self._mode_box, self._mode_note_lead)
-        # Centered under the radios, like every other line of prose on the page: the lines
-        # are short and of much the same length, and centered they read as a caption on the
-        # list above them rather than as another row of it.
-        self._mode_footnote_line = self._wrap(self._label(self._mode_box, "", size=host.s_10))
+        # What the chosen row itself is for, which is the fact a row has no room for. Below
+        # the rows, because it speaks for whichever one is selected and there is nothing to
+        # say until one is. Held just off the last row; see MODE_PROSE_GAP.
+        host.add_vspace(self._mode_box, self._mode_prose_gap)
+        # Centered, like every other line of prose on the page: these lines are short and of
+        # much the same length, and centered they read as a caption on the list they are
+        # beside rather than as another row of it.
+        self._mode_note_line = self._wrap(self._label(self._mode_box, "", size=host.s_10))
 
         # What already answers to the entered ID: it tells the operator whether they are
         # about to reprogram a module that is already out there. Titled, because a bare line
@@ -992,6 +1019,9 @@ class LcsConfigPanel(OverlayPanel):
         stands a line tall and still carries its own padding. So a module with nothing to
         say would pay two lines and four gaps of whitespace for two blank lines, which is
         the same reason a spare module row is hidden rather than blanked.
+
+        Also what the mode note below the ID page's radios is written by, where the module
+        with nothing to say is a BPC2 or the Sensor Track; see :meth:`_refresh_mode_note`.
         """
         if line is None:
             return
@@ -1259,6 +1289,28 @@ class LcsConfigPanel(OverlayPanel):
         if self._device is None:
             return []
         return [[mode.ids_label(self._base_id), mode.key] for mode in enabled_modes(self._device)]
+
+    def mode_leads(self) -> dict[str, int]:
+        """How far a mode row is held off the row above it, for the rows that ask.
+
+        Only the first row of a new remote key does: an ASC2 lists two ACC modes and then
+        two SW modes, and what is being chosen is a key first and a mode on that key second,
+        so the rows are grouped the way the legend above them is written -- a line per key.
+        A module whose modes are all on one key, an STM2, asks for nothing.
+
+        The grouping is read off the modes themselves rather than spelled out here, so a
+        module's list is grouped by the order the registry gives it in; see
+        :attr:`CheckBoxGroup.row_leads` for what the group does with this.
+        """
+        if self._device is None:
+            return {}
+        leads: dict[str, int] = {}
+        previous: CommandScope | None = None
+        for mode in enabled_modes(self._device):
+            if previous is not None and mode.scope is not previous:
+                leads[mode.key] = self._mode_key_lead
+            previous = mode.scope
+        return leads
 
     #
     # Page swapping
@@ -1562,7 +1614,8 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_id_heading()
         self._refresh_id_field()
         self._refresh_mode_selector()
-        self._refresh_mode_footnote()
+        self._refresh_mode_legend()
+        self._refresh_mode_note()
         self._refresh_step_keys()
         self._refresh_occupancy()
         # Last, and after everything that shows or hides one of the titled boxes or changes
@@ -1576,6 +1629,9 @@ class LcsConfigPanel(OverlayPanel):
         if self._mode_group is None:
             return
         options = self.mode_options()
+        # Before the rows are replaced, so the group grids each one with whatever gap it is
+        # owed as it builds it rather than a moment afterwards.
+        self._mode_group.row_leads = self.mode_leads()
         self._mode_group.clear()
         for label, key in options:
             self._mode_group.append([label, key])
@@ -1589,13 +1645,13 @@ class LcsConfigPanel(OverlayPanel):
             container.hide()
 
     @property
-    def mode_footnote(self) -> str:
-        """What each remote key the module offers is for, and what the chosen mode is for.
+    def mode_legend(self) -> str:
+        """What each remote key the module offers is for, one line each.
 
-        The keys are taken from the module's own enabled modes, in the order the radios
-        list them, so a BPC2 reads TR before ACC and an STM2 says nothing about
-        accessories. Below the last of them stands the selected mode's own note, which
-        speaks for one row rather than for the module; see :attr:`mode_note`.
+        Read above the rows it names, since which key to be on is the first half of the
+        choice the rows offer. The keys are taken from the module's own enabled modes, in
+        the order the radios list them, so a BPC2 reads TR before ACC and an STM2 says
+        nothing about accessories.
         """
         if self._device is None:
             return ""
@@ -1604,19 +1660,17 @@ class LcsConfigPanel(OverlayPanel):
             use = SCOPE_USE.get(mode.scope)
             if use and use not in lines:
                 lines.append(use)
-        note = self.mode_note
-        if note:
-            lines.append(note)
         return "\n".join(lines)
 
     @property
     def mode_note(self) -> str:
         """What the selected mode is for, keyed by the qualifier its own row carries.
 
-        The lines above answer the key every row opens with; this one answers the word in
-        parentheses on the row that is chosen -- "uncouple: Uncoupling tracks only - all 8
-        outputs pulse from the one TMCC ID" under "ACC (uncouple) TMCC ID 1" -- which is
-        the fact the row itself has no room for, a radio row being as wide as its label.
+        The legend above the rows answers the key every row opens with; this answers the
+        word in parentheses on the row that is chosen -- "uncouple: Uncoupling tracks only
+        - pulsed output (fixed)" under "ACC (uncouple) TMCC ID 1" -- which is the fact the
+        row itself has no room for, a radio row being as wide as its label. Below the rows,
+        because it speaks for whichever of them is selected.
 
         Keyed only where the name qualifies itself: a module's plainest mode is named by
         its key alone, and its note then stands as the plain sentence it is. Empty for a
@@ -1628,9 +1682,17 @@ class LcsConfigPanel(OverlayPanel):
         qualifier = mode.qualifier
         return f"{qualifier}: {mode.note}" if qualifier else mode.note
 
-    def _refresh_mode_footnote(self) -> None:
-        if self._mode_footnote_line is not None:
-            self._mode_footnote_line.value = self.mode_footnote
+    def _refresh_mode_legend(self) -> None:
+        if self._mode_legend_line is not None:
+            self._mode_legend_line.value = self.mode_legend
+
+    def _refresh_mode_note(self) -> None:
+        # Taken off the page where the chosen mode has nothing written about it -- a BPC2, the
+        # Sensor Track -- for the reason given at _refresh_note: an empty Label still stands a
+        # line tall, and on the fullest page in the panel that is 30px of nothing at the Pi's
+        # font scale. The legend above the rows is never empty for a module with modes, so it
+        # is written rather than shown or hidden.
+        self._refresh_note(self._mode_note_line, self.mode_note)
 
     def _refresh_step_keys(self) -> None:
         if self._minus_btn is not None:
