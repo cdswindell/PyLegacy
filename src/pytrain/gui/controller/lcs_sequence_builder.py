@@ -72,7 +72,7 @@ def build_program(
     if not isinstance(base_id, int) or not 1 <= base_id <= MAX_TMCC_ID:
         raise ValueError(f"Invalid base TMCC ID: {base_id}")
     if base_id > max_base(mode):
-        raise ValueError(f"Base TMCC ID {base_id} exceeds {max_base(mode)} for {device.label} {mode.label}")
+        raise ValueError(f"Base TMCC ID {base_id} exceeds {max_base(mode)} for {device.label} {mode.ports_label}")
 
     options = dict(options or {})
     for option in device.options:

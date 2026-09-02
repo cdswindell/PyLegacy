@@ -16,7 +16,7 @@ ordered recipe of Cab-remote presses that programs it.
 
 Why the registry, and not the PDI request classes, owns scope and block size
 ---------------------------------------------------------------------------
-The ASC2 supports four configurations (ACC eight-ID, ACC single-ID, SW momentary,
+The ASC2 supports four configurations (ACC eight-ID, ACC single-ID, SW pulse,
 SW latching), but ``asc2_req.py`` L71 validates ``mode`` as 0-2 and rejects mode 3,
 and ``num_addressable_ports`` (L126-134) raises for it. Worse, ``asc2_req.py`` L42
 computes the scope as ``SWITCH if mode == 2 else ACC``, so a mode-3 (SW latching)
@@ -25,16 +25,35 @@ alone: the panel never constructs an ``Asc2Req`` carrying a mode and never calls
 ``num_addressable_ports``. This registry is the single source of truth for a mode's
 scope and block size. Read-back GETs carry no mode, so they are unaffected.
 
-How a mode is labeled
----------------------
-A mode label reads the way the operator's manual and the Cab remote do: the addressing
-mode carries its remote button inside the word -- ``ACCessory``, ``SWitch``, ``TRack``,
-matching the ACC, SW and TR keys that begin the programming sequence -- the port count
-is a digit rather than a word, and the count is of ``TMCC IDs``, never of bare "IDs" or
-"ports". So the ASC2's eight-accessory configuration is "ACCessory, 8 TMCC IDs", and its
-momentary switch configuration -- which claims four of them -- is "SWitch, momentary,
-4 TMCC IDs". Every mode names the count it consumes, because that is what the operator
-has to reserve on the layout, and a mode that only says "momentary" leaves them guessing.
+How a mode is named and labeled
+-------------------------------
+A mode's ``name`` reads the way the operator's manual and the Cab remote do: the
+addressing mode carries its remote button inside the word -- ``ACCessory``, ``SWitch``,
+``TRack``, matching the ACC, SW and TR keys that begin the programming sequence -- and
+whatever tells it from the module's other modes on that key follows it: ``pulse``,
+``latching``, ``single-wire``. The name alone says nothing about how many addresses the
+mode claims, and what is counted is always ``TMCC IDs``, never bare "IDs" or "ports".
+
+Two labels are built from it, both here rather than in the panel, so the wording is
+settled in one file and testable without a display:
+
+* :meth:`LcsMode.ids_label` names the TMCC IDs the mode would claim from an address the
+  operator has entered: "ACCessory TMCC IDs 1 - 8". This is what the panel's Mode radios
+  read. Choosing a mode is reserving those addresses on the layout, so the radio says
+  which ones rather than leaving a count to be added to the ID on the screen above it.
+* :attr:`LcsMode.ports_label` names the count instead: "ACCessory, 8 TMCC IDs". For the
+  lines that name a mode with no address in hand -- the modes a module reserves, and the
+  summary of what is about to be programmed.
+
+Either way the mode names what it consumes, because that is what the operator has to set
+aside, and a mode that only says "pulse" leaves them guessing.
+
+Neither label says anything else, and no name carries more than two words. A radio row is
+as wide as its label and the panel is a portrait pane: the widest row any module can ask
+for -- the STM2's "SWitch single-wire TMCC IDs 83 - 98" -- takes 704 px of the 714 px the
+pane gives it at the Pi's 1.5x font scale. Whatever a mode does besides claiming
+addresses is said on the options page that follows, where it is chosen; see the Sensor
+Track's Action Command.
 
 Modules the panel knows without being able to program them
 ----------------------------------------------------------
@@ -185,7 +204,7 @@ class LcsMode:
     """
 
     key: str
-    label: str
+    name: str
     scope: CommandScope
     ports: int
     pdi_mode: int | None
@@ -196,6 +215,23 @@ class LcsMode:
     @property
     def max_base(self) -> int:
         return max_base(self)
+
+    @property
+    def ports_label(self) -> str:
+        """
+        The mode and the number of TMCC IDs it claims: "ACCessory, 8 TMCC IDs".
+        """
+        return f"{self.name}, {tmcc_id_count(self.ports)}"
+
+    def ids_label(self, base_id: int) -> str:
+        """The mode and the TMCC IDs it would claim from ``base_id``.
+
+        ``base_id`` is clamped into the range this mode can actually be based at, so the
+        label promises a block the mode can hold: an 8-ID mode offered beside the 4-ID one
+        currently chosen at 95 reads "91 - 98", which is where selecting it lands.
+        """
+        base = min(max(int(base_id), 1), self.max_base)
+        return f"{self.name} {tmcc_id_text(base, base + self.ports - 1)}"
 
 
 @dataclass(frozen=True)
@@ -255,6 +291,25 @@ def max_base(mode: LcsMode) -> int:
     return min(MAX_TMCC_ID, (MAX_TMCC_ID + 1) - mode.ports)
 
 
+def tmcc_id_text(base_id: int, last_id: int | None = None) -> str:
+    """The addresses a block covers: "TMCC IDs 12 - 19", or "TMCC ID 12" for one of them.
+
+    The one spelling of a block in the panel, whether it is a mode being offered or a
+    module already out on the layout, so the Mode radios and the Currently Assigned rows
+    cannot come to name the same eight addresses two different ways.
+    """
+    if last_id is None or last_id <= base_id:
+        return f"TMCC ID {base_id}"
+    return f"TMCC IDs {base_id} - {last_id}"
+
+
+def tmcc_id_count(ports: int) -> str:
+    """
+    How many addresses something claims: "8 TMCC IDs", or "1 TMCC ID" for one of them.
+    """
+    return f"{ports} TMCC ID" if ports == 1 else f"{ports} TMCC IDs"
+
+
 def _sensor_track_choices() -> tuple[tuple[str, Any], ...]:
     """
     Build the Sensor Track Action Command choices from the labels the Sensor Track
@@ -278,7 +333,7 @@ ASC2 = LcsDevice(
     modes=(
         LcsMode(
             key="acc_8",
-            label="ACCessory, 8 TMCC IDs",
+            name="ACCessory",
             scope=CommandScope.ACC,
             ports=8,
             pdi_mode=0,
@@ -290,31 +345,34 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            label="ACCessory, 1 TMCC ID",
+            name="ACCessory",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=1,
-            note="Uncoupling tracks only; always momentary",
+            note="Uncoupling tracks only; always pulsed",
             presses=(
                 Press("ACC {id} SET", TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC),
                 Press("AUX1 then 1", TMCC1AuxCommandEnum.AUX_NUMBER_1, CommandScope.ACC, note="1-ID sub-mode"),
             ),
         ),
         LcsMode(
+            # The key keeps the word the PDI mode is known by -- asc2_req.py scopes mode 2
+            # as SWITCH, and the ASC2 flowchart calls it momentary -- while the operator
+            # reads "pulse", which is what the switch motor is actually given.
             key="sw_momentary",
-            label="SWitch, momentary, 4 TMCC IDs",
+            name="SWitch pulse",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=2,
             note="FasTrack and similar switch motors",
             presses=(
                 Press("SW {id} SET", TMCC1SwitchCommandEnum.SET_ADDRESS, CommandScope.SWITCH),
-                Press("AUX1", TMCC1SwitchCommandEnum.THRU, CommandScope.SWITCH, note="momentary"),
+                Press("AUX1", TMCC1SwitchCommandEnum.THRU, CommandScope.SWITCH, note="pulse"),
             ),
         ),
         LcsMode(
             key="sw_latching",
-            label="SWitch, latching, 4 TMCC IDs",
+            name="SWitch latching",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=3,
@@ -347,7 +405,7 @@ BPC2 = LcsDevice(
     modes=(
         LcsMode(
             key="tr_8",
-            label="TRack, 8 TMCC IDs",
+            name="TRack",
             scope=CommandScope.TRAIN,
             ports=8,
             pdi_mode=0,
@@ -365,7 +423,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="tr_1",
-            label="TRack, 1 TMCC ID",
+            name="TRack",
             scope=CommandScope.TRAIN,
             ports=1,
             pdi_mode=1,
@@ -375,7 +433,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_8",
-            label="ACCessory, 8 TMCC IDs",
+            name="ACCessory",
             scope=CommandScope.ACC,
             ports=8,
             pdi_mode=2,
@@ -393,7 +451,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            label="ACCessory, 1 TMCC ID",
+            name="ACCessory",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=3,
@@ -417,7 +475,7 @@ STM2 = LcsDevice(
     modes=(
         LcsMode(
             key="single_wire",
-            label="SWitch, single-wire, 16 TMCC IDs",
+            name="SWitch single-wire",
             scope=CommandScope.SWITCH,
             ports=16,
             pdi_mode=0,
@@ -429,7 +487,7 @@ STM2 = LcsDevice(
         ),
         LcsMode(
             key="two_wire",
-            label="SWitch, two-wire, 8 TMCC IDs",
+            name="SWitch two-wire",
             scope=CommandScope.SWITCH,
             ports=8,
             pdi_mode=1,
@@ -464,12 +522,14 @@ SENSOR_TRACK = LcsDevice(
     program_button="PROGRAM",
     modes=(
         LcsMode(
-            # The longest mode label of any module, and deliberately so: setting the ID and
-            # assigning an Action Command are one programming gesture on a Sensor Track, and
-            # the manual describes them together. Measured 340 px at the panel's mode size and
-            # 476 px at the Pi's 1.5x font scale, so it fits the portrait pane.
+            # Setting the ID and assigning an Action Command are a single programming
+            # gesture on a Sensor Track, and the manual describes them together -- but the
+            # mode row names the address alone, like every other module's. Saying both asked
+            # 838 px of the 714 px the pane gives a row at the Pi's 1.5x font scale, and a
+            # row wider than the pane is centered in it and loses both its ends: 63 px off
+            # each. The Action Command is the whole of the options page that follows this.
             key="acc",
-            label="ACCessory TMCC ID and Action Command",
+            name="ACCessory",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=None,

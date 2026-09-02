@@ -216,32 +216,144 @@ class TestAuxNumber:
             reg.aux_number(1, CommandScope.SWITCH)
 
 
-class TestModeLabels:
+class TestTmccIdText:
     """
-    The label conventions the module docstring sets out: the addressing mode carries its
-    Cab key inside the word, counts are digits, and what is counted is TMCC IDs.
+    The one spelling of a block of addresses, read by both label forms and by the panel's
+    Currently Assigned and Overlaps rows.
+    """
+
+    def test_a_block_is_named_by_its_two_ends(self):
+        assert reg.tmcc_id_text(12, 19) == "TMCC IDs 12 - 19"
+
+    def test_a_single_address_is_singular(self):
+        # Given as a block of one, or with no end at all: both are one address, and
+        # "TMCC IDs 12 - 12" is not something an operator would say.
+        assert reg.tmcc_id_text(12, 12) == "TMCC ID 12"
+        assert reg.tmcc_id_text(12) == "TMCC ID 12"
+
+    def test_an_end_below_the_base_is_a_single_address(self):
+        # Nothing builds one, but a block cannot run backwards, and the alternative is a
+        # row reading "TMCC IDs 12 - 9".
+        assert reg.tmcc_id_text(12, 9) == "TMCC ID 12"
+
+    def test_a_count_is_a_digit_and_agrees_in_number(self):
+        assert reg.tmcc_id_count(8) == "8 TMCC IDs"
+        assert reg.tmcc_id_count(1) == "1 TMCC ID"
+
+
+class TestModeNames:
+    """
+    The naming conventions the module docstring sets out: the addressing mode carries its
+    Cab key inside the word, and the name says nothing about how many addresses it takes.
     """
 
     EXPECTED = {
+        "asc2": ("ACCessory", "ACCessory", "SWitch pulse", "SWitch latching"),
+        "bpc2": ("TRack", "TRack", "ACCessory", "ACCessory"),
+        "stm2": ("SWitch single-wire", "SWitch two-wire"),
+        "sensor_track": ("ACCessory",),
+    }
+
+    def test_every_mode_is_named_as_the_operator_reads_it(self):
+        assert {d.key: tuple(m.name for m in d.modes) for d in reg.configurable_devices()} == self.EXPECTED
+
+    def test_a_name_carries_its_cab_key_inside_the_word(self):
+        # ACCessory, SWitch, TRack -- the ACC, SW and TR keys that begin the sequence.
+        keys = {CommandScope.ACC: "ACC", CommandScope.SWITCH: "SW", CommandScope.TRAIN: "TR"}
+        for device in reg.configurable_devices():
+            for mode in device.modes:
+                assert mode.name.startswith(keys[mode.scope]), f"{device.key}/{mode.key}: {mode.name}"
+
+    def test_a_name_counts_nothing(self):
+        # The count is the label's business, and a name that carried one would say it
+        # twice beside the block ids_label names.
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                assert not re.search(r"\d", mode.name), f"{device.key}/{mode.key}: {mode.name}"
+                assert not re.search(r"\bIDs?\b", mode.name), f"{device.key}/{mode.key}: {mode.name}"
+
+    def test_the_asc2_switch_mode_is_a_pulse(self):
+        # What the motor is given. The key keeps the word asc2_req.py and the flowchart use
+        # for mode 2, which is not what the operator reads.
+        mode = reg.ASC2.mode("sw_momentary")
+        assert mode.name == "SWitch pulse"
+        assert "momentary" not in mode.ports_label
+        assert "momentary" not in mode.ids_label(1)
+        assert [press.note for press in mode.presses] == [None, "pulse"]
+
+    def test_a_name_says_nothing_a_mode_does_besides_claiming_addresses(self):
+        # A radio row is as wide as its label, and the panel is a portrait pane. The Sensor
+        # Track's Action Command is set in the same gesture as its ID, and naming both asked
+        # 838 px of the 714 px the pane gives a row at the Pi's 1.5x font scale, losing 63 px
+        # off each end. It is the whole of the options page that follows instead.
+        for device in reg.configurable_devices():
+            for mode in device.modes:
+                assert len(mode.name.split()) <= 2, f"{device.key}/{mode.key}: {mode.name}"
+                assert "Action" not in mode.name, f"{device.key}/{mode.key}: {mode.name}"
+
+
+class TestModeLabels:
+    """
+    The two labels built from a mode's name: the block it would claim from an entered
+    address, and -- where there is no address to name it from -- the count alone.
+    """
+
+    IDS_AT_1 = {
+        "asc2": (
+            "ACCessory TMCC IDs 1 - 8",
+            "ACCessory TMCC ID 1",
+            "SWitch pulse TMCC IDs 1 - 4",
+            "SWitch latching TMCC IDs 1 - 4",
+        ),
+        "bpc2": (
+            "TRack TMCC IDs 1 - 8",
+            "TRack TMCC ID 1",
+            "ACCessory TMCC IDs 1 - 8",
+            "ACCessory TMCC ID 1",
+        ),
+        "stm2": ("SWitch single-wire TMCC IDs 1 - 16", "SWitch two-wire TMCC IDs 1 - 8"),
+        "sensor_track": ("ACCessory TMCC ID 1",),
+    }
+
+    PORTS = {
         "asc2": (
             "ACCessory, 8 TMCC IDs",
             "ACCessory, 1 TMCC ID",
-            "SWitch, momentary, 4 TMCC IDs",
-            "SWitch, latching, 4 TMCC IDs",
+            "SWitch pulse, 4 TMCC IDs",
+            "SWitch latching, 4 TMCC IDs",
         ),
         "bpc2": ("TRack, 8 TMCC IDs", "TRack, 1 TMCC ID", "ACCessory, 8 TMCC IDs", "ACCessory, 1 TMCC ID"),
-        "stm2": ("SWitch, single-wire, 16 TMCC IDs", "SWitch, two-wire, 8 TMCC IDs"),
-        "sensor_track": ("ACCessory TMCC ID and Action Command",),
+        "stm2": ("SWitch single-wire, 16 TMCC IDs", "SWitch two-wire, 8 TMCC IDs"),
+        "sensor_track": ("ACCessory, 1 TMCC ID",),
     }
 
-    def test_every_label_is_as_the_operator_reads_it(self):
-        assert {d.key: tuple(m.label for m in d.modes) for d in reg.configurable_devices()} == self.EXPECTED
+    def test_every_mode_names_the_block_it_would_claim(self):
+        assert {d.key: tuple(m.ids_label(1) for m in d.modes) for d in reg.configurable_devices()} == self.IDS_AT_1
+
+    def test_every_mode_names_the_count_it_claims(self):
+        assert {d.key: tuple(m.ports_label for m in d.modes) for d in reg.configurable_devices()} == self.PORTS
+
+    def test_a_block_follows_the_address_it_is_based_at(self):
+        mode = reg.ASC2.mode("acc_8")
+        assert mode.ids_label(12) == "ACCessory TMCC IDs 12 - 19"
+        assert mode.ids_label(91) == "ACCessory TMCC IDs 91 - 98"
+
+    def test_a_mode_is_offered_at_the_highest_base_it_fits(self):
+        # The Mode radios are labeled from the ID on the page, which a narrower mode can
+        # have carried above this one's ceiling: the 4-ID modes reach 95, and an 8-ID mode
+        # based there would run off the end. The label names where choosing it lands, which
+        # is what the panel clamps the ID to.
+        assert reg.ASC2.mode("acc_8").ids_label(95) == "ACCessory TMCC IDs 91 - 98"
+        assert reg.STM2.mode("single_wire").ids_label(98) == "SWitch single-wire TMCC IDs 83 - 98"
+        # And nothing is named below the first address, whatever it is handed.
+        assert reg.ASC2.mode("acc_1").ids_label(0) == "ACCessory TMCC ID 1"
 
     def test_an_id_is_always_a_tmcc_id(self):
         # A bare "ID" is ambiguous beside a PDI address or a port number.
         for device in reg.LCS_DEVICES:
             for mode in device.modes:
-                assert not re.findall(r"(?<!TMCC )\bIDs?\b", mode.label), f"{device.key}/{mode.key}: {mode.label}"
+                for label in (mode.ports_label, mode.ids_label(1)):
+                    assert not re.findall(r"(?<!TMCC )\bIDs?\b", label), f"{device.key}/{mode.key}: {label}"
 
     NUMBER_WORDS = ("one", "single", "two", "three", "four", "five", "six", "seven", "eight", "sixteen")
 
@@ -249,21 +361,43 @@ class TestModeLabels:
         # "Eight ID" was the old spelling; a digit is read at a glance.
         for device in reg.LCS_DEVICES:
             for mode in device.modes:
-                for word in re.findall(r"(\w+)\s+TMCC IDs?\b", mode.label):
-                    assert word.lower() not in self.NUMBER_WORDS, f"{device.key}/{mode.key}: {mode.label}"
+                for word in re.findall(r"(\w+)\s+TMCC IDs?\b", mode.ports_label):
+                    assert word.lower() not in self.NUMBER_WORDS, f"{device.key}/{mode.key}: {mode.ports_label}"
 
     def test_a_counted_label_agrees_with_the_mode(self):
         for device in reg.LCS_DEVICES:
             for mode in device.modes:
-                counted = re.search(r"(\d+) TMCC IDs?\b", mode.label)
-                if counted:
-                    assert int(counted.group(1)) == mode.ports, f"{device.key}/{mode.key}: {mode.label}"
+                counted = re.search(r"(\d+) TMCC IDs?\b", mode.ports_label)
+                assert counted, f"{device.key}/{mode.key}: {mode.ports_label}"
+                assert int(counted.group(1)) == mode.ports, f"{device.key}/{mode.key}: {mode.ports_label}"
+
+    def test_the_longest_row_is_the_stm2s_widest_block(self):
+        # A radio row is as wide as its label and the panel is a portrait pane, so the
+        # widest row any module can ask for is worth pinning: 35 characters, and 704 px of
+        # the 714 px the pane gives it at the Pi's 1.5x font scale.
+        longest = max(
+            (mode.ids_label(mode.max_base) for device in reg.configurable_devices() for mode in device.modes),
+            key=len,
+        )
+        assert longest == "SWitch single-wire TMCC IDs 83 - 98"
+        assert len(longest) == 35
+
+    def test_a_block_covers_exactly_the_ids_the_mode_claims(self):
+        # However the mode reads, the two ends of the block are the addresses that go with
+        # its port count: an operator reserving them has to be told the truth.
+        for device in reg.configurable_devices():
+            for mode in device.modes:
+                label = mode.ids_label(1)
+                ends = re.search(r"TMCC IDs? (\d+)(?: - (\d+))?", label)
+                first, last = int(ends.group(1)), int(ends.group(2) or ends.group(1))
+                assert last - first + 1 == mode.ports, f"{device.key}/{mode.key}: {label}"
 
     def test_every_switch_mode_names_the_ids_it_consumes(self):
         # A switch mode reserves a block just as an accessory mode does, and an operator
-        # laying out switch IDs has to know how many of them go with the choice.
+        # laying out switch IDs has to know which of them go with the choice.
         for device in reg.configurable_devices():
             for mode in device.modes:
                 if mode.scope != CommandScope.SWITCH:
                     continue
-                assert re.search(rf"\b{mode.ports} TMCC IDs?\b", mode.label), f"{device.key}/{mode.key}"
+                assert re.search(rf"\b{mode.ports} TMCC IDs?\b", mode.ports_label), f"{device.key}/{mode.key}"
+                assert "TMCC ID" in mode.ids_label(1), f"{device.key}/{mode.key}"

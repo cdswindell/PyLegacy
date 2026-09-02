@@ -382,17 +382,69 @@ def test_keypad_commit_of_bad_text_leaves_the_id_alone() -> None:
     assert panel.base_id == 91
 
 
-def test_block_line_tracks_the_mode() -> None:
+def test_the_mode_rows_name_the_block_each_of_them_would_claim() -> None:
+    # Every row says which TMCC IDs choosing it would set aside, so the operator reads the
+    # addresses rather than adding a count to the ID above. This is what the page used to
+    # say in one line below the boxes, for the selected mode only.
     panel = _new_panel()
     panel._on_device_selected("asc2")
     panel._set_base_id(12)
 
-    assert panel.block_text == "Uses TMCC IDs 12 - 19"
-    assert panel._block_line.value == "Uses TMCC IDs 12 - 19"
+    assert [label for label, _key in panel._mode_group.options] == [
+        "ACCessory TMCC IDs 12 - 19",
+        "ACCessory TMCC ID 12",
+        "SWitch pulse TMCC IDs 12 - 15",
+        "SWitch latching TMCC IDs 12 - 15",
+    ]
 
+
+def test_stepping_the_id_relabels_every_mode_row() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
     panel._on_mode_selected("acc_1")
-    assert panel.block_text == "Uses TMCC ID 12"
-    assert panel.max_base == 98
+    panel._set_base_id(12)
+
+    panel.step_up()
+
+    assert [label for label, _key in panel._mode_group.options] == [
+        "ACCessory TMCC IDs 13 - 20",
+        "ACCessory TMCC ID 13",
+        "SWitch pulse TMCC IDs 13 - 16",
+        "SWitch latching TMCC IDs 13 - 16",
+    ]
+    # The rows are rebuilt to relabel them, and the selection is held by key rather than
+    # by the text that just changed.
+    assert panel._mode_group.value == "acc_1"
+    assert panel.mode.key == "acc_1"
+
+
+def test_a_mode_row_is_offered_at_the_highest_base_it_fits() -> None:
+    # ID 95 is as high as the four-port switch modes go, and higher than the eight-ID
+    # accessory mode can be based. Its row names the block it would claim from 91, which
+    # is where selecting it lands the ID.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    panel._on_mode_selected("sw_momentary")
+    panel._set_base_id(95)
+
+    assert panel._mode_group.options[0] == ("ACCessory TMCC IDs 91 - 98", "acc_8")
+
+    panel._on_mode_selected("acc_8")
+    assert panel.base_id == 91
+    assert panel._mode_group.options[0] == ("ACCessory TMCC IDs 91 - 98", "acc_8")
+
+
+def test_the_page_says_the_selected_block_once() -> None:
+    # The line that used to stand below the boxes -- "Uses TMCC IDs 12 - 19" -- repeated
+    # the row the operator had just chosen, and is gone with the mode rows naming their own.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    panel._set_base_id(12)
+
+    lines = [
+        child.value for child in panel._pages[mod.PAGE_ID].children if isinstance(getattr(child, "value", None), str)
+    ]
+    assert not [line for line in lines if "TMCC ID" in line and line != panel.id_heading_text]
 
 
 def test_widening_the_mode_lowers_an_out_of_range_id() -> None:
@@ -742,7 +794,10 @@ def test_sensor_track_claims_a_single_id() -> None:
     assert panel.device is SENSOR_TRACK
     assert panel.ports == 1
     assert panel.max_base == 98
-    assert panel.block_text == "Uses TMCC ID 3"
+    # Its one row names that address and nothing else: naming the Action Command set in
+    # the same gesture made the widest row the panel has, and it lost both its ends on the
+    # Pi. That option is the whole of the page after this one.
+    assert panel._mode_group.options == [("ACCessory TMCC ID 3", "acc")]
 
 
 #
@@ -1275,25 +1330,26 @@ def test_mode_selector_repopulates_correctly_on_device_change() -> None:
     """
     panel = _new_panel()
 
-    # Select ASC2, which has 4 enabled modes
+    # Select ASC2, which has 4 enabled modes. The panel opens at TMCC ID 1, which is the
+    # address every row is labeled from.
     panel._on_device_selected("asc2")
     assert len(panel._mode_group.options) == 4
-    assert panel._mode_group.options[0] == ("ACCessory, 8 TMCC IDs", "acc_8")
-    assert panel._mode_group.options[1] == ("ACCessory, 1 TMCC ID", "acc_1")
+    assert panel._mode_group.options[0] == ("ACCessory TMCC IDs 1 - 8", "acc_8")
+    assert panel._mode_group.options[1] == ("ACCessory TMCC ID 1", "acc_1")
     # Every switch mode names the block it consumes, as the accessory modes do.
-    assert panel._mode_group.options[2] == ("SWitch, momentary, 4 TMCC IDs", "sw_momentary")
-    assert panel._mode_group.options[3] == ("SWitch, latching, 4 TMCC IDs", "sw_latching")
+    assert panel._mode_group.options[2] == ("SWitch pulse TMCC IDs 1 - 4", "sw_momentary")
+    assert panel._mode_group.options[3] == ("SWitch latching TMCC IDs 1 - 4", "sw_latching")
 
     # Switch to Sensor Track, which has 1 mode
     panel._on_device_selected("sensor_track")
     assert len(panel._mode_group.options) == 1
-    assert panel._mode_group.options[0] == ("ACCessory TMCC ID and Action Command", "acc")
+    assert panel._mode_group.options[0] == ("ACCessory TMCC ID 1", "acc")
 
     # Switch to BPC2, which has 2 enabled modes (the 1-ID modes are disabled)
     panel._on_device_selected("bpc2")
     assert len(panel._mode_group.options) == 2
-    assert panel._mode_group.options[0] == ("TRack, 8 TMCC IDs", "tr_8")
-    assert panel._mode_group.options[1] == ("ACCessory, 8 TMCC IDs", "acc_8")
+    assert panel._mode_group.options[0] == ("TRack TMCC IDs 1 - 8", "tr_8")
+    assert panel._mode_group.options[1] == ("ACCessory TMCC IDs 1 - 8", "acc_8")
 
 
 #
@@ -1471,8 +1527,9 @@ def test_the_titled_boxes_are_stacked_in_one_column() -> None:
     for box in (panel._assigned_box, panel._overlap_box, panel._mode_box):
         assert box in panel._titled_boxes.children
     assert panel._titled_boxes.kwargs["layout"] == "grid"
-    # Overlaps sits directly after Currently Assigned, with the mode radios below both.
-    assert [panel._assigned_box.grid, panel._overlap_box.grid, panel._mode_box.grid] == [
+    # The mode is chosen first; Currently Assigned and then Overlaps report what it and the
+    # ID above it run into.
+    assert [panel._mode_box.grid, panel._assigned_box.grid, panel._overlap_box.grid] == [
         [0, 0],
         [0, 1],
         [0, 2],
@@ -1577,8 +1634,8 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
         body,  # under the popup's title row
         panel._pages[mod.PAGE_DEVICE],  # under that page's prompt
         id_page,  # under the stepper row
-        id_page,  # under the titled boxes
-        id_page,  # above the choice buttons
+        panel._mode_box,  # between the mode radios and the footnote under them
+        id_page,  # between the titled boxes and the choice buttons
         options_page,  # under that page's heading
         options_page,  # between the module and the settings chosen for it
         body,  # above the Back/Next row
@@ -1603,9 +1660,8 @@ def test_the_device_page_spacer_sits_between_the_prompt_and_the_group() -> None:
 
 
 def test_the_id_pages_sections_are_held_apart() -> None:
-    # The crowded page: the stepper, the three titled boxes, the lines derived from them
-    # and the choice buttons each answer a different question, and ran together into one
-    # block without these.
+    # The crowded page: the stepper, the three titled boxes and the choice buttons each
+    # answer a different question, and ran together into one block without these.
     panel, _body, _host = _build_with_body()
     page = panel._pages[mod.PAGE_ID]
 
@@ -1613,27 +1669,30 @@ def test_the_id_pages_sections_are_held_apart() -> None:
     assert page.children[1].kwargs["layout"] == "grid"  # the - 8 + row
     assert getattr(page.children[2], "vspace", None) == mod.PAGE_GAP
     assert page.children[3] is panel._titled_boxes
+    # One gap below the boxes, where there were two with the block line between them.
     assert getattr(page.children[4], "vspace", None) == mod.PAGE_GAP
-    assert page.children[5] is panel._block_line
-    assert page.children[6] is panel._mode_footnote_line
-    assert getattr(page.children[7], "vspace", None) == mod.PAGE_GAP
+    # The choice buttons' row, and nothing after it: the page ends where the boxes' gap
+    # leaves off, rather than with a line and a second gap between the two.
+    assert panel._goto_btn in page.children[5].children
+    assert panel._new_btn in page.children[5].children
+    assert len(page.children) == 6
 
 
 @pytest.mark.parametrize(
-    "compact, section, page",
+    "compact, section, page, lead",
     [
-        (False, mod.SECTION_GAP, mod.PAGE_GAP),
-        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT),
+        (False, mod.SECTION_GAP, mod.PAGE_GAP, mod.MODE_NOTE_LEAD),
+        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT, mod.MODE_NOTE_LEAD_COMPACT),
     ],
 )
-def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, page: int) -> None:
+def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, page: int, lead: int) -> None:
     _panel, _body, host = _build_with_body(compact=compact)
 
     assert [pixels for _parent, pixels in host.vspaces] == [
         section,
         section,
         page,
-        page,
+        lead,
         page,
         section,
         page,
@@ -1937,10 +1996,10 @@ def test_the_three_titled_boxes_are_labelled_at_the_page_body_size() -> None:
     assert panel._mode_group.kwargs["size"] > panel._mode_box.text_size
 
 
-def test_the_module_rows_are_body_size_and_the_derived_lines_below_it() -> None:
+def test_the_module_rows_are_body_size_and_the_footnote_below_it() -> None:
     # The rows name what already answers to this ID, which is the answer the operator came
-    # to the page for. The block line and the footnote are derived from the ID and the mode
-    # above them -- context, not a choice.
+    # to the page for. The footnote is a caption on the radios above it -- context, not a
+    # choice -- and the quietest thing on the page.
     store = FakeStore({CommandScope.ACC: [FakeState(30, "is_bpc2", mode=2, num_ids=8)]})
     panel = _new_panel(store)
     panel._on_device_selected("asc2")
@@ -1951,31 +2010,28 @@ def test_the_module_rows_are_body_size_and_the_derived_lines_below_it() -> None:
     assert [cell.text_size for cell in assigned] == [host.s_14] * mod.ROW_COLUMNS
     # The two boxes read as one list, so their rows are the same size.
     assert all(cell.text_size == host.s_14 for cell in panel._overlap_cells[0])
-    assert panel._block_line.text_size == host.s_10
     assert panel._mode_footnote_line.text_size == host.s_10
-    assert panel._block_line.text_size < assigned[0].text_size
+    assert panel._mode_footnote_line.text_size < assigned[0].text_size
 
 
-def test_the_device_line_sits_directly_under_the_id_row() -> None:
-    # What already answers to this ID belongs beside the ID, not below the mode radios:
-    # the operator needs it before choosing a mode. Children are recorded in creation
-    # order, which is the order guizero packs them in.
+def test_the_mode_sits_directly_under_the_id_row_and_the_reports_below_both() -> None:
+    # The two things chosen on the page come first, in the order they are chosen: the
+    # address, then the mode. Only then what those choices run into. Children are recorded
+    # in creation order, which is the order guizero packs them in.
     panel = _new_panel()
     order = panel._pages[mod.PAGE_ID].children
     row = next(i for i, child in enumerate(order) if panel._minus_btn in getattr(child, "children", []))
 
     heading = order.index(panel._id_heading)
     boxes = order.index(panel._titled_boxes)
-    block = order.index(panel._block_line)
-    footnote = order.index(panel._mode_footnote_line)
 
-    assert heading < row < boxes < block < footnote
-    # Nothing between the two but the spacer that holds them apart.
+    assert heading < row < boxes
+    # Nothing between the stepper and the boxes but the spacer that holds them apart.
     assert boxes == row + 2
-    # The titled boxes share that one slot: assigned, then overlaps, then the mode radios.
-    assert panel._assigned_box.grid == [0, 0]
-    assert panel._overlap_box.grid == [0, 1]
-    assert panel._mode_box.grid == [0, 2]
+    # The titled boxes share that one slot: the mode radios, then assigned, then overlaps.
+    assert panel._mode_box.grid == [0, 0]
+    assert panel._assigned_box.grid == [0, 1]
+    assert panel._overlap_box.grid == [0, 2]
 
 
 #
@@ -2285,8 +2341,100 @@ def test_a_row_left_over_from_a_busier_id_is_hidden_not_blanked() -> None:
 
 
 #
+# The two reports are colored as the warning they are
+#
+def test_a_module_already_at_the_id_is_reported_in_dark_red() -> None:
+    # Every cell of the row, not just the module: the remote key and the block it holds are
+    # as much a part of the collision as the name is.
+    panel = _new_panel(_asc2_at_9_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(9)
+
+    assert _assigned(panel) == ["ACC: ASC2 TMCC IDs 9 - 16"]
+    assert [cell.text_color for cell in panel._assigned_cells[0]] == [mod.CONFLICT_FG] * mod.ROW_COLUMNS
+
+
+def test_an_address_nobody_holds_is_reported_in_dark_green() -> None:
+    # The one row in either box that is not something in the way, and the only one in green.
+    panel = _new_panel()
+
+    assert _assigned(panel) == [mod.UNASSIGNED]
+    assert [cell.text_color for cell in panel._assigned_cells[0]] == [mod.UNASSIGNED_FG] * mod.ROW_COLUMNS
+
+
+def test_every_module_in_the_way_is_reported_in_dark_red() -> None:
+    panel = _new_panel(_overlapping_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(25)
+
+    assert len(_overlaps(panel)) == 2
+    for row in panel._overlap_cells:
+        assert [cell.text_color for cell in row] == [mod.CONFLICT_FG] * mod.ROW_COLUMNS
+
+
+def test_the_very_same_cells_turn_green_when_the_address_frees_up() -> None:
+    # The rows are grown on demand and then kept, so a cell outlives the row it last held:
+    # colored where it is built rather than where it is written, the box would keep saying
+    # in red that an address it now reports as free is taken.
+    panel = _new_panel(_asc2_at_9_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(9)
+    cells = panel._assigned_cells[0]
+    assert [cell.text_color for cell in cells] == [mod.CONFLICT_FG] * mod.ROW_COLUMNS
+
+    panel._set_base_id(40)
+
+    assert _assigned(panel) == [mod.UNASSIGNED]
+    assert panel._assigned_cells[0] is cells
+    assert [cell.text_color for cell in cells] == [mod.UNASSIGNED_FG] * mod.ROW_COLUMNS
+
+
+def test_the_two_report_colors_are_dark_shades() -> None:
+    # Whole lines of text at the page's body size on a light panel: a bright red reads as a
+    # smear, and plain "red" is what admin_panel puts over Restart and Shutdown.
+    assert (mod.CONFLICT_FG, mod.UNASSIGNED_FG) == ("#8B0000", "#006400")
+    assert mod.ModuleRow(scope="", module=mod.UNASSIGNED).is_unassigned is True
+    assert mod.ModuleRow(scope="ACC:", module="BPC2", ids="TMCC IDs 1 - 8").is_unassigned is False
+
+
+#
 # The footnote under the mode radios
 #
+def test_the_footnote_is_the_last_thing_inside_the_mode_box() -> None:
+    # A caption on the radios above it -- what each remote key they offer is for -- so it
+    # belongs inside their box, not adrift among the page's other derived lines.
+    panel = _new_panel()
+    box = panel._mode_box
+
+    assert box.children[0] is panel._mode_group
+    assert getattr(box.children[1], "vspace", None) == mod.MODE_NOTE_LEAD
+    assert box.children[2] is panel._mode_footnote_line
+    assert panel._mode_footnote_line not in panel._pages[mod.PAGE_ID].children
+
+
+def test_the_footnote_is_centered_under_the_radios() -> None:
+    # Centered like every other line of prose in the panel: the two lines are short and of
+    # much the same length, and centered they read as a caption on the list above rather
+    # than as another row of it. align is where guizero packs it -- "top", so it spans the
+    # box and is centered in it -- and justify how Tk sets the lines within that.
+    panel = _new_panel()
+    line = panel._mode_footnote_line
+
+    assert line.kwargs["align"] == "top"
+    assert line.tk.configured["justify"] == "center"
+    # Wrapped like every other line of prose in the panel.
+    assert line.tk.configured["wraplength"] == panel._wrap_px
+
+
+def test_the_footnote_is_held_just_off_the_last_radio() -> None:
+    # Less than the gap between two radios, so the footnote reads as part of the box rather
+    # than as the next thing on the page -- and a spacer widget rather than padding of the
+    # line's own, which would push it off the bottom of the box as well.
+    assert mod.MODE_NOTE_LEAD < mod.MODE_ROW_PAD
+    assert mod.MODE_NOTE_LEAD <= 5
+    assert mod.MODE_NOTE_LEAD_COMPACT < mod.MODE_NOTE_LEAD
+
+
 def test_no_device_means_no_mode_footnote() -> None:
     panel = _new_panel()
 

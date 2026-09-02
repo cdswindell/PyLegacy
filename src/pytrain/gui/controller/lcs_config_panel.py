@@ -43,6 +43,7 @@ from .lcs_device_registry import (
     device_for_key,
     device_for_state,
     enabled_modes,
+    tmcc_id_text,
 )
 from .lcs_id_map import LcsOccupant, occupants_of, overlaps
 from .lcs_sequence_builder import LcsProgram, build_program
@@ -91,6 +92,21 @@ UNASSIGNED = "Unassigned"
 # what holds the entered ID, this one what the whole block would collide with. The title
 # carries the word "Overlaps", so the rows inside name modules and nothing else.
 OVERLAP_TITLE = "Overlaps"
+
+# What the module rows in those two boxes are drawn in. Every row either box can show is
+# something standing in the way of the address being entered -- a module that already
+# answers to it, or one the chosen block would run into -- so the rows are colored as the
+# warning they are, and the operator can see there is one without reading the box titles.
+# The single exception is the row the assigned box shows for an address nobody holds, and
+# that is the only good news on the page, so it is the only row in green.
+#
+# Dark rather than plain red and green: these are whole lines of text at the page's body
+# size on a light panel, where a bright red reads as a smear and a bright green as a
+# highlighter -- and plain "red" is already what admin_panel puts over Restart and
+# Shutdown, which is a warning about an irreversible act rather than a report. Hex, as
+# color is given everywhere else in the GUI, with Tk's own names for these two shades.
+CONFLICT_FG = "#8B0000"  # dark red
+UNASSIGNED_FG = "#006400"  # dark green
 
 # Breathing room on either side of a module-row cell, so the gridded columns do not run
 # into one another. Internal Label padding rather than grid padding, which is discarded
@@ -151,6 +167,14 @@ RADIO_ROW_PAD_COMPACT = 6
 # has none to give, and the button below it all is the only way off the panel on the Pi.
 MODE_ROW_PAD = 6
 MODE_ROW_PAD_COMPACT = 3
+
+# Whitespace between the last mode radio and the footnote that stands under it, in pixels.
+# Small on purpose, and smaller than the gap between two radios: the footnote is a caption
+# on the list above it -- what each remote key in it is for -- so it has to read as part of
+# that box rather than as the next thing on the page. A spacer widget rather than padding
+# of the footnote's own, which would push the two apart at the bottom of the box as well.
+MODE_NOTE_LEAD = 4
+MODE_NOTE_LEAD_COMPACT = 2
 
 # Pack padding above and below Back and Next, in pixels, replacing the footer button's own
 # 20. That 20 is sized to hold a footer row off the panel above it and the pane below; this
@@ -252,6 +276,16 @@ class ModuleRow:
     def text(self) -> str:
         return " ".join(part for part in self.cells if part)
 
+    @property
+    def is_unassigned(self) -> bool:
+        """Whether this is the row the assigned box shows for an address nobody holds.
+
+        The one row in either box that is not a module in the way, which is what decides
+        the color it is drawn in; see UNASSIGNED_FG. Read from the row rather than from
+        whether the box has any rows at all, so the two boxes are filled by one method.
+        """
+        return self.module == UNASSIGNED
+
 
 def touch_only_editing() -> bool:
     """True where an on-screen editor is the only keyboard: the Pi and the Steam Deck.
@@ -336,7 +370,6 @@ class LcsConfigPanel(OverlayPanel):
         self._id_field: EditableText | None = None
         self._minus_btn: HoldButton | None = None
         self._plus_btn: HoldButton | None = None
-        self._block_line: Text | None = None
         self._mode_footnote_line: Text | None = None
         self._assigned_box: TitleBox | None = None
         self._assigned_grid: Box | None = None
@@ -507,6 +540,10 @@ class LcsConfigPanel(OverlayPanel):
         return NAV_ROW_PAD_COMPACT if self.compact else NAV_ROW_PAD
 
     @property
+    def _mode_note_lead(self) -> int:
+        return MODE_NOTE_LEAD_COMPACT if self.compact else MODE_NOTE_LEAD
+
+    @property
     def _option_row_pad(self) -> int:
         return OPTION_ROW_PAD_COMPACT if self.compact else OPTION_ROW_PAD
 
@@ -654,33 +691,16 @@ class LcsConfigPanel(OverlayPanel):
         # between them rides along with that stretch; see _lay_out_titled_boxes.
         self._titled_boxes = Box(page, layout="grid", align="top", border=0)
 
-        # What already answers to this ID, directly under the ID row it describes: it tells
-        # the operator whether they are about to reprogram a module that is already out
-        # there, which they need to know before choosing a mode, not after. Titled, because
-        # a bare line naming some other module beside the one being programmed reads as a
-        # contradiction until you know it is reporting the layout rather than the choice.
-        # At the page's body size, as are the other two titles and the module rows inside
-        # all three: a step below read as fine print on the Pi, and what these boxes report
-        # is what the operator checks before committing an ID.
-        self._assigned_box = TitleBox(self._titled_boxes, text=ASSIGNED_TITLE, grid=[0, 0], align=None)
-        self._assigned_box.text_size = host.s_14
-        # One row per module, gridded so the remote key, the module and its TMCC IDs line
-        # up down the box instead of each row starting wherever the row above it ended.
-        self._assigned_grid = Box(self._assigned_box, layout="grid", align="top", border=0)
-
-        # Directly after it: the modules the chosen block would run into. Its own box, and
-        # gridded a row per module rather than run together on one line, which is what put
-        # two neighbors off the right edge of the window. Hidden when nothing is in the way,
-        # since an empty titled frame reads as a failure to look rather than as an answer --
-        # unlike the assigned box, which always has "Unassigned" to say.
-        self._overlap_box = TitleBox(self._titled_boxes, text=OVERLAP_TITLE, grid=[0, 1], align=None)
-        self._overlap_box.text_size = host.s_14
-        self._overlap_grid = Box(self._overlap_box, layout="grid", align="top", border=0)
-
-        # The mode radios are the only choice on this page besides the ID itself, so they
-        # are given a titled box that says what they are choosing -- and a size above the
-        # page's body text, since each label also carries the port count.
-        self._mode_box = TitleBox(self._titled_boxes, text=MODE_TITLE, grid=[0, 2], align=None)
+        # The mode first, directly under the ID it goes with: those two are everything the
+        # operator chooses on this page, and the boxes below them report what the choice
+        # runs into. Reading down the page is then the order the work is done in -- pick the
+        # address, pick the mode, see the consequences -- where the reports used to stand
+        # between the two halves of the decision and be read before either was made.
+        #
+        # Titled, because the radios need a word for what they are choosing, and at the
+        # page's body size like the two titles below it. The rows themselves are a size
+        # above the body, since each one also carries the block of TMCC IDs it would claim.
+        self._mode_box = TitleBox(self._titled_boxes, text=MODE_TITLE, grid=[0, 0], align=None)
         self._mode_box.text_size = host.s_14
         self._mode_group = CheckBoxGroup(
             self._mode_box,
@@ -697,15 +717,41 @@ class LcsConfigPanel(OverlayPanel):
             stretch=True,
             command=self._on_mode_selected,
         )
+        # A footnote to the radios above it -- what each remote key they offer is actually
+        # for -- and so inside their box rather than adrift below the page's other reports,
+        # where it read as a statement about the panel at large. Held just off the last row;
+        # see MODE_NOTE_LEAD.
+        host.add_vspace(self._mode_box, self._mode_note_lead)
+        # Centered under the radios, like every other line of prose on the page: the two
+        # lines are short and of much the same length, and centered they read as a caption
+        # on the list above them rather than as another row of it.
+        self._mode_footnote_line = self._wrap(self._label(self._mode_box, "", size=host.s_10))
 
-        host.add_vspace(page, self._page_gap)
+        # What already answers to the entered ID: it tells the operator whether they are
+        # about to reprogram a module that is already out there. Titled, because a bare line
+        # naming some other module beside the one being programmed reads as a contradiction
+        # until you know it is reporting the layout rather than the choice. At the page's
+        # body size, as are the module rows inside both boxes: a step below read as fine
+        # print on the Pi, and what these boxes report is what the operator checks before
+        # committing an ID.
+        self._assigned_box = TitleBox(self._titled_boxes, text=ASSIGNED_TITLE, grid=[0, 1], align=None)
+        self._assigned_box.text_size = host.s_14
+        # One row per module, gridded so the remote key, the module and its TMCC IDs line
+        # up down the box instead of each row starting wherever the row above it ended.
+        self._assigned_grid = Box(self._assigned_box, layout="grid", align="top", border=0)
 
-        # The block the chosen mode claims, derived from the ID and the mode above it, so
-        # it is one of the quietest lines on the page.
-        self._block_line = self._label(page, "", size=host.s_10)
-        # A footnote to the mode radios: what each remote key above is actually for.
-        self._mode_footnote_line = self._label(page, "", size=host.s_10)
+        # Directly after it: the modules the chosen block would run into. Its own box, and
+        # gridded a row per module rather than run together on one line, which is what put
+        # two neighbors off the right edge of the window. Hidden when nothing is in the way,
+        # since an empty titled frame reads as a failure to look rather than as an answer --
+        # unlike the assigned box, which always has "Unassigned" to say.
+        self._overlap_box = TitleBox(self._titled_boxes, text=OVERLAP_TITLE, grid=[0, 2], align=None)
+        self._overlap_box.text_size = host.s_14
+        self._overlap_grid = Box(self._overlap_box, layout="grid", align="top", border=0)
 
+        # One gap, where there used to be two with a line between them saying which TMCC
+        # IDs the chosen mode claims. Every mode radio above now names its own block, so
+        # that line only repeated the one the operator had just selected.
         host.add_vspace(page, self._page_gap)
 
         choices = Box(page, align="top", border=0)
@@ -722,7 +768,7 @@ class LcsConfigPanel(OverlayPanel):
         return page
 
     def _lay_out_titled_boxes(self) -> None:
-        """Give the Currently Assigned, Overlaps and Mode boxes one width, and space between.
+        """Give the Mode, Currently Assigned and Overlaps boxes one width, and space between.
 
         All three are gridded into column 0 of the same container and stretched across it,
         so the column takes the width of whichever box asks for most and the others grow to
@@ -747,7 +793,8 @@ class LcsConfigPanel(OverlayPanel):
         gap = self._box_gap
         try:
             container.tk.grid_columnconfigure(0, weight=1)
-            for box in (self._assigned_box, self._overlap_box, self._mode_box):
+            # In the order they are stacked, which is the order they are read in.
+            for box in (self._mode_box, self._assigned_box, self._overlap_box):
                 if box is not None and box.visible:
                     box.tk.grid_configure(sticky="ew", pady=(0, gap))
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
@@ -956,7 +1003,9 @@ class LcsConfigPanel(OverlayPanel):
         if self._device is None or self._mode is None:
             return ""
         scope = SCOPE_LABEL.get(self._mode.scope, "")
-        return f"{self._device.label} - {self._mode.label} at {scope} {self._base_id}".strip()
+        # The counted form, not the mode's radio label: this line names the address itself,
+        # so the block it holds would be said twice. See LcsMode.ports_label.
+        return f"{self._device.label} - {self._mode.ports_label} at {scope} {self._base_id}".strip()
 
     @property
     def reserved_text(self) -> str:
@@ -969,7 +1018,10 @@ class LcsConfigPanel(OverlayPanel):
         reserved = [mode for mode in self._device.modes if not mode.enabled]
         if not reserved:
             return ""
-        parts = [f"{mode.label} ({mode.note})" if mode.note else mode.label for mode in reserved]
+        # Counted, because a reserved mode claims no block: it is never selected, so there
+        # is no address to name it from -- and the count is what tells the BPC2's reserved
+        # single-ID TRack mode from the eight-ID one it does offer.
+        parts = [f"{mode.ports_label} ({mode.note})" if mode.note else mode.ports_label for mode in reserved]
         return "Not available: " + ", ".join(parts)
 
     #
@@ -1192,9 +1244,18 @@ class LcsConfigPanel(OverlayPanel):
         return [[f"{device.label} ({device.blurb})", device.key] for device in configurable_devices()]
 
     def mode_options(self) -> list[list[str]]:
+        """Every mode the module offers, each named with the block it would claim.
+
+        The labels move with the entered ID, which is why the group is rebuilt on every
+        refresh of the page: what is being chosen here is a block of TMCC IDs, so the row
+        names the addresses the operator would be setting aside rather than a count they
+        have to add to the ID above it. A mode that cannot be based this high is offered
+        at the highest base it fits, which is where choosing it lands; see
+        :meth:`LcsMode.ids_label`.
+        """
         if self._device is None:
             return []
-        return [[mode.label, mode.key] for mode in enabled_modes(self._device)]
+        return [[mode.ids_label(self._base_id), mode.key] for mode in enabled_modes(self._device)]
 
     #
     # Page swapping
@@ -1498,7 +1559,6 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_id_heading()
         self._refresh_id_field()
         self._refresh_mode_selector()
-        self._refresh_block_line()
         self._refresh_mode_footnote()
         self._refresh_step_keys()
         self._refresh_occupancy()
@@ -1524,24 +1584,6 @@ class LcsConfigPanel(OverlayPanel):
             container.show()
         else:
             container.hide()
-
-    @property
-    def block_text(self) -> str:
-        """The TMCC IDs the chosen mode claims: "Uses TMCC IDs 12 - 19".
-
-        The count is not spelled out again -- the mode label above already says how many
-        TMCC IDs the mode uses, and the range says it a second time.
-        """
-        if self._mode is None:
-            return ""
-        ports = self.ports
-        if ports <= 1:
-            return f"Uses TMCC ID {self._base_id}"
-        return f"Uses TMCC IDs {self._base_id} - {self._base_id + ports - 1}"
-
-    def _refresh_block_line(self) -> None:
-        if self._block_line is not None:
-            self._block_line.value = self.block_text
 
     @property
     def mode_footnote(self) -> str:
@@ -1622,8 +1664,13 @@ class LcsConfigPanel(OverlayPanel):
         if grid is None:
             return
         for index, row in enumerate(rows):
+            # Colored here rather than where the cell is built, because a cell outlives the
+            # row it last held: the same three labels report an address that is taken and
+            # then, a step of the ID later, one that is free. See UNASSIGNED_FG.
+            color = UNASSIGNED_FG if row.is_unassigned else CONFLICT_FG
             for cell, value in zip(self._grid_row(grid, cells, index), row.cells):
                 cell.value = value
+                cell.text_color = color
                 if not cell.visible:
                     cell.show()
         # Rows left over from a busier ID are hidden rather than blanked: an empty label
@@ -1726,10 +1773,10 @@ class LcsConfigPanel(OverlayPanel):
         """
         scope = occupant.effective_scope
         scope_label = SCOPE_LABEL.get(scope, scope.title if scope is not None else "")
-        if occupant.last_id > occupant.base_id:
-            ids = f"TMCC IDs {occupant.base_id} - {occupant.last_id}"
-        else:
-            ids = f"TMCC ID {occupant.base_id}"
+        # The registry's own spelling of a block, which is also what the mode radios above
+        # these rows read, so a module in the way is named the way the mode that would
+        # claim it is named.
+        ids = tmcc_id_text(occupant.base_id, occupant.last_id)
         return scope_label, occupant.device.label, ids
 
     def overlap_occupants(self) -> list[LcsOccupant]:
