@@ -388,11 +388,50 @@ def test_build_gui_seeds_sync_pending_from_the_hosts_synchronized_state(
             def set_sync_pending(pending: bool) -> None:
                 seen.append(pending)
 
-        monkeypatch.setattr(gui_mod, "LcsConfigPanel", lambda _gui: FakePanel(), raising=True)
+        monkeypatch.setattr(gui_mod, "LcsConfigPanel", lambda _gui, **_kwargs: FakePanel(), raising=True)
 
         gui.build_gui()
 
         assert seen == [expected]
+    finally:
+        gui.close()
+
+
+def test_closing_the_panel_closes_the_window_it_is_the_whole_of(_patch_runtime, monkeypatch) -> None:
+    # Embedded in EngineGui, closing the popup uncovers the GUI underneath; here there is
+    # nothing underneath, and hiding the overlay alone would leave an empty frame. The
+    # post-close action runs the very shutdown the window's own title bar runs, which is
+    # why a desktop needs no Close button on the panel at all.
+    gui = _host()
+    try:
+        monkeypatch.setattr(LcsGui, "show_popup", lambda self, *a, **k: None, raising=True)
+        seen: list = []
+
+        class FakePanel:
+            overlay = object()
+
+            def __init__(self, _gui, **kwargs) -> None:
+                seen.append(kwargs.get("post_close"))
+
+            @staticmethod
+            def configure(*_args, **_kwargs) -> None:
+                return
+
+            @staticmethod
+            def set_sync_pending(_pending: bool) -> None:
+                return
+
+        monkeypatch.setattr(gui_mod, "LcsConfigPanel", FakePanel, raising=True)
+
+        gui.build_gui()
+
+        assert seen == [gui._on_panel_closed]
+        assert gui.is_shutting_down is False
+
+        # As PopupManager.close calls it: with the overlay that was dismissed.
+        seen[0](object())
+
+        assert gui.is_shutting_down is True
     finally:
         gui.close()
 

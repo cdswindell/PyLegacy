@@ -162,7 +162,7 @@ class LcsGui(GuiZeroBase):
     # Lifecycle
     #
     def build_gui(self) -> None:
-        self._panel = LcsConfigPanel(self)
+        self._panel = LcsConfigPanel(self, post_close=self._on_panel_closed)
         self._overlay = self._panel.overlay
         # Nothing is selected in a stand-alone run, so the panel opens on its device page
         # with the default base ID, exactly as it does when opened with no active state.
@@ -171,6 +171,20 @@ class LcsGui(GuiZeroBase):
         # opened after the store is loaded shows nothing out of the ordinary.
         self._panel.set_sync_pending(not self.is_synchronized)
         self.show_popup(self._overlay)
+
+    def _on_panel_closed(self, _overlay: Box) -> None:
+        """Dismissing the panel here dismisses the program: the panel is the whole window.
+
+        Embedded in ``EngineGui`` closing the popup uncovers the GUI underneath, so no
+        post-close action is passed there. Here there is nothing underneath, and hiding the
+        overlay on its own would leave an empty white frame with no way back.
+
+        ``close()`` is exactly what the window's own title bar does -- ``GuiZeroBase.run``
+        sets ``App.when_closed`` to it -- so the Close button the Pi and the Steam Deck show
+        (see :func:`~.lcs_config_panel.needs_close_button`) ends the run the same way the
+        title bar ends it on a desktop, which is why a desktop needs no such button.
+        """
+        self.close()
 
     def destroy_gui(self) -> None:
         self._panel = None

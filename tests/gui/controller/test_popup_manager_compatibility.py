@@ -458,6 +458,65 @@ def test_create_popup_positions_the_footer_row_of_every_panel_it_builds(monkeypa
             assert [w.kwargs["align"] for w in mine if w.kwargs.get("height") == expected_lead] == ["top"], where
 
 
+def test_a_panel_that_declines_close_is_given_none_but_keeps_its_whitespace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The LCS panel on a Mac or a PC: the window's own title bar closes it, so a Close
+    # inside the window is a second copy of what the window already has. Asked in both
+    # branches, since the answer means the same however a panel arranges its own buttons.
+    # The band above and below the row is measured rather than counted, so an empty row
+    # costs it nothing and the fill and the lead are built either way.
+    made: list[_Widget] = []
+
+    def make(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(mod, "Box", make)
+    monkeypatch.setattr(mod, "Text", make)
+    monkeypatch.setattr(mod, "PushButton", make)
+
+    class _Panel(mod.OverlayPanel):
+        def __init__(self, has_footer: bool, has_close: bool) -> None:
+            # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
+            self._overlay = None
+            self._has_footer = has_footer
+            self._has_close = has_close
+
+        @property
+        def has_footer(self) -> bool:
+            return self._has_footer
+
+        @property
+        def has_close(self) -> bool:
+            return self._has_close
+
+        def build(self, body) -> None:
+            pass
+
+        def build_footer(self, footer) -> None:
+            pass
+
+    for has_footer in (True, False):
+        for has_close, expected in ((True, 1), (False, 0)):
+            manager = mod.PopupManager(_host())
+            made.clear()
+
+            overlay = manager.create_popup("Options", _Panel(has_footer, has_close))
+            mine = [w for w in made if w.master is overlay]
+
+            where = f"has_footer={has_footer} has_close={has_close}"
+            assert len([w for w in made if w.kwargs.get("text") == "Close"]) == expected, where
+            assert [w.kwargs["align"] for w in mine if w.kwargs.get("height") == "fill"] == ["bottom"], where
+            assert [w.kwargs["align"] for w in mine if w.kwargs.get("height") == mod.FOOTER_LEAD] == ["top"], where
+
+
+def test_every_panel_but_the_one_that_says_otherwise_gets_close() -> None:
+    # The opt-out is a panel's to take, and the base class does not take it: a panel that
+    # says nothing about Close is dismissed by Close and nothing else.
+    assert mod.OverlayPanel.has_close.fget(object()) is True
+
+
 def test_create_popup_leaves_the_overlay_unsized(monkeypatch: pytest.MonkeyPatch) -> None:
     # The invariant the previous attempt at extending panels broke. Sizing the overlay at
     # construction time -- height="fill" in particular -- puts a fill widget in the host's pack

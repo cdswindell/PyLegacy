@@ -48,6 +48,15 @@ class OverlayPanel(metaclass=ABCMeta):
         return self._overlay is not None and self._overlay.visible
 
     @property
+    def has_close(self) -> bool:
+        """Whether ``create_popup`` gives this panel's popup a Close button.
+
+        True for every panel that has no other way off itself, which is all of them bar
+        the LCS configuration panel; see :meth:`LcsConfigPanel.has_close`.
+        """
+        return True
+
+    @property
     def has_footer(self) -> bool:
         return False
 

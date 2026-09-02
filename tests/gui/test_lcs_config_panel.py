@@ -253,7 +253,6 @@ def _patch_widgets(monkeypatch):
     monkeypatch.setattr(mod, "CheckBox", DummyCheckBox, raising=True)
     monkeypatch.setattr(mod, "StateWatcher", lambda _state, _action: None, raising=True)
     monkeypatch.setattr(mod, "style_footer_button", lambda _host, _btn: None, raising=True)
-    monkeypatch.setattr(mod, "footer_spacer", lambda _host, _footer: None, raising=True)
     # Pinned so the ID field's editor does not depend on the machine running the tests;
     # the platform-specific cases patch it themselves. Patched on the panel module, which
     # is only possible because is_linux is imported there at module scope rather than
@@ -263,8 +262,8 @@ def _patch_widgets(monkeypatch):
 
 def _new_panel(store: FakeStore | None = None):
     panel = mod.LcsConfigPanel(_new_host(store))
+    # Back and Next come with build(): the panel owns them, and the popup adds only Close.
     panel.build(DummyBox())
-    panel.build_footer(DummyBox())
     return panel
 
 
@@ -294,7 +293,7 @@ def test_next_page_requires_a_device_then_shows_id_page() -> None:
 
     assert panel._next_btn.enabled is False
     panel._on_device_selected("asc2")
-    panel.refresh_footer()
+    panel._refresh_nav()
     assert panel._next_btn.enabled is True
 
     panel.next_page()
@@ -1015,7 +1014,7 @@ def test_every_other_control_stays_usable_while_sync_is_pending() -> None:
     assert panel.device is BPC2
     panel._set_base_id(12)
     assert panel.base_id == 12
-    panel.refresh_footer()
+    panel._refresh_nav()
     assert panel._next_btn.enabled is True
 
     panel.next_page()
@@ -1196,7 +1195,7 @@ def test_the_titled_boxes_are_stacked_in_one_column() -> None:
     ]
 
 
-def test_every_showing_box_is_stretched_across_that_column() -> None:
+def test_every_showing_box_is_stretched_across_that_column_and_spaced_from_the_next() -> None:
     store = FakeStore({CommandScope.ACC: [FakeState(30, "is_bpc2", mode=2, num_ids=8)]})
     panel = _new_panel(store)
     panel._on_device_selected("asc2")  # the mode box is showing
@@ -1204,12 +1203,29 @@ def test_every_showing_box_is_stretched_across_that_column() -> None:
     assert panel._overlap_box.visible is True
     _record_titled_boxes(panel)
 
-    panel._equalize_titled_boxes()
+    panel._lay_out_titled_boxes()
 
     assert panel._titled_boxes.tk.columns == {0: {"weight": 1}}
-    assert panel._assigned_box.tk.grid_options == {"sticky": "ew"}
-    assert panel._overlap_box.tk.grid_options == {"sticky": "ew"}
-    assert panel._mode_box.tk.grid_options == {"sticky": "ew"}
+    # The stretch that makes them one width, and the whitespace that keeps the three from
+    # reading as one ruled block. Padding rather than a spacer widget only because this
+    # method is re-run after every refresh; see its docstring.
+    stretched_and_spaced = {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
+    assert panel._assigned_box.tk.grid_options == stretched_and_spaced
+    assert panel._overlap_box.tk.grid_options == stretched_and_spaced
+    assert panel._mode_box.tk.grid_options == stretched_and_spaced
+
+
+@pytest.mark.parametrize("compact, gap", [(False, mod.BOX_GAP), (True, mod.BOX_GAP_COMPACT)])
+def test_the_gap_between_the_boxes_is_tighter_on_a_compact_host(compact: bool, gap: int) -> None:
+    host = _new_host()
+    host.compact = compact
+    panel = mod.LcsConfigPanel(host)
+    panel.build(DummyBox())
+    _record_titled_boxes(panel)
+
+    panel._lay_out_titled_boxes()
+
+    assert panel._assigned_box.tk.grid_options["pady"] == (0, gap)
 
 
 def test_a_hidden_box_is_not_stretched_back_onto_the_screen() -> None:
@@ -1221,17 +1237,17 @@ def test_a_hidden_box_is_not_stretched_back_onto_the_screen() -> None:
     assert panel._overlap_box.visible is False
     _record_titled_boxes(panel)
 
-    panel._equalize_titled_boxes()
+    panel._lay_out_titled_boxes()
 
-    assert panel._assigned_box.tk.grid_options == {"sticky": "ew"}
+    assert panel._assigned_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
     assert panel._overlap_box.tk.grid_options == {}
     assert panel._mode_box.tk.grid_options == {}
 
 
 def test_the_stretch_is_re_applied_on_every_id_page_refresh() -> None:
     # guizero rebuilds a container's grid options from scratch whenever a child is shown
-    # or hidden, and sticky is not among the options it replays, so setting it once at
-    # build time would be lost the first time the mode box appeared.
+    # or hidden, and neither sticky nor pady is among the options it replays, so setting
+    # them once at build time would be lost the first time the mode box appeared.
     panel = _new_panel()
     panel._on_device_selected("asc2")
     _record_titled_boxes(panel)
@@ -1239,8 +1255,8 @@ def test_the_stretch_is_re_applied_on_every_id_page_refresh() -> None:
     panel._refresh_id_page()
 
     assert panel._titled_boxes.tk.columns == {0: {"weight": 1}}
-    assert panel._assigned_box.tk.grid_options == {"sticky": "ew"}
-    assert panel._mode_box.tk.grid_options == {"sticky": "ew"}
+    assert panel._assigned_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
+    assert panel._mode_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
 
 
 def test_equalizing_survives_a_tcl_error() -> None:
@@ -1252,11 +1268,11 @@ def test_equalizing_survives_a_tcl_error() -> None:
 
     panel._assigned_box.tk.grid_configure = _raise
 
-    panel._equalize_titled_boxes()  # must not raise
+    panel._lay_out_titled_boxes()  # must not raise
 
 
 #
-# Tight whitespace
+# Whitespace: tight under a heading, wider between the sections of a page
 #
 def _build_with_body(compact: bool = False):
     host = _new_host()
@@ -1267,11 +1283,19 @@ def _build_with_body(compact: bool = False):
     return panel, body, host
 
 
-def test_exactly_two_spacers_are_requested() -> None:
+def test_every_spacer_that_is_asked_for_and_no_other() -> None:
     panel, body, host = _build_with_body()
+    id_page = panel._pages[mod.PAGE_ID]
 
     parents = [parent for parent, _pixels in host.vspaces]
-    assert parents == [body, panel._pages[mod.PAGE_DEVICE]]
+    assert parents == [
+        body,  # under the popup's title row
+        panel._pages[mod.PAGE_DEVICE],  # under that page's prompt
+        id_page,  # under the stepper row
+        id_page,  # under the titled boxes
+        id_page,  # above the choice buttons
+        body,  # above the Back/Next row
+    ]
 
 
 def test_the_body_spacer_comes_before_the_sync_line_and_the_pages() -> None:
@@ -1291,19 +1315,78 @@ def test_the_device_page_spacer_sits_between_the_prompt_and_the_group() -> None:
     assert page.children[2] is panel._device_group
 
 
+def test_the_id_pages_sections_are_held_apart() -> None:
+    # The crowded page: the stepper, the three titled boxes, the lines derived from them
+    # and the choice buttons each answer a different question, and ran together into one
+    # block without these.
+    panel, _body, _host = _build_with_body()
+    page = panel._pages[mod.PAGE_ID]
+
+    assert page.children[0] is panel._id_heading
+    assert page.children[1].kwargs["layout"] == "grid"  # the - 8 + row
+    assert getattr(page.children[2], "vspace", None) == mod.PAGE_GAP
+    assert page.children[3] is panel._titled_boxes
+    assert getattr(page.children[4], "vspace", None) == mod.PAGE_GAP
+    assert page.children[5] is panel._block_line
+    assert page.children[6] is panel._mode_footnote_line
+    assert getattr(page.children[7], "vspace", None) == mod.PAGE_GAP
+
+
 @pytest.mark.parametrize(
-    "compact, gap",
-    [(False, mod.SECTION_GAP), (True, mod.SECTION_GAP_COMPACT)],
+    "compact, section, page",
+    [
+        (False, mod.SECTION_GAP, mod.PAGE_GAP),
+        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT),
+    ],
 )
-def test_the_gap_is_tighter_on_a_compact_host(compact: bool, gap: int) -> None:
+def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, page: int) -> None:
     _panel, _body, host = _build_with_body(compact=compact)
 
-    assert [pixels for _parent, pixels in host.vspaces] == [gap, gap]
+    assert [pixels for _parent, pixels in host.vspaces] == [section, section, page, page, page, page]
 
 
 #
-# Footer: Back is hidden on the first page, Next never moves
+# The panel's own Back/Next row: Back is hidden on the first page, Next never moves
 #
+def test_back_and_next_are_the_last_thing_in_the_body_after_a_gap() -> None:
+    # The panel's own row, not the popup's footer: Close is added below everything build()
+    # produces, so it lands on a line of its own under these two.
+    panel, body, _host = _build_with_body()
+
+    assert getattr(body.children[-2], "vspace", None) == mod.PAGE_GAP
+    assert body.children[-1] is panel._nav
+    assert [child.text for child in panel._nav.children if getattr(child, "text", "")] == ["Back", "Next"]
+
+
+def test_the_panel_offers_no_footer_so_close_gets_a_line_of_its_own() -> None:
+    # create_popup's other branch: with no footer to append Close to, it adds the plain
+    # centred Close button to the overlay itself, below the panel's own content.
+    panel = _new_panel()
+
+    assert panel.has_footer is False
+    assert mod.LcsConfigPanel.build_footer is mod.OverlayPanel.build_footer
+
+
+@pytest.mark.parametrize("linux", [True, False])
+def test_close_is_asked_for_only_where_the_window_has_no_title_bar(monkeypatch, linux: bool) -> None:
+    # The Pi and the Deck run full screen, so a button below the panel is the only way off
+    # it. A Mac or a PC window has a close box already wired to the same shutdown, and a
+    # Close inside the window duplicates it. Same platform helper as the ID editor.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+
+    assert mod.needs_close_button() is linux
+    assert _new_panel().has_close is linux
+
+
+def test_declining_close_is_this_panel_and_no_other() -> None:
+    # Every other overlay is dismissed by Close and nothing else, so the base class says
+    # yes and create_popup goes on adding it there.
+    panel = _new_panel()
+
+    assert mod.OverlayPanel.has_close.fget(panel) is True
+    assert mod.LcsConfigPanel.has_close is not mod.OverlayPanel.has_close
+
+
 def test_back_is_hidden_and_its_slot_shown_on_the_device_page() -> None:
     panel = _new_panel()
 
@@ -1335,14 +1418,14 @@ def test_stepping_forward_and_back_restores_the_initial_visibility() -> None:
     assert (panel._back_btn.visible, panel._back_slot.visible) == before
 
 
-def test_footer_packing_is_replayed_after_every_toggle(monkeypatch) -> None:
+def test_the_rows_packing_is_replayed_after_every_toggle(monkeypatch) -> None:
+    # Hiding or showing Back runs the row's own display_widgets(), which rebuilds pack
+    # options from scratch and discards the padding style_footer_button recorded.
     calls: list[Any] = []
-    monkeypatch.setattr(mod, "restore_footer_packing", lambda footer: calls.append(footer), raising=True)
+    monkeypatch.setattr(mod, "restore_footer_packing", lambda row: calls.append(row), raising=True)
 
     panel = mod.LcsConfigPanel(_new_host())
     panel.build(DummyBox())
-    footer = DummyBox()
-    panel.build_footer(footer)
     built = len(calls)
     assert built >= 1
 
@@ -1351,7 +1434,8 @@ def test_footer_packing_is_replayed_after_every_toggle(monkeypatch) -> None:
     panel.previous_page()
 
     assert len(calls) > built
-    assert set(calls) == {footer}
+    # The panel's own row, never the popup's overlay: the buttons live here now.
+    assert set(calls) == {panel._nav}
 
 
 def test_next_enablement_is_unchanged_by_the_hidden_back_button() -> None:
@@ -1359,7 +1443,7 @@ def test_next_enablement_is_unchanged_by_the_hidden_back_button() -> None:
 
     assert panel._next_btn.enabled is False
     panel._on_device_selected("asc2")
-    panel.refresh_footer()
+    panel._refresh_nav()
     assert panel._next_btn.enabled is True
 
     for _ in range(3):
@@ -1370,10 +1454,10 @@ def test_next_enablement_is_unchanged_by_the_hidden_back_button() -> None:
 
 def test_button_slot_falls_back_when_the_button_cannot_be_measured() -> None:
     panel = mod.LcsConfigPanel(_new_host())
-    footer = DummyBox()
+    nav = DummyBox()
     unmeasurable = SimpleNamespace(tk=SimpleNamespace())
 
-    slot = panel._button_slot(footer, unmeasurable)
+    slot = panel._button_slot(nav, unmeasurable)
 
     assert slot.kwargs["width"] == mod.FOOTER_SLOT_FALLBACK + 2 * mod.FOOTER_BUTTON_PAD
     assert slot.visible is False
@@ -1473,19 +1557,32 @@ def test_the_mode_box_is_hidden_until_a_device_declares_modes() -> None:
 # The ID page's type scale, and the order of its lines
 #
 def test_the_mode_options_are_larger_than_the_page_body() -> None:
-    # The modes are the choice being made on this page, so they read a step up from the
-    # page's body size -- and from the device rows on the page before.
+    # The modes are the choice being made on this page, so they read above the page's body
+    # size -- and above the device rows on the page before.
     panel = _new_panel()
     host = panel.gui
 
-    assert panel._mode_group.kwargs["size"] == host.s_16
+    assert panel._mode_group.kwargs["size"] == host.s_18
     assert panel._mode_group.kwargs["size"] > host.s_14
     assert panel._device_group.kwargs["size"] == host.s_14
 
 
-def test_the_information_lines_are_smaller_than_the_page_body() -> None:
-    # Every one of them is derived from the ID and the mode above them: context, not a
-    # choice. The footnote is quietest of all, at the block line's size.
+def test_the_three_titled_boxes_are_labelled_at_the_page_body_size() -> None:
+    # A step below it read as fine print on the Pi, and what these boxes report is what the
+    # operator checks before committing an ID.
+    panel = _new_panel()
+    host = panel.gui
+
+    assert panel._assigned_box.text_size == host.s_14
+    assert panel._overlap_box.text_size == host.s_14
+    assert panel._mode_box.text_size == host.s_14
+    assert panel._mode_group.kwargs["size"] > panel._mode_box.text_size
+
+
+def test_the_module_rows_are_body_size_and_the_derived_lines_below_it() -> None:
+    # The rows name what already answers to this ID, which is the answer the operator came
+    # to the page for. The block line and the footnote are derived from the ID and the mode
+    # above them -- context, not a choice.
     store = FakeStore({CommandScope.ACC: [FakeState(30, "is_bpc2", mode=2, num_ids=8)]})
     panel = _new_panel(store)
     panel._on_device_selected("asc2")
@@ -1493,12 +1590,12 @@ def test_the_information_lines_are_smaller_than_the_page_body() -> None:
     host = panel.gui
 
     assigned = panel._assigned_cells[0]
-    assert all(cell.text_size == host.s_12 for cell in assigned)
+    assert [cell.text_size for cell in assigned] == [host.s_14] * mod.ROW_COLUMNS
     # The two boxes read as one list, so their rows are the same size.
-    assert all(cell.text_size == host.s_12 for cell in panel._overlap_cells[0])
+    assert all(cell.text_size == host.s_14 for cell in panel._overlap_cells[0])
     assert panel._block_line.text_size == host.s_10
     assert panel._mode_footnote_line.text_size == host.s_10
-    assert panel._block_line.text_size < assigned[0].text_size < host.s_14
+    assert panel._block_line.text_size < assigned[0].text_size
 
 
 def test_the_device_line_sits_directly_under_the_id_row() -> None:
@@ -1515,7 +1612,8 @@ def test_the_device_line_sits_directly_under_the_id_row() -> None:
     footnote = order.index(panel._mode_footnote_line)
 
     assert heading < row < boxes < block < footnote
-    assert boxes == row + 1
+    # Nothing between the two but the spacer that holds them apart.
+    assert boxes == row + 2
     # The titled boxes share that one slot: assigned, then overlaps, then the mode radios.
     assert panel._assigned_box.grid == [0, 0]
     assert panel._overlap_box.grid == [0, 1]

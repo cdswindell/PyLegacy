@@ -49,7 +49,6 @@ from .overlay_panel import OverlayPanel
 from .popup_manager import (
     FOOTER_BUTTON_PAD,
     FOOTER_BUTTON_PAD_COMPACT,
-    footer_spacer,
     restore_footer_packing,
     style_footer_button,
 )
@@ -114,10 +113,26 @@ SENSOR_TRACK_REVIEW_NOTE = (
 
 # Tight whitespace under the popup title row, and under a page's prompt. Real spacer
 # widgets (host.add_vspace), never pack padding: padding is discarded the next time
-# anything in the container is created or shown -- the same reason footer_spacer and
-# footer_lead are widgets. The compact pane cannot afford the portrait value.
+# anything in the container is created or shown -- the same reason footer_lead is a
+# widget. The compact pane cannot afford the portrait value.
 SECTION_GAP = 10
 SECTION_GAP_COMPACT = 6
+
+# Whitespace between the parts of the ID page -- the stepper row, the titled boxes, the
+# lines derived from them, the choice buttons -- and above the Back/Next row. Wider than
+# SECTION_GAP, which sits under a heading that belongs with whatever follows it; these
+# separate sections that answer different questions, and without them the page read as
+# one dense block on the Pi. Spacer widgets for the reason given above.
+PAGE_GAP = 16
+PAGE_GAP_COMPACT = 8
+
+# Whitespace between the Currently Assigned, Overlaps and Mode boxes, in pixels. Grid
+# padding rather than a spacer widget, which is safe here for the one reason it is not
+# safe elsewhere: _lay_out_titled_boxes already has to re-apply these boxes' grid options
+# after every refresh, so the padding is replayed along with the stretch. Applied below
+# each box, the last one included, which is whitespace the block line below wants anyway.
+BOX_GAP = 8
+BOX_GAP_COMPACT = 4
 
 # Fallback slot width for the hidden Back button, used only when the real button cannot
 # be measured (a headless stand-in). Chosen from the measured 184 px request of a styled
@@ -201,13 +216,35 @@ def reflects_layout_by_default() -> bool:
     return is_linux()
 
 
+def needs_close_button() -> bool:
+    """True where the panel has to carry a Close button: the Pi and the Steam Deck.
+
+    Those two run full screen with no window frame, so a button below the panel is the
+    only way off it. A desktop window has a title bar, and its close box is already wired
+    to the very same shutdown -- ``GuiZeroBase.run`` sets ``App.when_closed`` to ``close``
+    -- so a Close inside the window is a second one of something the window already has.
+
+    Same platform test as :func:`touch_only_editing`, and for the same reason.
+    """
+    return is_linux()
+
+
 class LcsConfigPanel(OverlayPanel):
     """
     A stepped overlay that walks the operator through programming an LCS module.
     """
 
-    def __init__(self, host: "EngineGui", title: str = LCS_PANEL_TITLE) -> None:
-        super().__init__(host, title)
+    def __init__(
+        self,
+        host: "EngineGui",
+        title: str = LCS_PANEL_TITLE,
+        *,
+        post_close: Callable = None,
+    ) -> None:
+        # post_close is what a stand-alone host uses to shut its window down when the panel
+        # is dismissed; embedded in EngineGui there is a GUI underneath, so nothing is passed
+        # and closing the popup just uncovers it.
+        super().__init__(host, title, post_close=post_close)
         self._device: LcsDevice | None = None
         self._mode: LcsMode | None = None
         self._base_id: int = MIN_TMCC_ID
@@ -247,7 +284,7 @@ class LcsConfigPanel(OverlayPanel):
         self._back_btn: HoldButton | None = None
         self._back_slot: Box | None = None
         self._next_btn: HoldButton | None = None
-        self._footer: Box | None = None
+        self._nav: Box | None = None
         self._suspend_device_selector = False
         self._suspend_option_selectors = False
         # Set only by a stand-alone host that opens the window ahead of synchronization;
@@ -383,6 +420,14 @@ class LcsConfigPanel(OverlayPanel):
     def _section_gap(self) -> int:
         return SECTION_GAP_COMPACT if self.compact else SECTION_GAP
 
+    @property
+    def _page_gap(self) -> int:
+        return PAGE_GAP_COMPACT if self.compact else PAGE_GAP
+
+    @property
+    def _box_gap(self) -> int:
+        return BOX_GAP_COMPACT if self.compact else BOX_GAP
+
     def build(self, body: Box) -> None:
         host = self._gui
         self._body = body
@@ -397,6 +442,12 @@ class LcsConfigPanel(OverlayPanel):
             self._build_options_page(body),
             self._build_review_page(body),
         ]
+        # Back and Next belong to the panel, not to the popup's footer row: the popup adds
+        # its own Close below everything built here, so Close gets a line of its own
+        # instead of the three buttons sharing one. Created after the pages so the row is
+        # packed below whichever page is showing.
+        host.add_vspace(body, self._page_gap)
+        self._build_nav(body)
         self._show_page(self._page_index)
 
     def _label(self, parent: Box, text: str, size: int | None = None, bold: bool = False, **kwargs) -> Text:
@@ -496,10 +547,13 @@ class LcsConfigPanel(OverlayPanel):
         for btn in (self._minus_btn, self._plus_btn):
             btn.text_size = host.s_20
 
+        host.add_vspace(page, self._page_gap)
+
         # The titled boxes share one grid column, which is how they come out the same
         # width: the column is as wide as the widest of them, and each box is stretched
         # into it. Stacked rather than packed for exactly that reason -- packed boxes each
-        # keep their own natural width, which is what left them ragged.
+        # keep their own natural width, which is what left them ragged. The whitespace
+        # between them rides along with that stretch; see _lay_out_titled_boxes.
         self._titled_boxes = Box(page, layout="grid", align="top", border=0)
 
         # What already answers to this ID, directly under the ID row it describes: it tells
@@ -507,9 +561,11 @@ class LcsConfigPanel(OverlayPanel):
         # there, which they need to know before choosing a mode, not after. Titled, because
         # a bare line naming some other module beside the one being programmed reads as a
         # contradiction until you know it is reporting the layout rather than the choice.
-        # A step below the page's body size: context, not a choice.
+        # At the page's body size, as are the other two titles and the module rows inside
+        # all three: a step below read as fine print on the Pi, and what these boxes report
+        # is what the operator checks before committing an ID.
         self._assigned_box = TitleBox(self._titled_boxes, text=ASSIGNED_TITLE, grid=[0, 0], align=None)
-        self._assigned_box.text_size = host.s_12
+        self._assigned_box.text_size = host.s_14
         # One row per module, gridded so the remote key, the module and its TMCC IDs line
         # up down the box instead of each row starting wherever the row above it ended.
         self._assigned_grid = Box(self._assigned_box, layout="grid", align="top", border=0)
@@ -520,28 +576,33 @@ class LcsConfigPanel(OverlayPanel):
         # since an empty titled frame reads as a failure to look rather than as an answer --
         # unlike the assigned box, which always has "Unassigned" to say.
         self._overlap_box = TitleBox(self._titled_boxes, text=OVERLAP_TITLE, grid=[0, 1], align=None)
-        self._overlap_box.text_size = host.s_12
+        self._overlap_box.text_size = host.s_14
         self._overlap_grid = Box(self._overlap_box, layout="grid", align="top", border=0)
 
         # The mode radios are the only choice on this page besides the ID itself, so they
-        # are given a titled box that says what they are choosing -- and a step above the
-        # page's body size, since each label also carries the port count.
+        # are given a titled box that says what they are choosing -- and a size above the
+        # page's body text, since each label also carries the port count.
         self._mode_box = TitleBox(self._titled_boxes, text=MODE_TITLE, grid=[0, 2], align=None)
-        self._mode_box.text_size = host.s_12
+        self._mode_box.text_size = host.s_14
         self._mode_group = CheckBoxGroup(
             self._mode_box,
-            size=host.s_16,
+            size=host.s_18,
             options=self.mode_options(),
             selected=None,
             align="top",
             style="radio",
             command=self._on_mode_selected,
         )
+
+        host.add_vspace(page, self._page_gap)
+
         # The block the chosen mode claims, derived from the ID and the mode above it, so
         # it is one of the quietest lines on the page.
         self._block_line = self._label(page, "", size=host.s_10)
         # A footnote to the mode radios: what each remote key above is actually for.
         self._mode_footnote_line = self._label(page, "", size=host.s_10)
+
+        host.add_vspace(page, self._page_gap)
 
         choices = Box(page, align="top", border=0)
         self._goto_btn = HoldButton(choices, text="Go to", align="left", command=self.go_to_owning_base)
@@ -553,11 +614,11 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_mode_selector()
         # Builds the first assigned row, so that box says something from the outset.
         self._refresh_occupancy()
-        self._equalize_titled_boxes()
+        self._lay_out_titled_boxes()
         return page
 
-    def _equalize_titled_boxes(self) -> None:
-        """Give the Currently Assigned, Overlaps and Mode boxes one width: the widest one's.
+    def _lay_out_titled_boxes(self) -> None:
+        """Give the Currently Assigned, Overlaps and Mode boxes one width, and space between.
 
         All three are gridded into column 0 of the same container and stretched across it,
         so the column takes the width of whichever box asks for most and the others grow to
@@ -566,19 +627,25 @@ class LcsConfigPanel(OverlayPanel):
 
         Re-applied after every refresh rather than set once, because guizero rebuilds a
         container's grid options from scratch in ``display_widgets`` -- which runs whenever
-        any child is shown, hidden or created -- and ``sticky`` is not among the options it
-        replays. Hiding the mode box for a device with no modes is enough to lose it.
-        A hidden box is skipped: ``grid_configure`` on a widget the grid has forgotten
-        would put it back on screen.
+        any child is shown, hidden or created -- and neither ``sticky`` nor ``pady`` is among
+        the options it replays. Hiding the mode box for a device with no modes is enough to
+        lose them. A hidden box is skipped: ``grid_configure`` on a widget the grid has
+        forgotten would put it back on screen.
+
+        That replay is also what makes ``pady`` the one place here where whitespace is
+        padding rather than a spacer widget: it is re-applied on the same schedule as the
+        stretch, so it cannot be silently dropped the way padding elsewhere in the panel
+        would be. Stacked flush, the three boxes read as one ruled block on the Pi.
         """
         container = self._titled_boxes
         if container is None:
             return
+        gap = self._box_gap
         try:
             container.tk.grid_columnconfigure(0, weight=1)
             for box in (self._assigned_box, self._overlap_box, self._mode_box):
                 if box is not None and box.visible:
-                    box.tk.grid_configure(sticky="ew")
+                    box.tk.grid_configure(sticky="ew", pady=(0, gap))
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
@@ -975,7 +1042,7 @@ class LcsConfigPanel(OverlayPanel):
                 page.show()
             else:
                 page.hide()
-        self.refresh_footer()
+        self._refresh_nav()
 
     def next_page(self) -> None:
         self._show_page(self._page_index + 1)
@@ -1232,7 +1299,7 @@ class LcsConfigPanel(OverlayPanel):
         # Last, and after everything that shows or hides one of the titled boxes or changes
         # what is inside them: guizero drops the stretch that keeps them the same width
         # every time it re-displays them.
-        self._equalize_titled_boxes()
+        self._lay_out_titled_boxes()
         self._refresh_options_page()
         self._refresh_review_page()
 
@@ -1377,7 +1444,9 @@ class LcsConfigPanel(OverlayPanel):
 
     def _grid_cell(self, grid: Box, column: int, row: int) -> Text:
         cell = Text(grid, text="", grid=[column, row], align="left")
-        cell.text_size = self._gui.s_12
+        # The size of the box titles above them: these rows are the answer the operator
+        # came to the page for, not a caption on it.
+        cell.text_size = self._gui.s_14
         cell.text_bold = column == 0
         try:
             cell.tk.config(padx=ASSIGNED_CELL_PAD)
@@ -1526,28 +1595,47 @@ class LcsConfigPanel(OverlayPanel):
         return self._configure_as_new_id == self._base_id
 
     #
-    # Footer
+    # Page navigation
     #
     @property
-    def has_footer(self) -> bool:
-        return True
+    def has_close(self) -> bool:
+        """Whether the popup adds its Close button below the panel's Back/Next row.
 
-    def build_footer(self, footer: Box) -> None:
+        Only where the panel is the only way off itself; see :func:`needs_close_button`.
+        Read by ``create_popup`` as the overlay is built, which is the one moment it is
+        needed: an overlay is built on the machine it is shown on.
+        """
+        return needs_close_button()
+
+    def _build_nav(self, body: Box) -> None:
+        """Back and Next, on a row of the panel's own rather than in the popup's footer.
+
+        ``has_footer`` is left False, so where ``create_popup`` adds a Close button at all
+        (see :meth:`has_close`) it goes below everything the panel builds -- which puts
+        Close on a line of its own, under these two, instead of all three crowding one row.
+        Where it does not, these two are the last row in the overlay and nothing moves.
+
+        The row is packed, not gridded, and asks for no width of its own, so Tk centers it
+        under the page above; Close below it is centered the same way. Its width does not
+        change between pages, because the slot stands in for Back while Back is hidden.
+
+        Styled with ``style_footer_button`` all the same: that is the one shared look for
+        the big buttons at the foot of an overlay, and the Close beneath them wears it too.
+        """
         host = self._gui
-        self._footer = footer
-        self._back_btn = back = HoldButton(footer, text="Back", align="left", width=8, command=self.previous_page)
+        self._nav = nav = Box(body, align="top", border=0)
+        self._back_btn = back = HoldButton(nav, text="Back", align="left", width=8, command=self.previous_page)
         style_footer_button(host, back)
         host.cache(back)
         # Holds Back's place while it is hidden, so Next never moves between pages.
-        self._back_slot = self._button_slot(footer, back)
-        self._next_btn = nxt = HoldButton(footer, text="Next", align="left", width=8, command=self.next_page)
+        self._back_slot = self._button_slot(nav, back)
+        self._next_btn = nxt = HoldButton(nav, text="Next", align="left", width=8, command=self.next_page)
         style_footer_button(host, nxt)
         host.cache(nxt)
-        footer_spacer(host, footer)
-        self.refresh_footer()
+        self._refresh_nav()
 
-    def _button_slot(self, footer: Box, button: HoldButton) -> Box:
-        """An empty Box exactly as wide as ``button``'s footer slot, created hidden.
+    def _button_slot(self, parent: Box, button: HoldButton) -> Box:
+        """An empty Box exactly as wide as ``button``'s slot in the row, created hidden.
 
         Measured rather than guessed: a styled width=8 footer button requests 184x52 while
         an identically padded Label of the same width requests only 156x48, so a label
@@ -1560,7 +1648,7 @@ class LcsConfigPanel(OverlayPanel):
             width = int(button.tk.winfo_reqwidth()) + 2 * pad
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             width = FOOTER_SLOT_FALLBACK + 2 * pad
-        slot = Box(footer, align="left", width=width, height=1)
+        slot = Box(parent, align="left", width=width, height=1)
         try:
             slot.tk.pack_propagate(False)
         except (AttributeError, RuntimeError, TclError):
@@ -1568,7 +1656,7 @@ class LcsConfigPanel(OverlayPanel):
         slot.hide()
         return slot
 
-    def refresh_footer(self) -> None:
+    def _refresh_nav(self) -> None:
         self._show_back(self._page_index > 0)
         if self._next_btn is not None:
             can_advance = self._page_index < len(self._pages) - 1 and self._device is not None
@@ -1579,7 +1667,7 @@ class LcsConfigPanel(OverlayPanel):
 
         Its slot stays behind: _back_slot is an empty Box of Back's own requested width,
         shown exactly when Back is not, so Next keeps the same x on every page. Both hide()
-        and show() run the footer's display_widgets(), which rebuilds pack options from
+        and show() run the row's display_widgets(), which rebuilds pack options from
         scratch and discards the padding style_footer_button recorded, so it is replayed.
         """
         if self._back_btn is not None:
@@ -1593,5 +1681,5 @@ class LcsConfigPanel(OverlayPanel):
                 self._back_slot.hide()
             else:
                 self._back_slot.show()
-        if self._footer is not None:
-            restore_footer_packing(self._footer)
+        if self._nav is not None:
+            restore_footer_packing(self._nav)

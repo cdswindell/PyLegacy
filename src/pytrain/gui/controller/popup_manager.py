@@ -442,15 +442,22 @@ class PopupManager:
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
             fill = footer_fill(overlay)
+            # A panel may decline Close (has_close) where something else already dismisses
+            # its popup -- a window title bar. Asked in both branches, so the answer means
+            # the same thing however the panel arranges its own buttons. The whitespace
+            # below is unaffected: footer_fill and footer_lead measure the band, not what
+            # is in it, so a row with nothing in it simply takes no height.
             if body_src.has_footer:
                 footer = Box(overlay, align="bottom")
                 body_src.build_footer(footer)
-                self.add_close_btn(host, on_close, footer, close_target=overlay, align="right", width=8)
+                if body_src.has_close:
+                    self.add_close_btn(host, on_close, footer, close_target=overlay, align="right", width=8)
             else:
                 # add_close_btn already defaults to align="bottom", so a bare Close button is
                 # positioned exactly as a row would be, and the overlay stands in as the footer.
                 footer = overlay
-                self.add_close_btn(host, on_close, overlay)
+                if body_src.has_close:
+                    self.add_close_btn(host, on_close, overlay)
             self._place_footer_lead(host, overlay, footer, fill)
         else:
             body = Box(overlay, align="top", layout="auto")
