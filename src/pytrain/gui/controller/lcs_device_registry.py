@@ -27,33 +27,35 @@ scope and block size. Read-back GETs carry no mode, so they are unaffected.
 
 How a mode is named and labeled
 -------------------------------
-A mode's ``name`` reads the way the operator's manual and the Cab remote do: the
-addressing mode carries its remote button inside the word -- ``ACCessory``, ``SWitch``,
-``TRack``, matching the ACC, SW and TR keys that begin the programming sequence -- and
-whatever tells it from the module's other modes on that key follows it: ``pulse``,
-``latching``, ``single-wire``. The name alone says nothing about how many addresses the
-mode claims, and what is counted is always ``TMCC IDs``, never bare "IDs" or "ports".
+A mode's ``name`` opens with the Cab-remote key that begins its programming sequence,
+spelled the way the key itself is: ``ACC``, ``SW``, ``TR``. Whatever tells the mode from
+the module's other modes on that key follows it in parentheses -- ``(pulse)``,
+``(latching)``, ``(single-wire)``. The key is what the operator presses, so it stands at
+the head of the row unadorned and the qualifier reads as the aside it is; the footnote
+below the panel's Mode radios is keyed by those same three words. The name alone says
+nothing about how many addresses the mode claims, and what is counted is always
+``TMCC IDs``, never bare "IDs" or "ports".
 
 Two labels are built from it, both here rather than in the panel, so the wording is
 settled in one file and testable without a display:
 
 * :meth:`LcsMode.ids_label` names the TMCC IDs the mode would claim from an address the
-  operator has entered: "ACCessory TMCC IDs 1 - 8". This is what the panel's Mode radios
-  read. Choosing a mode is reserving those addresses on the layout, so the radio says
-  which ones rather than leaving a count to be added to the ID on the screen above it.
-* :attr:`LcsMode.ports_label` names the count instead: "ACCessory, 8 TMCC IDs". For the
-  lines that name a mode with no address in hand -- the modes a module reserves, and the
+  operator has entered: "ACC TMCC IDs 1 - 8". This is what the panel's Mode radios read.
+  Choosing a mode is reserving those addresses on the layout, so the radio says which
+  ones rather than leaving a count to be added to the ID on the screen above it.
+* :attr:`LcsMode.ports_label` names the count instead: "ACC, 8 TMCC IDs". For the lines
+  that name a mode with no address in hand -- the modes a module reserves, and the
   summary of what is about to be programmed.
 
 Either way the mode names what it consumes, because that is what the operator has to set
-aside, and a mode that only says "pulse" leaves them guessing.
+aside, and a mode that only says "(pulse)" leaves them guessing.
 
-Neither label says anything else, and no name carries more than two words. A radio row is
-as wide as its label and the panel is a portrait pane: the widest row any module can ask
-for -- the STM2's "SWitch single-wire TMCC IDs 83 - 98" -- takes 704 px of the 714 px the
-pane gives it at the Pi's 1.5x font scale. Whatever a mode does besides claiming
-addresses is said on the options page that follows, where it is chosen; see the Sensor
-Track's Action Command.
+Neither label says anything else, and no name carries more than a key and one qualifier.
+A radio row is as wide as its label and the panel is a portrait pane: the widest row any
+module can ask for -- the STM2's "SW (single-wire) TMCC IDs 83 - 98" -- takes 671 px of
+the 714 px the pane gives it at the Pi's 1.5x font scale. Whatever a mode does besides
+claiming addresses is said on the options page that follows, where it is chosen; see the
+Sensor Track's Action Command.
 
 Modules the panel knows without being able to program them
 ----------------------------------------------------------
@@ -219,7 +221,7 @@ class LcsMode:
     @property
     def ports_label(self) -> str:
         """
-        The mode and the number of TMCC IDs it claims: "ACCessory, 8 TMCC IDs".
+        The mode and the number of TMCC IDs it claims: "ACC, 8 TMCC IDs".
         """
         return f"{self.name}, {tmcc_id_count(self.ports)}"
 
@@ -333,7 +335,7 @@ ASC2 = LcsDevice(
     modes=(
         LcsMode(
             key="acc_8",
-            name="ACCessory",
+            name="ACC",
             scope=CommandScope.ACC,
             ports=8,
             pdi_mode=0,
@@ -345,7 +347,7 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            name="ACCessory",
+            name="ACC",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=1,
@@ -360,7 +362,7 @@ ASC2 = LcsDevice(
             # as SWITCH, and the ASC2 flowchart calls it momentary -- while the operator
             # reads "pulse", which is what the switch motor is actually given.
             key="sw_momentary",
-            name="SWitch pulse",
+            name="SW (pulse)",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=2,
@@ -372,7 +374,7 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="sw_latching",
-            name="SWitch latching",
+            name="SW (latching)",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=3,
@@ -405,7 +407,7 @@ BPC2 = LcsDevice(
     modes=(
         LcsMode(
             key="tr_8",
-            name="TRack",
+            name="TR",
             scope=CommandScope.TRAIN,
             ports=8,
             pdi_mode=0,
@@ -423,7 +425,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="tr_1",
-            name="TRack",
+            name="TR",
             scope=CommandScope.TRAIN,
             ports=1,
             pdi_mode=1,
@@ -433,7 +435,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_8",
-            name="ACCessory",
+            name="ACC",
             scope=CommandScope.ACC,
             ports=8,
             pdi_mode=2,
@@ -451,7 +453,7 @@ BPC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            name="ACCessory",
+            name="ACC",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=3,
@@ -475,7 +477,7 @@ STM2 = LcsDevice(
     modes=(
         LcsMode(
             key="single_wire",
-            name="SWitch single-wire",
+            name="SW (single-wire)",
             scope=CommandScope.SWITCH,
             ports=16,
             pdi_mode=0,
@@ -487,7 +489,7 @@ STM2 = LcsDevice(
         ),
         LcsMode(
             key="two_wire",
-            name="SWitch two-wire",
+            name="SW (two-wire)",
             scope=CommandScope.SWITCH,
             ports=8,
             pdi_mode=1,
@@ -524,12 +526,13 @@ SENSOR_TRACK = LcsDevice(
         LcsMode(
             # Setting the ID and assigning an Action Command are a single programming
             # gesture on a Sensor Track, and the manual describes them together -- but the
-            # mode row names the address alone, like every other module's. Saying both asked
-            # 838 px of the 714 px the pane gives a row at the Pi's 1.5x font scale, and a
-            # row wider than the pane is centered in it and loses both its ends: 63 px off
-            # each. The Action Command is the whole of the options page that follows this.
+            # mode row names the address alone, like every other module's. Saying both asks
+            # 751 px of the 714 px the pane gives a row at the Pi's 1.5x font scale -- even
+            # with the key abbreviated -- and a row wider than the pane is centered in it
+            # and loses both its ends: 18 px off each. The Action Command is the whole of
+            # the options page that follows this.
             key="acc",
-            name="ACCessory",
+            name="ACC",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=None,

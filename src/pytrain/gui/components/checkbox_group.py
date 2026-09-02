@@ -233,7 +233,7 @@ class CheckBoxGroup(ButtonGroup):
         Opt-in, because it is a change of appearance and this component is shared with the
         Admin panel, the catalog's sort radios and the AMC2 page selector. guizero grids a
         row from its align="left", i.e. sticky="W", so each row is only as wide as its own
-        label: "ACCessory, 1 TMCC ID" comes out visibly shorter than the row above it, which
+        label: "ACC TMCC ID 1" comes out visibly shorter than the row above it, which
         goes unnoticed until the rows are painted -- ``decorate_checkbox`` draws them with
         indicatoron=False, and a row then carries a background of its own that shows exactly
         where it ends. Handing the row's column the frame's spare width and stretching each

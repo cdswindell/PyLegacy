@@ -391,10 +391,10 @@ def test_the_mode_rows_name_the_block_each_of_them_would_claim() -> None:
     panel._set_base_id(12)
 
     assert [label for label, _key in panel._mode_group.options] == [
-        "ACCessory TMCC IDs 12 - 19",
-        "ACCessory TMCC ID 12",
-        "SWitch pulse TMCC IDs 12 - 15",
-        "SWitch latching TMCC IDs 12 - 15",
+        "ACC TMCC IDs 12 - 19",
+        "ACC TMCC ID 12",
+        "SW (pulse) TMCC IDs 12 - 15",
+        "SW (latching) TMCC IDs 12 - 15",
     ]
 
 
@@ -407,10 +407,10 @@ def test_stepping_the_id_relabels_every_mode_row() -> None:
     panel.step_up()
 
     assert [label for label, _key in panel._mode_group.options] == [
-        "ACCessory TMCC IDs 13 - 20",
-        "ACCessory TMCC ID 13",
-        "SWitch pulse TMCC IDs 13 - 16",
-        "SWitch latching TMCC IDs 13 - 16",
+        "ACC TMCC IDs 13 - 20",
+        "ACC TMCC ID 13",
+        "SW (pulse) TMCC IDs 13 - 16",
+        "SW (latching) TMCC IDs 13 - 16",
     ]
     # The rows are rebuilt to relabel them, and the selection is held by key rather than
     # by the text that just changed.
@@ -427,11 +427,11 @@ def test_a_mode_row_is_offered_at_the_highest_base_it_fits() -> None:
     panel._on_mode_selected("sw_momentary")
     panel._set_base_id(95)
 
-    assert panel._mode_group.options[0] == ("ACCessory TMCC IDs 91 - 98", "acc_8")
+    assert panel._mode_group.options[0] == ("ACC TMCC IDs 91 - 98", "acc_8")
 
     panel._on_mode_selected("acc_8")
     assert panel.base_id == 91
-    assert panel._mode_group.options[0] == ("ACCessory TMCC IDs 91 - 98", "acc_8")
+    assert panel._mode_group.options[0] == ("ACC TMCC IDs 91 - 98", "acc_8")
 
 
 def test_the_page_says_the_selected_block_once() -> None:
@@ -797,7 +797,7 @@ def test_sensor_track_claims_a_single_id() -> None:
     # Its one row names that address and nothing else: naming the Action Command set in
     # the same gesture made the widest row the panel has, and it lost both its ends on the
     # Pi. That option is the whole of the page after this one.
-    assert panel._mode_group.options == [("ACCessory TMCC ID 3", "acc")]
+    assert panel._mode_group.options == [("ACC TMCC ID 3", "acc")]
 
 
 #
@@ -842,7 +842,7 @@ def test_bpc2_relay_warning_and_reserved_modes_are_shown_with_their_reason() -> 
     assert "relay" in panel._warning_line.value
     assert panel._warning_line.value == BPC2.warning
     assert panel.reserved_text == (
-        "Not available: TRack, 1 TMCC ID (reserved, no Cab support), ACCessory, 1 TMCC ID (reserved, no Cab support)"
+        "Not available: TR, 1 TMCC ID (reserved, no Cab support), ACC, 1 TMCC ID (reserved, no Cab support)"
     )
     assert panel._reserved_line.value == panel.reserved_text
 
@@ -1264,7 +1264,7 @@ def test_configure_queues_the_presses_in_order_then_the_verify_gets() -> None:
     assert delays == sorted(delays)
     assert delays[0] == 0.0
     assert delays[2] > delays[1]
-    assert panel._requested_line.value.startswith("Requested: BPC2 - TRack, 8 TMCC IDs at TR 12")
+    assert panel._requested_line.value.startswith("Requested: BPC2 - TR, 8 TMCC IDs at TR 12")
     assert panel._reported_line.value == mod.AWAITING_READBACK
 
 
@@ -1334,22 +1334,22 @@ def test_mode_selector_repopulates_correctly_on_device_change() -> None:
     # address every row is labeled from.
     panel._on_device_selected("asc2")
     assert len(panel._mode_group.options) == 4
-    assert panel._mode_group.options[0] == ("ACCessory TMCC IDs 1 - 8", "acc_8")
-    assert panel._mode_group.options[1] == ("ACCessory TMCC ID 1", "acc_1")
+    assert panel._mode_group.options[0] == ("ACC TMCC IDs 1 - 8", "acc_8")
+    assert panel._mode_group.options[1] == ("ACC TMCC ID 1", "acc_1")
     # Every switch mode names the block it consumes, as the accessory modes do.
-    assert panel._mode_group.options[2] == ("SWitch pulse TMCC IDs 1 - 4", "sw_momentary")
-    assert panel._mode_group.options[3] == ("SWitch latching TMCC IDs 1 - 4", "sw_latching")
+    assert panel._mode_group.options[2] == ("SW (pulse) TMCC IDs 1 - 4", "sw_momentary")
+    assert panel._mode_group.options[3] == ("SW (latching) TMCC IDs 1 - 4", "sw_latching")
 
     # Switch to Sensor Track, which has 1 mode
     panel._on_device_selected("sensor_track")
     assert len(panel._mode_group.options) == 1
-    assert panel._mode_group.options[0] == ("ACCessory TMCC ID 1", "acc")
+    assert panel._mode_group.options[0] == ("ACC TMCC ID 1", "acc")
 
     # Switch to BPC2, which has 2 enabled modes (the 1-ID modes are disabled)
     panel._on_device_selected("bpc2")
     assert len(panel._mode_group.options) == 2
-    assert panel._mode_group.options[0] == ("TRack TMCC IDs 1 - 8", "tr_8")
-    assert panel._mode_group.options[1] == ("ACCessory TMCC IDs 1 - 8", "acc_8")
+    assert panel._mode_group.options[0] == ("TR TMCC IDs 1 - 8", "tr_8")
+    assert panel._mode_group.options[1] == ("ACC TMCC IDs 1 - 8", "acc_8")
 
 
 #
@@ -2464,6 +2464,20 @@ def test_the_footnote_says_what_each_key_is_for() -> None:
     assert mod.SCOPE_USE[CommandScope.ACC] == "ACC: Use for lighting and operating accessories"
     assert mod.SCOPE_USE[CommandScope.SWITCH] == "SW: Use for Switches/Turnouts"
     assert mod.SCOPE_USE[CommandScope.TRAIN].startswith("TR: ")
+
+
+def test_the_footnote_leads_with_the_word_the_rows_lead_with() -> None:
+    # What joins the caption to the list above it: a row reading "SW (pulse) TMCC IDs 1 - 4"
+    # is answered by a line beginning "SW:", one word, spelled the same in both places. The
+    # two sets are pinned to each other, so a mode named any other way -- or a key the
+    # module does not offer -- shows up here.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+
+    rows = {label.split()[0] for label, _key in panel._mode_group.options}
+    footnote = {line.split(":")[0] for line in panel.mode_footnote.split("\n")}
+
+    assert rows == footnote == {"ACC", "SW"}
 
 
 def test_the_footnote_follows_the_device_the_operator_switches_to() -> None:

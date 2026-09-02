@@ -243,10 +243,12 @@ SCOPE_LABEL: dict[CommandScope, str] = {
     CommandScope.TRAIN: "TR",
 }
 
-# What each of those remote keys is for. The mode labels name the key -- "ACCessory",
-# "SWitch", "TRack" -- but not what it is good for, which is the one thing an operator
-# choosing between them needs. Only the keys the selected module actually offers are
-# shown, so the footnote never states a fact that does not apply to the module in hand.
+# What each of those remote keys is for. Every mode row above the footnote opens with one
+# of these keys and says nothing about what it is good for, which is the one thing an
+# operator choosing between them needs. Each line leads with the key spelled exactly as
+# the rows spell it, so the eye can join the two. Only the keys the selected module
+# actually offers are shown, so the footnote never states a fact that does not apply to
+# the module in hand.
 SCOPE_USE: dict[CommandScope, str] = {
     CommandScope.ACC: "ACC: Use for lighting and operating accessories",
     CommandScope.SWITCH: "SW: Use for Switches/Turnouts",
@@ -1020,7 +1022,7 @@ class LcsConfigPanel(OverlayPanel):
             return ""
         # Counted, because a reserved mode claims no block: it is never selected, so there
         # is no address to name it from -- and the count is what tells the BPC2's reserved
-        # single-ID TRack mode from the eight-ID one it does offer.
+        # single-ID TR mode from the eight-ID one it does offer.
         parts = [f"{mode.ports_label} ({mode.note})" if mode.note else mode.ports_label for mode in reserved]
         return "Not available: " + ", ".join(parts)
 

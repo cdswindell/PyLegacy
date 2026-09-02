@@ -364,7 +364,7 @@ class TestPdiDeviceStore:
         assert found[0].port_index == 5
 
     def test_a_modules_own_mode_decides_its_remote_key(self):
-        # A BPC2 in mode 0 is a TRack module, however its config was filed.
+        # A BPC2 in mode 0 is a TR module, however its config was filed.
         pdi = FakePdiStore({PdiDevice.BPC2: [FakeConfig(12, CommandScope.ACC, mode=0)]})
         occupant = occupant_of(12, FakeStore(), scope=CommandScope.TRAIN, pdi_store=pdi)
 
