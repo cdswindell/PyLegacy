@@ -205,6 +205,212 @@ def test_a_group_without_the_cursor_is_configured_exactly_as_it_is_today() -> No
     assert row.last["image"].ground == mod.WHITE
 
 
+class DummyGroupTk:
+    """The group's own Tk frame, as ``decorate_rows`` uses it: a bag of rows."""
+
+    def __init__(self, rows: list[DummyRow]) -> None:
+        self._rows = rows
+
+    def winfo_children(self) -> list[DummyRow]:
+        return list(self._rows)
+
+
+def _painting_group(rows: list[DummyRow], size: int = 18, pady: int = 12) -> mod.CheckBoxGroup:
+    """A group that has recorded how to paint its rows, and nothing else.
+
+    ``__new__`` for the reason ``_group`` uses it: the parent class would want a real Tk
+    master, and everything the painting is made of is these rows and those numbers. The frame
+    is assigned behind guizero's read-only ``tk`` property, which is where it keeps it.
+    """
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._tk = DummyGroupTk(rows)
+    group._padx, group._pady, group._dis_width = 18, pady, None
+    group._row_size, group._row_style, group._row_thickness = size, "radio", 2
+    return group
+
+
+def test_replacing_the_options_repaints_every_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The LCS panel's mode radios, which are rebuilt every time the module changes. guizero
+    # *destroys* a group's rows on any options change -- clear, append, insert, remove -- and
+    # the plain Tk radiobuttons it puts in their place have the default font and the native
+    # indicator, which on the Pi was a dot barely visible beside the module radios that are
+    # built once. So the paint has to follow the rebuild rather than the construction.
+    rows = _rows(2)
+    group = _painting_group(rows)
+    rebuilt: list[Any] = []
+    monkeypatch.setattr(mod.ButtonGroup, "_refresh_options", lambda self: rebuilt.append(self), raising=True)
+
+    group._refresh_options()
+
+    assert rebuilt == [group], "the rows are still guizero's to rebuild"
+    for row in rows:
+        assert row.config_calls[0]["font"] == ("TkDefaultFont", 18)
+        assert row.config_calls[0]["pady"] == 12
+        assert row.last["indicatoron"] is False, "the painted indicator, not Tk's own"
+        assert row.last["image"].width() == mod.CheckBoxGroup.indicator_size_for(18, "radio")
+
+
+def test_a_group_that_recorded_nothing_leaves_its_rows_alone() -> None:
+    # _refresh_options is reachable before this class has said what to paint with: guizero
+    # calls it from its own __init__, and the cursor tests build a group by __new__.
+    rows = _rows()
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._tk = DummyGroupTk(rows)
+
+    group.decorate_rows()
+
+    assert [row.config_calls for row in rows] == [[], [], []]
+
+
+class DummyRadioTk:
+    """One row's Tk widget, as ``stretch_rows`` uses it: something that can be re-gridded."""
+
+    def __init__(self) -> None:
+        self.grid_options: dict[str, Any] = {}
+
+    def grid_configure(self, **kwargs: Any) -> None:
+        self.grid_options.update(kwargs)
+
+
+class DummyRadio:
+    """One row as ``_rbuttons`` holds it: a guizero widget that knows its grid cell."""
+
+    def __init__(self, grid: list[int]) -> None:
+        self.grid = grid
+        self.tk = DummyRadioTk()
+
+
+class DummyFrameTk(DummyGroupTk):
+    """The group's frame, recording the column weights a real Tk frame would be given."""
+
+    def __init__(self, rows: list[DummyRow] | None = None) -> None:
+        super().__init__(rows or [])
+        self.columns: dict[int, dict[str, Any]] = {}
+
+    def grid_columnconfigure(self, column: int, **kwargs: Any) -> None:
+        self.columns.setdefault(column, {}).update(kwargs)
+
+
+def _stretching_group(rows: list[DummyRadio], stretch: bool = True) -> mod.CheckBoxGroup:
+    """A group that has been told whether to stretch its rows, and nothing else.
+
+    ``__new__`` as above: the stretch is made of these rows' grid cells and the frame's
+    column weights, so a real Tk master would add nothing to assert.
+    """
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._tk = DummyFrameTk()
+    group._rbuttons = rows
+    group._stretch = stretch
+    return group
+
+
+def _column(rows: int = 3) -> list[DummyRadio]:
+    """A vertical group's rows: guizero stacks them down column 0, from row 1."""
+    return [DummyRadio([0, index + 1]) for index in range(rows)]
+
+
+@pytest.mark.parametrize("stretch, expected", [(True, "fill"), (False, None)])
+def test_only_a_stretch_group_asks_guizero_to_fill_its_container(
+    monkeypatch: pytest.MonkeyPatch, stretch: bool, expected: str | None
+) -> None:
+    # The rows can only be as wide as the frame around them, and guizero packs a container
+    # with fill=X on one condition: that the container's own width is the string "fill".
+    seen: dict[str, Any] = {}
+
+    def _init(self, _master: Any, **kwargs: Any) -> None:
+        seen.update(kwargs)
+        self._tk = DummyFrameTk()
+        self._rbuttons = []
+
+    monkeypatch.setattr(mod.ButtonGroup, "__init__", _init, raising=True)
+
+    mod.CheckBoxGroup(None, size=18, style="radio", stretch=stretch)
+
+    assert seen.get("width") == expected
+
+
+def test_a_stretch_group_hands_every_row_the_width_of_its_column() -> None:
+    # guizero grids a row from its align="left", i.e. sticky="W", so each row is only as
+    # wide as its own label -- which is invisible until the rows are painted, and then reads
+    # as fields of different lengths, the shortest mode ending well short of its box.
+    rows = _column()
+    group = _stretching_group(rows)
+
+    group.stretch_rows()
+
+    assert group.tk.columns == {0: {"weight": 1}}, "the spare width goes to the rows' column"
+    assert [row.tk.grid_options for row in rows] == [{"sticky": "ew"}] * len(rows)
+
+
+def test_a_horizontal_stretch_group_weights_the_columns_its_rows_are_actually_in() -> None:
+    # guizero lays a horizontal group along one row from column 1, so column 0 holds nothing
+    # of its and weighting that would stretch the rows into nowhere.
+    rows = [DummyRadio([index + 1, 0]) for index in range(2)]
+    group = _stretching_group(rows)
+
+    group.stretch_rows()
+
+    assert group.tk.columns == {1: {"weight": 1}, 2: {"weight": 1}}
+
+
+def test_a_group_that_did_not_ask_to_be_stretched_is_left_as_guizero_gridded_it() -> None:
+    # Opt-in: the Admin panel, the catalog's sort radios and the AMC2 page selector share
+    # this component, and none of them asked for its rows to change width.
+    rows = _column(1)
+    group = _stretching_group(rows, stretch=False)
+
+    group.stretch_rows()
+
+    assert group.tk.columns == {}
+    assert rows[0].tk.grid_options == {}
+
+
+def test_rebuilding_the_options_stretches_every_row_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The regression, and the reason the stretch cannot be set once at construction: the LCS
+    # panel's mode radios are rebuilt whenever the module changes, and a rebuilt row is
+    # gridded from scratch -- sticky="W" again, back to the width of its own label, inside a
+    # box that has not moved.
+    rows = _column(2)
+    group = _stretching_group(rows)
+    monkeypatch.setattr(mod.ButtonGroup, "_refresh_options", lambda self: None, raising=True)
+
+    group._refresh_options()
+
+    assert group.tk.columns == {0: {"weight": 1}}
+    assert [row.tk.grid_options for row in rows] == [{"sticky": "ew"}] * 2
+
+
+def test_resizing_stretches_every_row_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    # And the reason the rebuild alone is not enough: ButtonGroup.append resizes the group
+    # *after* rebuilding it, handing the group's own "fill" width to every row, and guizero
+    # re-displays a container whenever a child's width is set to fill. That re-grid is the
+    # last word, so the stretch has to come after it.
+    rows = _column(1)
+    group = _stretching_group(rows)
+    resized: list[tuple[Any, Any]] = []
+    monkeypatch.setattr(mod.ButtonGroup, "resize", lambda self, width, height: resized.append((width, height)))
+
+    group.resize("fill", None)
+
+    assert resized == [("fill", None)], "the resize is still guizero's"
+    assert rows[0].tk.grid_options == {"sticky": "ew"}
+
+
+def test_a_row_that_refuses_the_stretch_does_not_cost_the_others_theirs() -> None:
+    # A row Tk has forgotten, which is what a TclError from grid_configure means.
+    rows = _column(2)
+
+    def _raise(**_kwargs: Any) -> None:
+        raise mod.tk.TclError("bad window path name")
+
+    rows[0].tk.grid_configure = _raise
+    group = _stretching_group(rows)
+
+    group.stretch_rows()  # must not raise
+
+    assert rows[1].tk.grid_options == {"sticky": "ew"}
+
+
 def test_setting_the_cursor_on_a_group_that_did_not_opt_in_does_nothing() -> None:
     group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
 

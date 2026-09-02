@@ -109,6 +109,31 @@ def style_footer_button(host, btn) -> None:
     setattr(btn, _FOOTER_PACK_ATTR, options)
 
 
+def repad_footer_button(btn, *, padx: int = None, pady: int = None) -> None:
+    """Change a styled footer button's pack padding, recording it as style_footer_button does.
+
+    Set through here rather than with a bare ``pack_configure``, because what survives a repack
+    is what was *recorded*: restore_footer_packing replays the recorded options, so a raw call
+    is undone by the next thing that shows or hides anything in the row.
+
+    The caller is the LCS panel's Back/Next row, which is a row of the panel's own rather than
+    the popup's footer band -- Close is below it, on a line of its own, with the lead above it
+    and its own padding. The 20px above and below a footer button is meant to hold one row off
+    the panel and the pane; three helpings of it stacked down the same overlay is whitespace
+    the fullest page has nowhere to take from.
+    """
+    options = dict(getattr(btn, _FOOTER_PACK_ATTR, None) or {})
+    if padx is not None:
+        options["padx"] = padx
+    if pady is not None:
+        options["pady"] = pady
+    try:
+        btn.tk.pack_configure(**options)
+    except (AttributeError, TclError, RuntimeError):
+        pass
+    setattr(btn, _FOOTER_PACK_ATTR, options)
+
+
 def footer_spacer(host, footer) -> Text:
     """Put the gap between a panel's own footer button and Close.
 
@@ -278,14 +303,22 @@ def collapse_overlay(overlay) -> None:
 
 
 def restore_footer_packing(footer) -> None:
-    """Replay the packing of every styled button in a footer.
+    """Replay the packing of every styled button a footer is showing.
 
     Called once Close is in place -- it is always the last thing added to a footer, so it is
     the only button whose own packing survived creation.
+
+    A hidden button is passed over, and that is not an optimization. ``pack_configure``
+    *manages* a widget pack has forgotten, and packs it at the end of its parent, so
+    replaying the padding of a button guizero has hidden puts it back on screen -- last in
+    the row, whatever order it was created in. That is exactly how the LCS panel's Back
+    button reappeared on its first page, to the right of Next. Same hazard as
+    ``grid_configure`` on a forgotten widget, which ``_lay_out_titled_boxes`` guards against
+    for the same reason.
     """
     for child in getattr(footer, "children", ()) or ():
         options = getattr(child, _FOOTER_PACK_ATTR, None)
-        if options:
+        if options and getattr(child, "visible", True):
             try:
                 child.tk.pack_configure(**options)
             except (AttributeError, TclError, RuntimeError):

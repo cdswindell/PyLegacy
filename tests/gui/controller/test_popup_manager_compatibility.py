@@ -297,6 +297,54 @@ def test_restoring_replays_only_the_buttons_that_were_styled() -> None:
     assert plain.tk.packed == [], "a spacer is re-packed by guizero; it has no padding to restore"
 
 
+def test_repadding_a_footer_button_is_what_gets_replayed_afterwards() -> None:
+    # The LCS panel's Back/Next row, which wears the footer look without being in the footer
+    # band: Close is below it with its own lead and padding, so a footer button's 20px above
+    # and below is a third helping of the same whitespace. Set through the helper rather than
+    # with a bare pack_configure, because a raw call is undone by the next repack -- what
+    # survives is what was recorded.
+    host = SimpleNamespace(compact=False, s_18=16, s_20=20)
+    button = _footer_button()
+    mod.style_footer_button(host, button)
+
+    mod.repad_footer_button(button, pady=6)
+    button.tk.packed.clear()
+    mod.restore_footer_packing(SimpleNamespace(children=[button]))
+
+    assert button.tk.packed == [{"padx": mod.FOOTER_BUTTON_PAD, "pady": 6}]
+    assert 6 < mod.FOOTER_BUTTON_PAD, "the point of it is to ask for less"
+
+
+def test_repadding_a_button_that_was_never_styled_still_records_the_ask() -> None:
+    # Nothing to merge with, and a Tk that will not take it: the value is still what a later
+    # replay uses, so an unmapped or stand-in button cannot leave a stale pad behind.
+    button = SimpleNamespace(tk=SimpleNamespace(), visible=True)
+
+    mod.repad_footer_button(button, padx=4, pady=6)
+
+    assert getattr(button, mod._FOOTER_PACK_ATTR) == {"padx": 4, "pady": 6}
+
+
+def test_a_hidden_button_is_not_re_packed_and_so_stays_off_the_row() -> None:
+    # The LCS panel's Back button on its first page, which is where this was found: pack
+    # *manages* a widget it has forgotten when it is configured, and packs it at the end of
+    # its parent, so replaying the padding of a hidden button put Back back on screen -- to
+    # the right of Next, whatever order the two were created in.
+    host = SimpleNamespace(compact=False, s_18=16, s_20=20)
+    shown, hidden = _footer_button(), _footer_button()
+    for button in (shown, hidden):
+        mod.style_footer_button(host, button)
+    hidden.hide()
+    footer = SimpleNamespace(children=[hidden, shown])
+    for button in (shown, hidden):
+        button.tk.packed.clear()
+
+    mod.restore_footer_packing(footer)
+
+    assert shown.tk.packed == [{"padx": mod.FOOTER_BUTTON_PAD, "pady": mod.FOOTER_BUTTON_PAD}]
+    assert hidden.tk.packed == [], "configuring it would be the thing that showed it"
+
+
 def test_adding_close_repairs_the_packing_of_the_button_beside_it(monkeypatch: pytest.MonkeyPatch) -> None:
     # The end-to-end shape: a panel styles its own button, then create_popup adds Close --
     # which is the creation that wipes the first one. add_close_btn has to put it back.

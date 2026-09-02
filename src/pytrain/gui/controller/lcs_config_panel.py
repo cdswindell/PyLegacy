@@ -47,8 +47,7 @@ from .lcs_id_map import LcsOccupant, occupants_of, overlaps
 from .lcs_sequence_builder import LcsProgram, build_program
 from .overlay_panel import OverlayPanel
 from .popup_manager import (
-    FOOTER_BUTTON_PAD,
-    FOOTER_BUTTON_PAD_COMPACT,
+    repad_footer_button,
     restore_footer_packing,
     style_footer_button,
 )
@@ -134,10 +133,32 @@ PAGE_GAP_COMPACT = 8
 BOX_GAP = 8
 BOX_GAP_COMPACT = 4
 
-# Fallback slot width for the hidden Back button, used only when the real button cannot
-# be measured (a headless stand-in). Chosen from the measured 184 px request of a styled
-# width=8 footer button at portrait size.
-FOOTER_SLOT_FALLBACK = 184
+# Whitespace above and below the label in a radio row, in pixels -- which is what sets the
+# gap between one radio and the next. Internal Checkbutton padding rather than grid padding,
+# for the reason given above ASSIGNED_CELL_PAD: guizero rebuilds a container's grid options
+# from scratch whenever anything in it is created, shown or hidden, and pady is not among
+# the options it replays. CheckBoxGroup's own default of 6 read as one solid block of radios
+# on the Pi, where the rows are the thing being aimed at with a finger.
+RADIO_ROW_PAD = 12
+RADIO_ROW_PAD_COMPACT = 6
+
+# The mode radios get less of it, and not for want of asking. The ID page is by far the
+# fullest of the four -- a heading, the stepper row, three titled boxes, two derived lines,
+# two choice buttons and the Back/Next row -- and its rows are the tallest in the panel to
+# begin with, since they are set a size above the page body and their painted indicator
+# grows with it: 27px against the module rows' 21. The device page has nothing below its
+# radios and can spend twice this; here the whitespace has to come out of the one page that
+# has none to give, and the button below it all is the only way off the panel on the Pi.
+MODE_ROW_PAD = 6
+MODE_ROW_PAD_COMPACT = 3
+
+# Pack padding above and below Back and Next, in pixels, replacing the footer button's own
+# 20. That 20 is sized to hold a footer row off the panel above it and the pane below; this
+# row has the page's own gap above it and, where there is a Close button at all, that
+# button's lead and padding below -- so a third helping of it is whitespace stacked on
+# whitespace, and on the ID page it is whitespace that pushed Close off the screen.
+NAV_ROW_PAD = 6
+NAV_ROW_PAD_COMPACT = 4
 
 # Presses are staggered so the base sees them as separate gestures, and the read-back
 # GETs are held off until the module has had a moment to act on the last of them.
@@ -282,7 +303,6 @@ class LcsConfigPanel(OverlayPanel):
         self._goto_btn: HoldButton | None = None
         self._new_btn: HoldButton | None = None
         self._back_btn: HoldButton | None = None
-        self._back_slot: Box | None = None
         self._next_btn: HoldButton | None = None
         self._nav: Box | None = None
         self._suspend_device_selector = False
@@ -428,6 +448,18 @@ class LcsConfigPanel(OverlayPanel):
     def _box_gap(self) -> int:
         return BOX_GAP_COMPACT if self.compact else BOX_GAP
 
+    @property
+    def _radio_row_pad(self) -> int:
+        return RADIO_ROW_PAD_COMPACT if self.compact else RADIO_ROW_PAD
+
+    @property
+    def _mode_row_pad(self) -> int:
+        return MODE_ROW_PAD_COMPACT if self.compact else MODE_ROW_PAD
+
+    @property
+    def _nav_row_pad(self) -> int:
+        return NAV_ROW_PAD_COMPACT if self.compact else NAV_ROW_PAD
+
     def build(self, body: Box) -> None:
         host = self._gui
         self._body = body
@@ -469,37 +501,15 @@ class LcsConfigPanel(OverlayPanel):
             selected=None,
             align="top",
             style="radio",
+            # The rows are held apart rather than stacked: this is the panel's first page and
+            # every row on it is a touch target.
+            pady=self._radio_row_pad,
+            # One length for all of them, filling the page rather than each row stopping at
+            # the end of its own label -- see CheckBoxGroup.stretch_rows.
+            stretch=True,
             command=self._on_device_selected,
         )
-        self._equalize_group_rows(self._device_group)
         return page
-
-    @staticmethod
-    def _equalize_group_rows(group: CheckBoxGroup) -> None:
-        """Make every row of a vertical ButtonGroup as wide as the widest one.
-
-        guizero grids a vertical group's rows into one column with align="left", i.e.
-        sticky="W", so each row keeps its natural width and a short label leaves a short
-        box -- measured 326 / 317 / 225 / 318 px for ASC2 / BPC2 / STM2 / Sensor Track.
-        Giving the column weight and stretching each row into it makes them all the
-        column's width, which is the widest row's.
-
-        Deliberately not CheckBoxGroup(width=...): Tk honors an explicit -width by
-        *dropping* the row's padx (306 px at width=300 regardless of padx), which would
-        pull every radio dot flush against the left edge.
-
-        Only safe on a group whose rows are not rebuilt. ButtonGroup._refresh_options
-        destroys and recreates them, and creating a widget re-grids every sibling and wipes
-        sticky -- see admin_panel._apply_compact_grid. The device group never rebuilds; the
-        mode and option groups do, and are left alone.
-        """
-        rows = getattr(group, "_rbuttons", None) or ()
-        try:
-            group.tk.grid_columnconfigure(0, weight=1)
-            for row in rows:
-                row.tk.grid_configure(sticky="ew")
-        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-            pass
 
     def _build_id_page(self, body: Box) -> Box:
         host = self._gui
@@ -591,6 +601,12 @@ class LcsConfigPanel(OverlayPanel):
             selected=None,
             align="top",
             style="radio",
+            # Less than the module radios ask for; see MODE_ROW_PAD.
+            pady=self._mode_row_pad,
+            # As on the device page, and here it is the width of the Mode box the rows take.
+            # It has to survive a rebuild: these radios are replaced whenever the module
+            # changes, and a rebuilt row goes back to the width of its own label.
+            stretch=True,
             command=self._on_mode_selected,
         )
 
@@ -1615,46 +1631,31 @@ class LcsConfigPanel(OverlayPanel):
         Close on a line of its own, under these two, instead of all three crowding one row.
         Where it does not, these two are the last row in the overlay and nothing moves.
 
-        The row is packed, not gridded, and asks for no width of its own, so Tk centers it
-        under the page above; Close below it is centered the same way. Its width does not
-        change between pages, because the slot stands in for Back while Back is hidden.
+        The row is packed, not gridded, and asks for no width of its own, so it is as wide as
+        the buttons it is showing and Tk centers it under the page above; Close below it is
+        centered the same way. On the first page that means Next alone, centered -- the row
+        shrinks to it rather than keeping a Back-shaped hole to its left.
 
-        Styled with ``style_footer_button`` all the same: that is the one shared look for
-        the big buttons at the foot of an overlay, and the Close beneath them wears it too.
+        Back is created first, so it is always the left of the two: guizero re-packs a
+        container's children in the order they were created, so an order set here is the
+        order the row keeps however often Back is hidden and shown again.
+
+        Styled with ``style_footer_button``: that is the one shared look for the big buttons
+        at the foot of an overlay, and the Close beneath them wears it too. Its vertical
+        padding is then trimmed, because this row is not the popup's footer band and does not
+        want a footer band's whitespace around it -- see NAV_ROW_PAD.
         """
         host = self._gui
         self._nav = nav = Box(body, align="top", border=0)
         self._back_btn = back = HoldButton(nav, text="Back", align="left", width=8, command=self.previous_page)
         style_footer_button(host, back)
+        repad_footer_button(back, pady=self._nav_row_pad)
         host.cache(back)
-        # Holds Back's place while it is hidden, so Next never moves between pages.
-        self._back_slot = self._button_slot(nav, back)
         self._next_btn = nxt = HoldButton(nav, text="Next", align="left", width=8, command=self.next_page)
         style_footer_button(host, nxt)
+        repad_footer_button(nxt, pady=self._nav_row_pad)
         host.cache(nxt)
         self._refresh_nav()
-
-    def _button_slot(self, parent: Box, button: HoldButton) -> Box:
-        """An empty Box exactly as wide as ``button``'s slot in the row, created hidden.
-
-        Measured rather than guessed: a styled width=8 footer button requests 184x52 while
-        an identically padded Label of the same width requests only 156x48, so a label
-        stand-in would let Next drift 28 px. An empty frame is also genuinely invisible on
-        Aqua, where a tk.Button background is not dependable.
-        """
-        pad = FOOTER_BUTTON_PAD_COMPACT if self.compact else FOOTER_BUTTON_PAD
-        try:
-            button.tk.update_idletasks()
-            width = int(button.tk.winfo_reqwidth()) + 2 * pad
-        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
-            width = FOOTER_SLOT_FALLBACK + 2 * pad
-        slot = Box(parent, align="left", width=width, height=1)
-        try:
-            slot.tk.pack_propagate(False)
-        except (AttributeError, RuntimeError, TclError):
-            pass
-        slot.hide()
-        return slot
 
     def _refresh_nav(self) -> None:
         self._show_back(self._page_index > 0)
@@ -1663,12 +1664,13 @@ class LcsConfigPanel(OverlayPanel):
             self._enable(self._next_btn, can_advance)
 
     def _show_back(self, visible: bool) -> None:
-        """Back is meaningless on the first page, so it is hidden rather than greyed.
+        """Back is meaningless on the first page, so it is taken off the row rather than greyed.
 
-        Its slot stays behind: _back_slot is an empty Box of Back's own requested width,
-        shown exactly when Back is not, so Next keeps the same x on every page. Both hide()
-        and show() run the row's display_widgets(), which rebuilds pack options from
-        scratch and discards the padding style_footer_button recorded, so it is replayed.
+        Both hide() and show() run the row's display_widgets(), which rebuilds pack options
+        from scratch and discards the padding style_footer_button recorded, so it is replayed.
+        That replay skips a hidden button, which is what keeps this honest: pack_configure
+        would otherwise put Back back on screen at the end of the row -- see
+        restore_footer_packing.
         """
         if self._back_btn is not None:
             if visible:
@@ -1676,10 +1678,5 @@ class LcsConfigPanel(OverlayPanel):
                 self._enable(self._back_btn, True)
             else:
                 self._back_btn.hide()
-        if self._back_slot is not None:
-            if visible:
-                self._back_slot.hide()
-            else:
-                self._back_slot.show()
         if self._nav is not None:
             restore_footer_packing(self._nav)

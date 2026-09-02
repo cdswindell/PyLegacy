@@ -141,25 +141,31 @@ class CheckBoxGroup(ButtonGroup):
         thickness: int = 2,
         cursor: bool = False,
         cursor_bg: str = CURSOR_BG,
+        stretch: bool = False,
         **kwargs,
     ):
-        # now initialize parent class
+        # Recorded before the parent class is initialized, because it builds the rows from its
+        # own __init__ -- through _refresh_options, which paints whatever rows it finds.
         self._padx = kwargs.pop("padx", 18)
         self._pady = kwargs.pop("pady", 6)
         self._dis_width = width
+        self._row_size = size
+        self._row_style = style
+        self._row_thickness = thickness
+        self._stretch = stretch
+        if stretch:
+            # The frame has to fill its container before the rows can fill the frame, and
+            # guizero packs a container with fill=X only when its own width is the string
+            # "fill" -- see Container._pack_widget. Not the width argument above: that one is
+            # the width of a row, and stretch_rows says why a row is not given one.
+            kwargs["width"] = "fill"
         super().__init__(master, **kwargs)
 
-        # indicator_size = int(size * scale_by)
-        for widget in self.tk.winfo_children():
-            self.decorate_checkbox(
-                widget,
-                size,
-                self._dis_width,
-                self._padx,
-                self._pady,
-                style=style,
-                thickness=thickness,
-            )
+        # Again after the parent class has finished: its own __init__ resizes the group once
+        # the rows exist, and a row given an explicit width there loses the one set below.
+        # Repainting is cheap -- the indicator images are cached on the row.
+        self.decorate_rows()
+        self.stretch_rows()
 
         # Opt-in, and deliberately so: this component is shared with the Admin panel, the
         # catalog's sort radios and the AMC2 page selector, and a cursor -- or the selectcolor
@@ -172,6 +178,88 @@ class CheckBoxGroup(ButtonGroup):
                 thickness=thickness,
                 cursor_bg=cursor_bg,
             )
+
+    def _refresh_options(self) -> None:
+        """Paint the rows guizero has just rebuilt.
+
+        Every change to a group's options -- ``clear``, ``append``, ``insert``, ``remove`` --
+        routes through here, and the parent class *destroys* its rows and creates plain
+        Tk radiobuttons in their place: default font, native indicator, no padding. So a group
+        whose options are replaced at runtime silently lost everything ``decorate_checkbox``
+        installs, which is why the LCS panel's mode radios came out as dots barely visible
+        beside its module radios -- those are built once and never rebuilt.
+
+        Called from ``ButtonGroup.__init__`` as well, where the rows are first created.
+        """
+        super()._refresh_options()
+        self.decorate_rows()
+        self.stretch_rows()
+
+    def resize(self, width, height) -> None:
+        """Stretch the rows again once the parent class has resized them.
+
+        ``ButtonGroup.append`` resizes the group *after* rebuilding its rows, and a resize
+        hands the group's own width to every row -- which for a filling group means setting a
+        row's width to "fill", and guizero re-displays a container whenever that happens. That
+        re-grid drops the sticky ``stretch_rows`` sets, so the stretch has to follow the resize
+        as well as the rebuild.
+        """
+        super().resize(width, height)
+        self.stretch_rows()
+
+    def decorate_rows(self) -> None:
+        """Give every row of the group the indicator, font and padding it was asked for.
+
+        Guarded, because ``_refresh_options`` is reachable before this class has recorded what
+        to paint with -- a subclass, or a group built by ``__new__`` as the cursor tests build
+        one -- and a group that has said nothing about its rows wants them left alone.
+        """
+        if not hasattr(self, "_row_style"):
+            return
+        for widget in self.tk.winfo_children():
+            self.decorate_checkbox(
+                widget,
+                self._row_size,
+                self._dis_width,
+                self._padx,
+                self._pady,
+                style=self._row_style,
+                thickness=self._row_thickness,
+            )
+
+    def stretch_rows(self) -> None:
+        """Give every row of a ``stretch`` group the full width of the group's frame.
+
+        Opt-in, because it is a change of appearance and this component is shared with the
+        Admin panel, the catalog's sort radios and the AMC2 page selector. guizero grids a
+        row from its align="left", i.e. sticky="W", so each row is only as wide as its own
+        label: "ACCessory, 1 TMCC ID" comes out visibly shorter than the row above it, which
+        goes unnoticed until the rows are painted -- ``decorate_checkbox`` draws them with
+        indicatoron=False, and a row then carries a background of its own that shows exactly
+        where it ends. Handing the row's column the frame's spare width and stretching each
+        row across it makes them one width, and that width is the containing box's, since a
+        stretch group's frame fills its container.
+
+        Deliberately not an explicit row width: a Checkbutton showing an image reads -width
+        in pixels and *drops* the row's padx with it (306 px at width=300 whatever the padx),
+        which would pull every indicator flush against the row's left edge.
+
+        Re-applied after every rebuild and every resize rather than set once, because neither
+        leaves a grid option standing -- see ``_refresh_options`` and ``resize``. Guarded like
+        ``decorate_rows``, and for the same reason: both are reachable before this class has
+        recorded anything.
+        """
+        if not getattr(self, "_stretch", False):
+            return
+        for row in getattr(self, "_rbuttons", None) or ():
+            try:
+                # A vertical group stacks its rows down column 0; a horizontal one lays them
+                # along row 0 from column 1, so the column is the row's own to say.
+                grid = getattr(row, "grid", None)
+                self.tk.grid_columnconfigure(grid[0] if grid else 0, weight=1)
+                row.tk.grid_configure(sticky="ew")
+            except (AttributeError, IndexError, RuntimeError, tk.TclError, TypeError, ValueError):
+                continue
 
     def _init_cursor(
         self,

@@ -1094,67 +1094,27 @@ def test_on_synchronized_is_idempotent() -> None:
 
 
 #
-# Equal-width device rows
+# Equal-width radio rows
 #
-class _RecordingRowTk:
-    def __init__(self) -> None:
-        self.grid_options: dict[str, Any] = {}
-
-    def grid_configure(self, **kwargs: Any) -> None:
-        self.grid_options.update(kwargs)
-
-
-class _RecordingGroupTk:
-    def __init__(self) -> None:
-        self.columns: dict[int, dict[str, Any]] = {}
-
-    def grid_columnconfigure(self, col: int, **kwargs: Any) -> None:
-        self.columns.setdefault(col, {}).update(kwargs)
-
-
-class _RecordingGroup:
-    def __init__(self, rows: int) -> None:
-        self.tk = _RecordingGroupTk()
-        self._rbuttons = [SimpleNamespace(tk=_RecordingRowTk()) for _ in range(rows)]
-
-
-def test_equalize_group_rows_stretches_every_row_into_the_column() -> None:
-    group = _RecordingGroup(len(mod.LcsConfigPanel.device_options()))
-
-    mod.LcsConfigPanel._equalize_group_rows(group)
-
-    assert group.tk.columns == {0: {"weight": 1}}
-    assert [row.tk.grid_options for row in group._rbuttons] == [{"sticky": "ew"}] * len(group._rbuttons)
-
-
-@pytest.mark.parametrize("rows", [None, []])
-def test_equalize_group_rows_is_a_no_op_without_rows(rows: Any) -> None:
-    group = _RecordingGroup(0)
-    if rows is None:
-        del group._rbuttons
-    else:
-        group._rbuttons = rows
-
-    mod.LcsConfigPanel._equalize_group_rows(group)  # must not raise
-
-    assert group.tk.columns in ({}, {0: {"weight": 1}})
-
-
-def test_equalize_group_rows_swallows_a_tcl_error() -> None:
-    group = _RecordingGroup(1)
-
-    def _raise(**_kwargs: Any) -> None:
-        raise mod.TclError("no such widget")
-
-    group._rbuttons[0].tk.grid_configure = _raise
-
-    mod.LcsConfigPanel._equalize_group_rows(group)  # must not raise
-
-
-def test_device_group_is_built_without_an_explicit_width() -> None:
+def test_both_radio_lists_are_stretched_to_the_box_around_them() -> None:
+    # One length for every row, rather than each ending where its own label does. Left to
+    # guizero a row is gridded sticky="W", which went unnoticed until the rows were painted
+    # with a background of their own: on the ID page the shortest mode then stopped well
+    # short of the Mode box while the longest nearly filled it.
     panel = _new_panel()
 
-    assert "width" not in panel._device_group.kwargs
+    assert panel._device_group.kwargs["stretch"] is True
+    assert panel._mode_group.kwargs["stretch"] is True
+
+
+def test_neither_radio_list_is_built_with_an_explicit_row_width() -> None:
+    # A pixel width would equalize the rows too, and take their padx with it: Tk drops padx
+    # when a Checkbutton showing an image is given -width, pulling every indicator flush
+    # against the left edge. The stretch above is a grid option instead.
+    panel = _new_panel()
+
+    for group in (panel._device_group, panel._mode_group):
+        assert "width" not in group.kwargs
 
 
 #
@@ -1346,7 +1306,7 @@ def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, pag
 
 
 #
-# The panel's own Back/Next row: Back is hidden on the first page, Next never moves
+# The panel's own Back/Next row: Back is off the first page, and left of Next on the rest
 #
 def test_back_and_next_are_the_last_thing_in_the_body_after_a_gap() -> None:
     # The panel's own row, not the popup's footer: Close is added below everything build()
@@ -1387,12 +1347,15 @@ def test_declining_close_is_this_panel_and_no_other() -> None:
     assert mod.LcsConfigPanel.has_close is not mod.OverlayPanel.has_close
 
 
-def test_back_is_hidden_and_its_slot_shown_on_the_device_page() -> None:
+def test_the_device_page_shows_next_alone() -> None:
+    # There is nowhere to go back to from the first page, so Back is off the row entirely --
+    # not greyed, and not standing in a placeholder of its own width. The row asks for no
+    # width, so it shrinks to Next and Tk centers it.
     panel = _new_panel()
 
     assert panel.page_index == mod.PAGE_DEVICE
     assert panel._back_btn.visible is False
-    assert panel._back_slot.visible is True
+    assert [child.text for child in panel._nav.children if child.visible] == ["Next"]
 
 
 def test_back_is_visible_and_enabled_on_every_later_page() -> None:
@@ -1404,18 +1367,31 @@ def test_back_is_visible_and_enabled_on_every_later_page() -> None:
         assert panel.page_index == expected
         assert panel._back_btn.visible is True
         assert panel._back_btn.enabled is True
-        assert panel._back_slot.visible is False
+
+
+def test_back_is_created_first_so_it_is_never_to_the_right_of_next() -> None:
+    # What the Pi showed: Back reappeared on the first page *after* Next. guizero re-packs a
+    # container's children in creation order, so the order asserted here is the order the row
+    # keeps however often Back leaves it and comes back.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+
+    for _ in range(3):
+        panel.next_page()
+    for _ in range(3):
+        panel.previous_page()
+        assert [child.text for child in panel._nav.children] == ["Back", "Next"]
 
 
 def test_stepping_forward_and_back_restores_the_initial_visibility() -> None:
     panel = _new_panel()
     panel._on_device_selected("asc2")
-    before = (panel._back_btn.visible, panel._back_slot.visible)
+    before = panel._back_btn.visible
 
     panel.next_page()
     panel.previous_page()
 
-    assert (panel._back_btn.visible, panel._back_slot.visible) == before
+    assert panel._back_btn.visible == before
 
 
 def test_the_rows_packing_is_replayed_after_every_toggle(monkeypatch) -> None:
@@ -1452,15 +1428,31 @@ def test_next_enablement_is_unchanged_by_the_hidden_back_button() -> None:
     assert panel._next_btn.enabled is False
 
 
-def test_button_slot_falls_back_when_the_button_cannot_be_measured() -> None:
-    panel = mod.LcsConfigPanel(_new_host())
-    nav = DummyBox()
-    unmeasurable = SimpleNamespace(tk=SimpleNamespace())
+@pytest.mark.parametrize(
+    "compact, expected",
+    [(False, mod.NAV_ROW_PAD), (True, mod.NAV_ROW_PAD_COMPACT)],
+)
+def test_the_nav_row_gives_back_the_footer_bands_vertical_padding(monkeypatch, compact: bool, expected: int) -> None:
+    # Back and Next wear the shared footer look, but they are not in the popup's footer band:
+    # Close is, below them, with its own lead and padding. A footer button's 20px above and
+    # below, taken three times down one overlay, is what pushed Close off the ID page.
+    calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(mod, "repad_footer_button", lambda btn, **kw: calls.append((btn.text, kw)), raising=True)
 
-    slot = panel._button_slot(nav, unmeasurable)
+    _build_with_body(compact=compact)
 
-    assert slot.kwargs["width"] == mod.FOOTER_SLOT_FALLBACK + 2 * mod.FOOTER_BUTTON_PAD
-    assert slot.visible is False
+    assert calls == [("Back", {"pady": expected}), ("Next", {"pady": expected})]
+    # Horizontal padding is untouched: it is the gap between the two buttons.
+    assert all("padx" not in kwargs for _text, kwargs in calls)
+
+
+def test_the_row_holds_the_two_buttons_and_nothing_else() -> None:
+    # No placeholder standing in for Back. It bought Next a fixed x at the cost of a
+    # Back-shaped hole beside it on the first page, and of a second widget that had to be
+    # shown exactly when Back was not.
+    panel = _new_panel()
+
+    assert [type(child).__name__ for child in panel._nav.children] == ["DummyHoldButton"] * 2
 
 
 #
@@ -1565,6 +1557,34 @@ def test_the_mode_options_are_larger_than_the_page_body() -> None:
     assert panel._mode_group.kwargs["size"] == host.s_18
     assert panel._mode_group.kwargs["size"] > host.s_14
     assert panel._device_group.kwargs["size"] == host.s_14
+
+
+@pytest.mark.parametrize(
+    "compact, device, mode",
+    [
+        (False, mod.RADIO_ROW_PAD, mod.MODE_ROW_PAD),
+        (True, mod.RADIO_ROW_PAD_COMPACT, mod.MODE_ROW_PAD_COMPACT),
+    ],
+)
+def test_both_radio_lists_hold_their_rows_apart(compact: bool, device: int, mode: int) -> None:
+    # Whitespace between one radio and the next, on the page that chooses the module and on
+    # the page that chooses its mode. Asked for as the row's own padding rather than as grid
+    # padding, because guizero rebuilds a container's grid options from scratch whenever
+    # anything in it is created, shown or hidden, and pady is not among the ones it replays.
+    panel, _body, _host = _build_with_body(compact=compact)
+
+    assert panel._device_group.kwargs["pady"] == device
+    assert panel._mode_group.kwargs["pady"] == mode
+
+
+def test_the_mode_rows_are_held_apart_less_than_the_module_rows() -> None:
+    # The ID page is the fullest of the four and its rows are the tallest -- a size above the
+    # page body, so a painted indicator half again as large -- while the device page has
+    # nothing below its radios at all. Both are more than those rows had before, which was
+    # Tk's own single pixel: the rebuild that lost their paint lost their padding with it.
+    assert mod.MODE_ROW_PAD < mod.RADIO_ROW_PAD
+    assert mod.MODE_ROW_PAD_COMPACT < mod.RADIO_ROW_PAD_COMPACT
+    assert mod.RADIO_ROW_PAD > 6
 
 
 def test_the_three_titled_boxes_are_labelled_at_the_page_body_size() -> None:
