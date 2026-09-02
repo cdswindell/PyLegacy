@@ -6,8 +6,9 @@ from typing import Any
 import pytest
 
 import src.pytrain.gui.controller.lcs_config_panel as mod
-from src.pytrain.gui.controller.lcs_device_registry import ASC2, BPC2, SENSOR_TRACK, STM2
+from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2
 from src.pytrain.pdi.irda_req import IrdaSequence
+from src.pytrain.pdi.pdi_device import PdiDevice
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
@@ -162,7 +163,9 @@ class FakeState:
         self.num_ids = num_ids
         self.sequence = sequence
         self._parent = parent
-        for flag in ("is_asc2", "is_bpc2", "is_stm2", "is_sensor_track"):
+        # is_amc2 among them: the panel can only name an AMC2, but a state that does not
+        # carry the flag at all cannot even be recognized, which was the original bug.
+        for flag in ("is_asc2", "is_bpc2", "is_stm2", "is_sensor_track", "is_amc2"):
             setattr(self, flag, flag == device_flag)
 
     @property
@@ -265,6 +268,16 @@ def _new_panel(store: FakeStore | None = None):
     return panel
 
 
+def _appliance(monkeypatch) -> None:
+    """Run as the Pi or the Steam Deck, where the panel opens on the module at the ID.
+
+    The suite pins the platform to a desktop, on which the panel deliberately reflects
+    nothing and opens on the first module by name. A test about seeding from the layout has
+    to say which host it means.
+    """
+    monkeypatch.setattr(mod, "is_linux", lambda: True, raising=True)
+
+
 #
 # Pages
 #
@@ -292,7 +305,13 @@ def test_next_page_requires_a_device_then_shows_id_page() -> None:
 
 def test_device_options_cover_every_registry_device() -> None:
     keys = [value for _label, value in mod.LcsConfigPanel.device_options()]
-    assert keys == [ASC2.key, BPC2.key, STM2.key, SENSOR_TRACK.key]
+    # In name order, which is the order the registry offers them in.
+    assert keys == [ASC2.key, BPC2.key, SENSOR_TRACK.key, STM2.key]
+
+
+def test_device_options_are_sorted_by_name() -> None:
+    labels = [label for label, _value in mod.LcsConfigPanel.device_options()]
+    assert labels == sorted(labels, key=str.upper)
 
 
 #
@@ -378,17 +397,69 @@ def test_widening_the_mode_lowers_an_out_of_range_id() -> None:
 #
 # Seeding
 #
-def test_configure_with_nothing_selected_defaults_to_id_one_and_no_device() -> None:
+def test_configure_with_nothing_selected_defaults_to_id_one_and_the_first_device() -> None:
     panel = _new_panel()
     panel.configure(None, None, None)
 
     assert panel.base_id == 1
-    assert panel.device is None
-    assert panel._device_group.value is None
+    assert panel.device is ASC2
+    assert panel.mode is ASC2.default_mode
+    assert panel._device_group.value == "asc2"
     assert panel.page_index == mod.PAGE_DEVICE
 
 
-def test_configure_seeds_device_and_mode_from_a_known_bpc2_state() -> None:
+def test_the_default_device_is_the_first_one_offered() -> None:
+    assert mod.LcsConfigPanel(_new_host()).default_device is ASC2
+
+
+def test_the_first_page_is_never_a_dead_end() -> None:
+    # A module is always selected, so Next has somewhere to go from the moment the panel
+    # opens rather than only once something is picked.
+    panel = _new_panel()
+    panel.configure(None, None, None)
+
+    assert panel._next_btn.enabled is True
+
+
+def test_a_desktop_opens_on_the_first_device_whatever_holds_the_id() -> None:
+    # No screen context on a desktop: the stand-alone window opens at TMCC ID 1 on nothing
+    # in particular, so guessing from whatever sits there is what surprised the operator.
+    state = FakeState(12, "is_bpc2", mode=0, num_ids=8)
+    panel = _new_panel(FakeStore({CommandScope.TRAIN: [state]}))
+
+    panel.configure(CommandScope.TRAIN, 12, state)
+
+    assert panel.device is ASC2
+    assert panel.base_id == 12
+    # Still told what is out there, which is the assigned box's whole job.
+    panel._on_mode_selected("acc_8")
+    assert _assigned(panel) == [mod.UNASSIGNED]
+    panel._on_device_selected("bpc2")
+    assert _assigned(panel) == ["TR: BPC2 TMCC IDs 12 - 19"]
+
+
+def test_an_appliance_falls_back_to_the_first_device_when_the_id_is_free(monkeypatch) -> None:
+    _appliance(monkeypatch)
+    panel = _new_panel()
+
+    panel.configure(CommandScope.ACC, 40, None)
+
+    assert panel.device is ASC2
+    assert panel.base_id == 40
+
+
+def test_the_entered_id_is_squared_with_the_opening_modes_ceiling() -> None:
+    # ID 95 fits a four-port switch mode but not the ASC2's eight-ID accessory mode, which
+    # is what the panel opens on when there is nothing to reflect.
+    panel = _new_panel()
+    panel.configure(None, 95, None)
+
+    assert panel.device is ASC2
+    assert panel.base_id == panel.max_base == 91
+
+
+def test_configure_seeds_device_and_mode_from_a_known_bpc2_state(monkeypatch) -> None:
+    _appliance(monkeypatch)
     state = FakeState(12, "is_bpc2", mode=0, num_ids=8)
     store = FakeStore({CommandScope.TRAIN: [state]})
     panel = _new_panel(store)
@@ -400,7 +471,7 @@ def test_configure_seeds_device_and_mode_from_a_known_bpc2_state() -> None:
     assert panel.base_id == 12
     assert panel._device_group.value == "bpc2"
     assert panel.options == {"restore": False}
-    assert panel._occupancy_line.value == "BPC2 TR TMCC IDs 12 - 19"
+    assert _assigned(panel) == ["TR: BPC2 TMCC IDs 12 - 19"]
 
 
 def test_configure_seeds_from_the_store_when_the_id_is_a_known_base() -> None:
@@ -436,12 +507,35 @@ def _stm2_at_1_and_bpc2_at_1_store() -> FakeStore:
     )
 
 
+def _rows(cells: list[tuple[Any, ...]]) -> list[str]:
+    """What one of the module boxes is showing, one string per visible row.
+
+    Read out of the row widgets rather than off ``assigned_rows()`` / ``overlap_rows()``,
+    so the assertions cover what was actually written into the box -- including a row left
+    over from a busier ID, which must be hidden rather than merely blanked.
+    """
+    lines = []
+    for row in cells:
+        if not row[1].visible:
+            continue
+        lines.append(" ".join(cell.value for cell in row if cell.value))
+    return lines
+
+
+def _assigned(panel: mod.LcsConfigPanel) -> list[str]:
+    return _rows(panel._assigned_cells)
+
+
+def _overlaps(panel: mod.LcsConfigPanel) -> list[str]:
+    return _rows(panel._overlap_cells)
+
+
 def test_unowned_id_reports_unassigned() -> None:
     panel = _new_panel(_asc2_at_9_store())
     panel._on_device_selected("asc2")
     panel._set_base_id(40)
 
-    assert panel._occupancy_line.value == mod.UNASSIGNED
+    assert _assigned(panel) == [mod.UNASSIGNED]
     assert panel._goto_btn.visible is False
     assert panel._new_btn.visible is False
 
@@ -451,9 +545,9 @@ def test_interior_port_reports_its_owner_and_offers_both_choices() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(12)
 
-    # The module is named the same way as a base hit -- that is what the box reports --
-    # with the port the entered ID really is appended.
-    assert panel._occupancy_line.value == "ASC2 ACC TMCC IDs 9 - 16 (12 is port 4)"
+    # The module is named exactly as it is on a base hit: the box reports what is out on
+    # the layout, and which port the entered ID happens to be is not part of that.
+    assert _assigned(panel) == ["ACC: ASC2 TMCC IDs 9 - 16"]
     assert panel._goto_btn.visible is True
     assert panel._goto_btn.text == "Go to 9"
     assert panel._new_btn.visible is True
@@ -467,7 +561,7 @@ def test_go_to_base_retargets_and_pre_fills() -> None:
     panel = _new_panel(store)
     panel._on_device_selected("asc2")
     panel._set_base_id(12)
-    assert panel._occupancy_line.value == "BPC2 ACC TMCC IDs 9 - 16 (12 is port 4)"
+    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 9 - 16"]
 
     panel.go_to_owning_base()
 
@@ -475,7 +569,7 @@ def test_go_to_base_retargets_and_pre_fills() -> None:
     assert panel.device is BPC2
     assert panel.mode.key == "acc_8"
     assert panel._device_group.value == "bpc2"
-    assert panel._occupancy_line.value == "BPC2 ACC TMCC IDs 9 - 16"
+    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 9 - 16"]
 
 
 def test_go_to_base_ignores_a_module_on_another_remote_key() -> None:
@@ -484,7 +578,7 @@ def test_go_to_base_ignores_a_module_on_another_remote_key() -> None:
     panel = _new_panel(_asc2_at_9_store())
     panel._on_device_selected("bpc2")
     panel._set_base_id(12)
-    assert panel._occupancy_line.value == mod.UNASSIGNED
+    assert _assigned(panel) == [mod.UNASSIGNED]
 
     panel.go_to_owning_base()
 
@@ -510,16 +604,17 @@ def test_configure_as_new_keeps_the_entered_id() -> None:
     assert panel._goto_btn.visible is True
 
 
-def test_overlap_line_is_advisory() -> None:
+def test_overlaps_are_advisory() -> None:
     store = FakeStore({CommandScope.SWITCH: [FakeState(28, "is_stm2", mode=1, num_ids=8)]})
     panel = _new_panel(store)
     panel._on_device_selected("stm2")
     panel._on_mode_selected("single_wire")  # 16 ports
     panel._set_base_id(20)
 
-    # Named the way the assigned box names a module: which one, which key, which IDs.
-    assert panel.overlap_text() == "Overlaps STM2 SW TMCC IDs 28 - 35"
-    assert panel._overlap_line.value == "Overlaps STM2 SW TMCC IDs 28 - 35"
+    # Named the way the assigned box names a module: which key, which one, which IDs. The
+    # word "Overlaps" is the box's title, so it is not repeated in the row.
+    assert [row.text for row in panel.overlap_rows()] == ["SW: STM2 TMCC IDs 28 - 35"]
+    assert _overlaps(panel) == ["SW: STM2 TMCC IDs 28 - 35"]
     # Advisory only: the ID the operator typed is untouched.
     assert panel.base_id == 20
 
@@ -533,19 +628,20 @@ def test_a_switch_mode_asc2_overlaps_a_switch_module_that_runs_into_it() -> None
     panel._on_mode_selected("single_wire")  # 16 ports: 20-35
     panel._set_base_id(20)
 
-    assert panel.overlap_text() == "Overlaps ASC2 SW TMCC IDs 25 - 28"
+    assert _overlaps(panel) == ["SW: ASC2 TMCC IDs 25 - 28"]
 
 
 def test_an_accessory_never_overlaps_a_switch_block() -> None:
     # The reported layout: an STM2 based at SW 1 claims SW 1-16, and the BPC2 on ACC 1 is
-    # not in its way, so the overlap line stays silent.
+    # not in its way, so the Overlaps box says nothing and is not on the page at all.
     panel = _new_panel(_stm2_at_1_and_bpc2_at_1_store())
     panel._on_device_selected("stm2")
     panel._on_mode_selected("single_wire")  # 16 ports: 1-16
     panel._set_base_id(1)
 
-    assert panel.overlap_text() == ""
-    assert panel._overlap_line.value == ""
+    assert panel.overlap_rows() == []
+    assert _overlaps(panel) == []
+    assert panel._overlap_box.visible is False
 
 
 def test_the_assigned_box_names_the_module_on_the_key_being_programmed() -> None:
@@ -556,7 +652,7 @@ def test_the_assigned_box_names_the_module_on_the_key_being_programmed() -> None
     panel._on_device_selected("stm2")
     panel._set_base_id(1)
 
-    assert panel._occupancy_line.value == "STM2 SW TMCC IDs 1 - 16"
+    assert _assigned(panel) == ["SW: STM2 TMCC IDs 1 - 16"]
     assert panel._goto_btn.visible is False
     assert panel._new_btn.visible is False
 
@@ -568,12 +664,12 @@ def test_the_same_id_reports_a_different_module_for_a_different_key() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(1)
     assert panel.scope == CommandScope.ACC
-    assert panel._occupancy_line.value == "BPC2 ACC TMCC ID 1"
+    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1"]
 
     # A BPC2 in its track mode shares neither, so ID 1 really is free.
     panel._on_device_selected("bpc2")
     assert panel.scope == CommandScope.TRAIN
-    assert panel._occupancy_line.value == mod.UNASSIGNED
+    assert _assigned(panel) == [mod.UNASSIGNED]
 
 
 def test_switching_an_asc2_between_keys_changes_what_is_in_its_way() -> None:
@@ -582,27 +678,29 @@ def test_switching_an_asc2_between_keys_changes_what_is_in_its_way() -> None:
     panel = _new_panel(_stm2_at_1_and_bpc2_at_1_store())
     panel._on_device_selected("asc2")
     panel._set_base_id(1)
-    assert panel._occupancy_line.value == "BPC2 ACC TMCC ID 1"
+    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1"]
 
     panel._on_mode_selected("sw_momentary")
 
     assert panel.scope == CommandScope.SWITCH
-    assert panel._occupancy_line.value == "STM2 SW TMCC IDs 1 - 16"
+    assert _assigned(panel) == ["SW: STM2 TMCC IDs 1 - 16"]
 
 
 def test_with_no_device_chosen_every_module_still_counts() -> None:
     # Nothing has been picked, so there is no key to filter by and no reason to hide
-    # anything: the panel has not yet been told what it is looking at.
+    # anything: the panel has not yet been told what it is looking at, and both modules
+    # sitting on "1" get a row of their own.
     panel = _new_panel(_stm2_at_1_and_bpc2_at_1_store())
     panel._set_base_id(1)
 
     assert panel.scope is None
-    assert panel._occupancy_line.value != mod.UNASSIGNED
+    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1", "SW: STM2 TMCC IDs 1 - 16"]
 
 
-def test_configure_prefers_a_module_on_the_screens_own_key() -> None:
+def test_configure_prefers_a_module_on_the_screens_own_key(monkeypatch) -> None:
     # The LCS... key pressed from the switch screen means switch IDs, so the module the
     # panel seeds itself from is the switch one, even though an accessory shares the number.
+    _appliance(monkeypatch)
     panel = _new_panel(_stm2_at_1_and_bpc2_at_1_store())
 
     panel.configure(CommandScope.SWITCH, 1, None)
@@ -613,9 +711,10 @@ def test_configure_prefers_a_module_on_the_screens_own_key() -> None:
     assert panel.mode.key == "acc_1"
 
 
-def test_configure_widens_the_search_when_the_screen_is_not_on_an_lcs_key() -> None:
+def test_configure_widens_the_search_when_the_screen_is_not_on_an_lcs_key(monkeypatch) -> None:
     # From the engine screen there is no LCS key to prefer, so the search takes whatever
     # module holds the ID rather than reporting nothing.
+    _appliance(monkeypatch)
     panel = _new_panel(_stm2_at_1_and_bpc2_at_1_store())
 
     panel.configure(CommandScope.ENGINE, 1, None)
@@ -858,8 +957,9 @@ def test_mode_selector_repopulates_correctly_on_device_change() -> None:
     assert len(panel._mode_group.options) == 4
     assert panel._mode_group.options[0] == ("ACCessory, 8 TMCC IDs", "acc_8")
     assert panel._mode_group.options[1] == ("ACCessory, 1 TMCC ID", "acc_1")
-    assert panel._mode_group.options[2] == ("SWitch, momentary", "sw_momentary")
-    assert panel._mode_group.options[3] == ("SWitch, latching", "sw_latching")
+    # Every switch mode names the block it consumes, as the accessory modes do.
+    assert panel._mode_group.options[2] == ("SWitch, momentary, 4 TMCC IDs", "sw_momentary")
+    assert panel._mode_group.options[3] == ("SWitch, latching, 4 TMCC IDs", "sw_latching")
 
     # Switch to Sensor Track, which has 1 mode
     panel._on_device_selected("sensor_track")
@@ -925,26 +1025,32 @@ def test_every_other_control_stays_usable_while_sync_is_pending() -> None:
     assert panel._sync_line.visible is True
 
 
-def test_occupancy_is_unassigned_until_the_store_is_populated() -> None:
+def test_occupancy_is_unassigned_until_the_store_is_populated(monkeypatch) -> None:
+    # On the appliance, because the module that turns up at synchronization is also the one
+    # the panel then opens on, which is what puts it on the remote key the box reports.
+    _appliance(monkeypatch)
     states: dict[CommandScope, list[FakeState]] = {CommandScope.TRAIN: []}
     panel = _new_panel(FakeStore(states))
     panel.set_sync_pending(True)
     panel._set_base_id(12)
 
-    assert panel._occupancy_line.value == mod.UNASSIGNED
+    assert _assigned(panel) == [mod.UNASSIGNED]
 
     states[CommandScope.TRAIN].append(FakeState(12, "is_bpc2", mode=0, num_ids=8))
     panel.on_synchronized()
 
-    assert panel._occupancy_line.value == "BPC2 TR TMCC IDs 12 - 19"
+    assert _assigned(panel) == ["TR: BPC2 TMCC IDs 12 - 19"]
 
 
-def test_on_synchronized_re_seeds_when_no_device_was_chosen() -> None:
+def test_on_synchronized_re_seeds_while_the_operator_has_not_chosen(monkeypatch) -> None:
+    # A module is always selected once the panel has been configured, so "untouched" is a
+    # flag of its own now rather than the absence of a selection.
+    _appliance(monkeypatch)
     states: dict[CommandScope, list[FakeState]] = {CommandScope.TRAIN: []}
     panel = _new_panel(FakeStore(states))
+    panel.configure(None, 12, None)
     panel.set_sync_pending(True)
-    panel._set_base_id(12)
-    assert panel.device is None
+    assert panel.device is ASC2
 
     states[CommandScope.TRAIN].append(FakeState(12, "is_bpc2", mode=0, num_ids=8))
     panel.on_synchronized()
@@ -971,7 +1077,7 @@ def test_on_synchronized_keeps_the_operators_choices() -> None:
     assert panel.base_id == 12
     assert panel.options["restore"] is True
     assert panel._configure_btn.enabled is True
-    assert panel._occupancy_line.value == "STM2 SW TMCC IDs 12 - 19"
+    assert _assigned(panel) == ["SW: STM2 TMCC IDs 12 - 19"]
 
 
 def test_on_synchronized_is_idempotent() -> None:
@@ -1050,6 +1156,103 @@ def test_device_group_is_built_without_an_explicit_width() -> None:
     panel = _new_panel()
 
     assert "width" not in panel._device_group.kwargs
+
+
+#
+# Equal-width Currently Assigned, Overlaps and Mode boxes
+#
+class _RecordingGridTk:
+    """Records the grid calls a real Tk frame would receive."""
+
+    def __init__(self) -> None:
+        self.columns: dict[int, dict[str, Any]] = {}
+        self.grid_options: dict[str, Any] = {}
+
+    def grid_columnconfigure(self, col: int, **kwargs: Any) -> None:
+        self.columns.setdefault(col, {}).update(kwargs)
+
+    def grid_configure(self, **kwargs: Any) -> None:
+        self.grid_options.update(kwargs)
+
+
+def _record_titled_boxes(panel: mod.LcsConfigPanel) -> None:
+    for widget in (panel._titled_boxes, panel._assigned_box, panel._overlap_box, panel._mode_box):
+        widget.tk = _RecordingGridTk()
+
+
+def test_the_titled_boxes_are_stacked_in_one_column() -> None:
+    # Same column, one above the other: that alone is what makes them equally wide, and
+    # it is why they are gridded rather than packed.
+    panel = _new_panel()
+
+    for box in (panel._assigned_box, panel._overlap_box, panel._mode_box):
+        assert box in panel._titled_boxes.children
+    assert panel._titled_boxes.kwargs["layout"] == "grid"
+    # Overlaps sits directly after Currently Assigned, with the mode radios below both.
+    assert [panel._assigned_box.grid, panel._overlap_box.grid, panel._mode_box.grid] == [
+        [0, 0],
+        [0, 1],
+        [0, 2],
+    ]
+
+
+def test_every_showing_box_is_stretched_across_that_column() -> None:
+    store = FakeStore({CommandScope.ACC: [FakeState(30, "is_bpc2", mode=2, num_ids=8)]})
+    panel = _new_panel(store)
+    panel._on_device_selected("asc2")  # the mode box is showing
+    panel._set_base_id(25)  # and the BPC2 at 30-37 runs into 25-32
+    assert panel._overlap_box.visible is True
+    _record_titled_boxes(panel)
+
+    panel._equalize_titled_boxes()
+
+    assert panel._titled_boxes.tk.columns == {0: {"weight": 1}}
+    assert panel._assigned_box.tk.grid_options == {"sticky": "ew"}
+    assert panel._overlap_box.tk.grid_options == {"sticky": "ew"}
+    assert panel._mode_box.tk.grid_options == {"sticky": "ew"}
+
+
+def test_a_hidden_box_is_not_stretched_back_onto_the_screen() -> None:
+    # No device chosen, so there are no modes to show and nothing can be in the way.
+    # Configuring the grid for a widget the grid has forgotten would put the empty titled
+    # frame back on the page.
+    panel = _new_panel()
+    assert panel._mode_box.visible is False
+    assert panel._overlap_box.visible is False
+    _record_titled_boxes(panel)
+
+    panel._equalize_titled_boxes()
+
+    assert panel._assigned_box.tk.grid_options == {"sticky": "ew"}
+    assert panel._overlap_box.tk.grid_options == {}
+    assert panel._mode_box.tk.grid_options == {}
+
+
+def test_the_stretch_is_re_applied_on_every_id_page_refresh() -> None:
+    # guizero rebuilds a container's grid options from scratch whenever a child is shown
+    # or hidden, and sticky is not among the options it replays, so setting it once at
+    # build time would be lost the first time the mode box appeared.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    _record_titled_boxes(panel)
+
+    panel._refresh_id_page()
+
+    assert panel._titled_boxes.tk.columns == {0: {"weight": 1}}
+    assert panel._assigned_box.tk.grid_options == {"sticky": "ew"}
+    assert panel._mode_box.tk.grid_options == {"sticky": "ew"}
+
+
+def test_equalizing_survives_a_tcl_error() -> None:
+    panel = _new_panel()
+    _record_titled_boxes(panel)
+
+    def _raise(**_kwargs: Any) -> None:
+        raise mod.TclError("no such widget")
+
+    panel._assigned_box.tk.grid_configure = _raise
+
+    panel._equalize_titled_boxes()  # must not raise
 
 
 #
@@ -1283,14 +1486,19 @@ def test_the_mode_options_are_larger_than_the_page_body() -> None:
 def test_the_information_lines_are_smaller_than_the_page_body() -> None:
     # Every one of them is derived from the ID and the mode above them: context, not a
     # choice. The footnote is quietest of all, at the block line's size.
-    panel = _new_panel()
+    store = FakeStore({CommandScope.ACC: [FakeState(30, "is_bpc2", mode=2, num_ids=8)]})
+    panel = _new_panel(store)
+    panel._on_device_selected("asc2")
+    panel._set_base_id(25)  # the BPC2 at 30-37 runs into 25-32, so the Overlaps box speaks
     host = panel.gui
 
-    assert panel._occupancy_line.text_size == host.s_12
-    assert panel._overlap_line.text_size == host.s_12
+    assigned = panel._assigned_cells[0]
+    assert all(cell.text_size == host.s_12 for cell in assigned)
+    # The two boxes read as one list, so their rows are the same size.
+    assert all(cell.text_size == host.s_12 for cell in panel._overlap_cells[0])
     assert panel._block_line.text_size == host.s_10
     assert panel._mode_footnote_line.text_size == host.s_10
-    assert panel._block_line.text_size < panel._occupancy_line.text_size < host.s_14
+    assert panel._block_line.text_size < assigned[0].text_size < host.s_14
 
 
 def test_the_device_line_sits_directly_under_the_id_row() -> None:
@@ -1302,13 +1510,16 @@ def test_the_device_line_sits_directly_under_the_id_row() -> None:
     row = next(i for i, child in enumerate(order) if panel._minus_btn in getattr(child, "children", []))
 
     heading = order.index(panel._id_heading)
-    assigned = order.index(panel._assigned_box)
-    mode_box = order.index(panel._mode_box)
+    boxes = order.index(panel._titled_boxes)
     block = order.index(panel._block_line)
     footnote = order.index(panel._mode_footnote_line)
 
-    assert heading < row < assigned < mode_box < block < footnote
-    assert assigned == row + 1
+    assert heading < row < boxes < block < footnote
+    assert boxes == row + 1
+    # The titled boxes share that one slot: assigned, then overlaps, then the mode radios.
+    assert panel._assigned_box.grid == [0, 0]
+    assert panel._overlap_box.grid == [0, 1]
+    assert panel._mode_box.grid == [0, 2]
 
 
 #
@@ -1319,7 +1530,8 @@ def test_the_assignment_line_is_in_a_box_titled_currently_assigned() -> None:
 
     assert panel._assigned_box.text == mod.ASSIGNED_TITLE
     assert mod.ASSIGNED_TITLE == "Currently Assigned"
-    assert panel._occupancy_line in panel._assigned_box.children
+    assert panel._assigned_grid in panel._assigned_box.children
+    assert all(cell in panel._assigned_grid.children for cell in panel._assigned_cells[0])
 
 
 def test_an_unassigned_id_says_so_rather_than_going_blank() -> None:
@@ -1328,17 +1540,17 @@ def test_an_unassigned_id_says_so_rather_than_going_blank() -> None:
     panel = _new_panel()
 
     assert mod.UNASSIGNED == "Unassigned"
-    assert panel._occupancy_line.value == mod.UNASSIGNED
+    assert _assigned(panel) == [mod.UNASSIGNED]
     assert panel._assigned_box.visible is True
 
 
 @pytest.mark.parametrize(
     "scope, flag, mode, num_ids, device_key, expected",
     [
-        (CommandScope.ACC, "is_asc2", 0, 8, "asc2", "ASC2 ACC TMCC IDs 20 - 27"),
-        (CommandScope.SWITCH, "is_stm2", 1, 8, "stm2", "STM2 SW TMCC IDs 20 - 27"),
-        (CommandScope.TRAIN, "is_bpc2", 0, 8, "bpc2", "BPC2 TR TMCC IDs 20 - 27"),
-        (CommandScope.ACC, "is_sensor_track", None, 1, "sensor_track", "Sensor Track ACC TMCC ID 20"),
+        (CommandScope.ACC, "is_asc2", 0, 8, "asc2", "ACC: ASC2 TMCC IDs 20 - 27"),
+        (CommandScope.SWITCH, "is_stm2", 1, 8, "stm2", "SW: STM2 TMCC IDs 20 - 27"),
+        (CommandScope.TRAIN, "is_bpc2", 0, 8, "bpc2", "TR: BPC2 TMCC IDs 20 - 27"),
+        (CommandScope.ACC, "is_sensor_track", None, 1, "sensor_track", "ACC: Sensor Track TMCC ID 20"),
     ],
 )
 def test_an_assigned_id_names_the_module_its_remote_key_and_its_block(
@@ -1353,7 +1565,267 @@ def test_an_assigned_id_names_the_module_its_remote_key_and_its_block(
     panel._on_device_selected(device_key)
     panel._set_base_id(20)
 
-    assert panel._occupancy_line.value == expected
+    assert _assigned(panel) == [expected]
+
+
+def test_the_row_is_gridded_with_the_remote_key_first_and_bold() -> None:
+    panel = _new_panel(_asc2_at_9_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(9)
+
+    key, module, ids = panel._assigned_cells[0]
+    assert [cell.value for cell in (key, module, ids)] == ["ACC:", "ASC2", "TMCC IDs 9 - 16"]
+    # The key is the column the eye runs down, and the only part drawn bold.
+    assert key.text_bold is True
+    assert [cell.text_bold for cell in (module, ids)] == [False, False]
+    # A column each, so the module names and the ID ranges line up down the box.
+    assert [cell.grid for cell in panel._assigned_cells[0]] == [[0, 0], [1, 0], [2, 0]]
+    assert mod.ROW_COLUMNS == 3
+
+
+def test_an_interior_hit_does_not_spell_out_which_port_it_is() -> None:
+    # The range already says the entered ID falls inside the module, and which port of it
+    # exactly is nothing the operator can act on -- the two buttons below the box are
+    # where that decision is made, and they name the base ID themselves.
+    panel = _new_panel(_asc2_at_9_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(12)
+
+    assert [cell.value for cell in panel._assigned_cells[0]] == ["ACC:", "ASC2", "TMCC IDs 9 - 16"]
+    assert "port" not in " ".join(_assigned(panel))
+
+
+#
+# What the chosen block runs into
+#
+def _overlapping_store() -> FakeStore:
+    """Two accessory modules above ID 25, so an eight-ID block at 25 runs into both."""
+    return FakeStore(
+        {
+            CommandScope.ACC: [
+                FakeState(26, "is_bpc2", mode=2, num_ids=8),
+                FakeState(30, "is_asc2", mode=0, num_ids=8),
+            ]
+        }
+    )
+
+
+def test_the_overlaps_are_in_a_box_of_their_own_titled_overlaps() -> None:
+    panel = _new_panel(_overlapping_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(25)
+
+    assert panel._overlap_box.text == mod.OVERLAP_TITLE
+    assert mod.OVERLAP_TITLE == "Overlaps"
+    assert panel._overlap_grid in panel._overlap_box.children
+    assert all(cell in panel._overlap_grid.children for cell in panel._overlap_cells[0])
+
+
+def test_each_module_in_the_way_gets_a_row_of_its_own() -> None:
+    # Run together on one line, two neighbors ran off the right edge of the window; a row
+    # each also lines their columns up the way the assigned box lines up its own.
+    panel = _new_panel(_overlapping_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(25)
+
+    assert _overlaps(panel) == ["ACC: BPC2 TMCC IDs 26 - 33", "ACC: ASC2 TMCC IDs 30 - 37"]
+    # The title carries the word, so no row repeats it.
+    assert not any("Overlaps" in row for row in _overlaps(panel))
+    assert [cell.grid for cell in panel._overlap_cells[0]] == [[0, 0], [1, 0], [2, 0]]
+    assert panel._overlap_cells[0][0].text_bold is True
+
+
+def test_the_overlaps_box_comes_and_goes_with_what_is_in_the_way() -> None:
+    # Nothing in the way is an answer the title alone cannot give, so the box leaves the
+    # page rather than standing empty -- and a row left over from a busier block is hidden
+    # rather than blanked, which would keep the box the height of its fullest moment.
+    panel = _new_panel(_overlapping_store())
+    panel._on_device_selected("asc2")
+
+    panel._set_base_id(25)
+    assert panel._overlap_box.visible is True
+    assert len(_overlaps(panel)) == 2
+
+    panel._set_base_id(30)  # 30-37 is the ASC2's own block, and the BPC2 ends at 33
+    assert _overlaps(panel) == ["ACC: BPC2 TMCC IDs 26 - 33"]
+    assert panel._overlap_cells[1][1].visible is False
+
+    panel._set_base_id(50)
+    assert panel._overlap_box.visible is False
+    assert _overlaps(panel) == []
+
+    panel._set_base_id(25)
+    assert panel._overlap_box.visible is True
+    assert len(_overlaps(panel)) == 2
+
+
+def _amc2_and_bpc2_at_1_store() -> FakeStore:
+    """The reported layout: an AMC2 and a BPC2 both answering to ACC 1."""
+    return FakeStore(
+        {
+            CommandScope.ACC: [
+                FakeState(1, "is_bpc2", mode=3, num_ids=1),
+                FakeState(1, "is_amc2", num_ids=1),
+            ]
+        }
+    )
+
+
+class FakePdiConfig:
+    """One module's own PDI CONFIG packet, as PdiDeviceConfig presents it."""
+
+    def __init__(self, tmcc_id: int, scope: CommandScope, mode: int | None = None) -> None:
+        self.tmcc_id = tmcc_id
+        self.scope = scope
+        if mode is not None:
+            # Only ASC2, BPC2 and STM2 configs carry a mode; an AMC2's does not.
+            self.mode = mode
+
+
+class FakePdiStore:
+    """Stand-in for PdiStateStore: one entry per module type per TMCC ID."""
+
+    def __init__(self, configs: dict[Any, list[FakePdiConfig]]) -> None:
+        self._configs = configs
+
+    def keys(self) -> list[Any]:
+        return list(self._configs.keys())
+
+    def get_all(self, device: Any) -> list[FakePdiConfig]:
+        return self._configs.get(device, [])
+
+
+def _with_pdi_store(monkeypatch, configs: dict[Any, list[FakePdiConfig]]) -> None:
+    """Stand a PDI device store behind the panel, as a synchronized process has."""
+    from src.pytrain.gui.controller import lcs_id_map
+
+    store = FakePdiStore(configs)
+    monkeypatch.setattr(lcs_id_map, "_pdi_store", lambda pdi_store=None: store, raising=True)
+
+
+def _shared_acc_1_record() -> FakeStore:
+    """
+    One accessory record at ACC 1, as the real store keeps it.
+
+    A component state is keyed by scope and address alone, so the AMC2 and the BPC2 both
+    answering to ACC 1 share this one record, and its mode and num_ids belong to whichever
+    of them reported last.
+    """
+    return FakeStore({CommandScope.ACC: [FakeState(1, "is_bpc2", mode=3, num_ids=1)]})
+
+
+def test_the_assigned_box_names_every_module_the_pdi_bus_reported(monkeypatch) -> None:
+    # The reported layout: a BPC2 in its eight-ID accessory mode and an AMC2, both on ACC 1.
+    _with_pdi_store(
+        monkeypatch,
+        {
+            PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2)],
+            PdiDevice.AMC2: [FakePdiConfig(1, CommandScope.ACC)],
+        },
+    )
+    panel = _new_panel(_shared_acc_1_record())
+    panel._on_device_selected("asc2")  # accessory mode: the same remote key as both
+    panel._set_base_id(1)
+
+    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 1 - 8", "ACC: AMC2 TMCC ID 1"]
+
+
+def test_the_shared_record_alone_could_not_say_that(monkeypatch) -> None:
+    # Why the PDI store is read first: from the record they share, the AMC2 is invisible and
+    # the BPC2 claims the single ID that record happens to be carrying.
+    from src.pytrain.gui.controller import lcs_id_map
+
+    monkeypatch.setattr(lcs_id_map, "_pdi_store", lambda pdi_store=None: None, raising=True)
+    panel = _new_panel(_shared_acc_1_record())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(1)
+
+    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1"]
+
+
+def test_an_id_inside_the_true_block_is_reported_against_that_block(monkeypatch) -> None:
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2)]})
+    panel = _new_panel(_shared_acc_1_record())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(5)
+
+    # The module's real range, from its own CONFIG packet, which is the whole point of
+    # reading the PDI store first: the shared record would have said one ID.
+    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 1 - 8"]
+    assert panel._goto_btn.text == "Go to 1"
+
+
+def test_every_module_on_the_id_gets_a_row_of_its_own() -> None:
+    # Naming only the first would tell the operator half the truth about the address.
+    panel = _new_panel(_amc2_and_bpc2_at_1_store())
+    panel._on_device_selected("asc2")  # accessory mode: the same remote key as both
+    panel._set_base_id(1)
+
+    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1", "ACC: AMC2 TMCC ID 1"]
+    assert [cell.grid for cell in panel._assigned_cells[1]] == [[0, 1], [1, 1], [2, 1]]
+
+
+def test_a_module_this_pass_cannot_program_is_named_but_never_seeded_from(monkeypatch) -> None:
+    # An AMC2 is in the registry to be recognized, not to be configured: it is reported,
+    # it is not offered on the device page, and the panel will not open on it even where
+    # opening on the module at the ID is the rule.
+    _appliance(monkeypatch)
+    panel = _new_panel(FakeStore({CommandScope.ACC: [FakeState(1, "is_amc2", num_ids=1)]}))
+    panel.configure(CommandScope.ACC, 1, None)
+
+    assert _assigned(panel) == ["ACC: AMC2 TMCC ID 1"]
+    assert panel.device is ASC2
+    assert "amc2" not in [value for _label, value in mod.LcsConfigPanel.device_options()]
+
+
+def test_opening_the_panel_from_an_amc2_screen_does_not_open_it_on_the_amc2(monkeypatch) -> None:
+    # Pressing LCS... with an AMC2 on screen hands the panel an AMC2 state. It has no
+    # modes, so opening on it would leave the operator on a device that cannot be
+    # configured -- and would ask a mode-less device for its default mode.
+    _appliance(monkeypatch)
+    state = FakeState(1, "is_amc2", num_ids=1)
+    panel = _new_panel(FakeStore({CommandScope.ACC: [state]}))
+
+    panel.configure(CommandScope.ACC, 1, state)  # must not raise
+
+    assert panel.device is ASC2
+    assert panel.page_index == mod.PAGE_DEVICE
+    # Recognized all the same: it is what the box reports at that ID.
+    assert _assigned(panel) == ["ACC: AMC2 TMCC ID 1"]
+    # And the guard is not decorative: there is genuinely no mode to have opened on.
+    with pytest.raises(ValueError, match="no modes"):
+        panel._select_device(AMC2)
+
+
+def test_the_choice_buttons_ignore_a_module_that_cannot_be_programmed() -> None:
+    # Interior of an AMC2's block, if it ever reported one: there is nothing to go to and
+    # nothing to take over, so neither button appears.
+    store = FakeStore({CommandScope.ACC: [FakeState(1, "is_amc2", num_ids=8)]})
+    panel = _new_panel(store)
+    panel._on_device_selected("asc2")
+    panel._set_base_id(4)
+
+    assert _assigned(panel) == ["ACC: AMC2 TMCC IDs 1 - 8"]
+    assert panel.programmable_occupant() is None
+    assert panel._goto_btn.visible is False
+    assert panel._new_btn.visible is False
+
+
+def test_a_row_left_over_from_a_busier_id_is_hidden_not_blanked() -> None:
+    # An empty label still stands a line tall, so the box would keep the height of the
+    # fullest ID it had ever shown.
+    panel = _new_panel(_amc2_and_bpc2_at_1_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(1)
+    assert len(_assigned(panel)) == 2
+
+    panel._set_base_id(40)
+
+    assert _assigned(panel) == [mod.UNASSIGNED]
+    assert all(cell.visible is False for cell in panel._assigned_cells[1])
+    # And the row comes back, rather than staying hidden, when the ID fills up again.
+    panel._set_base_id(1)
+    assert len(_assigned(panel)) == 2
 
 
 #

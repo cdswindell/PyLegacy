@@ -98,6 +98,7 @@ class ClientStateListener(threading.Thread):
 
     def __call__(self, cmd: PdiReq) -> None:
         if isinstance(cmd, PdiReq):
+            print(cmd)
             self._pdi_state_store.register_pdi_device(cmd)
             log.debug(f"ClientStateListener: {cmd}")
 

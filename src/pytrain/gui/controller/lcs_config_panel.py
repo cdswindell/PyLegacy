@@ -25,24 +25,25 @@ read-back that does not arrive is reported rather than passed over in silence.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from tkinter import TclError
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, Sequence, TYPE_CHECKING
 
 from guizero import Box, CheckBox, Text, TitleBox
 
 from .lcs_device_registry import (
-    LCS_DEVICES,
     MAX_TMCC_ID,
     LcsDevice,
     LcsMode,
     LcsOption,
     OptionKind,
     SENSOR_TRACK,
+    configurable_devices,
     device_for_key,
     device_for_state,
     enabled_modes,
 )
-from .lcs_id_map import LcsOccupant, occupant_of, overlaps
+from .lcs_id_map import LcsOccupant, occupants_of, overlaps
 from .lcs_sequence_builder import LcsProgram, build_program
 from .overlay_panel import OverlayPanel
 from .popup_manager import (
@@ -82,9 +83,23 @@ ID_HEADING_FALLBACK = "Base"
 # The label on the box around the mode radios.
 MODE_TITLE = "Mode"
 
-# The label on the box around the line that says what already answers to this TMCC ID.
+# The label on the box around the lines that say what already answers to this TMCC ID.
 ASSIGNED_TITLE = "Currently Assigned"
 UNASSIGNED = "Unassigned"
+
+# The label on the box around the modules the chosen block runs into. A box of its own,
+# directly under the one above, because it answers a different question: that one says
+# what holds the entered ID, this one what the whole block would collide with. The title
+# carries the word "Overlaps", so the rows inside name modules and nothing else.
+OVERLAP_TITLE = "Overlaps"
+
+# Breathing room on either side of a module-row cell, so the gridded columns do not run
+# into one another. Internal Label padding rather than grid padding, which is discarded
+# every time anything in the box is shown, hidden or created.
+ASSIGNED_CELL_PAD = 4
+
+# A module row is the remote key, the module and its TMCC IDs, a column each.
+ROW_COLUMNS = 3
 WAITING_FOR_BASE = "Waiting for Base 3..."
 NO_OPTIONS = "This module needs no further settings."
 AWAITING_READBACK = "Waiting for the module to report..."
@@ -133,6 +148,29 @@ SCOPE_USE: dict[CommandScope, str] = {
 }
 
 
+@dataclass(frozen=True)
+class ModuleRow:
+    """
+    One line of the Currently Assigned or Overlaps box: "ACC: BPC2 TMCC IDs 1 - 8".
+
+    Held as separate parts rather than one string because both boxes grid them into
+    columns, so that the module names and the ID ranges line up down the box however
+    long the names above them run, and because only the remote key is drawn bold.
+    """
+
+    scope: str
+    module: str
+    ids: str = ""
+
+    @property
+    def cells(self) -> tuple[str, str, str]:
+        return self.scope, self.module, self.ids
+
+    @property
+    def text(self) -> str:
+        return " ".join(part for part in self.cells if part)
+
+
 def touch_only_editing() -> bool:
     """True where an on-screen editor is the only keyboard: the Pi and the Steam Deck.
 
@@ -141,6 +179,24 @@ def touch_only_editing() -> bool:
     ``pytrain`` package root: that package imports ``EngineGui`` -- and through it this
     module -- before it defines anything of its own, so importing it back is circular.
     ``admin_panel`` reads ``is_steam_deck`` from the same leaf module for the same reason.
+    """
+    return is_linux()
+
+
+def reflects_layout_by_default() -> bool:
+    """True where the panel should open on the module already at the entered TMCC ID.
+
+    On the Pi and the Steam Deck the panel is opened from a screen that is *about*
+    something -- a switch, an accessory -- so the module answering to that address on that
+    remote key is the one the operator means, and pre-selecting it saves them a tap.
+
+    On a desktop there is no such context: the stand-alone window opens on nothing in
+    particular at TMCC ID 1, and guessing from whatever happens to sit there is how a
+    panel opened on an STM2 when the operator had come to program something else. There
+    it opens on the first module offered, which is stable and predictable.
+
+    Same platform test as :func:`touch_only_editing`, and for the same reason: Linux is
+    the appliance, everything else is a desk.
     """
     return is_linux()
 
@@ -160,10 +216,16 @@ class LcsConfigPanel(OverlayPanel):
         # The ID the operator explicitly chose to reconfigure as a new module, so the
         # occupancy banner stops offering to seed it from the module that owns it.
         self._configure_as_new_id: int | None = None
+        # False until the operator picks a module for themselves. A module is always
+        # selected -- the first one offered when there is nothing to reflect -- so the
+        # selection alone can no longer say whether the panel is still showing its own
+        # opening guess, which is what may be re-seeded when the store arrives late.
+        self._device_chosen: bool = False
 
         self._pages: list[Box] = []
         self._body: Box | None = None
         self._device_group: CheckBoxGroup | None = None
+        self._titled_boxes: Box | None = None
         self._mode_box: TitleBox | None = None
         self._mode_group: CheckBoxGroup | None = None
         self._id_heading: Text | None = None
@@ -173,8 +235,13 @@ class LcsConfigPanel(OverlayPanel):
         self._block_line: Text | None = None
         self._mode_footnote_line: Text | None = None
         self._assigned_box: TitleBox | None = None
-        self._occupancy_line: Text | None = None
-        self._overlap_line: Text | None = None
+        self._assigned_grid: Box | None = None
+        # One tuple of three cells per row: the remote key, the module, and its TMCC IDs.
+        # Created as they are first needed and reused from then on.
+        self._assigned_cells: list[tuple[Text, ...]] = []
+        self._overlap_box: TitleBox | None = None
+        self._overlap_grid: Box | None = None
+        self._overlap_cells: list[tuple[Text, ...]] = []
         self._goto_btn: HoldButton | None = None
         self._new_btn: HoldButton | None = None
         self._back_btn: HoldButton | None = None
@@ -287,11 +354,12 @@ class LcsConfigPanel(OverlayPanel):
         """
         The state store is populated: refresh what the panel reads from it.
 
-        The operator's own choices are never overwritten; only when no device has been
-        chosen yet does the panel re-seed itself from the store. Safe to call twice.
+        The operator's own choices are never overwritten; the panel re-seeds itself from
+        the store only while it is still showing the module it opened on. Safe to call
+        twice.
         """
         self.set_sync_pending(False)
-        if self._device is None:
+        if not self._device_chosen:
             self.configure(tmcc_id=self._base_id)
             return
         self._seed_sensor_track_action()
@@ -428,20 +496,37 @@ class LcsConfigPanel(OverlayPanel):
         for btn in (self._minus_btn, self._plus_btn):
             btn.text_size = host.s_20
 
+        # The titled boxes share one grid column, which is how they come out the same
+        # width: the column is as wide as the widest of them, and each box is stretched
+        # into it. Stacked rather than packed for exactly that reason -- packed boxes each
+        # keep their own natural width, which is what left them ragged.
+        self._titled_boxes = Box(page, layout="grid", align="top", border=0)
+
         # What already answers to this ID, directly under the ID row it describes: it tells
         # the operator whether they are about to reprogram a module that is already out
         # there, which they need to know before choosing a mode, not after. Titled, because
         # a bare line naming some other module beside the one being programmed reads as a
         # contradiction until you know it is reporting the layout rather than the choice.
         # A step below the page's body size: context, not a choice.
-        self._assigned_box = TitleBox(page, text=ASSIGNED_TITLE, align="top")
+        self._assigned_box = TitleBox(self._titled_boxes, text=ASSIGNED_TITLE, grid=[0, 0], align=None)
         self._assigned_box.text_size = host.s_12
-        self._occupancy_line = self._label(self._assigned_box, UNASSIGNED, size=host.s_12)
+        # One row per module, gridded so the remote key, the module and its TMCC IDs line
+        # up down the box instead of each row starting wherever the row above it ended.
+        self._assigned_grid = Box(self._assigned_box, layout="grid", align="top", border=0)
+
+        # Directly after it: the modules the chosen block would run into. Its own box, and
+        # gridded a row per module rather than run together on one line, which is what put
+        # two neighbors off the right edge of the window. Hidden when nothing is in the way,
+        # since an empty titled frame reads as a failure to look rather than as an answer --
+        # unlike the assigned box, which always has "Unassigned" to say.
+        self._overlap_box = TitleBox(self._titled_boxes, text=OVERLAP_TITLE, grid=[0, 1], align=None)
+        self._overlap_box.text_size = host.s_12
+        self._overlap_grid = Box(self._overlap_box, layout="grid", align="top", border=0)
 
         # The mode radios are the only choice on this page besides the ID itself, so they
         # are given a titled box that says what they are choosing -- and a step above the
         # page's body size, since each label also carries the port count.
-        self._mode_box = TitleBox(page, text=MODE_TITLE, align="top")
+        self._mode_box = TitleBox(self._titled_boxes, text=MODE_TITLE, grid=[0, 2], align=None)
         self._mode_box.text_size = host.s_12
         self._mode_group = CheckBoxGroup(
             self._mode_box,
@@ -452,12 +537,11 @@ class LcsConfigPanel(OverlayPanel):
             style="radio",
             command=self._on_mode_selected,
         )
-        # The block the chosen mode claims, and any module it runs into. Both are derived
-        # from the ID and the mode above them, so they are the quietest lines on the page.
+        # The block the chosen mode claims, derived from the ID and the mode above it, so
+        # it is one of the quietest lines on the page.
         self._block_line = self._label(page, "", size=host.s_10)
         # A footnote to the mode radios: what each remote key above is actually for.
         self._mode_footnote_line = self._label(page, "", size=host.s_10)
-        self._overlap_line = self._label(page, "", size=host.s_12)
 
         choices = Box(page, align="top", border=0)
         self._goto_btn = HoldButton(choices, text="Go to", align="left", command=self.go_to_owning_base)
@@ -467,7 +551,36 @@ class LcsConfigPanel(OverlayPanel):
             btn.hide()
         # No device is chosen yet, so the mode box starts hidden rather than empty.
         self._refresh_mode_selector()
+        # Builds the first assigned row, so that box says something from the outset.
+        self._refresh_occupancy()
+        self._equalize_titled_boxes()
         return page
+
+    def _equalize_titled_boxes(self) -> None:
+        """Give the Currently Assigned, Overlaps and Mode boxes one width: the widest one's.
+
+        All three are gridded into column 0 of the same container and stretched across it,
+        so the column takes the width of whichever box asks for most and the others grow to
+        match. No pixel width is chosen anywhere: a module name long enough to widen the
+        assigned box widens the mode box with it, and vice versa.
+
+        Re-applied after every refresh rather than set once, because guizero rebuilds a
+        container's grid options from scratch in ``display_widgets`` -- which runs whenever
+        any child is shown, hidden or created -- and ``sticky`` is not among the options it
+        replays. Hiding the mode box for a device with no modes is enough to lose it.
+        A hidden box is skipped: ``grid_configure`` on a widget the grid has forgotten
+        would put it back on screen.
+        """
+        container = self._titled_boxes
+        if container is None:
+            return
+        try:
+            container.tk.grid_columnconfigure(0, weight=1)
+            for box in (self._assigned_box, self._overlap_box, self._mode_box):
+                if box is not None and box.visible:
+                    box.tk.grid_configure(sticky="ew")
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     def _style_id_field(self, field: EditableText) -> None:
         """Draw the ID as a text box, and open it on a click where there is a mouse.
@@ -504,7 +617,7 @@ class LcsConfigPanel(OverlayPanel):
         # changes. Rebuilding a CheckBoxGroup's rows at runtime loses the painted
         # indicators decorate_checkbox installs, so the rows a device declares are
         # created here, with the device, and never rebuilt.
-        for device in LCS_DEVICES:
+        for device in configurable_devices():
             box = Box(page, align="top", border=0)
             self._option_boxes[device.key] = box
             if device.options:
@@ -839,7 +952,9 @@ class LcsConfigPanel(OverlayPanel):
     #
     @staticmethod
     def device_options() -> list[list[str]]:
-        return [[f"{device.label} ({device.blurb})", device.key] for device in LCS_DEVICES]
+        # Only the modules this pass can program; the registry also holds modules it can
+        # merely recognize, and offering one of those would lead nowhere.
+        return [[f"{device.label} ({device.blurb})", device.key] for device in configurable_devices()]
 
     def mode_options(self) -> list[list[str]]:
         if self._device is None:
@@ -874,6 +989,13 @@ class LcsConfigPanel(OverlayPanel):
     def configure(self, scope: CommandScope = None, tmcc_id: int = None, state: Any = None) -> None:
         """
         Seed the panel from whatever is on screen when the LCS... key is pressed.
+
+        Which module the panel opens on depends on the host; see
+        :func:`reflects_layout_by_default`. On the Pi and the Steam Deck the module already
+        answering to the entered ID on the screen's own remote key is pre-selected, because
+        that screen is what the operator was looking at. On a desktop nothing is reflected
+        and the first module offered is chosen instead. Either way a module *is* chosen, so
+        the page never opens with an empty radio group and Next always has somewhere to go.
         """
         self._configure_as_new_id = None
         self._page_index = PAGE_DEVICE
@@ -881,19 +1003,41 @@ class LcsConfigPanel(OverlayPanel):
         self._options = {}
         self._reset_readback()
 
-        device = device_for_state(state)
+        reflect = reflects_layout_by_default()
+        device = device_for_state(state) if reflect else None
+        if device is not None and not device.configurable:
+            # The screen is on a module this pass can only recognize -- an AMC2. It has no
+            # modes to open the panel on, so it is treated as no device at all: the search
+            # below still finds it, and it is named in the assigned box like any other.
+            device = None
+        self._device_chosen = False
         if device is not None:
             self._select_device(device, seed_mode_from=state)
         base_id = tmcc_id if isinstance(tmcc_id, int) and tmcc_id >= MIN_TMCC_ID else MIN_TMCC_ID
         self._base_id = min(max(base_id, MIN_TMCC_ID), self.max_base)
-        if device is None:
+        if device is None and reflect:
             occupant = self._discovery_occupant(scope)
             if occupant is not None and occupant.base_id == self._base_id:
                 self._seed_from_occupant(occupant)
+        if self._device is None:
+            self._select_device(self.default_device)
+        # The mode is settled only now, and with it how many IDs the block needs, so the
+        # entered ID is squared with the chosen mode's ceiling rather than the global one.
+        self._base_id = min(self._base_id, self.max_base)
         self._seed_sensor_track_action()
         self._refresh_device_selector()
         self._refresh_id_page()
         self._show_page(PAGE_DEVICE)
+
+    @property
+    def default_device(self) -> LcsDevice:
+        """
+        The module the panel opens on when there is nothing to reflect: the first offered.
+
+        ``configurable_devices`` is sorted by name, so this is the ASC2 today and stays the
+        first name in the list as modules are added.
+        """
+        return configurable_devices()[0]
 
     def _select_device(self, device: LcsDevice | None, seed_mode_from: Any = None, mode: LcsMode = None) -> None:
         self._device = device
@@ -931,12 +1075,15 @@ class LcsConfigPanel(OverlayPanel):
         tried first. Only when that turns up nothing, or the screen is not on an LCS
         key at all, does the search widen to every module, because the whole point of
         this lookup is to discover what kind of module is out there.
+
+        Only a module this pass can program is worth seeding from; an AMC2 sitting on the
+        ID is reported in the assigned box, but the panel cannot open on it.
         """
         if scope is not None:
-            occupant = occupant_of(self._base_id, self._store, scope=scope)
+            occupant = self._first_programmable(occupants_of(self._base_id, self._store, scope=scope))
             if occupant is not None:
                 return occupant
-        return occupant_of(self._base_id, self._store)
+        return self._first_programmable(occupants_of(self._base_id, self._store))
 
     def _seed_from_occupant(self, occupant: LcsOccupant) -> None:
         self._select_device(occupant.device, seed_mode_from=occupant.state, mode=occupant.mode)
@@ -988,6 +1135,7 @@ class LcsConfigPanel(OverlayPanel):
         except ValueError:
             log.debug("Unknown LCS device key: %s", value)
             return
+        self._device_chosen = True
         if device is self._device:
             return
         self._select_device(device)
@@ -1006,6 +1154,8 @@ class LcsConfigPanel(OverlayPanel):
         except ValueError:
             log.debug("Unknown %s mode: %s", self._device.label, value)
             return
+        # Deliberate, so a late synchronization must not seed over it.
+        self._device_chosen = True
         self._mode = mode
         # A narrower mode can raise the ceiling; a wider one can lower it below the ID in hand.
         self._set_base_id(self._base_id)
@@ -1079,6 +1229,10 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_mode_footnote()
         self._refresh_step_keys()
         self._refresh_occupancy()
+        # Last, and after everything that shows or hides one of the titled boxes or changes
+        # what is inside them: guizero drops the stretch that keeps them the same width
+        # every time it re-displays them.
+        self._equalize_titled_boxes()
         self._refresh_options_page()
         self._refresh_review_page()
 
@@ -1153,9 +1307,11 @@ class LcsConfigPanel(OverlayPanel):
     # Occupancy
     #
     def _refresh_occupancy(self) -> None:
-        text, occupant = self.occupancy()
-        if self._occupancy_line is not None:
-            self._occupancy_line.value = text
+        self._refresh_row_grid(self._assigned_grid, self._assigned_cells, self.assigned_rows())
+        self._refresh_overlaps()
+        # The buttons act on a module the panel could actually take over, so an AMC2 -- in
+        # the registry to be named, not to be programmed -- never puts them on screen.
+        occupant = self.programmable_occupant()
         interior = occupant is not None and occupant.base_id != self._base_id
         if self._goto_btn is not None:
             if interior:
@@ -1169,38 +1325,129 @@ class LcsConfigPanel(OverlayPanel):
                 self._new_btn.show()
             else:
                 self._new_btn.hide()
-        if self._overlap_line is not None:
-            self._overlap_line.value = self.overlap_text()
 
-    def occupancy(self) -> tuple[str, LcsOccupant | None]:
+    def _refresh_overlaps(self) -> None:
         """
-        The "Currently Assigned" text, and the module that owns the current ID, if any.
+        Fill the Overlaps box, and take it off the page when nothing is in the way.
+
+        The box goes with its rows, exactly as the mode box goes with its radios: a titled
+        frame standing empty says the panel failed to look, when in fact the answer is that
+        the block is clear.
+        """
+        rows = self.overlap_rows()
+        self._refresh_row_grid(self._overlap_grid, self._overlap_cells, rows)
+        if self._overlap_box is not None:
+            if rows:
+                self._overlap_box.show()
+            else:
+                self._overlap_box.hide()
+
+    def _refresh_row_grid(self, grid: Box | None, cells: list[tuple[Text, ...]], rows: Sequence[ModuleRow]) -> None:
+        """
+        Write ``rows`` into one of the module grids, growing it and hiding what is spare.
+        """
+        if grid is None:
+            return
+        for index, row in enumerate(rows):
+            for cell, value in zip(self._grid_row(grid, cells, index), row.cells):
+                cell.value = value
+                if not cell.visible:
+                    cell.show()
+        # Rows left over from a busier ID are hidden rather than blanked: an empty label
+        # still stands a line tall, so the box would keep the height of the fullest ID it
+        # had ever shown.
+        for spare in cells[len(rows) :]:
+            for cell in spare:
+                if cell.visible:
+                    cell.hide()
+
+    def _grid_row(self, grid: Box, cells: list[tuple[Text, ...]], index: int) -> tuple[Text, ...]:
+        """
+        The three cells of one module row, created the first time the row is used.
+
+        Rows are grown on demand and then kept: how many modules answer to an ID changes
+        as the ID does, and a widget destroyed and recreated in a grid takes the column
+        options of its neighbors with it.
+        """
+        while len(cells) <= index:
+            row = len(cells)
+            # Only the remote key is bold; it is the column the eye runs down.
+            cells.append(tuple(self._grid_cell(grid, column, row) for column in range(ROW_COLUMNS)))
+        return cells[index]
+
+    def _grid_cell(self, grid: Box, column: int, row: int) -> Text:
+        cell = Text(grid, text="", grid=[column, row], align="left")
+        cell.text_size = self._gui.s_12
+        cell.text_bold = column == 0
+        try:
+            cell.tk.config(padx=ASSIGNED_CELL_PAD)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        return cell
+
+    def assigned_occupants(self) -> list[LcsOccupant]:
+        """
+        Every module answering to the entered ID on the key being programmed.
 
         Only modules answering to the same remote key as the mode being programmed can
         own the ID: an STM2 is always a switch, so a BPC2 holding ACC 1 does not stand
         in the way of an STM2 based at SW 1, and reporting it would read as a conflict
         where there is none. Before a mode is chosen there is no key yet, and the
         unfiltered answer is the honest one.
+
+        All of them, not just the first: an AMC2 and a BPC2 can both answer to ACC 1, and
+        naming one of them would tell the operator half the truth about the address.
         """
-        occupant = occupant_of(self._base_id, self._store, scope=self.scope)
-        if occupant is None:
-            return UNASSIGNED, None
-        summary = self._occupant_summary(occupant)
-        if occupant.base_id == self._base_id:
-            return summary, occupant
-        # The entered ID is inside somebody else's block. The module is named the same way
-        # either way -- that is what the box reports -- with the port the ID really is
-        # appended, since that is the fact that makes reprogramming it a decision.
-        port = occupant.port_index or (self._base_id - occupant.base_id + 1)
-        return f"{summary} ({self._base_id} is port {port})", occupant
+        return occupants_of(self._base_id, self._store, scope=self.scope)
+
+    def programmable_occupant(self) -> LcsOccupant | None:
+        """
+        The module at the entered ID the panel could seed itself from, if there is one.
+        """
+        return self._first_programmable(self.assigned_occupants())
 
     @staticmethod
-    def _occupant_summary(occupant: LcsOccupant) -> str:
-        """A module and the block it answers to: "BPC2 ACC TMCC IDs 12 - 19".
+    def _first_programmable(occupants: Sequence[LcsOccupant]) -> LcsOccupant | None:
+        """
+        The first module in the list this pass knows how to program.
 
-        Named the way the operator would program it: the module, the remote key that
-        addresses it, and the TMCC IDs it holds. The port count is not spelled out
-        separately -- the range already says it.
+        A module the registry only recognizes -- the AMC2 -- has no modes and no presses,
+        so seeding the panel from it would leave the operator on a device that cannot be
+        configured. It is named in the box and otherwise passed over.
+        """
+        for occupant in occupants:
+            if occupant.device.configurable:
+                return occupant
+        return None
+
+    def assigned_rows(self) -> list[ModuleRow]:
+        """
+        What the Currently Assigned box says: one row per module, or a single "Unassigned".
+
+        A module is named the same way whether the entered ID is its base or one of its
+        interior ports: the box reports what is out on the layout, and the range already
+        says that the ID falls inside it. Which port it is exactly changes nothing the
+        operator can act on -- the two buttons below the box are where the decision is
+        made, and they name the base ID themselves.
+        """
+        occupants = self.assigned_occupants()
+        if not occupants:
+            return [ModuleRow(scope="", module=UNASSIGNED)]
+        return [self._module_row(occupant) for occupant in occupants]
+
+    @classmethod
+    def _module_row(cls, occupant: LcsOccupant) -> ModuleRow:
+        scope, module, ids = cls._occupant_parts(occupant)
+        return ModuleRow(scope=f"{scope}:" if scope else "", module=module, ids=ids)
+
+    @staticmethod
+    def _occupant_parts(occupant: LcsOccupant) -> tuple[str, str, str]:
+        """A module as the panel names it: "ACC", "BPC2", "TMCC IDs 12 - 19".
+
+        Named the way the operator would program it, and in the order they would do it in:
+        the remote key first, because that is the first button pressed and the thing that
+        decides whether the module is in the way at all, then the module, then the TMCC IDs
+        it holds. The port count is not spelled out separately -- the range already says it.
         """
         scope = occupant.effective_scope
         scope_label = SCOPE_LABEL.get(scope, scope.title if scope is not None else "")
@@ -1208,19 +1455,19 @@ class LcsConfigPanel(OverlayPanel):
             ids = f"TMCC IDs {occupant.base_id} - {occupant.last_id}"
         else:
             ids = f"TMCC ID {occupant.base_id}"
-        return " ".join(part for part in (occupant.device.label, scope_label, ids) if part)
+        return scope_label, occupant.device.label, ids
 
-    def overlap_text(self) -> str:
+    def overlap_occupants(self) -> list[LcsOccupant]:
         """
-        The modules the chosen block runs into, named the way the assigned box names them.
+        The modules the chosen block runs into, base first.
 
-        Scoped like :meth:`occupancy`, because two blocks in different key namespaces
+        Scoped like :meth:`assigned_occupants`, because two blocks in different key namespaces
         cannot collide however far they run into one another: an STM2 claiming SW 20-35
         overlaps an ASC2 based at SW 25, and nothing at all on the accessory keys.
         """
         if self._mode is None:
-            return ""
-        neighbors = [
+            return []
+        return [
             occupant
             for occupant in overlaps(
                 self._base_id,
@@ -1231,20 +1478,30 @@ class LcsConfigPanel(OverlayPanel):
             )
             if occupant.base_id != self._base_id
         ]
-        if not neighbors:
-            return ""
-        return "Overlaps " + ", ".join(self._occupant_summary(o) for o in neighbors)
+
+    def overlap_rows(self) -> list[ModuleRow]:
+        """
+        What the Overlaps box says: one row per module in the way, or nothing at all.
+
+        Named exactly as the assigned box names a module, and gridded into the same three
+        columns, so the two boxes read as one list of what is out there. The word
+        "Overlaps" is the box's title rather than a prefix on the first row.
+        """
+        return [self._module_row(occupant) for occupant in self.overlap_occupants()]
 
     def go_to_owning_base(self) -> None:
         """
         Retarget the panel at the module that owns the entered ID, pre-filled from it.
 
-        Scoped like :meth:`occupancy`, so the button always goes to the module the
-        assigned box named and never to some other one on a different remote key.
+        Scoped like :meth:`assigned_occupants`, so the button always goes to a module the
+        assigned box named and never to some other one on a different remote key -- and to
+        one this pass can actually program, since the point of going there is to change it.
         """
-        occupant = occupant_of(self._base_id, self._store, scope=self.scope)
+        occupant = self.programmable_occupant()
         if occupant is None:
             return
+        # Deliberate, so a late synchronization must not seed over it.
+        self._device_chosen = True
         self._seed_from_occupant(occupant)
         self._configure_as_new_id = None
         self._base_id = occupant.base_id
@@ -1256,6 +1513,8 @@ class LcsConfigPanel(OverlayPanel):
         """
         Keep the entered ID and treat it as the base of a new module.
         """
+        # Deliberate, so a late synchronization must not seed over it.
+        self._device_chosen = True
         self._configure_as_new_id = self._base_id
         if self._goto_btn is not None:
             self._goto_btn.hide()

@@ -54,6 +54,7 @@ class PdiDeviceConfig(ABC, Generic[S]):
     def __init__(self, device: PdiDevice, cmd: T) -> None:
         self._device = device
         self._tmcc_id: int = cmd.tmcc_id if cmd is not None else 0
+        self._config = cmd
 
     def __repr__(self) -> str:
         fw = pt = ""
@@ -94,6 +95,10 @@ class PdiDeviceConfig(ABC, Generic[S]):
         return ""
 
     @property
+    def config(self) -> PdiReq:
+        return self._config
+
+    @property
     @abc.abstractmethod
     def state_requests(self) -> List[T]: ...
 
@@ -113,27 +118,27 @@ class Acs2DeviceConfig(PdiDeviceConfig):
 
     @property
     def state_requests(self) -> List[T]:
-        if self._mode in {0, 1}:
-            cmds = [
-                Asc2Req(self.tmcc_id, action=Asc2Action.FIRMWARE),
-                Asc2Req(self.tmcc_id, action=Asc2Action.INFO),
-            ]
-            if self._mode == 0:
-                # Acc mode, 8 TMCC IDs
-                for i in range(8):
-                    cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL1))
-            elif self._mode == 1:
-                # Acc mode, 1 TMCC ID, latching
-                cmds.append(Asc2Req(self.tmcc_id, action=Asc2Action.CONTROL2))
-            elif self._mode == 2:
-                # Acc mode, 4 TMCC ID, Pulse
-                for i in range(8):
-                    cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL4))
-            elif self._mode == 3:
-                # Acc mode, 4 TMCC ID, Latching
-                for i in range(8):
-                    cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
+        cmds = [
+            Asc2Req(self.tmcc_id, action=Asc2Action.FIRMWARE),
+            Asc2Req(self.tmcc_id, action=Asc2Action.INFO),
+        ]
+        if self._mode == 0:
+            # Acc mode, 8 TMCC IDs
+            for i in range(8):
+                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL1))
+        elif self._mode == 1:
+            # Acc mode, 1 TMCC ID, latching
+            cmds.append(Asc2Req(self.tmcc_id, action=Asc2Action.CONTROL2))
+        elif self._mode == 2:
+            # Acc mode, 4 TMCC ID, Pulse
+            for i in range(8):
+                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL4))
+        elif self._mode == 3:
+            # Acc mode, 4 TMCC ID, Latching
+            for i in range(8):
+                cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
         else:
+            log.warning(f"Unknown ASC2 mode {self._mode} for TMCC ID {self.tmcc_id}")
             cmds = []
         return cmds
 

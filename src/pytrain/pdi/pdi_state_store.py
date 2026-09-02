@@ -35,6 +35,25 @@ class PdiStateStore:
             return PdiStateStore._instance
 
     @classmethod
+    def is_built(cls) -> bool:
+        """
+        True once some process has built the store; asking it anything before that raises.
+        """
+        return cls._instance is not None
+
+    @classmethod
+    def get(cls) -> PdiStateStore:
+        if cls._instance is None:
+            raise AttributeError("PdiStateStore not built")
+        return cls._instance
+
+    @classmethod
+    def store(cls) -> SystemDeviceDict:
+        if cls._instance is None:
+            raise AttributeError("PdiStateStore not built")
+        return cls._instance._pdi_devices
+
+    @classmethod
     def get_config(cls, scope: PdiDevice, address: int, create: bool = False) -> T | None:
         if cls._instance is None:
             raise AttributeError("PdiStateStore not built")

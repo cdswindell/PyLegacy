@@ -9,11 +9,25 @@
 """
 Answers the question "what owns this TMCC ID?" for the LCS configuration panel.
 
-The component state store is walked for states whose ``LcsProxyState`` flags identify
-one of the modules in :mod:`lcs_device_registry`. Each such module contributes a block
-of TMCC IDs starting at its own address. The block size is the module's own
-``LcsState.num_ids``, reported in its PDI INFO packet; when INFO has not arrived, the
-registry's ``mode.ports`` is used instead.
+Two sources are merged, because neither alone tells the whole truth.
+
+The first is the **PDI device store** (:class:`PdiStateStore`), which holds one entry per
+module *type* per TMCC ID -- keyed by ``(PdiDevice, tmcc_id)`` -- each built from that
+module's own CONFIG packet and carrying its own mode. It is authoritative and is taken
+first, because a component state is keyed by scope and address alone: an AMC2 and a BPC2
+both answering to ACC 1 share a single ``AccessoryState``, whose ``num_ids`` and ``mode``
+belong to whichever of them reported last. Sizing a module from that shared record is how
+a BPC2 claiming eight IDs came to be reported as claiming one, and how an AMC2 sitting on
+an address came to be reported as nothing at all.
+
+The second is the **component state store**, walked for states whose ``LcsProxyState``
+flags identify one of the modules in :mod:`lcs_device_registry`. It covers what the PDI
+store cannot: a module known only from control traffic, a store that has no PDI side at
+all, and two modules of the *same* type at the same address on different remote keys,
+which the PDI store's key cannot represent. Its block size is the module's own
+``LcsState.num_ids`` from its INFO packet, falling back to the registry's ``mode.ports``.
+
+Each module contributes a block of TMCC IDs starting at its own address.
 
 A TMCC ID only means something together with the remote key that addresses it: ACC 1,
 SW 1 and TR 1 are three different addresses on three different modules. Every lookup
@@ -33,7 +47,7 @@ from dataclasses import dataclass
 from typing import Any, List
 
 from ...protocol.constants import CommandScope
-from .lcs_device_registry import LcsDevice, LcsMode, device_for_state
+from .lcs_device_registry import LcsDevice, LcsMode, device_for_pdi_device, devices_for_state
 
 LCS_SCOPES: tuple[CommandScope, ...] = (
     CommandScope.ACC,
@@ -104,6 +118,21 @@ def _store(store: Any = None) -> Any:
     return ComponentStateStore.get() if ComponentStateStore.is_built() else None
 
 
+def _pdi_store(pdi_store: Any = None) -> Any:
+    """
+    The PDI device store, when this process has one; every caller tolerates None.
+
+    A GUI can run against a component state store with no PDI side at all -- an embedded
+    panel in a process that never built one, or a test -- so its absence is normal and
+    simply leaves the component states as the only source.
+    """
+    if pdi_store is not None:
+        return pdi_store
+    from ...pdi.pdi_state_store import PdiStateStore
+
+    return PdiStateStore.get() if PdiStateStore.is_built() else None
+
+
 def _pdi_mode(state: Any) -> int | None:
     mode = getattr(state, "mode", None)
     return mode if isinstance(mode, int) and not isinstance(mode, bool) else None
@@ -123,38 +152,41 @@ def _ports_of(mode: LcsMode | None, state: Any) -> int:
     return mode.ports if mode else 1
 
 
-def _occupant_of_state(state: Any, scope: CommandScope) -> LcsOccupant | None:
-    device = device_for_state(state)
-    if device is None:
-        return None
+def _occupants_of_state(state: Any, scope: CommandScope) -> List[LcsOccupant]:
+    """
+    Every module the given component state identifies, sized from that record.
+
+    A record shared by two modules names them both once each has reported, but it carries
+    only one ``num_ids`` and one ``mode``, so both come out the same size. That is why the
+    PDI store is consulted first, where each module is sized from its own CONFIG packet.
+    """
     base_id = getattr(state, "address", None)
     if not isinstance(base_id, int) or base_id < 1:
-        return None
-    mode = _mode_of(device, state)
-    return LcsOccupant(
-        base_id=base_id,
-        device=device,
-        mode=mode,
-        ports=_ports_of(mode, state),
-        port_index=1,
-        scope=scope,
-        state=state,
-    )
+        return []
+    found: List[LcsOccupant] = []
+    for device in devices_for_state(state):
+        mode = _mode_of(device, state)
+        found.append(
+            LcsOccupant(
+                base_id=base_id,
+                device=device,
+                mode=mode,
+                ports=_ports_of(mode, state),
+                port_index=1,
+                scope=scope,
+                state=state,
+            )
+        )
+    return found
 
 
-def occupants(store: Any = None, scope: CommandScope | None = None) -> List[LcsOccupant]:
+def _state_occupants(store: Any) -> List[LcsOccupant]:
     """
-    Return every LCS module currently known to the state store, one per module base.
-
-    ``scope`` keeps only the modules addressed by that remote key, compared against each
-    occupant's :attr:`LcsOccupant.effective_scope`. Omit it while still working out what
-    kind of module is being looked at, when every module is a candidate.
+    Walk the component state store for modules its states identify.
     """
-    store = _store(store)
     if store is None:
         return []
     found: List[LcsOccupant] = []
-    seen: set[tuple[str, int, Any]] = set()
     for store_scope in LCS_SCOPES:
         try:
             states = store.get_all(store_scope) or []
@@ -166,33 +198,145 @@ def occupants(store: Any = None, scope: CommandScope | None = None) -> List[LcsO
             # the same address and the proxy is still the module's base state.
             if getattr(state, "parent", None) is not None and getattr(state, "port", 1) > 1:
                 continue
-            occupant = _occupant_of_state(state, store_scope)
-            if occupant is None:
+            found.extend(_occupants_of_state(state, store_scope))
+    return found
+
+
+def _state_at(store: Any, occupant_scope: CommandScope | None, device: LcsDevice, base_id: int) -> Any:
+    """
+    The component state behind a PDI-derived module, when there is one.
+
+    Carried on the occupant so that seeding a chosen module from it still works. The
+    module's own remote key is tried first, then the scope its PDI requests are filed
+    under, which differ for a mode-3 ASC2: the registry calls it a switch, while
+    ``asc2_req.py`` files it with the accessories.
+    """
+    get_state = getattr(store, "get_state", None) if store is not None else None
+    if get_state is None:
+        return None
+    for scope in (occupant_scope, device.pdi_device.scope):
+        if scope is None:
+            continue
+        try:
+            state = get_state(scope, base_id, False)
+        except Exception:  # pragma: no cover - defensive; store shapes vary
+            continue
+        if state is not None:
+            return state
+    return None
+
+
+def _pdi_occupants(pdi_store: Any, store: Any) -> List[LcsOccupant]:
+    """
+    Every module the PDI device store knows, one entry per module type per TMCC ID.
+
+    Sized from the module's own mode rather than from any component state: the record at
+    the address may be shared with another module, and its ``num_ids`` then belongs to
+    whichever of them reported last. A module the registry declares no modes for -- an
+    AMC2 -- holds a single ID, which is what ``Amc2Req.num_addressable_ports`` reports.
+    """
+    if pdi_store is None:
+        return []
+    try:
+        pdi_devices = pdi_store.keys() or []
+    except Exception:  # pragma: no cover - defensive; store shapes vary
+        return []
+    found: List[LcsOccupant] = []
+    for pdi_device in pdi_devices:
+        device = device_for_pdi_device(pdi_device)
+        if device is None:
+            continue
+        try:
+            configs = pdi_store.get_all(pdi_device) or []
+        except Exception:  # pragma: no cover - defensive; store shapes vary
+            continue
+        for config in configs:
+            base_id = getattr(config, "tmcc_id", None)
+            if not isinstance(base_id, int) or base_id < 1:
                 continue
-            if scope is not None and occupant.effective_scope != scope:
-                continue
-            # One entry per module: the same base under two remote keys is two modules,
-            # so the key that de-duplicates has to say which key addresses this one.
-            key = (occupant.device.key, occupant.base_id, occupant.effective_scope)
-            if key in seen:
-                continue
-            seen.add(key)
-            found.append(occupant)
+            mode = _mode_of(device, config)
+            scope = getattr(config, "scope", None) or pdi_device.scope
+            found.append(
+                LcsOccupant(
+                    base_id=base_id,
+                    device=device,
+                    mode=mode,
+                    ports=mode.ports if mode is not None else 1,
+                    port_index=1,
+                    scope=scope,
+                    state=_state_at(store, mode.scope if mode is not None else scope, device, base_id),
+                )
+            )
+    return found
+
+
+def occupants(store: Any = None, scope: CommandScope | None = None, pdi_store: Any = None) -> List[LcsOccupant]:
+    """
+    Return every LCS module currently known, one per module base.
+
+    The PDI device store is read first and the component states second, so a module the
+    PDI bus reported keeps the mode and block size from its own CONFIG packet even when it
+    shares a component state with another module. Modules found only in the states are
+    appended, which is what covers a store with no PDI side.
+
+    ``scope`` keeps only the modules addressed by that remote key, compared against each
+    occupant's :attr:`LcsOccupant.effective_scope`. Omit it while still working out what
+    kind of module is being looked at, when every module is a candidate.
+    """
+    store = _store(store)
+    candidates = _pdi_occupants(_pdi_store(pdi_store), store) + _state_occupants(store)
+    found: List[LcsOccupant] = []
+    seen: set[tuple[str, int, Any]] = set()
+    for occupant in candidates:
+        if scope is not None and occupant.effective_scope != scope:
+            continue
+        # One entry per module: the same base under two remote keys is two modules, so the
+        # key that de-duplicates has to say which key addresses this one. The first entry
+        # wins, which is the PDI-derived one whenever the PDI store knows the module.
+        key = (occupant.device.key, occupant.base_id, occupant.effective_scope)
+        if key in seen:
+            continue
+        seen.add(key)
+        found.append(occupant)
     found.sort(key=lambda o: o.base_id)
     return found
 
 
-def occupant_of(tmcc_id: int, store: Any = None, scope: CommandScope | None = None) -> LcsOccupant | None:
+def occupants_of(
+    tmcc_id: int,
+    store: Any = None,
+    scope: CommandScope | None = None,
+    pdi_store: Any = None,
+) -> List[LcsOccupant]:
     """
-    Return the LCS module claiming ``tmcc_id``, with its 1-based ``port_index``, or None.
+    Return every LCS module claiming ``tmcc_id``, each with its 1-based ``port_index``.
+
+    More than one module can hold the same address even on the same remote key: an AMC2
+    and a BPC2 both answering to ACC 1 is a real layout, and reporting only the first of
+    them would tell the operator half the truth about the address they are about to
+    program. Ordered by base ID, so the module whose block starts earliest is named first.
 
     ``scope`` limits the answer to modules answering to that remote key; see
     :func:`occupants`.
     """
-    for occupant in occupants(store, scope):
-        if occupant.claims(tmcc_id):
-            return occupant.at(tmcc_id)
-    return None
+    return [occupant.at(tmcc_id) for occupant in occupants(store, scope, pdi_store) if occupant.claims(tmcc_id)]
+
+
+def occupant_of(
+    tmcc_id: int,
+    store: Any = None,
+    scope: CommandScope | None = None,
+    pdi_store: Any = None,
+) -> LcsOccupant | None:
+    """
+    Return the LCS module claiming ``tmcc_id``, with its 1-based ``port_index``, or None.
+
+    The first of them when several do; :func:`occupants_of` returns them all.
+    ``scope`` limits the answer to modules answering to that remote key; see
+    :func:`occupants`.
+    """
+    found = occupants_of(tmcc_id, store, scope, pdi_store)
+    return found[0] if found else None
 
 
 def overlaps(
@@ -201,6 +345,7 @@ def overlaps(
     store: Any = None,
     ignore_base: int | None = None,
     scope: CommandScope | None = None,
+    pdi_store: Any = None,
 ) -> List[LcsOccupant]:
     """
     Return the known modules whose blocks intersect ``base_id .. base_id + ports - 1``.
@@ -211,7 +356,7 @@ def overlaps(
     """
     last_id = base_id + max(ports, 1) - 1
     found: List[LcsOccupant] = []
-    for occupant in occupants(store, scope):
+    for occupant in occupants(store, scope, pdi_store):
         if ignore_base is not None and occupant.base_id == ignore_base:
             continue
         if occupant.base_id <= last_id and base_id <= occupant.last_id:

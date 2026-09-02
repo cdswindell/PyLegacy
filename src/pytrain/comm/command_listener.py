@@ -669,6 +669,25 @@ class CommandDispatcher(Thread, Generic[Topic, Message]):
 
             # send starting state sync messages
             self.send_state_packet(client_ip, client_port, EnqueueProxyRequests.sync_begin_response())
+
+            # send LCS device state
+            from ..pdi.pdi_state_store import PdiStateStore
+            from ..pdi.pdi_req import PdiReq
+
+            pdi_state_store = PdiStateStore.store()
+            for device in pdi_state_store.keys():
+                for tmcc_id in pdi_state_store[device].keys():
+                    config = pdi_state_store[device][tmcc_id].config
+                    if isinstance(config, PdiReq):
+                        with self._client_lock:
+                            try:
+                                self.send_state_packet(client_ip, client_port, config.as_bytes)
+                            except Exception as e:
+                                log.warning(f"Exception sending {config} to {client_ip}:{client_port}")
+                                log.exception(e)
+                            self._client_lock.notify_all()
+
+            # send TMCC-centric state information (Engines, Trains, Switches, Accessories, Routes
             store = ComponentStateStore.get()
             for scope in store.scopes():
                 if scope == CommandScope.SYNC:

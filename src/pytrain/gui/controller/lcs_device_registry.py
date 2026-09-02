@@ -31,7 +31,20 @@ A mode label reads the way the operator's manual and the Cab remote do: the addr
 mode carries its remote button inside the word -- ``ACCessory``, ``SWitch``, ``TRack``,
 matching the ACC, SW and TR keys that begin the programming sequence -- the port count
 is a digit rather than a word, and the count is of ``TMCC IDs``, never of bare "IDs" or
-"ports". So the ASC2's eight-accessory configuration is "ACCessory, 8 TMCC IDs".
+"ports". So the ASC2's eight-accessory configuration is "ACCessory, 8 TMCC IDs", and its
+momentary switch configuration -- which claims four of them -- is "SWitch, momentary,
+4 TMCC IDs". Every mode names the count it consumes, because that is what the operator
+has to reserve on the layout, and a mode that only says "momentary" leaves them guessing.
+
+Modules the panel knows without being able to program them
+----------------------------------------------------------
+A device with ``configurable=False`` is listed here so that the rest of the panel can
+*recognize* it -- name it, and account for the TMCC IDs it holds -- while it is kept off
+the device selection page, because no press sequence for it has been written yet. The
+AMC2 is the standing example: it answers to a TMCC ID on a real layout, so leaving it out
+altogether made ``lcs_id_map`` silently blind to it and the panel reported an address as
+free when a module was sitting on it. Turning one into a programmable module is a matter
+of filling in its modes and presses and dropping the flag; nothing else has to change.
 
 No Tk or guizero symbols are imported at module scope; the registry is pure data and
 is unit-testable in isolation.
@@ -199,6 +212,9 @@ class LcsDevice:
     options: tuple[LcsOption, ...] = ()
     program_button: str = "PGM"
     warning: str | None = None
+    # False for a module the panel can name but not yet program; it is recognized on the
+    # layout and holds TMCC IDs, but it is not offered on the device selection page.
+    configurable: bool = True
     identifies_state: Callable[[Any], bool] = field(default=lambda _state: False, repr=False, compare=False)
 
     def mode(self, key: str) -> LcsMode:
@@ -224,6 +240,8 @@ class LcsDevice:
         for mode in self.modes:
             if mode.enabled:
                 return mode
+        if not self.modes:
+            raise ValueError(f"{self.label} declares no modes; it cannot be programmed here")
         return self.modes[0]
 
 
@@ -284,7 +302,7 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="sw_momentary",
-            label="SWitch, momentary",
+            label="SWitch, momentary, 4 TMCC IDs",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=2,
@@ -296,7 +314,7 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="sw_latching",
-            label="SWitch, latching",
+            label="SWitch, latching, 4 TMCC IDs",
             scope=CommandScope.SWITCH,
             ports=4,
             pdi_mode=3,
@@ -399,7 +417,7 @@ STM2 = LcsDevice(
     modes=(
         LcsMode(
             key="single_wire",
-            label="Single-wire (up to 16 switches)",
+            label="SWitch, single-wire, 16 TMCC IDs",
             scope=CommandScope.SWITCH,
             ports=16,
             pdi_mode=0,
@@ -411,11 +429,11 @@ STM2 = LcsDevice(
         ),
         LcsMode(
             key="two_wire",
-            label="Two-wire (up to 8 switches)",
+            label="SWitch, two-wire, 8 TMCC IDs",
             scope=CommandScope.SWITCH,
             ports=8,
             pdi_mode=1,
-            note="Atlas-style switch motors; half the switches",
+            note="Atlas-style switch motors",
             presses=(
                 Press("SW {id} SET", TMCC1SwitchCommandEnum.SET_ADDRESS, CommandScope.SWITCH),
                 Press("AUX2", TMCC1SwitchCommandEnum.OUT, CommandScope.SWITCH, note="two-wire"),
@@ -470,7 +488,43 @@ SENSOR_TRACK = LcsDevice(
     identifies_state=lambda state: bool(getattr(state, "is_sensor_track", False)),
 )
 
-LCS_DEVICES: tuple[LcsDevice, ...] = (ASC2, BPC2, STM2, SENSOR_TRACK)
+#
+# AMC2
+#
+# Recognized, not yet programmable: no modes, and so no presses. It is here because it
+# holds a TMCC ID like any other module, and a registry that does not know about it makes
+# the panel report that ID as free. Declaring no modes, it holds one TMCC ID -- what
+# ``Amc2Req.num_addressable_ports`` reports -- and takes its scope from wherever it was
+# found. Fill in the modes and presses and drop ``configurable`` to program it.
+#
+AMC2 = LcsDevice(
+    key="amc2",
+    label="AMC2",
+    blurb="ACC",
+    pdi_device=PdiDevice.AMC2,
+    modes=(),
+    configurable=False,
+    identifies_state=lambda state: bool(getattr(state, "is_amc2", False)),
+)
+
+LCS_DEVICES: tuple[LcsDevice, ...] = (ASC2, BPC2, STM2, SENSOR_TRACK, AMC2)
+
+
+def configurable_devices() -> tuple[LcsDevice, ...]:
+    """
+    The modules the panel can actually program, in the order they are offered.
+
+    Sorted by name, so the device page reads as a list an operator can scan and the first
+    row -- the one the panel opens on -- is predictable: ASC2, BPC2, Sensor Track, STM2.
+    :data:`LCS_DEVICES` keeps its own order, which is a recognition order rather than a
+    presentation one: it is walked to identify a module from its state flags, and a module
+    this pass cannot program must not be recognized ahead of one it can.
+
+    Everything that *presents a choice* -- the device radios, the per-device options
+    boxes -- reads this; everything that *recognizes* a module already out on the layout
+    reads :data:`LCS_DEVICES`, which also holds the modules this pass cannot program.
+    """
+    return tuple(sorted((device for device in LCS_DEVICES if device.configurable), key=lambda d: d.label.upper()))
 
 
 def device_for_key(key: str) -> LcsDevice:
@@ -480,19 +534,36 @@ def device_for_key(key: str) -> LcsDevice:
     raise ValueError(f"No such LCS device: {key}")
 
 
-def device_for_state(state: Any) -> LcsDevice | None:
+def devices_for_state(state: Any) -> tuple[LcsDevice, ...]:
     """
-    Return the registry descriptor matching the given component state, if any.
+    Every registry descriptor the given component state identifies, in registry order.
+
+    Usually one, but a component state is keyed by scope and address alone, so two modules
+    sharing an address share a record: an AMC2 and a BPC2 both answering to ACC 1 leave one
+    ``AccessoryState`` carrying both ``is_amc2`` and ``is_bpc2`` once each has reported.
+    Returning only the first would hide the other from the panel's assigned box.
     """
     if state is None:
-        return None
+        return ()
+    found: list[LcsDevice] = []
     for device in LCS_DEVICES:
         try:
             if device.identifies_state(state):
-                return device
+                found.append(device)
         except Exception:  # pragma: no cover - defensive; states vary widely
             continue
-    return None
+    return tuple(found)
+
+
+def device_for_state(state: Any) -> LcsDevice | None:
+    """
+    Return the registry descriptor matching the given component state, if any.
+
+    The first of them when a shared record identifies several; :func:`devices_for_state`
+    returns them all.
+    """
+    found = devices_for_state(state)
+    return found[0] if found else None
 
 
 def device_for_pdi_device(pdi_device: PdiDevice) -> LcsDevice | None:

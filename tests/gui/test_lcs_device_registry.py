@@ -13,11 +13,26 @@ from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC
 
 
 class TestRegistryShape:
-    def test_four_devices(self):
-        assert tuple(d.key for d in reg.LCS_DEVICES) == ("asc2", "bpc2", "stm2", "sensor_track")
+    def test_the_registry_knows_five_modules(self):
+        assert tuple(d.key for d in reg.LCS_DEVICES) == ("asc2", "bpc2", "stm2", "sensor_track", "amc2")
+
+    def test_four_of_them_can_be_programmed(self):
+        assert tuple(d.key for d in reg.configurable_devices()) == ("asc2", "bpc2", "sensor_track", "stm2")
+
+    def test_they_are_offered_in_name_order(self):
+        # The device page opens on the first of them, so the order has to be predictable.
+        labels = [d.label for d in reg.configurable_devices()]
+        assert labels == sorted(labels, key=str.upper)
+        assert labels[0] == "ASC2"
+
+    def test_the_recognition_order_is_left_alone(self):
+        # LCS_DEVICES is walked to identify a module from its state flags. A module this
+        # pass cannot program must not be recognized ahead of one it can, so it stays last
+        # however the presentation order is sorted.
+        assert reg.LCS_DEVICES[-1] is reg.AMC2
 
     def test_every_mode_is_complete(self):
-        for device in reg.LCS_DEVICES:
+        for device in reg.configurable_devices():
             assert device.modes
             for mode in device.modes:
                 assert isinstance(mode.scope, CommandScope)
@@ -101,11 +116,48 @@ class TestMaxBase:
                 assert 1 <= reg.max_base(mode) <= 98
 
 
+class TestAmc2:
+    """
+    Recognized so that the panel can name it and count the TMCC IDs it holds, but not
+    programmable until its modes and presses are written.
+    """
+
+    def test_it_is_in_the_registry(self):
+        assert reg.AMC2 in reg.LCS_DEVICES
+        assert reg.AMC2.label == "AMC2"
+        assert reg.AMC2.pdi_device == PdiDevice.AMC2
+
+    def test_it_is_not_offered_as_a_choice(self):
+        assert reg.AMC2.configurable is False
+        assert reg.AMC2 not in reg.configurable_devices()
+
+    def test_it_declares_no_modes_yet(self):
+        assert reg.AMC2.modes == ()
+        # Asking for a mode it does not have says why rather than raising IndexError.
+        with pytest.raises(ValueError, match="no modes"):
+            _ = reg.AMC2.default_mode
+
+    def test_it_is_recognized_from_its_own_state_flag(self):
+        class _Amc2:
+            is_asc2 = False
+            is_bpc2 = False
+            is_stm2 = False
+            is_sensor_track = False
+            is_amc2 = True
+
+        assert reg.device_for_state(_Amc2()) is reg.AMC2
+
+    def test_every_other_module_is_still_programmable(self):
+        assert all(device.configurable for device in reg.LCS_DEVICES if device is not reg.AMC2)
+
+
 class TestLookups:
     def test_device_for_key(self):
         assert reg.device_for_key("bpc2") is reg.BPC2
+        # Recognized modules are found by key too; only an unknown key raises.
+        assert reg.device_for_key("amc2") is reg.AMC2
         with pytest.raises(ValueError):
-            reg.device_for_key("amc2")
+            reg.device_for_key("asc3")
 
     def test_device_for_state(self):
         class _State:
@@ -118,9 +170,24 @@ class TestLookups:
         assert reg.device_for_state(None) is None
         assert reg.device_for_state(object()) is None
 
+    def test_devices_for_state_names_every_module_a_shared_record_identifies(self):
+        # A component state is keyed by scope and address alone, so an AMC2 and a BPC2 both
+        # answering to ACC 1 leave one record carrying both flags.
+        class _Shared:
+            is_asc2 = False
+            is_bpc2 = True
+            is_stm2 = False
+            is_sensor_track = False
+            is_amc2 = True
+
+        assert reg.devices_for_state(_Shared()) == (reg.BPC2, reg.AMC2)
+        assert reg.devices_for_state(None) == ()
+        assert reg.devices_for_state(object()) == ()
+
     def test_device_for_pdi_device(self):
         assert reg.device_for_pdi_device(PdiDevice.IRDA) is reg.SENSOR_TRACK
-        assert reg.device_for_pdi_device(PdiDevice.AMC2) is None
+        assert reg.device_for_pdi_device(PdiDevice.AMC2) is reg.AMC2
+        assert reg.device_for_pdi_device(PdiDevice.BASE) is None
 
     def test_mode_for_pdi_mode(self):
         assert reg.ASC2.mode_for_pdi_mode(3).key == "sw_latching"
@@ -156,14 +223,19 @@ class TestModeLabels:
     """
 
     EXPECTED = {
-        "asc2": ("ACCessory, 8 TMCC IDs", "ACCessory, 1 TMCC ID", "SWitch, momentary", "SWitch, latching"),
+        "asc2": (
+            "ACCessory, 8 TMCC IDs",
+            "ACCessory, 1 TMCC ID",
+            "SWitch, momentary, 4 TMCC IDs",
+            "SWitch, latching, 4 TMCC IDs",
+        ),
         "bpc2": ("TRack, 8 TMCC IDs", "TRack, 1 TMCC ID", "ACCessory, 8 TMCC IDs", "ACCessory, 1 TMCC ID"),
-        "stm2": ("Single-wire (up to 16 switches)", "Two-wire (up to 8 switches)"),
+        "stm2": ("SWitch, single-wire, 16 TMCC IDs", "SWitch, two-wire, 8 TMCC IDs"),
         "sensor_track": ("ACCessory TMCC ID and Action Command",),
     }
 
     def test_every_label_is_as_the_operator_reads_it(self):
-        assert {d.key: tuple(m.label for m in d.modes) for d in reg.LCS_DEVICES} == self.EXPECTED
+        assert {d.key: tuple(m.label for m in d.modes) for d in reg.configurable_devices()} == self.EXPECTED
 
     def test_an_id_is_always_a_tmcc_id(self):
         # A bare "ID" is ambiguous beside a PDI address or a port number.
@@ -186,3 +258,12 @@ class TestModeLabels:
                 counted = re.search(r"(\d+) TMCC IDs?\b", mode.label)
                 if counted:
                     assert int(counted.group(1)) == mode.ports, f"{device.key}/{mode.key}: {mode.label}"
+
+    def test_every_switch_mode_names_the_ids_it_consumes(self):
+        # A switch mode reserves a block just as an accessory mode does, and an operator
+        # laying out switch IDs has to know how many of them go with the choice.
+        for device in reg.configurable_devices():
+            for mode in device.modes:
+                if mode.scope != CommandScope.SWITCH:
+                    continue
+                assert re.search(rf"\b{mode.ports} TMCC IDs?\b", mode.label), f"{device.key}/{mode.key}"
