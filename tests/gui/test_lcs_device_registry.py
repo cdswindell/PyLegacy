@@ -249,7 +249,7 @@ class TestModeNames:
     """
 
     EXPECTED = {
-        "asc2": ("ACC", "ACC", "SW (pulse)", "SW (latching)"),
+        "asc2": ("ACC", "ACC (uncouple)", "SW (pulse)", "SW (latching)"),
         "bpc2": ("TR", "TR", "ACC", "ACC"),
         "stm2": ("SW (single-wire)", "SW (two-wire)"),
         "sensor_track": ("ACC",),
@@ -269,14 +269,46 @@ class TestModeNames:
 
     def test_a_qualifier_is_parenthesized(self):
         # Anything after the key tells this mode from the module's other modes on that key
-        # -- pulse from latching, single-wire from two-wire -- and reads as the aside it is
-        # rather than as a second word of the key.
+        # -- pulse from latching, single-wire from two-wire, uncouple from the plain
+        # accessory mode -- and reads as the aside it is rather than as a second word of
+        # the key.
         for device in reg.LCS_DEVICES:
             for mode in device.modes:
                 qualifier = mode.name.split(maxsplit=1)[1:]
                 if not qualifier:
                     continue
                 assert re.fullmatch(r"\(.+\)", qualifier[0]), f"{device.key}/{mode.key}: {mode.name}"
+
+    def test_a_qualifier_is_read_back_off_the_name(self):
+        # What the panel keys the mode's note by, so the sentence below the radios is
+        # looked up under the very word the row it explains carries. A mode named by its
+        # key alone qualifies nothing and has nothing to key.
+        assert reg.ASC2.mode("acc_1").qualifier == "uncouple"
+        assert reg.ASC2.mode("sw_momentary").qualifier == "pulse"
+        assert reg.STM2.mode("single_wire").qualifier == "single-wire"
+        assert reg.ASC2.mode("acc_8").qualifier is None
+        assert reg.BPC2.mode("tr_8").qualifier is None
+
+    def test_a_qualifier_is_one_word(self):
+        # A radio row is as wide as its label, so the qualifier can say which mode this is
+        # and little else; what the mode is good for is the note's business.
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                if mode.qualifier is None:
+                    continue
+                assert " " not in mode.qualifier, f"{device.key}/{mode.key}: {mode.name}"
+
+    def test_the_asc2_single_id_accessory_mode_names_its_purpose(self):
+        # The one mode whose purpose cannot be read off the block it claims: one TMCC ID
+        # driving all eight outputs, reserved for uncoupling tracks. The count is left to
+        # the row's tail, which already says the mode takes one address, and the rest is
+        # said by the note the panel prints under the radios.
+        mode = reg.ASC2.mode("acc_1")
+        assert mode.ids_label(1) == "ACC (uncouple) TMCC ID 1"
+        assert mode.note == "Uncoupling tracks only - all 8 outputs pulse from the one TMCC ID"
+        # Pulsed, which is what pdi_device.py reads mode 1 back as.
+        assert "pulse" in mode.note
+        assert mode.ports == 1
 
     def test_a_name_counts_nothing(self):
         # The count is the label's business, and a name that carried one would say it
@@ -316,7 +348,7 @@ class TestModeLabels:
     IDS_AT_1 = {
         "asc2": (
             "ACC TMCC IDs 1 - 8",
-            "ACC TMCC ID 1",
+            "ACC (uncouple) TMCC ID 1",
             "SW (pulse) TMCC IDs 1 - 4",
             "SW (latching) TMCC IDs 1 - 4",
         ),
@@ -333,7 +365,7 @@ class TestModeLabels:
     PORTS = {
         "asc2": (
             "ACC, 8 TMCC IDs",
-            "ACC, 1 TMCC ID",
+            "ACC (uncouple), 1 TMCC ID",
             "SW (pulse), 4 TMCC IDs",
             "SW (latching), 4 TMCC IDs",
         ),
@@ -361,7 +393,7 @@ class TestModeLabels:
         assert reg.ASC2.mode("acc_8").ids_label(95) == "ACC TMCC IDs 91 - 98"
         assert reg.STM2.mode("single_wire").ids_label(98) == "SW (single-wire) TMCC IDs 83 - 98"
         # And nothing is named below the first address, whatever it is handed.
-        assert reg.ASC2.mode("acc_1").ids_label(0) == "ACC TMCC ID 1"
+        assert reg.ASC2.mode("acc_1").ids_label(0) == "ACC (uncouple) TMCC ID 1"
 
     def test_an_id_is_always_a_tmcc_id(self):
         # A bare "ID" is ambiguous beside a PDI address or a port number.

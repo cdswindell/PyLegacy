@@ -248,7 +248,8 @@ SCOPE_LABEL: dict[CommandScope, str] = {
 # operator choosing between them needs. Each line leads with the key spelled exactly as
 # the rows spell it, so the eye can join the two. Only the keys the selected module
 # actually offers are shown, so the footnote never states a fact that does not apply to
-# the module in hand.
+# the module in hand. The selected mode's own note joins them below the last of them; see
+# LcsConfigPanel.mode_note.
 SCOPE_USE: dict[CommandScope, str] = {
     CommandScope.ACC: "ACC: Use for lighting and operating accessories",
     CommandScope.SWITCH: "SW: Use for Switches/Turnouts",
@@ -720,13 +721,13 @@ class LcsConfigPanel(OverlayPanel):
             command=self._on_mode_selected,
         )
         # A footnote to the radios above it -- what each remote key they offer is actually
-        # for -- and so inside their box rather than adrift below the page's other reports,
-        # where it read as a statement about the panel at large. Held just off the last row;
-        # see MODE_NOTE_LEAD.
+        # for, and what the chosen mode itself is for -- and so inside their box rather than
+        # adrift below the page's other reports, where it read as a statement about the
+        # panel at large. Held just off the last row; see MODE_NOTE_LEAD.
         host.add_vspace(self._mode_box, self._mode_note_lead)
-        # Centered under the radios, like every other line of prose on the page: the two
-        # lines are short and of much the same length, and centered they read as a caption
-        # on the list above them rather than as another row of it.
+        # Centered under the radios, like every other line of prose on the page: the lines
+        # are short and of much the same length, and centered they read as a caption on the
+        # list above them rather than as another row of it.
         self._mode_footnote_line = self._wrap(self._label(self._mode_box, "", size=host.s_10))
 
         # What already answers to the entered ID: it tells the operator whether they are
@@ -1589,10 +1590,12 @@ class LcsConfigPanel(OverlayPanel):
 
     @property
     def mode_footnote(self) -> str:
-        """What each remote key the selected module offers is used for, one line each.
+        """What each remote key the module offers is for, and what the chosen mode is for.
 
-        Taken from the module's own enabled modes, in the order the radios list them, so
-        a BPC2 reads TR before ACC and an STM2 says nothing about accessories.
+        The keys are taken from the module's own enabled modes, in the order the radios
+        list them, so a BPC2 reads TR before ACC and an STM2 says nothing about
+        accessories. Below the last of them stands the selected mode's own note, which
+        speaks for one row rather than for the module; see :attr:`mode_note`.
         """
         if self._device is None:
             return ""
@@ -1601,7 +1604,29 @@ class LcsConfigPanel(OverlayPanel):
             use = SCOPE_USE.get(mode.scope)
             if use and use not in lines:
                 lines.append(use)
+        note = self.mode_note
+        if note:
+            lines.append(note)
         return "\n".join(lines)
+
+    @property
+    def mode_note(self) -> str:
+        """What the selected mode is for, keyed by the qualifier its own row carries.
+
+        The lines above answer the key every row opens with; this one answers the word in
+        parentheses on the row that is chosen -- "uncouple: Uncoupling tracks only - all 8
+        outputs pulse from the one TMCC ID" under "ACC (uncouple) TMCC ID 1" -- which is
+        the fact the row itself has no room for, a radio row being as wide as its label.
+
+        Keyed only where the name qualifies itself: a module's plainest mode is named by
+        its key alone, and its note then stands as the plain sentence it is. Empty for a
+        mode with nothing written about it, so the box grows only for a row that speaks.
+        """
+        mode = self._mode
+        if mode is None or not mode.note:
+            return ""
+        qualifier = mode.qualifier
+        return f"{qualifier}: {mode.note}" if qualifier else mode.note
 
     def _refresh_mode_footnote(self) -> None:
         if self._mode_footnote_line is not None:

@@ -30,11 +30,17 @@ How a mode is named and labeled
 A mode's ``name`` opens with the Cab-remote key that begins its programming sequence,
 spelled the way the key itself is: ``ACC``, ``SW``, ``TR``. Whatever tells the mode from
 the module's other modes on that key follows it in parentheses -- ``(pulse)``,
-``(latching)``, ``(single-wire)``. The key is what the operator presses, so it stands at
-the head of the row unadorned and the qualifier reads as the aside it is; the footnote
-below the panel's Mode radios is keyed by those same three words. The name alone says
-nothing about how many addresses the mode claims, and what is counted is always
+``(latching)``, ``(single-wire)``, ``(uncouple)``. The key is what the operator presses,
+so it stands at the head of the row unadorned and the qualifier reads as the aside it is;
+the footnote below the panel's Mode radios is keyed by those same words. The name alone
+says nothing about how many addresses the mode claims, and what is counted is always
 ``TMCC IDs``, never bare "IDs" or "ports".
+
+A qualifier is one word wherever one will do, because a radio row is as wide as its label
+(see below), so it can rarely say more than *which* mode this is. What the mode is good
+for is said by :attr:`LcsMode.note`, which the panel prints below the radios keyed by that
+same word -- "uncouple: Uncoupling tracks only ..." -- so the qualifier need only be the
+word the sentence can be looked up under.
 
 Two labels are built from it, both here rather than in the panel, so the wording is
 settled in one file and testable without a display:
@@ -73,6 +79,7 @@ is unit-testable in isolation.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable, Mapping, Sequence
@@ -212,11 +219,25 @@ class LcsMode:
     pdi_mode: int | None
     presses: tuple[Press, ...]
     enabled: bool = True
+    # What this mode is for, in the operator's terms, said in one line: the panel prints
+    # it below the Mode radios once the mode is chosen, keyed by the mode's qualifier, and
+    # a mode the panel cannot offer says it in the "Not available:" line instead.
     note: str | None = None
 
     @property
     def max_base(self) -> int:
         return max_base(self)
+
+    @property
+    def qualifier(self) -> str | None:
+        """The parenthesized word that tells this mode from the module's others on its key.
+
+        "pulse" from "SW (pulse)"; None for a mode named by its key alone. What the panel's
+        footnote keys :attr:`note` by, so the sentence below the radios is looked up under
+        the very word the row it explains carries.
+        """
+        match = re.search(r"\(([^)]+)\)", self.name)
+        return match.group(1) if match else None
 
     @property
     def ports_label(self) -> str:
@@ -347,11 +368,16 @@ ASC2 = LcsDevice(
         ),
         LcsMode(
             key="acc_1",
-            name="ACC",
+            # The one mode whose purpose the operator cannot guess from the block it
+            # claims: a single TMCC ID that drives all eight outputs, reserved for
+            # uncoupling tracks. The qualifier names that purpose rather than the count --
+            # the row's tail already says the mode takes one address -- and the note below
+            # the radios, keyed by the same word, says the rest.
+            name="ACC (uncouple)",
             scope=CommandScope.ACC,
             ports=1,
             pdi_mode=1,
-            note="Uncoupling tracks only; always pulsed",
+            note="Uncoupling tracks only - all 8 outputs pulse from the one TMCC ID",
             presses=(
                 Press("ACC {id} SET", TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC),
                 Press("AUX1 then 1", TMCC1AuxCommandEnum.AUX_NUMBER_1, CommandScope.ACC, note="1-ID sub-mode"),

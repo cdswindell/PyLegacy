@@ -392,7 +392,7 @@ def test_the_mode_rows_name_the_block_each_of_them_would_claim() -> None:
 
     assert [label for label, _key in panel._mode_group.options] == [
         "ACC TMCC IDs 12 - 19",
-        "ACC TMCC ID 12",
+        "ACC (uncouple) TMCC ID 12",
         "SW (pulse) TMCC IDs 12 - 15",
         "SW (latching) TMCC IDs 12 - 15",
     ]
@@ -408,7 +408,7 @@ def test_stepping_the_id_relabels_every_mode_row() -> None:
 
     assert [label for label, _key in panel._mode_group.options] == [
         "ACC TMCC IDs 13 - 20",
-        "ACC TMCC ID 13",
+        "ACC (uncouple) TMCC ID 13",
         "SW (pulse) TMCC IDs 13 - 16",
         "SW (latching) TMCC IDs 13 - 16",
     ]
@@ -1335,7 +1335,8 @@ def test_mode_selector_repopulates_correctly_on_device_change() -> None:
     panel._on_device_selected("asc2")
     assert len(panel._mode_group.options) == 4
     assert panel._mode_group.options[0] == ("ACC TMCC IDs 1 - 8", "acc_8")
-    assert panel._mode_group.options[1] == ("ACC TMCC ID 1", "acc_1")
+    # Named for what the mode is for, the one thing its single address cannot say.
+    assert panel._mode_group.options[1] == ("ACC (uncouple) TMCC ID 1", "acc_1")
     # Every switch mode names the block it consumes, as the accessory modes do.
     assert panel._mode_group.options[2] == ("SW (pulse) TMCC IDs 1 - 4", "sw_momentary")
     assert panel._mode_group.options[3] == ("SW (latching) TMCC IDs 1 - 4", "sw_latching")
@@ -2413,10 +2414,10 @@ def test_the_footnote_is_the_last_thing_inside_the_mode_box() -> None:
 
 
 def test_the_footnote_is_centered_under_the_radios() -> None:
-    # Centered like every other line of prose in the panel: the two lines are short and of
-    # much the same length, and centered they read as a caption on the list above rather
-    # than as another row of it. align is where guizero packs it -- "top", so it spans the
-    # box and is centered in it -- and justify how Tk sets the lines within that.
+    # Centered like every other line of prose in the panel: the lines are short and of much
+    # the same length, and centered they read as a caption on the list above rather than as
+    # another row of it. align is where guizero packs it -- "top", so it spans the box and
+    # is centered in it -- and justify how Tk sets the lines within that.
     panel = _new_panel()
     line = panel._mode_footnote_line
 
@@ -2439,16 +2440,23 @@ def test_no_device_means_no_mode_footnote() -> None:
     panel = _new_panel()
 
     assert panel.mode_footnote == ""
+    assert panel.mode_note == ""
     assert panel._mode_footnote_line.value == ""
 
 
 @pytest.mark.parametrize(
     "device_key, expected",
     [
-        # In the order the module's own radios list them, so a BPC2 reads TR first.
-        ("asc2", [mod.SCOPE_USE[CommandScope.ACC], mod.SCOPE_USE[CommandScope.SWITCH]]),
+        # In the order the module's own radios list them, so a BPC2 reads TR first, and
+        # then whatever the mode the panel opens on has to say for itself. Taken from the
+        # registry rather than spelled again here, so the prose is settled in one file.
+        (
+            "asc2",
+            [mod.SCOPE_USE[CommandScope.ACC], mod.SCOPE_USE[CommandScope.SWITCH], ASC2.mode("acc_8").note],
+        ),
+        # Neither of the BPC2's offered modes has anything written about it.
         ("bpc2", [mod.SCOPE_USE[CommandScope.TRAIN], mod.SCOPE_USE[CommandScope.ACC]]),
-        ("stm2", [mod.SCOPE_USE[CommandScope.SWITCH]]),
+        ("stm2", [mod.SCOPE_USE[CommandScope.SWITCH], f"single-wire: {STM2.mode('single_wire').note}"]),
         ("sensor_track", [mod.SCOPE_USE[CommandScope.ACC]]),
     ],
 )
@@ -2470,14 +2478,70 @@ def test_the_footnote_leads_with_the_word_the_rows_lead_with() -> None:
     # What joins the caption to the list above it: a row reading "SW (pulse) TMCC IDs 1 - 4"
     # is answered by a line beginning "SW:", one word, spelled the same in both places. The
     # two sets are pinned to each other, so a mode named any other way -- or a key the
-    # module does not offer -- shows up here.
+    # module does not offer -- shows up here. The selected mode's own note is keyed by its
+    # qualifier rather than by a key, and is read by the tests below.
     panel = _new_panel()
     panel._on_device_selected("asc2")
 
     rows = {label.split()[0] for label, _key in panel._mode_group.options}
-    footnote = {line.split(":")[0] for line in panel.mode_footnote.split("\n")}
+    keys = {line.split(":")[0] for line in panel.mode_footnote.split("\n") if line != panel.mode_note}
 
-    assert rows == footnote == {"ACC", "SW"}
+    assert rows == keys == {"ACC", "SW"}
+
+
+def test_the_selected_mode_says_what_it_is_for_below_the_keys() -> None:
+    # The row has no room for it: "ACC (uncouple) TMCC ID 1" says which mode and which
+    # address, and this says the rest -- keyed by the word in parentheses on the row it
+    # explains, as the lines above it are keyed by the word every row opens with.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    panel._on_mode_selected("acc_1")
+
+    assert panel.mode_note == "uncouple: Uncoupling tracks only - all 8 outputs pulse from the one TMCC ID"
+    assert panel.mode_footnote.split("\n")[-1] == panel.mode_note
+    assert panel._mode_footnote_line.value.endswith(panel.mode_note)
+    # And the word it is keyed by is the word the chosen row carries.
+    labels = {key: label for label, key in panel._mode_group.options}
+    assert f"({panel.mode_note.split(':')[0]})" in labels["acc_1"]
+
+
+def test_the_note_speaks_for_the_row_the_operator_chose() -> None:
+    # One line, about the mode in hand, replaced as the operator taps down the list -- not
+    # every mode's note at once, on the page that has the least room to spare.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    panel._on_mode_selected("sw_momentary")
+    assert panel.mode_note == f"pulse: {ASC2.mode('sw_momentary').note}"
+
+    panel._on_mode_selected("acc_1")
+
+    assert panel.mode_note == f"uncouple: {ASC2.mode('acc_1').note}"
+    assert ASC2.mode("sw_momentary").note not in panel._mode_footnote_line.value
+
+
+def test_a_mode_named_by_its_key_alone_keys_nothing() -> None:
+    # Nothing in its name tells it from another mode on the same key, so there is no word
+    # to look the sentence up under and it stands as the plain sentence it is.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    panel._on_mode_selected("acc_8")
+
+    assert panel.mode_note == ASC2.mode("acc_8").note
+    assert ":" not in panel.mode_note
+
+
+def test_a_mode_with_nothing_written_about_it_adds_no_line() -> None:
+    # The box grows only for a row that speaks, and the ID page is the fullest the panel
+    # has: neither BPC2 mode it offers carries a note.
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._on_mode_selected("tr_8")
+
+    assert panel.mode_note == ""
+    assert panel.mode_footnote.split("\n") == [
+        mod.SCOPE_USE[CommandScope.TRAIN],
+        mod.SCOPE_USE[CommandScope.ACC],
+    ]
 
 
 def test_the_footnote_follows_the_device_the_operator_switches_to() -> None:
@@ -2486,5 +2550,5 @@ def test_the_footnote_follows_the_device_the_operator_switches_to() -> None:
     assert mod.SCOPE_USE[CommandScope.TRAIN] in panel._mode_footnote_line.value
 
     panel._on_device_selected("stm2")
-    assert panel._mode_footnote_line.value == mod.SCOPE_USE[CommandScope.SWITCH]
+    assert panel._mode_footnote_line.value.startswith(mod.SCOPE_USE[CommandScope.SWITCH])
     assert mod.SCOPE_USE[CommandScope.TRAIN] not in panel._mode_footnote_line.value
