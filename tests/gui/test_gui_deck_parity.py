@@ -182,7 +182,7 @@ def test_every_new_cell_lands_in_the_same_slot_on_the_pane_as_in_portrait(compac
     assert host.lcs_panel_cell.grid == [3, 1]
     assert host.info_btn.on_press == (host.on_info, [])
     assert host.acc_generic_btn.on_press == (host.on_show_generic_acc_panel, [])
-    assert host.lcs_panel_btn.on_press == (_view.on_lcs_panel, [])
+    assert host.lcs_panel_btn.on_press == (host.on_lcs_config_panel, [])
     assert host.acc_set_btn.on_press[0] == _view.on_acc_set_key
     assert host.sw_set_btn.on_press[0] == _view.on_switch_set_key
 

@@ -529,12 +529,13 @@ class KeypadView(Generic[S]):
         )
         host.acc_set_btn.on_press = (self.on_acc_set_key, [])
 
-        # One shared LCS... key (a no-op placeholder for now) reused on every screen that offers
-        # it, re-gridded per context by _show_lcs_panel_key. It is deliberately in neither the
-        # entry_cells nor the ops_cells set: it must appear both in entry mode (Accessory/Switch
-        # scopes) and on the accessory ops panels, and the set-based show/hide cannot straddle
-        # the two. Slots (0-based [col, row]): entry [0, 4] under Delete, generic accessory
-        # [1, 4] under "0", native ASC2 [3, 1], native BPC2 [0, 3].
+        # One shared LCS... key, reused on every screen that offers it and re-gridded per
+        # context by _show_lcs_panel_key. The host owns the LCS module configuration panel and
+        # decides what it is seeded with, so the key goes straight to it. It is deliberately in
+        # neither the entry_cells nor the ops_cells set: it must appear both in entry mode
+        # (Accessory/Switch scopes) and on the accessory ops panels, and the set-based
+        # show/hide cannot straddle the two. Slots (0-based [col, row]): entry [0, 4] under
+        # Delete, generic accessory [1, 4] under "0", native ASC2 [3, 1], native BPC2 [0, 3].
         host.lcs_panel_cell, host.lcs_panel_btn = make_key(
             keypad_keys,
             LCS_PANEL_KEY,
@@ -543,7 +544,7 @@ class KeypadView(Generic[S]):
             size=host.s_16,
             visible=False,
             hover=True,
-            command=self.on_lcs_panel,
+            command=host.on_lcs_config_panel,
             args=[],
         )
 
@@ -830,19 +831,6 @@ class KeypadView(Generic[S]):
         """Fires ACC SET_ADDRESS for the accessory shown on the native ASC2 panel."""
         host = self._host
         host.on_set_key(CommandScope.ACC, host.scope_tmcc_id(CommandScope.ACC))
-
-    def on_lcs_panel(self, _key: str | None = None) -> None:
-        """Opens the LCS module configuration panel over whatever is on screen.
-
-        The key is shared by four screens, so the host decides what the panel is seeded
-        with; a host that has no such panel (a test double, say) simply does nothing.
-        """
-        host = self._host
-        opener = getattr(host, "on_lcs_config_panel", None)
-        if opener is None:
-            log.debug("LCS... key pressed; %s has no LCS configuration panel", type(host).__name__)
-            return
-        opener()
 
     def _show_lcs_panel_key(self, grid: list[int]) -> None:
         """Places the single shared LCS... key at ``grid`` (0-based [col, row]) and shows it.

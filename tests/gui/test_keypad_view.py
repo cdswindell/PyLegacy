@@ -308,6 +308,7 @@ def _new_host() -> SimpleNamespace:
     host.on_show_panel_calls = []
     host.on_show_generic_acc_panel = lambda: host.on_show_panel_calls.append("generic")
     host.on_show_native_acc_panel = lambda: host.on_show_panel_calls.append("native")
+    host.on_lcs_config_panel = lambda: host.on_show_panel_calls.append("lcs")
     host.on_info_calls = []
     host.on_info = lambda state=None: host.on_info_calls.append(state)
     host.on_set_key_calls = []
@@ -902,11 +903,11 @@ def test_the_native_asc2_panel_carries_the_set_key_and_the_shared_lcs_key() -> N
 def test_the_native_bpc2_panel_carries_the_shared_lcs_key_in_the_first_column() -> None:
     # BPC2 shows the shared LCS... key in the first column, directly below "7" (row 3, col 0),
     # rather than the 4th-column slot the ASC2 panel puts it in.
-    host, view = _ops(state=_flagged(is_bpc2=True))
+    host, _view = _ops(state=_flagged(is_bpc2=True))
     assert host.lcs_panel_cell.visible is True
     assert host.lcs_panel_cell.grid == [0, 3]
     assert host.lcs_panel_btn.text == mod.LCS_PANEL_KEY == "LCS..."
-    assert host.lcs_panel_btn.on_press == (view.on_lcs_panel, [])
+    assert host.lcs_panel_btn.on_press == (host.on_lcs_config_panel, [])
     # The BPC2 Acc... toggle is unchanged and still shown.
     assert host.acc_generic_cell.visible is True
 
@@ -999,14 +1000,17 @@ def test_the_asc2_set_key_fires_acc_set_address() -> None:
     assert host.on_set_key_calls == [(CommandScope.ACC, 19)]
 
 
-def test_the_lcs_panel_key_does_nothing_harmful() -> None:
-    host, view = _ops(state=_flagged(is_asc2=True))
+def test_the_lcs_panel_key_opens_the_hosts_lcs_configuration_panel() -> None:
+    # The key's whole job: hand the press to the host, which owns the panel and decides what
+    # it is seeded with. It is bound the way the Info key is -- straight to the host's opener,
+    # so a host that forgets it says so at build time instead of pressing to no effect.
+    host, _view = _ops(state=_flagged(is_asc2=True))
     command, args = host.lcs_panel_btn.on_press
 
-    # A no-op for now: it must be callable and raise nothing.
     command(*args)
 
-    assert command == view.on_lcs_panel
+    assert host.lcs_panel_btn.on_press == (host.on_lcs_config_panel, [])
+    assert host.on_show_panel_calls == ["lcs"]
 
 
 def test_the_generic_and_switch_panels_do_not_carry_it() -> None:
