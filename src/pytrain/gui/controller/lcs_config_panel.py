@@ -11,7 +11,8 @@ The LCS configuration panel: a stepped overlay that programs an LCS module.
 
 The panel walks the operator through four pages -- Device, base TMCC ID, the selected
 device's own options, and a review of the exact Cab-remote presses -- then emits those
-presses and reads the module back over PDI.
+presses and reads the module back over PDI. The options page is stepped over for a module
+that declares none; see :meth:`LcsConfigPanel.skip_options`.
 
 The panel takes every fact about a device from :mod:`lcs_device_registry`, every fact
 about who owns a TMCC ID from :mod:`lcs_id_map`, and the presses themselves from
@@ -99,7 +100,6 @@ ASSIGNED_CELL_PAD = 4
 # A module row is the remote key, the module and its TMCC IDs, a column each.
 ROW_COLUMNS = 3
 WAITING_FOR_BASE = "Waiting for Base 3..."
-NO_OPTIONS = "This module needs no further settings."
 AWAITING_READBACK = "Waiting for the module to report..."
 NO_RESPONSE = "No response - is the module in program mode?"
 SENSOR_TRACK_FILTER_NOTE = (
@@ -159,6 +159,52 @@ MODE_ROW_PAD_COMPACT = 3
 # whitespace, and on the ID page it is whitespace that pushed Close off the screen.
 NAV_ROW_PAD = 6
 NAV_ROW_PAD_COMPACT = 4
+
+# Whitespace above and below an option row on the options page. Between MODE_ROW_PAD and
+# RADIO_ROW_PAD, and for the same reason those two differ: there is less of a page to spend
+# here than the module radios have to themselves, and more than the mode radios can take
+# out of the fullest page in the panel. Internal Checkbutton padding, for the reason given
+# above RADIO_ROW_PAD.
+OPTION_ROW_PAD = 8
+OPTION_ROW_PAD_COMPACT = 4
+
+# A list of options longer than this cannot be set at the size a lone control is, nor be
+# given any of the whitespace above. The one in the registry is the Sensor Track's ten
+# Action Commands: at s_18 with OPTION_ROW_PAD its rows want 500px, and the popup has 490
+# for the whole panel -- the module line, the list, the note under it, the Back/Next row
+# and the Close button below that. Tk neither scrolls nor complains when it runs out: it
+# stops mapping children, and the ones at the end are exactly those buttons.
+#
+# So a list this long is set at the page's body size and its rows are packed tight, which
+# is what the released code does with them anyway. Measured on a 480x800 pane: 29px a row
+# against 50, and the page 468px against 524, which leaves the note, every row and the
+# Back/Next row on screen. Still a size and an indicator larger than the released panel
+# draws them -- s_12 behind an 18px dot -- and the rows are set apart by the painted
+# indicator and the row's own background rather than by whitespace they cannot afford.
+LONG_OPTION_LIST = 6
+
+# Whitespace above and below a line of prose about the module -- its warning, the modes it
+# reserves, an option's own note. Internal Label padding rather than a spacer widget, and
+# here that is not only about what guizero replays: every one of these lines is empty for
+# most modules and is taken off the page when it is (see _refresh_note), so padding that
+# belongs to the label goes away with it where a spacer would be left holding a gap over
+# nothing.
+NOTE_PAD = 8
+NOTE_PAD_COMPACT = 4
+
+# Where a line of prose is broken, in pixels: the width of the popup it is drawn in, less
+# its border and a margin either side. Tk truncates nothing -- a label wider than the popup
+# is centered in it, losing its beginning *and* its end, which is how the BPC2's relay
+# warning read on the Pi -- so the wrap is the only thing that keeps a sentence whole.
+#
+# The popup is as wide as the emergency box: create_popup builds its title row with that
+# width. Pixels rather than characters because that is the unit Tk's -wraplength takes, and
+# the only honest one here: the same sentence is half again as wide on a Pi, whose fonts are
+# scaled up, as it is on a desk.
+WRAP_INSET = 24
+# The floor, for a host that has not measured itself yet. Narrower than any pane the GUI
+# runs in, so it can only ever break a line early -- never off the edge of the screen.
+MIN_WRAP_PX = 240
 
 # Presses are staggered so the base sees them as separate gestures, and the read-back
 # GETs are held off until the module has had a moment to act on the last of them.
@@ -460,6 +506,48 @@ class LcsConfigPanel(OverlayPanel):
     def _nav_row_pad(self) -> int:
         return NAV_ROW_PAD_COMPACT if self.compact else NAV_ROW_PAD
 
+    @property
+    def _option_row_pad(self) -> int:
+        return OPTION_ROW_PAD_COMPACT if self.compact else OPTION_ROW_PAD
+
+    @property
+    def _note_pad(self) -> int:
+        return NOTE_PAD_COMPACT if self.compact else NOTE_PAD
+
+    @property
+    def _wrap_px(self) -> int:
+        """The width a line of prose is broken at; see WRAP_INSET.
+
+        Asked of the host rather than measured, and asked defensively: the emergency box is
+        what the popup is built to the width of, the pane's own width is the next best
+        answer, and a host that has yet to report either gets the floor.
+        """
+        host = self._gui
+        width = int(getattr(host, "emergency_box_width", 0) or 0) or int(getattr(host, "width", 0) or 0)
+        return max(MIN_WRAP_PX, width - WRAP_INSET)
+
+    def _wrap(self, widget: Any, justify: str = "center", pady: int = None) -> Any:
+        """Break ``widget``'s text at the popup's width, and hold it off its neighbors.
+
+        Both are Tk widget options rather than layout ones, which is what makes them safe
+        here: guizero rebuilds a container's pack and grid options from scratch every time
+        anything in it is created, shown or hidden -- and the options page shows and hides a
+        box on every device change.
+
+        ``justify`` is what a broken line is aligned on, so it follows the widget: the prose
+        lines are centered under the heading, while a checkbox's label is set beside its
+        indicator and reads from the left. Returned so a label can be built and wrapped in
+        one breath.
+        """
+        options: dict[str, Any] = {"wraplength": self._wrap_px, "justify": justify}
+        if pady is not None:
+            options["pady"] = pady
+        try:
+            widget.tk.config(**options)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        return widget
+
     def build(self, body: Box) -> None:
         host = self._gui
         self._body = body
@@ -693,39 +781,67 @@ class LcsConfigPanel(OverlayPanel):
         host = self._gui
         page = Box(body, align="top", border=0)
         self._label(page, "Options", size=host.s_16, bold=True)
-        self._options_summary = self._label(page, "")
-        self._warning_line = self._label(page, "", size=host.s_12)
-        self._reserved_line = self._label(page, "", size=host.s_12)
-        # One options box per device, built once and shown or hidden as the selection
-        # changes. Rebuilding a CheckBoxGroup's rows at runtime loses the painted
-        # indicators decorate_checkbox installs, so the rows a device declares are
+        # The heading belongs with the line under it, so that gap is the tight one; the
+        # wider one below separates the module being programmed from the settings being
+        # chosen for it. See SECTION_GAP and PAGE_GAP.
+        host.add_vspace(page, self._section_gap)
+        self._options_summary = self._wrap(self._label(page, ""))
+        # Both at the page's body size, where they used to be a step below it: these are the
+        # longest prose in the panel -- a whole sentence each -- and on the Pi they were the
+        # two lines an operator could not read. Wrapped for the same reason, and held off
+        # their neighbors by their own padding; see NOTE_PAD.
+        self._warning_line = self._note_line(page)
+        self._reserved_line = self._note_line(page)
+        host.add_vspace(page, self._page_gap)
+        # One options box per device that declares any, built once and shown or hidden as
+        # the selection changes. Rebuilding a CheckBoxGroup's rows at runtime loses the
+        # painted indicators decorate_checkbox installs, so the rows a device declares are
         # created here, with the device, and never rebuilt.
+        #
+        # Nothing is built for a device with no options -- the page is not shown for one at
+        # all; see skip_options.
         for device in configurable_devices():
+            if not device.options:
+                continue
             box = Box(page, align="top", border=0)
             self._option_boxes[device.key] = box
-            if device.options:
-                for option in device.options:
-                    self._build_option(box, device, option)
-            else:
-                self._label(box, NO_OPTIONS)
+            for option in device.options:
+                self._build_option(box, device, option)
             box.hide()
         return page
+
+    def _note_line(self, parent: Box, text: str = "", pady: int = None) -> Text:
+        """A line of prose about the module, wrapped and standing off what is around it."""
+        return self._wrap(self._label(parent, text), pady=self._note_pad if pady is None else pady)
 
     def _build_option(self, box: Box, device: LcsDevice, option: LcsOption) -> None:
         host = self._gui
         key = (device.key, option.key)
+        # How many rows there are decides how large each one can be, and whether the page can
+        # afford to hold them, or its note, apart at all; see LONG_OPTION_LIST.
+        long_list = len(option.choices) > LONG_OPTION_LIST
         if option.kind == OptionKind.RADIO:
             self._label(box, option.label, bold=True)
             self._option_choices[key] = [value for _label, value in option.choices]
             widget = CheckBoxGroup(
                 box,
-                size=host.s_12,
+                # The size the mode radios are set at: these rows are the choice being made
+                # on the page, and at the page's body size -- let alone the step below it
+                # they used to be drawn at -- the dot beside them was barely there. A long
+                # list settles for the body size, which is still a step above what it has
+                # today; see LONG_OPTION_LIST.
+                size=host.s_14 if long_list else host.s_18,
                 # The index is the row's value: an IrdaSequence is not a string, and
                 # guizero hands back whatever string Tk holds.
                 options=[[label, str(i)] for i, (label, _value) in enumerate(option.choices)],
                 selected=None,
                 align="top",
                 style="radio",
+                pady=0 if long_list else self._option_row_pad,
+                # One length for every row, filling the page rather than each row stopping
+                # at the end of its own label -- as on the device and ID pages. See
+                # CheckBoxGroup.stretch_rows.
+                stretch=True,
                 command=self._option_command(device.key, option.key),
             )
         else:
@@ -735,12 +851,32 @@ class LcsConfigPanel(OverlayPanel):
                 align="top",
                 command=self._option_command(device.key, option.key),
             )
-            widget.text_size = host.s_14
+            # The painted indicator, size and padding the module and mode radios carry, and
+            # for the same reason: left to Tk this is the platform's own tick box, drawn at
+            # the font's own scale and unfilled until it is set, which on the Pi read as a
+            # smudge beside the label rather than as a control with a state.
+            #
+            # No row width. decorate_checkbox hands -width straight to the Checkbutton, and
+            # a Checkbutton showing an image reads it in pixels and drops its padx with it,
+            # which would pull the indicator flush against the row's left edge.
+            CheckBoxGroup.decorate_checkbox(
+                widget,
+                host.s_18,
+                width=None,
+                pady=self._option_row_pad,
+                style="checkbox",
+            )
+            # Broken from the left, unlike the prose above it: the label is set beside its
+            # indicator, so a second line belongs under the first and not under the box.
+            self._wrap(widget, justify="left")
         self._option_widgets[key] = widget
         if not option.enabled:
             widget.disable()
         if option.note:
-            self._label(box, option.note, size=host.s_12)
+            # Body size and wrapped, like the two lines at the head of the page: the one
+            # note in the registry is a full sentence about the Sensor Track's ID filters --
+            # and it sits under the list that leaves the page no whitespace to give.
+            self._note_line(box, option.note, pady=0 if long_list else self._note_pad)
 
     def _option_command(self, device_key: str, option_key: str) -> Callable[[], None]:
         # guizero calls a widget's command with no arguments, so the closure carries
@@ -773,10 +909,8 @@ class LcsConfigPanel(OverlayPanel):
         device = self._device
         if self._options_summary is not None:
             self._options_summary.value = self.options_summary
-        if self._warning_line is not None:
-            self._warning_line.value = device.warning if device and device.warning else ""
-        if self._reserved_line is not None:
-            self._reserved_line.value = self.reserved_text
+        self._refresh_note(self._warning_line, device.warning if device and device.warning else "")
+        self._refresh_note(self._reserved_line, self.reserved_text)
         for key, box in self._option_boxes.items():
             if device is not None and key == device.key:
                 box.show()
@@ -798,6 +932,24 @@ class LcsConfigPanel(OverlayPanel):
                     widget.value = 1 if value else 0
         finally:
             self._suspend_option_selectors = False
+
+    @staticmethod
+    def _refresh_note(line: Text | None, text: str) -> None:
+        """Write a line of prose about the module, and take it off the page when there is none.
+
+        Only a BPC2 fills either of the two at the head of the options page -- it is the one
+        module with a warning and the one with reserved modes -- and an empty Label still
+        stands a line tall and still carries its own padding. So a module with nothing to
+        say would pay two lines and four gaps of whitespace for two blank lines, which is
+        the same reason a spare module row is hidden rather than blanked.
+        """
+        if line is None:
+            return
+        line.value = text
+        if text and not line.visible:
+            line.show()
+        elif not text and line.visible:
+            line.hide()
 
     @property
     def options_summary(self) -> str:
@@ -1047,11 +1199,49 @@ class LcsConfigPanel(OverlayPanel):
     #
     # Page swapping
     #
+    @property
+    def skip_options(self) -> bool:
+        """Whether the options page is stepped over rather than shown.
+
+        A module that declares no options has nothing to settle there -- an ASC2 or an STM2
+        today -- and the page it was given said as much: a heading, the line the operator
+        had already read on the page before it, and a sentence stating there was nothing to
+        do. A press to arrive at it and a press to leave, for no decision. Next now goes
+        from the TMCC ID straight to the review, and Back comes straight back.
+
+        The page is still built. It is one of four created once in ``build`` and shown or
+        hidden by index, so leaving it out would move the review page's index -- and every
+        page is reached by index.
+        """
+        return self._device is not None and not self._device.options
+
+    def _skipped(self, index: int) -> bool:
+        """Whether ``index`` names a page this module has nothing to say on."""
+        return index == PAGE_OPTIONS and self.skip_options
+
+    def _page_after(self, index: int, step: int) -> int:
+        """The next page in ``step``'s direction that is not skipped.
+
+        A loop rather than a single test, so that a second skippable page would need
+        nothing here. It cannot run away: it walks off the end of the pages, and
+        :meth:`_show_page` clamps whatever it is handed.
+        """
+        index += step
+        while 0 <= index < len(self._pages) and self._skipped(index):
+            index += step
+        return index
+
     def _show_page(self, index: int) -> None:
         if not self._pages:
             self._page_index = index
             return
         index = max(0, min(index, len(self._pages) - 1))
+        if self._skipped(index):
+            # Reachable only when the module changes under a page already showing, which a
+            # late synchronization can do while the operator has chosen nothing for
+            # themselves -- see on_synchronized. Backwards rather than forwards: nobody is
+            # advanced past a page they have not seen.
+            index = self._page_after(index, -1)
         self._page_index = index
         for i, page in enumerate(self._pages):
             if i == index:
@@ -1061,10 +1251,10 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_nav()
 
     def next_page(self) -> None:
-        self._show_page(self._page_index + 1)
+        self._show_page(self._page_after(self._page_index, 1))
 
     def previous_page(self) -> None:
-        self._show_page(self._page_index - 1)
+        self._show_page(self._page_after(self._page_index, -1))
 
     #
     # Seeding

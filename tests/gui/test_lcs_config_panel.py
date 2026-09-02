@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 import src.pytrain.gui.controller.lcs_config_panel as mod
-from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2
+from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsOption
 from src.pytrain.pdi.irda_req import IrdaSequence
 from src.pytrain.pdi.pdi_device import PdiDevice
 from src.pytrain.protocol.constants import CommandScope
@@ -21,14 +21,15 @@ class _DummyTk:
         # What the widget was asked to bind, which is how the click-to-edit test reads the
         # desktop wiring without a real Tk event loop.
         self.binds: list[tuple[str, Any]] = []
+        # And what it was configured with, which is how the wrapping tests read a Tk option
+        # that has no guizero equivalent.
+        self.configured: dict[str, Any] = {}
 
-    @staticmethod
-    def config(**_kwargs: Any) -> None:
-        return
+    def config(self, **kwargs: Any) -> None:
+        self.configured.update(kwargs)
 
-    @staticmethod
-    def configure(**_kwargs: Any) -> None:
-        return
+    def configure(self, **kwargs: Any) -> None:
+        self.configured.update(kwargs)
 
     @staticmethod
     def grid_configure(**_kwargs: Any) -> None:
@@ -135,6 +136,15 @@ class DummyCheckBoxGroup(_DummyWidget):
         self.value = kwargs.get("selected")
         self.command = kwargs.get("command")
 
+    @staticmethod
+    def decorate_checkbox(widget: Any, size: int, width: Any = None, **kwargs: Any) -> None:
+        """Record what the real component would paint a lone checkbox with.
+
+        The classmethod the Admin panel and the catalog's sort boxes already reach for; it
+        draws the indicator, so what it is asked for is the whole of the assertion.
+        """
+        widget.decoration = dict(size=size, width=width, **kwargs)
+
     def clear(self) -> None:
         self.options = []
 
@@ -217,6 +227,9 @@ class FakeHost(SimpleNamespace):
             s_20=20,
             button_size=100,
             width=480,
+            # What the popup is built to the width of, so it is what a line of prose is
+            # wrapped at. A few pixels inside the pane, as the measured box is on a Pi.
+            emergency_box_width=470,
             compact=False,
             state_store=store,
             cache=lambda _widget: None,
@@ -754,12 +767,16 @@ def test_options_page_renders_only_the_selected_device_controls() -> None:
     assert len(action.options) == 10
 
 
-def test_devices_without_options_say_so() -> None:
+def test_a_module_with_no_options_gets_no_controls_and_no_page() -> None:
+    # The page it used to be given held a heading, the line already read on the page
+    # before it and a sentence saying there was nothing to do -- a press to arrive and a
+    # press to leave, for no decision.
     panel = _new_panel()
     panel._on_device_selected("asc2")
 
     assert ASC2.options == ()
-    assert panel._option_boxes["asc2"].visible is True
+    assert panel.skip_options is True
+    assert "asc2" not in panel._option_boxes
     assert panel._option_widgets.get(("asc2", "restore")) is None
 
 
@@ -834,6 +851,313 @@ def test_choosing_an_action_command_changes_the_press_digit() -> None:
 
     assert panel.options["action"] == IrdaSequence.RECORDING
     assert panel.review_lines == ["1. ACC 3 SET", "2. AUX1 then 9 (action command)"]
+
+
+#
+# The options page is legible: a painted checkbox, wrapped prose, and whitespace
+#
+def test_the_lone_checkbox_is_painted_like_the_radio_lists() -> None:
+    # What the Pi showed: the platform's own tick box at the label's own scale, unfilled
+    # until it was set -- a smudge beside the text rather than a control with a state. The
+    # module and mode radios are painted by the same call, at the same size.
+    panel = _new_panel()
+    host = panel.gui
+
+    restore = panel._option_widgets[("bpc2", "restore")]
+
+    assert restore.decoration["size"] == host.s_18
+    assert restore.decoration["style"] == "checkbox"
+    assert restore.decoration["pady"] == mod.OPTION_ROW_PAD
+    # A pixel width would take the row's padx with it and pull the indicator flush against
+    # the left edge -- the reason the radio lists are stretched by a grid option instead.
+    assert restore.decoration["width"] is None
+
+
+def test_the_checkbox_is_painted_at_the_size_the_mode_radios_use() -> None:
+    panel = _new_panel()
+
+    assert panel._option_widgets[("bpc2", "restore")].decoration["size"] == panel._mode_group.kwargs["size"]
+
+
+def test_the_action_rows_are_larger_than_they_were_and_one_length() -> None:
+    # The Sensor Track's ten Action Commands, the one radio option in the registry and the
+    # longest list in the panel. A step up from the size below the page's body it was drawn
+    # at, but not the checkbox's size: ten rows of that do not fit the page, and what Tk
+    # drops when they do not is the Back/Next row. See LONG_OPTION_LIST.
+    panel = _new_panel()
+    host = panel.gui
+
+    action = panel._option_widgets[("sensor_track", "action")]
+
+    assert len(SENSOR_TRACK.option("action").choices) > mod.LONG_OPTION_LIST
+    assert action.kwargs["size"] == host.s_14
+    assert action.kwargs["size"] > host.s_12
+    # And no whitespace between them: what sets a row apart is the painted indicator and
+    # the row's own background. Ten rows of the padding a shorter list gets would cost the
+    # page its note and the panel its Back/Next row.
+    assert action.kwargs["pady"] == 0
+    assert action.kwargs["stretch"] is True
+    assert "width" not in action.kwargs
+
+
+def test_a_short_radio_list_is_set_at_the_size_a_lone_control_is() -> None:
+    # No module in the registry declares one, so the option is made here: what decides the
+    # treatment is the number of rows, not which module they belong to.
+    panel = _new_panel()
+    host = panel.gui
+    short = LcsOption(
+        key="short",
+        label="Pick one",
+        kind=mod.OptionKind.RADIO,
+        choices=(("A", 1), ("B", 2)),
+    )
+
+    panel._build_option(DummyBox(), BPC2, short)
+
+    widget = panel._option_widgets[("bpc2", "short")]
+    assert widget.kwargs["size"] == host.s_18
+    assert widget.kwargs["pady"] == mod.OPTION_ROW_PAD
+
+
+def test_a_long_lists_note_gets_no_padding_either() -> None:
+    # The whole of that page is the list; the sentence under it is set against the last row
+    # because there is nothing left to hold it off with.
+    panel = _new_panel()
+
+    box = panel._option_boxes["sensor_track"]
+    note = next(child for child in box.children if getattr(child, "value", None) == mod.SENSOR_TRACK_FILTER_NOTE)
+
+    assert note.tk.configured["pady"] == 0
+    # Still wrapped: it is a full sentence, and 741px of it against a 446px page.
+    assert note.tk.configured["wraplength"] == panel._wrap_px
+
+
+@pytest.mark.parametrize(
+    "compact, option_pad, note_pad",
+    [
+        (False, mod.OPTION_ROW_PAD, mod.NOTE_PAD),
+        (True, mod.OPTION_ROW_PAD_COMPACT, mod.NOTE_PAD_COMPACT),
+    ],
+)
+def test_the_options_page_holds_its_rows_and_its_prose_apart(compact: bool, option_pad: int, note_pad: int) -> None:
+    panel, _body, _host = _build_with_body(compact=compact)
+
+    assert panel._option_widgets[("bpc2", "restore")].decoration["pady"] == option_pad
+    assert panel._warning_line.tk.configured["pady"] == note_pad
+    assert panel._reserved_line.tk.configured["pady"] == note_pad
+    # Not the long list: its rows get nothing on either kind of host.
+    assert panel._option_widgets[("sensor_track", "action")].kwargs["pady"] == 0
+
+
+def test_the_option_rows_are_held_apart_between_the_two_other_lists() -> None:
+    # More than the mode rows, which share the fullest page in the panel; less than the
+    # module rows, which have a page to themselves.
+    assert mod.MODE_ROW_PAD < mod.OPTION_ROW_PAD < mod.RADIO_ROW_PAD
+    assert mod.MODE_ROW_PAD_COMPACT <= mod.OPTION_ROW_PAD_COMPACT <= mod.RADIO_ROW_PAD_COMPACT
+
+
+def test_the_pages_prose_is_read_at_the_body_size_not_below_it() -> None:
+    # These are the longest sentences in the panel, and on the Pi they were the two lines
+    # an operator could not read: a step below the body size, which is fine print at the
+    # scale the Pi draws at.
+    panel = _new_panel()
+    host = panel.gui
+    panel._on_device_selected("bpc2")
+
+    assert panel._warning_line.text_size == host.s_14
+    assert panel._reserved_line.text_size == host.s_14
+    assert panel._options_summary.text_size == host.s_14
+
+
+def test_every_line_of_prose_on_the_page_is_wrapped_to_the_popups_width() -> None:
+    # What the photograph showed: the BPC2's relay warning ran off both edges at once.
+    # Tk truncates nothing -- it centers a label wider than its container, so the sentence
+    # lost its beginning and its end -- and only a wraplength keeps it whole.
+    panel = _new_panel()
+    panel._on_device_selected("sensor_track")
+    wrap = panel._wrap_px
+
+    for line in (panel._options_summary, panel._warning_line, panel._reserved_line):
+        assert line.tk.configured["wraplength"] == wrap
+        # A broken line follows the line above it, centered under the heading.
+        assert line.tk.configured["justify"] == "center"
+
+
+def test_a_checkbox_label_is_wrapped_from_the_left_beside_its_indicator() -> None:
+    # Not centered like the prose: the label is set beside the indicator, so a second line
+    # belongs under the first rather than under the middle of the box.
+    panel = _new_panel()
+
+    restore = panel._option_widgets[("bpc2", "restore")]
+
+    assert restore.tk.configured["wraplength"] == panel._wrap_px
+    assert restore.tk.configured["justify"] == "left"
+
+
+def test_an_options_own_note_is_wrapped_and_read_at_the_body_size() -> None:
+    # The Sensor Track's note about the engine ID filters -- a full sentence, and the one
+    # note the registry carries.
+    panel = _new_panel()
+    host = panel.gui
+
+    box = panel._option_boxes["sensor_track"]
+    note = next(child for child in box.children if getattr(child, "value", None) == mod.SENSOR_TRACK_FILTER_NOTE)
+
+    assert note.text_size == host.s_14
+    assert note.tk.configured["wraplength"] == panel._wrap_px
+
+
+def test_the_wrap_is_the_width_the_popup_is_built_to() -> None:
+    # create_popup builds the popup's title row to the emergency box's width, so that is
+    # the width a line inside it has to fit.
+    panel = _new_panel()
+    host = panel.gui
+
+    assert panel._wrap_px == host.emergency_box_width - mod.WRAP_INSET
+
+
+def test_the_wrap_falls_back_to_the_pane_and_then_to_a_floor() -> None:
+    # A host that has not measured its emergency box yet still has a pane width; one with
+    # neither gets a width narrower than any pane the GUI runs in, so a line can only ever
+    # be broken early -- never off the edge of the screen.
+    panel = _new_panel()
+    host = panel.gui
+
+    host.emergency_box_width = 0
+    assert panel._wrap_px == host.width - mod.WRAP_INSET
+
+    host.width = 0
+    assert panel._wrap_px == mod.MIN_WRAP_PX
+    assert mod.MIN_WRAP_PX < 480
+
+
+def test_a_line_with_nothing_to_say_leaves_the_page_and_takes_its_gaps_with_it() -> None:
+    # Only a BPC2 fills either line -- it is the one module with a warning and the one with
+    # reserved modes -- and an empty label still stands a line tall and still carries its
+    # own padding above and below.
+    panel = _new_panel()
+
+    panel._on_device_selected("bpc2")
+    assert panel._warning_line.visible is True
+    assert panel._reserved_line.visible is True
+
+    panel._on_device_selected("sensor_track")
+    assert panel._warning_line.visible is False
+    assert panel._reserved_line.visible is False
+
+    # And comes back with something to say.
+    panel._on_device_selected("bpc2")
+    assert panel._warning_line.visible is True
+
+
+def test_the_heading_is_followed_by_the_module_then_a_gap_then_the_settings() -> None:
+    # The heading belongs with the line under it; the wider gap separates the module being
+    # programmed from the settings being chosen for it. Children are recorded in creation
+    # order, which is the order guizero packs them in.
+    panel, _body, _host = _build_with_body()
+    page = panel._pages[mod.PAGE_OPTIONS]
+
+    assert page.children[0].value == "Options"
+    assert getattr(page.children[1], "vspace", None) == mod.SECTION_GAP
+    assert page.children[2] is panel._options_summary
+    assert page.children[3] is panel._warning_line
+    assert page.children[4] is panel._reserved_line
+    assert getattr(page.children[5], "vspace", None) == mod.PAGE_GAP
+    assert page.children[6] in panel._option_boxes.values()
+
+
+#
+# The options page is stepped over for a module that has none
+#
+@pytest.mark.parametrize(
+    "key, skipped",
+    [("asc2", True), ("stm2", True), ("bpc2", False), ("sensor_track", False)],
+)
+def test_only_a_module_with_no_options_skips_the_page(key: str, skipped: bool) -> None:
+    panel = _new_panel()
+    panel._on_device_selected(key)
+
+    assert panel.skip_options is skipped
+
+
+def test_no_module_chosen_yet_skips_nothing() -> None:
+    # Next is disabled until a module is chosen, so this is never stepped through -- but
+    # the answer has to be about a module, not about the absence of one.
+    panel = _new_panel()
+
+    assert panel.device is None
+    assert panel.skip_options is False
+
+
+def test_next_goes_from_the_id_straight_to_the_review_for_a_module_with_no_options() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+
+    panel.next_page()
+    assert panel.page_index == mod.PAGE_ID
+
+    panel.next_page()
+    assert panel.page_index == mod.PAGE_REVIEW
+    assert panel._pages[mod.PAGE_OPTIONS].visible is False
+
+
+def test_back_comes_straight_back_from_the_review_to_the_id() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("stm2")
+    panel.next_page()
+    panel.next_page()
+    assert panel.page_index == mod.PAGE_REVIEW
+
+    panel.previous_page()
+
+    assert panel.page_index == mod.PAGE_ID
+
+
+def test_a_module_with_an_option_still_stops_on_the_page() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+
+    panel.next_page()
+    panel.next_page()
+
+    assert panel.page_index == mod.PAGE_OPTIONS
+    assert panel._pages[mod.PAGE_OPTIONS].visible is True
+    assert panel._option_boxes["bpc2"].visible is True
+
+
+def test_the_page_is_still_built_so_the_review_keeps_its_index() -> None:
+    # Every page is reached by index, and the four are created once in build(); leaving one
+    # out would move the review page.
+    panel = _new_panel()
+
+    assert len(panel._pages) == 4
+    assert panel._pages[mod.PAGE_REVIEW] is not panel._pages[mod.PAGE_OPTIONS]
+
+
+def test_a_module_that_changes_under_the_open_page_falls_back_rather_than_forward() -> None:
+    # Reachable when a late synchronization seeds a module while the operator is already on
+    # the options page. Nobody is advanced past a page they have not seen.
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel.next_page()
+    panel.next_page()
+    assert panel.page_index == mod.PAGE_OPTIONS
+
+    panel._on_device_selected("asc2")
+    panel._show_page(mod.PAGE_OPTIONS)
+
+    assert panel.page_index == mod.PAGE_ID
+
+
+def test_stepping_past_the_last_page_still_lands_on_the_review() -> None:
+    # The walk off the end of the pages that _show_page clamps.
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+
+    for _ in range(6):
+        panel.next_page()
+
+    assert panel.page_index == mod.PAGE_REVIEW
 
 
 #
@@ -1246,6 +1570,7 @@ def _build_with_body(compact: bool = False):
 def test_every_spacer_that_is_asked_for_and_no_other() -> None:
     panel, body, host = _build_with_body()
     id_page = panel._pages[mod.PAGE_ID]
+    options_page = panel._pages[mod.PAGE_OPTIONS]
 
     parents = [parent for parent, _pixels in host.vspaces]
     assert parents == [
@@ -1254,6 +1579,8 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
         id_page,  # under the stepper row
         id_page,  # under the titled boxes
         id_page,  # above the choice buttons
+        options_page,  # under that page's heading
+        options_page,  # between the module and the settings chosen for it
         body,  # above the Back/Next row
     ]
 
@@ -1302,7 +1629,16 @@ def test_the_id_pages_sections_are_held_apart() -> None:
 def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, page: int) -> None:
     _panel, _body, host = _build_with_body(compact=compact)
 
-    assert [pixels for _parent, pixels in host.vspaces] == [section, section, page, page, page, page]
+    assert [pixels for _parent, pixels in host.vspaces] == [
+        section,
+        section,
+        page,
+        page,
+        page,
+        section,
+        page,
+        page,
+    ]
 
 
 #
@@ -1360,7 +1696,9 @@ def test_the_device_page_shows_next_alone() -> None:
 
 def test_back_is_visible_and_enabled_on_every_later_page() -> None:
     panel = _new_panel()
-    panel._on_device_selected("asc2")
+    # A BPC2 rather than an ASC2: it is the module that declares an option, so all four
+    # pages are walked rather than the options page being stepped over.
+    panel._on_device_selected("bpc2")
 
     for expected in (mod.PAGE_ID, mod.PAGE_OPTIONS, mod.PAGE_REVIEW):
         panel.next_page()
