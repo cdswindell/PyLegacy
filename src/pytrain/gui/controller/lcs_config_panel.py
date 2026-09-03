@@ -126,6 +126,38 @@ SENSOR_TRACK_REVIEW_NOTE = (
     "pressing PROGRAM again aborts it with no change."
 )
 
+# The heading each page opens with, and the three keys the operator presses. Named here
+# with everything else the panel says rather than left inline where they are built: the
+# wording of a page is a fact about the panel, not about the widget that happens to carry
+# it, and naming it is what lets the tests read it instead of repeating it.
+DEVICE_PROMPT = "Which module are you configuring?"
+OPTIONS_TITLE = "Options"
+REVIEW_TITLE = "Review and Configure"
+BACK_TEXT = "Back"
+NEXT_TEXT = "Next"
+CONFIGURE_TEXT = "Configure"
+
+# The lines the panel composes about the module in hand, as templates. Every term in them
+# comes from the registry -- the module's label, the mode's counted label, the remote key
+# -- so all that is written here is the sentence that holds them.
+NOT_AVAILABLE = "Not available: {modes}"
+PROGRAM_MODE_NOTE = "Be sure your {module} is in Program mode."
+
+# What is about to be programmed: the module, the mode with the count of addresses it
+# claims, and the address itself. Used on the options page and again, prefixed, once the
+# presses have gone out.
+SUMMARY = "{module} - {mode} at {scope} {id}"
+REQUESTED = "Requested: {summary}"
+
+# And what the module answered with, in the same order: a comma-separated list, because
+# what a module reports varies with the module -- a Sensor Track adds its Action Command
+# and its two engine ID filters. The count says plain "IDs" where the registry's own
+# labels always say "TMCC IDs": this line is a read-back of a PDI field rather than a
+# block being offered, and it sits beside the address it was read from.
+REPORTED = "Reported: {summary}"
+REPORTED_AT = "{module} at {id}"
+REPORTED_IDS = "{count} IDs"
+
 # Tight whitespace under the popup title row, and under a page's prompt. Real spacer
 # widgets (host.add_vspace), never pack padding: padding is discarded the next time
 # anything in the container is created or shown -- the same reason footer_lead is a
@@ -637,7 +669,7 @@ class LcsConfigPanel(OverlayPanel):
     def _build_device_page(self, body: Box) -> Box:
         host = self._gui
         page = Box(body, align="top", border=0)
-        self._label(page, "Which module are you configuring?", size=host.s_16, bold=True)
+        self._label(page, DEVICE_PROMPT, size=host.s_16, bold=True)
         host.add_vspace(page, self._section_gap)
         self._device_group = CheckBoxGroup(
             page,
@@ -857,7 +889,7 @@ class LcsConfigPanel(OverlayPanel):
     def _build_options_page(self, body: Box) -> Box:
         host = self._gui
         page = Box(body, align="top", border=0)
-        self._label(page, "Options", size=host.s_16, bold=True)
+        self._label(page, OPTIONS_TITLE, size=host.s_16, bold=True)
         # The heading belongs with the line under it, so that gap is the tight one; the
         # wider one below separates the module being programmed from the settings being
         # chosen for it. See SECTION_GAP and PAGE_GAP.
@@ -1038,7 +1070,12 @@ class LcsConfigPanel(OverlayPanel):
         scope = SCOPE_LABEL.get(self._mode.scope, "")
         # The counted form, not the mode's radio label: this line names the address itself,
         # so the block it holds would be said twice. See LcsMode.ports_label.
-        return f"{self._device.label} - {self._mode.ports_label} at {scope} {self._base_id}".strip()
+        return SUMMARY.format(
+            module=self._device.label,
+            mode=self._mode.ports_label,
+            scope=scope,
+            id=self._base_id,
+        ).strip()
 
     @property
     def reserved_text(self) -> str:
@@ -1055,7 +1092,7 @@ class LcsConfigPanel(OverlayPanel):
         # is no address to name it from -- and the count is what tells the BPC2's reserved
         # single-ID TR mode from the eight-ID one it does offer.
         parts = [f"{mode.ports_label} ({mode.note})" if mode.note else mode.ports_label for mode in reserved]
-        return "Not available: " + ", ".join(parts)
+        return NOT_AVAILABLE.format(modes=", ".join(parts))
 
     #
     # Review page
@@ -1063,11 +1100,11 @@ class LcsConfigPanel(OverlayPanel):
     def _build_review_page(self, body: Box) -> Box:
         host = self._gui
         page = Box(body, align="top", border=0)
-        self._label(page, "Review and Configure", size=host.s_16, bold=True)
+        self._label(page, REVIEW_TITLE, size=host.s_16, bold=True)
         self._program_line = self._label(page, "", size=host.s_12)
         self._review_line = self._label(page, "")
         self._review_note_line = self._label(page, "", size=host.s_12)
-        self._configure_btn = btn = HoldButton(page, text="Configure", align="top", command=self.on_configure)
+        self._configure_btn = btn = HoldButton(page, text=CONFIGURE_TEXT, align="top", command=self.on_configure)
         btn.text_size = host.s_16
         self._footnote_line = self._label(page, "", size=host.s_12)
         self._requested_line = self._label(page, "", size=host.s_12)
@@ -1105,7 +1142,7 @@ class LcsConfigPanel(OverlayPanel):
     def footnote(self) -> str:
         if self._device is None:
             return ""
-        return f"Be sure your {self._device.label} is in Program mode."
+        return PROGRAM_MODE_NOTE.format(module=self._device.label)
 
     def _refresh_review_page(self) -> None:
         program = self.program
@@ -1144,7 +1181,7 @@ class LcsConfigPanel(OverlayPanel):
         self._sent_program = program
         self._readback_pending = True
         if self._requested_line is not None:
-            self._requested_line.value = f"Requested: {self.options_summary}"
+            self._requested_line.value = REQUESTED.format(summary=self.options_summary)
         if self._reported_line is not None:
             self._reported_line.value = AWAITING_READBACK
         self._watch_readback(program)
@@ -1212,7 +1249,7 @@ class LcsConfigPanel(OverlayPanel):
             return
         self._readback_pending = False
         if self._reported_line is not None:
-            self._reported_line.value = f"Reported: {self.reported_text(state)}"
+            self._reported_line.value = REPORTED.format(summary=self.reported_text(state))
 
     def on_readback_timeout(self) -> None:
         """
@@ -1236,7 +1273,7 @@ class LcsConfigPanel(OverlayPanel):
         device = program.device if program else self._device
         label = device.label if device else "Module"
         address = getattr(state, "address", None) or getattr(state, "tmcc_id", None)
-        parts = [f"{label} at {address}"]
+        parts = [REPORTED_AT.format(module=label, id=address)]
         # The registry's scope for the selected mode, never the parsed scope: a
         # mode-3 ASC2 is mis-scoped by asc2_req.py.
         mode = program.mode if program else self._mode
@@ -1244,7 +1281,7 @@ class LcsConfigPanel(OverlayPanel):
             parts.append(SCOPE_LABEL.get(mode.scope, ""))
         num_ids = getattr(state, "num_ids", None)
         if isinstance(num_ids, int) and num_ids > 0:
-            parts.append(f"{num_ids} IDs")
+            parts.append(REPORTED_IDS.format(count=num_ids))
         if device is SENSOR_TRACK:
             sequence = getattr(state, "sequence", None)
             if sequence is not None:
@@ -1973,11 +2010,11 @@ class LcsConfigPanel(OverlayPanel):
         """
         host = self._gui
         self._nav = nav = Box(body, align="top", border=0)
-        self._back_btn = back = HoldButton(nav, text="Back", align="left", width=8, command=self.previous_page)
+        self._back_btn = back = HoldButton(nav, text=BACK_TEXT, align="left", width=8, command=self.previous_page)
         style_footer_button(host, back)
         repad_footer_button(back, pady=self._nav_row_pad)
         host.cache(back)
-        self._next_btn = nxt = HoldButton(nav, text="Next", align="left", width=8, command=self.next_page)
+        self._next_btn = nxt = HoldButton(nav, text=NEXT_TEXT, align="left", width=8, command=self.next_page)
         style_footer_button(host, nxt)
         repad_footer_button(nxt, pady=self._nav_row_pad)
         host.cache(nxt)

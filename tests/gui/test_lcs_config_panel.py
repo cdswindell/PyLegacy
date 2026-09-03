@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 import src.pytrain.gui.controller.lcs_config_panel as mod
+import src.pytrain.gui.controller.lcs_device_registry as reg
 from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsOption
 from src.pytrain.pdi.irda_req import IrdaSequence
 from src.pytrain.pdi.pdi_device import PdiDevice
@@ -153,6 +154,85 @@ class DummyCheckBoxGroup(_DummyWidget):
         if not isinstance(option, list) or len(option) != 2:
             raise TypeError(f"append() expects a [text, value] list, got {option!r}")
         self.options.append(tuple(option))
+
+
+#
+# What the panel says, composed rather than spelled out
+#
+# Every expectation about wording below is built from whatever owns the words: the registry
+# for a module, a mode, an option or a press, and the panel for the sentences it holds them
+# in. A term reworded in either file reaches these tests without one of them being retyped,
+# which is the point of composing them -- the suite is about what the panel puts where, not
+# about how the words themselves read.
+#
+def _row_cells(scope: CommandScope, module: str, base_id: int, ports: int = 1) -> tuple[str, str, str]:
+    """The three cells of one Currently Assigned or Overlaps row, as the panel grids them.
+
+    The remote key with its colon, the module, and the spelling of the block it holds all
+    come from the panel's own ModuleRow and the registry's tmcc_id_text, so a row is
+    described here by what stands in it -- which key, which module, which addresses -- and
+    never by how it reads.
+    """
+    return mod.ModuleRow(
+        scope=f"{mod.SCOPE_LABEL[scope]}:",
+        module=module,
+        ids=reg.tmcc_id_text(base_id, base_id + ports - 1),
+    ).cells
+
+
+def _row(scope: CommandScope, module: str, base_id: int, ports: int = 1) -> str:
+    """
+    One of those rows as the single line the box reads as, joined as the row joins its cells.
+    """
+    return mod.ModuleRow(*_row_cells(scope, module, base_id, ports)).text
+
+
+def _mode_options(device: reg.LcsDevice, base_id: int) -> list[tuple[str, str]]:
+    """The Mode radios: every enabled mode named with the block it would claim at ``base_id``.
+
+    Each row is the mode's own ids_label against its key, in the order the registry lists the
+    module's modes, which is what the group is filled from. This says no more than the panel's
+    own mode_options does, so wherever a test compares the rows with it, it asks something of
+    them besides; see the assertions beside each use.
+    """
+    return [(mode.ids_label(base_id), mode.key) for mode in reg.enabled_modes(device)]
+
+
+def _press_lines(mode: reg.LcsMode, base_id: int, options: dict[str, Any] | None = None) -> list[str]:
+    """The review page's numbered lines for a mode's presses.
+
+    All that is spelled out here is the builder's numbering -- "N. " ahead of the press and
+    its note in parentheses behind it -- because that format is what these tests are about;
+    every word comes from the presses themselves. A mode whose press takes its digit from an
+    option has to be given that option, exactly as the builder is. See
+    lcs_sequence_builder._press_text.
+    """
+    settings = options or {}
+    lines: list[str] = []
+    for number, press in enumerate((p for p in mode.presses if p.is_included(settings)), start=1):
+        label = press.resolved_label(settings).format(id=base_id, digit=press.digit(settings))
+        lines.append(f"{number}. {label} ({press.note})" if press.note else f"{number}. {label}")
+    return lines
+
+
+def _says_with_id(button: Any, base_id: int) -> bool:
+    """Whether one of the choice buttons reads as the panel built it, with an ID worked in.
+
+    The panel words these two twice: once with the wording alone as it builds them, and again
+    with an address in place when the banner speaks -- one of them ending with it, the other
+    holding it mid-phrase. The words are read back off the button's own build-time text, so
+    all this asks is that the ID has been dropped in and nothing else has changed.
+    """
+    words = str(button.text).split()
+    if str(base_id) not in words:
+        return False
+    return [word for word in words if word != str(base_id)] == str(button.kwargs["text"]).split()
+
+
+# The words a block of addresses is named with, taken from the registry's own spelling of one
+# with the address dropped off it -- which is the term the ID page's heading is built on too.
+# What the "said once" test looks for among that page's lines.
+_ID_TERM = reg.tmcc_id_text(1).rsplit(" ", 1)[0]
 
 
 class FakeState:
@@ -390,12 +470,14 @@ def test_the_mode_rows_name_the_block_each_of_them_would_claim() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(12)
 
-    assert [label for label, _key in panel._mode_group.options] == [
-        "ACC (mixed) TMCC IDs 12 - 19",
-        "ACC (uncouple) TMCC ID 12",
-        "SW (pulse) TMCC IDs 12 - 15",
-        "SW (latching) TMCC IDs 12 - 15",
-    ]
+    labels = [label for label, _key in panel._mode_group.options]
+    assert labels == [label for label, _key in _mode_options(ASC2, 12)]
+    # And each row really does name a block, at the ID on the page: the addresses the mode
+    # would set aside stand in its own row, and no two rows read alike.
+    for label, key in panel._mode_group.options:
+        mode = ASC2.mode(key)
+        assert reg.tmcc_id_text(12, 12 + mode.ports - 1) in label
+    assert len(set(labels)) == len(labels)
 
 
 def test_stepping_the_id_relabels_every_mode_row() -> None:
@@ -406,12 +488,12 @@ def test_stepping_the_id_relabels_every_mode_row() -> None:
 
     panel.step_up()
 
-    assert [label for label, _key in panel._mode_group.options] == [
-        "ACC (mixed) TMCC IDs 13 - 20",
-        "ACC (uncouple) TMCC ID 13",
-        "SW (pulse) TMCC IDs 13 - 16",
-        "SW (latching) TMCC IDs 13 - 16",
-    ]
+    labels = [label for label, _key in panel._mode_group.options]
+    assert labels == [label for label, _key in _mode_options(ASC2, 13)]
+    # Every row moved with the ID: the base stepped to stands in each of them, and the one
+    # stepped off in none.
+    assert all("13" in label for label in labels)
+    assert not any("12" in label for label in labels)
     # The rows are rebuilt to relabel them, and the selection is held by key rather than
     # by the text that just changed.
     assert panel._mode_group.value == "acc_1"
@@ -427,16 +509,21 @@ def test_a_mode_row_is_offered_at_the_highest_base_it_fits() -> None:
     panel._on_mode_selected("sw_momentary")
     panel._set_base_id(95)
 
-    assert panel._mode_group.options[0] == ("ACC (mixed) TMCC IDs 91 - 98", "acc_8")
+    acc_8 = ASC2.mode("acc_8")
+    assert panel._mode_group.options[0] == _mode_options(ASC2, 95)[0]
+    # The block named is the one the mode can hold, from as high as it fits -- not the block
+    # it would claim from the ID on the page, which runs off the end of the addresses.
+    assert reg.tmcc_id_text(acc_8.max_base, reg.MAX_TMCC_ID) in panel._mode_group.options[0][0]
 
     panel._on_mode_selected("acc_8")
     assert panel.base_id == 91
-    assert panel._mode_group.options[0] == ("ACC (mixed) TMCC IDs 91 - 98", "acc_8")
+    assert panel._mode_group.options[0] == _mode_options(ASC2, 95)[0]
 
 
 def test_the_page_says_the_selected_block_once() -> None:
-    # The line that used to stand below the boxes -- "Uses TMCC IDs 12 - 19" -- repeated
-    # the row the operator had just chosen, and is gone with the mode rows naming their own.
+    # The line that used to stand below the boxes -- naming the block of the selected mode a
+    # second time, e.g. "Uses TMCC IDs 12 - 19" -- repeated the row the operator had just
+    # chosen, and is gone with the mode rows naming their own.
     panel = _new_panel()
     panel._on_device_selected("asc2")
     panel._set_base_id(12)
@@ -444,7 +531,7 @@ def test_the_page_says_the_selected_block_once() -> None:
     lines = [
         child.value for child in panel._pages[mod.PAGE_ID].children if isinstance(getattr(child, "value", None), str)
     ]
-    assert not [line for line in lines if "TMCC ID" in line and line != panel.id_heading_text]
+    assert not [line for line in lines if _ID_TERM in line and line != panel.id_heading_text]
 
 
 def test_widening_the_mode_lowers_an_out_of_range_id() -> None:
@@ -499,7 +586,7 @@ def test_a_desktop_opens_on_the_first_device_whatever_holds_the_id() -> None:
     panel._on_mode_selected("acc_8")
     assert _assigned(panel) == [mod.UNASSIGNED]
     panel._on_device_selected("bpc2")
-    assert _assigned(panel) == ["TR: BPC2 TMCC IDs 12 - 19"]
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, BPC2.label, 12, 8)]
 
 
 def test_an_appliance_falls_back_to_the_first_device_when_the_id_is_free(monkeypatch) -> None:
@@ -535,7 +622,7 @@ def test_configure_seeds_device_and_mode_from_a_known_bpc2_state(monkeypatch) ->
     assert panel.base_id == 12
     assert panel._device_group.value == "bpc2"
     assert panel.options == {"restore": False}
-    assert _assigned(panel) == ["TR: BPC2 TMCC IDs 12 - 19"]
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, BPC2.label, 12, 8)]
 
 
 def test_configure_seeds_from_the_store_when_the_id_is_a_known_base() -> None:
@@ -611,11 +698,12 @@ def test_interior_port_reports_its_owner_and_offers_both_choices() -> None:
 
     # The module is named exactly as it is on a base hit: the box reports what is out on
     # the layout, and which port the entered ID happens to be is not part of that.
-    assert _assigned(panel) == ["ACC: ASC2 TMCC IDs 9 - 16"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, ASC2.label, 9, 8)]
     assert panel._goto_btn.visible is True
-    assert panel._goto_btn.text == "Go to 9"
+    # Each button names an address: the base the module holds, and the ID as entered.
+    assert _says_with_id(panel._goto_btn, 9)
     assert panel._new_btn.visible is True
-    assert panel._new_btn.text == "Configure 12 as new"
+    assert _says_with_id(panel._new_btn, 12)
 
 
 def test_go_to_base_retargets_and_pre_fills() -> None:
@@ -625,7 +713,7 @@ def test_go_to_base_retargets_and_pre_fills() -> None:
     panel = _new_panel(store)
     panel._on_device_selected("asc2")
     panel._set_base_id(12)
-    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 9 - 16"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 9, 8)]
 
     panel.go_to_owning_base()
 
@@ -633,7 +721,7 @@ def test_go_to_base_retargets_and_pre_fills() -> None:
     assert panel.device is BPC2
     assert panel.mode.key == "acc_8"
     assert panel._device_group.value == "bpc2"
-    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 9 - 16"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 9, 8)]
 
 
 def test_go_to_base_ignores_a_module_on_another_remote_key() -> None:
@@ -676,9 +764,9 @@ def test_overlaps_are_advisory() -> None:
     panel._set_base_id(20)
 
     # Named the way the assigned box names a module: which key, which one, which IDs. The
-    # word "Overlaps" is the box's title, so it is not repeated in the row.
-    assert [row.text for row in panel.overlap_rows()] == ["SW: STM2 TMCC IDs 28 - 35"]
-    assert _overlaps(panel) == ["SW: STM2 TMCC IDs 28 - 35"]
+    # box's title carries the word for what these rows are, so no row repeats it.
+    assert [row.text for row in panel.overlap_rows()] == [_row(CommandScope.SWITCH, STM2.label, 28, 8)]
+    assert _overlaps(panel) == [_row(CommandScope.SWITCH, STM2.label, 28, 8)]
     # Advisory only: the ID the operator typed is untouched.
     assert panel.base_id == 20
 
@@ -692,7 +780,7 @@ def test_a_switch_mode_asc2_overlaps_a_switch_module_that_runs_into_it() -> None
     panel._on_mode_selected("single_wire")  # 16 ports: 20-35
     panel._set_base_id(20)
 
-    assert _overlaps(panel) == ["SW: ASC2 TMCC IDs 25 - 28"]
+    assert _overlaps(panel) == [_row(CommandScope.SWITCH, ASC2.label, 25, 4)]
 
 
 def test_an_accessory_never_overlaps_a_switch_block() -> None:
@@ -716,7 +804,7 @@ def test_the_assigned_box_names_the_module_on_the_key_being_programmed() -> None
     panel._on_device_selected("stm2")
     panel._set_base_id(1)
 
-    assert _assigned(panel) == ["SW: STM2 TMCC IDs 1 - 16"]
+    assert _assigned(panel) == [_row(CommandScope.SWITCH, STM2.label, 1, 16)]
     assert panel._goto_btn.visible is False
     assert panel._new_btn.visible is False
 
@@ -728,7 +816,7 @@ def test_the_same_id_reports_a_different_module_for_a_different_key() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(1)
     assert panel.scope == CommandScope.ACC
-    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 1)]
 
     # A BPC2 in its track mode shares neither, so ID 1 really is free.
     panel._on_device_selected("bpc2")
@@ -742,12 +830,12 @@ def test_switching_an_asc2_between_keys_changes_what_is_in_its_way() -> None:
     panel = _new_panel(_stm2_at_1_and_bpc2_at_1_store())
     panel._on_device_selected("asc2")
     panel._set_base_id(1)
-    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 1)]
 
     panel._on_mode_selected("sw_momentary")
 
     assert panel.scope == CommandScope.SWITCH
-    assert _assigned(panel) == ["SW: STM2 TMCC IDs 1 - 16"]
+    assert _assigned(panel) == [_row(CommandScope.SWITCH, STM2.label, 1, 16)]
 
 
 def test_with_no_device_chosen_every_module_still_counts() -> None:
@@ -758,7 +846,10 @@ def test_with_no_device_chosen_every_module_still_counts() -> None:
     panel._set_base_id(1)
 
     assert panel.scope is None
-    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1", "SW: STM2 TMCC IDs 1 - 16"]
+    assert _assigned(panel) == [
+        _row(CommandScope.ACC, BPC2.label, 1),
+        _row(CommandScope.SWITCH, STM2.label, 1, 16),
+    ]
 
 
 def test_configure_prefers_a_module_on_the_screens_own_key(monkeypatch) -> None:
@@ -797,7 +888,10 @@ def test_sensor_track_claims_a_single_id() -> None:
     # Its one row names that address and nothing else: naming the Action Command set in
     # the same gesture made the widest row the panel has, and it lost both its ends on the
     # Pi. That option is the whole of the page after this one.
-    assert panel._mode_group.options == [("ACC TMCC ID 3", "acc")]
+    assert panel._mode_group.options == _mode_options(SENSOR_TRACK, 3)
+    label = panel._mode_group.options[0][0]
+    assert reg.tmcc_id_text(3) in label
+    assert all(option.label not in label for option in SENSOR_TRACK.options)
 
 
 #
@@ -839,12 +933,18 @@ def test_bpc2_relay_warning_and_reserved_modes_are_shown_with_their_reason() -> 
     panel = _new_panel()
     panel._on_device_selected("bpc2")
 
-    assert "relay" in panel._warning_line.value
+    # The one module with a warning, and it is carried in full rather than summarized.
+    assert BPC2.warning
     assert panel._warning_line.value == BPC2.warning
-    assert panel.reserved_text == (
-        "Not available: TR, 1 TMCC ID (reserved, no Cab support), ACC, 1 TMCC ID (reserved, no Cab support)"
+    reserved = [mode for mode in BPC2.modes if not mode.enabled]
+    assert panel.reserved_text == mod.NOT_AVAILABLE.format(
+        modes=", ".join(f"{mode.ports_label} ({mode.note})" for mode in reserved)
     )
     assert panel._reserved_line.value == panel.reserved_text
+    # Every mode the manual reserves is on the line with its reason, and no mode the module
+    # does offer is named there at all.
+    assert reserved and all(mode.note in panel._reserved_line.value for mode in reserved)
+    assert all(mode.ports_label not in panel._reserved_line.value for mode in reg.enabled_modes(BPC2))
 
     panel._on_device_selected("stm2")
     assert panel._warning_line.value == ""
@@ -862,11 +962,12 @@ def test_toggling_the_bpc2_restore_flag_updates_the_presses() -> None:
     panel._on_option_changed("bpc2", "restore")
 
     assert panel.options["restore"] is True
-    assert panel.review_lines == [
-        "1. TR 12 SET",
-        "2. Coupler R (restore on)",
-        "3. AUX1 then 0 (8-ID sub-mode)",
-    ]
+    assert panel.review_lines == _press_lines(BPC2.mode("tr_8"), 12, {"restore": True})
+    # The line the flag added is the press the registry gates on it, and it is there only
+    # with the flag set.
+    gated = next(press for press in BPC2.mode("tr_8").presses if press.include_if == "restore")
+    assert len(panel.review_lines) == 3
+    assert any(gated.label in line for line in panel.review_lines)
 
 
 def test_sensor_track_action_is_required_and_defaults_to_no_action() -> None:
@@ -874,13 +975,15 @@ def test_sensor_track_action_is_required_and_defaults_to_no_action() -> None:
     panel._on_device_selected("sensor_track")
     panel._set_base_id(3)
 
-    assert SENSOR_TRACK.option("action").required is True
+    action = SENSOR_TRACK.option("action")
+    assert action.required is True
     assert panel.options["action"] == IrdaSequence.NONE
     assert panel._option_widgets[("sensor_track", "action")].value == "0"
-    # There is no "leave unchanged" row: assigning an action is what ends program mode.
-    labels = [label for label, _value in SENSOR_TRACK.option("action").choices]
-    assert len(labels) == 10 and labels[0] == "No Action"
-    assert mod.SENSOR_TRACK_FILTER_NOTE == SENSOR_TRACK.option("action").note
+    # There is no "leave unchanged" row above the list: the first row is the option's own
+    # default, and assigning an action is what ends program mode.
+    assert len(action.choices) == 10
+    assert action.choices[0][1] == action.default == panel.options["action"]
+    assert mod.SENSOR_TRACK_FILTER_NOTE == action.note
 
 
 def test_sensor_track_action_is_seeded_from_the_irda_state() -> None:
@@ -905,7 +1008,10 @@ def test_choosing_an_action_command_changes_the_press_digit() -> None:
     panel._on_option_changed("sensor_track", "action")
 
     assert panel.options["action"] == IrdaSequence.RECORDING
-    assert panel.review_lines == ["1. ACC 3 SET", "2. AUX1 then 9 (action command)"]
+    assert panel.review_lines == _press_lines(SENSOR_TRACK.mode("acc"), 3, {"action": IrdaSequence.RECORDING})
+    # The digit on the second line is the chosen command's own value, which is the whole
+    # point of the option.
+    assert str(IrdaSequence.RECORDING.value) in panel.review_lines[1]
 
 
 #
@@ -1112,7 +1218,7 @@ def test_the_heading_is_followed_by_the_module_then_a_gap_then_the_settings() ->
     panel, _body, _host = _build_with_body()
     page = panel._pages[mod.PAGE_OPTIONS]
 
-    assert page.children[0].value == "Options"
+    assert page.children[0].value == mod.OPTIONS_TITLE
     assert getattr(page.children[1], "vspace", None) == mod.SECTION_GAP
     assert page.children[2] is panel._options_summary
     assert page.children[3] is panel._warning_line
@@ -1223,10 +1329,11 @@ def test_review_page_is_numbered_in_send_order_with_the_pgm_instruction() -> Non
     panel._on_device_selected("asc2")
     panel._set_base_id(9)
 
-    assert panel.review_lines == ["1. ACC 9 SET", "2. AUX1 then 0 (8-ID sub-mode)"]
-    assert panel._review_line.value == "1. ACC 9 SET\n2. AUX1 then 0 (8-ID sub-mode)"
-    assert "PGM button" in panel._program_line.value
-    assert panel.footnote == "Be sure your ASC2 is in Program mode."
+    lines = _press_lines(ASC2.mode("acc_8"), 9)
+    assert panel.review_lines == lines
+    assert panel._review_line.value == "\n".join(lines)
+    assert f"{ASC2.program_button} button" in panel._program_line.value
+    assert panel.footnote == mod.PROGRAM_MODE_NOTE.format(module=ASC2.label)
     assert panel._footnote_line.value == panel.footnote
 
 
@@ -1235,8 +1342,8 @@ def test_sensor_track_review_notes_the_abort_and_the_mandatory_action() -> None:
     panel._on_device_selected("sensor_track")
 
     assert mod.SENSOR_TRACK_REVIEW_NOTE in panel._review_note_line.value
-    assert "PROGRAM button" in panel._program_line.value
-    assert panel.footnote == "Be sure your Sensor Track is in Program mode."
+    assert f"{SENSOR_TRACK.program_button} button" in panel._program_line.value
+    assert panel.footnote == mod.PROGRAM_MODE_NOTE.format(module=SENSOR_TRACK.label)
 
 
 def test_bpc2_review_repeats_the_relay_warning() -> None:
@@ -1264,7 +1371,20 @@ def test_configure_queues_the_presses_in_order_then_the_verify_gets() -> None:
     assert delays == sorted(delays)
     assert delays[0] == 0.0
     assert delays[2] > delays[1]
-    assert panel._requested_line.value.startswith("Requested: BPC2 - TR, 8 TMCC IDs at TR 12")
+    mode = BPC2.mode("tr_8")
+    summary = mod.SUMMARY.format(
+        module=BPC2.label,
+        mode=mode.ports_label,
+        scope=mod.SCOPE_LABEL[mode.scope],
+        id=12,
+    )
+    assert panel._requested_line.value.startswith(mod.REQUESTED.format(summary=summary))
+    # The module, the block it was asked for and the address are each on the line, so a
+    # summary that dropped one of them would not pass for the sentence it is filled into.
+    assert all(
+        part in panel._requested_line.value
+        for part in (BPC2.label, mode.ports_label, mod.SCOPE_LABEL[mode.scope], "12")
+    )
     assert panel._reported_line.value == mod.AWAITING_READBACK
 
 
@@ -1289,9 +1409,21 @@ def test_read_back_reports_what_the_module_says() -> None:
     panel.on_configure()
     panel.on_readback()
 
-    assert panel._reported_line.value == "Reported: ASC2 at 9, ACC, 8 IDs"
+    mode = ASC2.mode("acc_8")
+    assert panel._reported_line.value == mod.REPORTED.format(
+        summary=", ".join(
+            (
+                mod.REPORTED_AT.format(module=ASC2.label, id=9),
+                mod.SCOPE_LABEL[mode.scope],
+                mod.REPORTED_IDS.format(count=8),
+            )
+        )
+    )
+    # What the module answered with, part by part: which module, at which address, on which
+    # remote key, holding how many IDs.
+    assert all(part in panel._reported_line.value for part in (ASC2.label, "9", mod.SCOPE_LABEL[mode.scope], "8"))
     # The presses that were sent stay on screen.
-    assert panel._review_line.value.startswith("1. ACC 9 SET")
+    assert panel._review_line.value.startswith(_press_lines(mode, 9)[0])
 
 
 def test_read_back_timeout_reports_no_response_and_leaves_the_presses() -> None:
@@ -1304,7 +1436,7 @@ def test_read_back_timeout_reports_no_response_and_leaves_the_presses() -> None:
     panel.gui.app.fire()
 
     assert panel._reported_line.value == mod.NO_RESPONSE
-    assert panel._review_line.value.startswith("1. ACC 40 SET")
+    assert panel._review_line.value.startswith(_press_lines(ASC2.mode("acc_8"), 40)[0])
 
 
 def test_reopening_the_panel_clears_the_previous_read_back() -> None:
@@ -1334,24 +1466,32 @@ def test_mode_selector_repopulates_correctly_on_device_change() -> None:
     # address every row is labeled from.
     panel._on_device_selected("asc2")
     assert len(panel._mode_group.options) == 4
-    # Both accessory modes are named for what they are for, the one thing the block each
-    # claims cannot say.
-    assert panel._mode_group.options[0] == ("ACC (mixed) TMCC IDs 1 - 8", "acc_8")
-    assert panel._mode_group.options[1] == ("ACC (uncouple) TMCC ID 1", "acc_1")
+    assert panel._mode_group.options == _mode_options(ASC2, 1)
+    # A row per mode the module offers, in the registry's order, and no two of them read
+    # alike -- so a mode dropped, doubled or misordered shows up here.
+    assert [key for _label, key in panel._mode_group.options] == [mode.key for mode in reg.enabled_modes(ASC2)]
+    labels = [label for label, _key in panel._mode_group.options]
+    assert len(set(labels)) == len(labels)
+    # Both accessory modes are told apart by a qualifier of their own, which is the one
+    # thing the block each claims cannot say.
+    accessory = [mode for mode in reg.enabled_modes(ASC2) if mode.scope is CommandScope.ACC]
+    assert len({mode.qualifier for mode in accessory}) == len(accessory)
     # Every switch mode names the block it consumes, as the accessory modes do.
-    assert panel._mode_group.options[2] == ("SW (pulse) TMCC IDs 1 - 4", "sw_momentary")
-    assert panel._mode_group.options[3] == ("SW (latching) TMCC IDs 1 - 4", "sw_latching")
+    for label, key in panel._mode_group.options:
+        mode = ASC2.mode(key)
+        assert reg.tmcc_id_text(1, mode.ports) in label
 
     # Switch to Sensor Track, which has 1 mode
     panel._on_device_selected("sensor_track")
     assert len(panel._mode_group.options) == 1
-    assert panel._mode_group.options[0] == ("ACC TMCC ID 1", "acc")
+    assert panel._mode_group.options == _mode_options(SENSOR_TRACK, 1)
 
     # Switch to BPC2, which has 2 enabled modes (the 1-ID modes are disabled)
     panel._on_device_selected("bpc2")
     assert len(panel._mode_group.options) == 2
-    assert panel._mode_group.options[0] == ("TR TMCC IDs 1 - 8", "tr_8")
-    assert panel._mode_group.options[1] == ("ACC TMCC IDs 1 - 8", "acc_8")
+    assert panel._mode_group.options == _mode_options(BPC2, 1)
+    # The reserved modes are not among them, whatever they are named.
+    assert [key for _label, key in panel._mode_group.options] == [mode.key for mode in reg.enabled_modes(BPC2)]
 
 
 #
@@ -1420,7 +1560,7 @@ def test_occupancy_is_unassigned_until_the_store_is_populated(monkeypatch) -> No
     states[CommandScope.TRAIN].append(FakeState(12, "is_bpc2", mode=0, num_ids=8))
     panel.on_synchronized()
 
-    assert _assigned(panel) == ["TR: BPC2 TMCC IDs 12 - 19"]
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, BPC2.label, 12, 8)]
 
 
 def test_on_synchronized_re_seeds_while_the_operator_has_not_chosen(monkeypatch) -> None:
@@ -1458,7 +1598,7 @@ def test_on_synchronized_keeps_the_operators_choices() -> None:
     assert panel.base_id == 12
     assert panel.options["restore"] is True
     assert panel._configure_btn.enabled is True
-    assert _assigned(panel) == ["SW: STM2 TMCC IDs 12 - 19"]
+    assert _assigned(panel) == [_row(CommandScope.SWITCH, STM2.label, 12, 8)]
 
 
 def test_on_synchronized_is_idempotent() -> None:
@@ -1657,7 +1797,7 @@ def test_the_device_page_spacer_sits_between_the_prompt_and_the_group() -> None:
     panel, _body, _host = _build_with_body()
     page = panel._pages[mod.PAGE_DEVICE]
 
-    assert page.children[0].value == "Which module are you configuring?"
+    assert page.children[0].value == mod.DEVICE_PROMPT
     assert getattr(page.children[1], "vspace", None) == mod.SECTION_GAP
     assert page.children[2] is panel._device_group
 
@@ -1714,7 +1854,10 @@ def test_back_and_next_are_the_last_thing_in_the_body_after_a_gap() -> None:
 
     assert getattr(body.children[-2], "vspace", None) == mod.PAGE_GAP
     assert body.children[-1] is panel._nav
-    assert [child.text for child in panel._nav.children if getattr(child, "text", "")] == ["Back", "Next"]
+    assert [child.text for child in panel._nav.children if getattr(child, "text", "")] == [
+        mod.BACK_TEXT,
+        mod.NEXT_TEXT,
+    ]
 
 
 def test_the_panel_offers_no_footer_so_close_gets_a_line_of_its_own() -> None:
@@ -1754,7 +1897,7 @@ def test_the_device_page_shows_next_alone() -> None:
 
     assert panel.page_index == mod.PAGE_DEVICE
     assert panel._back_btn.visible is False
-    assert [child.text for child in panel._nav.children if child.visible] == ["Next"]
+    assert [child.text for child in panel._nav.children if child.visible] == [mod.NEXT_TEXT]
 
 
 def test_back_is_visible_and_enabled_on_every_later_page() -> None:
@@ -1781,7 +1924,7 @@ def test_back_is_created_first_so_it_is_never_to_the_right_of_next() -> None:
         panel.next_page()
     for _ in range(3):
         panel.previous_page()
-        assert [child.text for child in panel._nav.children] == ["Back", "Next"]
+        assert [child.text for child in panel._nav.children] == [mod.BACK_TEXT, mod.NEXT_TEXT]
 
 
 def test_stepping_forward_and_back_restores_the_initial_visibility() -> None:
@@ -1842,7 +1985,7 @@ def test_the_nav_row_gives_back_the_footer_bands_vertical_padding(monkeypatch, c
 
     _build_with_body(compact=compact)
 
-    assert calls == [("Back", {"pady": expected}), ("Next", {"pady": expected})]
+    assert calls == [(mod.BACK_TEXT, {"pady": expected}), (mod.NEXT_TEXT, {"pady": expected})]
     # Horizontal padding is untouched: it is the gap between the two buttons.
     assert all("padx" not in kwargs for _text, kwargs in calls)
 
@@ -1862,21 +2005,26 @@ def test_the_row_holds_the_two_buttons_and_nothing_else() -> None:
 def test_the_id_heading_names_the_selected_module() -> None:
     panel = _new_panel()
 
-    assert panel._id_heading.value == "Base TMCC ID"
+    assert panel._id_heading.value == mod.ID_HEADING.format(module=mod.ID_HEADING_FALLBACK)
 
     panel._on_device_selected("bpc2")
-    assert panel.id_heading_text == "BPC2 TMCC ID"
-    assert panel._id_heading.value == "BPC2 TMCC ID"
+    assert panel.id_heading_text == mod.ID_HEADING.format(module=BPC2.label)
+    assert panel._id_heading.value == panel.id_heading_text
+    # The module named is the one selected, and the heading the page was built with is gone.
+    assert BPC2.label in panel._id_heading.value
+    assert mod.ID_HEADING_FALLBACK not in panel._id_heading.value
 
     panel._on_device_selected("stm2")
-    assert panel._id_heading.value == "STM2 TMCC ID"
+    assert panel._id_heading.value == mod.ID_HEADING.format(module=STM2.label)
+    assert BPC2.label not in panel._id_heading.value
 
 
 def test_the_editors_own_header_is_named_with_the_heading() -> None:
     panel = _new_panel()
     panel._on_device_selected("bpc2")
 
-    assert panel._id_field.field_name == "BPC2 TMCC ID"
+    assert panel._id_field.field_name == mod.ID_HEADING.format(module=BPC2.label)
+    assert panel._id_field.field_name == panel.id_heading_text
 
 
 #
@@ -2046,7 +2194,9 @@ def test_the_assignment_line_is_in_a_box_titled_currently_assigned() -> None:
     panel = _new_panel()
 
     assert panel._assigned_box.text == mod.ASSIGNED_TITLE
-    assert mod.ASSIGNED_TITLE == "Currently Assigned"
+    # A title of its own, and not the one the box below it carries: the two boxes answer
+    # different questions, which is why there are two of them.
+    assert mod.ASSIGNED_TITLE and mod.ASSIGNED_TITLE != mod.OVERLAP_TITLE
     assert panel._assigned_grid in panel._assigned_box.children
     assert all(cell in panel._assigned_grid.children for cell in panel._assigned_cells[0])
 
@@ -2056,27 +2206,37 @@ def test_an_unassigned_id_says_so_rather_than_going_blank() -> None:
     # failure to look rather than as an answer.
     panel = _new_panel()
 
-    assert mod.UNASSIGNED == "Unassigned"
+    # Not the spelling of it but the part it plays: it is what the row's module cell holds
+    # when nobody answers to the ID, and it is what marks the row as the one that is not a
+    # module in the way.
     assert _assigned(panel) == [mod.UNASSIGNED]
+    assert mod.ModuleRow(scope="", module=mod.UNASSIGNED).is_unassigned is True
     assert panel._assigned_box.visible is True
 
 
 @pytest.mark.parametrize(
     "scope, flag, mode, num_ids, device_key, expected",
     [
-        (CommandScope.ACC, "is_asc2", 0, 8, "asc2", "ACC: ASC2 TMCC IDs 20 - 27"),
-        (CommandScope.SWITCH, "is_stm2", 1, 8, "stm2", "SW: STM2 TMCC IDs 20 - 27"),
-        (CommandScope.TRAIN, "is_bpc2", 0, 8, "bpc2", "TR: BPC2 TMCC IDs 20 - 27"),
-        (CommandScope.ACC, "is_sensor_track", None, 1, "sensor_track", "ACC: Sensor Track TMCC ID 20"),
+        (CommandScope.ACC, "is_asc2", 0, 8, "asc2", _row(CommandScope.ACC, ASC2.label, 20, 8)),
+        (CommandScope.SWITCH, "is_stm2", 1, 8, "stm2", _row(CommandScope.SWITCH, STM2.label, 20, 8)),
+        (CommandScope.TRAIN, "is_bpc2", 0, 8, "bpc2", _row(CommandScope.TRAIN, BPC2.label, 20, 8)),
+        (
+            CommandScope.ACC,
+            "is_sensor_track",
+            None,
+            1,
+            "sensor_track",
+            _row(CommandScope.ACC, SENSOR_TRACK.label, 20),
+        ),
     ],
 )
 def test_an_assigned_id_names_the_module_its_remote_key_and_its_block(
     scope: CommandScope, flag: str, mode: Any, num_ids: int, device_key: str, expected: str
 ) -> None:
     # The remote key is the point of the line: it is how the operator addresses whatever
-    # is already there. A single-port module says "TMCC ID", not a range of one. Each
-    # module is looked for while programming a module on its own key, because that is the
-    # only time it can be in the way.
+    # is already there. A single-port module names the one address it holds rather than a
+    # range of one. Each module is looked for while programming a module on its own key,
+    # because that is the only time it can be in the way.
     store = FakeStore({scope: [FakeState(20, flag, mode=mode, num_ids=num_ids)]})
     panel = _new_panel(store)
     panel._on_device_selected(device_key)
@@ -2091,7 +2251,7 @@ def test_the_row_is_gridded_with_the_remote_key_first_and_bold() -> None:
     panel._set_base_id(9)
 
     key, module, ids = panel._assigned_cells[0]
-    assert [cell.value for cell in (key, module, ids)] == ["ACC:", "ASC2", "TMCC IDs 9 - 16"]
+    assert [cell.value for cell in (key, module, ids)] == list(_row_cells(CommandScope.ACC, ASC2.label, 9, 8))
     # The key is the column the eye runs down, and the only part drawn bold.
     assert key.text_bold is True
     assert [cell.text_bold for cell in (module, ids)] == [False, False]
@@ -2108,7 +2268,9 @@ def test_an_interior_hit_does_not_spell_out_which_port_it_is() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(12)
 
-    assert [cell.value for cell in panel._assigned_cells[0]] == ["ACC:", "ASC2", "TMCC IDs 9 - 16"]
+    assert [cell.value for cell in panel._assigned_cells[0]] == list(_row_cells(CommandScope.ACC, ASC2.label, 9, 8))
+    # The one word kept here, because what is being asserted is that the panel never says
+    # it: no source owns a term its author refuses to use.
     assert "port" not in " ".join(_assigned(panel))
 
 
@@ -2133,7 +2295,8 @@ def test_the_overlaps_are_in_a_box_of_their_own_titled_overlaps() -> None:
     panel._set_base_id(25)
 
     assert panel._overlap_box.text == mod.OVERLAP_TITLE
-    assert mod.OVERLAP_TITLE == "Overlaps"
+    # Its own title, as the box above it has its own: see the assigned box's counterpart.
+    assert mod.OVERLAP_TITLE and mod.OVERLAP_TITLE != mod.ASSIGNED_TITLE
     assert panel._overlap_grid in panel._overlap_box.children
     assert all(cell in panel._overlap_grid.children for cell in panel._overlap_cells[0])
 
@@ -2145,9 +2308,12 @@ def test_each_module_in_the_way_gets_a_row_of_its_own() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(25)
 
-    assert _overlaps(panel) == ["ACC: BPC2 TMCC IDs 26 - 33", "ACC: ASC2 TMCC IDs 30 - 37"]
-    # The title carries the word, so no row repeats it.
-    assert not any("Overlaps" in row for row in _overlaps(panel))
+    assert _overlaps(panel) == [
+        _row(CommandScope.ACC, BPC2.label, 26, 8),
+        _row(CommandScope.ACC, ASC2.label, 30, 8),
+    ]
+    # The title carries the word for what these rows are, so no row repeats it.
+    assert not any(mod.OVERLAP_TITLE in row for row in _overlaps(panel))
     assert [cell.grid for cell in panel._overlap_cells[0]] == [[0, 0], [1, 0], [2, 0]]
     assert panel._overlap_cells[0][0].text_bold is True
 
@@ -2164,7 +2330,7 @@ def test_the_overlaps_box_comes_and_goes_with_what_is_in_the_way() -> None:
     assert len(_overlaps(panel)) == 2
 
     panel._set_base_id(30)  # 30-37 is the ASC2's own block, and the BPC2 ends at 33
-    assert _overlaps(panel) == ["ACC: BPC2 TMCC IDs 26 - 33"]
+    assert _overlaps(panel) == [_row(CommandScope.ACC, BPC2.label, 26, 8)]
     assert panel._overlap_cells[1][1].visible is False
 
     panel._set_base_id(50)
@@ -2244,7 +2410,10 @@ def test_the_assigned_box_names_every_module_the_pdi_bus_reported(monkeypatch) -
     panel._on_device_selected("asc2")  # accessory mode: the same remote key as both
     panel._set_base_id(1)
 
-    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 1 - 8", "ACC: AMC2 TMCC ID 1"]
+    assert _assigned(panel) == [
+        _row(CommandScope.ACC, BPC2.label, 1, 8),
+        _row(CommandScope.ACC, AMC2.label, 1),
+    ]
 
 
 def test_the_shared_record_alone_could_not_say_that(monkeypatch) -> None:
@@ -2257,7 +2426,7 @@ def test_the_shared_record_alone_could_not_say_that(monkeypatch) -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(1)
 
-    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 1)]
 
 
 def test_an_id_inside_the_true_block_is_reported_against_that_block(monkeypatch) -> None:
@@ -2268,8 +2437,8 @@ def test_an_id_inside_the_true_block_is_reported_against_that_block(monkeypatch)
 
     # The module's real range, from its own CONFIG packet, which is the whole point of
     # reading the PDI store first: the shared record would have said one ID.
-    assert _assigned(panel) == ["ACC: BPC2 TMCC IDs 1 - 8"]
-    assert panel._goto_btn.text == "Go to 1"
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 1, 8)]
+    assert _says_with_id(panel._goto_btn, 1)
 
 
 def test_every_module_on_the_id_gets_a_row_of_its_own() -> None:
@@ -2278,7 +2447,10 @@ def test_every_module_on_the_id_gets_a_row_of_its_own() -> None:
     panel._on_device_selected("asc2")  # accessory mode: the same remote key as both
     panel._set_base_id(1)
 
-    assert _assigned(panel) == ["ACC: BPC2 TMCC ID 1", "ACC: AMC2 TMCC ID 1"]
+    assert _assigned(panel) == [
+        _row(CommandScope.ACC, BPC2.label, 1),
+        _row(CommandScope.ACC, AMC2.label, 1),
+    ]
     assert [cell.grid for cell in panel._assigned_cells[1]] == [[0, 1], [1, 1], [2, 1]]
 
 
@@ -2290,9 +2462,9 @@ def test_a_module_this_pass_cannot_program_is_named_but_never_seeded_from(monkey
     panel = _new_panel(FakeStore({CommandScope.ACC: [FakeState(1, "is_amc2", num_ids=1)]}))
     panel.configure(CommandScope.ACC, 1, None)
 
-    assert _assigned(panel) == ["ACC: AMC2 TMCC ID 1"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, AMC2.label, 1)]
     assert panel.device is ASC2
-    assert "amc2" not in [value for _label, value in mod.LcsConfigPanel.device_options()]
+    assert AMC2.key not in [value for _label, value in mod.LcsConfigPanel.device_options()]
 
 
 def test_opening_the_panel_from_an_amc2_screen_does_not_open_it_on_the_amc2(monkeypatch) -> None:
@@ -2308,10 +2480,13 @@ def test_opening_the_panel_from_an_amc2_screen_does_not_open_it_on_the_amc2(monk
     assert panel.device is ASC2
     assert panel.page_index == mod.PAGE_DEVICE
     # Recognized all the same: it is what the box reports at that ID.
-    assert _assigned(panel) == ["ACC: AMC2 TMCC ID 1"]
-    # And the guard is not decorative: there is genuinely no mode to have opened on.
-    with pytest.raises(ValueError, match="no modes"):
+    assert _assigned(panel) == [_row(CommandScope.ACC, AMC2.label, 1)]
+    # And the guard is not decorative: there is genuinely no mode to have opened on, and it
+    # is this module the complaint names.
+    assert AMC2.modes == ()
+    with pytest.raises(ValueError) as raised:
         panel._select_device(AMC2)
+    assert AMC2.label in str(raised.value)
 
 
 def test_the_choice_buttons_ignore_a_module_that_cannot_be_programmed() -> None:
@@ -2322,7 +2497,7 @@ def test_the_choice_buttons_ignore_a_module_that_cannot_be_programmed() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(4)
 
-    assert _assigned(panel) == ["ACC: AMC2 TMCC IDs 1 - 8"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, AMC2.label, 1, 8)]
     assert panel.programmable_occupant() is None
     assert panel._goto_btn.visible is False
     assert panel._new_btn.visible is False
@@ -2355,7 +2530,7 @@ def test_a_module_already_at_the_id_is_reported_in_dark_red() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(9)
 
-    assert _assigned(panel) == ["ACC: ASC2 TMCC IDs 9 - 16"]
+    assert _assigned(panel) == [_row(CommandScope.ACC, ASC2.label, 9, 8)]
     assert [cell.text_color for cell in panel._assigned_cells[0]] == [mod.CONFLICT_FG] * mod.ROW_COLUMNS
 
 
@@ -2399,7 +2574,7 @@ def test_the_two_report_colors_are_dark_shades() -> None:
     # smear, and plain "red" is what admin_panel puts over Restart and Shutdown.
     assert (mod.CONFLICT_FG, mod.UNASSIGNED_FG) == ("#8B0000", "#006400")
     assert mod.ModuleRow(scope="", module=mod.UNASSIGNED).is_unassigned is True
-    assert mod.ModuleRow(scope="ACC:", module="BPC2", ids="TMCC IDs 1 - 8").is_unassigned is False
+    assert mod.ModuleRow(*_row_cells(CommandScope.ACC, BPC2.label, 1, 8)).is_unassigned is False
 
 
 #
@@ -2479,23 +2654,33 @@ def test_the_legend_covers_every_key_the_module_offers_and_no_other(device_key: 
 
 
 def test_the_legend_says_what_each_key_is_for() -> None:
-    assert mod.SCOPE_USE[CommandScope.ACC] == "ACC: Use for lighting and operating accessories"
-    assert mod.SCOPE_USE[CommandScope.SWITCH] == "SW: Use for Switches/Turnouts"
-    assert mod.SCOPE_USE[CommandScope.TRAIN].startswith("TR: ")
+    # A line per key the panel knows, each opening with that key spelled exactly as the mode
+    # rows spell it and going on to say what it is good for -- which is the one thing the
+    # rows themselves cannot say. Read as a rule about the lines rather than as their text,
+    # so rewording what a key is for is free and dropping the key off the front is not.
+    assert set(mod.SCOPE_USE) == set(mod.SCOPE_LABEL)
+    for scope, use in mod.SCOPE_USE.items():
+        key = mod.SCOPE_LABEL[scope]
+        assert use.startswith(f"{key}:")
+        assert use[len(key) + 1 :].strip()
 
 
 def test_the_legend_leads_with_the_word_the_rows_lead_with() -> None:
-    # What joins the legend to the list below it: a row reading "SW (pulse) TMCC IDs 1 - 4"
-    # is answered by a line beginning "SW:", one word, spelled the same in both places. The
-    # two sets are pinned to each other, so a mode named any other way -- or a key the
-    # module does not offer -- shows up here.
+    # What joins the legend to the list below it: a switch row is answered by the line for
+    # the switch key, one word, spelled the same in both places. The two sets are pinned to
+    # each other and to the module's own modes, so a mode named any other way -- or a key
+    # the module does not offer -- shows up here.
     panel = _new_panel()
     panel._on_device_selected("asc2")
 
     rows = {label.split()[0] for label, _key in panel._mode_group.options}
     keys = {line.split(":")[0] for line in panel.mode_legend.split("\n")}
+    offered = {mod.SCOPE_LABEL[mode.scope] for mode in reg.enabled_modes(ASC2)}
 
-    assert rows == keys == {"ACC", "SW"}
+    assert rows == keys == offered
+    # The ASC2 is the module that offers two of them, which is what makes it the case worth
+    # asking about.
+    assert len(offered) == 2
 
 
 def test_the_legend_speaks_for_the_module_rather_than_for_the_chosen_row() -> None:
@@ -2513,16 +2698,17 @@ def test_the_legend_speaks_for_the_module_rather_than_for_the_chosen_row() -> No
 
 
 def test_the_selected_mode_says_what_it_is_for_below_the_rows() -> None:
-    # The row has no room for it: "ACC (uncouple) TMCC ID 1" says which mode and which
-    # address, and this says the rest -- keyed by the word in parentheses on the row it
-    # explains, as the legend above is keyed by the word every row opens with. The sentence
-    # itself is taken from the registry rather than spelled again here, so the prose is
-    # settled in one file.
+    # The row has no room for it: it says which mode and which address -- e.g. "ACC
+    # (uncouple) TMCC ID 1" -- and this says the rest, keyed by the word in parentheses on
+    # the row it explains, as the legend above is keyed by the word every row opens with.
+    # Both the key and the sentence are taken from the mode rather than spelled again here,
+    # so the prose is settled in one file.
     panel = _new_panel()
     panel._on_device_selected("asc2")
     panel._on_mode_selected("acc_1")
 
-    assert panel.mode_note == f"uncouple: {ASC2.mode('acc_1').note}"
+    uncouple = ASC2.mode("acc_1")
+    assert panel.mode_note == f"{uncouple.qualifier}: {uncouple.note}"
     assert panel._mode_note_line.value == panel.mode_note
     assert panel._mode_note_line.visible is True
     # And the word it is keyed by is the word the chosen row carries.
@@ -2535,13 +2721,15 @@ def test_the_note_speaks_for_the_row_the_operator_chose() -> None:
     # every mode's note at once, on the page that has the least room to spare.
     panel = _new_panel()
     panel._on_device_selected("asc2")
+    pulse = ASC2.mode("sw_momentary")
+    uncouple = ASC2.mode("acc_1")
     panel._on_mode_selected("sw_momentary")
-    assert panel.mode_note == f"pulse: {ASC2.mode('sw_momentary').note}"
+    assert panel.mode_note == f"{pulse.qualifier}: {pulse.note}"
 
     panel._on_mode_selected("acc_1")
 
-    assert panel.mode_note == f"uncouple: {ASC2.mode('acc_1').note}"
-    assert ASC2.mode("sw_momentary").note not in panel._mode_note_line.value
+    assert panel.mode_note == f"{uncouple.qualifier}: {uncouple.note}"
+    assert pulse.note not in panel._mode_note_line.value
 
 
 def test_a_mode_named_by_its_key_alone_keys_nothing() -> None:
@@ -2549,7 +2737,7 @@ def test_a_mode_named_by_its_key_alone_keys_nothing() -> None:
     # look the sentence up under and it stands as the plain sentence it is. No module offers
     # such a mode today -- every offered mode that has anything written about it is one of a
     # pair on its key -- so the case is reached through the BPC2's reserved 1-ID mode, which
-    # carries a note and is named "TR" like the mode beside it.
+    # carries a note and is named by its key alone, as the mode beside it is.
     panel = _new_panel()
     panel._on_device_selected("bpc2")
     reserved = BPC2.mode("tr_1")

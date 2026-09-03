@@ -17,6 +17,19 @@ def _signature(program):
     return [(req.command, req.scope, req.address) for req in program.presses]
 
 
+def _line(number: int, press, base_id: int = None, options=None) -> str:
+    """One review line as the builder numbers it, worded by the press itself.
+
+    The numbering and the parenthesized note are this module's own format, so they are
+    written here; every word inside them belongs to the registry's ``Press`` and is read
+    off it, so renaming a gesture is not a test to fix.
+    """
+    label = press.resolved_label(options)
+    if base_id is not None:
+        label = label.format(id=base_id)
+    return f"{number}. {label} ({press.note})" if press.note else f"{number}. {label}"
+
+
 class TestAsc2:
     def test_acc_eight_id(self):
         program = build_program(reg.ASC2, reg.ASC2.mode("acc_8"), 9)
@@ -50,7 +63,7 @@ class TestBpc2:
             (TMCC1EngineCommandEnum.REAR_COUPLER, CommandScope.TRAIN, 12),
             (TMCC1EngineCommandEnum.AUX_NUMBER_0, CommandScope.TRAIN, 12),
         ]
-        assert "Coupler R (restore on)" in program.display[1]
+        assert program.display[1] == _line(2, mode.presses[1])
 
     def test_train_restore_off_omits_coupler(self):
         mode = reg.BPC2.mode("tr_8")
@@ -59,7 +72,8 @@ class TestBpc2:
             (TMCC1EngineCommandEnum.SET_ADDRESS, CommandScope.TRAIN, 12),
             (TMCC1EngineCommandEnum.AUX_NUMBER_0, CommandScope.TRAIN, 12),
         ]
-        assert not any("Coupler" in line for line in program.display)
+        # The gesture the option gates, named by the press that declares it.
+        assert not any(mode.presses[1].label in line for line in program.display)
 
     def test_restore_defaults_off(self):
         program = build_program(reg.BPC2, reg.BPC2.mode("tr_8"), 12)
@@ -96,7 +110,7 @@ class TestSensorTrack:
             (TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC, 3),
             (reg.ACC_AUX_NUMBERS[digit], CommandScope.ACC, 3),
         ]
-        assert program.display[1].startswith(f"2. AUX1 then {digit}")
+        assert program.display[1] == _line(2, mode.presses[1], options={"action": IrdaSequence(digit)})
 
     def test_action_press_never_omitted_by_default(self):
         program = build_program(reg.SENSOR_TRACK, reg.SENSOR_TRACK.modes[0], 3)
@@ -111,15 +125,22 @@ class TestVerifyAndDisplay:
         assert [req.as_bytes for req in program.verify] == expected
 
     def test_display_order_matches_presses(self):
-        program = build_program(reg.BPC2, reg.BPC2.mode("tr_8"), 12, {"restore": True})
+        mode = reg.BPC2.mode("tr_8")
+        program = build_program(reg.BPC2, mode, 12, {"restore": True})
         assert len(program.display) == len(program.presses)
-        assert program.display[0] == "1. TR 12 SET"
-        assert program.display[2].startswith("3. AUX1 then 0")
+        # Numbered in send order, and each line carries the address the press is sent to
+        # where the press asks for it.
+        assert program.display[0] == _line(1, mode.presses[0], base_id=12)
+        assert program.display[2] == _line(3, mode.presses[2])
 
     def test_program_instruction(self):
-        assert "PGM" in build_program(reg.ASC2, reg.ASC2.mode("acc_8"), 9).program_instruction
+        # Each module's instruction names the button the operator has to hold, which the
+        # registry spells for it: a PGM key on most, a PROGRAM key on the Sensor Track.
+        asc2 = build_program(reg.ASC2, reg.ASC2.mode("acc_8"), 9)
+        assert reg.ASC2.program_button in asc2.program_instruction
         st = build_program(reg.SENSOR_TRACK, reg.SENSOR_TRACK.modes[0], 3)
-        assert "PROGRAM" in st.program_instruction
+        assert reg.SENSOR_TRACK.program_button in st.program_instruction
+        assert reg.ASC2.program_button != reg.SENSOR_TRACK.program_button
 
 
 class TestValidation:

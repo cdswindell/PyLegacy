@@ -1,3 +1,22 @@
+"""
+The LCS device registry: its shape, its lookups, and the conventions it names modes by.
+
+No mode's wording is written down here. A mode's name, its qualifier, its note and both
+of its labels are read off the registry and asserted as *compositions* -- a label is the
+mode's own name and the registry's one spelling of the block it claims, in that order --
+so renaming a mode or rewording a note needs no edit in this file, while a mode that
+breaks a naming rule fails wherever it is added.
+
+Two pieces of vocabulary are written down, both deliberately and both in one place each:
+
+* :attr:`TestModeNames.CAB_KEYS` -- ACC, SW and TR, which are printed on the Cab remote
+  rather than chosen by this project.
+* "TMCC ID" / "TMCC IDs", asserted by the rule tests in :class:`TestTmccIdText` and
+  :class:`TestModeLabels`: the registry's docstring insists that what is counted is
+  always a TMCC ID, never bare "IDs" and never "ports", and a convention is worth
+  nothing if no test knows what it says.
+"""
+
 from __future__ import annotations
 
 import re
@@ -23,7 +42,9 @@ class TestRegistryShape:
         # The device page opens on the first of them, so the order has to be predictable.
         labels = [d.label for d in reg.configurable_devices()]
         assert labels == sorted(labels, key=str.upper)
-        assert labels[0] == "ASC2"
+        # Named by identity rather than by label, so a module renamed on the page is not a
+        # test to fix -- what matters is which module the panel opens on.
+        assert reg.configurable_devices()[0] is reg.ASC2
 
     def test_the_recognition_order_is_left_alone(self):
         # LCS_DEVICES is walked to identify a module from its state flags. A module this
@@ -51,10 +72,14 @@ class TestRegistryShape:
         ]
 
     def test_bpc2_one_id_modes_are_reserved(self):
-        for key in ("tr_1", "acc_1"):
-            mode = reg.BPC2.mode(key)
+        reserved = [reg.BPC2.mode(key) for key in ("tr_1", "acc_1")]
+        for mode in reserved:
             assert mode.enabled is False
-            assert mode.note == "reserved, no Cab support"
+            # Each says why it is not on offer -- the panel prints those words in its
+            # "Not available" line -- and both say the same thing, since it is the same
+            # reason. The sentence itself is the registry's to change.
+            assert mode.note
+        assert len({mode.note for mode in reserved}) == 1
         assert [m.key for m in reg.enabled_modes(reg.BPC2)] == ["tr_8", "acc_8"]
         assert reg.BPC2.mode("tr_8").scope == CommandScope.TRAIN
         assert reg.BPC2.mode("acc_8").scope == CommandScope.ACC
@@ -124,7 +149,9 @@ class TestAmc2:
 
     def test_it_is_in_the_registry(self):
         assert reg.AMC2 in reg.LCS_DEVICES
-        assert reg.AMC2.label == "AMC2"
+        # Named, because the panel reports it in the Currently Assigned box; which name is
+        # the registry's business.
+        assert reg.AMC2.label
         assert reg.AMC2.pdi_device == PdiDevice.AMC2
 
     def test_it_is_not_offered_as_a_choice(self):
@@ -220,25 +247,44 @@ class TestTmccIdText:
     """
     The one spelling of a block of addresses, read by both label forms and by the panel's
     Currently Assigned and Overlaps rows.
+
+    Asserted by its rules rather than by repeating the phrases it builds: a block names
+    both of its ends, one address is never spoken of as several, and what is counted is
+    always a TMCC ID. Reword the phrase and these still hold; break one of the rules and
+    they do not.
     """
 
     def test_a_block_is_named_by_its_two_ends(self):
-        assert reg.tmcc_id_text(12, 19) == "TMCC IDs 12 - 19"
+        assert re.findall(r"\d+", reg.tmcc_id_text(12, 19)) == ["12", "19"]
 
-    def test_a_single_address_is_singular(self):
-        # Given as a block of one, or with no end at all: both are one address, and
-        # "TMCC IDs 12 - 12" is not something an operator would say.
-        assert reg.tmcc_id_text(12, 12) == "TMCC ID 12"
-        assert reg.tmcc_id_text(12) == "TMCC ID 12"
+    def test_a_single_address_is_named_once(self):
+        # Given as a block of one, or with no end at all: both are one address, and an
+        # operator is not shown the two ends of a block of one.
+        assert reg.tmcc_id_text(12, 12) == reg.tmcc_id_text(12)
+        assert re.findall(r"\d+", reg.tmcc_id_text(12)) == ["12"]
 
     def test_an_end_below_the_base_is_a_single_address(self):
         # Nothing builds one, but a block cannot run backwards, and the alternative is a
-        # row reading "TMCC IDs 12 - 9".
-        assert reg.tmcc_id_text(12, 9) == "TMCC ID 12"
+        # row that counts down.
+        assert reg.tmcc_id_text(12, 9) == reg.tmcc_id_text(12)
 
-    def test_a_count_is_a_digit_and_agrees_in_number(self):
-        assert reg.tmcc_id_count(8) == "8 TMCC IDs"
-        assert reg.tmcc_id_count(1) == "1 TMCC ID"
+    def test_a_count_is_a_digit(self):
+        assert re.findall(r"\d+", reg.tmcc_id_count(8)) == ["8"]
+
+    def test_one_address_is_never_plural(self):
+        for text in (reg.tmcc_id_text(12), reg.tmcc_id_text(12, 12), reg.tmcc_id_count(1)):
+            assert not re.search(r"\bIDs\b", text), text
+
+    def test_more_than_one_address_always_is(self):
+        for text in (reg.tmcc_id_text(12, 19), reg.tmcc_id_count(8)):
+            assert re.search(r"\bIDs\b", text), text
+
+    def test_what_is_counted_is_always_a_tmcc_id(self):
+        # The convention the registry's docstring sets out: never bare "IDs", never
+        # "ports", either of which is ambiguous beside a PDI address or a port number.
+        # One of the two places in this file where a term is written down at all.
+        for text in (reg.tmcc_id_text(12), reg.tmcc_id_text(12, 19), reg.tmcc_id_count(1), reg.tmcc_id_count(8)):
+            assert not re.findall(r"(?<!TMCC )\bIDs?\b", text), text
 
 
 class TestModeNames:
@@ -246,50 +292,71 @@ class TestModeNames:
     The naming conventions the module docstring sets out: a mode opens with the Cab key
     that begins its programming sequence, parenthesizes whatever tells it from the
     module's other modes on that key, and says nothing about how many addresses it takes.
+
+    The names are read off the registry and the conventions asserted over them, so a mode
+    renamed or a note reworded is not a test to fix -- and a mode added in breach of a
+    rule fails here rather than on the Pi.
     """
 
-    EXPECTED = {
-        "asc2": ("ACC (mixed)", "ACC (uncouple)", "SW (pulse)", "SW (latching)"),
-        "bpc2": ("TR", "TR", "ACC", "ACC"),
-        "stm2": ("SW (single-wire)", "SW (two-wire)"),
-        "sensor_track": ("ACC",),
-    }
+    # The three keys on the Cab remote. The one piece of vocabulary the registry does not
+    # own -- they are printed on the handset -- and so the one written down here. The
+    # panel's SCOPE_LABEL has to spell them the same way, which the panel's own tests check
+    # by joining the legend above the Mode radios to the rows below it.
+    CAB_KEYS = {CommandScope.ACC: "ACC", CommandScope.SWITCH: "SW", CommandScope.TRAIN: "TR"}
 
-    def test_every_mode_is_named_as_the_operator_reads_it(self):
-        assert {d.key: tuple(m.name for m in d.modes) for d in reg.configurable_devices()} == self.EXPECTED
+    def test_every_offered_mode_is_named(self):
+        for device in reg.configurable_devices():
+            for mode in reg.enabled_modes(device):
+                assert mode.name.strip(), f"{device.key}/{mode.key} goes unnamed"
+
+    def test_no_two_modes_a_module_offers_are_named_alike(self):
+        # Two radio rows reading the same thing are a choice the operator cannot make,
+        # which is the whole reason a qualifier exists. Read over the modes the panel
+        # offers: the BPC2's reserved single-ID modes do repeat the name of the eight-ID
+        # mode on their key, and that is harmless because they are never on screen.
+        for device in reg.configurable_devices():
+            names = [mode.name for mode in reg.enabled_modes(device)]
+            assert len(set(names)) == len(names), f"{device.key}: {names}"
 
     def test_a_name_opens_with_its_cab_key(self):
-        # ACC, SW, TR -- the keys that begin the programming sequence, spelled the way the
-        # remote spells them and standing alone at the head of the row, which is also how
-        # the legend above the radios names them.
-        keys = {CommandScope.ACC: "ACC", CommandScope.SWITCH: "SW", CommandScope.TRAIN: "TR"}
+        # The key that begins the programming sequence, spelled the way the remote spells
+        # it and standing alone at the head of the row, which is also how the legend above
+        # the radios names it.
         for device in reg.configurable_devices():
             for mode in device.modes:
-                assert mode.name.split()[0] == keys[mode.scope], f"{device.key}/{mode.key}: {mode.name}"
+                assert mode.name.split()[0] == self.CAB_KEYS[mode.scope], f"{device.key}/{mode.key}: {mode.name}"
 
-    def test_a_qualifier_is_parenthesized(self):
-        # Anything after the key tells this mode from the module's other modes on that key
-        # -- pulse from latching, single-wire from two-wire, mixed accessories from
-        # uncoupling tracks -- and reads as the aside it is rather than as a second word of
-        # the key.
+    def test_a_key_is_spelled_one_way_throughout(self):
+        # However the keys come to be spelled, every mode addressed in a scope opens with
+        # the same word for it: one module's rows are read down the Mode box, and the
+        # Currently Assigned rows below them name the same keys over again.
+        spellings: dict[CommandScope, set[str]] = {}
         for device in reg.LCS_DEVICES:
             for mode in device.modes:
-                qualifier = mode.name.split(maxsplit=1)[1:]
-                if not qualifier:
-                    continue
-                assert re.fullmatch(r"\(.+\)", qualifier[0]), f"{device.key}/{mode.key}: {mode.name}"
+                spellings.setdefault(mode.scope, set()).add(mode.name.split()[0])
+        assert all(len(words) == 1 for words in spellings.values()), spellings
 
-    def test_a_qualifier_is_read_back_off_the_name(self):
-        # What the panel keys the mode's note by, so the sentence below the radios is
-        # looked up under the very word the row it explains carries. A mode named by its
-        # key alone qualifies nothing and has nothing to key: the BPC2 and the Sensor Track
-        # offer one mode per key, so nothing has to be told from anything.
-        assert reg.ASC2.mode("acc_8").qualifier == "mixed"
-        assert reg.ASC2.mode("acc_1").qualifier == "uncouple"
-        assert reg.ASC2.mode("sw_momentary").qualifier == "pulse"
-        assert reg.STM2.mode("single_wire").qualifier == "single-wire"
-        assert reg.BPC2.mode("tr_8").qualifier is None
-        assert reg.SENSOR_TRACK.mode("acc").qualifier is None
+    def test_a_name_is_a_key_and_at_most_one_qualifier(self):
+        # Whatever tells this mode from the module's others on its key follows the key in
+        # parentheses, reads as the aside it is rather than as a second word of the key,
+        # and is what `qualifier` reads back -- which is how the panel looks the mode's
+        # note up under the very word the row it explains carries.
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                key = mode.name.split()[0]
+                expected = key if mode.qualifier is None else f"{key} ({mode.qualifier})"
+                assert mode.name == expected, f"{device.key}/{mode.key}: {mode.name}"
+
+    def test_a_mode_is_qualified_exactly_when_its_key_offers_a_choice(self):
+        # A qualifier earns its room on the row by telling two modes on one key apart, so
+        # a module offering one mode per key -- the BPC2, the Sensor Track -- has nothing
+        # to tell apart and says nothing. Read over the modes the panel offers, for the
+        # reason given above: a reserved mode is never beside anything.
+        for device in reg.configurable_devices():
+            offered = list(reg.enabled_modes(device))
+            for mode in offered:
+                shares_key = len([other for other in offered if other.scope is mode.scope]) > 1
+                assert (mode.qualifier is not None) is shares_key, f"{device.key}/{mode.key}: {mode.name}"
 
     def test_a_qualifier_is_one_word(self):
         # A radio row is as wide as its label, so the qualifier can say which mode this is
@@ -305,18 +372,17 @@ class TestModeNames:
         # on the same key: one address driving all eight outputs for uncoupling tracks,
         # against eight addresses for whatever is wired to them. So each is qualified by
         # what it is for, the count is left to the row's tail, and the rest is said by the
-        # note the panel prints under the radios.
+        # note the panel prints under the radios -- all three of them the registry's own
+        # words, which is why what is asserted here is that each mode has them.
         mixed, uncouple = reg.ASC2.mode("acc_8"), reg.ASC2.mode("acc_1")
 
-        assert mixed.ids_label(1) == "ACC (mixed) TMCC IDs 1 - 8"
-        assert mixed.note == "Mixed accessories and lights"
-        assert mixed.ports == 8
-
-        assert uncouple.ids_label(1) == "ACC (uncouple) TMCC ID 1"
-        assert uncouple.note == "Uncoupling tracks only - pulsed output (fixed)"
-        # Pulsed, which is what pdi_device.py reads mode 1 back as.
-        assert "pulse" in uncouple.note
-        assert uncouple.ports == 1
+        assert mixed.scope is uncouple.scope, "the pair is on one key or there is nothing to tell apart"
+        assert (mixed.ports, uncouple.ports) == (8, 1)
+        assert (mixed.pdi_mode, uncouple.pdi_mode) == (0, 1)
+        assert mixed.qualifier and uncouple.qualifier
+        assert mixed.qualifier != uncouple.qualifier
+        for mode in (mixed, uncouple):
+            assert mode.note, f"{mode.key} says nothing about what it is for"
 
     def test_a_name_counts_nothing(self):
         # The count is the label's business, and a name that carried one would say it
@@ -326,82 +392,79 @@ class TestModeNames:
                 assert not re.search(r"\d", mode.name), f"{device.key}/{mode.key}: {mode.name}"
                 assert not re.search(r"\bIDs?\b", mode.name), f"{device.key}/{mode.key}: {mode.name}"
 
-    def test_the_asc2_switch_mode_is_a_pulse(self):
-        # What the motor is given. The key keeps the word asc2_req.py and the flowchart use
-        # for mode 2, which is not what the operator reads.
+    def test_the_asc2_switch_modes_key_keeps_a_word_the_operator_never_reads(self):
+        # The key keeps the word asc2_req.py and the flowchart use for mode 2, so the code
+        # and the manual agree; what the operator reads is what the switch motor is
+        # actually given. The word is taken off the key rather than written here, so a
+        # rewording cannot leave this test quoting the old one.
         mode = reg.ASC2.mode("sw_momentary")
-        assert mode.name == "SW (pulse)"
-        assert "momentary" not in mode.ports_label
-        assert "momentary" not in mode.ids_label(1)
-        assert [press.note for press in mode.presses] == [None, "pulse"]
+        key_word = mode.key.split("_")[-1]
+
+        assert mode.qualifier
+        for label in (mode.name, mode.ports_label, mode.ids_label(1)):
+            assert key_word not in label.lower(), label
+        # And the press that tells this mode from its latching sibling is the very thing
+        # the qualifier names, so the row and the review page say one word between them.
+        assert [press.note for press in mode.presses] == [None, mode.qualifier]
 
     def test_a_name_says_nothing_a_mode_does_besides_claiming_addresses(self):
         # A radio row is as wide as its label, and the panel is a portrait pane. The Sensor
         # Track's Action Command is set in the same gesture as its ID, and naming both asks
         # 751 px of the 714 px the pane gives a row at the Pi's 1.5x font scale -- even with
         # the key abbreviated -- losing 18 px off each end. It is the whole of the options
-        # page that follows instead.
+        # page that follows instead, so no mode's name says what its module's own options
+        # say.
         for device in reg.configurable_devices():
             for mode in device.modes:
                 assert len(mode.name.split()) <= 2, f"{device.key}/{mode.key}: {mode.name}"
-                assert "Action" not in mode.name, f"{device.key}/{mode.key}: {mode.name}"
+                for option in device.options:
+                    for word in option.label.split():
+                        assert word.lower() not in mode.name.lower(), f"{device.key}/{mode.key}: {mode.name}"
 
 
 class TestModeLabels:
     """
     The two labels built from a mode's name: the block it would claim from an entered
     address, and -- where there is no address to name it from -- the count alone.
+
+    Asserted as compositions rather than as sentences repeated here: a label is the mode's
+    own name and the registry's one spelling of what it claims, in that order. That stays
+    true however either part comes to be worded, which is the whole point of building both
+    labels in the registry instead of in the panel.
     """
 
-    IDS_AT_1 = {
-        "asc2": (
-            "ACC (mixed) TMCC IDs 1 - 8",
-            "ACC (uncouple) TMCC ID 1",
-            "SW (pulse) TMCC IDs 1 - 4",
-            "SW (latching) TMCC IDs 1 - 4",
-        ),
-        "bpc2": (
-            "TR TMCC IDs 1 - 8",
-            "TR TMCC ID 1",
-            "ACC TMCC IDs 1 - 8",
-            "ACC TMCC ID 1",
-        ),
-        "stm2": ("SW (single-wire) TMCC IDs 1 - 16", "SW (two-wire) TMCC IDs 1 - 8"),
-        "sensor_track": ("ACC TMCC ID 1",),
-    }
-
-    PORTS = {
-        "asc2": (
-            "ACC (mixed), 8 TMCC IDs",
-            "ACC (uncouple), 1 TMCC ID",
-            "SW (pulse), 4 TMCC IDs",
-            "SW (latching), 4 TMCC IDs",
-        ),
-        "bpc2": ("TR, 8 TMCC IDs", "TR, 1 TMCC ID", "ACC, 8 TMCC IDs", "ACC, 1 TMCC ID"),
-        "stm2": ("SW (single-wire), 16 TMCC IDs", "SW (two-wire), 8 TMCC IDs"),
-        "sensor_track": ("ACC, 1 TMCC ID",),
-    }
-
     def test_every_mode_names_the_block_it_would_claim(self):
-        assert {d.key: tuple(m.ids_label(1) for m in d.modes) for d in reg.configurable_devices()} == self.IDS_AT_1
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                for base_id in (1, 12, mode.max_base):
+                    last_id = base_id + mode.ports - 1
+                    expected = f"{mode.name} {reg.tmcc_id_text(base_id, last_id)}"
+                    assert mode.ids_label(base_id) == expected, f"{device.key}/{mode.key}"
 
     def test_every_mode_names_the_count_it_claims(self):
-        assert {d.key: tuple(m.ports_label for m in d.modes) for d in reg.configurable_devices()} == self.PORTS
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                assert mode.ports_label == f"{mode.name}, {reg.tmcc_id_count(mode.ports)}", f"{device.key}/{mode.key}"
 
     def test_a_block_follows_the_address_it_is_based_at(self):
+        # The arithmetic, spelled out at both ends of an 8-ID mode's range.
         mode = reg.ASC2.mode("acc_8")
-        assert mode.ids_label(12) == "ACC (mixed) TMCC IDs 12 - 19"
-        assert mode.ids_label(91) == "ACC (mixed) TMCC IDs 91 - 98"
+        assert mode.ids_label(12) == f"{mode.name} {reg.tmcc_id_text(12, 19)}"
+        assert mode.ids_label(91) == f"{mode.name} {reg.tmcc_id_text(91, 98)}"
 
     def test_a_mode_is_offered_at_the_highest_base_it_fits(self):
         # The Mode radios are labeled from the ID on the page, which a narrower mode can
         # have carried above this one's ceiling: the 4-ID modes reach 95, and an 8-ID mode
         # based there would run off the end. The label names where choosing it lands, which
         # is what the panel clamps the ID to.
-        assert reg.ASC2.mode("acc_8").ids_label(95) == "ACC (mixed) TMCC IDs 91 - 98"
-        assert reg.STM2.mode("single_wire").ids_label(98) == "SW (single-wire) TMCC IDs 83 - 98"
+        acc_8, single_wire = reg.ASC2.mode("acc_8"), reg.STM2.mode("single_wire")
+        assert acc_8.ids_label(95) == acc_8.ids_label(acc_8.max_base)
+        assert re.findall(r"\d+", acc_8.ids_label(95)) == ["91", "98"]
+        assert single_wire.ids_label(98) == single_wire.ids_label(single_wire.max_base)
+        assert re.findall(r"\d+", single_wire.ids_label(98)) == ["83", "98"]
         # And nothing is named below the first address, whatever it is handed.
-        assert reg.ASC2.mode("acc_1").ids_label(0) == "ACC (uncouple) TMCC ID 1"
+        acc_1 = reg.ASC2.mode("acc_1")
+        assert acc_1.ids_label(0) == acc_1.ids_label(1)
 
     def test_an_id_is_always_a_tmcc_id(self):
         # A bare "ID" is ambiguous beside a PDI address or a port number.
@@ -428,24 +491,28 @@ class TestModeLabels:
 
     def test_the_longest_row_is_the_stm2s_widest_block(self):
         # A radio row is as wide as its label and the panel is a portrait pane, so the
-        # widest row any module can ask for is worth pinning: 33 characters, and 671 px of
-        # the 714 px the pane gives it at the Pi's 1.5x font scale.
+        # widest row any module can ask for is worth pinning: 33 characters as the modes
+        # are worded today, which is 671 px of the 714 px the pane gives it at the Pi's
+        # 1.5x font scale. The ceiling is what matters, so a shorter wording costs nothing
+        # and a longer one has to be measured before it is adopted.
+        widest = reg.STM2.mode("single_wire")
         longest = max(
             (mode.ids_label(mode.max_base) for device in reg.configurable_devices() for mode in device.modes),
             key=len,
         )
-        assert longest == "SW (single-wire) TMCC IDs 83 - 98"
-        assert len(longest) == 33
+        assert longest == widest.ids_label(widest.max_base)
+        assert len(longest) <= 33
 
     def test_a_block_covers_exactly_the_ids_the_mode_claims(self):
         # However the mode reads, the two ends of the block are the addresses that go with
-        # its port count: an operator reserving them has to be told the truth.
+        # its port count: an operator reserving them has to be told the truth. Read as the
+        # numbers in the label rather than by matching the phrase around them -- a name
+        # counts nothing, so every digit in a block label is one of the block's ends.
         for device in reg.configurable_devices():
             for mode in device.modes:
                 label = mode.ids_label(1)
-                ends = re.search(r"TMCC IDs? (\d+)(?: - (\d+))?", label)
-                first, last = int(ends.group(1)), int(ends.group(2) or ends.group(1))
-                assert last - first + 1 == mode.ports, f"{device.key}/{mode.key}: {label}"
+                ends = [int(number) for number in re.findall(r"\d+", label)]
+                assert ends[-1] - ends[0] + 1 == mode.ports, f"{device.key}/{mode.key}: {label}"
 
     def test_every_switch_mode_names_the_ids_it_consumes(self):
         # A switch mode reserves a block just as an accessory mode does, and an operator
