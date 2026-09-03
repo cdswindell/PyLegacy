@@ -2178,7 +2178,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         Built from KeypadView.accessory_panel_kind rather than from the state flags again, so
         the pad follows the panel: a port that shows the generic panel is bound like any other
-        accessory, LCS device or not. AMC2 reports nothing yet, and neither does an accessory
+        accessory, LCS device, or not. AMC2 reports nothing yet, and neither does an accessory
         scope with nothing selected -- there is no panel to claim for.
         """
         if self.scope == CommandScope.ACC and self.scope_tmcc_id(CommandScope.ACC) <= 0:
@@ -2192,7 +2192,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         The switch story one-panel type along, and read by the Steam Deck input layer for
         the same reason: a panel showing a route has no engine to drive, so the triggers
-        and sticks that would drive one fire the route instead. True on the same terms as
+        and sticks that would drive one fire the route instead. True, on the same terms as
         switch_active -- scope is Route, and one has been selected, including while a
         replacement id is being keyed in.
         """
@@ -2257,7 +2257,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         The cursor is seeded rather than remembered: a position left somewhere by an earlier
         session must never be presented as this track's. But on_new_accessory runs on every
         accessory state update and not only on a change of id, so seeding unconditionally would
-        yank the cursor out from under a step the moment the track reported itself. Hence the
+        yank the cursor out from under a step the moment the track reported itself. Hence, the
         rule: seed on a change of id, or where there is no cursor at all; leave a refresh for
         the same id to move the dot and nothing else.
         """
@@ -2273,7 +2273,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             view.set_sensor_track_cursor(selected[1])
 
     def on_sensor_track_select(self) -> None:
-        """Write the Sequence option under the cursor, and remember what it replaced.
+        """Write the Sequence option under the cursor and remember what it replaced.
 
         The cursor is what the pad has stepped to, so it -- not the radio dot -- is what a
         select writes. The dot then moves onto it, and the two coincide, which is what "done"
