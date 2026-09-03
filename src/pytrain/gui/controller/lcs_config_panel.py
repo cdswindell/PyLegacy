@@ -120,9 +120,6 @@ ROW_COLUMNS = 3
 WAITING_FOR_BASE = "Waiting for Base 3..."
 AWAITING_READBACK = "Waiting for the module to report..."
 NO_RESPONSE = "No response - is the module in program mode?"
-SENSOR_TRACK_FILTER_NOTE = (
-    "The R\u279fL / L\u279fR engine ID filters are shown from the read-back, but are not written here."
-)
 SENSOR_TRACK_REVIEW_NOTE = (
     "The sequence is only complete once the Action Command has been assigned; "
     "pressing PROGRAM again aborts it with no change."
@@ -243,19 +240,20 @@ NAV_ROW_PAD_COMPACT = 4
 OPTION_ROW_PAD = 8
 OPTION_ROW_PAD_COMPACT = 4
 
-# A list of options longer than this cannot be set at the size a lone control is, nor be
-# given any of the whitespace above. The one in the registry is the Sensor Track's ten
-# Action Commands: at s_18 with OPTION_ROW_PAD its rows want 500px, and the popup has 490
-# for the whole panel -- the module line, the list, the note under it, the Back/Next row
-# and the Close button below that. Tk neither scrolls nor complains when it runs out: it
-# stops mapping children, and the ones at the end are exactly those buttons.
+# A list of options longer than this cannot be given any of the whitespace above. The one
+# in the registry is the Sensor Track's ten actions: with OPTION_ROW_PAD on each of them
+# the list wants 160px more than the page can find, and Tk neither scrolls nor complains
+# when it runs out -- it stops mapping children, and the ones at the end are the Back/Next
+# row and the Close button below it, which is the only way off the panel on the Pi.
 #
-# So a list this long is set at the page's body size and its rows are packed tight, which
-# is what the released code does with them anyway. Measured on a 480x800 pane: 29px a row
-# against 50, and the page 468px against 524, which leaves the note, every row and the
-# Back/Next row on screen. Still a size and an indicator larger than the released panel
-# draws them -- s_12 behind an 18px dot -- and the rows are set apart by the painted
-# indicator and the row's own background rather than by whitespace they cannot afford.
+# So a list this long is packed tight, and that is what pays for its rows being set at the
+# same size as every other control on the page. Measured on a 480x800 pane at the Pi's 1.5x
+# font scale: 49px a row, and the page 635px -- exactly what it asked for when the rows were
+# a size smaller with the option's note under them, and 44px inside the tallest page the
+# panel already draws (the ASC2's ID page, at 679px). Which is the ceiling: the next size up
+# asks 645px, more than the page has ever taken, and the one after it 685px, more than the
+# ASC2's. What sets one row apart from the next is the painted indicator and the row's own
+# background rather than whitespace it cannot afford.
 LONG_OPTION_LIST = 6
 
 # Whitespace above and below a line of prose about the module -- its warning, the modes it
@@ -1029,20 +1027,20 @@ class LcsConfigPanel(OverlayPanel):
     def _build_option(self, box: Box, device: LcsDevice, option: LcsOption) -> None:
         host = self._gui
         key = (device.key, option.key)
-        # How many rows there are decides how large each one can be, and whether the page can
-        # afford to hold them, or its note, apart at all; see LONG_OPTION_LIST.
+        # How many rows there are decides whether the page can afford to hold them, or a
+        # note under them, apart at all; see LONG_OPTION_LIST.
         long_list = len(option.choices) > LONG_OPTION_LIST
         if option.kind == OptionKind.RADIO:
             self._label(box, option.label, bold=True)
             self._option_choices[key] = [value for _label, value in option.choices]
             widget = CheckBoxGroup(
                 box,
-                # The size the mode radios are set at: these rows are the choice being made
-                # on the page, and at the page's body size -- let alone the step below it
-                # they used to be drawn at -- the dot beside them was barely there. A long
-                # list settles for the body size, which is still a step above what it has
-                # today; see LONG_OPTION_LIST.
-                size=host.s_14 if long_list else host.s_18,
+                # The size the mode radios and the lone checkbox are set at: these rows are
+                # the choice being made on the page, and at the page's body size -- let
+                # alone the step below it they were once drawn at -- the dot beside them was
+                # barely there. A long list is set at it too, and pays for it in the
+                # whitespace between its rows; see LONG_OPTION_LIST.
+                size=host.s_18,
                 # The index is the row's value: an IrdaSequence is not a string, and
                 # guizero hands back whatever string Tk holds.
                 options=[[label, str(i)] for i, (label, _value) in enumerate(option.choices)],
@@ -1085,9 +1083,11 @@ class LcsConfigPanel(OverlayPanel):
         if not option.enabled:
             widget.disable()
         if option.note:
-            # Body size and wrapped, like the two lines at the head of the page: the one
-            # note in the registry is a full sentence about the Sensor Track's ID filters --
-            # and it sits under the list that leaves the page no whitespace to give.
+            # Body size and wrapped, like the line at the head of the page: a note is a full
+            # sentence about the setting above it. No module in the registry writes one
+            # today, and a long list is the case to be careful of if one does -- there is no
+            # whitespace to hold it off the last row with, and none to draw it in either;
+            # see LONG_OPTION_LIST.
             self._note_line(box, option.note, pady=0 if long_list else self._note_pad)
 
     def _option_command(self, device_key: str, option_key: str) -> Callable[[], None]:

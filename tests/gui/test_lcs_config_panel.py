@@ -247,12 +247,18 @@ class FakeState:
         num_ids: int | None = None,
         parent: Any = None,
         sequence: Any = None,
+        loco_rl: Any = None,
+        loco_lr: Any = None,
     ) -> None:
         self.address = address
         self.tmcc_id = address
         self.mode = mode
         self.num_ids = num_ids
         self.sequence = sequence
+        # A Sensor Track's engine ID filters, which only its read-back line reads: 255 or
+        # nothing at all means any engine, as IrdaState has it.
+        self.loco_rl = loco_rl
+        self.loco_lr = loco_lr
         self._parent = parent
         # is_amc2 among them: the panel can only name an AMC2, but a state that does not
         # carry the flag at all cannot even be recognized, which was the original bug.
@@ -1020,7 +1026,6 @@ def test_sensor_track_action_is_required_and_defaults_to_no_action() -> None:
     # default, and assigning an action is what ends program mode.
     assert len(action.choices) == 10
     assert action.choices[0][1] == action.default == panel.options["action"]
-    assert mod.SENSOR_TRACK_FILTER_NOTE == action.note
 
 
 def test_sensor_track_action_is_seeded_from_the_irda_state() -> None:
@@ -1077,25 +1082,90 @@ def test_the_checkbox_is_painted_at_the_size_the_mode_radios_use() -> None:
     assert panel._option_widgets[("bpc2", "restore")].decoration["size"] == panel._mode_group.kwargs["size"]
 
 
-def test_the_action_rows_are_larger_than_they_were_and_one_length() -> None:
-    # The Sensor Track's ten Action Commands, the one radio option in the registry and the
-    # longest list in the panel. A step up from the size below the page's body it was drawn
-    # at, but not the checkbox's size: ten rows of that do not fit the page, and what Tk
-    # drops when they do not is the Back/Next row. See LONG_OPTION_LIST.
+def test_the_action_rows_are_set_at_the_size_every_other_control_is_and_one_length() -> None:
+    # The Sensor Track's ten actions, the one radio option in the registry and the longest
+    # list in the panel. It used to settle for the page's body size, because the page could
+    # not hold ten rows of the size a lone control gets *and* the option's note under them,
+    # and what Tk drops when a page runs out is the Back/Next row. The note is gone, and its
+    # height is what these rows are set at the full size with; see LONG_OPTION_LIST.
     panel = _new_panel()
     host = panel.gui
 
     action = panel._option_widgets[("sensor_track", "action")]
 
     assert len(SENSOR_TRACK.option("action").choices) > mod.LONG_OPTION_LIST
-    assert action.kwargs["size"] == host.s_14
-    assert action.kwargs["size"] > host.s_12
-    # And no whitespace between them: what sets a row apart is the painted indicator and
+    assert action.kwargs["size"] == host.s_18 > host.s_14
+    # No note to spend that height on -- which is the trade, and it only holds while the
+    # registry writes none.
+    assert SENSOR_TRACK.option("action").note is None
+    # And no whitespace between the rows: what sets a row apart is the painted indicator and
     # the row's own background. Ten rows of the padding a shorter list gets would cost the
-    # page its note and the panel its Back/Next row.
+    # panel its Back/Next row.
     assert action.kwargs["pady"] == 0
     assert action.kwargs["stretch"] is True
     assert "width" not in action.kwargs
+
+
+def test_the_longest_list_is_set_at_the_size_the_lone_control_and_the_mode_rows_are() -> None:
+    # One size for every control the panel offers, whichever page it is on: the size is what
+    # a row is aimed at with a finger, and a list being long is not a reason to make it
+    # harder to hit than the checkbox beside it on the same page.
+    panel = _new_panel()
+
+    action = panel._option_widgets[("sensor_track", "action")]
+
+    assert action.kwargs["size"] == panel._option_widgets[("bpc2", "restore")].decoration["size"]
+    assert action.kwargs["size"] == panel._mode_group.kwargs["size"]
+
+
+def test_the_action_rows_are_headed_by_the_one_word() -> None:
+    # "Action Command" is what the manual calls it, and the presses still say so where the
+    # remote gesture is being described. The heading is read directly under the module line
+    # with the ten actions themselves under it, so the second word names nothing the page
+    # has not already said -- on the page that has the least room to say anything twice.
+    panel = _new_panel()
+    panel._on_device_selected("sensor_track")
+    panel._set_base_id(3)
+
+    heading = panel._option_boxes["sensor_track"].children[0]
+
+    assert SENSOR_TRACK.option("action").label == "Action"
+    assert heading.value == "Action"
+    assert heading.text_bold is True
+    # And the gesture is still described in full on the page the presses are read on.
+    assert any("action command" in line.lower() for line in panel.review_lines)
+
+
+def test_nothing_is_read_under_the_action_rows() -> None:
+    # A line about the R➟L / L➟R engine ID filters used to be: true, and about fields that
+    # are not on this page and cannot be reached from it. Its height is what the rows are
+    # set at the full size with; see LONG_OPTION_LIST.
+    panel = _new_panel()
+    panel._on_device_selected("sensor_track")
+
+    box = panel._option_boxes["sensor_track"]
+
+    assert SENSOR_TRACK.option("action").note is None
+    # The heading and the rows, and nothing after them.
+    assert len(box.children) == 2
+    assert box.children[1] is panel._option_widgets[("sensor_track", "action")]
+    assert not any("filter" in str(getattr(child, "value", "")).lower() for child in box.children)
+
+
+def test_the_engine_id_filters_are_still_reported_in_the_read_back() -> None:
+    # Which is where the removed line said they were shown, and it is still true: the two
+    # filters are read off the module after it answers, beside the action it is now set to.
+    state = FakeState(3, "is_sensor_track", sequence=IrdaSequence.CROSSING_GATE_NONE, loco_rl=255, loco_lr=4)
+    panel = _new_panel(FakeStore({CommandScope.ACC: [state], CommandScope.IRDA: [state]}))
+    panel._on_device_selected("sensor_track")
+    panel._set_base_id(3)
+
+    panel.on_configure()
+    panel.on_readback()
+
+    reported = panel._reported_line.value
+    assert "R\u279fL Any" in reported
+    assert "L\u279fR 4" in reported
 
 
 def test_a_short_radio_list_is_set_at_the_size_a_lone_control_is() -> None:
@@ -1118,15 +1188,24 @@ def test_a_short_radio_list_is_set_at_the_size_a_lone_control_is() -> None:
 
 
 def test_a_long_lists_note_gets_no_padding_either() -> None:
-    # The whole of that page is the list; the sentence under it is set against the last row
+    # No module in the registry writes one today; the rule is what a long list would do with
+    # one. The whole of that page is the list, so the sentence is set against the last row
     # because there is nothing left to hold it off with.
     panel = _new_panel()
+    long_option = LcsOption(
+        key="noted_long",
+        label="Pick one",
+        kind=mod.OptionKind.RADIO,
+        choices=tuple((chr(ord("A") + i), i) for i in range(mod.LONG_OPTION_LIST + 1)),
+        note="A full sentence about the rows above it.",
+    )
+    box = DummyBox()
 
-    box = panel._option_boxes["sensor_track"]
-    note = next(child for child in box.children if getattr(child, "value", None) == mod.SENSOR_TRACK_FILTER_NOTE)
+    panel._build_option(box, SENSOR_TRACK, long_option)
 
+    note = next(child for child in box.children if getattr(child, "value", None) == long_option.note)
     assert note.tk.configured["pady"] == 0
-    # Still wrapped: it is a full sentence, and 741px of it against a 446px page.
+    # Still wrapped: it is a full sentence, and a page 446px wide.
     assert note.tk.configured["wraplength"] == panel._wrap_px
 
 
@@ -1198,16 +1277,27 @@ def test_a_checkbox_label_is_wrapped_from_the_left_beside_its_indicator() -> Non
 
 
 def test_an_options_own_note_is_wrapped_and_read_at_the_body_size() -> None:
-    # The Sensor Track's note about the engine ID filters -- a full sentence, and the one
-    # note the registry carries.
+    # A note is a full sentence about the setting above it, read like the line at the head
+    # of the page. The registry carries none today; the option is made here, as the short
+    # list above is, because what the panel does with a note is not a fact about a module.
     panel = _new_panel()
     host = panel.gui
+    short = LcsOption(
+        key="noted",
+        label="Pick one",
+        kind=mod.OptionKind.RADIO,
+        choices=(("A", 1), ("B", 2)),
+        note="A full sentence about the two rows above it.",
+    )
+    box = DummyBox()
 
-    box = panel._option_boxes["sensor_track"]
-    note = next(child for child in box.children if getattr(child, "value", None) == mod.SENSOR_TRACK_FILTER_NOTE)
+    panel._build_option(box, BPC2, short)
 
+    note = next(child for child in box.children if getattr(child, "value", None) == short.note)
     assert note.text_size == host.s_14
     assert note.tk.configured["wraplength"] == panel._wrap_px
+    # And held off the rows above it, unlike a long list's; see LONG_OPTION_LIST.
+    assert note.tk.configured["pady"] == mod.NOTE_PAD
 
 
 def test_the_wrap_is_the_width_the_popup_is_built_to() -> None:

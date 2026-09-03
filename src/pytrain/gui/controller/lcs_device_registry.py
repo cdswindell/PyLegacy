@@ -571,16 +571,25 @@ STM2 = LcsDevice(
 #
 SENSOR_TRACK_ACTION = LcsOption(
     key="action",
-    label="Action Command",
+    # The manual calls it the Action Command, and the presses still say so where the remote
+    # is being described; the heading over the rows says the one word. It is read directly
+    # under "Sensor Track: Configuring as ACC n" with the ten actions under it, so "Command"
+    # names nothing the page has not already said -- and the page is the one place in the
+    # panel where every pixel of height is already spoken for; see LONG_OPTION_LIST.
+    label="Action",
     kind=OptionKind.RADIO,
     choices=_sensor_track_choices(),
     default=IrdaSequence.NONE,
     required=True,
-    note="The R➟L / L➟R engine ID filters are shown from the read-back, but are not written here.",
+    # No note. The one written here said that the R➟L / L➟R engine ID filters are shown from
+    # the read-back but not written by this page: true, and about fields that are not on the
+    # page and cannot be reached from it, which is nothing the operator can act on. The
+    # height it cost is what the rows are set at their full size with; see _build_option.
+    #
     # The key is the word the press is built from -- the mode's AUX1 press takes its digit
     # from "action" -- while the module reports the setting as the sequence field of its
-    # own IRDA CONFIG record, which is the only place the Action Command it is running with
-    # is recorded: the accessory-scope state the panel is handed does not carry it at all.
+    # own IRDA CONFIG record, which is the only place the action it is running with is
+    # recorded: the accessory-scope state the panel is handed does not carry it at all.
     # Named here rather than read for in the panel, so what a module calls its settings
     # stays a fact about the module; see LcsOption.reported_as.
     reported_key="sequence",
