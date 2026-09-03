@@ -157,6 +157,20 @@ class LcsOption:
     enabled: bool = True
     required: bool = False
     note: str | None = None
+    # What the module's own CONFIG record calls this setting, where that is not what the
+    # panel calls it. An option's key names what it *sets* -- the press it drives, and the
+    # word a press is gated on or takes its digit from -- while a module reports the field
+    # in its own terms: the Sensor Track's Action Command is pressed as an AUX1 digit and
+    # reported as IrdaReq.sequence. Left None wherever the two words agree, which is the
+    # usual case; see reported_as.
+    reported_key: str | None = None
+
+    @property
+    def reported_as(self) -> str:
+        """
+        The field a module's record reports this option on: its own key unless one is named.
+        """
+        return self.reported_key or self.key
 
 
 @dataclass(frozen=True)
@@ -563,6 +577,13 @@ SENSOR_TRACK_ACTION = LcsOption(
     default=IrdaSequence.NONE,
     required=True,
     note="The R➟L / L➟R engine ID filters are shown from the read-back, but are not written here.",
+    # The key is the word the press is built from -- the mode's AUX1 press takes its digit
+    # from "action" -- while the module reports the setting as the sequence field of its
+    # own IRDA CONFIG record, which is the only place the Action Command it is running with
+    # is recorded: the accessory-scope state the panel is handed does not carry it at all.
+    # Named here rather than read for in the panel, so what a module calls its settings
+    # stays a fact about the module; see LcsOption.reported_as.
+    reported_key="sequence",
 )
 
 SENSOR_TRACK = LcsDevice(

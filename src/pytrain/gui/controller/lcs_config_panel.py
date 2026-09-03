@@ -1410,7 +1410,10 @@ class LcsConfigPanel(OverlayPanel):
         if isinstance(num_ids, int) and num_ids > 0:
             parts.append(REPORTED_IDS.format(count=num_ids))
         if device is SENSOR_TRACK:
-            sequence = getattr(state, "sequence", None)
+            # The field the Action Command is reported on, asked of the option rather than
+            # spelled here, so the panel reads a read-back the same way it reads the module
+            # in the first place; see LcsOption.reported_as.
+            sequence = getattr(state, SENSOR_TRACK.option("action").reported_as, None)
             if sequence is not None:
                 parts.append(self._action_label(sequence))
             parts.append(f"R\u279fL {self._filter_text(state, 'loco_rl')}")
@@ -1638,12 +1641,16 @@ class LcsConfigPanel(OverlayPanel):
 
         The CONFIG packet is read before the component state, because a module's settings
         are what its own CONFIG record carries: the BPC2's restore-on-power-up flag is a bit
-        of the mode byte in that packet and is in no component state at all. Records are
-        read by the option's own key, which is the registry's promise that an option is
-        named for the field it sets.
+        of the mode byte in that packet and is in no component state at all, and the Sensor
+        Track's Action Command is in that packet alone as well.
+
+        Records are read by the field the option says it is reported on, which is the
+        option's own key wherever the panel and the module use the same word for a setting
+        and the module's own word where they differ -- an option is named for what it sets,
+        and a module names the field it reports. See LcsOption.reported_as.
         """
         for record in records:
-            value = getattr(record, option.key, None) if record is not None else None
+            value = getattr(record, option.reported_as, None) if record is not None else None
             if value is not None and cls._can_hold(option, value):
                 return value
         return None
@@ -1652,9 +1659,9 @@ class LcsConfigPanel(OverlayPanel):
     def _can_hold(option: LcsOption, value: Any) -> bool:
         """Whether value is something this option could be set to.
 
-        A record is read by the option's key, and that key can mean something else entirely
-        on a record written for another purpose: every PDI request carries an action, and
-        the Sensor Track's Action Command option is a sequence rather than one of those. So
+        A record is read by a field name, and that name can mean something else entirely on
+        a record written for another purpose: every PDI request carries an action, so a
+        record read for an option named "action" answers with the request's own flavor. So
         a value counts as an answer about the option only if the option could hold it -- one
         of the rows the list offers, or a flag's true or false.
         """
@@ -1762,18 +1769,26 @@ class LcsConfigPanel(OverlayPanel):
                 self._options_from_layout.discard(option.key)
 
     def _seed_sensor_track_action(self) -> None:
-        """
-        Pre-fill the Action Command from the Sensor Track's own IRDA state.
+        """Pre-fill the Action Command from the Sensor Track's own IRDA state.
 
-        The panel is handed the accessory-scope proxy, which does not carry the
-        sequence; the value lives on the IRDA-scope state at the same address.
+        The panel is handed the accessory-scope proxy, which does not carry the sequence;
+        the value lives on the IRDA-scope state at the same address. What the module's own
+        CONFIG packet says is read with every other module's settings and is authoritative
+        where the PDI store has it -- this covers the store that has no PDI side, where an
+        IRDA state built from control traffic is all there is to read; see
+        _seed_options_from_layout.
+
+        Read by the field the option names, exactly as a CONFIG packet is: the Action
+        Command is reported as a sequence on either record, the option's key being the word
+        the press is built from rather than the word the module reports. See
+        LcsOption.reported_as.
         """
         if self._device is not SENSOR_TRACK:
             return
-        state = self._irda_state(self._base_id)
-        sequence = getattr(state, "sequence", None) if state is not None else None
-        if sequence is not None:
-            self._options["action"] = sequence
+        option = SENSOR_TRACK.option("action")
+        reported = self._reported_option(option, self._irda_state(self._base_id))
+        if reported is not None:
+            self._options[option.key] = reported
 
     # noinspection PyCallingNonCallable
     def _irda_state(self, tmcc_id: int) -> Any:

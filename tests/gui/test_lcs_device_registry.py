@@ -25,7 +25,7 @@ import pytest
 
 import src.pytrain.gui.controller.lcs_device_registry as reg
 from src.pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
-from src.pytrain.pdi.irda_req import IrdaSequence
+from src.pytrain.pdi.irda_req import IrdaAction, IrdaSequence
 from src.pytrain.pdi.pdi_device import PdiDevice
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum, TMCC1EngineCommandEnum
@@ -119,6 +119,46 @@ class TestSensorTrack:
 
     def test_default_action_is_no_action(self):
         assert reg.SENSOR_TRACK.option("action").default == IrdaSequence.NONE
+
+    def test_the_action_command_is_reported_as_the_sequence_of_the_config_record(self):
+        # The option's key is the word the press is built from -- the mode's AUX1 press takes
+        # its digit from "action" -- while the module reports the setting as the sequence
+        # field of its own IRDA CONFIG record. Read by the key, the record answers with the
+        # flavor it was built as, which is no Action Command at all: this is what left the
+        # panel opening a configured Sensor Track on "No Action".
+        option = reg.SENSOR_TRACK.option("action")
+        record = reg.SENSOR_TRACK.pdi_device.config(1)
+
+        assert option.reported_as == "sequence" != option.key
+        assert isinstance(getattr(record, option.key), IrdaAction)
+        assert not isinstance(getattr(record, option.key), IrdaSequence)
+
+
+class TestReportedFields:
+    """
+    Where a module reports each of its settings; see LcsOption.reported_as.
+    """
+
+    def test_an_option_is_reported_on_its_own_key_unless_another_field_is_named(self):
+        # Which is the usual case: a BPC2's restore-on-power-up flag is "restore" to the
+        # panel and to Bpc2Req alike, and only a module that words a setting differently
+        # from the panel has anything to declare.
+        for device in reg.configurable_devices():
+            for option in device.options:
+                expected = option.reported_key or option.key
+                assert option.reported_as == expected, f"{device.label} {option.key}"
+        assert reg.BPC2.option("restore").reported_key is None
+
+    def test_every_option_is_reported_on_a_field_its_module_really_carries(self):
+        # The field is read off the module's own CONFIG record, so a name nothing answers
+        # to is a setting the panel can never read -- silently, since a missing attribute
+        # reads as "the module said nothing" and the option keeps its default. Checked
+        # against the request class the module actually answers with, so a rename in
+        # pdi/*_req.py fails here rather than out on the layout.
+        for device in reg.configurable_devices():
+            record = device.pdi_device.config(1)
+            for option in device.options:
+                assert hasattr(record, option.reported_as), f"{type(record).__name__}.{option.reported_as}"
 
 
 class TestMaxBase:

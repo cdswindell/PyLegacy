@@ -2454,18 +2454,28 @@ def _amc2_and_bpc2_at_1_store() -> FakeStore:
 
 
 class FakePdiPacket:
-    """One module's own CONFIG request: a Bpc2Req for a BPC2, an Asc2Req for an ASC2.
+    """One module's own CONFIG request: a Bpc2Req for a BPC2, an IrdaReq for a Sensor Track.
 
     Where a module's settings are, the mode among them. A BPC2's restore-on-power-up flag
-    is the top bit of its mode byte, and Bpc2Req is what unpacks the two apart.
+    is the top bit of its mode byte, and Bpc2Req is what unpacks the two apart; a Sensor
+    Track's Action Command is the sequence field of its own record.
     """
 
-    def __init__(self, mode: int | None = None, restore: bool | None = None) -> None:
+    def __init__(self, mode: int | None = None, restore: bool | None = None, sequence: Any = None) -> None:
+        # The flavor the request was built as, which every PDI request carries under the
+        # name "action" -- and that is the very word the Sensor Track's Action Command
+        # option is keyed by, so the record answers about that option only on the field the
+        # option says the module reports it on. Stood in for here as the module's own CONFIG
+        # action, since what matters is the name rather than which enum it belongs to.
+        self.action = IrdaAction.CONFIG if sequence is not None else Bpc2Action.CONFIG
         if mode is not None:
             self.mode = mode
         if restore is not None:
             # Only a BPC2's request carries one.
             self.restore = restore
+        if sequence is not None:
+            # And only a Sensor Track's.
+            self.sequence = sequence
 
 
 class FakePdiConfig:
@@ -2482,13 +2492,14 @@ class FakePdiConfig:
         scope: CommandScope,
         mode: int | None = None,
         restore: bool | None = None,
+        sequence: Any = None,
     ) -> None:
         self.tmcc_id = tmcc_id
         self.scope = scope
         if mode is not None:
             # Only ASC2, BPC2 and STM2 configs carry a mode; an AMC2's does not.
             self.mode = mode
-        self.config = FakePdiPacket(mode, restore)
+        self.config = FakePdiPacket(mode, restore, sequence)
 
 
 class FakePdiStore:
@@ -2954,10 +2965,79 @@ def test_a_module_of_another_type_at_the_address_is_not_read_for_its_settings(mo
     assert panel.options["restore"] is False
 
 
-def test_a_key_that_means_something_else_on_the_record_is_not_taken_as_an_answer() -> None:
-    # Every PDI request carries an action, and the Sensor Track's Action Command option is a
-    # sequence rather than one of those -- so a record is read for an option only where it
-    # holds something the option could be set to.
+def _sensor_track_based_at(monkeypatch, base_id: int, sequence: IrdaSequence) -> None:
+    """A Sensor Track based at base_id, set to sequence, as the PDI bus reported it.
+
+    Filed under the scope its own requests carry, the IRDA key, rather than the accessory
+    key it is addressed on: which remote key addresses a module is the registry's to say,
+    and the panel finds the record either way. See LcsOccupant.effective_scope.
+    """
+    _with_pdi_store(
+        monkeypatch,
+        {PdiDevice.IRDA: [FakePdiConfig(base_id, CommandScope.IRDA, sequence=sequence)]},
+    )
+
+
+@pytest.mark.parametrize("sequence", [IrdaSequence.CROSSING_GATE_NONE, IrdaSequence.SLOW_SPEED_NORMAL_SPEED])
+def test_the_action_command_shows_what_the_sensor_track_at_the_address_is_set_to(monkeypatch, sequence) -> None:
+    # The Action Command a Sensor Track is running with is the sequence field of its own
+    # IRDA CONFIG record, and that record is the only place it is recorded: the
+    # accessory-scope state the panel is handed does not carry it at all. Read there, the
+    # page opens on the row the module is set to rather than on the option's "No Action".
+    _sensor_track_based_at(monkeypatch, 3, sequence)
+    panel = _new_panel()
+    panel._on_device_selected("sensor_track")
+    panel._set_base_id(3)
+
+    action = SENSOR_TRACK.option("action")
+    assert sequence is not action.default  # or the row would be selected without being read
+    assert panel.reconfigured_occupant().base_id == 3
+    assert panel.options["action"] is sequence
+    row = [value for _label, value in action.choices].index(sequence)
+    assert panel._option_widgets[("sensor_track", "action")].value == str(row)
+    # And the presses follow it, so leaving the row alone reprograms the module as it stands:
+    # the digit the mode's AUX1 press takes from the option is the sequence's own value.
+    assert panel.review_lines == _press_lines(SENSOR_TRACK.default_mode, 3, {"action": sequence})
+    assert str(sequence.value) in panel.review_lines[1]
+
+
+def test_the_config_record_is_what_the_action_command_is_read_from(monkeypatch) -> None:
+    # Two records at the address can speak about the Action Command: the IRDA state, which
+    # is built from whatever control traffic has gone by, and the module's own CONFIG
+    # record. The record is the module reporting its configuration, so it is what the page
+    # opens on; the state is the fallback for a store with no PDI side at all.
+    reported, stale = IrdaSequence.BELL_NONE, IrdaSequence.RECORDING
+    _sensor_track_based_at(monkeypatch, 3, reported)
+    panel = _new_panel(FakeStore({CommandScope.IRDA: [FakeState(3, "is_sensor_track", sequence=stale)]}))
+
+    panel._on_device_selected("sensor_track")
+    panel._set_base_id(3)
+
+    assert panel.reconfigured_occupant().state.sequence is stale
+    assert panel.options["action"] is reported
+
+
+def test_an_option_is_read_on_the_field_the_module_reports_it_on() -> None:
+    # A record is read for an option by the field the option says the module reports it on,
+    # which for the Action Command is the sequence rather than the option's own key: read by
+    # the key, an IRDA CONFIG record answers with the flavor it was built as.
+    action = SENSOR_TRACK.option("action")
+    record = SimpleNamespace(action=IrdaAction.CONFIG, sequence=IrdaSequence.BELL_NONE)
+
+    assert action.reported_as == "sequence" != action.key
+    assert mod.LcsConfigPanel._reported_option(action, record) is IrdaSequence.BELL_NONE
+    assert mod.LcsConfigPanel._default_options(SENSOR_TRACK, record)["action"] is IrdaSequence.BELL_NONE
+    # And a record with nothing to say on that field leaves the option its default, however
+    # much it has to say under the option's own name.
+    silent = SimpleNamespace(action=IrdaAction.CONFIG)
+    assert mod.LcsConfigPanel._reported_option(action, silent) is None
+    assert mod.LcsConfigPanel._default_options(SENSOR_TRACK, silent)["action"] is action.default
+
+
+def test_a_field_that_means_something_else_on_the_record_is_not_taken_as_an_answer() -> None:
+    # A field name can mean something else entirely on a record written for another purpose,
+    # a request's own flavor among them -- so a record is read for an option only where the
+    # field holds something the option could be set to.
     action = SENSOR_TRACK.option("action")
     restore = BPC2.option("restore")
 
@@ -2965,8 +3045,8 @@ def test_a_key_that_means_something_else_on_the_record_is_not_taken_as_an_answer
     assert mod.LcsConfigPanel._can_hold(action, IrdaAction.CONFIG) is False
     assert mod.LcsConfigPanel._can_hold(restore, True) is True
     assert mod.LcsConfigPanel._can_hold(restore, IrdaAction.CONFIG) is False
-    # Which is what a record answering to the key with something else gets: passed over.
-    record = SimpleNamespace(action=IrdaAction.CONFIG, restore=Bpc2Action.CONFIG)
+    # Which is what a record answering on the field with something else gets: passed over.
+    record = SimpleNamespace(sequence=IrdaAction.CONFIG, restore=Bpc2Action.CONFIG)
     assert mod.LcsConfigPanel._reported_option(action, record) is None
     assert mod.LcsConfigPanel._default_options(SENSOR_TRACK, record)["action"] == action.default
     assert mod.LcsConfigPanel._default_options(BPC2, record)["restore"] == restore.default
