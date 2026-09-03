@@ -39,7 +39,7 @@ says nothing about how many addresses the mode claims, and what is counted is al
 A qualifier is one word wherever one will do, because a radio row is as wide as its label
 (see below), so it can rarely say more than *which* mode this is. What the mode is good
 for is said by LcsMode.note, which the panel prints below the radios keyed by that same
-word -- "uncouple: Uncoupling tracks only ..." -- so the qualifier need only be the word
+word -- "uncouple: Uncoupling tracks only ..." -- so the qualifier needs only be the word
 the sentence can be looked up under.
 
 Two labels are built from it, both here rather than in the panel, so the wording is
