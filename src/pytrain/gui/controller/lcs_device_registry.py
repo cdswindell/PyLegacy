@@ -11,30 +11,30 @@ Declarative registry of the LCS modules the LCS configuration panel can program.
 
 Each device is described by one LcsDevice holding one LcsMode per supported configuration.
 A mode declares the Cab scope it is addressed in, how many TMCC IDs (ports) it claims,
-the ``pdi_device`` mode index it corresponds to, and the ordered recipe of Cab-remote
+the pdi_device mode index it corresponds to, and the ordered recipe of Cab-remote
 presses that programs it.
 
 Why the registry, and not the PDI request classes, owns scope and block size
 ---------------------------------------------------------------------------
 The ASC2 supports four configurations (ACC eight-ID, ACC single-ID, SW pulse,
-SW latching), but ``asc2_req.py`` L71 validates ``mode`` as 0-2 and rejects mode 3,
-and ``num_addressable_ports`` (L126-134) raises for it. Worse, ``asc2_req.py`` L42
-computes the scope as ``SWITCH if mode == 2 else ACC``, so a mode-3 (SW latching)
+SW latching), but asc2_req.py L71 validates mode as 0-2 and rejects mode 3,
+and num_addressable_ports (L126-134) raises for it. Worse, asc2_req.py L42
+computes the scope as SWITCH if mode == 2 else ACC, so a mode-3 (SW latching)
 ASC2 is mis-scoped as an accessory. Per the agreed workaround, this module is left
-alone: the panel never constructs an ``Asc2Req`` carrying a mode and never calls
-``num_addressable_ports``. This registry is the single source of truth for a mode's
+alone: the panel never constructs an Asc2Req carrying a mode and never calls
+num_addressable_ports. This registry is the single source of truth for a mode's
 scope and block size. Read-back GETs carry no mode, so they are unaffected.
 
 How a mode is named and labeled
 -------------------------------
-A mode's ``name`` opens with the Cab-remote key that begins its programming sequence,
-spelled the way the key itself is: ``ACC``, ``SW``, ``TR``. Whatever tells the mode from
-the module's other modes on that key follows it in parentheses -- ``(pulse)``,
-``(latching)``, ``(single-wire)``, ``(uncouple)``. The key is what the operator presses,
+A mode's name opens with the Cab-remote key that begins its programming sequence,
+spelled the way the key itself is: ACC, SW, TR. Whatever tells the mode from
+the module's other modes on that key follows it in parentheses -- (pulse),
+(latching), (single-wire), (uncouple). The key is what the operator presses,
 so it stands at the head of the row unadorned, and the qualifier reads as the aside it is;
 the footnote below the panel's Mode radios is keyed by those same words. The name alone
 says nothing about how many addresses the mode claims, and what is counted is always
-``TMCC IDs``, never bare "IDs" or "ports".
+TMCC IDs, never bare "IDs" or "ports".
 
 A qualifier is one word wherever one will do, because a radio row is as wide as its label
 (see below), so it can rarely say more than *which* mode this is. What the mode is good
@@ -57,7 +57,7 @@ Either way the mode names what it consumes, because that is what the operator ha
 aside, and a mode that only says "(pulse)" leaves them guessing.
 
 Neither label says anything else, and no name carries more than a key and one qualifier.
-A radio row is as wide as its label and the panel is a portrait pane: the widest row any
+A radio row is as wide as its label, and the panel is a portrait pane: the widest row any
 module can ask for -- the STM2's "SW (single-wire) TMCC IDs 83 - 98" -- takes 671 px of
 the 714 px the pane gives it at the Pi's 1.5x font scale. Whatever a mode does besides
 claiming addresses is said on the options page that follows, where it is chosen; see the
@@ -65,11 +65,11 @@ Sensor Track's Action Command.
 
 Modules the panel knows without being able to program them
 ----------------------------------------------------------
-A device with ``configurable=False`` is listed here so that the rest of the panel can
-*recognize* it -- name it, and account for the TMCC IDs it holds -- while it is kept off
+A device with configurable=False is listed here so that the rest of the panel can
+*recognize* it -- name it and account for the TMCC IDs it holds -- while it is kept off
 the device selection page, because no press sequence for it has been written yet. The
 AMC2 is the standing example: it answers to a TMCC ID on a real layout, so leaving it out
-altogether made ``lcs_id_map`` silently blind to it and the panel reported an address as
+altogether made lcs_id_map silently blind to it, and the panel reported an address as
 free when a module was sitting on it. Turning one into a programmable module is a matter
 of filling in its modes and presses and dropping the flag; nothing else has to change.
 
@@ -126,7 +126,7 @@ ENGINE_AUX_NUMBERS: tuple[CommandDefEnum, ...] = (
 
 def aux_number(digit: int, scope: CommandScope) -> CommandDefEnum:
     """
-    Return the ``AUX1`` + <digit> command for the given scope.
+    Return the AUX1 + <digit> command for the given scope.
     """
     digit = int(getattr(digit, "value", digit)) if digit is not None else None
     if digit is None or not 0 <= digit <= 9:
@@ -164,10 +164,10 @@ class Press:
     """
     One Cab-remote gesture in a programming sequence.
 
-    ``command`` is the command sent when the press is unconditional; when
-    ``digit_from`` names an option key, the command is the ``AUX1`` + <digit>
-    member for this press's scope, with the digit taken from that option's value.
-    ``include_if`` names an option key whose truthy value gates the press.
+    command is the command sent when the press is unconditional; when digit_from
+    names an option key, the command is the AUX1 + <digit> member for this
+    press's scope, with the digit taken from that option's value. include_if
+    names an option key whose truthy value gates the press.
     """
 
     label: str
@@ -190,12 +190,17 @@ class Press:
             raise ValueError(f"Option '{self.digit_from}' is required")
         return int(getattr(value, "value", value))
 
+    # CommandDefEnum declares no members of its own -- every one of them is on a subclass --
+    # and an enum with no members reads to PyCharm as a type nothing can hold, so it calls the
+    # last line below unreachable. It is reached by every unconditional press in the registry.
+    # noinspection PyUnreachableCode
     def resolve(self, options: Mapping[str, Any] | None = None) -> CommandDefEnum:
         if self.digit_from is not None:
             return aux_number(self.digit(options), self.scope)
-        if self.command is None:
+        command = self.command
+        if command is None:
             raise ValueError(f"Press '{self.label}' declares no command")
-        return self.command
+        return command
 
     def resolved_label(self, options: Mapping[str, Any] | None = None) -> str:
         if self.digit_from is not None:
@@ -233,7 +238,7 @@ class LcsMode:
         """The parenthesized word that tells this mode from the module's others on its key.
 
         "pulse" from "SW (pulse)"; None for a mode named by its key alone. What the panel's
-        footnote keys ``note`` by, so the sentence below the radios is looked up under
+        footnote keys note by, so the sentence below the radios is looked up under
         the very word the row it explains carries.
         """
         match = re.search(r"\(([^)]+)\)", self.name)
@@ -247,10 +252,10 @@ class LcsMode:
         return f"{self.name}, {tmcc_id_count(self.ports)}"
 
     def ids_label(self, base_id: int) -> str:
-        """The mode and the TMCC IDs it would claim from ``base_id``.
+        """The mode and the TMCC IDs it would claim from base_id.
 
-        ``base_id`` is clamped into the range this mode can actually be based at, so the
-        label promises a block the mode can hold: an 8-ID mode offered beside the 4-ID one
+        base_id is clamped into the range this mode can actually be based at, so the label
+        promises a block the mode can hold: an 8-ID mode offered beside the 4-ID one
         currently chosen at 95 reads "91 - 98", which is where selecting it lands.
         """
         base = min(max(int(base_id), 1), self.max_base)
@@ -338,6 +343,7 @@ def _sensor_track_choices() -> tuple[tuple[str, Any], ...]:
     Build the Sensor Track Action Command choices from the labels the Sensor Track
     operating group already uses, so the two panels cannot drift apart.
     """
+    # noinspection PyBroadException
     try:
         from .engine_gui_conf import SENSOR_TRACK_OPTS
     except Exception:  # pragma: no cover - only when guizero is unavailable
@@ -584,8 +590,8 @@ SENSOR_TRACK = LcsDevice(
 # Recognized, not yet programmable: no modes, and so no presses. It is here because it
 # holds a TMCC ID like any other module, and a registry that does not know about it makes
 # the panel report that ID as free. Declaring no modes, it holds one TMCC ID -- what
-# ``Amc2Req.num_addressable_ports`` reports -- and takes its scope from wherever it was
-# found. Fill in the modes and presses and drop ``configurable`` to program it.
+# Amc2Req.num_addressable_ports reports -- and takes its scope from wherever it was
+# found. Fill in the modes and presses and drop configurable to program it.
 #
 AMC2 = LcsDevice(
     key="amc2",
@@ -604,7 +610,7 @@ def configurable_devices() -> tuple[LcsDevice, ...]:
     """
     The modules the panel can actually program, in the order they are offered.
 
-    Sorted by name, so the device page reads as a list an operator can scan and the first
+    Sorted by name, so the device page reads as a list an operator can scan, and the first
     row -- the one the panel opens on -- is predictable: ASC2, BPC2, Sensor Track, STM2.
     LCS_DEVICES keeps its own order, which is a recognition order rather than a presentation
     one: it is walked to identify a module from its state flags, and a module this pass
@@ -630,13 +636,14 @@ def devices_for_state(state: Any) -> tuple[LcsDevice, ...]:
 
     Usually one, but a component state is keyed by scope and address alone, so two modules
     sharing an address share a record: an AMC2 and a BPC2 both answering to ACC 1 leave one
-    ``AccessoryState`` carrying both ``is_amc2`` and ``is_bpc2`` once each has reported.
-    Returning only the first would hide the other from the panel's assigned box.
+    AccessoryState carrying both is_amc2 and is_bpc2 once each has reported. Returning only
+    the first would hide the other from the panel's assigned box.
     """
     if state is None:
         return ()
     found: list[LcsDevice] = []
     for device in LCS_DEVICES:
+        # noinspection PyBroadException
         try:
             if device.identifies_state(state):
                 found.append(device)

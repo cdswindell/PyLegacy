@@ -12,19 +12,19 @@ Established by experiment on 2026-08-22, after several sessions of chasing it as
 bug: the Steam Deck's touch panel misreports contact position while the unit is charging
 from an ungrounded (two-prong) USB-C supply. The chassis floats and rings against earth, the
 noise corrupts the panel's sense axis, and the pointer teleports hundreds of pixels along Y
-while X still tracks the finger correctly. X11 renders each teleport as a ``<Leave>`` plus a
-spurious ``<ButtonRelease>``, then an ``<Enter>`` plus a press when it snaps back -- which
+while X still tracks the finger correctly. X11 renders each teleport as a <Leave> plus a
+spurious <ButtonRelease>, then an <Enter> plus a press when it snaps back -- which
 resets a three-second hold. It reproduces only with the Deck on a flat surface, charging,
 pressed with a bare finger; holding the unit couples the chassis to your body and it stops,
 as does unplugging it, as does a capacitive stylus. A combo box on the same screen showed the
 same symptom and the same cure, which is what confirmed the cause was electrical.
 
 So none of this is a defect in PyTrain, and none of it can be properly fixed in a widget. It
-is damage limitation, and it lives in its own module so that ``hold_button`` reads as a
+is damage limitation, and it lives in its own module so that hold_button reads as a
 button rather than as a workaround.
 
-**It is dormant unless a caller passes a non-zero ``press_recovery_ms``**, which today is
-nobody -- ``PRESS_RECOVERY_MS`` in ``admin_panel`` is 0, because the Deck is used on battery.
+**It is dormant unless a caller passes a non-zero press_recovery_ms**, which today is
+nobody -- PRESS_RECOVERY_MS in admin_panel is 0, because the Deck is used on battery.
 Raise that one constant to re-arm everything here. For calibration, over the worst logged
 session (17 flips in 16 seconds, charging): 100ms caught 11 of 18, 350ms caught all 18 at a
 release latency you could see.
@@ -52,7 +52,7 @@ B1_MASK = 0x0100
 # hold is already gone, and this exists to make the loss visible in a trace.
 RESTART_WINDOW_MS = 1500
 # A press this soon after a hold was abandoned inherits the progress that hold had made.
-# Much tighter than RESTART_WINDOW_MS, which only logs: this one changes behaviour, and a
+# Much tighter than RESTART_WINDOW_MS, which only logs: this one changes behavior, and a
 # deliberate second press does not follow a deliberate release within a third of a second.
 RESTART_RESUME_MS = 300
 
@@ -60,12 +60,11 @@ RESTART_RESUME_MS = 300
 def unwrap_event(event):
     """The underlying tkinter event, unwrapping guizero's EventData if present.
 
-    Two bindings deliver events to a HoldButton: guizero's ``when_left_button_released``,
-    which wraps the real event in an EventData exposing only x/y/widget/keycode, and raw
-    ``tk.bind()``, which passes the tkinter event straight through. Reading ``.state`` off the
-    wrapper silently fails, which made every button-delivered release look stateless
-    regardless of where it came from -- and costs a wrong theory about which releases were
-    genuine.
+    Two bindings deliver events to a HoldButton: guizero's when_left_button_released, which
+    wraps the real event in an EventData exposing only x/y/widget/keycode, and raw tk.bind(),
+    which passes the tkinter event straight through. Reading .state off the wrapper silently
+    fails, which made every button-delivered release look stateless regardless of where it
+    came from -- and costs a wrong theory about which releases were genuine.
     """
     if event is None:
         return None
@@ -99,7 +98,7 @@ class TouchContactFilter:
 
     Owns the two pieces of state a plain button has no use for:
 
-    * the **recovery window** -- a release is held in suspense for ``recovery_ms``, and
+    * the **recovery window** -- a release is held in suspense for recovery_ms, and
       withdrawn entirely if the contact proves to be still down before it expires;
     * the **abandon ledger** -- when a hold was lost anyway, the press that immediately
       follows can inherit its progress instead of starting from zero.
@@ -138,7 +137,7 @@ class TouchContactFilter:
         return self._abandoned_at is not None
 
     def arm(self, banked: float) -> None:
-        """Suspend a release for the recovery window. ``banked`` is logged, not stored."""
+        """Suspend a release for the recovery window. banked is logged, not stored."""
         self._release_pending = True
         self._host._vdiag("release-deferred", f"banked={banked:.3f}s window={self._recovery_ms}ms")
         self._cancel_timer()
@@ -177,7 +176,7 @@ class TouchContactFilter:
         self._abandoned_banked = banked
 
     def inherited_progress(self, press_time: float) -> float:
-        """Hold time a press starting at ``press_time`` should be credited with.
+        """Hold time a press starting at press_time should be credited with.
 
         Zero in the ordinary case. A non-zero result means a flip costs the user their
         progress and this press is the same gesture continuing -- which needs no theory

@@ -8,9 +8,9 @@
 #
 """Creation of Accessory and Switch records from the Enter key.
 
-Headless throughout: ``EngineGui`` is exercised through an ``__new__`` shell carrying only the
-attributes the creation path touches, and ``KeypadView`` against a ``SimpleNamespace`` host, in
-the style of ``tests/gui/test_engine_gui_transitions.py``.
+Headless throughout: EngineGui is exercised through an __new__ shell carrying only the
+attributes the creation path touches, and KeypadView against a SimpleNamespace host, in
+the style of tests/gui/test_engine_gui_transitions.py.
 """
 
 import threading
@@ -227,7 +227,8 @@ def test_engines_are_deliberately_out_of_scope_for_now() -> None:
 def _host(scope: CommandScope, tmcc_id: str) -> SimpleNamespace:
     host = SimpleNamespace()
     host.scope = scope
-    host.calls: list[tuple] = []
+    calls: list[tuple] = []
+    host.calls = calls
     host.tmcc_id_text = SimpleNamespace(value=tmcc_id)
     host.make_recent = lambda s, t, state=None: host.calls.append(("make_recent", s, t)) or False
     host.ops_mode = lambda update_info=False, state=None: host.calls.append(("ops_mode", update_info, state))
@@ -326,7 +327,8 @@ def test_the_set_key_create_path_is_unchanged(monkeypatch) -> None:
 
 def _promotable(scope: CommandScope = CommandScope.ACC, store: DummyStore = None) -> gui_mod.EngineGui:
     gui = _gui(scope, store)
-    gui.promoted: list[tuple] = []
+    promoted: list[tuple] = []
+    gui.promoted = promoted
     gui.make_recent = lambda s, t, state=None: gui.promoted.append(("make_recent", s, t)) or True
     gui._request_options_rebuild = lambda: gui.promoted.append(("rebuild",))
     gui._reset_catalog_configured_accessories = lambda: gui.promoted.append(("catalog",))

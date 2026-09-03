@@ -14,9 +14,9 @@ import struct
 import sys
 import threading
 
-# When this probe's stdout is a terminal it is line-buffered, so every ``print``
+# When this probe's stdout is a terminal it is line-buffered, so every print
 # appears immediately. But when the output is redirected to a file (e.g. a
-# Non-Steam launcher doing ``... > deckinfo_out.txt``), Python switches stdout to
+# Non-Steam launcher doing ... > deckinfo_out.txt), Python switches stdout to
 # *block* buffering. Because the probe runs an infinite event loop and is
 # force-quit (its buffer is never flushed), the redirected file stays empty --
 # exactly the "nothing shows up in the log" symptom. Force line buffering so each
@@ -28,11 +28,11 @@ except (AttributeError, ValueError):  # pre-3.7 or already-detached stream
     pass
 
 # This probe imports PyTrain's private SDL helpers to report the real touchpad
-# count. PyTrain uses a ``src`` layout, so when it is not pip-installed into the
+# count. PyTrain uses a src layout, so when it is not pip-installed into the
 # interpreter running this script (common on the Steam Deck, where the probe is
-# launched directly as ``../bin/python scripts/deckinfo.py``), ``pytrain`` is not
-# importable unless the repo's ``src`` directory is on ``sys.path``. Add it so
-# the touchpad query works whether or not PyTrain is installed.
+# launched directly as ../bin/python scripts/deckinfo.py), pytrain is not
+# importable unless the repo's src directory is on sys.path. Add it so the
+# touchpad query works whether or not PyTrain is installed.
 _SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if os.path.isdir(os.path.join(_SRC_DIR, "pytrain")) and _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
@@ -71,7 +71,7 @@ print("pygame version:", pygame.version.ver, " SDL version:", ".".join(str(v) fo
 _controllers = []
 for _index in range(pygame.joystick.get_count()):
     js = pygame.joystick.Joystick(_index)
-    # ``buttons`` is the joystick button count: a profile may only bind indices
+    # buttons is the joystick button count: a profile may only bind indices
     # 0..buttons-1. If a physical button's JOYSTICK index is never printed below,
     # it is outside this count and cannot be bound by index.
     print("name:", js.get_name(), " buttons:", js.get_numbuttons(), " axes:", js.get_numaxes())
@@ -86,19 +86,19 @@ for _index in range(pygame.joystick.get_count()):
 # SDL numbers buttons two different ways, and mixing them up is an easy way to
 # bind a control that never fires:
 #
-#   * The *joystick* API (``JOYBUTTONDOWN``, ``event.button``) reports the device's
+#   * The *joystick* API (JOYBUTTONDOWN, event.button) reports the device's
 #     own button order. On the Deck that is the Linux joydev/xpad order -- 0-3
 #     A/B/X/Y, 4/5 L1/R1, 6 View, 7 Menu, 8 Steam, 9/10 stick clicks -- with the
 #     D-pad delivered as hat motion rather than as buttons.
-#   * The *game controller* API (``CONTROLLERBUTTONDOWN``) reports SDL's fixed
-#     ``SDL_CONTROLLER_BUTTON_*`` enum, where GUIDE (Steam) is 5, the D-pad is
+#   * The *game controller* API (CONTROLLERBUTTONDOWN) reports SDL's fixed
+#     SDL_CONTROLLER_BUTTON_* enum, where GUIDE (Steam) is 5, the D-pad is
 #     11-14, and MISC1 (the "..." button) is 15.
 #
-# PyTrain's profile (``steam_deck_default.json``) is indexed by the *joystick*
-# numbering, because ``SteamDeckInputProvider`` reads ``JOYBUTTONDOWN``. So print
-# both, clearly labelled: only the JOYSTICK number can go in the profile, and a
-# button that produces a CONTROLLER line but no JOYSTICK line cannot be bound by
-# index at all.
+# PyTrain's profile (steam_deck_default.json) is indexed by the *joystick*
+# numbering, because SteamDeckInputProvider reads JOYBUTTONDOWN. So print both,
+# clearly labeled: only the JOYSTICK number can go in the profile, and a button
+# that produces a CONTROLLER line but no JOYSTICK line cannot be bound by index
+# at all.
 _CONTROLLER_BUTTON_NAMES = {
     0: "A",
     1: "B",
@@ -123,7 +123,7 @@ _CONTROLLER_BUTTON_NAMES = {
     20: "TOUCHPAD",
 }
 
-# Allow the controller button + touchpad events so ``pygame.event.get()`` actually
+# Allow the controller button + touchpad events so pygame.event.get() actually
 # delivers them.
 for _name in (
     "CONTROLLERBUTTONDOWN",
@@ -142,21 +142,21 @@ for _name in (
 # SDL never surfaces the Deck's built-in trackpads as controller touchpads, so
 # the CONTROLLERTOUCHPAD* events above never fire on the Deck. As an alternative
 # input path we read the controller's raw 64-byte HID input reports directly
-# from its ``/dev/hidraw*`` node -- those reports carry absolute trackpad
+# from its /dev/hidraw* node -- those reports carry absolute trackpad
 # coordinates. A dedicated daemon thread performs the blocking reads and hands
 # each report to this (single-threaded) event loop through a thread-safe
-# ``queue.Queue``, keeping the reader fully decoupled from pygame. Once this is
-# proven here it will be ported into ``SteamDeckInput`` as an alternate
-# ``quilling_horn`` producer.
+# queue.Queue, keeping the reader fully decoupled from pygame. Once this is
+# proven here it will be ported into SteamDeckInput as an alternate
+# quilling_horn producer.
 # ---------------------------------------------------------------------------
 _DECK_VID = 0x28DE
 _DECK_PID = 0x1205  # Steam Deck built-in controller
 
 # Byte offsets into the Deck's 64-byte input "state" report. The report begins
 # with 0x01 0x00 0x09 0x40 (unReportVersion=0x0001, ucType=0x09, ucLength=0x40).
-# These offsets mirror the Linux ``hid-steam`` driver's decode. They are
-# best-effort -- if a firmware revision moves them, the raw hex dump printed for
-# the first report of each node lets you confirm/adjust them.
+# These offsets mirror the Linux hid-steam driver's decode. They are best-effort
+# -- if a firmware revision moves them, the raw hex dump printed for the first
+# report of each node lets you confirm/adjust them.
 _DECK_STATE_TYPE = 0x09
 _DECK_TOUCH_BYTE = 10  # bit3 = left pad touched, bit4 = right pad touched
 _DECK_LPAD_TOUCH_BIT = 1 << 3
@@ -166,8 +166,8 @@ _DECK_RPAD_OFFSET = 20  # s16 LE x immediately followed by s16 LE y
 
 
 def _find_deck_hidraw_paths():
-    # Locate every ``/dev/hidraw*`` node that belongs to the Deck controller by
-    # matching its VID/PID in the sysfs ``uevent`` (HID_ID=0003:000028DE:00001205).
+    # Locate every /dev/hidraw* node that belongs to the Deck controller by
+    # matching its VID/PID in the sysfs uevent (HID_ID=0003:000028DE:00001205).
     paths = []
     hid_id = f":{_DECK_VID:08X}:{_DECK_PID:08X}".lower()
     for sys_path in sorted(glob.glob("/sys/class/hidraw/hidraw*")):
@@ -185,8 +185,8 @@ def _find_deck_hidraw_paths():
 class _HidrawReader(threading.Thread):
     """Read 64-byte HID reports from one hidraw node and queue them.
 
-    The blocking ``os.read`` runs on its own daemon thread, so it never stalls
-    the main event loop; each report (or an error) is delivered via ``out_queue``.
+    The blocking os.read runs on its own daemon thread, so it never stalls
+    the main event loop; each report (or an error) is delivered via out_queue.
     """
 
     def __init__(self, path, out_queue):

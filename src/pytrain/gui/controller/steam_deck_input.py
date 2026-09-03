@@ -100,10 +100,10 @@ CLOSE_POPUP_BUTTON = 2
 # buttons in total: 0-10 are the face/shoulder buttons, View, Menu, Steam and the
 # stick clicks; 15 is the "..." button below the right trackpad; and 16-19 are the
 # back paddles (16 = R4, 17 = L4, 18 = R5, 19 = L5). None of them is the D-pad.
-# Confirmed with ``scripts/deckinfo.py``, which mirrors this module's SDL setup.
+# Confirmed with scripts/deckinfo.py, which mirrors this module's SDL setup.
 # While the catalog panel is open, up/down scroll the highlighted entry in
 # the focused pane one at a time (or jump to the first/last entry when the
-# ``CATALOG_JUMP_MODIFIER`` button is held), right confirms the highlighted entry, and left
+# CATALOG_JUMP_MODIFIER button is held), right confirms the highlighted entry, and left
 # cancels/closes the catalog panel. Otherwise (no catalog), up/down boost/brake
 # the engine or train speed (auto-repeating while held) and left/right
 # lower/raise the smoke output (SMOKE_OFF/SMOKE_ON, one-shot per press).
@@ -111,7 +111,7 @@ DPAD_UP = "dpad_up"
 DPAD_DOWN = "dpad_down"
 DPAD_LEFT = "dpad_left"
 DPAD_RIGHT = "dpad_right"
-# The profile keys a ``dpad`` section uses, and the runtime action each one emits. Spelled
+# The profile keys a dpad section uses, and the runtime action each one emits. Spelled
 # without the prefix in the profile because "up" reads better next to a button index than
 # "dpad_up" does; the runtime name keeps the prefix because it travels with every other
 # action name.
@@ -131,9 +131,9 @@ DPAD_COMMANDS = {
     "smoke_down": "SMOKE_OFF",
 }
 # A button assigned the "startup" or "shutdown" action distinguishes a short
-# press from a long press: a short press emits the ``*_IMMEDIATE`` action
+# press from a long press: a short press emits the *_IMMEDIATE action
 # (START_UP_IMMEDIATE / SHUTDOWN_IMMEDIATE) while a hold of at least
-# ``LONG_PRESS_SECONDS`` emits the ``*_DELAYED`` action (START_UP_DELAYED /
+# LONG_PRESS_SECONDS emits the *_DELAYED action (START_UP_DELAYED /
 # SHUTDOWN_DELAYED, each falling back to its immediate variant for TMCC engines
 # that lack it). The command is emitted once, on release.
 STARTUP_IMMEDIATE = "startup_immediate"
@@ -155,16 +155,16 @@ LONG_PRESS_ACTIONS = {
     "shutdown": (SHUTDOWN_IMMEDIATE, SHUTDOWN_DELAYED),
 }
 # The runtime names those emit, flattened. A context binds these as well as the profile-level
-# ``startup`` / ``shutdown``, because a trigger acting on a panel with no engine in it never
-# waits to tell a short press from a held one and so arrives under either name.
+# startup / shutdown, because a trigger acting on a panel with no engine in it never waits to
+# tell a short press from a held one and so arrives under either name.
 LONG_PRESS_RUNTIME_ACTIONS = frozenset(name for pair in LONG_PRESS_ACTIONS.values() for name in pair)
 # Actions no context may rebind or swallow. HALT has to work whatever is on screen, and the
 # focus and help actions are how an operator gets out of a pane that is misbehaving -- the
-# same reasoning that makes ``_validate_action_target`` refuse a HALT that is not global.
+# same reasoning that makes _validate_action_target refuse a HALT that is not global.
 PROTECTED_ACTIONS = frozenset({"halt", "focus_left", "focus_right", "focus_toggle", "show_controls"})
 # What a panel showing a track switch or a route does with the controls that would otherwise
-# drive an engine now lives in ``accessory_bindings`` as data -- one table entry per control
-# per panel type, rather than a pair of module constants and a hand-written handler apiece.
+# drive an engine now lives in accessory_bindings as data -- one table entry per control per
+# panel type, rather than a pair of module constants and a hand-written handler apiece.
 # _handle_contexts below reads that table; the names in this block are derived from it and kept
 # because control_labels renders the help screen from them.
 #
@@ -222,8 +222,8 @@ PANEL_COMMANDS = {
     # Bound to the back paddles in the bundled profile. Each of these resolves for
     # both Legacy (TMCC2) and non-Legacy (TMCC1) engines/trains, so the same command
     # works regardless of control type. Volume is a relative step, so those two are
-    # flagged ``repeat`` in the profile and re-send while held; the chatter commands
-    # are one-shot.
+    # flagged repeat in the profile and re-send while held; the chatter commands are
+    # one-shot.
     "volume_up": "VOLUME_UP",
     "volume_down": "VOLUME_DOWN",
     "engineer_chatter": "ENGINEER_CHATTER",
@@ -234,9 +234,9 @@ PANEL_COMMANDS = {
 # wants of it.
 DPAD_ACTIONS = {**DPAD_COMMANDS, **PANEL_COMMANDS}
 # The A button runs the engine's "automatic sequence control": it sends the
-# AUX1_OPTION_ONE command every ``repeat_interval`` (100 ms) for
-# ``SEQUENCE_CONTROL_DURATION`` seconds, mirroring holding the physical AUX1
-# button. ``AUX1_OPTION_ONE`` resolves for both Legacy (TMCC2) and non-Legacy
+# AUX1_OPTION_ONE command every repeat_interval (100 ms) for
+# SEQUENCE_CONTROL_DURATION seconds, mirroring holding the physical AUX1
+# button. AUX1_OPTION_ONE resolves for both Legacy (TMCC2) and non-Legacy
 # (TMCC1) engines/trains, so the same command works regardless of control type.
 SEQUENCE_CONTROL = "sequence_control"
 SEQUENCE_CONTROL_COMMAND = "AUX1_OPTION_ONE"
@@ -244,28 +244,27 @@ SEQUENCE_CONTROL_DURATION = 3.1
 # While the catalog panel is open, holding the D-pad up/down auto-repeats the
 # highlighted-entry scroll. The first scroll fires immediately on press; the
 # auto-repeat then only begins after the key has been held for
-# ``CATALOG_SCROLL_INITIAL_DELAY`` seconds and thereafter advances one entry
-# every ``CATALOG_SCROLL_REPEAT_INTERVAL`` seconds. These are deliberately
-# slower than the 100 ms ``repeat_interval`` so catalog selection is not too
-# quick to control.
+# CATALOG_SCROLL_INITIAL_DELAY seconds and thereafter advances one entry
+# every CATALOG_SCROLL_REPEAT_INTERVAL seconds. These are deliberately slower
+# than the 100 ms repeat_interval so catalog selection is not too quick to
+# control.
 CATALOG_SCROLL_INITIAL_DELAY = 0.5
 CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
-# Profile ``buttons`` indices are *joystick* numbers (``JOYBUTTONDOWN``/
-# ``event.button``), which is the only button numbering this module reads. SDL's game
-# controller API numbers the same buttons differently (its fixed
-# ``SDL_CONTROLLER_BUTTON_*`` enum: on the Deck, Steam is joystick 8 but controller
-# 5) and exposes extras the joystick API may omit -- ``misc1`` = the Deck's "..."
-# button, ``paddle1``-``paddle4`` = L4/R4/L5/R5. Those numbers are NOT usable here.
-# ``scripts/deckinfo.py`` prints both, labelled, when a physical button's index needs
-# identifying.
+# Profile buttons indices are *joystick* numbers (JOYBUTTONDOWN/ event.button), which
+# is the only button numbering this module reads. SDL's game controller API numbers
+# the same buttons differently (its fixed SDL_CONTROLLER_BUTTON_* enum: on the Deck,
+# Steam is joystick 8 but controller 5) and exposes extras the joystick API may omit
+# -- misc1 = the Deck's "..." button, paddle1-paddle4 = L4/R4/L5/R5. Those numbers
+# are NOT usable here. scripts/deckinfo.py prints both, labeled, when a physical
+# button's index needs identifying.
 #
 # Being *reported* is not the same as being *available*: pressing "..." opens Steam's
 # Quick Settings panel and the app never sees the button, not even as a momentary press.
 # Confirmed on-device -- a binding on index 15 does nothing at all. So "..." is unusable
 # for anything: not as a chord modifier, and not as a plain button.
 # Analog action for the L2/R2 triggers. While a trigger is held past its dead
-# zone the router emits ``HORN_COMMAND`` every ``repeat_interval`` (100 ms).
-# ``on_engine_command`` resolves the fallback list per engine generation: a
+# zone the router emits HORN_COMMAND every repeat_interval (100 ms).
+# on_engine_command resolves the fallback list per engine generation: a
 # Legacy engine sounds the Quilling Horn with the supplied intensity while a
 # non-Legacy engine (TMCC/Cab-1/R100) falls through to the plain Blow Horn
 # (intensity ignored).
@@ -274,32 +273,32 @@ HORN_MAX_INTENSITY = 15
 HORN_COMMAND = ["QUILLING_HORN", "BLOW_HORN_ONE"]
 # Triggers (L2/R2) rest at one extreme and travel to the other, so they don't
 # suffer from the resting jitter that the sticks do. They therefore use their
-# own, much smaller dead zone than ``dead_zone`` (which the sticks need) so the
+# own, much smaller dead zone than dead_zone (which the sticks need) so the
 # horn responds almost as soon as the trigger leaves its resting position. It
 # is kept just above zero as a guard against a trigger whose idle value drifts
 # slightly off its resting extreme. Profiles may override it via
-# ``trigger_dead_zone``.
+# trigger_dead_zone.
 DEFAULT_TRIGGER_DEAD_ZONE = 0.02
 # The Steam Deck trackpads surface through SDL's Game Controller *touchpad*
 # events (CONTROLLERTOUCHPADDOWN/MOTION/UP), not the joystick API the rest of
 # the provider uses, so they are captured through a separate controller-
-# subsystem path. Each pad is identified by its ``touch_id`` (index 0 = left,
-# 1 = right on the Steam Deck) and reports a finger position whose ``y`` runs
-# 0.0 (top) -> 1.0 (bottom). A profile ``touchpads`` section maps a pad index
-# to the ``quilling_horn`` action so pulling a finger down the pad sounds the
-# horn, mirroring the on-screen vertical horn slider.
+# subsystem path. Each pad is identified by its touch_id (index 0 = left, 1 =
+# right on the Steam Deck) and reports a finger position whose y runs 0.0
+# (top) -> 1.0 (bottom). A profile touchpads section maps a pad index to the
+# quilling_horn action so pulling a finger down the pad sounds the horn,
+# mirroring the on-screen vertical horn slider.
 TOUCHPAD_ACTIONS = {"quilling_horn"}
 # Admin panel operations, reachable as L1 + a face button *only while the admin panel
 # is on screen* -- the router drops them otherwise, so no chord can reboot or shut
-# down the machine from an operating screen. Each maps to the ``TMCC1SyncCommandEnum``
+# down the machine from an operating screen. Each maps to the TMCC1SyncCommandEnum
 # member the panel's own buttons send, resolved GUI-side like the PANEL_COMMANDS above.
 #
 # NOTE: these are destructive, so a chord does not bypass the hold guard the panel's
 # on-screen buttons impose. The press starts the matching button's own 3-second hold
-# (``hold_threshold``, with its visible "Hold for 3 seconds" progress bar) and the
-# command fires only once that completes; releasing either button first cancels it. A
-# chord therefore gets the same dwell and the same feedback as a finger, with no second
-# copy of the timing logic -- see ``_handle_admin_command``.
+# (hold_threshold, with its visible "Hold for 3 seconds" progress bar) and the command
+# fires only once that completes; releasing either button first cancels it. A chord
+# therefore gets the same dwell and the same feedback as a finger, with no second copy
+# of the timing logic -- see _handle_admin_command.
 ADMIN_COMMANDS = {
     "admin_quit": "QUIT",
     "admin_update": "UPDATE",
@@ -336,7 +335,7 @@ SHOW_CONTROLS = "show_controls"
 CATALOG_JUMP_MODIFIER = "front_coupler"
 # Fraction of the pad, measured from the top edge, treated as "off" so a finger
 # resting at the very top does not sound the horn. Profiles may override it via
-# ``touch_dead_zone``.
+# touch_dead_zone.
 DEFAULT_TOUCH_DEAD_ZONE = 0.05
 DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 
@@ -347,11 +346,11 @@ DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
 # SDL never surfaces the Deck's built-in trackpads as controller touchpads, so
 # the CONTROLLERTOUCHPAD* events the provider listens for never fire on the
 # Deck. As an alternative input path we read the controller's raw 64-byte HID
-# input reports directly from its ``/dev/hidraw*`` node -- those reports carry
+# input reports directly from its /dev/hidraw* node -- those reports carry
 # absolute trackpad coordinates. A dedicated daemon thread performs the blocking
 # reads and hands each report to the (single-threaded) provider through a
-# thread-safe ``queue.Queue``, keeping the reader fully decoupled from pygame.
-# This mirrors the probe proven out in ``scripts/deckinfo.py``.
+# thread-safe queue.Queue, keeping the reader fully decoupled from pygame. This
+# mirrors the probe proven out in scripts/deckinfo.py.
 # ---------------------------------------------------------------------------
 _DECK_VID = 0x28DE
 _DECK_PID = 0x1205  # Steam Deck built-in controller
@@ -360,12 +359,12 @@ _DECK_PID = 0x1205  # Steam Deck built-in controller
 # it hands the app a virtual pad on which an unbound paddle emits *nothing at all* --
 # not a remapped button, not an unknown index. (Run from a Desktop Mode shell, SDL
 # does report the physical device's 20 buttons, paddles included, which is what
-# ``scripts/deckinfo.py`` sees. That path is not available to the app under Steam.)
+# scripts/deckinfo.py sees. That path is not available to the app under Steam.)
 # Reading the raw HID report bypasses Steam Input entirely.
 #
-# Bits measured with ``scripts/deckinfo.py``, which names the byte and bit of any
-# button pressed. The dict is keyed by the button index SDL uses for the same paddle
-# on the physical device, so one profile binding covers both routes.
+# Bits measured with scripts/deckinfo.py, which names the byte and bit of any button
+# pressed. The dict is keyed by the button index SDL uses for the same paddle on the
+# physical device, so one profile binding covers both routes.
 _DECK_PADDLE_BUTTONS = {
     16: (13, 1 << 2),  # R4
     17: (13, 1 << 1),  # L4
@@ -374,27 +373,27 @@ _DECK_PADDLE_BUTTONS = {
 }
 # Byte offsets into the Deck's 64-byte input "state" report. The report begins
 # with 0x01 0x00 0x09 0x40 (unReportVersion=0x0001, ucType=0x09, ucLength=0x40).
-# These offsets mirror the Linux ``hid-steam`` driver's decode.
+# These offsets mirror the Linux hid-steam driver's decode.
 _DECK_STATE_TYPE = 0x09
 _DECK_TOUCH_BYTE = 10  # bit3 = left pad touched, bit4 = right pad touched
 _DECK_LPAD_TOUCH_BIT = 1 << 3
 _DECK_RPAD_TOUCH_BIT = 1 << 4
 _DECK_LPAD_OFFSET = 16  # s16 LE x immediately followed by s16 LE y
 _DECK_RPAD_OFFSET = 20  # s16 LE x immediately followed by s16 LE y
-# The Deck reports each pad coordinate as a signed 16-bit value; the pad's ``y``
-# axis runs from ``+32767`` at the top edge to ``-32768`` at the bottom edge.
+# The Deck reports each pad coordinate as a signed 16-bit value; the pad's y
+# axis runs from +32767 at the top edge to -32768 at the bottom edge.
 _DECK_PAD_MIN = -32768
 _DECK_PAD_MAX = 32767
 _DECK_PAD_RANGE = _DECK_PAD_MAX - _DECK_PAD_MIN
-# The provider maps the left pad to ``touch_id`` 0 and the right pad to 1,
-# matching the SDL touchpad indices the ``touchpads`` profile section uses.
+# The provider maps the left pad to touch_id 0 and the right pad to 1,
+# matching the SDL touchpad indices the touchpads profile section uses.
 _DECK_LEFT_TOUCH_ID = 0
 _DECK_RIGHT_TOUCH_ID = 1
 
 
 def _find_deck_hidraw_paths() -> list[str]:
-    # Locate every ``/dev/hidraw*`` node that belongs to the Deck controller by
-    # matching its VID/PID in the sysfs ``uevent`` (HID_ID=0003:000028DE:00001205).
+    # Locate every /dev/hidraw* node that belongs to the Deck controller by
+    # matching its VID/PID in the sysfs uevent (HID_ID=0003:000028DE:00001205).
     # Returns an empty list off the Deck (or anywhere without matching sysfs),
     # so the reader stays inert on non-Deck hardware.
     paths: list[str] = []
@@ -412,9 +411,8 @@ def _find_deck_hidraw_paths() -> list[str]:
 
 
 def _decode_deck_pads(report: bytes) -> tuple[bool, tuple[int, int], bool, tuple[int, int]] | None:
-    # Return ``(lpad_touched, (lx, ly), rpad_touched, (rx, ry))`` for a Deck
-    # "state" packet, or ``None`` for any other report type / a report too short
-    # to decode.
+    # Return (lpad_touched, (lx, ly), rpad_touched, (rx, ry)) for a Deck "state"
+    # packet, or None for any other report type / a report too short to decode.
     if len(report) < _DECK_RPAD_OFFSET + 4:
         return None
     if report[0] != 0x01 or report[2] != _DECK_STATE_TYPE:
@@ -428,7 +426,7 @@ def _decode_deck_pads(report: bytes) -> tuple[bool, tuple[int, int], bool, tuple
 
 
 def _decode_deck_paddles(report: bytes) -> dict[int, bool] | None:
-    # Return ``{button index: pressed}`` for the back paddles in a state packet, or
+    # Return {button index: pressed} for the back paddles in a state packet, or
     # None for any other report type / a report too short to decode.
     if len(report) <= max(byte for byte, _mask in _DECK_PADDLE_BUTTONS.values()):
         return None
@@ -438,10 +436,10 @@ def _decode_deck_paddles(report: bytes) -> dict[int, bool] | None:
 
 
 def _deck_pad_y_fraction(raw_y: int) -> float:
-    # Convert a raw pad ``y`` (``+32767`` top .. ``-32768`` bottom) into the
-    # ``0.0`` (top) .. ``1.0`` (bottom) fraction ``_normalize_touch_y`` expects,
-    # so dragging a finger *down* the pad increases the horn -- mirroring the
-    # on-screen vertical horn slider.
+    # Convert a raw pad y (+32767 top .. -32768 bottom) into the 0.0 (top) ..
+    # 1.0 (bottom) fraction _normalize_touch_y expects, so dragging a finger
+    # *down* the pad increases the horn -- mirroring the on-screen vertical horn
+    # slider.
     fraction = (_DECK_PAD_MAX - raw_y) / _DECK_PAD_RANGE
     return max(0.0, min(1.0, fraction))
 
@@ -449,9 +447,9 @@ def _deck_pad_y_fraction(raw_y: int) -> float:
 class _HidrawTrackpadReader(threading.Thread):
     """Read 64-byte HID reports from one Deck hidraw node and queue them.
 
-    The blocking ``os.read`` runs on its own daemon thread so it never stalls
+    The blocking os.read runs on its own daemon thread so it never stalls
     the provider's poll loop; each report (or a one-off error) is delivered via
-    ``out_queue`` as ``("report", path, bytes)`` or ``("error", path, message)``.
+    out_queue as ("report", path, bytes) or ("error", path, message).
     """
 
     def __init__(self, path: str, out_queue: "queue.Queue") -> None:
@@ -502,7 +500,7 @@ class DeckAction:
     value: float
     phase: str
     button: int | None = None
-    # True when the ``CATALOG_JUMP_MODIFIER`` button (R1) was held as this action was
+    # True when the CATALOG_JUMP_MODIFIER button (R1) was held as this action was
     # produced. Only D-pad up/down presses set it. The provider reports only the
     # physical fact that the modifier was held, so the router keeps sole ownership of
     # what is on screen -- the flag is ignored when the catalog is closed.
@@ -522,8 +520,8 @@ class ButtonBinding:
     action: str
     target: Target
     repeat: bool = False
-    # Seconds between re-sends while the button is held. ``None`` uses the profile's
-    # global ``repeat_interval``; set it per button where that rate is wrong for the
+    # Seconds between re-sends while the button is held. None uses the profile's
+    # global repeat_interval; set it per button where that rate is wrong for the
     # command (volume steps, say, want a slower cadence than the horn).
     repeat_interval: float | None = None
 
@@ -542,8 +540,8 @@ class DpadBinding:
     repeat: bool = False
 
 
-# The D-pad's behaviour before it was bindable, kept as the default so a profile without a
-# ``dpad`` section -- the bundled one until this change, and any hand-written one still --
+# The D-pad's behavior before it was bindable, kept as the default so a profile without a
+# dpad section -- the bundled one until this change, and any hand-written one still --
 # behaves exactly as it did: up boosts and down brakes, each repeating while held, and
 # right/left raise and lower the smoke output one press at a time.
 DEFAULT_DPAD: Mapping[str, DpadBinding] = {
@@ -583,7 +581,7 @@ class ControlProfile:
     # The D-pad, which was hard-coded until it became as bindable as everything else. The
     # default is what it did before, so a profile that says nothing about it is unaffected.
     dpad: Mapping[str, DpadBinding] = field(default_factory=lambda: dict(DEFAULT_DPAD))
-    # The per-panel-type remap tables, the Python defaults with the profile's ``contexts``
+    # The per-panel-type remap tables, the Python defaults with the profile's contexts
     # section laid over them.
     contexts: Mapping[str, ContextSpec] = field(default_factory=lambda: dict(DEFAULT_CONTEXTS))
 
@@ -676,7 +674,7 @@ class ControlProfile:
 
         # The D-pad. A profile that says nothing keeps what it always did; one that names a
         # direction replaces that direction alone, so a section binding only "left" leaves the
-        # other three as they were. A direction bound to ``null`` is switched off.
+        # other three as they were. A direction bound to null is switched off.
         dpad: dict[str, DpadBinding] = dict(DEFAULT_DPAD)
         for raw_direction, raw_binding in cls._mapping(data, "dpad").items():
             name = DPAD_DIRECTIONS.get(str(raw_direction))
@@ -814,12 +812,12 @@ class SteamDeckInputProvider:
         # Resolves whether the panel a binding targets is showing a track switch or a route,
         # so a trigger bound to startup/shutdown can work that panel on the squeeze instead
         # of waiting for the release. Supplied by the router, which owns the panel lookup;
-        # ``None`` means every panel holds an engine, which is what the profile-only tests
-        # and any non-landscape caller want.
+        # None means every panel holds an engine, which is what the profile-only tests and
+        # any non-landscape caller want.
         self._fires_on_press = fires_on_press
         self._joysticks: dict[int, Any] = {}
-        # The optional ``pygame._sdl2.controller`` module used to open devices as
-        # game controllers (required for touchpad events); ``None`` when SDL's
+        # The optional pygame._sdl2.controller module used to open devices as
+        # game controllers (required for touchpad events); None when SDL's
         # game-controller support is unavailable.
         self._controller_module: Any = None
         # Devices opened as SDL game controllers so their touchpad events fire;
@@ -853,9 +851,9 @@ class SteamDeckInputProvider:
         self._long_press_chorded: set[int] = set()
         # Raw hidraw trackpad reader state (Steam Deck built-in pads). On the
         # Deck SDL never delivers the built-in trackpads as controller touchpad
-        # events, so their reports are read directly from ``/dev/hidraw*`` on a
-        # background thread and translated into the same ``quilling_horn`` touch
-        # actions in ``poll()``. All inert off the Deck / when no pad is bound.
+        # events, so their reports are read directly from /dev/hidraw* on a
+        # background thread and translated into the same quilling_horn touch
+        # actions in poll(). All inert off the Deck / when no pad is bound.
         self._hidraw_queue: queue.Queue | None = None
         self._hidraw_readers: list[_HidrawTrackpadReader] = []
         # touch_id -> whether the pad currently has a finger down, so a release
@@ -886,8 +884,8 @@ class SteamDeckInputProvider:
             self._pygame.joystick.init()
             # Initialize the SDL game-controller subsystem alongside the
             # joystick subsystem so the Steam Deck trackpads emit touchpad
-            # events. It is optional: if the ``pygame._sdl2.controller`` module
-            # is unavailable the horn simply loses its trackpad source while all
+            # events. It is optional: if the pygame._sdl2.controller module is
+            # unavailable the horn simply loses its trackpad source while all
             # other (joystick) controls keep working.
             self._init_controller_subsystem()
             controller_events = [
@@ -924,10 +922,10 @@ class SteamDeckInputProvider:
                     os.environ[name] = value
 
     def _init_controller_subsystem(self) -> None:
-        # Locate the optional ``pygame._sdl2.controller`` module and initialize
-        # it so devices can be opened as game controllers (a prerequisite for
+        # Locate the optional pygame._sdl2.controller module and initialize it
+        # so devices can be opened as game controllers (a prerequisite for
         # touchpad events). Prefer importing the submodule of whatever pygame
-        # package we are using; fall back to an already-attached ``_sdl2``
+        # package we are using; fall back to an already-attached _sdl2
         # attribute (used by the tests' fake pygame). Any failure simply leaves
         # the trackpad horn disabled without affecting the joystick controls.
         self._controller_module = None
@@ -955,7 +953,7 @@ class SteamDeckInputProvider:
         # trackpads can drive the horn even though SDL never surfaces them as
         # controller touchpads. This only does anything when a pad is actually
         # bound to an action *and* a Deck controller is present, so it stays
-        # completely inert on other hardware (``_find_deck_hidraw_paths`` returns
+        # completely inert on other hardware (_find_deck_hidraw_paths returns
         # nothing there).
         if not self.profile.touchpads:
             return
@@ -979,7 +977,7 @@ class SteamDeckInputProvider:
         self._hidraw_errors.clear()
 
     def _drain_hidraw_pads(self) -> list[DeckAction]:
-        # Translate any queued Deck HID reports into the same ``quilling_horn``
+        # Translate any queued Deck HID reports into the same quilling_horn
         # touch actions the SDL touchpad path produces. Each report carries both
         # pads' current touch state and coordinates, so only the most recent one
         # per node matters: drain the queue, keep the latest, then diff it
@@ -1012,7 +1010,7 @@ class SteamDeckInputProvider:
 
     def _hidraw_paddle_actions(self, payload: bytes) -> list[DeckAction]:
         # Turn the paddle bits of one report into press/release actions, feeding them
-        # through the same ``_button_actions`` path the SDL buttons use so a paddle is
+        # through the same _button_actions path the SDL buttons use so a paddle is
         # bound, repeated and chorded exactly like any other button. Only edges are
         # emitted; a held paddle produces nothing until it changes.
         pressed_by_index = _decode_deck_paddles(payload)
@@ -1029,8 +1027,8 @@ class SteamDeckInputProvider:
     def _hidraw_pad_action(self, touch_id: int, touched: bool, raw_y: int) -> list[DeckAction]:
         # Bridge one pad's raw HID state into the existing touch handlers so the
         # horn behaves identically to the SDL touchpad path: a bound, touched pad
-        # feeds its vertical fraction through ``_touch_moved`` (finger 0), and a
-        # lift emits a single ``_touch_up``.
+        # feeds its vertical fraction through _touch_moved (finger 0), and a lift
+        # emits a single _touch_up.
         if self.profile.touchpads.get(touch_id) is None:
             return []
         if touched:
@@ -1153,13 +1151,13 @@ class SteamDeckInputProvider:
         return math.copysign(min(1.0, scaled), value) if scaled else 0.0
 
     def _normalize_trigger(self, axis: int, value: float) -> float:
-        # SDL analog triggers rest at ``-1.0`` and travel to ``+1.0`` when fully
-        # depressed, unlike sticks that rest centered at ``0.0``. Map that
-        # ``[-1, +1]`` travel onto ``[0, 1]``. Triggers use their own, much
-        # smaller ``trigger_dead_zone`` (rather than the stick ``dead_zone``) so
-        # the horn responds almost as soon as the trigger leaves its resting
-        # position, while still guarding against a released trigger whose idle
-        # value drifts slightly off ``-1.0``.
+        # SDL analog triggers rest at -1.0 and travel to +1.0 when fully
+        # depressed, unlike sticks that rest centered at 0.0. Map that [-1, +1]
+        # travel onto [0, 1]. Triggers use their own, much smaller
+        # trigger_dead_zone (rather than the stick dead_zone) so the horn
+        # responds almost as soon as the trigger leaves its resting position,
+        # while still guarding against a released trigger whose idle value
+        # drifts slightly off -1.0.
         fraction = (value + 1.0) / 2.0
         fraction = max(0.0, min(1.0, fraction))
         dead_zone = self.profile.trigger_dead_zone
@@ -1178,11 +1176,11 @@ class SteamDeckInputProvider:
     def _trigger_button_actions(self, axis: int, binding: AxisBinding, value: float) -> list[DeckAction]:
         # A discrete action (e.g. focus_left/focus_right) bound to an analog
         # trigger fires once each time the trigger is squeezed past its dead
-        # zone. ``_normalize_trigger`` applies the trigger dead zone and
-        # hysteresis (returning 0.0 while the trigger rests), so any non-zero
-        # fraction means the trigger is engaged. The command is emitted only on
-        # the rising edge; the trigger must return to its resting position
-        # before it can fire again.
+        # zone. _normalize_trigger applies the trigger dead zone and hysteresis
+        # (returning 0.0 while the trigger rests), so any non-zero fraction
+        # means the trigger is engaged. The command is emitted only on the
+        # rising edge; the trigger must return to its resting position before
+        # it can fire again.
         fraction = self._normalize_trigger(axis, value)
         if fraction > 0.0:
             if axis in self._trigger_pressed:
@@ -1197,8 +1195,8 @@ class SteamDeckInputProvider:
         # behave like the equivalent button: squeezing it past the dead zone is
         # a press and letting it return to rest is a release. As with the
         # button, the command is emitted once on release and distinguishes a
-        # short press (*_IMMEDIATE) from a hold of at least ``LONG_PRESS_SECONDS``
-        # (*_DELAYED). ``_normalize_trigger`` applies the trigger dead zone and
+        # short press (*_IMMEDIATE) from a hold of at least LONG_PRESS_SECONDS
+        # (*_DELAYED). _normalize_trigger applies the trigger dead zone and
         # hysteresis, so any non-zero fraction means the trigger is engaged.
         fraction = self._normalize_trigger(axis, value)
         immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
@@ -1230,7 +1228,7 @@ class SteamDeckInputProvider:
         return bool(self._fires_on_press is not None and self._fires_on_press(binding.target))
 
     def _normalize_touch_y(self, y: float) -> float:
-        # A trackpad reports a finger position with ``y`` running 0.0 at the top
+        # A trackpad reports a finger position with y running 0.0 at the top
         # edge to 1.0 at the bottom. Map that onto a horn fraction so the top of
         # the pad is off/soft and the bottom is full, with a small top dead zone
         # so a finger resting near the top does not sound the horn. This mirrors
@@ -1273,8 +1271,8 @@ class SteamDeckInputProvider:
         actions: list[DeckAction] = []
         # A button can reach this from two routes -- SDL, and the raw HID reader for
         # the back paddles -- and in Desktop Mode both see the same paddle. Treat
-        # ``_held_buttons`` as the single source of truth so whichever route reports
-        # the edge first wins and the other is a no-op, rather than firing twice.
+        # _held_buttons as the single source of truth so whichever route reports the
+        # edge first wins and the other is a no-op, rather than firing twice.
         if pressed == (button in self._held_buttons):
             return actions
         completed_chord = False
@@ -1350,10 +1348,10 @@ class SteamDeckInputProvider:
         return [DeckAction(name, binding.target, 1.0, "pressed", button)]
 
     def _hat_actions(self, value: Any) -> list[DeckAction]:
-        # The D-pad reports as an SDL hat; ``value`` is an ``(x, y)`` tuple with
-        # ``y == 1`` up, ``y == -1`` down, ``x == 1`` right, and ``x == -1``
-        # left. Emit a single one-shot action each time a direction changes to a
-        # non-neutral position so the catalog scrolls/selects one step per press.
+        # The D-pad reports as an SDL hat; value is an (x, y) tuple with y == 1
+        # up, y == -1 down, x == 1 right, and x == -1 left. Emit a single
+        # one-shot action each time a direction changes to a non-neutral position
+        # so the catalog scrolls/selects one step per press.
         try:
             x, y = value
         except (TypeError, ValueError):
@@ -1438,7 +1436,7 @@ class SteamDeckInputProvider:
         # build without game-controller support simply leaves the raw axis order
         # in place while every joystick control keeps working. On the Steam Deck
         # the built-in trackpads are read directly from hidraw (see
-        # ``_HidrawTrackpadReader``), not through this controller handle.
+        # _HidrawTrackpadReader), not through this controller handle.
         if self._controller_module is None or instance_id in self._controllers:
             return
         try:
@@ -1495,33 +1493,33 @@ class DeckInputRouter:
         self._quills: dict[Target, float] = {}
         self._boosts: dict[Target, str] = {}
         # A stick working an accessory's speed, as a fraction of full deflection. Kept apart
-        # from ``_throttles`` because the two ramp differently: an engine's throttle
-        # accumulates a speed to hold, while an accessory is asked for a relative step at the
-        # slider's own cadence.
+        # from _throttles because the two ramp differently: an engine's throttle accumulates
+        # a speed to hold, while an accessory is asked for a relative step at the slider's
+        # own cadence.
         self._acc_throttles: dict[Target, float] = {}
         # A repeat-flagged context binding, keyed by the target and action holding it down.
-        # ``tick`` re-sends each one, which is how a context's D-pad entry repeats without
-        # borrowing ``_boosts``, whose commands go to an engine this pane does not have.
+        # tick re-sends each one, which is how a context's D-pad entry repeats without
+        # borrowing _boosts, whose commands go to an engine this pane does not have.
         self._context_repeats: dict[tuple[Target, str], tuple[DeckAction, Dispatch]] = {}
         # The controls holding a momentary output on, keyed by the target and action holding
         # them. Remembered so the release can be delivered even if the pane has changed scope
         # in the meantime: without it a pane re-scoped between press and release would leave
-        # an ASC2 output energised with nothing left to turn it off.
+        # an ASC2 output energized with nothing left to turn it off.
         self._momentary_holds: set[tuple[Target, str]] = set()
-        # Maps a target to ``[delta, next_scroll_time]`` for a held catalog
-        # scroll. ``next_scroll_time`` is ``None`` until the auto-repeat is armed
-        # on the first ``tick()`` after the press (arming it ``tick()``-side keeps
-        # the timing on the same clock ``tick()`` uses).
+        # Maps a target to [delta, next_scroll_time] for a held catalog scroll.
+        # next_scroll_time is None until the auto-repeat is armed on the first
+        # tick() after the press (arming it tick()-side keeps the timing on the
+        # same clock tick() uses).
         self._scrolls: dict[Target, list] = {}
-        # Maps a held button to ``[target, command, interval, next_send_time]`` so
+        # Maps a held button to [target, command, interval, next_send_time] so
         # each repeating button keeps its own cadence.
         self._held_commands: dict[int, list] = {}
         self._sequences: dict[Target, int] = {}
         self._direction_latches: set[Target] = set()
-        # ``(target, action)`` pairs whose stick is currently deflected far enough to have
-        # acted, one set per context. Keyed by action as well as target because a panel's two
-        # axes act in opposite directions and each latches on its own, and kept per context so
-        # a panel that changes from one to another cannot arrive holding the other's latch.
+        # (target, action) pairs whose stick is currently deflected far enough to have acted,
+        # one set per context. Keyed by action as well as target because a panel's two axes
+        # act in opposite directions and each latches on its own, and kept per context so a
+        # panel that changes from one to another cannot arrive holding the other's latch.
         self._switch_latches: set[tuple[Target, str]] = set()
         self._route_latches: set[tuple[Target, str]] = set()
         self._context_latches: dict[str, set[tuple[Target, str]]] = {
@@ -1555,24 +1553,24 @@ class DeckInputRouter:
             self._handle_direction(action)
             return
         if action.name == QUILLING_HORN:
-            # Store the current trigger fraction; ``tick()`` re-sends the horn
-            # every ``repeat_interval`` while it is held. A fraction of ``0.0``
-            # means the trigger returned to its dead zone, so stop sounding.
+            # Store the current trigger fraction; tick() re-sends the horn
+            # every repeat_interval while it is held. A fraction of 0.0 means
+            # the trigger returned to its dead zone, so stop sounding.
             if action.value > 0.0:
                 self._quills[action.target] = min(1.0, action.value)
             else:
                 self._quills.pop(action.target, None)
             return
         if action.name in (DPAD_UP, DPAD_DOWN):
-            # D-pad up/down must react to both press and release so ``tick()``
-            # can repeat the boost/brake (no catalog) or catalog-scroll (catalog
+            # D-pad up/down must react to both press and release so tick() can
+            # repeat the boost/brake (no catalog) or catalog-scroll (catalog
             # open) command while the key is held and stop on release; handle it
-            # before the ``pressed``-only guard below.
+            # before the pressed-only guard below.
             self._handle_scroll_boost(action)
             return
         if action.name in ADMIN_COMMANDS:
             # Both phases matter: the press starts the panel button's hold and the
-            # release cancels it, so handle this before the ``pressed``-only guard.
+            # release cancels it, so handle this before the pressed-only guard.
             self._handle_admin_command(action)
             return
         if action.name in (DPAD_LEFT, DPAD_RIGHT):
@@ -1585,9 +1583,9 @@ class DeckInputRouter:
             binding = self.profile.buttons.get(action.button)
             if binding is not None and binding.repeat:
                 # A repeat-flagged panel button (e.g. the X/Y buttons) must react
-                # to both press and release so ``tick()`` can re-send its command
+                # to both press and release so tick() can re-send its command
                 # while it is held and stop on release; handle it before the
-                # ``pressed``-only guard below.
+                # pressed-only guard below.
                 self._handle_repeat_command(action)
                 return
         if action.phase != "pressed":
@@ -1622,9 +1620,9 @@ class DeckInputRouter:
             # The A button runs the engine's automatic sequence control. While
             # the catalog panel is open it confirms the highlighted entry
             # (mirroring the A button's catalog behavior); otherwise it sends
-            # AUX1_OPTION_ONE every ``repeat_interval`` (100 ms) for
-            # ``SEQUENCE_CONTROL_DURATION`` seconds. The command is fired once
-            # immediately and ``tick()`` re-sends the remainder of the burst.
+            # AUX1_OPTION_ONE every repeat_interval (100 ms) for
+            # SEQUENCE_CONTROL_DURATION seconds. The command is fired once
+            # immediately and tick() re-sends the remainder of the burst.
             if getattr(gui, "catalog_visible", False):
                 gui.select_catalog_entry()
                 return
@@ -1696,16 +1694,16 @@ class DeckInputRouter:
             intensity = max(1, min(HORN_MAX_INTENSITY, round(fraction * HORN_MAX_INTENSITY)))
             gui.on_engine_command(HORN_COMMAND, data=intensity)
         for target, value in tuple(self._acc_throttles.items()):
-            # Re-send the accessory's relative speed every ``repeat_interval`` while the stick
-            # is held over, the same way the on-screen slider repeats while it is held away
-            # from zero.
+            # Re-send the accessory's relative speed every repeat_interval while the stick is
+            # held over, the same way the on-screen slider repeats while it is held away from
+            # zero.
             gui = self._target_gui(target)
             if gui is None:
                 continue
             gui.on_acc_speed_command(self._acc_relative_speed(value))
         for (target, name), (repeat_action, dispatch) in tuple(self._context_repeats.items()):
             # Re-send a repeat-flagged context binding while its control is held: the D-pad's
-            # Boost and Brake on an accessory panel, where ``_boosts`` would send at an engine
+            # Boost and Brake on an accessory panel, where _boosts would send at an engine
             # this pane does not have.
             gui = self._target_gui(target)
             if gui is None:
@@ -1713,25 +1711,25 @@ class DeckInputRouter:
             if self._catalog_has_taken(gui, name):
                 # The catalog opened under a held D-pad. It is opened from Menu, so the key
                 # doing the repeating has no event of its own to notice that with -- the next
-                # word from it is the release -- and the carve-out in ``_handle_contexts``
-                # would not run until then. Asked here as well, the repeat stops the moment
-                # the list comes up rather than when the thumb comes off.
+                # word from it is the release -- and the carve-out in _handle_contexts would
+                # not run until then. Asked here as well, the repeat stops the moment the
+                # list comes up rather than when the thumb comes off.
                 self._context_repeats.pop((target, name), None)
                 continue
             self._dispatch(gui, repeat_action, dispatch, pressed=True)
         for target, command in tuple(self._boosts.items()):
-            # Re-send the boost/brake command every ``repeat_interval`` (100 ms)
-            # for as long as the D-pad left/right is held.
+            # Re-send the boost/brake command every repeat_interval (100 ms) for
+            # as long as the D-pad left/right is held.
             gui = self._target_gui(target)
             if gui is None:
                 continue
             gui.on_engine_command(command)
         for target, entry in tuple(self._scrolls.items()):
             # Auto-repeat the catalog scroll while the D-pad up/down is held, but
-            # only after an initial ``CATALOG_SCROLL_INITIAL_DELAY`` (500 ms) hold
-            # and then only once every ``CATALOG_SCROLL_REPEAT_INTERVAL`` (200 ms)
-            # so catalog selection is not too quick. Stop if the catalog panel is
-            # no longer open.
+            # only after an initial CATALOG_SCROLL_INITIAL_DELAY (500 ms) hold and
+            # then only once every CATALOG_SCROLL_REPEAT_INTERVAL (200 ms) so
+            # catalog selection is not too quick. Stop if the catalog panel is no
+            # longer open.
             gui = self._target_gui(target)
             if gui is None or not getattr(gui, "catalog_visible", False):
                 self._scrolls.pop(target, None)
@@ -1751,9 +1749,9 @@ class DeckInputRouter:
             # button is held, at that button's own cadence. Time is accumulated from
             # the elapsed figure this tick already computed rather than compared
             # against an absolute deadline, so the repeat does not depend on the
-            # caller's clock matching any clock read at press time. ``tick()`` itself
-            # only runs every ``repeat_interval``, so an interval is honoured to
-            # within one tick.
+            # caller's clock matching any clock read at press time. tick() itself
+            # only runs every repeat_interval, so an interval is honored to within
+            # one tick.
             target, command, interval, waited = entry
             waited += elapsed
             entry[3] = waited
@@ -1766,8 +1764,8 @@ class DeckInputRouter:
             entry[3] = 0.0
         for target, remaining in tuple(self._sequences.items()):
             # Continue the automatic sequence control started by the A button:
-            # emit AUX1_OPTION_ONE once per tick (every ``repeat_interval``)
-            # until the ``SEQUENCE_CONTROL_DURATION`` burst has completed.
+            # emit AUX1_OPTION_ONE once per tick (every repeat_interval) until
+            # the SEQUENCE_CONTROL_DURATION burst has completed.
             gui = self._target_gui(target)
             if gui is None:
                 self._sequences.pop(target, None)
@@ -1786,7 +1784,7 @@ class DeckInputRouter:
         self._acc_throttles.clear()
         self._context_repeats.clear()
         # Released rather than forgotten: a pad that disconnects with the stick pushed over
-        # would otherwise leave an accessory output energised, and this is the one case where
+        # would otherwise leave an accessory output energized, and this is the one case where
         # no further input arrives to correct it.
         self._release_all_momentary()
         # Nothing is dropped here for the Sensor Track: a Sequence the pad has stepped to but
@@ -1815,8 +1813,8 @@ class DeckInputRouter:
             gui.close_popup()
             return
         # Fire the panel command once immediately for responsiveness, then
-        # ``tick()`` re-sends it until the button is released -- every
-        # ``repeat_interval`` from the profile, or the button's own override where it
+        # tick() re-sends it until the button is released -- every
+        # repeat_interval from the profile, or the button's own override where it
         # sets one (volume steps want a slower cadence than the horn).
         command = PANEL_COMMANDS[action.name]
         binding = self.profile.buttons.get(action.button)
@@ -1923,18 +1921,18 @@ class DeckInputRouter:
                 gui.scroll_catalog_to_end(to_top=action.name == DPAD_UP)
                 return
             # Single press: scroll one entry immediately for responsiveness, then
-            # ``tick()`` arms the auto-repeat only after the key has been held for
-            # ``CATALOG_SCROLL_INITIAL_DELAY`` (500 ms) and thereafter re-scrolls
-            # every ``CATALOG_SCROLL_REPEAT_INTERVAL`` (200 ms) while held, so
-            # catalog selection is not too quick. ``next_scroll_time`` starts as
-            # ``None`` (armed on the next tick).
+            # tick() arms the auto-repeat only after the key has been held for
+            # CATALOG_SCROLL_INITIAL_DELAY (500 ms) and thereafter re-scrolls
+            # every CATALOG_SCROLL_REPEAT_INTERVAL (200 ms) while held, so catalog
+            # selection is not too quick. next_scroll_time starts as None (armed
+            # on the next tick).
             delta = -1 if action.name == DPAD_UP else 1
             self._scrolls[action.target] = [delta, None]
             gui.scroll_catalog(delta)
             return
         # Otherwise the direction sends whatever the profile binds it to -- boost and brake by
         # default, each flagged to repeat. A repeating binding fires once immediately for
-        # responsiveness and ``tick()`` re-sends it every ``repeat_interval`` while it is held.
+        # responsiveness and tick() re-sends it every repeat_interval while it is held.
         self._scrolls.pop(action.target, None)
         self._boosts.pop(action.target, None)
         self._send_dpad_command(gui, action)
@@ -1943,7 +1941,7 @@ class DeckInputRouter:
         """Send what the profile binds this D-pad direction to, if anything.
 
         Nothing bound means nothing sent: a profile may switch a direction off outright, which
-        is the point of making the D-pad bindable rather than merely re-labelled.
+        is the point of making the D-pad bindable rather than merely re-labeled.
         """
         binding = self.profile.dpad.get(action.name)
         if binding is None:
@@ -1979,8 +1977,8 @@ class DeckInputRouter:
                 gui.hide_scope_catalog()
             return
         # Otherwise the direction sends whatever the profile binds it to, which by default is
-        # the smoke output as a one-shot: right raises it (``SMOKE_ON``) and left lowers it
-        # (``SMOKE_OFF``). Both resolve automatically per control type -- for a Legacy target
+        # the smoke output as a one-shot: right raises it (SMOKE_ON) and left lowers it
+        # (SMOKE_OFF). Both resolve automatically per control type -- for a Legacy target
         # they step the smoke level up/down (Off/Low/Medium/High), and for a non-Legacy
         # (TMCC/Cab-1/R100) target they simply turn smoke on/off.
         self._send_dpad_command(gui, action)
@@ -2009,13 +2007,14 @@ class DeckInputRouter:
             return
         gui.on_engine_command(command)
 
-    def _context_chain(self, gui) -> tuple[str, ...]:
+    @staticmethod
+    def _context_chain(gui) -> tuple[str, ...]:
         """The contexts this pane is in, most specific first.
 
-        A pane says so itself where it can: ``input_contexts`` is the property the GUI grew
-        for this, and an empty tuple from it means an engine panel with nothing to remap. The
+        A pane says so itself where it can: input_contexts is the property the GUI grew for
+        this, and an empty tuple from it means an engine panel with nothing to remap. The
         fallback below reads the two predicates that came first, so a pane which only knows
-        how to answer ``switch_active`` / ``route_active`` still gets its controls claimed.
+        how to answer switch_active / route_active still gets its controls claimed.
         """
         chain = getattr(gui, "input_contexts", None)
         if chain is not None:
@@ -2126,7 +2125,7 @@ class DeckInputRouter:
         if dispatch is not None:
             if dispatch.repeat:
                 # Held-down repeat, the counterpart of the D-pad's boost/brake loop: the press
-                # registers the binding and ``tick`` re-sends it until the release drops it.
+                # registers the binding and tick re-sends it until the release drops it.
                 repeat_key = (action.target, action.name)
                 if action.phase == "pressed":
                     self._context_repeats[repeat_key] = (action, dispatch)
@@ -2151,12 +2150,12 @@ class DeckInputRouter:
         return True
 
     def _catalog_has_taken(self, gui, action_name: str, spec: ContextSpec | None = None) -> bool:
-        """Whether an open catalog has this pane's context let go of ``action_name``.
+        """Whether an open catalog has this pane's context let go of action_name.
 
-        ``spec`` is the context the action has already resolved to, where the caller has one.
-        ``tick`` has none -- it is re-sending a binding resolved on a press several ticks old
-        -- so the chain is walked again for it. The catalog is asked about first, so that walk
-        happens only while the list is actually up.
+        spec is the context the action has already resolved to, where the caller has one. tick
+        has none -- it is re-sending a binding resolved on a press several ticks old -- so the
+        chain is walked again for it. The catalog is asked about first, so that walk happens
+        only while the list is actually up.
         """
         if not getattr(gui, "catalog_visible", False):
             return False
@@ -2179,9 +2178,9 @@ class DeckInputRouter:
         output a thumb is still holding the button down for.
 
         "The same output" is the pane rather than the target name, because the two are not the
-        same thing: the bundled profile aims the sticks at ``left`` and ``right`` and the
-        buttons at ``focused``, so two holds on one accessory routinely wear different target
-        names. Comparing the panes they resolve to is what makes them count as one.
+        same thing: the bundled profile aims the sticks at left and right and the buttons at
+        focused, so two holds on one accessory routinely wear different target names.
+        Comparing the panes they resolve to is what makes them count as one.
         """
         if hold not in self._momentary_holds:
             # Nothing held here: a stick resting inside the dead band reports its position
@@ -2198,9 +2197,9 @@ class DeckInputRouter:
     def _release_all_momentary(self) -> None:
         """Switch off every held output, rather than merely forgetting that it is held.
 
-        What ``clear`` needs on a disconnect: a pad unplugged with the stick pushed over would
+        What clear needs on a disconnect: a pad unplugged with the stick pushed over would
         otherwise leave a real relay closed with nothing left to open it. Each hold goes
-        through ``_release_momentary``, so an output held by two controls is still switched off
+        through _release_momentary, so an output held by two controls is still switched off
         once.
         """
         for hold in tuple(self._momentary_holds):
@@ -2240,15 +2239,15 @@ class DeckInputRouter:
         """A stick that holds something on for as long as it is pushed over.
 
         The third axis mode, and the only one with two phases: the press when the deflection
-        first crosses the profile's ``direction_threshold``, the release when it falls back
-        inside ``direction_threshold - hysteresis``. The same band the latch uses, so a stick
-        too light to throw a switch is too light to energise an output, and a value wandering
+        first crosses the profile's direction_threshold, the release when it falls back
+        inside direction_threshold - hysteresis. The same band the latch uses, so a stick too
+        light to throw a switch is too light to energize an output, and a value wandering
         either side of the threshold cannot chatter it.
 
         The hold is recorded rather than the press being counted, which is what makes the
-        release survive a pane re-scoped under the thumb: ``_handle_contexts`` reads that
-        record before it resolves the chain, so the off is sent from what is held rather than
-        from what the pane is showing by the time the stick comes back.
+        release survive a pane re-scoped under the thumb: _handle_contexts reads that record
+        before it resolves the chain, so the off is sent from what is held rather than from
+        what the pane is showing by the time the stick comes back.
 
         The sign is not consulted. A binding that wants up and down to differ says so by
         binding the two directional variants instead of the plain action, and never reaches
@@ -2268,10 +2267,10 @@ class DeckInputRouter:
     def _dispatch_analog(self, gui, action: DeckAction, dispatch: Dispatch) -> None:
         """Track a stick that drives a value rather than firing a command.
 
-        The position is remembered and sent again on every ``tick`` for as long as the stick
-        is held over, which is what makes a held stick keep an accessory moving: the command
-        is a relative step, so one send would nudge it once and stop. Back at center the entry
-        is dropped and the sending stops with it.
+        The position is remembered and sent again on every tick for as long as the stick is
+        held over, which is what makes a held stick keep an accessory moving: the command is a
+        relative step, so one send would nudge it once and stop. Back at center the entry is
+        dropped and the sending stops with it.
         """
         if dispatch.verb != VERB_ACC_THROTTLE:
             log.warning(f"Unknown analog dispatch verb: {dispatch.verb}")
@@ -2292,13 +2291,18 @@ class DeckInputRouter:
         magnitude = max(1, round(abs(value) * ACC_RELATIVE_SPEED_MAX))
         return int(math.copysign(min(ACC_RELATIVE_SPEED_MAX, magnitude), value))
 
-    # noinspection PyUnusedLocal
-    def _dispatch(self, gui, action: DeckAction, dispatch: Dispatch, *, pressed: bool) -> None:
+    # noinspection PyUnusedLocal,unused-parameter
+    @staticmethod
+    def _dispatch(gui, action: DeckAction, dispatch: Dispatch, *, pressed: bool) -> None:
         """Send what one resolved binding asks for.
 
         The whole of the verb registry: the table says which verb applies and this says what
-        each one costs in calls to the GUI. ``claim`` is the verb for a control a context takes
-        and does nothing with, and so is the one that does not appear below.
+        each one costs in calls to the GUI. claim is the verb for a control a context takes and
+        does nothing with, and so is the one that does not appear below.
+
+        action is not read here and is taken all the same, so that this has the signature every
+        _dispatch_* method above has: which of them handles a control is the profile's business,
+        and a caller should not have to know that this one asks for less than its siblings.
         """
         verb = dispatch.verb
         if verb == VERB_SWITCH_THRU:

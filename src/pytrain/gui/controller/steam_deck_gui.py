@@ -43,8 +43,8 @@ FOCUS_BORDER = 3
 FOCUS_COLOR = "#3B82F6"
 UNFOCUSED_COLOR = "#555555"
 # Append the text-presentation variation selector (U+FE0E) to the triangle
-# heads so the OS renders them as monochrome text honoring ``FOCUS_COLOR``
-# instead of as black color-emoji (the ``▬`` shaft is not emoji-eligible).
+# heads so the OS renders them as monochrome text honoring FOCUS_COLOR
+# instead of as black color-emoji (the ▬ shaft is not emoji-eligible).
 FOCUS_ARROW_LEFT = "◀\ufe0e▬"
 FOCUS_ARROW_RIGHT = "▬▶\ufe0e"
 FOCUS_ARROW_SIZE = 26
@@ -237,7 +237,7 @@ class SteamDeckGui(GuiZeroBase):
         """Show the controls help screen across both panes."""
         self._ensure_controls_overlay().show()
         # show()/hide() run body.display_widgets(), which re-grids every child of body --
-        # including the focus arrow, cancelling the place() that tucks it into the
+        # including the focus arrow, canceling the place() that tucks it into the
         # divider. Without this it drops back into its full-height grid cell and floats
         # at mid-screen.
         self._position_focus_arrow()
@@ -255,13 +255,13 @@ class SteamDeckGui(GuiZeroBase):
     def _prewarm_controls_overlay(self) -> None:
         """Build the help screen ahead of the press that shows it.
 
-        Hidden, and that is what makes it free: the overlay is created ``visible=False``
-        and guizero grids only the children it considers visible, so nothing on screen
-        moves and no page is drawn until show() -- the measuring and the forty-odd row
-        widgets are simply paid for here instead of between the press and the screen.
+        Hidden, and that is what makes it free: the overlay is created visible=False and
+        guizero grids only the children it considers visible, so nothing on screen moves
+        and no page is drawn until show() -- the measuring and the forty-odd row widgets
+        are simply paid for here instead of between the press and the screen.
 
         Failure is logged and dropped rather than raised. A prewarm that throws leaves
-        ``_controls_overlay`` as None, which is precisely the state the first press already
+        _controls_overlay as None, which is precisely the state the first press already
         knows how to handle, so the worst case is losing the head start; raising out of an
         after() callback would instead break a screen that was working. The half-built
         panel goes with it, so the press builds a whole one rather than adopting it.
@@ -295,17 +295,17 @@ class SteamDeckGui(GuiZeroBase):
         return True
 
     def _build_controls_overlay(self) -> Box:
-        """A full-width overlay gridded across every column of ``body``.
+        """A full-width overlay gridded across every column of body.
 
         Gridded rather than placed: guizero's Widget.show() re-runs the master's
         display_widgets(), which re-grids (or re-packs) its children -- so a place() is
-        cancelled the moment the overlay is shown. Spanning the three columns that hold
+        canceled the moment the overlay is shown. Spanning the three columns that hold
         the left pane, the divider and the right pane is therefore the way to cover both
         panes, and it costs no layout change because 632 + 4 + 632 is already the full
         width. Created last, so it stacks above the panes it covers.
         """
         # No width/height and no align: the Box sizes to its content and, with no sticky,
-        # grid centres it in the cell -- so it is as short as it can be and centred on the
+        # grid centers it in the cell -- so it is as short as it can be and centered on the
         # display rather than a full-height panel with a void under the text. Across, the
         # content is what is held to the display's width: the panel is handed a width
         # budget to divide between its columns (ControlsPanel.column_widths), because a Box
@@ -320,7 +320,7 @@ class SteamDeckGui(GuiZeroBase):
         # content it was the first thing off the bottom of the display whenever the row
         # budget came out short: the only way out of the screen, clipped by a help row.
         # Created before the title because pack fills from the edges in child order -- the
-        # button claims the right edge, then the title centres in what is left of the band.
+        # button claims the right edge, then the title centers in what is left of the band.
         close = PushButton(header, text=CONTROLS_CLOSE_TEXT, align="right", command=self.close_controls)
         close.text_size = self.s_20
         close.tk.config(
@@ -393,7 +393,7 @@ class SteamDeckGui(GuiZeroBase):
         #
         # visible=False deliberately: the arrow is positioned by place() into the
         # divider, and guizero only grids children it considers visible. Left visible it
-        # would be re-gridded by every body.display_widgets() -- which both cancelled the
+        # would be re-gridded by every body.display_widgets() -- which both canceled the
         # place() (dropping the arrow to mid-screen) and widened the divider's grid
         # column to the arrow's own width. place() is unaffected by guizero visibility,
         # so the arrow still shows.

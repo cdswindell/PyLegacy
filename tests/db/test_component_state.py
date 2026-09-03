@@ -79,7 +79,7 @@ class TestComponentState(TestBase):
 
     def test_component_state(self) -> None:
         with pytest.raises(TypeError):
-            # noinspection PyTypeCher
+            # noinspection PyTypeChecker
             ComponentState(None)
 
     @pytest.mark.parametrize(

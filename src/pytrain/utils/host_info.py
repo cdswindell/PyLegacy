@@ -17,7 +17,7 @@ from .singleton import singleton
 # installed for (see installation/launch_pytrain.bash.template). It records an install
 # *decision* rather than a hardware probe: the Steam Deck runs ordinary Linux and its
 # hardware is not reliably distinguishable, and the same machine can host a plain
-# install. Read it through ``HostInfo.platform`` / ``HostInfo.is_steam_deck``.
+# install. Read it through HostInfo.platform / HostInfo.is_steam_deck.
 PLATFORM_ENV_VAR = "PYTRAIN_PLATFORM"
 STEAM_DECK_PLATFORM = "steamdeck"
 
@@ -25,11 +25,11 @@ STEAM_DECK_PLATFORM = "steamdeck"
 def installed_platform() -> str:
     """Platform PyTrain was installed for, lower-cased, or "" if unspecified.
 
-    A plain function rather than a ``HostInfo`` member so a caller does not have to
-    build that singleton -- which probes the hardware with ``cat`` and ``free`` -- just
-    to read an environment variable. Read live, so it stays correct however early
-    anything is constructed. Tolerates case and stray whitespace, the value having come
-    from a shell variable.
+    A plain function rather than a HostInfo member so a caller does not have to build
+    that singleton -- which probes the hardware with cat and free -- just to read an
+    environment variable. Read live, so it stays correct however early anything is
+    constructed. Tolerates case and stray whitespace, the value having come from a
+    shell variable.
     """
     return os.getenv(PLATFORM_ENV_VAR, "").strip().lower()
 
@@ -42,13 +42,13 @@ def is_steam_deck() -> bool:
 def is_linux() -> bool:
     """True on a Linux host: the Raspberry Pi and the Steam Deck, not a Mac or a PC.
 
-    Lives here, in a leaf module, rather than only in ``pytrain/__init__``: that package
+    Lives here, in a leaf module, rather than only in pytrain/__init__: that package
     imports every GUI before it defines anything of its own, so a module the package
     imports cannot import the package back without a circular import. A plain function
-    rather than a ``HostInfo`` member for the same reason installed_platform() is --
+    rather than a HostInfo member for the same reason installed_platform() is --
     a caller should not have to build that singleton, which probes the hardware with
-    ``cat`` and ``free``, to answer one question. ``pytrain/__init__`` re-exports it, so
-    ``from pytrain import is_linux`` still works for anything outside the package.
+    cat and free, to answer one question. pytrain/__init__ re-exports it, so
+    from pytrain import is_linux still works for anything outside the package.
     """
     return platform.system().lower() == "linux"
 

@@ -409,7 +409,7 @@ def test_a_crossing_still_inside_the_button_is_discarded_outright() -> None:
     assert button._pressed is True
 
 
-def test_jitter_cancelled_by_a_following_enter_does_not_abort_the_hold() -> None:
+def test_jitter_canceled_by_a_following_enter_does_not_abort_the_hold() -> None:
     # A jitter crossing is followed within milliseconds by an <Enter>. That clears the
     # provisional cancel, so the deferred check does nothing -- this is what stops the
     # ~50% abort rate that a pointer-position check alone did not.
@@ -501,7 +501,7 @@ def test_pointer_outside_allows_slop_around_the_edges() -> None:
     button = make_button(True)
     slop = mod.LEAVE_SLOP_PX
     cases = {
-        (60, 40): False,  # dead centre
+        (60, 40): False,  # dead center
         (10 - slop, 40): False,  # exactly one slop to the left
         (10 - slop - 1, 40): True,  # a pixel further, genuinely off
         (110 + slop, 40): True,  # past the right edge plus slop
@@ -858,7 +858,7 @@ def test_a_quick_restart_inherits_the_abandoned_progress(monkeypatch, caplog) ->
     button = _recovering_button()
     button.hold_threshold = 3.0
     _mid_hold(button, monkeypatch, elapsed=1.5)
-    button.tk.pointer = (900, 900)  # off the button, so the release is honoured
+    button.tk.pointer = (900, 900)  # off the button, so the release is honored
 
     with caplog.at_level(logging.DEBUG, logger=mod.log.name):
         button._on_release_event(_spurious_release())

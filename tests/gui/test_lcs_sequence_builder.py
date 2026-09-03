@@ -21,8 +21,8 @@ def _line(number: int, press, base_id: int = None, options=None) -> str:
     """One review line as the builder numbers it, worded by the press itself.
 
     The numbering and the parenthesized note are this module's own format, so they are
-    written here; every word inside them belongs to the registry's ``Press`` and is read
-    off it, so renaming a gesture is not a test to fix.
+    written here; every word inside them belongs to the registry's Press and is read off
+    it, so renaming a gesture is not a test to fix.
     """
     label = press.resolved_label(options)
     if base_id is not None:

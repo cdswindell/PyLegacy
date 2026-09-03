@@ -10,14 +10,14 @@
 """Generate the black-and-white button icons used by the generic-accessory return control.
 
 Three flat, high-contrast icons drawn in the same black-silhouette-on-white style as the
-existing ``op-*.jpg`` artwork:
+existing op-*.jpg artwork:
 
-* ``op-bpc2.jpg``  -- an LCS BPC2 power-district controller (a terminal block).
-* ``op-asc2.jpg``  -- an LCS ASC2 accessory switch controller (a terminal block).
-* ``op-screen.jpg`` -- a generic operating-accessory control screen (sliders and buttons).
+* op-bpc2.jpg  -- an LCS BPC2 power-district controller (a terminal block).
+* op-asc2.jpg  -- an LCS ASC2 accessory switch controller (a terminal block).
+* op-screen.jpg -- a generic operating-accessory control screen (sliders and buttons).
 
 The BPC2/ASC2 icons mark the "go back to this device's own panel" direction of the shared
-``ac_op_btn``; the screen icon marks the "open the operating-accessory control screen"
+ac_op_btn; the screen icon marks the "open the operating-accessory control screen"
 direction. Re-run this script to regenerate the assets; it is deterministic and overwrites in
 place.
 

@@ -62,7 +62,7 @@ TITLE_TOP_PAD = 4
 # space goes below the row -- see footer_fill.
 #
 # The compact value is the old FOOTER_ROW_PAD_COMPACT: on a pane where the whole band is 24px,
-# 12px above and the rest below is the same picture as a centred row, which is the one that was
+# 12px above and the rest below is the same picture as a centered row, which is the one that was
 # signed off. Portrait gets more because it has far more of it to spend.
 FOOTER_LEAD = 24
 FOOTER_LEAD_COMPACT = 12
@@ -112,9 +112,9 @@ def style_footer_button(host, btn) -> None:
 def repad_footer_button(btn, *, padx: int = None, pady: int = None) -> None:
     """Change a styled footer button's pack padding, recording it as style_footer_button does.
 
-    Set through here rather than with a bare ``pack_configure``, because what survives a repack
-    is what was *recorded*: restore_footer_packing replays the recorded options, so a raw call
-    is undone by the next thing that shows or hides anything in the row.
+    Set through here rather than with a bare pack_configure, because what survives a repack is
+    what was *recorded*: restore_footer_packing replays the recorded options, so a raw call is
+    undone by the next thing that shows or hides anything in the row.
 
     The caller is the LCS panel's Back/Next row, which is a row of the panel's own rather than
     the popup's footer band -- Close is below it, on a line of its own, with the lead above it
@@ -154,10 +154,10 @@ def footer_spacer(host, footer) -> Text:
 def footer_fill(overlay: Box) -> Box:
     """Soak up an expanded panel's spare vertical space *below* the footer row.
 
-    An empty ``height="fill"`` box: guizero gives it ``fill=Y`` plus ``expand=YES``, and Tk hands
-    surplus space to the widgets that expand, so this one absorbs the whole band and leaves the
-    row sitting directly above it. Paired with footer_lead, which then holds the row a fixed
-    distance off the content.
+    An empty height="fill" box: guizero gives it fill=Y plus expand=YES, and Tk hands surplus
+    space to the widgets that expand, so this one absorbs the whole band and leaves the row
+    sitting directly above it. Paired with footer_lead, which then holds the row a fixed distance
+    off the content.
 
     Together they replace an equal split between two filling boxes. Equal was right for a panel
     that nearly fills the pane -- the admin panel's spare band is only ~24px, so half of it is
@@ -168,8 +168,8 @@ def footer_fill(overlay: Box) -> Box:
     **Call this after the body and before the row**: pack fills a side in creation order, so this
     has to claim the bottom edge first to leave the row above it.
 
-    Survives a repack, unlike ``pack_configure`` padding: ``Container._pack_widget`` rebuilds its
-    option dict from scratch every pass and reads fill back off each widget's own ``height``.
+    Survives a repack, unlike pack_configure padding: Container._pack_widget rebuilds its option
+    dict from scratch every pass and reads fill back off each widget's own height.
     """
     return Box(overlay, align="bottom", height="fill")
 
@@ -187,7 +187,7 @@ def footer_lead(host, overlay: Box) -> Box:
     it is clipped to nothing instead of pushing the row off the bottom edge -- it is empty, so
     losing it costs nothing.
 
-    ``width="fill"`` is not cosmetic: guizero warns "You must specify a width and a height"
+    width="fill" is not cosmetic: guizero warns "You must specify a width and a height"
     whenever both are ints and one of them is zero, and a fill is the documented exemption.
     """
     return Box(overlay, align="top", width="fill", height=footer_lead_height(host))
@@ -199,23 +199,23 @@ def footer_lead_height(host) -> int:
 
 
 def balance_footer_row(host, overlay) -> None:
-    """Centre the footer row when the band it sits in is too tight to hold the lead comfortably.
+    """Center the footer row when the band it sits in is too tight to hold the lead comfortably.
 
     The fixed lead is right whenever there is more room below the row than above it. When there
     is *less* -- a panel whose content nearly reaches the scope buttons, so the whole spare band
     is under twice the lead -- keeping the lead fixed pins the row hard against the bottom edge.
-    In that case the row is centred in whatever band there is instead.
+    In that case the row is centered in whatever band there is instead.
 
-    Which is ``min(lead, band / 2)``, and unlike the fixed lead it cannot be expressed in pack:
-    two expanding boxes always divide space proportionally, and pack shrinks in creation order
-    rather than proportionally, so nothing declarative caps one side. It needs the band measured.
+    Which is min(lead, band / 2), and unlike the fixed lead it cannot be expressed in pack: two
+    expanding boxes always divide space proportionally, and pack shrinks in creation order rather
+    than proportionally, so nothing declarative caps one side. It needs the band measured.
 
-    The measurement is a cheap one. ``footer_fill``'s own allocated height *is* the space below the
+    The measurement is a cheap one. footer_fill's own allocated height *is* the space below the
     row, so nothing has to be derived from the content, and correcting the lead alone is enough --
     the fill is the expander, so it re-absorbs whatever the lead gives back. It is also stable
     under repetition: once the two are equal the condition stops firing.
 
-    Scheduled rather than immediate because ``winfo_height`` reads 1 until Tk has laid the overlay
+    Scheduled rather than immediate because winfo_height reads 1 until Tk has laid the overlay
     out. Any reposition is therefore visible, but bounded by half the lead -- at most 6px on a
     Deck pane -- and only in the tight case; a roomy panel measures once and changes nothing.
     """
@@ -232,21 +232,21 @@ def _balance_footer_row(host, overlay, lead: Box, fill: Box) -> None:
     """Measure the band below the footer row and even it up with the lead if it is the smaller."""
     try:
         # Flush the pending geometry work first: an idle callback is not guaranteed to run after
-        # the geometry manager's own, and measuring before it does reads 1 and would "centre" the
+        # the geometry manager's own, and measuring before it does reads 1 and would "center" the
         # row on a band that does not exist yet.
         host.app.tk.update_idletasks()
         # Both guards are about the same hazard: winfo_height reports 1 until Tk has allocated the
-        # widget, and a reading taken before then would "centre" the row on a band that does not
+        # widget, and a reading taken before then would "center" the row on a band that does not
         # exist yet. Mapped plus flushed means the number is real.
         if not overlay.tk.winfo_ismapped():
             return
         wanted = footer_lead_height(host)
         above = int(lead.height)
         below = int(fill.tk.winfo_height())
-        # Derived from the whole band, not from ``below`` against the constant. The band is what
-        # stays invariant under the correction -- whatever the lead gives back, the fill takes --
-        # so this settles in a single pass. Measuring ``below`` against ``wanted`` instead creeps:
-        # each show closes half the remaining gap and the lead climbs back to its fixed value.
+        # Derived from the whole band, not from below against the constant. The band is what stays
+        # invariant under the correction -- whatever the lead gives back, the fill takes -- so
+        # this settles in a single pass. Measuring below against wanted instead creeps: each show
+        # closes half the remaining gap and the lead climbs back to its fixed value.
         target = min(wanted, (above + below) // 2)
         # Only when it differs: assigning a height re-packs the overlay, and the roomy case --
         # every panel, most of the time -- must measure and then do nothing at all.
@@ -259,24 +259,24 @@ def _balance_footer_row(host, overlay, lead: Box, fill: Box) -> None:
 def expand_overlay(overlay) -> None:
     """Make a panel reach down to the scope buttons, for as long as it is on screen.
 
-    ``height="fill"`` is guizero's own vocabulary for this: ``Container._pack_widget`` maps it to
-    Tk's ``fill=Y`` and, for a top or bottom side, adds ``expand=YES``. The overlay is a top-side
-    child of its root and the scope box a bottom-side one, so the band between them is exactly
-    the overlay's parcel -- no measuring of where the scope row happens to sit, and it follows
-    whatever else is packed above.
+    height="fill" is guizero's own vocabulary for this: Container._pack_widget maps it to Tk's
+    fill=Y and, for a top or bottom side, adds expand=YES. The overlay is a top-side child of its
+    root and the scope box a bottom-side one, so the band between them is exactly the overlay's
+    parcel -- no measuring of where the scope row happens to sit, and it follows whatever else is
+    packed above.
 
     That depends on the scope box already being in the pack order when this expands: pack allots
     parcels in creation order, and an expanding child takes its space out of whatever is still
-    unclaimed. ``EngineGui.build_gui`` reserves the bottom edge first, in both modes, for exactly
+    unclaimed. EngineGui.build_gui reserves the bottom edge first, in both modes, for exactly
     this reason -- portrait used to create the scope buttons last.
 
     Reading it off the widget's own attribute is also what makes it durable. A raw
-    ``pack_configure(expand=True)`` is discarded by the next ``display_widgets()`` pass, because
-    that rebuilds the option dict from scratch and only ever consults ``width``/``height``.
+    pack_configure(expand=True) is discarded by the next display_widgets() pass, because that
+    rebuilds the option dict from scratch and only ever consults width/height.
 
     **At show time, not construction time.** A fill widget present while EngineGui measures the
     widget tree for its image baseline is how portrait lost its engine image box last time. The
-    baseline is computed once, at the end of ``build_gui``, so nothing measured afterwards can be
+    baseline is computed once, at the end of build_gui, so nothing measured afterwards can be
     disturbed by this -- see collapse_overlay for the other half of the promise.
     """
     if getattr(overlay, _NO_EXPAND_ATTR, False):
@@ -292,9 +292,9 @@ def expand_overlay(overlay) -> None:
 def collapse_overlay(overlay) -> None:
     """Give back the height expand_overlay took, so a closed popup leaves no trace in the pack.
 
-    Called before ``hide()``, which is what triggers the repack: assigning a height that is not
-    ``"fill"`` deliberately does *not* (``SizeMixin.resize`` only repacks for a fill), and
-    ``_set_tk_config`` restores the tk default when handed ``None``.
+    Called before hide(), which is what triggers the repack: assigning a height that is not
+    "fill" deliberately does *not* (SizeMixin.resize only repacks for a fill), and
+    _set_tk_config restores the tk default when handed None.
     """
     try:
         overlay.height = getattr(overlay, _OVERLAY_HEIGHT_ATTR, None)
@@ -308,13 +308,12 @@ def restore_footer_packing(footer) -> None:
     Called once Close is in place -- it is always the last thing added to a footer, so it is
     the only button whose own packing survived creation.
 
-    A hidden button is passed over, and that is not an optimization. ``pack_configure``
+    A hidden button is passed over, and that is not an optimization. pack_configure
     *manages* a widget pack has forgotten, and packs it at the end of its parent, so
     replaying the padding of a button guizero has hidden puts it back on screen -- last in
     the row, whatever order it was created in. That is exactly how the LCS panel's Back
-    button reappeared on its first page, to the right of Next. Same hazard as
-    ``grid_configure`` on a forgotten widget, which ``_lay_out_titled_boxes`` guards against
-    for the same reason.
+    button reappeared on its first page, to the right of Next. Same hazard as grid_configure
+    on a forgotten widget, which _lay_out_titled_boxes guards against for the same reason.
     """
     for child in getattr(footer, "children", ()) or ():
         options = getattr(child, _FOOTER_PACK_ATTR, None)

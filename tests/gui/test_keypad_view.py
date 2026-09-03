@@ -51,7 +51,8 @@ class DummyTk:
     def focus_displayof(self):
         return self._focus_owner
 
-    def focus_get(self):
+    @staticmethod
+    def focus_get():
         return None
 
     @staticmethod
@@ -151,15 +152,15 @@ class DummySlider(DummyWidget):
 
 
 class DummyCheckBoxGroup(DummyWidget):
-    """``CheckBoxGroup`` as guizero really behaves, strings and all.
+    """CheckBoxGroup as guizero really behaves, strings and all.
 
-    ``CheckBoxGroup`` subclasses guizero's ``ButtonGroup`` without overriding ``value``, and
-    that property is backed by a Tk ``StringVar``: the setter does ``self._selected.set(str(
-    value))`` and the getter hands back what the variable holds. So the group never yields an
-    ``int`` and never yields ``None`` -- clearing it with ``value = None``, which
-    ``EngineGui.on_new_accessory`` does for a Sensor Track with no ``IrdaState``, leaves the
-    literal string ``"None"`` behind. A double that round-tripped whatever it was handed would
-    let code that reads the group pass here and raise on the pane.
+    CheckBoxGroup subclasses guizero's ButtonGroup without overriding value, and that property
+    is backed by a Tk StringVar: the setter does self._selected.set(str( value)) and the
+    getter hands back what the variable holds. So the group never yields an int and never
+    yields None -- clearing it with value = None, which EngineGui.on_new_accessory does for a
+    Sensor Track with no IrdaState, leaves the literal string "None" behind. A double that
+    round-tripped whatever it was handed would let code that reads the group pass here and
+    raise on the pane.
     """
 
     def __init__(self, *_args: Any, **kwargs: Any) -> None:
@@ -243,9 +244,9 @@ def _keypad_button(
     *_args: Any,
     **kwargs: Any,
 ):
-    """Mirrors ``EngineGui.make_keypad_button``: files cells into ops_cells / entry_cells and
+    """Mirrors EngineGui.make_keypad_button: files cells into ops_cells / entry_cells and
     wires the command exactly as the real one does, because which set a cell lands in is what
-    ``entry_mode`` and ``enter_ops_mode_base`` act on."""
+    entry_mode and enter_ops_mode_base act on."""
     cell = DummyBox(visible=kwargs.get("visible", True), grid=[col, row])
     btn = DummyButton()
     btn.text = label
@@ -259,6 +260,9 @@ def _keypad_button(
     return cell, btn
 
 
+# The host double stands in for EngineGui, whose private _scope_tmcc_ids map is what
+# scope_tmcc_id() reads; pinning that contract is the point, so the access is deliberate.
+# noinspection PyProtectedMember
 def _new_host() -> SimpleNamespace:
     @contextmanager
     def locked():
@@ -530,8 +534,8 @@ def _sensor_track_host(monkeypatch: pytest.MonkeyPatch, *, value=None, cursor=No
     state = DummyAccessoryState()
     state.is_sensor_track = is_sensor_track
     host.active_state = state
-    # ``value`` is the radio dot -- what the track is programmed with. The cursor starts unset,
-    # as it does on a panel nobody has stepped yet, and then falls back to the dot.
+    # value is the radio dot -- what the track is programmed with. The cursor starts unset, as
+    # it does on a panel nobody has stepped yet, and then falls back to the dot.
     host.sensor_track_buttons = DummyCheckBoxGroup(selected=value, cursor_value=cursor)
     return host, sent
 
@@ -779,6 +783,8 @@ def test_external_accessory_throttle_update_repaints_slider() -> None:
 # ---------------------------------------------------------------------------
 
 
+# Seeding EngineGui's private _scope_tmcc_ids is how a scope's TMCC ID is pinned; see _new_host.
+# noinspection PyProtectedMember
 def _ops(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19, state=None):
     host = _new_host()
     host.scope = scope
@@ -981,6 +987,23 @@ def test_the_generic_screen_yields_the_slot_to_the_way_back_key_when_configured(
     assert host.lcs_panel_cell.visible is False
 
 
+def test_a_configured_accessory_with_no_adapter_left_leaves_the_screen_alone() -> None:
+    # The provider answers with a list, empty where nothing configured references the ID, so
+    # emptiness rather than None is what the way-back key has to be guarded against: the
+    # accessory index and the adapter list can disagree while a record is being reloaded, and
+    # taking the first of an empty list would raise in the middle of drawing the screen.
+    host, view = _ops()
+    host.accessories = SimpleNamespace(configured_by_tmcc_id=lambda _tmcc_id: True)
+    host.accessory_provider = SimpleNamespace(adapters_for_tmcc_id=lambda _tmcc_id: [])
+    host.on_configured_accessory = lambda _acc: None
+    host.get_image = lambda _image, size=None: None
+
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine(host.active_state)
+
+    assert host.ac_op_cell.visible is False
+
+
 def test_the_shared_lcs_key_is_hidden_when_it_returns_to_entry_mode_from_an_ops_panel() -> None:
     host, view = _ops(state=_flagged(is_bpc2=True))
     assert host.lcs_panel_cell.visible is True
@@ -1022,8 +1045,8 @@ def test_the_generic_and_switch_panels_do_not_carry_it() -> None:
 
 
 def test_the_sensor_track_panel_no_longer_builds_a_generic_toggle() -> None:
-    # The Sensor Track ``Acc...`` button did not fit under the Sequence list, so it was removed:
-    # the panel now holds only the Sequence list, and no generic-panel toggle is built.
+    # The Sensor Track Acc... button did not fit under the Sequence list, so it was removed: the
+    # panel now holds only the Sequence list, and no generic-panel toggle is built.
     host = _new_host()
     mod.KeypadView(host).build()
 
@@ -1051,7 +1074,7 @@ def test_the_override_decides_the_panel_drawn_and_the_kind_reported() -> None:
 
 
 def test_the_forced_generic_panel_offers_the_way_back_on_the_shared_key() -> None:
-    # ``ac_op_btn`` means "the other view of this id"; with an override in force that is the
+    # ac_op_btn means "the other view of this id"; with an override in force that is the
     # component's own LCS panel, and it says so even where no configured accessory exists.
     state = _flagged(is_bpc2=True)
     host, view = _ops(state=state)

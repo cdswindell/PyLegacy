@@ -6,11 +6,11 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-"""The ``pylcs`` command line and the stand-alone LCS host.
+"""The pylcs command line and the stand-alone LCS host.
 
 Headless throughout: no window is ever opened. The argument surface is exercised through the
-parser alone, ``main`` against a stand-in ``LcsCli``, and ``LcsGui`` with guizero's ``App``
-and the PyTrain singletons patched out, exactly as ``tests/gui/test_guizero_base.py`` does.
+parser alone, main against a stand-in LcsCli, and LcsGui with guizero's App
+and the PyTrain singletons patched out, exactly as tests/gui/test_guizero_base.py does.
 """
 
 from __future__ import annotations
@@ -98,6 +98,10 @@ def test_main_reads_sys_argv_when_given_nothing(monkeypatch) -> None:
 
 def test_main_exits_rather_than_raising_when_the_cli_fails(monkeypatch) -> None:
     class FakeCli:
+        # cmd_line goes unread here because construction fails, but the name has to stay:
+        # main passes it by keyword, and a fake that did not accept it would raise a
+        # TypeError instead of the failure this test is about.
+        # noinspection PyUnusedLocal,unused-parameter
         def __init__(self, cmd_line=None) -> None:
             raise RuntimeError("no base")
 
@@ -129,6 +133,8 @@ class FakeGui:
         self.run_window_calls += 1
 
 
+# The command's own internals, set by hand because its constructor is what is being skipped.
+# noinspection PyProtectedMember
 def _command_for(cli) -> LcsGuiCmd:
     """An LcsGuiCmd without the PyTrain bring-up its constructor performs."""
     cmd = object.__new__(LcsGuiCmd)

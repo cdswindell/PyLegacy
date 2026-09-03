@@ -8,10 +8,10 @@
 #
 """The context table, read as data.
 
-``accessory_bindings`` imports neither ``tkinter`` nor ``guizero``, so every one of these runs
-without a display -- the same bargain ``test_control_labels`` makes. What is checked here is
+accessory_bindings imports neither tkinter nor guizero, so every one of these runs
+without a display -- the same bargain test_control_labels makes. What is checked here is
 the shape of the table and the walk over it; what the router then does with a resolved entry
-belongs to ``test_steam_deck_input``.
+belongs to test_steam_deck_input.
 """
 
 from __future__ import annotations
@@ -268,7 +268,7 @@ def test_a_cycle_in_the_inheritance_terminates() -> None:
 
 
 # --------------------------------------------------------------------------------------- #
-# Laying a profile's ``contexts`` section over the Python defaults.
+# Laying a profile's contexts section over the Python defaults.
 # --------------------------------------------------------------------------------------- #
 
 
@@ -301,8 +301,8 @@ def test_an_override_replaces_one_entry_and_leaves_its_neighbours_alone() -> Non
 
 
 def test_null_unbinds_an_entry_without_removing_the_claim_below_it() -> None:
-    # The distinction the whole ``None`` mechanism exists for: the control stops sending, but
-    # the base context still swallows it rather than letting it reach an engine.
+    # The distinction the whole None mechanism exists for: the control stops sending, but the
+    # base context still swallows it rather than letting it reach an engine.
     merged = merge_contexts({"acc_bpc2": {"bindings": {"startup": None}}}, base=_base())
 
     assert merged["acc_bpc2"].bindings["startup"] is None
@@ -590,7 +590,7 @@ def test_the_generic_aux_bindings_do_not_reach_the_power_district_panels(panel, 
 
 def test_the_vertical_stick_holds_the_asc2_output_and_is_sign_blind() -> None:
     # The plain action rather than the throttle_up / throttle_down pair, so the variant lookup
-    # finds neither and falls back to it: a push either way energises the one output there is.
+    # finds neither and falls back to it: a push either way energizes the one output there is.
     for value in (1.0, -1.0):
         resolution = resolve_axis(PANEL_CONTEXT_CHAINS[PANEL_ASC2], "throttle", value)
 

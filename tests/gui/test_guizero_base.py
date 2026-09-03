@@ -75,15 +75,14 @@ class DummyGui(mod.GuiZeroBase):
             button_divisor=button_divisor,
         )
 
-    @staticmethod
-    def build_gui(**kwargs) -> None:
+    # Signatures mirror the abstract GuiZeroBase hooks; the base calls both with no arguments.
+    def build_gui(self) -> None:
         return
 
     def destroy_gui(self) -> None:
         self.destroy_gui_calls += 1
 
-    @staticmethod
-    def calc_image_box_size(**kwargs) -> tuple[int, int]:
+    def calc_image_box_size(self) -> tuple[int, int]:
         return 0, 0
 
 
@@ -109,7 +108,10 @@ def test_run_clears_local_app_reference_from_shutdown_closure() -> None:
 
     gui.run()
 
-    assert gui.app is None
+    # GuiZeroBase.app is annotated App, but run() drops the reference during shutdown; the
+    # widened local records that so the assertion below reads as possible, not as dead code.
+    app_after_run: mod.App | None = gui.app
+    assert app_after_run is None
     assert gui.destroy_gui_calls == 1
     assert gui.destroy_complete.is_set()
 
@@ -372,7 +374,7 @@ def test_get_image_separates_entries_that_differ_only_by_flag(tmp_path, monkeypa
 
 
 def test_get_scaled_image_emits_no_stdout(capsys, monkeypatch) -> None:
-    # The debug ``print`` in get_scaled_image was synchronous stdout I/O on the Tk thread, once per
+    # The debug print in get_scaled_image was synchronous stdout I/O on the Tk thread, once per
     # scaled image. It has been removed; scaling must now be silent.
     monkeypatch.setattr(mod.ImageTk, "PhotoImage", lambda img: object())
     gui = DummyGui()
@@ -389,7 +391,7 @@ def test_get_scaled_image_emits_no_stdout(capsys, monkeypatch) -> None:
 
 
 class _FakeTk:
-    """Minimal stand-in for a guizero widget's ``.tk`` handle used by _build_keypad_button."""
+    """Minimal stand-in for a guizero widget's .tk handle used by _build_keypad_button."""
 
     def configure(self, *_args, **_kwargs) -> None:
         return
@@ -424,8 +426,8 @@ class _FakeCell:
 
     @visible.setter
     def visible(self, value: bool) -> None:
-        # guizero routes ``visible = ...`` through show()/hide(); mirror that so the deferred
-        # decode wrapper (which shadows ``show``) fires whichever way a cell is revealed.
+        # guizero routes visible = ... through show()/hide(); mirror that so the deferred
+        # decode wrapper (which shadows show) fires whichever way a cell is revealed.
         if value:
             self.show()
         else:
@@ -441,7 +443,7 @@ class _FakeCell:
 
 
 class _FakeButton:
-    """A HoldButton double exposing the ``image`` / ``images`` attributes the build path sets."""
+    """A HoldButton double exposing the image / images attributes the build path sets."""
 
     def __init__(self, *_args, **kwargs) -> None:
         self.tk = _FakeTk()
@@ -456,7 +458,7 @@ def _spy_titled_image(gui, monkeypatch) -> list[str]:
 
     def fake_titled(path):
         decoded.append(path)
-        return (f"normal::{path}", f"inverted::{path}")
+        return f"normal::{path}", f"inverted::{path}"
 
     monkeypatch.setattr(gui, "get_titled_image", fake_titled)
     return decoded
@@ -519,7 +521,7 @@ def test_hidden_keypad_image_cell_decodes_when_revealed_via_visible_setter(monke
     assert decoded == []
     assert nb.images is None
 
-    # Revealing through ``cell.visible = True`` (guizero calls show()) also triggers the decode.
+    # Revealing through cell.visible = True (guizero calls show()) also triggers the decode.
     cell.visible = True
     assert decoded == ["brake.jpg"]
     assert nb.images == ("normal::brake.jpg", "inverted::brake.jpg")
@@ -528,9 +530,9 @@ def test_hidden_keypad_image_cell_decodes_when_revealed_via_visible_setter(monke
 
 
 def test_hidden_keypad_image_cell_decodes_from_original_path_after_image_reassigned(monkeypatch) -> None:
-    # Regression: a live button's ``image`` can be swapped to a rendered ImageTk.PhotoImage
-    # before the cell is first shown (e.g. update_ac_status repaints the BPC2 status bulb). The
-    # deferred decode must use the original build-time path, not ``button.image`` -- feeding a
+    # Regression: a live button's image can be swapped to a rendered ImageTk.PhotoImage before
+    # the cell is first shown (e.g. update_ac_status repaints the BPC2 status bulb). The
+    # deferred decode must use the original build-time path, not button.image -- feeding a
     # PhotoImage back through get_titled_image/Image.open raised and aborted the panel's show
     # cascade, dropping the BPC2 buttons and device image on first display.
     gui = DummyGui()

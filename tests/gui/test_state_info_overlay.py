@@ -9,14 +9,14 @@ class FakeEditableText:
     def __init__(self, editing: bool = True) -> None:
         self.is_editing = editing
         self.committed = False
-        self.cancelled = False
+        self.canceled = False
 
     def commit_edit(self) -> None:
         self.committed = True
         self.is_editing = False
 
     def cancel_edit(self) -> None:
-        self.cancelled = True
+        self.canceled = True
         self.is_editing = False
 
 
@@ -76,7 +76,7 @@ def test_popup_close_cancels_active_inline_edits_and_delegates(monkeypatch) -> N
     info._post_close_action(overlay)
 
     assert field.committed is False
-    assert field.cancelled is True
+    assert field.canceled is True
     assert field.is_editing is False
     assert host.closed_overlay is overlay
 

@@ -8,12 +8,12 @@
 #
 """Compact (Steam Deck) parity for the creation, Info and panel-toggle work.
 
-Everything added in this pass lands in ``EngineGui`` / ``KeypadView``, which ``SteamDeckGui``
+Everything added in this pass lands in EngineGui / KeypadView, which SteamDeckGui
 hosts unchanged, so parity is asserted here rather than by touching the Deck GUI: the same cells
 are built through a compact geometry path, and the same handlers are exercised on a pane-hosted
-``EngineGui`` shell -- one carrying ``_parent`` and ``_parent_gui``, which is all a pane is.
+EngineGui shell -- one carrying _parent and _parent_gui, which is all a pane is.
 
-The keypad fakes are the ones ``tests/gui/test_keypad_view.py`` already keeps faithful; they are
+The keypad fakes are the ones tests/gui/test_keypad_view.py already keeps faithful; they are
 imported rather than copied so a drift in the real widget surface fails in one place.
 """
 
@@ -49,7 +49,7 @@ PORTRAIT_BUTTON_SIZE = 96
 
 
 def _geometry(compact: bool) -> engine_mod.EngineGui:
-    """An ``EngineGui`` shell carrying only what the geometry properties read."""
+    """An EngineGui shell carrying only what the geometry properties read."""
     gui = engine_mod.EngineGui.__new__(engine_mod.EngineGui)
     gui._compact = compact
     gui.button_size = COMPACT_BUTTON_SIZE if compact else PORTRAIT_BUTTON_SIZE
@@ -95,7 +95,7 @@ def test_the_pane_clamps_the_image_box_and_portrait_takes_what_it_is_given() -> 
 
 
 class RecordingCheckBoxGroup(DummyCheckBoxGroup):
-    """Keeps the kwargs the Sequence group is built with -- ``pady`` is the compact one."""
+    """Keeps the kwargs the Sequence group is built with -- pady is the compact one."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -110,7 +110,7 @@ class RecordingTitleBox(DummyTitleBox):
 
 
 class FakeAmc2Panel:
-    """The AMC2 panel as ``build()`` finds it, including the exposed toggle button."""
+    """The AMC2 panel as build() finds it, including the exposed toggle button."""
 
     def __init__(self, _host) -> None:
         self.panel_toggle_button = DummyButton()
@@ -137,7 +137,7 @@ def _patch_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _host(compact: bool) -> SimpleNamespace:
-    """``_new_host`` re-sized by the real geometry properties, so the pane's numbers are the
+    """_new_host re-sized by the real geometry properties, so the pane's numbers are the
     ones the keypad is built with rather than numbers a test made up."""
     geometry = _geometry(compact)
     host = _new_host()
@@ -150,6 +150,9 @@ def _host(compact: bool) -> SimpleNamespace:
     return host
 
 
+# The host double stands in for EngineGui, whose private _scope_tmcc_ids map is what the keypad
+# reads, so seeding it directly is how a scope's TMCC ID is pinned.
+# noinspection PyProtectedMember
 def _built(compact: bool, scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19, state=None):
     host = _host(compact)
     host.scope = scope
@@ -203,7 +206,7 @@ def test_the_new_cells_are_ops_cells_on_the_pane_too(compact: bool) -> None:
 
 @pytest.mark.parametrize("compact", [True, False])
 def test_the_sensor_track_panel_has_no_generic_toggle_on_the_pane(compact: bool) -> None:
-    # The ill-fitting ``Acc...`` footer button was removed: the Sequence list is the panel's
+    # The ill-fitting Acc... footer button was removed: the Sequence list is the panel's
     # only content, on the pane exactly as on portrait.
     host, _view = _built(compact)
 
@@ -291,8 +294,8 @@ def test_the_way_back_wears_the_configured_accessory_icon_on_the_pane(compact: b
 # The empty 4th column collapses through the compact geometry too
 # ---------------------------------------------------------------------------
 #
-# The reflow lands wholly in ``KeypadView``, so a compact host reaches it by the same path a
-# portrait one does; the widths simply derive from the pane's own ``button_size``.
+# The reflow lands wholly in KeypadView, so a compact host reaches it by the same path a
+# portrait one does; the widths simply derive from the pane's own button_size.
 
 
 def _cell_width(host) -> int:
@@ -454,7 +457,7 @@ class DummyState:
 
 def _engine(pane: bool, scope: CommandScope = CommandScope.ACC) -> engine_mod.EngineGui:
     """The same shell either way, differing only in what a pane actually is: a parent Box and
-    the ``SteamDeckGui`` that owns it."""
+    the SteamDeckGui that owns it."""
     gui = engine_mod.EngineGui.__new__(engine_mod.EngineGui)
     gui.scope = scope
     gui._cv = threading.RLock()

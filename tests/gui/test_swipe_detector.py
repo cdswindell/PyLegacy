@@ -241,6 +241,6 @@ def test_long_press_suppresses_the_swipe(monkeypatch) -> None:
     widget.release(SimpleNamespace(x=320 - 300, y=100))
 
     # A fired long press must not also be reported as a swipe. _on_release reads the
-    # flag *before* cancelling the timer, because cancelling resets it.
+    # flag *before* canceling the timer, because canceling resets it.
     assert long_presses == ["LONG"]
     assert detector.fired == []

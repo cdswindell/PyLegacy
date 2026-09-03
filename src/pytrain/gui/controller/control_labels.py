@@ -14,11 +14,11 @@ without a display.
 
 Two rules shape the design:
 
-* **The profile is the source of truth.** A user may pass ``-controller_profile`` to
-  ``make_gui`` and bind whatever they like, so nothing here assumes the bundled layout.
+* **The profile is the source of truth.** A user may pass -controller_profile to
+  make_gui and bind whatever they like, so nothing here assumes the bundled layout.
   Unknown buttons, axes and actions all degrade to something legible rather than raising.
-* **Engine commands name themselves.** ``Mixins.clean_title`` already turns
-  ``REAR_COUPLER`` into "Rear Coupler", so the ~8 engine commands the profile can bind
+* **Engine commands name themselves.** Mixins.clean_title already turns
+  REAR_COUPLER into "Rear Coupler", so the ~8 engine commands the profile can bind
   need no hand-written English. Only the handful whose enum name reads like a protocol
   constant ("Blow Horn One") get an override.
 """
@@ -42,7 +42,7 @@ from .steam_deck_input import (
 )
 
 # Joystick button index -> the glyph printed on the Deck. These are the numbers the
-# profile's ``buttons`` section uses (JOYBUTTONDOWN/event.button), not SDL's game
+# profile's buttons section uses (JOYBUTTONDOWN/event.button), not SDL's game
 # controller enum -- see the numbering note in steam_deck_input.py. Promoted from a
 # comment into data so the help screen can name the button a binding is on.
 DECK_BUTTON_LABELS: dict[int, str] = {
@@ -69,14 +69,14 @@ ARROW_HORIZONTAL = "\u2194\ufe0e"  # left-right arrow
 ARROW_VERTICAL = "\u2195\ufe0e"  # up-down arrow
 # For the rows where only one way along an axis does anything, which the two-headed arrows
 # above would misreport as four live deflections. Carrying the same U+FE0E text-presentation
-# selector: without it the Deck's font stack renders the arrow as a colour emoji, at a size
+# selector: without it the Deck's font stack renders the arrow as a color emoji, at a size
 # that does not match the row it sits in.
 ARROW_UP = "\u2191\ufe0e"  # upwards arrow
 ARROW_RIGHT = "\u2192\ufe0e"  # rightwards arrow
 
-# The stick axes, by the index the profile's ``axes`` section uses. Named because the
-# context sections below have to name a particular stick rather than whatever the profile
-# happens to bind to it, and a bare 4 in that code says nothing.
+# The stick axes, by the index the profile's axes section uses. Named because the context
+# sections below have to name a particular stick rather than whatever the profile happens
+# to bind to it, and a bare 4 in that code says nothing.
 LEFT_STICK_HORIZONTAL = 0
 LEFT_STICK_VERTICAL = 1
 RIGHT_STICK_HORIZONTAL = 3
@@ -168,7 +168,7 @@ ACTION_NOTES: dict[str, str] = {
 # qualifier trailing in the same words every focus-scoped section uses, so they read as a
 # family and sort together in the eye, and so the panel types still to come -- Aux -- need no
 # new phrasing invented for them, as Routes did not. "w" rather than "with" throughout: these
-# headings lead the narrow columns, and the spelt-out word wrapped them.
+# headings lead the narrow columns, and the spelled-out word wrapped them.
 #
 # The popup section is the exception: what it describes is not one kind of panel but any of
 # them, which a "<type> (w focus)" heading cannot say.
@@ -208,7 +208,7 @@ GLOBAL_CHORD_TITLE = "Global"
 
 # Buttons drawn in that section rather than with the rest of the buttons. Named by index
 # because no binding says it: in the bundled profile View and the stick clicks are on
-# global actions and Menu on a pane-scoped one, so ``target`` sorts them apart. What they
+# global actions and Menu on a pane-scoped one, so target sorts them apart. What they
 # share is what the heading claims -- none of them does anything to the engine in front of
 # you, and all of them keep working whatever is on screen. What they do instead is decide
 # which pane the rest of the screen is talking about, which is worth reading before those
@@ -228,7 +228,7 @@ TRIGGER_AFTER_BUTTON = 5
 def _sentence_case(text: str) -> str:
     """ "Rear Coupler" -> "Rear coupler".
 
-    ``clean_title`` is title-cased, which next to the sentence-cased entries in
+    clean_title is title-cased, which next to the sentence-cased entries in
     ACTION_LABELS reads like two different screens. None of the command names contain a
     proper noun, so lowering everything after the first letter is safe.
     """
@@ -238,7 +238,7 @@ def _sentence_case(text: str) -> str:
 def command_label(command: str) -> str | None:
     """Friendly name for a PyTrain command name, or None if it resolves to no enum.
 
-    Tried against the same enums ``EngineGui.do_engine_command`` uses, minus its
+    Tried against the same enums EngineGui.do_engine_command uses, minus its
     Legacy/TMCC branching: the wording is identical either way, only the wire command
     differs.
     """
@@ -465,7 +465,7 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
     for index in sorted(profile.axes, key=lambda i: _stick_order(profile.axes[i], i)):
         binding = profile.axes[index]
         # No "inverted" note: whether the profile inverts the axis is an implementation
-        # detail, and the resulting behaviour is what the reader cares about.
+        # detail, and the resulting behavior is what the reader cares about.
         entry = ControlEntry(
             axis_label(index),
             action_label(binding.action) + target_suffix(binding.target),

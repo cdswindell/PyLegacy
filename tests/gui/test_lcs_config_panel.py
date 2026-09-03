@@ -188,7 +188,7 @@ def _row(scope: CommandScope, module: str, base_id: int, ports: int = 1) -> str:
 
 
 def _mode_options(device: reg.LcsDevice, base_id: int) -> list[tuple[str, str]]:
-    """The Mode radios: every enabled mode named with the block it would claim at ``base_id``.
+    """The Mode radios: every enabled mode named with the block it would claim at base_id.
 
     Each row is the mode's own ids_label against its key, in the order the registry lists the
     module's modes, which is what the group is filled from. This says no more than the panel's
@@ -327,7 +327,8 @@ class FakeHost(SimpleNamespace):
     def submit_request(self, request: Any, repeat: int = 1, delay: float = 0.0) -> None:
         self.sent.append((request, repeat, delay))
 
-    def queue_message(self, message: Any, *args: Any) -> None:
+    @staticmethod
+    def queue_message(message: Any, *args: Any) -> None:
         message(*args)
 
 
@@ -661,9 +662,9 @@ def _stm2_at_1_and_bpc2_at_1_store() -> FakeStore:
 def _rows(cells: list[tuple[Any, ...]]) -> list[str]:
     """What one of the module boxes is showing, one string per visible row.
 
-    Read out of the row widgets rather than off ``assigned_rows()`` / ``overlap_rows()``,
-    so the assertions cover what was actually written into the box -- including a row left
-    over from a busier ID, which must be hidden rather than merely blanked.
+    Read out of the row widgets rather than off assigned_rows() / overlap_rows(), so the
+    assertions cover what was actually written into the box -- including a row left over
+    from a busier ID, which must be hidden rather than merely blanked.
     """
     lines = []
     for row in cells:
@@ -673,10 +674,13 @@ def _rows(cells: list[tuple[Any, ...]]) -> list[str]:
     return lines
 
 
+# The row widgets are the panel's own, and reading them is the point of these helpers.
+# noinspection PyProtectedMember
 def _assigned(panel: mod.LcsConfigPanel) -> list[str]:
     return _rows(panel._assigned_cells)
 
 
+# noinspection PyProtectedMember
 def _overlaps(panel: mod.LcsConfigPanel) -> list[str]:
     return _rows(panel._overlap_cells)
 
@@ -1656,6 +1660,7 @@ class _RecordingGridTk:
         self.grid_options.update(kwargs)
 
 
+# noinspection PyProtectedMember
 def _record_titled_boxes(panel: mod.LcsConfigPanel) -> None:
     for widget in (panel._titled_boxes, panel._assigned_box, panel._overlap_box, panel._mode_box):
         widget.tk = _RecordingGridTk()
@@ -1862,7 +1867,7 @@ def test_back_and_next_are_the_last_thing_in_the_body_after_a_gap() -> None:
 
 def test_the_panel_offers_no_footer_so_close_gets_a_line_of_its_own() -> None:
     # create_popup's other branch: with no footer to append Close to, it adds the plain
-    # centred Close button to the overlay itself, below the panel's own content.
+    # centered Close button to the overlay itself, below the panel's own content.
     panel = _new_panel()
 
     assert panel.has_footer is False
@@ -1891,7 +1896,7 @@ def test_declining_close_is_this_panel_and_no_other() -> None:
 
 def test_the_device_page_shows_next_alone() -> None:
     # There is nowhere to go back to from the first page, so Back is off the row entirely --
-    # not greyed, and not standing in a placeholder of its own width. The row asks for no
+    # not grayed, and not standing in a placeholder of its own width. The row asks for no
     # width, so it shrinks to Next and Tk centers it.
     panel = _new_panel()
 

@@ -57,7 +57,7 @@ def _oversized_profile() -> ControlProfile:
     """A profile far larger than the bundled one, to force pagination.
 
     Sized past COLUMNS * ROWS_PER_COLUMN so it spans pages however those constants are
-    later tuned -- the point is the paging behaviour, not any particular capacity. The
+    later tuned -- the point is the paging behavior, not any particular capacity. The
     buttons clear a whole column by themselves, allowing for the handful of indices the
     global section takes, so the Buttons section is still one that has to be split.
     """
@@ -337,7 +337,7 @@ def test_bundled_profile_still_fits_one_page_with_wrapping() -> None:
     assert len(_panel(ControlProfile.load(None)).paginate()) == 1
 
 
-# What a stand-in section frame answers when it is asked what colour it is drawn in. A row
+# What a stand-in section frame answers when it is asked what color it is drawn in. A row
 # has to be told: it is a plain Tk label, which inherits no background from the frame it is
 # gridded into (see ControlsPanel._section_background).
 _FRAME_BG = "#FFFFFF"
@@ -351,6 +351,7 @@ class _FakeTextTk:
         # The sticky in force, as opposed to every sticky ever asked for: Tk keeps the last
         # one, and what a column ends up gridded with is the question here.
         self.sticky: str | None = None
+        self.updated = False
 
     def config(self, **kwargs) -> None:
         self.configs.append(kwargs)
@@ -366,7 +367,8 @@ class _FakeTextTk:
     def update_idletasks(self) -> None:
         self.updated = True
 
-    def cget(self, _option) -> str:
+    @staticmethod
+    def cget(_option) -> str:
         return _FRAME_BG
 
     def winfo_children(self):
@@ -404,7 +406,8 @@ class _FakeFrameTk:
     def config(self, **kwargs) -> None:
         self.configs.append(kwargs)
 
-    def cget(self, _option) -> str:
+    @staticmethod
+    def cget(_option) -> str:
         return _FRAME_BG
 
 
@@ -421,9 +424,9 @@ class _FakeLabel:
 
     What it records is the shape of the change that made the help screen quick to build.
     Everything the panel has to say about a cell is a constructor argument -- the text, the
-    font and its weight, the colours, the wrap -- and the only call after that is the grid.
-    A cell configured afterwards instead would land in ``configs``, which is what a guizero
-    row did a couple of hundred times over.
+    font and its weight, the colors, the wrap -- and the only call after that is the grid.
+    A cell configured afterwards instead would land in configs, which is what a guizero row
+    did a couple of hundred times over.
     """
 
     instances: list["_FakeLabel"] = []
@@ -447,7 +450,7 @@ class _FakeLabel:
 
 
 def _section() -> SimpleNamespace:
-    """A stand-in for the section frame a row is gridded into, and asked its colour."""
+    """A stand-in for the section frame a row is gridded into, and asked its color."""
     return SimpleNamespace(tk=_FakeFrameTk())
 
 
@@ -750,7 +753,7 @@ def test_the_entry_size_is_never_given_back_past_the_floor(monkeypatch) -> None:
 def test_the_size_ceiling_does_not_cost_the_screen_a_page(monkeypatch) -> None:
     # The other half of raising ENTRY_SIZE, and the half _fit_text does not test for: a
     # taller row buys fewer of them, and a budget under what the sections need spills the
-    # shipped screen onto a second page nobody would think to turn to. Modelled with a row
+    # shipped screen onto a second page nobody would think to turn to. Modeled with a row
     # that grows with the point size, which is the worst case -- on the fonts measured here
     # a row is as tall as the taller of its text and a SECTION_SIZE heading, and the heading
     # wins at every size the ceiling can reach, so the real budget does not move at all.
@@ -884,7 +887,7 @@ def test_no_bundled_row_wraps_however_wide_the_display_draws_it(monkeypatch, px_
     # come out is not knowable from here (the Deck draws them some 6-12% wider than a desk
     # machine), so it is driven across a range that brackets both ends and well past them:
     # at the wide end the page runs off the display, which is the trade, and no line breaks.
-    def ruler(_cls, _widget, entry_size: int = mod.ENTRY_SIZE) -> mod.TextRuler:
+    def ruler(_cls, _widget, _entry_size: int = mod.ENTRY_SIZE) -> mod.TextRuler:
         return mod.TextRuler(
             measure=lambda text: px_per_char * len(text),
             row_px=30,
@@ -915,7 +918,7 @@ def test_no_bundled_row_wraps_however_wide_the_display_draws_it(monkeypatch, px_
 def test_the_columns_are_grown_until_the_sections_that_moved_fit(monkeypatch) -> None:
     # Why one pass is no longer enough. A column that takes more than an even share holds
     # more sections than it was measured with, and a section that lands in a column priced
-    # without it wraps there -- modelled at 17pt on a font 12% wider than this machine's,
+    # without it wraps there -- modeled at 17pt on a font 12% wider than this machine's,
     # the second pass moved five rows into columns some 50px too narrow. So the packing is
     # followed up until no column is under its need, widening only: a column that already
     # holds its rows on one line cannot be made to break one by being handed more room.
@@ -950,7 +953,7 @@ def test_the_columns_stop_growing_after_a_bounded_number_of_passes(monkeypatch) 
     panel._ruler = mod.TextRuler(measure=len, row_px=30, footnote_px=15, keycap_measure=len)
     passes = itertools.count(1)
 
-    def always_more(self) -> tuple[int, ...]:
+    def always_more(_self) -> tuple[int, ...]:
         # Past the page every time, so the growth is never satisfied: a need the page can
         # afford is met out of the slack on the pass that finds it.
         step = 500 * next(passes)
@@ -1139,9 +1142,9 @@ def test_only_the_outer_columns_are_pinned_and_only_to_each_other(monkeypatch) -
     panel._render_page()
 
     assert panel._page_box.tk.columns == [(0, {"minsize": 320}), (COLUMNS - 1, {"minsize": 320})]
-    # align="top" alone grids a column sticky="N", which centres it in a cell wider than
+    # align="top" alone grids a column sticky="N", which centers it in a cell wider than
     # its content: the narrower outer column would sit in a gap on both sides rather than
-    # line up with its neighbour. Pinned, a column has to spend what it was pinned to.
+    # line up with its neighbor. Pinned, a column has to spend what it was pinned to.
     stretched = [widget for widget in _FakeText.instances if {"sticky": "new"} in widget.tk.grids]
     assert len(stretched) == COLUMNS
 
@@ -1183,7 +1186,7 @@ def test_the_columns_are_filled_after_everything_else_is_on_the_page(monkeypatch
     # The bug this guards, and it is guizero's, not Tk's: adding a widget to a grid
     # container re-grids the widgets already in it, each from its own align -- so the
     # sticky that makes a column spend its cell was replaced by "N" the moment the next
-    # column was created, and the first column drew at its text width, centred in the cell
+    # column was created, and the first column drew at its text width, centered in the cell
     # it had been widened to, with half the difference showing as a gap before the middle
     # column. Filling them last is the fix, and "last" includes after the page label.
     class _Regridding(_FakeText):
@@ -1237,7 +1240,7 @@ def test_a_render_tk_cannot_measure_leaves_the_columns_alone(monkeypatch) -> Non
 
 
 def test_a_section_note_is_drawn_under_its_rows(monkeypatch) -> None:
-    # Footnote-sized and grey, like the "*" line under the columns: it says something about
+    # Footnote-sized and gray, like the "*" line under the columns: it says something about
     # the rows above it rather than being one of them. It spans both of the section's
     # columns because it belongs to the section, not to any one input -- there is no keycap
     # to draw beside it, so it gets the whole width of the column less its chrome.
@@ -1341,8 +1344,8 @@ def test_a_rows_note_is_drawn_beside_it_a_size_down(monkeypatch) -> None:
     # Its own grid column, on the row it belongs to.
     assert (action.gridded["column"], action.gridded["row"]) == (1, 3)
     assert (note.gridded["column"], note.gridded["row"]) == (2, 3)
-    # And the same colour as the action: these two words are sometimes the whole of what a
-    # row is telling you, and greying them as well as shrinking them puts them past reading.
+    # And the same color as the action: these two words are sometimes the whole of what a
+    # row is telling you, and graying them as well as shrinking them puts them past reading.
     assert note.kwargs["foreground"] == mod.ENTRY_FG == action.kwargs["foreground"]
 
 
@@ -1390,7 +1393,7 @@ def test_the_rows_carry_no_grid_padding(monkeypatch) -> None:
     # every row and got them on almost none -- guizero re-grids every child of a container each
     # time another joins it, from that child's grid and align alone, so each row's padding was
     # thrown away by the next row added to the same section, and only the last row of each kept
-    # it. Honouring it measures 12px a row: 48px on the page, which puts the Deck at its widest
+    # it. Honoring it measures 12px a row: 48px on the page, which puts the Deck at its widest
     # font 52px past the right edge of the display against 4px today.
     _FakeLabel.instances = []
     monkeypatch.setattr(mod, "Label", _FakeLabel)
@@ -1409,7 +1412,7 @@ def test_the_rows_carry_no_grid_padding(monkeypatch) -> None:
 
 def test_the_rows_are_told_the_colour_their_section_is_drawn_in(monkeypatch) -> None:
     # guizero handed a new widget its master's background; a plain Tk label is born in the
-    # system's own window colour, which behind the text of a white section is a grey block. So
+    # system's own window color, which behind the text of a white section is a gray block. So
     # the frame is asked once per section -- not once per row -- and every row of it is told.
     _FakeText.instances = []
     _FakeLabel.instances = []
@@ -1424,9 +1427,9 @@ def test_the_rows_are_told_the_colour_their_section_is_drawn_in(monkeypatch) -> 
 
     assert _FakeLabel.instances, "the column has rows"
     keycaps = [label for label in _FakeLabel.instances if label.kwargs["background"] == mod.KEYCAP_BG]
-    assert keycaps, "a keycap is drawn on its own colour, as a keycap"
+    assert keycaps, "a keycap is drawn on its own color, as a keycap"
     assert all(label.kwargs["background"] in (_FRAME_BG, mod.KEYCAP_BG) for label in _FakeLabel.instances)
-    # And a frame that cannot be asked leaves the rows Tk's own colour rather than raising:
+    # And a frame that cannot be asked leaves the rows Tk's own color rather than raising:
     # measuring and asking are improvements on drawing, never requirements for it.
     assert panel._section_background(SimpleNamespace(tk=object())) == ""
 
@@ -1492,8 +1495,8 @@ def test_a_heading_qualifier_is_drawn_a_size_down(monkeypatch) -> None:
         mod.NOTE_SIZE,
         mod.SECTION_SIZE,
     ]
-    # Bold and the heading colour throughout: the qualifier is part of the heading, not a
-    # footnote to it, and 12pt unbolded grey is close to invisible at arm's length.
+    # Bold and the heading color throughout: the qualifier is part of the heading, not a
+    # footnote to it, and 12pt unbolded gray is close to invisible at arm's length.
     assert all(label.kwargs["font"][2] == "bold" for label in _FakeLabel.instances)
     assert all(label.kwargs["foreground"] == mod.SECTION_FG for label in _FakeLabel.instances)
     assert [config for config in box.tk.configs if "labelwidget" in config], "the frame has to be given the widget"
@@ -1556,7 +1559,7 @@ def test_the_sections_are_outlined_in_a_single_line(monkeypatch) -> None:
     # The gap between the columns, which is not padding: the columns are flush (padx=0, every
     # section packed fill="x"), and what showed between them was two section frames' own
     # 2px groove -- dark, light, light, dark -- of which the two light pixels read as a gap.
-    # One line each, and two neighbours meet in a single rule with no white in it.
+    # One line each, and two neighbors meet in a single rule with no white in it.
     _FakeText.instances = []
     monkeypatch.setattr(mod, "Box", _FakeText)
     monkeypatch.setattr(mod, "Text", _FakeText)
@@ -1571,7 +1574,7 @@ def test_the_sections_are_outlined_in_a_single_line(monkeypatch) -> None:
     frames = [widget for widget in _FakeText.instances if widget.kwargs.get("layout") == "grid"]
     assert frames, "the sections are the frames drawn with a border"
     assert all(frame.kwargs["border"] == mod.SECTION_BORDER == 1 for frame in frames)
-    # In the one call that also gives the frame its heading font and colour: guizero's three
+    # In the one call that also gives the frame its heading font and color: guizero's three
     # text properties each read the widget's font back and ask it for its option list first,
     # and nothing inherits from this frame any more -- its rows are plain Tk labels.
     for frame in frames:

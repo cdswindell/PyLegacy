@@ -715,13 +715,13 @@ class GuiZeroBase(Thread, ABC):
     def _defer_titled_image_decode(self, cell, button, image: str) -> None:
         """Decode a hidden keypad button's image lazily, on the cell's first show.
 
-        Wraps ``cell.show`` so the expensive ``get_titled_image`` work (Image.open / resize /
+        Wraps cell.show so the expensive get_titled_image work (Image.open / resize /
         ImageTk.PhotoImage) runs only when the panel that owns the cell is first displayed,
-        rather than during ``build``. The wrapper restores the original ``show`` after decoding
-        once, so it never repeats. Both ``cell.show()`` and setting ``cell.visible = True`` route
-        through the wrapper because guizero's ``visible`` setter calls ``self.show()``.
+        rather than during build. The wrapper restores the original show after decoding once, so
+        it never repeats. Both cell.show() and setting cell.visible = True route through the
+        wrapper because guizero's visible setter calls self.show().
 
-        If the cell exposes no callable ``show`` (e.g. a stripped-down test double), the image is
+        If the cell exposes no callable show (e.g. a stripped-down test double), the image is
         decoded eagerly here so the icon is never missing.
         """
         original_show = getattr(cell, "show", None)
@@ -733,7 +733,7 @@ class GuiZeroBase(Thread, ABC):
             # Only intercept the first show; restore the real method for every later call.
             cell.show = original_show
             # Decode from the original image path captured at build time, not from
-            # ``button.image``. A live button's ``image`` can be reassigned to a rendered
+            # button.image. A live button's image can be reassigned to a rendered
             # ImageTk.PhotoImage before the cell is first shown (e.g. update_ac_status swaps
             # the BPC2 status bulb), and feeding that back through get_titled_image ->
             # Image.open raises, aborting the whole panel's show cascade -- which dropped the

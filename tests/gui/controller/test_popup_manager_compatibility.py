@@ -226,16 +226,17 @@ def test_compact_close_button_uses_reduced_height_without_changing_portrait(monk
         return button
 
     monkeypatch.setattr(mod, "PushButton", make_button)
-    manager = mod.PopupManager(_host())
+    host = _host()
+    manager = mod.PopupManager(host)
 
     portrait = _Widget()
-    manager.add_close_btn(manager._host, None, portrait)
+    manager.add_close_btn(host, None, portrait)
     assert buttons[-1].tk.configured[-1]["pady"] == 4
     assert buttons[-1].tk.packed[-1] == {"padx": 20, "pady": 20}
 
-    manager._host.compact = True
+    host.compact = True
     compact = _Widget()
-    manager.add_close_btn(manager._host, None, compact)
+    manager.add_close_btn(host, None, compact)
     assert buttons[-1].tk.configured[-1]["pady"] == 1
     assert buttons[-1].tk.packed[-1] == {
         "padx": mod.FOOTER_BUTTON_PAD_COMPACT,
@@ -525,11 +526,11 @@ def test_a_panel_that_declines_close_is_given_none_but_keeps_its_whitespace(
     monkeypatch.setattr(mod, "PushButton", make)
 
     class _Panel(mod.OverlayPanel):
-        def __init__(self, has_footer: bool, has_close: bool) -> None:
+        def __init__(self, with_footer: bool, with_close: bool) -> None:
             # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
             self._overlay = None
-            self._has_footer = has_footer
-            self._has_close = has_close
+            self._has_footer = with_footer
+            self._has_close = with_close
 
         @property
         def has_footer(self) -> bool:
@@ -696,6 +697,9 @@ def test_accessory_popups_are_marked_no_expand_when_built(monkeypatch: pytest.Mo
         def ensure_gui(self, *, aggregator=None, extra_kwargs=None):
             return self.gui
 
+        # The parameter name is the base method's, so it stands rather than being renamed
+        # away from the local of the same name below.
+        # noinspection PyShadowingNames
         def attach_overlay(self, overlay) -> None:
             pass
 
@@ -711,8 +715,11 @@ def _measurable(height: int, *, mapped: int = 1) -> _Tk:
     return tk
 
 
+# The footer boxes are stashed on the overlay under a private module attribute, which is the
+# arrangement these tests pin.
+# noinspection PyProtectedMember
 def _balanceable(*, below: int, compact: bool, mapped: int = 1):
-    """An overlay whose fill box measures ``below`` pixels, ready for the correction pass."""
+    """An overlay whose fill box measures below pixels, ready for the correction pass."""
     host = _host()
     host.compact = compact
     host.app.tk = SimpleNamespace(update_idletasks=lambda: None, after_idle=lambda fn: fn())
@@ -777,7 +784,7 @@ def test_the_correction_settles_instead_of_creeping(monkeypatch: pytest.MonkeyPa
 
 def test_an_unmapped_overlay_is_not_measured(monkeypatch: pytest.MonkeyPatch) -> None:
     # winfo_height reads 1 before Tk lays a widget out, which would look like the tightest
-    # possible band and centre the row on a band that does not exist yet.
+    # possible band and center the row on a band that does not exist yet.
     host, overlay, lead, _fill = _balanceable(below=1, compact=True, mapped=0)
 
     mod.balance_footer_row(host, overlay)

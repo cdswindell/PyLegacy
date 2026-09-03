@@ -319,16 +319,16 @@ class HoldButton(PushButton):
         """Start a hold as though the button had been pressed with a finger.
 
         For synthetic input (e.g., a controller chord standing in for a press): the
-        hold progress bar animates and ``on_hold`` fires after ``hold_threshold``
-        exactly as it would for a real press, so the timing and the visual feedback
-        have a single implementation.
+        hold progress bar animates and on_hold fires after hold_threshold exactly
+        as it would for a real press, so the timing and the visual feedback have a
+        single implementation.
         """
         self._on_press_event()
 
     def _diag(self, event: str, detail: str = "") -> None:
         """Trace one step of the hold lifecycle.
 
-        Enabled by PyTrain's -debug flag. Holds are cancelled by pointer events that are
+        Enabled by PyTrain's -debug flag. Holds are canceled by pointer events that are
         invisible after the fact, so every decision point logs what it saw and what it
         concluded -- the elapsed time is what says how far into the three seconds a hold
         died.
@@ -350,7 +350,7 @@ class HoldButton(PushButton):
     def _vdiag(self, event: str, detail: Callable[[], str] | str = "") -> None:
         """Trace one pointer event -- only when DIAG_VERBOSE is set. See _diag.
 
-        ``detail`` may be a callable, so a description that costs Tk round-trips (pointer
+        detail may be a callable, so a description that costs Tk round-trips (pointer
         position, widget geometry) is not built when nothing will read it. Motion arrives
         often enough during a three-second hold for that to be worth the indirection.
         """
@@ -363,7 +363,7 @@ class HoldButton(PushButton):
 
     @property
     def is_holding(self) -> bool:
-        """True between the press and the hold firing (or being cancelled).
+        """True between the press and the hold firing (or being canceled).
 
         Public so a host can avoid disturbing the widget mid-hold: anything that repacks
         the layout generates pointer crossings, which cancel the hold.
@@ -373,7 +373,7 @@ class HoldButton(PushButton):
     def cancel_hold(self, reason: str = "cancel_hold()") -> None:
         """Abandon a hold started by begin_hold() before it completes.
 
-        Stops the progress animation and the pending ``on_hold`` without firing the
+        Stops the progress animation and the pending on_hold without firing the
         short-press callback -- the same treatment as a finger sliding off the button.
         Harmless if the hold has already completed.
         """
@@ -529,17 +529,17 @@ class HoldButton(PushButton):
 
         A bare <Leave> is not trustworthy on a touchscreen. The progress overlay is
         placed over the button, so a crossing can be synthesized, and jitter in the touch
-        stream produces Leave/Enter pairs milliseconds apart. Cancelling on the Leave
+        stream produces Leave/Enter pairs milliseconds apart. Canceling on the Leave
         itself therefore aborted roughly half of all 3-second holds.
 
         Two filters, because either alone has been shown insufficient:
 
-        * The event's own ``x``/``y`` are relative to this widget, so a Leave reporting a
-          position still inside the button (plus ``LEAVE_SLOP_PX``) is jitter and is
-          discarded outright. This is trusted ahead of ``winfo_pointerxy()``, which
+        * The event's own x/y are relative to this widget, so a Leave reporting a
+          position still inside the button (plus LEAVE_SLOP_PX) is jitter and is
+          discarded outright. This is trusted ahead of winfo_pointerxy(), which
           queries the *mouse* pointer -- not reliably warped to the finger under
           gamescope, which is why a pointer-only check still let jitter through.
-        * Anything that survives that is confirmed after ``LEAVE_CONFIRM_MS``. A genuine
+        * Anything that survives that is confirmed after LEAVE_CONFIRM_MS. A genuine
           drag-off stays outside and cancels; jitter is followed immediately by an Enter,
           which clears the pending cancel.
         """
@@ -764,10 +764,10 @@ class HoldButton(PushButton):
     def _invoke_callback(cb: Callable | tuple | list | None) -> None:
         """Invoke callback allowing func, (func,args), or (func,args,kwargs).
 
-        The packed forms are tested first, and by isinstance rather than by ``callable``.
+        The packed forms are tested first, and by isinstance rather than by callable.
         Both orders behave identically at runtime -- a tuple is never callable -- but a
-        type checker narrows isinstance and does not narrow ``callable``, so leading with
-        the latter left `tuple` in the union and flagged the bare ``cb()`` as uncallable.
+        type checker narrows isinstance and does not narrow callable, so leading with the
+        latter left `tuple` in the union and flagged the bare cb() as uncallable.
         """
         if not cb:
             return

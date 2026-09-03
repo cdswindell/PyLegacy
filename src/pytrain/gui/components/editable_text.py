@@ -702,8 +702,8 @@ class EditableText(Text):
     def _new_editor_host(self, title: str):
         """The container an editor is built into: a window on portrait, a panel in-window on a pane.
 
-        Portrait gets a real ``tk.Toplevel``, sized and positioned by a window manager that honors
-        ``geometry()``. That is what the Pi actually shows: a titled keyboard window across the
+        Portrait gets a real tk.Toplevel, sized and positioned by a window manager that honors
+        geometry(). That is what the Pi actually shows: a titled keyboard window across the
         bottom, with the panel and the field being edited still visible above it.
 
         A compact pane cannot use one. Under gamescope there is no window manager cooperating like
@@ -712,10 +712,10 @@ class EditableText(Text):
         screen. The 980x420 keyboard had the same symptom for the same reason: that size was never
         applied. Sizing it differently could not have helped, because the size was not the problem.
 
-        So a compact editor is built into a ``tk.Frame`` placed inside the app's own toplevel.
+        So a compact editor is built into a tk.Frame placed inside the app's own toplevel.
         That is exactly why the controls help screen works on the Deck -- it is a Box gridded into
-        ``body`` rather than a window, so no window manager has to agree to anything. Everything
-        the editors do afterwards (``lift``, ``destroy``, ``winfo_children``, packing rows into it)
+        body rather than a window, so no window manager has to agree to anything. Everything
+        the editors do afterwards (lift, destroy, winfo_children, packing rows into it)
         means the same for a Frame as for a Toplevel, so the key-building code is shared as it is.
         """
         top = self.tk.winfo_toplevel()

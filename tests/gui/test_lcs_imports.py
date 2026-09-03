@@ -8,9 +8,9 @@
 #
 """
 Every module of the LCS configuration feature must import relatively, and none of them
-may import the ``pytrain`` package root.
+may import the pytrain package root.
 
-The package's ``__init__`` imports ``EngineGui`` -- and through it the LCS panel -- before
+The package's __init__ imports EngineGui -- and through it the LCS panel -- before
 it defines anything of its own, so a module the package imports cannot import the package
 back. It fails as a circular import at start-up, and the workaround of hiding the import
 inside a function only moves the breakage out of sight, so the rule is checked here
@@ -44,7 +44,7 @@ LCS_MODULES = (
 
 
 def _package_root(module: ModuleType) -> str:
-    """The dotted name of the ``pytrain`` package itself, as this run imported it."""
+    """The dotted name of the pytrain package itself, as this run imported it."""
     parts = module.__name__.split(".")
     return ".".join(parts[: parts.index("pytrain") + 1])
 

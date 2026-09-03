@@ -21,7 +21,7 @@ LIGHT_GRAY = "#cfcfcf"
 WHITE = "#ffffff"
 # The row the gamepad is pointing at. A pale wash of the FOCUS_COLOR (#3B82F6) that already
 # marks the focused pane and the focus arrow, so "where the pad is" says the same thing one
-# level down rather than inventing a fourth colour. It has to stay light: the row's text is
+# level down rather than inventing a fourth color. It has to stay light: the row's text is
 # systemTextColor and its indicator ring is drawn in black, so a saturated fill fights both.
 CURSOR_BG = "#BFDBFE"
 
@@ -29,7 +29,7 @@ CURSOR_BG = "#BFDBFE"
 class CheckBoxGroup(ButtonGroup):
     @staticmethod
     def indicator_size_for(size: int, style: Literal["checkbox", "radio"]) -> int:
-        """How big the painted indicator is for a row of text size ``size``."""
+        """How big the painted indicator is for a row of text size size."""
         return int(size * 1.5) if style == "radio" else int(size * 1.3)
 
     @classmethod
@@ -43,10 +43,10 @@ class CheckBoxGroup(ButtonGroup):
         check_color: str = LIONEL_BLUE,
         background: str = WHITE,
     ):
-        """The (unselected, selected) indicator pair for one row, painted on ``background``.
+        """The (unselected, selected) indicator pair for one row, painted on background.
 
         Kept on the widget so Tk does not collect the images, and cached there so a row is
-        painted once rather than per press. ``background`` is part of the key: the pair is
+        painted once rather than per press. background is part of the key: the pair is
         *filled* with it rather than drawn over a transparent ground, so two backgrounds on one
         widget -- which is what a tinted cursor row is -- need two pairs. Sharing one would show
         whichever ground was painted first as a patch around the ring on the other.
@@ -155,6 +155,9 @@ class CheckBoxGroup(ButtonGroup):
         self._row_thickness = thickness
         self._stretch = stretch
         self._row_leads = self._as_leads(row_leads)
+        # The tinted row, named here rather than only in _init_cursor: a group without a cursor
+        # never gets that far, and the property reads better answering None than not existing.
+        self._cursor: str | None = None
         if stretch:
             # The frame has to fill its container before the rows can fill the frame, and
             # guizero packs a container with fill=X only when its own width is the string
@@ -185,14 +188,14 @@ class CheckBoxGroup(ButtonGroup):
     def _refresh_options(self) -> None:
         """Paint the rows guizero has just rebuilt.
 
-        Every change to a group's options -- ``clear``, ``append``, ``insert``, ``remove`` --
+        Every change to a group's options -- clear, append, insert, remove --
         routes through here, and the parent class *destroys* its rows and creates plain
         Tk radiobuttons in their place: default font, native indicator, no padding. So a group
-        whose options are replaced at runtime silently lost everything ``decorate_checkbox``
+        whose options are replaced at runtime silently lost everything decorate_checkbox
         installs, which is why the LCS panel's mode radios came out as dots barely visible
         beside its module radios -- those are built once and never rebuilt.
 
-        Called from ``ButtonGroup.__init__`` as well, where the rows are first created.
+        Called from ButtonGroup.__init__ as well, where the rows are first created.
         """
         super()._refresh_options()
         self.decorate_rows()
@@ -202,10 +205,10 @@ class CheckBoxGroup(ButtonGroup):
     def resize(self, width, height) -> None:
         """Stretch the rows again once the parent class has resized them.
 
-        ``ButtonGroup.append`` resizes the group *after* rebuilding its rows, and a resize
+        ButtonGroup.append resizes the group *after* rebuilding its rows, and a resize
         hands the group's own width to every row -- which for a filling group means setting a
         row's width to "fill", and guizero re-displays a container whenever that happens. That
-        re-grid drops the sticky ``stretch_rows`` sets, so the stretch has to follow the resize
+        re-grid drops the sticky stretch_rows sets, so the stretch has to follow the resize
         as well as the rebuild -- and with it the leads, which are grid options of the same kind.
         """
         super().resize(width, height)
@@ -215,9 +218,9 @@ class CheckBoxGroup(ButtonGroup):
     def decorate_rows(self) -> None:
         """Give every row of the group the indicator, font and padding it was asked for.
 
-        Guarded, because ``_refresh_options`` is reachable before this class has recorded what
-        to paint with -- a subclass, or a group built by ``__new__`` as the cursor tests build
-        one -- and a group that has said nothing about its rows wants them left alone.
+        Guarded, because _refresh_options is reachable before this class has recorded what to
+        paint with -- a subclass, or a group built by __new__ as the cursor tests build one --
+        and a group that has said nothing about its rows wants them left alone.
         """
         if not hasattr(self, "_row_style"):
             return
@@ -233,13 +236,13 @@ class CheckBoxGroup(ButtonGroup):
             )
 
     def stretch_rows(self) -> None:
-        """Give every row of a ``stretch`` group the full width of the group's frame.
+        """Give every row of a stretch group the full width of the group's frame.
 
         Opt-in, because it is a change of appearance and this component is shared with the
         Admin panel, the catalog's sort radios and the AMC2 page selector. guizero grids a
         row from its align="left", i.e. sticky="W", so each row is only as wide as its own
         label: "ACC TMCC ID 1" comes out visibly shorter than the row above it, which
-        goes unnoticed until the rows are painted -- ``decorate_checkbox`` draws them with
+        goes unnoticed until the rows are painted -- decorate_checkbox draws them with
         indicatoron=False, and a row then carries a background of its own that shows exactly
         where it ends. Handing the row's column the frame's spare width and stretching each
         row across it makes them one width, and that width is the containing box's, since a
@@ -250,8 +253,8 @@ class CheckBoxGroup(ButtonGroup):
         which would pull every indicator flush against the row's left edge.
 
         Re-applied after every rebuild and every resize rather than set once, because neither
-        leaves a grid option standing -- see ``_refresh_options`` and ``resize``. Guarded like
-        ``decorate_rows``, and for the same reason: both are reachable before this class has
+        leaves a grid option standing -- see _refresh_options and resize. Guarded like
+        decorate_rows, and for the same reason: both are reachable before this class has
         recorded anything.
         """
         if not getattr(self, "_stretch", False):
@@ -270,8 +273,8 @@ class CheckBoxGroup(ButtonGroup):
     def _as_leads(leads: Mapping[str, int] = None) -> dict[str, int]:
         """The leads as this class holds them: option values as strings, pixels as ints.
 
-        Values, because that is what a row answers with -- ``_rbuttons`` carries no index --
-        and strings, because guizero stores whatever it was handed and answers in kind.
+        Values, because that is what a row answers with -- _rbuttons carries no index -- and
+        strings, because guizero stores whatever it was handed and answers in kind.
         """
         return {str(value): int(pixels) for value, pixels in (leads or {}).items()}
 
@@ -280,9 +283,9 @@ class CheckBoxGroup(ButtonGroup):
         """How far each named row is held off the row above it, in pixels.
 
         Whitespace *between groups of rows* rather than between every pair of them, which is
-        what ``pady`` already sets: the LCS panel's mode radios list two accessory modes and
-        then two switch modes, and the operator reading them needs to see two lists rather
-        than one of four. A row not named here is packed as tight against the row above it as
+        what pady already sets: the LCS panel's mode radios list two accessory modes and then
+        two switch modes, and the operator reading them needs to see two lists rather than
+        one of four. A row not named here is packed as tight against the row above it as
         every other, so a group that says nothing about its rows is untouched.
 
         Grid padding, so it lands outside the row's own painted background and reads as a gap
@@ -297,16 +300,16 @@ class CheckBoxGroup(ButtonGroup):
         self.lead_rows()
 
     def lead_rows(self) -> None:
-        """Hold every row named in ``row_leads`` off the row above it.
+        """Hold every row named in row_leads off the row above it.
 
-        Re-applied after every rebuild and every resize, like ``stretch_rows`` and for the
-        same reason: guizero re-grids a container's children from the options it recorded,
-        and grid padding is not among them. Every row is configured rather than only those
+        Re-applied after every rebuild and every resize, like stretch_rows and for the same
+        reason: guizero re-grids a container's children from the options it recorded, and
+        grid padding is not among them. Every row is configured rather than only those
         named, so a group whose rows are replaced with a differently grouped list -- which
         is what choosing another LCS module does -- cannot leave a gap standing above a row
         that no longer begins anything.
 
-        Guarded like ``decorate_rows``: both are reachable before this class has recorded
+        Guarded like decorate_rows: both are reachable before this class has recorded
         anything, and a group that has said nothing about its rows wants them left alone.
         A hidden row is left alone as well: Tk's grid configure *manages* a widget the grid
         has forgotten, so padding one would put it back on screen.
@@ -331,12 +334,12 @@ class CheckBoxGroup(ButtonGroup):
         thickness: int = 2,
         cursor_bg: str = CURSOR_BG,
     ) -> None:
-        """Arms the row cursor over ``rows``, a sequence of ``(value, tk widget)`` pairs.
+        """Arms the row cursor over rows, a sequence of (value, tk widget) pairs.
 
-        Separate from ``__init__`` because everything the cursor needs is these rows and the
+        Separate from __init__ because everything the cursor needs is these rows and the
         numbers used to paint them: the logic is then reachable without a display, which is
         how it is tested. Nothing is drawn here -- the tinted images are painted on demand and
-        cached -- so arming the cursor costs one ``config`` per row and no images at all.
+        cached -- so arming the cursor costs one config per row and no images at all.
         """
         self._cursor_rows = list(rows)
         self._cursor_indicator_size = indicator_size
@@ -352,16 +355,16 @@ class CheckBoxGroup(ButtonGroup):
     def _neutralise_select_color(widget) -> None:
         """Stops Tk painting its own bar across the selected row.
 
-        These rows are drawn with ``indicatoron=False``, and Tk documents that for a borderless
-        indicator ``selectColor`` is used as the background of the *entire* widget while it is
-        selected. Nothing here ever set it, so it is still Tk's own default -- ``#b03060``, a
+        These rows are drawn with indicatoron=False, and Tk documents that for a borderless
+        indicator selectColor is used as the background of the *entire* widget while it is
+        selected. Nothing here ever set it, so it is still Tk's own default -- #b03060, a
         filled maroon bar. That is about the strongest "this is set" signal the panel can
         produce, and with the cursor now owning the filled bar there must be only one of them:
         two, meaning opposite things, would be worse than the confusion being fixed.
 
-        The row's own background is the value that says "no bar"; ``selectcolor=""`` is Tk's
-        documented "no special colour" form and is the fallback where a platform refuses a
-        colour there.
+        The row's own background is the value that says "no bar"; selectcolor="" is Tk's
+        documented "no special color" form and is the fallback where a platform refuses a
+        color there.
         """
         try:
             widget.config(selectcolor=widget.cget("background"))
@@ -372,8 +375,8 @@ class CheckBoxGroup(ButtonGroup):
     def cursor(self) -> str | None:
         """The value of the row currently tinted, or None. Never the selection.
 
-        The pad's position, as against ``value``, which is what the device is set to. The two
-        are deliberately independent: neither setter moves the other, so an option stepped over
+        The pad's position, as against value, which is what the device is set to. The two are
+        deliberately independent: neither setter moves the other, so an option stepped over
         cannot read as an option chosen.
         """
         return getattr(self, "_cursor", None)

@@ -81,9 +81,9 @@ SCOPE_OPTS = [
 class AdminPanel(OverlayPanel):
     """The manage-PyTrain popup.
 
-    An OverlayPanel rather than a plain callable body because ``create_popup`` only
-    builds a footer (and so only puts anything to the left of Close) for panels of that
-    type -- see PopupManager.create_popup.
+    An OverlayPanel rather than a plain callable body because create_popup only builds
+    a footer (and so only puts anything to the left of Close) for panels of that type
+    -- see PopupManager.create_popup.
     """
 
     def __init__(self, gui: "EngineGui", width: int, height: int, hold_threshold: int = 3):
@@ -117,7 +117,7 @@ class AdminPanel(OverlayPanel):
         self._wifi_query_running = False
         self._needs_scope_fix = True
         # Admin action buttons by TMCC1SyncCommandEnum name, so synthetic input can
-        # drive the real widget (see ``begin_hold``).
+        # drive the real widget (see begin_hold).
         self._admin_buttons: dict[str, HoldButton] = {}
         self.hold_threshold = hold_threshold
         self._pytrain = PyTrain.current()
@@ -134,7 +134,7 @@ class AdminPanel(OverlayPanel):
     def compact_control_width(self) -> int:
         """Floor for one control column, in pixels -- a floor, not a target.
 
-        ``weight=1`` on columns 0 and 2 is what actually sizes them: Tk divides whatever the
+        weight=1 on columns 0 and 2 is what actually sizes them: Tk divides whatever the
         section really received. This value only has to be small enough that two of them plus
         the spacer can never exceed that, because with grid_propagate(False) an over-large
         floor is not negotiated -- Tk lays out left to right and the shortfall clips the
@@ -220,8 +220,8 @@ class AdminPanel(OverlayPanel):
         """False on the Steam Deck, where SteamOS updates itself.
 
         The upgrade action drives apt and rpi-eeprom-update, which are a Raspberry Pi
-        story; ``PyTrain.upgrade()`` gates only on ``sys.platform == "linux"``, which
-        the Deck satisfies. Disabling the button keeps that path unreachable from the
+        story; PyTrain.upgrade() gates only on sys.platform == "linux", which the
+        Deck satisfies. Disabling the button keeps that path unreachable from the
         Deck's admin panel.
         """
         return not is_steam_deck()
@@ -233,7 +233,7 @@ class AdminPanel(OverlayPanel):
         button = self._hold_button(parent, **kwargs)
         command = kwargs["on_hold"][1][0]
         if not enabled:
-            # HoldButton checks `enabled` before starting a hold, so greying it out is
+            # HoldButton checks `enabled` before starting a hold, so graying it out is
             # enough to stop a finger. Leaving it out of the registry is what stops a
             # controller chord: begin_hold() then reports no hold started rather than
             # claiming one on a widget that will never fire.
@@ -245,8 +245,8 @@ class AdminPanel(OverlayPanel):
     def begin_hold(self, command: str) -> bool:
         """Start the hold on an admin button as if a finger had pressed it.
 
-        The button animates its hold progress and fires its own ``on_hold`` after
-        ``hold_threshold`` seconds, so a controller chord gets identical timing and
+        The button animates its hold progress and fires its own on_hold after
+        hold_threshold seconds, so a controller chord gets identical timing and
         identical on-screen feedback. Returns whether a hold was started.
         """
         button = self._admin_buttons.get(command)
@@ -560,7 +560,7 @@ class AdminPanel(OverlayPanel):
     @property
     def has_footer(self) -> bool:
         # False rather than an empty footer: create_popup then falls back to the plain
-        # centred Close button, leaving the portrait panel exactly as it was before this
+        # centered Close button, leaving the portrait panel exactly as it was before this
         # panel grew a footer at all.
         return self.controls_available
 
@@ -608,7 +608,7 @@ class AdminPanel(OverlayPanel):
         put their controls in columns 0 and 2 with a spacer at 1, so left to itself the
         Scope row sat a spacer's width tighter than the row above and read as misaligned.
 
-        Assigning through guizero's own ``grid`` property rather than tk's grid() is what
+        Assigning through guizero's own grid property rather than tk's grid() is what
         makes this stick: display_widgets() re-grids from that attribute, so a later
         show/hide -- and this panel does hide/show the group deliberately, see
         _needs_scope_fix -- reproduces the placement instead of undoing it.
@@ -646,7 +646,7 @@ class AdminPanel(OverlayPanel):
     def _apply_compact_grid(self) -> None:
         """Re-assert the compact grid options that widget creation wipes.
 
-        guizero's Widget.__init__ ends with ``self.visible = visible``, which calls
+        guizero's Widget.__init__ ends with self.visible = visible, which calls
         master.display_widgets() and re-grids *every* sibling via tk's grid() -- and grid()
         replaces the whole option set, so the sticky/padx/pady from _fit_compact_control
         survive only on the last child added to a container. That is why Shutdown, created
@@ -724,10 +724,10 @@ class AdminPanel(OverlayPanel):
     def _start_wifi_query(self) -> None:
         """Compute the wifi status on a worker thread.
 
-        ``_wifi_status`` shells out (``WiFiInfo.query``) and opens a socket to find the
-        local address, both of which block. Run on the Tk thread that stalled the event
-        loop for the duration every 5 seconds, which is visible as a hitch and was part
-        of what disturbed an in-flight button hold.
+        _wifi_status shells out (WiFiInfo.query) and opens a socket to find the local
+        address, both of which block. Run on the Tk thread that stalled the event loop
+        for the duration every 5 seconds, which is visible as a hitch and was part of
+        what disturbed an in-flight button hold.
 
         The worker touches no widgets -- it only stores a tuple of strings, which the Tk
         thread picks up on its next refresh. Nothing here calls into Tk from another

@@ -10,34 +10,34 @@
 A stand-alone window whose whole content is the LCS configuration panel.
 
 This is a thin *host*, not a second GUI. LcsConfigPanel is written against the small
-surface OverlayPanel and PopupManager need -- ``app`` / ``root``, ``_popup`` /
-``popup_manager``, ``show_popup``, ``locked``, ``cache``, ``state_store``,
-``submit_request``, ``queue_message``, the ``s_*`` font sizes and ``button_size`` -- and
+surface OverlayPanel and PopupManager need -- app / root, _popup /
+popup_manager, show_popup, locked, cache, state_store,
+submit_request, queue_message, the s_* font sizes and button_size -- and
 almost all of it already comes from GuiZeroBase. What is added here is the handful of
-attributes ``PopupManager`` reads off an ``EngineGui``: the content boxes it hides while
+attributes PopupManager reads off an EngineGui: the content boxes it hides while
 a popup is up, the image box it restores afterwards, and the position it places a popup
-at. They are all ``None`` here, because this window has no content other than the panel
+at. They are all None here, because this window has no content other than the panel
 itself.
 
-Keeping the panel behind ``PopupManager`` in both hosts is deliberate: the panel code,
+Keeping the panel behind PopupManager in both hosts is deliberate: the panel code,
 its footer styling, and its title row are then identical whether it is opened from
-``EngineGui`` or run from the ``pylcs`` command line.
+EngineGui or run from the pylcs command line.
 
 Recipe for a stand-alone PyTrain GUI on macOS or Windows
 --------------------------------------------------------
-GuiZeroBase is a ``Thread`` and normally builds its guizero ``App`` inside its own thread
+GuiZeroBase is a Thread and normally builds its guizero App inside its own thread
 body, which the sync watcher starts. That is legal under X11 on the Pi, but macOS Aqua
-requires every ``NSWindow`` on the process main thread, so Tk aborts the process with
-``NSInternalInconsistencyException``. A stand-alone entry point must therefore:
+requires every NSWindow on the process main thread, so Tk aborts the process with
+NSInternalInconsistencyException. A stand-alone entry point must therefore:
 
 1. Construct the host on the process **main** thread.
-2. Always pass explicit ``width`` and ``height``, so the throwaway screen-measuring
-   ``tkinter.Tk()`` in ``GuiZeroBase.__init__`` is never built.
+2. Always pass explicit width and height, so the throwaway screen-measuring
+   tkinter.Tk() in GuiZeroBase.__init__ is never built.
 3. Override Thread.start() so the sync watcher cannot spawn the Tk thread; it should
-   only record synchronization and hand it off through ``queue_message``.
-4. Call the inherited ``run()`` from the main thread -- see LcsGui.run_window() -- so the
-   ``App``, ``build_gui()``, and ``app.display()`` all happen there.
-5. Marshal **every** cross-thread update through ``queue_message``, which ``_poll_shutdown``
+   only record synchronization and hand it off through queue_message.
+4. Call the inherited run() from the main thread -- see LcsGui.run_window() -- so the
+   App, build_gui(), and app.display() all happen there.
+5. Marshal **every** cross-thread update through queue_message, which _poll_shutdown
    drains on the Tk thread; a message queued before the app exists simply waits.
 """
 
@@ -174,14 +174,14 @@ class LcsGui(GuiZeroBase):
     def _on_panel_closed(self, _overlay: Box) -> None:
         """Dismissing the panel here dismisses the program: the panel is the whole window.
 
-        Embedded in ``EngineGui`` closing the popup uncovers the GUI underneath, so no
+        Embedded in EngineGui closing the popup uncovers the GUI underneath, so no
         post-close action is passed there. Here there is nothing underneath, and hiding the
         overlay on its own would leave an empty white frame with no way back.
 
-        ``close()`` is exactly what the window's own title bar does -- ``GuiZeroBase.run``
-        sets ``App.when_closed`` to it -- so the Close button the Pi and the Steam Deck show
-        (see needs_close_button()) ends the run the same way the title bar ends it on a
-        desktop, which is why a desktop needs no such button.
+        close() is exactly what the window's own title bar does -- GuiZeroBase.run sets
+        App.when_closed to it -- so the Close button the Pi and the Steam Deck show (see
+        needs_close_button()) ends the run the same way the title bar ends it on a desktop,
+        which is why a desktop needs no such button.
         """
         self.close()
 
@@ -195,7 +195,7 @@ class LcsGui(GuiZeroBase):
     def start(self) -> None:
         """Deliberately does NOT start a thread.
 
-        ``GuiZeroBase._on_initial_sync`` calls this from the sync watcher's thread. On macOS a
+        GuiZeroBase._on_initial_sync calls this from the sync watcher's thread. On macOS a
         window built on that thread aborts the process, so the Tk loop is owned by whoever
         called run_window() -- the process main thread -- and this only reports that the
         Base 3 is now synchronized.
@@ -217,7 +217,7 @@ class LcsGui(GuiZeroBase):
 
     @property
     def is_synchronized(self) -> bool:
-        """``GuiZeroBase`` keeps ``_synchronized`` private and exposes no such property."""
+        """GuiZeroBase keeps _synchronized private and exposes no such property."""
         if self._synchronized:
             return True
         return self._sync_state is not None and self._sync_state.is_synchronized()

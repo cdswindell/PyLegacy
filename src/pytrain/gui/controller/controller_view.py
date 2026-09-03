@@ -79,21 +79,21 @@ def fit_freight_pair(host) -> None:
 
 
 def freight_title_size(host) -> int | None:
-    """Font size for the pair's "Bell/Horn..." title, or ``None`` to leave the default alone.
+    """Font size for the pair's "Bell/Horn..." title, or None to leave the default alone.
 
     A LabelFrame can never be narrower than its own title. At the default font that measured 78px
     on a Deck pane against a 49px button, so the box stopped shrinking with the button, the row
     overflowed its column by 19px, and the bell sat centered in 29px of slack. A smaller title
     removes the floor instead of working around it.
 
-    ``s_8``, not ``s_10``. The Deck's ``scale_by`` is 0.9, so ``s_10`` renders at 9pt -- and since
-    nothing sets a global text size, an unstyled TitleBox was already using Tk's ~9-10pt default.
-    Asking for ``s_10`` there changed nothing at all, which is why the first attempt at this left
-    the label exactly as wide as before and the backstop still had to gut the horn.
+    s_8, not s_10. The Deck's scale_by is 0.9, so s_10 renders at 9pt -- and since nothing sets a
+    global text size, an unstyled TitleBox was already using Tk's ~9-10pt default. Asking for s_10
+    there changed nothing at all, which is why the first attempt at this left the label exactly as
+    wide as before and the backstop still had to gut the horn.
 
     Portrait keeps the default: its pair renders correctly, and this is not the place to change it.
-    (Its title is truncated too -- ``bell_box`` is 89px showing "Bell/Hom..." -- so dropping the
-    gate would fix that as well, but that is a visible change nobody asked for.)
+    (Its title is truncated too -- bell_box is 89px showing "Bell/Hom..." -- so dropping the gate
+    would fix that as well, but that is a visible change nobody asked for.)
     """
     return host.s_8 if bool(getattr(host, "compact", False)) else None
 
@@ -101,7 +101,7 @@ def freight_title_size(host) -> int | None:
 def freight_horn_trim(row_width: int, column_width: int) -> int:
     """Pixels to take off the *horn* when the row still overflows after sizing.
 
-    The backstop for the flaw that let the Deck keep overflowing: ``freight_pair_sizes`` treats the
+    The backstop for the flaw that let the Deck keep overflowing: freight_pair_sizes treats the
     bell box's extra width as additive chrome, but it is really a *floor* -- a LabelFrame can never
     be narrower than its own title. Once the bell button shrinks past the label, the box stops
     shrinking and the arithmetic silently under-counts the row.
@@ -176,7 +176,7 @@ def _apply_freight_fit(host, state: dict) -> None:
         bell, horn = freight_pair_sizes(row_height, column_width, chrome)
         _resize_freight(host, state, bell=bell, horn=horn)
 
-        # Backstop, measured rather than modelled -- see freight_horn_trim. One pass: the horn's
+        # Backstop, measured rather than modeled -- see freight_horn_trim. One pass: the horn's
         # cell tracks its button exactly, so taking the whole residual off it closes the gap.
         host.app.tk.update_idletasks()
         trim = freight_horn_trim(state["row"].tk.winfo_reqwidth(), column_width)
@@ -190,28 +190,28 @@ def freight_pair_size(aux_row_height: int, available_width: int) -> int:
     """Provisional edge length for the freight-sounds pair buttons, in pixels.
 
     Deliberately ignores the "Bell/Horn..." label's chrome, because at build time there is no way
-    to know it. An empty TitleBox is not geometry-computed yet and ``winfo_reqheight`` returns
-    Tk's placeholder 1 even after ``update_idletasks`` -- measured on the Pi as
-    ``chrome_height=1 label_width=1`` while the same pass read the sliders column correctly at 221,
+    to know it. An empty TitleBox is not geometry-computed yet and winfo_reqheight returns
+    Tk's placeholder 1 even after update_idletasks -- measured on the Pi as
+    chrome_height=1 label_width=1 while the same pass read the sliders column correctly at 221,
     because that box already had children. Two rounds of arithmetic were built on those 1s.
 
-    So this is only a starting size that renders something sensible; ``fit_freight_pair`` corrects
-    it from real measurements once the pair is actually on screen. Both dimensions are still capped
-    here so the provisional value is never wildly wrong: the row is ``2 * size + gap`` wide before
-    any chrome, and ``aux_row_height`` tall.
+    So this is only a starting size that renders something sensible; fit_freight_pair corrects it
+    from real measurements once the pair is actually on screen. Both dimensions are still capped
+    here so the provisional value is never wildly wrong: the row is 2 * size + gap wide before any
+    chrome, and aux_row_height tall.
     """
     return max(FREIGHT_PAIR_MIN, min(aux_row_height - FREIGHT_PAIR_INSET, (available_width - FREIGHT_PAIR_GAP) // 2))
 
 
 def freight_pair_sizes(row_height: int, column_width: int, chrome: dict) -> tuple[int, int]:
-    """``(bell, horn)`` button sizes for the freight pair, from measured insets.
+    """(bell, horn) button sizes for the freight pair, from measured insets.
 
     **The two are not equal.** The bell sits inside a TitleBox and shares its cell with the
     "Bell/Horn..." label; the horn sits in a plain Box and has nothing above it. Sizing both to the
-    bell's budget is the same mistake ``guizero_base`` avoids with ``titled_button_size`` -- it
+    bell's budget is the same mistake guizero_base avoids with titled_button_size -- it
     reduces a titled button so the *cell* matches an untitled one, and applying that reduction to
-    an untitled button just wastes the label's height. Measured on the Pi: ``bell_box`` used all 105
-    pixels of the row while ``horn_cell`` used 84, leaving 21 idle.
+    an untitled button just wastes the label's height. Measured on the Pi: bell_box used all 105
+    pixels of the row while horn_cell used 84, leaving 21 idle.
 
     Height is per-button, so each fills the row::
 
@@ -241,15 +241,15 @@ def freight_pair_sizes(row_height: int, column_width: int, chrome: dict) -> tupl
 
 
 def slider_length_for_box_height(box_height: int, title_overhead: int) -> int:
-    """The Slider widget's own ``length`` so its enclosing box lands on exactly ``box_height``.
+    """The Slider widget's own length so its enclosing box lands on exactly box_height.
 
     Each of the throttle/brake/momentum/horn boxes stacks a TitleBox (title + numeric readout)
     above the Slider, so the two together -- not just the Slider -- are what has to land on
-    ``box_height``: a slider by itself sized to that many pixels leaves the box taller once the
+    box_height: a slider by itself sized to that many pixels leaves the box taller once the
     title is added on top, which is what left less room than intended for the controls meant to
-    go below it. ``title_overhead`` is measured after the TitleBox is realized, never modeled --
-    an empty TitleBox reports a requested height of 1, the same trap ``freight_pair_size``'s
-    docstring describes for an empty label.
+    go below it. title_overhead is measured after the TitleBox is realized, never modeled -- an
+    empty TitleBox reports a requested height of 1, the same trap freight_pair_size's docstring
+    describes for an empty label.
     """
     return max(1, box_height - max(0, title_overhead))
 
@@ -267,11 +267,11 @@ def aux_row_height_after_slider_row(target_sliders_height: int, slider_row_heigh
 def slider_row_height_for_keypad_alignment(row_top: int, row_height: int) -> int:
     """Target height for the slider row so its bottom lines up with the keypad's 4th button row.
 
-    ``row_top`` and ``row_height`` come from Tk's ``grid_bbox`` for the keypad grid's first four
-    button rows, so ``row_top + row_height`` is that row's real bottom edge in pixels -- not the
-    ``button_size * 4`` estimate this replaces. That estimate was close enough to look plausible
-    but ran a bit short of the real rows once their own padding is counted, which is exactly what
-    left the aux row below it (RR Speed / Freight Sounds) squeezed tighter than intended.
+    row_top and row_height come from Tk's grid_bbox for the keypad grid's first four button rows,
+    so row_top + row_height is that row's real bottom edge in pixels -- not the button_size * 4
+    estimate this replaces. That estimate was close enough to look plausible but ran a bit short
+    of the real rows once their own padding is counted, which is exactly what left the aux row
+    below it (RR Speed / Freight Sounds) squeezed tighter than intended.
     """
     return max(1, row_top + row_height)
 

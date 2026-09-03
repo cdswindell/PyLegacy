@@ -8,9 +8,9 @@ import src.pytrain.gui.components.checkbox_group as mod
 
 
 class DummyPhotoImage:
-    """``tk.PhotoImage`` as far as the indicator drawing uses it.
+    """tk.PhotoImage as far as the indicator drawing uses it.
 
-    No test in this project opens a real ``tkinter.Tk``, and this must not be the first: the
+    No test in this project opens a real tkinter.Tk, and this must not be the first: the
     drawing helpers only ask an image its size and put pixels into it, so a double that records
     what it was filled with says everything worth asserting about them.
     """
@@ -30,7 +30,7 @@ class DummyPhotoImage:
 
     @property
     def ground(self) -> str:
-        """The colour the whole image was filled with before anything was drawn on it."""
+        """The color the whole image was filled with before anything was drawn on it."""
         return self.fills[0][0]
 
 
@@ -63,12 +63,13 @@ def _rows(count: int = 3) -> list[DummyRow]:
     return [DummyRow(str(index)) for index in range(count)]
 
 
+# noinspection PyProtectedMember
 def _group(rows: list[DummyRow], **kwargs: Any) -> mod.CheckBoxGroup:
-    """A group with the cursor armed over ``rows`` and nothing else built.
+    """A group with the cursor armed over rows and nothing else built.
 
-    ``__new__`` rather than a constructor call: the parent is guizero's ``ButtonGroup``, which
-    would want a real Tk master. Everything the cursor is made of is these rows and the numbers
-    it paints them with, which is why arming it is a method of its own.
+    __new__ rather than a constructor call: the parent is guizero's ButtonGroup, which would
+    want a real Tk master. Everything the cursor is made of is these rows and the numbers it
+    paints them with, which is why arming it is a method of its own.
     """
     group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
     group._init_cursor([(row.value, row) for row in rows], 28, style="radio", **kwargs)
@@ -90,8 +91,8 @@ def test_arming_the_cursor_neutralises_the_select_colour_on_every_row() -> None:
 
 
 def test_arming_the_cursor_falls_back_to_tk_s_no_colour_form() -> None:
-    # "" is Tk's documented "no special colour", and the fallback where a platform refuses a
-    # colour in selectcolor. Refusing is what a TclError from config means.
+    # "" is Tk's documented "no special color", and the fallback where a platform refuses a
+    # color in selectcolor. Refusing is what a TclError from config means.
     class AwkwardRow(DummyRow):
         def config(self, **kwargs: Any) -> None:
             if kwargs.get("selectcolor") == "systemWindowBackgroundColor":
@@ -206,7 +207,7 @@ def test_a_group_without_the_cursor_is_configured_exactly_as_it_is_today() -> No
 
 
 class DummyGroupTk:
-    """The group's own Tk frame, as ``decorate_rows`` uses it: a bag of rows."""
+    """The group's own Tk frame, as decorate_rows uses it: a bag of rows."""
 
     def __init__(self, rows: list[DummyRow]) -> None:
         self._rows = rows
@@ -218,9 +219,9 @@ class DummyGroupTk:
 def _painting_group(rows: list[DummyRow], size: int = 18, pady: int = 12) -> mod.CheckBoxGroup:
     """A group that has recorded how to paint its rows, and nothing else.
 
-    ``__new__`` for the reason ``_group`` uses it: the parent class would want a real Tk
-    master, and everything the painting is made of is these rows and those numbers. The frame
-    is assigned behind guizero's read-only ``tk`` property, which is where it keeps it.
+    __new__ for the reason _group uses it: the parent class would want a real Tk master, and
+    everything the painting is made of is these rows and those numbers. The frame is assigned
+    behind guizero's read-only tk property, which is where it keeps it.
     """
     group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
     group._tk = DummyGroupTk(rows)
@@ -263,7 +264,7 @@ def test_a_group_that_recorded_nothing_leaves_its_rows_alone() -> None:
 
 
 class DummyRadioTk:
-    """One row's Tk widget, as ``stretch_rows`` uses it: something that can be re-gridded."""
+    """One row's Tk widget, as stretch_rows uses it: something that can be re-gridded."""
 
     def __init__(self) -> None:
         self.grid_options: dict[str, Any] = {}
@@ -273,10 +274,10 @@ class DummyRadioTk:
 
 
 class DummyRadio:
-    """One row as ``_rbuttons`` holds it: a guizero widget that knows its grid cell.
+    """One row as _rbuttons holds it: a guizero widget that knows its grid cell.
 
-    ``value`` is what guizero answers with -- a string, whatever it was handed -- and what the
-    leads are keyed by; ``visible`` is what tells a row the grid has forgotten from one it is
+    value is what guizero answers with -- a string, whatever it was handed -- and what the
+    leads are keyed by; visible is what tells a row the grid has forgotten from one it is
     still managing.
     """
 
@@ -301,7 +302,7 @@ class DummyFrameTk(DummyGroupTk):
 def _stretching_group(rows: list[DummyRadio], stretch: bool = True) -> mod.CheckBoxGroup:
     """A group that has been told whether to stretch its rows, and nothing else.
 
-    ``__new__`` as above: the stretch is made of these rows' grid cells and the frame's
+    __new__ as above: the stretch is made of these rows' grid cells and the frame's
     column weights, so a real Tk master would add nothing to assert.
     """
     group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
@@ -426,8 +427,8 @@ def _keyed(*values: str) -> list[DummyRadio]:
 def _leading_group(rows: list[DummyRadio], leads: dict[Any, int] = None) -> mod.CheckBoxGroup:
     """A group that has been told which of its rows begin a new block, and nothing else.
 
-    ``__new__`` as above: a lead is grid padding on the row itself, so a real Tk master would
-    add nothing to assert.
+    __new__ as above: a lead is grid padding on the row itself, so a real Tk master would add
+    nothing to assert.
     """
     group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
     group._tk = DummyFrameTk()

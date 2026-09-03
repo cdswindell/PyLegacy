@@ -29,7 +29,7 @@ The build time is the other reason to run this here. SteamDeckGui builds the scr
 after the panes appear rather than on the press that shows it (CONTROLS_PREWARM_MS), and that
 build holds the GUI thread for as long as it takes: 13ms on the machine this was written on,
 where it was 81ms before the rows became plain Tk labels built in one call. The Deck's CPU is
-several times slower, so ``built`` is the figure that says whether the prewarm can still be
+several times slower, so built is the figure that says whether the prewarm can still be
 felt there.
 
 The overrun is what to look at, and is the reason this is worth running on the machine that
@@ -46,11 +46,11 @@ import os
 import sys
 import time
 
-# PyTrain uses a ``src`` layout, so ``pytrain`` is not importable when it is not
-# pip-installed into the interpreter running this script (the usual case here, launched
-# straight out of a checkout as ``../bin/python scripts/controlspreview.py``). Put the
-# repo's ``src`` on the path so the preview shows this checkout's help screen rather than
-# whatever version happens to be installed.
+# PyTrain uses a src layout, so pytrain is not importable when it is not pip-installed
+# into the interpreter running this script (the usual case here, launched straight out of
+# a checkout as ../bin/python scripts/controlspreview.py). Put the repo's src on the path
+# so the preview shows this checkout's help screen rather than whatever version happens
+# to be installed.
 _SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if os.path.isdir(os.path.join(_SRC_DIR, "pytrain")) and _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)

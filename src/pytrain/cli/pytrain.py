@@ -93,7 +93,7 @@ DEFAULT_BUTTONS_FILE: str = "buttons.py"
 DEFAULT_REPLAY_FILE: str = "replay.txt"
 DEFAULT_HISTORY_FILE: str = f".{PROGRAM_NAME.lower()}.history"
 # Dependency lists a source (git) install updates against. See
-# ``PyTrain.requirements_file`` for which one is used.
+# PyTrain.requirements_file for which one is used.
 REQUIREMENTS: str = "requirements.txt"
 REQUIREMENTS_NO_GPIO: str = "requirements-nogpio.txt"
 
@@ -799,19 +799,19 @@ class PyTrain:
         """Command that reboots or powers this machine off.
 
         The Steam Deck runs PyTrain inside an active local desktop session, where logind
-        authorizes reboot and power-off through polkit (``allow_active=yes`` on
-        ``org.freedesktop.login1.reboot`` / ``.power-off``). So it needs neither sudo nor
-        a password, and nothing has to be added to ``/etc`` for a SteamOS update to
-        revert. It also has no working alternative: the ``deck`` account ships with no
-        password, and PyTrain launched from Steam has no tty for sudo to prompt on, so
-        ``sudo shutdown`` fails silently there.
+        authorizes reboot and power-off through polkit (allow_active=yes on
+        org.freedesktop.login1.reboot / .power-off). So it needs neither sudo nor a
+        password, and nothing has to be added to /etc for a SteamOS update to revert. It
+        also has no working alternative: the deck account ships with no password, and
+        PyTrain launched from Steam has no tty for sudo to prompt on, so sudo shutdown
+        fails silently there.
 
         Caveat: this relies on an *active session*. Run as a systemd system service (see
         installation/pytrain.service.template) there is no session, polkit answers
         "challenge", and this would fail -- a sudoers drop-in or a polkit rule would be
         needed for that case.
 
-        Everywhere else this is unchanged: the Pi's passwordless-sudo ``shutdown``.
+        Everywhere else this is unchanged: the Pi's passwordless-sudo shutdown.
         """
         if is_steam_deck():
             return ["systemctl", "reboot" if reboot else "poweroff"]
@@ -831,9 +831,9 @@ class PyTrain:
     def update(self, do_inform: bool = True, relaunch: bool = True) -> None:
         """Update PyTrain in place, then relaunch it so the new code is what runs.
 
-        Pass ``relaunch=False`` when the caller has its own way of restarting and this
-        method's relaunch would preempt it -- ``upgrade()`` does exactly that, because
-        the reboot it issues afterward *is* the relaunch.
+        Pass relaunch=False when the caller has its own way of restarting and this
+        method's relaunch would preempt it -- upgrade() does exactly that, because the
+        reboot it issues afterward *is* the relaunch.
         """
         from .. import PROGRAM_PACKAGE, is_package
 

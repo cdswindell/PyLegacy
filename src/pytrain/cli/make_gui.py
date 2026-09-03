@@ -263,8 +263,8 @@ class MakeGui(_MakeBase):
     def platform(self) -> str:
         """Platform the configured GUI implies, or "" when it implies none.
 
-        Baked into the generated launcher as ``PYTRAIN_PLATFORM`` so both the launcher
-        and PyTrain itself can apply platform-specific handling.
+        Baked into the generated launcher as PYTRAIN_PLATFORM so both the launcher and
+        PyTrain itself can apply platform-specific handling.
         """
         return CLASS_TO_PLATFORM.get(self._gui_class, "")
 

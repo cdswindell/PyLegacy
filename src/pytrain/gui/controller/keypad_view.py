@@ -85,8 +85,8 @@ class KeypadView(Generic[S]):
         # Transient accessory panel override; see set_panel_kind_override. Cleared on any change
         # of selected TMCC ID, any change of scope, and on return to entry mode.
         self._forced_panel_kind: str | None = None
-        # Every cell parented to ``keypad_keys`` (numeric, entry, ops and aux cells) plus the
-        # accessory throttle box, recorded so ``_reflow_keypad_columns`` can collapse the grid
+        # Every cell parented to keypad_keys (numeric, entry, ops and aux cells) plus the
+        # accessory throttle box, recorded so _reflow_keypad_columns can collapse the grid
         # columns that hold no visible cell. See build() / _register_keypad_cell.
         self._keypad_cells: list = []
 
@@ -136,14 +136,14 @@ class KeypadView(Generic[S]):
     def accessory_panel_kind(self) -> str | None:
         """Which accessory panel this pane is displaying.
 
-        One of ``sensor_track``, ``amc2``, ``bpc2``, ``asc2`` or ``generic``, and None when the
-        pane is not showing an accessory panel at all -- an engine, a switch, a route, or an
-        accessory scope with nothing selected yet.
+        One of sensor_track, amc2, bpc2, asc2, or generic, and None when the pane is not showing
+        an accessory panel at all -- an engine, a switch, a route, or an accessory scope with
+        nothing selected yet.
 
-        The single place that decision is made: ``apply_ops_mode_ui_non_engine`` reads it to
-        pick the keys it shows, and the input layer reads it to pick the gamepad context, so the
+        The single place that decision is made: apply_ops_mode_ui_non_engine reads it to pick
+        the keys it shows, and the input layer reads it to pick the gamepad context, so the
         panel on screen and the context claiming the pad cannot disagree. Note in particular
-        that ``is_lcs_component`` is not consulted -- an LCS port that is none of the four named
+        that is_lcs_component is not consulted -- an LCS port that is none of the four named
         kinds shows the generic panel and is reported as showing it.
         """
         return self._panel_kind_for(self.active_state)
@@ -156,7 +156,7 @@ class KeypadView(Generic[S]):
     def set_panel_kind_override(self, kind: str | None) -> None:
         """Force (or stop forcing) a particular accessory panel for the current selection.
 
-        A single transient flag, deliberately: it lives inside ``_panel_kind_for``, the one
+        A single transient flag, deliberately: it lives inside _panel_kind_for, the one
         property both the drawn keys and the gamepad context chain read, so the screen and the
         pad cannot disagree about which panel is up. It is cleared on any change of selected
         TMCC ID, any change of scope, and on return to entry mode, so leaving a device and
@@ -166,7 +166,7 @@ class KeypadView(Generic[S]):
 
     # noinspection PyUnresolvedReferences
     def _panel_kind_for(self, state: S | None) -> str | None:
-        """``accessory_panel_kind`` for a given state, which need not be the active one.
+        """accessory_panel_kind for a given state, which need not be the active one.
 
         The ops-mode UI is handed the state it is about to display and asks about that.
         """
@@ -710,11 +710,11 @@ class KeypadView(Generic[S]):
         keypad_box.tk.configure(width=min_total_width, height=min_total_height)
 
     def _register_keypad_cell(self, cell) -> None:
-        """Files a cell parented to ``keypad_keys`` into the reflow roster.
+        """Files a cell parented to keypad_keys into the reflow roster.
 
         The single choke point every keypad cell passes through -- numeric, entry, ops, and aux
-        cells go through ``make_key`` in build(), and the accessory throttle box is added
-        alongside them -- so ``_reflow_keypad_columns`` can read column occupancy from one list.
+        cells go through make_key in build(), and the accessory throttle box is added alongside
+        them -- so _reflow_keypad_columns can read column occupancy from one list.
         """
         if cell is not None and cell not in self._keypad_cells:
             self._keypad_cells.append(cell)
@@ -727,13 +727,13 @@ class KeypadView(Generic[S]):
     def _reflow_keypad_columns(self) -> None:
         """Collapses keypad grid columns that hold no visible cell; restores occupied ones.
 
-        Reads each tracked cell's live ``.grid[0]`` and ``.visible`` -- late, so aux cells that
-        ``_expand_acc_aux_cells`` relocated to column 3 count as occupancy -- and reconfigures
-        ``keypad_keys`` one column at a time: an occupied column gets ``weight=1`` and the
-        build-time cell width, an empty one collapses to ``weight=0, minsize=0``. The numeric
-        columns 0-2 always hold visible keys, so the rule keeps them and never has to special
-        case them. Finally, the keypad boxes are tightened to the occupied-column count so the
-        numeric pad does not float, leaving a gap where a collapsed column used to be.
+        Reads each tracked cell's live .grid[0] and .visible -- late, so aux cells that
+        _expand_acc_aux_cells relocated to column 3 count as occupancy -- and reconfigures
+        keypad_keys one column at a time: an occupied column gets weight=1 and the build-time
+        cell width, an empty one collapses to weight=0, minsize=0. The numeric columns 0-2
+        always hold visible keys, so the rule keeps them and never has to special case them.
+        Finally, the keypad boxes are tightened to the occupied-column count so the numeric pad
+        does not float, leaving a gap where a collapsed column used to be.
         """
         host = self._host
         keypad_keys = host.keypad_keys
@@ -833,7 +833,7 @@ class KeypadView(Generic[S]):
         host.on_set_key(CommandScope.ACC, host.scope_tmcc_id(CommandScope.ACC))
 
     def _show_lcs_panel_key(self, grid: list[int]) -> None:
-        """Places the single shared LCS... key at ``grid`` (0-based [col, row]) and shows it.
+        """Places the single shared LCS... key at grid (0-based [col, row]) and shows it.
 
         One widget serves every screen that offers the key, so each caller names the slot it
         belongs in for that screen -- entry [0, 4] under Delete, generic accessory [1, 4] under
@@ -848,7 +848,7 @@ class KeypadView(Generic[S]):
             cell.show()
 
     def _hide_lcs_panel_key(self) -> None:
-        """Hides the shared LCS... key; the counterpart of ``_show_lcs_panel_key``."""
+        """Hides the shared LCS... key; the counterpart of _show_lcs_panel_key."""
         cell = getattr(self._host, "lcs_panel_cell", None)
         if cell is not None and cell.visible:
             cell.hide()
@@ -1184,7 +1184,7 @@ class KeypadView(Generic[S]):
             self._reflow_keypad_columns()
 
     def _alternate_acc_view_kind(self, state: S | None) -> str | None:
-        """Which other view of this component ``ac_op_btn`` should offer, if any.
+        """Which other view of this component ac_op_btn should offer, if any.
 
         One key, one meaning -- the other view of this ID. Where a panel override is in force,
         the other view is the component's own LCS panel, and that wins: the override is an
@@ -1203,7 +1203,7 @@ class KeypadView(Generic[S]):
         return None
 
     def enable_alternate_acc_view(self, state: S) -> None:
-        """Points ``ac_op_btn`` at the other view of this component and shows it."""
+        """Points ac_op_btn at the other view of this component and shows it."""
         if self._alternate_acc_view_kind(state) == "native":
             self.enable_native_acc_view(self._native_panel_kind_for(state), state)
         else:
@@ -1219,7 +1219,7 @@ class KeypadView(Generic[S]):
         return getattr(acc[0], "op_btn_image_path", None) or None
 
     def enable_native_acc_view(self, native_kind: str | None = None, state: S | None = None) -> None:
-        """Turns ``ac_op_btn`` into the way back from a forced generic panel to the LCS one.
+        """Turns ac_op_btn into the way back from a forced generic panel to the LCS one.
 
         When the ID is a configured operating accessory, the key wears that accessory's own op
         icon -- the very image shown on the native LCS device screen -- so both directions match.
@@ -1239,7 +1239,7 @@ class KeypadView(Generic[S]):
         host.ac_op_cell.show()
 
     def _paint_ac_op_icon(self, image_name: str) -> None:
-        """Dresses ``ac_op_btn`` as a centered B&W icon, clearing any prior text label."""
+        """Dresses ac_op_btn as a centered B&W icon, clearing any prior text label."""
         host = self._host
         image = find_file(image_name)
         host.ac_op_btn.text = ""
@@ -1256,7 +1256,9 @@ class KeypadView(Generic[S]):
     def enable_acc_view(self, state: S):
         host = self._host
         acc = host.accessory_provider.adapters_for_tmcc_id(state.tmcc_id)
-        if acc is None:
+        if not acc:
+            # The provider answers with a list, empty where nothing configured references the
+            # ID -- so emptiness, not None, is what has to be caught before the first is taken.
             return
 
         acc = acc[0]
@@ -1317,18 +1319,18 @@ class KeypadView(Generic[S]):
         self.send_sensor_track_sequence(tmcc_id, host.sensor_track_buttons.value)
 
     def send_sensor_track_sequence(self, tmcc_id: int, sequence: int | str) -> None:
-        """Writes ``sequence`` to the Sensor Track at ``tmcc_id``.
+        """Writes sequence to the Sensor Track at tmcc_id.
 
-        Widget-free on purpose, as ``asc2_control`` is: the on-screen group reaches it through
-        the change handler above, and the gamepad reaches it through
-        ``EngineGui.on_sensor_track_select``, so both send exactly the same request. Taking the
-        id and the value as arguments rather than reading them is what lets a revert send the
-        pair it is putting back rather than whatever the group happens to show.
+        Widget-free on purpose, as asc2_control is: the on-screen group reaches it through the
+        change handler above, and the gamepad reaches it through
+        EngineGui.on_sensor_track_select, so both send exactly the same request. Taking the id
+        and the value as arguments rather than reading them is what lets a revert send the pair
+        it is putting back rather than whatever the group happens to show.
 
         The two callers hand over different types, and the normalizing is done here rather than
-        asked of them: the change handler passes what the group holds, which is a ``str``
-        because guizero keeps the selection in a Tk ``StringVar``, while the pad passes the
-        ``int`` the stepping returned.
+        asked of them: the change handler passes what the group holds, which is a str because
+        guizero keeps the selection in a Tk StringVar, while the pad passes the int the
+        stepping returned.
         """
         st_seq = IrdaSequence.by_value(int(sequence))
         IrdaReq(tmcc_id, PdiCommand.IRDA_SET, IrdaAction.SEQUENCE, sequence=st_seq).send(repeat=self._host.repeat)
@@ -1342,15 +1344,15 @@ class KeypadView(Generic[S]):
     def sensor_track_sequence(self) -> int | None:
         """The Sequence option the radio dot is on, or None where nothing is selected.
 
-        What the track is *programmed with* -- what an ``IrdaState`` last reported, or what the
-        last select wrote -- as against ``sensor_track_cursor``, which is where the pad is
+        What the track is *programmed with* -- what an IrdaState last reported, or what the
+        last select wrote -- as against sensor_track_cursor, which is where the pad is
         pointing.
 
         What "none" looks like has to be read off the widget rather than assumed: the group
-        keeps its selection in a Tk ``StringVar``, so it answers with a ``str`` whatever was
-        assigned, and the ``value = None`` ``on_new_accessory`` clears it with comes back as
-        the string ``"None"``. Anything that does not parse to an option in the list -- that,
-        an empty group, a value from outside the list -- is read as nothing selected.
+        keeps its selection in a Tk StringVar, so it answers with a str whatever was
+        assigned, and the value = None on_new_accessory clears it with comes back as the
+        string "None". Anything that does not parse to an option in the list -- that, an
+        empty group, a value from outside the list -- is read as nothing selected.
 
         The one place that normalizing is done: two readings of a Tk string are two chances to
         disagree about which option is showing.
@@ -1368,23 +1370,23 @@ class KeypadView(Generic[S]):
         return value if value in self.sensor_track_values() else None
 
     def set_sensor_track_sequence(self, sequence: int) -> bool:
-        """Moves the radio dot to ``sequence`` and sends nothing. True, where it moved.
+        """Moves the radio dot to sequence and sends nothing. True, where it moved.
 
         The dot is what the track is programmed with, so this is only called where that has
         actually changed -- a select, or a revert putting one back. The cursor is moved with it,
         because after either of those the pad is pointing at exactly what the track now holds
         and a bar left behind elsewhere would claim something is still pending.
 
-        Assigns ``value`` rather than clicking an option, which is what moves the dot without
+        Assigns value rather than clicking an option, which is what moves the dot without
         sending: the group's command fires on a click, so an assignment is silent -- the same
-        assignment ``on_new_accessory`` makes from incoming state. That path assigns the widget
+        assignment on_new_accessory makes from an incoming state. That path assigns the widget
         directly and so does *not* move the cursor, which is the point: a track reporting itself
         must not cancel a step in progress.
 
-        Re-checks that the Sensor Track panel is the one displayed, as ``asc2_control``
-        re-checks its own port: the pad's press and the panel it was aimed at are two separate
-        moments, and a highlight moved on a panel that is no longer showing one would be a
-        change nobody could see.
+        Re-checks that the Sensor Track panel is the one displayed, as asc2_control re-checks
+        its own port: the pad's press and the panel it was aimed at are two separate moments,
+        and a highlight moved on a panel that is no longer showing one would be a change
+        nobody could see.
         """
         host = self._host
         if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
@@ -1406,7 +1408,7 @@ class KeypadView(Generic[S]):
     def sensor_track_cursor(self) -> int | None:
         """The Sequence option the *cursor* is on, falling back to the programmed one.
 
-        Where the pad is pointing, as against ``sensor_track_sequence``, which is what the
+        Where the pad is pointing, as against sensor_track_sequence, which is what the
         track is set to. The fallback is what makes a fresh panel behave: with no cursor placed
          yet, the pad starts from the option the dot is on, so the first step moves one option
         from there rather than from the top of the list.
@@ -1426,11 +1428,11 @@ class KeypadView(Generic[S]):
         return self.sensor_track_sequence
 
     def set_sensor_track_cursor(self, sequence: int | None) -> bool:
-        """Moves the cursor to ``sequence``, or clears it with None. Sends nothing, ever.
+        """Moves the cursor to sequence, or clears it with None. Sends nothing, ever.
 
-        The counterpart of ``set_sensor_track_sequence`` and deliberately its equal: one setter
-        for what the track holds, one for where the pad is, and neither able to move the other
-        by accident. This one never writes and never moves the dot, which is the whole of A-8.
+        The counterpart of set_sensor_track_sequence and deliberately its equal: one setter for
+        what the track holds, one for where the pad is, and neither able to move the other by
+        accident. This one never writes and never moves the dot, which is the whole of A-8.
         """
         host = self._host
         if self.accessory_panel_kind != PANEL_SENSOR_TRACK:
@@ -1451,17 +1453,17 @@ class KeypadView(Generic[S]):
         return True
 
     def step_sensor_track_sequence(self, delta: int) -> int | None:
-        """Moves the Sequence highlight ``delta`` options and returns the value moved to.
+        """Moves the Sequence highlight delta options and returns the value moved to.
 
-        Clamped rather than wrapping: a step off either end of ``SENSOR_TRACK_OPTS`` moves
+        Clamped rather than wrapping: a step off either end of SENSOR_TRACK_OPTS moves
         nothing and returns None, so the operator can hold the pad against an end without the
         selection rolling round to the far one.
 
-        An unset group -- no ``IrdaState`` for this Sensor Track yet, so nothing is
-        highlighted -- is a state before the list rather than a position in it: the first
-        press either way lands on "No Action" and only the second moves off it. Reading it as
-        "already on index 0" instead would make that first press either do nothing at all or
-        skip "No Action" altogether, depending on which way it went.
+        An unset group -- no IrdaState for this Sensor Track yet, so nothing is highlighted
+        -- is a state before the list rather than a position in it: the first press either
+        way lands on "No Action" and only the second moves off it. Reading it as "already on
+        index 0" instead would make that first press either do nothing at all or skip "No
+        Action" altogether, depending on which way it went.
 
         Nothing is written here at all, and the radio dot does not move either: the *cursor*
         moves and stops there. That is A-8 -- an option stepped over must not read as an option
@@ -1483,7 +1485,7 @@ class KeypadView(Generic[S]):
         """Sends the `Asc2` momentary control command for the pane's accessory.
 
         Widget-free on purpose: the on-screen key reaches it through the event handlers
-        below, and the gamepad reaches it through ``EngineGui.on_asc2_momentary``, so both
+        below, and the gamepad reaches it through EngineGui.on_asc2_momentary, so both
         send exactly the same request.
         """
         host = self._host

@@ -348,7 +348,7 @@ def test_landscape_admin_panel_offers_show_controls() -> None:
 def test_portrait_admin_panel_has_no_footer_at_all() -> None:
     # A stand-alone portrait EngineGui has no hosting SteamDeckGui and so no profile:
     # the help screen would have nothing to describe. has_footer must be False rather
-    # than an empty footer, so create_popup keeps the plain centred Close button.
+    # than an empty footer, so create_popup keeps the plain centered Close button.
     panel = _panel(compact=False)
 
     assert panel.controls_available is False
@@ -471,7 +471,7 @@ def _wifi_panel(monkeypatch, *, connected: bool = True) -> mod.AdminPanel:
 def test_unchanged_wifi_visibility_does_not_repack(monkeypatch) -> None:
     # show()/hide() call master.display_widgets(), which re-packs every sibling. Doing
     # that every 5s reflowed the panel for nothing -- and a reflow mid-hold generates the
-    # pointer crossings that cancelled the hold.
+    # pointer crossings that canceled the hold.
     panel = _wifi_panel(monkeypatch, connected=True)
 
     panel._refresh_wifi_display()
@@ -661,7 +661,7 @@ def test_the_pi_gets_no_touch_recovery(monkeypatch) -> None:
 
 def test_drag_off_cancel_applies_to_both_platforms(monkeypatch) -> None:
     # This one was asked for as a feature, not a Deck workaround: before it, the progress
-    # overlay cancelled on any crossing regardless, so both platforms already cancelled on
+    # overlay canceled on any crossing regardless, so both platforms already canceled on
     # a drag-off -- just far too eagerly.
     for steam_deck in (True, False):
         button = _built_hold_button(monkeypatch, steam_deck=steam_deck)

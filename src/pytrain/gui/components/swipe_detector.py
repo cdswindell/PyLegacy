@@ -26,10 +26,9 @@ log = logging.getLogger(__name__)
 def event_screen_y(event) -> int | None:
     """Screen-relative y of an event, for either event shape a handler may receive.
 
-    guizero delivers its own ``EventData`` (screen coords via ``display_y``) when a
-    callback is attached through a ``when_*`` hook, while a callback bound straight
-    onto a Tk widget receives the raw Tk event (``y_root``). Returns None if neither
-    is present.
+    guizero delivers its own EventData (screen coords via display_y) when a callback
+    is attached through a when_* hook, while a callback bound straight onto a Tk
+    widget receives the raw Tk event (y_root). Returns None if neither is present.
     """
     for attribute in ("display_y", "y_root"):
         value = getattr(event, attribute, None)
@@ -41,13 +40,13 @@ def event_screen_y(event) -> int | None:
 def event_targets(event) -> tuple:
     """Widgets an event may be attributed to: guizero widget and/or Tk widget.
 
-    ``EventData.widget`` is the *guizero* widget; a raw Tk event's ``widget`` is the
-    Tk one. Callers comparing against a known widget need to accept either.
+    EventData.widget is the *guizero* widget; a raw Tk event's widget is the Tk one.
+    Callers comparing against a known widget need to accept either.
     """
     target = getattr(event, "widget", None)
     if target is None:
         return ()
-    return (target, getattr(target, "tk", None))
+    return target, getattr(target, "tk", None)
 
 
 class SwipeDetector:
@@ -70,12 +69,12 @@ class SwipeDetector:
             False the whole gesture is ignored. Needed when the detector is attached
             to a large container that covers more than the region of interest -- the
             predicate restricts the gesture to that region.
-        bind_directly: bind the Tk widget instead of using guizero's ``when_*`` hooks.
+        bind_directly: bind the Tk widget instead of using guizero's when_* hooks.
             Required when the widget already has raw Tk bindings that must survive:
-            guizero binds without ``add="+"``, so attaching a hook *replaces* any
-            existing binding for that event (and ``<Button-1>`` and ``<ButtonPress-1>``
+            guizero binds without add="+", so attaching a hook *replaces* any
+            existing binding for that event (and <Button-1> and <ButtonPress-1>
             are the same Tk sequence). Handlers then receive raw Tk events rather than
-            guizero ``EventData`` -- use the module helpers above to read either.
+            guizero EventData -- use the module helpers above to read either.
         """
         self.widget = widget
         self.min_distance = min_distance
@@ -91,9 +90,9 @@ class SwipeDetector:
         self.long_press_fired = False
 
         # Every guizero widget (containers included -- EventsMixin comes in via
-        # Component) exposes ``when_*`` hooks, so prefer them unless the caller asks
-        # for direct binding, or the object has no hooks at all. Direct binding uses
-        # ``add="+"`` so existing bindings on the widget survive, which guizero's own
+        # Component) exposes when_* hooks, so prefer them unless the caller asks for
+        # direct binding, or the object has no hooks at all. Direct binding uses
+        # add="+" so existing bindings on the widget survive, which guizero's own
         # hooks would silently discard.
         if not bind_directly and hasattr(type(widget), "when_left_button_pressed"):
             widget.when_left_button_pressed = self._on_press
@@ -172,7 +171,7 @@ class SwipeDetector:
     # ------------------------------
 
     def _on_release(self, e):
-        # Read the long-press flag *before* cancelling the timer: cancelling resets
+        # Read the long-press flag *before* canceling the timer: canceling resets
         # it, which would let an already-fired long press be taken for a swipe.
         long_press_had_fired = self.long_press_fired
         self._cancel_long_press_timer()

@@ -563,8 +563,8 @@ def image_for_engine_type(engine_type: EngineType) -> str | None:
 class _EngineTypeImageMap(Mapping):
     """Read-only, dict-like view over the EngineType->image mapping that resolves paths lazily.
 
-    Preserves the previous ``ENGINE_TYPE_TO_IMAGE`` read API (``[]``, ``.get()``, iteration,
-    ``len``, ``in``) while deferring every ``find_file`` call until the entry is first read.
+    Preserves the previous ENGINE_TYPE_TO_IMAGE read API ([], .get(), iteration, len, in)
+    while deferring every find_file call until the entry is first read.
     """
 
     def __getitem__(self, key: EngineType) -> str | None:

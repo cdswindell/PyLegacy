@@ -19,19 +19,19 @@ switch and route remaps were two module constants apiece and a hand-written hand
 the two handlers were the same forty lines with three differences between them. A third panel
 type would have been a third copy. Here the differences are fields:
 
-* ``axis_signed`` -- a route fires only when the stick goes up or right, because a route has no
+* axis_signed -- a route fires only when the stick goes up or right, because a route has no
   un-fire for the other two deflections to mean. A switch ignores the sign, having two things
   it can be asked to do and a pair of axes to ask them with.
-* ``axis_held`` -- an ASC2's momentary output stays energised for as long as the stick is away
+* axis_held -- an ASC2's momentary output stays energized for as long as the stick is away
   from center, because that is what the on-screen key does while a finger rests on it. A
   latched axis has no release to give it, and an analog one sends a value rather than a phase.
-* ``yields_to_catalog`` -- the face buttons are how an entry in the scope catalog is confirmed,
+* yields_to_catalog -- the face buttons are how an entry in the scope catalog is confirmed,
   so a context lets go of them while that list is up.
-* ``claim`` -- the verb for a control a context takes and does nothing with. A route claims the
+* claim -- the verb for a control a context takes and does nothing with. A route claims the
   horn button rather than passing it on, because the pane has no engine in it and the horn
   would otherwise sound at whichever engine the pane held before the route was picked.
 
-This module is deliberately free of ``tkinter`` and ``guizero``, as ``control_labels`` is, so
+This module is deliberately free of tkinter and guizero, as control_labels is, so
 the whole map can be read and tested without a display.
 """
 
@@ -51,15 +51,15 @@ log = logging.getLogger(__name__)
 _CONTEXT_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 # The runtime action names a trigger bound to startup/shutdown emits once it can tell a short
-# press from a held one. Spelled out rather than imported from ``steam_deck_input``, which
-# imports this module; ``test_accessory_bindings`` asserts the two agree.
+# press from a held one. Spelled out rather than imported from steam_deck_input, which
+# imports this module; test_accessory_bindings asserts the two agree.
 STARTUP_IMMEDIATE = "startup_immediate"
 STARTUP_DELAYED = "startup_delayed"
 SHUTDOWN_IMMEDIATE = "shutdown_immediate"
 SHUTDOWN_DELAYED = "shutdown_delayed"
 
 # The four D-pad action names, spelled out here for the same reason: they belong to
-# ``steam_deck_input``, which imports this module rather than the other way about.
+# steam_deck_input, which imports this module rather than the other way about.
 DPAD_UP = "dpad_up"
 DPAD_DOWN = "dpad_down"
 DPAD_LEFT = "dpad_left"
@@ -67,31 +67,30 @@ DPAD_RIGHT = "dpad_right"
 DPAD_ACTION_NAMES = frozenset({DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT})
 
 # The controls a pane is *left* by, which no context takes unless it says so outright. The
-# bundled profile puts ``scope_catalog`` on Menu and ``reset`` on X, and a panel that swallowed
-# them would be a place the pad could arrive at and not get out of: no catalog to pick
-# something else from, and no way to close a popup already up. ``claims_unbound`` was written
-# to stop a stick reaching an engine the pane no longer holds, and catching the navigation
-# controls as well was never the intention -- so the exceptions are named rather than the rule
-# weakened.
+# bundled profile puts scope_catalog on Menu and reset on X, and a panel that swallowed them
+# would be a place the pad could arrive at and not get out of: no catalog to pick something
+# else from, and no way to close a popup already up. claims_unbound was written to stop a stick
+# reaching an engine the pane no longer holds, and catching the navigation controls as well was
+# never the intention -- so the exceptions are named rather than the rule weakened.
 #
 # The two are carved out on different terms, which is why they are two sets rather than one.
 # Menu is unconditional: being able to *open* the catalog is the whole point, so an accessory
 # panel never takes it. X is conditional on there being a popup to close, because that is all
 # FR-7 asks of it -- and an unconditional carve-out costs more than it looks. X falls through
-# to the ordinary panel-command path, which repeats ``RESET`` at the pane while the button is
+# to the ordinary panel-command path, which repeats RESET at the pane while the button is
 # held; that is a silent no-op on an ACC-scope panel, but a power district reached as an
-# ``LcsProxyState`` shows the BPC2 panel under **TRAIN** scope, where ``on_engine_command``'s
-# guard passes and the reset goes out at the district's own address. Gated on the popup, the
+# LcsProxyState shows the BPC2 panel under **TRAIN** scope, where on_engine_command's guard
+# passes and the reset goes out at the district's own address. Gated on the popup, the
 # swallow FR-0 asks for stands everywhere else and nothing is sent.
 #
-# Both are keyed on the action rather than on the button, as ``ADMIN_CHORD_MODIFIER`` and
-# ``CATALOG_JUMP_MODIFIER`` are and for the same reason: a profile that moves the button keeps
-# the behaviour with it. The price of that choice is the mirror case -- a profile that moves
-# ``reset`` elsewhere and puts something else on X carves out the wrong control, the popup path
-# being button-indexed (``CLOSE_POPUP_BUTTON``) where this is not. The two agree for any
-# profile that leaves ``reset`` where the bundled one puts it.
+# Both are keyed on the action rather than on the button, as ADMIN_CHORD_MODIFIER and
+# CATALOG_JUMP_MODIFIER are and for the same reason: a profile that moves the button keeps the
+# behavior with it. The price of that choice is the mirror case -- a profile that moves reset
+# elsewhere and puts something else on X carves out the wrong control, the popup path being
+# button-indexed (CLOSE_POPUP_BUTTON) where this is not. The two agree for any profile that
+# leaves reset where the bundled one puts it.
 #
-# A context that binds ``scope_catalog`` explicitly still gets it: that set is a default rather
+# A context that binds scope_catalog explicitly still gets it: that set is a default rather
 # than a prohibition, so a profile that deliberately puts something else on Menu is obeyed. The
 # popup-gated set below is stronger while its condition holds -- see the note on it.
 NEVER_CLAIMED_ACTIONS = frozenset({"scope_catalog"})
@@ -118,10 +117,10 @@ VERB_LCS_ON = "lcs_on"
 VERB_LCS_OFF = "lcs_off"
 VERB_ASC2_MOMENTARY = "asc2_momentary"
 VERB_ACC_THROTTLE = "acc_throttle"
-# Move the Sensor Track's Sequence selection by ``data`` options, clamped at both ends. The
-# only verb that sends nothing at all: it moves the highlight and stops there, so crossing the
-# ten options costs no commands rather than nine. The write is asked for outright by the two
-# verbs below, which is what leaves the operator somewhere to change their mind.
+# Move the Sensor Track's Sequence selection by data options, clamped at both ends. The only
+# verb that sends nothing at all: it moves the highlight and stops there, so crossing the ten
+# options costs no commands rather than nine. The write is asked for outright by the two verbs
+# below, which is what leaves the operator somewhere to change their mind.
 VERB_SENSOR_TRACK_STEP = "sensor_track_step"
 # Write the option the Sequence group is highlighting, and remember what it replaced.
 VERB_SENSOR_TRACK_SELECT = "sensor_track_select"
@@ -168,8 +167,8 @@ KNOWN_VERBS = frozenset(
 class Dispatch:
     """What one control does in one context.
 
-    ``verb`` says how to send and ``command`` what to send, where the verb needs telling. The
-    remaining fields are the handful of behaviours that cannot be expressed as a command name.
+    verb says how to send and command what to send, where the verb needs telling. The
+    remaining fields are the handful of behaviors that cannot be expressed as a command name.
     """
 
     verb: str
@@ -210,7 +209,7 @@ class Dispatch:
     def is_axis(self) -> bool:
         """True for a binding driven by a stick position rather than by a press.
 
-        Latched and held alike, which is what the derived ``*_AXIS_ACTIONS`` name sets want:
+        Latched and held alike, which is what the derived *_AXIS_ACTIONS name sets want:
         either way the action arrives as a value and none of the button handling applies.
         """
         return self.axis_latched or self.axis_held
@@ -311,18 +310,18 @@ _ACC_CATALOG_ACTIONS = _FACE_BUTTON_ACTIONS | DPAD_ACTION_NAMES
 SWITCH_CONTEXT = "switch"
 ROUTE_CONTEXT = "route"
 
-# The accessory contexts. ``acc`` is the base every accessory panel is in, whichever panel that
-# is; the four that follow name the panel actually on screen and are chained over it. Their
-# bindings arrive with the panels they belong to; the base binds nothing and exists for the
-# swallow, so an accessory panel cannot pass a stick or a trigger on to whatever engine the pane
-# held before its scope changed.
+# The accessory contexts. acc is the base every accessory panel is in, whichever panel that is;
+# the four that follow name the panel actually on screen and are chained over it. Their bindings
+# arrive with the panels they belong to; the base binds nothing and exists for the swallow, so
+# an accessory panel cannot pass a stick or a trigger on to whatever engine the pane held before
+# its scope changed.
 ACC_CONTEXT = "acc"
 ACC_GENERIC_CONTEXT = "acc_generic"
 ACC_BPC2_CONTEXT = "acc_bpc2"
 ACC_ASC2_CONTEXT = "acc_asc2"
 ACC_SENSOR_TRACK_CONTEXT = "acc_sensor_track"
 
-# The panel kinds ``KeypadView.accessory_panel_kind`` reports, named here rather than in the
+# The panel kinds KeypadView.accessory_panel_kind reports, named here rather than in the
 # view so that the table, the view and the input layer all spell them the same way -- and so
 # that the mapping below, which is the whole of the correspondence between what is drawn and
 # what claims the pad, can be read without a display.
@@ -375,10 +374,10 @@ _ACC_GENERIC_MODIFIER_ACTIONS = frozenset({"front_coupler", "rear_coupler"})
 # Off, and this gives each of them two ways to be reached: the trigger a pane would otherwise
 # start or shut an engine down with, and the D-pad pointed the way the key sits on screen.
 #
-# Keyed on ``startup`` / ``shutdown`` rather than on the triggers themselves, so a profile that
-# moves them keeps the power district behaviour with them. The delayed and immediate forms a
-# trigger emits once it can tell a short press from a held one are bound alongside: a power
-# district has no held variant to wait for, so either form means the same thing here.
+# Keyed on startup / shutdown rather than on the triggers themselves, so a profile that moves
+# them keeps the power district behavior with them. The delayed and immediate forms a trigger
+# emits once it can tell a short press from a held one are bound alongside: a power district
+# has no held variant to wait for, so either form means the same thing here.
 _ACC_BPC2_BINDINGS: Mapping[str, Dispatch | None] = {
     "startup": Dispatch(VERB_LCS_ON),
     STARTUP_IMMEDIATE: Dispatch(VERB_LCS_ON),
@@ -396,12 +395,12 @@ _ACC_BPC2_BINDINGS: Mapping[str, Dispatch | None] = {
 # inherits the On/Off pair rather than restating it.
 #
 # The momentary output is the only binding in the whole table that needs the release as well
-# as the press: the on-screen key energises the output while it is held and drops it when it
+# as the press: the on-screen key energizes the output while it is held and drops it when it
 # is let go, and a button that did only the first half would leave it on.
 #
-# The vertical stick reaches that same output, and is bound as the plain ``throttle`` action
+# The vertical stick reaches that same output, and is bound as the plain throttle action
 # rather than as the up/down pair: the variant lookup finds neither and falls back here, so a
-# push either way energises it. There is no second output for one of them to mean instead.
+# push either way energizes it. There is no second output for one of them to mean instead.
 _ACC_ASC2_BINDINGS: Mapping[str, Dispatch | None] = {
     "sequence_control": Dispatch(VERB_ASC2_MOMENTARY, both_phases=True),
     "dpad_up": Dispatch(VERB_ASC2_MOMENTARY, both_phases=True),
@@ -413,7 +412,7 @@ _ACC_ASC2_BINDINGS: Mapping[str, Dispatch | None] = {
 #
 # Up and down step the Sequence radio group the panel already shows -- up toward "No Action"
 # and down toward "Recorded Sequence", so the highlight follows the pad the way the list reads
-# on screen, the same convention ``scroll_catalog(-1)`` uses for up. Neither sends anything.
+# on screen, the same convention scroll_catalog(-1) uses for up. Neither sends anything.
 #
 # Right and A write the option the stepping settled on; left and X put back the option that
 # write replaced. Stepping and sending are separate on purpose: the group is ten options long,
@@ -421,15 +420,15 @@ _ACC_ASC2_BINDINGS: Mapping[str, Dispatch | None] = {
 # Two ways to reach each of them, as the power district's On and Off have, the D-pad pointing
 # the way the choice reads and the face key meaning what it means elsewhere.
 #
-# Not ``repeat``: one step per press, so no write is ever asked for that a finger did not ask
-# for individually.
+# Not repeat: one step per press, so no write is ever asked for that a finger did not ask for
+# individually.
 #
-# ``reset`` is X, and binding it here does not take it away from an open popup: the popup
-# carve-out in ``resolve`` is asked first, so X closes what is up and reverts only when there
-# is nothing to close.
+# reset is X, and binding it here does not take it away from an open popup: the popup
+# carve-out in resolve is asked first, so X closes what is up and reverts only when there is
+# nothing to close.
 #
 # Nothing else is bound. The panel has no other control on it, so the sticks and the triggers
-# are claimed by the ``acc`` base and sent nowhere, which is what FR-0 asks of a pane with no
+# are claimed by the acc base and sent nowhere, which is what FR-0 asks of a pane with no
 # engine in it.
 _ACC_SENSOR_TRACK_BINDINGS: Mapping[str, Dispatch | None] = {
     "dpad_up": Dispatch(VERB_SENSOR_TRACK_STEP, data=-1),
@@ -466,10 +465,10 @@ DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {
         yields_to_catalog=_ACC_CATALOG_ACTIONS | _ACC_GENERIC_MODIFIER_ACTIONS,
         clears_held=_FACE_BUTTON_ACTIONS,
     ),
-    # Neither of the two below inherits ``acc_generic``, deliberately: there is no coupler and
-    # no Boost key on a power district or an ASC2 panel, so a control bound to one of those in
-    # the generic context has nothing to act on here. It is claimed by the ``acc`` base and
-    # sent nowhere, which is the whole point of keeping the aux keys out of that base.
+    # Neither of the two below inherits acc_generic, deliberately: there is no coupler and no
+    # Boost key on a power district or an ASC2 panel, so a control bound to one of those in
+    # the generic context has nothing to act on here. It is claimed by the acc base and sent
+    # nowhere, which is the whole point of keeping the aux keys out of that base.
     ACC_BPC2_CONTEXT: ContextSpec(
         name=ACC_BPC2_CONTEXT,
         inherits=ACC_CONTEXT,
@@ -484,10 +483,10 @@ DEFAULT_CONTEXTS: Mapping[str, ContextSpec] = {
         yields_to_catalog=_ACC_CATALOG_ACTIONS,
         clears_held=_FACE_BUTTON_ACTIONS,
     ),
-    # ``yields_to_catalog`` is stated here rather than inherited from ``acc`` because the
-    # carve-out is read from whichever context supplied the binding, and this one binds the
-    # D-pad. Leave it off and an open catalog over a Sensor Track panel would step the Sequence
-    # group instead of scrolling -- on the one panel where the D-pad is the whole binding.
+    # yields_to_catalog is stated here rather than inherited from acc because the carve-out is
+    # read from whichever context supplied the binding, and this one binds the D-pad. Leave it
+    # off and an open catalog over a Sensor Track panel would step the Sequence group instead
+    # of scrolling -- on the one panel where the D-pad is the whole binding.
     ACC_SENSOR_TRACK_CONTEXT: ContextSpec(
         name=ACC_SENSOR_TRACK_CONTEXT,
         inherits=ACC_CONTEXT,
@@ -506,17 +505,17 @@ def merge_contexts(
     known_verbs: Collection[str] = KNOWN_VERBS,
     protected_actions: Collection[str] = (),
 ) -> Mapping[str, ContextSpec]:
-    """``base`` with a profile's ``contexts`` section laid over it.
+    """base with a profile's contexts section laid over it.
 
     A profile may override an entry, add one, add a whole context, or remove a binding by
-    naming it ``null`` -- the last being why "unbind this" is expressible rather than merely
+    naming it null -- the last being why "unbind this" is expressible rather than merely
     omitted. Anything malformed is logged and skipped, never raised: the discipline
-    ``ControlProfile.load`` already keeps, on the grounds that one bad table entry must not
-    take the gamepad out altogether.
+    ControlProfile.load already keeps, on the grounds that one bad table entry must not take
+    the gamepad out altogether.
 
-    ``protected_actions`` are refused outright. They are the global-target safety actions --
+    protected_actions are refused outright. They are the global-target safety actions --
     HALT above all -- which no context has any business rebinding or swallowing, in the same
-    spirit as ``_validate_action_target`` refusing a HALT that is not global.
+    spirit as _validate_action_target refusing a HALT that is not global.
     """
     if raw is None:
         return base
@@ -583,7 +582,7 @@ def _merge_one(
             log.warning(f"Ignoring unknown action {action!r} in context {name!r}")
             continue
         if raw_dispatch is None:
-            # An explicit unbind, which ``resolve`` honours by stopping the walk. Kept as a
+            # An explicit unbind, which resolve honors by stopping the walk. Kept as a
             # None entry rather than deleted, so it also masks anything inherited.
             bindings[action] = None
             continue
@@ -685,27 +684,27 @@ def resolve(
     *,
     popup_visible: bool = False,
 ) -> Resolution | None:
-    """What ``action`` does for a pane reporting ``chain``, or None if nothing claims it.
+    """What action does for a pane reporting chain, or None if nothing claims it.
 
     The chain arrives most specific first, so the walk takes the first context that has an
-    opinion. An explicit ``None`` binding is an opinion: it says this context unbinds the
-    action, which is how a profile expresses "leave this control alone here" as against merely
-    not mentioning it. Either way the walk stops, and the action is still claimed if any
-    context in the chain claims what it has not bound.
+    opinion. An explicit None binding is an opinion: it says this context unbinds the action,
+    which is how a profile expresses "leave this control alone here" as against merely not
+    mentioning it. Either way the walk stops, and the action is still claimed if any context
+    in the chain claims what it has not bound.
 
-    A ``NEVER_CLAIMED_ACTIONS`` member is the exception to that last part: the swallow does not
+    A NEVER_CLAIMED_ACTIONS member is the exception to that last part: the swallow does not
     reach it, so Menu still opens the catalog on a panel whose context claims everything else.
     An explicit binding takes it all the same -- a profile that puts something else on Menu is
     obeyed -- and an explicit unbind is not one, an unbound action being exactly what the
     carve-out is about.
 
-    A ``POPUP_ONLY_ACTIONS`` member is carved out on a condition instead -- ``popup_visible``,
-    which the caller reads from the pane -- and while that condition holds it is carved out
-    from a binding too, which is why it is asked before the walk rather than after it. A popup
-    is modal and X is the only way down from it, so a context that bound X while one was up
-    would be a panel the pad could not leave: exactly the dead end the carve-out exists for.
-    The Sensor Track context does bind X, to revert its Sequence choice, and that meaning is
-    the one X has when there is nothing to close.
+    A POPUP_ONLY_ACTIONS member is carved out on a condition instead -- popup_visible, which
+    the caller reads from the pane -- and while that condition holds it is carved out from a
+    binding too, which is why it is asked before the walk rather than after it. A popup is
+    modal and X is the only way down from it, so a context that bound X while one was up would
+    be a panel the pad could not leave: exactly the dead end the carve-out exists for. The
+    Sensor Track context does bind X, to revert its Sequence choice, and that meaning is the
+    one X has when there is nothing to close.
     """
     if popup_visible and action in POPUP_ONLY_ACTIONS:
         return None
@@ -744,9 +743,9 @@ def resolve_axis(
 ) -> Resolution | None:
     """Resolve an axis variant before its plain action, based on the value's sign.
 
-    A context that claims unbound actions must not prevent the plain-action fallback: ``acc``
+    A context that claims unbound actions must not prevent the plain-action fallback: acc
     claims every unmatched action, but its claim is not a directional variant binding. An
-    explicit ``None`` *is* a binding, however, and therefore masks the plain action for that
+    explicit None *is* a binding, however, and therefore masks the plain action for that
     sign, allowing a profile to unbind one side independently.
     """
     variants = AXIS_DIRECTION_NAMES.get(action)
@@ -768,7 +767,7 @@ def _expand(
     contexts: Mapping[str, ContextSpec],
     seen: set[str],
 ):
-    """The chain with each link's ``inherits`` followed, in order and without repeats."""
+    """The chain with each link's inherits followed, in order and without repeats."""
     for name in chain:
         current: str | None = name
         while current is not None and current not in seen:
@@ -779,7 +778,7 @@ def _expand(
 
 
 def actions_with_verb(spec: ContextSpec, *verbs: str) -> frozenset[str]:
-    """The actions ``spec`` binds to any of ``verbs``. Used to derive the legacy name sets."""
+    """The actions spec binds to any of verbs. Used to derive the legacy name sets."""
     wanted = frozenset(verbs)
     return frozenset(
         action for action, dispatch in spec.bindings.items() if dispatch is not None and dispatch.verb in wanted
@@ -787,12 +786,12 @@ def actions_with_verb(spec: ContextSpec, *verbs: str) -> frozenset[str]:
 
 
 def bound_actions(spec: ContextSpec) -> frozenset[str]:
-    """Every action ``spec`` has an entry for, claim-only ones included."""
+    """Every action spec has an entry for, claim-only ones included."""
     return frozenset(action for action, dispatch in spec.bindings.items() if dispatch is not None)
 
 
 def axis_actions(spec: ContextSpec) -> frozenset[str]:
-    """The actions ``spec`` binds that arrive as a stick position rather than as a press.
+    """The actions spec binds that arrive as a stick position rather than as a press.
 
     Every axis mode counts, not the latched one alone: a held binding is as much a stick as a
     latched one, and leaving it out would give the derived name sets a second, narrower idea of

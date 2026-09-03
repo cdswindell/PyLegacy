@@ -49,7 +49,7 @@ class OverlayPanel(metaclass=ABCMeta):
 
     @property
     def has_close(self) -> bool:
-        """Whether ``create_popup`` gives this panel's popup a Close button.
+        """Whether create_popup gives this panel's popup a Close button.
 
         True for every panel that has no other way off itself, which is all of them bar
         the LCS configuration panel; see LcsConfigPanel.has_close.

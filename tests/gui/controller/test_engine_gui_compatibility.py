@@ -169,9 +169,9 @@ def test_engine_command_splits_targets_and_preserves_dispatch_order() -> None:
 
 
 def _horn_gui() -> "mod.EngineGui":
-    # A bare EngineGui with only the state ``do_engine_command`` touches for the
-    # horn path, plus a recording ``submit_request`` so we can inspect the
-    # resolved command.
+    # A bare EngineGui with only the state do_engine_command touches for the
+    # horn path, plus a recording submit_request so we can inspect the resolved
+    # command.
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui.scope = CommandScope.ENGINE
     gui.repeat = 1
@@ -182,7 +182,7 @@ def _horn_gui() -> "mod.EngineGui":
 
 
 def test_horn_command_sounds_quilling_horn_with_intensity_for_legacy_engine() -> None:
-    # The trackpad/trigger horn sends the ``HORN_COMMAND`` fallback list with the
+    # The trackpad/trigger horn sends the HORN_COMMAND fallback list with the
     # drag intensity. A Legacy (TMCC2) engine must resolve it to the Quilling
     # Horn, honoring the 0..15 intensity.
     gui = _horn_gui()
@@ -865,7 +865,7 @@ class _FakeChooser:
         self.choosing = choosing
         self.moves: list[int] = []
         self.committed = 0
-        self.cancelled = 0
+        self.canceled = 0
 
     def move_choice(self, delta: int) -> None:
         self.moves.append(delta)
@@ -874,7 +874,7 @@ class _FakeChooser:
         self.committed += 1
 
     def cancel_edit(self) -> None:
-        self.cancelled += 1
+        self.canceled += 1
 
 
 def _gui_with_chooser(chooser=None):
@@ -897,7 +897,7 @@ def test_the_pane_exposes_an_open_chooser_for_the_dpad() -> None:
 
     assert chooser.moves == [1, -1]
     assert chooser.committed == 1
-    assert chooser.cancelled == 1
+    assert chooser.canceled == 1
 
 
 def test_a_pane_with_no_chooser_reports_nothing_to_drive() -> None:

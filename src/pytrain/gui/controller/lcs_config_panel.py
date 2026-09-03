@@ -18,7 +18,7 @@ The panel takes every fact about a device from lcs_device_registry.py, every fac
 who owns a TMCC ID from lcs_id_map.py, and the presses themselves from
 lcs_sequence_builder.py, so it holds no device knowledge of its own.
 
-Configure sends presses only; nothing is written over PDI ``CONFIG SET``. The read-back
+Configure sends presses only; nothing is written over PDI CONFIG SET. The read-back
 is therefore the only honest evidence that the module accepted anything, which is why a
 read-back that does not arrive is reported rather than passed over in silence.
 """
@@ -337,11 +337,11 @@ class ModuleRow:
 def touch_only_editing() -> bool:
     """True where an on-screen editor is the only keyboard: the Pi and the Steam Deck.
 
-    Both are Linux, and ``is_linux()`` is what the rest of the project already uses to tell
-    the appliance platform from a desktop. Taken from ``utils.host_info``, never from the
-    ``pytrain`` package root: that package imports ``EngineGui`` -- and through it this
-    module -- before it defines anything of its own, so importing it back is circular.
-    ``admin_panel`` reads ``is_steam_deck`` from the same leaf module for the same reason.
+    Both are Linux, and is_linux() is what the rest of the project already uses to tell the
+    appliance platform from a desktop. Taken from utils.host_info, never from the pytrain
+    package root: that package imports EngineGui -- and through it this module -- before it
+    defines anything of its own, so importing it back is circular. admin_panel reads
+    is_steam_deck from the same leaf module for the same reason.
     """
     return is_linux()
 
@@ -369,8 +369,8 @@ def needs_close_button() -> bool:
 
     Those two run full screen with no window frame, so a button below the panel is the
     only way off it. A desktop window has a title bar, and its close box is already wired
-    to the very same shutdown -- ``GuiZeroBase.run`` sets ``App.when_closed`` to ``close``
-    -- so a Close inside the window is a second one of something the window already has.
+    to the very same shutdown -- GuiZeroBase.run sets App.when_closed to close -- so a
+    Close inside the window is a second one of something the window already has.
 
     Same platform test as touch_only_editing(), and for the same reason.
     """
@@ -616,14 +616,14 @@ class LcsConfigPanel(OverlayPanel):
         return max(MIN_WRAP_PX, width - WRAP_INSET)
 
     def _wrap(self, widget: Any, justify: str = "center", pady: int = None) -> Any:
-        """Break ``widget``'s text at the popup's width and hold it off its neighbors.
+        """Break widget's text at the popup's width and hold it off its neighbors.
 
         Both are Tk widget options rather than layout ones, which is what makes them safe
         here: guizero rebuilds a container's pack and grid options from scratch every time
-        anything in it is created, shown or hidden -- and the options page shows and hides a
+        anything in it is created, shown, or hidden -- and the options page shows and hides a
         box on every device change.
 
-        ``justify`` is what a broken line is aligned on, so it follows the widget: the prose
+        justify is what a broken line is aligned on, so it follows the widget: the prose
         lines are centered under the heading, while a checkbox's label is set beside its
         indicator and reads from the left. Returned so a label can be built and wrapped in
         one breath.
@@ -838,13 +838,13 @@ class LcsConfigPanel(OverlayPanel):
         assigned box widens the mode box with it, and vice versa.
 
         Re-applied after every refresh rather than set once, because guizero rebuilds a
-        container's grid options from scratch in ``display_widgets`` -- which runs whenever
-        any child is shown, hidden, or created -- and neither ``sticky`` nor ``pady`` is among
-        the options it replays. Hiding the mode box for a device with no modes is enough to
-        lose them. A hidden box is skipped: ``grid_configure`` on a widget the grid has
-        forgotten would put it back on screen.
+        container's grid options from scratch in display_widgets -- which runs whenever any
+        child is shown, hidden, or created -- and neither sticky nor pady is among the options
+        it replays. Hiding the mode box for a device with no modes is enough to lose them. A
+        hidden box is skipped: grid_configure on a widget the grid has forgotten would put it
+        back on screen.
 
-        That replay is also what makes ``pady`` the one place here where whitespace is
+        That replay is also what makes pady the one place here where whitespace is
         padding rather than a spacer widget: it is re-applied on the same schedule as the
         stretch, so it cannot be silently dropped the way padding elsewhere in the panel
         would be. Stacked flush, the three boxes read as one ruled block on the Pi.
@@ -864,7 +864,7 @@ class LcsConfigPanel(OverlayPanel):
 
     @staticmethod
     def _style_id_field(field: EditableText) -> None:
-        """Draw the ID as a text box, and open it for editing on a plain press.
+        """Draw the ID as a text box and open it for editing on a plain press.
 
         The field is a guizero Text, which renders as a bare label. The sunken border in the
         editor's own colors is what tells the operator it can be typed into, and it means the
@@ -878,10 +878,10 @@ class LcsConfigPanel(OverlayPanel):
         and is bound by the component. Only this panel asks for the press, so it is bound here
         rather than turned on for every editable label.
 
-        Both gestures survive together, and they have to: ``<Button-1>`` is the same Tk
-        sequence the component presses on. Bound with ``add="+"``, so the component's own
-        handler still runs first and starts its hold timer; ``begin_edit`` then cancels that
-        timer, and a hold that outlives a press already editing does nothing.
+        Both gestures survive together, and they have to: <Button-1> is the same Tk sequence
+        the component presses on. Bound with add="+", so the component's own handler still
+        runs first and starts its hold timer; begin_edit then cancels that timer, and a hold
+        that outlives a press already editing does nothing.
         """
         try:
             field.tk.config(bg=field.edit_bg, fg=field.edit_fg, relief="sunken", bd=2)
@@ -1169,6 +1169,9 @@ class LcsConfigPanel(OverlayPanel):
     #
     # Configure
     #
+    # The submit guard below is what makes the two loops safe, but a callable checked against
+    # None reads as None again to PyCharm once the call is inside a loop.
+    # noinspection PyCallingNonCallable
     def on_configure(self) -> None:
         """
         Emit the presses, then ask the module to report what it now holds.
@@ -1177,7 +1180,7 @@ class LcsConfigPanel(OverlayPanel):
         if program is None:
             return
         host = self._gui
-        submit = getattr(host, "submit_request", None)
+        submit: Callable[..., Any] | None = getattr(host, "submit_request", None)
         if submit is None:  # pragma: no cover - every real host queues requests
             log.warning("Host cannot queue requests; LCS presses not sent")
             return
@@ -1205,6 +1208,7 @@ class LcsConfigPanel(OverlayPanel):
         except Exception as e:  # pragma: no cover - defensive; Tk may be tearing down
             log.debug("Could not schedule LCS read-back timeout: %s", e)
 
+    # noinspection PyCallingNonCallable
     def readback_state(self, program: LcsProgram | None = None) -> Any:
         """
         The component state the module's read-back lands in, if the store holds one.
@@ -1213,11 +1217,12 @@ class LcsConfigPanel(OverlayPanel):
         store = self._store
         if program is None or store is None:
             return None
-        get_state = getattr(store, "get_state", None)
+        get_state: Callable[..., Any] | None = getattr(store, "get_state", None)
         if get_state is None:
             return None
         scopes = [CommandScope.IRDA] if program.device is SENSOR_TRACK else [program.mode.scope]
         for scope in scopes:
+            # noinspection PyBroadException
             try:
                 state = get_state(scope, program.base_id, False)
             except Exception:  # pragma: no cover - store shapes vary
@@ -1239,14 +1244,16 @@ class LcsConfigPanel(OverlayPanel):
     def _stop_readback_watcher(self) -> None:
         watcher, self._readback_watcher = self._readback_watcher, None
         if watcher is not None:
+            # noinspection PyBroadException
             try:
                 watcher.shutdown()
             except Exception:  # pragma: no cover - defensive
                 pass
 
+    # noinspection PyCallingNonCallable
     def _on_readback_changed(self) -> None:
         # Runs on the watcher thread; the display is touched on the Tk thread only.
-        queue_message = getattr(self._gui, "queue_message", None)
+        queue_message: Callable[..., Any] | None = getattr(self._gui, "queue_message", None)
         if queue_message is None:
             self.on_readback()
         else:
@@ -1371,18 +1378,18 @@ class LcsConfigPanel(OverlayPanel):
         do. A press to arrive at it and a press to leave, for no decision. Next now goes
         from the TMCC ID straight to the review, and Back comes straight back.
 
-        The page is still built. It is one of four created once in ``build`` and shown or
+        The page is still built. It is one of four created once in build and shown or
         hidden by index, so leaving it out would move the review page's index -- and every
         page is reached by index.
         """
         return self._device is not None and not self._device.options
 
     def _skipped(self, index: int) -> bool:
-        """Whether ``index`` names a page this module has nothing to say on."""
+        """Whether index names a page this module has nothing to say on."""
         return index == PAGE_OPTIONS and self.skip_options
 
     def _page_after(self, index: int, step: int) -> int:
-        """The next page in ``step``'s direction that is not skipped.
+        """The next page in step's direction that is not skipped.
 
         A loop rather than a single test, so that a second skippable page would need
         nothing here. It cannot run away: it walks off the end of the pages, and
@@ -1469,7 +1476,7 @@ class LcsConfigPanel(OverlayPanel):
         """
         The module the panel opens on when there is nothing to reflect: the first offered.
 
-        ``configurable_devices`` is sorted by name, so this is the ASC2 today and stays the
+        configurable_devices is sorted by name, so this is the ASC2 today and stays the
         first name in the list as modules are added.
         """
         return configurable_devices()[0]
@@ -1538,11 +1545,13 @@ class LcsConfigPanel(OverlayPanel):
         if sequence is not None:
             self._options["action"] = sequence
 
+    # noinspection PyCallingNonCallable
     def _irda_state(self, tmcc_id: int) -> Any:
         store = self._store
-        get_state = getattr(store, "get_state", None) if store is not None else None
+        get_state: Callable[..., Any] | None = getattr(store, "get_state", None) if store is not None else None
         if get_state is None:
             return None
+        # noinspection PyBroadException
         try:
             return get_state(CommandScope.IRDA, tmcc_id, False)
         except Exception:  # pragma: no cover - store shapes vary
@@ -1610,7 +1619,7 @@ class LcsConfigPanel(OverlayPanel):
     #
     def _set_base_id(self, value: Any) -> int:
         """
-        Clamp ``value`` into ``1 .. max_base`` and refresh everything that depends on it.
+        Clamp value into 1 .. max_base and refresh everything that depends on it.
         """
         try:
             new_id = int(value)
@@ -1795,7 +1804,7 @@ class LcsConfigPanel(OverlayPanel):
 
     def _refresh_row_grid(self, grid: Box | None, cells: list[tuple[Text, ...]], rows: Sequence[ModuleRow]) -> None:
         """
-        Write ``rows`` into one of the module grids, growing it and hiding what is spare.
+        Write rows into one of the module grids, growing it and hiding what is spare.
         """
         if grid is None:
             return
@@ -1991,7 +2000,7 @@ class LcsConfigPanel(OverlayPanel):
         """Whether the popup adds its Close button below the panel's Back/Next row.
 
         Only where the panel is the only way off itself; see needs_close_button(). Read by
-        ``create_popup`` as the overlay is built, which is the one moment it is needed: an
+        create_popup as the overlay is built, which is the one moment it is needed: an
         overlay is built on the machine it is shown on.
         """
         return needs_close_button()
@@ -1999,10 +2008,10 @@ class LcsConfigPanel(OverlayPanel):
     def _build_nav(self, body: Box) -> None:
         """Back and Next, on a row of the panel's own rather than in the popup's footer.
 
-        ``has_footer`` is left False, so where ``create_popup`` adds a Close button at all
-        (see has_close) it goes below everything the panel builds -- which puts Close on a
-        line of its own, under these two, instead of all three crowding one row. Where it
-        does not, these two are the last row in the overlay and nothing moves.
+        has_footer is left False, so where create_popup adds a Close button at all (see
+        has_close) it goes below everything the panel builds -- which puts Close on a line
+        of its own, under these two, instead of all three crowding one row. Where it does
+        not, these two are the last row in the overlay and nothing moves.
 
         The row is packed, not gridded, and asks for no width of its own, so it is as wide as
         the buttons it is showing and Tk centers it under the page above; Close below it is
@@ -2013,10 +2022,10 @@ class LcsConfigPanel(OverlayPanel):
         container's children in the order they were created, so an order set here is the
         order the row keeps however often Back is hidden and shown again.
 
-        Styled with ``style_footer_button``: that is the one shared look for the big buttons
-        at the foot of an overlay, and the Close beneath them wears it too. Its vertical
-        padding is then trimmed, because this row is not the popup's footer band and does not
-        want a footer band's whitespace around it -- see NAV_ROW_PAD.
+        Styled with style_footer_button: that is the one shared look for the big buttons at
+        the foot of an overlay, and the Close beneath them wears it too. Its vertical padding
+        is then trimmed, because this row is not the popup's footer band and does not want a
+        footer band's whitespace around it -- see NAV_ROW_PAD.
         """
         host = self._gui
         self._nav = nav = Box(body, align="top", border=0)
@@ -2037,7 +2046,7 @@ class LcsConfigPanel(OverlayPanel):
             self._enable(self._next_btn, can_advance)
 
     def _show_back(self, visible: bool) -> None:
-        """Back is meaningless on the first page, so it is taken off the row rather than greyed.
+        """Back is meaningless on the first page, so it is taken off the row rather than grayed.
 
         Both hide() and show() run the row's display_widgets(), which rebuilds pack options
         from scratch and discards the padding style_footer_button recorded, so it is replayed.

@@ -7,12 +7,12 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 """
-Turns ``(device, mode, base_id, options)`` into the ordered Cab-remote presses that
+Turns (device, mode, base_id, options) into the ordered Cab-remote presses that
 program an LCS module, the PDI GETs that read it back, and the human-readable list
 the review page shows.
 
 Every supported device goes through this one path; the panel has exactly one write
-path and never sends a PDI ``CONFIG SET``.
+path and never sends a PDI CONFIG SET.
 """
 
 from __future__ import annotations

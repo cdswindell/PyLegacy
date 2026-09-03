@@ -8,9 +8,9 @@
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
 """
-``pylcs``: open the LCS module configuration panel in its own window.
+pylcs: open the LCS module configuration panel in its own window.
 
-Follows the ``pycache`` pattern exactly: a CliBase subclass parses the arguments, and a
+Follows the pycache pattern exactly: a CliBase subclass parses the arguments, and a
 CommandBase subclass brings PyTrain up as a client, against a named server, or directly
 against a Base 3, then runs the GUI. No requests are built here -- the panel itself is
 what sends anything, through the GUI's own request queue.

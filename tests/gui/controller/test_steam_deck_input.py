@@ -20,6 +20,10 @@ from src.pytrain.gui.controller.accessory_bindings import (
     PANEL_SENSOR_TRACK,
 )
 from src.pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
+
+# The private decoders and the paddle table are what these tests pin, so they are imported
+# by name on purpose.
+# noinspection PyProtectedMember
 from src.pytrain.gui.controller.steam_deck_input import (
     ADMIN_COMMANDS,
     CATALOG_JUMP_MODIFIER,
@@ -95,7 +99,7 @@ def _gui(
         is_reverse=is_reverse,
     )
     gui = SimpleNamespace(throttle_state=state, speed_calls=[], command_calls=[])
-    gui.on_speed_command = lambda speed: gui.speed_calls.append(speed)
+    gui.on_speed_command = lambda speed_req: gui.speed_calls.append(speed_req)
     gui.on_engine_command = lambda command: gui.command_calls.append(command)
     return gui
 
@@ -260,8 +264,8 @@ def test_dpad_up_down_boost_brake_when_catalog_hidden() -> None:
     )
 
     # With the catalog hidden, D-pad up boosts the engine/train speed
-    # (``BOOST_SPEED``) and D-pad down brakes it (``BRAKE_SPEED``); both resolve
-    # for Legacy and TMCC engines alike.
+    # (BOOST_SPEED) and D-pad down brakes it (BRAKE_SPEED); both resolve for
+    # Legacy and TMCC engines alike.
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_DOWN, "focused", 1.0, "pressed"))
 
@@ -436,8 +440,8 @@ def test_dpad_left_right_adjust_smoke_when_catalog_hidden() -> None:
         global_actions={},
     )
 
-    # With the catalog hidden, D-pad right raises smoke (``SMOKE_ON``) and D-pad
-    # left lowers it (``SMOKE_OFF``) as one-shots.
+    # With the catalog hidden, D-pad right raises smoke (SMOKE_ON) and D-pad
+    # left lowers it (SMOKE_OFF) as one-shots.
     router.handle(DeckAction(DPAD_RIGHT, "focused", 1.0, "pressed"))
     router.handle(DeckAction(DPAD_LEFT, "focused", 1.0, "pressed"))
 
@@ -599,6 +603,7 @@ def _catalog_router(focused_gui: SimpleNamespace) -> DeckInputRouter:
 
 
 def _coupler_profile() -> ControlProfile:
+    """L1 and R1 as the bundled profile binds them: the rear coupler on L1, the front on R1."""
     # L1/R1 carry the couplers, as in the bundled profile. R1 doubles as the
     # catalog-jump modifier while the catalog is open.
     return _profile(
@@ -2470,10 +2475,12 @@ def test_provider_start_allows_touchpad_events_and_opens_controller() -> None:
         def __init__(self, index: int) -> None:
             opened.append(index)
 
-        def init(self) -> None:
+        @staticmethod
+        def init() -> None:
             calls.append("controller.opened")
 
-        def quit(self) -> None:
+        @staticmethod
+        def quit() -> None:
             calls.append("controller.quit")
 
     def joystick(_index: int):
@@ -2776,7 +2783,8 @@ def test_start_hidraw_readers_starts_thread_when_deck_node_present(monkeypatch: 
     started: list[str] = []
 
     class _FakeReader:
-        def __init__(self, path: str, out_queue: queue.Queue) -> None:
+        def __init__(self, path: str, _out_queue: queue.Queue) -> None:
+            # The real reader is constructed positionally, so the queue is taken and dropped.
             self.path = path
             self.stopped = False
 
@@ -2953,7 +2961,7 @@ def _chooser_gui():
     """A pane with a choice list open, recording what the D-pad asks of it."""
     gui = _gui()
     gui.chooser_visible = True
-    gui.chooser_calls: list[str] = []
+    gui.chooser_calls = []
     gui.move_chooser = lambda forward=True: gui.chooser_calls.append(f"move:{'down' if forward else 'up'}")
     gui.select_chooser = lambda: gui.chooser_calls.append("select")
     gui.cancel_chooser = lambda: gui.chooser_calls.append("cancel")
@@ -3029,13 +3037,13 @@ def test_the_dpad_reaches_the_engine_again_once_the_chooser_closes() -> None:
 def _switch_gui(*, switch_active: bool = True):
     """A pane showing a track switch, recording the throws asked of it.
 
-    It keeps a ``throttle_state`` deliberately: a pane that was driving an engine before a
+    It keeps a throttle_state deliberately: a pane that was driving an engine before a
     switch was picked in it still has one, so a stick pushed here would move that engine if
     the switch handling did not claim the action first.
     """
     gui = _gui(speed=20)
     gui.switch_active = switch_active
-    gui.switch_calls: list[bool] = []
+    gui.switch_calls = []
     gui.on_switch_command = lambda thru: gui.switch_calls.append(thru)
     return gui
 
@@ -3078,8 +3086,8 @@ def test_triggers_still_start_and_stop_an_engine_in_an_engine_panel() -> None:
 def _face_button_profile() -> ControlProfile:
     """A and Y as the bundled profile binds them: sequence control on A, the horn on Y.
 
-    The horn keeps its ``repeat`` flag, which is what makes the release matter: without the
-    switch or route claim stopping it, ``tick()`` goes on sounding a horn at a panel with no
+    The horn keeps its repeat flag, which is what makes the release matter: without the
+    switch or route claim stopping it, tick() goes on sounding a horn at a panel with no
     engine.
     """
     return _profile(
@@ -3253,13 +3261,13 @@ def test_a_stick_keeps_driving_the_engine_in_the_other_panel() -> None:
 def _route_gui(*, route_active: bool = True):
     """A pane showing a route, recording the fires asked of it.
 
-    Keeps a ``throttle_state`` for the reason _switch_gui does: a pane that was driving an
+    Keeps a throttle_state for the reason _switch_gui does: a pane that was driving an
     engine before a route was picked in it still has one, so a stick pushed here would move
     that engine if the route handling did not claim the action first.
     """
     gui = _gui(speed=20)
     gui.route_active = route_active
-    gui.route_calls: list[bool] = []
+    gui.route_calls = []
     gui.on_route_command = lambda: gui.route_calls.append(True)
     return gui
 
@@ -3681,23 +3689,23 @@ def test_a_malformed_contexts_section_is_logged_and_the_defaults_stand() -> None
 def _acc_gui(kind: str = PANEL_GENERIC):
     """A pane showing an accessory panel, recording what is asked of the accessory.
 
-    Keeps a ``throttle_state`` for the reason ``_switch_gui`` and ``_route_gui`` do: a pane
-    that was driving an engine before an accessory was picked in it still has one, so a stick
-    or a shoulder button pushed here would reach that engine if the accessory context did not
+    Keeps a throttle_state for the reason _switch_gui and _route_gui do: a pane that was
+    driving an engine before an accessory was picked in it still has one, so a stick or a
+    shoulder button pushed here would reach that engine if the accessory context did not
     claim the action first.
 
-    The chain comes from ``PANEL_CONTEXT_CHAINS`` rather than being written out, so the stub
-    reports exactly what ``EngineGui.input_contexts`` reports for the same panel: the point of
+    The chain comes from PANEL_CONTEXT_CHAINS rather than being written out, so the stub
+    reports exactly what EngineGui.input_contexts reports for the same panel: the point of
     naming the panel in one place is that a test cannot disagree with the screen either.
     """
     gui = _gui(speed=20)
     gui.input_contexts = PANEL_CONTEXT_CHAINS.get(kind, ())
-    gui.acc_calls: list[tuple[str, int | None]] = []
-    gui.acc_speed_calls: list[int] = []
+    gui.acc_calls = []
+    gui.acc_speed_calls = []
     gui.on_acc_command = lambda command, data=None: gui.acc_calls.append((command, data))
     gui.on_acc_speed_command = lambda value: gui.acc_speed_calls.append(value)
-    gui.lcs_calls: list[bool] = []
-    gui.momentary_calls: list[bool] = []
+    gui.lcs_calls = []
+    gui.momentary_calls = []
     gui.on_lcs_command = lambda on: gui.lcs_calls.append(on)
     gui.on_asc2_momentary = lambda pressed: gui.momentary_calls.append(pressed)
     _add_sensor_track_recorders(gui)
@@ -3705,23 +3713,23 @@ def _acc_gui(kind: str = PANEL_GENERIC):
 
 
 def _add_sensor_track_recorders(gui) -> None:
-    """The Sequence group's half of the pane, modelled rather than stubbed to a constant.
+    """The Sequence group's half of the pane, modeled rather than stubbed to a constant.
 
-    The highlight is kept and clamped within ``SENSOR_TRACK_OPTS`` exactly as
-    ``KeypadView.step_sensor_track_sequence`` does, including an unset selection counting as
-    the state before the list so the first press of either direction lands on index 0. A test
-    wanting the clamp sets ``sensor_track_index`` to an end of the list and presses outward,
+    The highlight is kept and clamped within SENSOR_TRACK_OPTS exactly as
+    KeypadView.step_sensor_track_sequence does, including an unset selection counting as the
+    state before the list so the first press of either direction lands on index 0. A test
+    wanting the clamp sets sensor_track_index to an end of the list and presses outward,
     rather than telling the stub to answer False.
 
-    ``select_calls`` and ``revert_calls`` record the highlight as it stood when each arrived,
-    so a select of the wrong option, or one the router never made, is visible. What either of
-    them then *does* -- which pair is written, which undo point is spent -- belongs to
-    ``EngineGui`` and is tested there; these tests are about which of the two the pad reaches.
+    select_calls and revert_calls record the highlight as it stood when each arrived, so a
+    select of the wrong option, or one the router never made, is visible. What either of them
+    then *does* -- which pair is written, which undo point is spent -- belongs to EngineGui
+    and is tested there; these tests are about which of the two the pad reaches.
     """
-    gui.sensor_track_calls: list[int] = []
-    gui.select_calls: list[int | None] = []
-    gui.revert_calls: list[int | None] = []
-    gui.sensor_track_index: int | None = None
+    gui.sensor_track_calls = []
+    gui.select_calls = []
+    gui.revert_calls = []
+    gui.sensor_track_index = None
 
     def on_sensor_track_step(delta: int) -> bool:
         gui.sensor_track_calls.append(delta)
@@ -3737,16 +3745,6 @@ def _add_sensor_track_recorders(gui) -> None:
     gui.on_sensor_track_step = on_sensor_track_step
     gui.on_sensor_track_select = lambda: gui.select_calls.append(gui.sensor_track_index)
     gui.on_sensor_track_revert = lambda: gui.revert_calls.append(gui.sensor_track_index)
-
-
-def _coupler_profile() -> ControlProfile:
-    """L1 and R1 as the bundled profile binds them: the rear coupler on L1, the front on R1."""
-    return _profile(
-        buttons={
-            "4": {"action": "rear_coupler", "target": "focused"},
-            "5": {"action": "front_coupler", "target": "focused"},
-        }
-    )
 
 
 def test_the_stick_drives_the_accessorys_speed_rather_than_an_engines() -> None:
@@ -4040,7 +4038,7 @@ def test_an_asc2_output_is_not_left_on_when_the_pane_changes_scope_under_the_thu
 @pytest.mark.parametrize("value", [0.9, -0.9])
 def test_the_vertical_stick_energises_the_asc2_output_while_it_is_held(value) -> None:
     # A momentary output has to stay on for as long as the stick is away from center, and the
-    # sign is not consulted: there is one output, so up and down both energise it.
+    # sign is not consulted: there is one output, so up and down both energize it.
     focused = _acc_gui(kind=PANEL_ASC2)
     router, _left, _right, _focused, _global = _router(left=focused)
 
@@ -4059,7 +4057,7 @@ def test_the_vertical_stick_energises_the_asc2_output_while_it_is_held(value) ->
 
 
 def test_the_asc2_stick_uses_the_same_hysteresis_band_as_the_latch() -> None:
-    # A stick too light to throw a switch is too light to energise an output, and a value
+    # A stick too light to throw a switch is too light to energize an output, and a value
     # wandering either side of the threshold must not chatter it.
     focused = _acc_gui(kind=PANEL_ASC2)
     router, _left, _right, _focused, _global = _router(left=focused)
@@ -4128,7 +4126,7 @@ def test_the_asc2_output_survives_the_stick_letting_go_first() -> None:
 def test_a_held_stick_drops_the_asc2_output_even_after_the_pane_changes_scope() -> None:
     # The release of a stick is a value rather than an event, so it is delivered from the hold
     # record rather than by resolving the chain again: re-scoped under the thumb, the chain
-    # would say something else entirely and the output would stay energised.
+    # would say something else entirely and the output would stay energized.
     focused = _acc_gui(kind=PANEL_ASC2)
     router, _left, _right, _focused, _global = _router(left=focused)
 
@@ -4239,8 +4237,8 @@ def test_neither_power_district_context_inherits_the_generic_one(context) -> Non
 # Stepping and writing are two separate acts here (A-7). The D-pad up and down move the
 # highlight and send nothing at all; right and A write what the highlight is on; left and X put
 # back what the last write replaced. So a test that expects nothing on the wire asserts on
-# ``select_calls`` rather than waiting anything out -- there is no longer any elapsed time in
-# this feature for a write to arrive after.
+# select_calls rather than waiting anything out -- there is no longer any elapsed time in this
+# feature for a write to arrive after.
 
 
 def _sensor_track_gui():
@@ -4392,7 +4390,7 @@ def test_a_held_select_writes_once_rather_than_repeatedly() -> None:
     [
         # Clamped rather than wrapping: the list has two ends and the D-pad stops at them.
         # Wrapping would put "Recorded Sequence" one press above "No Action", which is the
-        # one neighbour a Sequence group must not have.
+        # one neighbor a Sequence group must not have.
         (DPAD_UP, 0),
         (DPAD_DOWN, len(SENSOR_TRACK_OPTS) - 1),
     ],
@@ -4544,19 +4542,19 @@ def test_the_triggers_on_a_sensor_track_panel_are_claimed_and_sent_nowhere(name)
 def _nav_acc_gui(kind: str = PANEL_GENERIC, **flags):
     """An accessory pane that also records what the catalog and the popup are asked to do.
 
-    ``_acc_gui`` records only what reaches the accessory, which is the half these tests want
-    to see stay empty; the other half is what the pane is navigated by.
+    _acc_gui records only what reaches the accessory, which is the half these tests want to
+    see stay empty; the other half is what the pane is navigated by.
     """
     gui = _acc_gui(kind)
     gui.catalog_visible = flags.get("catalog_visible", False)
     gui.popup_visible = flags.get("popup_visible", False)
-    gui.catalog_calls: list[str] = []
+    gui.catalog_calls = []
     gui.show_scope_catalog = lambda: gui.catalog_calls.append("show")
     gui.hide_scope_catalog = lambda: gui.catalog_calls.append("hide")
     gui.select_catalog_entry = lambda: gui.catalog_calls.append("select")
-    gui.scroll_calls: list[int] = []
+    gui.scroll_calls = []
     gui.scroll_catalog = lambda delta: gui.scroll_calls.append(delta)
-    gui.close_calls: list[str] = []
+    gui.close_calls = []
     gui.close_popup = lambda: gui.close_calls.append("close")
     return gui
 
@@ -4624,12 +4622,12 @@ def test_x_with_no_popup_up_is_claimed_by_the_accessory_panel(kind) -> None:
 
 
 def _district_gui():
-    """A power district reached as an ``LcsProxyState`` under TRAIN scope.
+    """A power district reached as an LcsProxyState under TRAIN scope.
 
-    ``KeypadView.accessory_panel_kind`` reports ``bpc2`` for one of these and
-    ``EngineGui.input_contexts`` the BPC2 chain, so the pad claims it exactly as it claims
-    the power district panel it draws -- but the pane is a *train* pane still, and
-    ``EngineGui.on_engine_command``'s guard (scope in ENGINE/TRAIN with a tmcc_id) therefore
+    KeypadView.accessory_panel_kind reports bpc2 for one of these and
+    EngineGui.input_contexts the BPC2 chain, so the pad claims it exactly as it claims the
+    power district panel it draws -- but the pane is a *train* pane still, and
+    EngineGui.on_engine_command's guard (scope in ENGINE/TRAIN with a tmcc_id) therefore
     **passes**. That is what makes this the one accessory panel where an engine command the
     context failed to claim leaves the GUI and goes on the wire, at the district's own
     address, so the stub applies the same guard rather than recording every call.
@@ -4637,8 +4635,11 @@ def _district_gui():
     gui = _nav_acc_gui(PANEL_BPC2)
     gui.scope = "TRAIN"
     gui.tmcc_id = 4
-    gui.wire_calls: list[str] = []
+    gui.wire_calls = []
 
+    # data arrives by keyword from the router; the guard under test turns on the scope alone,
+    # so the value itself is never read.
+    # noinspection PyUnusedLocal,unused-parameter
     def on_engine_command(command, data=None):
         gui.command_calls.append(command)
         if gui.scope in {"ENGINE", "TRAIN"} and gui.tmcc_id:
@@ -4728,7 +4729,7 @@ def test_an_open_catalog_gets_the_whole_dpad_back_from_an_accessory_panel(kind, 
     assert focused.scroll_calls == scrolls
     assert focused.catalog_calls == catalog
     assert focused.lcs_calls == [], "and the power district was not switched"
-    assert focused.momentary_calls == [], "nor the ASC2 output energised"
+    assert focused.momentary_calls == [], "nor the ASC2 output energized"
     assert focused.acc_calls == [], "nor the accessory boosted or braked"
     assert focused.sensor_track_calls == [], "nor the Sequence highlight moved"
     assert focused.select_calls == [], "nor a Sequence written from behind the list"
@@ -4752,7 +4753,7 @@ def test_an_asc2_output_held_by_the_dpad_is_dropped_when_the_catalog_opens_under
     # The ordering _handle_contexts keeps: the hold record is consulted before the catalog
     # carve-out, so a release that arrives once the catalog is up still switches the output
     # off. Taken the other way round the release would scroll the catalog and the output
-    # would stay energised with nothing left to drop it.
+    # would stay energized with nothing left to drop it.
     focused = _nav_acc_gui(PANEL_ASC2)
     router, _left, _right, _focused, _global = _router(_nav_profile(), left=focused)
 
@@ -4835,4 +4836,4 @@ def test_the_catalog_opened_over_a_panel_is_scrolled_by_the_next_press() -> None
     router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
 
     assert focused.scroll_calls == [-1]
-    assert focused.momentary_calls == [True, False], "and the output was not energised again"
+    assert focused.momentary_calls == [True, False], "and the output was not energized again"

@@ -146,15 +146,17 @@ def _new_engine() -> mod.EngineGui:
     gui._acc_tmcc_to_adapter = {}
     gui._accessory_view = {}
     gui._amc2_ops_panel = None
-    # What ``__init__`` would have set, as ``_amc2_ops_panel`` above already is. Both are read
-    # rather than merely written now: ``on_new_accessory`` compares the pair it holds against
-    # the id being reported to decide whether the Sequence cursor is this track's or a previous
-    # one's.
+    # What __init__ would have set, as _amc2_ops_panel above already is. Both are read rather
+    # than merely written now: on_new_accessory compares the pair it holds against the id being
+    # reported to decide whether the Sequence cursor is this track's or a previous one's.
     gui._sensor_track_selected = None
     gui._sensor_track_undo = None
     return gui
 
 
+# The __new__ shell is deliberately built out of EngineGui's own private attributes: the methods
+# under test read and write them, so a public stand-in would not exercise the same code.
+# noinspection PyProtectedMember
 def _new_reload_engine() -> mod.EngineGui:
     gui = _new_engine()
     gui._accessory_config_file = "accessory_config.json"
@@ -263,7 +265,7 @@ def test_on_new_accessory_calls_update_ac_status_for_asc2(monkeypatch: pytest.Mo
     gui = _new_engine()
     gui._scope_tmcc_ids = {CommandScope.ACC: 15}
     seen: list[DummyAccessoryState] = []
-    gui.update_ac_status = lambda state: seen.append(state)
+    gui.update_ac_status = lambda st: seen.append(st)
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
 
     state = DummyAccessoryState(is_asc2=True)
@@ -293,7 +295,7 @@ def test_on_new_accessory_updates_amc2_panel(monkeypatch: pytest.MonkeyPatch) ->
     gui = _new_engine()
     gui._scope_tmcc_ids = {CommandScope.ACC: 35}
     seen: list[DummyAccessoryState] = []
-    gui._amc2_ops_panel = SimpleNamespace(update_from_state=lambda state: seen.append(state))
+    gui._amc2_ops_panel = SimpleNamespace(update_from_state=lambda st: seen.append(st))
     monkeypatch.setattr(mod, "AccessoryState", DummyAccessoryState, raising=True)
 
     state = DummyAccessoryState(is_amc2=True)
@@ -426,6 +428,9 @@ def test_reload_configured_accessories_failure_leaves_existing_caches(
     original_tmcc_cache = dict(gui._acc_tmcc_to_adapter)
     original_view_cache = dict(gui._accessory_view)
 
+    # verify keeps its name because from_file is called as from_file(path, verify=True); the stand-in
+    # has to accept that keyword even though it raises before reading it.
+    # noinspection PyUnusedLocal,unused-parameter
     def raise_reload(_cls, _path, verify=True):
         raise ValueError("bad config")
 
@@ -569,6 +574,9 @@ def test_input_contexts_do_not_consult_the_panel_when_a_switch_or_route_is_shown
     assert gui.input_contexts == ("route",)
 
 
+# _popup and _keypad_view are EngineGui's own attributes, so the fakes standing in for them keep
+# those names; the two counters follow the same style and are read back to pin what each toggle did.
+# noinspection PyProtectedMember
 def _toggle_engine() -> mod.EngineGui:
     """An EngineGui shell for the two panel-toggle handlers, whose whole job is to move the
     keypad's override and re-enter ops mode without disturbing the selection."""
@@ -577,7 +585,8 @@ def _toggle_engine() -> mod.EngineGui:
     gui._scope_tmcc_ids = {CommandScope.ACC: 19}
     gui._popup_closed = 0
     gui._popup = SimpleNamespace(close=lambda: setattr(gui, "_popup_closed", gui._popup_closed + 1))
-    gui._ops_mode_calls: list[bool] = []
+    ops_mode_calls: list[bool] = []
+    gui._ops_mode_calls = ops_mode_calls
     gui.ops_mode = lambda update_info=True, state=None: gui._ops_mode_calls.append(update_info)
 
     keypad = SimpleNamespace(_forced=None)
@@ -614,12 +623,12 @@ def _ops_mode_engine(
     tmcc_id: int = 19,
     configured: bool = True,
 ) -> tuple[mod.EngineGui, list]:
-    """An EngineGui wired to drive the *real* ``ops_mode`` non-engine branch.
+    """An EngineGui wired to drive the *real* ops_mode non-engine branch.
 
-    The keypad fake reports a non-engine panel and carries a settable ``panel_kind_override``,
-    so the guard added to ``ops_mode`` is exercised end to end rather than stubbed. Returns the
-    gui plus a list that records every ``on_configured_accessory`` call, so a test can assert
-    whether the operating-accessory overlay was (re)opened.
+    The keypad fake reports a non-engine panel and carries a settable panel_kind_override, so
+    the guard added to ops_mode is exercised end to end rather than stubbed. Returns the gui
+    plus a list that records every on_configured_accessory call, so a test can assert whether
+    the operating-accessory overlay was (re)opened.
     """
     gui = _new_engine()
     gui.scope = CommandScope.ACC
@@ -641,6 +650,8 @@ def _ops_mode_engine(
         panel_kind_override=override,
     )
     keypad.enter_ops_mode_base = lambda: None
+    # The parameter keeps its name because ops_mode calls apply_ops_mode_ui_non_engine(state=state).
+    # noinspection PyShadowingNames
     keypad.apply_ops_mode_ui_non_engine = lambda state=None: None
     keypad.set_panel_kind_override = lambda k: setattr(keypad, "panel_kind_override", k)
     gui._keypad_view = keypad
@@ -766,8 +777,8 @@ def test_on_lcs_command_sends_the_same_thing_the_on_and_off_keys_do(
     on: bool,
 ) -> None:
     sent: list[tuple[str, object]] = []
-    monkeypatch.setattr(mod, "send_lcs_on_command", lambda state: sent.append(("on", state)), raising=True)
-    monkeypatch.setattr(mod, "send_lcs_off_command", lambda state: sent.append(("off", state)), raising=True)
+    monkeypatch.setattr(mod, "send_lcs_on_command", lambda st: sent.append(("on", st)), raising=True)
+    monkeypatch.setattr(mod, "send_lcs_off_command", lambda st: sent.append(("off", st)), raising=True)
 
     gui = _acc_engine("bpc2")
     state = object()
@@ -813,12 +824,12 @@ def test_on_asc2_momentary_delegates_to_the_keypad(pressed: bool) -> None:
 class _SensorTrackView:
     """The keypad's Sensor Track surface, with the dot and the cursor as two separate things.
 
-    ``dot`` is what the track is programmed with -- the radio selection -- and ``bar`` is where
-    the pad is pointing. Modelling them apart is the whole of A-8: a double that kept one
-    highlight would let stepping pass here and still announce a choice on the panel.
+    dot is what the track is programmed with -- the radio selection -- and bar is where the pad
+    is pointing. Modeling them apart is the whole of A-8: a double that kept one highlight
+    would let stepping pass here and still announce a choice on the panel.
 
-    ``clamped`` makes every step answer None, as ``KeypadView.step_sensor_track_sequence`` does
-    at either end of the list.
+    clamped makes every step answer None, as KeypadView.step_sensor_track_sequence does at
+    either end of the list.
     """
 
     def __init__(self, dot: int | None, *, clamped: bool = False) -> None:
@@ -865,8 +876,8 @@ class _SensorTrackView:
 def _sensor_track_engine(highlight: int | None = None, *, tmcc_id: int = 19, clamped: bool = False) -> mod.EngineGui:
     """A Sensor Track pane over the view double above.
 
-    ``highlight`` is the Sequence option the radio dot starts on -- ``None`` for a fresh track
-    with no ``IrdaState`` yet, which is nothing selected and nothing pointed at.
+    highlight is the Sequence option the radio dot starts on -- None for a fresh track with no
+    IrdaState yet, which is nothing selected and nothing pointed at.
     """
     gui = _acc_engine("sensor_track", tmcc_id=tmcc_id)
     view = _SensorTrackView(highlight, clamped=clamped)
@@ -1049,7 +1060,7 @@ def test_on_new_accessory_seeds_what_a_revert_falls_back_to() -> None:
 
 
 def _report_sensor_track(gui: mod.EngineGui, tmcc_id: int, sequence: int) -> None:
-    """Deliver an ``IrdaState`` for ``tmcc_id``, as an incoming status report does."""
+    """Deliver an IrdaState for tmcc_id, as an incoming status report does."""
     gui._scope_tmcc_ids = {CommandScope.ACC: tmcc_id}
     gui.sensor_track_buttons = SimpleNamespace(value=None)
     report = SimpleNamespace(sequence=SimpleNamespace(value=sequence))

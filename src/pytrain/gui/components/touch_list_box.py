@@ -107,7 +107,7 @@ class TouchListBox(ListBox):
     def highlighted_index(self) -> Optional[int]:
         """
         Return the index of the currently highlighted (selected, else active) entry,
-        or ``None`` when the list is empty / has no usable highlight.
+        or None when the list is empty / has no usable highlight.
         """
         size = self._tk_size()
         if size <= 0:
@@ -124,8 +124,8 @@ class TouchListBox(ListBox):
 
     def activate_highlighted(self) -> bool:
         """
-        Fire ``on_hold_select`` for the currently highlighted entry, matching the
-        behavior of a touch long-press. Returns ``True`` when an entry was activated.
+        Fire on_hold_select for the currently highlighted entry, matching the
+        behavior of a touch long-press. Returns True when an entry was activated.
         """
         idx = self.highlighted_index()
         if idx is None:
@@ -142,9 +142,9 @@ class TouchListBox(ListBox):
 
     def move_highlight(self, delta: int) -> bool:
         """
-        Move the highlight by ``delta`` rows (e.g. ``-1`` up, ``+1`` down),
-        clamped to the first/last entry (no wrap-around). Returns ``True`` when
-        the highlight actually moved.
+        Move the highlight by delta rows (e.g. -1 up, +1 down), clamped to the
+        first/last entry (no wrap-around). Returns True when the highlight
+        actually moved.
         """
         size = self._tk_size()
         if size <= 0:
@@ -169,9 +169,9 @@ class TouchListBox(ListBox):
 
     def move_highlight_to_end(self, to_top: bool) -> bool:
         """
-        Jump the highlight to the first (``to_top=True``) or last entry,
-        regardless of the current position. Returns ``True`` when a valid entry
-        was highlighted (i.e. the list is not empty).
+        Jump the highlight to the first (to_top=True) or last entry, regardless
+        of the current position. Returns True when a valid entry was
+        highlighted (i.e. the list is not empty).
         """
         size = self._tk_size()
         if size <= 0:

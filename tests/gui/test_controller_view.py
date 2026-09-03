@@ -256,10 +256,10 @@ def test_the_keypad_alignment_helper_is_wired_up() -> None:
 
 
 def _pack_calls_on(name: str) -> list[ast.Call]:
-    """Every ``<name>.tk.pack(...)`` call in the module, by the receiver's own variable name.
+    """Every <name>.tk.pack(...) call in the module, by the receiver's own variable name.
 
-    ``_calls_to`` only matches plain function calls (``ast.Name`` targets); this is a method call
-    on an attribute chain, so it needs its own AST walk.
+    _calls_to only matches plain function calls (ast.Name targets); this is a method call on an
+    attribute chain, so it needs its own AST walk.
     """
     tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
     return [
@@ -276,7 +276,7 @@ def _pack_calls_on(name: str) -> list[ast.Call]:
 
 
 def _box_call_for(name: str) -> ast.Call | None:
-    """The ``Box(...)`` call assigned (possibly via a chained assignment) to ``name``."""
+    """The Box(...) call assigned (possibly via a chained assignment) to name."""
     tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if (
@@ -290,7 +290,7 @@ def _box_call_for(name: str) -> ast.Call | None:
 
 
 def _grid_configure_calls_on(name: str) -> list[ast.Call]:
-    """Every ``<name>.tk.grid_configure(...)`` call in the module, mirroring ``_pack_calls_on``."""
+    """Every <name>.tk.grid_configure(...) call in the module, mirroring _pack_calls_on."""
     tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
     return [
         node
@@ -306,14 +306,13 @@ def _grid_configure_calls_on(name: str) -> list[ast.Call]:
 
 
 def test_the_rr_speed_box_has_no_align_that_a_later_show_would_reapply() -> None:
-    """The bug this fixes: ``rr_box`` was built with ``align="top"``.
+    """The bug this fixes: rr_box was built with align="top".
 
-    ``apply_engine_type()`` calls ``rr_box.show()``/``hide()`` on every engine-state change, and
-    each ``show()`` makes guizero ``grid_forget()`` then re-grid the cell -- reapplying a sticky
-    derived from ``align`` ("N" for "top") if one is set, regardless of anything configured
-    manually beforehand. That silently pinned the box, and the button inside it, to the top on
-    the very next engine-state change. Leaving ``align`` unset is what stops that re-grid from
-    ever touching sticky again.
+    apply_engine_type() calls rr_box.show()/hide() on every engine-state change, and each show()
+    makes guizero grid_forget() then re-grid the cell -- reapplying a sticky derived from align
+    ("N" for "top") if one is set, regardless of anything configured manually beforehand. That
+    silently pinned the box, and the button inside it, to the top on the very next engine-state
+    change. Leaving align unset is what stops that re-grid from ever touching sticky again.
     """
     call = _box_call_for("rr_box")
 
@@ -322,24 +321,23 @@ def test_the_rr_speed_box_has_no_align_that_a_later_show_would_reapply() -> None
 
 
 def test_the_rr_speed_box_does_not_rely_on_a_sticky_override() -> None:
-    """A ``grid_configure(sticky=...)`` call here would look like a fix but not survive one.
+    """A grid_configure(sticky=...) call here would look like a fix but not survive one.
 
-    Since ``rr_box.show()`` is called from ``apply_engine_type()`` on every engine-state change,
-    and each ``show()`` re-grids the cell from scratch, any sticky set once at build time is gone
-    by the next engine-state change (see the ``align`` test above). Centering has to come from
-    Tk's own default (no sticky at all), which is the only setting stable across repeated
-    show()/hide() cycles.
+    Since rr_box.show() is called from apply_engine_type() on every engine-state change, and each
+    show() re-grids the cell from scratch, any sticky set once at build time is gone by the next
+    engine-state change (see the align test above). Centering has to come from Tk's own default
+    (no sticky at all), which is the only setting stable across repeated show()/hide() cycles.
     """
     assert _grid_configure_calls_on("rr_box") == [], "a sticky override here would not survive show()"
 
 
 def test_the_rr_speed_button_is_centered_in_the_free_space() -> None:
-    """The bug this fixes: the button was pinned near the top of its row by a fixed ``pady=(9,
-    0)`` offset, leaving the rest of the row's free space unused below it rather than around it.
+    """The bug this fixes: the button was pinned near the top of its row by a fixed pady=(9,
+    0) offset, leaving the rest of the row's free space unused below it rather than around it.
 
-    ``expand=True`` gives the pack parcel the whole row instead of just the button's own height,
-    so ``anchor="center"`` then centers it within that free space -- the same technique
-    ``btn_row`` already uses to center the freight-sounds pair, which this leaves untouched.
+    expand=True gives the pack parcel the whole row instead of just the button's own height, so
+    anchor="center" then centers it within that free space -- the same technique btn_row already
+    uses to center the freight-sounds pair, which this leaves untouched.
     """
     calls = _pack_calls_on("rr_btn")
 
@@ -351,10 +349,10 @@ def test_the_rr_speed_button_is_centered_in_the_free_space() -> None:
 
 
 def _call_assigned_to(func_name: str, target_name: str) -> ast.Call | None:
-    """The ``<func_name>(...)`` call assigned (possibly via a chained assignment) to ``target_name``.
+    """The <func_name>(...) call assigned (possibly via a chained assignment) to target_name.
 
-    Generalizes ``_box_call_for`` to any constructor, so the same source-inspection pattern can
-    confirm both what a widget is (a ``TitleBox``) and what it was built with (its title, its
+    Generalizes _box_call_for to any constructor, so the same source-inspection pattern can
+    confirm both what a widget is (a TitleBox) and what it was built with (its title, its
     parent), without a running Tk display.
     """
     tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
@@ -390,7 +388,7 @@ def test_the_rr_speed_button_now_sits_inside_a_titled_speed_limit_box() -> None:
 
 
 def test_the_rr_speed_titlebox_is_also_centered_in_the_free_space() -> None:
-    """Wrapping the button in a titled box adds a second widget between it and ``rr_box``; if
+    """Wrapping the button in a titled box adds a second widget between it and rr_box; if
     that new widget were not centered too, the button inside it would still end up pinned
     off-center despite the button's own pack call still asking to be centered.
     """
@@ -412,19 +410,19 @@ class _FitButton:
     def __init__(self, size: int) -> None:
         self.images = None
         self.applied: list[int] = []
-        self._size = size
+        self.size = size
         self.tk = SimpleNamespace(
             config=self._config,
             # A Tk button requests its configured size plus its border.
-            winfo_reqwidth=lambda: self._size + CHROME["border"],
-            winfo_reqheight=lambda: self._size + CHROME["border"],
+            winfo_reqwidth=lambda: self.size + CHROME["border"],
+            winfo_reqheight=lambda: self.size + CHROME["border"],
         )
 
     def _config(self, **kwargs) -> None:
         width = kwargs.get("width")
         self.applied.append(width)
         if width is not None:
-            self._size = width
+            self.size = width
 
 
 def _boxed(button: _FitButton, extra_w: int, extra_h: int):
@@ -447,9 +445,9 @@ def _fit_state(*, row_height: int, parent_width: int, size: int = 99, label_floo
         "row": SimpleNamespace(
             tk=SimpleNamespace(
                 winfo_reqwidth=lambda: (
-                    (horn._size + CHROME["border"] + CHROME["horn_extra"])
+                    (horn.size + CHROME["border"] + CHROME["horn_extra"])
                     + mod.FREIGHT_PAIR_GAP
-                    + max(label_floor, bell._size + CHROME["border"] + CHROME["bell_extra"])
+                    + max(label_floor, bell.size + CHROME["border"] + CHROME["bell_extra"])
                 ),
                 winfo_reqheight=lambda: 0,
             )
@@ -505,7 +503,7 @@ def test_the_fit_leaves_a_pair_that_already_fits_untouched() -> None:
     requested: list = []
     state = _fit_state(row_height=105, parent_width=220, size=75)
     state["horn"] = 96
-    state["horn_btn"][0]._size = 96
+    state["horn_btn"][0].size = 96
 
     mod._apply_freight_fit(_fit_host(requested), state)
 
@@ -536,7 +534,7 @@ def test_the_fit_never_shrinks_below_a_usable_touch_target() -> None:
 def test_the_fit_ignores_chrome_that_measures_impossibly() -> None:
     # A button smaller than the size it was given means nothing has been laid out coherently.
     state = _fit_state(row_height=105, parent_width=220)
-    state["bell_btn"][0]._size = -40
+    state["bell_btn"][0].size = -40
 
     mod._apply_freight_fit(_fit_host([]), state)
 
@@ -624,7 +622,7 @@ def test_only_a_compact_pane_shrinks_the_pairs_title() -> None:
 def test_the_compact_title_is_smaller_than_the_default_it_replaces() -> None:
     """Nothing sets a global text size, so an unstyled TitleBox uses Tk's ~9-10pt default.
 
-    The Deck's scale_by is 0.9, so ``s_10`` there renders at 9 -- no smaller than that default. The
+    The Deck's scale_by is 0.9, so s_10 there renders at 9 -- no smaller than that default. The
     first attempt asked for exactly that and changed the label's width by nothing, which is why the
     backstop still had to gut the horn. The size chosen has to be visibly below the default, not
     merely below the *portrait* default.

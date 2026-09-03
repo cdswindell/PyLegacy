@@ -3,14 +3,14 @@
 Written before any of the accessory/switch creation work, and asserting only what the
 controller does *today*: which accessory panel each state resolves to, exactly which cells each
 scope's operating screen shows, which gamepad context chain each panel claims, and -- the point
-of the exercise -- that ``↵`` on a TMCC ID the store has never heard of drops straight back to
+of the exercise -- that ↵ on a TMCC ID the store has never heard of drops straight back to
 the entry keypad in every scope.
 
 Nothing here is aspirational. Each assertion is a fact about the current code, so a later stage
 that changes one of them changes it deliberately and everything else standing untouched is the
 evidence that nothing else moved.
 
-Headless throughout, in the style of ``test_keypad_view.py`` and ``test_engine_gui_transitions``:
+Headless throughout, in the style of test_keypad_view.py and test_engine_gui_transitions:
 guizero's widgets are replaced with the same shape of fakes those modules use, so there is no
 display, no Tk main loop and no Base 3.
 """
@@ -147,7 +147,7 @@ class DummySlider(DummyWidget):
 
 
 class DummyCheckBoxGroup(DummyWidget):
-    """The Tk-backed string behavior ``CheckBoxGroup`` really has (see test_keypad_view)."""
+    """The Tk-backed string behavior CheckBoxGroup really has (see test_keypad_view)."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -172,7 +172,7 @@ class DummyCheckBoxGroup(DummyWidget):
 
 
 class DummyAccessoryState:
-    """Stands in for ``AccessoryState``; the flags ``_panel_kind_for`` reads, and nothing else."""
+    """Stands in for AccessoryState; the flags _panel_kind_for reads, and nothing else."""
 
     def __init__(self, tmcc_id: int = 19, **flags: bool) -> None:
         self.tmcc_id = tmcc_id
@@ -231,12 +231,15 @@ def _make_slider(
     return box, title_box, level, slider
 
 
+# The host double stands in for EngineGui, whose private _scope_tmcc_ids map is what
+# scope_tmcc_id() reads; seeding it directly is how a scope's TMCC ID is pinned.
+# noinspection PyProtectedMember
 def _new_host(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> SimpleNamespace:
-    """A pane's worth of host attributes, enough for ``build`` and the mode transitions.
+    """A pane's worth of host attributes, enough for build and the mode transitions.
 
-    ``make_keypad_button`` files cells into ``ops_cells`` / ``entry_cells`` exactly as
-    ``EngineGui.make_keypad_button`` does, because which cells those two sets hold is precisely
-    what ``entry_mode`` and ``enter_ops_mode_base`` act on.
+    make_keypad_button files cells into ops_cells / entry_cells exactly as
+    EngineGui.make_keypad_button does, because which cells those two sets hold is precisely
+    what entry_mode and enter_ops_mode_base act on.
     """
 
     @contextmanager
@@ -279,7 +282,8 @@ def _new_host(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> Simp
     host.scope_tmcc_id = lambda s=None: host._scope_tmcc_ids.get(s or host.scope, 0)
     host.image_presenter = SimpleNamespace(update=lambda _tmcc_id: host.calls.append(("image", _tmcc_id)))
 
-    host.calls: list[tuple] = []
+    calls: list[tuple] = []
+    host.calls = calls
     host.on_acc_command = lambda target, data=None: host.calls.append(("acc", target, data))
     host.on_engine_command = lambda *_a, **_k: host.calls.append(("engine",))
     host.on_keypress = lambda key: host.calls.append(("keypress", key))
@@ -287,7 +291,7 @@ def _new_host(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> Simp
     host.on_new_route = lambda: host.calls.append(("new_route",))
     host.on_new_switch = lambda: host.calls.append(("new_switch",))
     host.reset_acc_overlay = lambda: host.calls.append(("reset_acc_overlay",))
-    host.update_component_info = lambda tmcc_id, not_found_value=None: host.calls.append(("update_info", tmcc_id))
+    host.update_component_info = lambda tid, not_found_value=None: host.calls.append(("update_info", tid))
     host.do_command = lambda key: host.calls.append(("do_command", key))
     host.ops_mode = lambda update_info=False, state=None: host.calls.append(("ops_mode", update_info))
     host.make_recent = lambda _scope, _tmcc_id, state=None: False
@@ -381,8 +385,8 @@ def test_the_more_specific_panel_wins_where_flags_overlap(flags, expected) -> No
 
 
 def test_an_unrecognised_lcs_port_falls_through_to_the_generic_panel() -> None:
-    # ``is_lcs_component`` is deliberately not consulted: an STM2 is an LCS device and none of
-    # the four named kinds, so it shows -- and reports showing -- the generic panel.
+    # is_lcs_component is deliberately not consulted: an STM2 is an LCS device and none of the
+    # four named kinds, so it shows -- and reports showing -- the generic panel.
     assert _kind_for(is_lcs_component=True, is_stm2=True) == PANEL_GENERIC
 
 
@@ -431,7 +435,7 @@ def test_a_configured_accessory_adapter_is_unwrapped_before_the_flags_are_read(
 
 
 def test_the_panel_kind_may_be_asked_about_a_state_that_is_not_the_active_one() -> None:
-    # What ``apply_ops_mode_ui_non_engine`` relies on: it is handed the state it is about to
+    # What apply_ops_mode_ui_non_engine relies on: it is handed the state it is about to
     # display and asks about that one rather than about whatever the pane still holds.
     host = _new_host()
     host.active_state = DummyAccessoryState()
@@ -476,8 +480,8 @@ def test_switch_ops_mode_shows_thru_and_out_and_nothing_else() -> None:
 
 def test_the_switch_screen_carries_its_own_set_and_info_keys() -> None:
     # The gap this stage closes: a switch now has a Set key of its own and an Info key. It needs
-    # the latter because ``_refresh_component_view`` hides ``image_box`` outside Engine/Train/Acc,
-    # so there is no long-press route to the info panel there.
+    # the latter because _refresh_component_view hides image_box outside Engine/Train/Acc, so
+    # there is no long-press route to the info panel there.
     host, view = _built(CommandScope.SWITCH, 7)
     _ops(host, view, state=None)
 
@@ -543,7 +547,7 @@ def test_asc2_ops_mode_adds_the_momentary_aux1_key_to_the_bpc2_set() -> None:
 
 def test_each_lcs_panel_carries_a_key_to_the_generic_panel() -> None:
     # The gap this stage closes: from a BPC2 or ASC2 screen there is now a way to reach the
-    # generic panel, which is where ``Set Address`` lives.
+    # generic panel, which is where Set Address lives.
     host, view = _built()
     _ops(host, view, DummyAccessoryState(is_asc2=True))
 
@@ -639,7 +643,7 @@ def test_sensor_track_ops_mode_replaces_the_keypad_with_the_sequence_box() -> No
 def test_amc2_ops_mode_replaces_the_keypad_with_the_amc2_box() -> None:
     host, view = _built()
     host.amc2_ops_panel = SimpleNamespace(
-        update_from_state=lambda state: host.calls.append(("amc2_update", state)),
+        update_from_state=lambda st: host.calls.append(("amc2_update", st)),
         refresh_layout=lambda: host.calls.append(("amc2_layout",)),
     )
     state = DummyAccessoryState(is_amc2=True)
@@ -654,8 +658,8 @@ def test_amc2_ops_mode_replaces_the_keypad_with_the_amc2_box() -> None:
 
 
 def test_a_configured_accessory_puts_the_overlay_key_in_the_free_generic_slot() -> None:
-    # ``ac_op_btn`` means "the more specific view of this id", and on the generic panel it sits
-    # at [1, 4]; on an ASC2 panel it moves to [2, 3].
+    # ac_op_btn means "the more specific view of this id", and on the generic panel it sits at
+    # [1, 4]; on an ASC2 panel it moves to [2, 3].
     adapter = SimpleNamespace(
         op_btn_image_path="op-acc.jpg",
         activate_tmcc_id=lambda tmcc_id: host.calls.append(("activate", tmcc_id)),
@@ -808,7 +812,7 @@ def test_scope_keypad_leaves_a_selected_component_in_ops_mode() -> None:
 def test_enter_on_an_unknown_id_returns_to_entry_mode_in_every_scope(scope) -> None:
     """The dead end that survives: creation is deliberately limited to Accessories and Switches.
 
-    ``make_recent`` answers False whenever the store has no state for the id, and a
+    make_recent answers False whenever the store has no state for the id, and a
     non-creatable scope then lands back on the entry keypad.
     """
     host, view = _built(scope, 0)
@@ -854,6 +858,9 @@ def test_enter_on_a_known_id_enters_ops_mode(tmcc_id) -> None:
 # ---------------------------------------------------------------------------
 
 
+# The __new__ shell has to carry EngineGui's own private _scope_tmcc_ids: input_contexts reads it,
+# and the point of the checkpoint is what the real attribute makes the real code do.
+# noinspection PyProtectedMember
 def _gui(scope: CommandScope, tmcc_id: int, kind: str | None) -> gui_mod.EngineGui:
     gui = gui_mod.EngineGui.__new__(gui_mod.EngineGui)
     gui.scope = scope
@@ -916,9 +923,9 @@ def test_a_power_district_in_train_scope_claims_the_bpc2_chain() -> None:
 def test_the_screen_and_the_pad_read_the_same_property() -> None:
     """The invariant every later stage has to preserve.
 
-    ``apply_ops_mode_ui_non_engine`` draws from ``_panel_kind_for`` and the input layer resolves
-    from ``accessory_panel_kind``, which is the same property applied to the active state. So a
-    panel drawn one way cannot be claimed as another.
+    apply_ops_mode_ui_non_engine draws from _panel_kind_for and the input layer resolves from
+    accessory_panel_kind, which is the same property applied to the active state. So a panel
+    drawn one way cannot be claimed as another.
     """
     for flags, kind in (
         ({}, PANEL_GENERIC),

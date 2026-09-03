@@ -15,7 +15,7 @@ class _Tk:
         # Delayed work, recorded rather than run: build_gui schedules the controls prewarm
         # and never builds it itself, which is the whole point of the prewarm.
         self.scheduled: list[tuple[int, object]] = []
-        self.cancelled: list[str] = []
+        self.canceled: list[str] = []
 
     def configure(self, **kwargs) -> None:
         self.config.update(kwargs)
@@ -30,7 +30,7 @@ class _Tk:
         return f"after-{len(self.scheduled)}"
 
     def after_cancel(self, task_id) -> None:
-        self.cancelled.append(task_id)
+        self.canceled.append(task_id)
 
     @staticmethod
     def place(**_kwargs) -> None:
@@ -221,7 +221,7 @@ def test_destroy_gui_tears_down_both_children() -> None:
     # A prewarm still on the clock would build a screen inside a body that has just been
     # destroyed; and the overlay went down with the body, so holding a reference to it
     # leaves controls_visible asking a destroyed widget whether it is showing.
-    assert gui._app.tk.cancelled == ["prewarm-1"]
+    assert gui._app.tk.canceled == ["prewarm-1"]
     assert gui._controls_prewarm_id is None
     assert gui._controls_overlay is None
     assert gui._controls_panel is None
@@ -481,7 +481,7 @@ def test_controls_overlay_spans_every_column_of_the_body(monkeypatch: pytest.Mon
     assert overlay.master is gui.body
     assert overlay.kwargs["grid"] == [0, 0, 3, 1]
     # No width, height or align: it shrinks to its content and, with no sticky, grid
-    # centres it on the display rather than filling the window.
+    # centers it on the display rather than filling the window.
     assert "width" not in overlay.kwargs
     assert "height" not in overlay.kwargs
     assert overlay.kwargs.get("align") is None
@@ -540,7 +540,7 @@ def test_close_sits_in_the_title_band_not_below_the_content(monkeypatch: pytest.
     assert close.master is not overlay
     assert close.kwargs["align"] == "right"
     # Created before the title, because pack fills from the edges in child order: the
-    # button takes the right edge, then the title centres in what is left of the band.
+    # button takes the right edge, then the title centers in what is left of the band.
     assert made.index(close) < made.index(title)
 
 
@@ -669,7 +669,7 @@ def test_a_prewarm_that_fails_leaves_the_screen_to_the_press(monkeypatch: pytest
 
 def test_showing_and_hiding_re_tucks_the_focus_arrow(monkeypatch: pytest.MonkeyPatch) -> None:
     # body.display_widgets() re-grids every child of body when the overlay shows or
-    # hides, cancelling the place() that pins the arrow to the top of the divider. Left
+    # hides, canceling the place() that pins the arrow to the top of the divider. Left
     # unrepaired, the arrow floats at mid-screen down the full height of its cell.
     gui, _made = _deck_with_body(monkeypatch)
 

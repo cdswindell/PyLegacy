@@ -148,16 +148,16 @@ class CatalogPanel(OverlayPanel):
         return self._catalog.activate_highlighted()
 
     def move_highlight(self, delta: int) -> bool:
-        # Move the highlighted catalog entry by ``delta`` rows (clamped), so the
+        # Move the highlighted catalog entry by delta rows (clamped), so the
         # controller D-pad can scroll the list the same way a finger drag would.
         if self._catalog is None:
             return False
         return self._catalog.move_highlight(delta)
 
     def move_highlight_to_end(self, to_top: bool) -> bool:
-        # Jump the highlighted catalog entry to the first (``to_top``) or last
-        # row, so the controller's shoulder buttons can reach either end of the
-        # list before selecting the entry there.
+        # Jump the highlighted catalog entry to the first (to_top) or last row,
+        # so the controller's shoulder buttons can reach either end of the list
+        # before selecting the entry there.
         if self._catalog is None:
             return False
         return self._catalog.move_highlight_to_end(to_top)

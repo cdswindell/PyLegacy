@@ -55,6 +55,9 @@ class FakeStore:
     def get_all(self, scope: CommandScope) -> list[FakeState]:
         return self._states.get(scope, [])
 
+    # create is named as the real get_state names it, and kept because lcs_id_map passes it
+    # positionally as False; nothing here manufactures a state, so the fake never reads it.
+    # noinspection PyUnusedLocal,unused-parameter
     def get_state(self, scope: CommandScope, address: int, create: bool = True) -> FakeState | None:
         for state in self._states.get(scope, []):
             if state.address == address:

@@ -14,14 +14,14 @@ EXCLUDE = {
 
 # The default search roots used by the vast majority of callers. Only lookups that
 # use exactly these roots are served from the process-lifetime index; any other
-# ``places`` (e.g. cache directories that may be written to at runtime) are walked
+# places (e.g. cache directories that may be written to at runtime) are walked
 # fresh on every call so newly-written files are always found.
 DEFAULT_PLACES: Tuple[str, ...] = (".", "../")
 
 # Directory names that make up a Python virtual environment / installation prefix.
-# When one of these lives directly under an interpreter prefix (``sys.prefix``,
-# ``sys.base_prefix`` or ``$VIRTUAL_ENV``) it is pruned from the walk so we never
-# descend into ``site-packages`` and the thousands of files it contains.
+# When one of these lives directly under an interpreter prefix (sys.prefix,
+# sys.base_prefix or $VIRTUAL_ENV) it is pruned from the walk so we never descend
+# into site-packages and the thousands of files it contains.
 _ENV_SUBDIRS = {
     "bin",
     "lib",
@@ -35,8 +35,8 @@ _ENV_SUBDIRS = {
     "site-packages",
 }
 
-# Cache of built indexes, keyed by ``(places, want_dirs)``. Only default-``places``
-# indexes are ever stored here (see ``_index_for``).
+# Cache of built indexes, keyed by (places, want_dirs). Only default-places indexes
+# are ever stored here (see _index_for).
 _INDEX_CACHE: dict[tuple, dict[str, list[str]]] = {}
 
 _VENV_ROOTS: set[str] | None = None
@@ -81,12 +81,12 @@ def _normalize_target(target: str | Path) -> tuple[str, Path | None]:
 
 
 def _build_index(places: Tuple, want_dirs: bool) -> dict[str, list[str]]:
-    """Walk each search root once, building ``{basename: [resolved_path, ...]}``.
+    """Walk each search root once, building {basename: [resolved_path, ...]}.
 
-    Paths are recorded in walk order across ``places`` (``.`` before ``../`` for the
-    default roots), so the first entry for a given name matches the file/directory
-    the previous implementation returned first. Dot/``EXCLUDE`` directories and the
-    active virtualenv/site-packages subtrees are pruned from the walk.
+    Paths are recorded in walk order across places (. before ../ for the default
+    roots), so the first entry for a given name matches the file/directory the
+    previous implementation returned first. Dot/EXCLUDE directories and the active
+    virtualenv/site-packages subtrees are pruned from the walk.
     """
     index: dict[str, list[str]] = {}
     venv_roots = _venv_roots()
@@ -131,10 +131,10 @@ def _build_index(places: Tuple, want_dirs: bool) -> dict[str, list[str]]:
 
 
 def _index_for(places: Tuple, want_dirs: bool) -> dict[str, list[str]]:
-    """Return the index for ``places``, caching only the default-``places`` result.
+    """Return the index for places, caching only the default-places result.
 
-    Non-default ``places`` (such as the cache-directory lookups in ``prod_info``)
-    are walked fresh on every call so freshly-written files are always visible.
+    Non-default places (such as the cache-directory lookups in prod_info) are
+    walked fresh on every call so freshly-written files are always visible.
     """
     if tuple(places) == DEFAULT_PLACES:
         key = (DEFAULT_PLACES, want_dirs)

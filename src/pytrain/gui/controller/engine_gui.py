@@ -1596,11 +1596,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """Hold an admin panel button by name (QUIT, UPDATE, REBOOT, SHUTDOWN, ...).
 
         Rather than running the command outright, this drives the panel's own
-        ``HoldButton``: ``pressed`` starts its hold, so the on-screen progress bar
-        animates and the command fires only after ``hold_threshold`` seconds, exactly
-        as for a finger. Releasing before then cancels it. A controller chord
-        therefore gets the same dwell and the same feedback as the button it stands in
-        for, with no second copy of the timing logic.
+        HoldButton: pressed starts its hold, so the on-screen progress bar animates
+        and the command fires only after hold_threshold seconds, exactly as for a
+        finger. Releasing before then cancels it. A controller chord therefore gets
+        the same dwell and the same feedback as the button it stands in for, with no
+        second copy of the timing logic.
 
         A press is only honored while the panel is on screen, so a chord cannot
         reboot or shut down the machine from an ordinary operating screen. A release
@@ -1642,7 +1642,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return panel.move_highlight(delta)
 
     def scroll_catalog_to_end(self, to_top: bool) -> bool:
-        # Jump the catalog highlight to the first (``to_top``) or last entry,
+        # Jump the catalog highlight to the first (to_top) or last entry,
         # mirroring the controller's shoulder buttons while the catalog is open
         # (L1 = first entry, R1 = last). This only moves the highlight; it does not
         # select/activate the entry (the user confirms it separately), so the
@@ -1967,7 +1967,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # Also catch swipes that begin *beside* the image, which previously did
         # nothing at all. Two Tk facts decide where this has to be bound:
         #
-        #   * ``image_box.tk.config(width=..., height=...)`` has no effect on its
+        #   * image_box.tk.config(width=..., height=...) has no effect on its
         #     actual size: pack geometry propagation is on, so the box shrinks to hug
         #     the Picture (itself a Label sized to the image). The empty area beside
         #     the image therefore belongs to the box's *parent*, not to the box.
@@ -1980,7 +1980,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # vertical band -- otherwise a swipe across background elsewhere in the pane
         # would change components too. No geometry is altered, only bindings, so
         # portrait layout is unaffected.
-        # ``bind_directly`` matters here: the parent may already carry raw Tk
+        # bind_directly matters here: the parent may already carry raw Tk
         # bindings (the Steam Deck panes bind <Button-1> for tap-to-focus), and
         # guizero's when_* hooks bind without add="+", which would silently replace
         # them -- <Button-1> and <ButtonPress-1> are the same Tk sequence.
@@ -2002,7 +2002,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         try:
             tkw = box.tk
             # winfo_ismapped() is the truth about being on screen; guizero's own
-            # ``visible`` flag is a separate bookkeeping attribute.
+            # visible flag is a separate bookkeeping attribute.
             mapped = bool(tkw.winfo_ismapped())
             bottom = tkw.winfo_rooty() + tkw.winfo_height()
             # The event is a raw Tk event or a guizero EventData depending on how the
@@ -2143,9 +2143,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return self.scope == CommandScope.SWITCH and self.scope_tmcc_id(CommandScope.SWITCH) > 0
 
     def on_switch_command(self, thru: bool) -> None:
-        """Throw the selected switch through (``thru``) or out.
+        """Throw the selected switch through (thru) or out.
 
-        The controller's entry point for the switch keys. It goes through ``do_command`` so
+        The controller's entry point for the switch keys. It goes through do_command so
         a switch thrown from the gamepad is indistinguishable from a press of the on-screen
         key -- same command, same address, same repeats. The guard keeps a stray
         action from addressing a switch command to whatever else the panel is showing.
@@ -2176,10 +2176,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def _accessory_contexts(self) -> tuple[str, ...]:
         """The chain for whichever accessory panel the keypad is showing, if any.
 
-        Built from ``KeypadView.accessory_panel_kind`` rather than from the state flags again,
-        so the pad follows the panel: a port that shows the generic panel is bound like any
-        other accessory, LCS device or not. AMC2 reports nothing yet, and neither does an
-        accessory scope with nothing selected -- there is no panel to claim for.
+        Built from KeypadView.accessory_panel_kind rather than from the state flags again, so
+        the pad follows the panel: a port that shows the generic panel is bound like any other
+        accessory, LCS device or not. AMC2 reports nothing yet, and neither does an accessory
+        scope with nothing selected -- there is no panel to claim for.
         """
         if self.scope == CommandScope.ACC and self.scope_tmcc_id(CommandScope.ACC) <= 0:
             return ()
@@ -2193,7 +2193,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         The switch story one-panel type along, and read by the Steam Deck input layer for
         the same reason: a panel showing a route has no engine to drive, so the triggers
         and sticks that would drive one fire the route instead. True on the same terms as
-        ``switch_active`` -- scope is Route, and one has been selected, including while a
+        switch_active -- scope is Route, and one has been selected, including while a
         replacement id is being keyed in.
         """
         return self.scope == CommandScope.ROUTE and self.scope_tmcc_id(CommandScope.ROUTE) > 0
@@ -2201,10 +2201,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_route_command(self) -> None:
         """Fire the selected route.
 
-        The controller's entry point for the fire key, and ``on_switch_command``'s twin: it
-        goes through ``do_command`` so a route fired from the gamepad is indistinguishable
-        from a press of the on-screen key. No argument, because a route has nothing to be
-        fired the other way.
+        The controller's entry point for the fire key, and on_switch_command's twin: it
+        goes through do_command so a route fired from the gamepad is indistinguishable from
+        a press of the on-screen key. No argument, because a route has nothing to be fired
+        the other way.
         """
         if not self.route_active:
             return
@@ -2213,9 +2213,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def on_lcs_command(self, on: bool) -> None:
         """Switch the selected power district or ASC2 output on or off.
 
-        The controller's entry point for the On and Off keys, and ``on_switch_command``'s
-        counterpart for an accessory: it resolves the state the same way ``do_command`` does
-        for those keys and calls the same sender, so a district switched from the gamepad is
+        The controller's entry point for the On and Off keys, and on_switch_command's
+        counterpart for an accessory: it resolves the state the same way do_command does for
+        those keys and calls the same sender, so a district switched from the gamepad is
         indistinguishable from a press of the key on screen.
         """
         tmcc_id = self.scope_tmcc_id(self.scope)
@@ -2239,12 +2239,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._keypad_view.asc2_control(pressed)
 
     def on_sensor_track_step(self, delta: int) -> bool:
-        """Move the Sensor Track's Sequence cursor ``delta`` options. True, where it moved.
+        """Move the Sensor Track's Sequence cursor delta options. True, where it moved.
 
         Nothing is written and the radio dot does not move: the cursor moves and stops there, so
         crossing the ten options puts nothing on the wire and claims nothing on screen. The
-        option settled on is the only one the track ever hears about, and
-        ``on_sensor_track_select`` is what sends it.
+        option settled on is the only one the track ever hears about, and on_sensor_track_select
+        is what sends it.
 
         Returns whether anything moved, so a caller can tell a step from a press clamped at
         either end of the list.
@@ -2255,7 +2255,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """Put the cursor on the option the track holds, where this pane is new to that track.
 
         The cursor is seeded rather than remembered: a position left somewhere by an earlier
-        session must never be presented as this track's. But ``on_new_accessory`` runs on every
+        session must never be presented as this track's. But on_new_accessory runs on every
         accessory state update and not only on a change of id, so seeding unconditionally would
         yank the cursor out from under a step the moment the track reported itself. Hence the
         rule: seed on a change of id, or where there is no cursor at all; leave a refresh for
@@ -2650,12 +2650,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             emergency_box.tk.config(width=fitted_width, height=self.emergency_box_height)
             emergency_box.tk.pack_configure(fill="x", expand=False)
             emergency_box.tk.pack_propagate(False)
-            # The emergency box lays its buttons out with ``grid`` (not ``pack``),
-            # so ``pack_propagate(False)`` above does not keep the frame from
-            # shrinking to the natural width of its buttons. Use
-            # ``grid_propagate(False)`` so the box honors the fixed width above
-            # and the column weights below stretch HALT/Reset across the whole
-            # width, matching the Road Number/Name info row.
+            # The emergency box lays its buttons out with grid (not pack), so
+            # pack_propagate(False) above does not keep the frame from shrinking
+            # to the natural width of its buttons. Use grid_propagate(False) so
+            # the box honors the fixed width above and the column weights below
+            # stretch HALT/Reset across the whole width, matching the Road
+            # Number/Name info row.
             emergency_box.tk.grid_propagate(False)
             emergency_box.tk.grid_columnconfigure(reset_col, weight=1)
             self.reset_btn.tk.grid_configure(sticky="ew")
@@ -2828,6 +2828,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
                         break
         return sent_command
 
+    # smoke_level answers with a CommandDefEnum, which declares no members of its own -- every
+    # one of them is on a subclass -- and an enum with no members reads to PyCharm as a type
+    # nothing can hold, so it calls the later rungs of both ladders unreachable. The four smoke
+    # members are distinct (TMCC2EffectsControl is @unique), so every rung is reached.
+    # noinspection PyUnreachableCode
     @staticmethod
     def get_tmcc2_smoke_cmd(cmd: str, state: EngineState) -> TMCC2EngineOpsEnum | None:
         cur_smoke = state.smoke_level
@@ -2856,8 +2861,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
         The controller's entry point for the accessory speed slider, and the reason a gamepad
         stick and the slider cannot ask for different things: both end in the same
-        ``RELATIVE_SPEED`` command, clamped to the range the slider offers. A step of zero is
-        no request at all and is dropped rather than sent.
+        RELATIVE_SPEED command, clamped to the range the slider offers. A step of zero is no
+        request at all and is dropped rather than sent.
         """
         try:
             speed = int(value)

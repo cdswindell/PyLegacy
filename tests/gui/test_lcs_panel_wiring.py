@@ -1,8 +1,8 @@
 """
-The LCS... key's other half: what ``EngineGui`` does when the key asks for the panel.
+The LCS... key's other half: what EngineGui does when the key asks for the panel.
 
-``KeypadView`` binds the shared key straight to ``host.on_lcs_config_panel``, the way the
-Info key is bound to ``host.on_info`` -- see ``tests/gui/test_keypad_view.py`` for that end
+KeypadView binds the shared key straight to host.on_lcs_config_panel, the way the
+Info key is bound to host.on_info -- see tests/gui/test_keypad_view.py for that end
 of the wiring -- because the host is what knows which module the operator was looking at.
 These tests cover this end: the panel is built once and kept, seeded from the pane's own
 scope, TMCC ID and selection on every press, and shown through the same popup machinery as
@@ -22,7 +22,7 @@ from src.pytrain.protocol.constants import CommandScope
 
 
 class FakePanel:
-    """Stands in for ``LcsConfigPanel``, recording what it was seeded with."""
+    """Stands in for LcsConfigPanel, recording what it was seeded with."""
 
     instances: list["FakePanel"] = []
 
@@ -43,7 +43,7 @@ def _patch_panel(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _gui(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> "mod.EngineGui":
-    """A bare pane holding only what ``on_lcs_config_panel`` touches."""
+    """A bare pane holding only what on_lcs_config_panel touches."""
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._cv = Condition()
     gui._lcs_config_panel = None
@@ -106,8 +106,8 @@ def test_the_key_pressed_in_entry_mode_opens_the_panel_with_nothing_selected() -
 
 
 def test_the_keypad_key_binds_straight_to_the_panes_opener() -> None:
-    # The two halves joined: the shared key is built with ``command=host.on_lcs_config_panel``,
-    # so this bound method is the very callable the button holds -- there is no handler in
+    # The two halves joined: the shared key is built with command=host.on_lcs_config_panel, so
+    # this bound method is the very callable the button holds -- there is no handler in
     # between, and a pane that stopped offering it would fail while the keypad is built rather
     # than press to no effect.
     gui = _gui()
