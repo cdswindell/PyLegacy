@@ -455,13 +455,17 @@ def test_the_lcs_config_panel_remap_is_listed() -> None:
     # Five keys on three rows: each row pairs two inputs against what they do, the way the
     # D-pad's own "Up / Down" pairs with "Boost / brake speed". A fourth row would not fit --
     # see the layout note at the end of controls_summary.
+    #
+    # Configure is named on the A row because A presses it: on the last page there is no page
+    # to turn to, and after three pages where A meant "next" a key that programs a module is
+    # a surprise the screen has to state.
     section = _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE)
 
     assert section.fixed is True
     assert [(entry.input, entry.action, entry.note) for entry in section.entries] == [
         ("Up / Down", "Move the highlight", ""),
         ("Right / Left", "Choose / undo", ""),
-        (f"{button_label(SELECT_BUTTON)} / {button_label(BACK_PAGE_BUTTON)}", "Choose and Next / Back", ""),
+        (f"{button_label(SELECT_BUTTON)} / {button_label(BACK_PAGE_BUTTON)}", "Choose, Next or Configure / Back", ""),
     ]
 
 

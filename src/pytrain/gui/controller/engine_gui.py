@@ -1608,7 +1608,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return panel.pad_revert()
 
     def advance_lcs_config(self) -> bool:
-        """Choose the highlighted row and turn the page -- the A button."""
+        """Choose the highlighted row and turn the page -- the A button.
+
+        On the panel's last page, which has no page after it, it presses Configure instead:
+        see LcsConfigPanel.pad_advance.
+        """
         panel = self._open_lcs_config
         if panel is None:
             return False

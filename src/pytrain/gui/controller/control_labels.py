@@ -397,6 +397,16 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 # pad_advance, pad_back), so the screen and the panel cannot come to describe the same key
 # in two vocabularies.
 #
+# Configure is named on the A row, and it earns the words: on the last page there is no page
+# to turn to and A presses the button that programs the module, which is a surprise worth
+# stating after three pages where A meant "next". Named on that row rather than on one of its
+# own or in a note, both of which cost a row -- a note is drawn beside the action and takes
+# its width off it (146px for two words), which wraps the row. As it stands the row measures
+# 320px of the 320px the fallback ruler breaks a row at, so a word more wraps it; the wrap
+# would cost one row, which that column holds (20 of the 20 ROWS_PER_COLUMN falls back to),
+# and the real screen measures its own font and shrinks it to fit rather than taking the
+# fallback's word for any of this.
+#
 # X is not among them, and deliberately: it closes this panel through the same close-popup
 # handling every popup uses, which the popup section directly above these rows already
 # states. Repeating it here would be a second place for it to go stale, and the reader
@@ -409,7 +419,7 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 FIXED_LCS_CONFIG_ENTRIES: tuple[ControlEntry, ...] = (
     ControlEntry("Up / Down", "Move the highlight", ""),
     ControlEntry("Right / Left", "Choose / undo", ""),
-    ControlEntry("A / B", "Choose and Next / Back", ""),
+    ControlEntry("A / B", "Choose, Next or Configure / Back", ""),
 )
 
 # A panel showing a track switch has no engine to drive, so DeckInputRouter (_handle_switch)

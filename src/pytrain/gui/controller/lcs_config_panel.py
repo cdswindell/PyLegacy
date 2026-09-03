@@ -60,7 +60,7 @@ from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ...db.state_watcher import StateWatcher
 from ...protocol.constants import CommandScope
-from ...utils.host_info import is_linux
+from ...utils.host_info import is_linux, is_steam_deck
 
 if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
@@ -430,6 +430,28 @@ def needs_close_button() -> bool:
     return is_linux()
 
 
+def pad_driven() -> bool:
+    """True where the panel is worked with a gamepad: the Steam Deck alone.
+
+    The one place in this module where the two appliances part company, so not the platform
+    test the three above share: the Pi is a touch screen and the Deck is a touch screen with
+    a pad, and is_linux() cannot tell them apart. is_steam_deck() reads the platform the
+    install recorded rather than probing hardware -- the Deck runs ordinary Linux, and the
+    same machine can host a plain install -- which is how admin_panel already asks whether it
+    is on a Deck. A Deck started outside its own launcher, with nothing exporting that
+    platform, therefore reads as a desk: the panel is then worked with the touch screen it
+    also has, which is the safe way round for a guess to be wrong.
+
+    What it decides is whether the page's lists carry the pad's highlight, which is not free:
+    arming a list takes Tk's own filled bar off the selected row, leaving the dot as the only
+    mark that a row is set. There must be only one filled bar and the highlight owns it; see
+    CheckBoxGroup._neutralise_select_color. A machine with nothing to move the highlight would
+    pay that price for a highlight that can never appear, so the Pi and the desk keep the bar
+    and the Deck trades it for the highlight it is worked by.
+    """
+    return is_steam_deck()
+
+
 class LcsConfigPanel(OverlayPanel):
     """
     A stepped overlay that walks the operator through programming an LCS module.
@@ -775,8 +797,9 @@ class LcsConfigPanel(OverlayPanel):
             stretch=True,
             # The pad steps this list on the Deck, so the row it is pointing at and the row
             # that is chosen are two different things and both have to be shown; see the
-            # Gamepad section. Every list in the panel is armed, the pad reaching all of them.
-            cursor=True,
+            # Gamepad section. Armed only where there is a pad to move it -- see pad_driven --
+            # and armed on every list there, the pad reaching all of them.
+            cursor=pad_driven(),
             command=self._on_device_selected,
         )
         return page
@@ -871,10 +894,10 @@ class LcsConfigPanel(OverlayPanel):
             # read as the legend above it is written -- a group per key. Set here as well as
             # on every refresh, since the group is built before a module is chosen.
             row_leads=self.mode_leads(),
-            # Stepped by the pad, as the module rows are. This is the one armed list whose
-            # rows are replaced at runtime, which the component re-arms itself for; see
-            # CheckBoxGroup._rearm_cursor and pad_cursor.
-            cursor=True,
+            # Stepped by the pad, as the module rows are, and armed on the same terms. This is
+            # the one armed list whose rows are replaced at runtime, which the component
+            # re-arms itself for; see CheckBoxGroup._rearm_cursor and pad_cursor.
+            cursor=pad_driven(),
             command=self._on_mode_selected,
         )
         # What the chosen row itself is for, which is the fact a row has no room for. Below
@@ -1067,7 +1090,7 @@ class LcsConfigPanel(OverlayPanel):
                 # And stepped by the pad, as the module and mode rows are. The Sensor Track's
                 # ten actions are the longest list in the panel, and the one this matters most
                 # on: ten rows is a lot to reach for on a Deck held in two hands.
-                cursor=True,
+                cursor=pad_driven(),
                 command=self._option_command(device.key, option.key),
             )
         else:
@@ -1291,7 +1314,7 @@ class LcsConfigPanel(OverlayPanel):
         if self._footnote_line is not None:
             self._footnote_line.value = self.footnote
         if self._configure_btn is not None:
-            self._enable(self._configure_btn, program is not None and not self._sync_pending)
+            self._enable(self._configure_btn, self.can_configure)
 
     #
     # Configure
@@ -1565,8 +1588,8 @@ class LcsConfigPanel(OverlayPanel):
         The rule the Next key is enabled by, asked as a question so the A button can ask it
         too: one answer for the key and the pad, rather than two that could come to disagree
         about whether the panel has anywhere left to go. A module has to be chosen -- there
-        is nothing to configure until one is -- and the review page is the last, Configure
-        being what is pressed there.
+        is nothing to configure until one is -- and the review page is the last: Configure is
+        what is pressed there, which A asks can_configure for.
         """
         return self._page_index < len(self._pages) - 1 and self._device is not None
 
@@ -1575,13 +1598,26 @@ class LcsConfigPanel(OverlayPanel):
         """Whether there is a page before this one. The rule the Back key is shown by."""
         return self._page_index > 0
 
+    @property
+    def can_configure(self) -> bool:
+        """Whether Configure is there to be pressed: the rule that button is enabled by.
+
+        Asked as a question for the same reason can_advance is. A presses Configure on the
+        review page, and it must be able to press nothing a finger could not: a complete
+        program is what there is to send, and nothing is sent while the panel is running
+        ahead of Base 3 synchronization, the layout it would be read against not being known
+        yet.
+        """
+        return self.program is not None and not self._sync_pending
+
     #
     # Gamepad
     #
     # On the Steam Deck this panel is worked through with the pad rather than with the
     # screen: the D-pad steps the list on the page showing, right marks the row it is on and
-    # left puts back what that mark displaced, A marks and turns the page, B turns it back,
-    # and X closes the panel the way it closes every other popup. Which key does what is
+    # left puts back what that mark displaced, A marks and turns the page -- and presses
+    # Configure on the review page, which has no page after it -- B turns it back, and X
+    # closes the panel the way it closes every other popup. Which key does what is
     # DeckInputRouter._config_panel_only; what each of those *means* is here, so the panel
     # decides and the router only asks.
     #
@@ -1810,14 +1846,20 @@ class LcsConfigPanel(OverlayPanel):
         the selection standing as it was.
 
         The turn asks the same question the Next key is enabled by, so A can go nowhere Next
-        would not -- nowhere from the review page, which is the last one. Configure is not
-        pressed here: it programs a module, and that is a press to be made deliberately.
+        would not. On the review page there is nowhere left to go, and Configure is the only
+        control on it, so that is what A presses -- the panel worked from the pad end to end,
+        which is what it is there for on a Deck. Through the handler the button's own command
+        is, and only where the button is enabled, so A sends nothing a finger could not; see
+        can_configure.
         """
         self.pad_mark()
-        if not self.can_advance:
-            return False
-        self.next_page()
-        return True
+        if self.can_advance:
+            self.next_page()
+            return True
+        if self._page_index == PAGE_REVIEW and self.can_configure:
+            self.on_configure()
+            return True
+        return False
 
     def pad_back(self) -> bool:
         """Turn back a page -- the B button. What the Back key does, and nothing more.

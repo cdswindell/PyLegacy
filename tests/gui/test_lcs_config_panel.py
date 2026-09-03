@@ -385,6 +385,10 @@ def _patch_widgets(monkeypatch):
     # is only possible because is_linux is imported there at module scope rather than
     # reached for inside touch_only_editing.
     monkeypatch.setattr(mod, "is_linux", lambda: False, raising=True)
+    # And the pad for the same reason: whether the lists carry its highlight follows the
+    # platform the install recorded, which is a fact about the machine the suite is run on --
+    # a Deck would otherwise answer these differently than a desk. See pad_driven.
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: False, raising=True)
 
 
 def _new_panel(store: FakeStore | None = None):
@@ -3595,9 +3599,10 @@ def test_the_gap_between_keys_divides_the_list_rather_than_ending_it() -> None:
 # The panel is worked with the gamepad
 #
 # On the Steam Deck the D-pad steps the list on the page showing, right marks the row it is
-# on, left puts back what that mark displaced, A marks and turns the page, and B turns it
-# back. Which key does what is DeckInputRouter._config_panel_only and is tested there; what
-# each of them means is the panel's own, and is what these ask.
+# on, left puts back what that mark displaced, A marks and turns the page -- and presses
+# Configure on the last page, which has no page after it -- and B turns it back. Which key
+# does what is DeckInputRouter._config_panel_only and is tested there; what each of them
+# means is the panel's own, and is what these ask.
 #
 def _module_keys() -> list[str]:
     """The module rows in the order the first page lists them."""
@@ -3822,18 +3827,50 @@ def test_the_a_key_goes_nowhere_until_a_module_is_chosen() -> None:
     assert panel.page_index == mod.PAGE_DEVICE
 
 
-def test_the_a_key_presses_nothing_on_the_review_page() -> None:
-    # The last page, and its only control programs a module: that is a press to be made
-    # deliberately, not one a fumbled A can send.
+def test_the_a_key_presses_configure_on_the_review_page() -> None:
+    # The last page has no page after it and one control on it, and that control programs the
+    # module: with A pressing it the panel is worked from the pad end to end, which is what
+    # it is there for on a Deck. What is sent is what the button sends -- the same handler,
+    # compared against a panel the button was pressed on -- so the module cannot be
+    # programmed one way by a finger and another by the pad.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel._on_mode_selected("tr_8")
+    panel._set_base_id(12)
+    panel._show_page(mod.PAGE_REVIEW)
+
+    assert panel.pad_advance() is True
+
+    assert panel.page_index == mod.PAGE_REVIEW, "and stays there: there is nowhere left to go"
+    tapped = _new_panel()
+    tapped._on_device_selected(BPC2.key)
+    tapped._on_mode_selected("tr_8")
+    tapped._set_base_id(12)
+    tapped.on_configure()
+    assert len(panel.gui.sent) == len(tapped.gui.sent)
+    assert [(request.command, delay) for request, _repeat, delay in panel.gui.sent[:2]] == [
+        (request.command, delay) for request, _repeat, delay in tapped.gui.sent[:2]
+    ]
+    # And the module is asked what it now holds, which is the half of Configure that is not
+    # presses: a press that sent the sequence and armed no read-back would report nothing.
+    assert panel._reported_line.value == mod.AWAITING_READBACK
+
+
+def test_the_a_key_sends_nothing_where_configure_is_disabled() -> None:
+    # A asks the rule the button is enabled by, so it can press nothing a finger could not:
+    # nothing is sent while the panel is running ahead of Base 3 synchronization, the layout
+    # it would be read against not being known yet.
     panel = _new_panel()
     host = panel.gui
     panel._on_device_selected(BPC2.key)
+    panel._set_base_id(12)
     panel._show_page(mod.PAGE_REVIEW)
+    panel.set_sync_pending(True)
 
     assert panel.pad_advance() is False
 
-    assert panel.page_index == mod.PAGE_REVIEW
     assert host.sent == []
+    assert (panel.can_configure, panel._configure_btn.enabled) == (False, False)
 
 
 def test_the_b_key_turns_back_a_page_and_stops_at_the_first() -> None:
@@ -3937,17 +3974,41 @@ def test_the_pad_does_nothing_while_the_id_is_being_typed() -> None:
     assert panel.pad_step(1) is True
 
 
-def test_every_list_the_pad_steps_shows_where_it_is() -> None:
+@pytest.mark.parametrize("deck", [True, False])
+def test_every_list_the_pad_steps_shows_where_it_is_where_there_is_a_pad(monkeypatch, deck: bool) -> None:
     # The tint is opt-in on the component -- the Admin panel, the catalog's sort radios and
     # the AMC2 page selector share it and asked for none -- so every list the pad can reach
-    # has to ask for it, or the highlight would move where nothing showed it.
+    # has to ask for it, or the highlight would move where nothing showed it. Every one of
+    # them or none: which list the pad steps is which page is showing, so a list left unarmed
+    # would be a page where the pad moved nothing.
+    #
+    # And only where there is a pad to move it. Arming a list takes Tk's own filled bar off
+    # the selected row -- the highlight owns the filled bar, and there must be one of them --
+    # so the Pi and the desk would be paying that price for a highlight that can never
+    # appear. See pad_driven.
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: deck, raising=True)
     panel = _new_panel()
     groups = [panel._device_group, panel._mode_group]
     groups += [w for w in panel._option_widgets.values() if isinstance(w, DummyCheckBoxGroup)]
 
     assert len(groups) > 2, "the module rows, the mode rows and every radio setting"
     for group in groups:
-        assert group.kwargs["cursor"] is True
+        assert group.kwargs["cursor"] is deck
+
+
+@pytest.mark.parametrize("linux", [True, False])
+def test_the_highlight_is_armed_on_the_deck_rather_than_on_an_appliance(monkeypatch, linux: bool) -> None:
+    # Not the platform test the panel's other three share: the Pi is a touch screen and the
+    # Deck is a touch screen with a pad, so is_linux() cannot tell them apart -- a Pi armed
+    # by that test would lose the filled bar to a highlight nothing can move. The answer is
+    # the platform the install recorded, which is how admin_panel asks the same question.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: False, raising=True)
+    assert mod.pad_driven() is False
+
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: True, raising=True)
+    assert mod.pad_driven() is True
 
 
 def test_the_panel_opens_with_no_row_highlighted() -> None:
@@ -3984,3 +4045,8 @@ def test_the_pad_keys_ask_the_same_questions_the_nav_buttons_do() -> None:
 
     panel._show_page(mod.PAGE_REVIEW)
     assert (panel.can_advance, panel._next_btn.enabled) == (False, False)
+    # And on the page where A presses Configure instead, the question it asks there.
+    assert (panel.can_configure, panel._configure_btn.enabled) == (True, True)
+
+    panel.set_sync_pending(True)
+    assert (panel.can_configure, panel._configure_btn.enabled) == (False, False)

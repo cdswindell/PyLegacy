@@ -1891,9 +1891,9 @@ class DeckInputRouter:
         That panel is worked *through* rather than glanced at -- four pages of radio rows with
         Back and Next below them -- so while it is up the pad drives the panel rather than the
         train: up and down move the highlight down the page's list, right marks the row it is
-        on, left puts back what that mark displaced, A marks and turns the page, and B turns
-        it back. What each of those means is the panel's own; see LcsConfigPanel's Gamepad
-        section.
+        on, left puts back what that mark displaced, A marks and turns the page -- or presses
+        Configure on the last page, which has no page after it -- and B turns it back. What
+        each of those means is the panel's own; see LcsConfigPanel's Gamepad section.
 
         Asked after the chooser, so a choice list opened over the panel still gets first
         refusal -- the topmost thing wins -- and, like it, a global-target action such as
