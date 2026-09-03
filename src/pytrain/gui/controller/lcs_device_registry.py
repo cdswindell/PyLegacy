@@ -319,6 +319,18 @@ def max_base(mode: LcsMode) -> int:
     return min(MAX_TMCC_ID, (MAX_TMCC_ID + 1) - mode.ports)
 
 
+def tmcc_id_span(base_id: int, last_id: int | None = None) -> str:
+    """The addresses a block covers, as the numbers alone: "12 - 19", or "12" for one of them.
+
+    What tmcc_id_text says with the words in front of it, and what a line already naming
+    the remote key itself says instead -- "ACC 12 - 19" -- so the one place that decides
+    when a block collapses to a single address serves both.
+    """
+    if last_id is None or last_id <= base_id:
+        return f"{base_id}"
+    return f"{base_id} - {last_id}"
+
+
 def tmcc_id_text(base_id: int, last_id: int | None = None) -> str:
     """The addresses a block covers: "TMCC IDs 12 - 19", or "TMCC ID 12" for one of them.
 
@@ -326,9 +338,8 @@ def tmcc_id_text(base_id: int, last_id: int | None = None) -> str:
     module already out on the layout, so the Mode radios and the Currently Assigned rows
     cannot come to name the same eight addresses two different ways.
     """
-    if last_id is None or last_id <= base_id:
-        return f"TMCC ID {base_id}"
-    return f"TMCC IDs {base_id} - {last_id}"
+    plural = "s" if last_id is not None and last_id > base_id else ""
+    return f"TMCC ID{plural} {tmcc_id_span(base_id, last_id)}"
 
 
 def tmcc_id_count(ports: int) -> str:
@@ -434,38 +445,15 @@ _BPC2_RESTORE = LcsOption(
 BPC2 = LcsDevice(
     key="bpc2",
     label="BPC2",
-    blurb="TR / ACC",
+    blurb="ACC / TR",
     pdi_device=PdiDevice.BPC2,
     warning="Configuring a BPC2 switches every track-block relay off; turn them back on afterwards.",
+    # ACC before TR, though the manual numbers the modes the other way about: the two
+    # addressing modes are identical in what they can do, so the order is a presentation
+    # choice, and ACC is the one an operator reaches for -- and, being first, the row the
+    # page opens on where the layout has nothing to say. The PDI mode bytes are what tie a
+    # row to a mode, not its place here.
     modes=(
-        LcsMode(
-            key="tr_8",
-            name="TR",
-            scope=CommandScope.TRAIN,
-            ports=8,
-            pdi_mode=0,
-            presses=(
-                Press("TR {id} SET", TMCC1EngineCommandEnum.SET_ADDRESS, CommandScope.TRAIN),
-                Press(
-                    "Coupler R",
-                    TMCC1EngineCommandEnum.REAR_COUPLER,
-                    CommandScope.TRAIN,
-                    note="restore on",
-                    include_if="restore",
-                ),
-                Press("AUX1 then 0", TMCC1EngineCommandEnum.AUX_NUMBER_0, CommandScope.TRAIN, note="8-ID sub-mode"),
-            ),
-        ),
-        LcsMode(
-            key="tr_1",
-            name="TR",
-            scope=CommandScope.TRAIN,
-            ports=1,
-            pdi_mode=1,
-            enabled=False,
-            note="reserved, no Cab support",
-            presses=(Press("TR {id} SET", TMCC1EngineCommandEnum.SET_ADDRESS, CommandScope.TRAIN),),
-        ),
         LcsMode(
             key="acc_8",
             name="ACC",
@@ -493,6 +481,34 @@ BPC2 = LcsDevice(
             enabled=False,
             note="reserved, no Cab support",
             presses=(Press("ACC {id} SET", TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC),),
+        ),
+        LcsMode(
+            key="tr_8",
+            name="TR",
+            scope=CommandScope.TRAIN,
+            ports=8,
+            pdi_mode=0,
+            presses=(
+                Press("TR {id} SET", TMCC1EngineCommandEnum.SET_ADDRESS, CommandScope.TRAIN),
+                Press(
+                    "Coupler R",
+                    TMCC1EngineCommandEnum.REAR_COUPLER,
+                    CommandScope.TRAIN,
+                    note="restore on",
+                    include_if="restore",
+                ),
+                Press("AUX1 then 0", TMCC1EngineCommandEnum.AUX_NUMBER_0, CommandScope.TRAIN, note="8-ID sub-mode"),
+            ),
+        ),
+        LcsMode(
+            key="tr_1",
+            name="TR",
+            scope=CommandScope.TRAIN,
+            ports=1,
+            pdi_mode=1,
+            enabled=False,
+            note="reserved, no Cab support",
+            presses=(Press("TR {id} SET", TMCC1EngineCommandEnum.SET_ADDRESS, CommandScope.TRAIN),),
         ),
     ),
     options=(_BPC2_RESTORE,),

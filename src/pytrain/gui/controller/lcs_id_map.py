@@ -18,7 +18,9 @@ first, because a component state is keyed by scope and address alone: an AMC2 an
 both answering to ACC 1 share a single AccessoryState, whose num_ids and mode
 belong to whichever of them reported last. Sizing a module from that shared record is how
 a BPC2 claiming eight IDs came to be reported as claiming one, and how an AMC2 sitting on
-an address came to be reported as nothing at all.
+an address came to be reported as nothing at all. The CONFIG packet itself rides along on
+the occupant, since it is also the only place the settings a module is running with are
+recorded; see LcsOccupant.config.
 
 The second is the **component state store**, walked for states whose LcsProxyState
 flags identify one of the modules in lcs_device_registry.py. It covers what the PDI
@@ -69,6 +71,12 @@ class LcsOccupant:
     port_index: int | None = None
     scope: CommandScope | None = None
     state: Any = None
+    # The module's own CONFIG packet -- the PdiReq itself, not the store's wrapper around
+    # it -- where this occupant came from the PDI store, and None where it came from a
+    # component state alone. Carried because it holds the settings the module is running
+    # with, a BPC2's restore-on-power-up flag among them, which no component state records;
+    # see _config_packet and LcsConfigPanel._default_options.
+    config: Any = None
 
     @property
     def last_id(self) -> int:
@@ -107,6 +115,7 @@ class LcsOccupant:
             port_index=index,
             scope=self.scope,
             state=self.state,
+            config=self.config,
         )
 
 
@@ -136,6 +145,26 @@ def _pdi_store(pdi_store: Any = None) -> Any:
 def _pdi_mode(state: Any) -> int | None:
     mode = getattr(state, "mode", None)
     return mode if isinstance(mode, int) and not isinstance(mode, bool) else None
+
+
+def _config_packet(record: Any) -> Any:
+    """The module's own CONFIG packet out of the PDI store's entry for it.
+
+    PdiStateStore keeps a PdiDeviceConfig per module per TMCC ID, built from the CONFIG
+    request the module answered with and holding that request on its own config field: a
+    Bpc2Req for a BPC2, an Asc2Req for an ASC2. The wrapper republishes the mode byte and
+    nothing else, so everything else packed into that byte -- a BPC2's restore-on-power-up
+    flag, which is its top bit -- can be read only from the packet itself, and the packet
+    is what the occupant carries.
+
+    The flavor is not checked: the store files an entry only for a CONFIG request (see
+    SystemDeviceDict.register_pdi_device), and a request of any other flavor carries no
+    mode and no settings at all, so it would answer nothing rather than answer wrongly.
+    An entry with no packet on it is taken as the packet, which is what a store standing
+    in for the real one is.
+    """
+    packet = getattr(record, "config", None)
+    return packet if packet is not None else record
 
 
 def _mode_of(device: LcsDevice, state: Any) -> LcsMode | None:
@@ -257,12 +286,17 @@ def _pdi_occupants(pdi_store: Any, store: Any) -> List[LcsOccupant]:
             configs = pdi_store.get_all(pdi_device) or []
         except Exception:  # pragma: no cover - defensive; store shapes vary
             continue
-        for config in configs:
-            base_id = getattr(config, "tmcc_id", None)
+        for record in configs:
+            base_id = getattr(record, "tmcc_id", None)
             if not isinstance(base_id, int) or base_id < 1:
                 continue
-            mode = _mode_of(device, config)
-            scope = getattr(config, "scope", None) or pdi_device.scope
+            # Everything a module says about how it is configured is read from its own
+            # CONFIG packet, the mode byte included; see _config_packet. The store scope is
+            # still the entry's, being a fact about where the entry was filed rather than
+            # about the module, and it is only ever the fallback for an unparsed mode.
+            packet = _config_packet(record)
+            mode = _mode_of(device, packet)
+            scope = getattr(record, "scope", None) or pdi_device.scope
             found.append(
                 LcsOccupant(
                     base_id=base_id,
@@ -272,6 +306,7 @@ def _pdi_occupants(pdi_store: Any, store: Any) -> List[LcsOccupant]:
                     port_index=1,
                     scope=scope,
                     state=_state_at(store, mode.scope if mode is not None else scope, device, base_id),
+                    config=packet,
                 )
             )
     return found

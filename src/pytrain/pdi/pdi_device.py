@@ -288,43 +288,43 @@ class DeviceWrapper:
             return self.req_class(data, action=action)
 
     def firmware(self, tmcc_id: int) -> T | None:
-        if self.get is not None:
+        if self.get:
             enum = self.enums.by_name("FIRMWARE")
             return self.req_class(tmcc_id, self.get, enum)
         return None
 
     def status(self, tmcc_id: int) -> T | None:
-        if self.get is not None:
+        if self.get:
             enum = self.enums.by_name("STATUS")
             return self.req_class(tmcc_id, self.get, enum)
         return None
 
     def info(self, tmcc_id: int) -> T | None:
-        if self.get is not None:
+        if self.get:
             enum = self.enums.by_name("INFO")
             return self.req_class(tmcc_id, self.get, enum)
         return None
 
     def config(self, tmcc_id: int) -> T | None:
-        if self.get is not None:
+        if self.get:
             enum = self.enums.by_name("CONFIG")
             return self.req_class(tmcc_id, self.get, enum)
         return None
 
     def clear_errors(self, tmcc_id: int) -> T | None:
-        if self.set is not None:
+        if self.set:
             enum = self.enums.by_name("CLEAR_ERRORS")
             return self.req_class(tmcc_id, self.set, enum)
         return None
 
     def reset(self, tmcc_id: int) -> T | None:
-        if self.set is not None:
+        if self.set:
             enum = self.enums.by_name("RESET")
             return self.req_class(tmcc_id, self.set, enum)
         return None
 
     def identify(self, tmcc_id: int, ident: int = 1) -> T | None:
-        if self.set is not None:
+        if self.set:
             enum = self.enums.by_name("IDENTIFY")
             return self.req_class(tmcc_id, self.set, enum, ident=ident)
         return None

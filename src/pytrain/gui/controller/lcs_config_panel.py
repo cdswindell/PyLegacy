@@ -44,6 +44,7 @@ from .lcs_device_registry import (
     device_for_key,
     device_for_state,
     enabled_modes,
+    tmcc_id_span,
     tmcc_id_text,
 )
 from .lcs_id_map import LcsOccupant, occupants_of, overlaps
@@ -141,12 +142,18 @@ CONFIGURE_TEXT = "Configure"
 # The lines the panel composes about the module in hand, as templates. Every term in them
 # comes from the registry -- the module's label, the mode's counted label, the remote key
 # -- so all that is written here is the sentence that holds them.
-NOT_AVAILABLE = "Not available: {modes}"
 PROGRAM_MODE_NOTE = "Be sure your {module} is in Program mode."
 
-# What is about to be programmed: the module, the mode with the count of addresses it
-# claims, and the address itself. Used on the options page and again, prefixed, once the
-# presses have gone out.
+# What the options page is about to do, at the head of it: "BPC2: Configuring as ACC 1 - 8".
+# The addresses themselves rather than a count of them, because the block was chosen on the
+# page before this one and this line is what says which addresses that choice landed on --
+# a count leaves the operator to add it to a base ID themselves. See tmcc_id_span.
+CONFIGURING = "{module}: Configuring as {block}"
+
+# And what was programmed, once the presses have gone out: the module, the mode with the
+# count of addresses it claims, and the address itself. Counted here rather than spanned,
+# because this line is the record of a sequence that was sent -- it stands beside the
+# module's own read-back below it, which reports a count too. See REPORTED.
 SUMMARY = "{module} - {mode} at {scope} {id}"
 REQUESTED = "Requested: {summary}"
 
@@ -454,6 +461,9 @@ class LcsConfigPanel(OverlayPanel):
         # selection alone can no longer say whether the panel is still showing its own
         # opening guess, which is what may be re-seeded when the store arrives late.
         self._device_chosen: bool = False
+        # And False until the operator picks a mode for themselves, which is what stops the
+        # module already at the address being read for one; see _seed_mode_from_layout.
+        self._mode_chosen: bool = False
 
         self._pages: list[Box] = []
         self._body: Box | None = None
@@ -492,8 +502,11 @@ class LcsConfigPanel(OverlayPanel):
         self._option_widgets: dict[tuple[str, str], Any] = {}
         self._option_choices: dict[tuple[str, str], list[Any]] = {}
         self._options_summary: Text | None = None
-        self._warning_line: Text | None = None
-        self._reserved_line: Text | None = None
+        # Which module, on which key, at which address the options on screen were read off
+        # the layout for, and which of them were read there rather than chosen or defaulted;
+        # see _seed_options_from_layout.
+        self._options_read_from: tuple[str, CommandScope | None, int] | None = None
+        self._options_from_layout: set[str] = set()
 
         # Review page
         self._program_line: Text | None = None
@@ -594,6 +607,11 @@ class LcsConfigPanel(OverlayPanel):
         if not self._device_chosen:
             self.configure(tmcc_id=self._base_id)
             return
+        # What the options were read off the layout before this is what an empty store had
+        # to say about it, which is nothing; see _seed_options_from_layout. The mode needs
+        # no such clearing: it is read afresh on every refresh of the page until the
+        # operator picks one for themselves, and a choice of theirs stands here too.
+        self._options_read_from = None
         self._seed_sensor_track_action()
         self._refresh_id_page()
         self._refresh_review_page()
@@ -977,12 +995,12 @@ class LcsConfigPanel(OverlayPanel):
         # chosen for it. See SECTION_GAP and PAGE_GAP.
         host.add_vspace(page, self._section_gap)
         self._options_summary = self._wrap(self._label(page, ""))
-        # Both at the page's body size, where they used to be a step below it: these are the
-        # longest prose in the panel -- a whole sentence each -- and on the Pi they were the
-        # two lines an operator could not read. Wrapped for the same reason, and held off
-        # their neighbors by their own padding; see NOTE_PAD.
-        self._warning_line = self._note_line(page)
-        self._reserved_line = self._note_line(page)
+        # Nothing else stands between the heading and the settings. The module's warning was
+        # read here and again on the review page, and it belongs on the one where it is acted
+        # on -- it is about what pressing Configure does, not about what is being chosen; see
+        # review_note. The modes the manual reserves were named here too, with the reason each
+        # is unavailable: true, but about rows that are not on the page and cannot be reached
+        # from it, which is nothing the operator can act on.
         host.add_vspace(page, self._page_gap)
         # One options box per device that declares any, built once and shown or hidden as
         # the selection changes. Rebuilding a CheckBoxGroup's rows at runtime loses the
@@ -1001,9 +1019,12 @@ class LcsConfigPanel(OverlayPanel):
             box.hide()
         return page
 
-    def _note_line(self, parent: Box, text: str = "", pady: int = None) -> Text:
-        """A line of prose about the module, wrapped and standing off what is around it."""
-        return self._wrap(self._label(parent, text), pady=self._note_pad if pady is None else pady)
+    def _note_line(self, parent: Box, text: str = "", pady: int = None, size: int | None = None) -> Text:
+        """A line of prose about the module, wrapped and standing off what is around it.
+
+        The page's body size unless the page it is on reads at another one; see _label.
+        """
+        return self._wrap(self._label(parent, text, size=size), pady=self._note_pad if pady is None else pady)
 
     def _build_option(self, box: Box, device: LcsDevice, option: LcsOption) -> None:
         host = self._gui
@@ -1100,8 +1121,6 @@ class LcsConfigPanel(OverlayPanel):
         device = self._device
         if self._options_summary is not None:
             self._options_summary.value = self.options_summary
-        self._refresh_note(self._warning_line, device.warning if device and device.warning else "")
-        self._refresh_note(self._reserved_line, self.reserved_text)
         for key, box in self._option_boxes.items():
             if device is not None and key == device.key:
                 box.show()
@@ -1128,14 +1147,14 @@ class LcsConfigPanel(OverlayPanel):
     def _refresh_note(line: Text | None, text: str) -> None:
         """Write a line of prose about the module, and take it off the page when there is none.
 
-        Only a BPC2 fills either of the two at the head of the options page -- it is the one
-        module with a warning and the one with reserved modes -- and an empty Label still
-        stands a line tall and still carries its own padding. So a module with nothing to
-        say would pay two lines and four gaps of whitespace for two blank lines, which is
-        the same reason a spare module row is hidden rather than blanked.
+        An empty Label still stands a line tall and still carries its own padding, so a
+        module with nothing to say would pay a line and two gaps of whitespace for a blank
+        one -- the same reason a spare module row is hidden rather than blanked.
 
-        Also what the mode note below the ID page's radios is written by, where the module
-        with nothing to say is a BPC2 or the Sensor Track; see _refresh_mode_note().
+        Which modules say nothing is the mirror of one line to the next: the review page's
+        note is filled by the BPC2 and the Sensor Track alone, while the note below the ID
+        page's mode radios is filled by every module *but* those two. See review_note and
+        _refresh_mode_note().
         """
         if line is None:
             return
@@ -1147,34 +1166,38 @@ class LcsConfigPanel(OverlayPanel):
 
     @property
     def options_summary(self) -> str:
+        """What the page is about to do: "BPC2: Configuring as ACC 1 - 8".
+
+        The remote key and the addresses the chosen mode claims from the entered ID, which
+        together are the module's new address -- said as the block it is rather than as a
+        count and a base to add it to. The mode's own name is not repeated: which of a
+        module's modes was chosen is a fact about the page before this one, and where two of
+        them share a key they claim different blocks, so the block names the choice.
+        """
         if self._device is None or self._mode is None:
             return ""
         scope = SCOPE_LABEL.get(self._mode.scope, "")
+        span = tmcc_id_span(self._base_id, self._base_id + self.ports - 1)
+        return CONFIGURING.format(
+            module=self._device.label,
+            block=" ".join(part for part in (scope, span) if part),
+        )
+
+    @property
+    def requested_summary(self) -> str:
+        """
+        What was programmed, for the line that records it: see SUMMARY and REQUESTED.
+        """
+        if self._device is None or self._mode is None:
+            return ""
         # The counted form, not the mode's radio label: this line names the address itself,
         # so the block it holds would be said twice. See LcsMode.ports_label.
         return SUMMARY.format(
             module=self._device.label,
             mode=self._mode.ports_label,
-            scope=scope,
+            scope=SCOPE_LABEL.get(self._mode.scope, ""),
             id=self._base_id,
         ).strip()
-
-    @property
-    def reserved_text(self) -> str:
-        """
-        The modes the manual reserves, named with their reason, so an operator looking
-        for one is told why it is not on offer rather than left to wonder.
-        """
-        if self._device is None:
-            return ""
-        reserved = [mode for mode in self._device.modes if not mode.enabled]
-        if not reserved:
-            return ""
-        # Counted, because a reserved mode claims no block: it is never selected, so there
-        # is no address to name it from -- and the count is what tells the BPC2's reserved
-        # single-ID TR mode from the eight-ID one it does offer.
-        parts = [f"{mode.ports_label} ({mode.note})" if mode.note else mode.ports_label for mode in reserved]
-        return NOT_AVAILABLE.format(modes=", ".join(parts))
 
     #
     # Review page
@@ -1185,7 +1208,12 @@ class LcsConfigPanel(OverlayPanel):
         self._label(page, REVIEW_TITLE, size=host.s_16, bold=True)
         self._program_line = self._label(page, "", size=host.s_12)
         self._review_line = self._label(page, "")
-        self._review_note_line = self._label(page, "", size=host.s_12)
+        # The one page the module's warning is read on now, and the only prose on it: wrapped,
+        # because an unwrapped sentence is not truncated but centered, losing its beginning
+        # and its end at once -- which is how this line read on the Pi -- and held off the
+        # press list above it and the Configure button below by its own padding. See _wrap and
+        # review_note.
+        self._review_note_line = self._note_line(page, size=host.s_12)
         self._configure_btn = btn = HoldButton(page, text=CONFIGURE_TEXT, align="top", command=self.on_configure)
         btn.text_size = host.s_16
         self._footnote_line = self._label(page, "", size=host.s_12)
@@ -1213,6 +1241,17 @@ class LcsConfigPanel(OverlayPanel):
 
     @property
     def review_note(self) -> str:
+        """What to know before pressing Configure: the module's own warning, and the abort.
+
+        The BPC2's warning is read here and nowhere else, where it used to stand at the head
+        of the options page as well. It is not about the settings being chosen but about what
+        the presses themselves do -- every track-block relay goes off, and has to be switched
+        back on by hand afterwards -- so it belongs on the page they are sent from, in front
+        of the button that sends them.
+
+        Never both notes at once: the one module with a warning is the BPC2, and the abort is
+        the Sensor Track's.
+        """
         notes: list[str] = []
         if self._device is not None and self._device.warning:
             notes.append(self._device.warning)
@@ -1232,8 +1271,7 @@ class LcsConfigPanel(OverlayPanel):
             self._program_line.value = program.program_instruction if program else ""
         if self._review_line is not None:
             self._review_line.value = "\n".join(program.display) if program else ""
-        if self._review_note_line is not None:
-            self._review_note_line.value = self.review_note
+        self._refresh_note(self._review_note_line, self.review_note)
         if self._footnote_line is not None:
             self._footnote_line.value = self.footnote
         if self._configure_btn is not None:
@@ -1266,7 +1304,7 @@ class LcsConfigPanel(OverlayPanel):
         self._sent_program = program
         self._readback_pending = True
         if self._requested_line is not None:
-            self._requested_line.value = REQUESTED.format(summary=self.options_summary)
+            self._requested_line.value = REQUESTED.format(summary=self.requested_summary)
         if self._reported_line is not None:
             self._reported_line.value = AWAITING_READBACK
         self._watch_readback(program)
@@ -1554,8 +1592,21 @@ class LcsConfigPanel(OverlayPanel):
         """
         return configurable_devices()[0]
 
-    def _select_device(self, device: LcsDevice | None, seed_mode_from: Any = None, mode: LcsMode = None) -> None:
+    def _select_device(
+        self,
+        device: LcsDevice | None,
+        seed_mode_from: Any = None,
+        mode: LcsMode = None,
+        config: Any = None,
+    ) -> None:
         self._device = device
+        # The rows on both pages are about to be rebuilt for another module, so nothing is
+        # left of what was read off the layout for the last one -- and no choice of the
+        # operator's stands against reading it, those having been choices among another
+        # module's rows. See _seed_options_from_layout and _seed_mode_from_layout.
+        self._options_read_from = None
+        self._options_from_layout = set()
+        self._mode_chosen = False
         if device is None:
             self._mode = None
             self._options = {}
@@ -1568,18 +1619,48 @@ class LcsConfigPanel(OverlayPanel):
             if mode is None or not mode.enabled:
                 mode = device.default_mode
         self._mode = mode
-        self._options = self._default_options(device, seed_mode_from)
+        self._options = self._default_options(device, seed_mode_from, config)
 
-    @staticmethod
-    def _default_options(device: LcsDevice, state: Any = None) -> dict[str, Any]:
+    @classmethod
+    def _default_options(cls, device: LcsDevice, state: Any = None, config: Any = None) -> dict[str, Any]:
+        """
+        The module's options as it is running with them, falling back to their own defaults.
+        """
         options: dict[str, Any] = {}
         for option in device.options:
-            value = option.default
-            seeded = getattr(state, option.key, None) if state is not None else None
-            if seeded is not None:
-                value = seeded
-            options[option.key] = value
+            reported = cls._reported_option(option, config, state)
+            options[option.key] = option.default if reported is None else reported
         return options
+
+    @classmethod
+    def _reported_option(cls, option: LcsOption, *records: Any) -> Any:
+        """What the module itself says an option is set to, or None where nothing says.
+
+        The CONFIG packet is read before the component state, because a module's settings
+        are what its own CONFIG record carries: the BPC2's restore-on-power-up flag is a bit
+        of the mode byte in that packet and is in no component state at all. Records are
+        read by the option's own key, which is the registry's promise that an option is
+        named for the field it sets.
+        """
+        for record in records:
+            value = getattr(record, option.key, None) if record is not None else None
+            if value is not None and cls._can_hold(option, value):
+                return value
+        return None
+
+    @staticmethod
+    def _can_hold(option: LcsOption, value: Any) -> bool:
+        """Whether value is something this option could be set to.
+
+        A record is read by the option's key, and that key can mean something else entirely
+        on a record written for another purpose: every PDI request carries an action, and
+        the Sensor Track's Action Command option is a sequence rather than one of those. So
+        a value counts as an answer about the option only if the option could hold it -- one
+        of the rows the list offers, or a flag's true or false.
+        """
+        if option.kind == OptionKind.RADIO:
+            return any(value == choice for _label, choice in option.choices)
+        return isinstance(value, bool)
 
     def _discovery_occupant(self, scope: CommandScope = None) -> LcsOccupant | None:
         """
@@ -1602,7 +1683,83 @@ class LcsConfigPanel(OverlayPanel):
         return self._first_programmable(occupants_of(self._base_id, self._store))
 
     def _seed_from_occupant(self, occupant: LcsOccupant) -> None:
-        self._select_device(occupant.device, seed_mode_from=occupant.state, mode=occupant.mode)
+        self._select_device(
+            occupant.device,
+            seed_mode_from=occupant.state,
+            mode=occupant.mode,
+            config=occupant.config,
+        )
+
+    def _seed_mode_from_layout(self) -> None:
+        """Open the mode radios on the mode the module already at the entered address is in.
+
+        A BPC2 addressed as ACC 1 - 8 reads with its ACC row selected rather than with the
+        module's own default TR row, which is what the panel used to offer to reprogram it
+        as. The mode is a fact about the module and is recorded in its CONFIG packet, so
+        there is no need to ask the operator to tell the panel what the layout already
+        knows -- and every reason not to, a wrong answer here re-addressing the module onto
+        a remote key it was never on.
+
+        Looked up on any key, not the one the radios happen to be on: which key the module
+        answers to is the first half of what is being read, so filtering by the panel's
+        current guess at it would find a module only once the guess was already right. The
+        key it is on is preferred where two modules of the type share the address, since a
+        module on the key in hand is the one the rest of the page is about.
+
+        A mode the operator picked themselves is never read over, at this address or any
+        other: the radios are how they say what the module is to become, which is the whole
+        purpose of the page and need not agree with what it is now. Picking another module
+        starts that over; see _select_device.
+        """
+        device = self._device
+        if device is None or self._mode_chosen:
+            return
+        occupant = self._based_here(self.scope) or self._based_here(None)
+        mode = occupant.mode if occupant is not None else None
+        # A mode the manual reserves is on no radio row -- a BPC2's single-ID modes among
+        # them -- so a module running in one is left to the row it can be reprogrammed as.
+        if mode is None or not mode.enabled:
+            return
+        self._mode = mode
+        # And the entered ID is squared with the mode just read, exactly as configure()
+        # squares it with the mode the panel opens on: a wider mode has a lower ceiling. No
+        # module in the registry has a default mode narrower than another of its own, so
+        # today this only holds the invariant rather than moving anything.
+        self._base_id = min(self._base_id, self.max_base)
+
+    def _seed_options_from_layout(self) -> None:
+        """Open the options on what the module already at the entered address is holding.
+
+        A BPC2 based there with restore on reads with the box already ticked, so an operator
+        reconfiguring it keeps that setting by leaving it alone rather than by remembering
+        it -- and can see what the module is holding without going and reading its relays.
+        Where nothing of the kind is at the address, the module's own defaults stand.
+
+        Read once per address, not on every refresh: what the operator sets for the address
+        in hand is theirs to keep. Aiming the panel elsewhere reads the new address instead,
+        and a setting that stood there only because it was read off the layout is given back
+        its default rather than carried to an address nothing is known about -- it was a fact
+        about the module it was read from, and would otherwise be programmed into a new
+        module unasked. Anything nothing was ever read for is left alone, which is what
+        leaves the Sensor Track's Action Command as its IRDA state seeded it; see
+        _seed_sensor_track_action.
+        """
+        device = self._device
+        if device is None or not device.options:
+            return
+        aimed_at = (device.key, self.scope, self._base_id)
+        if aimed_at == self._options_read_from:
+            return
+        self._options_read_from = aimed_at
+        occupant = self.reconfigured_occupant()
+        for option in device.options:
+            reported = self._reported_option(option, occupant.config, occupant.state) if occupant else None
+            if reported is not None:
+                self._options[option.key] = reported
+                self._options_from_layout.add(option.key)
+            elif option.key in self._options_from_layout:
+                self._options[option.key] = option.default
+                self._options_from_layout.discard(option.key)
 
     def _seed_sensor_track_action(self) -> None:
         """
@@ -1672,8 +1829,9 @@ class LcsConfigPanel(OverlayPanel):
         except ValueError:
             log.debug("Unknown %s mode: %s", self._device.label, value)
             return
-        # Deliberate, so a late synchronization must not seed over it.
-        self._device_chosen = True
+        # Deliberate, so neither a late synchronization nor the module already at the
+        # address may seed over it.
+        self._device_chosen = self._mode_chosen = True
         self._mode = mode
         # A narrower mode can raise the ceiling; a wider one can lower it below the ID in hand.
         self._set_base_id(self._base_id)
@@ -1740,6 +1898,10 @@ class LcsConfigPanel(OverlayPanel):
     # ID page refresh
     #
     def _refresh_id_page(self) -> None:
+        # First of all, because the rest of the page is drawn from the mode: which radio row
+        # is selected, which remote key the two module boxes search, and which module the
+        # options are then read off. See _seed_mode_from_layout.
+        self._seed_mode_from_layout()
         self._refresh_id_heading()
         self._refresh_id_field()
         self._refresh_mode_selector()
@@ -1751,6 +1913,10 @@ class LcsConfigPanel(OverlayPanel):
         # what is inside them: guizero drops the stretch that keeps them the same width
         # every time it re-displays them.
         self._lay_out_titled_boxes()
+        # Before the options are drawn, and here rather than where the address is set,
+        # because the module being programmed and the key it is on settle last; see
+        # _seed_options_from_layout.
+        self._seed_options_from_layout()
         self._refresh_options_page()
         self._refresh_review_page()
 
@@ -1949,6 +2115,33 @@ class LcsConfigPanel(OverlayPanel):
         The module at the entered ID the panel could seed itself from, if there is one.
         """
         return self._first_programmable(self.assigned_occupants())
+
+    def reconfigured_occupant(self) -> LcsOccupant | None:
+        """The module the presses would reprogram, where the layout already holds one.
+
+        A module of the type being programmed, based at the entered ID on the key being
+        programmed -- the same module, that is, the panel is about to re-address, so what it
+        is holding is worth reading. Another type of module answering to the ID says nothing
+        about this one's settings, and one the ID merely falls inside is based somewhere
+        else: the panel offers to go to its base rather than take it for the module in hand.
+        """
+        return self._based_here(self.scope)
+
+    def _based_here(self, scope: CommandScope | None) -> LcsOccupant | None:
+        """The module of the type being programmed based at the entered ID, or None.
+
+        Based at it, not merely claiming it: a module the ID falls inside is based somewhere
+        else, and the panel offers to go to that base rather than read the module as the one
+        in hand.
+
+        scope keeps only a module answering to that remote key; pass None where the key is
+        not part of the question, which is the case for the one reader whose business is
+        which key the module is on. See _seed_mode_from_layout.
+        """
+        for occupant in occupants_of(self._base_id, self._store, scope=scope):
+            if occupant.device is self._device and occupant.base_id == self._base_id:
+                return occupant
+        return None
 
     @staticmethod
     def _first_programmable(occupants: Sequence[LcsOccupant]) -> LcsOccupant | None:

@@ -29,7 +29,7 @@ class PdiStateStore:
         of this class in a process
         """
         with cls._lock:
-            if PdiStateStore._instance is None:
+            if not PdiStateStore._instance:
                 PdiStateStore._instance = super(PdiStateStore, cls).__new__(cls)
                 PdiStateStore._instance._initialized = False
             return PdiStateStore._instance

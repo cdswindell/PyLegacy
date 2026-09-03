@@ -65,17 +65,42 @@ class FakeStore:
         return None
 
 
-class FakeConfig:
-    """
-    Stand-in for a PdiDeviceConfig: one module's own CONFIG packet, and so its own mode.
+class FakePacket:
+    """Stand-in for the CONFIG request itself: a Bpc2Req for a BPC2, an Asc2Req for an ASC2.
+
+    Where a module's settings are. A BPC2's restore-on-power-up flag is the top bit of its
+    mode byte, and the request is what unpacks the two apart.
     """
 
-    def __init__(self, tmcc_id: int, scope: CommandScope, mode: int | None = None) -> None:
+    def __init__(self, mode: int | None = None, restore: bool | None = None) -> None:
+        if mode is not None:
+            self.mode = mode
+        if restore is not None:
+            # Only a BPC2's request carries one.
+            self.restore = restore
+
+
+class FakeConfig:
+    """Stand-in for a PdiDeviceConfig: the PDI store's entry for one module.
+
+    Built from the CONFIG request the module answered with, which it holds on config, and
+    republishing that request's mode byte -- which is the whole of what PdiDeviceConfig
+    republishes, and why the settings are readable only from the request.
+    """
+
+    def __init__(
+        self,
+        tmcc_id: int,
+        scope: CommandScope,
+        mode: int | None = None,
+        restore: bool | None = None,
+    ) -> None:
         self.tmcc_id = tmcc_id
         self.scope = scope
         if mode is not None:
             # Only ASC2, BPC2 and STM2 configs carry a mode; an AMC2's does not.
             self.mode = mode
+        self.config = FakePacket(mode, restore)
 
 
 class FakePdiStore:
@@ -393,6 +418,37 @@ class TestPdiDeviceStore:
 
         occupant = occupant_of(1, FakeStore(acc=[state]), pdi_store=pdi)
         assert occupant.state is state
+
+    def test_the_config_packet_itself_is_carried_for_seeding_too(self):
+        # The settings a module is running with are in its CONFIG packet and nowhere else --
+        # a BPC2's restore-on-power-up flag among them -- so the packet travels with the
+        # occupant, on the port hit as much as on the base. The store's own entry is not
+        # enough: it republishes the mode byte and has no flag to answer with.
+        record = FakeConfig(1, CommandScope.ACC, mode=2, restore=True)
+        pdi = FakePdiStore({PdiDevice.BPC2: [record]})
+
+        assert occupant_of(1, FakeStore(), pdi_store=pdi).config is record.config
+        assert occupant_of(5, FakeStore(), pdi_store=pdi).config is record.config
+        assert occupant_of(1, FakeStore(), pdi_store=pdi).config.restore is True
+        assert hasattr(record, "restore") is False
+
+    def test_a_store_whose_entries_are_the_packets_is_read_as_it_stands(self):
+        # Nothing nested to unwrap, so the entry is the packet: what a store standing in for
+        # the real one is, and the shape the mode has always been read from either way.
+        packet = FakePacket(mode=2, restore=True)
+        packet.tmcc_id, packet.scope = 1, CommandScope.ACC
+        pdi = FakePdiStore({PdiDevice.BPC2: [packet]})
+
+        occupant = occupant_of(1, FakeStore(), pdi_store=pdi)
+        assert occupant.config is packet
+        assert occupant.mode.key == "acc_8"
+
+    def test_a_module_only_the_states_know_has_no_config_record(self):
+        # Nothing to invent one from: it was never reported over PDI.
+        occupant = occupant_of(9, asc2_at_9())
+
+        assert occupant.device is ASC2
+        assert occupant.config is None
 
     def test_a_module_only_the_states_know_is_still_reported(self):
         # Control traffic identifies a module the PDI store never saw a CONFIG for.

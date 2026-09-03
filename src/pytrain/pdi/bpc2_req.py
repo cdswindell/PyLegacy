@@ -62,7 +62,7 @@ class Bpc2Req(LcsReq):
                     self.scope = CommandScope.TRAIN
             else:
                 self._state = self._values = self._valids = None
-                if self.scope is None:
+                if not self.scope:
                     self._scope = self.scope_request()
         else:
             Validations.validate_int(mode, 0, 3, "Mode", True)
@@ -174,7 +174,7 @@ class Bpc2Req(LcsReq):
         from ..db.component_state_store import ComponentStateStore
         from ..db.engine_state import TrainState
 
-        if self.scope is None:
+        if not self.scope:
             state = ComponentStateStore.get_state(CommandScope.TRAIN, self.address, False)
             if isinstance(state, TrainState) and state.is_bpc2:
                 return CommandScope.TRAIN if state.mode in {0, 1} else CommandScope.ACC

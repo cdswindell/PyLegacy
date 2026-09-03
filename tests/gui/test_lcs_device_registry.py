@@ -80,7 +80,11 @@ class TestRegistryShape:
             # reason. The sentence itself is the registry's to change.
             assert mode.note
         assert len({mode.note for mode in reserved}) == 1
-        assert [m.key for m in reg.enabled_modes(reg.BPC2)] == ["tr_8", "acc_8"]
+        # ACC first: the manual numbers the modes the other way about, but the two are
+        # identical in what they can do, so the order the rows are offered in is the
+        # panel's to choose -- and it is chosen here, once, for the radios and the legend
+        # and the row the page opens on alike.
+        assert [m.key for m in reg.enabled_modes(reg.BPC2)] == ["acc_8", "tr_8"]
         assert reg.BPC2.mode("tr_8").scope == CommandScope.TRAIN
         assert reg.BPC2.mode("acc_8").scope == CommandScope.ACC
 
@@ -221,7 +225,13 @@ class TestLookups:
         assert reg.ASC2.mode_for_pdi_mode(7) is None
 
     def test_default_mode_skips_disabled(self):
-        assert reg.BPC2.default_mode.key == "tr_8"
+        # The default is the first row an operator can actually pick, which is the top row
+        # of the radios -- the panel opens on it where the layout has nothing to say about
+        # the address. Asserted over every module the panel programs, so a reserved mode
+        # listed first would not quietly become one module's default.
+        for device in reg.configurable_devices():
+            assert device.default_mode is reg.enabled_modes(device)[0], device.label
+        assert reg.BPC2.default_mode.key == "acc_8"
 
     def test_unknown_option_raises(self):
         with pytest.raises(ValueError):
@@ -285,6 +295,18 @@ class TestTmccIdText:
         # One of the two places in this file where a term is written down at all.
         for text in (reg.tmcc_id_text(12), reg.tmcc_id_text(12, 19), reg.tmcc_id_count(1), reg.tmcc_id_count(8)):
             assert not re.findall(r"(?<!TMCC )\bIDs?\b", text), text
+
+    def test_a_span_is_the_same_block_with_the_words_left_off(self):
+        # For the line that has already named the remote key -- "ACC 12 - 19" -- so the two
+        # spellings cannot come to disagree about where a block ends.
+        for base, last in ((12, 19), (12, 12), (12, 9), (12, None)):
+            assert reg.tmcc_id_text(base, last).endswith(reg.tmcc_id_span(base, last))
+            assert not re.search(r"[A-Za-z]", reg.tmcc_id_span(base, last))
+
+    def test_a_span_of_one_address_is_that_address_alone(self):
+        # "5", never "5 - 5": the same rule the words in front of it follow.
+        assert reg.tmcc_id_span(5) == reg.tmcc_id_span(5, 5) == "5"
+        assert re.findall(r"\d+", reg.tmcc_id_span(12, 19)) == ["12", "19"]
 
 
 class TestModeNames:

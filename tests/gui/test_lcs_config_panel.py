@@ -8,7 +8,8 @@ import pytest
 import src.pytrain.gui.controller.lcs_config_panel as mod
 import src.pytrain.gui.controller.lcs_device_registry as reg
 from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsOption
-from src.pytrain.pdi.irda_req import IrdaSequence
+from src.pytrain.pdi.bpc2_req import Bpc2Action
+from src.pytrain.pdi.irda_req import IrdaAction, IrdaSequence
 from src.pytrain.pdi.pdi_device import PdiDevice
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
@@ -734,6 +735,7 @@ def test_go_to_base_ignores_a_module_on_another_remote_key() -> None:
     # nowhere to go and the panel stays exactly where the operator left it.
     panel = _new_panel(_asc2_at_9_store())
     panel._on_device_selected("bpc2")
+    panel._on_mode_selected("tr_8")  # the key the ASC2 is not on, said rather than assumed
     panel._set_base_id(12)
     assert _assigned(panel) == [mod.UNASSIGNED]
 
@@ -825,6 +827,7 @@ def test_the_same_id_reports_a_different_module_for_a_different_key() -> None:
 
     # A BPC2 in its track mode shares neither, so ID 1 really is free.
     panel._on_device_selected("bpc2")
+    panel._on_mode_selected("tr_8")
     assert panel.scope == CommandScope.TRAIN
     assert _assigned(panel) == [mod.UNASSIGNED]
 
@@ -934,26 +937,54 @@ def test_a_module_with_no_options_gets_no_controls_and_no_page() -> None:
     assert panel._option_widgets.get(("asc2", "restore")) is None
 
 
-def test_bpc2_relay_warning_and_reserved_modes_are_shown_with_their_reason() -> None:
+def test_the_options_page_names_the_module_and_the_addresses_it_will_answer_to() -> None:
+    # The head of the page, and now the whole of its prose: which module is being programmed
+    # and which addresses the block chosen on the page before this one landed on. The mode's
+    # own name is not repeated -- the block is what the choice came to.
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._on_mode_selected("acc_8")
+    panel._set_base_id(1)
+
+    base, mode = 1, BPC2.mode("acc_8")
+    assert panel.options_summary == mod.CONFIGURING.format(
+        module=BPC2.label,
+        block=f"{mod.SCOPE_LABEL[mode.scope]} {reg.tmcc_id_span(base, base + mode.ports - 1)}",
+    )
+    assert panel._options_summary.value == panel.options_summary
+    # Spelled out once, because this wording is what was asked for: the module, then the
+    # remote key and both ends of the block it will answer to.
+    assert panel.options_summary == "BPC2: Configuring as ACC 1 - 8"
+
+
+def test_a_module_holding_a_single_address_names_that_address_alone() -> None:
+    # The registry's own span, so a one-ID block reads "ACC 5" rather than "ACC 5 - 5".
+    panel = _new_panel()
+    panel._on_device_selected("sensor_track")
+    panel._set_base_id(5)
+
+    assert panel.ports == 1
+    assert panel.options_summary == f"{SENSOR_TRACK.label}: Configuring as {mod.SCOPE_LABEL[CommandScope.ACC]} 5"
+
+
+def test_the_options_page_holds_nothing_between_the_heading_and_the_settings() -> None:
+    # Two lines of prose used to stand here. The module's warning is read on the page it is
+    # acted on instead -- see review_note -- and the modes the manual reserves are named
+    # nowhere: factually right, but about rows that are on no page and cannot be chosen, so
+    # there is nothing for the operator to do with them.
     panel = _new_panel()
     panel._on_device_selected("bpc2")
 
-    # The one module with a warning, and it is carried in full rather than summarized.
-    assert BPC2.warning
-    assert panel._warning_line.value == BPC2.warning
+    page = panel._pages[mod.PAGE_OPTIONS]
+    prose = [str(getattr(child, "value", "")) for child in page.children]
+    assert panel._options_summary.value in prose
+    assert BPC2.warning not in panel._options_summary.value
+    assert all(BPC2.warning not in line for line in prose)
     reserved = [mode for mode in BPC2.modes if not mode.enabled]
-    assert panel.reserved_text == mod.NOT_AVAILABLE.format(
-        modes=", ".join(f"{mode.ports_label} ({mode.note})" for mode in reserved)
-    )
-    assert panel._reserved_line.value == panel.reserved_text
-    # Every mode the manual reserves is on the line with its reason, and no mode the module
-    # does offer is named there at all.
-    assert reserved and all(mode.note in panel._reserved_line.value for mode in reserved)
-    assert all(mode.ports_label not in panel._reserved_line.value for mode in reg.enabled_modes(BPC2))
-
-    panel._on_device_selected("stm2")
-    assert panel._warning_line.value == ""
-    assert panel._reserved_line.value == ""
+    assert reserved
+    for mode in reserved:
+        assert mode.note and all(mode.note not in line for line in prose)
+        assert all(mode.ports_label not in line for line in prose)
 
 
 def test_toggling_the_bpc2_restore_flag_updates_the_presses() -> None:
@@ -967,10 +998,11 @@ def test_toggling_the_bpc2_restore_flag_updates_the_presses() -> None:
     panel._on_option_changed("bpc2", "restore")
 
     assert panel.options["restore"] is True
-    assert panel.review_lines == _press_lines(BPC2.mode("tr_8"), 12, {"restore": True})
+    assert panel.review_lines == _press_lines(BPC2.default_mode, 12, {"restore": True})
     # The line the flag added is the press the registry gates on it, and it is there only
-    # with the flag set.
-    gated = next(press for press in BPC2.mode("tr_8").presses if press.include_if == "restore")
+    # with the flag set. Read off the row the page opened on, since the flag is gated the
+    # same way in either of the BPC2's addressing modes.
+    gated = next(press for press in BPC2.default_mode.presses if press.include_if == "restore")
     assert len(panel.review_lines) == 3
     assert any(gated.label in line for line in panel.review_lines)
 
@@ -1109,8 +1141,9 @@ def test_the_options_page_holds_its_rows_and_its_prose_apart(compact: bool, opti
     panel, _body, _host = _build_with_body(compact=compact)
 
     assert panel._option_widgets[("bpc2", "restore")].decoration["pady"] == option_pad
-    assert panel._warning_line.tk.configured["pady"] == note_pad
-    assert panel._reserved_line.tk.configured["pady"] == note_pad
+    # The one line of prose left standing off its neighbors, on the review page: it is read
+    # between the presses that will be sent and the button that sends them.
+    assert panel._review_note_line.tk.configured["pady"] == note_pad
     # Not the long list: its rows get nothing on either kind of host.
     assert panel._option_widgets[("sensor_track", "action")].kwargs["pady"] == 0
 
@@ -1123,27 +1156,31 @@ def test_the_option_rows_are_held_apart_between_the_two_other_lists() -> None:
 
 
 def test_the_pages_prose_is_read_at_the_body_size_not_below_it() -> None:
-    # These are the longest sentences in the panel, and on the Pi they were the two lines
-    # an operator could not read: a step below the body size, which is fine print at the
-    # scale the Pi draws at.
+    # A step below the body size is fine print at the scale the Pi draws at, and this line
+    # is what the page is about: which module, and which addresses.
     panel = _new_panel()
     host = panel.gui
     panel._on_device_selected("bpc2")
 
-    assert panel._warning_line.text_size == host.s_14
-    assert panel._reserved_line.text_size == host.s_14
     assert panel._options_summary.text_size == host.s_14
 
 
-def test_every_line_of_prose_on_the_page_is_wrapped_to_the_popups_width() -> None:
+def test_every_line_of_prose_the_panel_draws_is_wrapped_to_the_popups_width() -> None:
     # What the photograph showed: the BPC2's relay warning ran off both edges at once.
     # Tk truncates nothing -- it centers a label wider than its container, so the sentence
-    # lost its beginning and its end -- and only a wraplength keeps it whole.
+    # lost its beginning and its end -- and only a wraplength keeps it whole. Every prose
+    # line in the panel, on whichever page: the heading's, the two around the mode radios,
+    # and the review page's note, which is where that same warning is read now.
     panel = _new_panel()
     panel._on_device_selected("sensor_track")
     wrap = panel._wrap_px
 
-    for line in (panel._options_summary, panel._warning_line, panel._reserved_line):
+    for line in (
+        panel._options_summary,
+        panel._mode_legend_line,
+        panel._mode_note_line,
+        panel._review_note_line,
+    ):
         assert line.tk.configured["wraplength"] == wrap
         # A broken line follows the line above it, centered under the heading.
         assert line.tk.configured["justify"] == "center"
@@ -1198,22 +1235,21 @@ def test_the_wrap_falls_back_to_the_pane_and_then_to_a_floor() -> None:
 
 
 def test_a_line_with_nothing_to_say_leaves_the_page_and_takes_its_gaps_with_it() -> None:
-    # Only a BPC2 fills either line -- it is the one module with a warning and the one with
-    # reserved modes -- and an empty label still stands a line tall and still carries its
-    # own padding above and below.
+    # The review page's note is filled by the BPC2, which has a warning, and by the Sensor
+    # Track, which can be left half programmed -- and by no other module. An empty label
+    # still stands a line tall and still carries its own padding above and below.
     panel = _new_panel()
 
     panel._on_device_selected("bpc2")
-    assert panel._warning_line.visible is True
-    assert panel._reserved_line.visible is True
+    assert panel._review_note_line.visible is True
 
-    panel._on_device_selected("sensor_track")
-    assert panel._warning_line.visible is False
-    assert panel._reserved_line.visible is False
+    panel._on_device_selected("asc2")
+    assert panel.review_note == ""
+    assert panel._review_note_line.visible is False
 
     # And comes back with something to say.
-    panel._on_device_selected("bpc2")
-    assert panel._warning_line.visible is True
+    panel._on_device_selected("sensor_track")
+    assert panel._review_note_line.visible is True
 
 
 def test_the_heading_is_followed_by_the_module_then_a_gap_then_the_settings() -> None:
@@ -1226,10 +1262,8 @@ def test_the_heading_is_followed_by_the_module_then_a_gap_then_the_settings() ->
     assert page.children[0].value == mod.OPTIONS_TITLE
     assert getattr(page.children[1], "vspace", None) == mod.SECTION_GAP
     assert page.children[2] is panel._options_summary
-    assert page.children[3] is panel._warning_line
-    assert page.children[4] is panel._reserved_line
-    assert getattr(page.children[5], "vspace", None) == mod.PAGE_GAP
-    assert page.children[6] in panel._option_boxes.values()
+    assert getattr(page.children[3], "vspace", None) == mod.PAGE_GAP
+    assert page.children[4] in panel._option_boxes.values()
 
 
 #
@@ -1351,11 +1385,23 @@ def test_sensor_track_review_notes_the_abort_and_the_mandatory_action() -> None:
     assert panel.footnote == mod.PROGRAM_MODE_NOTE.format(module=SENSOR_TRACK.label)
 
 
-def test_bpc2_review_repeats_the_relay_warning() -> None:
+def test_the_relay_warning_is_read_on_the_page_it_is_acted_on() -> None:
+    # The one page it is read on now. It is not about the settings being chosen -- it is
+    # about what the presses do, and what has to be done by hand afterwards -- so it stands
+    # in front of the button that sends them rather than at the head of the page before.
     panel = _new_panel()
     panel._on_device_selected("bpc2")
 
-    assert BPC2.warning in panel._review_note_line.value
+    assert BPC2.warning
+    assert panel.review_note == BPC2.warning
+    assert panel._review_note_line.value == BPC2.warning
+    # In full, and read in one piece: an unwrapped label wider than the popup is centered
+    # rather than truncated, which cost this sentence both its ends on the Pi.
+    assert panel._review_note_line.tk.configured["wraplength"] == panel._wrap_px
+    # Above the button, below the presses it is about.
+    page = panel._pages[mod.PAGE_REVIEW]
+    order = page.children.index
+    assert order(panel._review_line) < order(panel._review_note_line) < order(panel._configure_btn)
 
 
 #
@@ -1364,6 +1410,7 @@ def test_bpc2_review_repeats_the_relay_warning() -> None:
 def test_configure_queues_the_presses_in_order_then_the_verify_gets() -> None:
     panel = _new_panel()
     panel._on_device_selected("bpc2")
+    panel._on_mode_selected("tr_8")  # the TR presses, so the enums below name one mode's own
     panel._set_base_id(12)
 
     panel.on_configure()
@@ -2406,15 +2453,42 @@ def _amc2_and_bpc2_at_1_store() -> FakeStore:
     )
 
 
-class FakePdiConfig:
-    """One module's own PDI CONFIG packet, as PdiDeviceConfig presents it."""
+class FakePdiPacket:
+    """One module's own CONFIG request: a Bpc2Req for a BPC2, an Asc2Req for an ASC2.
 
-    def __init__(self, tmcc_id: int, scope: CommandScope, mode: int | None = None) -> None:
+    Where a module's settings are, the mode among them. A BPC2's restore-on-power-up flag
+    is the top bit of its mode byte, and Bpc2Req is what unpacks the two apart.
+    """
+
+    def __init__(self, mode: int | None = None, restore: bool | None = None) -> None:
+        if mode is not None:
+            self.mode = mode
+        if restore is not None:
+            # Only a BPC2's request carries one.
+            self.restore = restore
+
+
+class FakePdiConfig:
+    """The PDI store's entry for one module, as PdiDeviceConfig presents it.
+
+    Built from the CONFIG request the module answered with, which it holds on config, and
+    republishing that request's mode byte -- which is the whole of what PdiDeviceConfig
+    republishes, so the settings can be read only from the request itself.
+    """
+
+    def __init__(
+        self,
+        tmcc_id: int,
+        scope: CommandScope,
+        mode: int | None = None,
+        restore: bool | None = None,
+    ) -> None:
         self.tmcc_id = tmcc_id
         self.scope = scope
         if mode is not None:
             # Only ASC2, BPC2 and STM2 configs carry a mode; an AMC2's does not.
             self.mode = mode
+        self.config = FakePdiPacket(mode, restore)
 
 
 class FakePdiStore:
@@ -2573,6 +2647,332 @@ def test_a_row_left_over_from_a_busier_id_is_hidden_not_blanked() -> None:
 
 
 #
+# The mode the module already at the address is in
+#
+def _bpc2_based_at(monkeypatch, base_id: int, mode: reg.LcsMode, restore: bool = False) -> None:
+    """A BPC2 based at base_id, running in the given mode, as the PDI bus reported it.
+
+    Keyed and filed from the registry's own facts about the mode -- its PDI mode byte and
+    the remote key it puts the module on -- so the store says what the mode says and the
+    assertions can be about the panel landing on it.
+    """
+    _with_pdi_store(
+        monkeypatch,
+        {PdiDevice.BPC2: [FakePdiConfig(base_id, mode.scope, mode=mode.pdi_mode, restore=restore)]},
+    )
+
+
+def _mode_the_page_does_not_open_on() -> reg.LcsMode:
+    """A BPC2 mode other than the row the page opens on where the layout says nothing.
+
+    Landing on it is a read of the module and can be nothing else: the default row is where
+    the panel would have been standing anyway. Which of the two addressing modes that is is
+    the registry's to order -- the rows read ACC and then TR today -- so it is asked for
+    rather than named, and reordering them cannot quietly empty these tests.
+    """
+    return next(mode for mode in reg.enabled_modes(BPC2) if mode is not BPC2.default_mode)
+
+
+def test_the_mode_radios_open_on_the_mode_the_module_is_running_in(monkeypatch) -> None:
+    # Which mode a module is in is a fact about the module, recorded in its own CONFIG
+    # packet, so the page that offers to reprogram it opens on that row rather than on the
+    # module's default one -- which would re-address it onto a remote key it was never on.
+    # The reported layout, a BPC2 addressed as an accessory holding ACC 1 - 8, is the row
+    # the page opens on anyway, so the reading is shown here on the module's other mode.
+    read = _mode_the_page_does_not_open_on()
+    _bpc2_based_at(monkeypatch, 1, read)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(1)
+
+    assert panel.mode is read
+    assert panel._mode_group.value == read.key
+    # And with the mode, everything the page draws from it: the key the boxes search, so the
+    # module is reported as the one being reconfigured rather than passed over as something
+    # on another key, and the block the heading of the next page names.
+    assert panel.scope is read.scope
+    assert _assigned(panel) == [_row(read.scope, BPC2.label, 1, read.ports)]
+    assert panel.options_summary == mod.CONFIGURING.format(
+        module=BPC2.label,
+        block=f"{mod.SCOPE_LABEL[read.scope]} {reg.tmcc_id_span(1, read.ports)}",
+    )
+
+
+def test_the_settings_are_read_off_the_module_on_the_key_it_reported(monkeypatch) -> None:
+    # The mode is read before the options are, so the module the settings are read off is
+    # the one on the key the layout reported -- which need not be the key the radios opened
+    # on. A BPC2 running with restore on opens with its own row selected and its box ticked.
+    #
+    # In the single pass over the page that picking the module sets off, and asserted after
+    # that one pass: from here the operator can walk straight on to the Options page, which
+    # is shown as it was last written rather than written again on the way.
+    read = _mode_the_page_does_not_open_on()
+    _bpc2_based_at(monkeypatch, 1, read, restore=True)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+
+    assert panel.base_id == 1
+    assert panel.mode is read
+    assert panel.reconfigured_occupant().base_id == 1
+    assert panel.options["restore"] is True
+    assert panel._option_widgets[("bpc2", "restore")].value == 1
+
+
+def test_the_mode_the_operator_picks_is_not_read_over(monkeypatch) -> None:
+    # The radios are how the operator says what the module is to become, which need not be
+    # what it is now: re-addressing a BPC2 from ACC to TR is the very thing the page is for.
+    read, chosen = _mode_the_page_does_not_open_on(), BPC2.default_mode
+    _bpc2_based_at(monkeypatch, 1, read)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(1)
+    assert panel.mode is read
+
+    panel._on_mode_selected(chosen.key)
+    panel._set_base_id(1)  # every refresh of the page runs the seeding again
+
+    assert panel.mode is chosen
+    # And it stands at another address as well: the choice is about the module, not about
+    # the address it is being given.
+    panel._set_base_id(20)
+    panel._set_base_id(1)
+    assert panel.mode is chosen
+
+
+def test_choosing_another_module_reads_the_layout_afresh(monkeypatch) -> None:
+    # A mode picked among one module's rows says nothing about another module's, so picking
+    # a module starts the reading over -- as it does for that module's settings.
+    read = _mode_the_page_does_not_open_on()
+    _bpc2_based_at(monkeypatch, 1, read)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._on_mode_selected(BPC2.default_mode.key)
+
+    panel._on_device_selected("asc2")
+    panel._on_device_selected("bpc2")
+
+    assert panel.mode is read
+
+
+def test_a_module_of_another_type_at_the_address_leaves_the_radios_alone(monkeypatch) -> None:
+    # An STM2 based at SW 1 says nothing about how a BPC2 should be addressed, and its own
+    # mode is not one of the BPC2's rows in any case.
+    two_wire = STM2.mode("two_wire")
+    _with_pdi_store(
+        monkeypatch,
+        {PdiDevice.STM2: [FakePdiConfig(1, two_wire.scope, mode=two_wire.pdi_mode)]},
+    )
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(1)
+
+    assert panel.mode is BPC2.default_mode
+
+
+def test_an_id_inside_the_block_is_not_the_module_and_leaves_the_radios_alone(monkeypatch) -> None:
+    # A module the ID merely falls inside is based somewhere else, so its mode is not read
+    # there. The panel offers to go to that base, and going there is where it is read.
+    _bpc2_based_at(monkeypatch, 12, _mode_the_page_does_not_open_on())
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(15)
+
+    assert panel._based_here(None) is None
+    assert panel.mode is BPC2.default_mode
+
+
+def test_a_mode_read_off_a_module_stays_put_at_an_address_nothing_answers_to(monkeypatch) -> None:
+    # Unlike a setting, which is given back its default there. The radios always show one row
+    # or another, so what is shown at an address nothing is known about is a guess either way,
+    # and the last thing the layout said is a better guess than the factory default. Flipping
+    # them back under the operator's hand as they step the ID would also swing the key the two
+    # module boxes search, emptying them mid-step. See _seed_options_from_layout.
+    read = _mode_the_page_does_not_open_on()
+    _bpc2_based_at(monkeypatch, 1, read, restore=True)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(1)
+    assert (panel.mode, panel.options["restore"]) == (read, True)
+
+    panel._set_base_id(20)
+
+    assert _assigned(panel) == [mod.UNASSIGNED]
+    assert panel.mode is read
+    assert panel.options["restore"] is BPC2.option("restore").default
+
+
+def test_a_module_running_in_a_mode_the_manual_reserves_leaves_the_radios_alone(monkeypatch) -> None:
+    # A reserved mode is on no radio row, so there is nothing to select; the module is left
+    # to the row it can be reprogrammed as. See LcsMode.enabled.
+    reserved = next(mode for mode in BPC2.modes if not mode.enabled)
+    _bpc2_based_at(monkeypatch, 1, reserved)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(1)
+
+    assert panel._based_here(None).mode is reserved
+    assert panel.mode is BPC2.default_mode
+
+
+def test_the_mode_is_read_again_once_the_base_has_reported(monkeypatch) -> None:
+    # The panel can be opened while the store is still filling; what it read off an empty
+    # layout was nothing, so synchronization is where the module's mode is finally read.
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(1)
+    assert panel.mode is BPC2.default_mode
+
+    read = _mode_the_page_does_not_open_on()
+    _bpc2_based_at(monkeypatch, 1, read)
+    panel.on_synchronized()
+
+    assert panel.mode is read
+
+
+#
+# What the module already at the address is set to
+#
+def _bpc2_at_12_holding(monkeypatch, restore: bool) -> None:
+    """A BPC2 based at 12, running with restore on or off, as the PDI bus reported it.
+
+    In the mode the panel opens a BPC2 on, so what these tests read is the flag alone and
+    never the mode being read with it; that is the section above.
+    """
+    _bpc2_based_at(monkeypatch, 12, BPC2.default_mode, restore)
+
+
+@pytest.mark.parametrize("restore", [True, False])
+def test_the_restore_box_shows_what_the_bpc2_at_the_address_is_holding(monkeypatch, restore: bool) -> None:
+    # No component state at all here, and none is needed: the flag is a bit of the mode byte
+    # in the module's own CONFIG packet, and the PDI store is the only place it is recorded.
+    _bpc2_at_12_holding(monkeypatch, restore)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(12)
+
+    assert panel.reconfigured_occupant().base_id == 12
+    assert panel.options["restore"] is restore
+    assert panel._option_widgets[("bpc2", "restore")].value == (1 if restore else 0)
+    # And the presses follow it, so leaving the box alone reprograms the module as it stands:
+    # the press the registry gates on the flag is there when it is set and not when it is not.
+    gated = next(press for press in BPC2.default_mode.presses if press.include_if == "restore")
+    assert any(gated.label in line for line in panel.review_lines) is restore
+
+
+def test_only_the_module_at_the_address_is_read_and_only_on_the_key_being_programmed(monkeypatch) -> None:
+    # The module in hand is the one based at the entered ID on the key being programmed.
+    # A BPC2 based at 12 says nothing about the same address on its other remote key, which
+    # is a different address on a different module, and nothing about 15, which is inside
+    # its block but not its base -- the panel offers to go to the base for that.
+    opened, other = BPC2.default_mode, _mode_the_page_does_not_open_on()
+    _bpc2_at_12_holding(monkeypatch, True)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")  # the same mode the module is in
+    panel._set_base_id(15)
+
+    assert _assigned(panel) == [_row(opened.scope, BPC2.label, 12, opened.ports)]
+    assert panel.reconfigured_occupant() is None
+    assert panel.options["restore"] is BPC2.option("restore").default
+
+    panel._on_mode_selected(other.key)
+    panel._set_base_id(12)
+
+    assert panel.scope is other.scope
+    assert panel.reconfigured_occupant() is None
+    assert panel.options["restore"] is BPC2.option("restore").default
+
+
+def test_a_setting_read_off_one_module_is_not_carried_to_an_empty_address(monkeypatch) -> None:
+    # It was a fact about the module it was read from. Carried along, it would be programmed
+    # into a module the operator never said it about.
+    _bpc2_at_12_holding(monkeypatch, True)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(12)
+    assert panel.options["restore"] is True
+
+    panel._set_base_id(30)
+
+    assert _assigned(panel) == [mod.UNASSIGNED]
+    assert panel.options["restore"] is BPC2.option("restore").default is False
+    # And reading the module again is all it takes to have it back.
+    panel._set_base_id(12)
+    assert panel.options["restore"] is True
+
+
+def test_what_the_operator_sets_is_not_read_over_while_the_panel_stays_on_the_address(monkeypatch) -> None:
+    # The box is the setting about to be programmed as well as a report of the one in force,
+    # so a tick made against the address in hand stands until the panel is aimed elsewhere.
+    _bpc2_at_12_holding(monkeypatch, True)
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(12)
+
+    panel._option_widgets[("bpc2", "restore")].value = 0
+    panel._on_option_changed("bpc2", "restore")
+    panel._set_base_id(12)  # every refresh of the page runs the seeding again
+
+    assert panel.options["restore"] is False
+    # A choice of the operator's own at an address nothing answers to is theirs to keep too:
+    # nothing was read there, so there is nothing to give back.
+    panel._set_base_id(30)
+    panel._option_widgets[("bpc2", "restore")].value = 1
+    panel._on_option_changed("bpc2", "restore")
+    panel._set_base_id(31)
+
+    assert panel.options["restore"] is True
+
+
+def test_the_module_is_read_again_once_the_base_has_reported(monkeypatch) -> None:
+    # The panel can be opened while the store is still filling; what it read off an empty
+    # layout was nothing, so synchronization is where the module is finally read.
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._set_base_id(12)
+    assert panel.options["restore"] is False
+
+    _bpc2_at_12_holding(monkeypatch, True)
+    panel.on_synchronized()
+
+    assert panel.options["restore"] is True
+
+
+def test_a_module_of_another_type_at_the_address_is_not_read_for_its_settings(monkeypatch) -> None:
+    # Read by the option's key, an AMC2's record could answer for a name a BPC2's option
+    # happens to share -- so only the module of the type being programmed is read at all.
+    _with_pdi_store(
+        monkeypatch,
+        {PdiDevice.AMC2: [FakePdiConfig(12, CommandScope.ACC, restore=True)]},
+    )
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+    panel._on_mode_selected("acc_8")
+    panel._set_base_id(12)
+
+    assert _assigned(panel) == [_row(CommandScope.ACC, AMC2.label, 12)]
+    assert panel.reconfigured_occupant() is None
+    assert panel.options["restore"] is False
+
+
+def test_a_key_that_means_something_else_on_the_record_is_not_taken_as_an_answer() -> None:
+    # Every PDI request carries an action, and the Sensor Track's Action Command option is a
+    # sequence rather than one of those -- so a record is read for an option only where it
+    # holds something the option could be set to.
+    action = SENSOR_TRACK.option("action")
+    restore = BPC2.option("restore")
+
+    assert mod.LcsConfigPanel._can_hold(action, IrdaSequence.CROSSING_GATE_NONE) is True
+    assert mod.LcsConfigPanel._can_hold(action, IrdaAction.CONFIG) is False
+    assert mod.LcsConfigPanel._can_hold(restore, True) is True
+    assert mod.LcsConfigPanel._can_hold(restore, IrdaAction.CONFIG) is False
+    # Which is what a record answering to the key with something else gets: passed over.
+    record = SimpleNamespace(action=IrdaAction.CONFIG, restore=Bpc2Action.CONFIG)
+    assert mod.LcsConfigPanel._reported_option(action, record) is None
+    assert mod.LcsConfigPanel._default_options(SENSOR_TRACK, record)["action"] == action.default
+    assert mod.LcsConfigPanel._default_options(BPC2, record)["restore"] == restore.default
+
+
+#
 # The two reports are colored as the warning they are
 #
 def test_a_module_already_at_the_id_is_reported_in_dark_red() -> None:
@@ -2689,12 +3089,12 @@ def test_no_device_means_neither_line_says_anything() -> None:
 @pytest.mark.parametrize(
     "device_key, expected",
     [
-        # In the order the module's own radios list them, so a BPC2 reads TR before ACC and
+        # In the order the module's own radios list them, so a BPC2 reads ACC before TR and
         # an STM2 says nothing about accessories. Looked up as the panel looks them up --
         # under the module as well as the key -- so the BPC2 is expected to read its own
-        # wording of TR and ACC rather than the line every other module reads.
+        # wording of ACC and TR rather than the line every other module reads.
         ("asc2", [mod.scope_use(CommandScope.ACC, ASC2), mod.scope_use(CommandScope.SWITCH, ASC2)]),
-        ("bpc2", [mod.scope_use(CommandScope.TRAIN, BPC2), mod.scope_use(CommandScope.ACC, BPC2)]),
+        ("bpc2", [mod.scope_use(CommandScope.ACC, BPC2), mod.scope_use(CommandScope.TRAIN, BPC2)]),
         ("stm2", [mod.scope_use(CommandScope.SWITCH, STM2)]),
         ("sensor_track", [mod.scope_use(CommandScope.ACC, SENSOR_TRACK)]),
     ],
@@ -2778,10 +3178,10 @@ def test_the_bpc2s_two_keys_are_two_ways_of_addressing_it_rather_than_two_uses()
     panel._on_device_selected("bpc2")
 
     assert panel.mode_legend.split("\n") == [
-        mod.SCOPE_USE[(CommandScope.TRAIN, BPC2.key)],
         mod.SCOPE_USE[(CommandScope.ACC, BPC2.key)],
+        mod.SCOPE_USE[(CommandScope.TRAIN, BPC2.key)],
     ]
-    for scope in (CommandScope.TRAIN, CommandScope.ACC):
+    for scope in (CommandScope.ACC, CommandScope.TRAIN):
         key = mod.SCOPE_LABEL[scope]
         line = mod.scope_use(scope, BPC2)
         # Its own wording, and the general line nowhere on the page.
@@ -2907,8 +3307,8 @@ def test_a_mode_with_nothing_written_about_it_adds_no_line() -> None:
     # The legend is not hidden with it: a module with modes always has keys to name.
     assert panel._mode_legend_line.visible is True
     assert panel.mode_legend.split("\n") == [
-        mod.scope_use(CommandScope.TRAIN, BPC2),
         mod.scope_use(CommandScope.ACC, BPC2),
+        mod.scope_use(CommandScope.TRAIN, BPC2),
     ]
 
 
@@ -2943,12 +3343,12 @@ def test_the_rows_of_one_key_are_held_off_the_rows_of_the_next() -> None:
 
 def test_the_gap_falls_wherever_the_key_changes() -> None:
     # Read off the modes rather than spelled out, so a module is grouped by the order the
-    # registry lists it in: the BPC2 reads TR and then ACC, and its disabled 1-ID modes --
-    # which stand between the two on the list -- are not rows and so break nothing.
+    # registry lists it in: the BPC2 reads ACC and then TR, and its disabled 1-ID modes --
+    # one of which stands between the two on the list -- are not rows and so break nothing.
     panel = _new_panel()
     panel._on_device_selected("bpc2")
 
-    assert panel.mode_leads() == {"acc_8": mod.MODE_KEY_LEAD}
+    assert panel.mode_leads() == {"tr_8": mod.MODE_KEY_LEAD}
 
 
 @pytest.mark.parametrize("device_key", ["stm2", "sensor_track"])
