@@ -8,6 +8,7 @@ import pytest
 
 import src.pytrain.gui.controller.lcs_config_panel as mod
 import src.pytrain.gui.controller.lcs_device_registry as reg
+from src.pytrain.gui.components.checkbox_group import CheckBoxGroup as RealCheckBoxGroup
 from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsOption
 from src.pytrain.pdi.bpc2_req import Bpc2Action
 from src.pytrain.pdi.irda_req import IrdaAction, IrdaSequence
@@ -169,6 +170,22 @@ class DummyCheckBoxGroup(_DummyWidget):
         """
         widget.decoration = dict(size=size, width=width, **kwargs)
 
+    # What a row spends before its text is arithmetic, and it is the component's arithmetic:
+    # taken from the real class so a test cannot come to answer it differently than the panel
+    # will be answered on a screen.
+    row_chrome_for = RealCheckBoxGroup.row_chrome_for
+
+    @staticmethod
+    def fit_row_size(master: Any, texts: Any, width: int, ceiling: int, floor: int = None, style: str = "radio") -> int:
+        """The size the caller asked for, which is what the real one answers unmeasured.
+
+        Fitting a size means measuring a font on the screen the rows are drawn on, and there
+        is no screen here. The real component answers with the ceiling wherever it cannot
+        measure -- see CheckBoxGroup.fit_row_size -- so these tests see the size the panel
+        asks for, and what it asks for is the thing they are about.
+        """
+        return ceiling
+
     def clear(self) -> None:
         self.options = []
         # A rebuild destroys the rows the tint was armed over, and clearing empties the list
@@ -181,6 +198,67 @@ class DummyCheckBoxGroup(_DummyWidget):
         if not isinstance(option, list) or len(option) != 2:
             raise TypeError(f"append() expects a [text, value] list, got {option!r}")
         self.options.append(tuple(option))
+
+    @property
+    def cursor_row(self) -> Any:
+        """The row the tint is on, which is what a caller brings into view.
+
+        A stand-in for it, since these rows are not drawn: the value itself, which is enough
+        to say *which* row the window was asked to show.
+        """
+        return self._cursor
+
+
+class DummyScrollBox:
+    """The window the pages are drawn in, without a screen to measure.
+
+    Records what the panel asked of it -- the budgets it was fitted to, the page turns that
+    sent it back to the top, the rows it was told to bring into view -- and hands out an
+    ordinary DummyBox as the container the pages are built into, so every existing test that
+    walks the pages' children still finds what it did before.
+    """
+
+    def __init__(self, master: Any, *, width: int, align: str = "top") -> None:
+        self.width = width
+        self.align = align
+        self.viewport = DummyBox(master)
+        self.content = DummyBox(self.viewport)
+        self.fits: list[int | None] = []
+        self.shown: list[Any] = []
+        self.bindings = 0
+        self.on_resize: Any = None
+        self.watching: list[Any] = []
+        self.view_px = 0
+        self.offset = 0
+        self.scrollable = False
+        # In the order they were asked for, since some of the rules are about the order: a
+        # window scrolled before it is re-fitted is a window that may then be looking below
+        # the end of a shorter page.
+        self.calls: list[str] = []
+
+    @property
+    def resets(self) -> int:
+        return self.calls.count("reset")
+
+    def fit(self, budget: int | None = None) -> int:
+        self.fits.append(budget)
+        self.calls.append("fit")
+        return self.view_px
+
+    def reset(self) -> bool:
+        self.calls.append("reset")
+        return False
+
+    def show_widget(self, widget: Any) -> bool:
+        self.shown.append(widget)
+        return self.scrollable
+
+    def bind_scrolling(self) -> None:
+        self.bindings += 1
+
+    def on_content_resized(self, refit: Any, *also: Any) -> None:
+        self.on_resize = refit
+        self.watching = list(also)
 
 
 #
@@ -379,6 +457,7 @@ def _patch_widgets(monkeypatch):
     monkeypatch.setattr(mod, "EditableText", DummyEditableText, raising=True)
     monkeypatch.setattr(mod, "CheckBoxGroup", DummyCheckBoxGroup, raising=True)
     monkeypatch.setattr(mod, "CheckBox", DummyCheckBox, raising=True)
+    monkeypatch.setattr(mod, "ScrollBox", DummyScrollBox, raising=True)
     monkeypatch.setattr(mod, "StateWatcher", lambda _state, _action: None, raising=True)
     monkeypatch.setattr(mod, "style_footer_button", lambda _host, _btn: None, raising=True)
     # Pinned so the ID field's editor does not depend on the machine running the tests;
@@ -1297,13 +1376,16 @@ def test_every_line_of_prose_the_panel_draws_is_wrapped_to_the_popups_width() ->
 
 def test_a_checkbox_label_is_wrapped_from_the_left_beside_its_indicator() -> None:
     # Not centered like the prose: the label is set beside the indicator, so a second line
-    # belongs under the first rather than under the middle of the box.
+    # belongs under the first rather than under the middle of the box. And broken at what is
+    # left of the row *after* that indicator, which the prose wrap knows nothing about: at
+    # the pane's own wrap this one row came to 554px of the Pi's 480px pane.
     panel = _new_panel()
+    host = panel.gui
 
     restore = panel._option_widgets[("bpc2", "restore")]
 
-    assert restore.tk.configured["wraplength"] == panel._wrap_px
-    assert restore.tk.configured["justify"] == "left"
+    assert restore.decoration["wrap"] == panel._row_wrap_px(host.s_18)
+    assert restore.decoration["wrap"] < panel._wrap_px
 
 
 def test_an_options_own_note_is_wrapped_and_read_at_the_body_size() -> None:
@@ -1866,9 +1948,11 @@ def test_every_showing_box_is_stretched_across_that_column_and_spaced_from_the_n
     # reading as one ruled block. Padding rather than a spacer widget only because this
     # method is re-run after every refresh; see its docstring.
     stretched_and_spaced = {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
-    assert panel._assigned_box.tk.grid_options == stretched_and_spaced
-    assert panel._overlap_box.tk.grid_options == stretched_and_spaced
     assert panel._mode_box.tk.grid_options == stretched_and_spaced
+    assert panel._assigned_box.tk.grid_options == stretched_and_spaced
+    # Bar the last one showing, which has no next box to be held off: under it is the page's
+    # own gap and then the choice buttons, and the two stacked read as a hole in the page.
+    assert panel._overlap_box.tk.grid_options == {"sticky": "ew", "pady": (0, 0)}
 
 
 @pytest.mark.parametrize("compact, gap", [(False, mod.BOX_GAP), (True, mod.BOX_GAP_COMPACT)])
@@ -1877,11 +1961,13 @@ def test_the_gap_between_the_boxes_is_tighter_on_a_compact_host(compact: bool, g
     host.compact = compact
     panel = mod.LcsConfigPanel(host)
     panel.build(DummyBox())
+    # A module with modes, so the assigned box has one showing below it to be held off.
+    panel._on_device_selected("asc2")
     _record_titled_boxes(panel)
 
     panel._lay_out_titled_boxes()
 
-    assert panel._assigned_box.tk.grid_options["pady"] == (0, gap)
+    assert panel._mode_box.tk.grid_options["pady"] == (0, gap)
 
 
 def test_a_hidden_box_is_not_stretched_back_onto_the_screen() -> None:
@@ -1895,7 +1981,8 @@ def test_a_hidden_box_is_not_stretched_back_onto_the_screen() -> None:
 
     panel._lay_out_titled_boxes()
 
-    assert panel._assigned_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
+    # The only box showing, so it is also the last: nothing below it to be held off.
+    assert panel._assigned_box.tk.grid_options == {"sticky": "ew", "pady": (0, 0)}
     assert panel._overlap_box.tk.grid_options == {}
     assert panel._mode_box.tk.grid_options == {}
 
@@ -1911,8 +1998,8 @@ def test_the_stretch_is_re_applied_on_every_id_page_refresh() -> None:
     panel._refresh_id_page()
 
     assert panel._titled_boxes.tk.columns == {0: {"weight": 1, "minsize": panel._titled_box_px}}
-    assert panel._assigned_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
     assert panel._mode_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
+    assert panel._assigned_box.tk.grid_options == {"sticky": "ew", "pady": (0, 0)}
 
 
 def test_the_boxes_are_drawn_no_narrower_than_the_page_they_stand_on() -> None:
@@ -1995,7 +2082,9 @@ def test_the_body_spacer_comes_before_the_sync_line_and_the_pages() -> None:
 
     assert getattr(body.children[0], "vspace", None) == mod.SECTION_GAP
     assert body.children[1] is panel._sync_line
-    assert body.children[2] is panel._pages[mod.PAGE_DEVICE]
+    # The pages are inside the window, and the window is what the body holds in their place.
+    assert body.children[2] is panel.scroll.viewport
+    assert panel._pages[mod.PAGE_DEVICE] in panel.scroll.content.children
 
 
 def test_the_device_page_spacer_sits_between_the_prompt_and_the_group() -> None:
@@ -2015,10 +2104,14 @@ def test_the_id_pages_sections_are_held_apart() -> None:
 
     assert page.children[0] is panel._id_heading
     assert page.children[1].kwargs["layout"] == "grid"  # the - 8 + row
-    assert getattr(page.children[2], "vspace", None) == mod.PAGE_GAP
+    # Held apart, but tighter than the panel's other pages: this one carries more than any
+    # of them, and what stands either side of these two gaps -- a box drawn like a text
+    # field, a titled frame, a row of buttons -- says where one section ends without help.
+    assert getattr(page.children[2], "vspace", None) == mod.ID_PAGE_GAP
+    assert mod.ID_PAGE_GAP < mod.PAGE_GAP
     assert page.children[3] is panel._titled_boxes
     # One gap below the boxes, where there were two with the block line between them.
-    assert getattr(page.children[4], "vspace", None) == mod.PAGE_GAP
+    assert getattr(page.children[4], "vspace", None) == mod.ID_PAGE_GAP
     # The choice buttons' row, and nothing after it: the page ends where the boxes' gap
     # leaves off, rather than with a line and a second gap between the two.
     assert panel._goto_btn in page.children[5].children
@@ -2027,26 +2120,31 @@ def test_the_id_pages_sections_are_held_apart() -> None:
 
 
 @pytest.mark.parametrize(
-    "compact, section, page, prose",
+    "compact, section, page, id_page, prose",
     [
-        (False, mod.SECTION_GAP, mod.PAGE_GAP, mod.MODE_PROSE_GAP),
-        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT, mod.MODE_PROSE_GAP_COMPACT),
+        (False, mod.SECTION_GAP, mod.PAGE_GAP, mod.ID_PAGE_GAP, mod.MODE_PROSE_GAP),
+        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT, mod.ID_PAGE_GAP_COMPACT, mod.MODE_PROSE_GAP_COMPACT),
     ],
 )
-def test_the_gaps_are_tighter_on_a_compact_host(compact: bool, section: int, page: int, prose: int) -> None:
+def test_the_gaps_are_tighter_on_a_compact_host(
+    compact: bool, section: int, page: int, id_page: int, prose: int
+) -> None:
     _panel, _body, host = _build_with_body(compact=compact)
 
     assert [pixels for _parent, pixels in host.vspaces] == [
         section,
         section,
-        page,
+        id_page,
         prose,
         prose,
-        page,
+        id_page,
         section,
         page,
         page,
     ]
+    # Both halves of the same rule: a compact host takes less of everything, and the ID
+    # page takes less than the pages that have room to spare.
+    assert id_page < page
 
 
 #
@@ -4166,3 +4264,233 @@ def test_the_pad_keys_ask_the_same_questions_the_nav_buttons_do() -> None:
 
     panel.set_sync_pending(True)
     assert (panel.can_configure, panel._configure_btn.enabled) == (False, False)
+
+
+#
+# Nothing runs off the screen
+#
+# The panel is drawn on a 480x800 pane at a font scale of 1.5 on the Pi and on a 640x800 pane
+# at 0.9 on the Deck, and what it has to say is the registry's rather than its own -- a
+# module's name, a mode's block of addresses, a sentence about what a setting does. Two rules
+# hold it inside those panes: everything it writes is broken at the pane's width, and the
+# pages are drawn in a window that keeps the buttons below them on the screen at any height.
+#
+# The second is the one worth stating plainly. Tk allots space in creation order, so a page
+# too tall for the pane does not overflow it evenly -- it costs whatever was packed last, and
+# what is packed last here is Back, Next and the Close that is the only way off the panel on
+# an appliance.
+#
+def _every_widget(box: Any) -> list[Any]:
+    """Every widget in box, however deep, box itself excepted."""
+    found: list[Any] = []
+    for child in getattr(box, "children", []):
+        found.append(child)
+        found.extend(_every_widget(child))
+    return found
+
+
+def _panel_widgets(panel: Any) -> list[Any]:
+    """Everything the panel has drawn.
+
+    The body holds it all: the window is packed into it, and the pages are inside the
+    window, so walking the body reaches them without reaching them twice.
+    """
+    return _every_widget(panel._body)
+
+
+def test_the_pages_are_drawn_in_a_window_and_the_buttons_below_it() -> None:
+    # The whole point of the window: a page taller than the pane is scrolled inside it
+    # instead of pushing what is under it off the screen, and what is under it is the row
+    # that closes the panel. So the pages go in and nothing else does.
+    panel, body, _host = _build_with_body()
+
+    assert [page in panel.scroll.content.children for page in panel._pages] == [True] * 4
+    assert body.children[2] is panel.scroll.viewport
+    nav = body.children[-1]
+    assert panel._back_btn in nav.children and panel._next_btn in nav.children
+    assert body.children.index(panel.scroll.viewport) < body.children.index(nav)
+    # As wide as the pane, so the window takes nothing off the page's own width.
+    assert panel.scroll.width == panel._scroll_px == panel._pane_px
+
+
+def test_a_page_is_come_to_at_its_top_and_the_window_re_fitted_for_it() -> None:
+    # A page turned is a page begun, whatever the one before it was scrolled to. Re-fitted
+    # after, not before: the fit is what clamps the offset to the new page, so a window
+    # scrolled first could be left looking below the end of a shorter one.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    scroll = panel.scroll
+    scroll.calls.clear()
+
+    panel.next_page()
+
+    assert scroll.calls == ["reset", "fit"]
+
+
+def test_the_window_is_given_the_room_the_popup_leaves_it() -> None:
+    # Measured rather than derived: what the panel draws above and below the window has
+    # changed more than once, and a page rebuilt for another module changes the total again.
+    # With nothing on screen to measure there is no budget to give, and a window sized off a
+    # measurement Tk has not made would be a window of some arbitrary height.
+    panel = _new_panel()
+
+    assert panel._scroll_budget() is None
+    assert panel.scroll.fits and set(panel.scroll.fits) == {None}
+
+
+def test_the_window_asks_again_whenever_what_is_in_it_changes_size() -> None:
+    # A page is not done growing when it is built -- a titled box shown for the module
+    # chosen, a note arriving with the read-back -- and it is not done being laid out until
+    # the popup is on screen, which is what watching the body is for: before that every
+    # measurement of it reads 1.
+    panel, body, _host = _build_with_body()
+
+    assert panel.scroll.on_resize == panel._fit_scroll
+    assert panel.scroll.watching == [body]
+    assert panel.scroll.bindings >= 1, "and every row in it can be dragged"
+
+
+def test_every_line_the_panel_writes_is_broken_at_the_pane() -> None:
+    # Tk truncates nothing: a label wider than the popup is centered in it and loses its
+    # beginning and its end at once. Asserted over every line rather than the ones that were
+    # found overflowing, because what these lines say comes from the registry and from the
+    # layout, and neither is bounded by anything that knows how wide the screen is.
+    panel = _new_panel()
+
+    lines = [w for w in _panel_widgets(panel) if isinstance(w, DummyText)]
+
+    assert len(lines) > 10, "the pages' own prose, their headings and the boxes' cells"
+    assert [line.tk.configured.get("wraplength") for line in lines] == [panel._wrap_px] * len(lines)
+
+
+def test_every_row_the_panel_draws_is_broken_inside_the_pane() -> None:
+    # And the rows likewise, at the narrower width a row has: the indicator and the padding
+    # around it come off the front of every one of them. Cut instead, what a mode row loses
+    # is the block of TMCC IDs at the end of it -- the one fact the row is chosen for.
+    panel = _new_panel()
+
+    groups = [w for w in _panel_widgets(panel) if isinstance(w, DummyCheckBoxGroup)]
+
+    assert len(groups) == 3, "the modules, the modes, and the Sensor Track's actions"
+    for group in groups:
+        wrap = group.kwargs["wrap"]
+        assert wrap == panel._row_wrap_px(group.kwargs["size"])
+        assert wrap < panel._wrap_px, "a row has less room for words than a line of prose"
+
+
+def test_a_row_is_left_the_pane_less_what_it_spends_before_its_text() -> None:
+    # The component's own arithmetic, asked rather than repeated here: the indicator grows
+    # with the font and the rest of it does not, so a bigger row is not merely a taller one.
+    panel = _new_panel()
+    host = panel.gui
+
+    for size in (host.s_12, host.s_18):
+        assert panel._row_wrap_px(size) == panel._titled_box_px - RealCheckBoxGroup.row_chrome_for(size, "radio")
+    assert panel._row_wrap_px(host.s_18) < panel._row_wrap_px(host.s_12)
+
+
+def test_a_row_keeps_a_floor_of_room_on_a_host_that_has_measured_nothing() -> None:
+    # A pane of no width is a pane that has not been drawn yet, and a wrap of nothing would
+    # break every row after its first word.
+    host = _new_host()
+    host.width = 0
+    host.emergency_box_width = 0
+    panel = mod.LcsConfigPanel(host)
+    panel.build(DummyBox())
+
+    assert panel._row_wrap_px(host.s_18) == mod.MIN_WRAP_PX
+
+
+def test_the_mode_rows_are_sized_against_every_row_they_can_show(monkeypatch) -> None:
+    # The list is rebuilt whenever the module or the address changes, so a size fitted to
+    # the module in hand would redraw it larger or smaller under the operator's eyes. Fitted
+    # once, to everything it could ever hold, and settled: it is an answer about the screen.
+    asked: list[dict[str, Any]] = []
+
+    def _spy(master: Any, texts: Any, width: int, ceiling: int, floor: int = None, style: str = "radio") -> int:
+        asked.append(dict(texts=list(texts), width=width, ceiling=ceiling, floor=floor))
+        return ceiling
+
+    monkeypatch.setattr(DummyCheckBoxGroup, "fit_row_size", staticmethod(_spy), raising=True)
+    panel = _new_panel()
+    host = panel.gui
+
+    modes = next(call for call in asked if call["texts"] == mod.every_mode_label())
+    assert (modes["ceiling"], modes["floor"]) == (host.s_18, host.s_12)
+    assert modes["width"] == panel._titled_box_px
+    assert panel._mode_group.kwargs["size"] == host.s_18, "the size asked for, where it fits"
+
+    before = len(asked)
+    assert panel._mode_row_size == panel._mode_row_size
+    assert len(asked) == before, "settled once and kept"
+
+
+def test_every_mode_label_is_a_row_a_module_can_show_at_its_widest() -> None:
+    # What the fit is measured against, and it has to be the whole of it: a mode left out is
+    # a row that can still come to be drawn wider than the screen. At each mode's highest
+    # base, where its block carries two-digit addresses at both ends.
+    labels = mod.every_mode_label()
+
+    expected = [
+        mode.ids_label(mode.max_base) for device in reg.configurable_devices() for mode in device.modes if mode.enabled
+    ]
+    assert labels == expected
+    assert any("98" in label for label in labels), "the widest block a mode can claim"
+
+
+def test_the_pad_brings_the_row_it_steps_onto_into_view() -> None:
+    # A list can be longer than the window it is drawn in, and a highlight stepped below the
+    # fold would leave the pad pointing at something the operator cannot see.
+    panel = _new_panel()
+    panel._on_device_selected(SENSOR_TRACK.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+    scroll = panel.scroll
+    scroll.shown.clear()
+
+    assert panel.pad_step(1) is True
+
+    assert scroll.shown == [panel.pad_cursor], "the row the tint is on, and not another"
+
+
+def test_a_step_that_moves_nothing_scrolls_nothing() -> None:
+    # The pad held against the end of a list stays there, and a window that jumped anyway
+    # would be the one thing on the page still moving.
+    panel = _new_panel()
+    scroll = panel.scroll
+    panel.pad_step(1)
+    scroll.shown.clear()
+
+    assert panel.pad_step(-1) is False
+
+    assert scroll.shown == []
+
+
+@pytest.mark.parametrize(
+    "linux, deck, cramped",
+    [(True, False, True), (True, True, False), (False, False, False)],
+)
+def test_the_pi_is_the_pane_with_nothing_to_spare(monkeypatch, linux: bool, deck: bool, cramped: bool) -> None:
+    # The Pi alone: two thirds of the Deck's width at a third again its text size. is_linux
+    # by itself would take the Deck in with it, and the Deck has the room.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: deck, raising=True)
+
+    assert mod.cramped_pane() is cramped
+
+    panel = _new_panel()
+    host = panel.gui
+    assert panel._titled_text_size == (host.s_12 if cramped else host.s_14)
+
+
+def test_the_titled_boxes_and_their_rows_read_at_one_size(monkeypatch) -> None:
+    # Three headings and, under two of them, what the layout already has at the address:
+    # read rather than aimed at, so they are the first thing to give where the pane is tight.
+    # One size for the lot -- a box whose title and rows disagreed would read as two things.
+    monkeypatch.setattr(mod, "is_linux", lambda: True, raising=True)
+    panel = _new_panel()
+    panel._set_base_id(1)
+    size = panel._titled_text_size
+
+    assert size < panel.gui.s_14
+    assert [box.text_size for box in (panel._mode_box, panel._assigned_box, panel._overlap_box)] == [size] * 3
+    assert [cell.text_size for cell in panel._assigned_cells[0]] == [size] * mod.ROW_COLUMNS

@@ -58,6 +58,7 @@ from .popup_manager import (
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
+from ..components.scroll_box import ScrollBox
 from ...db.state_watcher import StateWatcher
 from ...protocol.constants import CommandScope
 from ...utils.host_info import is_linux, is_steam_deck
@@ -178,6 +179,19 @@ SECTION_GAP_COMPACT = 6
 PAGE_GAP = 16
 PAGE_GAP_COMPACT = 8
 
+# And what the two gaps on the ID page itself are worth -- the one under the address and the
+# one under the last titled box. Half of PAGE_GAP, because that page is the fullest in the
+# panel by a long way and those two were the widest whitespace on it, while being the two
+# least needed: what stands either side of them says where one section ends and the next
+# begins without any help. Under the address there is a box drawn like a text field above and
+# a titled frame below; under the last box there is that frame's own edge above and a row of
+# buttons below.
+#
+# Worth 24px of the Pi's tallest page between them, which is 24px of it the window does not
+# have to hold back; see _fit_scroll for what happens to the rest.
+ID_PAGE_GAP = 8
+ID_PAGE_GAP_COMPACT = 4
+
 # Whitespace between the Currently Assigned, Overlaps and Mode boxes, in pixels. Grid
 # padding rather than a spacer widget, which is safe here for the one reason it is not
 # safe elsewhere: _lay_out_titled_boxes already has to re-apply these boxes' grid options
@@ -291,6 +305,7 @@ MIN_WRAP_PX = 240
 # rather than a fixed width -- a box whose contents ask for more still gets more; see
 # _lay_out_titled_boxes.
 TITLED_BOX_INSET = 12
+
 
 # Presses are staggered so the base sees them as separate gestures, and the read-back
 # GETs are held off until the module has had a moment to act on the last of them.
@@ -430,6 +445,34 @@ def needs_close_button() -> bool:
     return is_linux()
 
 
+def every_mode_label() -> list[str]:
+    """Every row the Mode list can ever show, each at the widest block it can claim.
+
+    What the mode rows are sized against: the list is rebuilt whenever the module or the
+    address changes, so sizing it to the module in hand would redraw it a size larger or
+    smaller under the operator's eyes. At each mode's highest base, since that is where its
+    label carries two two-digit addresses -- "91 - 98" against "1 - 8". See
+    LcsConfigPanel._mode_row_size.
+    """
+    return [mode.ids_label(mode.max_base) for device in configurable_devices() for mode in enabled_modes(device)]
+
+
+def cramped_pane() -> bool:
+    """True on the Pi, the one screen the panel is drawn on that has no room to spare.
+
+    480px wide and 800 tall at a font scale of 1.5, which is 33 percent larger text than the
+    desk draws in two thirds of the width the Deck has -- the panel's fullest page asks for
+    703px there against 408 on a Deck pane. What it decides is how large the titled boxes'
+    own text is set: a size down on this screen, the page's body size everywhere else.
+
+    is_linux() alone would take the Deck in with it, and the Deck has the room; hence the
+    same pair pad_driven() is told apart by, read the other way round. A desk *window* sized
+    and scaled like a Pi therefore keeps the larger text -- it can be resized, and what it
+    cannot show it scrolls.
+    """
+    return is_linux() and not is_steam_deck()
+
+
 def pad_driven() -> bool:
     """True where the panel is worked with a gamepad: the Steam Deck alone.
 
@@ -487,6 +530,12 @@ class LcsConfigPanel(OverlayPanel):
 
         self._pages: list[Box] = []
         self._body: Box | None = None
+        # The size the mode rows came out at once the screen was measured; see _mode_row_size.
+        self._mode_size: int | None = None
+        # The window the pages are seen through. Everything below it -- Back, Next, and the
+        # Close the popup adds under them -- stays where it is however tall a page becomes;
+        # see build and _fit_scroll.
+        self._scroll: ScrollBox | None = None
         self._device_group: CheckBoxGroup | None = None
         self._titled_boxes: Box | None = None
         self._mode_box: TitleBox | None = None
@@ -662,6 +711,10 @@ class LcsConfigPanel(OverlayPanel):
         return PAGE_GAP_COMPACT if self.compact else PAGE_GAP
 
     @property
+    def _id_page_gap(self) -> int:
+        return ID_PAGE_GAP_COMPACT if self.compact else ID_PAGE_GAP
+
+    @property
     def _box_gap(self) -> int:
         return BOX_GAP_COMPACT if self.compact else BOX_GAP
 
@@ -726,6 +779,165 @@ class LcsConfigPanel(OverlayPanel):
         floor = MIN_WRAP_PX + (WRAP_INSET - TITLED_BOX_INSET)
         return max(floor, self._pane_px - TITLED_BOX_INSET)
 
+    @property
+    def _titled_text_size(self) -> int:
+        """The size the titled boxes' own text is drawn at -- their titles and their rows.
+
+        The page's body size, and a size below it where the pane has no room to spare. What
+        these boxes hold is read rather than aimed at: three headings, and under two of them
+        the modules the layout already has at the address. Nothing in them is a touch target
+        bar the mode radios, which keep their own size; see _mode_row_size.
+
+        A size is 3pt of the panel's own scale, which on the Pi is 4px off every line of
+        every box -- and the boxes are three quarters of that machine's tallest page. See
+        cramped_pane.
+        """
+        host = self._gui
+        return host.s_12 if cramped_pane() else host.s_14
+
+    @property
+    def _mode_row_size(self) -> int:
+        """The size a mode radio is drawn at: the largest at which the rows fit the page.
+
+        A step above the page's body wherever there is room for it, because each row carries
+        the block of TMCC IDs it would claim as well as its own name and is the thing being
+        aimed at with a finger. On the Pi there is not: the longest of them, the STM2's
+        single-wire block, asked for 666px of a 480px pane at that size. So the size is
+        fitted to the screen instead of chosen for one and hoped for on the others; see
+        CheckBoxGroup.fit_row_size.
+
+        Fitted to *every* mode in the registry rather than to the module in hand, and to each
+        of them at the widest block it can claim. The list is rebuilt whenever the module or
+        the address changes, and a list that came back a size larger or smaller each time
+        would be a worse thing to read than one drawn a step down throughout.
+
+        Settled once, on the first page that asks: it is an answer about the screen, which
+        does not change under a running panel, and the wrap below is taken from it.
+        """
+        host = self._gui
+        if self._mode_size is None:
+            self._mode_size = CheckBoxGroup.fit_row_size(
+                getattr(host, "app", None),
+                every_mode_label(),
+                self._titled_box_px,
+                ceiling=host.s_18,
+                floor=host.s_12,
+            )
+        return self._mode_size
+
+    def _fit_row_size(self, texts: Sequence[str], ceiling: int) -> int:
+        """The largest size at or below ceiling at which every one of texts fits a row.
+
+        The panel's own way of asking CheckBoxGroup.fit_row_size: measured against the width
+        of the titled boxes, which is the widest anything on a page is drawn, and never taken
+        below the size the page's prose is read at -- past that point a row is better broken
+        onto a second line than shrunk further, which is what _row_wrap_px is for.
+        """
+        host = self._gui
+        return CheckBoxGroup.fit_row_size(
+            getattr(host, "app", None),
+            texts,
+            self._titled_box_px,
+            ceiling=ceiling,
+            floor=host.s_12,
+        )
+
+    def _row_wrap_px(self, size: int) -> int:
+        """Where the label of a radio or tick row is broken, in pixels.
+
+        The page's width less what the row spends before its text -- the painted indicator,
+        the padding either side of the row's contents, the frame it is drawn with; see
+        CheckBoxGroup.row_chrome_for. Taken off the titled boxes' width rather than the
+        pane's, since the mode rows are drawn inside one and the boxes are the widest thing
+        on any page.
+
+        A row is stretched to the width of its container (see CheckBoxGroup.stretch_rows), so
+        this decides nothing about how wide a row *is*; it decides where the words in it
+        break. Without it a long label is cut at the pane's edge and what goes with it is the
+        end of the line -- which on these rows is the address block, the one fact the row is
+        chosen for. With the size fitted to the screen it should never fire on the rows the
+        registry holds today; it is what a longer one would meet.
+        """
+        return max(MIN_WRAP_PX, self._titled_box_px - CheckBoxGroup.row_chrome_for(size, "radio"))
+
+    @property
+    def _scroll_px(self) -> int:
+        """How wide the window the pages are seen through is drawn.
+
+        The pane's own width, which is what the popup is already built to: the title row
+        above the pages is created at exactly this width, so the window takes none of what
+        the page had and adds nothing to what the popup asks for. A host that has measured
+        nothing yet gets the same floor the wrap does, one inset wider.
+
+        It is also a ceiling the pages did not have before. A window is as wide as it is
+        told, so a line too long for it is cut at the pane's edge instead of widening the
+        popup past it -- the page keeps its width and the operator loses the end of one line
+        rather than both ends of it. Nothing on any page should reach it; see the wrap.
+        """
+        return max(MIN_WRAP_PX + WRAP_INSET, self._pane_px)
+
+    @property
+    def scroll(self) -> ScrollBox | None:
+        """The window the pages are drawn in, or None before the panel is built."""
+        return self._scroll
+
+    def _fit_scroll(self) -> None:
+        """Give the pages the room the pane has left, and no more.
+
+        Called when a page is shown and whenever what is in one changes size. The window
+        takes the height of the page where there is room for it -- which is most pages on
+        most machines, and there the panel looks exactly as it did before there was a window
+        at all -- and the room there is where there is not.
+        """
+        scroll = self._scroll
+        if scroll is None:
+            return
+        scroll.fit(self._scroll_budget())
+        # Rows built since the last pass -- the mode list is rebuilt on every module change
+        # -- have no gestures on them until they are told about them.
+        scroll.bind_scrolling()
+
+    def _scroll_budget(self) -> int | None:
+        """The most the pages may take, in pixels, or None where nothing can be measured.
+
+        Measured rather than derived, and measured as the overshoot: the popup is asked how
+        tall it wants to be, the window's own height is taken out of that to leave everything
+        else the popup draws -- the title row, the banner, Back and Next, Close and the
+        whitespace of the band it sits in -- and what is left of the pane after that is the
+        window's. Nothing here has to know what those parts are or how tall each of them is,
+        which is the point: they have all changed at least once, and a page rebuilt for a
+        module with a different number of boxes changes the total again.
+
+        The room is taken from the top of the popup down to the bottom of the pane, less
+        whatever the pane keeps below it -- the scope buttons under an embedded panel. A
+        window is not sized off a measurement Tk has not made yet: before the popup is on
+        screen every reading is 1, and None leaves the pages at their own height.
+        """
+        scroll = self._scroll
+        overlay = self._overlay
+        if scroll is None or overlay is None:
+            return None
+        try:
+            frame = overlay.tk
+            if not frame.winfo_ismapped():
+                return None
+            parent = frame.master
+            top = int(frame.winfo_rooty())
+            room = int(parent.winfo_rooty()) + int(parent.winfo_height()) - top
+            for sibling in parent.winfo_children():
+                # What the pane keeps below the popup stays the pane's: an embedded panel is
+                # drawn over the engine controls but above the scope buttons, which are how
+                # the operator gets back to them.
+                if sibling is frame or not sibling.winfo_ismapped():
+                    continue
+                if int(sibling.winfo_rooty()) >= top:
+                    room -= int(sibling.winfo_height())
+            chrome = int(frame.winfo_reqheight()) - scroll.view_px
+            budget = room - chrome
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            return None
+        return budget if budget > 0 else None
+
     def _wrap(self, widget: Any, justify: str = "center", pady: int = None) -> Any:
         """Break widget's text at the popup's width and hold it off its neighbors.
 
@@ -756,11 +968,19 @@ class LcsConfigPanel(OverlayPanel):
         # Above the pages, so the banner shows on whichever page is up.
         self._sync_line = self._label(body, "", bold=True)
         self._refresh_sync_line()
+        # The pages go in a window of their own, and nothing else does. A page that asks for
+        # more height than the pane has is scrolled inside it rather than running off the
+        # bottom -- which is not a tidier way of losing the same thing: Tk allots space in
+        # creation order, so what a page too tall for the pane actually costs is whatever is
+        # packed last, and that is Back, Next and Close. Those stay outside the window and so
+        # stay on screen at any height; see ScrollBox and _fit_scroll.
+        self._scroll = scroll = ScrollBox(body, width=self._scroll_px)
+        pages = scroll.content
         self._pages = [
-            self._build_device_page(body),
-            self._build_id_page(body),
-            self._build_options_page(body),
-            self._build_review_page(body),
+            self._build_device_page(pages),
+            self._build_id_page(pages),
+            self._build_options_page(pages),
+            self._build_review_page(pages),
         ]
         # Back and Next belong to the panel, not to the popup's footer row: the popup adds
         # its own Close below everything built here, so Close gets a line of its own
@@ -769,26 +989,51 @@ class LcsConfigPanel(OverlayPanel):
         host.add_vspace(body, self._page_gap)
         self._build_nav(body)
         self._show_page(self._page_index)
+        # A page is not done growing when it is built: a row added later, a titled box shown
+        # for a module that has one, a note that arrives with the read-back. The window asks
+        # to be re-fitted whenever what is in it changes size, so no caller has to remember --
+        # and whenever the body it is drawn in does, which is what tells it the popup has
+        # been put on screen. Nothing measured before that means anything: a popup is built
+        # unmapped, and everything about an unmapped widget reads 1.
+        scroll.bind_scrolling()
+        scroll.on_content_resized(self._fit_scroll, body)
+        self._fit_scroll()
 
     def _label(self, parent: Box, text: str, size: int | None = None, bold: bool = False, **kwargs) -> Text:
+        """A line of the panel's own text, broken at the width of the pane it is drawn in.
+
+        Wrapped by default, and that is the rule rather than a convenience: Tk truncates
+        nothing, so a label wider than the popup is centered in it and loses its beginning
+        *and* its end. Every line this panel writes is written by something -- a module's
+        name, a mode's block of addresses, a sentence from the registry -- and none of them
+        is bounded by anything that knows how wide the screen is. The one heading that had no
+        wrap, the first page's own question, came to 552px of the Pi's 480px pane.
+        """
         host = self._gui
         lbl = Text(parent, text=text, align="top", **kwargs)
         lbl.text_size = size or host.s_14
         lbl.text_bold = bold
-        return lbl
+        return self._wrap(lbl)
 
     def _build_device_page(self, body: Box) -> Box:
         host = self._gui
         page = Box(body, align="top", border=0)
         self._label(page, DEVICE_PROMPT, size=host.s_16, bold=True)
         host.add_vspace(page, self._section_gap)
+        # The shortest rows in the panel -- a module's name and nothing else -- so the size
+        # asked for is the size they get on every screen the panel is drawn on. Fitted all
+        # the same, because what is asked of these rows is the registry's to change.
+        device_size = self._fit_row_size([label for label, _key in self.device_options()], host.s_14)
         self._device_group = CheckBoxGroup(
             page,
-            size=host.s_14,
+            size=device_size,
             options=self.device_options(),
             selected=None,
             align="top",
             style="radio",
+            # And a module named past even that is broken onto a second line rather than cut
+            # off at the pane's edge; see _row_wrap_px.
+            wrap=self._row_wrap_px(device_size),
             # The rows are held apart rather than stacked: this is the panel's first page and
             # every row on it is a touch target.
             pady=self._radio_row_pad,
@@ -850,7 +1095,8 @@ class LcsConfigPanel(OverlayPanel):
         for btn in (self._minus_btn, self._plus_btn):
             btn.text_size = host.s_20
 
-        host.add_vspace(page, self._page_gap)
+        # Tighter than the gap between the page's other sections; see ID_PAGE_GAP.
+        host.add_vspace(page, self._id_page_gap)
 
         # The titled boxes share one grid column, which is how they come out the same
         # width: the column is as wide as the widest of them, and each box is stretched
@@ -869,17 +1115,18 @@ class LcsConfigPanel(OverlayPanel):
         # page's body size like the two titles below it. The rows themselves are a size
         # above the body, since each one also carries the block of TMCC IDs it would claim.
         self._mode_box = TitleBox(self._titled_boxes, text=MODE_TITLE, grid=[0, 0], align=None)
-        self._mode_box.text_size = host.s_14
+        self._mode_box.text_size = self._titled_text_size
         # The legend heads the box, above the rows it names: what an ACC row and an SW row
         # are each good for is what the operator needs *before* choosing between them, and
         # read from below the list it was a note on a decision already made. Inside the box
         # either way rather than adrift among the page's other reports, where it read as a
         # statement about the panel at large.
-        self._mode_legend_line = self._wrap(self._label(self._mode_box, "", size=host.s_13))
+        self._mode_legend_line = self._label(self._mode_box, "", size=host.s_13)
         host.add_vspace(self._mode_box, self._mode_prose_gap)
+        mode_size = self._mode_row_size
         self._mode_group = CheckBoxGroup(
             self._mode_box,
-            size=host.s_18,
+            size=mode_size,
             options=self.mode_options(),
             selected=None,
             align="top",
@@ -894,6 +1141,11 @@ class LcsConfigPanel(OverlayPanel):
             # read as the legend above it is written -- a group per key. Set here as well as
             # on every refresh, since the group is built before a module is chosen.
             row_leads=self.mode_leads(),
+            # The longest row in the panel: a mode names itself and the block of TMCC IDs it
+            # would claim, and on the Pi the STM2's single-wire row asked for 666px of a
+            # 480px pane. Broken rather than cut, so what is lost is a line's worth of
+            # height and never the addresses at the end of it; see _row_wrap_px.
+            wrap=self._row_wrap_px(mode_size),
             # Stepped by the pad, as the module rows are, and armed on the same terms. This is
             # the one armed list whose rows are replaced at runtime, which the component
             # re-arms itself for; see CheckBoxGroup._rearm_cursor and pad_cursor.
@@ -907,7 +1159,7 @@ class LcsConfigPanel(OverlayPanel):
         # Centered, like every other line of prose on the page: these lines are short and of
         # much the same length, and centered they read as a caption on the list they are
         # beside rather than as another row of it.
-        self._mode_note_line = self._wrap(self._label(self._mode_box, "", size=host.s_10))
+        self._mode_note_line = self._label(self._mode_box, "", size=host.s_10)
 
         # What already answers to the entered ID: it tells the operator whether they are
         # about to reprogram a module that is already out there. Titled, because a bare line
@@ -917,7 +1169,7 @@ class LcsConfigPanel(OverlayPanel):
         # print on the Pi, and what these boxes report is what the operator checks before
         # committing an ID.
         self._assigned_box = TitleBox(self._titled_boxes, text=ASSIGNED_TITLE, grid=[0, 1], align=None)
-        self._assigned_box.text_size = host.s_14
+        self._assigned_box.text_size = self._titled_text_size
         # One row per module, gridded so the remote key, the module and its TMCC IDs line
         # up down the box instead of each row starting wherever the row above it ended.
         self._assigned_grid = Box(self._assigned_box, layout="grid", align="top", border=0)
@@ -928,13 +1180,15 @@ class LcsConfigPanel(OverlayPanel):
         # since an empty titled frame reads as a failure to look rather than as an answer --
         # unlike the assigned box, which always has "Unassigned" to say.
         self._overlap_box = TitleBox(self._titled_boxes, text=OVERLAP_TITLE, grid=[0, 2], align=None)
-        self._overlap_box.text_size = host.s_14
+        self._overlap_box.text_size = self._titled_text_size
         self._overlap_grid = Box(self._overlap_box, layout="grid", align="top", border=0)
 
         # One gap, where there used to be two with a line between them saying which TMCC
         # IDs the chosen mode claims. Every mode radio above now names its own block, so
-        # that line only repeated the one the operator had just selected.
-        host.add_vspace(page, self._page_gap)
+        # that line only repeated the one the operator had just selected. Tighter than the
+        # page's other gaps, and the last box above it carries none of its own; see
+        # ID_PAGE_GAP and _lay_out_titled_boxes.
+        host.add_vspace(page, self._id_page_gap)
 
         choices = Box(page, align="top", border=0)
         self._goto_btn = HoldButton(choices, text="Go to", align="left", command=self.go_to_owning_base)
@@ -973,6 +1227,14 @@ class LcsConfigPanel(OverlayPanel):
         if container is None:
             return
         gap = self._box_gap
+        # Which of them is the last one showing, so the block ends at its frame. The gap is
+        # what holds one box off the next, and under the last there is no next: what follows
+        # is the page's own gap and the choice buttons, and the two of them stacked read as a
+        # hole below the reports. Asked of what is visible rather than of the three, since
+        # the Overlaps box is taken off the page whenever nothing is in the way.
+        showing = [
+            box for box in (self._mode_box, self._assigned_box, self._overlap_box) if box is not None and box.visible
+        ]
         try:
             # The column carries a width floor as well as the stretch: the boxes still grow
             # for a module whose rows ask for more, but none of them is drawn narrower than
@@ -980,9 +1242,8 @@ class LcsConfigPanel(OverlayPanel):
             # wrapped into a column the pane had no need to make it. See TITLED_BOX_INSET.
             container.tk.grid_columnconfigure(0, weight=1, minsize=self._titled_box_px)
             # In the order they are stacked, which is the order they are read in.
-            for box in (self._mode_box, self._assigned_box, self._overlap_box):
-                if box is not None and box.visible:
-                    box.tk.grid_configure(sticky="ew", pady=(0, gap))
+            for box in showing:
+                box.tk.grid_configure(sticky="ew", pady=(0, 0 if box is showing[-1] else gap))
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
@@ -1055,7 +1316,9 @@ class LcsConfigPanel(OverlayPanel):
     def _note_line(self, parent: Box, text: str = "", pady: int = None, size: int | None = None) -> Text:
         """A line of prose about the module, wrapped and standing off what is around it.
 
-        The page's body size unless the page it is on reads at another one; see _label.
+        The page's body size unless the page it is on reads at another one; see _label, which
+        is where the wrap comes from. What this adds is the padding: a note speaks about
+        something above or below it and has to be seen to be apart from it.
         """
         return self._wrap(self._label(parent, text, size=size), pady=self._note_pad if pady is None else pady)
 
@@ -1065,6 +1328,7 @@ class LcsConfigPanel(OverlayPanel):
         # How many rows there are decides whether the page can afford to hold them, or a
         # note under them, apart at all; see LONG_OPTION_LIST.
         long_list = len(option.choices) > LONG_OPTION_LIST
+        option_size = self._fit_row_size([label for label, _value in option.choices] or [option.label], host.s_18)
         if option.kind == OptionKind.RADIO:
             self._label(box, option.label, bold=True)
             self._option_choices[key] = [value for _label, value in option.choices]
@@ -1075,7 +1339,13 @@ class LcsConfigPanel(OverlayPanel):
                 # alone the step below it they were once drawn at -- the dot beside them was
                 # barely there. A long list is set at it too, and pays for it in the
                 # whitespace between its rows; see LONG_OPTION_LIST.
-                size=host.s_18,
+                #
+                # Asked for, rather than had: the Sensor Track's ten actions are the longest
+                # rows the options page draws, at 575px of the Pi's 480px pane, so there they
+                # come down to the size that fits. See _fit_row_size.
+                size=option_size,
+                # And broken rather than cut, for a choice named past even that.
+                wrap=self._row_wrap_px(option_size),
                 # The index is the row's value: an IrdaSequence is not a string, and
                 # guizero hands back whatever string Tk holds.
                 options=[[label, str(i)] for i, (label, _value) in enumerate(option.choices)],
@@ -1110,14 +1380,18 @@ class LcsConfigPanel(OverlayPanel):
             # which would pull the indicator flush against the row's left edge.
             CheckBoxGroup.decorate_checkbox(
                 widget,
-                host.s_18,
+                option_size,
                 width=None,
                 pady=self._option_row_pad,
                 style="checkbox",
+                # Broken from the left, unlike the prose above it: the label is set beside
+                # its indicator, so a second line belongs under the first and not under the
+                # box -- and it is broken at what is left of the row after that indicator,
+                # which is what the prose wrap does not know about. The BPC2's is the one
+                # tick box in the panel, and at the pane's own wrap it came to 554px of the
+                # Pi's 480. See _row_wrap_px.
+                wrap=self._row_wrap_px(option_size),
             )
-            # Broken from the left, unlike the prose above it: the label is set beside its
-            # indicator, so a second line belongs under the first and not under the box.
-            self._wrap(widget, justify="left")
         self._option_widgets[key] = widget
         if not option.enabled:
             widget.disable()
@@ -1245,16 +1519,24 @@ class LcsConfigPanel(OverlayPanel):
         host = self._gui
         page = Box(body, align="top", border=0)
         self._label(page, REVIEW_TITLE, size=host.s_16, bold=True)
+        # Every line on this page is wrapped, and this is the page that most needs it: what
+        # stands here is prose rather than a label -- how to put the module into program
+        # mode, what will be pressed, what was asked for and what the module answered. The
+        # instruction alone measured 2164px of the Pi's 480px pane, and an unwrapped line is
+        # not cut short but centered, so it loses its beginning and its end at once.
         self._program_line = self._label(page, "", size=host.s_12)
+        # The press list carries its own line breaks, one per press; the wrap only breaks a
+        # press too long to stand on one, which is why they are numbered.
         self._review_line = self._label(page, "")
-        # The one page the module's warning is read on now, and the only prose on it: wrapped,
-        # because an unwrapped sentence is not truncated but centered, losing its beginning
-        # and its end at once -- which is how this line read on the Pi -- and held off the
-        # press list above it and the Configure button below by its own padding. See _wrap and
-        # review_note.
+        # The one page the module's warning is read on now: held off the press list above it
+        # and the Configure button below by its own padding, which is what _note_line adds to
+        # the wrap the rest of the page has. See review_note.
         self._review_note_line = self._note_line(page, size=host.s_12)
         self._configure_btn = btn = HoldButton(page, text=CONFIGURE_TEXT, align="top", command=self.on_configure)
         btn.text_size = host.s_16
+        # How to put the module into program mode, what was asked of it, and what it said
+        # back -- the last two arriving after Configure, at whatever length the module's own
+        # report runs to.
         self._footnote_line = self._label(page, "", size=host.s_12)
         self._requested_line = self._label(page, "", size=host.s_12)
         self._reported_line = self._label(page, "", size=host.s_12)
@@ -1574,6 +1856,13 @@ class LcsConfigPanel(OverlayPanel):
             else:
                 page.hide()
         self._refresh_nav()
+        # A page is come to at its beginning, whatever the page before it was scrolled to,
+        # and the window is re-fitted for a page of a different height. In that order: the
+        # fit clamps the offset to what the new page has, so scrolling first cannot leave the
+        # window looking at white space below a shorter page.
+        if self._scroll is not None:
+            self._scroll.reset()
+            self._fit_scroll()
 
     def next_page(self) -> None:
         self._show_page(self._page_after(self._page_index, 1))
@@ -1740,6 +2029,11 @@ class LcsConfigPanel(OverlayPanel):
         The highlight is all that moves. Nothing is chosen, nothing is sent, and the dot does
         not follow -- a row stepped over must not read as a row picked, which is the whole
         reason these groups carry a cursor apart from their selection.
+
+        The page follows it, though. A list can be longer than the window it is drawn in, and
+        a highlight stepped onto a row below the fold would otherwise leave the pad pointing
+        at something the operator cannot see; the window is moved by as little as it takes to
+        bring that row back into it. See ScrollBox.show_widget.
         """
         group = self.pad_group
         if group is None:
@@ -1759,7 +2053,12 @@ class LcsConfigPanel(OverlayPanel):
         group.cursor = values[target]
         # Read back rather than assumed: a group built without a cursor takes the assignment
         # and tints nothing, and the pad has then moved nothing the operator can see.
-        return group.cursor == values[target]
+        moved = group.cursor == values[target]
+        if moved and self._scroll is not None:
+            row = group.cursor_row
+            if row is not None:
+                self._scroll.show_widget(row)
+        return moved
 
     @property
     def pad_mark_turns_page(self) -> bool:
@@ -2517,9 +2816,16 @@ class LcsConfigPanel(OverlayPanel):
     def _grid_cell(self, grid: Box, column: int, row: int) -> Text:
         cell = Text(grid, text="", grid=[column, row], align="left")
         # The size of the box titles above them: these rows are the answer the operator
-        # came to the page for, not a caption on it.
-        cell.text_size = self._gui.s_14
+        # came to the page for, not a caption on it. Which is a size down where the pane has
+        # nothing to spare, as those titles are; see _titled_text_size.
+        cell.text_size = self._titled_text_size
         cell.text_bold = column == 0
+        # Broken like every other line the panel writes, though nothing here is prose: what
+        # a cell holds is a module's name and its addresses, and a name is the registry's to
+        # lengthen. A cell that wraps narrows its column and the row still fits the page; a
+        # cell that does not takes the row off the edge of it. Broken from the left, since
+        # these are columns the eye runs down.
+        self._wrap(cell, justify="left")
         try:
             cell.tk.config(padx=ASSIGNED_CELL_PAD)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):

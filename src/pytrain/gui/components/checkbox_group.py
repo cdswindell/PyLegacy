@@ -10,7 +10,8 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Literal, Mapping
+from tkinter import font as tkfont
+from typing import Iterable, Literal, Mapping
 
 from guizero import ButtonGroup, CheckBox
 
@@ -44,6 +45,22 @@ CURSOR_BG = "#BFDBFE"
 # again the size of the one Tk would draw itself.
 INDICATOR_SCALE = 1.3
 
+# What a painted row spends on itself before its text begins, in pixels, over and above the
+# indicator: the padding either side of the row's contents, the frame it is drawn with, and
+# the gap between the indicator and the words beside it.
+#
+# Measured rather than added up. A row was painted at 14, 18, 21 and 27pt and its requested
+# width compared with what Tk says its text alone measures; the difference came to the
+# indicator plus 78px at every one of them -- the indicator grows with the font and the rest
+# of this does not. Rounded up by 2, and generous on X11 either way, which draws a narrower
+# frame than macOS: a caller that leaves a row too little room breaks a line early, and one
+# that leaves it too much runs the row off the edge of the screen.
+ROW_CHROME_PX = 80
+
+# The font a row is drawn in. Named here because two things have to agree about it: what
+# decorate_checkbox paints with, and what fit_row_size measures with.
+ROW_FONT = "TkDefaultFont"
+
 
 class CheckBoxGroup(ButtonGroup):
     @staticmethod
@@ -57,6 +74,59 @@ class CheckBoxGroup(ButtonGroup):
         INDICATOR_SCALE for where the number comes from.
         """
         return int(size * INDICATOR_SCALE)
+
+    @classmethod
+    def row_chrome_for(cls, size: int, style: Literal["checkbox", "radio"] = "radio") -> int:
+        """How much of a row's width is spent before its text, at text size size.
+
+        The indicator, which grows with the font, and everything around it, which does not;
+        see ROW_CHROME_PX. What a caller sizing or wrapping a row has to take off the width it
+        has before asking whether the words fit.
+        """
+        return cls.indicator_size_for(size, style) + ROW_CHROME_PX
+
+    @classmethod
+    def fit_row_size(
+        cls,
+        master,
+        texts: Iterable[str],
+        width: int,
+        ceiling: int,
+        floor: int = None,
+        style: Literal["checkbox", "radio"] = "radio",
+    ) -> int:
+        """The largest size, at or below ceiling, at which every one of texts fits width.
+
+        A list is drawn at the size its caller asks for wherever there is room for it, and a
+        step down at a time where there is not -- rather than at a size chosen for one screen
+        and hoped for on the others. The same list of modes is 666px wide on a Pi and 400 on a
+        Deck pane; the ceiling is what the caller would like, and this is what the screen in
+        front of it can actually hold.
+
+        Measured with the font the rows are painted in (see ROW_FONT), on the machine drawing
+        them, so it needs to know nothing about that machine: a display whose fonts render
+        wider simply settles a size lower. A screen that cannot be measured at all keeps the
+        ceiling -- the answer it would have had before anything asked -- and the wrap a caller
+        sets from row_chrome_for is what keeps that honest.
+
+        floor is where stepping down stops, and it is a real answer rather than a failure: at
+        that point the words are better broken onto a second line than shrunk further.
+        """
+        ceiling = int(ceiling)
+        bottom = ceiling if floor is None else min(int(floor), ceiling)
+        wanted = [str(text) for text in texts if str(text)]
+        if not wanted:
+            return ceiling
+        root = getattr(master, "tk", master)
+        for size in range(ceiling, bottom - 1, -1):
+            budget = int(width) - cls.row_chrome_for(size, style)
+            try:
+                font = tkfont.Font(root=root, font=(ROW_FONT, size))
+                if all(font.measure(text) <= budget for text in wanted):
+                    return size
+            except (AttributeError, RuntimeError, tk.TclError, TypeError, ValueError):
+                return ceiling
+        return bottom
 
     @classmethod
     def indicator_images(
@@ -126,6 +196,7 @@ class CheckBoxGroup(ButtonGroup):
         border_color: str = "black",
         check_color: str = LIONEL_BLUE,
         background: str = WHITE,
+        wrap: int = 0,
     ) -> None:
         # GuiZero CheckBox wraps Tk Checkbutton
         if isinstance(widget, CheckBox):
@@ -133,13 +204,23 @@ class CheckBoxGroup(ButtonGroup):
 
         indicator_size = cls.indicator_size_for(size, style)
 
-        widget.config(
-            font=("TkDefaultFont", size),
-            padx=padx,
-            pady=pady,
-            anchor="w",
-            width=width,
-        )
+        options = {
+            "font": (ROW_FONT, size),
+            "padx": padx,
+            "pady": pady,
+            "anchor": "w",
+            "width": width,
+        }
+        if wrap:
+            # Where a label is longer than the row it is drawn in, the row is made taller
+            # rather than the label cut: a row runs off the right edge of a narrow pane
+            # silently, and what it takes with it is the end of the line -- which on the LCS
+            # panel's mode rows is the block of TMCC IDs the row is chosen for. justify keeps
+            # the second line under the first rather than centered against it, so a wrapped
+            # row still reads from the same left edge as the rows above and below it.
+            options["wraplength"] = wrap
+            options["justify"] = "left"
+        widget.config(**options)
 
         unsel, sel = cls.indicator_images(
             widget,
@@ -169,6 +250,7 @@ class CheckBoxGroup(ButtonGroup):
         cursor_bg: str = CURSOR_BG,
         stretch: bool = False,
         row_leads: Mapping[str, int] = None,
+        wrap: int = 0,
         **kwargs,
     ):
         # Recorded before the parent class is initialized, because it builds the rows from its
@@ -180,6 +262,7 @@ class CheckBoxGroup(ButtonGroup):
         self._row_style = style
         self._row_thickness = thickness
         self._stretch = stretch
+        self._row_wrap = int(wrap or 0)
         self._row_leads = self._as_leads(row_leads)
         # The tinted row, named here rather than only in _init_cursor: a group without a cursor
         # never gets that far, and the property reads better answering None than not existing.
@@ -260,6 +343,7 @@ class CheckBoxGroup(ButtonGroup):
                 self._pady,
                 style=self._row_style,
                 thickness=self._row_thickness,
+                wrap=getattr(self, "_row_wrap", 0),
             )
 
     def stretch_rows(self) -> None:
@@ -448,6 +532,22 @@ class CheckBoxGroup(ButtonGroup):
         cannot read as an option chosen.
         """
         return getattr(self, "_cursor", None)
+
+    @property
+    def cursor_row(self):
+        """The widget of the row the cursor is on, or None where nothing is tinted.
+
+        What a caller has to have to bring that row into view when the list is longer than
+        the room it is drawn in -- see ScrollBox.show_widget. The widget rather than its
+        index, because the rows are rebuilt at runtime and an index outlives the row it
+        named; this is read out of the same pairs the tint itself is painted through, so it
+        cannot come to point at a row that is gone.
+        """
+        current = self._cursor
+        for row_value, widget in getattr(self, "_cursor_rows", None) or ():
+            if row_value == current:
+                return widget
+        return None
 
     @cursor.setter
     def cursor(self, value) -> None:

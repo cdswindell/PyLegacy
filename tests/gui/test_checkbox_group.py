@@ -739,3 +739,219 @@ def test_the_indicator_cache_is_keyed_by_background(style: str) -> None:
     assert tinted[1] is not white[1]
     assert tinted[0].ground == mod.CURSOR_BG
     assert white[0].ground == mod.WHITE
+
+
+#
+# What a row costs, and what is left for its words
+#
+@pytest.mark.parametrize("size", ROW_SIZES)
+def test_what_a_row_spends_before_its_text_is_its_indicator_and_a_fixed_margin(size: int) -> None:
+    # What a caller has to take off the width it has before asking whether the words fit. It
+    # was measured rather than added up -- a row painted at 14, 18, 21 and 27pt against what Tk
+    # says its text alone comes to -- so the arithmetic is stated here at every size these rows
+    # are drawn at, on all three machines, rather than at the one it was checked on.
+    indicator = mod.CheckBoxGroup.indicator_size_for(size, "radio")
+
+    assert mod.CheckBoxGroup.row_chrome_for(size, "radio") == indicator + mod.ROW_CHROME_PX
+    assert mod.CheckBoxGroup.row_chrome_for(size) == mod.CheckBoxGroup.row_chrome_for(size, "radio")
+
+
+def test_a_larger_row_spends_more_before_its_text_and_only_on_its_indicator() -> None:
+    # The half of it that moves. Padding, frame and the gap beside the indicator are pixels on
+    # a screen and stay where they are as the font grows; the indicator is drawn from the
+    # font's own size and grows with it. A caller stepping the size down and keeping one wrap
+    # would leave the row narrower than it need be at every step.
+    for smaller, larger in zip(ROW_SIZES, ROW_SIZES[1:]):
+        grew = mod.CheckBoxGroup.row_chrome_for(larger) - mod.CheckBoxGroup.row_chrome_for(smaller)
+        indicator = mod.CheckBoxGroup.indicator_size_for(larger, "radio")
+
+        assert grew > 0
+        assert grew == indicator - mod.CheckBoxGroup.indicator_size_for(smaller, "radio")
+
+
+def test_a_row_told_what_it_may_take_wraps_its_words_under_its_own_left_edge() -> None:
+    # A row longer than the pane it is drawn in runs off the right edge silently, and what
+    # goes with it is the end of the line -- which on the LCS panel's mode rows is the block of
+    # TMCC IDs the row is chosen for. So the row is made taller instead, and the second line
+    # starts where the first did rather than centered under it.
+    row = DummyRow("0")
+
+    mod.CheckBoxGroup.decorate_checkbox(row, 18, None, style="radio", wrap=320)
+
+    assert row.config_calls[0]["wraplength"] == 320
+    assert row.config_calls[0]["justify"] == "left"
+
+
+def test_a_row_that_was_given_no_wrap_is_given_no_justify_either() -> None:
+    # Every other group in the app: the Admin panel's, the catalog's sort radios, the AMC2 page
+    # selector. A row that is not wrapped must not silently acquire a justify -- it is a change
+    # to how a row reads, and nothing asked for it.
+    row = DummyRow("0")
+
+    mod.CheckBoxGroup.decorate_checkbox(row, 18, None, style="radio")
+
+    assert "wraplength" not in row.config_calls[0]
+    assert "justify" not in row.config_calls[0]
+
+
+def test_a_group_built_with_a_wrap_hands_it_to_every_row_it_ever_builds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The wrap is worked out once, from the width the pane turns out to have, and the rows it
+    # has to reach are not all there yet: the LCS panel's mode rows are replaced whenever the
+    # module or the address changes, and guizero puts plain Tk radiobuttons in their place --
+    # default font, native indicator, and nothing said about where a long line may break.
+    rows = _rows(2)
+
+    def _init(self, _master: Any, **_kwargs: Any) -> None:
+        self._tk = DummyGroupTk(rows)
+        self._rbuttons = []
+
+    monkeypatch.setattr(mod.ButtonGroup, "__init__", _init, raising=True)
+
+    group = mod.CheckBoxGroup(None, size=18, style="radio", wrap=320)
+
+    for row in rows:
+        assert row.config_calls[0]["wraplength"] == 320
+        assert row.config_calls[0]["justify"] == "left"
+
+    rebuilt = _rows(2)
+    group._tk = DummyGroupTk(rebuilt)
+    monkeypatch.setattr(mod.ButtonGroup, "_refresh_options", lambda self: None, raising=True)
+
+    group._refresh_options()
+
+    for row in rebuilt:
+        assert row.config_calls[0]["wraplength"] == 320, "the rows built since are wrapped too"
+
+
+class DummyRowFont:
+    """tkfont.Font as the sizing uses it: something that measures a string.
+
+    A character comes to 0.6 of the row's text size here, which is about what a proportional
+    font runs to and, more to the point, is exactly computable: a test can then say which size
+    a list must settle at rather than hope the machine running it agrees. What a real font
+    answers is a fact about the screen in front of the operator, which is the whole reason the
+    component measures rather than calculates.
+    """
+
+    def __init__(self, root: Any = None, font: tuple[str, int] = (mod.ROW_FONT, 12)) -> None:
+        self.root = root
+        self.family, self.size = font
+
+    def measure(self, text: str) -> int:
+        return int(len(text) * self.size * 0.6)
+
+
+class DummyMaster:
+    """The widget a caller has to hand, which is the screen the rows will be drawn on."""
+
+    def __init__(self) -> None:
+        self.tk = object()
+
+
+def _measuring(monkeypatch: pytest.MonkeyPatch) -> list[DummyRowFont]:
+    """Measure with that font, and hand back every one the sizing asked for, in order."""
+    made: list[DummyRowFont] = []
+
+    class Recording(DummyRowFont):
+        def __init__(self, root: Any = None, font: tuple[str, int] = (mod.ROW_FONT, 12)) -> None:
+            super().__init__(root=root, font=font)
+            made.append(self)
+
+    monkeypatch.setattr(mod.tkfont, "Font", Recording, raising=True)
+    return made
+
+
+def _width_at(text: str, size: int) -> int:
+    """What that font says the text comes to at size, for a test to say what fits."""
+    return DummyRowFont(font=(mod.ROW_FONT, size)).measure(text)
+
+
+# One of the LCS panel's mode rows, at the length that decides: every text has to fit, so the
+# longest of them is the one a size is settled on.
+LONG_ROW = "Accessory, eight IDs"
+
+
+def test_a_list_that_already_fits_is_drawn_at_the_size_it_was_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The ceiling is what the caller would like, and where there is room for it that is the
+    # end of it: a list is not shrunk to be safe. 666px is the Pi's own pane, which holds
+    # these rows at the size the panel asks for.
+    made = _measuring(monkeypatch)
+
+    fitted = mod.CheckBoxGroup.fit_row_size(None, [LONG_ROW, "Switch, momentary"], 666, 18, 12)
+
+    assert fitted == 18
+    assert [font.size for font in made] == [18], "asked once and settled"
+
+
+def test_a_list_that_does_not_fit_steps_down_to_the_largest_size_that_does(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A step at a time, rather than a size chosen for one screen and hoped for on the others:
+    # the same list of modes is 666px wide on a Pi and 400 on a Deck pane, and what the screen
+    # in front of the operator can hold is a question only that screen can answer.
+    made = _measuring(monkeypatch)
+
+    fitted = mod.CheckBoxGroup.fit_row_size(None, ["Switch", LONG_ROW], 270, 18, 12)
+
+    assert fitted == 14
+    assert _width_at(LONG_ROW, 14) <= 270 - mod.CheckBoxGroup.row_chrome_for(14), "and 14 is where it fits"
+    assert _width_at(LONG_ROW, 15) > 270 - mod.CheckBoxGroup.row_chrome_for(15), "one step up it does not"
+    assert [font.size for font in made] == [18, 17, 16, 15, 14], "down from the ceiling, and no further"
+
+
+def test_stepping_down_stops_at_the_floor_and_the_floor_is_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A real answer rather than a failure: past that point the words are better broken onto a
+    # second line than shrunk further, which is what the caller's wrap is for. A row shrunk
+    # until it fit would be a row nobody on the Pi could read.
+    made = _measuring(monkeypatch)
+    unreadable = "Accessory, eight IDs, latching, momentary"
+
+    fitted = mod.CheckBoxGroup.fit_row_size(None, [unreadable], 270, 18, 12)
+
+    assert fitted == 12
+    assert _width_at(unreadable, 12) > 270 - mod.CheckBoxGroup.row_chrome_for(12), "nothing fit, floor included"
+    assert [font.size for font in made] == [18, 17, 16, 15, 14, 13, 12]
+
+
+def test_a_list_with_nothing_to_measure_keeps_the_size_it_was_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A group is built before its rows are known -- the LCS panel's modes arrive with the
+    # module -- and a width of 10px would otherwise walk the empty list down to its floor and
+    # draw the rows that do arrive at a size nothing asked for.
+    made = _measuring(monkeypatch)
+
+    assert mod.CheckBoxGroup.fit_row_size(None, [], 10, 18, 12) == 18
+    assert mod.CheckBoxGroup.fit_row_size(None, ["", ""], 10, 18, 12) == 18, "and a row with no words is no row"
+    assert made == [], "nothing was measured, so nothing was asked of a screen"
+
+
+@pytest.mark.parametrize("refusal", [mod.tk.TclError, RuntimeError, AttributeError, TypeError, ValueError])
+def test_a_screen_that_cannot_be_measured_keeps_the_size_it_was_asked_for(
+    monkeypatch: pytest.MonkeyPatch, refusal: type[Exception]
+) -> None:
+    # The headless answer, and the answer this suite itself gets. A machine with no display
+    # cannot say what a font comes to, and the size the caller asked for is the one it would
+    # have had before anything asked -- so the sizing can be reached from anywhere without
+    # being guarded at the call site. What keeps that honest is the caller's own wrap, which
+    # is worked out from row_chrome_for and needs no measuring at all.
+    def _raise(**_kwargs: Any) -> None:
+        raise refusal("no display name and no $DISPLAY environment variable")
+
+    monkeypatch.setattr(mod.tkfont, "Font", _raise, raising=True)
+
+    assert mod.CheckBoxGroup.fit_row_size(None, [LONG_ROW], 10, 18, 12) == 18
+
+
+def test_a_row_is_measured_in_the_font_it_will_be_painted_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The two have to agree, which is why the font is named once and read twice: a list
+    # measured in one font and drawn in another is a list sized by arithmetic about somebody
+    # else's screen. And it is measured on the caller's own widget, since which screen it is
+    # drawn on is exactly the thing being asked about.
+    made = _measuring(monkeypatch)
+    master = DummyMaster()
+    row = DummyRow("0")
+
+    mod.CheckBoxGroup.fit_row_size(master, [LONG_ROW], 666, 18, 12)
+    mod.CheckBoxGroup.fit_row_size(master.tk, [LONG_ROW], 666, 18, 12)
+    mod.CheckBoxGroup.decorate_checkbox(row, 18, None, style="radio")
+
+    assert [font.family for font in made] == [mod.ROW_FONT, mod.ROW_FONT]
+    assert row.config_calls[0]["font"] == (mod.ROW_FONT, 18), "the font the rows are painted in"
+    assert [font.root for font in made] == [master.tk, master.tk], "the Tk in the widget, or the widget itself"
