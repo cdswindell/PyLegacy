@@ -47,7 +47,7 @@ from .lcs_device_registry import (
     tmcc_id_span,
     tmcc_id_text,
 )
-from .lcs_id_map import LcsOccupant, occupants_of, overlaps
+from .lcs_id_map import LcsOccupant, TrainOccupant, occupants_of, overlaps, train_overlaps, trains_of
 from .lcs_sequence_builder import LcsProgram, build_program
 from .overlay_panel import OverlayPanel
 from .popup_manager import (
@@ -90,16 +90,17 @@ MODE_TITLE = "Mode"
 ASSIGNED_TITLE = "Currently Assigned"
 UNASSIGNED = "Unassigned"
 
-# The label on the box around the modules the chosen block runs into. A box of its own,
-# directly under the one above, because it answers a different question: that one says
-# what holds the entered ID, this one what the whole block would collide with. The title
-# carries the word "Overlaps", so the rows inside name modules and nothing else.
+# The label on the box around what the chosen block runs into. A box of its own, directly
+# under the one above, because it answers a different question: that one says what holds
+# the entered ID, this one what the whole block would collide with. The title carries the
+# word "Overlaps", so no row inside has to repeat it.
 OVERLAP_TITLE = "Overlaps"
 
-# What the module rows in those two boxes are drawn in. Every row either box can show is
-# something standing in the way of the address being entered -- a module that already
-# answers to it, or one the chosen block would run into -- so the rows are colored as the
-# warning they are, and the operator can see there is one without reading the box titles.
+# What the rows in those two boxes are drawn in. Every row either box can show is something
+# standing in the way of the address being entered -- a module that already answers to it,
+# one the chosen block would run into, or a train numbered in the block a TR mode would take
+# -- so the rows are colored as the warning they are, and the operator can see there is one
+# without reading the box titles.
 # The single exception is the row the assigned box shows for an address nobody holds, and
 # that is the only good news on the page, so it is the only row in green.
 #
@@ -118,6 +119,25 @@ ASSIGNED_CELL_PAD = 4
 
 # A module row is the remote key, the module and its TMCC IDs, a column each.
 ROW_COLUMNS = 3
+# Which of the three holds the name, and so the one column whose contents nothing bounds:
+# a module's label is the registry's to lengthen, and a train's is its owner's -- a road
+# name and number as the base reports them, which can run to a sentence.
+ROW_NAME_COLUMN = 1
+
+# What the other two columns can take between them, as a multiple of the cell's own text
+# size. Both are bounded: the longest remote key the rows can spell is "ACC:" and the
+# longest block the registry can, "TMCC IDs 83 - 90". What is left over is the room the
+# name column has, and it needs to be told, because wrapping every cell at the pane's own
+# width does not hold a row inside the pane -- three columns each free to take the whole of
+# it are three times too wide, which is how a long road name came to run off a Pi.
+#
+# Measured in the cells' own font at every size they are drawn at, the cell padding
+# included: 264px at 18pt on a Pi, 215px at 14pt on the desk, 196px at 13pt on a Deck --
+# 14.7, 15.4 and 15.1 times the size, one font at three sizes being why they agree. 16 is a
+# shade over the worst of them, so the reservation is never short; being a shade generous
+# costs a long name only a break it was going to take anyway.
+ROW_FIXED_COLUMNS_EMS = 16
+
 WAITING_FOR_BASE = "Waiting for Base 3..."
 AWAITING_READBACK = "Waiting for the module to report..."
 NO_RESPONSE = "No response - is the module in program mode?"
@@ -310,21 +330,30 @@ TITLED_BOX_INSET = 12
 # the Pi and the desk, a wider one for the Deck. See scroll_bar_px() for which screen gets
 # which, and ScrollBox for what the bar is.
 #
-# Both are wider than the 6px the bar was first drawn at, which on the Pi was too fine to
-# tell from the frame beside it -- the one screen where a page is ever held back is the one
-# screen the bar was invisible on. The Deck's is wider again because the room a bar takes is
-# taken from the page it is drawn over, and a 640px pane has a third more of it to give than
-# the Pi's 480px.
+# It is a real scroll bar now -- trough, handle and an arrow head at either end -- and that
+# is what raised these figures. 6px was the first attempt and could not be told from the frame
+# beside it; 10px read as a bar but not as a control, its arrow heads two specks and its
+# trough too narrow to put a thumb on. What is drawn now has parts, and a part too small to
+# aim at is a part that may as well be paint. The catalog's own list, whose colors these are,
+# draws its bar at 50px -- it has a whole pane to itself, and this has a page to share with.
 #
-# What bounds them is what they may not cover, which was measured rather than reasoned about.
-# On a Pi pane the titled boxes end 6px inside it, the widest row the Mode list can ever show
-# ends 20px inside it and the widest line of prose 22px: so 20px is the ceiling at which a
-# bar would begin to take a word, and the Pi's value clears the row by 10px. From 6px on the
-# bar does cross those boxes' own frame, which is a thing to look at rather than to calculate
-# -- shot on the Pi it reads as a gutter down the page's edge, the frame closing again below
-# the bar. On a Deck pane the same two clear its wider bar by over 120px.
-SCROLL_BAR_PX = 10
-SCROLL_BAR_PX_DECK = 14
+# The Deck's is wider again because a bar takes its room from the page's own width, and a
+# 640px pane has a third more of it to give than the Pi's 480px.
+#
+# Both are what measurement allowed rather than what looked about right, and what they cost is
+# width and not words: the page is drawn in the pane less this, so nothing is ever under the
+# bar to be covered (see _page_px). Swept across every module, mode, address and page:
+#
+# * On the Pi, 24px costs nothing at all -- the tallest page is 617px in a 539px window and 18
+#   of the 72 pages are held back, exactly as at 10px and no gutter -- while 30px grows the
+#   tallest page by 16px, a line that has to be scrolled to. So 24px is the last free width
+#   and the one taken; the nearest ink to the edge is then 33px, clearing the bar by 9px.
+# * On the Deck nothing overflows at any width up to 44px (tallest page 404px), so 30px is
+#   free there and the nearest ink, 48px, clears it by 18px. Its bar is therefore never drawn
+#   today: this is the width it would be drawn at on a Deck pane that did overflow.
+# * A desk window never overflows either (tallest 460px), and takes the Pi's figure.
+SCROLL_BAR_PX = 24
+SCROLL_BAR_PX_DECK = 30
 
 
 # Presses are staggered so the base sees them as separate gestures, and the read-back
@@ -667,6 +696,21 @@ class LcsConfigPanel(OverlayPanel):
         return self._mode.scope if self._mode else None
 
     @property
+    def shares_train_ids(self) -> bool:
+        """Whether the key being programmed is the one the trains themselves answer to.
+
+        The TR key is the trains' own namespace, and a module addressed as a TR device takes
+        its block out of it: a BPC2 programmed as TR 1 answers to the button that runs the
+        train at TR 1. So on that key -- and only on it -- the trains are as much in the way
+        as another module would be, and both occupancy boxes say so.
+
+        False while no mode is chosen, for the reason overlap_occupants() answers with
+        nothing then: which addresses are taken is a question about a block, and there is no
+        block until a mode says how long it is.
+        """
+        return self.scope == CommandScope.TRAIN
+
+    @property
     def compact(self) -> bool:
         return bool(getattr(self._gui, "compact", False))
 
@@ -796,12 +840,32 @@ class LcsConfigPanel(OverlayPanel):
         return int(getattr(host, "emergency_box_width", 0) or 0) or int(getattr(host, "width", 0) or 0)
 
     @property
+    def _page_px(self) -> int:
+        """The width a page is actually drawn in: the pane, less the scroll bar's gutter.
+
+        The bar is drawn down the right-hand edge of the window the pages are seen through,
+        over whatever is there. So the room it takes is kept out of the page rather than
+        found at the page's expense: the window spans the pane, the page spans the window
+        less this, and the bar has the difference to itself.
+
+        Kept whether or not the page in hand overflows, and on every machine, because it is
+        what every line on the page is broken at: a gutter that came and went with the bar
+        would re-break every line each time it did, and one screen's page would read
+        differently from another's for no reason the operator could see. What it costs is the
+        page sitting half a bar's width left of the popup's own title, which is what a
+        scrolled pane looks like anywhere.
+
+        See ScrollBox, which keeps the same room on the window's side, and scroll_bar_px().
+        """
+        return max(MIN_WRAP_PX + WRAP_INSET, self._pane_px - scroll_bar_px())
+
+    @property
     def _wrap_px(self) -> int:
         """The width a line of prose is broken at; see WRAP_INSET.
 
         A host that has yet to report a width of its own gets the floor.
         """
-        return max(MIN_WRAP_PX, self._pane_px - WRAP_INSET)
+        return max(MIN_WRAP_PX, self._page_px - WRAP_INSET)
 
     @property
     def _titled_box_px(self) -> int:
@@ -813,7 +877,7 @@ class LcsConfigPanel(OverlayPanel):
         See TITLED_BOX_INSET.
         """
         floor = MIN_WRAP_PX + (WRAP_INSET - TITLED_BOX_INSET)
-        return max(floor, self._pane_px - TITLED_BOX_INSET)
+        return max(floor, self._page_px - TITLED_BOX_INSET)
 
     @property
     def _titled_text_size(self) -> int:
@@ -830,6 +894,22 @@ class LcsConfigPanel(OverlayPanel):
         """
         host = self._gui
         return host.s_12 if cramped_pane() else host.s_14
+
+    @property
+    def _row_name_wrap_px(self) -> int:
+        """The width the name column of a module row breaks a name at.
+
+        The page's own width less what the two columns beside it can take, so a name too
+        long for its column breaks inside it rather than pushing the row off the pane. See
+        ROW_FIXED_COLUMNS_EMS for the reservation and how it was measured.
+
+        The floor is an equal share of the three columns, for a pane so narrow that the
+        reservation would swallow it: a column left with nothing is a column told to break
+        at zero, which in Tk is how a line is told not to break at all -- the very thing
+        this is here to prevent.
+        """
+        reserved = ROW_FIXED_COLUMNS_EMS * self._titled_text_size
+        return max(self._wrap_px // ROW_COLUMNS, self._wrap_px - reserved)
 
     @property
     def _mode_row_size(self) -> int:
@@ -932,6 +1012,12 @@ class LcsConfigPanel(OverlayPanel):
         # Rows built since the last pass -- the mode list is rebuilt on every module change
         # -- have no gestures on them until they are told about them.
         scroll.bind_scrolling()
+        # And a page that turns out to be held back says so by moving, once, the first time
+        # it is fitted with something to show. Asked here rather than where the page is turned
+        # because a page is not measured until it is: built off screen, everything about it
+        # reads 1, and whether it overflows is not known until the popup is laid out. See
+        # ScrollBox.hint.
+        scroll.hint()
 
     def _scroll_budget(self) -> int | None:
         """The most the pages may take, in pixels, or None where nothing can be measured.
@@ -974,7 +1060,7 @@ class LcsConfigPanel(OverlayPanel):
             return None
         return budget if budget > 0 else None
 
-    def _wrap(self, widget: Any, justify: str = "center", pady: int = None) -> Any:
+    def _wrap(self, widget: Any, justify: str = "center", pady: int = None, width: int = None) -> Any:
         """Break widget's text at the popup's width and hold it off its neighbors.
 
         Both are Tk widget options rather than layout ones, which is what makes them safe
@@ -986,8 +1072,12 @@ class LcsConfigPanel(OverlayPanel):
         lines are centered under the heading, while a checkbox's label is set beside its
         indicator and reads from the left. Returned so a label can be built and wrapped in
         one breath.
+
+        width is for a widget that is not the width of the page: the pane is the right
+        answer for a line of prose, which has the page to itself, and the wrong one for a
+        column standing beside two others. See _row_name_wrap_px.
         """
-        options: dict[str, Any] = {"wraplength": self._wrap_px, "justify": justify}
+        options: dict[str, Any] = {"wraplength": width or self._wrap_px, "justify": justify}
         if pady is not None:
             options["pady"] = pady
         try:
@@ -1010,7 +1100,7 @@ class LcsConfigPanel(OverlayPanel):
         # creation order, so what a page too tall for the pane actually costs is whatever is
         # packed last, and that is Back, Next and Close. Those stay outside the window and so
         # stay on screen at any height; see ScrollBox and _fit_scroll.
-        self._scroll = scroll = ScrollBox(body, width=self._scroll_px, thumb_px=scroll_bar_px())
+        self._scroll = scroll = ScrollBox(body, width=self._scroll_px, bar_px=scroll_bar_px())
         pages = scroll.content
         self._pages = [
             self._build_device_page(pages),
@@ -2301,6 +2391,29 @@ class LcsConfigPanel(OverlayPanel):
         self.previous_page()
         return True
 
+    def pad_scroll(self, pixels: int) -> bool:
+        """Move the page in its window -- the stick and the trackpad. True where it moved.
+
+        Positive is further down the page. Every other pad key works a control *on* the page;
+        this works the page itself, which on the one screen where a page is ever held back is
+        a different thing to want: the highlight can be stepped to a row the window is showing
+        and still leave the operator unable to read the box below it, since reading is not
+        stepping and there is nothing to step to.
+
+        Nothing is chosen and no highlight moves, exactly as a finger dragging the page
+        chooses nothing -- this is the same gesture reaching the same window, arriving from
+        the pad instead of the glass; see ScrollBox.
+
+        False where the page is not scrolling: no window yet, no pixels asked for, or a page
+        already at the end the stick is pushing toward. The caller is told so the stick can
+        be known to be doing nothing, but nothing is refused: a page that fits its window is
+        a page with nowhere to go, which is an answer rather than a fault.
+        """
+        scroll = self._scroll
+        if scroll is None or not pixels:
+            return False
+        return scroll.scroll_by(int(pixels))
+
     #
     # Seeding
     #
@@ -2873,7 +2986,11 @@ class LcsConfigPanel(OverlayPanel):
         # lengthen. A cell that wraps narrows its column and the row still fits the page; a
         # cell that does not takes the row off the edge of it. Broken from the left, since
         # these are columns the eye runs down.
-        self._wrap(cell, justify="left")
+        #
+        # And broken at its own column's width rather than the page's, which is what keeps
+        # the row inside the pane; see _row_name_wrap_px. Only the name column needs telling:
+        # the two either side of it cannot reach even their share of the row.
+        self._wrap(cell, justify="left", width=self._row_name_wrap_px if column == ROW_NAME_COLUMN else None)
         try:
             cell.tk.config(padx=ASSIGNED_CELL_PAD)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
@@ -2942,28 +3059,64 @@ class LcsConfigPanel(OverlayPanel):
                 return occupant
         return None
 
+    def assigned_trains(self) -> list[TrainOccupant]:
+        """
+        The trains answering to the entered ID, where the key being programmed is theirs.
+
+        One at most, an address holding one train. Kept apart from assigned_occupants()
+        rather than added to it because everything else that reads that list is looking for
+        a module: the settings the options page opens on, the module the presses would
+        reprogram, the base the Go to button retargets at. A train is none of those, and
+        offering to go to one would be offering to program a locomotive.
+        """
+        if not self.shares_train_ids:
+            return []
+        return trains_of(self._base_id, self._store)
+
     def assigned_rows(self) -> list[ModuleRow]:
         """
-        What the Currently Assigned box says: one row per module, or a single "Unassigned".
+        What the Currently Assigned box says: a row per module and train, or "Unassigned".
 
         A module is named the same way whether the entered ID is its base or one of its
         interior ports: the box reports what is out on the layout, and the range already
         says that the ID falls inside it. Which port it is exactly changes nothing the
         operator can act on -- the two buttons below the box are where the decision is
         made, and they name the base ID themselves.
+
+        Modules first, then the trains: the modules are what the page is about, and a train
+        is the further thing the operator has to know about the address. "Unassigned" only
+        where neither has anything to say -- a train on the ID is an answer to the box's
+        question, and the address is not free.
         """
-        occupants = self.assigned_occupants()
-        if not occupants:
+        rows = [self._module_row(occupant) for occupant in self.assigned_occupants()]
+        rows += [self._train_row(train) for train in self.assigned_trains()]
+        if not rows:
             return [ModuleRow(scope="", module=UNASSIGNED)]
-        return [self._module_row(occupant) for occupant in occupants]
+        return rows
 
     @classmethod
     def _module_row(cls, occupant: LcsOccupant) -> ModuleRow:
         scope, module, ids = cls._occupant_parts(occupant)
         return ModuleRow(scope=f"{scope}:" if scope else "", module=module, ids=ids)
 
-    @staticmethod
-    def _occupant_parts(occupant: LcsOccupant) -> tuple[str, str, str]:
+    @classmethod
+    def _train_row(cls, train: TrainOccupant) -> ModuleRow:
+        """A train as the panel names it: "TR:", "PRR #8523", "TMCC ID 3".
+
+        Spelled by the same rule as a module and gridded into the same three columns, since
+        what the operator has to read off either is the same thing: something already
+        answers to this address, and here is which key it answers on. The remote key is
+        stated rather than left out as obvious -- it is what makes a train relevant at all,
+        and a row that omitted it would read as though the address were keyless.
+        """
+        return ModuleRow(
+            scope=f"{cls._scope_label(CommandScope.TRAIN)}:",
+            module=train.name,
+            ids=tmcc_id_text(train.base_id, train.last_id),
+        )
+
+    @classmethod
+    def _occupant_parts(cls, occupant: LcsOccupant) -> tuple[str, str, str]:
         """A module as the panel names it: "ACC", "BPC2", "TMCC IDs 12 - 19".
 
         Named the way the operator would program it, and in the order they would do it in:
@@ -2971,13 +3124,21 @@ class LcsConfigPanel(OverlayPanel):
         decides whether the module is in the way at all, then the module, then the TMCC IDs
         it holds. The port count is not spelled out separately -- the range already says it.
         """
-        scope = occupant.effective_scope
-        scope_label = SCOPE_LABEL.get(scope, scope.title if scope is not None else "")
         # The registry's own spelling of a block, which is also what the mode radios above
         # these rows read, so a module in the way is named the way the mode that would
         # claim it is named.
         ids = tmcc_id_text(occupant.base_id, occupant.last_id)
-        return scope_label, occupant.device.label, ids
+        return cls._scope_label(occupant.effective_scope), occupant.device.label, ids
+
+    @staticmethod
+    def _scope_label(scope: CommandScope | None) -> str:
+        """A remote key as the rows spell it: "ACC", "SW", "TR".
+
+        The panel's own short forms, which are the words on the remote's keys; the scope's
+        own title is the fallback for a key the panel has no word of its own for, and the
+        empty string for no key at all, which is what a row for an unowned address carries.
+        """
+        return SCOPE_LABEL.get(scope, scope.title if scope is not None else "")
 
     def overlap_occupants(self) -> list[LcsOccupant]:
         """
@@ -3001,15 +3162,30 @@ class LcsConfigPanel(OverlayPanel):
             if occupant.base_id != self._base_id
         ]
 
+    def overlap_trains(self) -> list[TrainOccupant]:
+        """
+        The trains numbered inside the chosen block, where that block is on their key.
+
+        The entered ID is left out, exactly as it is for the modules: whatever answers to it
+        is named by the assigned box above, and naming it twice would read as two conflicts.
+        """
+        if not self.shares_train_ids:
+            return []
+        return train_overlaps(self._base_id, self.ports, self._store, ignore_base=self._base_id)
+
     def overlap_rows(self) -> list[ModuleRow]:
         """
-        What the Overlaps box says: one row per module in the way, or nothing at all.
+        What the Overlaps box says: a row per module and train in the way, or nothing at all.
 
-        Named exactly as the assigned box names a module, and gridded into the same three
+        Named exactly as the assigned box names them, and gridded into the same three
         columns, so the two boxes read as one list of what is out there. The word
         "Overlaps" is the box's title rather than a prefix on the first row.
+
+        This is the box that matters most on a TR mode: a BPC2 addressed as TR 1 takes eight
+        of the trains' own addresses, and seven of them are ones the operator never typed.
         """
-        return [self._module_row(occupant) for occupant in self.overlap_occupants()]
+        rows = [self._module_row(occupant) for occupant in self.overlap_occupants()]
+        return rows + [self._train_row(train) for train in self.overlap_trains()]
 
     def go_to_owning_base(self) -> None:
         """

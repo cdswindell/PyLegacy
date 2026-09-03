@@ -254,6 +254,22 @@ SEQUENCE_CONTROL_DURATION = 3.1
 # control.
 CATALOG_SCROLL_INITIAL_DELAY = 0.5
 CATALOG_SCROLL_REPEAT_INTERVAL = 0.2
+# While the LCS configuration panel is up, that pane's stick and trackpad scroll its page --
+# a page can be taller than the screen has room for, and the keys work the controls on it
+# rather than the page itself; see DeckInputRouter._config_panel_scrolled.
+#
+# How fast a stick held over moves it: pixels a second at full deflection, and proportionally
+# under that, so a stick eased over creeps and one pushed to its stop runs. The panel's window
+# holds back 124px at the worst and a whole page of it is under 900px, so this crosses
+# anything it can be asked to cross in about two seconds -- fast enough not to feel stuck,
+# slow enough that a line can be stopped on. Unlike the catalog's scroll above, it is not
+# slowed on purpose: a page moved too far is read by moving it back, where an entry stepped
+# past is a thing to hunt for.
+CONFIG_SCROLL_RATE = 360.0
+# And how far the page moves when a finger is drawn the whole length of a trackpad. More than
+# any page is tall, deliberately: a pad stroke is short and can be repeated, and a gesture
+# that moves the page less than the finger reads as slipping rather than as dragging.
+CONFIG_PAD_TRAVEL_PX = 800
 # Profile buttons indices are *joystick* numbers (JOYBUTTONDOWN/ event.button), which
 # is the only button numbering this module reads. SDL's game controller API numbers
 # the same buttons differently (its fixed SDL_CONTROLLER_BUTTON_* enum: on the Deck,
@@ -1515,6 +1531,15 @@ class DeckInputRouter:
         # tick() after the press (arming it tick()-side keeps the timing on the
         # same clock tick() uses).
         self._scrolls: dict[Target, list] = {}
+        # A stick held over while the LCS configuration panel is up on that pane, as a
+        # fraction of full deflection; tick() moves the panel's page by it. Kept apart from
+        # _scrolls, which steps a catalog highlight on its own slow cadence: this moves a page
+        # by pixels and wants every tick, being an analog control rather than a key.
+        self._config_scrolls: dict[Target, float] = {}
+        # And where the finger was on that pane's trackpad when it was last heard from, so
+        # the next report can be read as the distance it has traveled. A pad says where the
+        # finger *is*; what a page follows is where it has *gone*.
+        self._config_pads: dict[Target, float] = {}
         # Maps a held button to [target, command, interval, next_send_time] so
         # each repeating button keeps its own cadence.
         self._held_commands: dict[int, list] = {}
@@ -1730,6 +1755,19 @@ class DeckInputRouter:
             if gui is None:
                 continue
             gui.on_engine_command(command)
+        for target, value in tuple(self._config_scrolls.items()):
+            # Move the LCS configuration panel's page while the pane's stick is held over.
+            # Pixels a second rather than a step a tick, so how far the page goes is what the
+            # thumb says and not how often this happens to run; up the stick is up the page.
+            gui = self._target_gui(target)
+            if gui is None or not getattr(gui, "lcs_config_visible", False):
+                # The panel closed under a held stick. Dropped here rather than waited for:
+                # the stick's own next word may be its return to center, which by then is the
+                # engine's again.
+                self._config_scrolls.pop(target, None)
+                self._config_pads.pop(target, None)
+                continue
+            gui.scroll_lcs_config(-round(value * CONFIG_SCROLL_RATE * elapsed))
         for target, entry in tuple(self._scrolls.items()):
             # Auto-repeat the catalog scroll while the D-pad up/down is held, but
             # only after an initial CATALOG_SCROLL_INITIAL_DELAY (500 ms) hold and
@@ -1797,6 +1835,8 @@ class DeckInputRouter:
         # not selected has been written nowhere and is waiting on nothing, so a disconnect has
         # nothing to flush. Sending it would put a choice on the wire that was never asked for.
         self._scrolls.clear()
+        self._config_scrolls.clear()
+        self._config_pads.clear()
         self._held_commands.clear()
         self._sequences.clear()
         self._direction_latches.clear()
@@ -1901,20 +1941,30 @@ class DeckInputRouter:
         refusal -- the topmost thing wins -- and, like it, a global-target action such as
         HALT resolves no gui and is never gated: HALT has to work whatever is on screen.
 
-        Where this differs from the chooser is what it leaves alone. Only those five keys are
-        claimed, and only on the press. A stick still drives the pane's engine, the paddles
-        and triggers still do their work, and X still closes the panel through the popup
-        handling every panel is closed by -- no second way to say it is written here, which
-        could only come to disagree with the first.
+        The pane's own stick and trackpad are taken too, to scroll the page rather than to
+        work anything on it; that is a rule of its own and the one thing here that is not a
+        press, so see _config_panel_scrolled.
+
+        Where this differs from the chooser is what it leaves alone. Only those five keys and
+        those two analog controls are claimed, and the keys only on the press. The paddles and
+        triggers still do their work, the stick's other axis still turns the engine round, and
+        X still closes the panel through the popup handling every panel is closed by -- no
+        second way to say it is written here, which could only come to disagree with the first.
 
         Releases fall through for a reason of their own: a control held *before* the panel
         came up is still held, and its release is the only word that it is not. Swallowed,
         it would leave a boost repeating or a horn sounding behind the panel, and every key
-        the panel is worked with does its work on the press, so none of them needs one.
+        the panel is worked with does its work on the press, so none of them needs one. The
+        two analog controls are the exception that proves it: they are claimed in both phases
+        because a stick's return to center is not a release of anything but the word that it
+        has stopped, and what they were holding is let go as they are taken.
         """
         gui = self._target_gui(action.target)
         if gui is None or not getattr(gui, "lcs_config_visible", False):
+            self._forget_config_scrolling(action.target)
             return False
+        if self._config_panel_scrolled(action, gui):
+            return True
         if action.phase != "pressed":
             return False
         if action.name in (DPAD_UP, DPAD_DOWN):
@@ -1933,6 +1983,92 @@ class DeckInputRouter:
             gui.back_lcs_config()
             return True
         return False
+
+    def _config_panel_scrolled(self, action: DeckAction, gui: Any) -> bool:
+        """True when this action is a pane's stick or trackpad scrolling its panel's page.
+
+        The two analog controls each pane has of its own. Unlike the keys, which follow the
+        focus, these are bound in the profile to one pane apiece -- axis 1 and the left pad to
+        the left, axis 4 and the right pad to the right -- so the hand nearer a panel is the
+        hand that scrolls it, and two panels can be read at once.
+
+        The stick is held rather than pressed: its position is remembered and tick() moves the
+        page by it every interval, the way a throttle is held. A trackpad reports where the
+        finger is, so what is remembered is the last place it was and what is scrolled is the
+        distance since -- the page follows the finger, as it does under a finger on the glass.
+
+        Claimed by what the profile binds rather than by what the action is called: the pad's
+        action is the quilling horn's, that being what a pad does when no panel is up, so it
+        is taken only where a *touchpad* is bound to it for this very pane. A trigger bound to
+        the same action keeps sounding the horn, which is the one the operator is holding.
+
+        What is claimed is also released. A stick already pushed over when the panel came up
+        has an entry in _throttles that tick() would go on ramping the engine from, and its
+        return to center now arrives here instead of there, where it would have cleared it --
+        so the engine's hold is dropped the moment the panel takes the control over. The same
+        for the pad and a horn already sounding.
+        """
+        if action.name == "throttle":
+            self._release_engine_analog(action.target)
+            if action.value:
+                self._config_scrolls[action.target] = max(-1.0, min(1.0, action.value))
+            else:
+                self._config_scrolls.pop(action.target, None)
+            return True
+        if action.name == QUILLING_HORN and self._touchpad_bound(action):
+            self._release_engine_analog(action.target)
+            self._scroll_config_by_pad(action, gui)
+            return True
+        return False
+
+    def _touchpad_bound(self, action: DeckAction) -> bool:
+        """Whether a trackpad is what this pane's action was bound to in the profile."""
+        return any(
+            binding.action == action.name and binding.target == action.target
+            for binding in self.profile.touchpads.values()
+        )
+
+    def _scroll_config_by_pad(self, action: DeckAction, gui: Any) -> None:
+        """Move the panel's page by however far the finger has traveled down the pad.
+
+        A fraction of zero is the finger lifted -- and equally the finger resting in the pad's
+        top dead zone, which is why it is read as neither up nor down but as "start again":
+        the stroke is forgotten, and the next report is a place rather than a distance. Which
+        is also what keeps a finger set down in a new spot from throwing the page across it.
+        """
+        fraction = max(0.0, min(1.0, float(action.value)))
+        if not fraction:
+            self._config_pads.pop(action.target, None)
+            return
+        last = self._config_pads.get(action.target)
+        self._config_pads[action.target] = fraction
+        if last is not None:
+            gui.scroll_lcs_config(round((fraction - last) * CONFIG_PAD_TRAVEL_PX))
+
+    def _forget_config_scrolling(self, target: Target) -> None:
+        """Let go of what a pane's stick and pad were doing to a panel that is no longer up.
+
+        Where the finger was is remembered so the next report can be read as the distance it
+        has traveled, and that reading only holds within one stroke on one page. A finger down
+        when the panel closes goes on to work the horn, whose reports come nowhere near here,
+        so without this the first touch after the panel reopened would be read as the travel
+        since a place the finger left long ago -- the page thrown the length of a stroke
+        nobody made.
+        """
+        self._config_scrolls.pop(target, None)
+        self._config_pads.pop(target, None)
+
+    def _release_engine_analog(self, target: Target) -> None:
+        """Let go of whatever this pane's stick and pad were holding the engine to.
+
+        Called where a panel takes those controls over. Everything they hold is re-sent by
+        tick() until something says to stop, and the word that would have said so is the one
+        the panel has just claimed.
+        """
+        self._throttles.pop(target, None)
+        self._commanded_speeds.pop(target, None)
+        self._acc_throttles.pop(target, None)
+        self._quills.pop(target, None)
 
     def _handle_admin_command(self, action: DeckAction) -> None:
         # An admin chord stands in for pressing and holding the matching admin panel

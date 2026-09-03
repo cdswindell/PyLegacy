@@ -15,6 +15,8 @@ from typing import Any, Callable, Iterator
 
 from guizero import Box
 
+from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
+
 # What a widget may raise when it is asked about a screen it is no longer on -- a popup taken
 # down mid-gesture, a row rebuilt under a drag. Caught rather than guarded against, as
 # everywhere else in this package: there is no answer to give, and a scroll is not worth an
@@ -35,25 +37,43 @@ DRAG_SLOP = 8
 # something. Roughly two rows of the panel's own text.
 WHEEL_STEP = 48
 
+# How far the page slides, and for how long, when it shows the reader that it moves; see
+# hint(). Far enough that the eye catches it -- a row's own height is about 34px, so this is a
+# third of a row appearing at the foot of the window -- and brief enough that a finger already
+# on its way to a control cannot land while the page is away from where it was seen.
+HINT_PX = 12
+HINT_MSEC = 220
+
 # The bar drawn down the right edge of a page with more to it than fits. Placed over the
 # content rather than packed beside it, so it costs no width -- the Pi has none to give -- and
 # so it can appear and disappear without moving a single row.
 #
 # It is the only thing that says there is more of the page: a scrolled window with no mark on
 # it is indistinguishable from a page that has been cut off, which is the very defect this is
-# here to answer.
-# Drawn in the gray this package already says "aside" in -- the color of the help screen's
-# footnotes -- rather than in a color of its own: it is a fact about the page, not part of
-# it. Shot at the pale border gray beside it, it read as a seam in the frame.
+# here to answer. It was first drawn as a painted block, and a painted block is all it said:
+# a mark that reports where in the page the reader is, and looks like nothing that could be
+# taken hold of. So it is Tk's own scrollbar now -- a trough, a handle, and an arrow head at
+# either end, every one of them working -- which says what it is by being it.
 #
+# The colors and the styling are CatalogPanel's, wholesale, down to the orange edge: the
+# operator meets a scrolling list there already, and two scroll bars in one GUI that look
+# nothing alike are two things to learn instead of one. Lionel blue for the trough, the
+# handle and arrows in gray against it, and orange for the element under the finger, which is
+# the one part of it that answers back.
+BAR_TROUGH_COLOR = LIONEL_BLUE
+BAR_COLOR = "lightgrey"
+BAR_ACTIVE_COLOR = LIONEL_ORANGE
+BAR_EDGE_COLOR = LIONEL_ORANGE
+BAR_EDGE_PX = 1
+
 # The width is what a caller may ask for; this is the floor, and it is set by the narrowest
 # screen the bar has to be *noticed* on. 6px was the first attempt and it was too fine to
 # tell from the frame beside it on the Pi -- a bar nobody sees says nothing, which is the
-# whole of what it is for. 10px reads as a bar there and still costs the page nothing, being
-# drawn over it; a screen with width to spare should ask for more (see thumb_px).
-THUMB_PX = 10
-THUMB_COLOR = "#6B7280"
-THUMB_MIN_PX = 24
+# whole of what it is for -- and 10px read as a bar without reading as a control: at that
+# width Tk draws the arrow heads as two specks, and the trough is too narrow to aim a finger
+# at. 18px is the narrowest at which the whole of it is legible on the Pi, and a screen with
+# width to spare should ask for more (see bar_px).
+BAR_PX = 18
 
 
 def descendants(widget: Any) -> Iterator[Any]:
@@ -95,20 +115,22 @@ class ScrollBox:
       is outside it is simply not drawn.
     """
 
-    def __init__(self, master: Box, *, width: int, align: str = "top", thumb_px: int = None) -> None:
+    def __init__(self, master: Box, *, width: int, align: str = "top", bar_px: int = None) -> None:
         self._width = max(1, int(width))
         # How wide the bar down the right edge is drawn. Taken from the caller rather than
         # decided here, because it is a question about the screen and not about scrolling:
         # the bar is drawn over the page, so its width is paid for in what it covers of the
         # right-hand end of a row, and how much there is to cover is the caller's own layout.
-        self._thumb_px = max(1, int(thumb_px or THUMB_PX))
+        self._bar_px = max(1, int(bar_px or BAR_PX))
         self._offset = 0
         self._view_px = 0
         self._drag_from: tuple[int, int] | None = None
         self._dragging = False
         self._tag = f"PyTrainScroll{id(self):x}"
         self._tagged: set[str] = set()
-        self._thumb: Any = None
+        self._bar: Any = None
+        # Whether this page has already been shown that it moves; see hint().
+        self._hinted = False
         self._viewport = Box(master, align=align, width=self._width, height=1)
         try:
             self._viewport.tk.pack_propagate(False)
@@ -122,8 +144,17 @@ class ScrollBox:
             # asked to be: a window packed into a body is given that body's width, which is
             # its own less whatever border is drawn around it. A content frame held to the
             # width asked for hangs a few pixels off the right-hand edge, and what hangs off
-            # it is the end of every row.
-            self._content.tk.place(x=0, y=0, relwidth=1.0)
+            # it is the end of every row. Hence relwidth, which is that width whatever it
+            # comes to, less the gutter below.
+            #
+            # The gutter is the bar's own width, kept clear of the page whether or not there
+            # is anything to scroll. The bar is drawn over the window, so without it the bar
+            # is drawn over the *page* -- and a page is written to its own edge: measured on a
+            # 480px Pi pane, the widest line of the review page's prose stops 9px inside it,
+            # which even a 10px bar takes the end of. Kept always rather than only while the
+            # page overflows, because a gutter that came and went would re-break every line on
+            # the page each time it did.
+            self._content.tk.place(x=0, y=0, relwidth=1.0, width=-self._bar_px)
         except SCROLL_EXCEPTIONS:
             pass
         self._bind_gestures()
@@ -134,9 +165,9 @@ class ScrollBox:
         return self._content
 
     @property
-    def thumb_px(self) -> int:
+    def bar_px(self) -> int:
         """How wide the bar down the right edge is drawn, in pixels."""
-        return self._thumb_px
+        return self._bar_px
 
     @property
     def viewport(self) -> Box:
@@ -208,7 +239,7 @@ class ScrollBox:
             self._content.tk.place_configure(y=-target)
         except SCROLL_EXCEPTIONS:
             pass
-        self._draw_thumb()
+        self._draw_bar()
         return moved
 
     def scroll_by(self, pixels: int) -> bool:
@@ -217,7 +248,51 @@ class ScrollBox:
 
     def reset(self) -> bool:
         """Back to the top of the page. What a page turn does; see LcsConfigPanel._show_page."""
+        # A new page is a page nobody has been shown yet, however often the last one was.
+        self._hinted = False
         return self.scroll_to(0)
+
+    def hint(self) -> bool:
+        """Show once, by moving it, that the page under the reader moves. True where it did.
+
+        The bar down the edge says there is more of the page; what it cannot say is that the
+        page itself can be taken hold of anywhere, which is the gesture the operator actually
+        has -- a bar 18px wide on a touch screen is not what a finger reaches for. So the page
+        answers for itself: it slides a little and comes back, which reads as "this moves" in
+        the time it takes to see it and asks nothing of the reader.
+
+        Once per page, and only where there is something to show: a nudge repeated on every
+        layout pass would be a page that will not sit still. Called after the window has been
+        fitted, since until then whether the page even overflows is unknown.
+        """
+        if self._hinted or not self.scrollable or self._offset:
+            return False
+        self._hinted = True
+        if not self.scroll_to(min(HINT_PX, self.hidden_px)):
+            return False
+        try:
+            self._content.tk.after(HINT_MSEC, self._hint_over)
+        except SCROLL_EXCEPTIONS:
+            # No screen to animate on, and nothing to undo either: put it back at once rather
+            # than leave the page standing where the hint left it.
+            self.scroll_to(0)
+            return False
+        return True
+
+    def _hint_over(self) -> None:
+        """Put the page back where it was found. The other half of hint().
+
+        A popup can be closed inside the moment the nudge lasts, and a page put back after its
+        window has gone is a page put back nowhere. Everything this touches answers quietly to
+        a widget that is no longer on screen, so nothing is guarded against here beyond asking
+        first, which keeps a Tk background error out of the log for a gesture nobody saw.
+        """
+        try:
+            if not self._content.tk.winfo_exists():
+                return
+        except SCROLL_EXCEPTIONS:
+            return
+        self.scroll_to(0)
 
     def show_widget(self, widget: Any) -> bool:
         """Bring widget into the window, moving as little as it takes. True where it moved.
@@ -327,39 +402,80 @@ class ScrollBox:
     #
     # The bar
     #
-    def _draw_thumb(self) -> None:
+    def _draw_bar(self) -> None:
         """Show how much of the page is in the window, and where in it this is.
 
         Drawn only while there is something to say. Placed over the content at the right
-        edge, so it takes no width from the page and none of the rows move when it appears.
+        edge and down the whole of it, so it takes no width from the page and none of the
+        rows move when it appears.
+
+        Where the handle sits inside it is Tk's arithmetic rather than this component's: a
+        scrollbar is told the two fractions of the page the window is showing and draws
+        itself from them, which is also what makes the handle draggable and the trough
+        clickable without a line of code here. What is left to say is what the fractions are.
         """
         hidden = self.hidden_px
         if not hidden or self._view_px <= 0:
-            self._hide_thumb()
+            self._hide_bar()
             return
         total = self.content_px
-        height = max(THUMB_MIN_PX, int(self._view_px * self._view_px / total))
-        travel = self._view_px - height
-        top = int(travel * self._offset / hidden) if travel > 0 else 0
+        first = self._offset / total
+        last = min(1.0, (self._offset + self._view_px) / total)
         try:
-            if self._thumb is None:
-                self._thumb = tk.Frame(self._viewport.tk, bg=THUMB_COLOR, width=self._thumb_px)
+            if self._bar is None:
+                self._bar = tk.Scrollbar(
+                    self._viewport.tk,
+                    orient="vertical",
+                    command=self._on_bar,
+                    width=self._bar_px,
+                    troughcolor=BAR_TROUGH_COLOR,
+                    bg=BAR_COLOR,
+                    activebackground=BAR_ACTIVE_COLOR,
+                    highlightthickness=BAR_EDGE_PX,
+                    highlightbackground=BAR_EDGE_COLOR,
+                    # A scrollbar that takes the focus takes it from whatever the operator is
+                    # working the page with; the sliders in this GUI are built the same way.
+                    takefocus=0,
+                )
+            self._bar.set(first, last)
             # Against the window's right-hand edge wherever that turns out to be, for the
             # reason the content is placed to the same edge: a window is as wide as the body
             # it was packed into, not as wide as it asked to be, and a bar placed at the
             # width asked for is a bar drawn off the screen.
-            self._thumb.place(relx=1.0, x=-self._thumb_px, y=top, width=self._thumb_px, height=height)
-            self._thumb.lift()
+            self._bar.place(relx=1.0, x=-self._bar_px, y=0, width=self._bar_px, relheight=1.0)
+            self._bar.lift()
         except SCROLL_EXCEPTIONS:
-            self._thumb = None
+            self._bar = None
 
-    def _hide_thumb(self) -> None:
-        if self._thumb is None:
+    def _hide_bar(self) -> None:
+        if self._bar is None:
             return
         try:
-            self._thumb.place_forget()
+            self._bar.place_forget()
         except SCROLL_EXCEPTIONS:
-            self._thumb = None
+            self._bar = None
+
+    def _on_bar(self, *args: Any) -> None:
+        """Scroll the page as the bar was worked: Tk's own scrollbar protocol.
+
+        Three gestures arrive here and all three are the operator's: the handle dragged
+        ("moveto" and where to), an arrow head pressed or held ("scroll" by units), and the
+        trough clicked either side of the handle ("scroll" by pages). A unit is the wheel's
+        own step, so the arrow heads and the wheel agree, and a page is the window less that
+        step -- a line kept in sight across a jump is what says where the reader landed.
+        """
+        if not args:
+            return
+        how = str(args[0])
+        try:
+            if how == "moveto":
+                self.scroll_to(int(float(args[1]) * self.content_px))
+            elif how == "scroll":
+                count = int(float(args[1]))
+                step = WHEEL_STEP if str(args[2]).startswith("unit") else max(WHEEL_STEP, self._view_px - WHEEL_STEP)
+                self.scroll_by(count * step)
+        except (IndexError, TypeError, ValueError):
+            return
 
     def on_content_resized(self, refit: Callable[[], None], *also: Any) -> None:
         """Ask refit whenever the content changes height, once Tk has settled.

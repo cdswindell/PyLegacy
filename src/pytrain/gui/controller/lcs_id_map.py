@@ -39,6 +39,19 @@ simply not in its way. The scope compared against is the occupant's
 LcsOccupant.effective_scope, the registry's scope for the mode the module reports, not
 the store scope the state happened to be filed under.
 
+The trains are the one exception to "a module is what holds a TMCC ID"
+----------------------------------------------------------------------
+The TR key is not a key of the modules' own: it is how the trains themselves are
+addressed, and a module addressed as a TR device takes its block out of that very
+namespace. A BPC2 programmed as TR 1 answers to the button that runs the train at TR 1,
+and its manual makes the choice of key a matter of taste -- "the features available in
+both addressing modes are identical, choose whichever suits your layout best" -- so
+which addresses the trains are already on is exactly what there is to choose on. Hence
+trains(), trains_of() and train_overlaps(), which answer for the trains what the three
+functions above them answer for the modules. They are kept apart rather than folded in
+because a train is not an LcsDevice and is nothing the panel can program: a caller
+looking for a module to read settings off, or to retarget itself at, must not find one.
+
 No Tk or guizero symbols are imported; the map is pure logic over the state store and
 is unit-testable with any object exposing get_all(scope).
 """
@@ -56,6 +69,11 @@ LCS_SCOPES: tuple[CommandScope, ...] = (
     CommandScope.SWITCH,
     CommandScope.TRAIN,
 )
+
+# What to call a train that has not told us its road name. Taken from the scope, which is
+# where a TrainState's own moniker comes from, so a train the base has named and one known
+# only from control traffic are named by the same word for the same thing.
+TRAIN_LABEL: str = CommandScope.TRAIN.title
 
 
 @dataclass(frozen=True)
@@ -117,6 +135,35 @@ class LcsOccupant:
             state=self.state,
             config=self.config,
         )
+
+
+@dataclass(frozen=True)
+class TrainOccupant:
+    """
+    A train holding a TMCC ID on the TR keys.
+
+    One address apiece, always: a train is numbered, not blocked. It is reported at all
+    because a module addressed as a TR device is addressed among the trains; see this
+    module's docstring.
+    """
+
+    base_id: int
+    # The train as the layout names it -- "PRR #8523" where the base has told us its road,
+    # the plain word for what it is where it has not; see _train_name.
+    name: str = TRAIN_LABEL
+    state: Any = None
+
+    @property
+    def last_id(self) -> int:
+        """The end of the block it holds, which is the one address it answers to.
+
+        Spelled out so a train can be named by the same line a module is: the panel asks
+        every occupant for both ends of its block, and a one-address block is still a block.
+        """
+        return self.base_id
+
+    def claims(self, tmcc_id: int) -> bool:
+        return tmcc_id == self.base_id
 
 
 def _store(store: Any = None) -> Any:
@@ -402,3 +449,105 @@ def overlaps(
         if occupant.base_id <= last_id and base_id <= occupant.last_id:
             found.append(occupant)
     return found
+
+
+def _moniker(state: Any) -> str:
+    """The word the state itself uses for what it is, with TRAIN_LABEL as the fallback."""
+    moniker = getattr(state, "moniker", None)
+    return str(moniker) if moniker else TRAIN_LABEL
+
+
+def _train_name(state: Any) -> str:
+    """What to call the train this state stands for.
+
+    Its road name and number where the base has told us either -- "PENNSYLVANIA #8523" --
+    and the word for what it is where it has told us neither. Not the state's own name
+    property in that second case: unnamed, that answers "Train 3", and the address is
+    already the other half of every line a train is named on.
+
+    Assembled from the two halves rather than taken from that property in the first case
+    either, because a state carrying a road number and no road name answers "NA" there --
+    the placeholder for a name it has not got -- and a row reporting a taken address as "NA"
+    reports nothing. The halves are the state's own, and road_name answers with the moniker
+    where there is no name, so such a train reads "Train #1776". The one place this pass
+    words a component differently than the rest of the GUI does, and only where the rest of
+    it says nothing.
+    """
+    if not getattr(state, "is_name", False):
+        return _moniker(state)
+    name = str(getattr(state, "road_name", None) or _moniker(state))
+    number = getattr(state, "road_number", None) if getattr(state, "is_road_number", False) else None
+    return f"{name} #{number}" if number else name
+
+
+def _is_lcs_module(state: Any) -> bool:
+    """Whether this state stands for an LCS module rather than for a train.
+
+    A module addressed as a TR device is filed with the trains -- a BPC2 in TR mode leaves
+    a TrainState carrying is_bpc2, which is why TrainState is an LcsProxyState at all -- and
+    it is already reported for what it is by occupants(). Reported again as a train, it
+    would read as something standing in its own way. The registry's flags answer for every
+    module this pass knows; is_lcs is the catch for a module reported over PDI that it does
+    not, which is a module all the same and not a train.
+    """
+    if devices_for_state(state):
+        return True
+    return bool(getattr(state, "is_lcs", False))
+
+
+def trains(store: Any = None) -> List[TrainOccupant]:
+    """
+    Return every train the layout knows, base first.
+
+    Every train the store holds a state for, whether the base reported it or it was only
+    ever heard being driven: what makes a train worth naming here is that its address is
+    taken, and a train nobody has named is on its address just as firmly as one that has.
+    """
+    store = _store(store)
+    if store is None:
+        return []
+    # noinspection PyBroadException
+    try:
+        states = store.get_all(CommandScope.TRAIN) or []
+    except Exception:  # pragma: no cover - defensive; store shapes vary
+        return []
+    found: List[TrainOccupant] = []
+    seen: set[int] = set()
+    for state in states:
+        base_id = getattr(state, "address", None)
+        if not isinstance(base_id, int) or base_id < 1 or base_id in seen:
+            continue
+        if _is_lcs_module(state):
+            continue
+        seen.add(base_id)
+        found.append(TrainOccupant(base_id=base_id, name=_train_name(state), state=state))
+    found.sort(key=lambda train: train.base_id)
+    return found
+
+
+def trains_of(tmcc_id: int, store: Any = None) -> List[TrainOccupant]:
+    """
+    Return the trains answering to tmcc_id: one at most, the store being keyed by address.
+
+    A list all the same, so a caller writes one line for the trains and the modules alike;
+    occupants_of() can genuinely answer with several.
+    """
+    return [train for train in trains(store) if train.claims(tmcc_id)]
+
+
+def train_overlaps(
+    base_id: int,
+    ports: int,
+    store: Any = None,
+    ignore_base: int | None = None,
+) -> List[TrainOccupant]:
+    """
+    Return the trains numbered inside base_id .. base_id + ports - 1.
+
+    No scope: there is only one key a train answers to, and it is the caller's business
+    whether the block being programmed is on it. ignore_base omits the train at one
+    address, which is how a caller that reports the entered ID separately keeps from
+    naming the same train twice.
+    """
+    last_id = base_id + max(ports, 1) - 1
+    return [train for train in trains(store) if train.base_id != ignore_base and base_id <= train.base_id <= last_id]

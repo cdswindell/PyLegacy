@@ -12,6 +12,7 @@ import src.pytrain.gui.controller.lcs_device_registry as reg
 import src.pytrain.gui.controller.popup_manager as pm
 from src.pytrain.gui.components.checkbox_group import CheckBoxGroup as RealCheckBoxGroup
 from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsOption
+from src.pytrain.gui.controller.lcs_id_map import TRAIN_LABEL
 from src.pytrain.pdi.bpc2_req import Bpc2Action
 from src.pytrain.pdi.irda_req import IrdaAction, IrdaSequence
 from src.pytrain.pdi.pdi_device import PdiDevice
@@ -220,16 +221,18 @@ class DummyScrollBox:
     walks the pages' children still finds what it did before.
     """
 
-    def __init__(self, master: Any, *, width: int, align: str = "top", thumb_px: int = None) -> None:
+    def __init__(self, master: Any, *, width: int, align: str = "top", bar_px: int = None) -> None:
         self.width = width
         self.align = align
         # What the panel asked the bar be drawn at, which is a question about the screen
         # rather than about the window; see mod.scroll_bar_px.
-        self.thumb_px = thumb_px
+        self.bar_px = bar_px
         self.viewport = DummyBox(master)
         self.content = DummyBox(self.viewport)
         self.fits: list[int | None] = []
         self.shown: list[Any] = []
+        # Every pixel the pad has asked the page to move by, in order; see pad_scroll.
+        self.scrolled: list[int] = []
         self.bindings = 0
         self.on_resize: Any = None
         self.watching: list[Any] = []
@@ -253,6 +256,14 @@ class DummyScrollBox:
     def reset(self) -> bool:
         self.calls.append("reset")
         return False
+
+    def hint(self) -> bool:
+        self.calls.append("hint")
+        return self.scrollable
+
+    def scroll_by(self, pixels: int) -> bool:
+        self.scrolled.append(int(pixels))
+        return self.scrollable
 
     def show_widget(self, widget: Any) -> bool:
         self.shown.append(widget)
@@ -381,6 +392,39 @@ class FakeState:
     @property
     def port(self) -> int:
         return self.address - self._parent.address + 1 if self._parent else 1
+
+
+class FakeTrain:
+    """Mirrors the parts of a TrainState the panel reads of a train.
+
+    None of the registry's module flags, which is what makes it a train and not a module:
+    a BPC2 addressed as a TR device leaves a state on these very keys, and that one
+    answers is_bpc2.
+
+    The road name and number are carried apart and everything else derived from them the
+    way ComponentState derives it, so what a row can be given to name is what the layout
+    can really report.
+    """
+
+    def __init__(self, address: int, road_name: str = None, road_number: str = None) -> None:
+        self.address = address
+        self.tmcc_id = address
+        self.moniker = CommandScope.TRAIN.title
+        self.is_road_name = bool(road_name)
+        self.is_road_number = bool(road_number)
+        self.is_name = self.is_road_name or self.is_road_number
+        # Both fall back, as the real properties do: to the moniker, and to the address.
+        self.road_name = road_name or self.moniker
+        self.road_number = road_number or str(address)
+        if self.is_name:
+            # As ComponentState assembles it, which drops the number with the name: a train
+            # carrying a number and no road name is called "NA" and nothing else.
+            self.name = road_name + (f" #{road_number}" if road_number else "") if road_name else "NA"
+        else:
+            # Unnamed, the real state's own name property still answers with the address
+            # worked into it -- "Train 3" -- so the fake does too, and the panel has to be
+            # the thing that declines to spell the address twice.
+            self.name = f"{self.moniker} {address}"
 
 
 class FakeStore:
@@ -1023,6 +1067,173 @@ def test_sensor_track_claims_a_single_id() -> None:
 
 
 #
+# The trains, which share the TR keys with a module addressed as one
+#
+# A road name and number as the base reports them, and the name they come to -- so a named
+# train is told apart from the word for an unnamed one, and from the module labels beside it
+# in the same box.
+_A_ROAD, _A_NUMBER = "PRR", "8523"
+_A_ROAD_NAME = f"{_A_ROAD} #{_A_NUMBER}"
+
+
+def _trains_at_1_and_3_store() -> FakeStore:
+    """Two trains: one nobody has named, and one the base has told us the road of."""
+    return FakeStore({CommandScope.TRAIN: [FakeTrain(1), FakeTrain(3, road_name=_A_ROAD, road_number=_A_NUMBER)]})
+
+
+def _bpc2_as(mode_key: str, base_id: int, store: FakeStore = None) -> Any:
+    """A BPC2 aimed at base_id in one of its two addressing modes.
+
+    The mode is said rather than taken from the row the page opens on, because which of the
+    two keys the module is on is the whole of what these tests are about.
+    """
+    panel = _new_panel(store or _trains_at_1_and_3_store())
+    panel._on_device_selected("bpc2")
+    panel._on_mode_selected(mode_key)
+    panel._set_base_id(base_id)
+    return panel
+
+
+def test_a_train_holds_a_track_address_against_the_module_being_programmed() -> None:
+    # The report. A BPC2 addressed as a TR device takes its block out of the numbers the
+    # trains themselves answer to, so the train at the address entered is what is currently
+    # assigned to it, and a train further up the block is something it overlaps. Neither box
+    # had anything to say about a train before.
+    panel = _bpc2_as("tr_8", 1)
+
+    assert panel.scope == CommandScope.TRAIN
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, TRAIN_LABEL, 1)]
+    assert _overlaps(panel) == [_row(CommandScope.TRAIN, _A_ROAD_NAME, 3)]
+    # The box is on the page at all, which for a module in the way is the same rule: a train
+    # in the block is a reason to show it, and there was none before this.
+    assert panel._overlap_box.visible is True
+
+
+def test_a_train_is_named_for_its_road_and_for_what_it_is_otherwise() -> None:
+    # A row reading "Train 3" would spell the address twice, once in each of two columns,
+    # and a row naming nothing at all would read as an address holding an empty string.
+    named = _bpc2_as("tr_8", 3)
+    unnamed = _bpc2_as("tr_8", 1)
+
+    assert _assigned(named) == [_row(CommandScope.TRAIN, _A_ROAD_NAME, 3)]
+    assert _assigned(unnamed) == [_row(CommandScope.TRAIN, TRAIN_LABEL, 1)]
+
+
+def test_a_train_row_is_colored_as_the_warning_it_is() -> None:
+    # Every row either box can show is something in the way of the address being entered,
+    # and a train is no exception: the one row in green is the one saying nobody holds it.
+    panel = _bpc2_as("tr_8", 1)
+
+    assert [cell.text_color for cell in panel._assigned_cells[0]] == [mod.CONFLICT_FG] * mod.ROW_COLUMNS
+
+
+def test_the_trains_are_nothing_to_a_module_on_the_accessory_keys() -> None:
+    # ACC 1 and TR 1 are two different addresses, and the BPC2's manual makes the choice
+    # between them a matter of taste -- "the features available in both addressing modes are
+    # identical". Which addresses the trains are on is what one of the two costs, and the
+    # same store answers with nothing at all on the other.
+    panel = _bpc2_as("acc_8", 1)
+
+    assert panel.scope == CommandScope.ACC
+    assert _assigned(panel) == [mod.UNASSIGNED]
+    assert _overlaps(panel) == []
+    assert panel._overlap_box.visible is False
+
+
+def test_switching_a_bpc2_between_its_two_keys_changes_whether_the_trains_are_in_the_way() -> None:
+    # The rows follow the mode radios rather than the module: the same module at the same
+    # address is among the trains on one row and nowhere near them on the other.
+    panel = _bpc2_as("acc_8", 1)
+    assert _assigned(panel) == [mod.UNASSIGNED]
+
+    panel._on_mode_selected("tr_8")
+
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, TRAIN_LABEL, 1)]
+    assert _overlaps(panel) == [_row(CommandScope.TRAIN, _A_ROAD_NAME, 3)]
+
+
+def test_only_a_track_mode_shares_the_trains_addresses() -> None:
+    # Said over the registry rather than of the BPC2 alone, so the next module with a mode
+    # on these keys is held to the same rule: the trains are in the way of exactly the modes
+    # addressed among them. The ASC2 and STM2 are the proof it is the mode being asked and
+    # not the module -- both have modes on two different keys.
+    panel = _new_panel(_trains_at_1_and_3_store())
+    asked = []
+    for device in reg.configurable_devices():
+        panel._on_device_selected(device.key)
+        for mode in reg.enabled_modes(device):
+            panel._on_mode_selected(mode.key)
+            panel._set_base_id(1)
+            where = f"{device.key}/{mode.key}"
+            among_them = mode.scope == CommandScope.TRAIN
+            assert panel.shares_train_ids is among_them, where
+            assert bool(panel.assigned_trains()) is among_them, where
+            assert bool(panel.overlap_trains()) is (among_them and mode.ports > 1), where
+            asked.append(among_them)
+    assert set(asked) == {True, False}, "both answers have to be reached for this to say anything"
+
+
+def test_before_a_mode_is_chosen_no_block_is_taken_from_anyone() -> None:
+    # Which addresses a block takes is a question about a block, and there is no block until
+    # a mode says how long it is -- the same reason the overlaps go unanswered until then.
+    panel = _new_panel(_trains_at_1_and_3_store())
+    panel._set_base_id(1)
+
+    assert panel.scope is None
+    assert panel.shares_train_ids is False
+    assert panel.assigned_trains() == []
+    assert panel.overlap_trains() == []
+    assert _assigned(panel) == [mod.UNASSIGNED]
+
+
+def test_a_train_is_no_module_to_go_to_or_to_read_settings_off() -> None:
+    # Why the trains are looked up apart from the modules. A train is not an LCS module:
+    # offering to go to its base would be offering to program a locomotive, and seeding the
+    # options page from it would read a BPC2's relay settings off a train.
+    panel = _bpc2_as("tr_8", 1)
+
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, TRAIN_LABEL, 1)]
+    assert panel.assigned_occupants() == []
+    assert panel.programmable_occupant() is None
+    assert panel.reconfigured_occupant() is None
+    assert panel._goto_btn.visible is False
+    assert panel._new_btn.visible is False
+
+
+def test_a_module_addressed_as_a_track_device_is_not_reported_as_a_train_too() -> None:
+    # A BPC2 in TR mode leaves a state on the train keys carrying is_bpc2 -- the very reason
+    # a TrainState is an LcsProxyState -- and named as a train as well, it would read as a
+    # module standing in its own way.
+    store = FakeStore({CommandScope.TRAIN: [FakeState(1, "is_bpc2", mode=0, num_ids=8), FakeTrain(9)]})
+    panel = _bpc2_as("tr_8", 1, store)
+
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, BPC2.label, 1, 8)]
+    assert panel.reconfigured_occupant() is not None, "the module being reprogrammed, read as itself"
+    assert _overlaps(panel) == [], "the train at 9 is outside a block of 1 - 8"
+
+
+def test_the_modules_are_named_before_the_trains() -> None:
+    # The modules are what the page is about; a train is the further thing the operator has
+    # to know about the address, so it is read after them rather than in among them.
+    store = FakeStore(
+        {
+            CommandScope.TRAIN: [
+                FakeState(2, "is_bpc2", mode=0, num_ids=8),
+                FakeTrain(1),
+                FakeTrain(3, road_name=_A_ROAD, road_number=_A_NUMBER),
+            ]
+        }
+    )
+    panel = _bpc2_as("tr_8", 1, store)
+
+    assert _assigned(panel) == [_row(CommandScope.TRAIN, TRAIN_LABEL, 1)]
+    assert _overlaps(panel) == [
+        _row(CommandScope.TRAIN, BPC2.label, 2, 8),
+        _row(CommandScope.TRAIN, _A_ROAD_NAME, 3),
+    ]
+
+
+#
 # Options page
 #
 def test_options_page_renders_only_the_selected_device_controls() -> None:
@@ -1419,11 +1630,12 @@ def test_an_options_own_note_is_wrapped_and_read_at_the_body_size() -> None:
 
 def test_the_wrap_is_the_width_the_popup_is_built_to() -> None:
     # create_popup builds the popup's title row to the emergency box's width, so that is
-    # the width a line inside it has to fit.
+    # the width a line inside it has to fit -- less the gutter the scroll bar is drawn in,
+    # which is width the page never has; see _page_px.
     panel = _new_panel()
     host = panel.gui
 
-    assert panel._wrap_px == host.emergency_box_width - mod.WRAP_INSET
+    assert panel._wrap_px == host.emergency_box_width - mod.scroll_bar_px() - mod.WRAP_INSET
 
 
 def test_the_wrap_falls_back_to_the_pane_and_then_to_a_floor() -> None:
@@ -1434,11 +1646,32 @@ def test_the_wrap_falls_back_to_the_pane_and_then_to_a_floor() -> None:
     host = panel.gui
 
     host.emergency_box_width = 0
-    assert panel._wrap_px == host.width - mod.WRAP_INSET
+    assert panel._wrap_px == host.width - mod.scroll_bar_px() - mod.WRAP_INSET
 
     host.width = 0
     assert panel._wrap_px == mod.MIN_WRAP_PX
     assert mod.MIN_WRAP_PX < 480
+
+
+def test_a_page_is_drawn_in_the_pane_less_the_room_the_scroll_bar_takes() -> None:
+    # The bar is drawn over the window the pages are seen through, so the room it takes has to
+    # be kept out of the page: measured on a Pi pane, the widest line of the review page's
+    # prose stops 9px inside it, which even the 10px bar this began as took the end of. Every
+    # width the panel breaks a line at is taken from here, so the wrap and the boxes cannot
+    # come to disagree about where the page ends.
+    panel = _new_panel()
+    host = panel.gui
+
+    assert panel._page_px == panel._pane_px - mod.scroll_bar_px()
+    assert panel._wrap_px == panel._page_px - mod.WRAP_INSET
+    assert panel._titled_box_px == panel._page_px - mod.TITLED_BOX_INSET
+    # The window itself keeps the pane's whole width: the gutter is inside it, which is how
+    # the bar can appear and disappear without a row moving.
+    assert panel._scroll_px == panel._pane_px
+
+    # And a host that has measured nothing is given a page it can still hold a line in.
+    host.emergency_box_width = host.width = 0
+    assert panel._page_px == mod.MIN_WRAP_PX + mod.WRAP_INSET
 
 
 def test_a_line_with_nothing_to_say_leaves_the_page_and_takes_its_gaps_with_it() -> None:
@@ -2015,7 +2248,7 @@ def test_the_boxes_are_drawn_no_narrower_than_the_page_they_stand_on() -> None:
     panel = _new_panel()
     host = panel.gui
 
-    assert panel._titled_box_px == host.emergency_box_width - mod.TITLED_BOX_INSET
+    assert panel._titled_box_px == host.emergency_box_width - mod.scroll_bar_px() - mod.TITLED_BOX_INSET
     # Wider than the longest line the boxes can hold, which is the point of the smaller
     # inset: the wrap decides where a sentence breaks, not the frame around it.
     assert mod.TITLED_BOX_INSET < mod.WRAP_INSET
@@ -4171,6 +4404,50 @@ def test_the_b_key_turns_back_a_page_and_stops_at_the_first() -> None:
     assert panel.page_index == mod.PAGE_DEVICE
 
 
+def test_the_stick_moves_the_page_and_chooses_nothing() -> None:
+    # The pad's keys work the controls on a page; the stick and the trackpad work the page
+    # itself, which on the one screen that ever holds a page back is a different thing to
+    # want: a highlight can only be stepped to a row, and reading the box below the rows is
+    # not stepping. So it reaches the same window a finger dragging the page reaches, and
+    # like that finger it chooses nothing.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    scroll = panel.scroll
+    scroll.scrollable = True
+    chosen = panel._device_group.value
+
+    assert panel.pad_scroll(60) is True
+    assert panel.pad_scroll(-60) is True
+
+    assert scroll.scrolled == [60, -60], "positive is further down the page"
+    assert panel._device_group.value == chosen
+    assert panel.pad_cursor is None, "and no highlight moved with it"
+
+
+def test_a_page_with_nowhere_to_go_answers_the_stick_with_nothing() -> None:
+    # A page that fits its window is a page at both of its ends at once, and a stick held
+    # over one is doing nothing -- which the caller is told, rather than refused. Nothing is
+    # asked of the window for a press worth no pixels at all.
+    panel = _new_panel()
+    scroll = panel.scroll
+    scroll.scrollable = False
+
+    assert panel.pad_scroll(60) is False
+    assert scroll.scrolled == [60], "asked all the same: how far it can go is the window's own"
+
+    assert panel.pad_scroll(0) is False
+    assert scroll.scrolled == [60], "and a nudge worth no pixels is not worth asking about"
+
+
+def test_a_panel_with_no_window_yet_is_safe_to_scroll() -> None:
+    # The pad is answered by whatever is on screen, and a panel that has been built but never
+    # laid out has no window to move. A press arriving then is early rather than wrong.
+    panel = mod.LcsConfigPanel(_new_host())
+
+    assert panel.scroll is None
+    assert panel.pad_scroll(60) is False
+
+
 def test_the_pad_ticks_and_clears_the_only_setting_a_bpc2_has() -> None:
     # A lone tick box is the whole of that page, and there is no list to step through: right
     # sets it and left clears it, both states one press away either way -- which is how a
@@ -4394,18 +4671,28 @@ def test_the_bar_is_drawn_wide_enough_to_be_seen_and_wider_where_there_is_room(
     monkeypatch.setattr(mod, "is_steam_deck", lambda: deck, raising=True)
 
     assert mod.scroll_bar_px() == expected
-    assert _new_panel().scroll.thumb_px == expected
+    assert _new_panel().scroll.bar_px == expected
 
 
-def test_no_bar_is_wide_enough_to_cover_the_end_of_a_row() -> None:
-    # Measured rather than reasoned, in a real Tk at both panes: the widest row the Mode box
-    # can ever show ends 20px inside the Pi's pane, and the widest line of prose 22px inside
-    # it, so its 10px bar clears them by 10px and 12px. On a Deck pane both clear that pane's
-    # wider bar by over 120px. The Pi is what sets the ceiling, and 20px is where it is.
-    assert max(mod.SCROLL_BAR_PX, mod.SCROLL_BAR_PX_DECK) <= 20
-    assert mod.SCROLL_BAR_PX_DECK > mod.SCROLL_BAR_PX
-    # And neither is below the width the component itself says a bar can be seen at.
-    assert mod.SCROLL_BAR_PX >= scroll_mod.THUMB_PX
+@pytest.mark.parametrize("deck", [True, False])
+def test_no_bar_is_drawn_over_anything_the_page_has_written(monkeypatch, deck: bool) -> None:
+    # What a bar may cover is nothing at all, and that is arranged rather than hoped for: the
+    # page is drawn in the pane less the bar's own width, on either machine and whether or not
+    # the page in hand overflows. Measured in a real Tk with that kept clear, the nearest ink
+    # on any page of any module comes 33px inside a Pi pane against its 24px bar, and 48px
+    # inside a Deck pane against its 30px one.
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: deck, raising=True)
+    panel = _new_panel()
+
+    assert panel._pane_px - panel._page_px == mod.scroll_bar_px()
+
+
+def test_a_bar_is_drawn_wide_enough_to_be_worked_and_wider_where_there_is_width() -> None:
+    # It has an arrow head at either end now and a trough between them, all three of which are
+    # pressed rather than read: a part too small to aim at may as well be paint. The component
+    # holds the floor, this holds the choice between the two panes.
+    assert mod.SCROLL_BAR_PX_DECK > mod.SCROLL_BAR_PX, "wider where the pane has the width"
+    assert mod.SCROLL_BAR_PX >= scroll_mod.BAR_PX
 
 
 def test_a_page_is_come_to_at_its_top_and_the_window_re_fitted_for_it() -> None:
@@ -4419,7 +4706,9 @@ def test_a_page_is_come_to_at_its_top_and_the_window_re_fitted_for_it() -> None:
 
     panel.next_page()
 
-    assert scroll.calls == ["reset", "fit"]
+    # And shown, last of the three, that it moves -- which it can only be told once it has
+    # been measured against the room there is; see test_a_page_being_held_back_says_so.
+    assert scroll.calls == ["reset", "fit", "hint"]
 
 
 def test_the_window_is_given_the_room_the_popup_leaves_it() -> None:
@@ -4450,12 +4739,61 @@ def test_every_line_the_panel_writes_is_broken_at_the_pane() -> None:
     # beginning and its end at once. Asserted over every line rather than the ones that were
     # found overflowing, because what these lines say comes from the registry and from the
     # layout, and neither is bounded by anything that knows how wide the screen is.
+    #
+    # Every line but the name column of a module row, which has two columns beside it and
+    # so less than the page to itself; see the two tests below.
     panel = _new_panel()
 
     lines = [w for w in _panel_widgets(panel) if isinstance(w, DummyText)]
+    names = [cell[mod.ROW_NAME_COLUMN] for cell in panel._assigned_cells + panel._overlap_cells]
 
     assert len(lines) > 10, "the pages' own prose, their headings and the boxes' cells"
-    assert [line.tk.configured.get("wraplength") for line in lines] == [panel._wrap_px] * len(lines)
+    assert names, "the assigned box writes a row before an ID is even entered"
+    assert [line.tk.configured.get("wraplength") for line in lines if line not in names] == [panel._wrap_px] * (
+        len(lines) - len(names)
+    )
+
+
+def test_a_name_is_broken_inside_its_own_column_and_not_at_the_page() -> None:
+    # What wrapping every cell at the page's width cannot do: three columns each free to
+    # take the whole of it are three times too wide, and the row runs off the pane. Which is
+    # how it read on a Pi with a train on the address -- a module's label is short enough to
+    # have hidden this, a road name is not.
+    panel = _new_panel()
+    scope, name, ids = panel._assigned_cells[0]
+
+    assert name.tk.configured["wraplength"] == panel._row_name_wrap_px
+    assert panel._row_name_wrap_px < panel._wrap_px, "a column has less room than the page"
+    # The two beside it break at the page, and are welcome to: neither can reach even a
+    # third of a row. What they hold is a remote key and a block of addresses.
+    for cell in (scope, ids):
+        assert cell.tk.configured["wraplength"] == panel._wrap_px
+
+
+def test_a_name_is_left_the_page_less_what_the_columns_beside_it_take() -> None:
+    # Reserved rather than measured, and the reservation is a multiple of the cells' own
+    # size because that is what the width of the two bounded columns follows: one font at
+    # three sizes. See ROW_FIXED_COLUMNS_EMS for the measurements behind the multiple.
+    panel = _new_panel()
+
+    reserved = mod.ROW_FIXED_COLUMNS_EMS * panel._titled_text_size
+    assert panel._row_name_wrap_px == panel._wrap_px - reserved
+    assert panel._row_name_wrap_px > 0, "a column told to break at nothing is one that never breaks"
+
+
+def test_a_name_keeps_a_share_of_the_row_on_a_pane_too_narrow_to_reserve_from() -> None:
+    # The floor, and it has to be a floor and not a subtraction: past this point the
+    # reservation is the whole of the pane, and a column left with nothing is a column told
+    # to break at zero -- which is how Tk is told not to break a line at all.
+    host = _new_host()
+    host.width = 0
+    host.emergency_box_width = 0
+    panel = mod.LcsConfigPanel(host)
+    panel.build(DummyBox())
+
+    assert panel._wrap_px == mod.MIN_WRAP_PX
+    assert panel._row_name_wrap_px == mod.MIN_WRAP_PX // mod.ROW_COLUMNS
+    assert panel._row_name_wrap_px > 0
 
 
 def test_every_row_the_panel_draws_is_broken_inside_the_pane() -> None:

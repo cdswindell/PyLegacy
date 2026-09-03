@@ -12,7 +12,15 @@ from typing import Any
 
 from src.pytrain.gui.controller import lcs_id_map
 from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2
-from src.pytrain.gui.controller.lcs_id_map import occupant_of, occupants, occupants_of, overlaps
+from src.pytrain.gui.controller.lcs_id_map import (
+    occupant_of,
+    occupants,
+    occupants_of,
+    overlaps,
+    train_overlaps,
+    trains,
+    trains_of,
+)
 from src.pytrain.pdi.pdi_device import PdiDevice
 from src.pytrain.protocol.constants import CommandScope
 
@@ -42,6 +50,38 @@ class FakeState:
         # Recognized but not programmable, and the map must find it all the same: a
         # module it cannot see is an address it reports as free when it is not.
         self.is_amc2 = device == "amc2"
+
+
+class FakeTrain:
+    """
+    Minimal stand-in for a TrainState: only what lcs_id_map reads of a train.
+
+    A train carries none of the registry's module flags, which is what tells it apart from
+    a BPC2 in TR mode -- that leaves a TrainState too, but one answering is_bpc2.
+
+    The road name and number are kept apart and the rest derived from them exactly as
+    ComponentState derives it, "NA" and all: what the map may read of a half-named train
+    is the point of two of these tests.
+    """
+
+    def __init__(self, address: int, road_name: str = None, road_number: str = None, moniker: str = "Train") -> None:
+        self.address = address
+        self.moniker = moniker
+        self._road_name = road_name
+        self.is_road_name = bool(road_name)
+        self.is_road_number = bool(road_number)
+        self.is_name = self.is_road_name or self.is_road_number
+        # Both fall back, as the real properties do: to the moniker, and to the address.
+        self.road_name = road_name or moniker
+        self.road_number = road_number or str(address)
+        if self.is_name:
+            # As ComponentState assembles it, which drops the number with the name: a train
+            # carrying a number and no road name is called "NA" and nothing else.
+            self.name = road_name + (f" #{road_number}" if road_number else "") if road_name else "NA"
+        else:
+            # Unnamed, the real state's name property still answers with the address worked
+            # into it, so the fake does too and the map has to decline to use it.
+            self.name = f"{moniker} {address}"
 
 
 class FakeStore:
@@ -474,6 +514,144 @@ class TestPdiDeviceStore:
 
     def test_an_empty_pdi_store_changes_nothing(self):
         assert occupant_of(9, asc2_at_9(), pdi_store=FakePdiStore({})).device is ASC2
+
+
+class TestTrains:
+    """The trains, which are in the way of exactly one thing: a module addressed as TR.
+
+    Answered apart from the modules because they are not modules: nothing here can be
+    programmed, read for settings, or retargeted at, and the panel's module lookups must
+    not turn one up.
+    """
+
+    @staticmethod
+    def a_train_layout() -> FakeStore:
+        return FakeStore(
+            train=[FakeTrain(3), FakeTrain(8, road_name="PRR", road_number="8523"), FakeTrain(1)],
+            acc=[FakeState(1, "bpc2", mode=2)],
+        )
+
+    def test_every_train_is_reported_base_first(self):
+        found = trains(self.a_train_layout())
+        assert [train.base_id for train in found] == [1, 3, 8]
+
+    def test_a_train_holds_the_one_address_it_is_numbered_at(self):
+        # A train is numbered, not blocked, so its block begins and ends on itself. Said
+        # here because the panel names a train with the very line it names a module with,
+        # which asks every occupant for both ends.
+        train = trains_of(3, self.a_train_layout())[0]
+
+        assert (train.base_id, train.last_id) == (3, 3)
+        assert train.claims(3) is True
+        assert train.claims(4) is False
+        assert trains_of(4, self.a_train_layout()) == []
+
+    def test_a_train_the_base_has_named_is_named_for_its_road(self):
+        assert trains_of(8, self.a_train_layout())[0].name == "PRR #8523"
+
+    def test_a_train_with_a_number_and_no_road_name_is_still_named_something(self):
+        # The state's own name property answers "NA" here -- the placeholder for a name it
+        # has not got -- and a row reporting a taken address as "NA" reports nothing. Its
+        # road name falls back to the word for what it is, which is the half that is there.
+        store = FakeStore(train=[FakeTrain(7, road_number="1776")])
+        train = trains_of(7, store)[0]
+
+        assert train.state.name == "NA", "which is what the rest of the GUI calls it"
+        assert train.name == f"{lcs_id_map.TRAIN_LABEL} #1776"
+
+    def test_a_train_with_a_road_name_and_no_number_is_named_for_the_road_alone(self):
+        # No number to add, and the state's own fallback is its address -- which the row
+        # beside the name already carries.
+        store = FakeStore(train=[FakeTrain(4, road_name="PENNSYLVANIA")])
+
+        assert trains_of(4, store)[0].name == "PENNSYLVANIA"
+
+    def test_a_train_nobody_has_named_is_called_what_it_is(self):
+        # Not its own name property, which reads "Train 3": the address is already the
+        # other half of every row a train is named on, and saying it twice reads as two
+        # facts. The word comes from the scope, so both cases say "Train" of a train.
+        train = trains_of(3, self.a_train_layout())[0]
+
+        assert train.name == lcs_id_map.TRAIN_LABEL == CommandScope.TRAIN.title
+        assert train.state.name == "Train 3", "the state itself would have spelled it twice"
+
+    def test_a_train_with_nothing_to_say_at_all_is_still_called_something(self):
+        # A store shape that answers neither: a row naming a blank is a row that reads as
+        # an address holding an empty string.
+        store = FakeStore(train=[FakeState(4, "none")])
+
+        assert trains(store)[0].name == lcs_id_map.TRAIN_LABEL
+
+    def test_a_module_filed_with_the_trains_is_not_one_of_them(self):
+        # A BPC2 in TR mode leaves a TrainState behind it, carrying is_bpc2 -- which is the
+        # whole reason TrainState is an LcsProxyState. Reported as a train as well, it
+        # would read as a module standing in its own way.
+        store = FakeStore(train=[FakeState(12, "bpc2", mode=0), FakeTrain(13)])
+
+        assert [train.base_id for train in trains(store)] == [13]
+        assert occupant_of(12, store).device is BPC2
+
+    def test_a_module_this_pass_does_not_know_is_not_a_train_either(self):
+        # is_lcs is the catch for a module reported over PDI that the registry has no
+        # entry for: not a module this panel can program, but not a locomotive.
+        state = FakeState(20, "none")
+        state.is_lcs = True
+
+        assert trains(FakeStore(train=[state])) == []
+
+    def test_only_the_trains_own_key_is_read(self):
+        # The accessories are numbered in a namespace of their own, and an accessory at 3
+        # is nothing to a train at 3. The BPC2 on ACC 1 in this layout is proof the ACC
+        # states are not being walked: it would answer to trains_of(1) if they were.
+        assert [train.base_id for train in trains_of(1, self.a_train_layout())] == [1]
+        assert [train.state.moniker for train in trains_of(1, self.a_train_layout())] == ["Train"]
+
+    def test_an_address_out_of_range_is_no_train(self):
+        # A state the store manufactured but nothing ever addressed: no address at all, or
+        # one below the first TMCC ID.
+        assert trains(FakeStore(train=[FakeTrain(0), FakeTrain(None)])) == []
+
+    def test_a_name_the_base_reported_as_both_halves_reads_as_the_gui_reads_it(self):
+        # The assembled name and the state's own agree wherever the state has one to give,
+        # which is what keeps a train named here the train the operator knows from the
+        # catalog. They part company only over "NA"; see the test above.
+        for train in trains(self.a_train_layout()):
+            if train.state.is_name:
+                assert train.name == train.state.name
+
+    def test_a_train_reported_twice_is_reported_once(self):
+        # The store is keyed by road number as well as by address, and a road number that
+        # happens to be an address gets the same state back twice.
+        train = FakeTrain(3)
+
+        assert [item.base_id for item in trains(FakeStore(train=[train, train]))] == [3]
+
+    def test_the_trains_inside_a_block_are_the_ones_it_would_take(self):
+        # The reason any of this is answered: a BPC2 addressed as TR 1 takes eight of the
+        # trains' own addresses, and the operator typed only the first of them.
+        found = train_overlaps(1, 8, self.a_train_layout())
+
+        assert [train.base_id for train in found] == [1, 3, 8]
+        assert [train.base_id for train in train_overlaps(2, 8, self.a_train_layout())] == [3, 8]
+        assert train_overlaps(4, 4, self.a_train_layout()) == []
+
+    def test_a_block_of_one_takes_the_address_it_is_based_at(self):
+        assert [train.base_id for train in train_overlaps(3, 1, self.a_train_layout())] == [3]
+        assert train_overlaps(3, 0, self.a_train_layout())[0].base_id == 3, "a portless mode still claims its base"
+
+    def test_the_train_at_one_address_can_be_left_out(self):
+        # How a caller that reports the entered ID separately keeps from naming the same
+        # train in two boxes at once.
+        found = train_overlaps(1, 8, self.a_train_layout(), ignore_base=1)
+
+        assert [train.base_id for train in found] == [3, 8]
+
+    def test_no_store_built_is_not_an_error(self, monkeypatch):
+        monkeypatch.setattr(lcs_id_map, "_store", lambda store=None: None)
+
+        assert trains() == []
+        assert trains_of(1) == []
+        assert train_overlaps(1, 8) == []
 
 
 class TestStoreDefault:

@@ -29,6 +29,8 @@ from src.pytrain.gui.controller.steam_deck_input import (
     BACK_PAGE_BUTTON,
     CATALOG_JUMP_MODIFIER,
     CLOSE_POPUP_BUTTON,
+    CONFIG_PAD_TRAVEL_PX,
+    CONFIG_SCROLL_RATE,
     DEFAULT_PROFILE,
     DPAD_DOWN,
     DPAD_LEFT,
@@ -3051,7 +3053,19 @@ def _lcs_config_gui(gui=None):
     gui.revert_lcs_config = lambda: gui.config_calls.append("revert")
     gui.advance_lcs_config = lambda: gui.config_calls.append("advance")
     gui.back_lcs_config = lambda: gui.config_calls.append("back")
+    gui.scroll_calls = []
+    gui.scroll_lcs_config = lambda pixels: gui.scroll_calls.append(pixels)
     return gui
+
+
+def _config_scroll_pixels(value: float, elapsed: float) -> int:
+    """What one tick moves the page by for a stick held at value for elapsed seconds.
+
+    Computed from the module's own rate rather than typed out, so a change of pace does not
+    have to be re-typed into every test below. Negative for a stick pushed forward, up the
+    stick being up the page.
+    """
+    return -round(value * CONFIG_SCROLL_RATE * elapsed)
 
 
 def test_the_dpad_works_an_open_lcs_config_panel_instead_of_the_engine() -> None:
@@ -3206,6 +3220,307 @@ def test_a_choice_list_opened_over_the_lcs_config_panel_still_wins() -> None:
 
     assert focused.chooser_calls == ["move:down", "select", "cancel"]
     assert focused.config_calls == [], "the panel underneath was left alone"
+
+
+def test_the_panes_own_stick_scrolls_the_lcs_config_panel_instead_of_driving() -> None:
+    # A page can be taller than the screen has room for, and the five keys work the controls
+    # on the page rather than the page itself, so the stick is what is left to read the rest of
+    # it with. Held rather than pressed: the position is remembered and tick() moves the page
+    # by it, the way a throttle is held, so how far the page goes is what the thumb says. And
+    # nothing reaches the engine while it does -- an operator reading a configuration page is
+    # at the worst possible moment to be changing a speed.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+
+    assert left.scroll_calls == [], "the stick's own word moves nothing; the tick does"
+    assert router._config_scrolls == {"left": 1.0}
+
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.25)  # a quarter second of hold
+
+    assert left.scroll_calls == [_config_scroll_pixels(1.0, 0.25)]
+    assert left.scroll_calls[0] < 0, "up the stick is up the page"
+    assert left.speed_calls == [], "and nothing reached the engine"
+
+
+def test_the_stick_pulled_back_scrolls_the_page_down_and_half_over_moves_half_as_far() -> None:
+    # Down the stick is down the page, so the page follows the thumb the way the eye follows
+    # the page. Pixels a second rather than a step a tick, so a thumb half over moves half as
+    # far: the pace is the thumb's and not how often tick() happens to run, which is what lets
+    # a page be crossed quickly and then crept along to read.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", -1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+    router.handle(DeckAction("throttle", "left", -0.5, "changed"))
+    router.tick(10.5)
+
+    full, half = left.scroll_calls
+    assert full == _config_scroll_pixels(-1.0, 0.25)
+    assert full > 0, "down the page is positive pixels"
+    assert half == _config_scroll_pixels(-0.5, 0.25)
+    assert half * 2 == full
+
+
+def test_the_stick_back_at_center_stops_scrolling_the_lcs_config_panel() -> None:
+    # The return to center is the only word that the thumb has come off, and while the panel is
+    # up it arrives here rather than at the engine. Forgotten rather than remembered as a zero:
+    # an entry kept alive would be a hold for the engine to be ramped from the moment the page
+    # came down, from a stick nobody is touching.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(10.5)
+
+    assert router._config_scrolls == {}
+    assert left.scroll_calls == [_config_scroll_pixels(1.0, 0.25)], "the page stopped where it was"
+
+
+def test_each_stick_scrolls_its_own_panes_panel_rather_than_the_focused_ones() -> None:
+    # Unlike the keys, which follow the focus and have only the one set between them, the two
+    # sticks are bound one to a pane apiece: the hand nearer a panel is the hand that scrolls
+    # it, so two panels can be read at once. Were the focus consulted instead, one thumb would
+    # move the other's page and the unfocused pane could not be read at all.
+    left = _lcs_config_gui()
+    right = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(left=left, right=right)  # left has the focus
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.handle(DeckAction("throttle", "right", -1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert left.scroll_calls == [_config_scroll_pixels(1.0, 0.25)], "up the page, from the left thumb"
+    assert right.scroll_calls == [_config_scroll_pixels(-1.0, 0.25)], "and down it, from the right"
+
+
+def test_a_stick_already_held_when_the_lcs_config_panel_opens_lets_go_of_the_engine() -> None:
+    # The safety rule. tick() goes on ramping the engine from whatever _throttles holds until
+    # something says to stop, and the word that would have said so -- this stick's return to
+    # center -- now arrives at the panel rather than at the handler that would have cleared it.
+    # Left as it was, an engine would accelerate away behind a page its operator is reading,
+    # with no control left in their hands that can stop it.
+    left = _lcs_config_gui()
+    left.lcs_config_visible = False
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))  # driving the engine
+    assert router._throttles == {"left": 1.0}
+
+    left.lcs_config_visible = True  # the panel opens under the held thumb
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert router._throttles == {}
+    assert left.speed_calls == [], "no speed command went out behind the page"
+    assert left.scroll_calls == [_config_scroll_pixels(1.0, 0.25)], "only the page moved"
+
+
+def test_a_horn_already_sounding_when_the_trackpad_takes_the_page_over_is_let_go_of() -> None:
+    # The same rule for the other control a pane has of its own: a quill is re-sounded every
+    # tick until its return to the dead zone says to stop, and while the panel is up that word
+    # is claimed here. Otherwise the horn would sound until the page was closed, which is a
+    # worse thing to leave behind than a scroll -- everyone in the room can hear it.
+    left = _lcs_config_gui(_horn_gui())
+    left.lcs_config_visible = False
+    router, _left, _right, _focused, _global = _router(_touchpad_profile(), left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))  # a trigger, held
+    assert router._quills == {"left": 0.8}
+
+    left.lcs_config_visible = True  # the panel opens over the sounding horn
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.5, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert router._quills == {}
+    assert left.command_calls == [], "the horn stopped as the pad was taken over"
+
+
+def test_the_lcs_config_panel_closing_under_a_held_stick_drops_the_scroll() -> None:
+    # Dropped on the tick that finds the page gone rather than waited for: the stick's own next
+    # word may be its return to center, which by then belongs to the engine again, and an entry
+    # left behind would have tick() scrolling a panel nobody is looking at.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.0)
+    left.lcs_config_visible = False  # X closed the page under the thumb
+    router.tick(10.25)
+
+    assert router._config_scrolls == {}
+    assert router._config_pads == {}, "and the stroke that pad was mid-way through with it"
+    assert left.scroll_calls == []
+
+
+def test_the_trackpad_scrolls_the_page_by_how_far_the_finger_has_traveled() -> None:
+    # A pad says where the finger *is*; what a page follows is where it has *gone*. So the
+    # first report of a stroke is a place and moves nothing, and each one after it is a
+    # distance -- which is what makes the page follow the finger, as it does under a finger on
+    # the glass, rather than jumping to wherever on the pad the hand happened to land.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(_touchpad_profile(), left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.25, "changed"))
+
+    assert left.scroll_calls == [], "the first report is where the stroke started"
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.75, "changed"))
+
+    assert left.scroll_calls == [round((0.75 - 0.25) * CONFIG_PAD_TRAVEL_PX)]
+    assert left.scroll_calls[0] > 0, "drawn down the pad, down the page"
+    assert left.command_calls == [], "and the pad sounded no horn while it did it"
+
+
+def test_a_finger_drawn_up_the_trackpad_scrolls_the_page_up() -> None:
+    # The other direction of the same stroke, and the reason it is read as a travel rather
+    # than as a position: a pad is worked in both directions from wherever the finger sits, so
+    # a page that could only be driven downwards would be half a control.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(_touchpad_profile(), left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.9, "changed"))
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.4, "changed"))
+
+    assert left.scroll_calls == [round((0.4 - 0.9) * CONFIG_PAD_TRAVEL_PX)]
+    assert left.scroll_calls[0] < 0, "drawn up the pad, up the page"
+
+
+def test_a_finger_lifted_from_the_trackpad_forgets_where_the_stroke_was() -> None:
+    # A fraction of zero is the finger gone -- and equally a finger resting in the pad's top
+    # dead zone, which reads the same. Remembered, the next place a finger came down would be
+    # read as a distance from the last, and setting it down at the other end of the pad would
+    # throw the page the whole length of it in one jump. A stroke is short and repeated, so
+    # this happens on every one.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(_touchpad_profile(), left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.2, "changed"))
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.0, "changed"))  # lifted
+
+    assert router._config_pads == {}
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.9, "changed"))  # set down again, elsewhere
+
+    assert left.scroll_calls == [], "the page did not follow the finger across the pad"
+
+
+def test_a_finger_still_down_when_the_panel_closes_is_forgotten_with_it() -> None:
+    # The one way a stroke can outlive the page it was moving: X closes the panel with the
+    # finger still on the pad, and every report after that goes to the horn, which knows
+    # nothing about this. Remembered, the first touch after the panel was opened again would
+    # be read as the travel since a place the finger left minutes ago.
+    left = _lcs_config_gui(_horn_gui())
+    router, _left, _right, _focused, _global = _router(_touchpad_profile(), left=left)
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.2, "changed"))
+    assert router._config_pads == {"left": 0.2}
+
+    left.lcs_config_visible = False
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.9, "changed"))  # now the horn's
+
+    assert router._config_pads == {}
+
+    left.lcs_config_visible = True
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.9, "changed"))  # set down again
+
+    assert left.scroll_calls == [], "the page is where the reader left it"
+
+
+def test_a_stick_held_through_a_panel_closing_and_opening_is_not_still_scrolling() -> None:
+    # The same rule for the stick, and the same reason: while the panel is down the stick is
+    # the engine's, and what it was moving the page by is a fact about a page that is gone.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 0.5, "changed"))
+    assert router._config_scrolls == {"left": 0.5}
+
+    left.lcs_config_visible = False
+    router.handle(DeckAction("throttle", "left", 0.5, "changed"))
+
+    assert router._config_scrolls == {}
+    assert router._throttles == {"left": 0.5}, "and the engine has its stick back"
+
+
+def test_a_pane_with_no_trackpad_bound_to_it_still_sounds_the_horn_over_the_panel() -> None:
+    # What tells a pad from a trigger, the two of them carrying the same action: the control is
+    # claimed only where the profile binds a *touchpad* to it for this very pane. A profile with
+    # no touchpads section has no pad to scroll with, so its trigger must go on sounding the
+    # horn while the page is read -- a horn is a warning, and a page is no reason to silence it.
+    left = _lcs_config_gui(_horn_gui())
+    router, _left, _right, _focused, _global = _router(left=left)  # _profile() binds no pads
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert left.command_calls == [(HORN_COMMAND, 12)]
+    assert left.scroll_calls == [], "the page was left where it was"
+    assert router._config_pads == {}
+
+
+def test_the_other_panes_trackpad_does_not_scroll_this_panes_page() -> None:
+    # The target is asked as well as the action, the pads being bound one to a pane like the
+    # sticks. A profile that gives this pane no pad of its own leaves its horn alone: the right
+    # pad's binding is no license to scroll a page the left hand has nothing to scroll it with.
+    left = _lcs_config_gui(_horn_gui())
+    router, _left, _right, _focused, _global = _router(
+        _profile(touchpads={"1": {"action": "quilling_horn", "target": "right"}}),
+        left=left,
+    )
+
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.8, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert left.command_calls == [(HORN_COMMAND, 12)]
+    assert left.scroll_calls == []
+
+
+def test_the_stick_drives_the_engine_again_while_the_lcs_config_panel_is_down() -> None:
+    # The claim is the panel's while it is up and nobody's otherwise: the same thumb is the
+    # throttle again the moment the page comes down, with no second push needed to hand it
+    # back. This is the ordinary case, and the one every claim above has to give way to.
+    left = _lcs_config_gui()
+    left.lcs_config_visible = False
+    router, _left, _right, _focused, _global = _router(left=left)
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert router._config_scrolls == {}
+    assert left.scroll_calls == []
+    assert left.speed_calls, "the stick went back to driving the engine"
+
+
+def test_a_disconnect_forgets_a_held_scroll_and_a_stroke_in_progress() -> None:
+    # A controller that has gone is holding nothing, and neither of these is a thing the panel
+    # can be told to stop by: there is no return to center coming and no finger to lift. Left
+    # behind, they would scroll the page on the next tick from a pad that is no longer there.
+    left = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(_touchpad_profile(), left=left)
+
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.handle(DeckAction(QUILLING_HORN, "left", 0.5, "changed"))
+    router.handle(DeckAction("disconnect", "global", 0.0, "disconnected"))
+    router.tick(10.0)
+    router.tick(10.25)
+
+    assert router._config_scrolls == {}
+    assert router._config_pads == {}
+    assert left.scroll_calls == []
 
 
 def _switch_gui(*, switch_active: bool = True):

@@ -387,14 +387,14 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 
 # The LCS module configuration panel is worked *through* rather than glanced at -- four pages
 # of radio rows with Back and Next under them -- so DeckInputRouter (_config_panel_only) puts
-# five keys on the panel while it is up and the D-pad section above is untrue of them.
+# five keys and the pane's own two analog controls on the panel while it is up, and the D-pad
+# section above is untrue of them.
 #
 # Five keys on three rows, pairing two inputs against two actions the way the D-pad's
 # "Up / Down" pairs with "Boost / brake speed": the pad's two axes do one thing each, and the
-# face buttons say where the panel goes. There was room for no more than three -- see the
-# layout note at the end of controls_summary -- but there is nothing a fourth would say. The
-# words are the panel's own (LcsConfigPanel.pad_mark, pad_revert, pad_advance, pad_back), so
-# the screen and the panel cannot come to describe the same key in two vocabularies.
+# face buttons say where the panel goes. The words are the panel's own (LcsConfigPanel.pad_mark,
+# pad_revert, pad_advance, pad_back), so the screen and the panel cannot come to describe the
+# same key in two vocabularies.
 #
 # "and Next" on the right row, because that is what right mostly does: on a page whose list
 # is the whole of what it asks -- which module, which of a module's settings -- choosing is
@@ -410,10 +410,34 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 # stating after three pages where A meant "next". Named on that row rather than on one of its
 # own or in a note, both of which cost a row -- a note is drawn beside the action and takes
 # its width off it (146px for two words), which wraps the row. As it stands the row measures
-# 320px of the 320px the fallback ruler breaks a row at, so a word more wraps it; the wrap
-# would cost one row, which that column holds (20 of the 20 ROWS_PER_COLUMN falls back to),
-# and the real screen measures its own font and shrinks it to fit rather than taking the
+# 320px of the 320px the fallback ruler breaks a row at, so a word more wraps it; that wrap
+# used to cost a row the column could find, and with the stick and the pad on a fourth row it
+# cannot -- the column now holds 20 of the 20 ROWS_PER_COLUMN falls back to. The real screen
+# measures its own font and hands each column what its rows need rather than taking the
 # fallback's word for any of this.
+#
+# The stick and the pad take a fourth row, and they are the one thing here that is not a
+# press: they scroll the page rather than work anything on it (see
+# DeckInputRouter._config_panel_scrolled). Worth the row because a page can be taller than
+# the screen leaves room for, and every other row in this section works the controls *on* the
+# page -- a reader who has run out of page has nothing here to reach for otherwise. One row
+# for the two of them because they do the one thing: the stick is held over and the page
+# moves while it is, the pad is dragged and the page follows the finger.
+#
+# It is the pane's own stick and pad rather than the focused pane's, and the row does not say
+# so. The heading's "(w focus)" understates that rather than misreporting it -- the panel you
+# are working is on the pane you gave focus to, and what goes unsaid is only that a second
+# panel on the other pane scrolls from the other hand. Saying it costs the page: the columns
+# are packed once to the even split before they are measured, which leaves this section's rows
+# 165px on a font drawing 10px to the character, and this row measures 150 of it. "Scroll the
+# page, own pane" wants 250, wraps there, packs the section a row taller and lands the switch
+# and route sections on a second page.
+#
+# "Pad" rather than "trackpad" is the same economy one column over. The keycap measures 130px
+# where the section already spends 140 on "Right / Left", so the section asks for no more width
+# than it did and the page grows by nothing; spelled out it measures 180, which is 40px onto the
+# widest thing in the section and 40-52px further past the right edge of a display the columns
+# already overrun.
 #
 # X is not among them, and deliberately: it closes this panel through the same close-popup
 # handling every popup uses, which the popup section directly above these rows already
@@ -428,6 +452,7 @@ FIXED_LCS_CONFIG_ENTRIES: tuple[ControlEntry, ...] = (
     ControlEntry("Up / Down", "Move the highlight", ""),
     ControlEntry("Right / Left", "Choose and Next / undo", ""),
     ControlEntry("A / B", "Choose, Next or Configure / Back", ""),
+    ControlEntry("Stick / Pad", "Scroll the page", ""),
 )
 
 # A panel showing a track switch has no engine to drive, so DeckInputRouter (_handle_switch)
@@ -574,14 +599,25 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
     # of those begins instead of leaving it to how the rows happen to add up.
     #
     # The arithmetic, measured against the budget ROWS_PER_COLUMN falls back to, which is the
-    # tightest the screen is ever drawn at: 18 rows, then 19, then 19, out of 20 apiece. It
-    # is the only split there is. The eleven sections come to 56 rows, three columns hold 60,
+    # tightest the screen is ever drawn at: 18 rows, then 20, then 19, out of 20 apiece. It
+    # is the only split there is. The eleven sections come to 57 rows, three columns hold 60,
     # and every other way of cutting them either runs a column over or -- since a section
     # cannot spill out of the last column except onto a second page -- pushes the catalog
     # behind a page turn nobody would think to take.
     #
+    # The middle column is full, and that is what the LCS section's fourth row cost. The
+    # layout used to clear a budget a row under the fallback as well (18, 19, 19 of 19), and
+    # that row in hand is what went on the stick and the pad; a budget of 19 now breaks the
+    # page in two instead. Nothing gives it back. 57 rows want 19, 19, 19 to survive 19, and
+    # no column boundary lands on 19 -- the sections ahead of the Buttons come to 7, 12, 15
+    # and 18 rows and the Buttons are 13 in one piece -- so the only split that adds up puts
+    # the LCS rows in the first column beside the sticks and sends the trackpads and the pad
+    # down among the buttons. That buys a budget no display derives (the Deck's own measures
+    # 21 to 24 rows, and 20 is what a screen with no font to measure falls back to) at the
+    # price of the reason every one of those sections is where it is.
+    #
     # Two things moved to reach it, and the LCS section is why. The five sections about a
-    # kind of panel now come to 23 rows, so they no longer fit one column at all: it is not
+    # kind of panel now come to 24 rows, so they no longer fit one column at all: it is not
     # that the new one is a row too many but that a section of any size is, a one-row section
     # making 21. So the panel group begins at the foot of the middle column, where the LCS
     # rows read better than they would have anywhere in the last one -- every one of them is

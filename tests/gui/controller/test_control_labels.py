@@ -452,9 +452,10 @@ def test_the_lcs_config_panel_remap_is_listed() -> None:
     # the screen would describe only their engine meaning, which is the same reason the
     # switch and route sections exist.
     #
-    # Five keys on three rows: each row pairs two inputs against what they do, the way the
-    # D-pad's own "Up / Down" pairs with "Boost / brake speed". A fourth row would not fit --
-    # see the layout note at the end of controls_summary.
+    # Five keys on three rows, and the pane's own two analog controls on a fourth: each row
+    # pairs two inputs against what they do, the way the D-pad's own "Up / Down" pairs with
+    # "Boost / brake speed". Four is every row there is room for -- see the layout note at
+    # the end of controls_summary.
     #
     # Right says "and Next" because that is what it mostly does: on a page whose list is the
     # whole of what it asks, choosing is finishing, so right chooses and turns the page. The
@@ -471,6 +472,7 @@ def test_the_lcs_config_panel_remap_is_listed() -> None:
         ("Up / Down", "Move the highlight", ""),
         ("Right / Left", "Choose and Next / undo", ""),
         (f"{button_label(SELECT_BUTTON)} / {button_label(BACK_PAGE_BUTTON)}", "Choose, Next or Configure / Back", ""),
+        ("Stick / Pad", "Scroll the page", ""),
     ]
 
 
@@ -488,6 +490,25 @@ def test_the_lcs_config_rows_name_every_key_the_router_claims() -> None:
     # X is not among them, and is not meant to be: it closes this panel through the popup
     # handling every panel is closed by, which the popup section states once for all of them.
     assert button_label(CLOSE_POPUP_BUTTON) not in named
+
+
+def test_the_lcs_config_stick_and_pad_are_named_as_scrolling_the_page() -> None:
+    # A page of that panel can stand taller than the screen leaves room for, and every other
+    # row of the section works the controls *on* the page -- so a reader who has run out of
+    # page has nothing here to reach for unless the two controls that move the page itself
+    # are named (DeckInputRouter._config_panel_scrolled). One row for the two of them, the
+    # way the rows above pair two inputs against what they do, and the action says the page
+    # moves rather than the highlight on it, which is the row above's job.
+    section = _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE)
+
+    scrolling = [entry for entry in section.entries if entry.action.startswith("Scroll")]
+
+    assert len(scrolling) == 1
+    assert {"Stick", "Pad"} <= set(scrolling[0].input.split(" / "))
+    assert "page" in scrolling[0].action
+    # And nowhere else in the section: the key rows are about keys, and a control written up
+    # on two rows is a control whose two rows can come to disagree.
+    assert [entry.input for entry in section.entries if "Stick" in entry.input] == [scrolling[0].input]
 
 
 def test_the_lcs_config_section_survives_a_stripped_down_profile() -> None:

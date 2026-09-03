@@ -1629,6 +1629,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
             return False
         return panel.pad_back()
 
+    def scroll_lcs_config(self, pixels: int) -> bool:
+        """Move the page in its window -- this pane's own stick and trackpad.
+
+        Positive is further down the page. The pad's keys work the controls on the page;
+        this works the page itself, which is a separate thing to want on a screen that
+        cannot show the whole of one: see LcsConfigPanel.pad_scroll.
+
+        This pane's own, and not the focused one's: the sticks and the trackpads are bound
+        left to left and right to right, so the hand nearer a panel is the hand that scrolls
+        it. The keys stay with the focus, having only the one set between them.
+        """
+        panel = self._open_lcs_config
+        if panel is None:
+            return False
+        return panel.pad_scroll(pixels)
+
     @property
     def admin_visible(self) -> bool:
         panel = self._admin_panel

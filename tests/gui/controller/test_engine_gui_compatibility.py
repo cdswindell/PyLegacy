@@ -929,6 +929,7 @@ class _FakeConfigPanel:
         self.reverted = 0
         self.advanced = 0
         self.backed = 0
+        self.scrolls: list[int] = []
 
     def pad_step(self, delta: int) -> bool:
         self.steps.append(delta)
@@ -948,6 +949,10 @@ class _FakeConfigPanel:
 
     def pad_back(self) -> bool:
         self.backed += 1
+        return self._answer
+
+    def pad_scroll(self, pixels: int) -> bool:
+        self.scrolls.append(pixels)
         return self._answer
 
 
@@ -1026,3 +1031,49 @@ def test_a_pane_that_has_never_opened_the_lcs_config_panel_is_safe_to_ask() -> N
     assert gui.revert_lcs_config() is False
     assert gui.advance_lcs_config() is False
     assert gui.back_lcs_config() is False
+
+
+def test_the_pane_hands_the_lcs_config_panel_the_pixels_it_was_asked_for() -> None:
+    # Handed over unchanged and unclamped, as the keys are: how far a page may go is the
+    # panel's own business -- it is the one that knows how tall the page is and how little of
+    # it the window shows -- so a pane that trimmed the figure would be second-guessing it.
+    # Both directions travel the same path, up the page being the negative one.
+    panel = _FakeConfigPanel()
+    gui = _gui_with_lcs_config(panel)
+
+    assert gui.scroll_lcs_config(90) is True
+    assert gui.scroll_lcs_config(-90) is True
+
+    assert panel.scrolls == [90, -90]
+
+
+def test_the_pane_reports_whether_the_lcs_config_panel_page_moved() -> None:
+    # Passed through for the same reason the keys' answers are: only the panel knows whether
+    # the page had anywhere left to go -- one already at its end has not -- and that answer is
+    # what the router would have to act on.
+    panel = _FakeConfigPanel(answer=False)
+    gui = _gui_with_lcs_config(panel)
+
+    assert gui.scroll_lcs_config(90) is False
+
+    assert panel.scrolls == [90], "the panel was still asked"
+
+
+def test_a_pane_whose_lcs_config_panel_is_closed_has_no_page_to_scroll() -> None:
+    # Later than any key can be: the stick and the trackpad are held rather than pressed, so a
+    # report can arrive on the tick after the page came down. It must find nothing to move
+    # rather than scroll a panel nobody is looking at.
+    panel = _FakeConfigPanel(visible=False)
+    gui = _gui_with_lcs_config(panel)
+
+    assert gui.scroll_lcs_config(90) is False
+
+    assert panel.scrolls == []
+
+
+def test_a_pane_that_has_never_opened_the_lcs_config_panel_is_safe_to_scroll() -> None:
+    # The panel is created lazily, so this is the state at startup -- and a thumb resting on a
+    # stick is asked about it before any panel exists to be asked about.
+    gui = _gui_with_lcs_config(None)
+
+    assert gui.scroll_lcs_config(90) is False
