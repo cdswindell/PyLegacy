@@ -356,6 +356,19 @@ def test_the_shared_lcs_key_sits_in_column_zero_on_bpc2_on_the_pane(compact: boo
 
 
 @pytest.mark.parametrize("compact", [True, False])
+def test_the_switch_screen_stacks_the_shared_lcs_key_under_its_set_key_on_the_pane(compact: bool) -> None:
+    # The switch screen offers the key too, and in the same slot on the pane as in portrait:
+    # under Set and over Info, which is only free because no row was added for the pane's sake.
+    host, view = _built(compact, CommandScope.SWITCH, 7)
+    _ops(host, view)
+
+    assert host.lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.grid == [3, 1]
+    assert host.sw_set_cell.grid == [3, 0]
+    assert host.info_cell.grid == [3, 2]
+
+
+@pytest.mark.parametrize("compact", [True, False])
 def test_the_asc2_panel_expands_the_fourth_column_on_the_pane(compact: bool) -> None:
     host, view = _built(compact)
     _ops(host, view, _flagged(is_asc2=True))

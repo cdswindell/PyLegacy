@@ -533,9 +533,10 @@ class KeypadView(Generic[S]):
         # context by _show_lcs_panel_key. The host owns the LCS module configuration panel and
         # decides what it is seeded with, so the key goes straight to it. It is deliberately in
         # neither the entry_cells nor the ops_cells set: it must appear both in entry mode
-        # (Accessory/Switch scopes) and on the accessory ops panels, and the set-based
-        # show/hide cannot straddle the two. Slots (0-based [col, row]): entry [0, 4] under
-        # Delete, generic accessory [1, 4] under "0", native ASC2 [3, 1], native BPC2 [0, 3].
+        # (Accessory/Switch scopes) and on the switch and accessory ops panels, and the
+        # set-based show/hide cannot straddle the two. Slots (0-based [col, row]): entry [0, 4]
+        # under Delete, generic accessory [1, 4] under "0", native ASC2 [3, 1], switch [3, 1],
+        # native BPC2 [0, 3].
         host.lcs_panel_cell, host.lcs_panel_btn = make_key(
             keypad_keys,
             LCS_PANEL_KEY,
@@ -837,8 +838,9 @@ class KeypadView(Generic[S]):
 
         One widget serves every screen that offers the key, so each caller names the slot it
         belongs in for that screen -- entry [0, 4] under Delete, generic accessory [1, 4] under
-        "0", native ASC2 [3, 1], native BPC2 [0, 3]. Those screens are mutually exclusive, so
-        the one widget is never wanted in two places at once.
+        "0", native ASC2 [3, 1], switch [3, 1], native BPC2 [0, 3]. Those screens are mutually
+        exclusive, so the one widget is never wanted in two places at once -- which is why the
+        switch panel and the ASC2 one may name the same slot.
         """
         cell = getattr(self._host, "lcs_panel_cell", None)
         if cell is None:
@@ -1107,6 +1109,13 @@ class KeypadView(Generic[S]):
             host.switch_out_cell.show()
             host.sw_set_cell.show()
             host.info_cell.show()
+            # A switch is thrown by an ASC2 or an STM2, so the way to configure the module
+            # driving it belongs on this screen as much as on the accessory ones. The shared
+            # LCS... key takes [3, 1], directly under Set and above Info -- the same slot the
+            # native ASC2 panel puts it in, which is free here for the same reason: the aux Set
+            # key that would otherwise claim the column renders only on the generic accessory
+            # panel, and no two of these screens are ever up at once.
+            self._show_lcs_panel_key([3, 1])
             if not host.keypad_box.visible:
                 host.keypad_box.show()
             self._reflow_keypad_columns()

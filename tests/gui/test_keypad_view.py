@@ -930,6 +930,30 @@ def test_the_lcs_key_is_a_single_shared_widget_re_gridded_across_the_native_pane
     assert host_bpc2.lcs_panel_cell.grid == [0, 3]
 
 
+def test_the_switch_screen_carries_the_shared_lcs_key_below_its_set_key() -> None:
+    # A switch is thrown by an ASC2 or an STM2, so what stands behind it is configured from the
+    # very panel an accessory's module is -- and the way to it belongs where the operator is
+    # looking at the switch, not on the accessory screens alone. It stacks under Set and over
+    # Info in the 4th column, the slot the ASC2 panel names as well, the two never being up at
+    # once.
+    host, _view = _ops(CommandScope.SWITCH, 7)
+
+    assert host.lcs_panel_cell.visible is True
+    assert host.lcs_panel_cell.grid == [3, 1]
+    assert host.sw_set_cell.grid == [3, 0]
+    assert host.info_cell.grid == [3, 2]
+    assert host.lcs_panel_btn.text == mod.LCS_PANEL_KEY == "LCS..."
+    assert host.lcs_panel_btn.on_press == (host.on_lcs_config_panel, [])
+
+
+def test_the_route_screen_carries_no_lcs_key() -> None:
+    # The switch screen is the only non-accessory ops screen that offers it: a route is not a
+    # module and has nothing to program, so the hide every ops entry performs has to stand.
+    host, _view = _ops(CommandScope.ROUTE, 5)
+
+    assert host.lcs_panel_cell.visible is False
+
+
 def test_the_shared_lcs_key_rides_the_entry_keypad_for_accessory_and_switch_scopes() -> None:
     # In entry mode the shared LCS... key sits under the Delete key ([0, 4]) for Accessory and
     # Switch scopes -- the slot the engine On/Off keys vacate there.
@@ -1422,10 +1446,11 @@ def test_route_ops_leaves_the_fourth_column_collapsed() -> None:
 
 
 def test_switch_ops_expands_the_fourth_column() -> None:
-    # Both the switch Set and Info keys sit in column 3.
+    # The switch Set, LCS... and Info keys fill column 3 between them.
     host, _view = _ops(CommandScope.SWITCH, 7)
 
     assert host.sw_set_cell.visible is True
+    assert host.lcs_panel_cell.visible is True
     assert host.info_cell.visible is True
     assert host.keypad_keys.tk._column_config[3] == _OCCUPIED
 
