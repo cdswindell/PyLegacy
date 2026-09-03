@@ -273,6 +273,19 @@ WRAP_INSET = 24
 # runs in, so it can only ever break a line early -- never off the edge of the screen.
 MIN_WRAP_PX = 240
 
+# How much narrower than the pane the Mode, Currently Assigned and Overlaps boxes are drawn,
+# in pixels: a margin either side of the block, and nothing more. The three of them used to
+# take the width of whatever was inside them, which on a module whose rows are short left the
+# legend heading the Mode box wrapped into a column half the pane wide -- lines of prose
+# crammed under a title with the page's whole right-hand side standing empty beside them.
+#
+# Less than WRAP_INSET on purpose: the prose inside these boxes is broken at the pane's width
+# less that inset, so a box drawn to this one is wider than the longest line it can hold, and
+# the wrap decides where a sentence breaks rather than the frame around it. A width floor
+# rather than a fixed width -- a box whose contents ask for more still gets more; see
+# _lay_out_titled_boxes.
+TITLED_BOX_INSET = 12
+
 # Presses are staggered so the base sees them as separate gestures, and the read-back
 # GETs are held off until the module has had a moment to act on the last of them.
 PRESS_DELAY = 0.35
@@ -604,16 +617,37 @@ class LcsConfigPanel(OverlayPanel):
         return NOTE_PAD_COMPACT if self.compact else NOTE_PAD
 
     @property
-    def _wrap_px(self) -> int:
-        """The width a line of prose is broken at; see WRAP_INSET.
+    def _pane_px(self) -> int:
+        """The width the popup is built to, in pixels.
 
         Asked of the host rather than measured, and asked defensively: the emergency box is
         what the popup is built to the width of, the pane's own width is the next best
-        answer, and a host that has yet to report either gets the floor.
+        answer, and a host that has yet to report either answers with nothing. The one
+        reading of it, so the wrap and the titled boxes below cannot come to disagree about
+        how wide the page is.
         """
         host = self._gui
-        width = int(getattr(host, "emergency_box_width", 0) or 0) or int(getattr(host, "width", 0) or 0)
-        return max(MIN_WRAP_PX, width - WRAP_INSET)
+        return int(getattr(host, "emergency_box_width", 0) or 0) or int(getattr(host, "width", 0) or 0)
+
+    @property
+    def _wrap_px(self) -> int:
+        """The width a line of prose is broken at; see WRAP_INSET.
+
+        A host that has yet to report a width of its own gets the floor.
+        """
+        return max(MIN_WRAP_PX, self._pane_px - WRAP_INSET)
+
+    @property
+    def _titled_box_px(self) -> int:
+        """The least the Mode, Currently Assigned and Overlaps boxes are drawn to.
+
+        Wider than the wrap, always: the inset it is taken with is the smaller of the two,
+        and the floor is the wrap's own floor plus that difference, so a host that has
+        measured nothing yet still gets boxes able to hold a line broken at MIN_WRAP_PX.
+        See TITLED_BOX_INSET.
+        """
+        floor = MIN_WRAP_PX + (WRAP_INSET - TITLED_BOX_INSET)
+        return max(floor, self._pane_px - TITLED_BOX_INSET)
 
     def _wrap(self, widget: Any, justify: str = "center", pady: int = None) -> Any:
         """Break widget's text at the popup's width and hold it off its neighbors.
@@ -759,7 +793,7 @@ class LcsConfigPanel(OverlayPanel):
         # read from below the list it was a note on a decision already made. Inside the box
         # either way rather than adrift among the page's other reports, where it read as a
         # statement about the panel at large.
-        self._mode_legend_line = self._wrap(self._label(self._mode_box, "", size=host.s_12))
+        self._mode_legend_line = self._wrap(self._label(self._mode_box, "", size=host.s_13))
         host.add_vspace(self._mode_box, self._mode_prose_gap)
         self._mode_group = CheckBoxGroup(
             self._mode_box,
@@ -854,7 +888,11 @@ class LcsConfigPanel(OverlayPanel):
             return
         gap = self._box_gap
         try:
-            container.tk.grid_columnconfigure(0, weight=1)
+            # The column carries a width floor as well as the stretch: the boxes still grow
+            # for a module whose rows ask for more, but none of them is drawn narrower than
+            # the page it stands on -- which is what left the legend heading the Mode box
+            # wrapped into a column the pane had no need to make it. See TITLED_BOX_INSET.
+            container.tk.grid_columnconfigure(0, weight=1, minsize=self._titled_box_px)
             # In the order they are stacked, which is the order they are read in.
             for box in (self._mode_box, self._assigned_box, self._overlap_box):
                 if box is not None and box.visible:

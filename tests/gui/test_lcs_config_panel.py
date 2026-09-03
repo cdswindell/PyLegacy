@@ -1694,7 +1694,7 @@ def test_every_showing_box_is_stretched_across_that_column_and_spaced_from_the_n
 
     panel._lay_out_titled_boxes()
 
-    assert panel._titled_boxes.tk.columns == {0: {"weight": 1}}
+    assert panel._titled_boxes.tk.columns == {0: {"weight": 1, "minsize": panel._titled_box_px}}
     # The stretch that makes them one width, and the whitespace that keeps the three from
     # reading as one ruled block. Padding rather than a spacer widget only because this
     # method is re-run after every refresh; see its docstring.
@@ -1743,9 +1743,41 @@ def test_the_stretch_is_re_applied_on_every_id_page_refresh() -> None:
 
     panel._refresh_id_page()
 
-    assert panel._titled_boxes.tk.columns == {0: {"weight": 1}}
+    assert panel._titled_boxes.tk.columns == {0: {"weight": 1, "minsize": panel._titled_box_px}}
     assert panel._assigned_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
     assert panel._mode_box.tk.grid_options == {"sticky": "ew", "pady": (0, mod.BOX_GAP)}
+
+
+def test_the_boxes_are_drawn_no_narrower_than_the_page_they_stand_on() -> None:
+    # A width floor on the column all three share, so none of them shrinks to whatever is
+    # inside it: the legend heading the Mode box is prose, and left to the widest radio row
+    # it wrapped into a column with the page's right-hand side standing empty beside it.
+    # Taken from the pane rather than chosen in pixels, so it holds at either font scale.
+    panel = _new_panel()
+    host = panel.gui
+
+    assert panel._titled_box_px == host.emergency_box_width - mod.TITLED_BOX_INSET
+    # Wider than the longest line the boxes can hold, which is the point of the smaller
+    # inset: the wrap decides where a sentence breaks, not the frame around it.
+    assert mod.TITLED_BOX_INSET < mod.WRAP_INSET
+    assert panel._titled_box_px > panel._wrap_px
+    # And still a floor, not a fixed width: the stretch that lets a long module name widen
+    # all three is asked for alongside it.
+    _record_titled_boxes(panel)
+    panel._lay_out_titled_boxes()
+    assert panel._titled_boxes.tk.columns[0]["weight"] == 1
+
+
+def test_a_host_that_has_measured_nothing_still_gets_boxes_wider_than_the_wrap() -> None:
+    # The floor either side of the same difference, so the one rule -- a box wider than the
+    # line it holds -- survives a host with no width to report.
+    host = _new_host()
+    host.emergency_box_width = 0
+    host.width = 0
+    panel = mod.LcsConfigPanel(host)
+
+    assert panel._wrap_px == mod.MIN_WRAP_PX
+    assert panel._titled_box_px > panel._wrap_px
 
 
 def test_equalizing_survives_a_tcl_error() -> None:
@@ -2178,8 +2210,12 @@ def test_the_module_rows_are_body_size_and_the_mode_boxs_prose_below_it() -> Non
     assert [cell.text_size for cell in assigned] == [host.s_14] * mod.ROW_COLUMNS
     # The two boxes read as one list, so their rows are the same size.
     assert all(cell.text_size == host.s_14 for cell in panel._overlap_cells[0])
+    # The legend is the longer of the two and is read before a row is chosen, so it is the
+    # one drawn a step above the note below the rows -- and both still below the rows they
+    # caption.
+    assert panel._mode_legend_line.text_size == host.s_13
+    assert panel._mode_note_line.text_size == host.s_10
     for line in (panel._mode_legend_line, panel._mode_note_line):
-        assert line.text_size == host.s_12 if line == panel._mode_legend_line else host.s_10
         assert line.text_size < assigned[0].text_size
 
 
