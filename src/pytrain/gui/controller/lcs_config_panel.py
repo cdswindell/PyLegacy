@@ -38,12 +38,14 @@ from .lcs_device_registry import (
     LcsMode,
     LcsOption,
     OptionKind,
+    AMC2,
     BPC2,
     SENSOR_TRACK,
     configurable_devices,
     device_for_key,
     device_for_state,
     enabled_modes,
+    reported_mode,
     tmcc_id_span,
     tmcc_id_text,
 )
@@ -274,21 +276,31 @@ NAV_ROW_PAD_COMPACT = 4
 OPTION_ROW_PAD = 8
 OPTION_ROW_PAD_COMPACT = 4
 
-# A list of options longer than this cannot be given any of the whitespace above. The one
-# in the registry is the Sensor Track's ten actions: with OPTION_ROW_PAD on each of them
-# the list wants 160px more than the page can find, and Tk neither scrolls nor complains
-# when it runs out -- it stops mapping children, and the ones at the end are the Back/Next
-# row and the Close button below it, which is the only way off the panel on the Pi.
+# An options page drawing more rows than this cannot be given any of the whitespace above.
+# Counted over the module's settings together rather than over any one of them, because what
+# runs out is the page: Tk neither scrolls nor complains when it does -- it stops mapping
+# children, and the ones at the end are the Back/Next row and the Close button below it,
+# which is the only way off the panel on the Pi.
 #
-# So a list this long is packed tight, and that is what pays for its rows being set at the
-# same size as every other control on the page. Measured on a 480x800 pane at the Pi's 1.5x
-# font scale: 49px a row, and the page 635px -- exactly what it asked for when the rows were
-# a size smaller with the option's note under them, and 44px inside the tallest page the
-# panel already draws (the ASC2's ID page, at 679px). Which is the ceiling: the next size up
-# asks 645px, more than the page has ever taken, and the one after it 685px, more than the
+# So a page this full is packed tight, and that is what pays for its rows being set at the
+# same size as every other control in the panel. The Sensor Track's ten actions were the
+# case this was written for: with OPTION_ROW_PAD on each of them the list wants 160px more
+# than the page can find. Measured on a 480x800 pane at the Pi's 1.5x font scale: 49px a
+# row, and the page 635px -- exactly what it asked for when the rows were a size smaller
+# with the option's note under them, and 44px inside the tallest page the panel then drew
+# (the ASC2's ID page, at 679px). Which is the ceiling for the size: the next size up asks
+# 645px, more than the page has ever taken, and the one after it 685px, more than the
 # ASC2's. What sets one row apart from the next is the painted indicator and the row's own
 # background rather than whitespace it cannot afford.
-LONG_OPTION_LIST = 6
+#
+# The AMC2 is why the count is the page's. It asks for four settings -- a three-row list and
+# a tick box for each of its two motors -- and no one of them is long, so read a list at a
+# time every row on the page drew its full padding: eight rows' worth, and the page came to
+# 748px on a desk and had 190px of itself held back by the scrolling window on the Pi, the
+# most of any page in the panel by 112px. Read as the page it is, it comes to 620px and the
+# Pi holds back 62px. The reason the Sensor Track's rows are packed tight is the reason
+# these are: there is no more page to spend.
+LONG_OPTION_PAGE = 6
 
 # Whitespace above and below a line of prose about the module -- its warning, the modes it
 # reserves, an option's own note. Internal Label padding rather than a spacer widget, and
@@ -363,6 +375,10 @@ VERIFY_DELAY = 1.0
 READBACK_TIMEOUT_MSEC = 5000
 
 # What the Cab remote calls each scope, which is the language the operator's manual uses.
+# Every key the panel programs on, and no other: the AMC2 can be addressed as an engine
+# and the registry records that mode, but the panel offers no row on it, so no line of the
+# panel is ever written about it. See _select_device on how a mode the panel does not offer
+# is kept from becoming the one being programmed.
 SCOPE_LABEL: dict[CommandScope, str] = {
     CommandScope.ACC: "ACC",
     CommandScope.SWITCH: "SW",
@@ -416,6 +432,20 @@ def scope_use(scope: CommandScope, device: LcsDevice | None = None) -> str | Non
     """
     key = device.key if device is not None else None
     return SCOPE_USE.get((scope, key)) or SCOPE_USE.get((scope, None))
+
+
+def option_page_rows(device: LcsDevice) -> int:
+    """How many rows the module's options page draws, all of its settings together.
+
+    A radio setting is as many rows as it offers choices and a flag is the one row it is,
+    which is what the page spends its height on -- the headings and notes between them are
+    what is left over. What the count is for is deciding whether there is whitespace to
+    spend; see LONG_OPTION_PAGE.
+
+    Every setting is counted, including one this mode does not offer: a disabled row is
+    drawn like any other and takes the same height.
+    """
+    return sum(len(option.choices) if option.kind == OptionKind.RADIO else 1 for option in device.options)
 
 
 @dataclass(frozen=True)
@@ -1434,8 +1464,12 @@ class LcsConfigPanel(OverlayPanel):
                 continue
             box = Box(page, align="top", border=0)
             self._option_boxes[device.key] = box
+            # Whether there is whitespace to spend is a fact about the page rather than about
+            # any one setting on it, so it is settled once for the module and handed to each;
+            # see LONG_OPTION_PAGE.
+            tight = option_page_rows(device) > LONG_OPTION_PAGE
             for option in device.options:
-                self._build_option(box, device, option)
+                self._build_option(box, device, option, tight)
             box.hide()
         return page
 
@@ -1448,12 +1482,9 @@ class LcsConfigPanel(OverlayPanel):
         """
         return self._wrap(self._label(parent, text, size=size), pady=self._note_pad if pady is None else pady)
 
-    def _build_option(self, box: Box, device: LcsDevice, option: LcsOption) -> None:
+    def _build_option(self, box: Box, device: LcsDevice, option: LcsOption, tight: bool = False) -> None:
         host = self._gui
         key = (device.key, option.key)
-        # How many rows there are decides whether the page can afford to hold them, or a
-        # note under them, apart at all; see LONG_OPTION_LIST.
-        long_list = len(option.choices) > LONG_OPTION_LIST
         option_size = self._fit_row_size([label for label, _value in option.choices] or [option.label], host.s_18)
         if option.kind == OptionKind.RADIO:
             self._label(box, option.label, bold=True)
@@ -1463,8 +1494,8 @@ class LcsConfigPanel(OverlayPanel):
                 # The size the mode radios and the lone checkbox are set at: these rows are
                 # the choice being made on the page, and at the page's body size -- let
                 # alone the step below it they were once drawn at -- the dot beside them was
-                # barely there. A long list is set at it too, and pays for it in the
-                # whitespace between its rows; see LONG_OPTION_LIST.
+                # barely there. A full page is set at it too, and pays for it in the
+                # whitespace between its rows; see LONG_OPTION_PAGE.
                 #
                 # Asked for, rather than had: the Sensor Track's ten actions are the longest
                 # rows the options page draws, at 575px of the Pi's 480px pane, so there they
@@ -1478,7 +1509,7 @@ class LcsConfigPanel(OverlayPanel):
                 selected=None,
                 align="top",
                 style="radio",
-                pady=0 if long_list else self._option_row_pad,
+                pady=0 if tight else self._option_row_pad,
                 # One length for every row, filling the page rather than each row stopping
                 # at the end of its own label -- as on the device and ID pages. See
                 # CheckBoxGroup.stretch_rows.
@@ -1507,8 +1538,8 @@ class LcsConfigPanel(OverlayPanel):
             CheckBoxGroup.decorate_checkbox(
                 widget,
                 option_size,
+                pady=0 if tight else self._option_row_pad,
                 width=None,
-                pady=self._option_row_pad,
                 style="checkbox",
                 # Broken from the left, unlike the prose above it: the label is set beside
                 # its indicator, so a second line belongs under the first and not under the
@@ -1524,10 +1555,10 @@ class LcsConfigPanel(OverlayPanel):
         if option.note:
             # Body size and wrapped, like the line at the head of the page: a note is a full
             # sentence about the setting above it. No module in the registry writes one
-            # today, and a long list is the case to be careful of if one does -- there is no
+            # today, and a full page is the case to be careful of if one does -- there is no
             # whitespace to hold it off the last row with, and none to draw it in either;
-            # see LONG_OPTION_LIST.
-            self._note_line(box, option.note, pady=0 if long_list else self._note_pad)
+            # see LONG_OPTION_PAGE.
+            self._note_line(box, option.note, pady=0 if tight else self._note_pad)
 
     def _option_command(self, device_key: str, option_key: str) -> Callable[[], None]:
         # guizero calls a widget's command with no arguments, so the closure carries
@@ -1742,6 +1773,10 @@ class LcsConfigPanel(OverlayPanel):
         if submit is None:  # pragma: no cover - every real host queues requests
             log.warning("Host cannot queue requests; LCS presses not sent")
             return
+        # One request per key, so a gesture entering a digit is two of them, and the stagger
+        # falls between the AUX key and the number exactly as it falls between any two
+        # presses -- which is what makes them two keystrokes rather than one command; see
+        # Press.build and PRESS_DELAY.
         for i, request in enumerate(program.presses):
             submit(request, 1, i * PRESS_DELAY)
         after_presses = len(program.presses) * PRESS_DELAY + VERIFY_DELAY
@@ -1859,13 +1894,41 @@ class LcsConfigPanel(OverlayPanel):
         if device is SENSOR_TRACK:
             # The field the Action Command is reported on, asked of the option rather than
             # spelled here, so the panel reads a read-back the same way it reads the module
-            # in the first place; see LcsOption.reported_as.
-            sequence = getattr(state, SENSOR_TRACK.option("action").reported_as, None)
+            # in the first place; see LcsOption.reported_by.
+            sequence = SENSOR_TRACK.option("action").reported_by(state)
             if sequence is not None:
-                parts.append(self._action_label(sequence))
+                parts.append(self._choice_label(SENSOR_TRACK.option("action"), sequence))
             parts.append(f"R\u279fL {self._filter_text(state, 'loco_rl')}")
             parts.append(f"L\u279fR {self._filter_text(state, 'loco_lr')}")
+        elif device is AMC2:
+            parts.extend(self._motor_readback(state))
         return ", ".join(part for part in parts if part)
+
+    @classmethod
+    def _motor_readback(cls, state: Any) -> list[str]:
+        """What an AMC2 says each of its motors is now set to: "Motor #1 AC (remembers)".
+
+        The mode it runs in and, where it is set, that it comes back up at the speed it was
+        turning -- the two things the panel programmed for that output, read back off the
+        module in the same words the options page offered them in.
+
+        A motor the record says nothing about is passed over rather than reported as unset:
+        an AccessoryState built before the module answered carries no motors at all, and a
+        line inventing a mode for one would be the panel telling the operator something the
+        module has not said. Read through the options themselves, so the field each is on is
+        named once in the registry; see LcsOption.reported_by.
+        """
+        lines: list[str] = []
+        for motor in (1, 2):
+            mode = AMC2.option(f"motor{motor}_mode")
+            value = mode.reported_by(state)
+            if value is None:
+                continue
+            line = f"{mode.label} {cls._choice_label(mode, value)}"
+            if AMC2.option(f"motor{motor}_restore").reported_by(state):
+                line = f"{line} (remembers)"
+            lines.append(line)
+        return lines
 
     @staticmethod
     def _filter_text(state: Any, key: str) -> str:
@@ -1875,8 +1938,11 @@ class LcsConfigPanel(OverlayPanel):
         return "Any" if value in (None, 255) else f"{value}"
 
     @staticmethod
-    def _action_label(value: Any) -> str:
-        for label, choice in SENSOR_TRACK.option("action").choices:
+    def _choice_label(option: LcsOption, value: Any) -> str:
+        """
+        What the option's own rows call a value, so a read-back is read in the page's words.
+        """
+        for label, choice in option.choices:
             if choice == value:
                 return label
         return f"{value}"
@@ -2230,12 +2296,12 @@ class LcsConfigPanel(OverlayPanel):
     def _option_ends_the_page(self, option: LcsOption) -> bool:
         """Whether option is the last thing the module's options page asks the operator for.
 
-        Every module in the registry declares one setting today, so this answers yes for the
-        radio lists there are; it is asked of the module rather than assumed because a module
-        declaring a second setting below the first would be asking for something a page turn
-        on the first would carry the operator straight past. A disabled setting holds nothing
-        up: it is drawn to say the module has it and that this mode does not offer it, which
-        is a fact to read rather than a decision to make.
+        Asked of the module rather than assumed, because a module can declare a setting below
+        the one being marked -- the AMC2 declares four, a mode and a remember flag for each of
+        its two motors -- and a page turned on the first would carry the operator straight past
+        the rest. A disabled setting holds nothing up: it is drawn to say the module has it and
+        that this mode does not offer it, which is a fact to read rather than a decision to
+        make.
         """
         device = self._device
         if device is None:
@@ -2438,9 +2504,10 @@ class LcsConfigPanel(OverlayPanel):
         reflect = reflects_layout_by_default()
         device = device_for_state(state) if reflect else None
         if device is not None and not device.configurable:
-            # The screen is on a module this pass can only recognize -- an AMC2. It has no
-            # modes to open the panel on, so it is treated as no device at all: the search
-            # below still finds it, and it is named in the assigned box like any other.
+            # The screen is on a module the registry can only recognize. It has nothing to
+            # open the panel on, so it is treated as no device at all: the search below
+            # still finds it, and it is named in the assigned box like any other. No module
+            # is in that position today; see the registry's own note on the flag.
             device = None
         self._device_chosen = False
         if device is not None:
@@ -2466,7 +2533,7 @@ class LcsConfigPanel(OverlayPanel):
         """
         The module the panel opens on when there is nothing to reflect: the first offered.
 
-        configurable_devices is sorted by name, so this is the ASC2 today and stays the
+        configurable_devices is sorted by name, so this is the AMC2 today and stays the
         first name in the list as modules are added.
         """
         return configurable_devices()[0]
@@ -2490,11 +2557,16 @@ class LcsConfigPanel(OverlayPanel):
             self._mode = None
             self._options = {}
             return
-        if mode is None:
-            mode = None
-            pdi_mode = getattr(seed_mode_from, "mode", None)
-            if isinstance(pdi_mode, int) and not isinstance(pdi_mode, bool):
-                mode = device.mode_for_pdi_mode(pdi_mode)
+        if mode is None or not mode.enabled:
+            # A mode the panel does not offer is not one it can be left on, whoever named it:
+            # a module found running in one -- a BPC2 in a single-ID mode its manual
+            # reserves, an AMC2 addressed as a train -- is opened on the row it can be
+            # reprogrammed as instead. Left as it was found, the radios would show no row
+            # selected and Configure would send the opening SET press and nothing after it.
+            #
+            # Read on the field this module reports its mode on, which is not "mode" for
+            # every module; see reported_mode().
+            mode = device.mode_for_pdi_mode(reported_mode(device, seed_mode_from))
             if mode is None or not mode.enabled:
                 mode = device.default_mode
         self._mode = mode
@@ -2523,10 +2595,12 @@ class LcsConfigPanel(OverlayPanel):
         Records are read by the field the option says it is reported on, which is the
         option's own key wherever the panel and the module use the same word for a setting
         and the module's own word where they differ -- an option is named for what it sets,
-        and a module names the field it reports. See LcsOption.reported_as.
+        and a module names the field it reports. A field can name a path where the module
+        reports a setting one level down, as an AMC2 does on each of its motors. See
+        LcsOption.reported_by.
         """
         for record in records:
-            value = getattr(record, option.reported_as, None) if record is not None else None
+            value = option.reported_by(record)
             if value is not None and cls._can_hold(option, value):
                 return value
         return None
@@ -2556,8 +2630,8 @@ class LcsConfigPanel(OverlayPanel):
         key at all, does the search widen to every module, because the whole point of
         this lookup is to discover what kind of module is out there.
 
-        Only a module this pass can program is worth seeding from; an AMC2 sitting on the
-        ID is reported in the assigned box, but the panel cannot open on it.
+        Only a module this pass can program is worth seeding from; one the registry merely
+        recognizes is reported in the assigned box, but the panel cannot open on it.
         """
         if scope is not None:
             occupant = self._first_programmable(occupants_of(self._base_id, self._store, scope=scope))
@@ -2903,8 +2977,8 @@ class LcsConfigPanel(OverlayPanel):
     def _refresh_occupancy(self) -> None:
         self._refresh_row_grid(self._assigned_grid, self._assigned_cells, self.assigned_rows())
         self._refresh_overlaps()
-        # The buttons act on a module the panel could actually take over, so an AMC2 -- in
-        # the registry to be named, not to be programmed -- never puts them on screen.
+        # The buttons act on a module the panel could actually take over, so a module in
+        # the registry to be named rather than programmed never puts them on screen.
         occupant = self.programmable_occupant()
         interior = occupant is not None and occupant.base_id != self._base_id
         if self._goto_btn is not None:
@@ -3050,9 +3124,9 @@ class LcsConfigPanel(OverlayPanel):
         """
         The first module in the list this pass knows how to program.
 
-        A module the registry only recognizes -- the AMC2 -- has no modes and no presses,
-        so seeding the panel from it would leave the operator on a device that cannot be
-        configured. It is named in the box and otherwise passed over.
+        A module the registry only recognizes has no modes and no presses, so seeding the
+        panel from it would leave the operator on a device that cannot be configured. It is
+        named in the box and otherwise passed over.
         """
         for occupant in occupants:
             if occupant.device.configurable:

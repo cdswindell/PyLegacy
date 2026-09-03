@@ -68,10 +68,36 @@ Modules the panel knows without being able to program them
 A device with configurable=False is listed here so that the rest of the panel can
 *recognize* it -- name it and account for the TMCC IDs it holds -- while it is kept off
 the device selection page, because no press sequence for it has been written yet. The
-AMC2 is the standing example: it answers to a TMCC ID on a real layout, so leaving it out
+AMC2 was the standing example: it answers to a TMCC ID on a real layout, so leaving it out
 altogether made lcs_id_map silently blind to it, and the panel reported an address as
-free when a module was sitting on it. Turning one into a programmable module is a matter
-of filling in its modes and presses and dropping the flag; nothing else has to change.
+free when a module was sitting on it. Its modes and presses have since been filled in and
+the flag dropped, which was the whole of what it took -- nothing else had to change -- so
+no module carries the flag today. The mechanism stays for the next module that is met on
+a layout before its manual has been read.
+
+Modes a module has that the panel will not offer
+------------------------------------------------
+A mode with enabled=False is recorded but kept off the Mode radios, and there are two
+quite different reasons for it. The BPC2's single-ID modes are reserved by its own manual:
+the module reports them, but no Cab sequence programs one. The AMC2's TR and ENG modes are
+real and the manual documents programming them -- "choose whichever suits your layout
+best" -- but nothing else in PyTrain drives an AMC2 addressed as a train or an engine, and
+the panel will not put a module somewhere the rest of the program cannot follow it.
+
+Either way the mode is written down rather than left out, because recognizing a module is
+the other half of this file's job: a module already out on a key the panel cannot program
+still holds its addresses, and its mode byte still has to be understood to know which key
+those addresses are on. Each says why it is not offered in its note.
+
+How a digit is pressed
+----------------------
+Where a manual says "press AUX1, then 1", two keys are sent: the AUX key, and then the
+number key. The TMCC1 enums do carry AUX1-prefixed numeric members -- and those are what
+this file used to name -- but they are one command that emits its own prefix, twice, and
+there is no AUX2-prefixed member at all. A module whose second output is programmed under
+AUX2 could therefore not be spelled here, which is where the AMC2's motor 2 stood. A press
+that enters a digit names the AUX key it is entered under and where the digit comes from,
+and builds the pair; see Press.
 
 No Tk or guizero symbols are imported at module scope; the registry is pure data and
 is unit-testable in isolation.
@@ -84,6 +110,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable, Mapping, Sequence
 
+from ...pdi.amc2_req import AccessType, OutputType
 from ...pdi.irda_req import IrdaSequence
 from ...pdi.pdi_device import PdiDevice
 from ...protocol.command_def import CommandDefEnum
@@ -97,45 +124,50 @@ from ...protocol.tmcc1.tmcc1_constants import (
 
 MAX_TMCC_ID: int = 98
 
-ACC_AUX_NUMBERS: tuple[CommandDefEnum, ...] = (
-    TMCC1AuxCommandEnum.AUX_NUMBER_0,
-    TMCC1AuxCommandEnum.AUX_NUMBER_1,
-    TMCC1AuxCommandEnum.AUX_NUMBER_2,
-    TMCC1AuxCommandEnum.AUX_NUMBER_3,
-    TMCC1AuxCommandEnum.AUX_NUMBER_4,
-    TMCC1AuxCommandEnum.AUX_NUMBER_5,
-    TMCC1AuxCommandEnum.AUX_NUMBER_6,
-    TMCC1AuxCommandEnum.AUX_NUMBER_7,
-    TMCC1AuxCommandEnum.AUX_NUMBER_8,
-    TMCC1AuxCommandEnum.AUX_NUMBER_9,
-)
+# The two keys a digit is entered with, per remote key namespace: the AUX button, then the
+# number. An engine and a train are the same handset keys, which is why they name the same
+# pair; see "How a digit is pressed" above for why the AUX1-prefixed numeric commands are
+# not used. A scope missing from either map has no such gesture at all -- a switch is
+# programmed with THRU and OUT rather than with numbers.
+AUX_KEYS: dict[CommandScope, tuple[CommandDefEnum, CommandDefEnum]] = {
+    CommandScope.ACC: (TMCC1AuxCommandEnum.AUX1_OPT_ONE, TMCC1AuxCommandEnum.AUX2_OPT_ONE),
+    CommandScope.ENGINE: (TMCC1EngineCommandEnum.AUX1_OPTION_ONE, TMCC1EngineCommandEnum.AUX2_OPTION_ONE),
+    CommandScope.TRAIN: (TMCC1EngineCommandEnum.AUX1_OPTION_ONE, TMCC1EngineCommandEnum.AUX2_OPTION_ONE),
+}
 
-ENGINE_AUX_NUMBERS: tuple[CommandDefEnum, ...] = (
-    TMCC1EngineCommandEnum.AUX_NUMBER_0,
-    TMCC1EngineCommandEnum.AUX_NUMBER_1,
-    TMCC1EngineCommandEnum.AUX_NUMBER_2,
-    TMCC1EngineCommandEnum.AUX_NUMBER_3,
-    TMCC1EngineCommandEnum.AUX_NUMBER_4,
-    TMCC1EngineCommandEnum.AUX_NUMBER_5,
-    TMCC1EngineCommandEnum.AUX_NUMBER_6,
-    TMCC1EngineCommandEnum.AUX_NUMBER_7,
-    TMCC1EngineCommandEnum.AUX_NUMBER_8,
-    TMCC1EngineCommandEnum.AUX_NUMBER_9,
-)
+NUMBER_KEYS: dict[CommandScope, CommandDefEnum] = {
+    CommandScope.ACC: TMCC1AuxCommandEnum.NUMERIC,
+    CommandScope.ENGINE: TMCC1EngineCommandEnum.NUMERIC,
+    CommandScope.TRAIN: TMCC1EngineCommandEnum.NUMERIC,
+}
 
 
-def aux_number(digit: int, scope: CommandScope) -> CommandDefEnum:
+def aux_key(key: int, scope: CommandScope) -> CommandDefEnum:
     """
-    Return the AUX1 + <digit> command for the given scope.
+    Return the AUX1 (key 1) or AUX2 (key 2) button as the given scope's handset sends it.
+    """
+    keys = AUX_KEYS.get(scope)
+    if keys is None:
+        raise ValueError(f"AUX keys are not supported for scope: {scope}")
+    if key not in (1, 2):
+        raise ValueError(f"Invalid AUX key: {key}")
+    return keys[key - 1]
+
+
+def number_key(digit: int, scope: CommandScope) -> tuple[CommandDefEnum, int]:
+    """Return the number key command for the given scope, with the digit it carries.
+
+    The command is the same for every digit -- a number key is one command carrying the
+    number as its data -- so both halves are returned together and neither can be sent
+    without the other.
     """
     digit = int(getattr(digit, "value", digit)) if digit is not None else None
     if digit is None or not 0 <= digit <= 9:
-        raise ValueError(f"Invalid AUX1 digit: {digit}")
-    if scope == CommandScope.ACC:
-        return ACC_AUX_NUMBERS[digit]
-    elif scope in {CommandScope.ENGINE, CommandScope.TRAIN}:
-        return ENGINE_AUX_NUMBERS[digit]
-    raise ValueError(f"AUX1-prefixed numerics are not supported for scope: {scope}")
+        raise ValueError(f"Invalid number key: {digit}")
+    command = NUMBER_KEYS.get(scope)
+    if command is None:
+        raise ValueError(f"Number keys are not supported for scope: {scope}")
+    return command, digit
 
 
 class OptionKind(Enum):
@@ -161,8 +193,9 @@ class LcsOption:
     # panel calls it. An option's key names what it *sets* -- the press it drives, and the
     # word a press is gated on or takes its digit from -- while a module reports the field
     # in its own terms: the Sensor Track's Action Command is pressed as an AUX1 digit and
-    # reported as IrdaReq.sequence. Left None wherever the two words agree, which is the
-    # usual case; see reported_as.
+    # reported as IrdaReq.sequence. A dotted path where the module reports it one level
+    # down, as the AMC2 does on each of its motors. Left None wherever the two words agree,
+    # which is the usual case; see reported_as and reported_by.
     reported_key: str | None = None
 
     @property
@@ -172,16 +205,35 @@ class LcsOption:
         """
         return self.reported_key or self.key
 
+    def reported_by(self, record: Any) -> Any:
+        """What the given record says this option is set to, or None where it says nothing.
+
+        The field is a path rather than a bare name, because a module may report a setting
+        one level down from the record it answers with: an AMC2 reports each motor's own
+        output type and remember flag on the motor itself -- motor1.output_type -- and does
+        so identically on its CONFIG packet and on the AccessoryState built from it, so one
+        path reads either. A step that answers nothing ends the walk, which is what a record
+        of the wrong flavor, or one built from a GET that carries no motors, does.
+        """
+        value = record
+        for name in self.reported_as.split("."):
+            if value is None:
+                return None
+            value = getattr(value, name, None)
+        return value
+
 
 @dataclass(frozen=True)
 class Press:
-    """
-    One Cab-remote gesture in a programming sequence.
+    """One Cab-remote gesture in a programming sequence.
 
-    command is the command sent when the press is unconditional; when digit_from
-    names an option key, the command is the AUX1 + <digit> member for this
-    press's scope, with the digit taken from that option's value. include_if
-    names an option key whose truthy value gates the press.
+    command is the command sent when the gesture is a single key. A gesture that enters a
+    digit names the AUX key it is entered under (aux) and where the digit comes from --
+    digit_value for one the mode always sends, digit_from for one taken from an option's
+    value -- and is two keys rather than one, which is what build() returns. See "How a
+    digit is pressed" in this module's docstring.
+
+    include_if names an option key whose truthy value gates the whole gesture.
     """
 
     label: str
@@ -189,7 +241,15 @@ class Press:
     scope: CommandScope = CommandScope.ACC
     note: str | None = None
     include_if: str | None = None
+    aux: int | None = None
+    digit_value: int | None = None
     digit_from: str | None = None
+    # What the handset's own numbering adds to the value the module reports. The AMC2's
+    # motor modes are pressed as 1, 2 and 3 and reported as OutputType 0, 1 and 2 -- the
+    # same three modes counted from a different end -- so the option holds what the module
+    # says and the press spells what the operator taps. Read only with digit_from: a digit
+    # the mode always sends is written as the key it is.
+    digit_offset: int = 0
 
     def is_included(self, options: Mapping[str, Any] | None = None) -> bool:
         if self.include_if is None:
@@ -198,31 +258,45 @@ class Press:
 
     def digit(self, options: Mapping[str, Any] | None = None) -> int | None:
         if self.digit_from is None:
-            return None
+            return self.digit_value
         value = (options or {}).get(self.digit_from)
         if value is None:
             raise ValueError(f"Option '{self.digit_from}' is required")
-        return int(getattr(value, "value", value))
+        return int(getattr(value, "value", value)) + self.digit_offset
 
-    # CommandDefEnum declares no members of its own -- every one of them is on a subclass --
-    # and an enum with no members reads to PyCharm as a type nothing can hold, so it calls the
-    # last line below unreachable. It is reached by every unconditional press in the registry.
-    # noinspection PyUnreachableCode
-    def resolve(self, options: Mapping[str, Any] | None = None) -> CommandDefEnum:
-        if self.digit_from is not None:
-            return aux_number(self.digit(options), self.scope)
-        command = self.command
-        if command is None:
+    def keys(self, options: Mapping[str, Any] | None = None) -> tuple[tuple[CommandDefEnum, int], ...]:
+        """
+        The keys this gesture presses, in order, each with the data it carries.
+        """
+        digit = self.digit(options)
+        pressed: list[tuple[CommandDefEnum, int]] = []
+        # Each half stands on its own, so a gesture that is an AUX key and nothing else
+        # presses that key rather than quietly pressing nothing.
+        if self.aux is not None:
+            pressed.append((aux_key(self.aux, self.scope), 0))
+        if digit is not None:
+            pressed.append(number_key(digit, self.scope))
+        if pressed:
+            return tuple(pressed)
+        if self.command is None:
             raise ValueError(f"Press '{self.label}' declares no command")
-        return command
+        return ((self.command, 0),)
 
     def resolved_label(self, options: Mapping[str, Any] | None = None) -> str:
-        if self.digit_from is not None:
-            return self.label.format(digit=self.digit(options))
-        return self.label
+        # The digit alone, by name: a label carries the address as a placeholder too, and
+        # that one is the caller's to fill in, so formatting the whole label here would fail
+        # on it. See lcs_sequence_builder._press_text.
+        if "{digit}" not in self.label:
+            return self.label
+        return self.label.replace("{digit}", str(self.digit(options)))
 
-    def build(self, base_id: int, options: Mapping[str, Any] | None = None) -> CommandReq:
-        return CommandReq(self.resolve(options), address=base_id, scope=self.scope)
+    def build(self, base_id: int, options: Mapping[str, Any] | None = None) -> tuple[CommandReq, ...]:
+        """
+        The requests this gesture sends: one per key, so an AUX key and its digit are two.
+        """
+        return tuple(
+            CommandReq(command, address=base_id, data=data, scope=self.scope) for command, data in self.keys(options)
+        )
 
 
 @dataclass(frozen=True)
@@ -293,7 +367,20 @@ class LcsDevice:
     # False for a module the panel can name but not yet program; it is recognized on the
     # layout and holds TMCC IDs, but it is not offered on the device selection page.
     configurable: bool = True
+    # What this module's own records call the byte that says which mode it is in, where
+    # that is not "mode". Every module but the AMC2 publishes a bare mode byte; the AMC2
+    # reports which of the three address types it answers to as access_type, an AccessType
+    # rather than a number. Named here for the same reason an option names its own field:
+    # what a module calls a thing is a fact about the module. See reported_mode().
+    reported_mode_key: str | None = None
     identifies_state: Callable[[Any], bool] = field(default=lambda _state: False, repr=False, compare=False)
+
+    @property
+    def reported_mode_as(self) -> str:
+        """
+        The field this module reports its mode on: "mode" unless another is named.
+        """
+        return self.reported_mode_key or "mode"
 
     def mode(self, key: str) -> LcsMode:
         for mode in self.modes:
@@ -331,6 +418,22 @@ def max_base(mode: LcsMode) -> int:
     4-port SW mode.
     """
     return min(MAX_TMCC_ID, (MAX_TMCC_ID + 1) - mode.ports)
+
+
+def reported_mode(device: LcsDevice, record: Any) -> int | None:
+    """The mode byte a record reports for this module, or None where it reports none.
+
+    Read on the field the module names rather than on "mode", and unwrapped where the module
+    reports it as an enum member: an AMC2 answers with an AccessType. What comes back is
+    matched against the modes' pdi_mode, so a module is only ever asked what it says about
+    itself; see LcsDevice.reported_mode_as.
+
+    A bool is not a mode. It is an int in Python, and a record read for a field that turns
+    out to be a flag would otherwise be understood as reporting mode 0 or mode 1.
+    """
+    value = getattr(record, device.reported_mode_as, None) if record is not None else None
+    value = getattr(value, "value", value)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def tmcc_id_span(base_id: int, last_id: int | None = None) -> str:
@@ -394,7 +497,7 @@ ASC2 = LcsDevice(
             note="Mixed accessories and lights",
             presses=(
                 Press("ACC {id} SET", TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC),
-                Press("AUX1 then 0", TMCC1AuxCommandEnum.AUX_NUMBER_0, CommandScope.ACC, note="8-ID sub-mode"),
+                Press("AUX1 then {digit}", scope=CommandScope.ACC, aux=1, digit_value=0, note="8-ID sub-mode"),
             ),
         ),
         LcsMode(
@@ -412,7 +515,7 @@ ASC2 = LcsDevice(
             note="Uncoupling tracks only - pulsed output (fixed)",
             presses=(
                 Press("ACC {id} SET", TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC),
-                Press("AUX1 then 1", TMCC1AuxCommandEnum.AUX_NUMBER_1, CommandScope.ACC, note="1-ID sub-mode"),
+                Press("AUX1 then {digit}", scope=CommandScope.ACC, aux=1, digit_value=1, note="1-ID sub-mode"),
             ),
         ),
         LcsMode(
@@ -483,7 +586,7 @@ BPC2 = LcsDevice(
                     note="restore on",
                     include_if="restore",
                 ),
-                Press("AUX1 then 0", TMCC1AuxCommandEnum.AUX_NUMBER_0, CommandScope.ACC, note="8-ID sub-mode"),
+                Press("AUX1 then {digit}", scope=CommandScope.ACC, aux=1, digit_value=0, note="8-ID sub-mode"),
             ),
         ),
         LcsMode(
@@ -511,7 +614,7 @@ BPC2 = LcsDevice(
                     note="restore on",
                     include_if="restore",
                 ),
-                Press("AUX1 then 0", TMCC1EngineCommandEnum.AUX_NUMBER_0, CommandScope.TRAIN, note="8-ID sub-mode"),
+                Press("AUX1 then {digit}", scope=CommandScope.TRAIN, aux=1, digit_value=0, note="8-ID sub-mode"),
             ),
         ),
         LcsMode(
@@ -575,7 +678,7 @@ SENSOR_TRACK_ACTION = LcsOption(
     # is being described; the heading over the rows says the one word. It is read directly
     # under "Sensor Track: Configuring as ACC n" with the ten actions under it, so "Command"
     # names nothing the page has not already said -- and the page is the one place in the
-    # panel where every pixel of height is already spoken for; see LONG_OPTION_LIST.
+    # panel where every pixel of height is already spoken for; see LONG_OPTION_PAGE.
     label="Action",
     kind=OptionKind.RADIO,
     choices=_sensor_track_choices(),
@@ -620,6 +723,7 @@ SENSOR_TRACK = LcsDevice(
                 Press(
                     "AUX1 then {digit}",
                     scope=CommandScope.ACC,
+                    aux=1,
                     note="action command",
                     digit_from="action",
                 ),
@@ -633,19 +737,165 @@ SENSOR_TRACK = LcsDevice(
 #
 # AMC2
 #
-# Recognized, not yet programmable: no modes, and so no presses. It is here because it
-# holds a TMCC ID like any other module, and a registry that does not know about it makes
-# the panel report that ID as free. Declaring no modes, it holds one TMCC ID -- what
-# Amc2Req.num_addressable_ports reports -- and takes its scope from wherever it was
-# found. Fill in the modes and presses and drop configurable to program it.
+# The three motor modes, worded as the manual describes them and valued as the module
+# reports them. The manual numbers them 1, 2 and 3 and OutputType counts from zero, which
+# is what the motor presses' digit_offset is for: the option holds what the module says
+# about itself, and the press spells the key the operator taps.
 #
+# Which motor a mode is for is not said in the row -- the rows stand under a heading that
+# says it -- so the three read as the choice they are: what kind of motor is wired to this
+# output, and how it is to answer the throttle.
+_AMC2_MOTOR_MODES: tuple[tuple[str, Any], ...] = (
+    ("Continuous (DC)", OutputType.NORMAL),
+    ("Proportional (DC)", OutputType.DELTA),
+    ("AC", OutputType.AC),
+)
+
+
+def _amc2_motor_mode(motor: int) -> LcsOption:
+    """
+    The mode one of the AMC2's two motor outputs runs in.
+    """
+    return LcsOption(
+        key=f"motor{motor}_mode",
+        # Named as the operating panel names the same output, so the module reads the same
+        # way on the screen that configures it and the screen that drives it.
+        label=f"Motor #{motor}",
+        kind=OptionKind.RADIO,
+        choices=_AMC2_MOTOR_MODES,
+        # Every AMC2 programming sequence sets both motors -- the manual is explicit that
+        # the software configuration "is a single operation that sets three distinct
+        # features" -- so a mode is always sent, and the default is the one an operator
+        # reaches for. What the module is already running with is read off it first; see
+        # LcsConfigPanel._seed_options_from_layout.
+        default=OutputType.NORMAL,
+        required=True,
+        # The AMC2 reports each motor on the motor itself, and the same path reads its
+        # CONFIG packet and the AccessoryState built from it; see LcsOption.reported_by.
+        reported_key=f"motor{motor}.output_type",
+    )
+
+
+def _amc2_motor_restore(motor: int) -> LcsOption:
+    """
+    Whether one of the AMC2's motors comes back up at the speed it was turning.
+    """
+    return LcsOption(
+        key=f"motor{motor}_restore",
+        # The manual's own word for it is Remember, and the gesture is a tap of the R
+        # (rear coupler) key during programming -- the same key the BPC2's restore flag is
+        # set with, which is why that one is worded as a restore and this one is not.
+        #
+        # Which motor is not repeated here: the box stands directly under that motor's own
+        # three rows and the heading naming them, and saying it again is what pushes the
+        # label onto a second line. Measured on a 480x800 pane at the Pi's 1.5x font scale,
+        # where the row has 329px for its words: with the motor named it takes 418px, so it
+        # wraps and is drawn a size smaller as well, and the two of them cost the page 54px
+        # -- most of what the scrolling window has to hold back there. Without it, 321px on
+        # one line at the size every other control is drawn at. The presses on the review
+        # page name the motor each tap is for, which is where the two have to be told apart.
+        label="Remember speed on power-up",
+        kind=OptionKind.CHECKBOX,
+        default=False,
+        reported_key=f"motor{motor}.restore",
+    )
+
+
+AMC2_MOTOR1_MODE = _amc2_motor_mode(1)
+AMC2_MOTOR1_RESTORE = _amc2_motor_restore(1)
+AMC2_MOTOR2_MODE = _amc2_motor_mode(2)
+AMC2_MOTOR2_RESTORE = _amc2_motor_restore(2)
+
+
+def _amc2_acc_presses() -> tuple[Press, ...]:
+    """The AMC2's accessory-mode sequence, exactly as its flowchart draws it.
+
+    The address, then each motor in turn: the AUX key that names the motor followed by the
+    digit for its mode, and a tap of the R key after it where that motor is to remember its
+    speed. Motor 1 is entered under AUX1 and motor 2 under AUX2 -- the flowchart is explicit
+    about it, and the running text that says AUX1 for both is repeating step 6's wording.
+    """
+    presses: list[Press] = [Press("ACC {id} SET", TMCC1AuxCommandEnum.SET_ADDRESS, CommandScope.ACC)]
+    for motor in (1, 2):
+        presses.append(
+            Press(
+                f"AUX{motor} then {{digit}}",
+                scope=CommandScope.ACC,
+                aux=motor,
+                digit_from=f"motor{motor}_mode",
+                digit_offset=1,
+                note=f"motor #{motor} mode",
+            )
+        )
+        presses.append(
+            Press(
+                "Coupler R",
+                TMCC1AuxCommandEnum.REAR_COUPLER,
+                CommandScope.ACC,
+                note=f"motor #{motor} remembers",
+                include_if=f"motor{motor}_restore",
+            )
+        )
+    return tuple(presses)
+
+
 AMC2 = LcsDevice(
     key="amc2",
     label="AMC2",
     blurb="ACC",
     pdi_device=PdiDevice.AMC2,
-    modes=(),
-    configurable=False,
+    # An AMC2 says which of the three address types it answers to rather than publishing a
+    # mode byte, and the pdi_mode of each mode below is that very AccessType; see
+    # reported_mode().
+    reported_mode_key="access_type",
+    modes=(
+        LcsMode(
+            key="acc",
+            name="ACC",
+            scope=CommandScope.ACC,
+            # One address for the whole module: "This ID is shared by all motors and
+            # lights. They cannot be different." It is also what Amc2Req reports as its
+            # num_addressable_ports. Its manual's one prohibition, "Do not use TMCC ID
+            # #99", needs nothing said here: MAX_TMCC_ID stops every module at 98.
+            ports=1,
+            pdi_mode=AccessType.ACC.value,
+            presses=_amc2_acc_presses(),
+        ),
+        # The two addressing modes the module has and the panel will not offer. They are
+        # real -- the manual gives the same sequence with TR or ENG pressed in place of ACC
+        # -- but nothing else in PyTrain drives an AMC2 addressed as a train or an engine,
+        # and an address the rest of the program cannot reach is not one to program a module
+        # onto. Recorded so that a module already on one of those keys is understood: the
+        # access_type in its own CONFIG record is what says which key it is on, and without
+        # these the panel would read an AMC2 on TR 5 as holding ACC 5. Only that record says
+        # so -- the component state built from it republishes the motors and not the address
+        # type -- so a module known from control traffic alone is still taken to be on the
+        # key it was filed under.
+        #
+        # Each declares the one press that opens its sequence, so that what is not offered
+        # is still written down truthfully rather than left as an empty gesture.
+        LcsMode(
+            key="tr",
+            name="TR",
+            scope=CommandScope.TRAIN,
+            ports=1,
+            pdi_mode=AccessType.TRAIN.value,
+            enabled=False,
+            note="PyTrain does not operate an AMC2 addressed as a train",
+            presses=(Press("TR {id} SET", TMCC1EngineCommandEnum.SET_ADDRESS, CommandScope.TRAIN),),
+        ),
+        LcsMode(
+            key="eng",
+            name="ENG",
+            scope=CommandScope.ENGINE,
+            ports=1,
+            pdi_mode=AccessType.ENGINE.value,
+            enabled=False,
+            note="PyTrain does not operate an AMC2 addressed as an engine",
+            presses=(Press("ENG {id} SET", TMCC1EngineCommandEnum.SET_ADDRESS, CommandScope.ENGINE),),
+        ),
+    ),
+    options=(AMC2_MOTOR1_MODE, AMC2_MOTOR1_RESTORE, AMC2_MOTOR2_MODE, AMC2_MOTOR2_RESTORE),
     identifies_state=lambda state: bool(getattr(state, "is_amc2", False)),
 )
 
@@ -657,14 +907,14 @@ def configurable_devices() -> tuple[LcsDevice, ...]:
     The modules the panel can actually program, in the order they are offered.
 
     Sorted by name, so the device page reads as a list an operator can scan, and the first
-    row -- the one the panel opens on -- is predictable: ASC2, BPC2, Sensor Track, STM2.
-    LCS_DEVICES keeps its own order, which is a recognition order rather than a presentation
-    one: it is walked to identify a module from its state flags, and a module this pass
-    cannot program must not be recognized ahead of one it can.
+    row -- the one the panel opens on -- is predictable: AMC2, ASC2, BPC2, Sensor Track,
+    STM2. LCS_DEVICES keeps its own order, which is a recognition order rather than a
+    presentation one: it is walked to identify a module from its state flags, and where one
+    component state names two modules the first of them is the one reported.
 
     Everything that *presents a choice* -- the device radios, the per-device options
     boxes -- reads this; everything that *recognizes* a module already out on the layout
-    reads LCS_DEVICES, which also holds the modules this pass cannot program.
+    reads LCS_DEVICES, which would also hold any module this pass could not program.
     """
     return tuple(sorted((device for device in LCS_DEVICES if device.configurable), key=lambda d: d.label.upper()))
 

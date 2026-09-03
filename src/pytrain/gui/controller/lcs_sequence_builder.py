@@ -34,6 +34,8 @@ class LcsProgram:
     device: LcsDevice
     mode: LcsMode
     base_id: int
+    # One request per *key*, and one display line per *gesture*, so the two lists are not
+    # the same length: "AUX1 then 0" is one line and two keys. See Press.build.
     presses: List[CommandReq] = field(default_factory=list)
     verify: List[PdiReq] = field(default_factory=list)
     display: List[str] = field(default_factory=list)
@@ -85,7 +87,9 @@ def build_program(
     presses: List[CommandReq] = []
     display: List[str] = []
     for i, press in enumerate(included_presses(mode, options), start=1):
-        presses.append(press.build(base_id, options))
+        # A gesture is one line on the review page however many keys it takes: the operator
+        # reads "AUX1 then 0" as one thing to do, and the manuals write it as one step.
+        presses.extend(press.build(base_id, options))
         display.append(f"{i}. {_press_text(press, base_id, options)}")
 
     verify: List[PdiReq] = [device.pdi_device.config(base_id), device.pdi_device.info(base_id)]

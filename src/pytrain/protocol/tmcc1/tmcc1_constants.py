@@ -333,6 +333,15 @@ class TMCC1AuxCommandEnum(TMCC1Enum):
     RESET = TMCC1CommandDef(
         TMCC1_ACC_NUMERIC_COMMAND, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=0, interval=100
     )
+    # An accessory numeric with the AUX1 button folded into it: one command that emits the
+    # button itself, twice, before the digit (see CommandReq._enqueue_command).
+    #
+    # Nothing sends these now. They were added for the LCS module configuration panel,
+    # whose manuals read "press AUX1, then 1", and that panel sends the two keys instead --
+    # a press of the AUX button and a press of the number, staggered like any other pair of
+    # presses. Which is what a handset does, and the only way to spell the AMC2's second
+    # motor, programmed under AUX2: there is no AUX2-prefixed member here, and asking for
+    # one is asking for twenty of them. See lcs_device_registry.Press.
     AUX_NUMBER_0 = TMCC1CommandDef(
         TMCC1_ACC_NUMERIC_COMMAND | 0, TMCC1CommandIdentifier.ACC, alias="NUMERIC", data=0, aux1=True
     )

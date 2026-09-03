@@ -13,7 +13,9 @@ import src.pytrain.gui.controller.popup_manager as pm
 from src.pytrain.gui.components.checkbox_group import CheckBoxGroup as RealCheckBoxGroup
 from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsOption
 from src.pytrain.gui.controller.lcs_id_map import TRAIN_LABEL
+from src.pytrain.pdi.amc2_req import AccessType, Amc2Motor, Direction, OutputType
 from src.pytrain.pdi.bpc2_req import Bpc2Action
+from src.pytrain.pdi.constants import Amc2Action
 from src.pytrain.pdi.irda_req import IrdaAction, IrdaSequence
 from src.pytrain.pdi.pdi_device import PdiDevice
 from src.pytrain.protocol.constants import CommandScope
@@ -369,6 +371,7 @@ class FakeState:
         sequence: Any = None,
         loco_rl: Any = None,
         loco_lr: Any = None,
+        motors: tuple[Amc2Motor, ...] = (),
     ) -> None:
         self.address = address
         self.tmcc_id = address
@@ -380,8 +383,13 @@ class FakeState:
         self.loco_rl = loco_rl
         self.loco_lr = loco_lr
         self._parent = parent
-        # is_amc2 among them: the panel can only name an AMC2, but a state that does not
-        # carry the flag at all cannot even be recognized, which was the original bug.
+        # An AMC2's motors, which the accessory state carries in the very shape its own
+        # CONFIG packet does -- so the panel reads the module and the state it left behind
+        # by one path. A state that has heard nothing from the module carries none.
+        for i, motor in enumerate(motors, start=1):
+            setattr(self, f"motor{i}", motor)
+        # is_amc2 among them: a state that does not carry the flag at all cannot even be
+        # recognized, which was the original bug.
         for flag in ("is_asc2", "is_bpc2", "is_stm2", "is_sensor_track", "is_amc2"):
             setattr(self, flag, flag == device_flag)
 
@@ -537,6 +545,38 @@ def _appliance(monkeypatch) -> None:
     monkeypatch.setattr(mod, "is_linux", lambda: True, raising=True)
 
 
+def _first_offered() -> reg.LcsDevice:
+    """The module the device page's top row names, which is what the panel falls back to.
+
+    Read off the page rather than named here, because which module that is moves with the
+    registry: the rows are sorted by name, so it is the AMC2 today and was the ASC2 until
+    the AMC2 became programmable. What the fallback tests are about is that the panel opens
+    on the row an operator sees selected, whichever module that is.
+    """
+    return reg.device_for_key(mod.LcsConfigPanel.device_options()[0][1])
+
+
+def _recognized_only(monkeypatch) -> reg.LcsDevice:
+    """Stand a module the panel can name but not program in the registry, and return it.
+
+    Every module in the registry can be programmed today, the AMC2 having been the last one
+    that could not. The rules about such a module still hold and still matter -- it is the
+    whole reason the configurable flag exists, and the next module met on a layout before
+    its manual has been read will land in that state -- so they are pinned against a
+    stand-in: the AMC2 with its modes taken away, which is exactly how it was declared
+    before this pass. It replaces the real AMC2 rather than joining it, so the state it
+    answers to names one module and not two.
+    """
+    device = replace(AMC2, configurable=False, modes=(), options=())
+    monkeypatch.setattr(
+        reg,
+        "LCS_DEVICES",
+        tuple(device if other is AMC2 else other for other in reg.LCS_DEVICES),
+        raising=True,
+    )
+    return device
+
+
 #
 # Pages
 #
@@ -565,7 +605,7 @@ def test_next_page_requires_a_device_then_shows_id_page() -> None:
 def test_device_options_cover_every_registry_device() -> None:
     keys = [value for _label, value in mod.LcsConfigPanel.device_options()]
     # In name order, which is the order the registry offers them in.
-    assert keys == [ASC2.key, BPC2.key, SENSOR_TRACK.key, STM2.key]
+    assert keys == [AMC2.key, ASC2.key, BPC2.key, SENSOR_TRACK.key, STM2.key]
 
 
 def test_device_options_are_sorted_by_name() -> None:
@@ -719,15 +759,19 @@ def test_configure_with_nothing_selected_defaults_to_id_one_and_the_first_device
     panel = _new_panel()
     panel.configure(None, None, None)
 
+    device = _first_offered()
     assert panel.base_id == 1
-    assert panel.device is ASC2
-    assert panel.mode is ASC2.default_mode
-    assert panel._device_group.value == "asc2"
+    assert panel.device is device
+    assert panel.mode is device.default_mode
+    assert panel._device_group.value == device.key
     assert panel.page_index == mod.PAGE_DEVICE
 
 
 def test_the_default_device_is_the_first_one_offered() -> None:
-    assert mod.LcsConfigPanel(_new_host()).default_device is ASC2
+    # The row the device page opens on is the row it draws first, whichever module the
+    # registry's name order puts there -- so the panel never opens with the dot on a row
+    # the operator has to scroll to.
+    assert mod.LcsConfigPanel(_new_host()).default_device is _first_offered()
 
 
 def test_the_first_page_is_never_a_dead_end() -> None:
@@ -747,9 +791,13 @@ def test_a_desktop_opens_on_the_first_device_whatever_holds_the_id() -> None:
 
     panel.configure(CommandScope.TRAIN, 12, state)
 
-    assert panel.device is ASC2
+    assert panel.device is _first_offered()
     assert panel.base_id == 12
-    # Still told what is out there, which is the assigned box's whole job.
+    # Still told what is out there, which is the assigned box's whole job. The ASC2 is asked
+    # for by name rather than left to the fallback: what this half is about is that the box
+    # answers for the accessory key while a BPC2 sits on the train key, and a module whose
+    # own opening mode happened to change would otherwise quietly stop asking it.
+    panel._on_device_selected("asc2")
     panel._on_mode_selected("acc_8")
     assert _assigned(panel) == [mod.UNASSIGNED]
     panel._on_device_selected("bpc2")
@@ -762,17 +810,26 @@ def test_an_appliance_falls_back_to_the_first_device_when_the_id_is_free(monkeyp
 
     panel.configure(CommandScope.ACC, 40, None)
 
-    assert panel.device is ASC2
+    assert panel.device is _first_offered()
     assert panel.base_id == 40
 
 
-def test_the_entered_id_is_squared_with_the_opening_modes_ceiling() -> None:
-    # ID 95 fits a four-port switch mode but not the ASC2's eight-ID accessory mode, which
-    # is what the panel opens on when there is nothing to reflect.
-    panel = _new_panel()
-    panel.configure(None, 95, None)
+def test_the_entered_id_is_squared_with_the_opening_modes_ceiling(monkeypatch) -> None:
+    # ID 95 fits a four-port switch mode, and a one-address module, but not the ASC2's
+    # eight-ID accessory mode -- so the ID the operator came in with is brought down to the
+    # highest base the mode the panel opened on can be programmed at, rather than being
+    # taken as typed and refused at the end.
+    #
+    # The ASC2 is what the panel opens on here because the screen was on one; the module it
+    # falls back to has an address to spare at 95 and so would not exercise the rule at all.
+    _appliance(monkeypatch)
+    state = FakeState(91, "is_asc2", mode=0, num_ids=8)
+    panel = _new_panel(FakeStore({CommandScope.ACC: [state]}))
+
+    panel.configure(CommandScope.ACC, 95, state)
 
     assert panel.device is ASC2
+    assert panel.mode.key == "acc_8"
     assert panel.base_id == panel.max_base == 91
 
 
@@ -792,7 +849,11 @@ def test_configure_seeds_device_and_mode_from_a_known_bpc2_state(monkeypatch) ->
     assert _assigned(panel) == [_row(CommandScope.TRAIN, BPC2.label, 12, 8)]
 
 
-def test_configure_seeds_from_the_store_when_the_id_is_a_known_base() -> None:
+def test_configure_seeds_from_the_store_when_the_id_is_a_known_base(monkeypatch) -> None:
+    # Which host this is has to be said: a desktop reflects nothing and would answer with
+    # the module it falls back to, whatever the store holds -- so without this the test read
+    # as passing while looking at the fallback rather than at the layout.
+    _appliance(monkeypatch)
     state = FakeState(9, "is_asc2", mode=0, num_ids=8)
     store = FakeStore({CommandScope.ACC: [state]})
     panel = _new_panel(store)
@@ -1035,7 +1096,14 @@ def test_configure_prefers_a_module_on_the_screens_own_key(monkeypatch) -> None:
 
     panel.configure(CommandScope.ACC, 1, None)
     assert panel.device is BPC2
-    assert panel.mode.key == "acc_1"
+    # On the row it can be reprogrammed as, not the one it is running in: this BPC2 reports
+    # one of the single-ID modes its own manual reserves, and no radio row is offered for
+    # one. Seeded onto it, the mode radios would show nothing selected and Configure would
+    # send the opening SET press and nothing after it. The same rule the panel already
+    # applied when re-reading the mode at an address now holds when it first opens; see
+    # _seed_mode_from_layout.
+    assert panel.mode.key == "acc_8"
+    assert BPC2.mode("acc_1").enabled is False
 
 
 def test_configure_widens_the_search_when_the_screen_is_not_on_an_lcs_key(monkeypatch) -> None:
@@ -1268,6 +1336,87 @@ def test_a_module_with_no_options_gets_no_controls_and_no_page() -> None:
     assert panel._option_widgets.get(("asc2", "restore")) is None
 
 
+def _motor(num: int, output_type: OutputType, restore: bool = False) -> Amc2Motor:
+    """One of an AMC2's motors as the module reports it: the real dataclass, not a stand-in.
+
+    The direction, the restore state and the speed are what the module is doing rather than
+    what it was configured as, and the panel programs none of them -- but they are what a
+    real record carries beside the two fields it does read, so they are filled in.
+    """
+    return Amc2Motor(num, output_type, Direction.FORWARD, restore, False, 0)
+
+
+def test_the_amc2_offers_a_mode_and_a_remember_flag_for_each_of_its_two_motors() -> None:
+    # The module's software configuration "is a single operation that sets three distinct
+    # features": the address, and then each motor's mode and whether it comes back up at the
+    # speed it was turning. The address is the page before this one, so this page is the two
+    # motors -- each a list of the three modes with its own remember flag under it, in the
+    # order the manual programs them.
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+
+    assert panel._option_boxes[AMC2.key].visible is True
+    assert [option.key for option in AMC2.options] == [
+        "motor1_mode",
+        "motor1_restore",
+        "motor2_mode",
+        "motor2_restore",
+    ]
+    for motor in (1, 2):
+        modes = panel._option_widgets[(AMC2.key, f"motor{motor}_mode")]
+        assert isinstance(modes, DummyCheckBoxGroup)
+        assert len(modes.options) == 3
+        assert isinstance(panel._option_widgets[(AMC2.key, f"motor{motor}_restore")], DummyCheckBox)
+        # Named as the operating panel names the same output, so the module reads the same
+        # way on the screen that configures it and the screen that drives it.
+        assert AMC2.option(f"motor{motor}_mode").label == f"Motor #{motor}"
+
+
+def test_the_amc2_motor_modes_are_the_three_the_manual_describes() -> None:
+    # Two for DC motors and one for AC, valued as the module reports them rather than as the
+    # manual numbers them: the option holds what the module says about itself, and the press
+    # is what spells the key the operator taps. See Press.digit_offset.
+    rows = AMC2.option("motor1_mode").choices
+
+    assert [value for _label, value in rows] == [OutputType.NORMAL, OutputType.DELTA, OutputType.AC]
+    assert [label for label, _value in rows] == ["Continuous (DC)", "Proportional (DC)", "AC"]
+    assert AMC2.option("motor2_mode").choices == rows
+
+
+def test_choosing_a_motor_mode_writes_that_motors_press_alone() -> None:
+    # Two gestures on this page look alike -- an AUX key and a digit, twice -- so the one
+    # that has to be right is that a choice made for one motor is sent for that motor and
+    # the other is left as it was.
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+    panel._set_base_id(5)
+
+    modes = panel._option_widgets[(AMC2.key, "motor2_mode")]
+    modes.value = str([value for _label, value in AMC2.option("motor2_mode").choices].index(OutputType.AC))
+    panel._on_option_changed(AMC2.key, "motor2_mode")
+
+    assert panel.options["motor2_mode"] is OutputType.AC
+    assert panel.options["motor1_mode"] is OutputType.NORMAL
+    assert panel.review_lines == _press_lines(AMC2.mode("acc"), 5, panel.options)
+
+
+def test_a_setting_below_the_one_being_marked_keeps_the_pad_on_the_page() -> None:
+    # D-pad right chooses and turns the page where choosing is the whole of what the page
+    # asks. The AMC2 is the first module to ask for more than one thing, and the pad steps
+    # the first of its lists: turned there, the page would carry the operator past the motor
+    # they have not answered for yet. The Sensor Track, whose one list is the whole page, is
+    # the case the rule is read against.
+    panel = _new_panel()
+    panel.configure(None, 5, None)
+    panel._on_device_selected(AMC2.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+    assert panel.pad_mark_turns_page is False
+
+    panel._on_device_selected(SENSOR_TRACK.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+    assert panel.pad_mark_turns_page is True
+
+
 def test_the_options_page_names_the_module_and_the_addresses_it_will_answer_to() -> None:
     # The head of the page, and now the whole of its prose: which module is being programmed
     # and which addresses the block chosen on the page before this one landed on. The mode's
@@ -1412,13 +1561,13 @@ def test_the_action_rows_are_set_at_the_size_every_other_control_is_and_one_leng
     # list in the panel. It used to settle for the page's body size, because the page could
     # not hold ten rows of the size a lone control gets *and* the option's note under them,
     # and what Tk drops when a page runs out is the Back/Next row. The note is gone, and its
-    # height is what these rows are set at the full size with; see LONG_OPTION_LIST.
+    # height is what these rows are set at the full size with; see LONG_OPTION_PAGE.
     panel = _new_panel()
     host = panel.gui
 
     action = panel._option_widgets[("sensor_track", "action")]
 
-    assert len(SENSOR_TRACK.option("action").choices) > mod.LONG_OPTION_LIST
+    assert len(SENSOR_TRACK.option("action").choices) > mod.LONG_OPTION_PAGE
     assert action.kwargs["size"] == host.s_18 > host.s_14
     # No note to spend that height on -- which is the trade, and it only holds while the
     # registry writes none.
@@ -1464,7 +1613,7 @@ def test_the_action_rows_are_headed_by_the_one_word() -> None:
 def test_nothing_is_read_under_the_action_rows() -> None:
     # A line about the R➟L / L➟R engine ID filters used to be: true, and about fields that
     # are not on this page and cannot be reached from it. Its height is what the rows are
-    # set at the full size with; see LONG_OPTION_LIST.
+    # set at the full size with; see LONG_OPTION_PAGE.
     panel = _new_panel()
     panel._on_device_selected("sensor_track")
 
@@ -1495,7 +1644,7 @@ def test_the_engine_id_filters_are_still_reported_in_the_read_back() -> None:
 
 def test_a_short_radio_list_is_set_at_the_size_a_lone_control_is() -> None:
     # No module in the registry declares one, so the option is made here: what decides the
-    # treatment is the number of rows, not which module they belong to.
+    # treatment is how full the page is, not which module the rows belong to.
     panel = _new_panel()
     host = panel.gui
     short = LcsOption(
@@ -1512,21 +1661,39 @@ def test_a_short_radio_list_is_set_at_the_size_a_lone_control_is() -> None:
     assert widget.kwargs["pady"] == mod.OPTION_ROW_PAD
 
 
-def test_a_long_lists_note_gets_no_padding_either() -> None:
-    # No module in the registry writes one today; the rule is what a long list would do with
-    # one. The whole of that page is the list, so the sentence is set against the last row
-    # because there is nothing left to hold it off with.
+def test_the_whitespace_a_row_may_take_is_decided_by_the_whole_page() -> None:
+    # Counted over the module's settings together, because what runs out is the page. The
+    # AMC2 is why: four settings, none of them long, but eight rows between them -- read a
+    # list at a time every row drew its full padding, and the page came to 748px on a desk
+    # against the 679px of the tallest page before it, with 190px of itself held back by the
+    # window on the Pi. Read as the page it is, it comes to 620px and the Pi holds back 62px.
+    panel = _new_panel()
+
+    assert mod.option_page_rows(AMC2) == 8 > mod.LONG_OPTION_PAGE
+    assert mod.option_page_rows(SENSOR_TRACK) == 10 > mod.LONG_OPTION_PAGE
+    assert mod.option_page_rows(BPC2) == 1 < mod.LONG_OPTION_PAGE
+    for motor in (1, 2):
+        assert panel._option_widgets[(AMC2.key, f"motor{motor}_mode")].kwargs["pady"] == 0
+        assert panel._option_widgets[(AMC2.key, f"motor{motor}_restore")].decoration["pady"] == 0
+    # And a page with the room keeps its whitespace, tick box and all.
+    assert panel._option_widgets[(BPC2.key, "restore")].decoration["pady"] == mod.OPTION_ROW_PAD
+
+
+def test_a_note_on_a_full_page_gets_no_padding_either() -> None:
+    # No module in the registry writes one today; the rule is what a full page would do with
+    # one. There is nothing left to hold it off the last row with, so the sentence is set
+    # against it.
     panel = _new_panel()
     long_option = LcsOption(
         key="noted_long",
         label="Pick one",
         kind=mod.OptionKind.RADIO,
-        choices=tuple((chr(ord("A") + i), i) for i in range(mod.LONG_OPTION_LIST + 1)),
+        choices=tuple((chr(ord("A") + i), i) for i in range(mod.LONG_OPTION_PAGE + 1)),
         note="A full sentence about the rows above it.",
     )
     box = DummyBox()
 
-    panel._build_option(box, SENSOR_TRACK, long_option)
+    panel._build_option(box, SENSOR_TRACK, long_option, tight=True)
 
     note = next(child for child in box.children if getattr(child, "value", None) == long_option.note)
     assert note.tk.configured["pady"] == 0
@@ -1548,7 +1715,7 @@ def test_the_options_page_holds_its_rows_and_its_prose_apart(compact: bool, opti
     # The one line of prose left standing off its neighbors, on the review page: it is read
     # between the presses that will be sent and the button that sends them.
     assert panel._review_note_line.tk.configured["pady"] == note_pad
-    # Not the long list: its rows get nothing on either kind of host.
+    # Not a page that is full: its rows get nothing on either kind of host.
     assert panel._option_widgets[("sensor_track", "action")].kwargs["pady"] == 0
 
 
@@ -1624,7 +1791,7 @@ def test_an_options_own_note_is_wrapped_and_read_at_the_body_size() -> None:
     note = next(child for child in box.children if getattr(child, "value", None) == short.note)
     assert note.text_size == host.s_14
     assert note.tk.configured["wraplength"] == panel._wrap_px
-    # And held off the rows above it, unlike a long list's; see LONG_OPTION_LIST.
+    # And held off the rows above it, unlike a long list's; see LONG_OPTION_PAGE.
     assert note.tk.configured["pady"] == mod.NOTE_PAD
 
 
@@ -1856,13 +2023,19 @@ def test_configure_queues_the_presses_in_order_then_the_verify_gets() -> None:
     panel.on_configure()
 
     sent = panel.gui.sent
-    assert len(sent) == 4  # two presses, then CONFIG and INFO
-    commands = [request.command for request, _repeat, _delay in sent[:2]]
-    assert commands == [TMCC1EngineCommandEnum.SET_ADDRESS, TMCC1EngineCommandEnum.AUX_NUMBER_0]
+    assert len(sent) == 5  # three keys, then CONFIG and INFO
+    commands = [request.command for request, _repeat, _delay in sent[:3]]
+    number, digit = reg.number_key(0, CommandScope.TRAIN)
+    # The AUX key and the number are two keys, so they are two requests, staggered like any
+    # other pair of presses -- which is what makes them two keystrokes on the handset rather
+    # than one command claiming to be one.
+    assert commands == [TMCC1EngineCommandEnum.SET_ADDRESS, reg.aux_key(1, CommandScope.TRAIN), number]
+    assert sent[2][0].data == digit == 0
     delays = [delay for _request, _repeat, delay in sent]
     assert delays == sorted(delays)
     assert delays[0] == 0.0
-    assert delays[2] > delays[1]
+    assert len({delays[1] - delays[0], delays[2] - delays[1]}) == 1
+    assert delays[3] > delays[2]
     mode = BPC2.mode("tr_8")
     summary = mod.SUMMARY.format(
         module=BPC2.label,
@@ -1887,8 +2060,9 @@ def test_configure_of_a_sensor_track_always_sends_both_halves() -> None:
 
     panel.on_configure()
 
-    commands = [request.command for request, _repeat, _delay in panel.gui.sent[:2]]
-    assert commands == [TMCC1AuxCommandEnum.SET_ADDRESS, TMCC1AuxCommandEnum.AUX_NUMBER_0]
+    commands = [request.command for request, _repeat, _delay in panel.gui.sent[:3]]
+    number, _digit = reg.number_key(0, CommandScope.ACC)
+    assert commands == [TMCC1AuxCommandEnum.SET_ADDRESS, reg.aux_key(1, CommandScope.ACC), number]
 
 
 def test_read_back_reports_what_the_module_says() -> None:
@@ -2063,7 +2237,7 @@ def test_on_synchronized_re_seeds_while_the_operator_has_not_chosen(monkeypatch)
     panel = _new_panel(FakeStore(states))
     panel.configure(None, 12, None)
     panel.set_sync_pending(True)
-    assert panel.device is ASC2
+    assert panel.device is _first_offered()
 
     states[CommandScope.TRAIN].append(FakeState(12, "is_bpc2", mode=0, num_ids=8))
     panel.on_synchronized()
@@ -2979,9 +3153,22 @@ class FakePdiPacket:
     Where a module's settings are, the mode among them. A BPC2's restore-on-power-up flag
     is the top bit of its mode byte, and Bpc2Req is what unpacks the two apart; a Sensor
     Track's Action Command is the sequence field of its own record.
+
+    An AMC2 names nothing the way the others do: which of the three address types it
+    answers to stands where their mode byte stands, and each motor's own settings are on
+    the motor. Both are given the module's own names and shapes, so a record read for an
+    AMC2 is read by the paths the registry declares rather than by paths written to suit
+    the fake. The motors are the real Amc2Motor, which is a plain dataclass.
     """
 
-    def __init__(self, mode: int | None = None, restore: bool | None = None, sequence: Any = None) -> None:
+    def __init__(
+        self,
+        mode: int | None = None,
+        restore: bool | None = None,
+        sequence: Any = None,
+        access_type: AccessType | None = None,
+        motors: tuple[Amc2Motor, ...] = (),
+    ) -> None:
         # The flavor the request was built as, which every PDI request carries under the
         # name "action" -- and that is the very word the Sensor Track's Action Command
         # option is keyed by, so the record answers about that option only on the field the
@@ -2996,6 +3183,12 @@ class FakePdiPacket:
         if sequence is not None:
             # And only a Sensor Track's.
             self.sequence = sequence
+        if access_type is not None or motors:
+            self.action = Amc2Action.CONFIG
+        if access_type is not None:
+            self.access_type = access_type
+        for i, motor in enumerate(motors, start=1):
+            setattr(self, f"motor{i}", motor)
 
 
 class FakePdiConfig:
@@ -3013,13 +3206,15 @@ class FakePdiConfig:
         mode: int | None = None,
         restore: bool | None = None,
         sequence: Any = None,
+        access_type: AccessType | None = None,
+        motors: tuple[Amc2Motor, ...] = (),
     ) -> None:
         self.tmcc_id = tmcc_id
         self.scope = scope
         if mode is not None:
             # Only ASC2, BPC2 and STM2 configs carry a mode; an AMC2's does not.
             self.mode = mode
-        self.config = FakePdiPacket(mode, restore, sequence)
+        self.config = FakePdiPacket(mode, restore, sequence, access_type, motors)
 
 
 class FakePdiStore:
@@ -3112,49 +3307,90 @@ def test_every_module_on_the_id_gets_a_row_of_its_own() -> None:
 
 
 def test_a_module_this_pass_cannot_program_is_named_but_never_seeded_from(monkeypatch) -> None:
-    # An AMC2 is in the registry to be recognized, not to be configured: it is reported,
-    # it is not offered on the device page, and the panel will not open on it even where
-    # opening on the module at the ID is the rule.
+    # A module in the registry to be recognized rather than configured is reported, is not
+    # offered on the device page, and the panel will not open on it even where opening on
+    # the module at the ID is the rule.
     _appliance(monkeypatch)
+    recognized = _recognized_only(monkeypatch)
     panel = _new_panel(FakeStore({CommandScope.ACC: [FakeState(1, "is_amc2", num_ids=1)]}))
     panel.configure(CommandScope.ACC, 1, None)
 
-    assert _assigned(panel) == [_row(CommandScope.ACC, AMC2.label, 1)]
-    assert panel.device is ASC2
-    assert AMC2.key not in [value for _label, value in mod.LcsConfigPanel.device_options()]
+    assert _assigned(panel) == [_row(CommandScope.ACC, recognized.label, 1)]
+    assert panel.device is _first_offered()
+    assert recognized.key not in [value for _label, value in mod.LcsConfigPanel.device_options()]
+    # And the guard is not decorative: there is genuinely no mode to have opened on, and it
+    # is this module the complaint names.
+    with pytest.raises(ValueError) as raised:
+        panel._select_device(recognized)
+    assert recognized.label in str(raised.value)
 
 
-def test_opening_the_panel_from_an_amc2_screen_does_not_open_it_on_the_amc2(monkeypatch) -> None:
-    # Pressing LCS... with an AMC2 on screen hands the panel an AMC2 state. It has no
-    # modes, so opening on it would leave the operator on a device that cannot be
-    # configured -- and would ask a mode-less device for its default mode.
+def test_opening_the_panel_from_an_amc2_screen_opens_it_on_the_amc2(monkeypatch) -> None:
+    # Pressing LCS... with an AMC2 on screen hands the panel an AMC2 state, and an AMC2 is
+    # now a module the panel can program -- so it opens on that module, at that address, on
+    # the one key it is offered on, exactly as it does for every other module the operator
+    # was already looking at.
     _appliance(monkeypatch)
     state = FakeState(1, "is_amc2", num_ids=1)
     panel = _new_panel(FakeStore({CommandScope.ACC: [state]}))
 
-    panel.configure(CommandScope.ACC, 1, state)  # must not raise
+    panel.configure(CommandScope.ACC, 1, state)
 
-    assert panel.device is ASC2
+    assert panel.device is AMC2
+    assert panel.mode is AMC2.mode("acc")
+    assert panel.base_id == 1
+    assert panel._device_group.value == AMC2.key
     assert panel.page_index == mod.PAGE_DEVICE
-    # Recognized all the same: it is what the box reports at that ID.
     assert _assigned(panel) == [_row(CommandScope.ACC, AMC2.label, 1)]
-    # And the guard is not decorative: there is genuinely no mode to have opened on, and it
-    # is this module the complaint names.
-    assert AMC2.modes == ()
-    with pytest.raises(ValueError) as raised:
-        panel._select_device(AMC2)
-    assert AMC2.label in str(raised.value)
 
 
-def test_the_choice_buttons_ignore_a_module_that_cannot_be_programmed() -> None:
-    # Interior of an AMC2's block, if it ever reported one: there is nothing to go to and
-    # nothing to take over, so neither button appears.
+def test_the_amc2_is_offered_on_the_accessory_key_alone(monkeypatch) -> None:
+    # Its manual programs it as a TR or an ENG device as readily as an ACC one, and the
+    # registry records both -- but nothing else in PyTrain drives an AMC2 addressed as a
+    # train or an engine, so the panel offers no row that would put one there. What is not
+    # offered is not mentioned either: a row an operator cannot choose is not a fact they
+    # can act on.
+    _appliance(monkeypatch)
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+
+    assert [key for _label, key in _mode_options(AMC2, panel.base_id)] == ["acc"]
+    assert {mode.key for mode in AMC2.modes if not mode.enabled} == {"tr", "eng"}
+    assert panel.mode_legend == mod.scope_use(CommandScope.ACC)
+    assert "TR" not in panel.mode_legend
+    assert "ENG" not in panel.mode_legend
+
+
+def test_an_amc2_addressed_as_a_train_is_not_opened_on_a_mode_the_panel_cannot_offer(monkeypatch) -> None:
+    # A module found running in a mode the panel does not offer is opened on the row it can
+    # be reprogrammed as. Left on the mode it was found in, the radios would show no row
+    # selected -- there being no row for it -- and Configure would send that mode's opening
+    # SET press and nothing after it, which is a module half programmed.
+    _appliance(monkeypatch)
+    _with_pdi_store(
+        monkeypatch,
+        {PdiDevice.AMC2: [FakePdiConfig(5, CommandScope.TRAIN, access_type=AccessType.TRAIN)]},
+    )
+    panel = _new_panel()
+
+    panel.configure(CommandScope.TRAIN, 5, None)
+    panel._on_device_selected(AMC2.key)
+
+    assert panel.mode is AMC2.mode("acc")
+    assert panel.mode.enabled is True
+
+
+def test_the_choice_buttons_ignore_a_module_that_cannot_be_programmed(monkeypatch) -> None:
+    # Interior of the block of a module the panel can only recognize: there is nothing to go
+    # to and nothing to take over, so neither button appears -- the buttons offer to program
+    # a module, and this is one no sequence has been written for.
+    recognized = _recognized_only(monkeypatch)
     store = FakeStore({CommandScope.ACC: [FakeState(1, "is_amc2", num_ids=8)]})
     panel = _new_panel(store)
     panel._on_device_selected("asc2")
     panel._set_base_id(4)
 
-    assert _assigned(panel) == [_row(CommandScope.ACC, AMC2.label, 1, 8)]
+    assert _assigned(panel) == [_row(CommandScope.ACC, recognized.label, 1, 8)]
     assert panel.programmable_occupant() is None
     assert panel._goto_btn.visible is False
     assert panel._new_btn.visible is False
@@ -3498,6 +3734,79 @@ def _sensor_track_based_at(monkeypatch, base_id: int, sequence: IrdaSequence) ->
     )
 
 
+def _amc2_based_at(monkeypatch, base_id: int, motors: tuple[Amc2Motor, ...]) -> None:
+    """An AMC2 based at base_id running those motors, as the PDI bus reported it.
+
+    Addressed as an accessory, which is the one way the panel offers -- and said as the
+    module says it, an AccessType rather than a mode byte, because what the panel has to
+    read is what the module publishes.
+    """
+    _with_pdi_store(
+        monkeypatch,
+        {PdiDevice.AMC2: [FakePdiConfig(base_id, CommandScope.ACC, access_type=AccessType.ACC, motors=motors)]},
+    )
+
+
+def test_the_motor_rows_show_what_the_amc2_at_the_address_is_running(monkeypatch) -> None:
+    # Both motors, each read off the motor itself: an AMC2 reports its settings one level
+    # down from the record it answers with, and the two are told apart by nothing but which
+    # motor they are on. Read there, the page opens on what the module is running rather
+    # than on the option's own default -- which, this being a single operation that sets
+    # both motors, would otherwise reprogram the far motor the moment the near one was
+    # changed.
+    _amc2_based_at(monkeypatch, 5, (_motor(1, OutputType.AC, restore=True), _motor(2, OutputType.DELTA)))
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+    panel._set_base_id(5)
+
+    assert panel.reconfigured_occupant().base_id == 5
+    assert panel.options["motor1_mode"] is OutputType.AC
+    assert panel.options["motor1_restore"] is True
+    assert panel.options["motor2_mode"] is OutputType.DELTA
+    assert panel.options["motor2_restore"] is False
+    for motor, output_type in ((1, OutputType.AC), (2, OutputType.DELTA)):
+        option = AMC2.option(f"motor{motor}_mode")
+        assert output_type is not option.default  # or the row would be selected without being read
+        row = [value for _label, value in option.choices].index(output_type)
+        assert panel._option_widgets[(AMC2.key, option.key)].value == str(row)
+    assert panel._option_widgets[(AMC2.key, "motor1_restore")].value == 1
+    assert panel._option_widgets[(AMC2.key, "motor2_restore")].value == 0
+    # And the presses follow, so leaving the page alone reprograms the module as it stands.
+    assert panel.review_lines == _press_lines(AMC2.mode("acc"), 5, panel.options)
+
+
+def test_an_amc2_that_has_reported_no_motors_leaves_them_at_their_defaults(monkeypatch) -> None:
+    # A record built from a GET the module has not answered yet carries no motors at all,
+    # and a path that runs out is the module saying nothing rather than saying zero -- which
+    # would read as the first mode on the list and be programmed in as though chosen.
+    _amc2_based_at(monkeypatch, 5, ())
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+    panel._set_base_id(5)
+
+    for option in AMC2.options:
+        assert panel.options[option.key] is option.default
+
+
+def test_the_read_back_names_each_motor_and_whether_it_remembers() -> None:
+    # What the module says it now holds, in the words the page offered: a mode per motor,
+    # and the remember flag beside the motor it was set for. Both are read through the
+    # options themselves, so the read-back is read the same way the module was read in the
+    # first place.
+    state = FakeState(
+        5, "is_amc2", num_ids=1, motors=(_motor(1, OutputType.NORMAL, restore=True), _motor(2, OutputType.AC))
+    )
+    panel = _new_panel(FakeStore({CommandScope.ACC: [state]}))
+    panel._on_device_selected(AMC2.key)
+    panel._set_base_id(5)
+    panel.on_configure()
+
+    reported = panel.reported_text(state)
+    assert "Motor #1 Continuous (DC) (remembers)" in reported
+    assert "Motor #2 AC" in reported
+    assert "Motor #2 AC (remembers)" not in reported
+
+
 @pytest.mark.parametrize("sequence", [IrdaSequence.CROSSING_GATE_NONE, IrdaSequence.SLOW_SPEED_NORMAL_SPEED])
 def test_the_action_command_shows_what_the_sensor_track_at_the_address_is_set_to(monkeypatch, sequence) -> None:
     # The Action Command a Sensor Track is running with is the sequence field of its own
@@ -3745,8 +4054,11 @@ def test_a_key_that_means_the_same_everywhere_is_worded_once() -> None:
     for scope in mod.SCOPE_LABEL:
         assert mod.scope_use(scope) == mod.SCOPE_USE[(scope, None)]
     # A key nothing is written about at all is passed over rather than headed with a blank
-    # line; no mode is on one today, so the legend never has to.
+    # line. The AMC2's ENG mode is on such a key, and the legend never has to: a mode the
+    # panel does not offer is on no row for the legend to head.
     assert mod.scope_use(CommandScope.ENGINE) is None
+    offered = {mode.scope for device in reg.configurable_devices() for mode in reg.enabled_modes(device)}
+    assert CommandScope.ENGINE not in offered
 
 
 def test_a_line_written_for_one_module_names_that_module() -> None:
@@ -4804,7 +5116,7 @@ def test_every_row_the_panel_draws_is_broken_inside_the_pane() -> None:
 
     groups = [w for w in _panel_widgets(panel) if isinstance(w, DummyCheckBoxGroup)]
 
-    assert len(groups) == 3, "the modules, the modes, and the Sensor Track's actions"
+    assert len(groups) == 5, "the modules, the modes, the Sensor Track's actions, the AMC2's two motors"
     for group in groups:
         wrap = group.kwargs["wrap"]
         assert wrap == panel._row_wrap_px(group.kwargs["size"])

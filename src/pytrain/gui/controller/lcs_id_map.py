@@ -62,7 +62,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, List
 
 from ...protocol.constants import CommandScope
-from .lcs_device_registry import LcsDevice, LcsMode, device_for_pdi_device, devices_for_state
+from .lcs_device_registry import LcsDevice, LcsMode, device_for_pdi_device, devices_for_state, reported_mode
 
 LCS_SCOPES: tuple[CommandScope, ...] = (
     CommandScope.ACC,
@@ -189,11 +189,6 @@ def _pdi_store(pdi_store: Any = None) -> Any:
     return PdiStateStore.get() if PdiStateStore.is_built() else None
 
 
-def _pdi_mode(state: Any) -> int | None:
-    mode = getattr(state, "mode", None)
-    return mode if isinstance(mode, int) and not isinstance(mode, bool) else None
-
-
 def _config_packet(record: Any) -> Any:
     """The module's own CONFIG packet out of the PDI store's entry for it.
 
@@ -215,7 +210,15 @@ def _config_packet(record: Any) -> Any:
 
 
 def _mode_of(device: LcsDevice, state: Any) -> LcsMode | None:
-    mode = device.mode_for_pdi_mode(_pdi_mode(state))
+    """The mode this record says the module is in, where it says anything.
+
+    Asked of the module rather than of the record: what a module calls the field its mode
+    is reported on is a fact about the module, and an AMC2 reports which of the three
+    address types it answers to rather than a mode byte. Which key it is on follows from
+    that mode, so an AMC2 addressed as a train is not read as holding the accessory address
+    of the same number; see LcsOccupant.effective_scope and reported_mode().
+    """
+    mode = device.mode_for_pdi_mode(reported_mode(device, state))
     if mode is None and len(device.modes) == 1:
         mode = device.modes[0]
     return mode
@@ -313,8 +316,9 @@ def _pdi_occupants(pdi_store: Any, store: Any) -> List[LcsOccupant]:
 
     Sized from the module's own mode rather than from any component state: the record at
     the address may be shared with another module, and its num_ids then belongs to
-    whichever of them reported last. A module the registry declares no modes for -- an
-    AMC2 -- holds a single ID, which is what Amc2Req.num_addressable_ports reports.
+    whichever of them reported last. A module whose mode the record does not say -- one the
+    registry declares no modes for, or one whose record carries no mode byte yet -- holds a
+    single ID.
     """
     if pdi_store is None:
         return []

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.pytrain.gui.controller import lcs_id_map
-from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2
+from src.pytrain.gui.controller import lcs_device_registry, lcs_id_map
+from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsDevice
 from src.pytrain.gui.controller.lcs_id_map import (
     occupant_of,
     occupants,
@@ -21,6 +21,8 @@ from src.pytrain.gui.controller.lcs_id_map import (
     trains,
     trains_of,
 )
+from src.pytrain.pdi.amc2_req import AccessType, Amc2Motor, Amc2Req, Direction, OutputType
+from src.pytrain.pdi.constants import Amc2Action, PdiCommand
 from src.pytrain.pdi.pdi_device import PdiDevice
 from src.pytrain.protocol.constants import CommandScope
 
@@ -47,8 +49,8 @@ class FakeState:
         self.is_bpc2 = device == "bpc2"
         self.is_stm2 = device == "stm2"
         self.is_sensor_track = device == "sensor_track"
-        # Recognized but not programmable, and the map must find it all the same: a
-        # module it cannot see is an address it reports as free when it is not.
+        # The map has to find every module the registry knows, whether or not the panel can
+        # program it: one it cannot see is an address it reports as free when it is not.
         self.is_amc2 = device == "amc2"
 
 
@@ -162,6 +164,22 @@ def asc2_at_9() -> FakeStore:
     base = FakeState(9, "asc2", mode=0)
     ports = [FakeState(9 + i, "asc2", mode=0, parent=base) for i in range(1, 8)]
     return FakeStore(acc=[base] + ports)
+
+
+# noinspection PyProtectedMember
+def amc2_config(tmcc_id: int, access_type: AccessType) -> Amc2Req:
+    """A populated AMC2 CONFIG packet, as an AMC2 answers with one.
+
+    The module's own class rather than a stand-in, and round-tripped through its own
+    encoder, which is what puts real motors on it: the request built to *ask* for a config
+    carries none. What is read off it here is which key the module says it is on, so a fake
+    would agree with the registry by construction and prove nothing.
+    """
+    request = Amc2Req(tmcc_id, PdiCommand.AMC2_RX, Amc2Action.CONFIG)
+    request._access_type = access_type
+    request._motor1 = Amc2Motor(1, OutputType.DELTA, Direction.FORWARD, True, False, 30)
+    request._motor2 = Amc2Motor(2, OutputType.AC, Direction.AC, False, False, 0)
+    return Amc2Req(request.as_bytes)
 
 
 class TestOccupantOf:
@@ -354,12 +372,29 @@ class TestSeveralModulesOnOneId:
     def test_occupant_of_still_answers_with_the_first(self):
         assert occupant_of(1, self.amc2_and_bpc2_at_acc_1()).device is BPC2
 
-    def test_a_module_the_panel_cannot_program_is_still_recognized(self):
-        store = FakeStore(acc=[FakeState(1, "amc2", num_ids=1)])
-        occupant = occupant_of(1, store)
+    def test_a_module_the_panel_cannot_program_is_still_recognized(self, monkeypatch):
+        # The whole reason the registry keeps the flag: a module the panel cannot program
+        # answers to a TMCC ID all the same, and a module the map cannot see is an address
+        # reported as free with something sitting on it. The AMC2 was the standing example
+        # until its presses were written, so the module here is a stand-in -- stood up for
+        # this test because the registry no longer holds one, and LCS_DEVICES is read as the
+        # modules are recognized rather than once at import.
+        unread = LcsDevice(
+            key="unread",
+            label="Unread",
+            blurb="ACC",
+            pdi_device=PdiDevice.SER2,
+            modes=(),
+            configurable=False,
+            identifies_state=lambda state: bool(getattr(state, "is_unread", False)),
+        )
+        monkeypatch.setattr(lcs_device_registry, "LCS_DEVICES", (*lcs_device_registry.LCS_DEVICES, unread))
+        state = FakeState(1, "none", num_ids=1)
+        state.is_unread = True
 
+        occupant = occupant_of(1, FakeStore(acc=[state]))
         assert occupant is not None
-        assert occupant.device is AMC2
+        assert occupant.device is unread
         assert occupant.device.configurable is False
         # No mode of its own, so it holds what its INFO packet reported on the store's key.
         assert occupant.mode is None
@@ -411,8 +446,8 @@ class TestPdiDeviceStore:
         assert by_device[BPC2].mode.key == "acc_8"
         assert by_device[BPC2].ports == 8
         assert by_device[BPC2].last_id == 8
-        # An AMC2 declares no modes and holds exactly one ID; it must not inherit the
-        # neighbor's block size from the record they share.
+        # A module whose own record says nothing about which key it is on holds a single
+        # ID; it must not inherit the neighbor's block size from the record they share.
         assert by_device[AMC2].mode is None
         assert by_device[AMC2].ports == 1
         assert by_device[AMC2].last_id == 1
@@ -514,6 +549,46 @@ class TestPdiDeviceStore:
 
     def test_an_empty_pdi_store_changes_nothing(self):
         assert occupant_of(9, asc2_at_9(), pdi_store=FakePdiStore({})).device is ASC2
+
+
+class TestAmc2Address:
+    """
+    An AMC2 holds one address, on whichever of the three keys it was programmed onto.
+
+    Read from real CONFIG packets: it is the one module that publishes no mode byte, so
+    what it says about itself is exactly what is being tested.
+    """
+
+    def test_an_amc2_holds_the_address_the_key_its_access_type_names(self):
+        # Which key it is on is what its access_type says, and nothing else does. Read as a
+        # module in no mode at all, it would be reported on the accessory key of the same
+        # number: an address that is genuinely free, while the train it is really sitting on
+        # reads as clear and the next thing programmed there answers alongside it.
+        packet = amc2_config(5, AccessType.TRAIN)
+        pdi = FakePdiStore({PdiDevice.AMC2: [packet]})
+
+        occupant = occupant_of(5, FakeStore(), scope=CommandScope.TRAIN, pdi_store=pdi)
+        assert occupant is not None
+        assert occupant.device is AMC2
+        assert occupant.mode.key == "tr"
+        assert occupant.effective_scope == CommandScope.TRAIN
+        assert occupant_of(5, FakeStore(), scope=CommandScope.ACC, pdi_store=pdi) is None
+
+    def test_an_accessory_amc2_holds_exactly_one_id(self):
+        # One address for the whole module -- every motor and light on it answers to that
+        # one -- so the addresses either side of it are free, and an operator told otherwise
+        # sets aside seven they could have used.
+        packet = amc2_config(7, AccessType.ACC)
+        pdi = FakePdiStore({PdiDevice.AMC2: [packet]})
+
+        occupant = occupant_of(7, FakeStore(), scope=CommandScope.ACC, pdi_store=pdi)
+        assert occupant is not None
+        assert (occupant.mode.key, occupant.ports, occupant.last_id) == ("acc", 1, 7)
+        assert occupant_of(8, FakeStore(), pdi_store=pdi) is None
+        # And the packet travels with it, motors and all, which is what the options page is
+        # seeded from: an AMC2 reports each motor's settings on the motor itself.
+        assert occupant.config is packet
+        assert occupant.config.motor1 is not None, "a packet with no motors on it says nothing"
 
 
 class TestTrains:
