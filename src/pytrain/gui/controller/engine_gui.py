@@ -1565,6 +1565,63 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return True
 
     @property
+    def _open_lcs_config(self):
+        """The LCS configuration panel while it is the popup on screen, if it is.
+
+        Read afresh for every press, as _open_chooser is: the press and the panel it was
+        aimed at are two separate moments, and a pad key that arrived after the panel closed
+        must find nothing to work rather than work a panel nobody is looking at.
+        """
+        panel = self._lcs_config_panel
+        return panel if panel is not None and panel.visible else None
+
+    @property
+    def lcs_config_visible(self) -> bool:
+        """Whether that panel is up, so the D-pad drives it instead of the train.
+
+        Its own question rather than popup_visible, which is true of every popup this pane
+        can show: this is the one an operator works *through* -- four pages of radio rows
+        with Back and Next below them -- so it is the one that is handed the pad. See
+        DeckInputRouter._config_panel_only.
+        """
+        return self._open_lcs_config is not None
+
+    def move_lcs_config(self, forward: bool = True) -> bool:
+        """Move the highlight down the page's list -- D-pad up/down. Nothing is chosen."""
+        panel = self._open_lcs_config
+        if panel is None:
+            return False
+        return panel.pad_step(1 if forward else -1)
+
+    def mark_lcs_config(self) -> bool:
+        """Choose the highlighted row -- D-pad right."""
+        panel = self._open_lcs_config
+        if panel is None:
+            return False
+        return panel.pad_mark()
+
+    def revert_lcs_config(self) -> bool:
+        """Put back what the last mark displaced, or abandon the move -- D-pad left."""
+        panel = self._open_lcs_config
+        if panel is None:
+            return False
+        return panel.pad_revert()
+
+    def advance_lcs_config(self) -> bool:
+        """Choose the highlighted row and turn the page -- the A button."""
+        panel = self._open_lcs_config
+        if panel is None:
+            return False
+        return panel.pad_advance()
+
+    def back_lcs_config(self) -> bool:
+        """Turn back a page -- the B button."""
+        panel = self._open_lcs_config
+        if panel is None:
+            return False
+        return panel.pad_back()
+
+    @property
     def admin_visible(self) -> bool:
         panel = self._admin_panel
         return bool(panel is not None and panel.visible)

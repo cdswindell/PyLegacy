@@ -206,6 +206,107 @@ def test_a_group_without_the_cursor_is_configured_exactly_as_it_is_today() -> No
     assert row.last["image"].ground == mod.WHITE
 
 
+class DummyRebuiltRow:
+    """One row as _rbuttons holds it: a value, and the widget the cursor is armed over.
+
+    The pair a re-arm reads. Everywhere else the cursor is armed over widgets directly, which
+    is all the tinting needs; a rebuild is the one thing that has to look at _rbuttons,
+    because the widgets it re-arms over are the ones guizero has just created.
+    """
+
+    def __init__(self, value: str) -> None:
+        self.value = value
+        self.tk = DummyRow(value)
+
+
+# noinspection PyProtectedMember
+def _rebuildable_group(values: list[str]) -> tuple[mod.CheckBoxGroup, list[DummyRebuiltRow]]:
+    """A group with the cursor armed over rows it holds the way guizero holds them."""
+    rows = [DummyRebuiltRow(value) for value in values]
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._rbuttons = rows
+    group._init_cursor([(row.value, row.tk) for row in rows], 28, style="radio")
+    return group, rows
+
+
+def test_a_rebuilt_group_is_armed_over_the_rows_it_now_holds() -> None:
+    # The cursor is armed over the row *widgets*, and guizero destroys every one of them on
+    # any options change: the LCS panel's mode rows are replaced whenever the module or the
+    # address changes, and without the re-arm the next press would tint a dead widget, which
+    # is a TclError rather than a highlight in the wrong place.
+    group, gone = _rebuildable_group(["0", "1", "2"])
+    group.cursor = "1"
+    rebuilt = [DummyRebuiltRow(value) for value in ("0", "1", "2")]
+    group._rbuttons = rebuilt
+    for row in gone:
+        row.tk.config_calls.clear()
+
+    group._rearm_cursor()
+
+    assert group.cursor == "1", "the same row, on the list that now holds it"
+    assert rebuilt[1].tk.last["background"] == mod.CURSOR_BG
+    group.cursor = "2"
+    assert rebuilt[2].tk.last["background"] == mod.CURSOR_BG
+    assert [row.tk.config_calls for row in gone] == [[], [], []], "and the replaced rows are never touched again"
+
+
+def test_a_rebuild_that_replaces_the_list_drops_the_tint() -> None:
+    # Which is what choosing another module does to the mode rows: one module's modes go and
+    # another's arrive, and where the pad was pointing is no longer a place. clear() empties
+    # the list outright, so the pair of calls a replacement is made of drops it either way.
+    group, _gone = _rebuildable_group(["acc_8", "acc_1"])
+    group.cursor = "acc_1"
+
+    group._rbuttons = [DummyRebuiltRow(value) for value in ("sw_8", "sw_1")]
+    group._rearm_cursor()
+
+    assert group.cursor is None
+
+
+def test_a_group_that_never_armed_a_cursor_is_untouched_by_a_rebuild() -> None:
+    # Every other group in the app: the Admin panel's, the catalog's sort radios, the AMC2
+    # page selector. A rebuild must not arm one on a group that asked for none -- and this
+    # is reachable before __init__ has armed anything at all, guizero building its rows from
+    # its own constructor.
+    rows = [DummyRebuiltRow("0")]
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._rbuttons = rows
+
+    group._rearm_cursor()
+
+    assert group.cursor is None
+    assert rows[0].tk.config_calls == [], "not even the selectcolor arming touches it"
+
+
+def test_replacing_the_options_arms_the_cursor_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The wiring, as the repaint above it is wired: every options change routes through
+    # _refresh_options, which is the moment the old widgets are gone and the new ones exist.
+    group, gone = _rebuildable_group(["0", "1"])
+    group.cursor = "1"
+    rebuilt = [DummyRebuiltRow(value) for value in ("0", "1")]
+    group._rbuttons = rebuilt
+    monkeypatch.setattr(mod.ButtonGroup, "_refresh_options", lambda self: None, raising=True)
+
+    group._refresh_options()
+
+    for row in gone:
+        row.tk.config_calls.clear()
+    group.cursor = "0"
+    assert rebuilt[0].tk.last["background"] == mod.CURSOR_BG
+    assert rebuilt[1].tk.last["background"] == "systemWindowBackgroundColor", "the row it left"
+    assert [row.tk.config_calls for row in gone] == [[], []]
+
+
+def test_row_values_answers_with_the_string_every_row_holds() -> None:
+    # What a caller stepping the cursor reads the list off: options answers with whatever it
+    # was handed -- a mode key, an index, a tuple or a list -- while cursor and value are both
+    # written and read as the string Tk holds.
+    group, _rows = _rebuildable_group(["0", "1", "2"])
+
+    assert group.row_values == ("0", "1", "2")
+    assert mod.CheckBoxGroup.__new__(mod.CheckBoxGroup).row_values == (), "and a group with no rows yet is safe"
+
+
 class DummyGroupTk:
     """The group's own Tk frame, as decorate_rows uses it: a bag of rows."""
 
@@ -561,6 +662,65 @@ def test_setting_the_cursor_on_a_group_that_did_not_opt_in_does_nothing() -> Non
     group.cursor = 3
 
     assert group.cursor is None
+
+
+# Every text size these rows are drawn at, on all three machines: the LCS panel's module
+# radios at s_14 and its mode rows, option rows and lone checkbox at s_18, the keypad's
+# Sensor Track group at s_19, the Admin panel's scope radios at s_20 -- each of them
+# round(size * scale), and the scale is 0.9 on the Deck's compact pane, 1.0 on a desk and
+# 1.5 on the Pi.
+ROW_SIZES = [13, 14, 16, 17, 18, 19, 20, 21, 27, 28, 30]
+
+# The largest indicator a row's text box holds, as a multiple of the row's text size,
+# measured on macOS off screenshots of a row packed tight at every one of those sizes: at or
+# under it the row's frame comes through untouched, above it the indicator paints over it.
+# See INDICATOR_SCALE, which is the ratio the component actually draws with.
+FRAME_CEILING = 1.33
+
+
+@pytest.mark.parametrize("style", ["radio", "checkbox"])
+@pytest.mark.parametrize("size", ROW_SIZES)
+def test_the_painted_indicator_stays_off_the_rows_own_frame(size: int, style: str) -> None:
+    # What the ring came down from 1.5x for. These rows are drawn with indicatoron=False, so
+    # each carries a frame of its own, and macOS draws that frame 3px inside the row's edge --
+    # while the indicator is *filled* with a ground rather than drawn over a transparent one,
+    # so one as tall as the row's text box does not merely touch the frame, it paints it out.
+    # At 18pt, the size the LCS panel's option rows are drawn at on a desk, 1.5x was 27px of a
+    # 28px text box, and all ten Sensor Track actions came out with their frame broken open
+    # around the ring, top and bottom. The Pi and the Deck never showed it: X11 draws no frame
+    # on these rows at all, which is why the ratio has to be held to here rather than seen.
+    assert mod.CheckBoxGroup.indicator_size_for(size, style) <= int(size * FRAME_CEILING)
+
+
+@pytest.mark.parametrize("size", ROW_SIZES)
+def test_a_ring_and_a_tick_box_are_drawn_at_one_size(size: int) -> None:
+    # Both are as large as the row's text box allows, and that box is the font's: it says
+    # nothing about which shape is painted in it.
+    radio = mod.CheckBoxGroup.indicator_size_for(size, "radio")
+
+    assert radio == mod.CheckBoxGroup.indicator_size_for(size, "checkbox")
+
+
+@pytest.mark.parametrize("size", ROW_SIZES)
+def test_the_painted_indicator_is_still_larger_than_the_text_beside_it(size: int) -> None:
+    # The floor, and the reason these rows are painted at all rather than left to Tk: the
+    # platform's own indicator is drawn at the font's own scale and read as a smudge beside
+    # the label on the Pi. So the frame is cleared by drawing the indicator smaller, not by
+    # drawing it small.
+    assert mod.CheckBoxGroup.indicator_size_for(size, "radio") > size
+
+
+@pytest.mark.parametrize("style", ["radio", "checkbox"])
+def test_a_row_is_painted_with_a_square_indicator_of_that_size(style: str) -> None:
+    # And the rules above are about what is drawn rather than about arithmetic: the pair a row
+    # is configured with is that many pixels each way, which is what has to clear the frame.
+    row = DummyRow("0")
+
+    mod.CheckBoxGroup.decorate_checkbox(row, 18, None, style=style)
+
+    size = mod.CheckBoxGroup.indicator_size_for(18, style)
+    for image in (row.last["image"], row.last["selectimage"]):
+        assert (image.width(), image.height()) == (size, size)
 
 
 @pytest.mark.parametrize("style", ["radio", "checkbox"])

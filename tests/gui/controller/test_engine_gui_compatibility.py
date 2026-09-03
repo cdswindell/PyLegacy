@@ -918,3 +918,111 @@ def test_a_pane_with_no_state_info_panel_yet_is_safe_to_ask() -> None:
 
     assert gui.chooser_visible is False
     assert gui.move_chooser() is False
+
+
+class _FakeConfigPanel:
+    def __init__(self, visible: bool = True, answer: bool = True) -> None:
+        self.visible = visible
+        self._answer = answer
+        self.steps: list[int] = []
+        self.marked = 0
+        self.reverted = 0
+        self.advanced = 0
+        self.backed = 0
+
+    def pad_step(self, delta: int) -> bool:
+        self.steps.append(delta)
+        return self._answer
+
+    def pad_mark(self) -> bool:
+        self.marked += 1
+        return self._answer
+
+    def pad_revert(self) -> bool:
+        self.reverted += 1
+        return self._answer
+
+    def pad_advance(self) -> bool:
+        self.advanced += 1
+        return self._answer
+
+    def pad_back(self) -> bool:
+        self.backed += 1
+        return self._answer
+
+
+def _gui_with_lcs_config(panel=None):
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui._lcs_config_panel = panel
+    return gui
+
+
+def test_the_pane_exposes_an_open_lcs_config_panel_for_the_pad() -> None:
+    # Same reason the chooser is exposed above: the input router resolves actions against a
+    # pane, not against the popup it happens to be showing, so the pane has to answer for it.
+    # Nothing here decides what a pad key means -- that is the panel's own -- so each key is
+    # handed straight over.
+    panel = _FakeConfigPanel()
+    gui = _gui_with_lcs_config(panel)
+
+    assert gui.lcs_config_visible is True
+    assert gui.move_lcs_config(forward=True) is True
+    assert gui.move_lcs_config(forward=False) is True
+    assert gui.mark_lcs_config() is True
+    assert gui.revert_lcs_config() is True
+    assert gui.advance_lcs_config() is True
+    assert gui.back_lcs_config() is True
+
+    # Down the page's list and back up it: the pane's forward flag is the panel's step.
+    assert panel.steps == [1, -1]
+    assert panel.marked == 1
+    assert panel.reverted == 1
+    assert panel.advanced == 1
+    assert panel.backed == 1
+
+
+def test_the_pane_reports_what_the_lcs_config_panel_answered() -> None:
+    # Passed through rather than replaced with "there was a panel": only the panel knows
+    # whether the key did anything -- a highlight already on the last row, a page with nothing
+    # marked to revert -- and the answer is what the router would have to act on.
+    panel = _FakeConfigPanel(answer=False)
+    gui = _gui_with_lcs_config(panel)
+
+    assert gui.move_lcs_config() is False
+    assert gui.mark_lcs_config() is False
+    assert gui.revert_lcs_config() is False
+    assert gui.advance_lcs_config() is False
+    assert gui.back_lcs_config() is False
+
+    assert panel.steps == [1], "the panel was still asked"
+
+
+def test_a_pane_whose_lcs_config_panel_is_closed_reports_nothing_to_drive() -> None:
+    # The panel object outlives its showing, so its mere existence cannot be the test. A key
+    # that arrived after the panel came down must find nothing to work rather than work a
+    # panel nobody is looking at -- and the router reads this before it claims anything.
+    panel = _FakeConfigPanel(visible=False)
+    gui = _gui_with_lcs_config(panel)
+
+    assert gui.lcs_config_visible is False
+    assert gui.move_lcs_config() is False
+    assert gui.mark_lcs_config() is False
+    assert gui.revert_lcs_config() is False
+    assert gui.advance_lcs_config() is False
+    assert gui.back_lcs_config() is False
+
+    assert panel.steps == []
+    assert (panel.marked, panel.reverted, panel.advanced, panel.backed) == (0, 0, 0, 0)
+
+
+def test_a_pane_that_has_never_opened_the_lcs_config_panel_is_safe_to_ask() -> None:
+    # The panel is created lazily, so this is the state at startup -- and the router asks
+    # every pane, not only the one that has been through this popup.
+    gui = _gui_with_lcs_config(None)
+
+    assert gui.lcs_config_visible is False
+    assert gui.move_lcs_config() is False
+    assert gui.mark_lcs_config() is False
+    assert gui.revert_lcs_config() is False
+    assert gui.advance_lcs_config() is False
+    assert gui.back_lcs_config() is False

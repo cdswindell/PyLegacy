@@ -119,6 +119,9 @@ class DummyEditableText(_DummyWidget):
         self.edit_fg = "black"
         self.edits = 0
         self.value = ""
+        # Whether the editor is open over the page, which is what the pad reads to know the
+        # page has been left for the moment; see LcsConfigPanel._pad_target.
+        self.is_editing = False
 
     def begin_edit(self) -> None:
         self.edits += 1
@@ -137,6 +140,24 @@ class DummyCheckBoxGroup(_DummyWidget):
         self.options = kwargs.get("options", [])
         self.value = kwargs.get("selected")
         self.command = kwargs.get("command")
+        self._cursor: str | None = None
+
+    @property
+    def row_values(self) -> tuple[str, ...]:
+        """The rows' values as strings, which is what the real group answers with."""
+        return tuple(str(option[1] if isinstance(option, (list, tuple)) else option) for option in self.options)
+
+    @property
+    def cursor(self) -> str | None:
+        """Where the pad is pointing, as against value, which is what is chosen."""
+        return self._cursor
+
+    @cursor.setter
+    def cursor(self, value: Any) -> None:
+        # A value the rows do not hold clears the tint rather than raising, and it is held as
+        # the string the rows are keyed by -- both as the real component has it.
+        target = None if value is None else str(value)
+        self._cursor = target if target in self.row_values else None
 
     @staticmethod
     def decorate_checkbox(widget: Any, size: int, width: Any = None, **kwargs: Any) -> None:
@@ -149,6 +170,10 @@ class DummyCheckBoxGroup(_DummyWidget):
 
     def clear(self) -> None:
         self.options = []
+        # A rebuild destroys the rows the tint was armed over, and clearing empties the list
+        # outright, so nothing is left for the component's re-arm to put it back on; see
+        # CheckBoxGroup._rearm_cursor.
+        self._cursor = None
 
     def append(self, option: list[Any]) -> None:
         """Append a [text, value] list, matching guizero's ButtonGroup.append() signature."""
@@ -2313,7 +2338,7 @@ def test_both_radio_lists_hold_their_rows_apart(compact: bool, device: int, mode
 
 def test_the_mode_rows_are_held_apart_less_than_the_module_rows() -> None:
     # The ID page is the fullest of the four and its rows are the tallest -- a size above the
-    # page body, so a painted indicator half again as large -- while the device page has
+    # page body, so a painted indicator that grows with it -- while the device page has
     # nothing below its radios at all. Both are more than those rows had before, which was
     # Tk's own single pixel: the rebuild that lost their paint lost their padding with it.
     assert mod.MODE_ROW_PAD < mod.RADIO_ROW_PAD
@@ -3564,3 +3589,398 @@ def test_the_gap_between_keys_divides_the_list_rather_than_ending_it() -> None:
     # than the gaps between the page's own sections, so the four rows are still one list.
     assert mod.MODE_ROW_PAD < mod.MODE_KEY_LEAD < mod.PAGE_GAP
     assert mod.MODE_KEY_LEAD_COMPACT < mod.MODE_KEY_LEAD
+
+
+#
+# The panel is worked with the gamepad
+#
+# On the Steam Deck the D-pad steps the list on the page showing, right marks the row it is
+# on, left puts back what that mark displaced, A marks and turns the page, and B turns it
+# back. Which key does what is DeckInputRouter._config_panel_only and is tested there; what
+# each of them means is the panel's own, and is what these ask.
+#
+def _module_keys() -> list[str]:
+    """The module rows in the order the first page lists them."""
+    return [key for _label, key in mod.LcsConfigPanel.device_options()]
+
+
+def _mode_keys(device: reg.LcsDevice) -> list[str]:
+    """The mode rows in the order the ID page lists them."""
+    return [mode.key for mode in reg.enabled_modes(device)]
+
+
+def _tap_module(panel: Any, key: str) -> None:
+    """Choose a module the way a finger does: the row holds the value, and then it fires.
+
+    The handler alone is the tap without the press. guizero has put the value in the group
+    by the time a command runs, so nothing on this page writes it back -- every other path
+    that changes the module (configure, Go to, a late synchronization) writes it through
+    _refresh_device_selector, and the pad writes it itself before committing. These tests
+    are about where the pad steps from, which is the row the dot is on, so the dot has to be
+    where a real press would have left it.
+    """
+    panel._device_group.value = key
+    panel._on_device_selected(key)
+
+
+def test_the_pad_steps_the_module_rows_without_choosing_one() -> None:
+    # The whole reason these lists carry a highlight apart from their dot: a row stepped over
+    # must not read as a row chosen, and on this page choosing one rebuilds both pages after
+    # it. So the pad moves the highlight and nothing else moves at all.
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    keys = _module_keys()
+
+    assert panel.pad_step(1) is True
+
+    assert panel._device_group.cursor == keys[keys.index(ASC2.key) + 1]
+    assert panel._device_group.value == ASC2.key, "the dot has not moved"
+    assert panel.device is ASC2
+
+
+def test_the_pad_starts_from_the_row_the_dot_is_on() -> None:
+    # What makes the first press behave: the operator is already partway down the list, so
+    # one press moves one row from where the panel is rather than jumping to the top.
+    panel = _new_panel()
+    _tap_module(panel, SENSOR_TRACK.key)
+    keys = _module_keys()
+
+    panel.pad_step(-1)
+
+    assert panel._device_group.cursor == keys[keys.index(SENSOR_TRACK.key) - 1]
+
+
+@pytest.mark.parametrize("delta", [1, -1])
+def test_the_pad_lands_on_the_first_row_where_nothing_is_chosen_yet(delta: int) -> None:
+    # A list with nothing on it is a state before the list rather than a position in it, so
+    # a press either way lands on the first row. Reading it as "already on the first" would
+    # make that press either do nothing or skip a row, depending on which way it went.
+    panel = _new_panel()
+
+    assert panel.pad_cursor is None
+    assert panel.pad_step(delta) is True
+    assert panel._device_group.cursor == _module_keys()[0]
+
+
+def test_the_pad_stops_at_either_end_of_the_list() -> None:
+    # Clamped rather than wrapping, as the keypad's Sensor Track list is: a pad held against
+    # the end stays there instead of rolling round to the far one, where the next mark would
+    # program something the operator never looked at.
+    panel = _new_panel()
+    keys = _module_keys()
+
+    _tap_module(panel, keys[0])
+    assert panel.pad_step(-1) is False
+    assert panel._device_group.cursor is None, "and nothing moved on the way to saying so"
+
+    _tap_module(panel, keys[-1])
+    assert panel.pad_step(1) is False
+
+
+def test_a_marked_row_is_chosen_exactly_as_a_tap_would_choose_it() -> None:
+    # A value assigned to a group moves its dot and fires nothing -- guizero binds a command
+    # to the click -- so a mark that only assigned would leave every page after this one
+    # describing the module the operator had just stopped choosing.
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    panel.pad_step(1)
+
+    assert panel.pad_mark() is True
+
+    assert panel.device is BPC2
+    assert panel._device_group.value == BPC2.key
+    assert panel.id_heading_text == mod.ID_HEADING.format(module=BPC2.label)
+    assert panel._mode_group.row_values == tuple(_mode_keys(BPC2)), "and the page after it was rebuilt"
+
+
+def test_a_highlight_that_never_moved_marks_nothing() -> None:
+    # Which is what lets A advance without leaving a revert behind: there is nothing to put
+    # back after a press that chose the row that was already chosen.
+    panel = _new_panel()
+    _tap_module(panel, BPC2.key)
+
+    assert panel.pad_cursor == BPC2.key, "the pad starts on the row that is chosen"
+    assert panel.pad_mark() is False
+    assert panel.device is BPC2
+
+
+def test_the_pad_puts_back_the_module_it_just_chose() -> None:
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    panel.pad_step(1)
+    panel.pad_mark()
+
+    assert panel.pad_revert() is True
+
+    assert panel.device is ASC2
+    assert panel._device_group.value == ASC2.key
+    assert panel._device_group.cursor == ASC2.key, "and the pad points at what the panel holds"
+
+
+def test_a_left_press_with_nothing_marked_abandons_the_move() -> None:
+    # The other thing a left press can mean, and the panel means whichever is true: a row
+    # stepped onto but never chosen is abandoned, and the dot was never anywhere else.
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    panel.pad_step(1)
+
+    assert panel.pad_revert() is True
+
+    assert panel._device_group.cursor == ASC2.key
+    assert panel.device is ASC2
+
+
+def test_a_revert_is_one_mark_deep() -> None:
+    # The undo is dropped as it is used, so a second left press cannot undo the same mark
+    # twice -- and by then the highlight is on the row that is chosen, so it means nothing
+    # else either.
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    panel.pad_step(1)
+    panel.pad_mark()
+    panel.pad_revert()
+
+    assert panel.pad_revert() is False
+    assert panel.device is ASC2
+
+
+def test_a_page_turned_is_as_far_back_as_a_revert_reaches() -> None:
+    # The choice a mark displaced is on the page that was left, and the operator looking at
+    # this one cannot see it put back: a module swapped under the page they are reading would
+    # read as the panel losing their place.
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    panel.pad_step(1)
+    panel.pad_mark()
+    panel.next_page()
+
+    assert panel.pad_revert() is False
+    assert panel.device is BPC2
+
+
+def test_the_pad_chooses_a_mode_and_can_put_it_back() -> None:
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel.next_page()
+    modes = _mode_keys(BPC2)
+    assert panel.mode.key == modes[0]
+
+    panel.pad_step(1)
+    assert panel.pad_mark() is True
+    assert panel.mode.key == modes[1]
+
+    assert panel.pad_revert() is True
+    assert panel.mode.key == modes[0]
+
+
+def test_the_pad_goes_on_from_the_row_it_marked() -> None:
+    # The mode rows are destroyed and rebuilt whenever the module or the address changes --
+    # which is what relabels them as the ID steps -- and the tint goes with them. The dot is
+    # then on the row the pad was on, so stepping carries on from where it left off rather
+    # than from the top of the list.
+    panel = _new_panel()
+    panel._on_device_selected(ASC2.key)
+    panel.next_page()
+    modes = _mode_keys(ASC2)
+    panel.pad_step(1)
+    panel.pad_mark()
+
+    assert panel._mode_group.cursor is None, "the rebuild took the tint with it"
+    assert panel.pad_step(1) is True
+    assert panel._mode_group.cursor == modes[2]
+
+
+def test_the_a_key_chooses_the_highlighted_row_and_turns_the_page() -> None:
+    # Both halves, in that order: marking after the page turned would write the choice onto
+    # the next page's list.
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    panel.pad_step(1)
+
+    assert panel.pad_advance() is True
+
+    assert panel.device is BPC2
+    assert panel.page_index == mod.PAGE_ID
+
+
+def test_the_a_key_turns_the_page_where_nothing_was_highlighted() -> None:
+    panel = _new_panel()
+    _tap_module(panel, BPC2.key)
+
+    assert panel.pad_advance() is True
+
+    assert panel.device is BPC2, "the selection stands as it was"
+    assert panel.page_index == mod.PAGE_ID
+
+
+def test_the_a_key_goes_nowhere_until_a_module_is_chosen() -> None:
+    # The question the Next key is enabled by, asked by the pad as well, so A cannot go
+    # anywhere Next would not.
+    panel = _new_panel()
+
+    assert panel.pad_advance() is False
+    assert panel.page_index == mod.PAGE_DEVICE
+
+
+def test_the_a_key_presses_nothing_on_the_review_page() -> None:
+    # The last page, and its only control programs a module: that is a press to be made
+    # deliberately, not one a fumbled A can send.
+    panel = _new_panel()
+    host = panel.gui
+    panel._on_device_selected(BPC2.key)
+    panel._show_page(mod.PAGE_REVIEW)
+
+    assert panel.pad_advance() is False
+
+    assert panel.page_index == mod.PAGE_REVIEW
+    assert host.sent == []
+
+
+def test_the_b_key_turns_back_a_page_and_stops_at_the_first() -> None:
+    # And it puts nothing back on the way: Back and revert are two different requests, so
+    # the page arrived at is read with its own choice still in force.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel.next_page()
+
+    assert panel.pad_back() is True
+    assert panel.page_index == mod.PAGE_DEVICE
+    assert panel.device is BPC2
+
+    assert panel.pad_back() is False
+    assert panel.page_index == mod.PAGE_DEVICE
+
+
+def test_the_pad_ticks_and_clears_the_only_setting_a_bpc2_has() -> None:
+    # A lone tick box is the whole of that page, and there is no list to step through: right
+    # sets it and left clears it, both states one press away either way -- which is how a
+    # power district's relays are worked from the pad.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+    restore = panel._option_widgets[("bpc2", "restore")]
+
+    assert panel.pad_group is None
+    assert panel.pad_step(1) is False
+
+    assert panel.pad_mark() is True
+    assert restore.value == 1
+    assert panel.options["restore"] is True
+
+    assert panel.pad_revert() is True
+    assert restore.value == 0
+    assert panel.options["restore"] is False
+    assert panel.pad_revert() is False, "and a box already clear is not cleared twice"
+
+
+def test_the_pad_steps_the_sensor_tracks_actions() -> None:
+    # The longest list in the panel, and the one this matters most on: ten rows is a lot to
+    # reach for on a Deck held in two hands.
+    panel = _new_panel()
+    panel._on_device_selected(SENSOR_TRACK.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+    action = panel._option_widgets[("sensor_track", "action")]
+    choices = [value for _label, value in SENSOR_TRACK.option("action").choices]
+
+    panel.pad_step(1)
+    panel.pad_step(1)
+    assert action.cursor == "2"
+    assert panel.options["action"] == choices[0], "stepping chooses nothing"
+
+    assert panel.pad_mark() is True
+    assert action.value == "2"
+    assert panel.options["action"] == choices[2]
+
+    assert panel.pad_revert() is True
+    assert panel.options["action"] == choices[0]
+
+
+def test_the_pad_leaves_a_setting_the_page_has_disabled_alone() -> None:
+    # A disabled setting is drawn to say the module has it and this mode does not offer it,
+    # and the pad has no more business setting it than a finger has.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+    restore = panel._option_widgets[("bpc2", "restore")]
+    restore.disable()
+
+    assert panel.pad_mark() is False
+    assert restore.value == 0
+
+
+def test_the_pad_does_nothing_on_the_review_page() -> None:
+    # It asks nothing of the operator: it reports what was chosen and offers Configure.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel._show_page(mod.PAGE_REVIEW)
+
+    assert panel.pad_group is None
+    assert panel.pad_cursor is None
+    assert panel.pad_step(1) is False
+    assert panel.pad_mark() is False
+    assert panel.pad_revert() is False
+
+
+def test_the_pad_does_nothing_while_the_id_is_being_typed() -> None:
+    # On a touch appliance that field opens a keypad over the page, and the pad cannot type
+    # into it: a highlight stepped behind it would be a change nobody can see.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel.next_page()
+    panel._id_field.is_editing = True
+
+    assert panel.pad_group is None
+    assert panel.pad_step(1) is False
+    assert panel.pad_mark() is False
+
+    panel._id_field.is_editing = False
+    assert panel.pad_step(1) is True
+
+
+def test_every_list_the_pad_steps_shows_where_it_is() -> None:
+    # The tint is opt-in on the component -- the Admin panel, the catalog's sort radios and
+    # the AMC2 page selector share it and asked for none -- so every list the pad can reach
+    # has to ask for it, or the highlight would move where nothing showed it.
+    panel = _new_panel()
+    groups = [panel._device_group, panel._mode_group]
+    groups += [w for w in panel._option_widgets.values() if isinstance(w, DummyCheckBoxGroup)]
+
+    assert len(groups) > 2, "the module rows, the mode rows and every radio setting"
+    for group in groups:
+        assert group.kwargs["cursor"] is True
+
+
+def test_the_panel_opens_with_no_row_highlighted() -> None:
+    # It is seeded afresh each time it is opened -- first page, whatever module the layout is
+    # showing -- so a tint left over from the last time it was up would point at a row nobody
+    # has stepped to in this pass.
+    panel = _new_panel()
+    panel._on_device_selected(SENSOR_TRACK.key)
+    panel.pad_step(1)
+    panel._show_page(mod.PAGE_OPTIONS)
+    panel.pad_step(1)
+    assert panel._device_group.cursor is not None
+    assert panel._option_widgets[("sensor_track", "action")].cursor is not None
+
+    panel.configure(CommandScope.ACC, 3, None)
+
+    assert panel._device_group.cursor is None
+    assert panel._option_widgets[("sensor_track", "action")].cursor is None
+
+
+def test_the_pad_keys_ask_the_same_questions_the_nav_buttons_do() -> None:
+    # One answer for the key and the pad, rather than two that could come to disagree about
+    # whether the panel has anywhere left to go.
+    panel = _new_panel()
+    assert (panel.can_advance, panel._next_btn.enabled) == (False, False)
+
+    panel._on_device_selected(BPC2.key)
+    panel._refresh_nav()
+    assert (panel.can_advance, panel._next_btn.enabled) == (True, True)
+    assert (panel.can_go_back, panel._back_btn.visible) == (False, False)
+
+    panel.next_page()
+    assert (panel.can_go_back, panel._back_btn.visible) == (True, True)
+
+    panel._show_page(mod.PAGE_REVIEW)
+    assert (panel.can_advance, panel._next_btn.enabled) == (False, False)

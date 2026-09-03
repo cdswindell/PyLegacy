@@ -174,6 +174,11 @@ ACTION_NOTES: dict[str, str] = {
 # them, which a "<type> (w focus)" heading cannot say.
 ADMIN_PANEL_TITLE = "Admin Panel (w focus)"
 CATALOG_PANEL_TITLE = "Catalog Panel (w focus)"
+# Named for the panel rather than for what it programs: "LCS Module Configuration" is what
+# the panel's own title band says, and the two words that survive an abbreviation of it are
+# the two a reader scanning the headings needs. It leads the narrow column, where the full
+# name wrapped the heading onto a second line.
+LCS_CONFIG_PANEL_TITLE = "LCS Config (w focus)"
 SWITCH_PANEL_TITLE = "Switches (w focus)"
 ROUTE_PANEL_TITLE = "Routes (w focus)"
 POPUP_PANEL_TITLE = "While a panel is open"
@@ -380,6 +385,33 @@ FIXED_CATALOG_ENTRIES: tuple[ControlEntry, ...] = (
 
 FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the panel on screen", ""),)
 
+# The LCS module configuration panel is worked *through* rather than glanced at -- four pages
+# of radio rows with Back and Next under them -- so DeckInputRouter (_config_panel_only) puts
+# five keys on the panel while it is up and the D-pad section above is untrue of them.
+#
+# Five keys on three rows, pairing two inputs against two actions the way the D-pad's
+# "Up / Down" pairs with "Boost / brake speed": the pad's two axes do one thing each, and the
+# two face buttons are the same choice with the page turn added. There was room for no more
+# than three -- see the layout note at the end of controls_summary -- but there is nothing a
+# fourth would say. The words are the panel's own (LcsConfigPanel.pad_mark, pad_revert,
+# pad_advance, pad_back), so the screen and the panel cannot come to describe the same key
+# in two vocabularies.
+#
+# X is not among them, and deliberately: it closes this panel through the same close-popup
+# handling every popup uses, which the popup section directly above these rows already
+# states. Repeating it here would be a second place for it to go stale, and the reader
+# asking how to get out of the panel has it on the row above.
+#
+# "Choose" rather than a row apiece for what choosing means on each kind of page: on the one
+# page whose only control is a tick box, right ticks it and left clears it, which is the same
+# sentence with a different widget under it. Naming the exception would cost the row that
+# says what B does.
+FIXED_LCS_CONFIG_ENTRIES: tuple[ControlEntry, ...] = (
+    ControlEntry("Up / Down", "Move the highlight", ""),
+    ControlEntry("Right / Left", "Choose / undo", ""),
+    ControlEntry("A / B", "Choose and Next / Back", ""),
+)
+
 # A panel showing a track switch has no engine to drive, so DeckInputRouter (_handle_switch)
 # claims the controls that would drive one. Stated as its own section rather than as notes on
 # the joystick and trigger rows above, which describe what those controls do with an engine.
@@ -519,29 +551,42 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
 
     # Reading order, which is also column order: ControlsPanel flows these into columns in
     # sequence, so this tuple is where the layout is decided. The bundled profile lands as
-    # three columns -- what works anywhere and the analog controls, then everything you
-    # press, then nothing but the sections about one kind of panel. Keeping those together
-    # in the last column is the point: a reader asking "what does this do while a panel is
-    # up" has one place to look, and the D-pad, which answers a different question, closes
-    # the column before rather than sitting in the middle of that list. starts_column says
-    # that in the layout instead of leaving it to how the rows happen to add up.
+    # three columns -- what works anywhere and the controls you steer with, then everything
+    # you press, then the sections about one kind of panel. starts_column says where the last
+    # of those begins instead of leaving it to how the rows happen to add up.
     #
-    # The popup section is the one that closes the middle column instead, which is where the
-    # row the Routes sticks needed came from: those four panel sections and the admin note
-    # fill the last column to within a row of the budget ROWS_PER_COLUMN falls back to, and a
-    # row more put the catalog behind a page turn nobody would think to take. It is the
-    # section that could move, because it is the one that is not about a kind of panel at all
-    # -- it is X, closing whatever is on screen -- so it reads as well at the foot of the
-    # buttons as it did at the head of a list of panel types, and the catalog states its own
-    # way out on its own rows regardless.
+    # The arithmetic, measured against the budget ROWS_PER_COLUMN falls back to, which is the
+    # tightest the screen is ever drawn at: 18 rows, then 19, then 19, out of 20 apiece. It
+    # is the only split there is. The eleven sections come to 56 rows, three columns hold 60,
+    # and every other way of cutting them either runs a column over or -- since a section
+    # cannot spill out of the last column except onto a second page -- pushes the catalog
+    # behind a page turn nobody would think to take.
+    #
+    # Two things moved to reach it, and the LCS section is why. The five sections about a
+    # kind of panel now come to 23 rows, so they no longer fit one column at all: it is not
+    # that the new one is a row too many but that a section of any size is, a one-row section
+    # making 21. So the panel group begins at the foot of the middle column, where the LCS
+    # rows read better than they would have anywhere in the last one -- every one of them is
+    # a key you press, which is what that column holds, and the popup row directly above
+    # them is how you get out of the panel they describe. The switch and route sections stay
+    # together in the last column, as the twins they are, and the LCS rows are the narrowest
+    # thing that could have gone into the middle column, which is also the narrow one.
+    #
+    # The D-pad moved up to pay for it. The first column was 15 rows and had to reach 16 for
+    # any split to exist, and the D-pad is the section that reads as well up there: what is
+    # in that column is now everything that is not a button -- the sticks, the trackpads and
+    # the pad -- and boosting the speed with the pad is the same kind of thing as driving it
+    # with a stick. Moving the popup section instead would have bought a row too few and
+    # separated it from the LCS rows it answers.
     sections = (
         ControlSection(GLOBAL_CHORD_TITLE, tuple(global_buttons + global_chords)),
         ControlSection("Joysticks", tuple(sticks)),
         ControlSection("Trackpads", tuple(pads)),
+        ControlSection(DPAD_TITLE, FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection(BUTTONS_TITLE, tuple(buttons)),
         ControlSection("Chords", tuple(chords)),
-        ControlSection(DPAD_TITLE, FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection(POPUP_PANEL_TITLE, FIXED_POPUP_ENTRIES, fixed=True),
+        ControlSection(LCS_CONFIG_PANEL_TITLE, FIXED_LCS_CONFIG_ENTRIES, fixed=True),
         ControlSection(SWITCH_PANEL_TITLE, FIXED_SWITCH_ENTRIES, fixed=True, starts_column=True),
         ControlSection(ROUTE_PANEL_TITLE, FIXED_ROUTE_ENTRIES, fixed=True),
         ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords), note=ADMIN_PANEL_NOTE),

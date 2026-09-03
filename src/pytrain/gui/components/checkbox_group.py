@@ -25,12 +25,38 @@ WHITE = "#ffffff"
 # systemTextColor and its indicator ring is drawn in black, so a saturated fill fights both.
 CURSOR_BG = "#BFDBFE"
 
+# How large the painted indicator is drawn, as a multiple of the row's own text size -- and
+# one number for both styles, because what limits it is the row's text box, which the font
+# decides and which says nothing about whether a square or a ring is drawn in it.
+#
+# A row is painted with indicatoron=False, so it carries a background *and a frame* of its
+# own, and macOS draws that frame 3px inside the row's edge; the row's height is the font's
+# linespace plus its border, and the indicator is centered in it. The ring used to be 1.5x,
+# which at the LCS panel's 18pt is 27px of a 28px text box -- so its own filled ground landed
+# on the frame and painted it out, top and bottom, wherever a list is packed tight enough to
+# have no padding to spare. The Sensor Track's ten actions are that list; the Pi and the Deck
+# never showed it, because X11 draws no frame on these rows at all.
+#
+# 1.33 is the ceiling, measured on macOS off screenshots of such a row at every size the app
+# draws rows at, 12pt through 27pt: at or under it the frame comes through untouched, above
+# it the indicator paints over it. Coming down costs no height anywhere -- a row is as tall
+# as its text at every ratio from 1.5 down to 0.9 -- and the indicator is still drawn half
+# again the size of the one Tk would draw itself.
+INDICATOR_SCALE = 1.3
+
 
 class CheckBoxGroup(ButtonGroup):
     @staticmethod
     def indicator_size_for(size: int, style: Literal["checkbox", "radio"]) -> int:
-        """How big the painted indicator is for a row of text size size."""
-        return int(size * 1.5) if style == "radio" else int(size * 1.3)
+        """How big the painted indicator is for a row of text size size.
+
+        style is taken and deliberately not read: the answer is how much room the row's text
+        box has, which is the same either way. It stays in the signature because every caller
+        has the style to hand and reads better saying which indicator it means -- and because
+        a style whose shape wants less of that room can then be given less of it. See
+        INDICATOR_SCALE for where the number comes from.
+        """
+        return int(size * INDICATOR_SCALE)
 
     @classmethod
     def indicator_images(
@@ -201,6 +227,7 @@ class CheckBoxGroup(ButtonGroup):
         self.decorate_rows()
         self.stretch_rows()
         self.lead_rows()
+        self._rearm_cursor()
 
     def resize(self, width, height) -> None:
         """Stretch the rows again once the parent class has resized them.
@@ -326,6 +353,36 @@ class CheckBoxGroup(ButtonGroup):
             except (AttributeError, RuntimeError, tk.TclError, TypeError, ValueError):
                 continue
 
+    def _rearm_cursor(self) -> None:
+        """Arm the cursor again over rows guizero has just replaced.
+
+        A cursor is armed over the *widgets* a group holds, and a rebuild destroys every one
+        of them: without this the tint would be reapplied to a dead widget, which is a
+        TclError rather than a lost highlight. The LCS panel's mode rows are the list this
+        happens to -- they are replaced whenever the module or the address changes -- and the
+        component knows when its rows go, so it is the component that re-arms.
+
+        Nothing happens for a group that never armed one, which is every other group in the
+        app. The tinted row is asked for again afterwards and comes back only if the new list
+        holds it: a rebuild that replaces one module's modes with another's is a rebuild the
+        pad's position no longer means anything on, and clear() empties the list outright, so
+        the pair of calls a replacement is made of drops it. Where the pad then steps from is
+        the reader's business; see LcsConfigPanel.pad_cursor.
+        """
+        if getattr(self, "_cursor_rows", None) is None:
+            # Not an opting group -- and reachable before __init__ has armed one at all, since
+            # ButtonGroup builds its rows from its own constructor.
+            return
+        tinted = self._cursor
+        self._init_cursor(
+            [(rbutton.value, rbutton.tk) for rbutton in self._rbuttons],
+            self._cursor_indicator_size,
+            style=self._cursor_style,
+            thickness=self._cursor_thickness,
+            cursor_bg=self._cursor_bg,
+        )
+        self.cursor = tinted
+
     def _init_cursor(
         self,
         rows,
@@ -370,6 +427,17 @@ class CheckBoxGroup(ButtonGroup):
             widget.config(selectcolor=widget.cget("background"))
         except tk.TclError:
             widget.config(selectcolor="")
+
+    @property
+    def row_values(self) -> tuple[str, ...]:
+        """The value of every row, in the order they are drawn.
+
+        What a caller stepping the cursor needs and has no other way to ask for: options
+        answers with whatever it was handed, while a row answers with the string Tk holds --
+        which is what value and cursor are both read and written as. Read off the rows for
+        that reason, as row_leads is.
+        """
+        return tuple(str(getattr(row, "value", "")) for row in getattr(self, "_rbuttons", None) or ())
 
     @property
     def cursor(self) -> str | None:

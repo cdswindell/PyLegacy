@@ -199,7 +199,7 @@ RADIO_ROW_PAD_COMPACT = 6
 # fullest of the four -- a heading, the stepper row, three titled boxes, two derived lines,
 # two choice buttons and the Back/Next row -- and its rows are the tallest in the panel to
 # begin with, since they are set a size above the page body and their painted indicator
-# grows with it: 27px against the module rows' 21. The device page has nothing below its
+# grows with it: 23px against the module rows' 18. The device page has nothing below its
 # radios and can spend twice this; here the whitespace has to come out of the one page that
 # has none to give, and the button below it all is the only way off the panel on the Pi.
 MODE_ROW_PAD = 6
@@ -520,6 +520,10 @@ class LcsConfigPanel(OverlayPanel):
         self._readback_watcher: StateWatcher | None = None
         self._readback_pending = False
 
+        # Gamepad: the page a mark was made on and the choice it displaced, which is what a
+        # D-pad left puts back. One mark deep and dropped when the page turns; see pad_revert.
+        self._pad_undo: tuple[int, str] | None = None
+
     #
     # State
     #
@@ -769,6 +773,10 @@ class LcsConfigPanel(OverlayPanel):
             # One length for all of them, filling the page rather than each row stopping at
             # the end of its own label -- see CheckBoxGroup.stretch_rows.
             stretch=True,
+            # The pad steps this list on the Deck, so the row it is pointing at and the row
+            # that is chosen are two different things and both have to be shown; see the
+            # Gamepad section. Every list in the panel is armed, the pad reaching all of them.
+            cursor=True,
             command=self._on_device_selected,
         )
         return page
@@ -863,6 +871,10 @@ class LcsConfigPanel(OverlayPanel):
             # read as the legend above it is written -- a group per key. Set here as well as
             # on every refresh, since the group is built before a module is chosen.
             row_leads=self.mode_leads(),
+            # Stepped by the pad, as the module rows are. This is the one armed list whose
+            # rows are replaced at runtime, which the component re-arms itself for; see
+            # CheckBoxGroup._rearm_cursor and pad_cursor.
+            cursor=True,
             command=self._on_mode_selected,
         )
         # What the chosen row itself is for, which is the fact a row has no room for. Below
@@ -1052,6 +1064,10 @@ class LcsConfigPanel(OverlayPanel):
                 # at the end of its own label -- as on the device and ID pages. See
                 # CheckBoxGroup.stretch_rows.
                 stretch=True,
+                # And stepped by the pad, as the module and mode rows are. The Sensor Track's
+                # ten actions are the longest list in the panel, and the one this matters most
+                # on: ten rows is a lot to reach for on a Deck held in two hands.
+                cursor=True,
                 command=self._option_command(device.key, option.key),
             )
         else:
@@ -1526,6 +1542,9 @@ class LcsConfigPanel(OverlayPanel):
             # advanced past a page they have not seen.
             index = self._page_after(index, -1)
         self._page_index = index
+        # A page turned is as far back as a revert reaches: the choice a mark displaced is on
+        # the page that was left, and the operator looking at this one cannot see it put back.
+        self._pad_undo = None
         for i, page in enumerate(self._pages):
             if i == index:
                 page.show()
@@ -1538,6 +1557,280 @@ class LcsConfigPanel(OverlayPanel):
 
     def previous_page(self) -> None:
         self._show_page(self._page_after(self._page_index, -1))
+
+    @property
+    def can_advance(self) -> bool:
+        """Whether there is a page after this one to go to.
+
+        The rule the Next key is enabled by, asked as a question so the A button can ask it
+        too: one answer for the key and the pad, rather than two that could come to disagree
+        about whether the panel has anywhere left to go. A module has to be chosen -- there
+        is nothing to configure until one is -- and the review page is the last, Configure
+        being what is pressed there.
+        """
+        return self._page_index < len(self._pages) - 1 and self._device is not None
+
+    @property
+    def can_go_back(self) -> bool:
+        """Whether there is a page before this one. The rule the Back key is shown by."""
+        return self._page_index > 0
+
+    #
+    # Gamepad
+    #
+    # On the Steam Deck this panel is worked through with the pad rather than with the
+    # screen: the D-pad steps the list on the page showing, right marks the row it is on and
+    # left puts back what that mark displaced, A marks and turns the page, B turns it back,
+    # and X closes the panel the way it closes every other popup. Which key does what is
+    # DeckInputRouter._config_panel_only; what each of those *means* is here, so the panel
+    # decides and the router only asks.
+    #
+    # Every mark runs the very handler a tap on the same row runs, and by the same route: a
+    # group's value assigned in code moves the dot and fires nothing, guizero binding a
+    # command to the click, so the handler is called outright. That is what keeps a page from
+    # coming out one way under a finger and another under the pad.
+    def _pad_target(self) -> tuple[Any, Callable[[], None]] | None:
+        """What the pad acts on for the page showing, and what a tap on it would run.
+
+        One page, one question, one control: the modules on the first page, the modes on the
+        second, the module's own setting on the third. The review page asks nothing of the
+        operator -- it reports what was chosen and offers Configure -- so the pad steps
+        nothing there.
+
+        Both halves are answered here together rather than in the two readers below, so the
+        highlight cannot be stepped along one control while the mark is committed through
+        another's handler. The commit is the widget's own command, built by the same factory
+        that wired it, and not a handler named again here for the purpose.
+
+        A page's rows come before a lone tick box, which is the order of the only two cases
+        there are: no module declares both, and a module that did would be stepped through
+        its rows -- a tick box has nothing to step.
+
+        Nothing at all while the ID is being typed: on a touch appliance that field opens a
+        keypad over the page, and the pad cannot type into it -- a highlight stepped behind
+        it would be a change nobody can see, on a page the operator has left for the moment.
+        """
+        if self._id_field is not None and self._id_field.is_editing:
+            return None
+        if self._page_index == PAGE_DEVICE:
+            group = self._device_group
+            return (group, self._on_device_selected) if group is not None else None
+        if self._page_index == PAGE_ID:
+            group = self._mode_group
+            return (group, self._on_mode_selected) if group is not None else None
+        if self._page_index == PAGE_OPTIONS and self._device is not None:
+            for kind in (OptionKind.RADIO, OptionKind.CHECKBOX):
+                found = self._pad_option(kind)
+                if found is not None:
+                    option, widget = found
+                    return widget, self._option_command(self._device.key, option.key)
+        return None
+
+    def _clear_pad_cursors(self) -> None:
+        """Take the pad's highlight off every list, wherever it was left.
+
+        Called as the panel is seeded, which is what happens each time it is opened: it comes
+        up on the first page and on whatever module the layout is showing, so a tint left over
+        from the last time it was up would point at a row nobody has stepped to in this pass.
+        Every list rather than the one showing -- the operator may have left the panel from
+        any page.
+        """
+        for widget in (self._device_group, self._mode_group, *self._option_widgets.values()):
+            if isinstance(widget, CheckBoxGroup):
+                widget.cursor = None
+
+    def _pad_option(self, kind: OptionKind) -> tuple[LcsOption, Any] | None:
+        """The module's first option of kind that is on the page to be worked, with its widget.
+
+        A disabled option is passed over: it is drawn to say the module has the setting and
+        that this mode does not offer it, and the pad has no more business setting it than a
+        finger has.
+        """
+        device = self._device
+        if device is None:
+            return None
+        for option in device.options:
+            if option.kind is not kind or not option.enabled:
+                continue
+            widget = self._option_widgets.get((device.key, option.key))
+            if widget is not None:
+                return option, widget
+        return None
+
+    @property
+    def pad_group(self) -> CheckBoxGroup | None:
+        """The radio group the pad steps on the page showing, or None where it steps nothing.
+
+        None on the review page and on the options page of a module whose only setting is a
+        tick box -- a BPC2's restore flag, which right sets and left clears, there being no
+        list to move through and both states one press away either way.
+        """
+        target = self._pad_target()
+        widget = target[0] if target is not None else None
+        return widget if isinstance(widget, CheckBoxGroup) else None
+
+    @property
+    def pad_cursor(self) -> str | None:
+        """The row value the pad is pointing at, falling back to the row that is selected.
+
+        The fallback is what makes the first press behave: with nothing stepped yet the pad
+        starts from the row the dot is on, so up moves one row off it rather than jumping to
+        the top of a list the operator is already partway down. It also carries the pad across
+        a rebuild -- the mode rows are replaced whenever the module or the address changes,
+        which drops the tint with them; see CheckBoxGroup._rearm_cursor -- and after a mark
+        the dot is on the row the pad was on, so stepping goes on from where it left off.
+
+        A value neither the tint nor the dot holds is read as nothing: guizero keeps a
+        selection in a Tk StringVar and answers with whatever string it was handed, "None"
+        among them, so what "nothing" looks like is read off the rows rather than assumed.
+        """
+        group = self.pad_group
+        if group is None:
+            return None
+        values = group.row_values
+        for value in (group.cursor, group.value):
+            if value is not None and str(value) in values:
+                return str(value)
+        return None
+
+    def pad_step(self, delta: int) -> bool:
+        """Move the highlight delta rows along the page's list. True where it moved.
+
+        Clamped rather than wrapping, as the keypad's Sensor Track list is: a pad held against
+        the end of a list stays there instead of rolling round to the far one, where the next
+        mark would program something the operator never looked at.
+
+        The highlight is all that moves. Nothing is chosen, nothing is sent, and the dot does
+        not follow -- a row stepped over must not read as a row picked, which is the whole
+        reason these groups carry a cursor apart from their selection.
+        """
+        group = self.pad_group
+        if group is None:
+            return False
+        values = group.row_values
+        if not values:
+            return False
+        current = self.pad_cursor
+        if current is None:
+            # A list with nothing on it at all is a state before the list rather than a
+            # position in it, so a press either way lands on the first row.
+            target = 0
+        else:
+            target = values.index(current) + int(delta)
+            if not 0 <= target < len(values):
+                return False
+        group.cursor = values[target]
+        # Read back rather than assumed: a group built without a cursor takes the assignment
+        # and tints nothing, and the pad has then moved nothing the operator can see.
+        return group.cursor == values[target]
+
+    def pad_mark(self) -> bool:
+        """Choose the row the pad is on -- D-pad right. True where anything changed.
+
+        What the mark displaced is remembered, so left can put it back; see pad_revert. A
+        highlight that has not moved off the selected row marks nothing: there is nothing to
+        choose and nothing to remember, and saying so is what lets A advance without leaving
+        a revert behind that would undo a choice the operator never made.
+        """
+        target = self._pad_target()
+        if target is None:
+            return False
+        widget, commit = target
+        if not isinstance(widget, CheckBoxGroup):
+            return self._pad_tick(widget, commit, True)
+        cursor = self.pad_cursor
+        if cursor is None or cursor == str(widget.value):
+            return False
+        self._pad_undo = (self._page_index, str(widget.value))
+        widget.value = cursor
+        commit()
+        return True
+
+    def pad_revert(self) -> bool:
+        """Put back what the last mark displaced -- D-pad left. True where anything changed.
+
+        Two things a left press can mean, and it means whichever is true. Where a mark on this
+        page displaced a choice, that choice goes back -- through the handler the mark went
+        through, so the page is rebuilt from it exactly as a tap would rebuild it -- and the
+        highlight follows it, the pad now pointing at what the panel holds. Where nothing was
+        marked, the highlight is what goes back: a row stepped onto but never chosen is
+        abandoned, and the dot was never anywhere else.
+
+        One mark deep, deliberately. The undo is dropped as it is used and dropped again
+        whenever the page turns, so left cannot reach back past the page in front of the
+        operator, nor undo the same mark twice.
+        """
+        target = self._pad_target()
+        if target is None:
+            return False
+        widget, commit = target
+        if not isinstance(widget, CheckBoxGroup):
+            return self._pad_tick(widget, commit, False)
+        undo = self._pad_undo
+        if undo is not None and undo[0] == self._page_index and undo[1] in widget.row_values:
+            self._pad_undo = None
+            widget.value = undo[1]
+            widget.cursor = undo[1]
+            commit()
+            return True
+        cursor = widget.cursor
+        selected = str(widget.value)
+        if cursor is None or cursor == selected:
+            # Nothing was marked and nothing is stepped: the highlight is already on the row
+            # that is chosen, so there is nothing to put back and nothing to abandon.
+            return False
+        widget.cursor = selected if selected in widget.row_values else None
+        return True
+
+    def _pad_tick(self, widget: Any, commit: Callable[[], None], ticked: bool) -> bool:
+        """Set or clear a lone tick box, as a tap on it would. True where it changed.
+
+        Nothing is remembered for a revert: a tick box holds two states and the pad reaches
+        both -- right sets, left clears -- so putting one back is the other press rather than
+        an undo. Which is also how a power district's relays are worked from the pad.
+        """
+        want = 1 if ticked else 0
+        if not getattr(widget, "enabled", True):
+            return False
+        try:
+            if int(widget.value or 0) == want:
+                return False
+        except (TypeError, ValueError):
+            pass
+        widget.value = want
+        commit()
+        return True
+
+    def pad_advance(self) -> bool:
+        """Choose the highlighted row and turn the page -- the A button.
+
+        Both halves, in that order: A on a row the pad has stepped to means "this one, go
+        on", and marking after the page turned would write the choice onto the next page's
+        list. A page whose highlight was never moved has nothing to mark and simply advances,
+        the selection standing as it was.
+
+        The turn asks the same question the Next key is enabled by, so A can go nowhere Next
+        would not -- nowhere from the review page, which is the last one. Configure is not
+        pressed here: it programs a module, and that is a press to be made deliberately.
+        """
+        self.pad_mark()
+        if not self.can_advance:
+            return False
+        self.next_page()
+        return True
+
+    def pad_back(self) -> bool:
+        """Turn back a page -- the B button. What the Back key does, and nothing more.
+
+        A mark is not put back on the way: Back and revert are two different requests, and an
+        operator asking for the page before this one has not asked to unpick what they chose
+        on this one -- the page they arrive at is read with its own choice still in force.
+        Left is how a mark is undone; see pad_revert.
+        """
+        if not self.can_go_back:
+            return False
+        self.previous_page()
+        return True
 
     #
     # Seeding
@@ -1558,6 +1851,7 @@ class LcsConfigPanel(OverlayPanel):
         self._device = self._mode = None
         self._options = {}
         self._reset_readback()
+        self._clear_pad_cursors()
 
         reflect = reflects_layout_by_default()
         device = device_for_state(state) if reflect else None
@@ -2325,10 +2619,9 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_nav()
 
     def _refresh_nav(self) -> None:
-        self._show_back(self._page_index > 0)
+        self._show_back(self.can_go_back)
         if self._next_btn is not None:
-            can_advance = self._page_index < len(self._pages) - 1 and self._device is not None
-            self._enable(self._next_btn, can_advance)
+            self._enable(self._next_btn, self.can_advance)
 
     def _show_back(self, visible: bool) -> None:
         """Back is meaningless on the first page, so it is taken off the row rather than grayed.

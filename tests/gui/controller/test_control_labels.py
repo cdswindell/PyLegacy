@@ -16,6 +16,8 @@ from src.pytrain.gui.controller.control_labels import (
     CATALOG_PANEL_TITLE,
     DPAD_TITLE,
     GLOBAL_CHORD_TITLE,
+    LCS_CONFIG_PANEL_TITLE,
+    POPUP_PANEL_TITLE,
     ROUTE_PANEL_TITLE,
     SWITCH_PANEL_TITLE,
     ARROW_HORIZONTAL,
@@ -31,9 +33,11 @@ from src.pytrain.gui.controller.control_labels import (
     touchpad_label,
 )
 from src.pytrain.gui.controller.steam_deck_input import (
+    BACK_PAGE_BUTTON,
     CLOSE_POPUP_BUTTON,
     ROUTE_FIRE_BUTTON_ACTIONS,
     ROUTE_SWALLOW_BUTTON_ACTIONS,
+    SELECT_BUTTON,
     SWITCH_AXIS_ACTIONS,
     SWITCH_OUT_ACTIONS,
     SWITCH_OUT_BUTTON_ACTIONS,
@@ -440,6 +444,65 @@ def test_the_catalog_lists_both_ways_out_of_it() -> None:
     entries = {entry.input: entry.action for entry in _section(ControlProfile.load(None), CATALOG_PANEL_TITLE).entries}
 
     assert entries[f"Left or {button_label(CLOSE_POPUP_BUTTON)}"] == "Close catalog"
+
+
+def test_the_lcs_config_panel_remap_is_listed() -> None:
+    # That panel is worked through rather than glanced at, so five keys drive it while it is
+    # up and the D-pad section's "Boost / brake speed" is untrue of two of them. Without this
+    # the screen would describe only their engine meaning, which is the same reason the
+    # switch and route sections exist.
+    #
+    # Five keys on three rows: each row pairs two inputs against what they do, the way the
+    # D-pad's own "Up / Down" pairs with "Boost / brake speed". A fourth row would not fit --
+    # see the layout note at the end of controls_summary.
+    section = _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE)
+
+    assert section.fixed is True
+    assert [(entry.input, entry.action, entry.note) for entry in section.entries] == [
+        ("Up / Down", "Move the highlight", ""),
+        ("Right / Left", "Choose / undo", ""),
+        (f"{button_label(SELECT_BUTTON)} / {button_label(BACK_PAGE_BUTTON)}", "Choose and Next / Back", ""),
+    ]
+
+
+def test_the_lcs_config_rows_name_every_key_the_router_claims() -> None:
+    # Named from the router's own constants, as the catalog's way out is named from
+    # CLOSE_POPUP_BUTTON: _config_panel_only claims the four pad directions and these two
+    # face buttons, and a row that named them literally would go on promising a key that has
+    # since moved. Every claimed key has to appear, or the screen leaves one of the five
+    # undocumented -- which is the whole complaint the section answers.
+    section = _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE)
+    named = " ".join(entry.input for entry in section.entries)
+
+    for key in ("Up", "Down", "Right", "Left", button_label(SELECT_BUTTON), button_label(BACK_PAGE_BUTTON)):
+        assert key in named, f"{key} drives the panel and is not on the screen"
+    # X is not among them, and is not meant to be: it closes this panel through the popup
+    # handling every panel is closed by, which the popup section states once for all of them.
+    assert button_label(CLOSE_POPUP_BUTTON) not in named
+
+
+def test_the_lcs_config_section_survives_a_stripped_down_profile() -> None:
+    # Fixed sections come from the router, not from bindings, so a profile that binds almost
+    # nothing still has to be told what the pad does while that panel is up. The custom
+    # profile binds one axis, two buttons and a chord, and none of them is a key this
+    # section names.
+    profile = ControlProfile.from_dict(CUSTOM_PROFILE)
+
+    section = _section(profile, LCS_CONFIG_PANEL_TITLE)
+
+    assert section.fixed is True
+    assert section.entries == _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE).entries
+
+
+def test_the_lcs_config_section_reads_under_the_row_that_closes_a_panel() -> None:
+    # X is the sixth key of that panel's set and is deliberately not one of its rows, so the
+    # row that does say it has to be the one above: a reader working through the panel who
+    # wants out finds it without leaving the section. It is also what puts the LCS rows at
+    # the foot of the column of keys you press rather than among the per-panel sections,
+    # which no longer have a column's room for them.
+    titles = [section.title for section in controls_summary(ControlProfile.load(None))]
+
+    assert titles[titles.index(POPUP_PANEL_TITLE) + 1] == LCS_CONFIG_PANEL_TITLE
 
 
 def test_fixed_sections_are_marked_as_such() -> None:

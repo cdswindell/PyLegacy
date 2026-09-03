@@ -26,7 +26,9 @@ from src.pytrain.gui.controller.engine_gui_conf import SENSOR_TRACK_OPTS
 # noinspection PyProtectedMember
 from src.pytrain.gui.controller.steam_deck_input import (
     ADMIN_COMMANDS,
+    BACK_PAGE_BUTTON,
     CATALOG_JUMP_MODIFIER,
+    CLOSE_POPUP_BUTTON,
     DEFAULT_PROFILE,
     DPAD_DOWN,
     DPAD_LEFT,
@@ -3032,6 +3034,178 @@ def test_the_dpad_reaches_the_engine_again_once_the_chooser_closes() -> None:
 
     assert focused.chooser_calls == []
     assert focused.speed_calls or focused.command_calls, "the D-pad went back to driving"
+
+
+def _lcs_config_gui(gui=None):
+    """A pane with the LCS configuration panel up, recording what the pad asks of it.
+
+    It keeps the throttle_state and the engine recorders _gui() gives it: the panel is a
+    popup over a pane that was driving an engine a moment ago, so every one of these tests
+    can say what the key would have done to that engine had the panel not taken it.
+    """
+    gui = gui if gui is not None else _gui()
+    gui.lcs_config_visible = True
+    gui.config_calls = []
+    gui.move_lcs_config = lambda forward=True: gui.config_calls.append(f"move:{'down' if forward else 'up'}")
+    gui.mark_lcs_config = lambda: gui.config_calls.append("mark")
+    gui.revert_lcs_config = lambda: gui.config_calls.append("revert")
+    gui.advance_lcs_config = lambda: gui.config_calls.append("advance")
+    gui.back_lcs_config = lambda: gui.config_calls.append("back")
+    return gui
+
+
+def test_the_dpad_works_an_open_lcs_config_panel_instead_of_the_engine() -> None:
+    # The panel is worked *through* rather than glanced at, so the pad has to reach it: up and
+    # down move the highlight down the page's list, right marks the row it is on and left puts
+    # back what that mark displaced. Without this the D-pad would be changing the speed of an
+    # engine nobody is looking at while its operator reads the page.
+    focused = _lcs_config_gui()
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    for name in (DPAD_DOWN, DPAD_UP, DPAD_RIGHT, DPAD_LEFT):
+        router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.config_calls == ["move:down", "move:up", "mark", "revert"]
+    assert focused.speed_calls == [], "nothing reached the engine"
+    assert focused.command_calls == []
+
+
+def test_the_a_and_b_buttons_turn_the_lcs_config_panel_pages() -> None:
+    # A marks the highlighted row and turns the page, B turns it back -- the two buttons the
+    # page's own Next and Back stand for. Both carry an engine command in the bundled profile
+    # (sequence control on A, the bell on B), so this is where the claim earns its keep: a
+    # page turned would otherwise have run the sequence, and a page turned back rung the bell.
+    focused = _lcs_config_gui()
+    router = _bundled_router(focused)
+
+    router.handle(DeckAction(SEQUENCE_CONTROL, "focused", 1.0, "pressed", button=SELECT_BUTTON))
+    router.handle(DeckAction("bell", "focused", 1.0, "pressed", button=BACK_PAGE_BUTTON))
+    router.tick(10.0)
+    router.tick(10.1)
+
+    assert focused.config_calls == ["advance", "back"]
+    assert focused.command_calls == [], "neither assigned command fired"
+    assert router._sequences == {}, "and no sequence-control burst was armed to arrive later"
+
+
+def test_the_close_button_still_closes_the_lcs_config_panel() -> None:
+    # X is left alone deliberately: the panel is closed the way every popup is closed, and a
+    # second way of saying it here could only come to disagree with the first. A popup is
+    # modal, so an X the panel swallowed would leave its operator with a page up and no
+    # button that takes it down.
+    focused = _lcs_config_gui()
+    focused.popup_visible = True
+    focused.close_calls = 0
+    focused.close_popup = lambda: setattr(focused, "close_calls", focused.close_calls + 1)
+    router = _bundled_router(focused)
+
+    router.handle(DeckAction("reset", "focused", 1.0, "pressed", button=CLOSE_POPUP_BUTTON))
+
+    assert focused.close_calls == 1
+    assert focused.config_calls == [], "the panel was not asked to do anything of its own"
+    assert focused.command_calls == []
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        # The D-pad, whose release is what stops a boost repeating; X, whose repeat flag in the
+        # bundled profile makes its release the word that stops its command; and A, one of the
+        # panel's own keys, which does its work on the press and so has no use for the release.
+        DeckAction(DPAD_UP, "focused", 0.0, "released"),
+        DeckAction("reset", "focused", 0.0, "released", button=CLOSE_POPUP_BUTTON),
+        DeckAction(SEQUENCE_CONTROL, "focused", 0.0, "released", button=SELECT_BUTTON),
+    ],
+)
+def test_no_release_is_claimed_while_the_lcs_config_panel_is_up(action) -> None:
+    # Where this parts company with the choice list, which swallows them. A control held
+    # *before* the panel came up is still held, and its release is the only word that it is
+    # not: swallowed, it would leave a boost repeating or a horn sounding behind the page.
+    focused = _lcs_config_gui()
+    router = _bundled_router(focused)
+
+    assert router._config_panel_only(action) is False
+    assert focused.config_calls == []
+
+
+def test_a_dpad_release_still_clears_a_boost_held_before_the_panel_opened() -> None:
+    # The case the rule above exists for, played out: the key went down on an engine and the
+    # panel came up over it mid-boost. The release has to reach the layout that is repeating
+    # that boost, or tick() goes on sending BOOST_SPEED behind the page until the panel is
+    # closed and the key pressed again.
+    focused = _lcs_config_gui()
+    focused.lcs_config_visible = False
+    router = _bundled_router(focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))  # immediate
+    router.tick(10.0)  # primes the repeat clock
+    router.tick(10.1)  # first repeat
+    focused.lcs_config_visible = True  # the panel opens over the held key
+    router.handle(DeckAction(DPAD_UP, "focused", 0.0, "released"))
+    router.tick(10.2)  # released: no further boost
+
+    assert focused.command_calls == ["BOOST_SPEED", "BOOST_SPEED"]
+    assert router._boosts == {}
+    assert focused.config_calls == [], "and the release did not work the panel either"
+
+
+def test_halt_still_works_while_the_lcs_config_panel_is_up() -> None:
+    # A global-target action resolves no gui, so it is never gated. HALT has to work whatever
+    # is on screen -- and reading a configuration page is exactly when something on the layout
+    # may need stopping.
+    focused = _lcs_config_gui()
+    router, _left, _right, _focused, global_calls = _router(
+        _profile(buttons={"3": {"action": "halt", "target": "global"}}),
+        left=focused,
+    )
+
+    router.handle(DeckAction("halt", "global", 1.0, "pressed", button=3))
+
+    assert global_calls == ["halt"]
+    assert focused.config_calls == []
+
+
+def test_the_lcs_config_panel_leaves_no_boost_repeating_behind_it() -> None:
+    # Taken from the engine outright, not merely borrowed for the press: up is flagged to
+    # repeat, so a claim that registered the boost anyway would have tick() driving the engine
+    # for as long as the highlight was held on the move.
+    focused = _lcs_config_gui()
+    router = _bundled_router(focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.tick(10.0)
+    router.tick(10.1)
+
+    assert focused.config_calls == ["move:up"]
+    assert focused.command_calls == []
+    assert router._boosts == {}
+
+
+def test_the_dpad_reaches_the_engine_again_once_the_lcs_config_panel_closes() -> None:
+    focused = _lcs_config_gui()
+    focused.lcs_config_visible = False
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    router.handle(DeckAction(DPAD_UP, "focused", 1.0, "pressed"))
+    router.tick(1.0)
+
+    assert focused.config_calls == []
+    assert focused.speed_calls or focused.command_calls, "the D-pad went back to driving"
+
+
+def test_a_choice_list_opened_over_the_lcs_config_panel_still_wins() -> None:
+    # The panel's own pages carry fields that open a choice list, so the two are up together,
+    # one over the other. The topmost thing wins: the list is asked first, and it is the list
+    # the pad is picking in -- otherwise right would mark the row underneath rather than
+    # commit the option on top of it.
+    focused = _lcs_config_gui(_chooser_gui())
+    router, _left, _right, _focused, _global = _router(left=focused)
+
+    for name in (DPAD_DOWN, DPAD_RIGHT, DPAD_LEFT):
+        router.handle(DeckAction(name, "focused", 1.0, "pressed"))
+
+    assert focused.chooser_calls == ["move:down", "select", "cancel"]
+    assert focused.config_calls == [], "the panel underneath was left alone"
 
 
 def _switch_gui(*, switch_active: bool = True):

@@ -21,6 +21,7 @@ from src.pytrain.gui.controller.control_labels import (
     DPAD_TITLE,
     GLOBAL_CHORD_TITLE,
     GLOBAL_SECTION_BUTTONS,
+    LCS_CONFIG_PANEL_TITLE,
     POPUP_PANEL_TITLE,
     ROUTE_PANEL_TITLE,
     SWITCH_PANEL_TITLE,
@@ -80,27 +81,29 @@ def test_bundled_profile_fits_on_one_page() -> None:
 def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
     # The column order is the section order in controls_summary, so this is the assertion
     # that keeps it: the reader asking what a control does while a panel of some kind is up
-    # has one column to read, and the sections that answer a different question -- the
-    # D-pad, and the X that closes whatever popup is on screen -- close the column before it
-    # rather than sitting in the middle of that list.
+    # reads to the end of the page, and nothing that answers a different question is mixed
+    # in among those sections. They no longer all fit one column -- five of them come to 23
+    # rows -- so the run begins at the foot of the middle column with the LCS panel, whose
+    # rows are all keys you press, and the popup row that says how to leave a panel sits
+    # directly above it.
     #
     # Asserted across budgets because the budget is derived from the display rather than
     # fixed: with the break left to arithmetic, the panel sections led the last column at
     # 20 rows and the first of them was pulled up into the bottom of the middle one at 22,
     # which is what the Deck itself derives. The layout cannot depend on the machine.
     #
-    # The sweep's floor is a row under ROWS_PER_COLUMN, which is what these four sections
-    # and the admin note come to: below that they do not fit at all, a question of capacity
-    # rather than of packing. ROWS_PER_COLUMN itself is the floor the screen is ever drawn
+    # The sweep's floor is a row under ROWS_PER_COLUMN, and the layout only just clears it:
+    # 18 rows, then 19, then 19. ROWS_PER_COLUMN itself is the floor the screen is ever drawn
     # at, being the fallback for when there is no Tk to measure with, so the layout holds
-    # with a row in hand.
+    # with a row in hand -- which is what the D-pad moving up to the first column bought, and
+    # the reason it moved rather than the popup section.
     #
     # The ceiling is well above what any display derives, and has to be: a row is as tall as
     # the taller of its text and a section heading, so thinning the section outlines to
     # SECTION_BORDER took the heading's two border pixels off every row and handed this
-    # machine 24 rows where it had 22. Above 30 the layout does break -- the middle column
-    # runs out of sections to hold and the D-pad moves up into the first -- which is a
-    # different screen from the one these assertions describe.
+    # machine 24 rows where it had 22. This packing now holds to 30, where it used to give
+    # way at 28: the first column has to reach 31 before the Buttons section can be pulled
+    # into it, which is a different screen from the one these assertions describe.
     panel = _panel(ControlProfile.load(None))
     panel._rows_per_column = budget
 
@@ -113,8 +116,10 @@ def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
         CATALOG_PANEL_TITLE,
     ]
     assert columns[0][0].title == GLOBAL_CHORD_TITLE
-    assert columns[1][-1].title == POPUP_PANEL_TITLE
-    assert DPAD_TITLE in [section.title for section in columns[1]]
+    assert [section.title for section in columns[1][-2:]] == [POPUP_PANEL_TITLE, LCS_CONFIG_PANEL_TITLE]
+    # The pad reads with the controls you steer with rather than with the buttons: that is
+    # the row the first column had to find for any three-column split to exist at all.
+    assert DPAD_TITLE in [section.title for section in columns[0]]
 
 
 def test_a_section_that_starts_a_column_gets_one_of_its_own(monkeypatch) -> None:
@@ -142,13 +147,27 @@ def test_only_the_first_chunk_of_a_split_section_starts_a_column() -> None:
 
 
 def test_no_column_exceeds_its_row_budget() -> None:
+    # Priced the way the packer prices a section -- its header, its entries and its own note
+    # -- rather than by counting entries and adding one. The note is a row the column really
+    # spends, and leaving it out understated the last column by the exact row that decides
+    # whether the layout has one in hand.
+    #
+    # And the bundled page is held to the one page, which is what the budget is for: a
+    # section the three columns cannot hold between them is not dropped, it opens a fourth
+    # column, and the fourth column is page two -- where nobody would think to look for it.
+    # Stated section by section so a failure names what fell off rather than a count.
     for profile in (ControlProfile.load(None), _oversized_profile()):
         panel = _panel(profile)
         for page in panel.paginate():
             assert len(page) <= COLUMNS
             for column in page:
-                rows = sum(len(section.entries) + 1 for section in column)
+                rows = sum(ControlsPanel.section_rows(section) for section in column)
                 assert rows <= ROWS_PER_COLUMN
+
+    bundled = _panel(ControlProfile.load(None))
+    visible = [section.title for column in bundled.paginate()[0] for section in column]
+
+    assert visible == [section.title for section in controls_summary(bundled.profile)]
 
 
 def test_pagination_loses_no_entries() -> None:

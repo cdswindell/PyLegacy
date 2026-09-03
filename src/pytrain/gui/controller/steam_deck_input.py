@@ -92,6 +92,10 @@ TRIGGER_BUTTON_ACTIONS = {"focus_left", "focus_right", "focus_toggle"}
 # SDL "A" button. While the catalog panel is open it confirms the highlighted
 # entry; otherwise it performs whatever action the profile assigns to it.
 SELECT_BUTTON = 0
+# SDL "B" button. While a panel that is worked through page by page is up -- the LCS module
+# configuration panel, the only one today -- it turns back a page; otherwise it performs
+# whatever action the profile assigns to it (the bell, in the bundled profile).
+BACK_PAGE_BUTTON = 1
 # SDL "X" button. While a popup panel is displayed it closes the popup;
 # otherwise it performs whatever action the profile assigns to it.
 CLOSE_POPUP_BUTTON = 2
@@ -1539,6 +1543,8 @@ class DeckInputRouter:
             return
         if self._chooser_only(action):
             return
+        if self._config_panel_only(action):
+            return
         if self._handle_contexts(action):
             return
         if action.name == "throttle":
@@ -1878,6 +1884,53 @@ class DeckInputRouter:
             gui.cancel_chooser()
             return True
         return True
+
+    def _config_panel_only(self, action: DeckAction) -> bool:
+        """True when the LCS configuration panel is up on this pane and owns the action.
+
+        That panel is worked *through* rather than glanced at -- four pages of radio rows with
+        Back and Next below them -- so while it is up the pad drives the panel rather than the
+        train: up and down move the highlight down the page's list, right marks the row it is
+        on, left puts back what that mark displaced, A marks and turns the page, and B turns
+        it back. What each of those means is the panel's own; see LcsConfigPanel's Gamepad
+        section.
+
+        Asked after the chooser, so a choice list opened over the panel still gets first
+        refusal -- the topmost thing wins -- and, like it, a global-target action such as
+        HALT resolves no gui and is never gated: HALT has to work whatever is on screen.
+
+        Where this differs from the chooser is what it leaves alone. Only those five keys are
+        claimed, and only on the press. A stick still drives the pane's engine, the paddles
+        and triggers still do their work, and X still closes the panel through the popup
+        handling every panel is closed by -- no second way to say it is written here, which
+        could only come to disagree with the first.
+
+        Releases fall through for a reason of their own: a control held *before* the panel
+        came up is still held, and its release is the only word that it is not. Swallowed,
+        it would leave a boost repeating or a horn sounding behind the panel, and every key
+        the panel is worked with does its work on the press, so none of them needs one.
+        """
+        gui = self._target_gui(action.target)
+        if gui is None or not getattr(gui, "lcs_config_visible", False):
+            return False
+        if action.phase != "pressed":
+            return False
+        if action.name in (DPAD_UP, DPAD_DOWN):
+            gui.move_lcs_config(forward=action.name == DPAD_DOWN)
+            return True
+        if action.name == DPAD_RIGHT:
+            gui.mark_lcs_config()
+            return True
+        if action.name == DPAD_LEFT:
+            gui.revert_lcs_config()
+            return True
+        if action.button == SELECT_BUTTON:
+            gui.advance_lcs_config()
+            return True
+        if action.button == BACK_PAGE_BUTTON:
+            gui.back_lcs_config()
+            return True
+        return False
 
     def _handle_admin_command(self, action: DeckAction) -> None:
         # An admin chord stands in for pressing and holding the matching admin panel
