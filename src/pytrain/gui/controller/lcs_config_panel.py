@@ -759,7 +759,7 @@ class LcsConfigPanel(OverlayPanel):
         # read from below the list it was a note on a decision already made. Inside the box
         # either way rather than adrift among the page's other reports, where it read as a
         # statement about the panel at large.
-        self._mode_legend_line = self._wrap(self._label(self._mode_box, "", size=host.s_13))
+        self._mode_legend_line = self._wrap(self._label(self._mode_box, "", size=host.s_12))
         host.add_vspace(self._mode_box, self._mode_prose_gap)
         self._mode_group = CheckBoxGroup(
             self._mode_box,

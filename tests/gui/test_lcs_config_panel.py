@@ -2179,7 +2179,7 @@ def test_the_module_rows_are_body_size_and_the_mode_boxs_prose_below_it() -> Non
     # The two boxes read as one list, so their rows are the same size.
     assert all(cell.text_size == host.s_14 for cell in panel._overlap_cells[0])
     for line in (panel._mode_legend_line, panel._mode_note_line):
-        assert line.text_size == host.s_13 if line == panel._mode_legend_line else host.s_10
+        assert line.text_size == host.s_12 if line == panel._mode_legend_line else host.s_10
         assert line.text_size < assigned[0].text_size
 
 
