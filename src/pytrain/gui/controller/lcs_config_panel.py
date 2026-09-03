@@ -1614,10 +1614,11 @@ class LcsConfigPanel(OverlayPanel):
     # Gamepad
     #
     # On the Steam Deck this panel is worked through with the pad rather than with the
-    # screen: the D-pad steps the list on the page showing, right marks the row it is on and
-    # left puts back what that mark displaced, A marks and turns the page -- and presses
-    # Configure on the review page, which has no page after it -- B turns it back, and X
-    # closes the panel the way it closes every other popup. Which key does what is
+    # screen: the D-pad steps the list on the page showing, right marks the row it is on --
+    # and turns the page with it, on a page whose list is the whole of what it asks -- left
+    # puts back what that mark displaced, A marks and turns the page, or presses Configure on
+    # the review page, which has no page after it, B turns it back, and X closes the panel
+    # the way it closes every other popup. Which key does what is
     # DeckInputRouter._config_panel_only; what each of those *means* is here, so the panel
     # decides and the router only asks.
     #
@@ -1760,13 +1761,87 @@ class LcsConfigPanel(OverlayPanel):
         # and tints nothing, and the pad has then moved nothing the operator can see.
         return group.cursor == values[target]
 
+    @property
+    def pad_mark_turns_page(self) -> bool:
+        """Whether choosing is the whole of what the page asks, so right turns it as well.
+
+        A page whose list answers one question is finished by the answer -- which module on
+        the first page, which of a module's own settings on the third -- and stopping there
+        to reach for A or Next is a second press for a decision already made. So right both
+        chooses and goes on.
+
+        Not on the ID page, which asks two things of the operator and lends the pad only one
+        of them: the address is typed into a field the pad cannot reach, stepped with the two
+        keys beside it and, for an address inside another module's block, taken over with the
+        keys below the rows. A right press carrying the operator off that page would take
+        with it the half of the decision they had not made yet.
+
+        Not for a lone tick box either -- a BPC2's restore flag. Right sets it and left
+        clears it, both states one press away, and a page turned on the set would leave the
+        clear behind it.
+
+        Nothing on the review page, where the pad marks nothing at all: A is what presses
+        Configure there; see can_configure.
+        """
+        if self._page_index == PAGE_DEVICE:
+            return self._pad_target() is not None
+        if self._page_index == PAGE_OPTIONS:
+            found = self._pad_option(OptionKind.RADIO)
+            return found is not None and self._option_ends_the_page(found[0])
+        return False
+
+    def _option_ends_the_page(self, option: LcsOption) -> bool:
+        """Whether option is the last thing the module's options page asks the operator for.
+
+        Every module in the registry declares one setting today, so this answers yes for the
+        radio lists there are; it is asked of the module rather than assumed because a module
+        declaring a second setting below the first would be asking for something a page turn
+        on the first would carry the operator straight past. A disabled setting holds nothing
+        up: it is drawn to say the module has it and that this mode does not offer it, which
+        is a fact to read rather than a decision to make.
+        """
+        device = self._device
+        if device is None:
+            return False
+        options = list(device.options)
+        # By identity: which of a module's settings this is, not which one it equals.
+        index = next((i for i, other in enumerate(options) if other is option), None)
+        if index is None:
+            return False
+        return not any(other.enabled for other in options[index + 1 :])
+
     def pad_mark(self) -> bool:
-        """Choose the row the pad is on -- D-pad right. True where anything changed.
+        """Choose the row the pad is on -- D-pad right -- and, where that is all the page
+        asks, turn the page with it. True where anything changed.
+
+        Right is both how a choice is made and how the panel is walked, on the pages where
+        the two are the same thing; where they are not, it chooses and stays put. Which is
+        which is pad_mark_turns_page.
+
+        The turn asks the question the Next key is enabled by, so right can go nowhere Next
+        would not, and it asks it after the mark: a choice written onto the page after it
+        turned would land on the next page's list. It goes whether or not the mark moved
+        anything -- right on the row already chosen means "this one, go on", as A does.
+
+        A page turned takes the revert with it (see _show_page), so on those pages left is
+        what abandons a highlight before the mark and B is how a mark is come back to.
+        """
+        marked = self._pad_mark_row()
+        if self.pad_mark_turns_page and self.can_advance:
+            self.next_page()
+            return True
+        return marked
+
+    def _pad_mark_row(self) -> bool:
+        """Choose the row the pad is on, as a tap on it would. True where anything changed.
+
+        The mark itself, apart from what the key that made it does next: right marks and may
+        turn the page, A marks and turns it, and both stand in for the same tap.
 
         What the mark displaced is remembered, so left can put it back; see pad_revert. A
         highlight that has not moved off the selected row marks nothing: there is nothing to
-        choose and nothing to remember, and saying so is what lets A advance without leaving
-        a revert behind that would undo a choice the operator never made.
+        choose and nothing to remember, and saying so is what lets a page turn without
+        leaving a revert behind that would undo a choice the operator never made.
         """
         target = self._pad_target()
         if target is None:
@@ -1845,6 +1920,11 @@ class LcsConfigPanel(OverlayPanel):
         list. A page whose highlight was never moved has nothing to mark and simply advances,
         the selection standing as it was.
 
+        The mark is made rather than the right key asked to make it, so that the turn below
+        is the only one there is: right turns some pages itself, and A on such a page would
+        otherwise turn two. What A adds to right is the pages right leaves alone; see
+        pad_mark_turns_page.
+
         The turn asks the same question the Next key is enabled by, so A can go nowhere Next
         would not. On the review page there is nowhere left to go, and Configure is the only
         control on it, so that is what A presses -- the panel worked from the pad end to end,
@@ -1852,7 +1932,7 @@ class LcsConfigPanel(OverlayPanel):
         is, and only where the button is enabled, so A sends nothing a finger could not; see
         can_configure.
         """
-        self.pad_mark()
+        self._pad_mark_row()
         if self.can_advance:
             self.next_page()
             return True

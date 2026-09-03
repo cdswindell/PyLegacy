@@ -391,14 +391,22 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 #
 # Five keys on three rows, pairing two inputs against two actions the way the D-pad's
 # "Up / Down" pairs with "Boost / brake speed": the pad's two axes do one thing each, and the
-# two face buttons are the same choice with the page turn added. There was room for no more
-# than three -- see the layout note at the end of controls_summary -- but there is nothing a
-# fourth would say. The words are the panel's own (LcsConfigPanel.pad_mark, pad_revert,
-# pad_advance, pad_back), so the screen and the panel cannot come to describe the same key
-# in two vocabularies.
+# face buttons say where the panel goes. There was room for no more than three -- see the
+# layout note at the end of controls_summary -- but there is nothing a fourth would say. The
+# words are the panel's own (LcsConfigPanel.pad_mark, pad_revert, pad_advance, pad_back), so
+# the screen and the panel cannot come to describe the same key in two vocabularies.
 #
-# Configure is named on the A row, and it earns the words: on the last page there is no page
-# to turn to and A presses the button that programs the module, which is a surprise worth
+# "and Next" on the right row, because that is what right mostly does: on a page whose list
+# is the whole of what it asks -- which module, which of a module's settings -- choosing is
+# finishing, so right chooses and turns the page. It is not the whole truth, and the row it
+# would take to tell it is not there: on the address page, where the ID is typed with a
+# finger, right chooses and stays. Stated this way round because the pages right turns are
+# the ones the operator walks through, and the row above A is where a reader learns that
+# choosing goes somewhere; see LcsConfigPanel.pad_mark_turns_page.
+#
+# A keeps a row of its own even so: it turns the page right leaves alone, and it is the only
+# key that presses Configure. That press is what earns the words on its row -- on the last
+# page there is no page to turn to and A programs the module, which is a surprise worth
 # stating after three pages where A meant "next". Named on that row rather than on one of its
 # own or in a note, both of which cost a row -- a note is drawn beside the action and takes
 # its width off it (146px for two words), which wraps the row. As it stands the row measures
@@ -413,12 +421,12 @@ FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the pa
 # asking how to get out of the panel has it on the row above.
 #
 # "Choose" rather than a row apiece for what choosing means on each kind of page: on the one
-# page whose only control is a tick box, right ticks it and left clears it, which is the same
-# sentence with a different widget under it. Naming the exception would cost the row that
-# says what B does.
+# page whose only control is a tick box, right ticks it and left clears it -- the same
+# sentence with a different widget under it, and the other page right chooses on without
+# turning. Naming either exception would cost the row that says what B does.
 FIXED_LCS_CONFIG_ENTRIES: tuple[ControlEntry, ...] = (
     ControlEntry("Up / Down", "Move the highlight", ""),
-    ControlEntry("Right / Left", "Choose / undo", ""),
+    ControlEntry("Right / Left", "Choose and Next / undo", ""),
     ControlEntry("A / B", "Choose, Next or Configure / Back", ""),
 )
 

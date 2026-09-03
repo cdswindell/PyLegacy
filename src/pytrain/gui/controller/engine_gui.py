@@ -1594,7 +1594,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return panel.pad_step(1 if forward else -1)
 
     def mark_lcs_config(self) -> bool:
-        """Choose the highlighted row -- D-pad right."""
+        """Choose the highlighted row -- D-pad right.
+
+        And turn the page with it, on a page whose list is the whole of what it asks: see
+        LcsConfigPanel.pad_mark_turns_page.
+        """
         panel = self._open_lcs_config
         if panel is None:
             return False

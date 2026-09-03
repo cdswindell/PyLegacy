@@ -456,6 +456,11 @@ def test_the_lcs_config_panel_remap_is_listed() -> None:
     # D-pad's own "Up / Down" pairs with "Boost / brake speed". A fourth row would not fit --
     # see the layout note at the end of controls_summary.
     #
+    # Right says "and Next" because that is what it mostly does: on a page whose list is the
+    # whole of what it asks, choosing is finishing, so right chooses and turns the page. The
+    # exceptions -- the address page and the one page whose only control is a tick box --
+    # would cost the row that says what B does.
+    #
     # Configure is named on the A row because A presses it: on the last page there is no page
     # to turn to, and after three pages where A meant "next" a key that programs a module is
     # a surprise the screen has to state.
@@ -464,7 +469,7 @@ def test_the_lcs_config_panel_remap_is_listed() -> None:
     assert section.fixed is True
     assert [(entry.input, entry.action, entry.note) for entry in section.entries] == [
         ("Up / Down", "Move the highlight", ""),
-        ("Right / Left", "Choose / undo", ""),
+        ("Right / Left", "Choose and Next / undo", ""),
         (f"{button_label(SELECT_BUTTON)} / {button_label(BACK_PAGE_BUTTON)}", "Choose, Next or Configure / Back", ""),
     ]
 

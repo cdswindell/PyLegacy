@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
 
@@ -3599,10 +3600,11 @@ def test_the_gap_between_keys_divides_the_list_rather_than_ending_it() -> None:
 # The panel is worked with the gamepad
 #
 # On the Steam Deck the D-pad steps the list on the page showing, right marks the row it is
-# on, left puts back what that mark displaced, A marks and turns the page -- and presses
-# Configure on the last page, which has no page after it -- and B turns it back. Which key
-# does what is DeckInputRouter._config_panel_only and is tested there; what each of them
-# means is the panel's own, and is what these ask.
+# on -- and turns the page with it, on a page whose list is the whole of what it asks -- left
+# puts back what that mark displaced, A marks and turns the page, or presses Configure on the
+# last page, which has no page after it, and B turns it back. Which key does what is
+# DeckInputRouter._config_panel_only and is tested there; what each of them means is the
+# panel's own, and is what these ask.
 #
 def _module_keys() -> list[str]:
     """The module rows in the order the first page lists them."""
@@ -3699,27 +3701,37 @@ def test_a_marked_row_is_chosen_exactly_as_a_tap_would_choose_it() -> None:
 
 
 def test_a_highlight_that_never_moved_marks_nothing() -> None:
-    # Which is what lets A advance without leaving a revert behind: there is nothing to put
-    # back after a press that chose the row that was already chosen.
+    # Which is what lets a page turn without leaving a revert behind: there is nothing to put
+    # back after a press that chose the row that was already chosen. Asked on the ID page,
+    # which right marks without turning -- on a page it turns, the turn is the answer and
+    # whether anything was marked on the way is beside the point.
     panel = _new_panel()
-    _tap_module(panel, BPC2.key)
+    panel._on_device_selected(BPC2.key)
+    panel.next_page()
+    modes = _mode_keys(BPC2)
 
-    assert panel.pad_cursor == BPC2.key, "the pad starts on the row that is chosen"
+    assert panel.pad_cursor == modes[0], "the pad starts on the row that is chosen"
     assert panel.pad_mark() is False
-    assert panel.device is BPC2
+    assert panel.mode.key == modes[0]
+    assert panel.page_index == mod.PAGE_ID
 
 
-def test_the_pad_puts_back_the_module_it_just_chose() -> None:
+def test_a_module_marked_with_right_is_come_back_to_with_b() -> None:
+    # Right turns the page with the mark, and a page turned is as far back as a revert
+    # reaches: the choice it displaced is on the page that was left. So the way back to a
+    # module marked in passing is B, and it is the marked module that is there -- left speaks
+    # for the list on the page it is pressed on, whichever page that is.
     panel = _new_panel()
     _tap_module(panel, ASC2.key)
     panel.pad_step(1)
     panel.pad_mark()
 
-    assert panel.pad_revert() is True
+    assert panel.pad_revert() is False, "the mode rows it landed on have nothing marked on them"
 
-    assert panel.device is ASC2
-    assert panel._device_group.value == ASC2.key
-    assert panel._device_group.cursor == ASC2.key, "and the pad points at what the panel holds"
+    assert panel.pad_back() is True
+    assert (panel.device, panel.page_index) == (BPC2, mod.PAGE_DEVICE)
+    assert panel.pad_revert() is False
+    assert panel._device_group.value == BPC2.key
 
 
 def test_a_left_press_with_nothing_marked_abandons_the_move() -> None:
@@ -3738,29 +3750,38 @@ def test_a_left_press_with_nothing_marked_abandons_the_move() -> None:
 def test_a_revert_is_one_mark_deep() -> None:
     # The undo is dropped as it is used, so a second left press cannot undo the same mark
     # twice -- and by then the highlight is on the row that is chosen, so it means nothing
-    # else either.
+    # else either. On the ID page, the one a mark leaves the panel standing on.
     panel = _new_panel()
-    _tap_module(panel, ASC2.key)
+    panel._on_device_selected(ASC2.key)
+    panel.next_page()
+    modes = _mode_keys(ASC2)
     panel.pad_step(1)
     panel.pad_mark()
     panel.pad_revert()
 
     assert panel.pad_revert() is False
-    assert panel.device is ASC2
+    assert panel.mode.key == modes[0]
 
 
 def test_a_page_turned_is_as_far_back_as_a_revert_reaches() -> None:
     # The choice a mark displaced is on the page that was left, and the operator looking at
-    # this one cannot see it put back: a module swapped under the page they are reading would
-    # read as the panel losing their place.
+    # another one cannot see it put back: a mode swapped under the page they are reading
+    # would read as the panel losing their place. Not even on coming back to the page it was
+    # made on -- a mark the operator has walked away from and returned to is the panel's
+    # state now, not a move still in progress.
     panel = _new_panel()
-    _tap_module(panel, ASC2.key)
+    panel._on_device_selected(BPC2.key)
+    panel.next_page()
+    modes = _mode_keys(BPC2)
     panel.pad_step(1)
     panel.pad_mark()
+    assert panel.mode.key == modes[1]
+
+    panel.pad_back()
     panel.next_page()
 
     assert panel.pad_revert() is False
-    assert panel.device is BPC2
+    assert panel.mode.key == modes[1]
 
 
 def test_the_pad_chooses_a_mode_and_can_put_it_back() -> None:
@@ -3793,6 +3814,101 @@ def test_the_pad_goes_on_from_the_row_it_marked() -> None:
     assert panel._mode_group.cursor is None, "the rebuild took the tint with it"
     assert panel.pad_step(1) is True
     assert panel._mode_group.cursor == modes[2]
+
+
+def test_the_right_key_chooses_the_module_and_turns_the_page() -> None:
+    # The first page asks one question and its rows are the whole of it, so the answer
+    # finishes the page: a press to choose and a second to go on are two presses for one
+    # decision. Both halves in that order, as A does them -- a choice written after the turn
+    # would land on the next page's list.
+    panel = _new_panel()
+    _tap_module(panel, ASC2.key)
+    panel.pad_step(1)
+
+    assert panel.pad_mark() is True
+
+    assert (panel.device, panel.page_index) == (BPC2, mod.PAGE_ID)
+    heading = mod.ID_HEADING.format(module=BPC2.label)
+    assert panel.id_heading_text == heading, "the page it turned to is the marked module's"
+
+
+def test_the_right_key_turns_the_page_where_the_highlight_never_moved() -> None:
+    # Right on the row already chosen means "this one, go on": answering the page's question
+    # with the row it opened on is an answer, and on the Pi and the Deck that row is the
+    # module the operator's screen was showing -- the one they are most likely to want.
+    panel = _new_panel()
+    _tap_module(panel, BPC2.key)
+
+    assert panel.pad_mark() is True
+
+    assert (panel.device, panel.page_index) == (BPC2, mod.PAGE_ID), "the selection stands as it was"
+
+
+def test_the_right_key_goes_nowhere_until_a_module_is_chosen() -> None:
+    # The question the Next key is enabled by, asked by right as well as by A: with nothing
+    # chosen there is nothing to configure, and the page it would turn to would open on no
+    # module at all.
+    panel = _new_panel()
+
+    assert panel.pad_mark() is False
+    assert panel.page_index == mod.PAGE_DEVICE
+
+
+def test_the_right_key_chooses_a_mode_without_turning_the_id_page() -> None:
+    # That page asks two things of the operator and lends the pad one of them: the address is
+    # typed into a field the pad cannot reach, stepped with the two keys beside it and, for
+    # an address inside another module's block, taken over with the keys below the rows. A
+    # page turned on the mode would carry the operator off with half the decision unmade.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+    panel.next_page()
+    modes = _mode_keys(BPC2)
+    panel.pad_step(1)
+
+    assert panel.pad_mark_turns_page is False
+    assert panel.pad_mark() is True
+
+    assert panel.mode.key == modes[1]
+    assert panel.page_index == mod.PAGE_ID
+
+
+def test_the_right_key_turns_the_page_on_a_modules_only_setting() -> None:
+    # The Sensor Track's ten actions are the whole of that page -- nothing is drawn under
+    # them -- so choosing one finishes it, exactly as choosing a module finishes the first.
+    panel = _new_panel()
+    panel._on_device_selected(SENSOR_TRACK.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+    choices = [value for _label, value in SENSOR_TRACK.option("action").choices]
+    panel.pad_step(1)
+
+    assert panel.pad_mark() is True
+
+    assert panel.options["action"] == choices[1]
+    assert panel.page_index == mod.PAGE_REVIEW
+
+
+def test_a_setting_below_the_one_marked_holds_the_page() -> None:
+    # What "the whole of the page" means, asked of the module rather than assumed: every
+    # module in the registry declares one setting today, and one that declared a second below
+    # its rows would be asking for something a page turn on the first would carry the
+    # operator straight past.
+    panel = _new_panel()
+    panel._on_device_selected(SENSOR_TRACK.key)
+    panel._show_page(mod.PAGE_OPTIONS)
+
+    assert panel.pad_mark_turns_page is True, "the action list alone"
+
+    below = LcsOption(key="below", label="And this", kind=mod.OptionKind.CHECKBOX, choices=())
+    device = replace(SENSOR_TRACK, options=(*SENSOR_TRACK.options, below))
+    panel._device = device
+    panel._build_option(DummyBox(), device, below)
+
+    assert panel.pad_mark_turns_page is False
+
+    # A setting the module declares but this mode does not offer is a fact to read rather
+    # than a decision to make, so it holds nothing up -- the pad passes over it too.
+    panel._device = replace(device, options=(*SENSOR_TRACK.options, replace(below, enabled=False)))
+    assert panel.pad_mark_turns_page is True
 
 
 def test_the_a_key_chooses_the_highlighted_row_and_turns_the_page() -> None:
@@ -3903,6 +4019,8 @@ def test_the_pad_ticks_and_clears_the_only_setting_a_bpc2_has() -> None:
     assert panel.pad_mark() is True
     assert restore.value == 1
     assert panel.options["restore"] is True
+    assert panel.page_index == mod.PAGE_OPTIONS, "and no page is turned: left has to be able to clear it"
+    assert panel.pad_mark_turns_page is False
 
     assert panel.pad_revert() is True
     assert restore.value == 0
@@ -3928,9 +4046,6 @@ def test_the_pad_steps_the_sensor_tracks_actions() -> None:
     assert action.value == "2"
     assert panel.options["action"] == choices[2]
 
-    assert panel.pad_revert() is True
-    assert panel.options["action"] == choices[0]
-
 
 def test_the_pad_leaves_a_setting_the_page_has_disabled_alone() -> None:
     # A disabled setting is drawn to say the module has it and this mode does not offer it,
@@ -3955,6 +4070,7 @@ def test_the_pad_does_nothing_on_the_review_page() -> None:
     assert panel.pad_cursor is None
     assert panel.pad_step(1) is False
     assert panel.pad_mark() is False
+    assert panel.pad_mark_turns_page is False, "there is nothing to mark, and nowhere to turn to"
     assert panel.pad_revert() is False
 
 
