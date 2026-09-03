@@ -839,7 +839,7 @@ class LcsConfigPanel(OverlayPanel):
 
         Re-applied after every refresh rather than set once, because guizero rebuilds a
         container's grid options from scratch in ``display_widgets`` -- which runs whenever
-        any child is shown, hidden or created -- and neither ``sticky`` nor ``pady`` is among
+        any child is shown, hidden, or created -- and neither ``sticky`` nor ``pady`` is among
         the options it replays. Hiding the mode box for a device with no modes is enough to
         lose them. A hidden box is skipped: ``grid_configure`` on a widget the grid has
         forgotten would put it back on screen.
