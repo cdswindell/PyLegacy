@@ -19,9 +19,10 @@ from src.pytrain.protocol.tmcc1.tmcc1_constants import (
 
 class _DummyTk:
     def __init__(self) -> None:
-        # What the widget was asked to bind, which is how the click-to-edit test reads the
-        # desktop wiring without a real Tk event loop.
-        self.binds: list[tuple[str, Any]] = []
+        # What the widget was asked to bind, and whether it asked to be added to whatever was
+        # bound to that sequence already -- which is how the press-to-edit tests read the
+        # wiring without a real Tk event loop.
+        self.binds: list[tuple[str, Any, str | None]] = []
         # And what it was configured with, which is how the wrapping tests read a Tk option
         # that has no guizero equivalent.
         self.configured: dict[str, Any] = {}
@@ -41,8 +42,7 @@ class _DummyTk:
         return
 
     def bind(self, event: str, func, add: str | None = None) -> None:
-        _ = add
-        self.binds.append((event, func))
+        self.binds.append((event, func, add))
 
     @staticmethod
     def update_idletasks() -> None:
@@ -2042,22 +2042,32 @@ def test_the_id_editor_follows_the_platform(monkeypatch, touch: bool, editor: An
     assert panel._id_field.show_keyboard_on_edit is on_screen
 
 
-def test_a_desktop_id_box_opens_for_typing_on_a_click(monkeypatch) -> None:
-    monkeypatch.setattr(mod, "is_linux", lambda: False, raising=True)
+@pytest.mark.parametrize("linux", [True, False])
+def test_the_id_box_opens_for_typing_on_a_press(monkeypatch, linux: bool) -> None:
+    # A box drawn to look like a text field is tapped, not leaned on, so the press opens it on
+    # the Pi and the Deck as well as on a desktop -- it used to be bound only where there is a
+    # mouse, leaving a second of press-and-hold as the appliance's only way in. What the
+    # platform still decides is which editor then appears; see the parametrized test above.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
     panel = _new_panel()
 
-    bound = dict(panel._id_field.tk.binds)
+    bound = {event: func for event, func, _add in panel._id_field.tk.binds}
     assert "<Button-1>" in bound
 
     bound["<Button-1>"](None)
     assert panel._id_field.edits == 1
 
 
-def test_a_touch_id_box_keeps_press_and_hold_only(monkeypatch) -> None:
-    monkeypatch.setattr(mod, "is_linux", lambda: True, raising=True)
+@pytest.mark.parametrize("linux", [True, False])
+def test_the_press_leaves_the_components_own_hold_alone(monkeypatch, linux: bool) -> None:
+    # <Button-1> is the same Tk sequence EditableText presses on to time its hold, and a bind
+    # replaces whatever is on a sequence unless it asks to be added to it. Bound additively,
+    # so the component's handler still runs -- begin_edit cancels the timer that press starts,
+    # which is what lets both gestures live on the one widget.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
     panel = _new_panel()
 
-    assert panel._id_field.tk.binds == []
+    assert [add for event, _func, add in panel._id_field.tk.binds if event == "<Button-1>"] == ["+"]
 
 
 @pytest.mark.parametrize("linux", [True, False])

@@ -307,7 +307,7 @@ class ModuleRow:
     One line of the Currently Assigned or Overlaps box: "ACC: BPC2 TMCC IDs 1 - 8".
 
     Held as separate parts rather than one string because both boxes grid them into
-    columns, so that the module names and the ID ranges line up down the box however
+    columns, so that the module names and the ID ranges line up down the box, however,
     long the names above them run, and because only the remote key is drawn bold.
     """
 
@@ -347,7 +347,7 @@ def touch_only_editing() -> bool:
 
 
 def reflects_layout_by_default() -> bool:
-    """True where the panel should open on the module already at the entered TMCC ID.
+    """True, where the panel should open on the module already at the entered TMCC ID.
 
     On the Pi and the Steam Deck the panel is opened from a screen that is *about*
     something -- a switch, an accessory -- so the module answering to that address on that
@@ -863,21 +863,29 @@ class LcsConfigPanel(OverlayPanel):
             pass
 
     def _style_id_field(self, field: EditableText) -> None:
-        """Draw the ID as a text box, and open it on a click where there is a mouse.
+        """Draw the ID as a text box, and open it for editing on a plain press.
 
         The field is a guizero Text, which renders as a bare label. The sunken border in the
         editor's own colors is what tells the operator it can be typed into, and it means the
         box does not change appearance when the Tk entry is placed over it.
 
-        Press-and-hold is a touchscreen gesture: a mouse click is released long before any
-        hold threshold, so on a desktop the box also opens for editing on a plain click.
+        A box drawn to look like a text field is tapped, not leaned on, so a press opens it on
+        every platform: the on-screen keypad on the Pi and the Deck, the system keyboard on a
+        desktop. EditableText's own gesture is a full second of press-and-hold, which is right
+        for a plain label that does not advertise itself -- the info overlay's fields, where a
+        stray tap while reading a running engine would be an accident rather than an edit --
+        and is bound by the component. Only this panel asks for the press, so it is bound here
+        rather than turned on for every editable label.
+
+        Both gestures survive together, and they have to: ``<Button-1>`` is the same Tk
+        sequence the component presses on. Bound with ``add="+"``, so the component's own
+        handler still runs first and starts its hold timer; ``begin_edit`` then cancels that
+        timer, and a hold that outlives a press already editing does nothing.
         """
         try:
             field.tk.config(bg=field.edit_bg, fg=field.edit_fg, relief="sunken", bd=2)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
-        if self.touch_editing:
-            return
         try:
             field.tk.bind("<Button-1>", lambda _event: field.begin_edit(), add="+")
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
@@ -1481,7 +1489,8 @@ class LcsConfigPanel(OverlayPanel):
         self._mode = mode
         self._options = self._default_options(device, seed_mode_from)
 
-    def _default_options(self, device: LcsDevice, state: Any = None) -> dict[str, Any]:
+    @staticmethod
+    def _default_options(device: LcsDevice, state: Any = None) -> dict[str, Any]:
         options: dict[str, Any] = {}
         for option in device.options:
             value = option.default
