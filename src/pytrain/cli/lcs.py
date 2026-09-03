@@ -10,10 +10,10 @@
 """
 ``pylcs``: open the LCS module configuration panel in its own window.
 
-Follows the ``pycache`` pattern exactly: a :class:`CliBase` subclass parses the arguments,
-and a :class:`CommandBase` subclass brings :class:`PyTrain` up as a client, against a named
-server, or directly against a Base 3, then runs the GUI. No requests are built here -- the
-panel itself is what sends anything, through the GUI's own request queue.
+Follows the ``pycache`` pattern exactly: a CliBase subclass parses the arguments, and a
+CommandBase subclass brings PyTrain up as a client, against a named server, or directly
+against a Base 3, then runs the GUI. No requests are built here -- the panel itself is
+what sends anything, through the GUI's own request queue.
 """
 
 from __future__ import annotations

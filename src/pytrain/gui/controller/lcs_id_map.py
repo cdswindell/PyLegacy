@@ -11,7 +11,7 @@ Answers the question "what owns this TMCC ID?" for the LCS configuration panel.
 
 Two sources are merged, because neither alone tells the whole truth.
 
-The first is the **PDI device store** (:class:`PdiStateStore`), which holds one entry per
+The first is the **PDI device store** (PdiStateStore), which holds one entry per
 module *type* per TMCC ID -- keyed by ``(PdiDevice, tmcc_id)`` -- each built from that
 module's own CONFIG packet and carrying its own mode. It is authoritative and is taken
 first, because a component state is keyed by scope and address alone: an AMC2 and a BPC2
@@ -21,7 +21,7 @@ a BPC2 claiming eight IDs came to be reported as claiming one, and how an AMC2 s
 an address came to be reported as nothing at all.
 
 The second is the **component state store**, walked for states whose ``LcsProxyState``
-flags identify one of the modules in :mod:`lcs_device_registry`. It covers what the PDI
+flags identify one of the modules in lcs_device_registry.py. It covers what the PDI
 store cannot: a module known only from control traffic, a store that has no PDI side at
 all, and two modules of the *same* type at the same address on different remote keys,
 which the PDI store's key cannot represent. Its block size is the module's own
@@ -34,8 +34,8 @@ SW 1 and TR 1 are three different addresses on three different modules. Every lo
 here therefore takes an optional ``scope``, and a caller that knows which key it is
 programming should pass it -- an STM2 is a switch, and an accessory holding ACC 1 is
 simply not in its way. The scope compared against is the occupant's
-:attr:`LcsOccupant.effective_scope`, the registry's scope for the mode the module
-reports, not the store scope the state happened to be filed under.
+LcsOccupant.effective_scope, the registry's scope for the mode the module reports, not
+the store scope the state happened to be filed under.
 
 No Tk or guizero symbols are imported; the map is pure logic over the state store and
 is unit-testable with any object exposing ``get_all(scope)``.
@@ -280,8 +280,8 @@ def occupants(store: Any = None, scope: CommandScope | None = None, pdi_store: A
     appended, which is what covers a store with no PDI side.
 
     ``scope`` keeps only the modules addressed by that remote key, compared against each
-    occupant's :attr:`LcsOccupant.effective_scope`. Omit it while still working out what
-    kind of module is being looked at, when every module is a candidate.
+    occupant's LcsOccupant.effective_scope. Omit it while still working out what kind of
+    module is being looked at, when every module is a candidate.
     """
     store = _store(store)
     candidates = _pdi_occupants(_pdi_store(pdi_store), store) + _state_occupants(store)
@@ -316,8 +316,7 @@ def occupants_of(
     them would tell the operator half the truth about the address they are about to
     program. Ordered by base ID, so the module whose block starts earliest is named first.
 
-    ``scope`` limits the answer to modules answering to that remote key; see
-    :func:`occupants`.
+    ``scope`` limits the answer to modules answering to that remote key; see occupants().
     """
     return [occupant.at(tmcc_id) for occupant in occupants(store, scope, pdi_store) if occupant.claims(tmcc_id)]
 
@@ -331,9 +330,8 @@ def occupant_of(
     """
     Return the LCS module claiming ``tmcc_id``, with its 1-based ``port_index``, or None.
 
-    The first of them when several do; :func:`occupants_of` returns them all.
-    ``scope`` limits the answer to modules answering to that remote key; see
-    :func:`occupants`.
+    The first of them when several do; occupants_of() returns them all.
+    ``scope`` limits the answer to modules answering to that remote key; see occupants().
     """
     found = occupants_of(tmcc_id, store, scope, pdi_store)
     return found[0] if found else None

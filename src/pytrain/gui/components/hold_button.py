@@ -371,7 +371,7 @@ class HoldButton(PushButton):
         return bool(self._pressed)
 
     def cancel_hold(self, reason: str = "cancel_hold()") -> None:
-        """Abandon a hold started by :meth:`begin_hold` before it completes.
+        """Abandon a hold started by begin_hold() before it completes.
 
         Stops the progress animation and the pending ``on_hold`` without firing the
         short-press callback -- the same treatment as a finger sliding off the button.

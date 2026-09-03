@@ -9,12 +9,12 @@ breaks a naming rule fails wherever it is added.
 
 Two pieces of vocabulary are written down, both deliberately and both in one place each:
 
-* :attr:`TestModeNames.CAB_KEYS` -- ACC, SW and TR, which are printed on the Cab remote
-  rather than chosen by this project.
-* "TMCC ID" / "TMCC IDs", asserted by the rule tests in :class:`TestTmccIdText` and
-  :class:`TestModeLabels`: the registry's docstring insists that what is counted is
-  always a TMCC ID, never bare "IDs" and never "ports", and a convention is worth
-  nothing if no test knows what it says.
+* TestModeNames.CAB_KEYS -- ACC, SW and TR, which are printed on the Cab remote rather
+  than chosen by this project.
+* "TMCC ID" / "TMCC IDs", asserted by the rule tests in TestTmccIdText and
+  TestModeLabels: the registry's docstring insists that what is counted is always a
+  TMCC ID, never bare "IDs" and never "ports", and a convention is worth nothing if no
+  test knows what it says.
 """
 
 from __future__ import annotations

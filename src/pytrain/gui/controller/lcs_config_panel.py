@@ -12,11 +12,11 @@ The LCS configuration panel: a stepped overlay that programs an LCS module.
 The panel walks the operator through four pages -- Device, base TMCC ID, the selected
 device's own options, and a review of the exact Cab-remote presses -- then emits those
 presses and reads the module back over PDI. The options page is stepped over for a module
-that declares none; see :meth:`LcsConfigPanel.skip_options`.
+that declares none; see LcsConfigPanel.skip_options.
 
-The panel takes every fact about a device from :mod:`lcs_device_registry`, every fact
-about who owns a TMCC ID from :mod:`lcs_id_map`, and the presses themselves from
-:mod:`lcs_sequence_builder`, so it holds no device knowledge of its own.
+The panel takes every fact about a device from lcs_device_registry.py, every fact about
+who owns a TMCC ID from lcs_id_map.py, and the presses themselves from
+lcs_sequence_builder.py, so it holds no device knowledge of its own.
 
 Configure sends presses only; nothing is written over PDI ``CONFIG SET``. The read-back
 is therefore the only honest evidence that the module accepted anything, which is why a
@@ -358,8 +358,8 @@ def reflects_layout_by_default() -> bool:
     panel opened on an STM2 when the operator had come to program something else. There
     it opens on the first module offered, which is stable and predictable.
 
-    Same platform test as :func:`touch_only_editing`, and for the same reason: Linux is
-    the appliance, everything else is a desk.
+    Same platform test as touch_only_editing(), and for the same reason: Linux is the
+    appliance, everything else is a desk.
     """
     return is_linux()
 
@@ -372,7 +372,7 @@ def needs_close_button() -> bool:
     to the very same shutdown -- ``GuiZeroBase.run`` sets ``App.when_closed`` to ``close``
     -- so a Close inside the window is a second one of something the window already has.
 
-    Same platform test as :func:`touch_only_editing`, and for the same reason.
+    Same platform test as touch_only_editing(), and for the same reason.
     """
     return is_linux()
 
@@ -503,7 +503,7 @@ class LcsConfigPanel(OverlayPanel):
     @property
     def touch_editing(self) -> bool:
         """
-        Whether the ID field needs an on-screen editor; see :func:`touch_only_editing`.
+        Whether the ID field needs an on-screen editor; see touch_only_editing().
         """
         return touch_only_editing()
 
@@ -862,7 +862,8 @@ class LcsConfigPanel(OverlayPanel):
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
-    def _style_id_field(self, field: EditableText) -> None:
+    @staticmethod
+    def _style_id_field(field: EditableText) -> None:
         """Draw the ID as a text box, and open it for editing on a plain press.
 
         The field is a guizero Text, which renders as a bare label. The sunken border in the
@@ -1061,7 +1062,7 @@ class LcsConfigPanel(OverlayPanel):
         the same reason a spare module row is hidden rather than blanked.
 
         Also what the mode note below the ID page's radios is written by, where the module
-        with nothing to say is a BPC2 or the Sensor Track; see :meth:`_refresh_mode_note`.
+        with nothing to say is a BPC2 or the Sensor Track; see _refresh_mode_note().
         """
         if line is None:
             return
@@ -1329,7 +1330,7 @@ class LcsConfigPanel(OverlayPanel):
         names the addresses the operator would be setting aside rather than a count they
         have to add to the ID above it. A mode that cannot be based this high is offered
         at the highest base it fits, which is where choosing it lands; see
-        :meth:`LcsMode.ids_label`.
+        LcsMode.ids_label().
         """
         if self._device is None:
             return []
@@ -1345,7 +1346,7 @@ class LcsConfigPanel(OverlayPanel):
 
         The grouping is read off the modes themselves rather than spelled out here, so a
         module's list is grouped by the order the registry gives it in; see
-        :attr:`CheckBoxGroup.row_leads` for what the group does with this.
+        CheckBoxGroup.row_leads for what the group does with this.
         """
         if self._device is None:
             return {}
@@ -1385,7 +1386,7 @@ class LcsConfigPanel(OverlayPanel):
 
         A loop rather than a single test, so that a second skippable page would need
         nothing here. It cannot run away: it walks off the end of the pages, and
-        :meth:`_show_page` clamps whatever it is handed.
+        _show_page() clamps whatever it is handed.
         """
         index += step
         while 0 <= index < len(self._pages) and self._skipped(index):
@@ -1425,7 +1426,7 @@ class LcsConfigPanel(OverlayPanel):
         Seed the panel from whatever is on screen when the LCS... key is pressed.
 
         Which module the panel opens on depends on the host; see
-        :func:`reflects_layout_by_default`. On the Pi and the Steam Deck the module already
+        reflects_layout_by_default(). On the Pi and the Steam Deck the module already
         answering to the entered ID on the screen's own remote key is pre-selected, because
         that screen is what the operator was looking at. On a desktop nothing is reflected
         and the first module offered is chosen instead. Either way a module *is* chosen, so
@@ -1918,7 +1919,7 @@ class LcsConfigPanel(OverlayPanel):
         """
         The modules the chosen block runs into, base first.
 
-        Scoped like :meth:`assigned_occupants`, because two blocks in different key namespaces
+        Scoped like assigned_occupants(), because two blocks in different key namespaces
         cannot collide however far they run into one another: an STM2 claiming SW 20-35
         overlaps an ASC2 based at SW 25, and nothing at all on the accessory keys.
         """
@@ -1950,7 +1951,7 @@ class LcsConfigPanel(OverlayPanel):
         """
         Retarget the panel at the module that owns the entered ID, pre-filled from it.
 
-        Scoped like :meth:`assigned_occupants`, so the button always goes to a module the
+        Scoped like assigned_occupants(), so the button always goes to a module the
         assigned box named and never to some other one on a different remote key -- and to
         one this pass can actually program, since the point of going there is to change it.
         """
@@ -1989,9 +1990,9 @@ class LcsConfigPanel(OverlayPanel):
     def has_close(self) -> bool:
         """Whether the popup adds its Close button below the panel's Back/Next row.
 
-        Only where the panel is the only way off itself; see :func:`needs_close_button`.
-        Read by ``create_popup`` as the overlay is built, which is the one moment it is
-        needed: an overlay is built on the machine it is shown on.
+        Only where the panel is the only way off itself; see needs_close_button(). Read by
+        ``create_popup`` as the overlay is built, which is the one moment it is needed: an
+        overlay is built on the machine it is shown on.
         """
         return needs_close_button()
 
@@ -1999,9 +2000,9 @@ class LcsConfigPanel(OverlayPanel):
         """Back and Next, on a row of the panel's own rather than in the popup's footer.
 
         ``has_footer`` is left False, so where ``create_popup`` adds a Close button at all
-        (see :meth:`has_close`) it goes below everything the panel builds -- which puts
-        Close on a line of its own, under these two, instead of all three crowding one row.
-        Where it does not, these two are the last row in the overlay and nothing moves.
+        (see has_close) it goes below everything the panel builds -- which puts Close on a
+        line of its own, under these two, instead of all three crowding one row. Where it
+        does not, these two are the last row in the overlay and nothing moves.
 
         The row is packed, not gridded, and asks for no width of its own, so it is as wide as
         the buttons it is showing and Tk centers it under the page above; Close below it is

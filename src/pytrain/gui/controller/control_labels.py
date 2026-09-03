@@ -8,9 +8,9 @@
 #
 """Human-readable labels for the Steam Deck controller bindings.
 
-Everything here exists to turn a loaded :class:`ControlProfile` into text a person can
-read on the controls help screen. It is deliberately free of Tk so the whole mapping can
-be tested without a display.
+Everything here exists to turn a loaded ControlProfile into text a person can read on the
+controls help screen. It is deliberately free of Tk so the whole mapping can be tested
+without a display.
 
 Two rules shape the design:
 

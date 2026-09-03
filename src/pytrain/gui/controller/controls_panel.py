@@ -8,9 +8,9 @@
 #
 """The controls help screen: what every button, stick, and chord currently does.
 
-Content comes from the loaded :class:`ControlProfile`, so a user who passes
+Content comes from the loaded ControlProfile, so a user who passes
 ``-controller_profile`` to ``make_gui`` sees their own bindings rather than the bundled
-ones. See :mod:`control_labels` for how a binding becomes English.
+ones. See control_labels.py for how a binding becomes English.
 """
 
 from __future__ import annotations

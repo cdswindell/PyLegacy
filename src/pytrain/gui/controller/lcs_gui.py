@@ -9,16 +9,15 @@
 """
 A stand-alone window whose whole content is the LCS configuration panel.
 
-This is a thin *host*, not a second GUI. :class:`LcsConfigPanel` is written against the
-small surface :class:`~..controller.overlay_panel.OverlayPanel` and
-:class:`~.popup_manager.PopupManager` need -- ``app`` / ``root``, ``_popup`` /
+This is a thin *host*, not a second GUI. LcsConfigPanel is written against the small
+surface OverlayPanel and PopupManager need -- ``app`` / ``root``, ``_popup`` /
 ``popup_manager``, ``show_popup``, ``locked``, ``cache``, ``state_store``,
 ``submit_request``, ``queue_message``, the ``s_*`` font sizes and ``button_size`` -- and
-almost all of it already comes from :class:`~..guizero_base.GuiZeroBase`. What is added
-here is the handful of attributes ``PopupManager`` reads off an ``EngineGui``: the content
-boxes it hides while a popup is up, the image box it restores afterwards, and the position
-it places a popup at. They are all ``None`` here, because this window has no content other
-than the panel itself.
+almost all of it already comes from GuiZeroBase. What is added here is the handful of
+attributes ``PopupManager`` reads off an ``EngineGui``: the content boxes it hides while
+a popup is up, the image box it restores afterwards, and the position it places a popup
+at. They are all ``None`` here, because this window has no content other than the panel
+itself.
 
 Keeping the panel behind ``PopupManager`` in both hosts is deliberate: the panel code,
 its footer styling, and its title row are then identical whether it is opened from
@@ -26,17 +25,17 @@ its footer styling, and its title row are then identical whether it is opened fr
 
 Recipe for a stand-alone PyTrain GUI on macOS or Windows
 --------------------------------------------------------
-:class:`~..guizero_base.GuiZeroBase` is a ``Thread`` and normally builds its guizero ``App``
-inside its own thread body, which the sync watcher starts. That is legal under X11 on the Pi,
-but macOS Aqua requires every ``NSWindow`` on the process main thread, so Tk aborts the
-process with ``NSInternalInconsistencyException``. A stand-alone entry point must therefore:
+GuiZeroBase is a ``Thread`` and normally builds its guizero ``App`` inside its own thread
+body, which the sync watcher starts. That is legal under X11 on the Pi, but macOS Aqua
+requires every ``NSWindow`` on the process main thread, so Tk aborts the process with
+``NSInternalInconsistencyException``. A stand-alone entry point must therefore:
 
 1. Construct the host on the process **main** thread.
 2. Always pass explicit ``width`` and ``height``, so the throwaway screen-measuring
    ``tkinter.Tk()`` in ``GuiZeroBase.__init__`` is never built.
-3. Override :meth:`Thread.start` so the sync watcher cannot spawn the Tk thread; it should
+3. Override Thread.start() so the sync watcher cannot spawn the Tk thread; it should
    only record synchronization and hand it off through ``queue_message``.
-4. Call the inherited ``run()`` from the main thread -- see :meth:`LcsGui.run_window` -- so the
+4. Call the inherited ``run()`` from the main thread -- see LcsGui.run_window() -- so the
    ``App``, ``build_gui()``, and ``app.display()`` all happen there.
 5. Marshal **every** cross-thread update through ``queue_message``, which ``_poll_shutdown``
    drains on the Tk thread; a message queued before the app exists simply waits.
@@ -67,7 +66,7 @@ DEFAULT_HEIGHT = 800
 
 class LcsGui(GuiZeroBase):
     """
-    Hosts :class:`LcsConfigPanel` as the entire content of its own window.
+    Hosts LcsConfigPanel as the entire content of its own window.
     """
 
     def __init__(
@@ -181,8 +180,8 @@ class LcsGui(GuiZeroBase):
 
         ``close()`` is exactly what the window's own title bar does -- ``GuiZeroBase.run``
         sets ``App.when_closed`` to it -- so the Close button the Pi and the Steam Deck show
-        (see :func:`~.lcs_config_panel.needs_close_button`) ends the run the same way the
-        title bar ends it on a desktop, which is why a desktop needs no such button.
+        (see needs_close_button()) ends the run the same way the title bar ends it on a
+        desktop, which is why a desktop needs no such button.
         """
         self.close()
 
@@ -198,7 +197,7 @@ class LcsGui(GuiZeroBase):
 
         ``GuiZeroBase._on_initial_sync`` calls this from the sync watcher's thread. On macOS a
         window built on that thread aborts the process, so the Tk loop is owned by whoever
-        called :meth:`run_window` -- the process main thread -- and this only reports that the
+        called run_window() -- the process main thread -- and this only reports that the
         Base 3 is now synchronized.
         """
         self.queue_message(self._on_synchronized)

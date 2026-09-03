@@ -286,8 +286,8 @@ class CheckBoxGroup(ButtonGroup):
         every other, so a group that says nothing about its rows is untouched.
 
         Grid padding, so it lands outside the row's own painted background and reads as a gap
-        between two blocks rather than as a taller row; see :meth:`lead_rows` for why it has
-        to be re-applied rather than set once.
+        between two blocks rather than as a taller row; see lead_rows() for why it has to be
+        re-applied rather than set once.
         """
         return dict(getattr(self, "_row_leads", None) or {})
 
@@ -297,7 +297,7 @@ class CheckBoxGroup(ButtonGroup):
         self.lead_rows()
 
     def lead_rows(self) -> None:
-        """Hold every row named in :attr:`row_leads` off the row above it.
+        """Hold every row named in ``row_leads`` off the row above it.
 
         Re-applied after every rebuild and every resize, like ``stretch_rows`` and for the
         same reason: guizero re-grids a container's children from the options it recorded,

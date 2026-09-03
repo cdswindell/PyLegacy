@@ -9,10 +9,10 @@
 """
 Declarative registry of the LCS modules the LCS configuration panel can program.
 
-Each device is described by one :class:`LcsDevice` holding one :class:`LcsMode` per
-supported configuration. A mode declares the Cab scope it is addressed in, how many
-TMCC IDs (ports) it claims, the ``pdi_device`` mode index it corresponds to, and the
-ordered recipe of Cab-remote presses that programs it.
+Each device is described by one LcsDevice holding one LcsMode per supported configuration.
+A mode declares the Cab scope it is addressed in, how many TMCC IDs (ports) it claims,
+the ``pdi_device`` mode index it corresponds to, and the ordered recipe of Cab-remote
+presses that programs it.
 
 Why the registry, and not the PDI request classes, owns scope and block size
 ---------------------------------------------------------------------------
@@ -31,25 +31,25 @@ A mode's ``name`` opens with the Cab-remote key that begins its programming sequ
 spelled the way the key itself is: ``ACC``, ``SW``, ``TR``. Whatever tells the mode from
 the module's other modes on that key follows it in parentheses -- ``(pulse)``,
 ``(latching)``, ``(single-wire)``, ``(uncouple)``. The key is what the operator presses,
-so it stands at the head of the row unadorned and the qualifier reads as the aside it is;
+so it stands at the head of the row unadorned, and the qualifier reads as the aside it is;
 the footnote below the panel's Mode radios is keyed by those same words. The name alone
 says nothing about how many addresses the mode claims, and what is counted is always
 ``TMCC IDs``, never bare "IDs" or "ports".
 
 A qualifier is one word wherever one will do, because a radio row is as wide as its label
 (see below), so it can rarely say more than *which* mode this is. What the mode is good
-for is said by :attr:`LcsMode.note`, which the panel prints below the radios keyed by that
-same word -- "uncouple: Uncoupling tracks only ..." -- so the qualifier need only be the
-word the sentence can be looked up under.
+for is said by LcsMode.note, which the panel prints below the radios keyed by that same
+word -- "uncouple: Uncoupling tracks only ..." -- so the qualifier need only be the word
+the sentence can be looked up under.
 
 Two labels are built from it, both here rather than in the panel, so the wording is
 settled in one file and testable without a display:
 
-* :meth:`LcsMode.ids_label` names the TMCC IDs the mode would claim from an address the
+* LcsMode.ids_label() names the TMCC IDs the mode would claim from an address the
   operator has entered: "ACC TMCC IDs 1 - 8". This is what the panel's Mode radios read.
   Choosing a mode is reserving those addresses on the layout, so the radio says which
   ones rather than leaving a count to be added to the ID on the screen above it.
-* :attr:`LcsMode.ports_label` names the count instead: "ACC, 8 TMCC IDs". For the lines
+* LcsMode.ports_label names the count instead: "ACC, 8 TMCC IDs". For the lines
   that name a mode with no address in hand -- the modes a module reserves, and the
   summary of what is about to be programmed.
 
@@ -233,7 +233,7 @@ class LcsMode:
         """The parenthesized word that tells this mode from the module's others on its key.
 
         "pulse" from "SW (pulse)"; None for a mode named by its key alone. What the panel's
-        footnote keys :attr:`note` by, so the sentence below the radios is looked up under
+        footnote keys ``note`` by, so the sentence below the radios is looked up under
         the very word the row it explains carries.
         """
         match = re.search(r"\(([^)]+)\)", self.name)
@@ -606,13 +606,13 @@ def configurable_devices() -> tuple[LcsDevice, ...]:
 
     Sorted by name, so the device page reads as a list an operator can scan and the first
     row -- the one the panel opens on -- is predictable: ASC2, BPC2, Sensor Track, STM2.
-    :data:`LCS_DEVICES` keeps its own order, which is a recognition order rather than a
-    presentation one: it is walked to identify a module from its state flags, and a module
-    this pass cannot program must not be recognized ahead of one it can.
+    LCS_DEVICES keeps its own order, which is a recognition order rather than a presentation
+    one: it is walked to identify a module from its state flags, and a module this pass
+    cannot program must not be recognized ahead of one it can.
 
     Everything that *presents a choice* -- the device radios, the per-device options
     boxes -- reads this; everything that *recognizes* a module already out on the layout
-    reads :data:`LCS_DEVICES`, which also holds the modules this pass cannot program.
+    reads LCS_DEVICES, which also holds the modules this pass cannot program.
     """
     return tuple(sorted((device for device in LCS_DEVICES if device.configurable), key=lambda d: d.label.upper()))
 
@@ -649,8 +649,8 @@ def device_for_state(state: Any) -> LcsDevice | None:
     """
     Return the registry descriptor matching the given component state, if any.
 
-    The first of them when a shared record identifies several; :func:`devices_for_state`
-    returns them all.
+    The first of them when a shared record identifies several; devices_for_state() returns
+    them all.
     """
     found = devices_for_state(state)
     return found[0] if found else None

@@ -256,7 +256,7 @@ class AdminPanel(OverlayPanel):
         return True
 
     def cancel_hold(self, command: str) -> bool:
-        """Abandon a hold started by :meth:`begin_hold` before it completes."""
+        """Abandon a hold started by begin_hold() before it completes."""
         button = self._admin_buttons.get(command)
         if button is None:
             return False
