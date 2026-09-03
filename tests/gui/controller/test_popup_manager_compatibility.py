@@ -560,10 +560,68 @@ def test_a_panel_that_declines_close_is_given_none_but_keeps_its_whitespace(
             assert [w.kwargs["align"] for w in mine if w.kwargs.get("height") == mod.FOOTER_LEAD] == ["top"], where
 
 
+def test_a_panel_may_ask_for_a_tighter_footer_band(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The LCS panel: its own Back/Next row is directly above Close, so the band is whitespace
+    # between two rows of buttons rather than between a panel and its buttons. Both halves of
+    # it answer the ask -- the lead above the row and the padding around the button -- since
+    # tightening one and leaving the other is most of the whitespace still there.
+    made: list[_Widget] = []
+
+    def make(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(mod, "Box", make)
+    monkeypatch.setattr(mod, "Text", make)
+    monkeypatch.setattr(mod, "PushButton", make)
+
+    class _Panel(mod.OverlayPanel):
+        def __init__(self, pad: int | None) -> None:
+            # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
+            self._overlay = None
+            self._pad = pad
+
+        @property
+        def footer_pad_px(self) -> int | None:
+            return self._pad
+
+        def build(self, body) -> None:
+            pass
+
+    manager = mod.PopupManager(_host())
+
+    overlay = manager.create_popup("Options", _Panel(6))
+
+    close = next(w for w in made if w.kwargs.get("text") == "Close")
+    assert [w.kwargs["height"] for w in made if w.master is overlay and w.kwargs.get("width") == "fill"] == [6]
+    # Vertically only: what is being saved is height, and the padding either side of a
+    # centered button costs none of it.
+    assert close.tk.packed[-1] == {"padx": mod.FOOTER_BUTTON_PAD, "pady": 6}
+    # Recorded on the overlay, which is what the correction pass on every later show reads.
+    assert getattr(overlay, mod._FOOTER_LEAD_ATTR) == 6
+
+    made.clear()
+    plain = manager.create_popup("Options", _Panel(None))
+
+    # And a panel that says nothing is the panel every other popup is: the shared band.
+    close = next(w for w in made if w.kwargs.get("text") == "Close")
+    assert [w.kwargs["height"] for w in made if w.master is plain and w.kwargs.get("width") == "fill"] == [
+        mod.FOOTER_LEAD
+    ]
+    assert close.tk.packed[-1] == {"padx": mod.FOOTER_BUTTON_PAD, "pady": mod.FOOTER_BUTTON_PAD}
+    assert getattr(plain, mod._FOOTER_LEAD_ATTR, None) is None
+
+
 def test_every_panel_but_the_one_that_says_otherwise_gets_close() -> None:
     # The opt-out is a panel's to take, and the base class does not take it: a panel that
     # says nothing about Close is dismissed by Close and nothing else.
     assert mod.OverlayPanel.has_close.fget(object()) is True
+
+
+def test_every_panel_but_the_one_that_says_otherwise_gets_the_shared_footer_band() -> None:
+    # The same shape of opt-in: the tighter band is for a panel that has a row of its own
+    # above Close, and a panel that says nothing about it is spaced as it always was.
+    assert mod.OverlayPanel.footer_pad_px.fget(object()) is None
 
 
 def test_create_popup_leaves_the_overlay_unsized(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -718,14 +776,19 @@ def _measurable(height: int, *, mapped: int = 1) -> _Tk:
 # The footer boxes are stashed on the overlay under a private module attribute, which is the
 # arrangement these tests pin.
 # noinspection PyProtectedMember
-def _balanceable(*, below: int, compact: bool, mapped: int = 1):
-    """An overlay whose fill box measures below pixels, ready for the correction pass."""
+def _balanceable(*, below: int, compact: bool, mapped: int = 1, asked: int = None):
+    """An overlay whose fill box measures below pixels, ready for the correction pass.
+
+    asked is a band the panel wanted of its own, as create_popup records it on the overlay.
+    """
     host = _host()
     host.compact = compact
     host.app.tk = SimpleNamespace(update_idletasks=lambda: None, after_idle=lambda fn: fn())
     overlay = _Widget()
     overlay.tk = _measurable(0, mapped=mapped)
-    lead = _Widget(height=mod.footer_lead_height(host))
+    if asked is not None:
+        setattr(overlay, mod._FOOTER_LEAD_ATTR, asked)
+    lead = _Widget(height=mod.footer_lead_height(host, overlay))
     fill = _Widget(height="fill")
     fill.tk = _measurable(below)
     setattr(overlay, mod._FOOTER_BOXES_ATTR, (lead, fill))
@@ -780,6 +843,29 @@ def test_the_correction_settles_instead_of_creeping(monkeypatch: pytest.MonkeyPa
 
     assert lead.height == settled
     assert lead.height_history == [settled], "a second pass must not move it again"
+
+
+def test_the_band_a_panel_asked_for_is_the_one_the_correction_measures_against() -> None:
+    # The pass runs on every show, and what it asks is "how much does this panel want above
+    # its row". Read off the shared constant instead of off the overlay, it would put the
+    # shared band back the first time the popup was shown -- silently undoing the ask.
+    host, overlay, lead, _fill = _balanceable(below=400, compact=False, asked=6)
+
+    mod.balance_footer_row(host, overlay)
+
+    assert lead.height == 6
+    assert lead.height_history == [], "a band it already has must not be re-assigned"
+
+
+def test_a_tight_band_is_still_evened_up_around_the_band_a_panel_asked_for() -> None:
+    # The tighter ask does not opt out of the correction: a panel whose content reaches the
+    # bottom edge -- the LCS panel's fullest page on a Pi -- still has its row centered in
+    # whatever band is left, now around its own number rather than the shared one.
+    host, overlay, lead, _fill = _balanceable(below=0, compact=False, asked=6)
+
+    mod.balance_footer_row(host, overlay)
+
+    assert lead.height == 3  # (6 + 0) // 2
 
 
 def test_an_unmapped_overlay_is_not_measured(monkeypatch: pytest.MonkeyPatch) -> None:

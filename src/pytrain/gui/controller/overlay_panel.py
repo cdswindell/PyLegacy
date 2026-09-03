@@ -60,6 +60,23 @@ class OverlayPanel(metaclass=ABCMeta):
     def has_footer(self) -> bool:
         return False
 
+    @property
+    def footer_pad_px(self) -> int | None:
+        """The vertical whitespace this panel wants in the footer band, in pixels.
+
+        None -- which is what a panel says by saying nothing -- is the shared band:
+        FOOTER_LEAD above the footer row and FOOTER_BUTTON_PAD above and below the button
+        in it. That is right for a panel whose content ends where its footer begins, since
+        the band is then the one thing holding the buttons off the panel and the pane.
+
+        A panel with a row of buttons of its own directly above Close is the case for asking
+        for less: the band is then whitespace between two rows of buttons rather than
+        between a panel and its buttons, and three helpings of a footer band's worth of it
+        stacked down one overlay is height the fullest page has nowhere to take from. See
+        LcsConfigPanel.footer_pad_px.
+        """
+        return None
+
     def build_footer(self, footer: Box) -> None:
         pass
 

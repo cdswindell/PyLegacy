@@ -68,6 +68,10 @@ FOOTER_LEAD = 24
 FOOTER_LEAD_COMPACT = 12
 # Where a footer button remembers its packing, so it can be replayed. See restore_footer_packing.
 _FOOTER_PACK_ATTR = "_pytrain_footer_pack"
+# Where an overlay remembers the band its panel asked for, so the correction pass reads the
+# panel's number rather than the shared one and cannot quietly put the shared one back. See
+# OverlayPanel.footer_pad_px and _balance_footer_row.
+_FOOTER_LEAD_ATTR = "_pytrain_footer_lead"
 # Where an overlay remembers the height it was built with, so expanding it is reversible.
 _OVERLAY_HEIGHT_ATTR = "_pytrain_overlay_height"
 # Set on an overlay that must never be expanded. Only the configured-accessory popups: those
@@ -190,11 +194,20 @@ def footer_lead(host, overlay: Box) -> Box:
     width="fill" is not cosmetic: guizero warns "You must specify a width and a height"
     whenever both are ints and one of them is zero, and a fill is the documented exemption.
     """
-    return Box(overlay, align="top", width="fill", height=footer_lead_height(host))
+    return Box(overlay, align="top", width="fill", height=footer_lead_height(host, overlay))
 
 
-def footer_lead_height(host) -> int:
-    """The whitespace a panel wants between its content and its footer row, before any correction."""
+def footer_lead_height(host, overlay: Box = None) -> int:
+    """The whitespace a panel wants between its content and its footer row, before any correction.
+
+    The band the mode calls for, unless the panel asked for one of its own -- which is
+    recorded on the overlay as the popup is built, so every later reading of "what does this
+    panel want" gets the same answer. Asked without an overlay it is the shared band, which
+    is what a caller building one rather than measuring one wants.
+    """
+    asked = getattr(overlay, _FOOTER_LEAD_ATTR, None) if overlay is not None else None
+    if asked is not None:
+        return max(0, int(asked))
     return FOOTER_LEAD_COMPACT if bool(getattr(host, "compact", False)) else FOOTER_LEAD
 
 
@@ -240,7 +253,7 @@ def _balance_footer_row(host, overlay, lead: Box, fill: Box) -> None:
         # exist yet. Mapped plus flushed means the number is real.
         if not overlay.tk.winfo_ismapped():
             return
-        wanted = footer_lead_height(host)
+        wanted = footer_lead_height(host, overlay)
         above = int(lead.height)
         below = int(fill.tk.winfo_height())
         # Derived from the whole band, not from below against the constant. The band is what stays
@@ -473,6 +486,12 @@ class PopupManager:
         elif isinstance(body_src, OverlayPanel):
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
+            # Recorded before anything is placed, because both the lead and Close's own
+            # padding are drawn from it -- and recorded on the overlay rather than passed
+            # along, so the correction pass on every later show reads the same number.
+            pad = body_src.footer_pad_px
+            if pad is not None:
+                setattr(overlay, _FOOTER_LEAD_ATTR, pad)
             fill = footer_fill(overlay)
             # A panel may decline Close (has_close) where something else already dismisses
             # its popup -- a window title bar. Asked in both branches, so the answer means
@@ -483,13 +502,13 @@ class PopupManager:
                 footer = Box(overlay, align="bottom")
                 body_src.build_footer(footer)
                 if body_src.has_close:
-                    self.add_close_btn(host, on_close, footer, close_target=overlay, align="right", width=8)
+                    self.add_close_btn(host, on_close, footer, close_target=overlay, align="right", width=8, pad=pad)
             else:
                 # add_close_btn already defaults to align="bottom", so a bare Close button is
                 # positioned exactly as a row would be, and the overlay stands in as the footer.
                 footer = overlay
                 if body_src.has_close:
-                    self.add_close_btn(host, on_close, overlay)
+                    self.add_close_btn(host, on_close, overlay, pad=pad)
             self._place_footer_lead(host, overlay, footer, fill)
         else:
             body = Box(overlay, align="top", layout="auto")
@@ -529,6 +548,7 @@ class PopupManager:
         close_target: Box = None,
         align="bottom",
         width: int = 5,
+        pad: int = None,
     ):
         close_target = close_target or overlay
 
@@ -542,6 +562,13 @@ class PopupManager:
             args=[close_target],
         )
         style_footer_button(host, btn)
+        if pad is not None:
+            # A panel whose own buttons are on a row directly above this one asks for the
+            # band to be tightened; see OverlayPanel.footer_pad_px. Vertically only: what is
+            # being saved is height, and the padding either side of a centered button costs
+            # none of it. Through repad_footer_button so the tighter padding is what gets
+            # recorded and therefore what gets replayed.
+            repad_footer_button(btn, pady=pad)
         # Creating this button discarded the packing of everything already in the footer.
         restore_footer_packing(overlay)
         host.cache(btn)

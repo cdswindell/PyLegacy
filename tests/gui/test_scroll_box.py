@@ -141,20 +141,20 @@ def _no_display(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mod, "tk", SimpleNamespace(Frame=DummyThumb), raising=True)
 
 
-def _window(content_px: int = 0, width: int = 400) -> mod.ScrollBox:
+def _window(content_px: int = 0, width: int = 400, thumb_px: int = None) -> mod.ScrollBox:
     """A window onto a page content_px tall.
 
     The height is the content's own answer to winfo_reqheight, which is where the real one
     reads it: a test grows or shrinks the page by saying that again.
     """
-    box = mod.ScrollBox(DummyBox(), width=width)
+    box = mod.ScrollBox(DummyBox(), width=width, thumb_px=thumb_px)
     box.content.tk.reqheight = content_px
     return box
 
 
-def _fitted(content_px: int, budget: int, width: int = 400) -> mod.ScrollBox:
+def _fitted(content_px: int, budget: int, width: int = 400, thumb_px: int = None) -> mod.ScrollBox:
     """That window, given the room a screen has for it."""
-    box = _window(content_px, width)
+    box = _window(content_px, width, thumb_px)
     box.fit(budget)
     return box
 
@@ -514,6 +514,29 @@ def test_the_bar_is_never_drawn_too_small_to_be_seen() -> None:
     box = _fitted(content_px=4000, budget=100)
 
     assert _bar(box).placed["height"] == mod.THUMB_MIN_PX
+
+
+def test_the_bar_is_drawn_at_the_width_the_caller_asked_for() -> None:
+    # How wide to draw it is a question about the screen rather than about scrolling: the bar
+    # is painted over the page, so what a wider one takes is taken out of the right-hand end
+    # of a row, and how much there is to spare there is the caller's own layout.
+    box = _fitted(content_px=900, budget=400, thumb_px=18)
+    bar = _bar(box)
+
+    assert box.thumb_px == 18
+    assert bar.kwargs["width"] == 18
+    assert (bar.placed["x"], bar.placed["width"]) == (-18, 18), "inside that edge by its own width"
+
+
+@pytest.mark.parametrize("asked", [None, 0])
+def test_a_window_that_asks_for_no_width_gets_one_the_bar_can_be_seen_at(asked: int | None) -> None:
+    # 6px was the first answer, and on the Pi it could not be told from the frame beside it --
+    # so the one screen where a page is ever held back was the one screen with nothing to say
+    # that it had been. The floor is what a caller gets for saying nothing.
+    box = _fitted(content_px=900, budget=400, thumb_px=asked)
+
+    assert box.thumb_px == mod.THUMB_PX
+    assert _bar(box).placed["width"] == mod.THUMB_PX
 
 
 def test_the_window_is_refitted_when_the_content_or_anything_around_it_is_laid_out() -> None:

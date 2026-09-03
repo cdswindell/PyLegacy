@@ -6,8 +6,10 @@ from typing import Any
 
 import pytest
 
+import src.pytrain.gui.components.scroll_box as scroll_mod
 import src.pytrain.gui.controller.lcs_config_panel as mod
 import src.pytrain.gui.controller.lcs_device_registry as reg
+import src.pytrain.gui.controller.popup_manager as pm
 from src.pytrain.gui.components.checkbox_group import CheckBoxGroup as RealCheckBoxGroup
 from src.pytrain.gui.controller.lcs_device_registry import AMC2, ASC2, BPC2, SENSOR_TRACK, STM2, LcsOption
 from src.pytrain.pdi.bpc2_req import Bpc2Action
@@ -218,9 +220,12 @@ class DummyScrollBox:
     walks the pages' children still finds what it did before.
     """
 
-    def __init__(self, master: Any, *, width: int, align: str = "top") -> None:
+    def __init__(self, master: Any, *, width: int, align: str = "top", thumb_px: int = None) -> None:
         self.width = width
         self.align = align
+        # What the panel asked the bar be drawn at, which is a question about the screen
+        # rather than about the window; see mod.scroll_bar_px.
+        self.thumb_px = thumb_px
         self.viewport = DummyBox(master)
         self.content = DummyBox(self.viewport)
         self.fits: list[int | None] = []
@@ -2275,6 +2280,48 @@ def test_next_enablement_is_unchanged_by_the_hidden_back_button() -> None:
     assert panel._next_btn.enabled is False
 
 
+def test_next_leaves_the_row_on_the_page_it_could_never_lead_off() -> None:
+    # The review page is the last, so Next there is a key with nowhere to go -- and one taken
+    # off the row says that plainly, where one left standing gray invites a press and asks the
+    # operator to work out why nothing happened. Which is what Back has always done on the
+    # first page: the two ends of the panel now read alike. Configure is what that page
+    # offers, and it is on the page itself.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+
+    panel._show_page(mod.PAGE_REVIEW)
+
+    assert panel.has_next_page is False
+    assert panel._next_btn.visible is False
+    # Disabled as well as hidden, though nothing can press it: a button whose look and whose
+    # state disagree is one the next reader has to reason about.
+    assert panel._next_btn.enabled is False
+    assert [child.text for child in panel._nav.children if child.visible] == [mod.BACK_TEXT]
+
+    panel.previous_page()
+
+    assert (panel._next_btn.visible, panel._next_btn.enabled) == (True, True)
+    assert [child.text for child in panel._nav.children if child.visible] == [mod.BACK_TEXT, mod.NEXT_TEXT]
+
+
+def test_next_stands_grayed_where_there_is_a_page_but_nothing_to_go_on_with() -> None:
+    # Shown and enabled are two questions, and the first page is where they part company:
+    # there is a page after it whether or not a module has been chosen, so Next belongs on
+    # the row -- grayed until there is something to configure. Taken off here it would leave
+    # the opening page with no key on it at all, and that page's only way forward is Next.
+    panel = _new_panel()
+
+    assert panel.has_next_page is True
+    assert (panel._next_btn.visible, panel._next_btn.enabled) == (True, False)
+
+    panel._on_device_selected(BPC2.key)
+    # The row is redrawn as a page turns, which is what the panel does with it; asked for
+    # directly here because the point is the answer, not when it is asked.
+    panel._refresh_nav()
+
+    assert (panel._next_btn.visible, panel._next_btn.enabled) == (True, True)
+
+
 @pytest.mark.parametrize(
     "compact, expected",
     [(False, mod.NAV_ROW_PAD), (True, mod.NAV_ROW_PAD_COMPACT)],
@@ -2291,6 +2338,28 @@ def test_the_nav_row_gives_back_the_footer_bands_vertical_padding(monkeypatch, c
     assert calls == [(mod.BACK_TEXT, {"pady": expected}), (mod.NEXT_TEXT, {"pady": expected})]
     # Horizontal padding is untouched: it is the gap between the two buttons.
     assert all("padx" not in kwargs for _text, kwargs in calls)
+
+
+@pytest.mark.parametrize(
+    "compact, expected",
+    [(False, mod.NAV_ROW_PAD), (True, mod.NAV_ROW_PAD_COMPACT)],
+)
+def test_the_band_below_the_row_is_the_rows_own_whitespace(compact: bool, expected: int) -> None:
+    # What the popup puts between this row and the Close below it. The shared band is not
+    # wrong, it is answering a different question -- it holds a panel's buttons off the panel
+    # -- and what is above Close here is not a panel but another row of buttons, already held
+    # off the page by PAGE_GAP. One number for all three gaps, so the two read as a pair of
+    # rows: on a portrait pane 24px of lead and 20px above and below Close became 6px apiece,
+    # which measured out as 46px more page -- the worst page the Pi holds any of back went
+    # from 124px to 78px.
+    host = _new_host()
+    host.compact = compact
+    panel = mod.LcsConfigPanel(host)
+
+    assert panel.footer_pad_px == expected
+    # Less than the popup would otherwise put there, on either pane -- which is the whole of
+    # what asking buys, and the direction it has to be in.
+    assert panel.footer_pad_px < pm.FOOTER_LEAD_COMPACT < pm.FOOTER_LEAD
 
 
 def test_the_row_holds_the_two_buttons_and_nothing_else() -> None:
@@ -4311,6 +4380,32 @@ def test_the_pages_are_drawn_in_a_window_and_the_buttons_below_it() -> None:
     assert body.children.index(panel.scroll.viewport) < body.children.index(nav)
     # As wide as the pane, so the window takes nothing off the page's own width.
     assert panel.scroll.width == panel._scroll_px == panel._pane_px
+
+
+@pytest.mark.parametrize("deck, expected", [(True, mod.SCROLL_BAR_PX_DECK), (False, mod.SCROLL_BAR_PX)])
+def test_the_bar_is_drawn_wide_enough_to_be_seen_and_wider_where_there_is_room(
+    monkeypatch, deck: bool, expected: int
+) -> None:
+    # The bar is the only thing that says a page is being held back, and at the 6px it was
+    # first drawn at it could not be told from the frame beside it on the Pi -- the one
+    # screen that ever holds a page back was the one screen it was invisible on. Wider again
+    # on the Deck, whose pane is a third wider: the bar is painted over the page, so what it
+    # takes is taken from the right-hand end of a row, and the Deck has more of it to give.
+    monkeypatch.setattr(mod, "is_steam_deck", lambda: deck, raising=True)
+
+    assert mod.scroll_bar_px() == expected
+    assert _new_panel().scroll.thumb_px == expected
+
+
+def test_no_bar_is_wide_enough_to_cover_the_end_of_a_row() -> None:
+    # Measured rather than reasoned, in a real Tk at both panes: the widest row the Mode box
+    # can ever show ends 20px inside the Pi's pane, and the widest line of prose 22px inside
+    # it, so its 10px bar clears them by 10px and 12px. On a Deck pane both clear that pane's
+    # wider bar by over 120px. The Pi is what sets the ceiling, and 20px is where it is.
+    assert max(mod.SCROLL_BAR_PX, mod.SCROLL_BAR_PX_DECK) <= 20
+    assert mod.SCROLL_BAR_PX_DECK > mod.SCROLL_BAR_PX
+    # And neither is below the width the component itself says a bar can be seen at.
+    assert mod.SCROLL_BAR_PX >= scroll_mod.THUMB_PX
 
 
 def test_a_page_is_come_to_at_its_top_and_the_window_re_fitted_for_it() -> None:

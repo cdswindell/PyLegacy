@@ -306,6 +306,26 @@ MIN_WRAP_PX = 240
 # _lay_out_titled_boxes.
 TITLED_BOX_INSET = 12
 
+# How wide the bar down the right edge of a scrolling page is drawn, in pixels: one value for
+# the Pi and the desk, a wider one for the Deck. See scroll_bar_px() for which screen gets
+# which, and ScrollBox for what the bar is.
+#
+# Both are wider than the 6px the bar was first drawn at, which on the Pi was too fine to
+# tell from the frame beside it -- the one screen where a page is ever held back is the one
+# screen the bar was invisible on. The Deck's is wider again because the room a bar takes is
+# taken from the page it is drawn over, and a 640px pane has a third more of it to give than
+# the Pi's 480px.
+#
+# What bounds them is what they may not cover, which was measured rather than reasoned about.
+# On a Pi pane the titled boxes end 6px inside it, the widest row the Mode list can ever show
+# ends 20px inside it and the widest line of prose 22px: so 20px is the ceiling at which a
+# bar would begin to take a word, and the Pi's value clears the row by 10px. From 6px on the
+# bar does cross those boxes' own frame, which is a thing to look at rather than to calculate
+# -- shot on the Pi it reads as a gutter down the page's edge, the frame closing again below
+# the bar. On a Deck pane the same two clear its wider bar by over 120px.
+SCROLL_BAR_PX = 10
+SCROLL_BAR_PX_DECK = 14
+
 
 # Presses are staggered so the base sees them as separate gestures, and the read-back
 # GETs are held off until the module has had a moment to act on the last of them.
@@ -493,6 +513,22 @@ def pad_driven() -> bool:
     and the Deck trades it for the highlight it is worked by.
     """
     return is_steam_deck()
+
+
+def scroll_bar_px() -> int:
+    """How wide the bar down the right edge of a scrolling page is drawn, in pixels.
+
+    Wider where there is width to be wide in. The bar is drawn over the page rather than
+    beside it, so what a wider one costs is what it covers -- the last few pixels of the
+    right-hand end of a row -- and a 640px Deck pane has a third more of them to spend than
+    the Pi's 480px. See SCROLL_BAR_PX for the two widths and what bounds them.
+
+    The desk reads as the narrower of the two, and rightly: its window is resizable, so its
+    pane can be any width at all, and the narrowest is the one to be right about. is_linux()
+    would not do here for the same reason it does not do in cramped_pane(): what is being
+    asked is how wide the screen is, which is the one thing the Pi and the Deck differ in.
+    """
+    return SCROLL_BAR_PX_DECK if is_steam_deck() else SCROLL_BAR_PX
 
 
 class LcsConfigPanel(OverlayPanel):
@@ -974,7 +1010,7 @@ class LcsConfigPanel(OverlayPanel):
         # creation order, so what a page too tall for the pane actually costs is whatever is
         # packed last, and that is Back, Next and Close. Those stay outside the window and so
         # stay on screen at any height; see ScrollBox and _fit_scroll.
-        self._scroll = scroll = ScrollBox(body, width=self._scroll_px)
+        self._scroll = scroll = ScrollBox(body, width=self._scroll_px, thumb_px=scroll_bar_px())
         pages = scroll.content
         self._pages = [
             self._build_device_page(pages),
@@ -1871,8 +1907,20 @@ class LcsConfigPanel(OverlayPanel):
         self._show_page(self._page_after(self._page_index, -1))
 
     @property
+    def has_next_page(self) -> bool:
+        """Whether the panel has a page after this one at all: the rule Next is shown by.
+
+        Asked apart from can_advance because the two say different things about the same
+        button. There is a page after the first one whether or not a module has been chosen,
+        so Next stands there grayed until one is; after the review page there is none, and a
+        key that will never lead anywhere from the page it is on is taken off the row --
+        Configure is what that page offers, on the page itself.
+        """
+        return self._page_index < len(self._pages) - 1
+
+    @property
     def can_advance(self) -> bool:
-        """Whether there is a page after this one to go to.
+        """Whether the panel can go on to the page after this one.
 
         The rule the Next key is enabled by, asked as a question so the A button can ask it
         too: one answer for the key and the pad, rather than two that could come to disagree
@@ -1880,7 +1928,7 @@ class LcsConfigPanel(OverlayPanel):
         is nothing to configure until one is -- and the review page is the last: Configure is
         what is pressed there, which A asks can_configure for.
         """
-        return self._page_index < len(self._pages) - 1 and self._device is not None
+        return self.has_next_page and self._device is not None
 
     @property
     def can_go_back(self) -> bool:
@@ -3012,6 +3060,23 @@ class LcsConfigPanel(OverlayPanel):
         """
         return needs_close_button()
 
+    @property
+    def footer_pad_px(self) -> int:
+        """How much whitespace stands between the Back/Next row and the Close below it.
+
+        The row's own padding, so the three gaps that make up that band are one number and
+        the two rows read as a pair of rows rather than as a panel and its footer. The
+        shared band is not wrong, it is answering a different question: it holds a panel's
+        buttons off the panel, and here what is above Close is not a panel but another row
+        of buttons, already held off the page by PAGE_GAP.
+
+        Worth 46px of the popup's own height on a portrait pane: 24px of lead and 20px above
+        and below Close became 6px apiece. Which is 46px more page, measured -- the Pi's
+        window grew from 493px to 539px and the worst page it holds any of back went from
+        124px to 78px, while the desk's tallest page came down from 733px to 687px.
+        """
+        return self._nav_row_pad
+
     def _build_nav(self, body: Box) -> None:
         """Back and Next, on a row of the panel's own rather than in the popup's footer.
 
@@ -3047,24 +3112,40 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_nav()
 
     def _refresh_nav(self) -> None:
-        self._show_back(self.can_go_back)
-        if self._next_btn is not None:
-            self._enable(self._next_btn, self.can_advance)
+        """Which of Back and Next the row is showing, and whether what it shows can be pressed.
 
-    def _show_back(self, visible: bool) -> None:
-        """Back is meaningless on the first page, so it is taken off the row rather than grayed.
-
-        Both hide() and show() run the row's display_widgets(), which rebuilds pack options
-        from scratch and discards the padding style_footer_button recorded, so it is replayed.
-        That replay skips a hidden button, which is what keeps this honest: pack_configure
-        would otherwise put Back back on screen at the end of the row -- see
-        restore_footer_packing.
+        Shown by whether there is a page that way at all, and enabled by whether the panel
+        can go there yet. The two are not the same question: Next stands grayed on the first
+        page until a module is chosen -- there is a page after it, just nothing to configure
+        yet -- while on the review page there is nothing after it at all, and a key with
+        nowhere to go is taken off the row rather than left standing gray. Which is what Back
+        has always done on the first page; the two ends of the panel now read alike.
         """
-        if self._back_btn is not None:
-            if visible:
-                self._back_btn.show()
-                self._enable(self._back_btn, True)
-            else:
-                self._back_btn.hide()
+        self._show_nav_button(self._back_btn, self.can_go_back)
+        self._show_nav_button(self._next_btn, self.has_next_page, enabled=self.can_advance)
+        # Replayed once, after both: hide() and show() each run the row's display_widgets(),
+        # which rebuilds pack options from scratch and discards the padding
+        # style_footer_button recorded.
         if self._nav is not None:
             restore_footer_packing(self._nav)
+
+    def _show_nav_button(self, btn: HoldButton | None, visible: bool, enabled: bool = None) -> None:
+        """Put one of the two keys on the row or take it off, and set what it can do there.
+
+        A hidden button is disabled as well, though nothing can press it: the pad asks the
+        panel rather than the row (see can_advance), and a button whose look and whose state
+        disagree is a button the next reader has to reason about.
+
+        The row's packing is replayed by the caller, not here, and the replay skips a hidden
+        button -- which is what keeps this honest: pack_configure *manages* a widget pack has
+        forgotten, so replaying a hidden button's padding puts it back on screen at the end
+        of the row. That is exactly how Back once reappeared to the right of Next; see
+        restore_footer_packing.
+        """
+        if btn is None:
+            return
+        if visible:
+            btn.show()
+        else:
+            btn.hide()
+        self._enable(btn, visible if enabled is None else enabled)

@@ -45,7 +45,13 @@ WHEEL_STEP = 48
 # Drawn in the gray this package already says "aside" in -- the color of the help screen's
 # footnotes -- rather than in a color of its own: it is a fact about the page, not part of
 # it. Shot at the pale border gray beside it, it read as a seam in the frame.
-THUMB_PX = 6
+#
+# The width is what a caller may ask for; this is the floor, and it is set by the narrowest
+# screen the bar has to be *noticed* on. 6px was the first attempt and it was too fine to
+# tell from the frame beside it on the Pi -- a bar nobody sees says nothing, which is the
+# whole of what it is for. 10px reads as a bar there and still costs the page nothing, being
+# drawn over it; a screen with width to spare should ask for more (see thumb_px).
+THUMB_PX = 10
 THUMB_COLOR = "#6B7280"
 THUMB_MIN_PX = 24
 
@@ -89,8 +95,13 @@ class ScrollBox:
       is outside it is simply not drawn.
     """
 
-    def __init__(self, master: Box, *, width: int, align: str = "top") -> None:
+    def __init__(self, master: Box, *, width: int, align: str = "top", thumb_px: int = None) -> None:
         self._width = max(1, int(width))
+        # How wide the bar down the right edge is drawn. Taken from the caller rather than
+        # decided here, because it is a question about the screen and not about scrolling:
+        # the bar is drawn over the page, so its width is paid for in what it covers of the
+        # right-hand end of a row, and how much there is to cover is the caller's own layout.
+        self._thumb_px = max(1, int(thumb_px or THUMB_PX))
         self._offset = 0
         self._view_px = 0
         self._drag_from: tuple[int, int] | None = None
@@ -121,6 +132,11 @@ class ScrollBox:
     def content(self) -> Box:
         """The container a caller builds its page into."""
         return self._content
+
+    @property
+    def thumb_px(self) -> int:
+        """How wide the bar down the right edge is drawn, in pixels."""
+        return self._thumb_px
 
     @property
     def viewport(self) -> Box:
@@ -327,12 +343,12 @@ class ScrollBox:
         top = int(travel * self._offset / hidden) if travel > 0 else 0
         try:
             if self._thumb is None:
-                self._thumb = tk.Frame(self._viewport.tk, bg=THUMB_COLOR, width=THUMB_PX)
+                self._thumb = tk.Frame(self._viewport.tk, bg=THUMB_COLOR, width=self._thumb_px)
             # Against the window's right-hand edge wherever that turns out to be, for the
             # reason the content is placed to the same edge: a window is as wide as the body
             # it was packed into, not as wide as it asked to be, and a bar placed at the
             # width asked for is a bar drawn off the screen.
-            self._thumb.place(relx=1.0, x=-THUMB_PX, y=top, width=THUMB_PX, height=height)
+            self._thumb.place(relx=1.0, x=-self._thumb_px, y=top, width=self._thumb_px, height=height)
             self._thumb.lift()
         except SCROLL_EXCEPTIONS:
             self._thumb = None
