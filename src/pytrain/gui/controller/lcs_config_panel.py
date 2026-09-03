@@ -38,6 +38,7 @@ from .lcs_device_registry import (
     LcsMode,
     LcsOption,
     OptionKind,
+    BPC2,
     SENSOR_TRACK,
     configurable_devices,
     device_for_key,
@@ -307,11 +308,45 @@ SCOPE_LABEL: dict[CommandScope, str] = {
 # actually offers are shown, so the legend never states a fact that does not apply to the
 # module in hand. The selected mode's own note answers from below the rows; see
 # LcsConfigPanel.mode_note.
-SCOPE_USE: dict[CommandScope, str] = {
-    CommandScope.ACC: "ACC: Use for lighting and operating accessories",
-    CommandScope.SWITCH: "SW: Use for Switches/Turnouts",
-    CommandScope.TRAIN: "TR: Use for track power blocks",
+#
+# Keyed by the remote key *and* the module, because what a key is for is not always a fact
+# about the key alone. On most modules TR and ACC are two different jobs -- track power on
+# the one, lighting and accessories on the other -- but a BPC2 does the same job either way:
+# its manual is explicit that "the features available in both addressing modes are identical,
+# choose whichever suits your layout best". So telling a BPC2's operator that ACC is for
+# lighting states something untrue about the module in front of them, and what its two keys
+# really offer is a choice of which address space to spend. The module half of the key is
+# None for the line that speaks wherever a module has not been spoken for; see scope_use().
+SCOPE_USE: dict[tuple[CommandScope, str | None], str] = {
+    (CommandScope.ACC, None): "ACC: Use for lighting and operating accessories",
+    (CommandScope.SWITCH, None): "SW: Use for Switches/Turnouts",
+    (CommandScope.TRAIN, None): "TR: Use for track power blocks",
+    # The BPC2's two keys, said as the two ways of addressing one module that they are. The
+    # module's name and key are taken from the registry rather than spelled here, so the pair
+    # cannot come to name a module other than the one they are filed under. Both fit the Pi's
+    # legend on one line: 603 px and 576 px of the 690 px a line is broken at there, which is
+    # narrower than the accessory line above them already asks for.
+    (CommandScope.TRAIN, BPC2.key): f"TR: {BPC2.label} addressed as a TR (track) device",
+    (CommandScope.ACC, BPC2.key): f"ACC: {BPC2.label} addressed as an ACC device",
+    # The Sensor Track's one key, said as the module the address names rather than as a use:
+    # it is addressed as an accessory but is neither lighting nor an operating accessory --
+    # it reports what passes over it -- so the general line names a job it does not do. Its
+    # name comes from the registry for the same reason the BPC2's does.
+    (CommandScope.ACC, SENSOR_TRACK.key): f"ACC: LCS {SENSOR_TRACK.label}",
 }
+
+
+def scope_use(scope: CommandScope, device: LcsDevice | None = None) -> str | None:
+    """What the legend says a remote key is for, on the module in hand.
+
+    The module's own line where one is written for it, and the line that speaks for every
+    other module otherwise -- so a key that means the same thing everywhere is worded once,
+    and only a module the key means something else on has to say so. None for a key nothing
+    is written about at all, which the legend passes over rather than heading with a blank
+    line; see LcsConfigPanel.mode_legend.
+    """
+    key = device.key if device is not None else None
+    return SCOPE_USE.get((scope, key)) or SCOPE_USE.get((scope, None))
 
 
 @dataclass(frozen=True)
@@ -342,7 +377,7 @@ class ModuleRow:
 
         The one row in either box that is not a module in the way, which is what decides
         the color it is drawn in; see UNASSIGNED_FG. Read from the row rather than from
-        whether the box has any rows at all, so the two boxes are filled by one method.
+        whether the box has any rows at all, so one method fills the two boxes.
         """
         return self.module == UNASSIGNED
 
@@ -1746,12 +1781,16 @@ class LcsConfigPanel(OverlayPanel):
         choice the rows offer. The keys are taken from the module's own enabled modes, in
         the order the radios list them, so a BPC2 reads TR before ACC and an STM2 says
         nothing about accessories.
+
+        Each line is looked up under the module as well as the key, because what a key is
+        for can be a fact about the module rather than about the key: a BPC2's TR and ACC
+        modes address the same relays either way. See scope_use().
         """
         if self._device is None:
             return ""
         lines: list[str] = []
         for mode in enabled_modes(self._device):
-            use = SCOPE_USE.get(mode.scope)
+            use = scope_use(mode.scope, self._device)
             if use and use not in lines:
                 lines.append(use)
         return "\n".join(lines)

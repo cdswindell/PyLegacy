@@ -2690,11 +2690,13 @@ def test_no_device_means_neither_line_says_anything() -> None:
     "device_key, expected",
     [
         # In the order the module's own radios list them, so a BPC2 reads TR before ACC and
-        # an STM2 says nothing about accessories.
-        ("asc2", [mod.SCOPE_USE[CommandScope.ACC], mod.SCOPE_USE[CommandScope.SWITCH]]),
-        ("bpc2", [mod.SCOPE_USE[CommandScope.TRAIN], mod.SCOPE_USE[CommandScope.ACC]]),
-        ("stm2", [mod.SCOPE_USE[CommandScope.SWITCH]]),
-        ("sensor_track", [mod.SCOPE_USE[CommandScope.ACC]]),
+        # an STM2 says nothing about accessories. Looked up as the panel looks them up --
+        # under the module as well as the key -- so the BPC2 is expected to read its own
+        # wording of TR and ACC rather than the line every other module reads.
+        ("asc2", [mod.scope_use(CommandScope.ACC, ASC2), mod.scope_use(CommandScope.SWITCH, ASC2)]),
+        ("bpc2", [mod.scope_use(CommandScope.TRAIN, BPC2), mod.scope_use(CommandScope.ACC, BPC2)]),
+        ("stm2", [mod.scope_use(CommandScope.SWITCH, STM2)]),
+        ("sensor_track", [mod.scope_use(CommandScope.ACC, SENSOR_TRACK)]),
     ],
 )
 def test_the_legend_covers_every_key_the_module_offers_and_no_other(device_key: str, expected: list[str]) -> None:
@@ -2710,11 +2712,99 @@ def test_the_legend_says_what_each_key_is_for() -> None:
     # rows spell it and going on to say what it is good for -- which is the one thing the
     # rows themselves cannot say. Read as a rule about the lines rather than as their text,
     # so rewording what a key is for is free and dropping the key off the front is not.
-    assert set(mod.SCOPE_USE) == set(mod.SCOPE_LABEL)
-    for scope, use in mod.SCOPE_USE.items():
+    assert {scope for scope, _module_key in mod.SCOPE_USE} == set(mod.SCOPE_LABEL)
+    for (scope, _module_key), use in mod.SCOPE_USE.items():
         key = mod.SCOPE_LABEL[scope]
         assert use.startswith(f"{key}:")
         assert use[len(key) + 1 :].strip()
+    # And every key has the line that speaks wherever a module has not been spoken for, so
+    # no module can be left with a key the legend says nothing about.
+    for scope in mod.SCOPE_LABEL:
+        assert (scope, None) in mod.SCOPE_USE
+
+
+def test_a_key_that_means_the_same_everywhere_is_worded_once() -> None:
+    # Only a module a key means something else on has a line written for it; every other
+    # module reads the line filed under no module in particular, so a key that means the same
+    # thing everywhere is worded once. Which modules those are is read out of the map rather
+    # than named here: the Sensor Track's own ACC line was written after this test was, and a
+    # module named here as reading the general line is a fact this test cannot know.
+    read_the_general_line: list[str] = []
+    for device in reg.configurable_devices():
+        for mode in reg.enabled_modes(device):
+            own = mod.SCOPE_USE.get((mode.scope, device.key))
+            general = mod.SCOPE_USE[(mode.scope, None)]
+            assert mod.scope_use(mode.scope, device) == (own or general)
+            if own is None:
+                read_the_general_line.append(f"{device.key}/{mod.SCOPE_LABEL[mode.scope]}")
+    # And the general lines are read rather than merely written: most modules have nothing of
+    # their own to say about most of the keys they offer.
+    assert read_the_general_line
+    # Asked with no module at all -- which is what the panel does before a device is chosen
+    # -- the general line answers for every key.
+    for scope in mod.SCOPE_LABEL:
+        assert mod.scope_use(scope) == mod.SCOPE_USE[(scope, None)]
+    # A key nothing is written about at all is passed over rather than headed with a blank
+    # line; no mode is on one today, so the legend never has to.
+    assert mod.scope_use(CommandScope.ENGINE) is None
+
+
+def test_a_line_written_for_one_module_names_that_module() -> None:
+    # Why a line is filed under a module at all: the general line for the key is wrong about
+    # this one, so the line has to say which module it is speaking about -- read as a fact
+    # about the key alone it is no truer than the line it replaced. Asked of every override
+    # rather than of the two written today, so the next one is held to the same rule, and the
+    # name is taken from the registry here as it is there, so neither can drift.
+    overrides = [(scope, key) for scope, key in mod.SCOPE_USE if key is not None]
+    assert overrides
+    for scope, module_key in overrides:
+        device = reg.device_for_key(module_key)
+        line = mod.SCOPE_USE[(scope, module_key)]
+        assert device.label in line
+        assert line != mod.SCOPE_USE[(scope, None)]
+        # And the module reads it: a line filed under a key the module does not offer would
+        # never reach the legend, and is a line written about nothing.
+        assert scope in {mode.scope for mode in reg.enabled_modes(device)}
+        assert mod.scope_use(scope, device) == line
+
+
+def test_the_bpc2s_two_keys_are_two_ways_of_addressing_it_rather_than_two_uses() -> None:
+    # Its manual: "Your BPC2 can be addressed as either a TR (Track) device or an ACC
+    # (Accessory). The features available in both addressing modes are identical, choose
+    # whichever suits your layout best." So the general lines are wrong about it on both
+    # keys -- its ACC modes are not lighting, and TR is not the only way it does track power
+    # -- and each of its own lines names which addressing mode the row below it chooses.
+    panel = _new_panel()
+    panel._on_device_selected("bpc2")
+
+    assert panel.mode_legend.split("\n") == [
+        mod.SCOPE_USE[(CommandScope.TRAIN, BPC2.key)],
+        mod.SCOPE_USE[(CommandScope.ACC, BPC2.key)],
+    ]
+    for scope in (CommandScope.TRAIN, CommandScope.ACC):
+        key = mod.SCOPE_LABEL[scope]
+        line = mod.scope_use(scope, BPC2)
+        # Its own wording, and the general line nowhere on the page.
+        assert line != mod.SCOPE_USE[(scope, None)]
+        assert mod.SCOPE_USE[(scope, None)] not in panel.mode_legend
+        # Which module, and which of its two addressing modes: the two facts a line about
+        # the key alone cannot carry. The module is named from the registry, so the pair
+        # cannot come to speak for some other module than the one they are filed under.
+        assert BPC2.label in line
+        assert "addressed as" in line
+        assert key in line[len(key) + 1 :]
+
+
+def test_no_legend_line_asks_for_more_than_one_line_of_the_pane() -> None:
+    # A legend line is prose, so an over-long one wraps rather than being lost -- but the ID
+    # page is the fullest in the panel, and a line taking two of them spends a row the page
+    # has not got. The accessory line is the widest the panel draws today: 47 characters,
+    # which is 672 px of the 690 px a line is broken at on the Pi at its 1.5x font scale.
+    # The BPC2's own two come to 603 px and 576 px, so each sits on one line there too.
+    # Characters as the ceiling, as the registry pins its widest radio row, with the pixels
+    # measured before a longer wording is adopted.
+    for (scope, module_key), use in mod.SCOPE_USE.items():
+        assert len(use) <= 47, f"{module_key or 'any module'}/{mod.SCOPE_LABEL[scope]}: {use}"
 
 
 def test_the_legend_leads_with_the_word_the_rows_lead_with() -> None:
@@ -2817,19 +2907,25 @@ def test_a_mode_with_nothing_written_about_it_adds_no_line() -> None:
     # The legend is not hidden with it: a module with modes always has keys to name.
     assert panel._mode_legend_line.visible is True
     assert panel.mode_legend.split("\n") == [
-        mod.SCOPE_USE[CommandScope.TRAIN],
-        mod.SCOPE_USE[CommandScope.ACC],
+        mod.scope_use(CommandScope.TRAIN, BPC2),
+        mod.scope_use(CommandScope.ACC, BPC2),
     ]
 
 
 def test_the_legend_follows_the_device_the_operator_switches_to() -> None:
     panel = _new_panel()
     panel._on_device_selected("bpc2")
-    assert mod.SCOPE_USE[CommandScope.TRAIN] in panel._mode_legend_line.value
+    assert mod.scope_use(CommandScope.TRAIN, BPC2) in panel._mode_legend_line.value
 
     panel._on_device_selected("stm2")
-    assert panel._mode_legend_line.value == mod.SCOPE_USE[CommandScope.SWITCH]
-    assert mod.SCOPE_USE[CommandScope.TRAIN] not in panel._mode_legend_line.value
+    assert panel._mode_legend_line.value == mod.scope_use(CommandScope.SWITCH, STM2)
+    assert mod.scope_use(CommandScope.TRAIN, BPC2) not in panel._mode_legend_line.value
+    # And a line written for one module is left behind with it: nothing filed under another
+    # module is on the page. Read off the map rather than named here, so a line written for
+    # one more module is covered by this as it stands.
+    for (_scope, module_key), line in mod.SCOPE_USE.items():
+        if module_key not in (None, STM2.key):
+            assert line not in panel._mode_legend_line.value
 
 
 #
