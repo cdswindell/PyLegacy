@@ -323,13 +323,27 @@ SORT_ROW_PAD = 10
 # beside it have already said; see inventory_config.
 INVENTORY_MODE_UNKNOWN = "Mode not reported"
 INVENTORY_SETTING = "{name}: {value}"
-# What stands between one group of a module's settings and the next: an empty line, which is
-# the only white space a cell of wrapped text has to give and costs the row one line of its
-# own height. The AMC2 is the module with groups -- a mode and a remember flag for each of
-# its two motors -- and without it the four read as one block of four rather than as two
-# motors, the second motor's heading being just another line of the same column. See
-# _inventory_settings.
+# What stands between one group of a module's settings and the next: an empty line in the
+# text, and a few pixels of white space on the page. The AMC2 is the module with groups --
+# a mode and a remember flag for each of its two motors -- and without a break the four
+# read as one block of four rather than as two motors, the second motor's heading being
+# just another line of the same column. See _inventory_settings.
+#
+# The empty line is notation and is never drawn. A cell of wrapped text has no white space
+# but its own lines, and one line of this column costs the row the whole of a line's
+# height -- 19px where the pane is cramped, 23px on the desk, Tk laying every line of a
+# label out at the one font's height. So the listing goes on writing one string per module,
+# with an empty line marking where a group ends, and the cell holds the blocks that line
+# separates apart by INVENTORY_GROUP_GAP_PX of real padding instead; see GroupedCell.
+#
+# 6px is a third of a line at 12pt and a quarter of one at 14: enough to see the second
+# motor begin, and no more. What stands between one module and the next is nothing at all
+# -- the bold name in the Module column is what tells them apart -- so a group given a
+# line's worth reads as further from its own module than the module is from its neighbors,
+# which is the very thing a full line was found to do.
 INVENTORY_GROUP_GAP = ""
+INVENTORY_GROUP_BREAK = f"\n{INVENTORY_GROUP_GAP}\n"
+INVENTORY_GROUP_GAP_PX = 6
 # What a flag reads as. Yes and No rather than the label's own wording, because the name of
 # the setting is already the other half of the line.
 INVENTORY_YES = "Yes"
@@ -686,10 +700,13 @@ class InventoryRow:
     what a module *is*, and its last column is the module's whole configuration, at whatever
     length that runs to.
 
-    config carries its own line breaks, one per fact the module reports. Nothing else in the
+    config carries its own line breaks, one per fact the module reports, and an empty line
+    where one group of a module's settings ends and the next begins. Nothing else in the
     panel writes a cell of more than one line, and this is the column the page is for: what
     a module is set to cannot be said in a column's width, and saying it on the row keeps it
-    beside the module it belongs to rather than in a page of its own.
+    beside the module it belongs to rather than in a page of its own. What the empty line
+    comes out as on the page is the cell's business rather than the row's; see GroupedCell
+    and INVENTORY_GROUP_GAP.
     """
 
     module: str
@@ -704,6 +721,168 @@ class InventoryRow:
     @property
     def text(self) -> str:
         return " ".join(part for part in self.cells if part)
+
+
+class GroupedCell:
+    """The listing's configuration cell: a module's settings as blocks, held apart by a hair.
+
+    Every other cell of either grid is one label, and a label's own lines are the only white
+    space it has: an empty line between two groups of a module's settings costs the row a
+    whole line of the tallest column in the panel. So this cell is the groups themselves --
+    one label each, stacked in a box that stands in the grid where a label would -- and what
+    holds them apart is pack padding, which can be as many pixels as it is worth. See
+    INVENTORY_GROUP_GAP_PX.
+
+    It answers as a cell of either grid does -- value, visible, show, hide, text_bold,
+    text_color, tk -- so the row it belongs to is written, hidden and gridded by the very
+    code that writes every other row, and value is the whole of the text, empty line and
+    all, exactly as a label's is. The blocks are what that empty line means here, so the
+    listing goes on writing one string per module and the page is left to decide what a
+    break between groups looks like. See _refresh_inventory and inventory_config.
+
+    The blocks are grown as they are needed and then kept, as the rows of either grid are: a
+    module reporting one group more than the module last written into this row is a block
+    more to write, and a widget destroyed in a container takes the layout of its neighbors
+    with it.
+    """
+
+    def __init__(self, box: Box, block: Callable[[Box], Text], gap_px: int) -> None:
+        self._box = box
+        # How a block is made, rather than what a block is: the labels of both grids are
+        # sized, wrapped and padded in one place, and a block of this cell is one of them.
+        # See _cell_label.
+        self._block = block
+        self._gap_px = max(0, int(gap_px))
+        self._blocks: list[Text] = []
+        self._bold = False
+        self._color: Any = None
+        self._value = ""
+
+    @property
+    def tk(self) -> Any:
+        """The box's own widget: what the grid holds, and so what the grid is told about."""
+        return self._box.tk
+
+    @property
+    def box(self) -> Box:
+        """The box the blocks are stacked in, which is the cell as the grid sees it."""
+        return self._box
+
+    @property
+    def blocks(self) -> tuple[Text, ...]:
+        """The labels the cell writes on, in the order they are read, spare ones included."""
+        return tuple(self._blocks)
+
+    @property
+    def visible(self) -> bool:
+        return self._box.visible
+
+    def show(self) -> None:
+        self._box.show()
+
+    def hide(self) -> None:
+        self._box.hide()
+
+    @property
+    def text_bold(self) -> bool:
+        return self._bold
+
+    @text_bold.setter
+    def text_bold(self, bold: bool) -> None:
+        """Bold, or not -- and remembered, because a block may be made after it is asked for.
+
+        The headings row is a cell of this kind too, and its heading is bold in every column;
+        a block grown later is grown in the weight the cell was set to rather than in the one
+        the label happened to be built with.
+        """
+        self._bold = bool(bold)
+        for block in self._blocks:
+            block.text_bold = self._bold
+
+    @property
+    def text_color(self) -> Any:
+        return self._color
+
+    @text_color.setter
+    def text_color(self, color: Any) -> None:
+        """Answered, and remembered, for the reason text_bold is.
+
+        Nothing colors a cell of the listing: the module grids color theirs by whether the
+        address the row reports is free, which is a question about one address rather than
+        about a layout. A cell that could not be colored, though, would not be a cell of
+        either grid -- and standing in for one anywhere either grid writes one is the whole
+        of what this class is for.
+        """
+        self._color = color
+        for block in self._blocks:
+            block.text_color = color
+
+    @property
+    def value(self) -> str:
+        return self._value
+
+    @value.setter
+    def value(self, text: str) -> None:
+        """Write the text into the cell, a block per group of it.
+
+        Spare blocks are hidden rather than blanked, for the reason the spare rows of either
+        grid are hidden: an empty label still stands a line tall, so the cell would keep the
+        height of the fullest module it had ever been written for.
+        """
+        self._value = "" if text is None else str(text)
+        groups = self._value.split(INVENTORY_GROUP_BREAK)
+        for index, group in enumerate(groups):
+            block = self._grow(index)
+            block.value = group
+            if not block.visible:
+                block.show()
+        for spare in self._blocks[len(groups) :]:
+            if spare.visible:
+                spare.hide()
+        self._space_blocks()
+
+    def _grow(self, index: int) -> Text:
+        """
+        The block at index, made the first time the cell has that much to say.
+        """
+        while len(self._blocks) <= index:
+            block = self._block(self._box)
+            block.text_bold = self._bold
+            if self._color is not None:
+                block.text_color = self._color
+            self._blocks.append(block)
+        return self._blocks[index]
+
+    def _space_blocks(self) -> None:
+        """Put the space back between the blocks, after every write rather than once.
+
+        guizero rebuilds a container's pack options from scratch whenever anything in it is
+        created, shown or hidden, and padding is not among the options it replays -- so the
+        space between the blocks has to follow the writing of them. Measured in a live
+        window: a block hidden and shown again comes back against the one above it.
+
+        A hidden block is passed over, and that is not an optimization: pack_configure
+        *manages* a widget pack has forgotten, so padding replayed onto a spare block would
+        put it back on the page carrying the text of the fuller module it was last written
+        for. The same trap restore_footer_packing and _stick_inventory_cells each avoid.
+
+        Above each block but the first, which is where a break belongs: the space says the
+        group below it begins, and above the first there is nothing to tell it from.
+        """
+        opening = True
+        for block in self._blocks:
+            if not block.visible:
+                continue
+            try:
+                block.tk.pack_configure(pady=(0 if opening else self._gap_px, 0))
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
+            opening = False
+
+
+# A cell of either grid: the label all but one of them is, and the stack of labels the
+# listing's configuration column is. See GroupedCell and _grid_cell.
+GridCell = Text | GroupedCell
 
 
 @dataclass(frozen=True)
@@ -896,20 +1075,23 @@ class LcsConfigPanel(OverlayPanel):
         self._assigned_grid: Box | None = None
         # One tuple of three cells per row: the remote key, the module, and its TMCC IDs.
         # Created as they are first needed and reused from then on.
-        self._assigned_cells: list[tuple[Text, ...]] = []
+        self._assigned_cells: list[tuple[GridCell, ...]] = []
         self._overlap_box: TitleBox | None = None
         self._overlap_grid: Box | None = None
-        self._overlap_cells: list[tuple[Text, ...]] = []
+        self._overlap_cells: list[tuple[GridCell, ...]] = []
         self._goto_btn: HoldButton | None = None
         self._new_btn: HoldButton | None = None
         # My Modules: the key that opens the listing, the rows that order it, and the grid
         # it is written into. The heading row is the grid's first, so the cells below are
         # grown and reused exactly as the module rows' are; see _refresh_inventory.
         self._inventory_btn: HoldButton | None = None
+        # The row that key stands on, which is what puts it in the other keys' column; see
+        # _build_inventory_key_row.
+        self._inventory_key_row: Box | None = None
         self._sort_group: CheckBoxGroup | None = None
         self._sort_key: str = SORT_MODULE
         self._inventory_grid: Box | None = None
-        self._inventory_cells: list[tuple[Text, ...]] = []
+        self._inventory_cells: list[tuple[GridCell, ...]] = []
         self._inventory_empty_line: Text | None = None
         self._back_btn: HoldButton | None = None
         self._next_btn: HoldButton | None = None
@@ -1476,7 +1658,8 @@ class LcsConfigPanel(OverlayPanel):
         # its own and leads nowhere, so it is a key that opens a page and comes back rather
         # than a step between this page and the next. See show_inventory.
         host.add_vspace(page, self._page_gap)
-        self._inventory_btn = btn = HoldButton(page, text=INVENTORY_TEXT, align="top", command=self.show_inventory)
+        self._inventory_key_row = row = self._build_inventory_key_row(page)
+        self._inventory_btn = btn = HoldButton(row, text=INVENTORY_TEXT, align="left", command=self.show_inventory)
         # The one shared look for the big keys of an overlay, which Back, Next, Configure and
         # the Close below them all wear: a raised border and an edge, a lighter face than the
         # panel, and a darker one while it is held. It is drawn as a key rather than as a word
@@ -1491,6 +1674,35 @@ class LcsConfigPanel(OverlayPanel):
         repad_footer_button(btn, pady=self._nav_row_pad)
         host.cache(btn)
         return page
+
+    def _build_inventory_key_row(self, page: Box) -> Box:
+        """The row the My Modules key stands on, which is what puts it in the other keys' column.
+
+        The key wears the look of the panel's other big keys and stands directly above two of
+        them, so it stands where they stand -- and it did not. Back, Next and the Close below
+        them are centered on the pane; everything on a page is centered on the page, and the
+        page is one scroll bar narrower than the pane, the bar being drawn over its right-hand
+        edge rather than beside it (see _page_px and ScrollBox). Half a bar is what the key
+        stood left of the two keys beneath it: 12px on the Pi and the desk, 15px on a Deck,
+        measured in a live window with the panel's own nesting.
+
+        So the gutter is handed back to this one key, as a spacer to the left of it on a row
+        of its own: a row centered on the page with a bar's width of nothing at one end puts
+        what is at the other end half a bar right of the page's middle, which is the pane's
+        middle and the column the other keys stand in. Nothing else on the page moves. The
+        modules above are read as a block of rows rather than against a key two lines down,
+        and they are centered as the contents of every page in the panel are.
+
+        A spacer widget rather than pack padding, for the reason footer_spacer is one:
+        guizero rebuilds a container's pack options from scratch whenever anything in it is
+        created, shown or hidden, and padding is not among the options it replays -- and
+        every turn of the panel hides a page and shows another.
+        """
+        host = self._gui
+        row = Box(page, align="top", border=0)
+        gutter = Box(row, align="left", width=scroll_bar_px(), height=1)
+        host.cache(row, gutter)
+        return row
 
     def _build_id_page(self, body: Box) -> Box:
         host = self._gui
@@ -2071,7 +2283,7 @@ class LcsConfigPanel(OverlayPanel):
             # every column, and it is what tells the top row from the modules under it.
             cell.text_bold = True
 
-    def _inventory_row_cells(self, index: int) -> tuple[Text, ...]:
+    def _inventory_row_cells(self, index: int) -> tuple[GridCell, ...]:
         """
         The cells of one line of the listing, headings included, created as they are needed.
         """
@@ -2082,6 +2294,9 @@ class LcsConfigPanel(OverlayPanel):
             columns=INVENTORY_COLUMNS,
             wrap_column=INVENTORY_CONFIG_COLUMN,
             wrap_px=self._inventory_config_wrap_px,
+            # The one column in either grid whose text comes in groups, and so the one cell
+            # that is a stack of them rather than a label; see GroupedCell.
+            group_gap_px=INVENTORY_GROUP_GAP_PX,
         )
 
     @property
@@ -3927,7 +4142,7 @@ class LcsConfigPanel(OverlayPanel):
             else:
                 self._overlap_box.hide()
 
-    def _refresh_row_grid(self, grid: Box | None, cells: list[tuple[Text, ...]], rows: Sequence[ModuleRow]) -> None:
+    def _refresh_row_grid(self, grid: Box | None, cells: list[tuple[GridCell, ...]], rows: Sequence[ModuleRow]) -> None:
         """
         Write rows into one of the module grids, growing it and hiding what is spare.
         """
@@ -3954,12 +4169,13 @@ class LcsConfigPanel(OverlayPanel):
     def _grid_row(
         self,
         grid: Box,
-        cells: list[tuple[Text, ...]],
+        cells: list[tuple[GridCell, ...]],
         index: int,
         columns: int = ROW_COLUMNS,
         wrap_column: int = ROW_NAME_COLUMN,
         wrap_px: int | None = None,
-    ) -> tuple[Text, ...]:
+        group_gap_px: int = 0,
+    ) -> tuple[GridCell, ...]:
         """
         The cells of one grid row, created the first time the row is used.
 
@@ -3971,11 +4187,18 @@ class LcsConfigPanel(OverlayPanel):
         listing asks for four, the last of them the one that wraps; the two grids are the
         same thing done to different columns, and one row-builder is what keeps a cell of
         either looking like a cell of the other. See _refresh_inventory.
+
+        group_gap_px is offered to every cell of the row and taken up by the one that wraps,
+        that being the only column whose text comes in groups; see _grid_cell.
         """
         while len(cells) <= index:
             row = len(cells)
             # Only the first column is bold; it is the column the eye runs down.
-            cells.append(tuple(self._grid_cell(grid, column, row, wrap_column, wrap_px) for column in range(columns)))
+            cells.append(
+                tuple(
+                    self._grid_cell(grid, column, row, wrap_column, wrap_px, group_gap_px) for column in range(columns)
+                )
+            )
         return cells[index]
 
     def _grid_cell(
@@ -3985,13 +4208,16 @@ class LcsConfigPanel(OverlayPanel):
         row: int,
         wrap_column: int = ROW_NAME_COLUMN,
         wrap_px: int | None = None,
-    ) -> Text:
-        cell = Text(grid, text="", grid=[column, row], align="left")
-        # The size of the box titles above them: these rows are the answer the operator
-        # came to the page for, not a caption on it. Which is a size down where the pane has
-        # nothing to spare, as those titles are; see _titled_text_size.
-        cell.text_size = self._titled_text_size
-        cell.text_bold = column == 0
+        group_gap_px: int = 0,
+    ) -> GridCell:
+        """One cell of a grid: the label all but one of them is, or a stack of them.
+
+        group_gap_px is the white space a cell wants between one group of its text and the
+        next, and the listing's configuration column is the only column that asks for any:
+        a cell that has to hold groups apart is the groups themselves, one label each,
+        because a label's own lines are the only white space a label has. Every other cell,
+        in either grid, is the one label it has always been. See GroupedCell.
+        """
         # Broken like every other line the panel writes, though nothing here is prose: what
         # a cell holds is a module's name and its addresses, and a name is the registry's to
         # lengthen. A cell that wraps narrows its column and the row still fits the page; a
@@ -4001,10 +4227,46 @@ class LcsConfigPanel(OverlayPanel):
         # And broken at its own column's width rather than the page's, which is what keeps
         # the row inside the pane; see _row_name_wrap_px. Only the one unbounded column needs
         # telling: the columns either side of it cannot reach even their share of the row.
-        width = (wrap_px or self._row_name_wrap_px) if column == wrap_column else None
+        wraps = column == wrap_column
+        width = (wrap_px or self._row_name_wrap_px) if wraps else None
+        if wraps and group_gap_px:
+            # The box stands in the grid where the label would, and is gridded and hidden as
+            # a label is; the blocks inside it are the cell's own business.
+            box = Box(grid, grid=[column, row], align="left")
+            return GroupedCell(box, lambda parent: self._cell_label(parent, align="top", width=width), group_gap_px)
+        return self._cell_label(grid, grid=[column, row], bold=column == 0, width=width)
+
+    def _cell_label(
+        self,
+        parent: Box,
+        *,
+        grid: list[int] | None = None,
+        align: str = "left",
+        bold: bool = False,
+        width: int | None = None,
+    ) -> Text:
+        """A label a grid cell is written on, styled as every cell of either grid is.
+
+        The size of the box titles above them: these rows are the answer the operator came
+        to the page for, not a caption on it. Which is a size down where the pane has
+        nothing to spare, as those titles are; see _titled_text_size.
+
+        A label stacked inside a cell rather than gridded as one is stretched to the cell's
+        width and its text anchored west, which is what keeps the left edges of two blocks
+        of one cell in line: a label narrower than the block above it is otherwise centered
+        against it, and a column the eye runs down cannot afford a ragged edge for the sake
+        of three pixels. Both are set where they survive a re-pack -- "fill" is read off the
+        widget by guizero itself, and the anchor is a Tk option rather than a layout one.
+        """
+        stacked = grid is None
+        cell = Text(parent, text="", grid=grid, align=align, width="fill" if stacked else None)
+        cell.text_size = self._titled_text_size
+        cell.text_bold = bold
         self._wrap(cell, justify="left", width=width)
         try:
             cell.tk.config(padx=ASSIGNED_CELL_PAD)
+            if stacked:
+                cell.tk.config(anchor="w")
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         return cell

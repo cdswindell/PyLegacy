@@ -37,6 +37,10 @@ class _DummyTk:
         # And what it was placed in its grid with, which is how the listing's tests read an
         # alignment guizero has no way of asking for; see LcsConfigPanel._stick_inventory_cells.
         self.gridded: dict[str, Any] = {}
+        # And what it was packed with, which is how the listing's tests read the white space
+        # between the blocks of one cell -- pack padding being no more a guizero property
+        # than the two above; see GroupedCell._space_blocks.
+        self.packed: dict[str, Any] = {}
 
     def config(self, **kwargs: Any) -> None:
         self.configured.update(kwargs)
@@ -46,6 +50,9 @@ class _DummyTk:
 
     def grid_configure(self, **kwargs: Any) -> None:
         self.gridded.update(kwargs)
+
+    def pack_configure(self, **kwargs: Any) -> None:
+        self.packed.update(kwargs)
 
     @staticmethod
     def grid_columnconfigure(_col: int, **_kwargs: Any) -> None:
@@ -483,7 +490,9 @@ class FakeHost(SimpleNamespace):
             emergency_box_width=470,
             compact=False,
             state_store=store,
-            cache=lambda _widget: None,
+            # Varargs, as the host's own cache is: a caller with two widgets to keep -- a
+            # row and the spacer on it -- hands over both in one breath.
+            cache=lambda *_widgets: None,
             app=FakeApp(),
             sent=[],
             vspaces=[],
@@ -5495,7 +5504,9 @@ def test_every_line_the_panel_writes_is_broken_at_the_pane() -> None:
 
     lines = [w for w in _panel_widgets(panel) if isinstance(w, DummyText)]
     names = [cell[mod.ROW_NAME_COLUMN] for cell in panel._assigned_cells + panel._overlap_cells]
-    names += [cell[mod.INVENTORY_CONFIG_COLUMN] for cell in panel._inventory_cells]
+    # The listing's configuration column is not a label but a stack of them, one per group of
+    # a module's settings, and each block of it is broken at the column; see GroupedCell.
+    names += [block for cell in panel._inventory_cells for block in cell[mod.INVENTORY_CONFIG_COLUMN].blocks]
 
     assert len(lines) > 10, "the pages' own prose, their headings and the boxes' cells"
     assert names, "the assigned box writes a row before an ID is even entered"
@@ -5542,7 +5553,11 @@ def test_the_listing_leaves_its_last_column_the_page_less_the_three_beside_it() 
     reserved = mod.INVENTORY_FIXED_COLUMNS_EMS * panel._titled_text_size
     assert panel._inventory_config_wrap_px == panel._wrap_px - reserved
     cells = panel._inventory_cells[0]
-    assert cells[mod.INVENTORY_CONFIG_COLUMN].tk.configured["wraplength"] == panel._inventory_config_wrap_px
+    # Every block of that column, the column being a stack of them rather than a label; see
+    # GroupedCell.
+    blocks = cells[mod.INVENTORY_CONFIG_COLUMN].blocks
+    assert blocks, "the heading is written on a block of its own"
+    assert [block.tk.configured["wraplength"] for block in blocks] == [panel._inventory_config_wrap_px] * len(blocks)
     # The three beside it break at the page, and are welcome to: not one of them can reach
     # even a quarter of a row.
     for column in range(mod.INVENTORY_CONFIG_COLUMN):
@@ -5902,9 +5917,11 @@ def test_the_motor_a_setting_belongs_to_is_named_once(monkeypatch) -> None:
     assert panel.inventory_rows()[0].config.split("\n") == [
         "Motor #1: AC",
         f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}",
-        # The second motor begins rather than carrying on from the first, which is the whole
-        # of the white space a cell of wrapped text has to give. Nothing above the first: it
-        # is being told from nothing, and a gap there is a hole under the module's addresses.
+        # The second motor begins rather than carrying on from the first. An empty line is
+        # how the listing writes that break; what it comes out as on the page is the cell's
+        # business, and it is a few pixels rather than a line of its own -- see the tests of
+        # GroupedCell below. Nothing above the first group: it is being told from nothing,
+        # and a break there is a hole under the module's addresses.
         mod.INVENTORY_GROUP_GAP,
         "Motor #2: Continuous (DC)",
         f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_NO}",
@@ -5914,15 +5931,15 @@ def test_the_motor_a_setting_belongs_to_is_named_once(monkeypatch) -> None:
 
 
 def test_a_module_whose_settings_are_one_block_is_written_as_one(monkeypatch) -> None:
-    # Only a heading other settings hang from opens with a line of white space above it, and
-    # the AMC2 is the one module the registry holds that has any -- a mode and a remember
-    # flag for each of its two motors, the flags labeled alike. A BPC2 reports its block of
-    # addresses and one flag, which are the block they read as, and a gap between them would
-    # be white space holding nothing apart.
+    # Only a heading other settings hang from opens a group of its own, and the AMC2 is the
+    # one module the registry holds that has any -- a mode and a remember flag for each of
+    # its two motors, the flags labeled alike. A BPC2 reports its block of addresses and one
+    # flag, which are the block they read as, and a break between them would be white space
+    # holding nothing apart.
     _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)]})
     panel = _new_panel()
 
-    assert mod.INVENTORY_GROUP_GAP == "", "a line of the column's own height, and the only kind it has"
+    assert mod.INVENTORY_GROUP_GAP == "", "an empty line, which is how the listing writes a break"
     assert mod.INVENTORY_GROUP_GAP not in panel.inventory_rows()[0].config.split("\n")
     # Read off the rule a verdict names a setting by, so the two cannot come to disagree
     # about what stands under what; see _option_heading.
@@ -6062,6 +6079,82 @@ def test_the_cells_are_stood_up_again_after_a_re_order(monkeypatch) -> None:
     assert all(cell.tk.gridded.get("sticky") == mod.INVENTORY_STICKY for row in panel._inventory_cells for cell in row)
 
 
+def test_a_group_of_settings_begins_a_few_pixels_below_the_one_above_it(monkeypatch) -> None:
+    # What an empty line in the text comes out as on the page. A cell of wrapped text has no
+    # white space but its own lines, and one line of this column costs the row a whole line's
+    # height -- 19px where the pane is cramped, 23px on the desk -- which read as further
+    # between one motor and the next than between one module and the next, there being
+    # nothing at all between two modules. So the cell is the groups themselves, a label
+    # apiece, and what holds them apart is padding: 6px, a third of a line at 12pt.
+    _amc2_based_at(monkeypatch, 1, (_motor(1, OutputType.AC, restore=True), _motor(2, OutputType.NORMAL)))
+    panel = _new_panel()
+
+    cell = panel._inventory_cells[1][mod.INVENTORY_CONFIG_COLUMN]
+    assert [block.value for block in cell.blocks] == [
+        f"Motor #1: AC\n{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}",
+        f"Motor #2: Continuous (DC)\n{mod.INVENTORY_RESTORE}: {mod.INVENTORY_NO}",
+    ]
+    # Above the second block and not the first: the space says the group below it begins, and
+    # above the first there is nothing to tell it from.
+    assert [block.tk.packed["pady"] for block in cell.blocks] == [(0, 0), (mod.INVENTORY_GROUP_GAP_PX, 0)]
+    # A break rather than a line, which is the whole of the change: a line of this column is
+    # taller again than the size it is drawn at.
+    assert 0 < mod.INVENTORY_GROUP_GAP_PX < panel._titled_text_size
+    # And the listing still writes one string per module, empty line and all: what the break
+    # looks like is the cell's business, and the row's business is what the module reports.
+    assert cell.value == panel.inventory_rows()[0].config
+    assert mod.INVENTORY_GROUP_BREAK in cell.value
+
+
+def test_a_module_with_one_group_of_settings_has_nothing_to_hold_apart(monkeypatch) -> None:
+    # A BPC2's block of addresses and its one flag are one group, and a cell with one block
+    # in it is a cell that reads exactly as the label it used to be.
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)]})
+    panel = _new_panel()
+
+    cell = panel._inventory_cells[1][mod.INVENTORY_CONFIG_COLUMN]
+    assert [block.value for block in cell.blocks] == [panel.inventory_rows()[0].config]
+    assert cell.blocks[0].tk.packed["pady"] == (0, 0)
+
+
+def test_the_blocks_of_a_cell_are_spaced_again_after_a_re_order(monkeypatch) -> None:
+    # guizero rebuilds a container's pack options from scratch whenever a child is shown or
+    # hidden, and padding is not among the options it replays: set once where the blocks are
+    # built, the space between them would hold only until the first press of a sort key.
+    # Measured in a live window -- a block hidden and shown again comes back against the one
+    # above it. The same defect the alignment above has, answered the same way.
+    _amc2_based_at(monkeypatch, 1, (_motor(1, OutputType.AC, restore=True), _motor(2, OutputType.NORMAL)))
+    panel = _new_panel()
+    cell = panel._inventory_cells[1][mod.INVENTORY_CONFIG_COLUMN]
+    for block in cell.blocks:
+        block.tk.packed.clear()
+
+    panel._on_sort_selected(mod.SORT_ID)
+
+    assert [block.tk.packed.get("pady") for block in cell.blocks] == [(0, 0), (mod.INVENTORY_GROUP_GAP_PX, 0)]
+
+
+def test_a_block_left_over_from_a_fuller_module_is_taken_off_the_page(monkeypatch) -> None:
+    # An empty label still stands a line tall, so a cell written for one group after being
+    # written for two would keep the height of the fuller module. And the spare block is left
+    # where it is rather than spaced: pack_configure *manages* a widget pack has forgotten,
+    # so padding replayed onto it would put it back on the page carrying the second motor of
+    # a module that is no longer in this row.
+    _amc2_based_at(monkeypatch, 1, (_motor(1, OutputType.AC, restore=True), _motor(2, OutputType.NORMAL)))
+    panel = _new_panel()
+    cell = panel._inventory_cells[1][mod.INVENTORY_CONFIG_COLUMN]
+    assert len(cell.blocks) == 2
+    for block in cell.blocks:
+        block.tk.packed.clear()
+
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)]})
+    panel.show_inventory()
+
+    assert [block.visible for block in cell.blocks] == [True, False]
+    assert cell.value == panel.inventory_rows()[0].config, "the BPC2 stands in that row now"
+    assert [block.tk.packed.get("pady") for block in cell.blocks] == [(0, 0), None]
+
+
 def test_a_row_the_page_is_no_longer_showing_is_left_where_it_is(monkeypatch) -> None:
     # Not an optimization: grid_configure *manages* a widget the grid has forgotten, so
     # replaying a spare row's alignment would put it back on the page carrying the text of
@@ -6126,13 +6219,38 @@ def test_the_device_page_carries_the_key_that_opens_the_listing() -> None:
     panel = _new_panel()
     page = panel._pages[mod.PAGE_DEVICE]
 
+    row = panel._inventory_key_row
     assert panel._inventory_btn.text == mod.INVENTORY_TEXT
-    assert panel._inventory_btn in page.children
-    assert page.children.index(panel._device_group) < page.children.index(panel._inventory_btn)
+    assert panel._inventory_btn in row.children
+    assert page.children.index(panel._device_group) < page.children.index(row)
 
     panel._inventory_btn.command()
 
     assert panel.page_index == mod.PAGE_INVENTORY
+
+
+def test_the_key_that_opens_the_listing_stands_where_the_keys_below_it_stand() -> None:
+    # Back, Next and the Close beneath them are centered on the pane. Everything on a page is
+    # centered on the page, and the page is one scroll bar narrower than the pane -- the bar
+    # is drawn over the page's right-hand edge rather than beside it -- so a key centered on
+    # a page stands half a bar to the left of the keys directly below it: 12px on the Pi and
+    # the desk, 15px on a Deck, measured in a live window with the panel's own nesting.
+    #
+    # So the gutter is handed back to this one key, as a spacer beside it: what is centered
+    # on the page is then the key *and* the gutter, which leaves the key itself on the pane's
+    # middle, where the other keys are. A spacer widget rather than pack padding, which every
+    # turn of the panel would discard. See _build_inventory_key_row.
+    panel = _new_panel()
+    row = panel._inventory_key_row
+
+    assert len(row.children) == 2 and row.children[1] is panel._inventory_btn, "the gutter, then the key"
+    gutter = row.children[0]
+    assert isinstance(gutter, DummyBox) and not gutter.value, "white space, and nothing else"
+    assert gutter.kwargs["width"] == mod.scroll_bar_px() == mod.SCROLL_BAR_PX
+    assert gutter.kwargs["height"] == 1, "it holds a column apart, not two rows"
+    assert gutter.kwargs["align"] == panel._inventory_btn.kwargs["align"] == "left"
+    # And the row itself is centered on the page like anything else built into one.
+    assert row.kwargs["align"] == "top"
 
 
 def test_the_listing_is_left_by_back_for_the_page_it_was_opened_from() -> None:
