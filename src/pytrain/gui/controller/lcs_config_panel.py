@@ -224,20 +224,22 @@ INVENTORY_COLUMNS = len(INVENTORY_HEADINGS)
 # heading, bar an ID column of two digits -- so they are the reservation the last column's
 # wrap is taken from, exactly as ROW_FIXED_COLUMNS_EMS is taken for the module rows.
 #
-# Measured in the cells' own font at each of the three sizes they are drawn at -- 12pt where
-# the pane is cramped, 13 on a Deck, 14 on the desk -- the cell padding included: 151px,
+# Measured in the cells' own font at 12pt, 13 and 14, the cell padding included: 151px,
 # 158px and 173px, which is 12.6, 12.2 and 12.4 times the size, one font at three sizes
-# being why they agree. 13 is a shade over the worst of them.
+# being why they agree. 13 is a shade over the worst of them. The listing is drawn at the
+# page's body size wherever it is drawn -- 14 on the Pi and the desk, 13 on a Deck, and 12
+# on none of them since it stopped following the titled boxes down; see
+# LcsConfigPanel._inventory_text_size.
 #
 # A shade, where this reservation was several ems over before it was measured, because what
 # too large a reservation costs here is not the break a long line was going to take anyway:
 # the grid is centered in the page, so every em held back from the last column is width the
 # rows do not take and the margins do. At 20 -- the module rows' 16, and a few more for the
-# column those rows do not have -- a cramped pane's configuration column broke at 192px of a
-# 432px page: a module's Yes stood on a line of its own with 54px of nothing down either
-# side of the listing. A screen whose font runs wider than the one measured here is a few
-# pixels over rather than a column short, and what those come out of is WRAP_INSET, the
-# page's own margin, which is kept outside this arithmetic.
+# column those rows do not have -- the configuration column broke at 192px of a 432px page
+# at 12pt: a module's Yes stood on a line of its own with 54px of nothing down either side
+# of the listing. A screen whose font runs wider than the one measured here is a few pixels
+# over rather than a column short, and what those come out of is WRAP_INSET, the page's own
+# margin, which is kept outside this arithmetic.
 INVENTORY_CONFIG_COLUMN = INVENTORY_COLUMNS - 1
 INVENTORY_FIXED_COLUMNS_EMS = 13
 # How a cell sits in its column: against the top of the row and against its left edge, which
@@ -267,14 +269,14 @@ INVENTORY_MODULE_NAMES: dict[str, str] = {SENSOR_TRACK.key: "IR"}
 # settings on power-up" and each of the AMC2's "Remember speed on power-up". Each is a
 # sentence written to be read beside the box that decides it, with the width of an options
 # row to say it in; wrapped at this column's width each takes two lines of the tallest
-# column in the panel -- 322px and 262px at 12pt against a column of 276, 374 and 305 at
-# 14pt against 250 -- on every such module the layout holds.
+# column in the panel -- 374px and 305px at 14pt against a column of 250, 337 and 275 at
+# 13pt against 263 -- on every such module the layout holds.
 #
 # Worded as the line an operator reads rather than as the question they were asked to
 # answer: it says when the module restores and leaves what it restores to the module named
 # two columns over, which is how one name can serve a BPC2's relays and an AMC2's motors
 # alike. And short enough to hold its own Yes or No beside it on one line at either size --
-# 190px and 221 against those same columns -- which is the whole point of a flag in a column
+# 221px and 199 against those same columns -- which is the whole point of a flag in a column
 # read down the page.
 #
 # Keyed by the module's key and the setting's, neither of which is wording, so the short
@@ -331,16 +333,16 @@ INVENTORY_SETTING = "{name}: {value}"
 #
 # The empty line is notation and is never drawn. A cell of wrapped text has no white space
 # but its own lines, and one line of this column costs the row the whole of a line's
-# height -- 19px where the pane is cramped, 23px on the desk, Tk laying every line of a
-# label out at the one font's height. So the listing goes on writing one string per module,
-# with an empty line marking where a group ends, and the cell holds the blocks that line
-# separates apart by INVENTORY_GROUP_GAP_PX of real padding instead; see GroupedCell.
+# height -- 23px at the size the listing is drawn at, 20 on a Deck, Tk laying every line of
+# a label out at the one font's height. So the listing goes on writing one string per
+# module, with an empty line marking where a group ends, and the cell holds the blocks that
+# line separates apart by INVENTORY_GROUP_GAP_PX of real padding instead; see GroupedCell.
 #
-# 6px is a third of a line at 12pt and a quarter of one at 14: enough to see the second
-# motor begin, and no more. What stands between one module and the next is nothing at all
-# -- the bold name in the Module column is what tells them apart -- so a group given a
-# line's worth reads as further from its own module than the module is from its neighbors,
-# which is the very thing a full line was found to do.
+# 6px is a quarter of a line at 14pt and a little under a third at 13: enough to see the
+# second motor begin, and no more. What stands between one module and the next is nothing
+# at all -- the bold name in the Module column is what tells them apart -- so a group given
+# a line's worth reads as further from its own module than the module is from its
+# neighbors, which is the very thing a full line was found to do.
 INVENTORY_GROUP_GAP = ""
 INVENTORY_GROUP_BREAK = f"\n{INVENTORY_GROUP_GAP}\n"
 INVENTORY_GROUP_GAP_PX = 6
@@ -1369,6 +1371,31 @@ class LcsConfigPanel(OverlayPanel):
         return host.s_12 if cramped_pane() else host.s_14
 
     @property
+    def _inventory_text_size(self) -> int:
+        """The size the My Modules listing is drawn at: the page's body size, on every screen.
+
+        Not _titled_text_size, though the same code builds the listing's grid and the rows
+        inside those boxes. What steps that size down on the Pi is height -- the three boxes
+        are three quarters of that machine's tallest page, and 3pt off every line of them is
+        what makes the page fit. This is a page of its own, a heading and three sort keys
+        over a grid, and it is scrolled: what it cannot show it scrolls to. Nothing is bought
+        there by drawing it small, and what it costs is that the one page in the panel which
+        is nothing but reading matter is set in the smallest text on any of them.
+
+        So the listing is a size up where the panel used to draw it a size down: 14 on the Pi
+        and the desk, 13 on a Deck. It is paid for in width, the size being what the three
+        bounded columns' reservation is a multiple of -- the configuration column breaks at
+        250px rather than 276 -- and the largest size whose whole price is the one line the
+        operator agreed to lose. Measured in the cells' own font against the column each size
+        leaves: at 14 the IR Sensor Track's action takes two lines (311px against 250) and
+        every other line the registry can write holds, the widest of them being "Motor #2:
+        Proportional (DC)" at 236px and "Restore on power-up: Yes" at 221; at 15 the AMC2's
+        motor modes go with it (244px against 237), and at 16 the flag beneath them (239
+        against 224). See INVENTORY_FIXED_COLUMNS_EMS for the reservation itself.
+        """
+        return self._gui.s_14
+
+    @property
     def _row_name_wrap_px(self) -> int:
         """The width the name column of a module row breaks a name at.
 
@@ -2231,16 +2258,21 @@ class LcsConfigPanel(OverlayPanel):
         are read before the list is, and a page that can be re-ordered says so at its head --
         and they are one row of radios in a titled box, exactly as the roster panel's own
         Sort By is drawn, so the two pages are sorted the same way by the same-looking key.
+
+        Every word on the page is set at the page's own body size, which is a size above what
+        the titled boxes of the ID page are drawn at on the Pi: the keys read as the rows they
+        order, and the heading a size above both. See _inventory_text_size.
         """
         host = self._gui
+        size = self._inventory_text_size
         page = Box(body, align="top", border=0)
         self._label(page, INVENTORY_TITLE, size=host.s_16, bold=True)
 
         sort_box = TitleBox(page, text=INVENTORY_SORT_TITLE, align="top")
-        sort_box.text_size = self._titled_text_size
+        sort_box.text_size = size
         self._sort_group = CheckBoxGroup(
             sort_box,
-            size=self._titled_text_size,
+            size=size,
             options=[[label, key] for label, key in INVENTORY_SORTS],
             selected=self._sort_key,
             align="top",
@@ -2254,7 +2286,7 @@ class LcsConfigPanel(OverlayPanel):
             # key is anywhere near long enough to need it: what a row may not do is run off
             # the edge of the screen, and that is a rule about rows rather than about the
             # words in these three.
-            wrap=self._row_wrap_px(self._titled_text_size),
+            wrap=self._row_wrap_px(size),
             # Stepped by the pad like every other list in the panel. It is the only control
             # on this page, so it is the only thing a Deck could be pointing at here.
             cursor=pad_driven(),
@@ -2269,7 +2301,7 @@ class LcsConfigPanel(OverlayPanel):
         self._build_inventory_headings()
         # And, where there are no rows, the line that says so -- below the grid, where the
         # first row would have been.
-        self._inventory_empty_line = self._note_line(page, size=self._titled_text_size)
+        self._inventory_empty_line = self._note_line(page, size=size)
         self._refresh_inventory()
         return page
 
@@ -2297,6 +2329,9 @@ class LcsConfigPanel(OverlayPanel):
             # The one column in either grid whose text comes in groups, and so the one cell
             # that is a stack of them rather than a label; see GroupedCell.
             group_gap_px=INVENTORY_GROUP_GAP_PX,
+            # And the one grid drawn at the page's body size wherever it is drawn, the module
+            # rows following the boxes they stand in; see _inventory_text_size.
+            size=self._inventory_text_size,
         )
 
     @property
@@ -2309,8 +2344,12 @@ class LcsConfigPanel(OverlayPanel):
         pane so narrow that the reservation would swallow the column -- a column told to
         break at zero is a column told not to break at all, which would carry the longest
         line a module can write straight off the edge of the pane.
+
+        Taken with the listing's own size rather than the titled boxes', which is what the
+        larger text on this page is paid for with: the column breaks at 250px where the
+        smaller text left it 276. See _inventory_text_size.
         """
-        reserved = INVENTORY_FIXED_COLUMNS_EMS * self._titled_text_size
+        reserved = INVENTORY_FIXED_COLUMNS_EMS * self._inventory_text_size
         return max(self._wrap_px // INVENTORY_COLUMNS, self._wrap_px - reserved)
 
     def show_inventory(self) -> None:
@@ -4175,6 +4214,7 @@ class LcsConfigPanel(OverlayPanel):
         wrap_column: int = ROW_NAME_COLUMN,
         wrap_px: int | None = None,
         group_gap_px: int = 0,
+        size: int | None = None,
     ) -> tuple[GridCell, ...]:
         """
         The cells of one grid row, created the first time the row is used.
@@ -4189,14 +4229,17 @@ class LcsConfigPanel(OverlayPanel):
         either looking like a cell of the other. See _refresh_inventory.
 
         group_gap_px is offered to every cell of the row and taken up by the one that wraps,
-        that being the only column whose text comes in groups; see _grid_cell.
+        that being the only column whose text comes in groups; see _grid_cell. size is the
+        grid's own, the module rows taking the size of the boxes they stand in and the
+        listing the size of the page it is; see _inventory_text_size.
         """
         while len(cells) <= index:
             row = len(cells)
             # Only the first column is bold; it is the column the eye runs down.
             cells.append(
                 tuple(
-                    self._grid_cell(grid, column, row, wrap_column, wrap_px, group_gap_px) for column in range(columns)
+                    self._grid_cell(grid, column, row, wrap_column, wrap_px, group_gap_px, size)
+                    for column in range(columns)
                 )
             )
         return cells[index]
@@ -4209,6 +4252,7 @@ class LcsConfigPanel(OverlayPanel):
         wrap_column: int = ROW_NAME_COLUMN,
         wrap_px: int | None = None,
         group_gap_px: int = 0,
+        size: int | None = None,
     ) -> GridCell:
         """One cell of a grid: the label all but one of them is, or a stack of them.
 
@@ -4233,8 +4277,12 @@ class LcsConfigPanel(OverlayPanel):
             # The box stands in the grid where the label would, and is gridded and hidden as
             # a label is; the blocks inside it are the cell's own business.
             box = Box(grid, grid=[column, row], align="left")
-            return GroupedCell(box, lambda parent: self._cell_label(parent, align="top", width=width), group_gap_px)
-        return self._cell_label(grid, grid=[column, row], bold=column == 0, width=width)
+            return GroupedCell(
+                box,
+                lambda parent: self._cell_label(parent, align="top", width=width, size=size),
+                group_gap_px,
+            )
+        return self._cell_label(grid, grid=[column, row], bold=column == 0, width=width, size=size)
 
     def _cell_label(
         self,
@@ -4244,12 +4292,15 @@ class LcsConfigPanel(OverlayPanel):
         align: str = "left",
         bold: bool = False,
         width: int | None = None,
+        size: int | None = None,
     ) -> Text:
         """A label a grid cell is written on, styled as every cell of either grid is.
 
-        The size of the box titles above them: these rows are the answer the operator came
-        to the page for, not a caption on it. Which is a size down where the pane has
-        nothing to spare, as those titles are; see _titled_text_size.
+        The size of the box titles above them unless the grid asks for another: these rows
+        are the answer the operator came to the page for, not a caption on it. Which is a
+        size down where the pane has nothing to spare, as those titles are -- and the My
+        Modules listing, which stands in no box and is scrolled, asks for the page's own
+        body size instead. See _titled_text_size and _inventory_text_size.
 
         A label stacked inside a cell rather than gridded as one is stretched to the cell's
         width and its text anchored west, which is what keeps the left edges of two blocks
@@ -4260,7 +4311,7 @@ class LcsConfigPanel(OverlayPanel):
         """
         stacked = grid is None
         cell = Text(parent, text="", grid=grid, align=align, width="fill" if stacked else None)
-        cell.text_size = self._titled_text_size
+        cell.text_size = size or self._titled_text_size
         cell.text_bold = bold
         self._wrap(cell, justify="left", width=width)
         try:

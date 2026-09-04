@@ -5548,9 +5548,12 @@ def test_the_listing_leaves_its_last_column_the_page_less_the_three_beside_it() 
     # column's own heading, bar an ID column of two digits, which comes to 151px at 12pt, 158
     # at 13 and 173 at 14 -- 12.6, 12.2 and 12.4 times the cells' own size. See
     # INVENTORY_FIXED_COLUMNS_EMS for the measurements behind the multiple.
+    #
+    # Taken with the listing's own size rather than the titled boxes', which is what the
+    # larger text on this page is paid for with; see _inventory_text_size.
     panel = _new_panel()
 
-    reserved = mod.INVENTORY_FIXED_COLUMNS_EMS * panel._titled_text_size
+    reserved = mod.INVENTORY_FIXED_COLUMNS_EMS * panel._inventory_text_size
     assert panel._inventory_config_wrap_px == panel._wrap_px - reserved
     cells = panel._inventory_cells[0]
     # Every block of that column, the column being a stack of them rather than a label; see
@@ -6079,13 +6082,53 @@ def test_the_cells_are_stood_up_again_after_a_re_order(monkeypatch) -> None:
     assert all(cell.tk.gridded.get("sticky") == mod.INVENTORY_STICKY for row in panel._inventory_cells for cell in row)
 
 
+@pytest.mark.parametrize("linux, cramped", [(True, True), (False, False)])
+def test_the_listing_reads_at_the_page_body_size_on_every_screen(monkeypatch, linux: bool, cramped: bool) -> None:
+    # The listing's grid is built by the very code that builds the module rows of the ID
+    # page, and those rows take the size of the titled boxes they stand in -- a size down on
+    # the Pi, which is what makes that page, three quarters of it boxes, fit the screen at
+    # all. This page has none of that: a heading, three sort keys and a grid, and it is
+    # scrolled, so what it cannot show it scrolls to. Nothing was bought there by drawing it
+    # small, and what it cost was that the one page in the panel which is nothing but reading
+    # matter was set in the smallest text on any of them.
+    #
+    # So the listing is a size up on the Pi and the same size everywhere. It is paid for in
+    # width, the size being the multiple the three bounded columns are reserved by: the
+    # configuration column breaks at 250px rather than 276, at which the IR Sensor Track's
+    # action takes the second line it was given leave to take (311px) and every other line
+    # the registry can write still holds -- the widest are 236px and 221 against that 250.
+    # See _inventory_text_size for the measurements at the sizes either side of it.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    host = panel.gui
+    panel._set_base_id(1)
+    size = panel._inventory_text_size
+
+    assert size == host.s_14
+    assert cramped == (panel._titled_text_size < size), "a size up exactly where the boxes step down"
+    # Every word on the page, the heading keeping its own step above the lot.
+    row = panel._inventory_cells[1]
+    assert [cell.text_size for cell in row[: mod.INVENTORY_CONFIG_COLUMN]] == [size] * mod.INVENTORY_CONFIG_COLUMN
+    assert [block.text_size for block in row[mod.INVENTORY_CONFIG_COLUMN].blocks] == [size]
+    assert panel._sort_group.kwargs["size"] == size
+    sort_box = next(
+        child for child in panel._pages[mod.PAGE_INVENTORY].children if child.text == mod.INVENTORY_SORT_TITLE
+    )
+    assert sort_box.text_size == size
+    assert panel._inventory_empty_line.text_size == size
+    # And the rows of the ID page are left where they were, which is the whole of the reason
+    # the size had to become the grid's rather than the panel's.
+    assert [cell.text_size for cell in panel._assigned_cells[0]] == [panel._titled_text_size] * mod.ROW_COLUMNS
+
+
 def test_a_group_of_settings_begins_a_few_pixels_below_the_one_above_it(monkeypatch) -> None:
     # What an empty line in the text comes out as on the page. A cell of wrapped text has no
     # white space but its own lines, and one line of this column costs the row a whole line's
-    # height -- 19px where the pane is cramped, 23px on the desk -- which read as further
-    # between one motor and the next than between one module and the next, there being
+    # height -- 23px at the size the listing is drawn at, 20 on a Deck -- which read as
+    # further between one motor and the next than between one module and the next, there being
     # nothing at all between two modules. So the cell is the groups themselves, a label
-    # apiece, and what holds them apart is padding: 6px, a third of a line at 12pt.
+    # apiece, and what holds them apart is padding: 6px, a quarter of a line at 14pt.
     _amc2_based_at(monkeypatch, 1, (_motor(1, OutputType.AC, restore=True), _motor(2, OutputType.NORMAL)))
     panel = _new_panel()
 
@@ -6099,7 +6142,7 @@ def test_a_group_of_settings_begins_a_few_pixels_below_the_one_above_it(monkeypa
     assert [block.tk.packed["pady"] for block in cell.blocks] == [(0, 0), (mod.INVENTORY_GROUP_GAP_PX, 0)]
     # A break rather than a line, which is the whole of the change: a line of this column is
     # taller again than the size it is drawn at.
-    assert 0 < mod.INVENTORY_GROUP_GAP_PX < panel._titled_text_size
+    assert 0 < mod.INVENTORY_GROUP_GAP_PX < panel._inventory_text_size
     # And the listing still writes one string per module, empty line and all: what the break
     # looks like is the cell's business, and the row's business is what the module reports.
     assert cell.value == panel.inventory_rows()[0].config
