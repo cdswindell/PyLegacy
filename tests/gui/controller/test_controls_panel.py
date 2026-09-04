@@ -21,7 +21,6 @@ from src.pytrain.gui.controller.control_labels import (
     DPAD_TITLE,
     GLOBAL_CHORD_TITLE,
     GLOBAL_SECTION_BUTTONS,
-    LCS_CONFIG_PANEL_TITLE,
     POPUP_PANEL_TITLE,
     ROUTE_PANEL_TITLE,
     SWITCH_PANEL_TITLE,
@@ -77,37 +76,33 @@ def test_bundled_profile_fits_on_one_page() -> None:
     assert len(panel.paginate()) == 1
 
 
-@pytest.mark.parametrize("budget", range(ROWS_PER_COLUMN, ROWS_PER_COLUMN + 10))
+@pytest.mark.parametrize("budget", range(ROWS_PER_COLUMN - 1, ROWS_PER_COLUMN + 9))
 def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
     # The column order is the section order in controls_summary, so this is the assertion
     # that keeps it: the reader asking what a control does while a panel of some kind is up
-    # reads to the end of the page, and nothing that answers a different question is mixed
-    # in among those sections. They no longer all fit one column -- five of them come to 24
-    # rows -- so the run begins at the foot of the middle column with the LCS panel, whose
-    # rows are all keys you press bar the last, and the popup row that says how to leave a
-    # panel sits directly above it.
+    # has one column to read, and the sections that answer a different question -- the
+    # D-pad, and the X that closes whatever popup is on screen -- close the column before it
+    # rather than sitting in the middle of that list.
     #
     # Asserted across budgets because the budget is derived from the display rather than
     # fixed: with the break left to arithmetic, the panel sections led the last column at
     # 20 rows and the first of them was pulled up into the bottom of the middle one at 22,
     # which is what the Deck itself derives. The layout cannot depend on the machine.
     #
-    # The sweep's floor is ROWS_PER_COLUMN, which is the floor the screen is ever drawn at:
-    # it is the fallback for when there is no Tk to measure with, and a display that can
-    # measure derives more -- 21 to 24 rows on the Deck, 24 on the machine this was written
-    # on. The floor used to be a row under that, the layout clearing 18, 19, 19 with a row in
-    # hand; the LCS section's fourth row spent it, and the count is asserted here rather than
-    # left to the comment so that the next row to be added fails on the arithmetic instead of
-    # on somebody noticing. A budget of 19 now deals the LCS section into the last column and
-    # the switch, route, admin and catalog sections onto a second page, and nothing gives the
-    # row back: see the layout note at the end of controls_summary.
+    # The sweep's floor is a row under ROWS_PER_COLUMN, which is what those four sections and
+    # the admin note come to: below that they do not fit at all, a question of capacity rather
+    # than of packing. ROWS_PER_COLUMN itself is the floor the screen is ever drawn at, being
+    # the fallback for when there is no Tk to measure with, so the layout holds with a row in
+    # hand. It held with none while the LCS panel's section was on the screen, and a display
+    # that derives that row less answered by sending this whole column onto a second page --
+    # which is why the section is out; see the layout note at the end of controls_summary.
     #
     # The ceiling is well above what any display derives, and has to be: a row is as tall as
     # the taller of its text and a section heading, so thinning the section outlines to
     # SECTION_BORDER took the heading's two border pixels off every row and handed this
-    # machine 24 rows where it had 22. This packing now holds to 30, where it used to give
-    # way at 28: the first column has to reach 31 before the Buttons section can be pulled
-    # into it, which is a different screen from the one these assertions describe.
+    # machine 24 rows where it had 22. Above 30 the layout does break -- the middle column
+    # runs out of sections to hold and the D-pad moves up into the first -- which is a
+    # different screen from the one these assertions describe.
     panel = _panel(ControlProfile.load(None))
     panel._rows_per_column = budget
 
@@ -120,14 +115,28 @@ def test_the_last_column_holds_only_the_per_panel_sections(budget) -> None:
         CATALOG_PANEL_TITLE,
     ]
     assert columns[0][0].title == GLOBAL_CHORD_TITLE
-    assert [section.title for section in columns[1][-2:]] == [POPUP_PANEL_TITLE, LCS_CONFIG_PANEL_TITLE]
-    # Row for row, the split the sections add up to: the middle column is full at the budget
-    # the screen falls back to, so a row added anywhere ahead of the last column comes out of
-    # a column that has none spare.
-    assert [sum(ControlsPanel.section_rows(section) for section in column) for column in columns] == [18, 20, 19]
-    # The pad reads with the controls you steer with rather than with the buttons: that is
-    # the row the first column had to find for any three-column split to exist at all.
-    assert DPAD_TITLE in [section.title for section in columns[0]]
+    assert columns[1][-1].title == POPUP_PANEL_TITLE
+    # The pad reads with the buttons rather than with the sticks: it is a set of keys, and it
+    # is the section that closes the column of them. It moved up among the analog controls
+    # while the LCS section was on the screen, to pay for that section's rows.
+    assert DPAD_TITLE in [section.title for section in columns[1]]
+
+
+def test_the_bundled_columns_add_up_with_a_row_to_spare() -> None:
+    # Row for row, the split the sections add up to at the budget the screen falls back to,
+    # which is the tightest it is ever drawn at. Asserted rather than left to the layout note
+    # in controls_summary, so that the next row added anywhere fails on the arithmetic instead
+    # of on somebody noticing: what a column one row too tight costs is not a wrapped line but
+    # a fourth column, and the fourth column is page two -- reached with the D-pad, and with
+    # nothing on the first page to say it is there. The LCS panel's five rows are what proved
+    # it, filling the middle column to 20 of the 20 this budget allows.
+    panel = _panel(ControlProfile.load(None))
+
+    columns = panel.paginate()[0]
+    rows = [sum(ControlsPanel.section_rows(section) for section in column) for column in columns]
+
+    assert rows == [15, 18, 19]
+    assert max(rows) == ROWS_PER_COLUMN - 1, "the fullest column is the last, with a row in hand"
 
 
 def test_a_section_that_starts_a_column_gets_one_of_its_own(monkeypatch) -> None:

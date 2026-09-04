@@ -15,6 +15,7 @@ from src.pytrain.gui.controller.control_labels import (
     BUTTONS_TITLE,
     CATALOG_PANEL_TITLE,
     DPAD_TITLE,
+    FIXED_LCS_CONFIG_ENTRIES,
     GLOBAL_CHORD_TITLE,
     LCS_CONFIG_PANEL_TITLE,
     POPUP_PANEL_TITLE,
@@ -446,7 +447,12 @@ def test_the_catalog_lists_both_ways_out_of_it() -> None:
     assert entries[f"Left or {button_label(CLOSE_POPUP_BUTTON)}"] == "Close catalog"
 
 
-def test_the_lcs_config_panel_remap_is_listed() -> None:
+def test_the_lcs_config_panel_remap_is_written_up() -> None:
+    # Read where the rows stand rather than through controls_summary, because the section is
+    # held off the screen for now -- see the layout note at the end of controls_summary, and
+    # test_the_lcs_config_rows_are_held_off_the_screen_for_now below. What they say is what
+    # goes back up when there is a page to put it on, so it is worth keeping honest meanwhile.
+    #
     # That panel is worked through rather than glanced at, so five keys drive it while it is
     # up and the D-pad section's "Boost / brake speed" is untrue of two of them. Without this
     # the screen would describe only their engine meaning, which is the same reason the
@@ -454,8 +460,9 @@ def test_the_lcs_config_panel_remap_is_listed() -> None:
     #
     # Five keys on three rows, and the pane's own two analog controls on a fourth: each row
     # pairs two inputs against what they do, the way the D-pad's own "Up / Down" pairs with
-    # "Boost / brake speed". Four is every row there is room for -- see the layout note at
-    # the end of controls_summary.
+    # "Boost / brake speed". Four was every row there was room for, and is one more than the
+    # screen has room for at all as things stand -- see the layout note at the end of
+    # controls_summary.
     #
     # Right says "and Next" because that is what it mostly does: on a page whose list is the
     # whole of what it asks, choosing is finishing, so right chooses and turns the page. The
@@ -465,10 +472,7 @@ def test_the_lcs_config_panel_remap_is_listed() -> None:
     # Configure is named on the A row because A presses it: on the last page there is no page
     # to turn to, and after three pages where A meant "next" a key that programs a module is
     # a surprise the screen has to state.
-    section = _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE)
-
-    assert section.fixed is True
-    assert [(entry.input, entry.action, entry.note) for entry in section.entries] == [
+    assert [(entry.input, entry.action, entry.note) for entry in FIXED_LCS_CONFIG_ENTRIES] == [
         ("Up / Down", "Move the highlight", ""),
         ("Right / Left", "Choose and Next / undo", ""),
         (f"{button_label(SELECT_BUTTON)} / {button_label(BACK_PAGE_BUTTON)}", "Choose, Next or Configure / Back", ""),
@@ -482,11 +486,10 @@ def test_the_lcs_config_rows_name_every_key_the_router_claims() -> None:
     # face buttons, and a row that named them literally would go on promising a key that has
     # since moved. Every claimed key has to appear, or the screen leaves one of the five
     # undocumented -- which is the whole complaint the section answers.
-    section = _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE)
-    named = " ".join(entry.input for entry in section.entries)
+    named = " ".join(entry.input for entry in FIXED_LCS_CONFIG_ENTRIES)
 
     for key in ("Up", "Down", "Right", "Left", button_label(SELECT_BUTTON), button_label(BACK_PAGE_BUTTON)):
-        assert key in named, f"{key} drives the panel and is not on the screen"
+        assert key in named, f"{key} drives the panel and is not on its rows"
     # X is not among them, and is not meant to be: it closes this panel through the popup
     # handling every panel is closed by, which the popup section states once for all of them.
     assert button_label(CLOSE_POPUP_BUTTON) not in named
@@ -499,40 +502,38 @@ def test_the_lcs_config_stick_and_pad_are_named_as_scrolling_the_page() -> None:
     # are named (DeckInputRouter._config_panel_scrolled). One row for the two of them, the
     # way the rows above pair two inputs against what they do, and the action says the page
     # moves rather than the highlight on it, which is the row above's job.
-    section = _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE)
-
-    scrolling = [entry for entry in section.entries if entry.action.startswith("Scroll")]
+    scrolling = [entry for entry in FIXED_LCS_CONFIG_ENTRIES if entry.action.startswith("Scroll")]
 
     assert len(scrolling) == 1
     assert {"Stick", "Pad"} <= set(scrolling[0].input.split(" / "))
     assert "page" in scrolling[0].action
     # And nowhere else in the section: the key rows are about keys, and a control written up
     # on two rows is a control whose two rows can come to disagree.
-    assert [entry.input for entry in section.entries if "Stick" in entry.input] == [scrolling[0].input]
+    assert [entry.input for entry in FIXED_LCS_CONFIG_ENTRIES if "Stick" in entry.input] == [scrolling[0].input]
 
 
-def test_the_lcs_config_section_survives_a_stripped_down_profile() -> None:
-    # Fixed sections come from the router, not from bindings, so a profile that binds almost
-    # nothing still has to be told what the pad does while that panel is up. The custom
-    # profile binds one axis, two buttons and a chord, and none of them is a key this
-    # section names.
-    profile = ControlProfile.from_dict(CUSTOM_PROFILE)
+def test_the_lcs_config_rows_are_held_off_the_screen_for_now() -> None:
+    # Five rows filled the middle column to the last row of the fallback budget, and a display
+    # that derives a row less answers that by opening a fourth column -- which is page two,
+    # reached with the D-pad and announced nowhere on the first page. So the panel group a
+    # reader is likeliest to want went behind a page turn nobody would take, and the section
+    # is out until the screen has a second page worth turning to. See the layout note at the
+    # end of controls_summary.
+    #
+    # Whatever the profile binds, since the section never came from bindings: it is the
+    # router's own remap (_config_panel_only), so a stripped-down profile is not a way for it
+    # to reappear.
+    for profile in (ControlProfile.load(None), ControlProfile.from_dict(CUSTOM_PROFILE)):
+        titles = [section.title for section in controls_summary(profile)]
 
-    section = _section(profile, LCS_CONFIG_PANEL_TITLE)
-
-    assert section.fixed is True
-    assert section.entries == _section(ControlProfile.load(None), LCS_CONFIG_PANEL_TITLE).entries
-
-
-def test_the_lcs_config_section_reads_under_the_row_that_closes_a_panel() -> None:
-    # X is the sixth key of that panel's set and is deliberately not one of its rows, so the
-    # row that does say it has to be the one above: a reader working through the panel who
-    # wants out finds it without leaving the section. It is also what puts the LCS rows at
-    # the foot of the column of keys you press rather than among the per-panel sections,
-    # which no longer have a column's room for them.
-    titles = [section.title for section in controls_summary(ControlProfile.load(None))]
-
-    assert titles[titles.index(POPUP_PANEL_TITLE) + 1] == LCS_CONFIG_PANEL_TITLE
+        assert LCS_CONFIG_PANEL_TITLE not in titles
+        # Where the rows go back, and why they are worth keeping in one piece: directly under
+        # the row that says how to leave a panel. X is the sixth key of that panel's set and
+        # is deliberately not one of its own rows, so a reader working through the panel who
+        # wants out has to find it without leaving the section.
+        assert titles[titles.index(POPUP_PANEL_TITLE) + 1] == SWITCH_PANEL_TITLE
+    # And they are kept, so the revisit is the one line that lists them again.
+    assert len(FIXED_LCS_CONFIG_ENTRIES) == 4
 
 
 def test_fixed_sections_are_marked_as_such() -> None:

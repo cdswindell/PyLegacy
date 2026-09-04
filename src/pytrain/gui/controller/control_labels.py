@@ -176,8 +176,12 @@ ADMIN_PANEL_TITLE = "Admin Panel (w focus)"
 CATALOG_PANEL_TITLE = "Catalog Panel (w focus)"
 # Named for the panel rather than for what it programs: "LCS Module Configuration" is what
 # the panel's own title band says, and the two words that survive an abbreviation of it are
-# the two a reader scanning the headings needs. It leads the narrow column, where the full
+# the two a reader scanning the headings needs. It led the narrow column, where the full
 # name wrapped the heading onto a second line.
+#
+# Not drawn as things stand: the section is held out of controls_summary until the screen
+# has a second page a reader would think to turn to. See FIXED_LCS_CONFIG_ENTRIES and the
+# layout note at the end of controls_summary.
 LCS_CONFIG_PANEL_TITLE = "LCS Config (w focus)"
 SWITCH_PANEL_TITLE = "Switches (w focus)"
 ROUTE_PANEL_TITLE = "Routes (w focus)"
@@ -385,6 +389,14 @@ FIXED_CATALOG_ENTRIES: tuple[ControlEntry, ...] = (
 
 FIXED_POPUP_ENTRIES: tuple[ControlEntry, ...] = (ControlEntry("X", "Close the panel on screen", ""),)
 
+# Held out of controls_summary as things stand, and kept here rather than thrown away
+# because what is wrong with them is not what they say: five rows filled the middle column
+# to the last row of the budget the fallback ruler allows, and a display that derives a row
+# less answers that with a second page rather than with a broken line. See the layout note
+# at the end of controls_summary for what that costs, and put them back when there is a way
+# to show a page beyond the first that a reader would find. Everything below is the record
+# of why each row reads as it does, which is worth no less for the section being off screen.
+#
 # The LCS module configuration panel is worked *through* rather than glanced at -- four pages
 # of radio rows with Back and Next under them -- so DeckInputRouter (_config_panel_only) puts
 # five keys and the pane's own two analog controls on the panel while it is up, and the D-pad
@@ -594,53 +606,43 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
 
     # Reading order, which is also column order: ControlsPanel flows these into columns in
     # sequence, so this tuple is where the layout is decided. The bundled profile lands as
-    # three columns -- what works anywhere and the controls you steer with, then everything
-    # you press, then the sections about one kind of panel. starts_column says where the last
-    # of those begins instead of leaving it to how the rows happen to add up.
+    # three columns -- what works anywhere and the analog controls, then everything you
+    # press, then nothing but the sections about one kind of panel. Keeping those together
+    # in the last column is the point: a reader asking "what does this do while a panel is
+    # up" has one place to look, and the D-pad, which answers a different question, closes
+    # the column before rather than sitting in the middle of that list. starts_column says
+    # that in the layout instead of leaving it to how the rows happen to add up.
+    #
+    # The popup section is the one that closes the middle column instead, which is where the
+    # row the Routes sticks needed came from: those four panel sections and the admin note
+    # fill the last column to within a row of the budget ROWS_PER_COLUMN falls back to, and a
+    # row more put the catalog behind a page turn nobody would think to take. It is the
+    # section that could move, because it is the one that is not about a kind of panel at all
+    # -- it is X, closing whatever is on screen -- so it reads as well at the foot of the
+    # buttons as it did at the head of a list of panel types, and the catalog states its own
+    # way out on its own rows regardless.
     #
     # The arithmetic, measured against the budget ROWS_PER_COLUMN falls back to, which is the
-    # tightest the screen is ever drawn at: 18 rows, then 20, then 19, out of 20 apiece. It
-    # is the only split there is. The eleven sections come to 57 rows, three columns hold 60,
-    # and every other way of cutting them either runs a column over or -- since a section
-    # cannot spill out of the last column except onto a second page -- pushes the catalog
-    # behind a page turn nobody would think to take.
-    #
-    # The middle column is full, and that is what the LCS section's fourth row cost. The
-    # layout used to clear a budget a row under the fallback as well (18, 19, 19 of 19), and
-    # that row in hand is what went on the stick and the pad; a budget of 19 now breaks the
-    # page in two instead. Nothing gives it back. 57 rows want 19, 19, 19 to survive 19, and
-    # no column boundary lands on 19 -- the sections ahead of the Buttons come to 7, 12, 15
-    # and 18 rows and the Buttons are 13 in one piece -- so the only split that adds up puts
-    # the LCS rows in the first column beside the sticks and sends the trackpads and the pad
-    # down among the buttons. That buys a budget no display derives (the Deck's own measures
-    # 21 to 24 rows, and 20 is what a screen with no font to measure falls back to) at the
-    # price of the reason every one of those sections is where it is.
-    #
-    # Two things moved to reach it, and the LCS section is why. The five sections about a
-    # kind of panel now come to 24 rows, so they no longer fit one column at all: it is not
-    # that the new one is a row too many but that a section of any size is, a one-row section
-    # making 21. So the panel group begins at the foot of the middle column, where the LCS
-    # rows read better than they would have anywhere in the last one -- every one of them is
-    # a key you press, which is what that column holds, and the popup row directly above
-    # them is how you get out of the panel they describe. The switch and route sections stay
-    # together in the last column, as the twins they are, and the LCS rows are the narrowest
-    # thing that could have gone into the middle column, which is also the narrow one.
-    #
-    # The D-pad moved up to pay for it. The first column was 15 rows and had to reach 16 for
-    # any split to exist, and the D-pad is the section that reads as well up there: what is
-    # in that column is now everything that is not a button -- the sticks, the trackpads and
-    # the pad -- and boosting the speed with the pad is the same kind of thing as driving it
-    # with a stick. Moving the popup section instead would have bought a row too few and
-    # separated it from the LCS rows it answers.
+    # tightest the screen is ever drawn at: 15 rows, then 18, then 19, out of 20 apiece. The
+    # three in hand are the LCS panel's section, which is not among these and is why the
+    # D-pad reads down here rather than up with the sticks. Listed after the popup row it
+    # made 57 rows split 18, 20, 19 -- inside the fallback budget, and a row over the 19 a
+    # real display can derive. A middle column one row too tight is not answered here with a
+    # broken line: the LCS rows take the third column, the switch section has to open one
+    # (starts_column), and the four sections about a kind of panel open a fourth. A fourth
+    # column is page two, which is reached with the D-pad and which nothing on the first page
+    # says is there -- so the reader asking what a control does while a panel is up was left
+    # with the popup row and the LCS rows, and no sign of the switches, the routes, the admin
+    # chords or the catalog. The rows themselves are kept (FIXED_LCS_CONFIG_ENTRIES) against
+    # a second page a reader would think to turn to.
     sections = (
         ControlSection(GLOBAL_CHORD_TITLE, tuple(global_buttons + global_chords)),
         ControlSection("Joysticks", tuple(sticks)),
         ControlSection("Trackpads", tuple(pads)),
-        ControlSection(DPAD_TITLE, FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection(BUTTONS_TITLE, tuple(buttons)),
         ControlSection("Chords", tuple(chords)),
+        ControlSection(DPAD_TITLE, FIXED_DPAD_ENTRIES, fixed=True),
         ControlSection(POPUP_PANEL_TITLE, FIXED_POPUP_ENTRIES, fixed=True),
-        ControlSection(LCS_CONFIG_PANEL_TITLE, FIXED_LCS_CONFIG_ENTRIES, fixed=True),
         ControlSection(SWITCH_PANEL_TITLE, FIXED_SWITCH_ENTRIES, fixed=True, starts_column=True),
         ControlSection(ROUTE_PANEL_TITLE, FIXED_ROUTE_ENTRIES, fixed=True),
         ControlSection(ADMIN_PANEL_TITLE, tuple(admin_chords), note=ADMIN_PANEL_NOTE),
