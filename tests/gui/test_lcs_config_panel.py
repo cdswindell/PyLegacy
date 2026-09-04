@@ -2023,7 +2023,8 @@ def test_configure_queues_the_presses_in_order_then_the_verify_gets() -> None:
     panel.on_configure()
 
     sent = panel.gui.sent
-    assert len(sent) == 5  # three keys, then CONFIG and INFO
+    # Three keys, then CONFIG and INFO -- once for every time the module is asked.
+    assert len(sent) == 3 + 2 * len(mod.LcsConfigPanel._verify_times(3))
     commands = [request.command for request, _repeat, _delay in sent[:3]]
     number, digit = reg.number_key(0, CommandScope.TRAIN)
     # The AUX key and the number are two keys, so they are two requests, staggered like any
@@ -2050,7 +2051,10 @@ def test_configure_queues_the_presses_in_order_then_the_verify_gets() -> None:
         part in panel._requested_line.value
         for part in (BPC2.label, mode.ports_label, mod.SCOPE_LABEL[mode.scope], "12")
     )
-    assert panel._reported_line.value == mod.AWAITING_READBACK
+    # And the panel says what it is doing about it: the module has been asked for its
+    # configuration, and the answer is going to be held against what was just sent.
+    assert panel._reported_line.value == "", "the module has not said anything yet"
+    assert panel._status_line.value == mod.VERIFYING.format(module=BPC2.label)
 
 
 def test_configure_of_a_sensor_track_always_sends_both_halves() -> None:
@@ -2063,6 +2067,56 @@ def test_configure_of_a_sensor_track_always_sends_both_halves() -> None:
     commands = [request.command for request, _repeat, _delay in panel.gui.sent[:3]]
     number, _digit = reg.number_key(0, CommandScope.ACC)
     assert commands == [TMCC1AuxCommandEnum.SET_ADDRESS, reg.aux_key(1, CommandScope.ACC), number]
+
+
+def test_the_module_is_asked_again_and_again_while_the_panel_waits() -> None:
+    # One GET is one chance at an answer. A module put into program mode a beat late, or a
+    # request lost on the way, is silence -- and silence is now a verdict rather than a note,
+    # so being wrong about it costs the operator a reprogramming.
+    asks = mod.LcsConfigPanel._verify_times(3)
+
+    assert len(asks) > 1
+    assert asks[0] == 3 * mod.PRESS_DELAY + mod.VERIFY_DELAY, "not before the last press has landed"
+    assert {round(later - earlier, 6) for earlier, later in zip(asks, asks[1:])} == {mod.VERIFY_POLL_DELAY}
+    # And never after the panel has stopped listening: an answer arriving then cannot change
+    # a verdict already written.
+    assert asks[-1] < mod.READBACK_TIMEOUT_MSEC / 1000
+
+
+def test_a_sequence_that_runs_past_the_wait_is_still_asked_once() -> None:
+    # The presses are staggered, so a long sequence eats the wait: an AMC2's six keys are
+    # 2.1 seconds of the 5. A module that is never asked can only be reported as silent,
+    # which would fail a module that took everything it was sent.
+    long_one = 100
+
+    assert mod.LcsConfigPanel._verify_times(long_one) == [long_one * mod.PRESS_DELAY + mod.VERIFY_DELAY]
+
+
+def test_the_status_line_is_not_colored_as_an_answer_until_there_is_one() -> None:
+    # Green or red is an answer whatever the words beside it say, and there is none yet:
+    # what the line reports at this point is that the panel is still asking.
+    panel = _new_panel()
+    panel._on_device_selected(BPC2.key)
+
+    panel.on_configure()
+
+    assert panel._status_line.visible is True
+    assert panel._status_line.text_color == mod.VERIFYING_FG
+    assert panel._status_line.text_color not in (mod.VERIFIED_FG, mod.UNVERIFIED_FG)
+
+
+def test_the_configure_button_wears_the_shared_look_of_the_overlays_other_keys(monkeypatch) -> None:
+    # Styled by its text size alone, it was drawn flat -- a rectangle with a word in it, the
+    # one key in the panel that did not read as a key, and the one that programs a module.
+    # What the look is remains the popup's to say; what is pinned here is that this button
+    # is given it, exactly as Back, Next and the Close below them are.
+    styled: list[Any] = []
+    monkeypatch.setattr(mod, "style_footer_button", lambda _host, btn: styled.append(btn), raising=True)
+
+    panel = _new_panel()
+
+    assert panel._configure_btn in styled
+    assert [btn.text for btn in styled] == [mod.CONFIGURE_TEXT, mod.BACK_TEXT, mod.NEXT_TEXT]
 
 
 def test_read_back_reports_what_the_module_says() -> None:
@@ -2737,12 +2791,21 @@ def test_the_nav_row_gives_back_the_footer_bands_vertical_padding(monkeypatch, c
     # Back and Next wear the shared footer look, but they are not in the popup's footer band:
     # Close is, below them, with its own lead and padding. A footer button's 20px above and
     # below, taken three times down one overlay, is what pushed Close off the ID page.
+    #
+    # Configure gives it back for the same reason and by the same number: it wears that look
+    # too, and it stands in the middle of a page with a line of its own above and below it,
+    # where a footer band's whitespace is a gap in the middle of the reading rather than the
+    # room around a row of keys.
     calls: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(mod, "repad_footer_button", lambda btn, **kw: calls.append((btn.text, kw)), raising=True)
 
     _build_with_body(compact=compact)
 
-    assert calls == [(mod.BACK_TEXT, {"pady": expected}), (mod.NEXT_TEXT, {"pady": expected})]
+    assert calls == [
+        (mod.CONFIGURE_TEXT, {"pady": expected}),
+        (mod.BACK_TEXT, {"pady": expected}),
+        (mod.NEXT_TEXT, {"pady": expected}),
+    ]
     # Horizontal padding is untouched: it is the gap between the two buttons.
     assert all("padx" not in kwargs for _text, kwargs in calls)
 
@@ -3882,6 +3945,322 @@ def test_a_field_that_means_something_else_on_the_record_is_not_taken_as_an_answ
 
 
 #
+# The verdict: what the module reports, held against what was sent
+#
+# Configure sends handset presses and nothing else, so the module's own report is the only
+# evidence any of it was taken -- and a module that was never put into program mode answers
+# perfectly healthily with what it held all along. What makes the difference between those
+# two is holding the answer against what was sent, which is what these ask about.
+#
+def _bpc2_state_at_12(mode: reg.LcsMode = None) -> FakeStore:
+    """The component state a BPC2 at 12 leaves, which is where a read-back lands.
+
+    Carries the mode and nothing else about the module's settings: a BPC2's restore flag is
+    a bit of the mode byte in its own CONFIG packet and reaches no component state at all,
+    which is why the layouts below are stood up in two halves.
+    """
+    mode = mode or BPC2.default_mode
+    return FakeStore({mode.scope: [FakeState(12, "is_bpc2", mode=mode.pdi_mode, num_ids=mode.ports)]})
+
+
+def _programmed_bpc2(store: FakeStore = None, mode: reg.LcsMode = None) -> Any:
+    """A panel that has just sent a BPC2's sequence at 12, with nothing answered yet."""
+    mode = mode or BPC2.default_mode
+    panel = _new_panel(store)
+    panel._on_device_selected(BPC2.key)
+    panel._on_mode_selected(mode.key)
+    panel._set_base_id(12)
+    panel.on_configure()
+    return panel
+
+
+def test_a_module_reporting_what_it_was_sent_is_a_success(monkeypatch) -> None:
+    # The whole point of asking. Nothing else the panel can show says the sequence was
+    # taken: the presses go out whether or not anything is listening.
+    panel = _programmed_bpc2(_bpc2_state_at_12())
+    _bpc2_based_at(monkeypatch, 12, BPC2.default_mode, restore=False)
+
+    panel.on_readback()
+
+    assert panel.verification() == mod.Verification(reported=True, differs=())
+    assert panel.verification().passed is True
+    assert panel._status_line.value == mod.VERIFIED
+    assert panel._status_line.text_color == mod.VERIFIED_FG == mod.UNASSIGNED_FG
+    assert panel._status_line.visible is True
+    # And what the module said is still on the line above, so the verdict can be checked
+    # rather than taken on trust.
+    assert panel._reported_line.value.startswith(mod.REPORTED.format(summary=""))
+
+
+def test_a_module_holding_something_else_is_unsuccessful_and_says_what(monkeypatch) -> None:
+    # The failure the operator cannot see for themselves: the module answered, at the right
+    # address on the right key, and is holding a setting it was not given. Which setting is
+    # named, because that is the difference between reading the module's report and acting
+    # on it.
+    panel = _programmed_bpc2(_bpc2_state_at_12())
+    assert panel._sent_program.options["restore"] is False
+    _bpc2_based_at(monkeypatch, 12, BPC2.default_mode, restore=True)
+
+    panel.on_readback()
+
+    restore = BPC2.option("restore")
+    assert panel.verification() == mod.Verification(reported=True, differs=(restore.label,))
+    assert panel._status_line.value == mod.UNVERIFIED_LINE.format(
+        verdict=mod.UNVERIFIED,
+        reason=mod.NOT_AS_SENT.format(items=restore.label),
+        retry=mod.VERIFY_RETRY.format(module=BPC2.label, button=BPC2.program_button),
+    )
+    assert panel._status_line.text_color == mod.UNVERIFIED_FG == mod.CONFLICT_FG
+    # The word, the setting and the remedy are each on the line, whatever sentence holds them.
+    assert all(part in panel._status_line.value for part in (mod.UNVERIFIED, restore.label, BPC2.program_button))
+
+
+def test_a_module_reporting_another_mode_is_unsuccessful(monkeypatch) -> None:
+    # A module can answer at the address it was given and still not be what was asked for:
+    # an ASC2 told to hold eight accessory IDs and left holding one is on the same key at
+    # the same address, and every other line on the page would read as though it had worked.
+    asked, holding = ASC2.mode("acc_8"), ASC2.mode("acc_1")
+    store = FakeStore({CommandScope.ACC: [FakeState(9, "is_asc2", mode=holding.pdi_mode, num_ids=holding.ports)]})
+    panel = _new_panel(store)
+    panel._on_device_selected(ASC2.key)
+    panel._on_mode_selected(asked.key)
+    panel._set_base_id(9)
+    panel.on_configure()
+    _with_pdi_store(monkeypatch, {PdiDevice.ASC2: [FakePdiConfig(9, CommandScope.ACC, mode=holding.pdi_mode)]})
+
+    panel.on_readback()
+
+    assert panel.verification() == mod.Verification(reported=True, differs=(mod.MODE_TITLE,))
+    assert mod.MODE_TITLE in panel._status_line.value
+    assert panel._status_line.text_color == mod.UNVERIFIED_FG
+
+
+def test_a_module_that_never_answers_is_unsuccessful_too() -> None:
+    # The likeliest failure of all, and the one the reminder is written for: a module that
+    # was not in program mode took none of the sequence, and a module that is not there at
+    # all cannot have taken it either. Silence is not a verdict the panel can withhold --
+    # the operator would otherwise be left reading a page that says the presses were sent.
+    panel = _programmed_bpc2()
+
+    panel.gui.app.fire()
+
+    assert panel._reported_line.value == mod.NO_RESPONSE
+    assert panel.verification() == mod.Verification(reported=False, differs=())
+    assert panel._status_line.value == mod.UNVERIFIED_LINE.format(
+        verdict=mod.UNVERIFIED,
+        reason=mod.NOT_REPORTED,
+        retry=mod.VERIFY_RETRY.format(module=BPC2.label, button=BPC2.program_button),
+    )
+    assert panel._status_line.text_color == mod.UNVERIFIED_FG
+
+
+def test_a_module_that_answers_after_the_panel_gave_up_is_still_heard(monkeypatch) -> None:
+    # The panel stops asking; it does not stop listening. An operator who reads the red line,
+    # holds PGM and runs the sequence again from the module's side is answered by a module
+    # that now holds what it was sent -- and a failure left standing over it would send them
+    # back to a page that is already correct.
+    store = FakeStore()
+    panel = _programmed_bpc2(store)
+    panel.gui.app.fire()
+    assert panel._status_line.value.startswith(mod.UNVERIFIED), "nothing answered in time"
+
+    store._states.update(_bpc2_state_at_12()._states)
+    _bpc2_based_at(monkeypatch, 12, BPC2.default_mode, restore=False)
+    panel.on_readback()
+
+    assert panel._status_line.value == mod.VERIFIED
+    assert panel._status_line.text_color == mod.VERIFIED_FG
+
+
+@pytest.mark.parametrize("device", list(reg.configurable_devices()))
+def test_the_reminder_names_the_button_the_module_really_has(device: reg.LcsDevice) -> None:
+    # A PGM key on most modules and a PROGRAM key on the Sensor Track, so the sentence is
+    # filled from the registry: an operator told to hold a button their module has not got
+    # is worse off than one told nothing at all.
+    panel = _new_panel()
+    panel._on_device_selected(device.key)
+    panel._show_page(mod.PAGE_REVIEW)
+    panel.on_configure()
+
+    panel.gui.app.fire()
+
+    assert panel._status_line.value.endswith(mod.VERIFY_RETRY.format(module=device.label, button=device.program_button))
+    assert device.program_button in panel._status_line.value
+
+
+def test_a_setting_the_module_says_nothing_about_is_not_faulted(monkeypatch) -> None:
+    # The same rule the options page seeds by: a record that has not been answered says
+    # nothing, and nothing is not disagreement. An AMC2 that has reported no motors would
+    # otherwise be failed for all four of its settings at once -- a record read as though
+    # every unanswered field meant zero.
+    _amc2_based_at(monkeypatch, 5, ())
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+    panel._set_base_id(5)
+    panel.on_configure()
+
+    assert reg.programmed_options(AMC2, AMC2.mode("acc")), "the mode does set them"
+    assert panel.verification().passed is True
+    assert panel.verification_text(panel.verification()) == mod.VERIFIED
+
+
+def test_a_motor_holding_another_mode_is_named_by_the_motor(monkeypatch) -> None:
+    # Two settings of the same kind on one module, told apart by the heading each stands
+    # under on the options page -- which is the option's own label, so the verdict names
+    # them the way the page that set them does.
+    _amc2_based_at(monkeypatch, 5, (_motor(1, OutputType.NORMAL), _motor(2, OutputType.AC)))
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+    panel._set_base_id(5)
+    sent = dict(panel.options)
+    panel.on_configure()
+    # The far motor is then found running something else: what a sequence half taken leaves.
+    _amc2_based_at(monkeypatch, 5, (_motor(1, sent["motor1_mode"]), _motor(2, OutputType.DELTA)))
+
+    assert panel.verification() == mod.Verification(reported=True, differs=(AMC2.option("motor2_mode").label,))
+    assert AMC2.option("motor1_mode").label not in panel.verification_text(panel.verification())
+
+
+def test_two_settings_a_module_names_alike_are_told_apart_by_their_motor(monkeypatch) -> None:
+    # The AMC2 calls both its remember flags "Remember speed on power-up" -- worded for the
+    # room a Pi's page has, and told apart on the page by the bold motor heading each stands
+    # under. Faulting both of them by label alone would say the same words twice and leave
+    # the operator no way to tell which motor is at fault.
+    shared = [option.label for option in AMC2.options].count(AMC2.option("motor1_restore").label)
+    assert shared == 2, "the module really does name them alike"
+    running = (_motor(1, OutputType.NORMAL), _motor(2, OutputType.NORMAL))
+    _amc2_based_at(monkeypatch, 5, running)
+    panel = _new_panel()
+    panel._on_device_selected(AMC2.key)
+    panel._set_base_id(5)
+    for key in ("motor1_restore", "motor2_restore"):
+        panel._option_widgets[(AMC2.key, key)].value = 1
+        panel._on_option_changed(AMC2.key, key)
+    panel.on_configure()
+    # Neither tap took: the module is still running with both motors forgetting their speed.
+    _amc2_based_at(monkeypatch, 5, running)
+
+    named = panel.verification().differs
+
+    assert len(named) == 2, "two faults, not one written twice"
+    assert len(set(named)) == 2
+    for motor, name in zip(("Motor #1", "Motor #2"), named):
+        assert name.startswith(motor), "named by the heading it stands under on the page"
+        assert AMC2.option("motor1_restore").label.lower() in name.lower()
+
+
+def test_a_setting_a_module_names_only_once_is_named_by_that_alone() -> None:
+    # The general case, and the reason the qualifier is not simply always added: a module
+    # with one such setting has nothing to tell it apart from, and the page draws it under
+    # no heading but its own.
+    assert mod.LcsConfigPanel._option_name(BPC2, BPC2.option("restore")) == BPC2.option("restore").label
+    assert mod.LcsConfigPanel._option_name(AMC2, AMC2.option("motor2_mode")) == "Motor #2"
+
+
+def test_the_verdict_is_given_on_what_was_sent_and_not_on_what_the_pages_now_show(monkeypatch) -> None:
+    # The read-back takes seconds to arrive and the operator is free to walk back through
+    # the pages while it does. Judged against the panel as it then stands, a module that
+    # took the sequence perfectly would be reported as having failed the moment a box was
+    # ticked -- and the tick has not been sent to anything.
+    panel = _programmed_bpc2(_bpc2_state_at_12())
+    _bpc2_based_at(monkeypatch, 12, BPC2.default_mode, restore=False)
+
+    panel._option_widgets[(BPC2.key, "restore")].value = 1
+    panel._on_option_changed(BPC2.key, "restore")
+
+    assert panel.options["restore"] is True, "the page has changed"
+    assert panel._sent_program.options["restore"] is False, "and what was sent has not"
+    assert panel.verification().passed is True
+
+
+def test_a_module_of_another_type_at_the_address_does_not_answer_for_it(monkeypatch) -> None:
+    # An address can hold two modules, and a BPC2 that took nothing is not vouched for by
+    # the AMC2 sitting beside it: the module asked for is the type that was programmed,
+    # based where it was sent, on the key it was sent on. Read by the address alone, an
+    # accessory answering there would pass for the module that never did.
+    panel = _programmed_bpc2()
+    _with_pdi_store(monkeypatch, {PdiDevice.AMC2: [FakePdiConfig(12, CommandScope.ACC, access_type=AccessType.ACC)]})
+
+    assert panel.assigned_occupants(), "something does answer at the address"
+    assert panel.verification().reported is False
+
+
+def test_nothing_is_judged_before_anything_is_sent() -> None:
+    # The panel is opened on a layout it has not touched, and every module on it is holding
+    # whatever it is holding. There is no verdict to give until a sequence has gone out.
+    panel = _new_panel(_bpc2_state_at_12())
+    panel._on_device_selected(BPC2.key)
+    panel._set_base_id(12)
+
+    assert panel.verification() == mod.Verification()
+    assert panel._status_line.value == ""
+    assert panel._status_line.visible is False
+
+
+def test_the_verdict_is_cleared_when_the_panel_is_reopened(monkeypatch) -> None:
+    # It was a verdict on one module at one address; reopened, the panel is about to be
+    # aimed at another, and a green Success left standing would be read as this one's.
+    panel = _programmed_bpc2(_bpc2_state_at_12())
+    _bpc2_based_at(monkeypatch, 12, BPC2.default_mode, restore=False)
+    panel.on_readback()
+    assert panel._status_line.value == mod.VERIFIED
+
+    panel.configure(None, None, None)
+
+    assert panel._status_line.value == ""
+    assert panel._status_line.visible is False
+
+
+def test_the_verdict_is_brought_into_view_when_it_is_written() -> None:
+    # It is the last line of the tallest page the panel draws, and on a Pi that page is
+    # taller than the window it is drawn in -- measured 747px of 619 for the Sensor Track --
+    # so the answer the operator is standing there waiting for would arrive below the fold.
+    # The window is moved as little as it takes, exactly as it is for a highlight the pad
+    # steps onto a row nobody can see.
+    panel, _body, _host = _build_with_body()
+    scroll = panel.scroll
+    panel._on_device_selected(SENSOR_TRACK.key)
+    panel._show_page(mod.PAGE_REVIEW)
+    scroll.shown.clear()
+
+    panel.on_configure()
+
+    assert scroll.shown[-1] is panel._status_line, "the polling line, as soon as it is written"
+    scroll.shown.clear()
+    panel.gui.app.fire()
+    assert panel._status_line.value.startswith(mod.UNVERIFIED), "and the verdict that follows it"
+    assert scroll.shown[-1] is panel._status_line
+    # The page is refitted first: a line only just shown has not been laid out yet, and where
+    # it was while it was hidden is nowhere worth scrolling to.
+    assert scroll.fits, "the window is measured again before it is moved"
+
+
+def test_a_line_taken_off_the_page_is_not_scrolled_to() -> None:
+    # Nothing to show: the panel is reopened, which clears the verdict, and a window that
+    # moved for it would carry the operator to the foot of a page they have not read.
+    panel, _body, _host = _build_with_body()
+    panel._show_page(mod.PAGE_REVIEW)
+    panel.scroll.shown.clear()
+
+    panel._reset_readback()
+
+    assert panel._status_line.value == ""
+    assert panel.scroll.shown == []
+
+
+def test_the_verdict_stands_below_the_two_lines_it_is_drawn_from() -> None:
+    # What was asked for, what the module answered, and only then what that amounts to: the
+    # conclusion is read after the two facts it is drawn from, and it is the last word on
+    # the page because there is nothing to say after it.
+    panel = _new_panel()
+    order = panel._pages[mod.PAGE_REVIEW].children.index
+
+    assert order(panel._configure_btn) < order(panel._requested_line)
+    assert order(panel._requested_line) < order(panel._reported_line) < order(panel._status_line)
+    assert panel._status_line.text_bold is True, "the one line on the page that is waited for"
+
+
+#
 # The two reports are colored as the warning they are
 #
 def test_a_module_already_at_the_id_is_reported_in_dark_red() -> None:
@@ -4681,7 +5060,7 @@ def test_the_a_key_presses_configure_on_the_review_page() -> None:
     ]
     # And the module is asked what it now holds, which is the half of Configure that is not
     # presses: a press that sent the sequence and armed no read-back would report nothing.
-    assert panel._reported_line.value == mod.AWAITING_READBACK
+    assert panel._status_line.value == mod.VERIFYING.format(module=BPC2.label)
 
 
 def test_the_a_key_sends_nothing_where_configure_is_disabled() -> None:

@@ -45,6 +45,7 @@ from .lcs_device_registry import (
     device_for_key,
     device_for_state,
     enabled_modes,
+    programmed_options,
     reported_mode,
     tmcc_id_span,
     tmcc_id_text,
@@ -114,6 +115,15 @@ OVERLAP_TITLE = "Overlaps"
 CONFLICT_FG = "#8B0000"  # dark red
 UNASSIGNED_FG = "#006400"  # dark green
 
+# And what the verdict on a read-back is written in, which is those same two shades: the
+# panel has one green and one red, and whether the module took what it was sent is the
+# other thing it has to say in them. Named apart from the rows above all the same, because
+# they answer a different question -- an address already spoken for, against a module that
+# did not come back holding what it was given -- and either could come to want its own
+# shade without dragging the other along.
+VERIFIED_FG = UNASSIGNED_FG
+UNVERIFIED_FG = CONFLICT_FG
+
 # Breathing room on either side of a module-row cell, so the gridded columns do not run
 # into one another. Internal Label padding rather than grid padding, which is discarded
 # every time anything in the box is shown, hidden or created.
@@ -141,8 +151,33 @@ ROW_NAME_COLUMN = 1
 ROW_FIXED_COLUMNS_EMS = 16
 
 WAITING_FOR_BASE = "Waiting for Base 3..."
-AWAITING_READBACK = "Waiting for the module to report..."
-NO_RESPONSE = "No response - is the module in program mode?"
+NO_RESPONSE = "No response from the module"
+
+# What the panel says while it is checking, and the verdict it comes to. Configure sends
+# Cab-remote presses and nothing else -- there is no PDI CONFIG SET anywhere in this pass --
+# so what the module now holds is knowable only by asking it, and the answer is worth
+# holding against what was sent rather than merely printing: a module that was never put
+# into program mode takes none of the sequence and says so by reporting what it held all
+# along, which reads like success to anyone not comparing the two.
+VERIFYING = "Polling the {module} to verify its configuration matches what was sent..."
+VERIFIED = "Success"
+UNVERIFIED = "Unsuccessful"
+
+# What follows that word on a line that failed: what is wrong, and what to do about it.
+# Named rather than said in one sentence because the two reasons are different facts -- the
+# module answered and disagrees, or it did not answer at all -- while the remedy is the same
+# either way, and is the likeliest thing to have gone wrong: the sequence is only taken by a
+# module standing in program mode, and the button that puts it there is on the module.
+NOT_REPORTED = "no configuration reported"
+NOT_AS_SENT = "not set as sent: {items}"
+VERIFY_RETRY = "Hold the {module}'s {button} button and try again."
+UNVERIFIED_LINE = "{verdict} - {reason}. {retry}"
+
+# And what the line is written in while the panel is still asking, which is neither of the
+# two verdict shades: a line already colored as an answer, before there is an answer, is one
+# the operator reads as an answer. Stated rather than left to the widget's own default,
+# because this one line is recolored and has to be able to get back.
+VERIFYING_FG = "black"
 SENSOR_TRACK_REVIEW_NOTE = (
     "The sequence is only complete once the Action Command has been assigned; "
     "pressing PROGRAM again aborts it with no change."
@@ -374,6 +409,14 @@ PRESS_DELAY = 0.35
 VERIFY_DELAY = 1.0
 READBACK_TIMEOUT_MSEC = 5000
 
+# And how often the module is asked again while the panel waits out that timeout. Asked
+# more than once because a single GET is a single chance: a module put into program mode a
+# beat late, or a request lost on the way, is a read-back that never arrives -- and the
+# panel now draws a conclusion from that silence rather than merely noting it, so a module
+# that took the sequence perfectly well would be reported as having failed. Two small PDI
+# requests a second is a cheap way not to be wrong about that.
+VERIFY_POLL_DELAY = 1.0
+
 # What the Cab remote calls each scope, which is the language the operator's manual uses.
 # Every key the panel programs on, and no other: the AMC2 can be addressed as an engine
 # and the registry records that mode, but the panel offers no row on it, so no line of the
@@ -479,6 +522,32 @@ class ModuleRow:
         whether the box has any rows at all, so one method fills the two boxes.
         """
         return self.module == UNASSIGNED
+
+
+@dataclass(frozen=True)
+class Verification:
+    """The verdict on a read-back: what the module reports, held against what was sent.
+
+    Two facts rather than one, because there are two ways for a programming pass to have
+    failed and the operator can act on the difference: the module answered and is holding
+    something else, or nothing answered at all. Only the first can name what is wrong.
+
+    A verdict is never given on the panel's current selection but on the program that was
+    actually sent, which is why this is built from an LcsProgram; see
+    LcsConfigPanel.verification.
+    """
+
+    # Whether a module of the type programmed was found at the address it was programmed to.
+    reported: bool = False
+    # What it holds that is not what was sent, named as the pages that set it name it.
+    differs: tuple[str, ...] = ()
+
+    @property
+    def passed(self) -> bool:
+        """
+        Whether the module came back holding what it was given, which is the only success.
+        """
+        return self.reported and not self.differs
 
 
 def touch_only_editing() -> bool:
@@ -680,6 +749,7 @@ class LcsConfigPanel(OverlayPanel):
         self._footnote_line: Text | None = None
         self._requested_line: Text | None = None
         self._reported_line: Text | None = None
+        self._status_line: Text | None = None
 
         # Read-back
         self._sent_program: LcsProgram | None = None
@@ -1690,13 +1760,32 @@ class LcsConfigPanel(OverlayPanel):
         # the wrap the rest of the page has. See review_note.
         self._review_note_line = self._note_line(page, size=host.s_12)
         self._configure_btn = btn = HoldButton(page, text=CONFIGURE_TEXT, align="top", command=self.on_configure)
-        btn.text_size = host.s_16
+        # The one shared look for the big buttons of an overlay, which Back, Next and the
+        # Close below them all wear: a raised border and an edge, a lighter face than the
+        # panel, and a darker one while it is held. Set by its text size alone, this was the
+        # only key in the panel drawn flat -- a rectangle with a word in it -- which is a
+        # poor way to draw the one key that programs a module.
+        #
+        # Its pack padding is then trimmed exactly as the Back/Next row's is: the band a
+        # footer button carries is meant to hold a row off the panel and the pane, and this
+        # button stands in the middle of a page with a line of its own above and below it.
+        # See style_footer_button and NAV_ROW_PAD.
+        style_footer_button(host, btn)
+        repad_footer_button(btn, pady=self._nav_row_pad)
+        host.cache(btn)
         # How to put the module into program mode, what was asked of it, and what it said
         # back -- the last two arriving after Configure, at whatever length the module's own
         # report runs to.
         self._footnote_line = self._label(page, "", size=host.s_12)
         self._requested_line = self._label(page, "", size=host.s_12)
         self._reported_line = self._label(page, "", size=host.s_12)
+        # And the verdict drawn from those two: whether the module came back holding what it
+        # was sent. Below them, because it is the conclusion of reading them, and at the
+        # page's body size in bold against their smaller one, because it is the one line on
+        # this page an operator is waiting for. It says nothing until Configure is pressed
+        # and takes no room while it says nothing; see _show_status.
+        self._status_line = self._label(page, "", bold=True)
+        self._status_line.hide()
         return page
 
     @property
@@ -1779,18 +1868,47 @@ class LcsConfigPanel(OverlayPanel):
         # Press.build and PRESS_DELAY.
         for i, request in enumerate(program.presses):
             submit(request, 1, i * PRESS_DELAY)
-        after_presses = len(program.presses) * PRESS_DELAY + VERIFY_DELAY
-        for j, request in enumerate(program.verify):
-            submit(request, 1, after_presses + j * PRESS_DELAY)
+        # And then the module is asked what it now holds, once the presses have had their
+        # moment to land and again on the beat until the wait is up; see _verify_times.
+        for at in self._verify_times(len(program.presses)):
+            for j, request in enumerate(program.verify):
+                submit(request, 1, at + j * PRESS_DELAY)
 
         self._sent_program = program
         self._readback_pending = True
         if self._requested_line is not None:
             self._requested_line.value = REQUESTED.format(summary=self.requested_summary)
         if self._reported_line is not None:
-            self._reported_line.value = AWAITING_READBACK
+            # Emptied rather than filled with a line about waiting: what the module said is
+            # this line's business, and it has not said anything yet. The waiting is the
+            # status line's, which says what the waiting is for.
+            self._reported_line.value = ""
+        self._show_status(VERIFYING.format(module=program.device.label), VERIFYING_FG)
         self._watch_readback(program)
         self._schedule(READBACK_TIMEOUT_MSEC, self.on_readback_timeout)
+
+    @staticmethod
+    def _verify_times(presses: int) -> list[float]:
+        """When to ask the module what it now holds, in seconds from the first press.
+
+        Once the last press has had VERIFY_DELAY to land, and then again on
+        VERIFY_POLL_DELAY for as long as the panel is going to wait on the answer. Every ask
+        falls inside READBACK_TIMEOUT_MSEC: past that the panel has written its verdict, and
+        a question asked then could only be answered later still. At least one is sent
+        however long the sequence itself runs, because a module still has to be asked.
+
+        The panel stops asking there; it does not stop listening. A module put into program
+        mode late reports of its own accord, and the state watcher outlives the timeout, so
+        an answer that does arrive is still read and still judged.
+
+        The sequence's own length is what makes this worth computing rather than fixing: the
+        presses are staggered, so an AMC2's six keys are 2.1 seconds of the 5 the panel
+        waits before the first GET can even go out.
+        """
+        after_presses = presses * PRESS_DELAY + VERIFY_DELAY
+        budget = READBACK_TIMEOUT_MSEC / 1000 - after_presses
+        asks = max(1, int(budget / VERIFY_POLL_DELAY) + 1)
+        return [after_presses + ask * VERIFY_POLL_DELAY for ask in range(asks)]
 
     def _schedule(self, msec: int, action: Callable[[], None]) -> None:
         app = getattr(self._gui, "app", None)
@@ -1859,6 +1977,7 @@ class LcsConfigPanel(OverlayPanel):
         self._readback_pending = False
         if self._reported_line is not None:
             self._reported_line.value = REPORTED.format(summary=self.reported_text(state))
+        self._show_verification(self.verification())
 
     def on_readback_timeout(self) -> None:
         """
@@ -1873,6 +1992,156 @@ class LcsConfigPanel(OverlayPanel):
         self._readback_pending = False
         if self._reported_line is not None:
             self._reported_line.value = NO_RESPONSE
+        # Nothing was heard, so nothing is judged: the verdict is that the module did not
+        # report, whatever the stores may still hold about it from before the presses. A
+        # module that answers on one side of the store and not the other is read the other
+        # way round -- see on_readback, which judges whatever did arrive.
+        self._show_verification(Verification())
+
+    #
+    # Verification: what the module reports, held against what was sent
+    #
+    def verification(self, program: LcsProgram | None = None) -> Verification:
+        """Whether the module came back holding what the presses gave it.
+
+        Configure is a handset gesture and nothing more -- the panel writes nothing over PDI
+        -- so the module's own report is the only evidence a sequence was taken, and the
+        only useful reading of that report is against what was sent. A module that was never
+        put into program mode takes none of the sequence and reports exactly what it always
+        held, which is a perfectly healthy-looking read-back and the commonest way for a
+        programming pass to fail.
+
+        Three things are compared. Its address and remote key, by the lookup itself: the
+        module is asked for at the address and on the key the presses set, so being found at
+        all is that part of the answer. The mode it reports. And every setting this mode's
+        presses actually set, which is not always every setting the module has; see
+        programmed_options.
+
+        All of it read in the module's own terms, through the same two accessors the options
+        page seeds itself with, so the panel understands a read-back exactly as well as it
+        understands a module it comes across on the layout.
+
+        A setting the module says nothing about is passed over rather than faulted: a record
+        that has not been answered says nothing, and nothing is not disagreement -- the same
+        rule the seeding follows. Nothing being found at all is the one silence that is not
+        passed over, because that is the module failing to answer for itself entirely.
+        """
+        program = program or self._sent_program
+        if program is None:
+            return Verification()
+        occupant = self._programmed_occupant(program)
+        if occupant is None:
+            return Verification()
+        differs: list[str] = []
+        if occupant.mode is not None and occupant.mode is not program.mode:
+            # Named by the box the mode was chosen in, as every other line is named by the
+            # thing that set it.
+            differs.append(MODE_TITLE)
+        records = (occupant.config, occupant.state)
+        for option in programmed_options(program.device, program.mode):
+            reported = self._reported_option(option, *records)
+            if reported is not None and reported != program.options.get(option.key):
+                differs.append(self._option_name(program.device, option))
+        return Verification(reported=True, differs=tuple(differs))
+
+    @staticmethod
+    def _option_name(device: LcsDevice, option: LcsOption) -> str:
+        """What to call a setting on a line that may have to name several of them.
+
+        Its own label, which is what the options page draws it as -- except where the module
+        gives two settings the same one. The AMC2 does: both its motors carry "Remember speed
+        on power-up", worded for the room a Pi's page has rather than for being read out of
+        context, and told apart on the page by the bold motor heading each stands under. So
+        the heading comes with it here, and a verdict faulting both motors reads as two
+        faults rather than as one written twice.
+
+        The heading is the nearest setting above it the module does name uniquely, which is
+        what the page puts there; nothing is assumed about which settings a module groups.
+        """
+        labels = [other.label for other in device.options]
+        if labels.count(option.label) < 2:
+            return option.label
+        index = next((i for i, other in enumerate(device.options) if other is option), 0)
+        heading = next(
+            (other.label for other in reversed(device.options[:index]) if labels.count(other.label) == 1),
+            None,
+        )
+        return f"{heading} {option.label[0].lower()}{option.label[1:]}" if heading else option.label
+
+    def _programmed_occupant(self, program: LcsProgram) -> LcsOccupant | None:
+        """The module the program was aimed at, as the layout reports it now.
+
+        A module of the type programmed, based at the address it was programmed to, on the
+        key it was programmed on -- which are the three things the presses set, so a module
+        that took none of them is not found here at all. _based_here is the same rule asked
+        about the panel's current selection; this one is asked about the sequence that went
+        out, and the two part company as soon as the operator turns a page.
+        """
+        for occupant in occupants_of(program.base_id, self._store, scope=program.mode.scope):
+            if occupant.device is program.device and occupant.base_id == program.base_id:
+                return occupant
+        return None
+
+    def verification_text(self, verification: Verification) -> str:
+        """The line a verdict is written on: one word for success, three parts for anything else.
+
+        A failure says what is wrong and what to do about it, and what to do is the same
+        either way -- the module only takes a sequence while it stands in program mode, and
+        nothing the panel can send puts it there. The button that does is named from the
+        registry, since it is a PGM key on most modules and a PROGRAM key on the Sensor
+        Track, and an operator told to press a button their module has not got is worse off
+        than one told nothing.
+        """
+        if verification.passed:
+            return VERIFIED
+        program = self._sent_program
+        device = program.device if program is not None else self._device
+        reason = NOT_AS_SENT.format(items=", ".join(verification.differs)) if verification.differs else NOT_REPORTED
+        retry = VERIFY_RETRY.format(module=device.label, button=device.program_button) if device is not None else ""
+        return UNVERIFIED_LINE.format(verdict=UNVERIFIED, reason=reason, retry=retry).strip()
+
+    def _show_verification(self, verification: Verification) -> None:
+        self._show_status(
+            self.verification_text(verification),
+            VERIFIED_FG if verification.passed else UNVERIFIED_FG,
+        )
+
+    def _show_status(self, text: str, color: str) -> None:
+        """Write the status line in the color what it says is worth, or take it off the page.
+
+        Colored on every write rather than once: the line is the same widget throughout a
+        programming pass -- asking, then answered -- and a red left over from the last pass
+        would color the next one's polling line as a failure.
+        """
+        if self._status_line is not None:
+            self._status_line.text_color = color
+        self._refresh_note(self._status_line, text)
+        if text:
+            self._reveal_status()
+
+    def _reveal_status(self) -> None:
+        """Bring the status line into the window the pages are drawn in.
+
+        A page can be taller than that window -- the Sensor Track's review page is, on a Pi,
+        by 128px -- and this line is the last thing on it, so the answer the operator is
+        standing there waiting for would arrive below the fold. Moved by as little as it
+        takes, which is the same courtesy the pad's highlight gets; see ScrollBox.show_widget.
+
+        Queued rather than done here, because the line has only just been shown: Tk lays the
+        page out around it on the next idle, and until it has, every reading of where the line
+        now is answers where it was while it was still hidden.
+        """
+
+        def reveal() -> None:
+            self._fit_scroll()
+            if self._scroll is not None and self._status_line is not None:
+                self._scroll.show_widget(self._status_line)
+
+        queue: Callable[..., Any] | None = getattr(self._gui, "queue_message", None)
+        if queue is None:
+            reveal()
+        else:
+            queue(reveal)
 
     def reported_text(self, state: Any) -> str:
         """
@@ -2759,6 +3028,7 @@ class LcsConfigPanel(OverlayPanel):
         for line in (self._requested_line, self._reported_line):
             if line is not None:
                 line.value = ""
+        self._show_status("", VERIFYING_FG)
 
     #
     # Device selection

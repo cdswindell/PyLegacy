@@ -968,3 +968,21 @@ def device_for_pdi_device(pdi_device: PdiDevice) -> LcsDevice | None:
 
 def enabled_modes(device: LcsDevice) -> Sequence[LcsMode]:
     return tuple(mode for mode in device.modes if mode.enabled)
+
+
+def programmed_options(device: LcsDevice, mode: LcsMode) -> tuple[LcsOption, ...]:
+    """The options this mode's sequence actually sets, in the order the module declares them.
+
+    An option reaches the module through a press and no other way, either as the digit a
+    gesture enters or as the flag that decides whether a gesture is sent at all, so what a
+    mode sets is what its own presses name. Every mode the panel offers today sets all of
+    its module's options, and the AMC2's two recorded-but-unoffered modes set none of
+    theirs: they are one SET press apiece.
+
+    Written down because it is the difference between a setting that was programmed and one
+    that merely stands on the options page. A read-back is judged only on what was sent,
+    and a mode that never sent a setting cannot be faulted for the module still holding its
+    own; see LcsConfigPanel.verification.
+    """
+    named = {name for press in mode.presses for name in (press.include_if, press.digit_from) if name}
+    return tuple(option for option in device.options if option.key in named)

@@ -314,6 +314,30 @@ class TestVerifyAndDisplay:
         # And the gesture that takes two keys still reads as the one step it is.
         assert program.display[2] == _line(3, mode.presses[2])
 
+    def test_a_program_remembers_the_option_values_it_was_built_from(self):
+        # Every one of them, the ones nobody touched included: what was sent is a fact about
+        # the sequence and not about the page it was built from, and the two part company as
+        # soon as the operator walks back through the pages while the module is answering.
+        # It is what a read-back is judged against; see LcsConfigPanel.verification.
+        mode = reg.AMC2.mode("acc")
+        program = build_program(reg.AMC2, mode, 5, {"motor1_mode": OutputType.AC})
+        assert program.options == {
+            "motor1_mode": OutputType.AC,
+            "motor1_restore": False,
+            "motor2_mode": OutputType.NORMAL,
+            "motor2_restore": False,
+        }
+        # And they are the values the presses themselves were spelled from, rather than a
+        # second reading of the same request: the digit follows the option it names.
+        assert _signature(program)[1:3] == _digit_keys(1, 3, CommandScope.ACC, 5)
+
+    def test_a_program_for_a_module_with_no_settings_remembers_none(self):
+        # Not the module's defaults nor an empty answer standing in for them: an ASC2 has no
+        # settings at all, and its sequence is the mode and the address.
+        program = build_program(reg.ASC2, reg.ASC2.mode("acc_8"), 9)
+        assert program.options == {}
+        assert reg.ASC2.options == ()
+
     def test_program_instruction(self):
         # Each module's instruction names the button the operator has to hold, which the
         # registry spells for it: a PGM key on most, a PROGRAM key on the Sensor Track.

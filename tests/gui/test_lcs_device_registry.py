@@ -650,6 +650,41 @@ class TestPressSequences:
                     assert len(press.build(1, defaults)) == expected, f"{device.key}/{mode.key}: {press.label}"
 
 
+class TestProgrammedOptions:
+    """
+    Which of a module's settings a given mode's sequence actually sets.
+
+    Read by the panel to judge a read-back: a module is at fault for a setting it was given
+    and is not holding, and for nothing else. A mode that sends a setting nothing asked for,
+    or is judged on one it never sent, is a wrong verdict either way.
+    """
+
+    def test_a_setting_is_named_by_the_press_that_sends_it(self):
+        # An option reaches a module through a press and no other way -- as the digit a
+        # gesture enters, or as the flag deciding whether a gesture is sent at all -- so
+        # what a mode sets is exactly what its own presses name.
+        for device in reg.LCS_DEVICES:
+            for mode in device.modes:
+                named = {name for press in mode.presses for name in (press.include_if, press.digit_from) if name}
+                assert {option.key for option in reg.programmed_options(device, mode)} == named
+
+    def test_every_offered_mode_sets_all_of_its_modules_settings(self):
+        # True of every mode the panel offers today, and worth knowing: the options page
+        # shows a module's settings without asking which mode is selected, so a mode that
+        # set only some of them would leave the operator choosing settings that go nowhere.
+        for device in reg.configurable_devices():
+            for mode in reg.enabled_modes(device):
+                assert reg.programmed_options(device, mode) == device.options
+
+    def test_a_mode_that_sends_nothing_but_an_address_sets_nothing(self):
+        # The AMC2's two recorded-but-unoffered modes are one SET press apiece. A module
+        # found on one of those keys is holding whatever its motors were left set to, and it
+        # was not this sequence that set them.
+        for key in ("tr", "eng"):
+            assert reg.programmed_options(reg.AMC2, reg.AMC2.mode(key)) == ()
+        assert reg.AMC2.options, "the module does have settings; this mode does not send them"
+
+
 class TestTmccIdText:
     """
     The one spelling of a block of addresses, read by both label forms and by the panel's

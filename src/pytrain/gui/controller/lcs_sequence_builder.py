@@ -39,6 +39,12 @@ class LcsProgram:
     presses: List[CommandReq] = field(default_factory=list)
     verify: List[PdiReq] = field(default_factory=list)
     display: List[str] = field(default_factory=list)
+    # Every option value the presses were built from, defaults filled in -- what was *sent*,
+    # which is not the same thing as what the panel is showing by the time the module
+    # answers. The operator can walk back through the pages while the read-back is in
+    # flight, and the verdict on that read-back has to be given against the sequence that
+    # actually went out; see LcsConfigPanel.verification.
+    options: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def program_instruction(self) -> str:
@@ -101,4 +107,5 @@ def build_program(
         presses=presses,
         verify=verify,
         display=display,
+        options=options,
     )
