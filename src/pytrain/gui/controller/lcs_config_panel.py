@@ -449,11 +449,13 @@ RADIO_ROW_PAD_COMPACT = 6
 
 # The mode radios get less of it, and not for want of asking. The ID page is by far the
 # fullest of the four -- a heading, the stepper row, three titled boxes, two derived lines,
-# two choice buttons and the Back/Next row -- and its rows are the tallest in the panel to
-# begin with, since they are set a size above the page body and their painted indicator
-# grows with it: 23px against the module rows' 18. The device page has nothing below its
-# radios and can spend twice this; here the whitespace has to come out of the one page that
-# has none to give, and the button below it all is the only way off the panel on the Pi.
+# two choice buttons and the Back/Next row -- and its rows are tall to begin with, since
+# they are set a size above the page body and their painted indicator grows with it: 23px
+# against the 18 a row at the body size paints. The device page has nothing below its radios
+# and can spend twice this, which is also why the module rows there are set higher again
+# than these -- a 26px indicator, the largest the panel paints. Here the whitespace has to
+# come out of the one page that has none to give, and the button below it all is the only way
+# off the panel on the Pi.
 MODE_ROW_PAD = 6
 MODE_ROW_PAD_COMPACT = 3
 
@@ -1167,9 +1169,12 @@ class LcsConfigPanel(OverlayPanel):
         self._manual_config_grid: Box | None = None
         self._review_note_line: Text | None = None
         self._configure_btn: HoldButton | None = None
-        # The row that key stands on, which is what puts it in the other keys' column; see
-        # _build_key_row.
+        # The row that key stands on, which is what puts it in the other keys' column, and the
+        # white space beside it on that row that does the putting -- kept at whatever the
+        # window is holding back from the page; see _build_key_row and _fit_key_gutter.
         self._configure_key_row: Box | None = None
+        self._configure_key_gutter: Box | None = None
+        self._key_gutter_px: int | None = None
         self._footnote_line: Text | None = None
         self._requested_line: Text | None = None
         self._reported_line: Text | None = None
@@ -1659,6 +1664,10 @@ class LcsConfigPanel(OverlayPanel):
         if scroll is None:
             return
         scroll.fit(self._scroll_budget())
+        # What the window keeps for the bar it just drew, or handed back to the page, is what
+        # a key built into a page has to stand off by to be centered on the pane rather than
+        # on the page. Here because this is where that answer changes; see _fit_key_gutter.
+        self._fit_key_gutter()
         # Rows built since the last pass -- the mode list is rebuilt on every module change
         # -- have no gestures on them until they are told about them.
         scroll.bind_scrolling()
@@ -1668,6 +1677,42 @@ class LcsConfigPanel(OverlayPanel):
         # reads 1, and whether it overflows is not known until the popup is laid out. See
         # ScrollBox.hint.
         scroll.hint()
+
+    def _fit_key_gutter(self) -> None:
+        """Stand a page's key off center by exactly what the window is keeping from the page.
+
+        Back, Next and Close are centered on the pane, and a key built into a page is centered
+        on the page, so the two agree only where the page is the pane -- and it is not
+        whenever a bar is drawn. The window keeps the bar's width clear of the page while
+        there is a bar in it and hands it back as soon as the page fits, so what a key built
+        into a page has to stand off by is not the bar's width but whatever is being kept as
+        things stand; see ScrollBox and _build_key_row. A fixed spacer answers the held-back
+        page and gets the other case wrong by the same half bar the other way -- 12px on the
+        Pi and the desk, 15px on a Deck -- which is the key standing right of the keys below
+        it on every screen the review page fits.
+
+        Asked for on every fit, that being the one thing that can change the answer, and
+        nothing is moved unless it did: a spacer re-sized costs a layout pass, and a layout
+        pass is what asks for the fit.
+
+        A Tk width rather than the guizero one, for the reason _wrap sets a Tk option: guizero
+        re-runs its own width-and-height check whenever a box is re-sized and will not take a
+        width of nothing beside a height of one, which is exactly the case this is for. Tk
+        draws no frame narrower than a pixel, so a spacer asked for nothing is one pixel wide
+        and the key stands half a pixel right of the middle -- the whole of what is left of
+        the offset.
+        """
+        gutter, scroll = self._configure_key_gutter, self._scroll
+        if gutter is None or scroll is None:
+            return
+        px = scroll.gutter_px
+        if px == self._key_gutter_px:
+            return
+        self._key_gutter_px = px
+        try:
+            gutter.tk.config(width=px)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     def _scroll_budget(self) -> int | None:
         """The most the pages may take, in pixels, or None where nothing can be measured.
@@ -1801,27 +1846,27 @@ class LcsConfigPanel(OverlayPanel):
         page = Box(body, align="top", border=0)
         self._label(page, DEVICE_PROMPT, size=host.s_16, bold=True)
         host.add_vspace(page, self._section_gap)
-        # A size above the page's body, which is what these rows are: the first choice the
-        # panel asks for, the one every page after it hangs on, and a list of touch targets
-        # read at arm's length on the two machines that have no keyboard. The mode rows on
-        # the next page are already drawn there (see _mode_row_size), and these stood a
-        # step under them for no better reason than that the body size was the obvious
-        # thing to ask for.
+        # The largest size any list in the panel is asked to be drawn at, two steps above
+        # the page's body, and these rows are what earns it: the first choice the panel asks
+        # for, the one every page after it hangs on, and a list of touch targets read at
+        # arm's length on the two machines that have no keyboard.
         #
-        # There is room for it, and room is what the shortest rows in the panel have: a
-        # module's name and the remote keys it answers on, nothing else. Measured in the
-        # rows' own font with the chrome the indicator and its padding take, the widest
-        # label the registry can write -- "IR Sensor Track (ACC)" -- comes to 336px at the
-        # 18pt a desk draws this size at and 306px at the Deck's 16, and a Deck's boxes are
-        # 597px wide. Both screens are handed the whole of what is asked for.
+        # They can be asked for more than the mode rows on the next page can (see
+        # _mode_row_size, a step lower) because they are the shortest rows in the panel -- a
+        # module's name and the remote keys it answers on, nothing else, where a mode's row
+        # carries the whole block of TMCC IDs it would claim. Measured in the rows' own font
+        # with the chrome the indicator and its padding take, the widest label the registry
+        # can write -- "IR Sensor Track (ACC)" -- comes to 368px at the 20pt a desk draws
+        # this size at and 336px at the Deck's 18, against boxes 444px and 597px wide. Both
+        # screens are handed the whole of what is asked for.
         #
         # Fitted all the same, and the Pi is why: its fonts are scaled half again, so the
-        # size asked for there is 27pt, at which that row comes to 462px of the 444 its
+        # size asked for there is 30pt, at which that row comes to 503px of the 444 its
         # boxes leave. A size the screen cannot hold is worse than the size below it, so
         # the Pi settles at 25 -- still 4px above the 21 it drew these rows at -- and a
         # longer name the registry grows later steps the list down rather than off the
         # pane. See CheckBoxGroup.fit_row_size.
-        device_size = self._fit_row_size([label for label, _key in self.device_options()], host.s_18)
+        device_size = self._fit_row_size([label for label, _key in self.device_options()], host.s_20)
         self._device_group = CheckBoxGroup(
             page,
             size=device_size,
@@ -1857,22 +1902,32 @@ class LcsConfigPanel(OverlayPanel):
         Such a key wears the look of the panel's other big keys and stands directly above two
         of them, so it stands where they stand -- and it did not. Back, Next and the Close
         below them are centered on the pane; everything on a page is centered on the page, and
-        the page is one scroll bar narrower than the pane, the bar being drawn over its
-        right-hand edge rather than beside it (see _page_px and ScrollBox). Half a bar is what
-        such a key stood left of the two keys beneath it: 12px on the Pi and the desk, 15px on
-        a Deck, measured in a live window with the panel's own nesting.
+        a page being held back in its window is one scroll bar narrower than the pane, the bar
+        being drawn over its right-hand edge rather than beside it (see ScrollBox). Half a bar
+        is what such a key stood left of the two keys beneath it: 12px on the Pi and the desk,
+        15px on a Deck, measured in a live window with the panel's own nesting.
 
-        So the gutter is handed back to the key, as a spacer to the left of it on a row of its
-        own: a row centered on the page with a bar's width of nothing at one end puts what is
-        at the other end half a bar right of the page's middle, which is the pane's middle and
-        the column the other keys stand in. Nothing else on the page moves. What stands above
-        is read as a block of its own -- the module rows, the steps in their box -- and is
-        centered as the contents of every page in the panel are.
+        So the room the bar takes is handed back to the key, as a spacer to the left of it on
+        a row of its own: a row centered on the page with that much nothing at one end puts
+        what is at the other end half as much right of the page's middle, and where the page
+        is a bar narrower than the pane that is the pane's middle and the column the other
+        keys stand in. Nothing else on the page moves. What stands above is read as a block of
+        its own -- the module rows, the steps in their box -- and is centered as the contents
+        of every page in the panel are.
+
+        What the spacer is worth is not fixed, because what the page gives up is not: the
+        window keeps the room only while a bar is drawn in it. So the spacer is built at the
+        bar's width -- the answer for the page this row was made for, and the only width that
+        can be given here, guizero having no box a width of nothing wide -- and set to what
+        the window is really keeping at the first fit and every one after it; see
+        _fit_key_gutter.
 
         One key asks for this, and it is the only one the panel builds into a page at all:
         Configure on the review page, which is the one key that cannot be moved off its page
         -- what it does belongs to what is read above it. The My Modules key was the other,
         and it needs no gutter now that it stands on the row of keys itself; see _build_nav.
+        Hence the one spacer held here rather than a row's worth: a second key built into a
+        page would need its own, and would be the occasion to keep them by the row.
 
         A spacer widget rather than pack padding, for the reason footer_spacer is one:
         guizero rebuilds a container's pack options from scratch whenever anything in it is
@@ -1882,6 +1937,8 @@ class LcsConfigPanel(OverlayPanel):
         host = self._gui
         row = Box(page, align="top", border=0)
         gutter = Box(row, align="left", width=scroll_bar_px(), height=1)
+        self._configure_key_gutter = gutter
+        self._key_gutter_px = scroll_bar_px()
         host.cache(row, gutter)
         return row
 
@@ -2388,9 +2445,9 @@ class LcsConfigPanel(OverlayPanel):
         # from the read-back it writes below. The page's own gap, which is what holds any two
         # sections of a page in the panel apart; see PAGE_GAP.
         host.add_vspace(page, self._page_gap)
-        # And the key on a row of its own, with the scroll bar's gutter beside it, so it
-        # stands on the same centerline as the Back, Next and Close below the page rather
-        # than half a bar to the left of them; see _build_key_row.
+        # And the key on a row of its own, with whatever the window is keeping for the bar
+        # standing beside it, so it is on the same centerline as the Back, Next and Close
+        # below the page rather than half a bar to either side of them; see _build_key_row.
         self._configure_key_row = row = self._build_key_row(page)
         self._configure_btn = btn = HoldButton(row, text=CONFIGURE_TEXT, align="left", command=self.on_configure)
         # The one shared look for the big buttons of an overlay, which Back, Next and the

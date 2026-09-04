@@ -34,6 +34,10 @@ class _DummyTk:
         # And what it was configured with, which is how the wrapping tests read a Tk option
         # that has no guizero equivalent.
         self.configured: dict[str, Any] = {}
+        # Every such call rather than only what it left behind: the space beside a page's key
+        # is re-sized on a Tk option, and one re-sized for nothing is a layout pass spent for
+        # nothing. See LcsConfigPanel._fit_key_gutter.
+        self.configs: list[dict[str, Any]] = []
         # And what it was placed in its grid with, which is how the listing's tests read an
         # alignment guizero has no way of asking for; see LcsConfigPanel._stick_inventory_cells.
         self.gridded: dict[str, Any] = {}
@@ -48,9 +52,11 @@ class _DummyTk:
         self.columns: dict[int, dict[str, Any]] = {}
 
     def config(self, **kwargs: Any) -> None:
+        self.configs.append(dict(kwargs))
         self.configured.update(kwargs)
 
     def configure(self, **kwargs: Any) -> None:
+        self.configs.append(dict(kwargs))
         self.configured.update(kwargs)
 
     def grid_configure(self, **kwargs: Any) -> None:
@@ -258,6 +264,11 @@ class DummyScrollBox:
         self.view_px = 0
         self.offset = 0
         self.scrollable = False
+        # How much of the window the real one is keeping clear of the page as things stand:
+        # the bar's width while a bar is drawn in it and nothing while none is. Nothing here,
+        # a window that has never been fitted having never drawn one; see ScrollBox.gutter_px
+        # and what the panel does with it in _fit_key_gutter.
+        self.gutter_px = 0
         # In the order they were asked for, since some of the rules are about the order: a
         # window scrolled before it is re-fitted is a window that may then be looking below
         # the end of a shorter page.
@@ -2168,14 +2179,18 @@ def test_the_steps_read_from_the_left_edge_of_their_box() -> None:
 def test_the_configure_key_stands_where_the_keys_below_it_stand() -> None:
     # The one key built into a page at all, and it stood half a scroll bar left of the Back,
     # Next and Close beneath it: those are centered on the pane, while everything on a page is
-    # centered on the page, which is deliberately one bar narrower. So the gutter is handed
-    # back to the key on a row of its own. See _build_key_row.
+    # centered on the page, and a page with a bar drawn down it is one bar narrower. So the
+    # room the bar takes is handed back to the key on a row of its own. See _build_key_row.
     panel = _new_panel()
     row = panel._configure_key_row
 
     assert len(row.children) == 2 and row.children[1] is panel._configure_btn, "the gutter, then the key"
     gutter = row.children[0]
+    assert gutter is panel._configure_key_gutter
     assert isinstance(gutter, DummyBox) and not gutter.value, "white space, and nothing else"
+    # Built at the bar's width, that being the answer for a page held back in its window and
+    # the only width a box can be built at -- what the window is really keeping is set on it
+    # at the first fit; see the two tests below.
     assert gutter.kwargs["width"] == mod.scroll_bar_px() == mod.SCROLL_BAR_PX
     assert gutter.kwargs["height"] == 1, "it holds a column apart, not two rows"
     assert gutter.kwargs["align"] == panel._configure_btn.kwargs["align"] == "left"
@@ -2185,6 +2200,44 @@ def test_the_configure_key_stands_where_the_keys_below_it_stand() -> None:
     # the row of keys itself, which is centered on the pane and needs no gutter.
     assert panel._inventory_btn in panel._nav.children
     assert not any(isinstance(child, DummyBox) for child in panel._nav.children)
+
+
+def test_the_space_beside_the_key_is_what_the_window_is_keeping_from_the_page() -> None:
+    # And it is not a fixed thing, because what the page gives up is not: the window keeps the
+    # bar's width clear of the page only while a bar is drawn in it. A bar's width of white
+    # space beside the key on a page that is paying nothing for a bar puts the key half a bar
+    # right of the keys below it -- the wrong side of where it stood before, by the same
+    # amount. So the spacer is whatever is being kept, on every fit. See _fit_key_gutter.
+    panel = _new_panel()
+    gutter = panel._configure_key_gutter
+
+    assert panel.scroll.gutter_px == 0
+    assert gutter.tk.configured["width"] == 0, "a page with the whole window stands its key dead center"
+
+    panel.scroll.gutter_px = mod.scroll_bar_px()
+    panel._fit_scroll()
+
+    assert gutter.tk.configured["width"] == mod.scroll_bar_px(), "and off center by a bar where one is drawn"
+
+    panel.scroll.gutter_px = 0
+    panel._fit_scroll()
+
+    assert gutter.tk.configured["width"] == 0, "back again as a page comes to fit its window"
+
+
+def test_a_fit_that_left_the_window_keeping_the_same_room_does_not_move_the_key() -> None:
+    # The window is fitted on every layout pass -- a row built, a box shown, the popup laid
+    # out -- and re-sizing the spacer costs a pass of its own, which would ask for the fit
+    # that re-sized it. Nothing is moved unless the answer changed.
+    panel = _new_panel()
+    gutter = panel._configure_key_gutter
+    widths = [call["width"] for call in gutter.tk.configs if "width" in call]
+
+    panel._fit_scroll()
+    panel._fit_scroll()
+
+    assert widths == [0], "the one width the first fit set, the box having been built at the bar's"
+    assert [call["width"] for call in gutter.tk.configs if "width" in call] == widths
 
 
 def test_white_space_stands_either_side_of_the_configure_key() -> None:
@@ -3225,14 +3278,16 @@ def test_the_mode_box_is_hidden_until_a_device_declares_modes() -> None:
 def test_the_mode_options_are_larger_than_the_page_body() -> None:
     # The modes are the choice being made on this page, so they read above the page's body
     # size -- as do the module rows on the page before, the choice being made there. Both
-    # lists are aimed at with a finger on the two screens that have no keyboard, and both
-    # ask for the same size: a list of touch targets is not a caption.
+    # lists are aimed at with a finger on the two screens that have no keyboard: a list of
+    # touch targets is not a caption. The module rows ask for a step more still, being the
+    # shortest rows in the panel where a mode's row carries a block of TMCC IDs too.
     panel = _new_panel()
     host = panel.gui
 
     assert panel._mode_group.kwargs["size"] == host.s_18
     assert panel._mode_group.kwargs["size"] > host.s_14
-    assert panel._device_group.kwargs["size"] == host.s_18
+    assert panel._device_group.kwargs["size"] == host.s_20
+    assert panel._device_group.kwargs["size"] > panel._mode_group.kwargs["size"]
 
 
 @pytest.mark.parametrize(
@@ -5954,11 +6009,12 @@ def test_the_mode_rows_are_sized_against_every_row_they_can_show(monkeypatch) ->
     assert len(asked) == before, "settled once and kept"
 
 
-def test_the_module_rows_are_fitted_to_the_size_the_modes_ask_for(monkeypatch) -> None:
+def test_the_module_rows_are_fitted_a_step_above_the_mode_rows(monkeypatch) -> None:
     # The first choice the panel asks for, and a touch target on the Pi and the Deck, so it
-    # is drawn at the size the other list of touch targets is rather than at the page's body
-    # size. Fitted rather than simply set: these labels are the registry's to lengthen, and
-    # the Pi's fonts are scaled up far enough that the size asked for there does not fit.
+    # is drawn above the page's body size -- and above the other list of touch targets, these
+    # being the shortest rows the panel draws. Fitted rather than simply set: these labels are
+    # the registry's to lengthen, and the Pi's fonts are scaled up far enough that the size
+    # asked for there does not fit.
     asked: list[dict[str, Any]] = []
 
     def _spy(master: Any, texts: Any, width: int, ceiling: int, floor: int = None, style: str = "radio") -> int:
@@ -5971,9 +6027,9 @@ def test_the_module_rows_are_fitted_to_the_size_the_modes_ask_for(monkeypatch) -
 
     labels = [label for label, _key in mod.LcsConfigPanel.device_options()]
     modules = next(call for call in asked if call["texts"] == labels)
-    assert (modules["ceiling"], modules["floor"]) == (host.s_18, host.s_12)
+    assert (modules["ceiling"], modules["floor"]) == (host.s_20, host.s_12)
     assert modules["width"] == panel._titled_box_px
-    assert panel._device_group.kwargs["size"] == host.s_18, "the size asked for, where it fits"
+    assert panel._device_group.kwargs["size"] == host.s_20, "the size asked for, where it fits"
 
 
 def test_every_mode_label_is_a_row_a_module_can_show_at_its_widest() -> None:
