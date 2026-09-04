@@ -220,12 +220,26 @@ INVENTORY_HEADINGS: tuple[str, ...] = ("Module", "ID", "Scope", "Configuration")
 INVENTORY_COLUMNS = len(INVENTORY_HEADINGS)
 # Which column holds the configuration, and so the one column with no bound on what it can
 # say: it runs to as many lines as the module has facts about itself. The three before it
-# are each a word or two -- the longest name the listing gives a module, two digits, and a
-# remote key -- so they are the reservation the last column's wrap is taken from, exactly as
-# ROW_FIXED_COLUMNS_EMS is taken for the module rows. 20 ems against those rows' 16, this
-# grid having one more bounded column than they have; measured in the cells' own font.
+# are each a word or two -- and the widest thing in each of them is that column's own
+# heading, bar an ID column of two digits -- so they are the reservation the last column's
+# wrap is taken from, exactly as ROW_FIXED_COLUMNS_EMS is taken for the module rows.
+#
+# Measured in the cells' own font at each of the three sizes they are drawn at -- 12pt where
+# the pane is cramped, 13 on a Deck, 14 on the desk -- the cell padding included: 151px,
+# 158px and 173px, which is 12.6, 12.2 and 12.4 times the size, one font at three sizes
+# being why they agree. 13 is a shade over the worst of them.
+#
+# A shade, where this reservation was several ems over before it was measured, because what
+# too large a reservation costs here is not the break a long line was going to take anyway:
+# the grid is centered in the page, so every em held back from the last column is width the
+# rows do not take and the margins do. At 20 -- the module rows' 16, and a few more for the
+# column those rows do not have -- a cramped pane's configuration column broke at 192px of a
+# 432px page: a module's Yes stood on a line of its own with 54px of nothing down either
+# side of the listing. A screen whose font runs wider than the one measured here is a few
+# pixels over rather than a column short, and what those come out of is WRAP_INSET, the
+# page's own margin, which is kept outside this arithmetic.
 INVENTORY_CONFIG_COLUMN = INVENTORY_COLUMNS - 1
-INVENTORY_FIXED_COLUMNS_EMS = 20
+INVENTORY_FIXED_COLUMNS_EMS = 13
 # How a cell sits in its column: against the top of the row and against its left edge, which
 # is Tk's own spelling of the two. Every row is as tall as its configuration column, that
 # being the one column with several lines in it, and a cell left to what guizero grids it
@@ -252,9 +266,16 @@ INVENTORY_MODULE_NAMES: dict[str, str] = {SENSOR_TRACK.key: "IR"}
 # entries are the same flag under two modules' names -- the BPC2's "Restore last relay
 # settings on power-up" and each of the AMC2's "Remember speed on power-up". Each is a
 # sentence written to be read beside the box that decides it, with the width of an options
-# row to say it in; here it is wrapped at INVENTORY_FIXED_COLUMNS_EMS and takes three lines
-# of the tallest column in the panel to say what "Power-up Restore" says in one, on every
-# such module the layout holds.
+# row to say it in; wrapped at this column's width each takes two lines of the tallest
+# column in the panel -- 322px and 262px at 12pt against a column of 276, 374 and 305 at
+# 14pt against 250 -- on every such module the layout holds.
+#
+# Worded as the line an operator reads rather than as the question they were asked to
+# answer: it says when the module restores and leaves what it restores to the module named
+# two columns over, which is how one name can serve a BPC2's relays and an AMC2's motors
+# alike. And short enough to hold its own Yes or No beside it on one line at either size --
+# 190px and 221 against those same columns -- which is the whole point of a flag in a column
+# read down the page.
 #
 # Keyed by the module's key and the setting's, neither of which is wording, so the short
 # name cannot come adrift from a re-worded label -- and asked of the registry rather than
@@ -264,7 +285,7 @@ INVENTORY_MODULE_NAMES: dict[str, str] = {SENSOR_TRACK.key: "IR"}
 # This page alone. The options page draws each setting as its own label, where the operator
 # is being asked to decide something rather than reminded what a module is set to, and the
 # presses on the review page name it as that page does. See _inventory_option_name.
-INVENTORY_RESTORE = "Power-up Restore"
+INVENTORY_RESTORE = "Restore on power-up"
 INVENTORY_OPTION_NAMES: dict[tuple[str, str], str] = {
     (BPC2.key, BPC2.option("restore").key): INVENTORY_RESTORE,
     (AMC2.key, AMC2.option("motor1_restore").key): INVENTORY_RESTORE,
@@ -302,6 +323,13 @@ SORT_ROW_PAD = 10
 # beside it have already said; see inventory_config.
 INVENTORY_MODE_UNKNOWN = "Mode not reported"
 INVENTORY_SETTING = "{name}: {value}"
+# What stands between one group of a module's settings and the next: an empty line, which is
+# the only white space a cell of wrapped text has to give and costs the row one line of its
+# own height. The AMC2 is the module with groups -- a mode and a remember flag for each of
+# its two motors -- and without it the four read as one block of four rather than as two
+# motors, the second motor's heading being just another line of the same column. See
+# _inventory_settings.
+INVENTORY_GROUP_GAP = ""
 # What a flag reads as. Yes and No rather than the label's own wording, because the name of
 # the setting is already the other half of the line.
 INVENTORY_YES = "Yes"
@@ -2292,13 +2320,22 @@ class LcsConfigPanel(OverlayPanel):
         the heading comes from is the line directly above -- an AMC2 reads as "Motor #1: AC"
         and the flag beneath it, then the same pair for the second motor, and naming the
         motor in the flag's line as well would say twice over what one line up has just said.
+
+        Which is why the groups are held apart: a heading that opens one is given an empty
+        line above it, so the second motor begins rather than continuing the first. The one
+        above the first group would be white space under the block of addresses, which
+        nothing is grouped away from, so it is only ever written between them. See
+        INVENTORY_GROUP_GAP and _inventory_group_heads.
         """
         device = occupant.device
+        heads = cls._inventory_group_heads(device)
         lines: list[str] = []
         for option in device.options:
             value = cls._reported_option(option, occupant.config, occupant.state)
             if value is None:
                 continue
+            if lines and option.key in heads:
+                lines.append(INVENTORY_GROUP_GAP)
             lines.append(
                 INVENTORY_SETTING.format(
                     name=cls._inventory_option_name(device, option),
@@ -2306,6 +2343,19 @@ class LcsConfigPanel(OverlayPanel):
                 )
             )
         return lines
+
+    @classmethod
+    def _inventory_group_heads(cls, device: LcsDevice) -> set[str]:
+        """The keys of the settings other settings of the module stand under.
+
+        The headings, that is, and read off the same rule a verdict names a setting by, so
+        the two cannot come to disagree about what heads what: a heading is whatever
+        _option_heading finds above a setting the module labels ambiguously. The AMC2 has
+        two of them, one per motor; every other module the registry holds has none, and its
+        settings are written as the one block they are.
+        """
+        headings = (cls._option_heading(device, option) for option in device.options)
+        return {heading.key for heading in headings if heading is not None}
 
     @staticmethod
     def _inventory_option_name(device: LcsDevice, option: LcsOption) -> str:
@@ -2580,8 +2630,8 @@ class LcsConfigPanel(OverlayPanel):
                 differs.append(self._option_name(program.device, option))
         return Verification(reported=True, differs=tuple(differs))
 
-    @staticmethod
-    def _option_name(device: LcsDevice, option: LcsOption) -> str:
+    @classmethod
+    def _option_name(cls, device: LcsDevice, option: LcsOption) -> str:
         """What to call a setting on a line that may have to name several of them.
 
         Its own label, which is what the options page draws it as -- except where the module
@@ -2595,19 +2645,33 @@ class LcsConfigPanel(OverlayPanel):
         travel with the one it belongs to. The My Modules listing, which writes every setting
         in turn, has the heading a line above and names a setting by itself; see
         _inventory_option_name.
+        """
+        heading = cls._option_heading(device, option)
+        if heading is None:
+            return option.label
+        return f"{heading.label} {option.label[0].lower()}{option.label[1:]}"
+
+    @staticmethod
+    def _option_heading(device: LcsDevice, option: LcsOption) -> LcsOption | None:
+        """The setting option stands under on the options page, where it needs one.
+
+        None where the module names the setting uniquely, which is every setting of every
+        module bar the AMC2's two remember flags: a setting that can be told from its
+        fellows by its own label needs nothing in front of it and heads nothing itself.
 
         The heading is the nearest setting above it the module does name uniquely, which is
         what the page puts there; nothing is assumed about which settings a module groups.
+        Read by _option_name, which puts it in front of a setting it names on a line of its
+        own, and by _inventory_group_heads, which holds the groups it marks apart.
         """
         labels = [other.label for other in device.options]
         if labels.count(option.label) < 2:
-            return option.label
+            return None
         index = next((i for i, other in enumerate(device.options) if other is option), 0)
-        heading = next(
-            (other.label for other in reversed(device.options[:index]) if labels.count(other.label) == 1),
+        return next(
+            (other for other in reversed(device.options[:index]) if labels.count(other.label) == 1),
             None,
         )
-        return f"{heading} {option.label[0].lower()}{option.label[1:]}" if heading else option.label
 
     def _programmed_occupant(self, program: LcsProgram) -> LcsOccupant | None:
         """The module the program was aimed at, as the layout reports it now.

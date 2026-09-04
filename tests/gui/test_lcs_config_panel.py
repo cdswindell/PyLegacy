@@ -5531,6 +5531,43 @@ def test_a_name_is_left_the_page_less_what_the_columns_beside_it_take() -> None:
     assert panel._row_name_wrap_px > 0, "a column told to break at nothing is one that never breaks"
 
 
+def test_the_listing_leaves_its_last_column_the_page_less_the_three_beside_it() -> None:
+    # Reserved as a module row's name column is, and the reservation is a measurement rather
+    # than a share of the row: the widest thing in each of the three bounded columns is that
+    # column's own heading, bar an ID column of two digits, which comes to 151px at 12pt, 158
+    # at 13 and 173 at 14 -- 12.6, 12.2 and 12.4 times the cells' own size. See
+    # INVENTORY_FIXED_COLUMNS_EMS for the measurements behind the multiple.
+    panel = _new_panel()
+
+    reserved = mod.INVENTORY_FIXED_COLUMNS_EMS * panel._titled_text_size
+    assert panel._inventory_config_wrap_px == panel._wrap_px - reserved
+    cells = panel._inventory_cells[0]
+    assert cells[mod.INVENTORY_CONFIG_COLUMN].tk.configured["wraplength"] == panel._inventory_config_wrap_px
+    # The three beside it break at the page, and are welcome to: not one of them can reach
+    # even a quarter of a row.
+    for column in range(mod.INVENTORY_CONFIG_COLUMN):
+        assert cells[column].tk.configured["wraplength"] == panel._wrap_px
+    # Fewer ems than the module rows hold back for two columns, though this grid has three of
+    # them: what an over-large reservation costs here is not the break a long line was going
+    # to take anyway but a page of white space, the grid being centered in it. More than half
+    # the page is left to the column that carries the module's configuration.
+    assert mod.INVENTORY_FIXED_COLUMNS_EMS < mod.ROW_FIXED_COLUMNS_EMS
+    assert panel._inventory_config_wrap_px > panel._wrap_px // 2
+
+
+def test_the_configuration_column_keeps_a_share_of_the_row_where_the_reservation_would_swallow_it(
+    monkeypatch,
+) -> None:
+    # The floor, and it has to be a floor and not a subtraction: a column left with nothing
+    # is a column told to break at zero, which in Tk is how a line is told not to break at
+    # all -- and the line this one carries is the longest the panel writes.
+    panel = _new_panel()
+    monkeypatch.setattr(mod, "INVENTORY_FIXED_COLUMNS_EMS", mod.MIN_WRAP_PX, raising=True)
+
+    assert panel._inventory_config_wrap_px == panel._wrap_px // mod.INVENTORY_COLUMNS
+    assert panel._inventory_config_wrap_px > 0
+
+
 def test_a_name_keeps_a_share_of_the_row_on_a_pane_too_narrow_to_reserve_from() -> None:
     # The floor, and it has to be a floor and not a subtraction: past this point the
     # reservation is the whole of the pane, and a column left with nothing is a column told
@@ -5832,16 +5869,18 @@ def test_a_flag_the_module_reports_as_off_is_written_as_off(monkeypatch) -> None
     assert panel.inventory_rows()[0].config.endswith(f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_NO}")
 
 
-def test_the_listing_says_in_two_words_what_the_options_page_says_in_a_sentence(monkeypatch) -> None:
+def test_the_listing_says_on_one_line_what_the_options_page_says_in_a_sentence(monkeypatch) -> None:
     # "Restore last relay settings on power-up" is written to be read beside the box that
     # decides it, and it has an options row to say it in. Wrapped at this column's width it
-    # is three lines of the tallest column in the panel, on every BPC2 the layout holds, to
-    # say what two words say -- and the row is being read to see what the module is set to
-    # rather than to decide anything.
+    # is two lines of the tallest column in the panel, on every BPC2 the layout holds, to say
+    # what one line says -- and the row is being read to see what the module is set to rather
+    # than to decide anything. Worded for the line it is read on: it says when the module
+    # restores and leaves what it restores to the module named two columns over, which is how
+    # one name serves a BPC2's relays and an AMC2's motors alike.
     _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)]})
     panel = _new_panel()
 
-    assert mod.INVENTORY_RESTORE == "Power-up Restore"
+    assert mod.INVENTORY_RESTORE == "Restore on power-up"
     assert panel.inventory_rows()[0].config.split("\n")[-1] == f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}"
     # The listing's own name for it and no other page's: the setting is still labeled as it
     # was, and that label is what the box on the options page is drawn with.
@@ -5863,11 +5902,34 @@ def test_the_motor_a_setting_belongs_to_is_named_once(monkeypatch) -> None:
     assert panel.inventory_rows()[0].config.split("\n") == [
         "Motor #1: AC",
         f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}",
+        # The second motor begins rather than carrying on from the first, which is the whole
+        # of the white space a cell of wrapped text has to give. Nothing above the first: it
+        # is being told from nothing, and a gap there is a hole under the module's addresses.
+        mod.INVENTORY_GROUP_GAP,
         "Motor #2: Continuous (DC)",
         f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_NO}",
     ]
     # A verdict has no line above it to lean on, and still names the motor it faults.
     assert mod.LcsConfigPanel._option_name(AMC2, AMC2.option("motor1_restore")).startswith("Motor #1")
+
+
+def test_a_module_whose_settings_are_one_block_is_written_as_one(monkeypatch) -> None:
+    # Only a heading other settings hang from opens with a line of white space above it, and
+    # the AMC2 is the one module the registry holds that has any -- a mode and a remember
+    # flag for each of its two motors, the flags labeled alike. A BPC2 reports its block of
+    # addresses and one flag, which are the block they read as, and a gap between them would
+    # be white space holding nothing apart.
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)]})
+    panel = _new_panel()
+
+    assert mod.INVENTORY_GROUP_GAP == "", "a line of the column's own height, and the only kind it has"
+    assert mod.INVENTORY_GROUP_GAP not in panel.inventory_rows()[0].config.split("\n")
+    # Read off the rule a verdict names a setting by, so the two cannot come to disagree
+    # about what stands under what; see _option_heading.
+    assert mod.LcsConfigPanel._inventory_group_heads(AMC2) == {"motor1_mode", "motor2_mode"}
+    assert [mod.LcsConfigPanel._inventory_group_heads(device) for device in (ASC2, BPC2, STM2, SENSOR_TRACK)] == [
+        set()
+    ] * 4
 
 
 def test_the_configuration_column_says_nothing_about_the_module_firmware(monkeypatch) -> None:
