@@ -41,6 +41,11 @@ class _DummyTk:
         # between the blocks of one cell -- pack padding being no more a guizero property
         # than the two above; see GroupedCell._space_blocks.
         self.packed: dict[str, Any] = {}
+        # And what its grid columns were configured with, which is how a stretched box's
+        # width floor is read: guizero has no way of asking for one. Keyed by column, since
+        # the panel's stretched boxes all stand in column 0 of a container of their own; see
+        # LcsConfigPanel._lay_out_titled_boxes and _stretch_manual_steps.
+        self.columns: dict[int, dict[str, Any]] = {}
 
     def config(self, **kwargs: Any) -> None:
         self.configured.update(kwargs)
@@ -54,9 +59,8 @@ class _DummyTk:
     def pack_configure(self, **kwargs: Any) -> None:
         self.packed.update(kwargs)
 
-    @staticmethod
-    def grid_columnconfigure(_col: int, **_kwargs: Any) -> None:
-        return
+    def grid_columnconfigure(self, col: int, **kwargs: Any) -> None:
+        self.columns.setdefault(col, {}).update(kwargs)
 
     def bind(self, event: str, func, add: str | None = None) -> None:
         self.binds.append((event, func, add))
@@ -1853,9 +1857,10 @@ def test_a_page_is_drawn_in_the_pane_less_the_room_the_scroll_bar_takes() -> Non
 
 
 def test_a_line_with_nothing_to_say_leaves_the_page_and_takes_its_gaps_with_it() -> None:
-    # The review page's note is filled by the BPC2, which has a warning, and by the Sensor
-    # Track, which can be left half programmed -- and by no other module. An empty label
-    # still stands a line tall and still carries its own padding above and below.
+    # The review page's note is filled by the BPC2, which has a warning, and by no other
+    # module -- the Sensor Track's caveat stood here too until the steps it was about were
+    # given a box of their own. An empty label still stands a line tall and still carries its
+    # own padding above and below.
     panel = _new_panel()
 
     panel._on_device_selected("bpc2")
@@ -1865,8 +1870,11 @@ def test_a_line_with_nothing_to_say_leaves_the_page_and_takes_its_gaps_with_it()
     assert panel.review_note == ""
     assert panel._review_note_line.visible is False
 
-    # And comes back with something to say.
     panel._on_device_selected("sensor_track")
+    assert panel._review_note_line.visible is False
+
+    # And comes back with something to say.
+    panel._on_device_selected("bpc2")
     assert panel._review_note_line.visible is True
 
 
@@ -1992,16 +2000,28 @@ def test_review_page_is_numbered_in_send_order_with_the_pgm_instruction() -> Non
     assert panel.review_lines == lines
     assert panel._review_line.value == "\n".join(lines)
     assert f"{ASC2.program_button} button" in panel._program_line.value
+    # The instruction names the button, how long to hold it, and what the module does to say
+    # it heard -- which is the whole of what the operator has to do before Configure will
+    # take. Held to the word here because it is the line the page is read for.
+    instruction = f"Hold the {ASC2.label}'s PGM button for 1 second until the red LED blinks slowly"
+    assert panel._program_line.value == instruction
     assert panel.footnote == mod.PROGRAM_MODE_NOTE.format(module=ASC2.label)
     assert panel._footnote_line.value == panel.footnote
 
 
-def test_sensor_track_review_notes_the_abort_and_the_mandatory_action() -> None:
+def test_the_sensor_tracks_review_names_its_own_program_button() -> None:
+    # A PROGRAM key where every other module has a PGM key, which the registry spells and the
+    # instruction reads off it. The caveat that used to stand beside it -- that the sequence
+    # is only complete once the Action Command has been assigned -- is drawn nowhere now: the
+    # sequence is listed step by step in the Manual Steps box, which is where an operator
+    # reads what is done and what is left.
     panel = _new_panel()
     panel._on_device_selected("sensor_track")
 
-    assert mod.SENSOR_TRACK_REVIEW_NOTE in panel._review_note_line.value
     assert f"{SENSOR_TRACK.program_button} button" in panel._program_line.value
+    assert panel.review_note == ""
+    assert panel._review_note_line.visible is False
+    assert "Action Command" not in panel._review_note_line.value
     assert panel.footnote == mod.PROGRAM_MODE_NOTE.format(module=SENSOR_TRACK.label)
 
 
@@ -2018,10 +2038,142 @@ def test_the_relay_warning_is_read_on_the_page_it_is_acted_on() -> None:
     # In full, and read in one piece: an unwrapped label wider than the popup is centered
     # rather than truncated, which cost this sentence both its ends on the Pi.
     assert panel._review_note_line.tk.configured["wraplength"] == panel._wrap_px
-    # Above the button, below the presses it is about.
+    # Above the button, below the presses it is about. Both of those now stand on the page
+    # inside something of their own -- the steps in their box, the key on its row -- so the
+    # order is read through them.
     page = panel._pages[mod.PAGE_REVIEW]
     order = page.children.index
-    assert order(panel._review_line) < order(panel._review_note_line) < order(panel._configure_btn)
+    steps = panel._manual_steps_grid
+    assert order(steps) < order(panel._review_note_line) < order(panel._configure_key_row)
+    assert panel._review_line in panel._manual_steps_box.children
+
+
+def test_the_review_pages_heading_is_followed_by_half_a_line_then_the_instruction() -> None:
+    # The heading stood flush against the instruction under it. Half a line of white space,
+    # and half a line only: what follows the heading is the first thing to be done rather
+    # than the next thing on the page, so it belongs to the heading. See REVIEW_HEADING_GAP.
+    panel, _body, _host = _build_with_body()
+    page = panel._pages[mod.PAGE_REVIEW]
+
+    assert page.children[0].value == mod.REVIEW_TITLE
+    assert getattr(page.children[1], "vspace", None) == mod.REVIEW_HEADING_GAP
+    assert page.children[2] is panel._program_line
+
+
+def test_the_instruction_and_the_steps_are_read_at_the_pages_own_size() -> None:
+    # The instruction was set a step below the page's body, which made the one line in the
+    # panel that has to be acted on before the button below it will do anything the smallest
+    # text on any of its pages. It and the steps are a size above the body now, which the
+    # instruction pays nothing for: it takes two lines at every size the panel draws.
+    panel = _new_panel()
+    host = panel.gui
+    size = panel._review_text_size
+
+    assert size == host.s_16 > host.s_14 > host.s_12
+    assert panel._program_line.text_size == size
+    assert panel._review_line.text_size == size
+    # The box's title with them, as the ID page's boxes are titled at the size of their own
+    # rows: a title two sizes below its list reads as fine print on it.
+    assert panel._manual_steps_box.text_size == size
+    # And what the module answers with is left where it was: what grew is the work to be
+    # done, not the record of what was asked and what came back.
+    lines = (panel._footnote_line, panel._requested_line, panel._reported_line)
+    assert [line.text_size for line in lines] == [host.s_12] * 3
+
+
+def test_the_steps_stand_in_a_box_of_their_own_drawn_to_the_page() -> None:
+    panel = _new_panel()
+    panel._on_device_selected("asc2")
+    panel._set_base_id(9)
+
+    box = panel._manual_steps_box
+    assert box.text == mod.MANUAL_STEPS_TITLE == "Manual Steps"
+    assert panel._review_line in box.children
+    assert panel._review_line.value == "\n".join(_press_lines(ASC2.mode("acc_8"), 9))
+    # Gridded into a column of its own and stretched across it, which is the only way a box
+    # gets a width the page decides rather than the width of "1. ACC 1 SET" -- a frame a
+    # third of the pane wide, with a title longer than the list under it. The floor is the
+    # one the ID page's three boxes are stretched to, so every titled box in the panel is one
+    # width; see _lay_out_titled_boxes.
+    container = panel._manual_steps_grid
+    assert container.kwargs["layout"] == "grid" and box in container.children
+    assert container.tk.columns[0] == {"weight": 1, "minsize": panel._titled_box_px}
+    assert box.tk.gridded["sticky"] == "ew"
+
+
+def test_the_steps_box_keeps_the_pages_width_across_a_refresh() -> None:
+    # guizero rebuilds a container's grid options from scratch whenever a child of it is
+    # created, shown or hidden, and sticky is not among the options it replays -- which is
+    # why the ID page's boxes are re-stretched after every refresh, and why this one is.
+    panel = _new_panel()
+    box, container = panel._manual_steps_box, panel._manual_steps_grid
+    box.tk.gridded.clear()
+    container.tk.columns.clear()
+
+    panel._on_device_selected("bpc2")
+
+    assert box.tk.gridded["sticky"] == "ew"
+    assert container.tk.columns[0]["minsize"] == panel._titled_box_px
+
+    # And a box the grid has forgotten is passed over: grid_configure on one would put it
+    # back on the page.
+    box.hide()
+    box.tk.gridded.clear()
+    panel._on_device_selected("asc2")
+
+    assert box.tk.gridded == {}
+
+
+def test_the_steps_read_from_the_left_edge_of_their_box() -> None:
+    # A numbered list is read down its numbers, and centered lines start each of them
+    # somewhere else -- which is how the presses read before they were given a box. The label
+    # is stretched to the box and its text anchored west: justify alone would only line up
+    # the second line of a press under the first, a label narrower than what it stands in
+    # being centered in it whatever its own lines do. See _left_line.
+    panel = _new_panel()
+    line = panel._review_line
+
+    assert line.kwargs["width"] == "fill"
+    assert line.tk.configured["anchor"] == "w"
+    assert line.tk.configured["justify"] == "left"
+    # Broken at the page's width like every other line the panel writes, the box being drawn
+    # wider than that: the wrap decides where a press breaks and not the frame around it.
+    assert line.tk.configured["wraplength"] == panel._wrap_px < panel._titled_box_px
+    # And the prose on the page is still centered under the heading, as all of it is.
+    assert panel._program_line.tk.configured["justify"] == "center"
+
+
+def test_the_configure_key_stands_where_the_keys_below_it_stand() -> None:
+    # The one key built into this page, and it stood half a scroll bar left of the Back, Next
+    # and Close beneath it: those are centered on the pane, while everything on a page is
+    # centered on the page, which is deliberately one bar narrower. So the gutter is handed
+    # back to the key on a row of its own, exactly as the My Modules key's is -- the two rows
+    # are built by the one method for that reason. See _build_key_row.
+    panel = _new_panel()
+    row = panel._configure_key_row
+
+    assert len(row.children) == 2 and row.children[1] is panel._configure_btn, "the gutter, then the key"
+    gutter = row.children[0]
+    assert isinstance(gutter, DummyBox) and not gutter.value, "white space, and nothing else"
+    assert gutter.kwargs["width"] == mod.scroll_bar_px() == mod.SCROLL_BAR_PX
+    assert gutter.kwargs["height"] == 1, "it holds a column apart, not two rows"
+    assert gutter.kwargs["align"] == panel._configure_btn.kwargs["align"] == "left"
+    # And the row itself is centered on the page like anything else built into one.
+    assert row.kwargs["align"] == "top"
+    # The same row as the listing's key stands on, down to the gutter: one offset, one method.
+    assert panel._inventory_key_row.children[0].kwargs == gutter.kwargs
+
+
+def test_white_space_stands_either_side_of_the_configure_key() -> None:
+    # It sends the steps above it and writes the read-back below it, and stood flush against
+    # both. The page's own gap, which is what holds any two sections of a page apart.
+    panel, _body, _host = _build_with_body()
+    page = panel._pages[mod.PAGE_REVIEW]
+    at = page.children.index(panel._configure_key_row)
+
+    assert getattr(page.children[at - 1], "vspace", None) == mod.PAGE_GAP
+    assert getattr(page.children[at + 1], "vspace", None) == mod.PAGE_GAP
+    assert page.children[at + 2] is panel._footnote_line
 
 
 #
@@ -2559,6 +2711,7 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
     panel, body, host = _build_with_body()
     id_page = panel._pages[mod.PAGE_ID]
     options_page = panel._pages[mod.PAGE_OPTIONS]
+    review_page = panel._pages[mod.PAGE_REVIEW]
 
     parents = [parent for parent, _pixels in host.vspaces]
     assert parents == [
@@ -2571,6 +2724,9 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
         id_page,  # between the titled boxes and the choice buttons
         options_page,  # under that page's heading
         options_page,  # between the module and the settings chosen for it
+        review_page,  # half a line under that page's heading
+        review_page,  # between the steps and the key that sends them
+        review_page,  # and between that key and the read-back below it
         panel._pages[mod.PAGE_INVENTORY],  # between the sort keys and the listing
         body,  # above the Back/Next row
     ]
@@ -2619,14 +2775,21 @@ def test_the_id_pages_sections_are_held_apart() -> None:
 
 
 @pytest.mark.parametrize(
-    "compact, section, page, id_page, prose",
+    "compact, section, page, id_page, prose, heading",
     [
-        (False, mod.SECTION_GAP, mod.PAGE_GAP, mod.ID_PAGE_GAP, mod.MODE_PROSE_GAP),
-        (True, mod.SECTION_GAP_COMPACT, mod.PAGE_GAP_COMPACT, mod.ID_PAGE_GAP_COMPACT, mod.MODE_PROSE_GAP_COMPACT),
+        (False, mod.SECTION_GAP, mod.PAGE_GAP, mod.ID_PAGE_GAP, mod.MODE_PROSE_GAP, mod.REVIEW_HEADING_GAP),
+        (
+            True,
+            mod.SECTION_GAP_COMPACT,
+            mod.PAGE_GAP_COMPACT,
+            mod.ID_PAGE_GAP_COMPACT,
+            mod.MODE_PROSE_GAP_COMPACT,
+            mod.REVIEW_HEADING_GAP_COMPACT,
+        ),
     ],
 )
 def test_the_gaps_are_tighter_on_a_compact_host(
-    compact: bool, section: int, page: int, id_page: int, prose: int
+    compact: bool, section: int, page: int, id_page: int, prose: int, heading: int
 ) -> None:
     _panel, _body, host = _build_with_body(compact=compact)
 
@@ -2640,12 +2803,21 @@ def test_the_gaps_are_tighter_on_a_compact_host(
         id_page,
         section,
         page,
+        heading,
+        page,
+        page,
         page,
         page,
     ]
     # Both halves of the same rule: a compact host takes less of everything, and the ID
     # page takes less than the pages that have room to spare.
     assert id_page < page
+    # And the review page's own gap is half a line of its heading, which on a pane with room
+    # lands between the two: wider than the gap a heading takes above a prompt, narrower than
+    # the one between a page's sections. See REVIEW_HEADING_GAP.
+    assert mod.SECTION_GAP < mod.REVIEW_HEADING_GAP < mod.PAGE_GAP
+    # On a compact host it is squeezed onto the smaller of them, as everything here is.
+    assert section <= heading <= page
 
 
 #
@@ -4315,7 +4487,7 @@ def test_the_verdict_stands_below_the_two_lines_it_is_drawn_from() -> None:
     panel = _new_panel()
     order = panel._pages[mod.PAGE_REVIEW].children.index
 
-    assert order(panel._configure_btn) < order(panel._requested_line)
+    assert order(panel._configure_key_row) < order(panel._requested_line)
     assert order(panel._requested_line) < order(panel._reported_line) < order(panel._status_line)
     assert panel._status_line.text_bold is True, "the one line on the page that is waited for"
 
@@ -6282,7 +6454,8 @@ def test_the_key_that_opens_the_listing_stands_where_the_keys_below_it_stand() -
     # So the gutter is handed back to this one key, as a spacer beside it: what is centered
     # on the page is then the key *and* the gutter, which leaves the key itself on the pane's
     # middle, where the other keys are. A spacer widget rather than pack padding, which every
-    # turn of the panel would discard. See _build_inventory_key_row.
+    # turn of the panel would discard. The Configure key on the review page stands on a row
+    # built by the same method, for the same reason. See _build_key_row.
     panel = _new_panel()
     row = panel._inventory_key_row
 

@@ -184,10 +184,6 @@ UNVERIFIED_LINE = "{verdict} - {reason}. {retry}"
 # the operator reads as an answer. Stated rather than left to the widget's own default,
 # because this one line is recolored and has to be able to get back.
 VERIFYING_FG = "black"
-SENSOR_TRACK_REVIEW_NOTE = (
-    "The sequence is only complete once the Action Command has been assigned; "
-    "pressing PROGRAM again aborts it with no change."
-)
 
 # The heading each page opens with, and the three keys the operator presses. Named here
 # with everything else the panel says rather than left inline where they are built: the
@@ -199,6 +195,15 @@ REVIEW_TITLE = "Review and Configure"
 BACK_TEXT = "Back"
 NEXT_TEXT = "Next"
 CONFIGURE_TEXT = "Configure"
+
+# And the title of the box the presses stand in on the review page. What is listed under it
+# is the sequence itself, key by key in the order it goes out -- which is the sequence an
+# operator would work through on a Cab remote by hand if the panel were not there to send
+# it, and the one they will work through if a press is missed. In a frame with a title on
+# it, because a numbered list standing bare on a page says nothing about whose steps it is
+# reporting; the frame also gives the list a left edge to be read from. See
+# LcsConfigPanel._build_manual_steps_box.
+MANUAL_STEPS_TITLE = "Manual Steps"
 
 # The key that opens the listing, on the device page, and the heading the listing opens
 # with. The button says what it shows rather than what it does -- there is no verb an
@@ -405,6 +410,20 @@ PAGE_GAP_COMPACT = 8
 # have to hold back; see _fit_scroll for what happens to the rest.
 ID_PAGE_GAP = 8
 ID_PAGE_GAP_COMPACT = 4
+
+# And the white space under the review page's own heading, which stood flush against the
+# instruction below it: half a line of it, that being what the page was asked for and what
+# it wants -- the instruction is the first thing to do rather than the next thing on the
+# page, so it belongs to the heading above it, and a full line's worth reads as a hole
+# between the two.
+#
+# Measured in the heading's own font: a line at the size the headings are drawn (s_16) is
+# 25px, so half of one is 12px. Which lands between the panel's two other gaps rather than
+# on either -- wider than the one a heading takes above a prompt, narrower than the one
+# between a page's sections -- and the compact pane takes half of it, as it takes half of
+# both of those. See SECTION_GAP and PAGE_GAP.
+REVIEW_HEADING_GAP = 12
+REVIEW_HEADING_GAP_COMPACT = 6
 
 # Whitespace between the Currently Assigned, Overlaps and Mode boxes, in pixels. Grid
 # padding rather than a spacer widget, which is safe here for the one reason it is not
@@ -1088,7 +1107,7 @@ class LcsConfigPanel(OverlayPanel):
         # grown and reused exactly as the module rows' are; see _refresh_inventory.
         self._inventory_btn: HoldButton | None = None
         # The row that key stands on, which is what puts it in the other keys' column; see
-        # _build_inventory_key_row.
+        # _build_key_row.
         self._inventory_key_row: Box | None = None
         self._sort_group: CheckBoxGroup | None = None
         self._sort_key: str = SORT_MODULE
@@ -1118,9 +1137,17 @@ class LcsConfigPanel(OverlayPanel):
 
         # Review page
         self._program_line: Text | None = None
+        # The presses, and the titled frame they are listed in -- with the grid column that
+        # frame is stretched across, which is what gives it the page's width; see
+        # _build_manual_steps_box.
         self._review_line: Text | None = None
+        self._manual_steps_box: TitleBox | None = None
+        self._manual_steps_grid: Box | None = None
         self._review_note_line: Text | None = None
         self._configure_btn: HoldButton | None = None
+        # The row that key stands on, which is what puts it in the other keys' column; see
+        # _build_key_row.
+        self._configure_key_row: Box | None = None
         self._footnote_line: Text | None = None
         self._requested_line: Text | None = None
         self._reported_line: Text | None = None
@@ -1270,6 +1297,10 @@ class LcsConfigPanel(OverlayPanel):
         return ID_PAGE_GAP_COMPACT if self.compact else ID_PAGE_GAP
 
     @property
+    def _review_heading_gap(self) -> int:
+        return REVIEW_HEADING_GAP_COMPACT if self.compact else REVIEW_HEADING_GAP
+
+    @property
     def _box_gap(self) -> int:
         return BOX_GAP_COMPACT if self.compact else BOX_GAP
 
@@ -1394,6 +1425,26 @@ class LcsConfigPanel(OverlayPanel):
         against 224). See INVENTORY_FIXED_COLUMNS_EMS for the reservation itself.
         """
         return self._gui.s_14
+
+    @property
+    def _review_text_size(self) -> int:
+        """The size the review page's instruction and its Manual Steps are drawn at.
+
+        A size above the page's body, and two above where the instruction was set: what
+        stands here is not a caption on the page but the work itself -- the button to hold
+        on the module, and the keys that go out when Configure is pressed -- read off a
+        screen by someone standing at a layout with their hands full. It was the smallest
+        text in the panel.
+
+        Measured in the labels' own font against the page's 432px wrap, at every size the
+        panel draws: the instruction takes two lines at all of them, from 12pt (524px for an
+        ASC2) to 18pt (744px), so this size costs nothing a smaller one would save. The
+        widest press a module can write, "2. AUX1 then 1 (Action Command)", holds one line at
+        312px of the box's own 432. The one module that pays is the IR Sensor Track, whose
+        instruction carries the abort as well and goes from four lines to five -- height the
+        page scrolls.
+        """
+        return self._gui.s_16
 
     @property
     def _row_name_wrap_px(self) -> int:
@@ -1685,7 +1736,7 @@ class LcsConfigPanel(OverlayPanel):
         # its own and leads nowhere, so it is a key that opens a page and comes back rather
         # than a step between this page and the next. See show_inventory.
         host.add_vspace(page, self._page_gap)
-        self._inventory_key_row = row = self._build_inventory_key_row(page)
+        self._inventory_key_row = row = self._build_key_row(page)
         self._inventory_btn = btn = HoldButton(row, text=INVENTORY_TEXT, align="left", command=self.show_inventory)
         # The one shared look for the big keys of an overlay, which Back, Next, Configure and
         # the Close below them all wear: a raised border and an edge, a lighter face than the
@@ -1702,23 +1753,27 @@ class LcsConfigPanel(OverlayPanel):
         host.cache(btn)
         return page
 
-    def _build_inventory_key_row(self, page: Box) -> Box:
-        """The row the My Modules key stands on, which is what puts it in the other keys' column.
+    def _build_key_row(self, page: Box) -> Box:
+        """A row for a key built into a page, which is what puts it in the other keys' column.
 
-        The key wears the look of the panel's other big keys and stands directly above two of
-        them, so it stands where they stand -- and it did not. Back, Next and the Close below
-        them are centered on the pane; everything on a page is centered on the page, and the
-        page is one scroll bar narrower than the pane, the bar being drawn over its right-hand
-        edge rather than beside it (see _page_px and ScrollBox). Half a bar is what the key
-        stood left of the two keys beneath it: 12px on the Pi and the desk, 15px on a Deck,
-        measured in a live window with the panel's own nesting.
+        Such a key wears the look of the panel's other big keys and stands directly above two
+        of them, so it stands where they stand -- and it did not. Back, Next and the Close
+        below them are centered on the pane; everything on a page is centered on the page, and
+        the page is one scroll bar narrower than the pane, the bar being drawn over its
+        right-hand edge rather than beside it (see _page_px and ScrollBox). Half a bar is what
+        such a key stood left of the two keys beneath it: 12px on the Pi and the desk, 15px on
+        a Deck, measured in a live window with the panel's own nesting.
 
-        So the gutter is handed back to this one key, as a spacer to the left of it on a row
-        of its own: a row centered on the page with a bar's width of nothing at one end puts
-        what is at the other end half a bar right of the page's middle, which is the pane's
-        middle and the column the other keys stand in. Nothing else on the page moves. The
-        modules above are read as a block of rows rather than against a key two lines down,
-        and they are centered as the contents of every page in the panel are.
+        So the gutter is handed back to the key, as a spacer to the left of it on a row of its
+        own: a row centered on the page with a bar's width of nothing at one end puts what is
+        at the other end half a bar right of the page's middle, which is the pane's middle and
+        the column the other keys stand in. Nothing else on the page moves. What stands above
+        is read as a block of its own -- the module rows, the steps in their box -- and is
+        centered as the contents of every page in the panel are.
+
+        Two keys ask for this, and they are the only two the panel builds into a page: My
+        Modules on the device page and Configure on the review page. Each is the one key on
+        its page and each stands directly over Back, Next and Close.
 
         A spacer widget rather than pack padding, for the reason footer_spacer is one:
         guizero rebuilds a container's pack options from scratch whenever anything in it is
@@ -2147,10 +2202,10 @@ class LcsConfigPanel(OverlayPanel):
         module with nothing to say would pay a line and two gaps of whitespace for a blank
         one -- the same reason a spare module row is hidden rather than blanked.
 
-        Which modules say nothing is the mirror of one line to the next: the review page's
-        note is filled by the BPC2 and the Sensor Track alone, while the note below the ID
-        page's mode radios is filled by every module *but* those two. See review_note and
-        _refresh_mode_note().
+        Which modules say nothing is very nearly the mirror of one line to the next: the
+        review page's note is filled by the BPC2 alone, while the note below the ID page's
+        mode radios is filled by every module *but* the BPC2 and the Sensor Track. See
+        review_note and _refresh_mode_note().
         """
         if line is None:
             return
@@ -2200,22 +2255,43 @@ class LcsConfigPanel(OverlayPanel):
     #
     def _build_review_page(self, body: Box) -> Box:
         host = self._gui
+        size = self._review_text_size
         page = Box(body, align="top", border=0)
         self._label(page, REVIEW_TITLE, size=host.s_16, bold=True)
+        # Half a line of white space, and half a line only: what stands under the heading is
+        # the first thing to be done rather than the next thing on the page, so it belongs to
+        # the heading above it. See REVIEW_HEADING_GAP.
+        host.add_vspace(page, self._review_heading_gap)
         # Every line on this page is wrapped, and this is the page that most needs it: what
         # stands here is prose rather than a label -- how to put the module into program
         # mode, what will be pressed, what was asked for and what the module answered. The
         # instruction alone measured 2164px of the Pi's 480px pane, and an unwrapped line is
         # not cut short but centered, so it loses its beginning and its end at once.
-        self._program_line = self._label(page, "", size=host.s_12)
-        # The press list carries its own line breaks, one per press; the wrap only breaks a
-        # press too long to stand on one, which is why they are numbered.
-        self._review_line = self._label(page, "")
-        # The one page the module's warning is read on now: held off the press list above it
-        # and the Configure button below by its own padding, which is what _note_line adds to
-        # the wrap the rest of the page has. See review_note.
+        #
+        # Read at this page's own size rather than a step below the body, which is where it
+        # was set: it is the one line in the panel that has to be acted on before the button
+        # below it will do anything. Two lines wide at every size the panel draws, so the
+        # larger text costs the page nothing a smaller one would save; see _review_text_size.
+        self._program_line = self._label(page, "", size=size)
+        # And then the sequence itself, in a frame with a title on it. The list carries its
+        # own line breaks, one per press; the wrap only breaks a press too long to stand on
+        # one, which is why they are numbered. Read from the left edge of the box rather than
+        # centered in it, a numbered list being read down its numbers; see _left_line.
+        self._manual_steps_box = self._build_manual_steps_box(page)
+        self._review_line = self._left_line(self._manual_steps_box, size=size)
+        # The one page the module's warning is read on now: held off the box above it and the
+        # white space below by its own padding, which is what _note_line adds to the wrap the
+        # rest of the page has. See review_note.
         self._review_note_line = self._note_line(page, size=host.s_12)
-        self._configure_btn = btn = HoldButton(page, text=CONFIGURE_TEXT, align="top", command=self.on_configure)
+        # White space either side of the key, so it stands apart from the steps it sends and
+        # from the read-back it writes below. The page's own gap, which is what holds any two
+        # sections of a page in the panel apart; see PAGE_GAP.
+        host.add_vspace(page, self._page_gap)
+        # And the key on a row of its own, with the scroll bar's gutter beside it, so it
+        # stands on the same centerline as the Back, Next and Close below the page rather
+        # than half a bar to the left of them; see _build_key_row.
+        self._configure_key_row = row = self._build_key_row(page)
+        self._configure_btn = btn = HoldButton(row, text=CONFIGURE_TEXT, align="left", command=self.on_configure)
         # The one shared look for the big buttons of an overlay, which Back, Next and the
         # Close below them all wear: a raised border and an edge, a lighter face than the
         # panel, and a darker one while it is held. Set by its text size alone, this was the
@@ -2224,11 +2300,12 @@ class LcsConfigPanel(OverlayPanel):
         #
         # Its pack padding is then trimmed exactly as the Back/Next row's is: the band a
         # footer button carries is meant to hold a row off the panel and the pane, and this
-        # button stands in the middle of a page with a line of its own above and below it.
+        # button stands in the middle of a page with white space of its own above and below.
         # See style_footer_button and NAV_ROW_PAD.
         style_footer_button(host, btn)
         repad_footer_button(btn, pady=self._nav_row_pad)
         host.cache(btn)
+        host.add_vspace(page, self._page_gap)
         # How to put the module into program mode, what was asked of it, and what it said
         # back -- the last two arriving after Configure, at whatever length the module's own
         # report runs to.
@@ -2243,6 +2320,67 @@ class LcsConfigPanel(OverlayPanel):
         self._status_line = self._label(page, "", bold=True)
         self._status_line.hide()
         return page
+
+    def _build_manual_steps_box(self, page: Box) -> TitleBox:
+        """The frame the presses are listed in, drawn to the width of the page.
+
+        Gridded into a column of its own rather than packed onto the page, which is the only
+        way a box gets a width the page decides: a packed box is as wide as whatever is
+        inside it, and what is inside this one is "1. ACC 1 SET" -- a frame a third of the
+        pane wide, with a title longer than the list under it. The floor is the one the ID
+        page's three boxes are stretched to, so every titled box in the panel is one width;
+        see _lay_out_titled_boxes and TITLED_BOX_INSET.
+
+        Titled at the size of what it holds, as those boxes are: a title set two sizes below
+        its own list reads as fine print on it.
+        """
+        container = Box(page, layout="grid", align="top", border=0)
+        self._manual_steps_grid = container
+        box = TitleBox(container, text=MANUAL_STEPS_TITLE, grid=[0, 0], align=None)
+        box.text_size = self._review_text_size
+        self._manual_steps_box = box
+        self._stretch_manual_steps()
+        return box
+
+    def _stretch_manual_steps(self) -> None:
+        """Give the Manual Steps box the page's width, and give it back after a refresh.
+
+        Replayed on every refresh for the reason _lay_out_titled_boxes is: guizero rebuilds
+        a container's grid options from scratch in display_widgets, which runs whenever a
+        child of that container is created, shown or hidden, and sticky is not among the
+        options it replays. Nothing in this container is hidden today -- it holds the one box
+        -- so this is what keeps that from being a fact the page depends on.
+        """
+        container, box = self._manual_steps_grid, self._manual_steps_box
+        if container is None or box is None or not box.visible:
+            return
+        try:
+            container.tk.grid_columnconfigure(0, weight=1, minsize=self._titled_box_px)
+            box.tk.grid_configure(sticky="ew")
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+
+    def _left_line(self, parent: Box, size: int | None = None) -> Text:
+        """A line that reads from the left edge of what it stands in, not from its middle.
+
+        Every other line of prose the panel writes is centered, and a numbered list cannot
+        be: it is read down its numbers, and centered lines start each of them somewhere
+        else -- which is how the presses read before they were given a box to stand in.
+
+        Stretched to its container and its text anchored west, which is the pair the
+        listing's stacked cells use and for the same reason: a label narrower than what it
+        stands in is centered in it however its own lines are justified, so justify alone
+        would only line up the second line of a press under the first. Both survive a
+        re-pack -- "fill" is read off the widget by guizero itself, and the anchor is a Tk
+        option rather than a layout one. See _cell_label.
+        """
+        line = self._label(parent, "", size=size, width="fill")
+        self._wrap(line, justify="left")
+        try:
+            line.tk.config(anchor="w")
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        return line
 
     #
     # My Modules listing
@@ -2648,7 +2786,7 @@ class LcsConfigPanel(OverlayPanel):
 
     @property
     def review_note(self) -> str:
-        """What to know before pressing Configure: the module's own warning, and the abort.
+        """What to know before pressing Configure: the module's own warning.
 
         The BPC2's warning is read here and nowhere else, where it used to stand at the head
         of the options page as well. It is not about the settings being chosen but about what
@@ -2656,15 +2794,15 @@ class LcsConfigPanel(OverlayPanel):
         back on by hand afterwards -- so it belongs on the page they are sent from, in front
         of the button that sends them.
 
-        Never both notes at once: the one module with a warning is the BPC2, and the abort is
-        the Sensor Track's.
+        The one module with a warning is the BPC2, so this is that sentence or nothing. The
+        Sensor Track's own caveat -- that its sequence is only complete once the Action
+        Command has been assigned -- used to stand here beside it and is no longer drawn: the
+        sequence it is about is now listed step by step in a frame of its own two lines up,
+        which is where an operator reads what has and has not been done. See
+        MANUAL_STEPS_TITLE.
         """
-        notes: list[str] = []
-        if self._device is not None and self._device.warning:
-            notes.append(self._device.warning)
-        if self._device is SENSOR_TRACK:
-            notes.append(SENSOR_TRACK_REVIEW_NOTE)
-        return " ".join(notes)
+        warning = self._device.warning if self._device is not None else None
+        return warning or ""
 
     @property
     def footnote(self) -> str:
@@ -2678,6 +2816,9 @@ class LcsConfigPanel(OverlayPanel):
             self._program_line.value = program.program_instruction if program else ""
         if self._review_line is not None:
             self._review_line.value = "\n".join(program.display) if program else ""
+        # The steps' frame keeps the page's width, whatever guizero has re-gridded since the
+        # last refresh; see _stretch_manual_steps.
+        self._stretch_manual_steps()
         self._refresh_note(self._review_note_line, self.review_note)
         if self._footnote_line is not None:
             self._footnote_line.value = self.footnote

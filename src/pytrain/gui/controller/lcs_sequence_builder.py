@@ -54,7 +54,7 @@ class LcsProgram:
                 f"twice a second, then release. Pressing PROGRAM again before the sequence finishes "
                 f"exits program mode with no change."
             )
-        return f"Hold the {self.device.label}'s PGM button for 1 second; the red LED blinks slowly."
+        return f"Hold the {self.device.label}'s PGM button for 1 second until the red LED blinks slowly"
 
 
 def included_presses(mode: LcsMode, options: Mapping[str, Any] | None = None) -> tuple[Press, ...]:
