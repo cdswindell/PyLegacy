@@ -183,6 +183,10 @@ UNVERIFIED_LINE = "{verdict} - {reason}. {retry}"
 # two verdict shades: a line already colored as an answer, before there is an answer, is one
 # the operator reads as an answer. Stated rather than left to the widget's own default,
 # because this one line is recolored and has to be able to get back.
+#
+# The same is true of its size and its slant, the verdict being drawn large and bold: this
+# line is fine print in italic, which is a note on a pass in progress rather than the answer
+# to it. See LcsConfigPanel._polling_text_size and _show_polling.
 VERIFYING_FG = "black"
 
 # The heading each page opens with, and the three keys the operator presses. Named here
@@ -205,11 +209,12 @@ CONFIGURE_TEXT = "Configure"
 # LcsConfigPanel._build_manual_config_box.
 MANUAL_CONFIG_TITLE = "Manual Configuration"
 
-# The key that opens the listing, on the device page, and the heading the listing opens
-# with. The button says what it shows rather than what it does -- there is no verb an
-# operator wants here -- and it says "My", which is the operator's own word for the modules
-# on the layout in front of them: what is listed is what has reported itself on their bus.
-# The heading is the same claim spelled out, the page being read on its own.
+# The key that opens the listing -- on the panel's own row of keys, where it stands left of
+# Next while the first page is up -- and the heading the listing opens with. The button says
+# what it shows rather than what it does -- there is no verb an operator wants here -- and it
+# says "My", which is the operator's own word for the modules on the layout in front of them:
+# what is listed is what has reported itself on their bus. The heading is the same claim
+# spelled out, the page being read on its own.
 INVENTORY_TEXT = "My Modules"
 INVENTORY_TITLE = "My LCS Modules"
 # What the page says when nothing has reported itself, which is the ordinary state of a
@@ -1122,10 +1127,10 @@ class LcsConfigPanel(OverlayPanel):
         # My Modules: the key that opens the listing, the rows that order it, and the grid
         # it is written into. The heading row is the grid's first, so the cells below are
         # grown and reused exactly as the module rows' are; see _refresh_inventory.
+        #
+        # The key itself is not on the listing's page or on the device page but on the
+        # panel's own row of keys, where it stands left of Next; see _build_nav.
         self._inventory_btn: HoldButton | None = None
-        # The row that key stands on, which is what puts it in the other keys' column; see
-        # _build_key_row.
-        self._inventory_key_row: Box | None = None
         self._sort_group: CheckBoxGroup | None = None
         self._sort_key: str = SORT_MODULE
         self._inventory_grid: Box | None = None
@@ -1515,12 +1520,30 @@ class LcsConfigPanel(OverlayPanel):
         a live window at the new size, the page is 355px of the Pi's 539px window with a
         Success on it and 510px with the worst failure spelled out.
 
-        The polling line is written to this same widget and grows with it, which is right: it
-        is the same sentence at an earlier moment, and it is what the operator is watching
-        while the panel waits the module out. It goes from two lines to three. See VERIFYING
-        and _show_status.
+        The polling line is written to this same widget and is not drawn at this size: it is
+        a question, not an answer, and at the answer's size and weight it was read as one.
+        See _polling_text_size.
         """
         return self._gui.s_20
+
+    @property
+    def _polling_text_size(self) -> int:
+        """The size the panel says what it is still waiting for at: the page's fine print.
+
+        The size of the three lines beneath the Configure key -- the footnote, what was asked
+        of the module and what it answered -- because while it stands this line is one of
+        them: a note on a pass in progress, read by an operator who is watching rather than
+        being told anything.
+
+        It shares its widget with the verdict and so inherited the verdict's size, which is
+        three above this and the largest the panel sets anything: the biggest, boldest line
+        on the page announced that the panel had not finished asking, and announced it for as
+        long as the module took to answer. Read back in a live window at each page width the
+        panel runs at, the sentence cost 99px of height on the narrowest of them -- three
+        lines of the largest text the panel draws -- against 44px of fine print here, and
+        25px on a Deck's wider page. See _show_polling.
+        """
+        return self._gui.s_12
 
     @property
     def _row_name_wrap_px(self) -> int:
@@ -1805,28 +1828,10 @@ class LcsConfigPanel(OverlayPanel):
             cursor=pad_driven(),
             command=self._on_device_selected,
         )
-        # And, below the choice, the way to go and look first. What is already out on the
-        # layout is the thing an operator wants to know before they program anything -- which
-        # addresses are taken, and by what -- and this is the page they are standing on when
-        # they want it. Off to one side rather than in the march: it answers a question of
-        # its own and leads nowhere, so it is a key that opens a page and comes back rather
-        # than a step between this page and the next. See show_inventory.
-        host.add_vspace(page, self._page_gap)
-        self._inventory_key_row = row = self._build_key_row(page)
-        self._inventory_btn = btn = HoldButton(row, text=INVENTORY_TEXT, align="left", command=self.show_inventory)
-        # The one shared look for the big keys of an overlay, which Back, Next, Configure and
-        # the Close below them all wear: a raised border and an edge, a lighter face than the
-        # panel, and a darker one while it is held. It is drawn as a key rather than as a word
-        # in a rectangle because it is one -- it turns a page, as the two below the panel do,
-        # and it is the only key on this page besides them.
-        #
-        # Its pack padding is then trimmed exactly as the Back/Next row's is: the band a
-        # footer button carries is meant to hold a row off the panel and the pane, and this
-        # key stands in the middle of a page with the modules above it and Next below.
-        # See style_footer_button and NAV_ROW_PAD.
-        style_footer_button(host, btn)
-        repad_footer_button(btn, pady=self._nav_row_pad)
-        host.cache(btn)
+        # The way to go and look first -- what is already out on the layout, which is what an
+        # operator wants to know before they program anything -- is on the panel's own row of
+        # keys rather than on this page, standing left of Next. See _build_nav and
+        # show_inventory.
         return page
 
     def _build_key_row(self, page: Box) -> Box:
@@ -1847,9 +1852,10 @@ class LcsConfigPanel(OverlayPanel):
         is read as a block of its own -- the module rows, the steps in their box -- and is
         centered as the contents of every page in the panel are.
 
-        Two keys ask for this, and they are the only two the panel builds into a page: My
-        Modules on the device page and Configure on the review page. Each is the one key on
-        its page and each stands directly over Back, Next and Close.
+        One key asks for this, and it is the only one the panel builds into a page at all:
+        Configure on the review page, which is the one key that cannot be moved off its page
+        -- what it does belongs to what is read above it. The My Modules key was the other,
+        and it needs no gutter now that it stands on the row of keys itself; see _build_nav.
 
         A spacer widget rather than pack padding, for the reason footer_spacer is one:
         guizero rebuilds a container's pack options from scratch whenever anything in it is
@@ -2397,6 +2403,10 @@ class LcsConfigPanel(OverlayPanel):
         # for, and they are reading it from wherever they were standing to hold the module's
         # button. It says nothing until Configure is pressed and takes no room while it says
         # nothing; see _status_text_size and _show_status.
+        #
+        # This is also the line the panel says what it is waiting for on, and that is not
+        # said in this hand: what is built here is the hand of the answer, and the poll sets
+        # its own on the way in. See _show_polling.
         self._status_line = self._label(page, "", size=self._status_text_size, bold=True)
         self._status_line.hide()
         return page
@@ -2951,7 +2961,7 @@ class LcsConfigPanel(OverlayPanel):
             # this line's business, and it has not said anything yet. The waiting is the
             # status line's, which says what the waiting is for.
             self._reported_line.value = ""
-        self._show_status(VERIFYING.format(module=program.device.label), VERIFYING_FG)
+        self._show_polling(program.device.label)
         self._watch_readback(program)
         self._schedule(READBACK_TIMEOUT_MSEC, self.on_readback_timeout)
 
@@ -3193,16 +3203,47 @@ class LcsConfigPanel(OverlayPanel):
             VERIFIED_FG if verification.passed else UNVERIFIED_FG,
         )
 
-    def _show_status(self, text: str, color: str) -> None:
-        """Write the status line in the color what it says is worth, or take it off the page.
+    def _show_polling(self, module: str) -> None:
+        """Say what the panel is waiting for, in the hand a question is written in.
 
-        Colored on every write rather than once: the line is the same widget throughout a
-        programming pass -- asking, then answered -- and a red left over from the last pass
-        would color the next one's polling line as a failure.
+        The same line the verdict is written to, and not in the verdict's hand: the size of
+        the notes beneath the Configure key, and in italic where the verdict is bold. What
+        stands here is not an answer, and drawn as one it was read as one -- an operator
+        looking up from the module found the largest, boldest line on the page telling them
+        only that the panel had not finished asking.
+
+        See _polling_text_size for the size and what it was, VERIFYING for the sentence and
+        _show_status for why the hand is set on every write rather than at the widget.
         """
-        if self._status_line is not None:
-            self._status_line.text_color = color
-        self._refresh_note(self._status_line, text)
+        self._show_status(
+            VERIFYING.format(module=module),
+            VERIFYING_FG,
+            size=self._polling_text_size,
+            italic=True,
+        )
+
+    def _show_status(self, text: str, color: str, size: int | None = None, italic: bool = False) -> None:
+        """Write the status line in the hand what it says is worth, or take it off the page.
+
+        Set on every write rather than once at the widget, and the color is only the first
+        reason: the line is the same widget throughout a programming pass -- asking, then
+        answered -- so anything left standing from the write before is read as belonging to
+        this one. A red left over from a failure would color the next pass's polling line as
+        a failure, and the verdict's own size and weight announced a question as an answer.
+
+        The default is the verdict's hand, which is what the line is cleared to as well; the
+        poll asks for its own. See _status_text_size and _show_polling.
+        """
+        line = self._status_line
+        if line is not None:
+            line.text_color = color
+            line.text_size = size or self._status_text_size
+            line.text_italic = italic
+            # The two hands are exclusive rather than settings to be mixed: the verdict is
+            # the answer and is set in bold, the poll is the panel saying what it is waiting
+            # for and is set in italic. Both at once would be a question shouted.
+            line.text_bold = not italic
+        self._refresh_note(line, text)
         if text:
             self._reveal_status()
 
@@ -3380,9 +3421,10 @@ class LcsConfigPanel(OverlayPanel):
         """Whether Back and Next pass over index rather than stopping on it.
 
         A page the module has nothing to say on, and the listing -- which is not a step of
-        anything: it is opened from the device page by its own key and left by Back, and a
-        Next that walked into it would carry the operator out of the sequence they are
-        working through. See PAGE_INVENTORY and show_inventory.
+        anything: it is opened by its own key, which stands on the row of keys while the
+        first page is up, and left by Back, and a Next that walked into it would carry the
+        operator out of the sequence they are working through. See PAGE_INVENTORY,
+        shows_inventory_key and show_inventory.
         """
         return self._stepped_over(index) or index == PAGE_INVENTORY
 
@@ -3442,8 +3484,8 @@ class LcsConfigPanel(OverlayPanel):
         """Turn back a page. From the listing, back to the page it was opened from.
 
         The listing is off the march, so there is no page "before" it to walk to: what Back
-        means there is done looking, which is the device page the key that opened it stands
-        on. See PAGE_INVENTORY.
+        means there is done looking, which is the device page -- the page the key that opened
+        it is shown on. See PAGE_INVENTORY and shows_inventory_key.
         """
         if self._page_index == PAGE_INVENTORY:
             self._show_page(PAGE_DEVICE)
@@ -3482,6 +3524,24 @@ class LcsConfigPanel(OverlayPanel):
     def can_go_back(self) -> bool:
         """Whether there is a page before this one. The rule the Back key is shown by."""
         return self._page_index > 0
+
+    @property
+    def shows_inventory_key(self) -> bool:
+        """Whether My Modules stands on the row: on the first page, and only there.
+
+        What it opens is a question about the layout rather than about the module being
+        configured -- which addresses are taken, and by what -- and the first page is where
+        that is asked, before anything has been chosen. Past it the operator is working on one
+        module and a key that left the sequence would be an invitation to lose their place; on
+        the listing itself there is nothing for it to open.
+
+        Which is also what keeps the row inside the pane. This key is shown exactly where
+        Back is not -- can_go_back is the same page index asked the other way -- so the row is
+        never three keys wide, and three do not fit: read back in a live window with the
+        shared look, two make a 455px row of the Pi's 480px pane and three make 679. See
+        _build_nav.
+        """
+        return self._page_index == PAGE_DEVICE
 
     @property
     def can_configure(self) -> bool:
@@ -4838,21 +4898,30 @@ class LcsConfigPanel(OverlayPanel):
         return self._nav_row_pad
 
     def _build_nav(self, body: Box) -> None:
-        """Back and Next, on a row of the panel's own rather than in the popup's footer.
+        """The panel's own row of keys -- Back, My Modules, Next -- rather than the popup's footer.
 
         has_footer is left False, so where create_popup adds a Close button at all (see
         has_close) it goes below everything the panel builds -- which puts Close on a line
-        of its own, under these two, instead of all three crowding one row. Where it does
-        not, these two are the last row in the overlay and nothing moves.
+        of its own, under this row, instead of crowding it. Where it does not, this row is
+        the last in the overlay and nothing moves.
 
         The row is packed, not gridded, and asks for no width of its own, so it is as wide as
         the buttons it is showing and Tk centers it under the page above; Close below it is
-        centered the same way. On the first page that means Next alone, centered -- the row
-        shrinks to it rather than keeping a Back-shaped hole to its left.
+        centered the same way. On the first page that means My Modules and Next, centered as
+        a pair -- the row shrinks to what it shows rather than keeping a Back-shaped hole at
+        one end.
 
-        Back is created first, so it is always the left of the two: guizero re-packs a
+        Back is created first, so it is always the left of the row: guizero re-packs a
         container's children in the order they were created, so an order set here is the
-        order the row keeps however often Back is hidden and shown again.
+        order the row keeps however often one of them is hidden and shown again.
+
+        Which is what puts My Modules where it is asked to be. It is created second of the
+        three, so it stands left of Next -- and on the one page it is shown on, the first,
+        Back is not there for it to stand right of, so it is the left of two keys. See
+        shows_inventory_key, which is also what keeps the row to two: read back in a live
+        window with this look and this packing, Back and Next take 224px of the row apiece
+        and this key 231, so two of them are a 455px row of the Pi's 480px pane -- centered
+        within a pixel of the pane's own middle -- and three would be 679.
 
         Styled with style_footer_button: that is the one shared look for the big buttons at
         the foot of an overlay, and the Close beneath them wears it too. Its vertical padding
@@ -4865,6 +4934,20 @@ class LcsConfigPanel(OverlayPanel):
         style_footer_button(host, back)
         repad_footer_button(back, pady=self._nav_row_pad)
         host.cache(back)
+        # The way to go and look at the layout first: what is already out there, and at which
+        # addresses, is what an operator wants to know before they program anything, and the
+        # first page is where they are standing when they want it. On this row rather than on
+        # that page, so the keys of the panel are all in one place -- and off to one side of
+        # the march all the same, since it opens a page that answers a question of its own and
+        # leads nowhere: Back is what comes off it. See show_inventory and previous_page.
+        #
+        # No width asked for, where Back and Next are eight characters wide: what is written
+        # on it is two words, and left to its own length it comes to 191px against those keys'
+        # 184 -- nearer than any number given here would be.
+        self._inventory_btn = inv = HoldButton(nav, text=INVENTORY_TEXT, align="left", command=self.show_inventory)
+        style_footer_button(host, inv)
+        repad_footer_button(inv, pady=self._nav_row_pad)
+        host.cache(inv)
         self._next_btn = nxt = HoldButton(nav, text=NEXT_TEXT, align="left", width=8, command=self.next_page)
         style_footer_button(host, nxt)
         repad_footer_button(nxt, pady=self._nav_row_pad)
@@ -4872,7 +4955,7 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_nav()
 
     def _refresh_nav(self) -> None:
-        """Which of Back and Next the row is showing, and whether what it shows can be pressed.
+        """Which of the row's keys it is showing, and whether what it shows can be pressed.
 
         Shown by whether there is a page that way at all, and enabled by whether the panel
         can go there yet. The two are not the same question: Next stands grayed on the first
@@ -4880,11 +4963,15 @@ class LcsConfigPanel(OverlayPanel):
         yet -- while on the review page there is nothing after it at all, and a key with
         nowhere to go is taken off the row rather than left standing gray. Which is what Back
         has always done on the first page; the two ends of the panel now read alike.
+
+        My Modules is a third question again: it is not a step of anything, so it is shown
+        where it is worth pressing rather than where it can be. See shows_inventory_key.
         """
         self._show_nav_button(self._back_btn, self.can_go_back)
+        self._show_nav_button(self._inventory_btn, self.shows_inventory_key)
         self._show_nav_button(self._next_btn, self.has_next_page, enabled=self.can_advance)
-        # Replayed once, after both: hide() and show() each run the row's display_widgets(),
-        # which rebuilds pack options from scratch and discards the padding
+        # Replayed once, after all three: hide() and show() each run the row's
+        # display_widgets(), which rebuilds pack options from scratch and discards the padding
         # style_footer_button recorded.
         if self._nav is not None:
             restore_footer_packing(self._nav)

@@ -92,7 +92,11 @@ class _DummyWidget:
         self.text = kwargs.get("text", "")
         self.value = kwargs.get("text", "")
         self.text_size = kwargs.get("text_size", 12)
+        # The two hands guizero's own widgets answer for. Both start off, as a widget built
+        # with neither does: the status line is the one the panel sets them on, and it sets
+        # both on every write; see LcsConfigPanel._show_status.
         self.text_bold = False
+        self.text_italic = False
         self.grid = kwargs.get("grid")
 
     def show(self) -> None:
@@ -2162,11 +2166,10 @@ def test_the_steps_read_from_the_left_edge_of_their_box() -> None:
 
 
 def test_the_configure_key_stands_where_the_keys_below_it_stand() -> None:
-    # The one key built into this page, and it stood half a scroll bar left of the Back, Next
-    # and Close beneath it: those are centered on the pane, while everything on a page is
+    # The one key built into a page at all, and it stood half a scroll bar left of the Back,
+    # Next and Close beneath it: those are centered on the pane, while everything on a page is
     # centered on the page, which is deliberately one bar narrower. So the gutter is handed
-    # back to the key on a row of its own, exactly as the My Modules key's is -- the two rows
-    # are built by the one method for that reason. See _build_key_row.
+    # back to the key on a row of its own. See _build_key_row.
     panel = _new_panel()
     row = panel._configure_key_row
 
@@ -2178,8 +2181,10 @@ def test_the_configure_key_stands_where_the_keys_below_it_stand() -> None:
     assert gutter.kwargs["align"] == panel._configure_btn.kwargs["align"] == "left"
     # And the row itself is centered on the page like anything else built into one.
     assert row.kwargs["align"] == "top"
-    # The same row as the listing's key stands on, down to the gutter: one offset, one method.
-    assert panel._inventory_key_row.children[0].kwargs == gutter.kwargs
+    # The one key that asks for this now: the My Modules key was the other, and it stands on
+    # the row of keys itself, which is centered on the pane and needs no gutter.
+    assert panel._inventory_btn in panel._nav.children
+    assert not any(isinstance(child, DummyBox) for child in panel._nav.children)
 
 
 def test_white_space_stands_either_side_of_the_configure_key() -> None:
@@ -2299,18 +2304,20 @@ def test_the_configure_button_wears_the_shared_look_of_the_overlays_other_keys(m
     panel = _new_panel()
 
     assert panel._configure_btn in styled
+    # The pages are built before the row of keys, so Configure is styled first and the three
+    # of that row follow in the order they stand in.
     assert [btn.text for btn in styled] == [
-        mod.INVENTORY_TEXT,
         mod.CONFIGURE_TEXT,
         mod.BACK_TEXT,
+        mod.INVENTORY_TEXT,
         mod.NEXT_TEXT,
     ]
 
 
-def test_the_my_modules_key_is_drawn_as_a_key_like_the_ones_below_the_panel(monkeypatch) -> None:
-    # It turns a page, which is what Back and Next do, and on the first page it is the only
-    # other thing to press: drawn by its text size alone it read as a word in a rectangle
-    # beside two keys with an edge and a face of their own.
+def test_the_my_modules_key_is_drawn_as_a_key_like_the_ones_beside_it(monkeypatch) -> None:
+    # It turns a page, which is what Back and Next do, and it stands on their row: drawn by
+    # its text size alone it read as a word in a rectangle beside keys with an edge and a face
+    # of their own.
     styled: list[Any] = []
     monkeypatch.setattr(mod, "style_footer_button", lambda _host, btn: styled.append(btn), raising=True)
 
@@ -2734,8 +2741,9 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
     parents = [parent for parent, _pixels in host.vspaces]
     assert parents == [
         body,  # under the popup's title row
-        panel._pages[mod.PAGE_DEVICE],  # under that page's prompt
-        panel._pages[mod.PAGE_DEVICE],  # between the modules and the My Modules key
+        # Under that page's prompt, and nothing below the modules: the My Modules key stood
+        # there and stands on the row of keys now, which the body's own gap holds off.
+        panel._pages[mod.PAGE_DEVICE],
         id_page,  # under the stepper row
         panel._mode_box,  # between the legend of keys and the mode radios
         panel._mode_box,  # between the radios and the note on the chosen one
@@ -2814,7 +2822,6 @@ def test_the_gaps_are_tighter_on_a_compact_host(
     assert [pixels for _parent, pixels in host.vspaces] == [
         section,
         section,
-        page,
         id_page,
         prose,
         prose,
@@ -2839,17 +2846,20 @@ def test_the_gaps_are_tighter_on_a_compact_host(
 
 
 #
-# The panel's own Back/Next row: Back is off the first page, and left of Next on the rest
+# The panel's own row of keys: Back is off the first page, and left of Next on the rest
 #
-def test_back_and_next_are_the_last_thing_in_the_body_after_a_gap() -> None:
+def test_the_row_of_keys_is_the_last_thing_in_the_body_after_a_gap() -> None:
     # The panel's own row, not the popup's footer: Close is added below everything build()
-    # produces, so it lands on a line of its own under these two.
+    # produces, so it lands on a line of its own under this row.
     panel, body, _host = _build_with_body()
 
     assert getattr(body.children[-2], "vspace", None) == mod.PAGE_GAP
     assert body.children[-1] is panel._nav
+    # In creation order, which is the order Tk packs them in and so the order they are read:
+    # My Modules stands left of Next, and right of Back on any page that showed both.
     assert [child.text for child in panel._nav.children if getattr(child, "text", "")] == [
         mod.BACK_TEXT,
+        mod.INVENTORY_TEXT,
         mod.NEXT_TEXT,
     ]
 
@@ -2907,15 +2917,19 @@ def test_holding_the_screen_is_this_panel_and_no_other() -> None:
     assert mod.LcsConfigPanel.closes_on_request_only is not mod.OverlayPanel.closes_on_request_only
 
 
-def test_the_device_page_shows_next_alone() -> None:
+def test_the_device_page_shows_my_modules_and_next() -> None:
     # There is nowhere to go back to from the first page, so Back is off the row entirely --
-    # not grayed, and not standing in a placeholder of its own width. The row asks for no
-    # width, so it shrinks to Next and Tk centers it.
+    # not grayed, and not standing in a placeholder of its own width. What stands in its
+    # place is the key that opens the listing, left of Next: the row asks for no width, so it
+    # shrinks to the pair of them and Tk centers it.
     panel = _new_panel()
 
     assert panel.page_index == mod.PAGE_DEVICE
     assert panel._back_btn.visible is False
-    assert [child.text for child in panel._nav.children if child.visible] == [mod.NEXT_TEXT]
+    assert [child.text for child in panel._nav.children if child.visible] == [
+        mod.INVENTORY_TEXT,
+        mod.NEXT_TEXT,
+    ]
 
 
 def test_back_is_visible_and_enabled_on_every_later_page() -> None:
@@ -2931,18 +2945,26 @@ def test_back_is_visible_and_enabled_on_every_later_page() -> None:
         assert panel._back_btn.enabled is True
 
 
-def test_back_is_created_first_so_it_is_never_to_the_right_of_next() -> None:
+def test_the_keys_are_created_in_the_order_they_are_read() -> None:
     # What the Pi showed: Back reappeared on the first page *after* Next. guizero re-packs a
     # container's children in creation order, so the order asserted here is the order the row
-    # keeps however often Back leaves it and comes back.
+    # keeps however often a key leaves it and comes back -- which is what puts My Modules
+    # left of Next rather than wherever it was last shown.
     panel = _new_panel()
     panel._on_device_selected("asc2")
 
+    order = [mod.BACK_TEXT, mod.INVENTORY_TEXT, mod.NEXT_TEXT]
     for _ in range(3):
         panel.next_page()
     for _ in range(3):
         panel.previous_page()
-        assert [child.text for child in panel._nav.children] == [mod.BACK_TEXT, mod.NEXT_TEXT]
+        assert [child.text for child in panel._nav.children] == order
+    # And back at the first page, where the key is shown and Back is not, it is the left of
+    # the two the row is showing.
+    assert [child.text for child in panel._nav.children if child.visible] == [
+        mod.INVENTORY_TEXT,
+        mod.NEXT_TEXT,
+    ]
 
 
 def test_stepping_forward_and_back_restores_the_initial_visibility() -> None:
@@ -3051,12 +3073,12 @@ def test_the_nav_row_gives_back_the_footer_bands_vertical_padding(monkeypatch, c
     _build_with_body(compact=compact)
 
     assert calls == [
-        (mod.INVENTORY_TEXT, {"pady": expected}),
         (mod.CONFIGURE_TEXT, {"pady": expected}),
         (mod.BACK_TEXT, {"pady": expected}),
+        (mod.INVENTORY_TEXT, {"pady": expected}),
         (mod.NEXT_TEXT, {"pady": expected}),
     ]
-    # Horizontal padding is untouched: it is the gap between the two buttons.
+    # Horizontal padding is untouched: it is the gap between the keys on a row.
     assert all("padx" not in kwargs for _text, kwargs in calls)
 
 
@@ -3082,13 +3104,14 @@ def test_the_band_below_the_row_is_the_rows_own_whitespace(compact: bool, expect
     assert panel.footer_pad_px < pm.FOOTER_LEAD_COMPACT < pm.FOOTER_LEAD
 
 
-def test_the_row_holds_the_two_buttons_and_nothing_else() -> None:
+def test_the_row_holds_its_keys_and_nothing_else() -> None:
     # No placeholder standing in for Back. It bought Next a fixed x at the cost of a
     # Back-shaped hole beside it on the first page, and of a second widget that had to be
-    # shown exactly when Back was not.
+    # shown exactly when Back was not. Nor a spacer beside My Modules: this row is centered
+    # on the pane already, which is the whole of what the gutter on a page's key is for.
     panel = _new_panel()
 
-    assert [type(child).__name__ for child in panel._nav.children] == ["DummyHoldButton"] * 2
+    assert [type(child).__name__ for child in panel._nav.children] == ["DummyHoldButton"] * 3
 
 
 #
@@ -4529,14 +4552,54 @@ def test_the_verdict_is_the_largest_text_on_the_page() -> None:
         if child is not panel._status_line and isinstance(getattr(child, "text_size", None), int)
     ]
     assert others and max(others) < panel._status_line.text_size
-    # The polling line is written to this same widget, so it is read at the same size: it is
-    # the same sentence at an earlier moment, and it is what the operator watches while the
-    # panel waits the module out.
-    panel._on_device_selected("bpc2")
-    panel._show_status(mod.VERIFYING.format(module=BPC2.label), mod.VERIFYING_FG)
+    # And this is the hand the line is built in and cleared to, the poll setting its own on
+    # the way in; see test_the_polling_line_is_read_as_the_note_it_is.
+    panel._show_status("", mod.VERIFYING_FG)
 
-    assert panel._status_line.value == mod.VERIFYING.format(module=BPC2.label)
-    assert panel._status_line.text_size == panel._status_text_size
+    assert (panel._status_line.text_size, panel._status_line.text_bold) == (panel._status_text_size, True)
+
+
+def test_the_polling_line_is_read_as_the_note_it_is() -> None:
+    # It is written to the verdict's own widget and so was drawn in the verdict's hand: the
+    # largest, boldest line on the page said only that the panel had not finished asking, and
+    # said it for as long as the module took to answer. So it is read at the size of the notes
+    # beneath the Configure key -- what was asked of the module and what it answered -- and in
+    # italic rather than bold, which is a question rather than an answer. Read back in a live
+    # window, it also costs 44px of the narrowest page's height where it cost 99.
+    panel = _new_panel()
+    host = panel.gui
+    panel._on_device_selected(BPC2.key)
+
+    panel.on_configure()
+
+    line = panel._status_line
+    assert line.value == mod.VERIFYING.format(module=BPC2.label)
+    assert line.text_size == panel._polling_text_size == host.s_12 < panel._status_text_size
+    # The same size as those notes, asked of them rather than of the number: what this line
+    # is while it stands is one of them.
+    assert {line.text_size} == {panel._footnote_line.text_size, panel._requested_line.text_size}
+    assert (line.text_italic, line.text_bold) == (True, False)
+
+
+def test_the_verdict_takes_the_line_back_from_the_poll(monkeypatch) -> None:
+    # One widget written twice in a pass -- asking, then answered -- so whatever the poll left
+    # standing on it would be read as belonging to the answer. The answer's hand is set on
+    # every write rather than at the widget, exactly as its color is; see _show_status.
+    panel = _programmed_bpc2(_bpc2_state_at_12())
+    assert (panel._status_line.text_italic, panel._status_line.text_bold) == (True, False)
+    _bpc2_based_at(monkeypatch, 12, BPC2.default_mode, restore=False)
+
+    panel.on_readback()
+
+    line = panel._status_line
+    assert line.value == mod.VERIFIED
+    assert line.text_size == panel._status_text_size
+    assert (line.text_italic, line.text_bold) == (False, True)
+    # And a second pass writes the question again in the question's hand, rather than keeping
+    # the answer's: the line goes back and forth for as long as the operator keeps trying.
+    panel.on_configure()
+
+    assert (panel._status_line.text_italic, panel._status_line.text_size) == (True, panel._polling_text_size)
 
 
 #
@@ -6480,45 +6543,54 @@ def test_the_listing_is_read_afresh_each_time_it_is_opened(monkeypatch) -> None:
     assert panel._inventory_empty_line.visible is False
 
 
-def test_the_device_page_carries_the_key_that_opens_the_listing() -> None:
-    # On the first page, because what is already out on the layout is what an operator wants
-    # to know before they program anything.
+def test_the_key_that_opens_the_listing_stands_left_of_next() -> None:
+    # On the panel's own row of keys, and on the first page -- what is already out on the
+    # layout is what an operator wants to know before they program anything -- where Back is
+    # not there to stand right of. Left of Next because it is created before it: guizero packs
+    # a row in creation order. See _build_nav.
     panel = _new_panel()
-    page = panel._pages[mod.PAGE_DEVICE]
+    row = panel._nav
 
-    row = panel._inventory_key_row
     assert panel._inventory_btn.text == mod.INVENTORY_TEXT
-    assert panel._inventory_btn in row.children
-    assert page.children.index(panel._device_group) < page.children.index(row)
+    assert row.children.index(panel._inventory_btn) < row.children.index(panel._next_btn)
+    assert panel._inventory_btn not in panel._pages[mod.PAGE_DEVICE].children
+    assert panel._inventory_btn.kwargs["align"] == panel._next_btn.kwargs["align"] == "left"
+    # And no width of its own, where Back and Next are eight characters wide: what is written
+    # on it is two words, and read back in a live window with the shared look it comes to
+    # 191px against those keys' 184 -- so the pair of them is a 455px row of the Pi's 480px
+    # pane, centered within a pixel of the pane's own middle.
+    assert "width" not in panel._inventory_btn.kwargs
 
     panel._inventory_btn.command()
 
     assert panel.page_index == mod.PAGE_INVENTORY
 
 
-def test_the_key_that_opens_the_listing_stands_where_the_keys_below_it_stand() -> None:
-    # Back, Next and the Close beneath them are centered on the pane. Everything on a page is
-    # centered on the page, and the page is one scroll bar narrower than the pane -- the bar
-    # is drawn over the page's right-hand edge rather than beside it -- so a key centered on
-    # a page stands half a bar to the left of the keys directly below it: 12px on the Pi and
-    # the desk, 15px on a Deck, measured in a live window with the panel's own nesting.
+def test_the_key_that_opens_the_listing_is_shown_on_the_first_page_alone() -> None:
+    # It asks a question about the layout rather than about the module being configured, and
+    # the first page is where that is asked -- before anything has been chosen. Past it the
+    # operator is working on one module, and on the listing there is nothing for the key to
+    # open.
     #
-    # So the gutter is handed back to this one key, as a spacer beside it: what is centered
-    # on the page is then the key *and* the gutter, which leaves the key itself on the pane's
-    # middle, where the other keys are. A spacer widget rather than pack padding, which every
-    # turn of the panel would discard. The Configure key on the review page stands on a row
-    # built by the same method, for the same reason. See _build_key_row.
+    # Which is also what keeps the row inside the pane: it is shown exactly where Back is not,
+    # so the row is never three keys wide -- measured with the shared look, two are 455px of
+    # the Pi's 480px pane and three are 679. See shows_inventory_key.
     panel = _new_panel()
-    row = panel._inventory_key_row
+    panel._on_device_selected(BPC2.key)
 
-    assert len(row.children) == 2 and row.children[1] is panel._inventory_btn, "the gutter, then the key"
-    gutter = row.children[0]
-    assert isinstance(gutter, DummyBox) and not gutter.value, "white space, and nothing else"
-    assert gutter.kwargs["width"] == mod.scroll_bar_px() == mod.SCROLL_BAR_PX
-    assert gutter.kwargs["height"] == 1, "it holds a column apart, not two rows"
-    assert gutter.kwargs["align"] == panel._inventory_btn.kwargs["align"] == "left"
-    # And the row itself is centered on the page like anything else built into one.
-    assert row.kwargs["align"] == "top"
+    assert (panel.shows_inventory_key, panel._inventory_btn.visible) == (True, True)
+    for page in (mod.PAGE_ID, mod.PAGE_OPTIONS, mod.PAGE_REVIEW, mod.PAGE_INVENTORY):
+        panel._show_page(page)
+        assert panel.shows_inventory_key is False
+        assert panel._inventory_btn.visible is False, "and a hidden key cannot be pressed"
+        assert panel._inventory_btn.enabled is False
+        assert panel._back_btn.visible is True, "the key stands in the space Back leaves"
+
+    panel._show_page(mod.PAGE_DEVICE)
+
+    assert (panel._inventory_btn.visible, panel._inventory_btn.enabled) == (True, True)
+    assert panel._back_btn.visible is False
+    assert len([child for child in panel._nav.children if child.visible]) == 2
 
 
 def test_the_listing_is_left_by_back_for_the_page_it_was_opened_from() -> None:
