@@ -44,7 +44,7 @@ class _DummyTk:
         # And what its grid columns were configured with, which is how a stretched box's
         # width floor is read: guizero has no way of asking for one. Keyed by column, since
         # the panel's stretched boxes all stand in column 0 of a container of their own; see
-        # LcsConfigPanel._lay_out_titled_boxes and _stretch_manual_steps.
+        # LcsConfigPanel._lay_out_titled_boxes and _stretch_manual_config.
         self.columns: dict[int, dict[str, Any]] = {}
 
     def config(self, **kwargs: Any) -> None:
@@ -2013,7 +2013,7 @@ def test_the_sensor_tracks_review_names_its_own_program_button() -> None:
     # A PROGRAM key where every other module has a PGM key, which the registry spells and the
     # instruction reads off it. The caveat that used to stand beside it -- that the sequence
     # is only complete once the Action Command has been assigned -- is drawn nowhere now: the
-    # sequence is listed step by step in the Manual Steps box, which is where an operator
+    # sequence is listed step by step in the Manual Configuration box, which is where an operator
     # reads what is done and what is left.
     panel = _new_panel()
     panel._on_device_selected("sensor_track")
@@ -2043,9 +2043,9 @@ def test_the_relay_warning_is_read_on_the_page_it_is_acted_on() -> None:
     # order is read through them.
     page = panel._pages[mod.PAGE_REVIEW]
     order = page.children.index
-    steps = panel._manual_steps_grid
+    steps = panel._manual_config_grid
     assert order(steps) < order(panel._review_note_line) < order(panel._configure_key_row)
-    assert panel._review_line in panel._manual_steps_box.children
+    assert panel._review_line in panel._manual_config_box.children
 
 
 def test_the_review_pages_heading_is_followed_by_half_a_line_then_the_instruction() -> None:
@@ -2074,7 +2074,7 @@ def test_the_instruction_and_the_steps_are_read_at_the_pages_own_size() -> None:
     assert panel._review_line.text_size == size
     # The box's title with them, as the ID page's boxes are titled at the size of their own
     # rows: a title two sizes below its list reads as fine print on it.
-    assert panel._manual_steps_box.text_size == size
+    assert panel._manual_config_box.text_size == size
     # And what the module answers with is left where it was: what grew is the work to be
     # done, not the record of what was asked and what came back.
     lines = (panel._footnote_line, panel._requested_line, panel._reported_line)
@@ -2086,34 +2086,52 @@ def test_the_steps_stand_in_a_box_of_their_own_drawn_to_the_page() -> None:
     panel._on_device_selected("asc2")
     panel._set_base_id(9)
 
-    box = panel._manual_steps_box
-    assert box.text == mod.MANUAL_STEPS_TITLE == "Manual Steps"
+    box = panel._manual_config_box
+    assert box.text == mod.MANUAL_CONFIG_TITLE == "Manual Configuration"
     assert panel._review_line in box.children
     assert panel._review_line.value == "\n".join(_press_lines(ASC2.mode("acc_8"), 9))
     # Gridded into a column of its own and stretched across it, which is the only way a box
     # gets a width the page decides rather than the width of "1. ACC 1 SET" -- a frame a
-    # third of the pane wide, with a title longer than the list under it. The floor is the
-    # one the ID page's three boxes are stretched to, so every titled box in the panel is one
-    # width; see _lay_out_titled_boxes.
-    container = panel._manual_steps_grid
+    # third of the pane wide, with a title longer than the list under it.
+    container = panel._manual_config_grid
     assert container.kwargs["layout"] == "grid" and box in container.children
-    assert container.tk.columns[0] == {"weight": 1, "minsize": panel._titled_box_px}
+    assert container.tk.columns[0] == {"weight": 1, "minsize": panel._manual_config_px}
     assert box.tk.gridded["sticky"] == "ew"
 
 
-def test_the_steps_box_keeps_the_pages_width_across_a_refresh() -> None:
+def test_the_steps_box_stands_in_a_margin_either_side_of_it() -> None:
+    # It was stretched to the floor the ID page's three boxes share, which is 6px a side: a
+    # frame all but on the edge of the page, with its numbers 2px inside it. Its width is the
+    # page's own prose width now -- so the frame stands exactly where the instruction above it
+    # breaks, with twice the white space either side -- and the list is held off the frame by
+    # the same margin again. See _manual_config_px and MANUAL_CONFIG_PAD.
+    panel = _new_panel()
+    box, page = panel._manual_config_box, panel._page_px
+
+    assert panel._manual_config_px == panel._wrap_px < panel._titled_box_px < page
+    assert (page - panel._manual_config_px) // 2 == mod.WRAP_INSET // 2 == 12
+    assert box.tk.gridded["sticky"] == "ew", "the box is what the column's width is given to"
+    # And inside the frame: the presses begin a margin in, and are broken at what is left
+    # rather than at the page's width, which is the frame's own now.
+    line = panel._review_line
+    assert line.tk.configured["padx"] == mod.MANUAL_CONFIG_PAD == 8
+    assert line.tk.configured["wraplength"] == panel._manual_config_wrap_px
+    assert panel._manual_config_wrap_px == panel._manual_config_px - 2 * mod.MANUAL_CONFIG_PAD
+
+
+def test_the_steps_box_keeps_its_width_across_a_refresh() -> None:
     # guizero rebuilds a container's grid options from scratch whenever a child of it is
     # created, shown or hidden, and sticky is not among the options it replays -- which is
     # why the ID page's boxes are re-stretched after every refresh, and why this one is.
     panel = _new_panel()
-    box, container = panel._manual_steps_box, panel._manual_steps_grid
+    box, container = panel._manual_config_box, panel._manual_config_grid
     box.tk.gridded.clear()
     container.tk.columns.clear()
 
     panel._on_device_selected("bpc2")
 
     assert box.tk.gridded["sticky"] == "ew"
-    assert container.tk.columns[0]["minsize"] == panel._titled_box_px
+    assert container.tk.columns[0]["minsize"] == panel._manual_config_px
 
     # And a box the grid has forgotten is passed over: grid_configure on one would put it
     # back on the page.
@@ -2136,9 +2154,9 @@ def test_the_steps_read_from_the_left_edge_of_their_box() -> None:
     assert line.kwargs["width"] == "fill"
     assert line.tk.configured["anchor"] == "w"
     assert line.tk.configured["justify"] == "left"
-    # Broken at the page's width like every other line the panel writes, the box being drawn
-    # wider than that: the wrap decides where a press breaks and not the frame around it.
-    assert line.tk.configured["wraplength"] == panel._wrap_px < panel._titled_box_px
+    # Broken inside the frame it stands in rather than at the page's width, which is that
+    # frame's own width now: the wrap decides where a press breaks and not the frame.
+    assert line.tk.configured["wraplength"] == panel._manual_config_wrap_px < panel._wrap_px
     # And the prose on the page is still centered under the heading, as all of it is.
     assert panel._program_line.tk.configured["justify"] == "center"
 
@@ -4492,6 +4510,35 @@ def test_the_verdict_stands_below_the_two_lines_it_is_drawn_from() -> None:
     assert panel._status_line.text_bold is True, "the one line on the page that is waited for"
 
 
+def test_the_verdict_is_the_largest_text_on_the_page() -> None:
+    # It was set at the page's body size, in among the record of what was asked and what came
+    # back -- and it is the answer to the one question the whole panel is walked to ask, read
+    # by an operator looking up from the module they have just had both hands on. So it is
+    # three sizes above that body and larger than anything else the panel draws, including
+    # the heading of the page it stands on. See _status_text_size.
+    panel = _new_panel()
+    host = panel.gui
+    page = panel._pages[mod.PAGE_REVIEW]
+
+    assert panel._status_text_size == host.s_20 > host.s_16 > host.s_14
+    assert panel._status_line.text_size == panel._status_text_size
+    assert page.children[0].value == mod.REVIEW_TITLE
+    others = [
+        child.text_size
+        for child in page.children
+        if child is not panel._status_line and isinstance(getattr(child, "text_size", None), int)
+    ]
+    assert others and max(others) < panel._status_line.text_size
+    # The polling line is written to this same widget, so it is read at the same size: it is
+    # the same sentence at an earlier moment, and it is what the operator watches while the
+    # panel waits the module out.
+    panel._on_device_selected("bpc2")
+    panel._show_status(mod.VERIFYING.format(module=BPC2.label), mod.VERIFYING_FG)
+
+    assert panel._status_line.value == mod.VERIFYING.format(module=BPC2.label)
+    assert panel._status_line.text_size == panel._status_text_size
+
+
 #
 # The two reports are colored as the warning they are
 #
@@ -5669,22 +5716,27 @@ def test_every_line_the_panel_writes_is_broken_at_the_pane() -> None:
     # found overflowing, because what these lines say comes from the registry and from the
     # layout, and neither is bounded by anything that knows how wide the screen is.
     #
-    # Every line but the one column of a grid row that has the others beside it and so less
-    # than the page to itself: a module row's name, a listing row's configuration. See the
+    # Every line but the ones that do not have the page to themselves: the one column of a
+    # grid row that has the others beside it -- a module row's name, a listing row's
+    # configuration -- and the presses, which stand inside a frame of their own. See the
     # tests below.
     panel = _new_panel()
 
     lines = [w for w in _panel_widgets(panel) if isinstance(w, DummyText)]
-    names = [cell[mod.ROW_NAME_COLUMN] for cell in panel._assigned_cells + panel._overlap_cells]
+    bounded = [cell[mod.ROW_NAME_COLUMN] for cell in panel._assigned_cells + panel._overlap_cells]
     # The listing's configuration column is not a label but a stack of them, one per group of
     # a module's settings, and each block of it is broken at the column; see GroupedCell.
-    names += [block for cell in panel._inventory_cells for block in cell[mod.INVENTORY_CONFIG_COLUMN].blocks]
+    bounded += [block for cell in panel._inventory_cells for block in cell[mod.INVENTORY_CONFIG_COLUMN].blocks]
+    # And the review page's presses, whose frame is narrower than the page by the margin
+    # either side of it: broken at the page's width they would be broken by the frame.
+    bounded.append(panel._review_line)
 
     assert len(lines) > 10, "the pages' own prose, their headings and the boxes' cells"
-    assert names, "the assigned box writes a row before an ID is even entered"
-    assert [line.tk.configured.get("wraplength") for line in lines if line not in names] == [panel._wrap_px] * (
-        len(lines) - len(names)
+    assert bounded, "the assigned box writes a row before an ID is even entered"
+    assert [line.tk.configured.get("wraplength") for line in lines if line not in bounded] == [panel._wrap_px] * (
+        len(lines) - len(bounded)
     )
+    assert panel._review_line.tk.configured["wraplength"] == panel._manual_config_wrap_px < panel._wrap_px
 
 
 def test_a_name_is_broken_inside_its_own_column_and_not_at_the_page() -> None:

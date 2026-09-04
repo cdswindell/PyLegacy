@@ -202,8 +202,8 @@ CONFIGURE_TEXT = "Configure"
 # it, and the one they will work through if a press is missed. In a frame with a title on
 # it, because a numbered list standing bare on a page says nothing about whose steps it is
 # reporting; the frame also gives the list a left edge to be read from. See
-# LcsConfigPanel._build_manual_steps_box.
-MANUAL_STEPS_TITLE = "Manual Steps"
+# LcsConfigPanel._build_manual_config_box.
+MANUAL_CONFIG_TITLE = "Manual Configuration"
 
 # The key that opens the listing, on the device page, and the heading the listing opens
 # with. The button says what it shows rather than what it does -- there is no verb an
@@ -548,6 +548,23 @@ MIN_WRAP_PX = 240
 # rather than a fixed width -- a box whose contents ask for more still gets more; see
 # _lay_out_titled_boxes.
 TITLED_BOX_INSET = 12
+
+# And how far inside its own frame the review page's Manual Configuration box holds its
+# presses, in pixels. That box is not drawn to the inset above -- see
+# LcsConfigPanel._manual_config_px for where its frame stands and why -- and this is the
+# white space between the frame and the list inside it: the numbers used to begin 2px in,
+# which reads as a list pressed up against the ruled edge beside it.
+#
+# Measured in the presses' own font against the width the box then leaves, on the narrowest
+# pane the panel runs in: the widest press a module can list, "2. AUX1 then 1 (Action
+# Command)", is 312px at the size these are drawn -- 288 a size below, 353 a size above --
+# against 416px, so the margin costs no press a line on any screen. Read back in a live
+# window, the numbers now begin 10px inside the frame -- this margin and the frame's own
+# 2px -- with the frame itself standing 12px inside either edge of the page.
+#
+# Internal Label padding rather than grid or pack padding, neither of which guizero replays;
+# see _manual_config_wrap_px and _left_line.
+MANUAL_CONFIG_PAD = 8
 
 # How wide the bar down the right edge of a scrolling page is drawn, in pixels: one value for
 # the Pi and the desk, a wider one for the Deck. See scroll_bar_px() for which screen gets
@@ -1138,11 +1155,11 @@ class LcsConfigPanel(OverlayPanel):
         # Review page
         self._program_line: Text | None = None
         # The presses, and the titled frame they are listed in -- with the grid column that
-        # frame is stretched across, which is what gives it the page's width; see
-        # _build_manual_steps_box.
+        # frame is stretched across, which is what gives it a width the page decides; see
+        # _build_manual_config_box.
         self._review_line: Text | None = None
-        self._manual_steps_box: TitleBox | None = None
-        self._manual_steps_grid: Box | None = None
+        self._manual_config_box: TitleBox | None = None
+        self._manual_config_grid: Box | None = None
         self._review_note_line: Text | None = None
         self._configure_btn: HoldButton | None = None
         # The row that key stands on, which is what puts it in the other keys' column; see
@@ -1386,6 +1403,35 @@ class LcsConfigPanel(OverlayPanel):
         return max(floor, self._page_px - TITLED_BOX_INSET)
 
     @property
+    def _manual_config_px(self) -> int:
+        """The width the review page's Manual Configuration box is drawn to.
+
+        The page's own prose width, which is not the floor the ID page's three boxes share:
+        that inset is 6px a side, and drawn to it this box stood all but on the edge of the
+        page -- 444px of a 456px page on the Pi, with the whole of its right-hand margin
+        being the scroll bar's gutter. What the block wants is a margin, and the page already
+        has one: every line of prose on it is broken at WRAP_INSET from the edges, so setting
+        the frame there stands it exactly where the instruction above it breaks, and gives the
+        block twice the white space it had either side.
+
+        Which is also the one width no line on the page can overrun, so nothing inside the
+        box is broken by the frame rather than by its own wrap; see _manual_config_wrap_px
+        for the margin inside it and MANUAL_CONFIG_PAD for what that was measured against.
+        """
+        return self._wrap_px
+
+    @property
+    def _manual_config_wrap_px(self) -> int:
+        """Where a press is broken inside that box: its width, less the margin either side.
+
+        Not the page's wrap, which is the box's own width now and would let a press run to
+        the frame and be broken by it. The floor is the wrap's floor, for a pane so narrow
+        that the margin would eat into it: a line told to break at nothing is a line Tk does
+        not break at all.
+        """
+        return max(MIN_WRAP_PX, self._manual_config_px - 2 * MANUAL_CONFIG_PAD)
+
+    @property
     def _titled_text_size(self) -> int:
         """The size the titled boxes' own text is drawn at -- their titles and their rows.
 
@@ -1428,7 +1474,7 @@ class LcsConfigPanel(OverlayPanel):
 
     @property
     def _review_text_size(self) -> int:
-        """The size the review page's instruction and its Manual Steps are drawn at.
+        """The size the review page's instruction and its Manual Configuration are drawn at.
 
         A size above the page's body, and two above where the instruction was set: what
         stands here is not a caption on the page but the work itself -- the button to hold
@@ -1440,11 +1486,41 @@ class LcsConfigPanel(OverlayPanel):
         panel draws: the instruction takes two lines at all of them, from 12pt (524px for an
         ASC2) to 18pt (744px), so this size costs nothing a smaller one would save. The
         widest press a module can write, "2. AUX1 then 1 (Action Command)", holds one line at
-        312px of the box's own 432. The one module that pays is the IR Sensor Track, whose
-        instruction carries the abort as well and goes from four lines to five -- height the
-        page scrolls.
+        312px of the 416 its box leaves inside its own margin. The one module that pays is the
+        IR Sensor Track, whose instruction carries the abort as well and goes from four lines
+        to five -- height the page scrolls.
         """
         return self._gui.s_16
+
+    @property
+    def _status_text_size(self) -> int:
+        """The size the verdict on a read-back is drawn at: the largest text the panel writes.
+
+        Three sizes above the page's body, where this line was set: it is the answer to the
+        one question the whole panel is walked to ask -- whether the module took what it was
+        sent -- and it is read by an operator who has just had both hands on the module and is
+        looking up from it. Every other line on the page can be read again at leisure; this
+        one is looked for.
+
+        Measured in the line's own bold font, drawn and wrapped by Tk against the narrowest
+        page the panel runs on: "Success" stands on one line at every size above the body --
+        108px of that page's 432 here, 128px at the largest size the panel sets anything -- so
+        what a size costs is paid by the failure that has something to explain: the verdict,
+        the settings that disagreed, and the button to hold to try again. The worst of those
+        goes from three lines to five here, 84px of height to 185; a size further up costs
+        15px more than that, and the largest, another 73.
+
+        Which is height and not width, and height is what this page has: it is scrolled, and
+        this line is scrolled to as soon as it is written -- see _reveal_status. Read back in
+        a live window at the new size, the page is 355px of the Pi's 539px window with a
+        Success on it and 510px with the worst failure spelled out.
+
+        The polling line is written to this same widget and grows with it, which is right: it
+        is the same sentence at an earlier moment, and it is what the operator is watching
+        while the panel waits the module out. It goes from two lines to three. See VERIFYING
+        and _show_status.
+        """
+        return self._gui.s_20
 
     @property
     def _row_name_wrap_px(self) -> int:
@@ -2277,8 +2353,10 @@ class LcsConfigPanel(OverlayPanel):
         # own line breaks, one per press; the wrap only breaks a press too long to stand on
         # one, which is why they are numbered. Read from the left edge of the box rather than
         # centered in it, a numbered list being read down its numbers; see _left_line.
-        self._manual_steps_box = self._build_manual_steps_box(page)
-        self._review_line = self._left_line(self._manual_steps_box, size=size)
+        self._manual_config_box = self._build_manual_config_box(page)
+        self._review_line = self._left_line(
+            self._manual_config_box, size=size, wrap_px=self._manual_config_wrap_px, padx=MANUAL_CONFIG_PAD
+        )
         # The one page the module's warning is read on now: held off the box above it and the
         # white space below by its own padding, which is what _note_line adds to the wrap the
         # rest of the page has. See review_note.
@@ -2313,37 +2391,41 @@ class LcsConfigPanel(OverlayPanel):
         self._requested_line = self._label(page, "", size=host.s_12)
         self._reported_line = self._label(page, "", size=host.s_12)
         # And the verdict drawn from those two: whether the module came back holding what it
-        # was sent. Below them, because it is the conclusion of reading them, and at the
-        # page's body size in bold against their smaller one, because it is the one line on
-        # this page an operator is waiting for. It says nothing until Configure is pressed
-        # and takes no room while it says nothing; see _show_status.
-        self._status_line = self._label(page, "", bold=True)
+        # was sent. Below them, because it is the conclusion of reading them, and in bold at
+        # the largest size the panel sets anything -- three above the page's body, and it was
+        # set at the body -- because it is the one line on this page an operator is waiting
+        # for, and they are reading it from wherever they were standing to hold the module's
+        # button. It says nothing until Configure is pressed and takes no room while it says
+        # nothing; see _status_text_size and _show_status.
+        self._status_line = self._label(page, "", size=self._status_text_size, bold=True)
         self._status_line.hide()
         return page
 
-    def _build_manual_steps_box(self, page: Box) -> TitleBox:
-        """The frame the presses are listed in, drawn to the width of the page.
+    def _build_manual_config_box(self, page: Box) -> TitleBox:
+        """The frame the presses are listed in, drawn to a width the page decides.
 
         Gridded into a column of its own rather than packed onto the page, which is the only
-        way a box gets a width the page decides: a packed box is as wide as whatever is
-        inside it, and what is inside this one is "1. ACC 1 SET" -- a frame a third of the
-        pane wide, with a title longer than the list under it. The floor is the one the ID
-        page's three boxes are stretched to, so every titled box in the panel is one width;
-        see _lay_out_titled_boxes and TITLED_BOX_INSET.
+        way a box gets that: a packed box is as wide as whatever is inside it, and what is
+        inside this one is "1. ACC 1 SET" -- a frame a third of the pane wide, with a title
+        longer than the list under it.
+
+        The width is the page's prose width rather than the floor the ID page's three boxes
+        share, so the block stands in a margin either side instead of on the page's edge; see
+        _manual_config_px, and MANUAL_CONFIG_PAD for the margin inside the frame.
 
         Titled at the size of what it holds, as those boxes are: a title set two sizes below
         its own list reads as fine print on it.
         """
         container = Box(page, layout="grid", align="top", border=0)
-        self._manual_steps_grid = container
-        box = TitleBox(container, text=MANUAL_STEPS_TITLE, grid=[0, 0], align=None)
+        self._manual_config_grid = container
+        box = TitleBox(container, text=MANUAL_CONFIG_TITLE, grid=[0, 0], align=None)
         box.text_size = self._review_text_size
-        self._manual_steps_box = box
-        self._stretch_manual_steps()
+        self._manual_config_box = box
+        self._stretch_manual_config()
         return box
 
-    def _stretch_manual_steps(self) -> None:
-        """Give the Manual Steps box the page's width, and give it back after a refresh.
+    def _stretch_manual_config(self) -> None:
+        """Give the Manual Configuration box its width, and give it back after a refresh.
 
         Replayed on every refresh for the reason _lay_out_titled_boxes is: guizero rebuilds
         a container's grid options from scratch in display_widgets, which runs whenever a
@@ -2351,16 +2433,16 @@ class LcsConfigPanel(OverlayPanel):
         options it replays. Nothing in this container is hidden today -- it holds the one box
         -- so this is what keeps that from being a fact the page depends on.
         """
-        container, box = self._manual_steps_grid, self._manual_steps_box
+        container, box = self._manual_config_grid, self._manual_config_box
         if container is None or box is None or not box.visible:
             return
         try:
-            container.tk.grid_columnconfigure(0, weight=1, minsize=self._titled_box_px)
+            container.tk.grid_columnconfigure(0, weight=1, minsize=self._manual_config_px)
             box.tk.grid_configure(sticky="ew")
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
-    def _left_line(self, parent: Box, size: int | None = None) -> Text:
+    def _left_line(self, parent: Box, size: int | None = None, wrap_px: int = None, padx: int = 0) -> Text:
         """A line that reads from the left edge of what it stands in, not from its middle.
 
         Every other line of prose the panel writes is centered, and a numbered list cannot
@@ -2373,11 +2455,16 @@ class LcsConfigPanel(OverlayPanel):
         would only line up the second line of a press under the first. Both survive a
         re-pack -- "fill" is read off the widget by guizero itself, and the anchor is a Tk
         option rather than a layout one. See _cell_label.
+
+        wrap_px is for a line that does not have the page to itself: what stands inside a
+        frame is broken at that frame's width and not the pane's, or it is broken by the
+        frame instead. padx is the white space it keeps from that frame's edge, which is
+        also a Tk option and so survives with the rest. See MANUAL_CONFIG_PAD.
         """
         line = self._label(parent, "", size=size, width="fill")
-        self._wrap(line, justify="left")
+        self._wrap(line, justify="left", width=wrap_px)
         try:
-            line.tk.config(anchor="w")
+            line.tk.config(anchor="w", padx=padx)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         return line
@@ -2799,7 +2886,7 @@ class LcsConfigPanel(OverlayPanel):
         Command has been assigned -- used to stand here beside it and is no longer drawn: the
         sequence it is about is now listed step by step in a frame of its own two lines up,
         which is where an operator reads what has and has not been done. See
-        MANUAL_STEPS_TITLE.
+        MANUAL_CONFIG_TITLE.
         """
         warning = self._device.warning if self._device is not None else None
         return warning or ""
@@ -2816,9 +2903,9 @@ class LcsConfigPanel(OverlayPanel):
             self._program_line.value = program.program_instruction if program else ""
         if self._review_line is not None:
             self._review_line.value = "\n".join(program.display) if program else ""
-        # The steps' frame keeps the page's width, whatever guizero has re-gridded since the
-        # last refresh; see _stretch_manual_steps.
-        self._stretch_manual_steps()
+        # The steps' frame keeps its own width, whatever guizero has re-gridded since the
+        # last refresh; see _stretch_manual_config.
+        self._stretch_manual_config()
         self._refresh_note(self._review_note_line, self.review_note)
         if self._footnote_line is not None:
             self._footnote_line.value = self.footnote
