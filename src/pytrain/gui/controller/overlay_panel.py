@@ -57,6 +57,22 @@ class OverlayPanel(metaclass=ABCMeta):
         return True
 
     @property
+    def closes_on_request_only(self) -> bool:
+        """Whether this panel's popup goes off the screen only when something asks for it.
+
+        False for a panel that is a view of whatever the pane has selected. The pane closes
+        its popup whenever that selection is re-read -- see EngineGui.update_component_info
+        and make_recent -- and a view of the component that *was* selected is worse than no
+        view at all, so those panels are right to go quietly.
+
+        True is for a panel the operator is working *in* rather than reading off: one with
+        pages of its own, or an answer on it that arrived once and will not arrive again. The
+        layout goes on reporting itself the whole time such a panel is up, and a report is
+        not a reason to take it away; see LcsConfigPanel.closes_on_request_only.
+        """
+        return False
+
+    @property
     def has_footer(self) -> bool:
         return False
 
@@ -84,5 +100,7 @@ class OverlayPanel(metaclass=ABCMeta):
         pass
 
     def _close(self) -> None:
+        # A panel closing itself is the operator asking for it to go, so it goes even where
+        # the panel would otherwise stay put; see closes_on_request_only.
         if self._overlay and self._gui and self._gui.popup_manager:
-            self._gui.popup_manager.close(self._overlay)
+            self._gui.popup_manager.close_requested(self._overlay)

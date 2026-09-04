@@ -3581,6 +3581,35 @@ class LcsConfigPanel(OverlayPanel):
         return needs_close_button()
 
     @property
+    def closes_on_request_only(self) -> bool:
+        """This panel goes when it is asked to go, and not because the layout said something.
+
+        It is the one panel in the pane that is worked in rather than read off: four pages of
+        choices, and on the last one a verdict on the presses that is written once. The pane
+        closes its popup whenever it re-reads what it has selected, and while this panel is up
+        the layout has every reason to make it do so -- most sharply in the case this rule was
+        written for.
+
+        A module the Base 3 has never heard of is held as a provisional record until the base
+        answers for it. Configure is what makes it answer, so the presses are barely out
+        before the record is promoted into recents, and that took the panel off the screen
+        along with the Success or Unsuccessful line the operator had asked for and was reading;
+        see EngineGui.make_recent. The same closing runs on a sensor track reporting a train
+        that passed over it, and on a record cleared on the base.
+
+        Back and Next still turn the pages, Close still closes, and so does the pad's close
+        key: nothing here refuses the operator, only the layout. See PopupManager.close.
+
+        Asked of has_close rather than answered outright, because a panel may only hold the
+        screen where the operator can let it go: has_close is that same question -- is there a
+        way off this panel that belongs to the panel itself? On the Pi and the Steam Deck
+        there is, and those are the machines this is operated from. On a desk the way off is
+        the pane's own controls, and holding the screen against them would be a panel with no
+        way out at all.
+        """
+        return self.has_close
+
+    @property
     def footer_pad_px(self) -> int:
         """How much whitespace stands between the Back/Next row and the Close below it.
 

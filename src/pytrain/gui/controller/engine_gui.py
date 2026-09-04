@@ -1036,7 +1036,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             else:
                 button.bg = "white"
                 button.text_color = "black"
-        self._popup.close()
+        self._popup.close_requested()
         self._keypad_view.scope_keypad(force_entry_mode=True, clear_info=True)
         if self.scope_box and not getattr(self.scope_box, "visible", True):
             self.scope_box.show()
@@ -1707,7 +1707,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def close_popup(self) -> bool:
         if not self.popup_visible:
             return False
-        self._popup.close()
+        # The close key, so it closes a panel that closes only on request; see
+        # PopupManager.close_requested.
+        self._popup.close_requested()
         return True
 
     def select_catalog_entry(self) -> bool:
@@ -1786,8 +1788,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                             clear_info = False
                             if self.acc_overlay and self.acc_overlay.visible:
                                 self.acc_overlay.hide()
-            # update display
-            self._popup.close()
+            # update display. Requested, because a scope press is the operator asking for
+            # another screen, and this has already re-arranged the pane behind the popup.
+            self._popup.close_requested()
             if not held:
                 self.update_component_info()
             # force entry mode if scoped tmcc_id is 0
@@ -1857,13 +1860,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         decision point both the drawn keys and the gamepad context chain read, so the pad
         follows the screen without being told separately.
         """
-        self._popup.close()
+        self._popup.close_requested()
         self._keypad_view.set_panel_kind_override(PANEL_GENERIC)
         self.ops_mode(update_info=False)
 
     def on_show_native_acc_panel(self) -> None:
         """Return the display to whatever panel this component's own flags call for."""
-        self._popup.close()
+        self._popup.close_requested()
         self._keypad_view.set_panel_kind_override(None)
         self.ops_mode(update_info=False)
 
@@ -1878,6 +1881,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
             self.promote_component(state)
 
     def make_recent(self, scope: CommandScope, tmcc_id: int, state: S = None) -> bool:
+        # Not requested: this is bookkeeping, and it runs unbidden. A module the Base 3 has
+        # never heard of is provisional until the base answers for it, and the answer arrives
+        # while the operator is still reading the LCS configuration panel's verdict on the
+        # presses that prompted it -- see promote_component. The record still joins recents;
+        # it is only the popup that stays.
         self._popup.close()
         log.debug(f"Pushing current: {scope} {tmcc_id} {self.scope} {self.tmcc_id_text.value}")
         with self._cv:
@@ -1906,7 +1914,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return False
 
     def show_next_component(self) -> None:
-        self._popup.close()
+        self._popup.close_requested()
         with self._cv:
             if self.scope == CommandScope.ENGINE and self._train_linked_queue:
                 recents = self._train_linked_queue
@@ -1921,7 +1929,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 self.header.select_default()
 
     def show_previous_component(self) -> None:
-        self._popup.close()
+        self._popup.close_requested()
         with self._cv:
             if self.scope == CommandScope.ENGINE and self._train_linked_queue:
                 recents = self._train_linked_queue
@@ -2567,7 +2575,14 @@ class EngineGui(GuiZeroBase, Generic[S]):
     ) -> None:
         self._begin_transition()
         try:
-            self._popup.close()
+            if not self._popup.close():
+                # A panel that only closes when it is asked for owns the screen while it is
+                # up, so the pane underneath it is not re-aimed; see PopupManager.close.
+                # This is reached unbidden as well as by a key -- a sensor track reporting a
+                # train that passed over it, a record cleared on the Base 3 -- and neither is
+                # a reason to re-select anything while the operator is working through the
+                # LCS configuration panel.
+                return
             if tmcc_id is None:
                 tmcc_id = self._scope_tmcc_ids.get(self.scope, 0)
             # update the tmcc_id associated with current scope
@@ -2775,7 +2790,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     def _transfer_linked_car(self, state: EngineState) -> None:
         if self._linked_car_transfer is not None and self._linked_car_transfer(state):
-            self._popup.close()
+            self._popup.close_requested()
 
     @property
     def throttle_state(self) -> EngineState | None:

@@ -73,11 +73,20 @@ class DummyReloadProvider(DummyProvider):
 class DummyPopup:
     def __init__(self) -> None:
         self.close_calls = 0
+        self.close_requests = 0
         self.discard_calls = 0
         self.forgot: list[set[str]] = []
 
-    def close(self) -> None:
+    def close(self, _overlay=None) -> bool:
+        # True is what a manager with nothing in the way answers: False is a panel refusing to
+        # go, which the pane reads as "do not re-aim underneath it".
         self.close_calls += 1
+        return True
+
+    def close_requested(self, overlay=None) -> bool:
+        # The operator asking, which is what the panel toggles and the entry keypad do.
+        self.close_requests += 1
+        return self.close(overlay)
 
     def discard_acc_overlay_restore(self) -> None:
         self.discard_calls += 1
@@ -584,7 +593,10 @@ def _toggle_engine() -> mod.EngineGui:
     gui.scope = CommandScope.ACC
     gui._scope_tmcc_ids = {CommandScope.ACC: 19}
     gui._popup_closed = 0
-    gui._popup = SimpleNamespace(close=lambda: setattr(gui, "_popup_closed", gui._popup_closed + 1))
+    gui._popup = SimpleNamespace(
+        close=lambda: setattr(gui, "_popup_closed", gui._popup_closed + 1) or True,
+        close_requested=lambda: setattr(gui, "_popup_closed", gui._popup_closed + 1) or True,
+    )
     ops_mode_calls: list[bool] = []
     gui._ops_mode_calls = ops_mode_calls
     gui.ops_mode = lambda update_info=True, state=None: gui._ops_mode_calls.append(update_info)
@@ -656,7 +668,7 @@ def _ops_mode_engine(
     keypad.set_panel_kind_override = lambda k: setattr(keypad, "panel_kind_override", k)
     gui._keypad_view = keypad
 
-    gui._popup = SimpleNamespace(close=lambda: None)
+    gui._popup = SimpleNamespace(close=lambda: True, close_requested=lambda: True)
 
     opened: list = []
     gui.on_configured_accessory = lambda acc: opened.append(acc)

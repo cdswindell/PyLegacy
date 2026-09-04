@@ -2658,6 +2658,30 @@ def test_declining_close_is_this_panel_and_no_other() -> None:
     assert mod.LcsConfigPanel.has_close is not mod.OverlayPanel.has_close
 
 
+@pytest.mark.parametrize("linux", [True, False])
+def test_the_panel_holds_the_screen_where_it_carries_its_own_way_off_it(monkeypatch, linux: bool) -> None:
+    # The pane closes its popup whenever it re-reads what it has selected, and the layout
+    # gives it every reason to while this panel is up -- most sharply when the module just
+    # programmed is promoted into recents, which took the verdict off the screen before it
+    # could be read. So the panel holds the screen against the layout; but only where the
+    # operator can let it go, which is the same question has_close asks. Tied to it rather
+    # than answered separately, so the two cannot come apart into a panel with no way out.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+    panel = _new_panel()
+
+    assert panel.closes_on_request_only is linux
+    assert panel.closes_on_request_only is panel.has_close
+
+
+def test_holding_the_screen_is_this_panel_and_no_other() -> None:
+    # Every other popup is a view of what the pane has selected, and a view of the component
+    # that *was* selected is worse than no view at all, so the base class goes quietly.
+    panel = _new_panel()
+
+    assert mod.OverlayPanel.closes_on_request_only.fget(panel) is False
+    assert mod.LcsConfigPanel.closes_on_request_only is not mod.OverlayPanel.closes_on_request_only
+
+
 def test_the_device_page_shows_next_alone() -> None:
     # There is nowhere to go back to from the first page, so Back is off the row entirely --
     # not grayed, and not standing in a placeholder of its own width. The row asks for no

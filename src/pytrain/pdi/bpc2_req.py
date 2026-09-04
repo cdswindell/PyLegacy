@@ -37,7 +37,7 @@ class Bpc2Req(LcsReq):
             if self._action == Bpc2Action.CONFIG:
                 self._debug = self._data[4] if data_len > 4 else None
                 self._mode = self._data[7] if data_len > 7 else None
-                self._restore = (self._mode & 0x80) == 0x80
+                self._restore = ((self._mode & 0x80) == 0x80) if isinstance(self._mode, int) else False
                 if self._restore:
                     self._mode &= 0x7F
                 self._scope = CommandScope.TRAIN if self._mode in {0, 1} else CommandScope.ACC

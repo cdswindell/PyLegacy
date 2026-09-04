@@ -81,6 +81,11 @@ _NO_EXPAND_ATTR = "_pytrain_no_expand"
 # Where an overlay keeps its (lead, fill) pair, so the row's position can be corrected on show
 # without walking the children and guessing which boxes are the spacers.
 _FOOTER_BOXES_ATTR = "_pytrain_footer_boxes"
+# Set on an overlay whose panel goes off the screen only when something asks for it; see
+# OverlayPanel.closes_on_request_only and close(). Recorded on the overlay rather than asked
+# of the panel, because close() is reached from a dozen places that hold an overlay and know
+# nothing of the panel inside it.
+_ON_REQUEST_ATTR = "_pytrain_closes_on_request"
 
 
 def style_footer_button(host, btn) -> None:
@@ -492,6 +497,8 @@ class PopupManager:
             pad = body_src.footer_pad_px
             if pad is not None:
                 setattr(overlay, _FOOTER_LEAD_ATTR, pad)
+            if body_src.closes_on_request_only:
+                setattr(overlay, _ON_REQUEST_ATTR, True)
             fill = footer_fill(overlay)
             # A panel may decline Close (has_close) where something else already dismisses
             # its popup -- a window title bar. Asked in both branches, so the answer means
@@ -558,7 +565,9 @@ class PopupManager:
             text="Close",
             align=align,
             width=width,
-            command=on_close or self.close,
+            # The button *is* the request, so it closes a panel that closes only on one; see
+            # close_requested.
+            command=on_close or self.close_requested,
             args=[close_target],
         )
         style_footer_button(host, btn)
@@ -587,7 +596,7 @@ class PopupManager:
             overlay,
             text="",
             image=None,
-            command=on_close or self.close,
+            command=on_close or self.close_requested,
             args=[overlay],
         )
         btn.images = img, inverted_img
@@ -740,8 +749,11 @@ class PopupManager:
     ) -> None:
         host = self._host
         with host.locked():
-            # Close any existing popup
-            self.close()
+            # Close any existing popup. Asked for, because a popup being put on the screen
+            # is something the pane has decided to show: a panel that stays put against the
+            # layout's own reports (see close()) must still give way to another screen,
+            # rather than be left placed underneath one.
+            self.close(requested=True)
 
             # set this overlay as current
             self._state.current_popup = overlay
@@ -792,11 +804,33 @@ class PopupManager:
             # a popup that failed to appear, which would run the rollback above on a live overlay.
             balance_footer_row(host, overlay)
 
-    def close(self, overlay: Box | None = None) -> None:
+    def close_requested(self, overlay: Box | None = None) -> bool:
+        """Close a popup because something asked for it: Close, or the pad's close key.
+
+        The one way past closes_on_request_only, and a separate entry point rather than a
+        keyword on close() so that a caller has to name what it is doing. Every other call
+        closes a popup in passing, while re-reading what the pane has selected -- which is
+        the whole point of the distinction, since the layout re-reads itself unbidden.
+        """
+        return self.close(overlay, requested=True)
+
+    def close(self, overlay: Box | None = None, *, requested: bool = False) -> bool:
+        """Take a popup off the screen. False only where a panel refused to go.
+
+        The answer is for the caller that was about to re-arrange the pane underneath: a
+        popup that stays is a popup the operator is still reading, so the pane it covers is
+        no longer theirs to re-aim; see EngineGui.update_component_info. Nothing to close is
+        True, that being a screen with nothing in the way.
+        """
         host = self._host
 
         with host.locked():
             overlay = overlay or self._state.current_popup
+            if overlay is not None and not requested and getattr(overlay, _ON_REQUEST_ATTR, False):
+                # A panel the operator is working in stays until it is asked for; see
+                # OverlayPanel.closes_on_request_only. Left current as well as visible: it
+                # still owns the screen, so Close and the pad's close key must still find it.
+                return False
             self._state.current_popup = None
 
             if overlay:
@@ -831,6 +865,7 @@ class PopupManager:
                 except (AttributeError, RuntimeError):
                     pass
                 self._state.on_close_show = None
+        return True
 
     # ------------------------------------------------------------------
     # Internals

@@ -85,7 +85,23 @@ def _new_engine(scope: CommandScope = CommandScope.ENGINE) -> mod.EngineGui:
     gui._provisional = set()
     gui._shutdown_flag = SimpleNamespace(is_set=lambda: False)
     gui._popup_closed = 0
-    gui._popup = SimpleNamespace(close=lambda: setattr(gui, "_popup_closed", gui._popup_closed + 1))
+    gui._popup_close_requests = 0
+
+    # close() answers whether the way is clear, and a manager with nothing in the way says
+    # True; a double answering None would read as a panel refusing to go, which is what
+    # update_component_info now stops for. close_requested is the other entry point -- the
+    # operator asking -- and both are counted together, since most tests here care only that
+    # the popup went.
+    def close_popup(_overlay=None, requested: bool = False) -> bool:
+        gui._popup_closed += 1
+        if requested:
+            gui._popup_close_requests += 1
+        return True
+
+    gui._popup = SimpleNamespace(
+        close=close_popup,
+        close_requested=lambda overlay=None: close_popup(overlay, requested=True),
+    )
     gui.tmcc_id_text = SimpleNamespace(value="0000")
     gui.tmcc_id_box = SimpleNamespace(text=f"{scope.title} ID")
     gui.name_text = SimpleNamespace(value="")
@@ -273,15 +289,19 @@ def test_popup_visible_reflects_popup_manager_state() -> None:
 
 
 def test_close_popup_closes_when_popup_visible() -> None:
+    # Asked for, not closed in passing: this is the pad's close key, and a panel that stays put
+    # against the layout's own reports (the LCS configuration panel) has to answer to it, or the
+    # operator would be left with a screen nothing can take away.
     gui = mod.EngineGui.__new__(mod.EngineGui)
     calls: list[str] = []
     gui._popup = SimpleNamespace(
         current_popup=SimpleNamespace(visible=True),
-        close=lambda: calls.append("close"),
+        close=lambda: calls.append("close") or True,
+        close_requested=lambda: calls.append("close_requested") or True,
     )
 
     assert gui.close_popup() is True
-    assert calls == ["close"]
+    assert calls == ["close_requested"]
 
 
 def test_close_popup_noop_when_no_popup_visible() -> None:
@@ -363,6 +383,70 @@ def test_update_component_info_zero_clears_image_and_resets_keystroke_flag() -> 
     assert gui._image_clears == 1
     assert gui._image_updates == [0]
     assert gui._keypad_view.reset_on_keystroke is False
+
+
+def test_a_panel_that_would_not_close_stops_the_pane_re_aiming_itself_underneath_it() -> None:
+    # The pane closes its popup on the way past here, so a panel that stays -- the LCS
+    # configuration panel, while the operator reads the verdict on the presses it just sent --
+    # is a panel with a pane re-selecting itself behind it. This runs unbidden as well as by a
+    # key: a sensor track reporting a train that passed over it, a record cleared on the base.
+    # The paired rule, that the pane does all of this once the popup has gone, is the test
+    # above.
+    gui = _new_engine()
+    state = DummyState(tmcc_id=34, name="Hudson")
+    gui._state_store = SimpleNamespace(
+        get_state=lambda scope, tmcc_id, include=False: state if (scope, tmcc_id) == (CommandScope.ENGINE, 34) else None
+    )
+    gui._popup.close = lambda: False
+
+    gui.update_component_info(34)
+
+    assert gui._scope_tmcc_ids[CommandScope.ENGINE] == 0
+    assert gui.tmcc_id_text.value == "0000"
+    assert gui.name_text.value == ""
+    assert gui._recent_calls == []
+    assert gui._ops_mode_calls == []
+    assert gui._image_updates == []
+
+
+def test_promoting_a_module_the_base_had_never_heard_of_does_not_ask_the_panel_to_go() -> None:
+    # The report this was written for. Configure is what makes the Base 3 answer for a module
+    # it had never heard of, so the record is promoted into recents seconds after the presses
+    # go out, and this closed the popup along with the Success or Unsuccessful line the
+    # operator was reading. Bookkeeping is not the operator asking, so it goes through the
+    # entry point a panel may refuse -- while every other popup, which says nothing about
+    # closing, still closes exactly as it did.
+    gui = _new_engine()
+
+    assert mod.EngineGui.make_recent(gui, CommandScope.ENGINE, 0) is False
+    assert gui._popup_closed == 1
+    assert gui._popup_close_requests == 0
+
+
+def test_a_scope_press_asks_the_panel_to_go() -> None:
+    # The operator reaching for another screen, and this has already re-arranged the pane
+    # behind the popup: leaving a panel placed over the rearrangement would be worse than
+    # taking it away.
+    gui = _new_engine(CommandScope.ACC)
+    gui._scope_buttons = {CommandScope.ACC: SimpleNamespace(bg="white", text_color="black")}
+    gui.monitor_state = lambda: None
+
+    gui.on_scope(CommandScope.ACC)
+
+    assert gui._popup_close_requests == 1
+
+
+def test_the_keys_that_walk_through_recents_ask_the_panel_to_go() -> None:
+    # Both of them are a press whose whole purpose is to change what the pane is aimed at, so
+    # a panel covering it has been asked for by name rather than closed in passing.
+    gui = _new_engine()
+    gui._recents_queue = {}
+    gui._train_linked_queue = []
+
+    gui.show_next_component()
+    gui.show_previous_component()
+
+    assert gui._popup_close_requests == 2
 
 
 def test_a_forced_accessory_panel_does_not_outlive_a_change_of_selection() -> None:

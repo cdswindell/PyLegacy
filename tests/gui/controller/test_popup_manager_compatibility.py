@@ -624,6 +624,139 @@ def test_every_panel_but_the_one_that_says_otherwise_gets_the_shared_footer_band
     assert mod.OverlayPanel.footer_pad_px.fget(object()) is None
 
 
+def test_every_panel_but_the_one_that_says_otherwise_closes_whenever_the_pane_says_so() -> None:
+    # The third opt-in of the same shape, and the default has to be the old behavior: nearly
+    # every popup is a view of what the pane has selected, and a view of the component that
+    # *was* selected is worse than no view at all.
+    assert mod.OverlayPanel.closes_on_request_only.fget(object()) is False
+
+
+# What the panel said is recorded on the overlay under a private module attribute, which is the
+# arrangement the tests below pin: a popup is closed from a dozen places that hold an overlay and
+# know nothing of the panel inside it.
+# noinspection PyProtectedMember
+def test_a_panel_that_closes_only_on_request_says_so_as_it_is_built(monkeypatch: pytest.MonkeyPatch) -> None:
+    made: list[_Widget] = []
+
+    def make(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(mod, "Box", make)
+    monkeypatch.setattr(mod, "Text", make)
+    monkeypatch.setattr(mod, "PushButton", make)
+
+    class _Panel(mod.OverlayPanel):
+        def __init__(self, on_request: bool) -> None:
+            # OverlayPanel's own __init__ is abstract; create_popup only needs _overlay.
+            self._overlay = None
+            self._on_request = on_request
+
+        @property
+        def closes_on_request_only(self) -> bool:
+            return self._on_request
+
+        def build(self, body) -> None:
+            pass
+
+    manager = mod.PopupManager(_host())
+
+    held = manager.create_popup("Options", _Panel(True))
+    assert getattr(held, mod._ON_REQUEST_ATTR, False) is True
+
+    # And nothing is written for the panel that said nothing, so an overlay carrying no mark
+    # is closed exactly as every overlay always was.
+    plain = manager.create_popup("Options", _Panel(False))
+    assert getattr(plain, mod._ON_REQUEST_ATTR, False) is False
+
+
+def test_the_close_button_asks_rather_than_closing_in_passing(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Close is the operator asking, so it has to reach the one entry point a panel holding the
+    # screen answers to. Wired at build time, which is the only chance: the button carries its
+    # command for as long as the popup exists.
+    made: list[_Widget] = []
+
+    def make(master=None, **kwargs):
+        made.append(_Widget(master, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(mod, "Box", make)
+    monkeypatch.setattr(mod, "Text", make)
+    monkeypatch.setattr(mod, "PushButton", make)
+    manager = mod.PopupManager(_host())
+
+    manager.create_popup("Options", lambda _body: None)
+
+    close = next(w for w in made if w.kwargs.get("text") == "Close")
+    assert close.kwargs["command"] == manager.close_requested
+
+
+# noinspection PyProtectedMember
+def test_a_panel_the_operator_is_working_in_is_not_closed_by_the_pane_in_passing() -> None:
+    # The report this was written for: the LCS configuration panel's Success or Unsuccessful
+    # line went off the screen the moment the module it had just programmed was promoted into
+    # the pane's recents, which closes the popup on its way past. The panel stays current as
+    # well as visible -- it still owns the screen, so Close and the pad's close key must
+    # still find something to close.
+    host = _host()
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False)
+    setattr(overlay, mod._ON_REQUEST_ATTR, True)
+
+    manager.show(overlay)
+
+    assert manager.close() is False
+    assert overlay.visible is True
+    assert manager._state.current_popup is overlay
+    assert host.controller_box.visible is False, "the pane underneath is still covered"
+
+
+# noinspection PyProtectedMember
+def test_the_panel_the_pane_could_not_close_goes_when_it_is_asked_to() -> None:
+    # The other half, and the half that keeps the rule from being a screen with no way off it:
+    # everything the operator can press -- Close, the pad's close key -- goes through here.
+    host = _host()
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False)
+    setattr(overlay, mod._ON_REQUEST_ATTR, True)
+    manager.show(overlay)
+
+    assert manager.close_requested() is True
+    assert overlay.visible is False
+    assert manager._state.current_popup is None
+    assert host.controller_box.visible is True
+
+
+# noinspection PyProtectedMember
+def test_another_screen_still_takes_the_place_of_a_panel_that_holds_the_screen() -> None:
+    # A popup being put up is the pane having decided to show something, so a panel that
+    # holds the screen against the layout's reports still gives way to it. Left in place
+    # underneath, it would be a panel the operator could neither read nor close.
+    host = _host()
+    manager = mod.PopupManager(host)
+    held = _Widget(visible=False)
+    setattr(held, mod._ON_REQUEST_ATTR, True)
+    manager.show(held)
+
+    other = _Widget(visible=False)
+    manager.show(other)
+
+    assert held.visible is False
+    assert manager._state.current_popup is other
+
+
+def test_a_popup_that_went_says_so_and_so_does_a_screen_with_nothing_in_the_way() -> None:
+    # The answer is what the pane reads before it re-aims itself, so "there was nothing to
+    # close" and "the panel refused" must not arrive as the same word.
+    host = _host()
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False)
+    manager.show(overlay)
+
+    assert manager.close() is True
+    assert manager.close() is True, "nothing left to close is not a refusal"
+
+
 def test_create_popup_leaves_the_overlay_unsized(monkeypatch: pytest.MonkeyPatch) -> None:
     # The invariant the previous attempt at extending panels broke. Sizing the overlay at
     # construction time -- height="fill" in particular -- puts a fill widget in the host's pack

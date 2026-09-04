@@ -481,7 +481,11 @@ def _engine(pane: bool, scope: CommandScope = CommandScope.ACC) -> engine_mod.En
     gui._parent = DummyBox() if pane else None
     gui._parent_gui = SimpleNamespace(name="steam_deck") if pane else None
     gui.calls = []
-    gui._popup = SimpleNamespace(close=lambda: gui.calls.append("popup_closed"))
+    # Both entry points answer True: a popup that went, as against a panel that refused to.
+    gui._popup = SimpleNamespace(
+        close=lambda: gui.calls.append("popup_closed") or True,
+        close_requested=lambda: gui.calls.append("popup_closed") or True,
+    )
     gui.ops_mode = lambda update_info=True, state=None: gui.calls.append(("ops_mode", update_info))
     gui.make_recent = lambda s, t, state=None: gui.calls.append(("make_recent", s, t)) or True
     gui._request_options_rebuild = lambda: gui.calls.append("rebuild")
