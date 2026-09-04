@@ -34,6 +34,9 @@ class _DummyTk:
         # And what it was configured with, which is how the wrapping tests read a Tk option
         # that has no guizero equivalent.
         self.configured: dict[str, Any] = {}
+        # And what it was placed in its grid with, which is how the listing's tests read an
+        # alignment guizero has no way of asking for; see LcsConfigPanel._stick_inventory_cells.
+        self.gridded: dict[str, Any] = {}
 
     def config(self, **kwargs: Any) -> None:
         self.configured.update(kwargs)
@@ -41,9 +44,8 @@ class _DummyTk:
     def configure(self, **kwargs: Any) -> None:
         self.configured.update(kwargs)
 
-    @staticmethod
-    def grid_configure(**_kwargs: Any) -> None:
-        return
+    def grid_configure(self, **kwargs: Any) -> None:
+        self.gridded.update(kwargs)
 
     @staticmethod
     def grid_columnconfigure(_col: int, **_kwargs: Any) -> None:
@@ -1933,12 +1935,14 @@ def test_a_module_with_an_option_still_stops_on_the_page() -> None:
 
 
 def test_the_page_is_still_built_so_the_review_keeps_its_index() -> None:
-    # Every page is reached by index, and the four are created once in build(); leaving one
-    # out would move the review page.
+    # Every page is reached by index, and all of them are created once in build(); leaving
+    # one out would move the review page. The listing is built with them though it is not
+    # one of the four walked through; see PAGE_INVENTORY.
     panel = _new_panel()
 
-    assert len(panel._pages) == 4
+    assert len(panel._pages) == 5
     assert panel._pages[mod.PAGE_REVIEW] is not panel._pages[mod.PAGE_OPTIONS]
+    assert panel._pages[mod.PAGE_INVENTORY] is not panel._pages[mod.PAGE_REVIEW]
 
 
 def test_a_module_that_changes_under_the_open_page_falls_back_rather_than_forward() -> None:
@@ -2116,7 +2120,25 @@ def test_the_configure_button_wears_the_shared_look_of_the_overlays_other_keys(m
     panel = _new_panel()
 
     assert panel._configure_btn in styled
-    assert [btn.text for btn in styled] == [mod.CONFIGURE_TEXT, mod.BACK_TEXT, mod.NEXT_TEXT]
+    assert [btn.text for btn in styled] == [
+        mod.INVENTORY_TEXT,
+        mod.CONFIGURE_TEXT,
+        mod.BACK_TEXT,
+        mod.NEXT_TEXT,
+    ]
+
+
+def test_the_my_modules_key_is_drawn_as_a_key_like_the_ones_below_the_panel(monkeypatch) -> None:
+    # It turns a page, which is what Back and Next do, and on the first page it is the only
+    # other thing to press: drawn by its text size alone it read as a word in a rectangle
+    # beside two keys with an edge and a face of their own.
+    styled: list[Any] = []
+    monkeypatch.setattr(mod, "style_footer_button", lambda _host, btn: styled.append(btn), raising=True)
+
+    panel = _new_panel()
+
+    assert panel._inventory_btn in styled
+    assert panel._inventory_btn.text == mod.INVENTORY_TEXT == "My Modules"
 
 
 def test_read_back_reports_what_the_module_says() -> None:
@@ -2533,12 +2555,14 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
     assert parents == [
         body,  # under the popup's title row
         panel._pages[mod.PAGE_DEVICE],  # under that page's prompt
+        panel._pages[mod.PAGE_DEVICE],  # between the modules and the My Modules key
         id_page,  # under the stepper row
         panel._mode_box,  # between the legend of keys and the mode radios
         panel._mode_box,  # between the radios and the note on the chosen one
         id_page,  # between the titled boxes and the choice buttons
         options_page,  # under that page's heading
         options_page,  # between the module and the settings chosen for it
+        panel._pages[mod.PAGE_INVENTORY],  # between the sort keys and the listing
         body,  # above the Back/Next row
     ]
 
@@ -2600,11 +2624,13 @@ def test_the_gaps_are_tighter_on_a_compact_host(
     assert [pixels for _parent, pixels in host.vspaces] == [
         section,
         section,
+        page,
         id_page,
         prose,
         prose,
         id_page,
         section,
+        page,
         page,
         page,
     ]
@@ -2826,6 +2852,7 @@ def test_the_nav_row_gives_back_the_footer_bands_vertical_padding(monkeypatch, c
     _build_with_body(compact=compact)
 
     assert calls == [
+        (mod.INVENTORY_TEXT, {"pady": expected}),
         (mod.CONFIGURE_TEXT, {"pady": expected}),
         (mod.BACK_TEXT, {"pady": expected}),
         (mod.NEXT_TEXT, {"pady": expected}),
@@ -4424,14 +4451,19 @@ def test_the_legend_says_what_each_key_is_for() -> None:
     # rows spell it and going on to say what it is good for -- which is the one thing the
     # rows themselves cannot say. Read as a rule about the lines rather than as their text,
     # so rewording what a key is for is free and dropping the key off the front is not.
-    assert {scope for scope, _module_key in mod.SCOPE_USE} == set(mod.SCOPE_LABEL)
+    #
+    # Every key the panel offers a row on, and no other -- not every key it can spell. The
+    # engine key is spelled by SCOPE_LABEL so the Known Modules listing can name a module
+    # already out on it, and it is on no row for a legend line to head.
+    offered = {mode.scope for device in reg.configurable_devices() for mode in reg.enabled_modes(device)}
+    assert {scope for scope, _module_key in mod.SCOPE_USE} == offered
     for (scope, _module_key), use in mod.SCOPE_USE.items():
         key = mod.SCOPE_LABEL[scope]
         assert use.startswith(f"{key}:")
         assert use[len(key) + 1 :].strip()
     # And every key has the line that speaks wherever a module has not been spoken for, so
     # no module can be left with a key the legend says nothing about.
-    for scope in mod.SCOPE_LABEL:
+    for scope in offered:
         assert (scope, None) in mod.SCOPE_USE
 
 
@@ -4453,9 +4485,10 @@ def test_a_key_that_means_the_same_everywhere_is_worded_once() -> None:
     # their own to say about most of the keys they offer.
     assert read_the_general_line
     # Asked with no module at all -- which is what the panel does before a device is chosen
-    # -- the general line answers for every key.
-    for scope in mod.SCOPE_LABEL:
-        assert mod.scope_use(scope) == mod.SCOPE_USE[(scope, None)]
+    # -- the general line answers for every key one is written for.
+    for scope, module_key in mod.SCOPE_USE:
+        if module_key is None:
+            assert mod.scope_use(scope) == mod.SCOPE_USE[(scope, None)]
     # A key nothing is written about at all is passed over rather than headed with a blank
     # line. The AMC2's ENG mode is on such a key, and the legend never has to: a mode the
     # panel does not offer is on no row for the legend to head.
@@ -5365,7 +5398,7 @@ def test_the_pages_are_drawn_in_a_window_and_the_buttons_below_it() -> None:
     # that closes the panel. So the pages go in and nothing else does.
     panel, body, _host = _build_with_body()
 
-    assert [page in panel.scroll.content.children for page in panel._pages] == [True] * 4
+    assert [page in panel.scroll.content.children for page in panel._pages] == [True] * len(panel._pages)
     assert body.children[2] is panel.scroll.viewport
     nav = body.children[-1]
     assert panel._back_btn in nav.children and panel._next_btn in nav.children
@@ -5455,12 +5488,14 @@ def test_every_line_the_panel_writes_is_broken_at_the_pane() -> None:
     # found overflowing, because what these lines say comes from the registry and from the
     # layout, and neither is bounded by anything that knows how wide the screen is.
     #
-    # Every line but the name column of a module row, which has two columns beside it and
-    # so less than the page to itself; see the two tests below.
+    # Every line but the one column of a grid row that has the others beside it and so less
+    # than the page to itself: a module row's name, a listing row's configuration. See the
+    # tests below.
     panel = _new_panel()
 
     lines = [w for w in _panel_widgets(panel) if isinstance(w, DummyText)]
     names = [cell[mod.ROW_NAME_COLUMN] for cell in panel._assigned_cells + panel._overlap_cells]
+    names += [cell[mod.INVENTORY_CONFIG_COLUMN] for cell in panel._inventory_cells]
 
     assert len(lines) > 10, "the pages' own prose, their headings and the boxes' cells"
     assert names, "the assigned box writes a row before an ID is even entered"
@@ -5519,7 +5554,9 @@ def test_every_row_the_panel_draws_is_broken_inside_the_pane() -> None:
 
     groups = [w for w in _panel_widgets(panel) if isinstance(w, DummyCheckBoxGroup)]
 
-    assert len(groups) == 5, "the modules, the modes, the Sensor Track's actions, the AMC2's two motors"
+    assert len(groups) == 6, (
+        "the modules, the modes, the Sensor Track's actions, the AMC2's two motors, the listing's sort keys"
+    )
     for group in groups:
         wrap = group.kwargs["wrap"]
         assert wrap == panel._row_wrap_px(group.kwargs["size"])
@@ -5642,3 +5679,438 @@ def test_the_titled_boxes_and_their_rows_read_at_one_size(monkeypatch) -> None:
     assert size < panel.gui.s_14
     assert [box.text_size for box in (panel._mode_box, panel._assigned_box, panel._overlap_box)] == [size] * 3
     assert [cell.text_size for cell in panel._assigned_cells[0]] == [size] * mod.ROW_COLUMNS
+
+
+#
+# The My Modules listing
+#
+def _a_layout_of_three(monkeypatch) -> None:
+    """Three modules on two remote keys, each in a mode of its own.
+
+    A BPC2 addressed as ACC 1 - 8 and remembering its relays, an ASC2 driving switch motors
+    at SW 20 - 23, and an STM2 holding SW 40 - 55. Reported through the PDI store, which is
+    where a module's own settings are: the component state carries none of them.
+    """
+    _with_pdi_store(
+        monkeypatch,
+        {
+            PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)],
+            PdiDevice.ASC2: [FakePdiConfig(20, CommandScope.SWITCH, mode=2)],
+            PdiDevice.STM2: [FakePdiConfig(40, CommandScope.SWITCH, mode=0)],
+        },
+    )
+
+
+def _listed(panel: mod.LcsConfigPanel) -> list[tuple[str, str, str]]:
+    """
+    The listing as it reads down the page: the module, its base ID and its remote key.
+    """
+    return [(row.module, row.tmcc_id, row.scope) for row in panel.inventory_rows()]
+
+
+# The row widgets are the panel's own, and reading them is the point of this helper.
+# noinspection PyProtectedMember
+def _listing_grid(panel: mod.LcsConfigPanel) -> list[tuple[str, ...]]:
+    """
+    What was actually written into the grid, headings included, spare rows left out.
+    """
+    return [tuple(cell.value for cell in row) for row in panel._inventory_cells if row[0].visible]
+
+
+def test_the_listing_names_every_module_the_layout_reports(monkeypatch) -> None:
+    # The whole layout rather than the entered ID's block: this is the one page the panel
+    # speaks about modules it is not programming, and what it is for is seeing what is out
+    # there before choosing an address to program.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    assert _listed(panel) == [
+        (ASC2.label, "20", "SW"),
+        (BPC2.label, "1", "ACC"),
+        (STM2.label, "40", "SW"),
+    ]
+
+
+def test_the_listing_calls_the_ir_sensor_track_the_ir(monkeypatch) -> None:
+    # The listing's own name for a module, which is the short one that reads as a name in a
+    # column of ASC2, BPC2 and STM2. The listing alone: the pages that program the module
+    # name it as the registry does -- the IR Sensor Track, in full -- and the first page
+    # offers it under that name.
+    _sensor_track_based_at(monkeypatch, 3, IrdaSequence.CROSSING_GATE_NONE)
+    panel = _new_panel()
+
+    assert [(row.module, row.tmcc_id) for row in panel.inventory_rows()] == [("IR", "3")]
+    assert mod.INVENTORY_MODULE_NAMES[SENSOR_TRACK.key] == "IR"
+    assert SENSOR_TRACK.label == "IR Sensor Track"
+    assert [label for label, key in panel.device_options() if key == SENSOR_TRACK.key] == [
+        f"{SENSOR_TRACK.label} ({SENSOR_TRACK.blurb})"
+    ]
+    # And it is ordered by the name the listing gives it, or the Module column would not read
+    # down the page in the order it is sorted by.
+    assert panel._inventory_key(panel.inventory_occupants()[0])[0] == "IR"
+
+
+def test_the_last_column_says_what_a_module_is_set_to(monkeypatch) -> None:
+    # The column the page is for: a line for the mode, a line for the block of addresses it
+    # takes on the key it answers to, and a line for each setting the module reports. The
+    # block is spelled with its key in front of it, as the ID page spells the one it is about
+    # to program; the setting is named as the options page names it, and reads Yes or No.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    listed = {row.module: row.config.split("\n") for row in panel.inventory_rows()}
+    # The BPC2's mode is named "ACC" and nothing else, which the Scope column beside it has
+    # already said; see the test below.
+    assert listed[BPC2.label] == [
+        "ACC 1 - 8",
+        f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}",
+    ]
+    # A mode whose name carries what it is good for keeps it, and a module reporting no
+    # settings of its own says nothing further: the ASC2 declares none at all.
+    assert listed[ASC2.label] == [ASC2.mode("sw_momentary").name, "SW 20 - 23"]
+    assert listed[STM2.label] == [STM2.mode("single_wire").name, "SW 40 - 55"]
+
+
+def test_a_mode_named_for_nothing_but_the_remote_key_is_left_unsaid(monkeypatch) -> None:
+    # "ACC" under Configuration, beside a Scope column reading ACC, is that column again: a
+    # line read as a fact about the module that turns out to be an echo, in the one column of
+    # the page that is already several lines tall. A mode named for what it is *for* stays,
+    # all of it -- "ACC (mixed)" answers which of the module's modes it is in, and no other
+    # column touches that.
+    _with_pdi_store(
+        monkeypatch,
+        {
+            PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)],
+            PdiDevice.ASC2: [FakePdiConfig(30, CommandScope.ACC, mode=0)],
+        },
+    )
+    panel = _new_panel()
+
+    listed = {row.module: row.config.split("\n") for row in panel.inventory_rows()}
+    assert BPC2.mode("acc_8").name == "ACC" == listed[BPC2.label][0].split(" ")[0]
+    assert BPC2.mode("acc_8").name not in listed[BPC2.label]
+    assert listed[ASC2.label] == [ASC2.mode("acc_8").name, "ACC 30 - 37"]
+    assert listed[ASC2.label][0] == "ACC (mixed)"
+
+
+def test_a_block_of_one_address_is_left_to_the_id_column(monkeypatch) -> None:
+    # "ACC 50" beside a row reading IR / 50 / ACC is those two columns read back: the
+    # line is worth its height where it says how far a block runs past the address the ID
+    # column names, which is what "ACC 1 - 8" says and a single address does not.
+    _sensor_track_based_at(monkeypatch, 50, IrdaSequence.CROSSING_GATE_NONE)
+    panel = _new_panel()
+
+    action = SENSOR_TRACK.option("action")
+    chosen = next(label for label, value in action.choices if value is IrdaSequence.CROSSING_GATE_NONE)
+    assert panel.inventory_rows()[0].config.split("\n") == [f"{action.label}: {chosen}"]
+    # The mode goes with it, being the Scope column again -- so the row says the one thing
+    # about the module the three columns beside it cannot.
+    assert SENSOR_TRACK.mode("acc").name == "ACC"
+    assert (panel.inventory_rows()[0].tmcc_id, panel.inventory_rows()[0].scope) == ("50", "ACC")
+
+
+def test_a_module_with_nothing_of_its_own_to_say_says_nothing() -> None:
+    # An IR Sensor Track known from control traffic alone: its one mode is named for the
+    # remote key, it holds the single address the ID column names, and the Action Command it
+    # is running with is recorded in the IRDA CONFIG record it has not published. Everything
+    # known about it is in the three columns beside the last, so the last is left empty
+    # rather than filled with either of them again.
+    panel = _new_panel(FakeStore({CommandScope.ACC: [FakeState(50, "is_sensor_track")]}))
+
+    row = panel.inventory_rows()[0]
+    assert (row.module, row.tmcc_id, row.scope) == ("IR", "50", "ACC")
+    assert row.config == ""
+
+
+def test_a_flag_the_module_reports_as_off_is_written_as_off(monkeypatch) -> None:
+    # Not the same thing as a setting the module has said nothing about: a BPC2 that
+    # reported its relays are not remembered has told the operator something, and the line
+    # is the answer rather than the absence of one.
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=False)]})
+    panel = _new_panel()
+
+    assert panel.inventory_rows()[0].config.endswith(f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_NO}")
+
+
+def test_the_listing_says_in_two_words_what_the_options_page_says_in_a_sentence(monkeypatch) -> None:
+    # "Restore last relay settings on power-up" is written to be read beside the box that
+    # decides it, and it has an options row to say it in. Wrapped at this column's width it
+    # is three lines of the tallest column in the panel, on every BPC2 the layout holds, to
+    # say what two words say -- and the row is being read to see what the module is set to
+    # rather than to decide anything.
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2, restore=True)]})
+    panel = _new_panel()
+
+    assert mod.INVENTORY_RESTORE == "Power-up Restore"
+    assert panel.inventory_rows()[0].config.split("\n")[-1] == f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}"
+    # The listing's own name for it and no other page's: the setting is still labeled as it
+    # was, and that label is what the box on the options page is drawn with.
+    assert BPC2.option("restore").label == "Restore last relay settings on power-up"
+    panel._on_device_selected(BPC2.key)
+    assert panel._option_widgets[(BPC2.key, "restore")].text == BPC2.option("restore").label
+
+
+def test_the_motor_a_setting_belongs_to_is_named_once(monkeypatch) -> None:
+    # The AMC2 labels both its remember flags alike, so a verdict faulting one has to put the
+    # motor in front of it. Here the motor is already on the page: the column writes every
+    # setting the module reports, in the module's own order, so each flag stands directly
+    # under the line naming the motor whose mode it is -- and naming the motor again in the
+    # flag's own line is a line and a half of the column saying what the line above just did.
+    _amc2_based_at(monkeypatch, 1, (_motor(1, OutputType.AC, restore=True), _motor(2, OutputType.NORMAL)))
+    panel = _new_panel()
+
+    assert [option.label for option in AMC2.options].count("Remember speed on power-up") == 2
+    assert panel.inventory_rows()[0].config.split("\n") == [
+        "Motor #1: AC",
+        f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}",
+        "Motor #2: Continuous (DC)",
+        f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_NO}",
+    ]
+    # A verdict has no line above it to lean on, and still names the motor it faults.
+    assert mod.LcsConfigPanel._option_name(AMC2, AMC2.option("motor1_restore")).startswith("Motor #1")
+
+
+def test_the_configuration_column_says_nothing_about_the_module_firmware(monkeypatch) -> None:
+    # A version number is a fact about the module rather than about how it is configured, and
+    # this is the column read to see how a layout is addressed: a line of it down every row
+    # is a line per module answering a question the page is not open for.
+    _a_layout_of_three(monkeypatch)
+    state = FakeState(1, "is_bpc2", mode=2)
+    state.firmware = "1.2"
+    panel = _new_panel(FakeStore({CommandScope.ACC: [state]}))
+
+    rows = panel.inventory_rows()
+    assert [row.config for row in rows if row.module == BPC2.label] == [
+        "\n".join(
+            (
+                "ACC 1 - 8",
+                f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}",
+            )
+        )
+    ]
+    assert all(state.firmware not in row.config for row in rows)
+
+
+def test_a_module_that_has_not_said_which_mode_it_is_in_says_so() -> None:
+    # A module known from control traffic alone has published no CONFIG record, so nothing
+    # says which mode it is in or what it is set to. The listing says the one and invents
+    # neither: a mode written in for it would be the panel telling the operator something the
+    # module has not.
+    panel = _new_panel(FakeStore({CommandScope.ACC: [FakeState(9, "is_asc2")]}))
+
+    row = panel.inventory_rows()[0]
+    assert (row.module, row.tmcc_id, row.scope) == (ASC2.label, "9", "ACC")
+    # And that is the whole of the column: not knowing the mode, the panel takes the module
+    # for a single address, which the ID column beside it already names.
+    assert row.config.split("\n") == [mod.INVENTORY_MODE_UNKNOWN]
+
+
+@pytest.mark.parametrize(
+    "sort_key, expected",
+    [
+        # By name, which is what the page opens on: a tally of what kinds of module are out
+        # there. By address, for an operator looking for a free one. By remote key, in the
+        # order the panel names the keys everywhere else -- and within a key, by name again,
+        # so the rows under it do not shuffle as the layout reports itself.
+        (mod.SORT_MODULE, [(ASC2.label, "20"), (BPC2.label, "1"), (STM2.label, "40")]),
+        (mod.SORT_ID, [(BPC2.label, "1"), (ASC2.label, "20"), (STM2.label, "40")]),
+        (mod.SORT_SCOPE, [(BPC2.label, "1"), (ASC2.label, "20"), (STM2.label, "40")]),
+    ],
+)
+def test_the_listing_is_ordered_by_the_key_the_operator_chooses(
+    monkeypatch, sort_key: str, expected: list[tuple[str, str]]
+) -> None:
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    panel._on_sort_selected(sort_key)
+
+    assert [(row.module, row.tmcc_id) for row in panel.inventory_rows()] == expected
+    assert [(module, tmcc_id) for module, tmcc_id, _scope in _listed(panel)] == expected
+
+
+def test_the_key_the_page_opens_on_is_the_one_the_rows_show(monkeypatch) -> None:
+    # The radios and the order have to be the same fact: a page opening on a row whose order
+    # the rows are not in would be a page lying about itself before it is touched.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    assert panel._sort_group.kwargs["selected"] == mod.SORT_MODULE
+    assert [label for label, _key in mod.INVENTORY_SORTS] == ["Module", "ID", "Scope"]
+    assert _listed(panel) == sorted(_listed(panel), key=lambda row: row[0].upper())
+
+
+def test_a_key_the_page_does_not_offer_leaves_the_order_alone(monkeypatch) -> None:
+    # The value comes out of a Tk StringVar, which answers with whatever string it was
+    # handed -- "None" among them.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel._on_sort_selected(mod.SORT_ID)
+
+    panel._on_sort_selected("no_such_key")
+
+    assert [row.tmcc_id for row in panel.inventory_rows()] == ["1", "20", "40"]
+
+
+def test_the_listing_is_written_into_a_grid_under_its_headings(monkeypatch) -> None:
+    # Gridded so the columns line up down the page however long the names above them run,
+    # and the headings are the grid's own first row so they stand over the columns they name.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    grid = _listing_grid(panel)
+    assert grid[0] == mod.INVENTORY_HEADINGS
+    assert [row[:3] for row in grid[1:]] == [
+        (ASC2.label, "20", "SW"),
+        (BPC2.label, "1", "ACC"),
+        (STM2.label, "40", "SW"),
+    ]
+    # The last column carries the module's whole configuration, at whatever length it runs
+    # to: the one multi-line cell the panel writes.
+    assert "\n" in grid[2][mod.INVENTORY_CONFIG_COLUMN]
+    assert all(cell.text_bold for cell in panel._inventory_cells[0]), "a heading in every column"
+
+
+def test_every_cell_stands_at_the_top_of_its_row(monkeypatch) -> None:
+    # A row is as tall as its configuration column, that being the one column with several
+    # lines in it, and a cell placed as guizero places it -- sticky="W", from its align -- is
+    # centered against that height: "BPC2" floats halfway down a five-line row instead of
+    # standing beside the first line of what the module is set to.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    assert mod.INVENTORY_STICKY == "nw", "the top of the row, and the left of the column"
+    assert [cell.tk.gridded["sticky"] for row in panel._inventory_cells for cell in row] == [mod.INVENTORY_STICKY] * (
+        len(panel._inventory_cells) * mod.INVENTORY_COLUMNS
+    )
+
+
+def test_the_cells_are_stood_up_again_after_a_re_order(monkeypatch) -> None:
+    # guizero rebuilds a container's grid options from scratch whenever a child is shown or
+    # hidden, and a re-order does both: set once where the cells are built, the alignment
+    # would hold only until the first press of a sort key.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    for row in panel._inventory_cells:
+        for cell in row:
+            cell.tk.gridded.clear()
+
+    panel._on_sort_selected(mod.SORT_ID)
+
+    assert all(cell.tk.gridded.get("sticky") == mod.INVENTORY_STICKY for row in panel._inventory_cells for cell in row)
+
+
+def test_a_row_the_page_is_no_longer_showing_is_left_where_it_is(monkeypatch) -> None:
+    # Not an optimization: grid_configure *manages* a widget the grid has forgotten, so
+    # replaying a spare row's alignment would put it back on the page carrying the text of
+    # the fuller layout it was last written for.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    for row in panel._inventory_cells:
+        for cell in row:
+            cell.tk.gridded.clear()
+
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2)]})
+    panel.show_inventory()
+
+    # The headings, the one module still reported, and the two rows that went with the
+    # others: only what is on the page was placed again.
+    assert [bool(row[0].tk.gridded) for row in panel._inventory_cells] == [True, True, False, False]
+
+
+def test_a_row_left_over_from_a_fuller_layout_is_taken_off_the_page(monkeypatch) -> None:
+    # Hidden rather than blanked, as the module boxes hide theirs: an empty label still
+    # stands a line tall, so the page would keep the height of the fullest layout it had
+    # ever shown.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    assert len(_listing_grid(panel)) == 4  # the headings and the three modules
+
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2)]})
+    panel.show_inventory()
+
+    assert [row[0] for row in _listing_grid(panel)] == [mod.INVENTORY_HEADINGS[0], BPC2.label]
+    assert len(panel._inventory_cells) == 4, "the cells are kept and reused, not destroyed"
+
+
+def test_a_layout_that_has_reported_nothing_says_so_rather_than_showing_a_bare_grid() -> None:
+    # Which is how the panel opens before the Base 3 has been heard from. A grid standing
+    # empty under its own headings reads as a page that looked and failed.
+    panel = _new_panel()
+
+    assert panel.inventory_rows() == []
+    assert panel._inventory_empty_line.value == mod.INVENTORY_EMPTY
+    assert panel._inventory_empty_line.visible is True
+    assert all(not cell.visible for cell in panel._inventory_cells[0]), "the headings go with the rows"
+
+
+def test_the_listing_is_read_afresh_each_time_it_is_opened(monkeypatch) -> None:
+    # Modules report themselves as the Base 3 gets round to them, and what the operator is
+    # owed is a listing that is true when they ask for it.
+    panel = _new_panel()
+    assert panel.inventory_rows() == []
+
+    _a_layout_of_three(monkeypatch)
+    panel.show_inventory()
+
+    assert panel.page_index == mod.PAGE_INVENTORY
+    assert len(_listing_grid(panel)) == 4
+    assert panel._inventory_empty_line.visible is False
+
+
+def test_the_device_page_carries_the_key_that_opens_the_listing() -> None:
+    # On the first page, because what is already out on the layout is what an operator wants
+    # to know before they program anything.
+    panel = _new_panel()
+    page = panel._pages[mod.PAGE_DEVICE]
+
+    assert panel._inventory_btn.text == mod.INVENTORY_TEXT
+    assert panel._inventory_btn in page.children
+    assert page.children.index(panel._device_group) < page.children.index(panel._inventory_btn)
+
+    panel._inventory_btn.command()
+
+    assert panel.page_index == mod.PAGE_INVENTORY
+
+
+def test_the_listing_is_left_by_back_for_the_page_it_was_opened_from() -> None:
+    # It answers a question of its own and leads nowhere, so there is no page "before" it to
+    # walk to: what Back means there is done looking.
+    panel = _new_panel()
+    panel.show_inventory()
+
+    assert panel.can_go_back is True
+    panel.previous_page()
+
+    assert panel.page_index == mod.PAGE_DEVICE
+
+
+def test_next_never_walks_into_the_listing() -> None:
+    # It is the last page built and is on nobody's way anywhere. Walked at from the review
+    # page, which is the page it sits after, and from the listing itself.
+    panel = _new_panel()
+    panel._on_device_selected(ASC2.key)
+    panel._show_page(mod.PAGE_REVIEW)
+
+    for _ in range(3):
+        panel.next_page()
+    assert panel.page_index == mod.PAGE_REVIEW
+
+    panel.show_inventory()
+    assert panel.has_next_page is False
+    assert panel.can_advance is False
+    panel.next_page()
+    assert panel.page_index == mod.PAGE_INVENTORY
+
+
+def test_the_pad_works_the_sort_keys_and_turns_no_page_with_them() -> None:
+    # The only control the listing has, so it is the only thing a Deck could be pointing at
+    # here -- and nothing is being chosen: right re-orders the rows and stays put.
+    panel = _new_panel()
+    panel.show_inventory()
+
+    widget, commit = panel._pad_target()
+
+    assert widget is panel._sort_group
+    assert commit == panel._on_sort_selected
+    assert panel.pad_mark_turns_page is False

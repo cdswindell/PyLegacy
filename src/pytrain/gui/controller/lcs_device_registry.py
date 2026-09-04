@@ -700,7 +700,11 @@ SENSOR_TRACK_ACTION = LcsOption(
 
 SENSOR_TRACK = LcsDevice(
     key="sensor_track",
-    label="Sensor Track",
+    # Named as the module is named on the box it comes in, the sensing being infrared and
+    # the word that says so being the one an operator picking the module out of a list of
+    # five needs. The key is untouched: it is what a module's settings, presses and the
+    # listing's own name for it are filed under, and none of that is a fact about spelling.
+    label="IR Sensor Track",
     blurb="ACC",
     pdi_device=PdiDevice.IRDA,
     program_button="PROGRAM",
@@ -907,7 +911,7 @@ def configurable_devices() -> tuple[LcsDevice, ...]:
     The modules the panel can actually program, in the order they are offered.
 
     Sorted by name, so the device page reads as a list an operator can scan, and the first
-    row -- the one the panel opens on -- is predictable: AMC2, ASC2, BPC2, Sensor Track,
+    row -- the one the panel opens on -- is predictable: AMC2, ASC2, BPC2, IR Sensor Track,
     STM2. LCS_DEVICES keeps its own order, which is a recognition order rather than a
     presentation one: it is walked to identify a module from its state flags, and where one
     component state names two modules the first of them is the one reported.

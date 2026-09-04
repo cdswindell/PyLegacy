@@ -50,7 +50,7 @@ from .lcs_device_registry import (
     tmcc_id_span,
     tmcc_id_text,
 )
-from .lcs_id_map import LcsOccupant, TrainOccupant, occupants_of, overlaps, train_overlaps, trains_of
+from .lcs_id_map import LcsOccupant, TrainOccupant, occupants, occupants_of, overlaps, train_overlaps, trains_of
 from .lcs_sequence_builder import LcsProgram, build_program
 from .overlay_panel import OverlayPanel
 from .popup_manager import (
@@ -77,6 +77,12 @@ PAGE_DEVICE = 0
 PAGE_ID = 1
 PAGE_OPTIONS = 2
 PAGE_REVIEW = 3
+# The listing of every module the layout has reported, which is not a step of the march the
+# other four make: nothing is chosen on it and nothing follows from it. It is built and
+# shown by index like the rest -- a page outside the list of pages would need its own
+# showing, its own fitting and its own place in the window -- and kept off the march by
+# _skipped, so Next never arrives at it and Back leaves it for the page it was opened from.
+PAGE_INVENTORY = 4
 
 MIN_TMCC_ID = 1
 
@@ -193,6 +199,113 @@ REVIEW_TITLE = "Review and Configure"
 BACK_TEXT = "Back"
 NEXT_TEXT = "Next"
 CONFIGURE_TEXT = "Configure"
+
+# The key that opens the listing, on the device page, and the heading the listing opens
+# with. The button says what it shows rather than what it does -- there is no verb an
+# operator wants here -- and it says "My", which is the operator's own word for the modules
+# on the layout in front of them: what is listed is what has reported itself on their bus.
+# The heading is the same claim spelled out, the page being read on its own.
+INVENTORY_TEXT = "My Modules"
+INVENTORY_TITLE = "My LCS Modules"
+# What the page says when nothing has reported itself, which is the ordinary state of a
+# panel opened before the Base 3 has been heard from. Said rather than left as an empty
+# grid under its own headings, which reads as a page that failed to look.
+INVENTORY_EMPTY = "No LCS modules have reported themselves yet."
+
+# The listing's columns, in the order they are read: which module it is, the TMCC ID it is
+# based at, the remote key that addresses it, and everything else it says about itself.
+# "ID" rather than "TMCC ID": every number on this page is a TMCC ID, and the column beside
+# it spells the block out in full.
+INVENTORY_HEADINGS: tuple[str, ...] = ("Module", "ID", "Scope", "Configuration")
+INVENTORY_COLUMNS = len(INVENTORY_HEADINGS)
+# Which column holds the configuration, and so the one column with no bound on what it can
+# say: it runs to as many lines as the module has facts about itself. The three before it
+# are each a word or two -- the longest name the listing gives a module, two digits, and a
+# remote key -- so they are the reservation the last column's wrap is taken from, exactly as
+# ROW_FIXED_COLUMNS_EMS is taken for the module rows. 20 ems against those rows' 16, this
+# grid having one more bounded column than they have; measured in the cells' own font.
+INVENTORY_CONFIG_COLUMN = INVENTORY_COLUMNS - 1
+INVENTORY_FIXED_COLUMNS_EMS = 20
+# How a cell sits in its column: against the top of the row and against its left edge, which
+# is Tk's own spelling of the two. Every row is as tall as its configuration column, that
+# being the one column with several lines in it, and a cell left to what guizero grids it
+# with -- sticky="W", from its align -- is centered against that height: "BPC2" floats
+# halfway down a five-line row instead of standing beside the first line of what the module
+# is set to. The three bounded columns are the reason this matters and the reason it is the
+# whole grid: they are read down the page, so they have to start level with each other.
+# Replayed after every re-order rather than set where a cell is built; see
+# _stick_inventory_cells.
+INVENTORY_STICKY = "nw"
+
+# What the listing calls a module, where that is not the name the registry gives it. Only
+# the IR Sensor Track, which is listed as the IR: the Module column is a column of short
+# names -- ASC2, BPC2, STM2 -- read down the page rather than sentences read across it, and
+# "IR" is what tells this module from those at a glance. Keyed by the registry's key rather
+# than by its label, so the listing's name cannot come adrift from a re-worded label.
+#
+# This page alone. Everywhere else the panel names a module it is programming -- the device
+# rows, the ID page's reports, the options heading, the presses on the review page -- and
+# there it is named as the registry names it. See _inventory_module.
+INVENTORY_MODULE_NAMES: dict[str, str] = {SENSOR_TRACK.key: "IR"}
+
+# And what it calls a setting, where that is not the name the options page gives it. Both
+# entries are the same flag under two modules' names -- the BPC2's "Restore last relay
+# settings on power-up" and each of the AMC2's "Remember speed on power-up". Each is a
+# sentence written to be read beside the box that decides it, with the width of an options
+# row to say it in; here it is wrapped at INVENTORY_FIXED_COLUMNS_EMS and takes three lines
+# of the tallest column in the panel to say what "Power-up Restore" says in one, on every
+# such module the layout holds.
+#
+# Keyed by the module's key and the setting's, neither of which is wording, so the short
+# name cannot come adrift from a re-worded label -- and asked of the registry rather than
+# spelled out here, so a key that is renamed or dropped is a failure at import rather than
+# a long sentence quietly back in the column.
+#
+# This page alone. The options page draws each setting as its own label, where the operator
+# is being asked to decide something rather than reminded what a module is set to, and the
+# presses on the review page name it as that page does. See _inventory_option_name.
+INVENTORY_RESTORE = "Power-up Restore"
+INVENTORY_OPTION_NAMES: dict[tuple[str, str], str] = {
+    (BPC2.key, BPC2.option("restore").key): INVENTORY_RESTORE,
+    (AMC2.key, AMC2.option("motor1_restore").key): INVENTORY_RESTORE,
+    (AMC2.key, AMC2.option("motor2_restore").key): INVENTORY_RESTORE,
+}
+
+# How the listing can be ordered, and the order it opens in. By module first, so the page
+# reads as a tally of what kinds of module are out there; by ID for an operator looking for
+# a free address; by remote key for one thinking in terms of the key they are about to
+# press. Each row is [label, key], as a CheckBoxGroup takes its options -- the same shape
+# the catalog panel's own Sort By rows have.
+SORT_MODULE = "module"
+SORT_ID = "id"
+SORT_SCOPE = "scope"
+INVENTORY_SORTS: tuple[tuple[str, str], ...] = (
+    ("Module", SORT_MODULE),
+    ("ID", SORT_ID),
+    ("Scope", SORT_SCOPE),
+)
+INVENTORY_SORT_TITLE = "Sort By"
+# Whitespace either side of a sort row's label, in pixels. The three stand on one line, so
+# what holds them apart is their own padding rather than the gap between rows.
+SORT_ROW_PAD = 10
+
+# The lines the configuration column is written from. The mode as the registry names it,
+# then the block of addresses the module holds on the key it answers to -- "ACC 1 - 8", the
+# spelling the ID page's own summary uses -- then a line per setting the module reports.
+# A module that has not said which mode it is in says so, rather than being written up as
+# though the panel knew: a module known from control traffic alone reports no mode byte.
+#
+# What the module is set to, and nothing else it happens to report. Its firmware is a fact
+# about the module rather than about its configuration, and this is the column an operator
+# reads to see how their layout is addressed -- a version number down every row is a line
+# per module that answers no question the page is open for. Nor anything the three columns
+# beside it have already said; see inventory_config.
+INVENTORY_MODE_UNKNOWN = "Mode not reported"
+INVENTORY_SETTING = "{name}: {value}"
+# What a flag reads as. Yes and No rather than the label's own wording, because the name of
+# the setting is already the other half of the line.
+INVENTORY_YES = "Yes"
+INVENTORY_NO = "No"
 
 # The lines the panel composes about the module in hand, as templates. Every term in them
 # comes from the registry -- the module's label, the mode's counted label, the remote key
@@ -418,15 +531,25 @@ READBACK_TIMEOUT_MSEC = 5000
 VERIFY_POLL_DELAY = 1.0
 
 # What the Cab remote calls each scope, which is the language the operator's manual uses.
-# Every key the panel programs on, and no other: the AMC2 can be addressed as an engine
-# and the registry records that mode, but the panel offers no row on it, so no line of the
-# panel is ever written about it. See _select_device on how a mode the panel does not offer
-# is kept from becoming the one being programmed.
+# The three the panel programs on, and the one it can only read: an AMC2 can be addressed
+# as an engine and the registry records that mode, so a module already out on that key is
+# named by the listing -- but no row is offered on it, and nothing the panel programs is
+# ever written about it. See _select_device on how a mode the panel does not offer is kept
+# from becoming the one being programmed, and the listing's Scope column for the one page
+# the fourth key can appear on.
 SCOPE_LABEL: dict[CommandScope, str] = {
     CommandScope.ACC: "ACC",
     CommandScope.SWITCH: "SW",
     CommandScope.TRAIN: "TR",
+    CommandScope.ENGINE: "ENG",
 }
+
+# The order the remote keys are listed in, which is the order they are declared above: the
+# accessory keys first, being where most of a layout's modules sit, and the engine key last,
+# being the one no module is programmed onto. What the listing sorts its Scope column by,
+# since neither the keys' spelling nor the scopes' own numbering is an order an operator
+# would recognize.
+SCOPE_ORDER: tuple[CommandScope, ...] = tuple(SCOPE_LABEL)
 
 # What each of those remote keys is for. Every mode row below opens with one of these keys
 # and says nothing about what it is good for, which is the one thing an operator choosing
@@ -522,6 +645,37 @@ class ModuleRow:
         whether the box has any rows at all, so one method fills the two boxes.
         """
         return self.module == UNASSIGNED
+
+
+@dataclass(frozen=True)
+class InventoryRow:
+    """One line of the My Modules listing: "BPC2", "1", "ACC", and what it is set to.
+
+    Held as separate parts for the reason ModuleRow is -- the listing grids them, so the
+    columns line up down the page however long the names above them run -- and kept apart
+    from that class because the two answer different questions and are not the same shape.
+    A module row says what stands in the way of one address, three columns of it; this says
+    what a module *is*, and its last column is the module's whole configuration, at whatever
+    length that runs to.
+
+    config carries its own line breaks, one per fact the module reports. Nothing else in the
+    panel writes a cell of more than one line, and this is the column the page is for: what
+    a module is set to cannot be said in a column's width, and saying it on the row keeps it
+    beside the module it belongs to rather than in a page of its own.
+    """
+
+    module: str
+    tmcc_id: str
+    scope: str
+    config: str = ""
+
+    @property
+    def cells(self) -> tuple[str, str, str, str]:
+        return self.module, self.tmcc_id, self.scope, self.config
+
+    @property
+    def text(self) -> str:
+        return " ".join(part for part in self.cells if part)
 
 
 @dataclass(frozen=True)
@@ -720,6 +874,15 @@ class LcsConfigPanel(OverlayPanel):
         self._overlap_cells: list[tuple[Text, ...]] = []
         self._goto_btn: HoldButton | None = None
         self._new_btn: HoldButton | None = None
+        # My Modules: the key that opens the listing, the rows that order it, and the grid
+        # it is written into. The heading row is the grid's first, so the cells below are
+        # grown and reused exactly as the module rows' are; see _refresh_inventory.
+        self._inventory_btn: HoldButton | None = None
+        self._sort_group: CheckBoxGroup | None = None
+        self._sort_key: str = SORT_MODULE
+        self._inventory_grid: Box | None = None
+        self._inventory_cells: list[tuple[Text, ...]] = []
+        self._inventory_empty_line: Text | None = None
         self._back_btn: HoldButton | None = None
         self._next_btn: HoldButton | None = None
         self._nav: Box | None = None
@@ -1207,6 +1370,11 @@ class LcsConfigPanel(OverlayPanel):
             self._build_id_page(pages),
             self._build_options_page(pages),
             self._build_review_page(pages),
+            # Built with the four the operator walks, though it is not one of them: a page
+            # is shown, hidden and fitted to the window by its index here, and one held
+            # outside this list would need every one of those things done to it some other
+            # way. See PAGE_INVENTORY.
+            self._build_inventory_page(pages),
         ]
         # Back and Next belong to the panel, not to the popup's footer row: the popup adds
         # its own Close below everything built here, so Close gets a line of its own
@@ -1273,6 +1441,27 @@ class LcsConfigPanel(OverlayPanel):
             cursor=pad_driven(),
             command=self._on_device_selected,
         )
+        # And, below the choice, the way to go and look first. What is already out on the
+        # layout is the thing an operator wants to know before they program anything -- which
+        # addresses are taken, and by what -- and this is the page they are standing on when
+        # they want it. Off to one side rather than in the march: it answers a question of
+        # its own and leads nowhere, so it is a key that opens a page and comes back rather
+        # than a step between this page and the next. See show_inventory.
+        host.add_vspace(page, self._page_gap)
+        self._inventory_btn = btn = HoldButton(page, text=INVENTORY_TEXT, align="top", command=self.show_inventory)
+        # The one shared look for the big keys of an overlay, which Back, Next, Configure and
+        # the Close below them all wear: a raised border and an edge, a lighter face than the
+        # panel, and a darker one while it is held. It is drawn as a key rather than as a word
+        # in a rectangle because it is one -- it turns a page, as the two below the panel do,
+        # and it is the only key on this page besides them.
+        #
+        # Its pack padding is then trimmed exactly as the Back/Next row's is: the band a
+        # footer button carries is meant to hold a row off the panel and the pane, and this
+        # key stands in the middle of a page with the modules above it and Next below.
+        # See style_footer_button and NAV_ROW_PAD.
+        style_footer_button(host, btn)
+        repad_footer_button(btn, pady=self._nav_row_pad)
+        host.cache(btn)
         return page
 
     def _build_id_page(self, body: Box) -> Box:
@@ -1788,6 +1977,353 @@ class LcsConfigPanel(OverlayPanel):
         self._status_line.hide()
         return page
 
+    #
+    # My Modules listing
+    #
+    def _build_inventory_page(self, body: Box) -> Box:
+        """Every LCS module the panel knows of, gridded and sortable.
+
+        A page that asks nothing and answers one question: what is out there. It is opened
+        from the device page and left by Back, and Next never reaches it; see PAGE_INVENTORY.
+
+        Three parts, in the order they are read: the heading, the keys that order the rows,
+        and the rows. The sort keys stand above what they order rather than below it -- they
+        are read before the list is, and a page that can be re-ordered says so at its head --
+        and they are one row of radios in a titled box, exactly as the roster panel's own
+        Sort By is drawn, so the two pages are sorted the same way by the same-looking key.
+        """
+        host = self._gui
+        page = Box(body, align="top", border=0)
+        self._label(page, INVENTORY_TITLE, size=host.s_16, bold=True)
+
+        sort_box = TitleBox(page, text=INVENTORY_SORT_TITLE, align="top")
+        sort_box.text_size = self._titled_text_size
+        self._sort_group = CheckBoxGroup(
+            sort_box,
+            size=self._titled_text_size,
+            options=[[label, key] for label, key in INVENTORY_SORTS],
+            selected=self._sort_key,
+            align="top",
+            style="radio",
+            # Side by side: three short words, and stacked they would cost the listing three
+            # rows of the height it wants for modules.
+            horizontal=True,
+            padx=SORT_ROW_PAD,
+            pady=self._mode_row_pad,
+            # Broken inside the pane like every other row the panel draws, though no sort
+            # key is anywhere near long enough to need it: what a row may not do is run off
+            # the edge of the screen, and that is a rule about rows rather than about the
+            # words in these three.
+            wrap=self._row_wrap_px(self._titled_text_size),
+            # Stepped by the pad like every other list in the panel. It is the only control
+            # on this page, so it is the only thing a Deck could be pointing at here.
+            cursor=pad_driven(),
+            command=self._on_sort_selected,
+        )
+
+        host.add_vspace(page, self._page_gap)
+        self._inventory_grid = Box(page, layout="grid", align="top", border=0)
+        # The headings are the grid's own first row rather than a row of their own above it,
+        # which is what makes them sit over the columns they name: a separate box would be
+        # laid out to its own widths and stand over nothing in particular.
+        self._build_inventory_headings()
+        # And, where there are no rows, the line that says so -- below the grid, where the
+        # first row would have been.
+        self._inventory_empty_line = self._note_line(page, size=self._titled_text_size)
+        self._refresh_inventory()
+        return page
+
+    def _build_inventory_headings(self) -> None:
+        """
+        Write the column headings into the listing's first row, and keep them there.
+        """
+        for cell, text in zip(self._inventory_row_cells(0), INVENTORY_HEADINGS):
+            cell.value = text
+            # All four, where a data row bolds only its first: a heading is a heading in
+            # every column, and it is what tells the top row from the modules under it.
+            cell.text_bold = True
+
+    def _inventory_row_cells(self, index: int) -> tuple[Text, ...]:
+        """
+        The cells of one line of the listing, headings included, created as they are needed.
+        """
+        return self._grid_row(
+            self._inventory_grid,
+            self._inventory_cells,
+            index,
+            columns=INVENTORY_COLUMNS,
+            wrap_column=INVENTORY_CONFIG_COLUMN,
+            wrap_px=self._inventory_config_wrap_px,
+        )
+
+    @property
+    def _inventory_config_wrap_px(self) -> int:
+        """The width the configuration column breaks a line at.
+
+        What is left of the page once the three bounded columns beside it have taken their
+        room, exactly as a module row's name column is measured; see _row_name_wrap_px and
+        INVENTORY_FIXED_COLUMNS_EMS. The floor is an equal share of the four columns, for a
+        pane so narrow that the reservation would swallow the column -- a column told to
+        break at zero is a column told not to break at all, which would carry the longest
+        line a module can write straight off the edge of the pane.
+        """
+        reserved = INVENTORY_FIXED_COLUMNS_EMS * self._titled_text_size
+        return max(self._wrap_px // INVENTORY_COLUMNS, self._wrap_px - reserved)
+
+    def show_inventory(self) -> None:
+        """
+        Open the listing, built afresh from what the layout says right now.
+
+        Written on the way in rather than kept up to date behind the page: modules report
+        themselves as the Base 3 gets round to them, and what the operator is owed is a
+        listing that is true when they ask for it. Coming back to the page asks again.
+        """
+        self._refresh_inventory()
+        self._show_page(PAGE_INVENTORY)
+
+    def _on_sort_selected(self, value: str = None) -> None:
+        """Re-order the listing. guizero hands the row's value in; the pad's mark reads it here.
+
+        A key the page does not offer is ignored rather than taken: the value comes from a Tk
+        StringVar, which answers with whatever string it was handed.
+        """
+        if value is None and self._sort_group is not None:
+            value = str(self._sort_group.value)
+        if value in {key for _label, key in INVENTORY_SORTS}:
+            self._sort_key = value
+        self._refresh_inventory()
+        # The rows are as tall as their longest configuration cell, so re-ordering them
+        # re-orders the page's height as well: what the window has to hold is measured again
+        # rather than left at what the last order needed.
+        self._fit_scroll()
+
+    def _refresh_inventory(self) -> None:
+        """Write the modules into the grid, growing it and hiding what is spare.
+
+        Row 0 is the headings and is written once, so the modules start at row 1 and the
+        spare rows begin one past the last of them. Hidden rather than blanked, for the
+        reason the module grids hide theirs: an empty label still stands a line tall, and
+        the page would keep the height of the fullest layout it had ever shown.
+
+        The headings go with the rows. A grid standing empty under Module / ID / Scope reads
+        as a page that looked and failed, where what is true is that nothing has reported
+        itself -- which the line below says in words.
+
+        The rows are put back against the top of their cells last of all, showing and hiding
+        being what takes them off it; see _stick_inventory_cells.
+        """
+        if self._inventory_grid is None:
+            return
+        rows = self.inventory_rows()
+        for index, row in enumerate(rows, start=1):
+            for cell, value in zip(self._inventory_row_cells(index), row.cells):
+                cell.value = value
+                if not cell.visible:
+                    cell.show()
+        for spare in self._inventory_cells[len(rows) + 1 :]:
+            for cell in spare:
+                if cell.visible:
+                    cell.hide()
+        self._show_inventory_headings(bool(rows))
+        self._stick_inventory_cells()
+        self._refresh_note(self._inventory_empty_line, "" if rows else INVENTORY_EMPTY)
+
+    def _stick_inventory_cells(self) -> None:
+        """Stand every cell of the listing against the top of its row, and keep it there.
+
+        Replayed over the whole grid rather than set once where a cell is built, for the
+        reason _lay_out_titled_boxes replays its own: guizero rebuilds a container's grid
+        options from scratch in display_widgets -- which runs whenever a child is shown,
+        hidden or created -- and grids each cell from its align, i.e. sticky="W". Every
+        re-order of the listing shows and hides rows, so the alignment has to follow the
+        rows rather than the building of them. See INVENTORY_STICKY.
+
+        A hidden cell is passed over, and that is not an optimization: grid_configure
+        *manages* a widget the grid has forgotten, so a spare row put back on the page would
+        come back carrying the text of the fuller layout it was last written for. The same
+        trap restore_footer_packing avoids with a hidden button.
+        """
+        for row in self._inventory_cells:
+            for cell in row:
+                if not cell.visible:
+                    continue
+                try:
+                    cell.tk.grid_configure(sticky=INVENTORY_STICKY)
+                except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                    continue
+
+    def _show_inventory_headings(self, showing: bool) -> None:
+        """
+        Put the column headings on the page, or take them off it with their rows.
+        """
+        for cell in self._inventory_cells[0] if self._inventory_cells else ():
+            if showing and not cell.visible:
+                cell.show()
+            elif not showing and cell.visible:
+                cell.hide()
+
+    def inventory_rows(self) -> list[InventoryRow]:
+        """
+        Every module the layout has reported, as the listing writes them, in sorted order.
+        """
+        return [
+            InventoryRow(
+                module=self._inventory_module(occupant.device),
+                tmcc_id=f"{occupant.base_id}",
+                scope=self._scope_label(occupant.effective_scope),
+                config=self.inventory_config(occupant),
+            )
+            for occupant in self.inventory_occupants()
+        ]
+
+    @staticmethod
+    def _inventory_module(device: LcsDevice) -> str:
+        """
+        What the listing calls a module: its own name for it, where it has one, and the
+        registry's everywhere else. See INVENTORY_MODULE_NAMES.
+        """
+        return INVENTORY_MODULE_NAMES.get(device.key, device.label)
+
+    def inventory_occupants(self) -> list[LcsOccupant]:
+        """Every module known to the panel, ordered by whichever key is chosen.
+
+        The whole layout, not the entered ID's block: this page is the one place the panel
+        speaks about modules it is not programming. See occupants().
+        """
+        return sorted(occupants(self._store), key=self._inventory_key)
+
+    def _inventory_key(self, occupant: LcsOccupant) -> tuple:
+        """What a row is ordered by, and what settles it where two rows agree on that.
+
+        Always all three, in the order the chosen key puts them: two BPC2s are then listed
+        by address, and two modules at ID 5 by name, rather than in whatever order the store
+        happened to hand them over -- an order that would change under the page as the
+        layout reported itself. The key chosen leads, and the other two follow it in the
+        order the columns are read.
+
+        A module is ordered by the name the listing gives it rather than by the registry's,
+        so the rows come out in the order the Module column reads down the page; see
+        _inventory_module. A remote key is ordered by where it stands among the keys rather
+        than by its spelling, so the listing groups ACC, SW, TR and ENG the way the panel
+        names them everywhere else; see SCOPE_ORDER.
+        """
+        module = self._inventory_module(occupant.device).upper()
+        tmcc_id = occupant.base_id
+        scope = self._scope_rank(occupant.effective_scope)
+        if self._sort_key == SORT_ID:
+            return tmcc_id, module, scope
+        if self._sort_key == SORT_SCOPE:
+            return scope, module, tmcc_id
+        return module, tmcc_id, scope
+
+    @staticmethod
+    def _scope_rank(scope: CommandScope | None) -> tuple[int, str]:
+        """
+        Where a remote key stands in the listing, with its own name to settle an unknown one.
+        """
+        order = SCOPE_ORDER.index(scope) if scope in SCOPE_ORDER else len(SCOPE_ORDER)
+        return order, f"{scope}"
+
+    def inventory_config(self, occupant: LcsOccupant) -> str:
+        """What a module says about itself, as the listing's last column writes it.
+
+        One fact a line, and the lines in the order they answer the operator's questions:
+        which mode the module is in, which addresses that mode takes from it, and what each
+        of its own settings is set to. What it is set to and nothing else: its firmware is a
+        fact about the module rather than about its configuration, and this column is read
+        to see how a layout is addressed. See INVENTORY_MODE_UNKNOWN.
+
+        And nothing the columns beside it have already said. This is the row's fourth column,
+        not a summary of the module standing on its own: a line saying only what Module, ID
+        and Scope say between them is read as a fact about the module and turns out to be an
+        echo, and it costs a line of a column that is already the tallest thing on the page.
+        Two lines can come out that way, each dropped by being compared with the very text the
+        column beside it carries rather than by any rule about how it is spelled:
+
+        - The mode, where the mode's whole name is the remote key -- a BPC2 in ACC mode, an
+          IR Sensor Track, an AMC2. A mode named for what it is *for* stays, all of it: "ACC
+          (mixed)" and "SW (pulse)" answer which of the module's modes it is in, which is
+          the question the line is there for and one no other column touches.
+        - The block, where the block is the one address the ID column names. "ACC 50" beside
+          a row reading IR / 50 / ACC is those two columns again; "ACC 1 - 8" is not,
+          being the seven further addresses the module has taken.
+
+        A block that is kept is spelled with the remote key in front of it -- "ACC 1 - 8" --
+        though the Scope column names the key. The line is about a block of addresses on a
+        key, which is how a module's address is said everywhere else in the panel and how
+        the manuals say it; see options_summary, which writes the same words about the module
+        being programmed. What is dropped is a whole line that said nothing, not a word out
+        of the middle of one that says something.
+
+        Only what the module has actually reported. A module known from control traffic
+        alone has published no CONFIG record, so it names no mode and no settings, and the
+        listing says the one and passes over the others rather than inventing either. That
+        the mode is not known is not an echo of anything, so it is said even where the
+        block below it is dropped.
+        """
+        mode = occupant.mode
+        scope = self._scope_label(occupant.effective_scope)
+        lines: list[str] = []
+        if mode is None:
+            lines.append(INVENTORY_MODE_UNKNOWN)
+        elif mode.name != scope:
+            lines.append(mode.name)
+        span = tmcc_id_span(occupant.base_id, occupant.last_id)
+        if span != f"{occupant.base_id}":
+            lines.append(" ".join(part for part in (scope, span) if part))
+        lines.extend(self._inventory_settings(occupant))
+        return "\n".join(lines)
+
+    @classmethod
+    def _inventory_settings(cls, occupant: LcsOccupant) -> list[str]:
+        """A line per setting the module reports, named as the options page names it.
+
+        Read through the options themselves, off the module's own CONFIG record first and
+        its component state second, so the listing learns what a module is set to exactly
+        as the options page learns what to open on; see _reported_option. A setting the
+        module says nothing about is passed over rather than written up at its default,
+        which would be the panel telling the operator something the module has not said.
+
+        Named as the listing names it, which is the setting's own label unless this column
+        has a shorter one for it; see _inventory_option_name. Its own label and nothing in
+        front of it: a verdict puts the heading a setting stands under in front of one the
+        module labels twice, and here that heading is already on the page. This column
+        writes every setting the module reports, in the module's own order, so the setting
+        the heading comes from is the line directly above -- an AMC2 reads as "Motor #1: AC"
+        and the flag beneath it, then the same pair for the second motor, and naming the
+        motor in the flag's line as well would say twice over what one line up has just said.
+        """
+        device = occupant.device
+        lines: list[str] = []
+        for option in device.options:
+            value = cls._reported_option(option, occupant.config, occupant.state)
+            if value is None:
+                continue
+            lines.append(
+                INVENTORY_SETTING.format(
+                    name=cls._inventory_option_name(device, option),
+                    value=cls._value_text(option, value),
+                )
+            )
+        return lines
+
+    @staticmethod
+    def _inventory_option_name(device: LcsDevice, option: LcsOption) -> str:
+        """
+        What the listing calls a setting: its own name for it, where it has one, and the
+        label the options page draws everywhere else. See INVENTORY_OPTION_NAMES.
+        """
+        return INVENTORY_OPTION_NAMES.get((device.key, option.key), option.label)
+
+    @classmethod
+    def _value_text(cls, option: LcsOption, value: Any) -> str:
+        """
+        What a reported value reads as: the row's own words for a choice, Yes or No for a flag.
+        """
+        if option.kind == OptionKind.RADIO:
+            return cls._choice_label(option, value)
+        return INVENTORY_YES if value else INVENTORY_NO
+
     @property
     def program(self) -> LcsProgram | None:
         """
@@ -2055,6 +2591,11 @@ class LcsConfigPanel(OverlayPanel):
         the heading comes with it here, and a verdict faulting both motors reads as two
         faults rather than as one written twice.
 
+        A verdict names the settings that disagree and nothing else, so the heading has to
+        travel with the one it belongs to. The My Modules listing, which writes every setting
+        in turn, has the heading a line above and names a setting by itself; see
+        _inventory_option_name.
+
         The heading is the nearest setting above it the module does name uniquely, which is
         what the page puts there; nothing is assumed about which settings a module groups.
         """
@@ -2274,15 +2815,30 @@ class LcsConfigPanel(OverlayPanel):
         do. A press to arrive at it and a press to leave, for no decision. Next now goes
         from the TMCC ID straight to the review, and Back comes straight back.
 
-        The page is still built. It is one of four created once in build and shown or
-        hidden by index, so leaving it out would move the review page's index -- and every
-        page is reached by index.
+        The page is still built. Every page is created once in build and shown or hidden by
+        index, so leaving it out would move the review page's index -- and every page is
+        reached by index.
         """
         return self._device is not None and not self._device.options
 
-    def _skipped(self, index: int) -> bool:
-        """Whether index names a page this module has nothing to say on."""
+    def _stepped_over(self, index: int) -> bool:
+        """Whether index names a page this module has nothing to say on.
+
+        The options page and no other, which is a different question from whether a page is
+        on the march at all: this one is asked of the page the panel finds itself on, and a
+        page the module cannot fill is one it must be moved off. See _skipped.
+        """
         return index == PAGE_OPTIONS and self.skip_options
+
+    def _skipped(self, index: int) -> bool:
+        """Whether Back and Next pass over index rather than stopping on it.
+
+        A page the module has nothing to say on, and the listing -- which is not a step of
+        anything: it is opened from the device page by its own key and left by Back, and a
+        Next that walked into it would carry the operator out of the sequence they are
+        working through. See PAGE_INVENTORY and show_inventory.
+        """
+        return self._stepped_over(index) or index == PAGE_INVENTORY
 
     def _page_after(self, index: int, step: int) -> int:
         """The next page in step's direction that is not skipped.
@@ -2301,7 +2857,7 @@ class LcsConfigPanel(OverlayPanel):
             self._page_index = index
             return
         index = max(0, min(index, len(self._pages) - 1))
-        if self._skipped(index):
+        if self._stepped_over(index):
             # Reachable only when the module changes under a page already showing, which a
             # late synchronization can do while the operator has chosen nothing for
             # themselves -- see on_synchronized. Backwards rather than forwards: nobody is
@@ -2326,9 +2882,26 @@ class LcsConfigPanel(OverlayPanel):
             self._fit_scroll()
 
     def next_page(self) -> None:
-        self._show_page(self._page_after(self._page_index, 1))
+        """Turn to the next page, where there is one; the last page stays put.
+
+        Asked before it is turned to rather than clamped after the fact: the pages walked
+        off the end of are no longer the last of the list -- the listing sits past them --
+        and a walk clamped to the list would arrive there. See _page_after.
+        """
+        index = self._page_after(self._page_index, 1)
+        if index < len(self._pages):
+            self._show_page(index)
 
     def previous_page(self) -> None:
+        """Turn back a page. From the listing, back to the page it was opened from.
+
+        The listing is off the march, so there is no page "before" it to walk to: what Back
+        means there is done looking, which is the device page the key that opened it stands
+        on. See PAGE_INVENTORY.
+        """
+        if self._page_index == PAGE_INVENTORY:
+            self._show_page(PAGE_DEVICE)
+            return
         self._show_page(self._page_after(self._page_index, -1))
 
     @property
@@ -2340,8 +2913,12 @@ class LcsConfigPanel(OverlayPanel):
         so Next stands there grayed until one is; after the review page there is none, and a
         key that will never lead anywhere from the page it is on is taken off the row --
         Configure is what that page offers, on the page itself.
+
+        Asked of the march rather than of the list of pages, the two no longer being the
+        same thing: the listing is the last page built and is on nobody's way anywhere, so
+        Next is off the row there as it is on the review page.
         """
-        return self._page_index < len(self._pages) - 1
+        return self._page_after(self._page_index, 1) < len(self._pages)
 
     @property
     def can_advance(self) -> bool:
@@ -2423,6 +3000,12 @@ class LcsConfigPanel(OverlayPanel):
                 if found is not None:
                     option, widget = found
                     return widget, self._option_command(self._device.key, option.key)
+        if self._page_index == PAGE_INVENTORY:
+            # The sort keys, which are the only control the listing has. Nothing is being
+            # chosen here -- the page is read rather than answered -- so right re-orders the
+            # rows and stays put; see pad_mark_turns_page.
+            group = self._sort_group
+            return (group, self._on_sort_selected) if group is not None else None
         return None
 
     def _clear_pad_cursors(self) -> None:
@@ -2434,7 +3017,7 @@ class LcsConfigPanel(OverlayPanel):
         Every list rather than the one showing -- the operator may have left the panel from
         any page.
         """
-        for widget in (self._device_group, self._mode_group, *self._option_widgets.values()):
+        for widget in (self._device_group, self._mode_group, self._sort_group, *self._option_widgets.values()):
             if isinstance(widget, CheckBoxGroup):
                 widget.cursor = None
 
@@ -3304,21 +3887,41 @@ class LcsConfigPanel(OverlayPanel):
                 if cell.visible:
                     cell.hide()
 
-    def _grid_row(self, grid: Box, cells: list[tuple[Text, ...]], index: int) -> tuple[Text, ...]:
+    def _grid_row(
+        self,
+        grid: Box,
+        cells: list[tuple[Text, ...]],
+        index: int,
+        columns: int = ROW_COLUMNS,
+        wrap_column: int = ROW_NAME_COLUMN,
+        wrap_px: int | None = None,
+    ) -> tuple[Text, ...]:
         """
-        The three cells of one module row, created the first time the row is used.
+        The cells of one grid row, created the first time the row is used.
 
         Rows are grown on demand and then kept: how many modules answer to an ID changes
         as the ID does, and a widget destroyed and recreated in a grid takes the column
         options of its neighbors with it.
+
+        The three columns of a module row unless another shape is asked for. The My Modules
+        listing asks for four, the last of them the one that wraps; the two grids are the
+        same thing done to different columns, and one row-builder is what keeps a cell of
+        either looking like a cell of the other. See _refresh_inventory.
         """
         while len(cells) <= index:
             row = len(cells)
-            # Only the remote key is bold; it is the column the eye runs down.
-            cells.append(tuple(self._grid_cell(grid, column, row) for column in range(ROW_COLUMNS)))
+            # Only the first column is bold; it is the column the eye runs down.
+            cells.append(tuple(self._grid_cell(grid, column, row, wrap_column, wrap_px) for column in range(columns)))
         return cells[index]
 
-    def _grid_cell(self, grid: Box, column: int, row: int) -> Text:
+    def _grid_cell(
+        self,
+        grid: Box,
+        column: int,
+        row: int,
+        wrap_column: int = ROW_NAME_COLUMN,
+        wrap_px: int | None = None,
+    ) -> Text:
         cell = Text(grid, text="", grid=[column, row], align="left")
         # The size of the box titles above them: these rows are the answer the operator
         # came to the page for, not a caption on it. Which is a size down where the pane has
@@ -3332,9 +3935,10 @@ class LcsConfigPanel(OverlayPanel):
         # these are columns the eye runs down.
         #
         # And broken at its own column's width rather than the page's, which is what keeps
-        # the row inside the pane; see _row_name_wrap_px. Only the name column needs telling:
-        # the two either side of it cannot reach even their share of the row.
-        self._wrap(cell, justify="left", width=self._row_name_wrap_px if column == ROW_NAME_COLUMN else None)
+        # the row inside the pane; see _row_name_wrap_px. Only the one unbounded column needs
+        # telling: the columns either side of it cannot reach even their share of the row.
+        width = (wrap_px or self._row_name_wrap_px) if column == wrap_column else None
+        self._wrap(cell, justify="left", width=width)
         try:
             cell.tk.config(padx=ASSIGNED_CELL_PAD)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
@@ -3476,11 +4080,13 @@ class LcsConfigPanel(OverlayPanel):
 
     @staticmethod
     def _scope_label(scope: CommandScope | None) -> str:
-        """A remote key as the rows spell it: "ACC", "SW", "TR".
+        """A remote key as the rows spell it: "ACC", "SW", "TR", "ENG".
 
         The panel's own short forms, which are the words on the remote's keys; the scope's
         own title is the fallback for a key the panel has no word of its own for, and the
         empty string for no key at all, which is what a row for an unowned address carries.
+        The engine key is spelled for the listing alone -- nothing is programmed onto it; see
+        SCOPE_LABEL.
         """
         return SCOPE_LABEL.get(scope, scope.title if scope is not None else "")
 

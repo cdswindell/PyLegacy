@@ -26,6 +26,13 @@ class AccessType(Mixins):
     ACC = 2
 
 
+ACCESS_TYPE_TO_SCOPE = {
+    AccessType.ENGINE: CommandScope.ENGINE,
+    AccessType.TRAIN: CommandScope.TRAIN,
+    AccessType.ACC: CommandScope.ACC,
+}
+
+
 class OutputType(Mixins):
     NORMAL = 0
     DELTA = 1
@@ -91,7 +98,7 @@ class Amc2Lamp:
 
 
 class Amc2Req(LcsReq):
-    # noinspection PyUnusedLocal,PyTypeChecker
+    # noinspection PyUnusedLocal,PyTypeChecker,unused-parameter
     @classmethod
     def request_config(cls, state: T, cmd: L) -> Amc2Req:
         return cls(state.address, pdi_command=PdiCommand.AMC2_GET, action=Amc2Action.CONFIG)
@@ -131,6 +138,8 @@ class Amc2Req(LcsReq):
                 self._debug = self._data[4] if data_len > 4 else None
                 self._option = self._data[5:7] if data_len > 6 else None
                 self._access_type = AccessType(self._data[7]) if data_len > 7 else None
+                if isinstance(self._access_type, AccessType):
+                    self.scope = ACCESS_TYPE_TO_SCOPE.get(self._access_type, CommandScope.ACC)
                 self._motor1, self._motor2 = self._harvest_motors(self._data[8:18]) if data_len > 17 else (None, None)
                 self._lamp1 = Amc2Lamp(1, self._data[18]) if data_len > 18 else None
                 self._lamp2 = Amc2Lamp(2, self._data[19]) if data_len > 19 else None
