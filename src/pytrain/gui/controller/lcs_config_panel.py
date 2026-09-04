@@ -486,6 +486,57 @@ MODE_KEY_LEAD_COMPACT = 6
 NAV_ROW_PAD = 6
 NAV_ROW_PAD_COMPACT = 4
 
+# The most white space that is held above and below the panel's own row of keys on the first
+# page, in pixels, over and above the gap every page gives it.
+#
+# The band is one of the row's own keys' height at either end, so that the two keys the first
+# page shows -- My Modules and Next -- stand apart from the list of modules above them rather
+# than reading as the last line of it. A key's height rather than a number of pixels, because
+# a key is not the same height on the two appliances the panel is worked on: 68px on the Pi,
+# which draws the panel's largest text in its smallest pane, against 39 on a Deck pane.
+# Measured off the key itself; see _nav_key_px.
+#
+# This number is what the tightest of those screens can give, which is why a key's height is
+# capped by it. Measured page by page in a live window on all three: the first page is the
+# shortest of the five by 114px and leaves 104px of the Pi's pane standing empty, against 358
+# of a Deck's and 295 of a desk's. Half the Pi's, less a little, is what a band may take at
+# either end there -- and counting the gaps the row already has, the page's own above it and
+# Close's lead and padding below, that comes to 70px above the keys and 66 below, either side
+# of a 68px key. On a Deck pane, where the key is under the cap and takes its own height,
+# 51px and 51 either side of a 39px one.
+#
+# The first page alone. The other four are the fullest in the panel -- the Pi already holds
+# the options page back by 10px and the review page by 82 -- so a band there would come
+# straight out of what is scrolled rather than out of anything going spare.
+#
+# A fixed number and a font's reading, both of which stand still, rather than the room the
+# page is actually leaving: that room is measured off the popup's own height, which the band
+# is part of, and the two readings do not settle in step -- Tk hands back a requested height
+# from before the band was last set. A band sized from it therefore grows on the stale pass,
+# shrinks on the true one and flickers between the two for as long as the panel is up, which
+# is exactly what it did. A page that outgrows what this leaves is held back by the window
+# instead, which is what the window is there for. See _refresh_nav_band.
+NAV_BAND_PX = 48
+
+# Pack padding either side of one of the two keys the ID page offers when the address the
+# operator has entered belongs to a module already out there -- Go to, and Configure as new.
+# Half a footer button's own 20px, which is what makes it a gap between two keys standing
+# side by side rather than a footer band's room around each of them: 24px between the pair
+# and 12px either side of it, which is the white space that was missing when they were
+# packed with none at all and drawn edge to edge.
+#
+# Measured, because these are the widest keys in the panel and the pair has to stand on one
+# row of the narrowest page it is drawn on. At the size they are now set in -- see
+# LcsConfigPanel._choice_key_size -- the two of them come to 367px with the shared look's
+# border and inner padding, read back in a live window, so the row is 415px of the Pi's
+# 456px page. The whole 20px band would be 447px, which fits the font it was measured in
+# and leaves nothing for a screen whose font runs wider than that one.
+#
+# One number on every pane, where the pads above it each have a compact twin: what those
+# answer is a pane with no vertical room to spare, and this is width on a pane that has a
+# third more of it than the Pi.
+CHOICE_KEY_PAD = 12
+
 # Whitespace above and below an option row on the options page. Between MODE_ROW_PAD and
 # RADIO_ROW_PAD, and for the same reason those two differ: there is less of a page to spend
 # here than the module radios have to themselves, and more than the mode radios can take
@@ -1124,8 +1175,13 @@ class LcsConfigPanel(OverlayPanel):
         self._overlap_box: TitleBox | None = None
         self._overlap_grid: Box | None = None
         self._overlap_cells: list[tuple[GridCell, ...]] = []
+        # The two ways out of an address that belongs to a module already on the layout, and
+        # the row they stand on together -- which is held by the panel because the white
+        # space between them has to be put back every time they are shown; see
+        # _refresh_occupancy and CHOICE_KEY_PAD.
         self._goto_btn: HoldButton | None = None
         self._new_btn: HoldButton | None = None
+        self._choice_row: Box | None = None
         # My Modules: the key that opens the listing, the rows that order it, and the grid
         # it is written into. The heading row is the grid's first, so the cells below are
         # grown and reused exactly as the module rows' are; see _refresh_inventory.
@@ -1141,6 +1197,11 @@ class LcsConfigPanel(OverlayPanel):
         self._back_btn: HoldButton | None = None
         self._next_btn: HoldButton | None = None
         self._nav: Box | None = None
+        # The white space held above and below that row, and how much of it the first page
+        # is being given over and above the gap every page gets; see _refresh_nav_band.
+        self._nav_lead: Box | None = None
+        self._nav_trail: Box | None = None
+        self._nav_band = 0
         self._suspend_device_selector = False
         self._suspend_option_selectors = False
         # Set only by a stand-alone host that opens the window ahead of synchronization;
@@ -1458,6 +1519,28 @@ class LcsConfigPanel(OverlayPanel):
         return host.s_12 if cramped_pane() else host.s_14
 
     @property
+    def _choice_key_size(self) -> int:
+        """The size the ID page's two choices are drawn at -- Go to, and Configure as new.
+
+        Four sizes above where they were set, which was the panel's fine print: what they
+        offer is a decision about a module that is already out on the layout, taken by an
+        operator standing at it, and they were the smallest text on the page they stand on --
+        smaller than the boxes above them that report what is in the way, and smaller than
+        the ID they name.
+
+        Not the size the shared look draws a key at, which is what Back, Next and Configure
+        are set in: those are one or two words apiece, and no two of them ever have to share
+        a row. These two say an address as well as a verb -- "Go to 99" beside "Configure 99
+        as new" -- and both are on screen together whenever either is. Measured in the keys'
+        own font with the look's border and inner padding, at each size and against the page
+        of the narrowest pane the panel is drawn on: 367px of that 456px page here, 404 at
+        the size above -- which with any white space between the keys at all is more than the
+        page has -- and 443 at the size the shared look would set. See CHOICE_KEY_PAD for the
+        white space itself, and what the pair then comes to.
+        """
+        return self._gui.s_16
+
+    @property
     def _inventory_text_size(self) -> int:
         """The size the My Modules listing is drawn at: the page's body size, on every screen.
 
@@ -1580,7 +1663,7 @@ class LcsConfigPanel(OverlayPanel):
         Fitted to *every* mode in the registry rather than to the module in hand, and to each
         of them at the widest block it can claim. The list is rebuilt whenever the module or
         the address changes, and a list that came back a size larger or smaller each time
-        would be a worse thing to read than one drawn a step down throughout.
+        would be a worse thing to read than one drawn a step-down throughout.
 
         Settled once, on the first page that asks: it is an answer about the screen, which
         does not change under a running panel, and the wrap below is taken from it.
@@ -1714,6 +1797,72 @@ class LcsConfigPanel(OverlayPanel):
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
+    @property
+    def _nav_key_px(self) -> int:
+        """How tall one of the row's own keys is drawn, in pixels; 0 where none is known yet.
+
+        Next rather than a number, because the answer is the font's and not the panel's: the
+        same key is 68px on the Pi, 39 on a Deck pane and 52 on a desk, and it is the key the
+        band is meant to look like.
+
+        A requested height rather than a real one, so that the answer is there when the band
+        is first wanted: what a widget asks to be it asks as soon as it is configured, while
+        what it *has* is 1 until the popup it is in has been laid out -- and the pages are
+        built, and the first of them shown, before any of that. A reading of 1 is that same
+        nothing and is answered as such, the band having a figure of its own to fall back on.
+        """
+        btn = self._next_btn
+        if btn is None:
+            return 0
+        try:
+            px = int(btn.tk.winfo_reqheight())
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            return 0
+        return px if px > 1 else 0
+
+    @property
+    def _nav_band_px(self) -> int:
+        """How much white space the row of keys is held off the first page by, in pixels.
+
+        One of the row's own keys' height, up to what the tightest screen the panel is drawn
+        on can spare; see NAV_BAND_PX, which records both what that is and why the band is not
+        sized off the room the page is really leaving. A key that has not been drawn yet
+        answers with the cap, that being the one figure known to fit every screen measured.
+        """
+        return min(self._nav_key_px or NAV_BAND_PX, NAV_BAND_PX)
+
+    def _refresh_nav_band(self) -> None:
+        """Give the gaps either side of the row the white space the page showing calls for.
+
+        The first page asks for two of the panel's keys -- My Modules and Next -- and nothing
+        stands between them and the list of modules above them, which read as the last line of
+        that list. So the row is held off at either end there, and every other page keeps the
+        one gap it has always had: those are the fullest pages in the panel, and room taken on
+        one of them comes out of what is scrolled. See NAV_BAND_PX.
+
+        The gap above the row is the one every page has -- the row is a section of the panel
+        like any other, and that gap is what holds it off the page whether or not there is
+        room for more -- so the band is added to it rather than put in its place. Below the row
+        the panel has nothing at all: what stands between the keys and Close is that button's
+        own lead and padding, so there the band is the whole of what is there.
+
+        Asked when the page turns, which is the only thing that can change the answer, and
+        nothing is re-sized unless it did -- for the reason _fit_key_gutter changes nothing it
+        need not: a box re-sized asks for a layout pass.
+        """
+        lead, trail = self._nav_lead, self._nav_trail
+        if lead is None or trail is None:
+            return
+        px = self._nav_band_px if self._page_index == PAGE_DEVICE else 0
+        if px == self._nav_band:
+            return
+        self._nav_band = px
+        for box, base in ((lead, self._page_gap), (trail, 0)):
+            try:
+                box.tk.config(height=max(1, base + px))
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
+
     def _scroll_budget(self) -> int | None:
         """The most the pages may take, in pixels, or None where nothing can be measured.
 
@@ -1781,6 +1930,27 @@ class LcsConfigPanel(OverlayPanel):
             pass
         return widget
 
+    def _vspace(self, parent: Box, px: int) -> Box:
+        """A gap of the panel's own, for one whose height is not settled where it is built.
+
+        host.add_vspace builds a spacer, caches it and hands nothing back, which is the right
+        answer for every gap in the panel that is the same wherever it is drawn. The two
+        either side of the row of keys are not: what they are worth is what the page showing
+        calls for, and the pages do not all call for the same; see _refresh_nav_band.
+
+        A pixel where nothing is asked for, rather than nothing: guizero re-runs its own
+        width-and-height check on a box it is asked to re-size, and will not take a height of
+        nothing -- the same case _fit_key_gutter meets with a width. One pixel of white space
+        is white space nobody can see.
+        """
+        box = Box(parent, height=max(1, px), width="fill", align="top")
+        try:
+            box.tk.pack_propagate(False)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        self._gui.cache(box)
+        return box
+
     def build(self, body: Box) -> None:
         host = self._gui
         self._body = body
@@ -1812,8 +1982,16 @@ class LcsConfigPanel(OverlayPanel):
         # its own Close below everything built here, so Close gets a line of its own
         # instead of the three buttons sharing one. Created after the pages so the row is
         # packed below whichever page is showing.
-        host.add_vspace(body, self._page_gap)
+        #
+        # The gap above the row and the one below it are the panel's own spacers rather than
+        # host.add_vspace's, because they are not the same on every page: the first page has
+        # room to hold that row well clear of the module list, and is given it. Nothing is
+        # below the row on the pages that get none, so the one below is a pixel there rather
+        # than nothing at all -- guizero re-runs its own size check on a box it is asked to
+        # re-size and will not take a height of nothing. See _refresh_nav_band.
+        self._nav_lead = self._vspace(body, self._page_gap)
         self._build_nav(body)
+        self._nav_trail = self._vspace(body, 0)
         self._show_page(self._page_index)
         # A page is not done growing when it is built: a row added later, a titled box shown
         # for a module that has one, a note that arrives with the read-back. The window asks
@@ -1922,12 +2100,17 @@ class LcsConfigPanel(OverlayPanel):
         the window is really keeping at the first fit and every one after it; see
         _fit_key_gutter.
 
-        One key asks for this, and it is the only one the panel builds into a page at all:
-        Configure on the review page, which is the one key that cannot be moved off its page
-        -- what it does belongs to what is read above it. The My Modules key was the other,
-        and it needs no gutter now that it stands on the row of keys itself; see _build_nav.
-        Hence the one spacer held here rather than a row's worth: a second key built into a
-        page would need its own, and would be the occasion to keep them by the row.
+        One key asks for this: Configure on the review page, which is the one key that cannot
+        be moved off its page -- what it does belongs to what is read above it. The My Modules
+        key was the other, and it needs no gutter now that it stands on the row of keys itself;
+        see _build_nav. Hence the one spacer held here rather than a row's worth.
+
+        The ID page's two choices are keys on a page as well and are not given one, being a
+        pair rather than a key: what stands there is a block of two, centered as the module
+        boxes above them are, and there is no single key below for either of them to be read
+        as a column with. A row of two centered on the page puts its edges within a few pixels
+        of the Back/Next row's below it -- 415px of a 456px page against that row's 448px of
+        the 480px pane, measured in a live window with this look. See CHOICE_KEY_PAD.
 
         A spacer widget rather than pack padding, for the reason footer_spacer is one:
         guizero rebuilds a container's pack options from scratch whenever anything in it is
@@ -2083,12 +2266,33 @@ class LcsConfigPanel(OverlayPanel):
         # ID_PAGE_GAP and _lay_out_titled_boxes.
         host.add_vspace(page, self._id_page_gap)
 
-        choices = Box(page, align="top", border=0)
+        # The two ways out of an address that is already answered by a module out on the
+        # layout: go to the module that owns it, or take the address for a module of the
+        # operator's own. Shown together or not at all -- either both choices are open or
+        # there is nothing in the way; see _refresh_occupancy.
+        #
+        # Keys of the panel, so they wear the panel's keys' look: the one shared look for the
+        # big buttons of an overlay, which Back, Next, My Modules, Configure and the Close
+        # below them all have -- a raised border and an edge, a lighter face than the panel,
+        # and a darker one while it is held. Drawn by their text size alone, as they were,
+        # they read as two words in a rectangle on a page whose every other key is a key.
+        #
+        # Their pack padding is then trimmed to CHOICE_KEY_PAD, which is the white space
+        # between them, and to the row pad above and below: a footer band's 20px is meant to
+        # hold a row of keys off the panel and the pane, and this row stands in the middle of
+        # a page with the module boxes above it. Recorded through repad_footer_button and
+        # replayed on every refresh, guizero keeping neither; see _refresh_occupancy.
+        self._choice_row = choices = Box(page, align="top", border=0)
         self._goto_btn = HoldButton(choices, text="Go to", align="left", command=self.go_to_owning_base)
         self._new_btn = HoldButton(choices, text="Configure as new", align="left", command=self.configure_as_new)
         for btn in (self._goto_btn, self._new_btn):
-            btn.text_size = host.s_12
+            style_footer_button(host, btn)
+            # After the look, which sets a size of its own: these two say more than any other
+            # key in the panel and are the only pair of keys that has to share a row.
+            btn.text_size = self._choice_key_size
+            repad_footer_button(btn, padx=CHOICE_KEY_PAD, pady=self._nav_row_pad)
             btn.hide()
+        host.cache(choices, self._goto_btn, self._new_btn)
         # No device is chosen yet, so the mode box starts hidden rather than empty.
         self._refresh_mode_selector()
         # Builds the first assigned row, so that box says something from the outset.
@@ -3535,6 +3739,10 @@ class LcsConfigPanel(OverlayPanel):
             else:
                 page.hide()
         self._refresh_nav()
+        # And how far that row stands off the page, which the first page answers differently
+        # from the rest; see _refresh_nav_band. Before the fit below, so the window is given
+        # the room that is left once the row has been held off rather than a pass later.
+        self._refresh_nav_band()
         # A page is come to at its beginning, whatever the page before it was scrolled to,
         # and the window is re-fitted for a page of a different height. In that order: the
         # fit clamps the offset to what the new page has, so scrolling first cannot leave the
@@ -3928,10 +4136,11 @@ class LcsConfigPanel(OverlayPanel):
         widget.cursor = selected if selected in widget.row_values else None
         return True
 
-    def _pad_tick(self, widget: Any, commit: Callable[[], None], ticked: bool) -> bool:
+    @staticmethod
+    def _pad_tick(widget: Any, commit: Callable[[], None], ticked: bool) -> bool:
         """Set or clear a lone tick box, as a tap on it would. True where it changed.
 
-        Nothing is remembered for a revert: a tick box holds two states and the pad reaches
+        Nothing is remembered for a revert: a tick box holds two states, and the pad reaches
         both -- right sets, left clears -- so putting one back is the other press rather than
         an undo. Which is also how a power district's relays are worked from the pad.
         """
@@ -4526,6 +4735,13 @@ class LcsConfigPanel(OverlayPanel):
                 self._new_btn.show()
             else:
                 self._new_btn.hide()
+        # Replayed once, after both, exactly as the row of keys' is: show() and hide() each
+        # run the row's own display_widgets(), which rebuilds its pack options from scratch
+        # and keeps only side and fill -- so the white space between the two keys is thrown
+        # away by the very act of putting them on screen. It is put back here, which is the
+        # only place either of them is shown. See CHOICE_KEY_PAD and _refresh_nav.
+        if self._choice_row is not None:
+            restore_footer_packing(self._choice_row)
 
     def _refresh_overlaps(self) -> None:
         """
@@ -4724,7 +4940,7 @@ class LcsConfigPanel(OverlayPanel):
         in hand.
 
         scope keeps only a module answering to that remote key; pass None where the key is
-        not part of the question, which is the case for the one reader whose business is
+        not part of the question, which is the case for the one reader whose business is,
         which key the module is on. See _seed_mode_from_layout.
         """
         for occupant in occupants_of(self._base_id, self._store, scope=scope):

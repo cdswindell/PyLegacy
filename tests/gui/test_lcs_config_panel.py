@@ -38,6 +38,8 @@ class _DummyTk:
         # is re-sized on a Tk option, and one re-sized for nothing is a layout pass spent for
         # nothing. See LcsConfigPanel._fit_key_gutter.
         self.configs: list[dict[str, Any]] = []
+        # What the widget would ask to be drawn at; see winfo_reqheight.
+        self.reqheight = 0
         # And what it was placed in its grid with, which is how the listing's tests read an
         # alignment guizero has no way of asking for; see LcsConfigPanel._stick_inventory_cells.
         self.gridded: dict[str, Any] = {}
@@ -78,6 +80,17 @@ class _DummyTk:
     @staticmethod
     def winfo_reqwidth() -> int:
         return 160
+
+    def winfo_reqheight(self) -> int:
+        """How tall the widget asks to be. Nothing, for a widget no screen has drawn.
+
+        Settable, because it is the one thing the panel takes off the font rather than from a
+        constant of its own: the height of one of its keys, which is what the white space
+        around the first page's row of them is measured against. A fake answers 0 -- there is
+        no screen here, and 0 is what the panel is written to fall back from; see
+        LcsConfigPanel._nav_key_px.
+        """
+        return self.reqheight
 
     @staticmethod
     def pack_propagate(_flag: bool) -> None:
@@ -965,6 +978,92 @@ def test_interior_port_reports_its_owner_and_offers_both_choices() -> None:
     assert _says_with_id(panel._goto_btn, 9)
     assert panel._new_btn.visible is True
     assert _says_with_id(panel._new_btn, 12)
+
+
+def test_the_two_choices_are_drawn_as_the_panels_other_keys_are(monkeypatch) -> None:
+    # Styled by their text size alone, these two were drawn flat -- two words in a rectangle,
+    # on a page whose every other key wears the one shared look for the big keys of an
+    # overlay: Back, Next and My Modules below the page, Configure on the page after it, the
+    # Close below them all. What the look is remains the popup's to say; what is pinned here
+    # is that these two are given it, and given it before their size is set, that look
+    # carrying a size of its own.
+    styled: list[Any] = []
+    monkeypatch.setattr(mod, "style_footer_button", lambda _host, btn: styled.append(btn), raising=True)
+
+    panel = _new_panel()
+
+    assert styled[:2] == [panel._goto_btn, panel._new_btn]
+
+
+def test_the_two_choices_are_read_at_a_size_worth_pressing() -> None:
+    # They were the panel's fine print, on the page where the one decision that cannot be
+    # undone by pressing Back is taken: whether the module already answering to this address
+    # is the one being programmed. Four sizes up.
+    panel = _new_panel()
+    host = panel.gui
+
+    assert panel._choice_key_size == host.s_16
+    assert [btn.text_size for btn in (panel._goto_btn, panel._new_btn)] == [host.s_16] * 2
+    # Above the boxes standing over them, which is where the fact they are answering is
+    # reported -- what is already at the address, and what the chosen block would run into.
+    assert panel._choice_key_size > panel._titled_text_size
+    # And below the size the shared look draws a key at, which is the one part of that look
+    # these two cannot have: they say an address as well as a verb and both are on screen
+    # whenever either is, and at that size the pair comes to 443px of the Pi's 456px page
+    # before any white space is put between them -- measured in the keys' own font with the
+    # look's border and inner padding. See _choice_key_size.
+    assert panel._choice_key_size < host.s_20
+
+
+def test_white_space_stands_between_the_two_choices() -> None:
+    # Packed with none at all, they were drawn edge to edge: one wide rectangle with two
+    # verbs in it, which is what a single key with a long label looks like. Half a footer
+    # button's own band either side of each, which is 24px between the two and 12px either
+    # side of the pair -- a 415px row of the Pi's 456px page at the size they are now set in.
+    # See CHOICE_KEY_PAD.
+    panel = _new_panel(_asc2_at_9_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(12)
+    assert (panel._goto_btn.visible, panel._new_btn.visible) == (True, True)
+
+    for btn in (panel._goto_btn, panel._new_btn):
+        assert btn.tk.packed["padx"] == mod.CHOICE_KEY_PAD > 0
+        # Recorded as well as applied, since what a replay puts back is what was recorded;
+        # see the test below and repad_footer_button.
+        assert getattr(btn, pm._FOOTER_PACK_ATTR)["padx"] == mod.CHOICE_KEY_PAD
+
+
+def test_the_white_space_between_the_two_choices_survives_them_being_shown(monkeypatch) -> None:
+    # guizero rebuilds a container's pack options from scratch whenever anything in it is
+    # shown or hidden and keeps only side and fill, so the gap between these two keys is
+    # discarded by the very act of putting them on screen -- and being put on screen is the
+    # only thing that ever happens to them. Replayed once, after both, exactly as the row of
+    # keys below the page is.
+    replayed: list[tuple[Any, list[str]]] = []
+    monkeypatch.setattr(
+        mod,
+        "restore_footer_packing",
+        lambda row: replayed.append((row, [child.text for child in row.children if child.visible])),
+        raising=True,
+    )
+    panel = _new_panel(_asc2_at_9_store())
+    panel._on_device_selected("asc2")
+
+    panel._set_base_id(12)
+
+    choices = [texts for row, texts in replayed if row is panel._choice_row]
+    # Both of them showing by the time the replay runs: one call after the pair rather than
+    # one apiece, the second key's show() having discarded whatever a replay after the first
+    # put back.
+    assert choices[-1] == ["Go to 9", "Configure 12 as new"]
+
+    panel._set_base_id(40)
+
+    # And nothing to put back where nothing is in the way: pack_configure *manages* a widget
+    # pack has forgotten, so replaying a hidden key's padding would put it back on the page
+    # at the end of the row. The replay passes a hidden key over; see restore_footer_packing.
+    assert [texts for row, texts in replayed if row is panel._choice_row][-1] == []
+    assert (panel._goto_btn.visible, panel._new_btn.visible) == (False, False)
 
 
 def test_go_to_base_retargets_and_pre_fills() -> None:
@@ -2357,9 +2456,12 @@ def test_the_configure_button_wears_the_shared_look_of_the_overlays_other_keys(m
     panel = _new_panel()
 
     assert panel._configure_btn in styled
-    # The pages are built before the row of keys, so Configure is styled first and the three
-    # of that row follow in the order they stand in.
+    # Every key the panel draws, in the order they are built: the ID page's two choices, then
+    # Configure on the page after it, then the three of the row of keys in the order they
+    # stand in. The pages come before that row, and nothing else in the panel is a key.
     assert [btn.text for btn in styled] == [
+        "Go to",
+        "Configure as new",
         mod.CONFIGURE_TEXT,
         mod.BACK_TEXT,
         mod.INVENTORY_TEXT,
@@ -2807,8 +2909,11 @@ def test_every_spacer_that_is_asked_for_and_no_other() -> None:
         review_page,  # between the steps and the key that sends them
         review_page,  # and between that key and the read-back below it
         panel._pages[mod.PAGE_INVENTORY],  # between the sort keys and the listing
-        body,  # above the Back/Next row
     ]
+    # And the two the panel builds itself, which are the two that move: the gaps either side
+    # of the row of keys are not the same on every page. See LcsConfigPanel._refresh_nav_band.
+    assert body.children.index(panel._nav_lead) < body.children.index(panel._nav)
+    assert body.children.index(panel._nav) < body.children.index(panel._nav_trail)
 
 
 def test_the_body_spacer_comes_before_the_sync_line_and_the_pages() -> None:
@@ -2870,7 +2975,7 @@ def test_the_id_pages_sections_are_held_apart() -> None:
 def test_the_gaps_are_tighter_on_a_compact_host(
     compact: bool, section: int, page: int, id_page: int, prose: int, heading: int
 ) -> None:
-    _panel, _body, host = _build_with_body(compact=compact)
+    panel, _body, host = _build_with_body(compact=compact)
 
     assert [pixels for _parent, pixels in host.vspaces] == [
         section,
@@ -2885,8 +2990,11 @@ def test_the_gaps_are_tighter_on_a_compact_host(
         page,
         page,
         page,
-        page,
     ]
+    # The gap above the row of keys is the panel's own spacer rather than the host's, so it is
+    # read off the panel instead of the roster; it is the same page gap underneath, which is
+    # what the band on the first page is added to. See LcsConfigPanel._refresh_nav_band.
+    assert panel._page_gap == page
     # Both halves of the same rule: a compact host takes less of everything, and the ID
     # page takes less than the pages that have room to spare.
     assert id_page < page
@@ -2906,8 +3014,11 @@ def test_the_row_of_keys_is_the_last_thing_in_the_body_after_a_gap() -> None:
     # produces, so it lands on a line of its own under this row.
     panel, body, _host = _build_with_body()
 
-    assert getattr(body.children[-2], "vspace", None) == mod.PAGE_GAP
-    assert body.children[-1] is panel._nav
+    assert body.children[-3] is panel._nav_lead
+    assert body.children[-2] is panel._nav
+    # And a gap below it as well, which is what holds it off the Close button create_popup
+    # adds under the whole of this; on every page but the first it is nothing to look at.
+    assert body.children[-1] is panel._nav_trail
     # In creation order, which is the order Tk packs them in and so the order they are read:
     # My Modules stands left of Next, and right of Back on any page that showed both.
     assert [child.text for child in panel._nav.children if getattr(child, "text", "")] == [
@@ -2915,6 +3026,179 @@ def test_the_row_of_keys_is_the_last_thing_in_the_body_after_a_gap() -> None:
         mod.INVENTORY_TEXT,
         mod.NEXT_TEXT,
     ]
+
+
+def _band(panel) -> tuple[int, int]:
+    """What the two gaps either side of the row of keys are set to, in pixels.
+
+    Read off the boxes rather than off the panel's own count of it, since the point of the
+    pair is what is drawn: a Tk height, for the reason the space beside a page's key is one.
+    """
+    return (
+        panel._nav_lead.tk.configured.get("height", panel._nav_lead.kwargs.get("height")),
+        panel._nav_trail.tk.configured.get("height", panel._nav_trail.kwargs.get("height")),
+    )
+
+
+def _keyed(panel, px: int):
+    """Draw the row's keys px tall, as the machine's own font would, and re-read the page."""
+    panel._next_btn.tk.reqheight = px
+    panel._show_page(panel.page_index)
+    return panel
+
+
+# What a key measures on each of the three screens the panel is drawn on, read back in a live
+# window: the Pi draws the panel's largest text in its smallest pane, a Deck pane the smallest.
+PI_KEY_PX = 68
+DESK_KEY_PX = 52
+DECK_KEY_PX = 39
+
+
+@pytest.mark.parametrize("compact, key", [(False, PI_KEY_PX), (False, DESK_KEY_PX), (True, DECK_KEY_PX)])
+def test_the_first_page_holds_the_row_of_keys_off_at_either_end(compact: bool, key: int) -> None:
+    # The first page shows two keys with nothing between them and the list of modules above,
+    # so they read as the last line of that list. The band is what stands them apart -- and it
+    # is added to the gap every page already has above the row, where below the row the panel
+    # has nothing of its own at all.
+    panel, _body, _host = _build_with_body(compact=compact)
+
+    _keyed(panel, key)
+
+    assert _band(panel) == (panel._page_gap + panel._nav_band_px, panel._nav_band_px)
+
+
+@pytest.mark.parametrize(
+    "key, expected",
+    [
+        (DECK_KEY_PX, DECK_KEY_PX),
+        (mod.NAV_BAND_PX, mod.NAV_BAND_PX),
+        (DESK_KEY_PX, mod.NAV_BAND_PX),
+        (PI_KEY_PX, mod.NAV_BAND_PX),
+        # A key no screen has drawn yet, which is every key until the popup is laid out: the
+        # cap is the one figure known to fit each of the three, so it is what is assumed.
+        (0, mod.NAV_BAND_PX),
+    ],
+)
+def test_the_band_is_a_keys_own_height_up_to_what_the_tightest_screen_can_spare(key: int, expected: int) -> None:
+    # A key's height, because that is what a button's worth of room looks like and a key is
+    # not the same height on two of these machines. Capped, because the Pi's first page has
+    # only 104px of its pane going spare and a whole key at either end is 136 of it -- see
+    # NAV_BAND_PX, which also records why the cap is a constant rather than that room read
+    # off the pane as things stand.
+    panel = _keyed(_new_panel(), key)
+
+    assert panel._nav_band_px == expected
+    assert panel._nav_band == expected
+
+
+@pytest.mark.parametrize("compact, key", [(False, PI_KEY_PX), (False, DESK_KEY_PX), (True, DECK_KEY_PX)])
+def test_the_row_of_keys_is_left_a_keys_worth_of_room_at_either_end(compact: bool, key: int) -> None:
+    # The ask, in the terms it was asked in: at least a button's height of white space before
+    # the row and after it. Counted as everything that stands between the page and the keys
+    # and between the keys and Close -- the band, the row's own padding, and that button's
+    # lead and padding -- because the band is only the part of it this panel had to add.
+    # Measured on the three: 70px above the keys and 66 below either side of a 68px key on the
+    # Pi, 51 and 51 either side of a 39px one on a Deck pane.
+    panel, _body, _host = _build_with_body(compact=compact)
+    _keyed(panel, key)
+    lead, trail = _band(panel)
+
+    above = lead + panel._nav_row_pad
+    below = trail + panel._nav_row_pad + 2 * panel.footer_pad_px
+    assert above >= key
+    assert above + below >= 2 * key, "a key's worth at either end, taking the two together"
+
+
+def test_no_page_but_the_first_is_given_the_band() -> None:
+    # The other four are the fullest pages in the panel -- on the Pi the window already holds
+    # the options page back by 10px and the review page by 82 -- so white space there would be
+    # taken out of what is scrolled rather than out of anything going spare.
+    panel = _keyed(_new_panel(), PI_KEY_PX)
+    panel._on_device_selected(BPC2.key)
+    plain = (panel._page_gap, 1)
+
+    for index in (mod.PAGE_ID, mod.PAGE_OPTIONS, mod.PAGE_REVIEW, mod.PAGE_INVENTORY):
+        panel._show_page(index)
+        assert _band(panel) == plain, f"page {index} keeps the one gap it has always had"
+
+    # And it is put back on coming back, which is the whole reason the pair is re-read on
+    # every page turn rather than set once where they are built.
+    panel._show_page(mod.PAGE_DEVICE)
+    assert _band(panel) == (panel._page_gap + panel._nav_band_px, panel._nav_band_px)
+
+
+def test_the_band_is_set_before_the_window_is_given_the_room_that_is_left() -> None:
+    # Order, because the band is part of what the window's budget is measured against: set
+    # after the fit, the room the page was offered would be a page's worth of white space out
+    # of date until something else asked for a fit.
+    panel = _keyed(_new_panel(), PI_KEY_PX)
+    panel._on_device_selected(BPC2.key)
+    # Away from the first page, so the band has to be put back during the turn under test
+    # rather than being there already.
+    panel._show_page(mod.PAGE_ID)
+    seen: list[tuple[str, Any]] = []
+    panel.scroll.fit = lambda budget=None: seen.append(("fit", _band(panel)))
+
+    panel._show_page(mod.PAGE_DEVICE)
+
+    assert seen == [("fit", (panel._page_gap + panel._nav_band_px, panel._nav_band_px))]
+
+
+def test_the_gaps_are_not_re_sized_for_a_band_that_did_not_change() -> None:
+    # A box re-sized asks Tk for a layout pass, and a layout pass is what asks the panel to
+    # re-read itself: the same rule the space beside a page's key is kept by. Turning to the
+    # first page from the first page is exactly the case -- the pad's own refreshes do it.
+    panel = _keyed(_new_panel(), PI_KEY_PX)
+    before = (len(panel._nav_lead.tk.configs), len(panel._nav_trail.tk.configs))
+
+    for _ in range(3):
+        panel._show_page(mod.PAGE_DEVICE)
+
+    assert (len(panel._nav_lead.tk.configs), len(panel._nav_trail.tk.configs)) == before
+
+
+def test_a_gap_that_will_not_take_the_band_costs_the_page_turn_nothing() -> None:
+    # The band is set on a Tk option of a widget that may be gone by the time it is asked
+    # for: the pair is re-read on every page turn, and a popup being torn down turns its
+    # page one last time. White space is worth less than the turn it would take down with
+    # it, so the one that answers is still given its half. The panel's other measured
+    # layout, the space beside a page's key, is kept the same way.
+    panel = _keyed(_new_panel(), PI_KEY_PX)
+    panel._on_device_selected(BPC2.key)
+    panel._show_page(mod.PAGE_ID)
+
+    def _raise(**_kwargs: Any) -> None:
+        raise mod.TclError("no such widget")
+
+    panel._nav_lead.tk.config = _raise
+
+    panel._show_page(mod.PAGE_DEVICE)  # must not raise
+
+    assert panel.page_index == mod.PAGE_DEVICE
+    assert _band(panel)[1] == panel._nav_band_px, "the half that can be set still is"
+
+
+def test_a_key_no_screen_can_measure_leaves_the_band_at_the_cap() -> None:
+    # Both of the ways there is no height to read. A key on a screen that will not answer for
+    # it -- the reading is a Tk call, and a torn-down widget raises rather than returning a
+    # number -- and a panel whose row of keys is not built yet, which is every panel between
+    # being made and being handed a body to draw in. Neither is an answer of nothing: the cap
+    # is the one figure known to fit each of the three screens, so it is what is assumed until
+    # a real key says otherwise. See NAV_BAND_PX.
+    panel = _new_panel()
+
+    def _raise() -> int:
+        raise mod.TclError("no such widget")
+
+    panel._next_btn.tk.winfo_reqheight = _raise
+
+    assert panel._nav_key_px == 0
+    assert panel._nav_band_px == mod.NAV_BAND_PX
+
+    bare = mod.LcsConfigPanel(_new_host())
+    assert bare._nav_key_px == 0
+    bare._refresh_nav_band()  # must not raise: there are no gaps to set yet
+    assert bare._nav_band == 0
 
 
 def test_the_panel_offers_no_footer_so_close_gets_a_line_of_its_own() -> None:
@@ -3047,8 +3331,10 @@ def test_the_rows_packing_is_replayed_after_every_toggle(monkeypatch) -> None:
     panel.previous_page()
 
     assert len(calls) > built
-    # The panel's own row, never the popup's overlay: the buttons live here now.
-    assert set(calls) == {panel._nav}
+    # The panel's own rows, never the popup's overlay: the keys live here now. The ID page's
+    # pair of choices is the other row that shows and hides a styled key; see
+    # test_the_white_space_between_the_two_choices_survives_them_being_shown.
+    assert set(calls) == {panel._nav, panel._choice_row}
 
 
 def test_next_enablement_is_unchanged_by_the_hidden_back_button() -> None:
@@ -3126,13 +3412,19 @@ def test_the_nav_row_gives_back_the_footer_bands_vertical_padding(monkeypatch, c
     _build_with_body(compact=compact)
 
     assert calls == [
+        # The ID page's two choices give back the horizontal band as well, that being what
+        # holds them apart rather than what holds a row off the pane; see the test below.
+        ("Go to", {"padx": mod.CHOICE_KEY_PAD, "pady": expected}),
+        ("Configure as new", {"padx": mod.CHOICE_KEY_PAD, "pady": expected}),
         (mod.CONFIGURE_TEXT, {"pady": expected}),
         (mod.BACK_TEXT, {"pady": expected}),
         (mod.INVENTORY_TEXT, {"pady": expected}),
         (mod.NEXT_TEXT, {"pady": expected}),
     ]
-    # Horizontal padding is untouched: it is the gap between the keys on a row.
-    assert all("padx" not in kwargs for _text, kwargs in calls)
+    # For a key that stands alone on its row, horizontal padding is untouched: it is the gap
+    # between the keys of a row, and there is no second key beside any of these four.
+    alone = (mod.CONFIGURE_TEXT, mod.BACK_TEXT, mod.INVENTORY_TEXT, mod.NEXT_TEXT)
+    assert all("padx" not in kwargs for text, kwargs in calls if text in alone)
 
 
 @pytest.mark.parametrize(
@@ -5748,7 +6040,7 @@ def test_the_pages_are_drawn_in_a_window_and_the_buttons_below_it() -> None:
 
     assert [page in panel.scroll.content.children for page in panel._pages] == [True] * len(panel._pages)
     assert body.children[2] is panel.scroll.viewport
-    nav = body.children[-1]
+    nav = panel._nav
     assert panel._back_btn in nav.children and panel._next_btn in nav.children
     assert body.children.index(panel.scroll.viewport) < body.children.index(nav)
     # As wide as the pane, so the window takes nothing off the page's own width.
