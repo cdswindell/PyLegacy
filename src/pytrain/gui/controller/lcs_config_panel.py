@@ -1801,10 +1801,27 @@ class LcsConfigPanel(OverlayPanel):
         page = Box(body, align="top", border=0)
         self._label(page, DEVICE_PROMPT, size=host.s_16, bold=True)
         host.add_vspace(page, self._section_gap)
-        # The shortest rows in the panel -- a module's name and nothing else -- so the size
-        # asked for is the size they get on every screen the panel is drawn on. Fitted all
-        # the same, because what is asked of these rows is the registry's to change.
-        device_size = self._fit_row_size([label for label, _key in self.device_options()], host.s_14)
+        # A size above the page's body, which is what these rows are: the first choice the
+        # panel asks for, the one every page after it hangs on, and a list of touch targets
+        # read at arm's length on the two machines that have no keyboard. The mode rows on
+        # the next page are already drawn there (see _mode_row_size), and these stood a
+        # step under them for no better reason than that the body size was the obvious
+        # thing to ask for.
+        #
+        # There is room for it, and room is what the shortest rows in the panel have: a
+        # module's name and the remote keys it answers on, nothing else. Measured in the
+        # rows' own font with the chrome the indicator and its padding take, the widest
+        # label the registry can write -- "IR Sensor Track (ACC)" -- comes to 336px at the
+        # 18pt a desk draws this size at and 306px at the Deck's 16, and a Deck's boxes are
+        # 597px wide. Both screens are handed the whole of what is asked for.
+        #
+        # Fitted all the same, and the Pi is why: its fonts are scaled half again, so the
+        # size asked for there is 27pt, at which that row comes to 462px of the 444 its
+        # boxes leave. A size the screen cannot hold is worse than the size below it, so
+        # the Pi settles at 25 -- still 4px above the 21 it drew these rows at -- and a
+        # longer name the registry grows later steps the list down rather than off the
+        # pane. See CheckBoxGroup.fit_row_size.
+        device_size = self._fit_row_size([label for label, _key in self.device_options()], host.s_18)
         self._device_group = CheckBoxGroup(
             page,
             size=device_size,

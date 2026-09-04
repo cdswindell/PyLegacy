@@ -37,6 +37,13 @@ class DummyTk:
         self.idle: list[Any] = []
         self.timers: list[tuple[int, Any]] = []
         self.bars: list[DummyBar] = []
+        self.folds: list[DummyFold] = []
+        # Which of the things drawn over the page was raised over the other, in order.
+        self.lifted: list[Any] = []
+        # Every place the content has been given, rather than only the one it is standing at:
+        # the gutter comes and goes by re-placing the page, and a place that changed nothing
+        # is a layout pass spent for nothing. See _widths.
+        self.place_calls: list[dict[str, Any]] = []
         self.tags: tuple[str, ...] = (self._name,)
 
     def __str__(self) -> str:
@@ -46,9 +53,11 @@ class DummyTk:
         self.propagated.append(flag)
 
     def place(self, **kwargs: Any) -> None:
+        self.place_calls.append(dict(kwargs))
         self.placed.update(kwargs)
 
     def place_configure(self, **kwargs: Any) -> None:
+        self.place_calls.append(dict(kwargs))
         self.placed.update(kwargs)
 
     def bind(self, sequence: str, func: Any, add: str | None = None) -> None:
@@ -150,15 +159,46 @@ class DummyBar:
 
     def lift(self) -> None:
         self.lifts += 1
+        self.master.lifted.append(self)
+
+
+class DummyFold:
+    """The line across the foot of the window, as _draw_fold makes one: a raw Tk Frame.
+
+    A gray hairline and nothing besides, so what there is to ask of it is what it was built
+    with and where it was put -- and, the bar being drawn over the same page, which of the two
+    of them was raised over the other.
+
+    Recorded on the window and merely unplaced when it goes, exactly as the bar is, so placed
+    rather than the object itself is what says whether anything is on screen.
+    """
+
+    def __init__(self, master: DummyTk, **kwargs: Any) -> None:
+        self.master = master
+        self.kwargs = dict(kwargs)
+        self.placed: dict[str, Any] | None = None
+        self.lifts = 0
+        master.folds.append(self)
+
+    def place(self, **kwargs: Any) -> None:
+        self.placed = dict(kwargs)
+
+    def place_forget(self) -> None:
+        self.placed = None
+
+    def lift(self) -> None:
+        self.lifts += 1
+        self.master.lifted.append(self)
 
 
 @pytest.fixture(autouse=True)
 def _no_display(monkeypatch: pytest.MonkeyPatch) -> None:
     """Every widget the window makes, made without a screen to make it on."""
     monkeypatch.setattr(mod, "Box", DummyBox, raising=True)
-    # The bar is a raw Tk widget rather than a guizero one -- it is drawn over the page rather
-    # than packed beside it -- so tkinter's own name in the module is what stands in.
-    monkeypatch.setattr(mod, "tk", SimpleNamespace(Scrollbar=DummyBar), raising=True)
+    # The bar and the line at the foot are raw Tk widgets rather than guizero ones -- both are
+    # drawn over the page rather than packed beside it -- so tkinter's own name in the module
+    # is what stands in.
+    monkeypatch.setattr(mod, "tk", SimpleNamespace(Scrollbar=DummyBar, Frame=DummyFold), raising=True)
 
 
 def _window(content_px: int = 0, width: int = 400, bar_px: int = None) -> mod.ScrollBox:
@@ -224,6 +264,17 @@ def _bar(box: mod.ScrollBox) -> DummyBar | None:
     return bars[-1] if bars else None
 
 
+def _fold(box: mod.ScrollBox) -> DummyFold | None:
+    """The line the window has drawn across its foot, or None where it has drawn none."""
+    folds = box.viewport.tk.folds
+    return folds[-1] if folds else None
+
+
+def _widths(box: mod.ScrollBox) -> list[Any]:
+    """Every width the page has been placed at, in the order it was placed at them."""
+    return [call["width"] for call in box.content.tk.place_calls if "width" in call]
+
+
 def test_a_window_with_room_for_its_whole_page_hides_nothing() -> None:
     # The rule that says nothing has changed. On every screen with the room for the page --
     # a desk, and most pages on the Deck -- the panel has to look exactly as it did before
@@ -280,9 +331,9 @@ def test_the_content_is_placed_across_the_windows_real_width_and_moved_to_scroll
     assert box.content.tk.placed["relwidth"] == 1.0
     assert box.viewport.tk.propagated == [False], "and the window keeps the height it is told"
 
-    # And a bar's width narrower than the window, which is the gutter the bar is drawn in;
-    # see the next test.
-    assert box.content.tk.placed["width"] == -mod.BAR_PX
+    # And to the whole of that width until something is held back in it: the gutter the bar
+    # stands in is kept only while there is a bar to keep it for; see below.
+    assert box.content.tk.placed["width"] == 0
 
     box.fit(400)
     box.scroll_to(120)
@@ -573,15 +624,109 @@ def test_a_window_that_asks_for_no_width_gets_one_the_bar_can_be_worked_at(asked
     assert _bar(box).placed["width"] == mod.BAR_PX
 
 
-def test_the_pages_own_width_is_the_windows_less_the_bars() -> None:
-    # The gutter is kept whether or not this page overflows, and that is the point of it: a
-    # page is written to its own edge -- the widest line of the panel's prose stops 9px inside
-    # a Pi pane -- so a bar drawn over the page takes the end of a line. Kept always because a
-    # gutter that came and went would re-break every line on the page each time it did.
+def test_a_page_being_held_back_is_drawn_clear_of_the_bar() -> None:
+    # The bar is drawn over the window rather than packed beside it, so a page spanning the
+    # window is a page with the end of every row under the bar -- and a page is written to its
+    # own edge: measured on a 480px Pi pane, the widest line of the review page's prose stops
+    # 9px inside it, which even a 10px bar takes the end of. So the page keeps off it.
+    box = _fitted(content_px=900, budget=400, bar_px=18)
+
+    assert box.scrollable is True
+    assert box.gutter_px == 18
+    assert box.content.tk.placed["width"] == -18
+
+
+def test_a_page_with_room_for_itself_is_drawn_to_the_whole_of_the_window() -> None:
+    # And a page with no bar down it keeps nothing clear for one: 18px of a 480px Pi pane, 30px
+    # of a Deck's, is too much to spend on a bar that is not there. The room is the page's
+    # until the moment something is held back in the window, and the page's again as soon as
+    # nothing is.
     fits = _fitted(content_px=300, budget=400, bar_px=18)
 
     assert fits.scrollable is False
-    assert fits.content.tk.placed["width"] == -18, "the room is kept even with no bar drawn in it"
+    assert fits.gutter_px == 0
+    assert fits.content.tk.placed["width"] == 0, "the whole of the window, less nothing"
+
+
+def test_the_room_the_bar_took_is_handed_back_when_the_page_comes_to_fit() -> None:
+    # A titled box hidden as the module changes takes its height with it, and a page that has
+    # come to fit its window is a page with no bar to keep clear of. Re-placing it is the whole
+    # of the reclaim: Tk lays the page out again at the width it now has, and the <Configure>
+    # that follows is what fits the window to whatever that came to.
+    box = _fitted(content_px=900, budget=400, bar_px=24)
+
+    assert box.gutter_px == 24
+
+    box.content.tk.reqheight = 300
+    box.fit(400)
+
+    assert box.gutter_px == 0
+    assert box.content.tk.placed["width"] == 0
+
+    box.content.tk.reqheight = 900
+    box.fit(400)
+
+    assert box.gutter_px == 24, "and taken again by a page grown back past its window"
+    assert box.content.tk.placed["width"] == -24
+
+
+def test_a_fit_that_leaves_the_gutter_where_it_was_does_not_place_the_page_again() -> None:
+    # The window is fitted on every layout pass -- a row built, a box shown, the popup laid out
+    # -- and re-placing the page costs a pass of its own, which would ask for the fit that
+    # placed it. Nothing is moved unless the answer changed, which is what keeps the one from
+    # feeding the other.
+    box = _fitted(content_px=900, budget=400)
+    placed = _widths(box)
+
+    box.fit(400)
+    box.scroll_to(120)
+    box.fit(400)
+
+    assert _widths(box) == placed, "one page placed at one width, however often it is asked"
+
+
+def test_the_line_across_the_foot_is_drawn_only_while_a_page_is_held_back() -> None:
+    # The bar says there is more of the page; what it cannot say is where the page stops. Under
+    # the fold are the popup's own keys, which neither scroll nor leave, and two regions with
+    # no line between them read as one -- a reader taking hold of the page there finds half of
+    # what is under the finger moving and half of it standing still.
+    fits = _fitted(content_px=300, budget=400)
+
+    assert _fold(fits) is None, "a window showing the whole of its page has no fold to mark"
+
+    box = _fitted(content_px=900, budget=400)
+
+    assert _fold(box).placed is not None
+
+    box.content.tk.reqheight = 300
+    box.fit(400)
+
+    assert _fold(box).placed is None, "and it goes with the bar, there being nothing left to say"
+
+
+def test_the_line_is_drawn_across_the_whole_foot_of_the_window_with_the_bar_over_it() -> None:
+    # Against the window's own foot rather than at a height of its own, so it stays on it
+    # however often the window is fitted; the width of the window, the bar included, and the
+    # bar raised after it so the corner where the two meet is the bar's.
+    box = _fitted(content_px=900, budget=400)
+    fold = _fold(box)
+
+    assert (fold.placed["x"], fold.placed["relwidth"]) == (0, 1.0)
+    assert fold.placed["rely"] == 1.0
+    assert fold.placed["y"] == -mod.FOLD_PX, "inside the foot by its own thickness"
+    assert fold.placed["height"] == mod.FOLD_PX
+    assert box.viewport.tk.lifted[-1] is _bar(box), "and both of them over the page"
+
+
+def test_the_line_is_a_gray_hairline_and_nothing_besides() -> None:
+    # A boundary rather than a control: it is there to be found without being looked at, which
+    # is why it is neither of the colors anything in this GUI is worked by, and why it is a
+    # line and not a frame with a line in it.
+    fold = _fold(_fitted(content_px=900, budget=400))
+
+    assert fold.kwargs["bg"] == mod.FOLD_COLOR
+    assert fold.kwargs["height"] == mod.FOLD_PX
+    assert (fold.kwargs["borderwidth"], fold.kwargs["highlightthickness"]) == (0, 0)
 
 
 @pytest.mark.parametrize(

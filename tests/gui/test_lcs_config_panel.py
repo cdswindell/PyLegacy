@@ -3224,13 +3224,15 @@ def test_the_mode_box_is_hidden_until_a_device_declares_modes() -> None:
 #
 def test_the_mode_options_are_larger_than_the_page_body() -> None:
     # The modes are the choice being made on this page, so they read above the page's body
-    # size -- and above the device rows on the page before.
+    # size -- as do the module rows on the page before, the choice being made there. Both
+    # lists are aimed at with a finger on the two screens that have no keyboard, and both
+    # ask for the same size: a list of touch targets is not a caption.
     panel = _new_panel()
     host = panel.gui
 
     assert panel._mode_group.kwargs["size"] == host.s_18
     assert panel._mode_group.kwargs["size"] > host.s_14
-    assert panel._device_group.kwargs["size"] == host.s_14
+    assert panel._device_group.kwargs["size"] == host.s_18
 
 
 @pytest.mark.parametrize(
@@ -5950,6 +5952,28 @@ def test_the_mode_rows_are_sized_against_every_row_they_can_show(monkeypatch) ->
     before = len(asked)
     assert panel._mode_row_size == panel._mode_row_size
     assert len(asked) == before, "settled once and kept"
+
+
+def test_the_module_rows_are_fitted_to_the_size_the_modes_ask_for(monkeypatch) -> None:
+    # The first choice the panel asks for, and a touch target on the Pi and the Deck, so it
+    # is drawn at the size the other list of touch targets is rather than at the page's body
+    # size. Fitted rather than simply set: these labels are the registry's to lengthen, and
+    # the Pi's fonts are scaled up far enough that the size asked for there does not fit.
+    asked: list[dict[str, Any]] = []
+
+    def _spy(master: Any, texts: Any, width: int, ceiling: int, floor: int = None, style: str = "radio") -> int:
+        asked.append(dict(texts=list(texts), width=width, ceiling=ceiling, floor=floor))
+        return ceiling
+
+    monkeypatch.setattr(DummyCheckBoxGroup, "fit_row_size", staticmethod(_spy), raising=True)
+    panel = _new_panel()
+    host = panel.gui
+
+    labels = [label for label, _key in mod.LcsConfigPanel.device_options()]
+    modules = next(call for call in asked if call["texts"] == labels)
+    assert (modules["ceiling"], modules["floor"]) == (host.s_18, host.s_12)
+    assert modules["width"] == panel._titled_box_px
+    assert panel._device_group.kwargs["size"] == host.s_18, "the size asked for, where it fits"
 
 
 def test_every_mode_label_is_a_row_a_module_can_show_at_its_widest() -> None:
