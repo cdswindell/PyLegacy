@@ -7006,3 +7006,211 @@ def test_the_pad_works_the_sort_keys_and_turns_no_page_with_them() -> None:
     assert widget is panel._sort_group
     assert commit == panel._on_sort_selected
     assert panel.pad_mark_turns_page is False
+
+
+#
+# Opening a module from its row in the listing
+#
+# The row widgets and the bindings on them are the panel's own, and pressing them is the
+# point of these helpers.
+# noinspection PyProtectedMember
+def _tap_targets(panel: mod.LcsConfigPanel, index: int, column: int) -> list[Any]:
+    """
+    Every widget one cell of the listing is drawn on: the label, or a grouped cell's blocks.
+    """
+    cell = panel._inventory_cells[index][column]
+    return [cell, *getattr(cell, "blocks", ())]
+
+
+def _row_taps(panel: mod.LcsConfigPanel, index: int) -> list[tuple[str, Any, str | None]]:
+    """
+    What was bound to every widget of one row of the listing, in the order it was bound.
+    """
+    return [
+        bind
+        for column in range(mod.INVENTORY_COLUMNS)
+        for widget in _tap_targets(panel, index, column)
+        for bind in widget.tk.binds
+    ]
+
+
+def _tap(panel: mod.LcsConfigPanel, index: int, column: int = 0) -> None:
+    """Press one cell of the listing, through the very binding the page made on it."""
+    widget = _tap_targets(panel, index, column)[-1]
+    event, handler, add = widget.tk.binds[-1]
+    assert (event, add) == ("<Button-1>", None)
+    handler(None)
+
+
+def test_a_row_of_the_listing_opens_the_id_page_on_the_module_it_names(monkeypatch) -> None:
+    # The row has already answered what the two pages before the ID page ask -- which
+    # module, and which mode at which address -- so both are answered for the operator and
+    # the panel opens where those answers are shown. Which is the ID page: it names the
+    # module in its heading, carries the address in its field and stands the mode radios on
+    # the row the module is running in.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+
+    _tap(panel, 2)  # the BPC2, second of the three the Module column reads down
+
+    assert panel.page_index == mod.PAGE_ID
+    assert panel.device is BPC2
+    assert panel.base_id == 1
+    assert panel.mode is BPC2.mode("acc_8")
+    assert panel._device_group.value == BPC2.key
+    assert panel._mode_group.value == BPC2.mode("acc_8").key
+    assert panel._id_field.value == "1"
+    assert panel._id_heading.value == panel.id_heading_text
+
+
+def test_a_row_opens_on_the_mode_its_own_module_is_running_in(monkeypatch) -> None:
+    # Not the module's default mode, and not the mode of whatever the panel was last
+    # pointed at: the ASC2 on the layout is driving switch motors, which is one of four
+    # modes it offers on two remote keys.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+
+    _tap(panel, 1)  # the ASC2, at SW 20 - 23
+
+    assert (panel.device, panel.base_id) == (ASC2, 20)
+    assert panel.mode is ASC2.mode("sw_momentary")
+    assert panel.mode is not ASC2.default_mode
+    assert panel.scope is CommandScope.SWITCH
+    assert panel._mode_group.value == ASC2.mode("sw_momentary").key
+
+
+def test_a_press_anywhere_in_a_row_opens_it(monkeypatch) -> None:
+    # A row is four cells wide and the operator aims at the module rather than at a column
+    # of it, so every cell answers -- the configuration column included, which is a stack of
+    # labels rather than one: Tk hands a press to the innermost widget under the finger, so
+    # a block that answered for nothing would be a hole in the row.
+    for column in range(mod.INVENTORY_COLUMNS):
+        _a_layout_of_three(monkeypatch)
+        panel = _new_panel()
+        panel.show_inventory()
+
+        _tap(panel, 3, column)
+
+        assert (panel.page_index, panel.device, panel.base_id) == (mod.PAGE_ID, STM2, 40)
+    # And the blocks of that column are bound as well as the box they stand in.
+    cell = panel._inventory_cells[3][mod.INVENTORY_CONFIG_COLUMN]
+    assert len(_tap_targets(panel, 3, mod.INVENTORY_CONFIG_COLUMN)) == 1 + len(cell.blocks)
+
+
+def test_the_headings_of_the_listing_are_no_row_to_open(monkeypatch) -> None:
+    # The grid's first row names the columns rather than a module, so there is nothing for
+    # it to open -- and a heading that turned the page would be the page's own title acting
+    # as a key.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    assert _row_taps(panel, 0) == []
+    assert all(_row_taps(panel, index) for index in (1, 2, 3))
+
+
+def test_a_row_is_bound_afresh_rather_than_bound_again(monkeypatch) -> None:
+    # The rows are written on every refresh and the cells are kept and reused, so a binding
+    # added to what was there already would call the handler once for every refresh the page
+    # had ever had -- three re-orders and one tap would open three pages.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    panel._on_sort_selected(mod.SORT_ID)
+    panel.show_inventory()
+
+    assert all(add is None for _event, _handler, add in _row_taps(panel, 1)), "replaced, not added to"
+
+
+def test_a_row_left_over_from_a_fuller_layout_opens_nothing(monkeypatch) -> None:
+    # The rows are kept and reused rather than destroyed, so a row hidden for a thinner
+    # layout still carries the binding it was given for the fuller one. It names no module
+    # now, and a press on it is a press on a row that is not on the page.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+
+    _with_pdi_store(monkeypatch, {PdiDevice.BPC2: [FakePdiConfig(1, CommandScope.ACC, mode=2)]})
+    panel.show_inventory()
+    _tap(panel, 3)
+
+    assert panel.page_index == mod.PAGE_INVENTORY
+    assert panel._inventory_cells[3][0].visible is False
+
+
+def test_a_row_opens_on_the_module_the_page_is_showing_after_a_re_order(monkeypatch) -> None:
+    # A row is bound by its place in the grid, and what stands in that place changes with
+    # every press of a sort key: read off the layout when the row was bound rather than when
+    # it was tapped, the second row would open on the module that was in it before.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+    assert panel.inventory_rows()[0].module == ASC2.label
+
+    panel._on_sort_selected(mod.SORT_ID)
+    _tap(panel, 1)
+
+    assert panel.inventory_rows()[0].module == BPC2.label, "ordered by ID, the BPC2 leads"
+    assert (panel.device, panel.base_id) == (BPC2, 1)
+
+
+def test_the_module_a_row_opens_is_seeded_with_its_own_settings(monkeypatch) -> None:
+    # The whole of what the row says about the module, not its name and address alone: the
+    # options page opens on what the module is holding, so an operator reconfiguring it
+    # keeps a setting by leaving it alone rather than by remembering it.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+
+    _tap(panel, 2)
+
+    assert panel.options["restore"] is True
+    assert f"{mod.INVENTORY_RESTORE}: {mod.INVENTORY_YES}" in panel.inventory_config(panel.inventory_occupants()[1])
+
+
+def test_opening_a_module_from_its_row_is_not_seeded_over_by_a_late_store(monkeypatch) -> None:
+    # The operator named the module by tapping its row, exactly as they name one by pressing
+    # a row of the device page, so a store arriving afterwards must not re-open the panel on
+    # whatever it finds at TMCC ID 1.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+
+    _tap(panel, 3)  # the STM2, at SW 40 - 55
+    panel.on_synchronized()
+
+    assert (panel.device, panel.base_id) == (STM2, 40)
+    assert panel.page_index == mod.PAGE_ID
+
+
+def test_a_module_the_panel_cannot_program_has_nothing_to_open(monkeypatch) -> None:
+    # A module the registry can only recognize is listed all the same -- the page is about
+    # what is out there rather than about what can be changed -- but it is kept off the
+    # device page, so there is nothing to open the pages on and its row does nothing.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+    recognized = replace(panel.inventory_occupants()[1], device=replace(BPC2, configurable=False))
+
+    panel.open_occupant(recognized)
+
+    assert panel.page_index == mod.PAGE_INVENTORY
+    assert panel.device is None, "and the panel is left pointing at nothing it had not chosen"
+
+
+def test_the_listing_is_left_behind_by_the_row_that_was_tapped(monkeypatch) -> None:
+    # The listing is off the march, so a row leads onto the sequence rather than a step
+    # along it: Back from the page it opens goes to the device page, as it does from the ID
+    # page reached by Next, and the key that opens the listing is off the row there.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+    panel.show_inventory()
+
+    _tap(panel, 2)
+
+    assert panel.shows_inventory_key is False
+    assert panel.can_advance is True
+    panel.previous_page()
+    assert panel.page_index == mod.PAGE_DEVICE
+    assert panel._device_group.value == BPC2.key

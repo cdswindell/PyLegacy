@@ -1194,6 +1194,11 @@ class LcsConfigPanel(OverlayPanel):
         self._inventory_grid: Box | None = None
         self._inventory_cells: list[tuple[GridCell, ...]] = []
         self._inventory_empty_line: Text | None = None
+        # The modules the listing is showing, in the order its rows read down the page. A
+        # row is tapped by its place in the grid and the rows are reused as the listing is
+        # re-ordered and re-read, so this is what turns that place back into the module the
+        # row names; see _on_inventory_row.
+        self._inventory_shown: list[LcsOccupant] = []
         self._back_btn: HoldButton | None = None
         self._next_btn: HoldButton | None = None
         self._nav: Box | None = None
@@ -2876,6 +2881,57 @@ class LcsConfigPanel(OverlayPanel):
         self._refresh_inventory()
         self._show_page(PAGE_INVENTORY)
 
+    def open_occupant(self, occupant: LcsOccupant) -> None:
+        """Aim the panel at a module already on the layout, and open on its TMCC ID page.
+
+        What a tap on a row of the listing means. The operator has found the module they
+        came to program, and the row has already answered the two questions the pages
+        before that one ask -- which module, and which mode at which address -- so both are
+        answered for them and the panel opens where those answers are shown: the ID page
+        names the module in its heading, carries the address in its field, and stands the
+        mode radios on the row the module is running in. The device page would show them a
+        choice they had just made, and the listing is not on the march, so the row leads
+        onto the sequence rather than a step along it. See PAGE_ID and _skipped.
+
+        Only a module this pass can program. One the registry merely recognizes is listed
+        all the same -- the page is about what is out there, not about what can be changed
+        -- but there is nothing to open the pages on, so its row does nothing. The same
+        reason _first_programmable turns one away where the panel would seed itself from it.
+
+        Seeded exactly as the Go To key seeds the panel from the module owning the entered
+        address, that being this same request arriving from the other page -- deliberately,
+        so a late synchronization must not seed over it. See go_to_owning_base.
+        """
+        if not occupant.device.configurable:
+            return
+        # Deliberate, so a late synchronization must not seed over it.
+        self._device_chosen = True
+        self._seed_from_occupant(occupant)
+        self._configure_as_new_id = None
+        self._base_id = occupant.base_id
+        self._seed_sensor_track_action()
+        self._refresh_device_selector()
+        # Which squares the address with the mode just seeded, the module's own block being
+        # what settles the ceiling; see _seed_mode_from_layout.
+        self._refresh_id_page()
+        self._show_page(PAGE_ID)
+
+    def _on_inventory_row(self, index: int) -> None:
+        """Open on the module the tapped row names.
+
+        The row's place in the grid, counted from the headings above it, so the module is
+        read off the listing as it stands rather than off the order it was written in when
+        the row was bound; see _bind_inventory_taps.
+
+        A row the listing is no longer showing names nothing and is passed over: the rows
+        are kept and reused, so one hidden for a thinner layout still carries the binding
+        it was given for the fuller one.
+        """
+        shown = self._inventory_shown
+        if not 1 <= index <= len(shown):
+            return
+        self.open_occupant(shown[index - 1])
+
     def _on_sort_selected(self, value: str = None) -> None:
         """Re-order the listing. guizero hands the row's value in; the pad's mark reads it here.
 
@@ -2904,12 +2960,16 @@ class LcsConfigPanel(OverlayPanel):
         as a page that looked and failed, where what is true is that nothing has reported
         itself -- which the line below says in words.
 
+        The modules are remembered as they are written, so that a row tapped afterwards is
+        answered with the very module the page is showing in it; see _inventory_shown.
+
         The rows are put back against the top of their cells last of all, showing and hiding
         being what takes them off it; see _stick_inventory_cells.
         """
         if self._inventory_grid is None:
             return
-        rows = self.inventory_rows()
+        self._inventory_shown = self.inventory_occupants()
+        rows = [self._inventory_row(occupant) for occupant in self._inventory_shown]
         for index, row in enumerate(rows, start=1):
             for cell, value in zip(self._inventory_row_cells(index), row.cells):
                 cell.value = value
@@ -2920,8 +2980,49 @@ class LcsConfigPanel(OverlayPanel):
                 if cell.visible:
                     cell.hide()
         self._show_inventory_headings(bool(rows))
+        self._bind_inventory_taps(len(rows))
         self._stick_inventory_cells()
         self._refresh_note(self._inventory_empty_line, "" if rows else INVENTORY_EMPTY)
+
+    def _bind_inventory_taps(self, shown: int) -> None:
+        """Make each module's row open on the module it names, and leave the headings alone.
+
+        Bound after the rows are written rather than where a cell is built, because the one
+        cell that is a stack of labels grows those labels as it is written: a block made for
+        a module reporting more than the last one written into that row would otherwise be
+        the one patch of the row a finger fell through. See GroupedCell and _bind_cell_tap.
+
+        Every visible row, every write, and the binding replaced rather than added to --
+        <Button-1> bound again on the same widget with add="+" would call the handler once
+        for every refresh the page had ever had. Nothing else in the panel binds that
+        sequence on a cell of either grid, so there is nothing here to preserve.
+
+        The headings are the grid's first row and name no module, so row 0 is passed over;
+        a spare row is left bound where it is and turned away when it is tapped, the rows
+        being kept and reused rather than destroyed. See _on_inventory_row.
+        """
+        for index, cells in enumerate(self._inventory_cells):
+            if not 1 <= index <= shown:
+                continue
+            for cell in cells:
+                self._bind_cell_tap(cell, index)
+
+    def _bind_cell_tap(self, cell: GridCell, index: int) -> None:
+        """Answer a press anywhere in one cell of the listing with the row it stands in.
+
+        Every widget the cell is drawn on, since Tk hands a press to the innermost widget
+        under the finger: the box a grouped cell grids is covered by the blocks stacked in
+        it, so a press that landed on a block would find nothing bound. A plain cell is the
+        one label it has always been and answers for itself.
+
+        The row is closed over rather than the module, so the handler reads the listing as
+        it stands when the finger falls; see _on_inventory_row.
+        """
+        for widget in (cell, *getattr(cell, "blocks", ())):
+            try:
+                widget.tk.bind("<Button-1>", lambda _event, row=index: self._on_inventory_row(row))
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                continue
 
     def _stick_inventory_cells(self) -> None:
         """Stand every cell of the listing against the top of its row, and keep it there.
@@ -2961,15 +3062,22 @@ class LcsConfigPanel(OverlayPanel):
         """
         Every module the layout has reported, as the listing writes them, in sorted order.
         """
-        return [
-            InventoryRow(
-                module=self._inventory_module(occupant.device),
-                tmcc_id=f"{occupant.base_id}",
-                scope=self._scope_label(occupant.effective_scope),
-                config=self.inventory_config(occupant),
-            )
-            for occupant in self.inventory_occupants()
-        ]
+        return [self._inventory_row(occupant) for occupant in self.inventory_occupants()]
+
+    def _inventory_row(self, occupant: LcsOccupant) -> InventoryRow:
+        """One module written up as the listing's four columns.
+
+        Taken a module at a time rather than a listing at a time, so the page can write the
+        rows from the very modules it remembers standing in them: a row is tapped by its
+        place in the grid, and a second pass over the store to find what that place names
+        could answer with another layout than the one on screen. See _refresh_inventory.
+        """
+        return InventoryRow(
+            module=self._inventory_module(occupant.device),
+            tmcc_id=f"{occupant.base_id}",
+            scope=self._scope_label(occupant.effective_scope),
+            config=self.inventory_config(occupant),
+        )
 
     @staticmethod
     def _inventory_module(device: LcsDevice) -> str:
