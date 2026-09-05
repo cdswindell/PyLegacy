@@ -117,6 +117,11 @@ class _DummyWidget:
         self.text_bold = False
         self.text_italic = False
         self.grid = kwargs.get("grid")
+        # The wash the widget is drawn on, inherited from whatever it was created in, which
+        # is what guizero itself does: Widget.__init__ ends with self.bg = master.bg. So a
+        # cell of the listing starts out the page's own white and is washed by the panel; see
+        # LcsConfigPanel._refresh_inventory and INVENTORY_ROW_BG.
+        self.bg = getattr(parent, "bg", "white")
 
     def show(self) -> None:
         self.visible = True
@@ -6189,7 +6194,10 @@ def test_the_listing_leaves_its_last_column_the_page_less_the_three_beside_it() 
     # larger text on this page is paid for with; see _inventory_text_size.
     panel = _new_panel()
 
-    reserved = mod.INVENTORY_FIXED_COLUMNS_EMS * panel._inventory_text_size
+    # The white space between the cells is held back with them: a row is the four cells and
+    # the gutters either side of each of them, and a gutter left out of this arithmetic is
+    # width the row spends beyond the pane. See INVENTORY_GUTTERS_PX.
+    reserved = mod.INVENTORY_FIXED_COLUMNS_EMS * panel._inventory_text_size + mod.INVENTORY_GUTTERS_PX
     assert panel._inventory_config_wrap_px == panel._wrap_px - reserved
     cells = panel._inventory_cells[0]
     # Every block of that column, the column being a stack of them rather than a label; see
@@ -6712,24 +6720,37 @@ def test_the_listing_is_written_into_a_grid_under_its_headings(monkeypatch) -> N
     assert all(cell.text_bold for cell in panel._inventory_cells[0]), "a heading in every column"
 
 
-def test_every_cell_stands_at_the_top_of_its_row(monkeypatch) -> None:
-    # A row is as tall as its configuration column, that being the one column with several
-    # lines in it, and a cell placed as guizero places it -- sticky="W", from its align -- is
-    # centered against that height: "BPC2" floats halfway down a five-line row instead of
-    # standing beside the first line of what the module is set to.
+def test_every_cell_is_filled_to_its_column_and_stands_at_the_top_of_its_row(monkeypatch) -> None:
+    # Filled because the cell is drawn on a wash of its own and a wash is the size of the
+    # widget under it: a label left at the width of "BPC2" would paint that word and leave
+    # the rest of the Module column white, so a row would read as four blots rather than as
+    # a row.
+    #
+    # And the words stand at the top left of what is filled, which is where they stood before
+    # there was any fill: a row is as tall as its configuration column, that being the one
+    # column with several lines in it, and a cell centered against that height floats "BPC2"
+    # halfway down a five-line row instead of standing beside the first line of what the
+    # module is set to.
     _a_layout_of_three(monkeypatch)
     panel = _new_panel()
 
-    assert mod.INVENTORY_STICKY == "nw", "the top of the row, and the left of the column"
+    assert mod.INVENTORY_STICKY == "nsew", "the whole of the column, the wash being the size of the cell"
     assert [cell.tk.gridded["sticky"] for row in panel._inventory_cells for cell in row] == [mod.INVENTORY_STICKY] * (
         len(panel._inventory_cells) * mod.INVENTORY_COLUMNS
     )
+    for row in panel._inventory_cells:
+        for cell in row[: mod.INVENTORY_CONFIG_COLUMN]:
+            assert cell.tk.configured["anchor"] == "nw"
+        # The one cell that is a box of labels rather than a label: the grid fills the box,
+        # and a block inside it is stretched to the box and anchored west already.
+        for block in row[mod.INVENTORY_CONFIG_COLUMN].blocks:
+            assert block.tk.configured["anchor"] == "w"
 
 
 def test_the_cells_are_stood_up_again_after_a_re_order(monkeypatch) -> None:
     # guizero rebuilds a container's grid options from scratch whenever a child is shown or
-    # hidden, and a re-order does both: set once where the cells are built, the alignment
-    # would hold only until the first press of a sort key.
+    # hidden, and a re-order does both: set once where the cells are built, neither the fill
+    # nor the white space between the rows would hold past the first press of a sort key.
     _a_layout_of_three(monkeypatch)
     panel = _new_panel()
     for row in panel._inventory_cells:
@@ -6739,6 +6760,102 @@ def test_the_cells_are_stood_up_again_after_a_re_order(monkeypatch) -> None:
     panel._on_sort_selected(mod.SORT_ID)
 
     assert all(cell.tk.gridded.get("sticky") == mod.INVENTORY_STICKY for row in panel._inventory_cells for cell in row)
+    assert all(
+        cell.tk.gridded.get("padx") == 0 and cell.tk.gridded.get("pady") == mod.INVENTORY_CELL_GAP_PX
+        for row in panel._inventory_cells
+        for cell in row
+    )
+
+
+def test_a_modules_row_is_drawn_on_a_wash_and_the_headings_are_not(monkeypatch) -> None:
+    # Every row of this page opens the module it names, the whole of the row, and four columns
+    # of text on the panel's own white said nothing about that. The headings open nothing, so
+    # they are left white: what is washed is exactly what a finger can press.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    assert all(cell.bg == mod.INVENTORY_ROW_BG for row in panel._inventory_cells[1:] for cell in row)
+    assert all(cell.bg != mod.INVENTORY_ROW_BG for cell in panel._inventory_cells[0]), "the headings are not pressed"
+    # Very light: what the wash marks is every row of the listing rather than one of them, and
+    # a fill dark enough to read as a selection would say the page had chosen something.
+    assert mod.INVENTORY_ROW_BG == "#f2f2f2"
+
+
+def test_the_configuration_cell_is_washed_block_by_block(monkeypatch) -> None:
+    # The one cell that is a box of labels rather than a label. The box is washed, it being
+    # what stands in the grid and what shows wherever the blocks do not reach -- and every
+    # block with it, including one grown after the wash was set: guizero cascades a
+    # container's bg to the children it has at the time, so a module reporting one group more
+    # than the last would otherwise write it on white in the middle of a washed row.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    cell = panel._inventory_cells[1][mod.INVENTORY_CONFIG_COLUMN]
+    assert cell.box.bg == mod.INVENTORY_ROW_BG
+    assert [block.bg for block in cell.blocks] == [mod.INVENTORY_ROW_BG] * len(cell.blocks)
+
+    cell.value = mod.INVENTORY_GROUP_BREAK.join(("one", "two", "three"))
+
+    assert len(cell.blocks) == 3, "a block per group, grown as the cell has that much to say"
+    assert [block.bg for block in cell.blocks] == [mod.INVENTORY_ROW_BG] * 3
+
+
+def test_the_rows_are_held_apart_by_white_space_and_the_columns_are_not(monkeypatch) -> None:
+    # The fill is per column rather than per row -- Tk fills a widget, and a row is four of
+    # them -- so a gap down the side of every cell showed the page between the columns and
+    # cut the wash into four: a row of four keys, where the whole row is one press and opens
+    # one module. Nothing between the columns now; the cells abut and their washes meet.
+    #
+    # Over and under them still, which is what keeps one row off the next: the page's own
+    # white between the rows, twice the gap between two neighbors.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    assert [(cell.tk.gridded["padx"], cell.tk.gridded["pady"]) for row in panel._inventory_cells for cell in row] == [
+        (0, mod.INVENTORY_CELL_GAP_PX)
+    ] * (len(panel._inventory_cells) * mod.INVENTORY_COLUMNS)
+    # A hairline of white rather than a margin: what the space between the columns costs is
+    # width the row would otherwise write in, and it is held back from the columns for that
+    # very reason.
+    assert 0 < mod.INVENTORY_CELL_GAP_PX < mod.INVENTORY_GROUP_GAP_PX
+    assert mod.INVENTORY_GUTTERS_PX == 2 * mod.INVENTORY_CELL_GAP_PX * mod.INVENTORY_COLUMNS
+
+
+def test_the_columns_are_held_apart_inside_the_cells_where_the_wash_covers_it(monkeypatch) -> None:
+    # The space between two columns did not go anywhere when the gutter did: it is the cells'
+    # own padding now, which is a label option and so is painted in the label's color, where a
+    # gap in the grid is a gap and shows the page through it. Same pixels, same words in the
+    # same place -- and a row that reads as one thing.
+    _a_layout_of_three(monkeypatch)
+    panel = _new_panel()
+
+    assert mod.INVENTORY_CELL_PAD_PX == mod.ASSIGNED_CELL_PAD + mod.INVENTORY_CELL_GAP_PX
+    for row in panel._inventory_cells:
+        for cell in row[: mod.INVENTORY_CONFIG_COLUMN]:
+            assert cell.tk.configured["padx"] == mod.INVENTORY_CELL_PAD_PX
+        # Every block of the one cell that is a stack of labels, blocks grown later included:
+        # the blocks are what is written on, so a block short of the padding would start
+        # further left than the lines above it. See GroupedCell and _grid_cell.
+        for block in row[mod.INVENTORY_CONFIG_COLUMN].blocks:
+            assert block.tk.configured["padx"] == mod.INVENTORY_CELL_PAD_PX
+    grown = panel._inventory_cells[1][mod.INVENTORY_CONFIG_COLUMN]
+    grown.value = mod.INVENTORY_GROUP_BREAK.join(("one", "two", "three"))
+    assert [block.tk.configured["padx"] for block in grown.blocks] == [mod.INVENTORY_CELL_PAD_PX] * 3
+
+
+def test_the_module_rows_keep_a_plain_cells_padding() -> None:
+    # The wider padding is the listing's alone, and it is asked for rather than built in: the
+    # module grids of the ID page are the same cells written by the same code, but they stand
+    # on the page's own white with nothing to hold apart and no wash for padding to be drawn
+    # in. See ASSIGNED_CELL_PAD.
+    panel = _new_panel(_overlapping_store())
+    panel._on_device_selected("asc2")
+    panel._set_base_id(25)
+
+    cells = [cell for row in panel._assigned_cells + panel._overlap_cells for cell in row]
+    assert cells, "an ID with modules around it, so there are rows to measure"
+    assert [cell.tk.configured["padx"] for cell in cells] == [mod.ASSIGNED_CELL_PAD] * len(cells)
+    assert mod.ASSIGNED_CELL_PAD < mod.INVENTORY_CELL_PAD_PX
 
 
 @pytest.mark.parametrize("linux, cramped", [(True, True), (False, False)])
@@ -7034,12 +7151,24 @@ def _row_taps(panel: mod.LcsConfigPanel, index: int) -> list[tuple[str, Any, str
     ]
 
 
+def _cell_handler(widget: Any, event: str) -> Any:
+    """What the page bound to one sequence on one widget of the listing.
+
+    Read by sequence rather than as the last thing bound, and asserted to have replaced
+    whatever was bound before rather than to have joined it -- a cell is written to on every
+    refresh, and a handler added to would fire once per refresh the page had ever had. See
+    LcsConfigPanel._bind_cell_tap.
+    """
+    bound = [(name, handler, add) for name, handler, add in widget.tk.binds if name == event]
+    assert bound, f"{event} is bound on the cell"
+    _name, handler, add = bound[-1]
+    assert add is None, "replaced, not added to"
+    return handler
+
+
 def _tap(panel: mod.LcsConfigPanel, index: int, column: int = 0) -> None:
-    """Press one cell of the listing, through the very binding the page made on it."""
-    widget = _tap_targets(panel, index, column)[-1]
-    event, handler, add = widget.tk.binds[-1]
-    assert (event, add) == ("<Button-1>", None)
-    handler(None)
+    """Tap one cell of the listing, through the very binding the page made."""
+    _cell_handler(_tap_targets(panel, index, column)[-1], "<Button-1>")(None)
 
 
 def test_a_row_of_the_listing_opens_the_id_page_on_the_module_it_names(monkeypatch) -> None:

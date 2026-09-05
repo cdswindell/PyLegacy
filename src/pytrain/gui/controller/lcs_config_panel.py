@@ -252,16 +252,77 @@ INVENTORY_COLUMNS = len(INVENTORY_HEADINGS)
 # margin, which is kept outside this arithmetic.
 INVENTORY_CONFIG_COLUMN = INVENTORY_COLUMNS - 1
 INVENTORY_FIXED_COLUMNS_EMS = 13
-# How a cell sits in its column: against the top of the row and against its left edge, which
-# is Tk's own spelling of the two. Every row is as tall as its configuration column, that
-# being the one column with several lines in it, and a cell left to what guizero grids it
-# with -- sticky="W", from its align -- is centered against that height: "BPC2" floats
-# halfway down a five-line row instead of standing beside the first line of what the module
-# is set to. The three bounded columns are the reason this matters and the reason it is the
-# whole grid: they are read down the page, so they have to start level with each other.
+# How a cell sits in its column: filled to the whole of it, which is Tk's own spelling of
+# the four sides. Filled rather than left at the width of the word in it, because the cell
+# is drawn on a wash of its own and a wash is the size of the widget under it: a Module
+# column whose label stopped at "BPC2" would leave the rest of the column white, and a row
+# would read as four blots of different sizes rather than as a row. See INVENTORY_ROW_BG.
+#
+# Where the words stand inside that fill is then the label's own business, and they stand at
+# its top left; see _cell_label. Which is where they stood before there was any fill to
+# stand in: every row is as tall as its configuration column, that being the one column with
+# several lines in it, and a cell centered against that height floats "BPC2" halfway down a
+# five-line row instead of standing beside the first line of what the module is set to. The
+# three bounded columns are the reason it matters and the reason it is the whole grid: they
+# are read down the page, so they have to start level with each other.
+#
 # Replayed after every re-order rather than set where a cell is built; see
 # _stick_inventory_cells.
-INVENTORY_STICKY = "nw"
+INVENTORY_STICKY = "nsew"
+
+# The wash a module's row is drawn on. Every row of this page opens the module it names --
+# the whole of the row, cell by cell; see _bind_inventory_taps -- and nothing on the page
+# said so: four columns of text on the panel's own white read as a page to be scrolled
+# rather than a row to be pressed. A fill under the words is what says it, the same way the
+# panel's keys are a shade off the page they stand on; see style_footer_button.
+#
+# Very light, because what it marks is every row of the listing rather than one of them: a
+# fill dark enough to read as a selection would say the page had chosen something, where all
+# it has to say is that a row can be pressed. #f2f2f2 is a twentieth of the way to black --
+# a shade under the keys' own #f7f7f7, those having a raised border to be seen by where this
+# has nothing but itself.
+#
+# The headings are not washed. They are the grid's first row (see _build_inventory_headings)
+# and they open nothing, so what is filled is exactly what a finger can press.
+INVENTORY_ROW_BG = "#f2f2f2"
+# And the white space above and below a cell, which is what keeps one row off the next: the
+# fill is per column rather than per row -- Tk fills a widget, and a row is four of them --
+# so a gap over and under every cell leaves the page's own white standing between the rows.
+# Twice this between two neighbors, this much at the top and bottom of the grid.
+#
+# Between the rows and not between the columns, which is the whole difference between a row
+# that reads as one key and a row that reads as four sitting side by side. A strip of page
+# showing down the side of every cell said what it looked like -- four things -- where the
+# row is one press and opens one module, and the wash meant to make a row of it was cut into
+# four blocks by the very white it was drawn against. The space between the columns is still
+# there and is still exactly this wide: it is inside the cells now, where the row's own wash
+# covers it and the row comes out solid. See INVENTORY_CELL_PAD_PX.
+#
+# Two pixels, which is a hairline of white at arm's length and as much as the row can pay
+# for: space between the columns is width no column can write in, and what it costs comes
+# out of the configuration column rather than the pane's own margin; see
+# INVENTORY_GUTTERS_PX.
+#
+# Grid padding, and so replayed after every re-order for the reason the alignment is; see
+# _stick_inventory_cells.
+INVENTORY_CELL_GAP_PX = 2
+# What holds one column's words off the next, now that nothing outside the cells does: the
+# cell's own padding, which is an option on the label rather than a gap in the grid, and so
+# is drawn in the cell's own color instead of showing the page through it. Every cell of
+# either grid carries ASSIGNED_CELL_PAD of it; a cell of the listing carries the old gutter
+# on top of that, so two columns stand exactly as far apart as they did when the space
+# between them was white -- 12px of it -- and every one of those pixels is now part of the
+# row.
+#
+# Set where the cell is built rather than replayed after a re-order, a widget's own option
+# outliving the grid options guizero rebuilds around it; see _cell_label.
+INVENTORY_CELL_PAD_PX = ASSIGNED_CELL_PAD + INVENTORY_CELL_GAP_PX
+# What that padding costs the row over a cell of the module grids, all four columns' worth: a
+# gutter's width either side of every cell. Held back from the width the columns are measured
+# against, the reservation those columns were measured for having a plain cell's padding in
+# it and no more, and 16px unreserved is 16px of a row that ends beyond the pane it stands
+# in. See _inventory_config_wrap_px.
+INVENTORY_GUTTERS_PX = 2 * INVENTORY_CELL_GAP_PX * INVENTORY_COLUMNS
 
 # What the listing calls a module, where that is not the name the registry gives it. Only
 # the IR Sensor Track, which is listed as the IR: the Module column is a column of short
@@ -852,6 +913,7 @@ class GroupedCell:
         self._blocks: list[Text] = []
         self._bold = False
         self._color: Any = None
+        self._bg: Any = None
         self._value = ""
 
     @property
@@ -914,6 +976,27 @@ class GroupedCell:
             block.text_color = color
 
     @property
+    def bg(self) -> Any:
+        return self._bg
+
+    @bg.setter
+    def bg(self, color: Any) -> None:
+        """The wash the cell is drawn on, answered and remembered for the reason text_color is.
+
+        The box and every block of it. The box is what stands in the grid, and it is what
+        shows wherever the blocks do not reach -- a row is as tall as its tallest cell, and
+        this is the cell the others are measured against only when it is the tallest of them.
+        The blocks are set as well rather than left to guizero, which cascades a container's
+        bg to the children it has at the time: a block grown for a module reporting one group
+        more than the last would otherwise come up white in the middle of a washed row. See
+        INVENTORY_ROW_BG and _grow.
+        """
+        self._bg = color
+        self._box.bg = color
+        for block in self._blocks:
+            block.bg = color
+
+    @property
     def value(self) -> str:
         return self._value
 
@@ -946,6 +1029,8 @@ class GroupedCell:
             block.text_bold = self._bold
             if self._color is not None:
                 block.text_color = self._color
+            if self._bg is not None:
+                block.bg = self._bg
             self._blocks.append(block)
         return self._blocks[index]
 
@@ -2850,6 +2935,11 @@ class LcsConfigPanel(OverlayPanel):
             # And the one grid drawn at the page's body size wherever it is drawn, the module
             # rows following the boxes they stand in; see _inventory_text_size.
             size=self._inventory_text_size,
+            # The one grid whose cells hold their neighbors off with padding of their own,
+            # this being the one grid drawn on a wash: the space between two columns is part
+            # of the row here rather than the page showing between them. See
+            # INVENTORY_CELL_PAD_PX.
+            padx=INVENTORY_CELL_PAD_PX,
         )
 
     @property
@@ -2863,11 +2953,15 @@ class LcsConfigPanel(OverlayPanel):
         break at zero is a column told not to break at all, which would carry the longest
         line a module can write straight off the edge of the pane.
 
+        The space between the columns is held back with them, all four columns' worth: a row
+        is the cells and the room either side of the words in each of them, and room left out
+        of this arithmetic is width the row spends beyond the pane. See INVENTORY_GUTTERS_PX.
+
         Taken with the listing's own size rather than the titled boxes', which is what the
-        larger text on this page is paid for with: the column breaks at 250px where the
+        larger text on this page is paid for with: the column breaks at 234px where the
         smaller text left it 276. See _inventory_text_size.
         """
-        reserved = INVENTORY_FIXED_COLUMNS_EMS * self._inventory_text_size
+        reserved = INVENTORY_FIXED_COLUMNS_EMS * self._inventory_text_size + INVENTORY_GUTTERS_PX
         return max(self._wrap_px // INVENTORY_COLUMNS, self._wrap_px - reserved)
 
     def show_inventory(self) -> None:
@@ -2973,6 +3067,11 @@ class LcsConfigPanel(OverlayPanel):
         for index, row in enumerate(rows, start=1):
             for cell, value in zip(self._inventory_row_cells(index), row.cells):
                 cell.value = value
+                # Washed here rather than where the cell is built, for the reason the module
+                # grids color theirs here: the headings are row 0 of this grid and are built
+                # by the very code that builds a module's row, and what the wash says is that
+                # the row can be pressed. See INVENTORY_ROW_BG.
+                cell.bg = INVENTORY_ROW_BG
                 if not cell.visible:
                     cell.show()
         for spare in self._inventory_cells[len(rows) + 1 :]:
@@ -3025,14 +3124,24 @@ class LcsConfigPanel(OverlayPanel):
                 continue
 
     def _stick_inventory_cells(self) -> None:
-        """Stand every cell of the listing against the top of its row, and keep it there.
+        """Place every cell of the listing: filled to its column, and held off the rows either side.
+
+        The two things a cell is given by the grid rather than by itself -- the whole of its
+        column to stand in, so the wash under a row covers the row (INVENTORY_STICKY), and a
+        gutter of white space over and under it, so the rows read apart (INVENTORY_CELL_GAP_PX).
+
+        Nothing down the sides: a cell abuts the cell beside it, so the four washes of a row
+        meet and the row is one unbroken band rather than four keys in a line. What holds the
+        columns' words apart instead is padding inside the cells, which is painted with them;
+        see INVENTORY_CELL_PAD_PX. Asked for as a nought rather than left unsaid, padding
+        being the one thing grid_configure keeps where it is not overwritten.
 
         Replayed over the whole grid rather than set once where a cell is built, for the
         reason _lay_out_titled_boxes replays its own: guizero rebuilds a container's grid
         options from scratch in display_widgets -- which runs whenever a child is shown,
-        hidden or created -- and grids each cell from its align, i.e. sticky="W". Every
-        re-order of the listing shows and hides rows, so the alignment has to follow the
-        rows rather than the building of them. See INVENTORY_STICKY.
+        hidden or created -- and grids each cell from its align, i.e. sticky="W" and no
+        padding at all. Every re-order of the listing shows and hides rows, so both have to
+        follow the rows rather than the building of them.
 
         A hidden cell is passed over, and that is not an optimization: grid_configure
         *manages* a widget the grid has forgotten, so a spare row put back on the page would
@@ -3044,7 +3153,11 @@ class LcsConfigPanel(OverlayPanel):
                 if not cell.visible:
                     continue
                 try:
-                    cell.tk.grid_configure(sticky=INVENTORY_STICKY)
+                    cell.tk.grid_configure(
+                        sticky=INVENTORY_STICKY,
+                        padx=0,
+                        pady=INVENTORY_CELL_GAP_PX,
+                    )
                 except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                     continue
 
@@ -4901,6 +5014,7 @@ class LcsConfigPanel(OverlayPanel):
         wrap_px: int | None = None,
         group_gap_px: int = 0,
         size: int | None = None,
+        padx: int = ASSIGNED_CELL_PAD,
     ) -> tuple[GridCell, ...]:
         """
         The cells of one grid row, created the first time the row is used.
@@ -4917,14 +5031,16 @@ class LcsConfigPanel(OverlayPanel):
         group_gap_px is offered to every cell of the row and taken up by the one that wraps,
         that being the only column whose text comes in groups; see _grid_cell. size is the
         grid's own, the module rows taking the size of the boxes they stand in and the
-        listing the size of the page it is; see _inventory_text_size.
+        listing the size of the page it is; see _inventory_text_size. padx is the room a cell
+        keeps either side of its words, which the listing widens, its cells standing shoulder
+        to shoulder where the module grids' are spaced by the grid; see INVENTORY_CELL_PAD_PX.
         """
         while len(cells) <= index:
             row = len(cells)
             # Only the first column is bold; it is the column the eye runs down.
             cells.append(
                 tuple(
-                    self._grid_cell(grid, column, row, wrap_column, wrap_px, group_gap_px, size)
+                    self._grid_cell(grid, column, row, wrap_column, wrap_px, group_gap_px, size, padx)
                     for column in range(columns)
                 )
             )
@@ -4939,6 +5055,7 @@ class LcsConfigPanel(OverlayPanel):
         wrap_px: int | None = None,
         group_gap_px: int = 0,
         size: int | None = None,
+        padx: int = ASSIGNED_CELL_PAD,
     ) -> GridCell:
         """One cell of a grid: the label all but one of them is, or a stack of them.
 
@@ -4965,10 +5082,13 @@ class LcsConfigPanel(OverlayPanel):
             box = Box(grid, grid=[column, row], align="left")
             return GroupedCell(
                 box,
-                lambda parent: self._cell_label(parent, align="top", width=width, size=size),
+                # Every block of it padded as the cell is, blocks grown later included: the
+                # blocks are what is written on, so a block short of the padding would be a
+                # line of the cell that started further left than the ones above it.
+                lambda parent: self._cell_label(parent, align="top", width=width, size=size, padx=padx),
                 group_gap_px,
             )
-        return self._cell_label(grid, grid=[column, row], bold=column == 0, width=width, size=size)
+        return self._cell_label(grid, grid=[column, row], bold=column == 0, width=width, size=size, padx=padx)
 
     def _cell_label(
         self,
@@ -4979,6 +5099,7 @@ class LcsConfigPanel(OverlayPanel):
         bold: bool = False,
         width: int | None = None,
         size: int | None = None,
+        padx: int = ASSIGNED_CELL_PAD,
     ) -> Text:
         """A label a grid cell is written on, styled as every cell of either grid is.
 
@@ -4994,6 +5115,22 @@ class LcsConfigPanel(OverlayPanel):
         against it, and a column the eye runs down cannot afford a ragged edge for the sake
         of three pixels. Both are set where they survive a re-pack -- "fill" is read off the
         widget by guizero itself, and the anchor is a Tk option rather than a layout one.
+
+        A gridded cell is anchored north-west for the same reason one column over: the
+        listing fills a cell to the whole of its column, and a row is as tall as its tallest
+        column, so the words in the three short ones would drift to the middle of a five-line
+        row. Where the grid does not stretch a cell -- the module rows of the ID page, placed
+        at the width of what is written in them -- there is nothing for an anchor to move.
+        See INVENTORY_STICKY.
+
+        padx is the room the words keep from the cell's own edges, and a cell of the listing
+        asks for more of it than a cell of the module grids: it is what holds two columns of
+        that grid apart, there being nothing between them but the edge where one cell ends
+        and the next begins. Padding rather than a gap in the grid, so the room between the
+        columns is drawn in the cell's color and the row reads as one band; see
+        INVENTORY_CELL_PAD_PX. A label's own option, and so untouched by the grid options
+        guizero rebuilds around it -- unlike the fill and the white space between the rows,
+        which have to be replayed; see _stick_inventory_cells.
         """
         stacked = grid is None
         cell = Text(parent, text="", grid=grid, align=align, width="fill" if stacked else None)
@@ -5001,9 +5138,7 @@ class LcsConfigPanel(OverlayPanel):
         cell.text_bold = bold
         self._wrap(cell, justify="left", width=width)
         try:
-            cell.tk.config(padx=ASSIGNED_CELL_PAD)
-            if stacked:
-                cell.tk.config(anchor="w")
+            cell.tk.config(padx=padx, anchor="w" if stacked else "nw")
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         return cell
