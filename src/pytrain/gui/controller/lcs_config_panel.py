@@ -5295,19 +5295,24 @@ class LcsConfigPanel(OverlayPanel):
         Scoped like assigned_occupants(), because two blocks in different key namespaces
         cannot collide however far they run into one another: an STM2 claiming SW 20-35
         overlaps an ASC2 based at SW 25, and nothing at all on the accessory keys.
+
+        Whatever answers to the entered ID is left out, exactly as it is for the trains:
+        the assigned box above has just named it, and naming it twice would read as two
+        conflicts where the operator has one module to deal with.
+
+        Left out by what it claims rather than by where it is based, which is the same rule
+        the box above is filled by: a BPC2 based at ACC 17 answers to ACC 24 on its eighth
+        port, so an ACC 24 block of eight is named by that box already and runs into nothing
+        the box has not said. That covers the module being reconfigured too -- a module based
+        at the entered ID necessarily claims it -- so overlaps() is left to answer for the
+        block alone; see assigned_occupants() and LcsOccupant.claims.
         """
         if self._mode is None:
             return []
         return [
             occupant
-            for occupant in overlaps(
-                self._base_id,
-                self.ports,
-                self._store,
-                ignore_base=self._base_id,
-                scope=self._mode.scope,
-            )
-            if occupant.base_id != self._base_id
+            for occupant in overlaps(self._base_id, self.ports, self._store, scope=self._mode.scope)
+            if not occupant.claims(self._base_id)
         ]
 
     def overlap_trains(self) -> list[TrainOccupant]:

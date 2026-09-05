@@ -1137,6 +1137,29 @@ def test_overlaps_are_advisory() -> None:
     assert panel.base_id == 20
 
 
+def test_the_module_answering_to_the_entered_id_is_not_named_as_an_overlap_too() -> None:
+    # The reported layout: a BPC2 based at ACC 17 holds ACC 17-24, and an ASC2 based at
+    # ACC 30 holds ACC 30-37. Programming a BPC2 at ACC 24 asks for ACC 24-31, which runs
+    # into both of them -- but the BPC2 is what answers to the ID the operator typed, and
+    # the assigned box has just said so. Named again below, one module would read as two
+    # conflicts; the ASC2 is the only thing the block runs into that the box has not said.
+    store = FakeStore(
+        {
+            CommandScope.ACC: [
+                FakeState(17, "is_bpc2", mode=2, num_ids=8),
+                FakeState(30, "is_asc2", mode=0, num_ids=8),
+            ]
+        }
+    )
+    panel = _new_panel(store)
+    panel._on_device_selected("bpc2")
+    panel._on_mode_selected("acc_8")  # 8 ports: 24-31
+    panel._set_base_id(24)
+
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 17, 8)]
+    assert _overlaps(panel) == [_row(CommandScope.ACC, ASC2.label, 30, 8)]
+
+
 def test_a_switch_mode_asc2_overlaps_a_switch_module_that_runs_into_it() -> None:
     # An ASC2 in switch mode claims SW 25-28 whatever scope its state was filed under,
     # and an STM2 based at SW 20 with 16 inputs runs straight through it.
@@ -3812,8 +3835,11 @@ def test_the_overlaps_box_comes_and_goes_with_what_is_in_the_way() -> None:
     assert panel._overlap_box.visible is True
     assert len(_overlaps(panel)) == 2
 
-    panel._set_base_id(30)  # 30-37 is the ASC2's own block, and the BPC2 ends at 33
-    assert _overlaps(panel) == [_row(CommandScope.ACC, BPC2.label, 26, 8)]
+    # 28-35 still runs into both of them, but the BPC2 at 26-33 is what answers to 28
+    # itself, so the assigned box names it and this box has only the ASC2 left to name.
+    panel._set_base_id(28)
+    assert _assigned(panel) == [_row(CommandScope.ACC, BPC2.label, 26, 8)]
+    assert _overlaps(panel) == [_row(CommandScope.ACC, ASC2.label, 30, 8)]
     assert panel._overlap_cells[1][1].visible is False
 
     panel._set_base_id(50)
