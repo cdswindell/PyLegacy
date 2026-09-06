@@ -61,6 +61,18 @@ keywords = [
     "trains",
 ]
 
+# Definition of the Steam Deck variant of this package. It is built from this very same
+# pyproject.toml by scripts/build_deck.py, which applies the overrides below just long enough
+# to produce the pytrain-ogr-deck artifacts. This table is inert as far as the build backend
+# is concerned; the standard pytrain-ogr build (python3 -m build, pip install .) ignores it.
+[tool.pytrain.deck]
+name = "pytrain-ogr-deck"
+description = "Control Lionel TMCC/Legacy engines, switches, and accessories from a Steam Deck or Linux PC"
+exclude-dependencies = [
+    "rpi-lgpio",
+    "spidev",
+]
+
 [tool.setuptools_scm]
 version_file = "src/pytrain/_version.py"
 version_scheme = "only-version"

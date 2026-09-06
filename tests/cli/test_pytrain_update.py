@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 import src.pytrain.cli.pytrain as mod
+from src.pytrain import PROGRAM_PACKAGE, PROGRAM_PACKAGE_DECK
 from src.pytrain.cli.pytrain import REQUIREMENTS, REQUIREMENTS_NO_GPIO, PyTrain, PyTrainExitStatus
 from src.pytrain.utils.host_info import PLATFORM_ENV_VAR, STEAM_DECK_PLATFORM
 
@@ -93,6 +94,26 @@ def test_source_update_installs_the_selected_requirements(monkeypatch, repo_root
     # The venv's own interpreter, not whatever bare `pip` resolves to on PATH.
     assert pip_installs[0][0] == sys.executable
     assert ["git", "pull"] in commands
+
+
+@pytest.mark.parametrize("package", [PROGRAM_PACKAGE, PROGRAM_PACKAGE_DECK])
+def test_package_update_reinstalls_the_installed_distribution(monkeypatch, commands, package) -> None:
+    # The Deck installs pytrain-ogr-deck, a distribution of its own; updating by the
+    # Pi's name would replace it with the package that requires rpi-lgpio and spidev,
+    # neither of which installs there.
+    pytrain = _pytrain()
+    pytrain._exit_status = None
+    monkeypatch.setattr(type(pytrain), "is_server", property(lambda _self: True))
+    monkeypatch.setattr(type(pytrain), "is_api", property(lambda _self: False))
+    monkeypatch.setattr(type(pytrain), "relaunch", lambda _self, _status: None)
+    monkeypatch.setattr("src.pytrain.is_package", lambda: True)
+    monkeypatch.setattr("src.pytrain.installed_package", lambda: package)
+
+    pytrain.update(do_inform=False)
+
+    assert [sys.executable, "-m", "pip", "install", "-U", package] in commands
+    # A package install updates from PyPI, never from the checkout.
+    assert ["git", "pull"] not in commands
 
 
 def test_requirements_files_both_exist_in_the_repo() -> None:

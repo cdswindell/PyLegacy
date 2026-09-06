@@ -91,6 +91,14 @@ Note: You will need to repeat these two commands any time you want to run **PyTr
 pip3 install pytrain-ogr
 ```
 
+*Note: the Steam Deck cannot install the Raspberry Pi GPIO libraries that `pytrain-ogr` requires. On a
+Steam Deck, install `pytrain-ogr-deck` instead; it is the very same __PyTrain__ release, built without
+those libraries. Install one or the other, never both, as they provide the same commands:*
+
+```aiignore
+pip3 install pytrain-ogr-deck
+```
+
 * Run **PyTrain** and connect to your Lionel Base 3:
 
 ```aiignore
@@ -310,6 +318,12 @@ PDI command echoing ENABLED
 
 ```aiignore
 pip install -U pytrain-ogr
+```
+
+*Note: on a Steam Deck, upgrade the package you installed there instead:*
+
+```aiignore
+pip install -U pytrain-ogr-deck
 ```
 
 * From within **PyTrain** itself:

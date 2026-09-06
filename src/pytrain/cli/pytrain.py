@@ -835,7 +835,7 @@ class PyTrain:
         method's relaunch would preempt it -- upgrade() does exactly that, because the
         reboot it issues afterward *is* the relaunch.
         """
-        from .. import PROGRAM_PACKAGE, is_package
+        from .. import PROGRAM_PACKAGE, installed_package, is_package
 
         if do_inform:
             log.info(f"{'Server' if self.is_server else 'Client'} updating...")
@@ -846,10 +846,10 @@ class PyTrain:
             raise PyTrainExitException(PyTrainExitStatus.UPDATE)
 
         if is_package():
-            # update from Pypi
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-U", PROGRAM_PACKAGE], cwd=os.getcwd(), check=False
-            )
+            # update from Pypi; the Steam Deck runs a distribution of its own
+            # (pytrain-ogr-deck), so update whichever one is actually installed
+            package = installed_package() or PROGRAM_PACKAGE
+            subprocess.run([sys.executable, "-m", "pip", "install", "-U", package], cwd=os.getcwd(), check=False)
         else:
             # update from github
             subprocess.run(["git", "pull"], cwd=os.getcwd(), check=False)

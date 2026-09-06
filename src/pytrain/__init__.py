@@ -138,6 +138,13 @@ from .utils.path_utils import (
 )
 
 PROGRAM_PACKAGE = "pytrain-ogr"
+PROGRAM_PACKAGE_DECK = "pytrain-ogr-deck"
+
+# The distributions that install this package, most specific first. pytrain-ogr targets
+# the Raspberry Pi and requires rpi-lgpio and spidev; pytrain-ogr-deck is the same
+# release built without them, because neither is installable on the Steam Deck. Both
+# provide the identical code and console scripts, so only one is ever installed.
+PROGRAM_PACKAGES = (PROGRAM_PACKAGE, PROGRAM_PACKAGE_DECK)
 
 
 def main(args: list[str] | None = None) -> int:
@@ -151,13 +158,23 @@ def main(args: list[str] | None = None) -> int:
         sys.exit(f"{PROGRAM_NAME}: error: {e}\n")
 
 
+def installed_package() -> str | None:
+    #
+    # which of the PyTrain distributions are we running from, if any? this is what
+    # tells a Steam Deck install to update itself rather than the Pi package...
+    #
+    for package in PROGRAM_PACKAGES:
+        try:
+            importlib.metadata.version(package)
+            return package
+        except PackageNotFoundError:
+            continue
+    return None
+
+
 def is_package() -> bool:
-    try:
-        # production version
-        importlib.metadata.version(PROGRAM_PACKAGE)
-        return True
-    except PackageNotFoundError:
-        return False
+    # production version
+    return installed_package() is not None
 
 
 def get_version() -> str:
@@ -169,11 +186,10 @@ def get_version() -> str:
     #
     # we try the package path first...
     version = None
-    try:
+    package = installed_package()
+    if package is not None:
         # production version
-        version = importlib.metadata.version(PROGRAM_PACKAGE)
-    except PackageNotFoundError:
-        pass
+        version = importlib.metadata.version(package)
 
     # finally, call the method to read it from git
     if version is None:

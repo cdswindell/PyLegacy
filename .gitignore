@@ -14,6 +14,7 @@ __pycache__
 accessory_config.json
 buttons.py
 cache/
+dist-deck/
 dist/
 pytrain.history
 pytrain.log*
