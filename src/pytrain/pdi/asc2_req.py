@@ -134,6 +134,7 @@ class Asc2Req(LcsReq):
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
 
+    # noinspection string-format
     @property
     def payload(self) -> str | None:
         if self.is_error:
