@@ -64,7 +64,7 @@ class DummyApp:
 
 
 class DummyGui(mod.GuiZeroBase):
-    def __init__(self, button_divisor: float = 6.0) -> None:
+    def __init__(self, button_divisor: float = 6.0, scale_by: float = 1.5) -> None:
         self.destroy_gui_calls = 0
         super().__init__(
             title="Dummy GUI",
@@ -73,6 +73,7 @@ class DummyGui(mod.GuiZeroBase):
             stand_alone=False,
             full_screen=True,
             button_divisor=button_divisor,
+            scale_by=scale_by,
         )
 
     # Signatures mirror the abstract GuiZeroBase hooks; the base calls both with no arguments.
@@ -164,6 +165,110 @@ def test_button_divisor_supports_compact_landscape_controls() -> None:
 
     portrait.close()
     landscape.close()
+
+
+@pytest.mark.parametrize(
+    ("scale_by", "expected"),
+    [
+        (1.0, 3),  # the Pi's touchscreen, and the geometry the panel is drawn for
+        (1.5, 4),  # the default, 4.5 rounded to even
+        (3.0, 5),  # scaled well up, and still a border rather than a frame
+        (0.5, 2),  # scaled down, and still thick enough to see
+    ],
+)
+def test_the_colored_border_scales_with_the_display_within_bounds(scale_by, expected) -> None:
+    # The border is all of a button's color macOS shows, so it has to read at arm's length
+    # on a touchscreen without swallowing the button it is drawn around.
+    gui = DummyGui(scale_by=scale_by)
+
+    assert gui.border_size == expected
+
+    gui.close()
+
+
+class _HoverButton:
+    """A HoldButton double for add_hover_action, recording what is set and in what order.
+
+    bg is a property on the real button too, and guizero's setter writes -activebackground
+    along with -background -- which is why the order the helper works in matters.
+    """
+
+    def __init__(self, border_thickness: int | None = 0) -> None:
+        if border_thickness is not None:
+            self.border_thickness = border_thickness
+        self.config_calls: list[dict] = []
+        self.order: list[str] = []
+        self._bg: str | None = None
+        self.tk = SimpleNamespace(config=self._config)
+
+    def _config(self, **kwargs) -> None:
+        self.config_calls.append(kwargs)
+        self.order.extend(kwargs)
+
+    @property
+    def bg(self) -> str | None:
+        return self._bg
+
+    @bg.setter
+    def bg(self, color: str) -> None:
+        self._bg = color
+        self.order.append("bg")
+
+    @property
+    def configured(self) -> dict:
+        merged: dict = {}
+        for call in self.config_calls:
+            merged.update(call)
+        return merged
+
+
+def test_the_hover_background_goes_through_the_widget_so_a_border_can_follow_it() -> None:
+    # The switch pair and the route key are colored by this helper, and the color is their
+    # state. Written straight to tk it would leave a colored border showing the color
+    # before -- and the border is all of it macOS paints (see HoldButton.border_color).
+    btn = _HoverButton(border_thickness=3)
+
+    mod.GuiZeroBase.add_hover_action(btn, hover_color="lightgreen", background="green")
+
+    assert btn.bg == "green"
+    assert "background" not in btn.configured
+
+
+def test_the_hover_color_is_set_after_the_face_it_would_be_overwritten_by() -> None:
+    # guizero's bg setter writes -activebackground as well as -background, so a hover color
+    # applied first is silently replaced by the face color and the button stops reacting.
+    btn = _HoverButton()
+
+    mod.GuiZeroBase.add_hover_action(btn, hover_color="lightgreen", background="green")
+
+    assert btn.order.index("bg") < btn.order.index("activebackground")
+    assert btn.configured["activebackground"] == "lightgreen"
+
+
+def test_a_button_carrying_a_colored_border_keeps_it() -> None:
+    # The border is the state cue on these keys; the helper's own outline is drawn in the
+    # same two Tk options, so overwriting them would replace the cue with a black hairline.
+    btn = _HoverButton(border_thickness=3)
+
+    mod.GuiZeroBase.add_hover_action(btn, background="green")
+
+    assert "highlightthickness" not in btn.configured
+    assert "highlightbackground" not in btn.configured
+    assert btn.border_thickness == 3
+
+
+@pytest.mark.parametrize("border_thickness", [0, None], ids=["no-border", "no-such-attribute"])
+def test_every_other_button_keeps_the_plain_outline_it_has_always_worn(border_thickness) -> None:
+    # Most callers hand this a button with no colored border -- and a plain guizero
+    # PushButton, as the Deck's Close button is, has no border_thickness at all.
+    btn = _HoverButton(border_thickness=border_thickness)
+
+    mod.GuiZeroBase.add_hover_action(btn)
+
+    assert btn.configured["highlightthickness"] == 1
+    assert btn.configured["highlightbackground"] == "black"
+    assert (btn.configured["borderwidth"], btn.configured["relief"]) == (3, "raised")
+    assert btn.bg == "#f7f7f7"
 
 
 def test_poll_shutdown_processes_up_to_five_messages_per_tick() -> None:

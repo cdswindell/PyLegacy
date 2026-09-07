@@ -1020,7 +1020,14 @@ class ControllerView:
         for loco in ["d", "s", "l"]:
             get_btn(("BLOW_HORN_ONE", loco)).on_hold = self.show_horn_control
 
-        # 5. Gauge commands
+        # 5. Direction buttons: the direction in force is signaled by color (see the pair set
+        # from throttle_state in update, above), and a color on a button's face is not something
+        # macOS paints, so the border carries it (see HoldButton.border_color). Both keys are
+        # sized in characters and clipped to their cells, so the border costs the pad no room.
+        for key in (("FORWARD_DIRECTION", "e"), ("REVERSE_DIRECTION", "e")):
+            get_btn(key).border_thickness = host.border_size
+
+        # 6. Gauge commands
         for gauge_type in ["fuel", "water"]:
             gauges = self._gauges.get(gauge_type, [])
             for gauge in gauges:

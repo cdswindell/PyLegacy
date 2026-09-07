@@ -466,6 +466,14 @@ class KeypadView(Generic[S]):
             is_ops=True,
         )
 
+        # Which way the switch is thrown, and whether the route is active, are signaled by
+        # color (see EngineGui.on_new_switch and on_new_route), and a color on a button's face
+        # is not something macOS paints, so the border carries it (see HoldButton.border_color).
+        # These keys are sized in characters and clipped to their cells, so the border costs
+        # the keypad no room.
+        for pb in (host.fire_route_btn, host.switch_thru_btn, host.switch_out_btn):
+            pb.border_thickness = host.border_size
+
         # switch Set Address key; the aux Set key at the same slot only ever renders on the
         # generic accessory panel, so the two cannot be on screen at once.
         host.sw_set_cell, host.sw_set_btn = make_key(

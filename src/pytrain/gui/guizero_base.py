@@ -271,6 +271,12 @@ class GuiZeroBase(Thread, ABC):
         self.button_size = int(round(self.width / button_divisor))
         self.titled_button_size = int(round((self.width / button_divisor) * 0.80))
 
+        # How thick a button's colored border is drawn, for the buttons that signal state
+        # with a color: the border is all of that color macOS shows (see
+        # HoldButton.border_color). Thick enough to read at arm's length on a touchscreen,
+        # capped so scaling a display up does not turn the cue into a frame.
+        self.border_size = min(5, max(2, int(round(3 * scale_by))))
+
         # prod info support
         self._prod_info_cache = {}
         self._pending_prod_infos = set()
@@ -777,14 +783,20 @@ class GuiZeroBase(Thread, ABC):
 
     @staticmethod
     def add_hover_action(btn: Widget, hover_color: str = "#e0e0e0", background: str = "#f7f7f7") -> None:
+        # The background goes through the widget rather than straight to tk so that a button
+        # carrying a colored border repaints it to match (see HoldButton.border_color). That
+        # matters wherever the background is a state cue -- the switch keys, the route key --
+        # because the border is all of it macOS shows. Applied first, as guizero's bg writes
+        # -activebackground too and the hover color owns that one.
+        btn.bg = background
         btn.tk.config(
             borderwidth=3,
             relief="raised",
-            highlightthickness=1,
-            highlightbackground="black",
             activebackground=hover_color,
-            background=background,
         )
+        if not getattr(btn, "border_thickness", 0):
+            # No colored border to leave alone, so the plain outline these have always worn.
+            btn.tk.config(highlightthickness=1, highlightbackground="black")
 
     def sizeof(self, widget: Widget) -> tuple[int, int]:
         return self.size_cache.get(widget, None) or (widget.tk.winfo_reqwidth(), widget.tk.winfo_reqheight())

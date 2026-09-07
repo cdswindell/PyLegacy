@@ -148,6 +148,8 @@ def make_button(enabled: bool, *, text: str = "Hold") -> DummyHoldButton:
     button._normal_fg = "black"
     button._normal_text_bg = "white"
     button._normal_text_fg = "black"
+    button._border_thickness = 0
+    button._border_color = None
     button._normal_img = None
     button._inverted_img = None
     button._hover_normal_bg = None
@@ -1049,3 +1051,137 @@ def test_an_absent_or_empty_callback_is_a_no_op() -> None:
     # callback for a phase reaches here on every press.
     for empty in (None, (), []):
         HoldButton._invoke_callback(empty)
+
+
+def test_a_button_has_no_border_until_a_thickness_is_asked_for() -> None:
+    # Every keypad button goes through the bg setter, and a border must not appear on one
+    # whose cell made no room for it.
+    button = make_button(enabled=True)
+
+    button.border_color = "green"
+    button.bg = "green"
+
+    assert button.border_thickness == 0
+    assert button.border_color is None
+    assert "highlightthickness" not in button.tk.values
+
+
+def test_asking_for_a_thickness_paints_the_border_in_the_color_already_worn() -> None:
+    # HALT is built red and given its border afterwards, so the border has to pick the red
+    # up rather than leave the button looking unpainted.
+    button = make_button(enabled=True)
+    button._normal_bg = "red"
+
+    button.border_thickness = 3
+
+    assert button.border_color == "red"
+    assert button.tk.cget("highlightthickness") == 3
+    assert button.tk.cget("highlightbackground") == "red"
+    # Both colors, so the border keeps its own whether or not the button has the focus.
+    assert button.tk.cget("highlightcolor") == "red"
+
+
+def test_a_border_falls_back_to_the_face_tk_reports() -> None:
+    # A button whose color was applied straight to tk, never through the bg setter.
+    button = make_button(enabled=True)
+    button._normal_bg = None
+    button.tk.config(background="lightgrey")
+
+    button.border_thickness = 2
+
+    assert button.border_color == "lightgrey"
+
+
+def test_setting_the_face_color_repaints_the_border_to_match() -> None:
+    # The selected scope, and the speed in force, are both signaled by setting bg alone.
+    button = make_button(enabled=True)
+    button.border_thickness = 3
+
+    button.bg = "green"
+
+    assert button.border_color == "green"
+    assert button.tk.cget("highlightbackground") == "green"
+    assert button.tk.cget("highlightcolor") == "green"
+    # The face is still asked for the color it will not paint on a Mac, because X11 does.
+    assert button.tk.cget("background") == "green"
+
+
+def test_deselecting_returns_the_border_to_the_unselected_color() -> None:
+    # White on the white the panel is drawn on, so the cue reads as absent rather than as
+    # some other color.
+    button = make_button(enabled=True)
+    button.border_thickness = 3
+    button.bg = "green"
+
+    button.bg = "white"
+
+    assert button.border_color == "white"
+    assert button.tk.cget("highlightbackground") == "white"
+
+
+def test_dropping_the_thickness_takes_the_border_away_for_good() -> None:
+    button = make_button(enabled=True)
+    button.border_thickness = 3
+
+    button.border_thickness = 0
+    button.bg = "green"
+
+    assert button.border_thickness == 0
+    assert button.border_color is None
+    assert button.tk.cget("highlightthickness") == 0
+
+
+def test_a_thickness_below_zero_is_no_border_rather_than_an_error() -> None:
+    button = make_button(enabled=True)
+
+    button.border_thickness = -4
+
+    assert button.border_thickness == 0
+
+
+def test_the_border_is_left_alone_when_there_is_no_color_to_paint_it() -> None:
+    button = make_button(enabled=True)
+    button.border_thickness = 3
+    button.bg = "green"
+
+    button.border_color = None
+
+    assert button.border_color == "green"
+
+
+def test_a_torn_down_window_does_not_take_the_border_setter_down_with_it() -> None:
+    button = make_button(enabled=True)
+    button.border_thickness = 3
+
+    def gone(**_kwargs):
+        raise mod.TclError("application has been destroyed")
+
+    button.tk.config = gone
+
+    button.border_color = "green"
+
+    assert button.border_color == "green"
+
+
+def test_macos_is_reported_as_not_painting_a_button_face() -> None:
+    # The whole reason the border carries the cue at all.
+    widget = SimpleNamespace(tk=SimpleNamespace(call=lambda *_args: "aqua"))
+
+    assert mod.paints_button_background(widget) is False
+
+
+@pytest.mark.parametrize("windowing_system", ["x11", "win32"])
+def test_every_other_windowing_system_paints_a_button_face(windowing_system) -> None:
+    widget = SimpleNamespace(tk=SimpleNamespace(call=lambda *_args: windowing_system))
+
+    assert mod.paints_button_background(widget) is True
+
+
+def test_a_face_is_assumed_painted_when_the_question_cannot_be_asked() -> None:
+    # A window already torn down, or a stand-in with no interpreter behind it: the Pi's
+    # behavior is the one to fall back on.
+    def gone(*_args):
+        raise mod.TclError("application has been destroyed")
+
+    assert mod.paints_button_background(SimpleNamespace(tk=object())) is True
+    assert mod.paints_button_background(SimpleNamespace(tk=SimpleNamespace(call=gone))) is True

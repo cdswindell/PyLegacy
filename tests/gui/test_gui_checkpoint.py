@@ -255,6 +255,9 @@ def _new_host(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> Simp
     host.button_size = 96
     host.slider_height = 320
     host.grid_pad_by = 2
+    # GuiZeroBase.border_size: how thick a colored border is drawn on the keys that signal
+    # state with a color -- the switch pair and the route key.
+    host.border_size = 3
     host.emergency_box_width = 180
     host.sensor_track_row_pady = 6
     for name in ("s_10", "s_12", "s_16", "s_18", "s_19", "s_22", "s_24", "s_30"):

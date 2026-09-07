@@ -60,7 +60,7 @@ class PyCabPanelGui(EngineGui):
     def run_window(self) -> None:
         """Own the Tk event loop on the calling thread, which must be the main thread."""
         if current_thread() is not main_thread():
-            raise RuntimeError("CabPanelGui.run_window() must be called on the main thread")
+            raise RuntimeError("PyCabPanelGui.run_window() must be called on the main thread")
         self.run()
 
     def _on_synchronized(self) -> None:

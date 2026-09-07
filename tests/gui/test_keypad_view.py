@@ -134,6 +134,8 @@ class DummyButton(DummyWidget):
         super().__init__(*_args, **kwargs)
         self.text = kwargs.get("text")
         self.image = kwargs.get("image")
+        # As HoldButton: no colored border until a caller asks for one.
+        self.border_thickness = 0
         self.on_press = None
         self.on_repeat = None
         self.on_hold = None
@@ -276,6 +278,9 @@ def _new_host() -> SimpleNamespace:
     host.button_size = 96
     host.slider_height = 320
     host.grid_pad_by = 2
+    # GuiZeroBase.border_size: how thick a colored border is drawn on the keys that signal
+    # state with a color -- the switch pair and the route key.
+    host.border_size = 3
     host.emergency_box_width = 180
     host.sensor_track_row_pady = 6
     host.s_22 = 22
@@ -776,6 +781,41 @@ def test_external_accessory_throttle_update_repaints_slider() -> None:
 
     assert host.acc_throttle.value == -2
     assert host.acc_throttle_level.value == "-2"
+
+
+# ---------------------------------------------------------------------------
+# The colored border on the keys whose state is signaled by color
+# ---------------------------------------------------------------------------
+
+
+def test_the_switch_and_route_keys_are_given_a_border_to_carry_their_color() -> None:
+    # Which way the switch is thrown, and whether the route is active, are shown by setting
+    # each key's background (EngineGui.on_new_switch and on_new_route, through
+    # add_hover_action) -- and a color on a button's face is not something macOS paints, so
+    # the border is what shows there. Set at build time because the color is set repeatedly
+    # afterwards and the thickness has no business changing with it.
+    host = _new_host()
+
+    mod.KeypadView(host).build()
+
+    for btn in (host.fire_route_btn, host.switch_thru_btn, host.switch_out_btn):
+        assert btn.border_thickness == host.border_size, btn.text
+
+
+def test_no_other_keypad_key_wears_a_border() -> None:
+    # The rest of the pad never changes color, and every cell is sized to its key: a border
+    # on one would be chrome the layout did not budget for.
+    host = _new_host()
+
+    mod.KeypadView(host).build()
+
+    colored = {"fire_route_btn", "switch_thru_btn", "switch_out_btn"}
+    bordered = [
+        name
+        for name, btn in vars(host).items()
+        if isinstance(btn, DummyButton) and btn.border_thickness and name not in colored
+    ]
+    assert bordered == []
 
 
 # ---------------------------------------------------------------------------

@@ -674,6 +674,79 @@ def test_the_trim_never_leaves_the_horn_smaller_than_the_bell() -> None:
 
 
 def test_the_trim_still_respects_the_touch_target_floor() -> None:
-    # Both floors apply; whichever is higher wins.
     assert mod.freight_horn_after_trim(bell=4, horn=20, trim=100) == mod.FREIGHT_PAIR_MIN
     assert mod.freight_horn_after_trim(bell=60, horn=70, trim=100) == 60
+
+
+# ---------------------------------------------------------------------------
+# The colored border on the direction keys (_setup_controller_behaviors)
+# ---------------------------------------------------------------------------
+
+_BORDER = 3  # what the host would answer for border_size; the setup only passes it along
+
+
+class _OpsButton:
+    """A HoldButton double: what the behavior setup sets on one is all this has to hold."""
+
+    def __init__(self) -> None:
+        self.border_thickness = 0
+        self.text_size = None
+        self.on_press = "the command the layout gave it"
+        self.on_repeat = None
+        self.on_hold = None
+        self.repeat_interval = None
+        self.hold_threshold = None
+
+    def update_command(self, command, args=None) -> None:
+        self.on_press = (command, args or [])
+
+
+class _OpsCells(dict):
+    """host.engine_ops_cells, answering every op key the setup asks for."""
+
+    def __missing__(self, key):
+        self[key] = (key, _OpsButton())
+        return self[key]
+
+
+# The behavior setup is private and called only from ControllerView's own build.
+# noinspection PyProtectedMember
+def _behaviors() -> tuple[_OpsCells, mod.ControllerView]:
+    cells = _OpsCells()
+    host = SimpleNamespace(s_12=12, border_size=_BORDER, engine_ops_cells=cells)
+    # The hold callbacks are read off the host and stored, never called here.
+    for name in (
+        "on_lights",
+        "on_extra",
+        "on_crew_dialog",
+        "on_conductor_actions",
+        "on_bell_horn_options",
+        "on_steward_dialogs",
+        "on_tower_dialog",
+        "on_station_dialogs",
+        "on_engine_command",
+    ):
+        setattr(host, name, lambda *_args: None)
+    view = mod.ControllerView(host)
+    view._setup_controller_behaviors()
+    return cells, view
+
+
+def test_the_direction_keys_are_given_a_border_to_carry_their_color() -> None:
+    # Which direction is in force is shown by setting each key's background (see the pair set
+    # from throttle_state in ControllerView.update) -- and a color on a button's face is not
+    # something macOS paints, so the border is what shows there.
+    cells, _view = _behaviors()
+
+    for key in (("FORWARD_DIRECTION", "e"), ("REVERSE_DIRECTION", "e")):
+        assert cells[key][1].border_thickness == _BORDER, key
+
+
+def test_no_other_engine_op_key_wears_a_border() -> None:
+    # Every other op key is a plain command whose face never changes color, and each is sized
+    # to its cell: a border on one would be chrome the keypad did not budget for.
+    directions = {("FORWARD_DIRECTION", "e"), ("REVERSE_DIRECTION", "e")}
+    cells, _view = _behaviors()
+
+    bordered = [key for key, (_key, btn) in cells.items() if btn.border_thickness and key not in directions]
+    assert bordered == []

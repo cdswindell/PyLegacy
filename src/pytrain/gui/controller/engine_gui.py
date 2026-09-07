@@ -1471,9 +1471,15 @@ class EngineGui(GuiZeroBase, Generic[S]):
         return self.scope_box
 
     def make_scope(self, app: App):
-        button_height = int(round(40 * self._scale_by))
         scope_box = self.make_scope_box(app)
-        img = tk.PhotoImage(width=self.scope_size, height=button_height)
+        # The selected scope is signaled by color, and a color on a button's face is not
+        # something macOS paints, so the border carries it (see HoldButton.border_color).
+        # It is drawn outside -width/-height, so it comes out of them: the five buttons
+        # are a fifth of the panel each and have no width to spare.
+        border = self.border_size
+        button_width = max(1, self.scope_size - (2 * border))
+        button_height = max(1, int(round(40 * self._scale_by)) - (2 * border))
+        img = tk.PhotoImage(width=button_width, height=button_height)
         self._btn_images.append(img)
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
             scope = CommandScope.by_prefix(scope_abbrev)
@@ -1494,11 +1500,12 @@ class EngineGui(GuiZeroBase, Generic[S]):
             pb.tk.config(
                 image=img,
                 compound="center",
-                width=self.scope_size,
+                width=button_width,
                 height=button_height,
                 padx=0,
                 pady=0,
             )
+            pb.border_thickness = border
             # Make the grid column expand to fill space
             scope_box.tk.grid_columnconfigure(i, weight=1)
             # associate the button with its scope
@@ -2664,6 +2671,13 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if not compact:
             padding_x = self.text_pad_x
             padding_y = self.text_pad_y
+        # HALT is red and Reset is gray, and a color on a button's face is not something
+        # macOS paints, so the border carries it (see HoldButton.border_color). It is drawn
+        # outside the padding, so it comes out of the padding: the row keeps the footprint
+        # the rest of the panel is measured against.
+        border = self.border_size
+        padding_x = max(0, padding_x - border)
+        padding_y = max(0, padding_y - border)
         if getattr(self, "_show_halt", True):
             self.halt_btn = HoldButton(
                 emergency_box,
@@ -2679,6 +2693,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 command=self.on_keypress,
                 args=[HALT_KEY],
             )
+            self.halt_btn.border_thickness = border
             if not compact:
                 _ = Text(emergency_box, text=" ", grid=[1, 1], align="top", size=6, height=1, bold=True)
             reset_col = 2
@@ -2703,6 +2718,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             on_repeat=(self.on_engine_command, ["RESET"]),
             repeat_interval=0.1,
         )
+        self.reset_btn.border_thickness = border
 
         if getattr(self, "_linked_car_transfer", None) is not None:
             self.linked_cars_btn = HoldButton(
@@ -2720,6 +2736,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 enabled=False,
                 command=self.on_linked_cars,
             )
+            self.linked_cars_btn.border_thickness = border
 
         if not compact:
             _ = Text(emergency_box, text=" ", grid=[0, 2, 3, 1], align="top", size=2, height=1, bold=True)

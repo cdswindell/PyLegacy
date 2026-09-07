@@ -30,10 +30,11 @@ class _Widget:
         self.grid_configs = []
         self.grid_columns = []
         self.grid_propagates = []
+        self.tk_configs = []
         self.tk = SimpleNamespace(
             winfo_width=lambda: 600,
             winfo_height=lambda: 100,
-            config=lambda **_kwargs: None,
+            config=lambda **tk_config: self.tk_configs.append(tk_config),
             pack_configure=lambda **config: self.pack_configs.append(config),
             pack_propagate=lambda _value: None,
             grid_propagate=lambda _value: self.grid_propagates.append(_value),
@@ -110,6 +111,7 @@ def test_standalone_emergency_row_keeps_local_halt_and_reset(monkeypatch: pytest
     gui.text_pad_x = 20
     gui.text_pad_y = 20
     gui.s_20 = 30
+    gui.border_size = 3
     gui._scale_factor = 1.0
 
     gui.make_emergency_buttons(app)
@@ -119,15 +121,21 @@ def test_standalone_emergency_row_keeps_local_halt_and_reset(monkeypatch: pytest
         "text": mod.HALT_KEY,
         "grid": [0, 1],
         "align": "top",
+        # The colored border is drawn outside the padding, so it comes out of the
+        # padding: 17 + a 3px border is the 20 the row was laid out with.
+        "padx": 17,
+        "pady": 17,
         "width": 11,
-        "padx": 20,
-        "pady": 20,
         "bg": "red",
         "text_bold": True,
         "text_size": 30,
         "command": gui.on_keypress,
         "args": [mod.HALT_KEY],
     }
+    # HALT is red and Reset gray, and macOS paints neither face, so both wear their
+    # color as a border instead (see HoldButton.border_color).
+    assert gui.halt_btn.border_thickness == 3
+    assert gui.reset_btn.border_thickness == 3
     assert gui.reset_btn.kwargs["text"] == "Reset"
     assert gui.reset_btn.kwargs["enabled"] is False
     assert gui.reset_btn.kwargs["on_press"] == (gui.on_engine_command, ["RESET"])
@@ -308,6 +316,7 @@ def test_embedded_emergency_row_can_hide_halt_without_removing_reset(monkeypatch
     gui.text_pad_y = 20
     gui.s_20 = 30
     gui.s_18 = 27
+    gui.border_size = 3
     gui._scale_factor = 1.0
     gui._show_halt = False
     gui._compact = False
@@ -338,6 +347,7 @@ def test_compact_emergency_row_uses_short_actions_and_minimal_padding(monkeypatc
     gui.text_pad_y = 20
     gui.s_20 = 18
     gui.s_18 = 16
+    gui.border_size = 3
     gui._scale_factor = 1.0
     gui._show_halt = False
     gui._compact = True
@@ -345,10 +355,14 @@ def test_compact_emergency_row_uses_short_actions_and_minimal_padding(monkeypatc
 
     gui.make_emergency_buttons(object())
 
-    assert gui.reset_btn.kwargs["padx"] == 4
-    assert gui.reset_btn.kwargs["pady"] == 4
+    # 1 + a 3px colored border is the 4 the compact row is laid out with, the border
+    # being drawn outside the padding.
+    assert gui.reset_btn.kwargs["padx"] == 1
+    assert gui.reset_btn.kwargs["pady"] == 1
+    assert gui.reset_btn.border_thickness == 3
     assert gui.linked_cars_btn.kwargs["text"] == "Cars..."
-    assert gui.linked_cars_btn.kwargs["padx"] == 4
+    assert gui.linked_cars_btn.kwargs["padx"] == 1
+    assert gui.linked_cars_btn.border_thickness == 3
     assert [widget.kwargs.get("text") for widget in widgets].count(" ") == 0
     assert gui.emergency_box.pack_configs == [{"fill": "x", "expand": False}]
     # The emergency box is a grid container, so it must disable grid propagation
@@ -357,6 +371,65 @@ def test_compact_emergency_row_uses_short_actions_and_minimal_padding(monkeypatc
     assert gui.emergency_box.grid_propagates == [False]
     assert gui.reset_btn.grid_configs == [{"sticky": "ew"}]
     assert gui.linked_cars_btn.grid_configs == [{"sticky": "ew"}]
+
+
+def test_scope_row_wears_its_color_as_a_border_without_taking_more_room(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The selected scope is signaled by color alone, which macOS will not paint on a
+    # button's face, so the border carries it. Each button is a fifth of the panel and the
+    # border is drawn outside its -width/-height, so the pixels have to come out of them:
+    # five borders' worth of growth would push the row past the panel.
+    widgets: list[_Widget] = []
+    images: list[SimpleNamespace] = []
+
+    def make_widget(master, **kwargs):
+        widget = _Widget(master, **kwargs)
+        widgets.append(widget)
+        return widget
+
+    def make_image(**kwargs):
+        image = SimpleNamespace(**kwargs)
+        images.append(image)
+        return image
+
+    monkeypatch.setattr(mod, "Box", make_widget)
+    monkeypatch.setattr(mod, "HoldButton", make_widget)
+    monkeypatch.setattr(mod.tk, "PhotoImage", make_image)
+    selected: list[CommandScope] = []
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui.scope_box = None
+    gui.scope_size = 96  # a 480 wide panel, five scopes across
+    gui._scale_by = 1.0
+    gui.border_size = 3
+    gui.s_18 = 18
+    gui._btn_images = []
+    gui._scope_buttons = {}
+    gui._scope_tmcc_ids = {}
+    gui.scope = CommandScope.ENGINE
+    gui.on_scope = lambda selection: selected.append(selection)
+
+    gui.make_scope(object())
+
+    assert set(gui._scope_buttons) == {
+        CommandScope.ACC,
+        CommandScope.SWITCH,
+        CommandScope.ROUTE,
+        CommandScope.TRAIN,
+        CommandScope.ENGINE,
+    }
+    for scope, button in gui._scope_buttons.items():
+        assert button.border_thickness == 3, scope
+        (config,) = button.tk_configs
+        # 90 + two 3px borders is the 96 the row was laid out with, and 34 + two the 40.
+        assert config["width"] == 90, scope
+        assert config["height"] == 34, scope
+        # The blank image is what sizes the button in pixels, so it has to match the face
+        # the border leaves rather than the one it was drawn around.
+        assert config["image"] is images[0]
+    assert [(image.width, image.height) for image in images] == [(90, 34)]
+    # Still ends by highlighting the scope in force, which is what paints the border.
+    assert selected == [CommandScope.ENGINE]
 
 
 def test_compact_info_text_expands_vertically_within_road_fields(monkeypatch: pytest.MonkeyPatch) -> None:

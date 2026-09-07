@@ -12,6 +12,7 @@ from guizero import Box
 
 from .engine_gui_conf import RR_SPEED_LAYOUT
 from .overlay_panel import OverlayPanel
+from ..components.hold_button import paints_button_background
 from ...db.engine_state import EngineState
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -63,9 +64,16 @@ class RrSpeedPanel(OverlayPanel):
 
                 cell.tk.config(width=width)
                 nb.tk.config(width=width)
+                # The speed in force is signaled by color, and a color on a button's face
+                # is not something macOS paints, so the border carries it (see
+                # HoldButton.border_color). The cell is a fixed size the button is already
+                # clipped to, so the border costs the layout nothing here.
+                nb.border_thickness = host.border_size
 
                 if label.startswith("Emergency"):
-                    nb.text_color = "white"
+                    # White reads against a red face, and against nothing at all where
+                    # macOS draws its own face and puts the red in the border instead.
+                    nb.text_color = "white" if paints_button_background(nb) else "red"
                     nb.bg = "red"
                 else:
                     self._rr_speed_btns.add(nb)

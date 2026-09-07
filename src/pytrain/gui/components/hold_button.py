@@ -29,6 +29,10 @@ LEAVE_SLOP_PX = 16
 # Long enough to swallow jitter, short enough that a deliberate drag-off feels immediate.
 LEAVE_CONFIRM_MS = 150
 
+# The windowing system that hands a Button to a native bezel, so Tk never fills in its
+# -background; see paints_button_background, below.
+_AQUA = "aqua"
+
 # Every diagnostic in this module starts with this, so a session log can be filtered to
 # just the hold lifecycle: grep "holdbtn" pytrain.log
 DIAG = "holdbtn"
@@ -41,6 +45,24 @@ DIAG = "holdbtn"
 DIAG_VERBOSE = False
 
 
+def paints_button_background(widget) -> bool:
+    """Whether Tk fills in a Button's background color on this display.
+
+    False under macOS Aqua: Tk hands a Button to the native bezel there, which draws its
+    own face and ignores -background, so a color set on the face never reaches the screen
+    (measured on Tk 9.0.4). A color cue therefore has to be carried by something Aqua does
+    draw -- the border, see HoldButton.border_color -- and a label colored to read against
+    the face it was expected to sit on has to be reconsidered.
+
+    Answers True if the question cannot be asked, so a widget with no live interpreter
+    behind it (a torn-down window, a test double) is treated as an ordinary X11 button.
+    """
+    try:
+        return str(widget.tk.call("tk", "windowingsystem")) != _AQUA
+    except (AttributeError, TclError, RuntimeError):
+        return True
+
+
 # noinspection unused-parameter
 class HoldButton(PushButton):
     """
@@ -48,6 +70,8 @@ class HoldButton(PushButton):
       - on_press → single short tap, or fired when held if no hold/repeat defined
       - on_hold → single fire after hold_threshold seconds
       - on_repeat → continuous fire while held
+      - border_color → a colored border that follows bg, so a state cue drawn as a
+        background color is still visible where Tk will not paint one (see border_color)
 
     Each callback can be:
         func
@@ -102,6 +126,11 @@ class HoldButton(PushButton):
         self._normal_fg: str | None = None
         self._normal_text_bg: str | None = None
         self._normal_text_fg: str | None = None
+
+        # colored border; off until a caller asks for one (see border_color). Set before
+        # the parent is initialized, because applying bg below already paints it.
+        self._border_thickness: int = 0
+        self._border_color: str | None = None
 
         self._normal_img = None
         self._inverted_img = None
@@ -236,6 +265,65 @@ class HoldButton(PushButton):
         with self._cv:
             PushButton.bg.fset(self, value)
             self._normal_bg = self._normal_text_bg = value
+            # The face and its border say the same thing, so the border follows it.
+            self.border_color = value
+
+    # ───────────────────────────────
+    # Colored border
+    # ───────────────────────────────
+    @property
+    def border_thickness(self) -> int:
+        """How thick the colored border is, in pixels; zero for a button without one."""
+        return self._border_thickness
+
+    @border_thickness.setter
+    def border_thickness(self, value: int) -> None:
+        with self._cv:
+            self._border_thickness = max(0, int(value))
+            if self._border_thickness:
+                # Painted in the color the button already wears, so one given its border
+                # after construction shows what it was built with rather than nothing.
+                self.border_color = self._normal_bg or self._safe_tk_bg()
+            else:
+                self._border_color = None
+                try:
+                    self.tk.config(highlightthickness=0)
+                except TclError:
+                    pass
+
+    @property
+    def border_color(self) -> str | None:
+        """The color of the button's border, or None while it has none to color.
+
+        This is how a color cue survives macOS. Tk draws a Button through the native Aqua
+        bezel, which ignores -background, so a green "selected" face is simply never
+        painted there -- but the border is, in whatever color it is given. Setting bg
+        paints the border to match, so the cue follows the face without a platform test:
+        on X11 the two are the same color and the border disappears into the face, leaving
+        the Pi's look untouched, while on a Mac the border is the whole of what shows.
+
+        Only a button given a border_thickness has a border; assignment is ignored
+        otherwise, so one never appears where the layout made no room for it. The border
+        is drawn outside the button's -width/-height and padding, so whoever asks for one
+        is the one who has to make that room.
+        """
+        return self._border_color
+
+    @border_color.setter
+    def border_color(self, value: str | None) -> None:
+        with self._cv:
+            if not self._border_thickness or not value:
+                return
+            self._border_color = value
+            try:
+                # Both, so the border keeps its color whether or not the button has focus.
+                self.tk.config(
+                    highlightthickness=self._border_thickness,
+                    highlightbackground=value,
+                    highlightcolor=value,
+                )
+            except TclError:
+                pass
 
     # ───────────────────────────────
     # Properties for dynamic callbacks
