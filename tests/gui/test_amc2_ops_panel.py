@@ -41,6 +41,7 @@ class _DummyTk:
 class _DummyWidget:
     def __init__(self, *_args: Any, **kwargs: Any) -> None:
         self.tk = _DummyTk()
+        self.master = _args[0] if _args else None
         self.visible = kwargs.get("visible", True)
         self.grid = kwargs.get("grid")
         self.bg = kwargs.get("bg", "white")
@@ -96,6 +97,8 @@ class DummyCheckBoxGroup(_DummyWidget):
         super().__init__(*_args, **kwargs)
         self.value = kwargs.get("selected", "0")
         self.command = kwargs.get("command")
+        self.anchor = kwargs.get("anchor", "w")
+        self.row_width = kwargs.get("width")
 
 
 class DummyMotor:
@@ -129,6 +132,11 @@ class DummyAccessoryState:
     @staticmethod
     def is_motor_on(motor: DummyMotor) -> bool:
         return motor.speed > 0
+
+
+def _measurable(width: int):
+    """A widget that answers with the width it has been given, as Tk does once it is on screen."""
+    return SimpleNamespace(tk=SimpleNamespace(winfo_width=lambda: width))
 
 
 def _new_host(state: DummyAccessoryState):
@@ -228,19 +236,22 @@ def test_external_light_zero_sets_button_and_trough_off() -> None:
     assert output.slider.tk._config["troughcolor"] == "lightgrey"
 
 
-def test_the_nav_keys_stand_in_a_column_past_the_last_slider() -> None:
+def test_the_nav_keys_stand_in_a_column_of_the_panel_beside_the_sliders() -> None:
     state = DummyAccessoryState()
     host = _new_host(state)
     panel = mod.Amc2OpsPanel(host)
     panel.build(DummyBox())
 
-    max_cols = max(len(outputs) for _, outputs in mod.PAGE_LAYOUT)
-    # Past the widest page, so the column is at the right edge on both pages.
-    assert panel._nav_box.grid == [max_cols, 0]
+    # A column of the panel, spanning the header row and the sliders' row both, so nothing of
+    # the selector is drawn above the keys and they read as a column of their own rather than
+    # as something the Lights option leads to.
+    assert panel._nav_box.master is panel._root
+    assert panel._nav_box.grid == [mod.NAV_COLUMN, 0, 1, 2]
+    assert panel._header.grid == [mod.SLIDER_COLUMN, 0]
+    assert panel._controls.grid == [mod.SLIDER_COLUMN, 1]
     assert [btn.text for btn in panel._nav_buttons.values()] == list(mod.NAV_KEYS)
     assert [btn.grid for btn in panel._nav_buttons.values()] == [[0, 0], [0, 1], [0, 2]]
-    # And the page selector has the header row to itself, where the Acc... key used to be
-    # clipped against the panel border.
+    # And every slider column is the selector's to be laid out over.
     assert panel._page_selector.grid == [0, 0]
 
 
@@ -255,13 +266,87 @@ def test_the_nav_keys_are_exposed_for_the_keypad_to_wire() -> None:
     assert panel.lcs_panel_button.text == mod.LCS_PANEL_KEY
 
 
-def test_the_nav_column_never_claims_more_than_its_share_of_a_narrow_panel() -> None:
+def test_the_nav_column_reserves_everything_its_keys_ask_for() -> None:
     state = DummyAccessoryState()
     host = _new_host(state)
     panel = mod.Amc2OpsPanel(host)
     panel.build(DummyBox())
 
     # Nothing measurable before the first map, so a key's worth of width is assumed.
-    assert panel._nav_column_width(400) == 79
-    # On a narrow panel the sliders keep the rest of it.
-    assert panel._nav_column_width(200) == 56
+    assert panel._nav_column_width() == 79
+
+    panel._nav_box.tk.winfo_width = lambda: 120
+
+    # Once the keys can be measured, all of what they ask for and the gaps either side of
+    # them: a column is given the width it requests whatever it was reserved, so reserving
+    # less would not narrow the keys -- it would push them off the right edge.
+    assert panel._nav_column_width() == 128
+
+
+def test_the_panel_measures_the_display_beside_it_and_never_its_own_contents() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+    host.width = 639
+    host.emergency_box_width = 639
+
+    # Nothing on screen to measure yet, so the width the host was opened at is all there is.
+    assert panel._display_width() == 639
+
+    # Once there is: the scope bar has the room the panel has, with what the display spends on
+    # itself -- a Deck pane's focus border -- already off it. The panel's own box is not asked,
+    # however wide it says it is: what it answers is the width its contents came to, and laying
+    # them out in that again is what walked the navigation keys off the right edge.
+    host.scope_box = _measurable(633)
+    panel._parent.tk.winfo_width = lambda: 999
+    assert panel._display_width() == 633
+
+    # And a neighbor wider than the display cannot take the panel with it.
+    host.image_box = _measurable(999)
+    assert panel._display_width() == 639
+
+
+def test_the_sliders_are_laid_out_in_what_is_left_after_the_borders_and_the_keys() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+
+    # 400 measured, less the panel's border and its container's (8), the gaps at either edge
+    # (16) and the navigation column (79). Handing the columns all 400 is what drew the keys
+    # off the right edge of the display.
+    assert panel._sliders_width(400, 2) == 297
+    # Never below a column's worth apiece, however narrow the panel is said to be.
+    assert panel._sliders_width(120, 2) == 120
+    assert panel._sliders_width(0, 2) == 0
+
+
+def test_each_page_option_is_centered_over_its_half_of_the_sliders() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+
+    # Centered in its share rather than drawn from the left edge of the panel: on the Motors
+    # page a share is one slider column, so "Motors" stands over Motor #1 and "Lights" over
+    # Motor #2.
+    assert panel._page_selector.anchor == "center"
+
+    panel._center_page_selector(panel._sliders_width(400, 2))
+
+    # Half of the 297 the sliders have, less what a painted row adds to the width it is given,
+    # so the two options together are no wider than the sliders under them.
+    assert panel._page_selector.row_width == 142
+
+
+def test_the_page_options_are_left_alone_until_the_panel_has_been_measured() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+    built_with = panel._page_selector.row_width
+
+    panel._center_page_selector(0)
+
+    assert panel._page_selector.row_width == built_with

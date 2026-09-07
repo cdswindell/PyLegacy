@@ -206,6 +206,62 @@ def test_a_group_without_the_cursor_is_configured_exactly_as_it_is_today() -> No
     assert row.last["image"].ground == mod.WHITE
 
 
+class DummyFrame:
+    """The group's own frame, as far as decorate_rows reaches its rows through it."""
+
+    def __init__(self, rows: list[DummyRow]) -> None:
+        self._rows = rows
+
+    def winfo_children(self) -> list[DummyRow]:
+        return list(self._rows)
+
+
+# noinspection PyProtectedMember
+def _painted_group(rows: list[DummyRow], width: int | None = 100, anchor: str = "w") -> mod.CheckBoxGroup:
+    """A group that paints its rows and nothing else.
+
+    __new__ rather than a constructor call, as _group is and for the same reason: the parent is
+    guizero's ButtonGroup, which would want a real Tk master.
+    """
+    group = mod.CheckBoxGroup.__new__(mod.CheckBoxGroup)
+    group._tk = DummyFrame(rows)  # what the read-only tk property answers with
+    group._row_size = 20
+    group._dis_width = width
+    group._padx = 18
+    group._pady = 6
+    group._row_style = "radio"
+    group._row_thickness = 2
+    group._row_wrap = 0
+    group._row_anchor = anchor
+    return group
+
+
+def test_a_row_is_drawn_from_its_left_edge_unless_the_group_asks_otherwise() -> None:
+    # Every list in the app is read down its left edge. The AMC2 page selector is the one group
+    # laid over something else -- the sliders its options name -- where what the option names is
+    # under the middle of the row rather than under its start.
+    left, centered = DummyRow("0"), DummyRow("1")
+
+    _painted_group([left]).decorate_rows()
+    _painted_group([centered], anchor="center").decorate_rows()
+
+    assert left.config_calls[0]["anchor"] == "w"
+    assert centered.config_calls[0]["anchor"] == "center"
+
+
+def test_the_rows_are_repainted_at_the_width_the_group_is_handed() -> None:
+    # A caller laying a group out over something else cannot know the width to draw it at until
+    # that something has been measured, which is after the group is built. Repainting rather
+    # than resizing is what keeps the anchor and the indicator with the row.
+    row = DummyRow("0")
+    group = _painted_group([row], width=100)
+
+    group.row_width = 143
+
+    assert group.row_width == 143
+    assert row.config_calls[0]["width"] == 143
+
+
 class DummyRebuiltRow:
     """One row as _rbuttons holds it: a value, and the widget the cursor is armed over.
 

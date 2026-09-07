@@ -44,8 +44,29 @@ PAGE_LAYOUT: list[tuple[str, list[tuple[str, int, str]]]] = [
 # to share the header row with the page selector, where the selector's own width left the last
 # one clipped by the panel border on both the Steam Deck and the Pi. A column of its own is
 # always as wide as its widest label and takes its room from the sliders, which have height to
-# spare and can give up a little width.
+# spare and can give up a little width. It is a column of the panel rather than of the sliders'
+# grid, spanning the header row as well, so the page selector is laid out over the sliders and
+# nothing of it is ever drawn above these keys.
 NAV_KEYS: tuple[str, ...] = (ACC_PANEL_KEY, INFO_KEY, LCS_PANEL_KEY)
+
+# What the panel and the box it sits in spend on their own borders, left and right. Both are
+# built with border=2 -- this panel's root below, its container in KeypadView -- and the width
+# the panel measures is the display area's, borders included. A layout that hands all of it to
+# the columns is over by this much, and what runs off the right edge is the last column: the
+# navigation keys, which is how they came to be clipped on both the Deck and the Pi.
+PANEL_BORDER_PX = 2
+PANEL_CHROME_PX = PANEL_BORDER_PX * 4
+
+# The two columns the panel itself is laid out in: the header and the sliders under it down one,
+# the navigation keys down the other.
+SLIDER_COLUMN = 0
+NAV_COLUMN = 1
+
+# What a painted selector row adds to the width it is handed: its border and highlight ring,
+# either side of it. Six pixels, measured in CheckBoxGroup.stretch_rows -- a row set to 300
+# comes out 306 -- and taken off each option's share here, so the two options together are no
+# wider than the sliders they are laid out over and neither overhangs the navigation column.
+SELECTOR_ROW_CHROME_PX = 6
 
 
 @dataclass(slots=True)
@@ -109,6 +130,9 @@ class Amc2OpsPanel:
 
         self._header = header = Box(root, layout="grid", grid=[0, 0], align="top")
         host_width = int(getattr(host, "width", 0) or max(240, int(getattr(host, "button_size", 100) * 3)))
+        # Half the sliders' width, near enough, until the panel has a display to measure: the
+        # navigation column has yet to be built, so what is left for the sliders is a guess.
+        # _center_page_selector settles it against the measured panel on the first layout pass.
         selector_width = max(8, int((getattr(host, "emergency_box_width", 0) or host_width) / 2.3))
         self._page_selector = CheckBoxGroup(
             header,
@@ -119,6 +143,9 @@ class Amc2OpsPanel:
             horizontal=True,
             align="top",
             width=selector_width,
+            # Each option centered in its share of the sliders' width rather than drawn from
+            # the left edge of it, so "Motors" stands over Motor #1 and "Lights" over Motor #2.
+            anchor="center",
             padx=10,
             pady=max(4, int(round(6 * host.scale_by))),
             style="radio",
@@ -149,21 +176,22 @@ class Amc2OpsPanel:
                 )
                 self._outputs[(output_type, output_id)] = output
 
-        self._build_nav_column(controls, col=max_cols)
+        self._build_nav_column(root)
         self._set_page(0)
         return root
 
-    def _build_nav_column(self, parent: Box, col: int) -> None:
-        """The Acc.../Info/LCS... keys, in a column of their own to the right of the sliders.
+    def _build_nav_column(self, parent: Box) -> None:
+        """The Acc.../Info/LCS... keys, in a column of their own beside the sliders.
 
-        Placed in the controls grid rather than the header so the column is sized by its own
-        widest label and the sliders give up the width, which is the one dimension they have to
-        spare. The column sits past the last output column, so it stays hard against the right
-        edge on both the two-slider Motors page and the four-slider Lights page. Commands are
-        left to KeypadView, as with every other key that leaves a panel.
+        A column of the panel rather than of the sliders' grid, spanning the header row and the
+        controls row both: the header then reaches only as far as the sliders it names, so the
+        page selector cannot be laid over these keys and they cannot be mistaken for something
+        the Lights option leads to. It is sized by its own widest label and the sliders give up
+        the width, which is the one dimension they have to spare. Commands are left to
+        KeypadView, as with every other key that leaves a panel.
         """
         host = self._host
-        self._nav_box = nav_box = Box(parent, layout="grid", grid=[col, 0], align="top")
+        self._nav_box = nav_box = Box(parent, layout="grid", grid=[NAV_COLUMN, 0, 1, 2], align="top")
         label_width = max(len(label) for label in NAV_KEYS)
         for row, label in enumerate(NAV_KEYS):
             btn = HoldButton(
@@ -182,15 +210,34 @@ class Amc2OpsPanel:
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
         try:
-            # Stretched over the full height of the controls row, with the keys spread down it:
-            # they are touch targets, and the sliders leave the column far more height than the
-            # three of them need.
-            parent.tk.grid_rowconfigure(0, weight=1)
-            parent.tk.grid_columnconfigure(col, weight=0)
-            nav_box.tk.grid_configure(sticky="nsew", padx=max(2, int(round(4 * host.scale_by))))
             nav_box.tk.grid_columnconfigure(0, weight=1)
             for row in range(len(NAV_KEYS)):
                 nav_box.tk.grid_rowconfigure(row, weight=1)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
+        self._pin_nav_column()
+
+    def _pin_nav_column(self) -> None:
+        """Hold the navigation column against the right edge, over the panel's full height.
+
+        The keys are touch targets and the sliders leave the column far more height than the
+        three of them need, so they are spread down it rather than stacked at the top. Weight 0
+        on the column and 1 on the sliders' beside it means what a narrow display costs comes
+        off the sliders, which have width to give, rather than off a key.
+
+        Re-applied on every layout pass rather than set once: guizero re-grids a container's
+        children whenever one of them is shown or hidden -- which is what turning the page does
+        -- and sticky and padding are not among the options it records.
+        """
+        root_tk = getattr(self._root, "tk", None)
+        nav_tk = getattr(self._nav_box, "tk", None)
+        if root_tk is None or nav_tk is None:
+            return
+        try:
+            root_tk.grid_columnconfigure(SLIDER_COLUMN, weight=1)
+            root_tk.grid_columnconfigure(NAV_COLUMN, weight=0)
+            root_tk.grid_rowconfigure(1, weight=1)
+            nav_tk.grid_configure(sticky="nsew", padx=self._nav_column_pad())
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
@@ -313,6 +360,26 @@ class Amc2OpsPanel:
         return max(values) if values else None
 
     @staticmethod
+    def _measure_widget_actual_w(widget) -> int | None:
+        """The width a widget *has*, never the width it asks for.
+
+        The two are the same thing everywhere except where the asking is this panel's own: a
+        box laid out around content too wide for it reports the content's width as the width it
+        requests, so a panel that measures itself and then lays itself out in what it measured
+        grows by its own overflow on every pass. That is the loop that walked the navigation
+        keys off the right edge; see _display_width.
+        """
+        tk_widget = getattr(widget, "tk", None)
+        method = getattr(tk_widget, "winfo_width", None) if tk_widget is not None else None
+        if method is None:
+            return None
+        try:
+            value = int(method())
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            return None
+        return value if value > 1 else None
+
+    @staticmethod
     def _measure_widget_req_h(widget) -> int | None:
         tk_widget = getattr(widget, "tk", None)
         if tk_widget is None:
@@ -399,17 +466,90 @@ class Amc2OpsPanel:
         available = bottom - top
         return available if available > 0 else None
 
-    def _nav_column_width(self, panel_w: int) -> int:
+    def _display_width(self) -> int:
+        """How much width the panel has to lay itself out in.
+
+        Read off the display rather than off the panel. Neither this panel nor the box it sits
+        in is asked, on purpose: what they answer is what their own contents came to, so laying
+        the contents out in that again widens them further on every pass -- the loop that drew
+        the navigation keys off the right edge. See _measure_widget_actual_w.
+
+        What is asked is the widest of the things laid out beside the panel -- the scope bar,
+        the accessory image, the keypad the panel replaces -- because each of them is given the
+        room the panel is given, with whatever the display spends on itself already taken off:
+        a Deck pane is 639px wide and 627px of that is inside its focus border. The width the
+        host was opened at caps that rather than replacing it, so a neighbor that has grown
+        wider than the display cannot take the panel with it, and stands in for it entirely
+        before there is anything on screen to measure.
+        """
+        host = self._host
+        declared = [
+            int(getattr(host, "emergency_box_width", 0) or 0),
+            int(getattr(host, "width", 0) or 0),
+        ]
+        declared = [value for value in declared if value > 1]
+        measured = [
+            self._measure_widget_actual_w(getattr(host, "scope_box", None)),
+            self._measure_widget_actual_w(getattr(host, "image_box", None)),
+            self._measure_widget_actual_w(getattr(host, "keypad_box", None)),
+        ]
+        measured = [value for value in measured if value and value > 1]
+        if measured and declared:
+            return min(max(measured), max(declared))
+        if measured:
+            return max(measured)
+        return max(declared) if declared else 0
+
+    def _nav_column_pad(self) -> int:
+        """The gap either side of the navigation column, holding it off the sliders."""
+        return max(2, int(round(4 * self._host.scale_by)))
+
+    def _nav_column_width(self) -> int:
         """How much width the navigation column takes off the sliders.
 
-        What the column asks for, held to a share of the panel so it can never crowd the
-        sliders out on a narrow display; before the first map there is nothing to measure, so
-        a key's worth of width is assumed.
+        Everything it asks for, and the gaps either side of it. Deliberately not held to a
+        share of the panel: a column is given the width it requests whatever minsize it was
+        configured with, so reserving less than that does not make the keys narrower -- it only
+        leaves the sliders holding width the keys are about to take, and the difference is what
+        goes off the right edge. Before the first map there is nothing to measure, so a key's
+        worth of width is assumed.
         """
         measured = self._measure_widget_w(self._nav_box)
         if measured is None:
-            measured = max(48, int(round(self._host.button_size * 0.72)))
-        return min(measured, max(48, int(panel_w * 0.28)))
+            return max(48, int(round(self._host.button_size * 0.72)))
+        return measured + self._nav_column_pad() * 2
+
+    def _sliders_width(self, panel_w: int, page_cols: int) -> int:
+        """How much of the panel the sliders, and the selector over them, are laid out in.
+
+        What is left of the measured width once the borders the panel is drawn inside, the gaps
+        at its edges and the navigation column have taken theirs. Dividing the whole measured
+        width among the columns is what drew the last of them off the right edge of the display
+        on both the Deck and the Pi; see PANEL_CHROME_PX.
+        """
+        if panel_w <= 0:
+            return 0
+        side_pad = int(round(8 * self._host.scale_by))
+        floor = page_cols * 60
+        return max(floor, panel_w - PANEL_CHROME_PX - (side_pad * 2) - self._nav_column_width())
+
+    def _center_page_selector(self, sliders_w: int) -> None:
+        """Give each page option an equal share of the sliders' width, centered in it.
+
+        The selector names what is under it, so it is laid out over the same width the sliders
+        are and divided the same way -- two options, two halves. On the Motors page a half is
+        one slider column, so "Motors" comes to stand over Motor #1 and "Lights" over Motor #2
+        rather than both of them starting at the left edge of the panel, one of them over the
+        navigation keys. The centering itself is the row's own anchor; see CheckBoxGroup.
+        """
+        selector = self._page_selector
+        if selector is None or sliders_w <= 0:
+            return
+        share = int(sliders_w / max(1, len(PAGE_OPTS))) - SELECTOR_ROW_CHROME_PX
+        try:
+            selector.row_width = max(8, share)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     def _apply_available_layout(self) -> None:
         if self._root is None or self._controls is None:
@@ -424,25 +564,22 @@ class Amc2OpsPanel:
         max_cols = max(len(outputs) for _, outputs in PAGE_LAYOUT)
 
         panel_h = max(120, available)
-        width_candidates = [
-            self._measure_widget_w(self._parent),
-            self._measure_widget_w(self._root),
-            self._measure_widget_w(getattr(self._host, "scope_box", None)),
-            self._measure_widget_w(getattr(self._host, "image_box", None)),
-            self._measure_widget_w(getattr(self._host, "keypad_box", None)),
-            int(getattr(self._host, "emergency_box_width", 0) or 0),
-            int(getattr(self._host, "width", 0) or 0),
-        ]
-        width_candidates = [value for value in width_candidates if value and value > 1]
-        panel_w = max(width_candidates) if width_candidates else 0
-        for box in (self._parent, self._root):
+        panel_w = self._display_width()
+        nav_w = self._nav_column_width() if panel_w > 0 else 0
+        # What is left for the sliders -- and what the page selector is laid out over, so an
+        # option stands over the slider it names rather than over the navigation keys.
+        sliders_w = self._sliders_width(panel_w, page_cols)
+        # Each box inside the border of the one before it, so the panel ends where the display
+        # does: the container across the width the display has, the root inside the container's
+        # border, and the columns, narrower again by the gaps at the edges, inside the root's.
+        for box, box_w in ((self._parent, panel_w), (self._root, panel_w - PANEL_CHROME_PX)):
             tk_widget = getattr(box, "tk", None)
             if tk_widget is None:
                 continue
             try:
                 cfg = {"height": panel_h}
-                if panel_w > 0:
-                    cfg["width"] = panel_w
+                if box_w > 0:
+                    cfg["width"] = box_w
                 tk_widget.config(**cfg)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
@@ -461,29 +598,30 @@ class Amc2OpsPanel:
         if controls_tk is not None:
             try:
                 cfg = {"height": controls_h}
-                if panel_w > 0:
-                    cfg["width"] = panel_w
+                if sliders_w > 0:
+                    cfg["width"] = sliders_w
                 controls_tk.config(**cfg)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
 
         if controls_tk is not None and panel_w > 0:
-            side_pad = int(round(8 * sb))
-            nav_w = self._nav_column_width(panel_w)
-            usable_w = max(page_cols * 60, panel_w - (side_pad * 2) - nav_w)
-            col_w = max(58, int(usable_w / page_cols))
+            col_w = max(58, int(sliders_w / page_cols))
             for col in range(max_cols):
                 min_size = col_w if col < page_cols else 0
                 try:
                     controls_tk.grid_columnconfigure(col, weight=1, minsize=min_size)
                 except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                     continue
+            root_tk = getattr(self._root, "tk", None)
             try:
-                # The output columns share what is left over; the navigation column keeps the
-                # width it asked for, so its keys are never the ones that get clipped.
-                controls_tk.grid_columnconfigure(max_cols, weight=0, minsize=nav_w)
+                # The sliders share what is left over; the navigation column keeps the width it
+                # asked for, so its keys are never the ones that get clipped.
+                root_tk.grid_columnconfigure(SLIDER_COLUMN, weight=1, minsize=sliders_w)
+                root_tk.grid_columnconfigure(NAV_COLUMN, weight=0, minsize=nav_w)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
+            self._pin_nav_column()
+            self._center_page_selector(sliders_w)
         else:
             col_w = max(58, int(round(self._host.button_size * 0.9)))
 

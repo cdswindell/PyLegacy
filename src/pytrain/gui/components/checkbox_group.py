@@ -197,6 +197,7 @@ class CheckBoxGroup(ButtonGroup):
         check_color: str = LIONEL_BLUE,
         background: str = WHITE,
         wrap: int = 0,
+        anchor: str = "w",
     ) -> None:
         # GuiZero CheckBox wraps Tk Checkbutton
         if isinstance(widget, CheckBox):
@@ -208,7 +209,7 @@ class CheckBoxGroup(ButtonGroup):
             "font": (ROW_FONT, size),
             "padx": padx,
             "pady": pady,
-            "anchor": "w",
+            "anchor": anchor,
             "width": width,
         }
         if wrap:
@@ -251,6 +252,7 @@ class CheckBoxGroup(ButtonGroup):
         stretch: bool = False,
         row_leads: Mapping[str, int] = None,
         wrap: int = 0,
+        anchor: str = "w",
         **kwargs,
     ):
         # Recorded before the parent class is initialized, because it builds the rows from its
@@ -263,6 +265,11 @@ class CheckBoxGroup(ButtonGroup):
         self._row_thickness = thickness
         self._stretch = stretch
         self._row_wrap = int(wrap or 0)
+        # Where a row's contents sit in the width it is given. "w" for every list in the app:
+        # a column of options is read down its left edge, and one that is not read that way is
+        # a row of them laid over something else -- the AMC2 page selector over its sliders --
+        # where what the option names is under the middle of it rather than under its start.
+        self._row_anchor = anchor
         self._row_leads = self._as_leads(row_leads)
         # The tinted row, named here rather than only in _init_cursor: a group without a cursor
         # never gets that far, and the property reads better answering None than not existing.
@@ -344,6 +351,7 @@ class CheckBoxGroup(ButtonGroup):
                 style=self._row_style,
                 thickness=self._row_thickness,
                 wrap=getattr(self, "_row_wrap", 0),
+                anchor=getattr(self, "_row_anchor", "w"),
             )
 
     def stretch_rows(self) -> None:
@@ -379,6 +387,24 @@ class CheckBoxGroup(ButtonGroup):
                 row.tk.grid_configure(sticky="ew")
             except (AttributeError, IndexError, RuntimeError, tk.TclError, TypeError, ValueError):
                 continue
+
+    @property
+    def row_width(self) -> int | None:
+        """How wide every row of the group is drawn, in pixels, or None to let them size.
+
+        Settable, because a caller laying a group out over something else cannot know the
+        width to draw it at until that something has been measured: the AMC2 page selector is
+        as wide as the sliders it names, and how wide those are is not known until the panel
+        has been given a display to be drawn on. Pixels rather than characters -- see
+        stretch_rows for why a painted row reads -width that way -- and the rows are repainted
+        rather than resized, which is what keeps the anchor and the indicator with them.
+        """
+        return self._dis_width
+
+    @row_width.setter
+    def row_width(self, width: int | None) -> None:
+        self._dis_width = None if width is None else int(width)
+        self.decorate_rows()
 
     @staticmethod
     def _as_leads(leads: Mapping[str, int] = None) -> dict[str, int]:
