@@ -131,11 +131,11 @@ class Acs2DeviceConfig(PdiDeviceConfig):
             cmds.append(Asc2Req(self.tmcc_id, action=Asc2Action.CONTROL2))
         elif self._mode == 2:
             # Acc mode, 4 TMCC ID, Pulse
-            for i in range(8):
+            for i in range(4):
                 cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL4))
         elif self._mode == 3:
             # Acc mode, 4 TMCC ID, Latching
-            for i in range(8):
+            for i in range(4):
                 cmds.append(Asc2Req(self.tmcc_id + i, action=Asc2Action.CONTROL5))
         else:
             log.warning(f"Unknown ASC2 mode {self._mode} for TMCC ID {self.tmcc_id}")

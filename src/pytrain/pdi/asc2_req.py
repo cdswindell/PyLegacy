@@ -116,7 +116,7 @@ class Asc2Req(LcsReq):
 
     @property
     def is_thru(self) -> bool | None:
-        return self._thru == 0 if self._thru is not None else None
+        return self._thru if self._thru is not None else None
 
     @property
     def is_out(self) -> bool | None:

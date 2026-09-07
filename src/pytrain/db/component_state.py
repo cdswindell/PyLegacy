@@ -781,6 +781,7 @@ class SwitchState(TmccState, LcsProxyState):
         if scope != CommandScope.SWITCH:
             raise ValueError(f"Invalid scope: {scope}")
         super().__init__(scope)
+        self._stm2_source = False
         self._state: Switch | None = None
         self._routes: set[RouteState] = set()
 
@@ -810,6 +811,8 @@ class SwitchState(TmccState, LcsProxyState):
                 self._state = command.command
         elif isinstance(command, Asc2Req) or isinstance(command, Stm2Req):
             self._pdi_source = True
+            if isinstance(command, Stm2Req):
+                self._stm2_source = True
             self._state = Switch.THRU if command.is_thru else Switch.OUT
         else:
             log.warning(f"Unhandled Switch State Update received: {command}")
