@@ -578,11 +578,17 @@ class KeypadView(Generic[S]):
         host.amc2_ops_panel = Amc2OpsPanel(host)
         host.amc2_ops_panel.build(host.amc2_ops_box)
         host.ops_cells.add(host.amc2_ops_box)
-        # AMC2 replaces the keypad too; its toggle lives in the panel header, which exposes the
-        # button rather than the command so the wiring stays here with every other key.
-        amc2_toggle = getattr(host.amc2_ops_panel, "panel_toggle_button", None)
-        if amc2_toggle is not None:
-            amc2_toggle.update_command(host.on_show_generic_acc_panel, [])
+        # AMC2 replaces the keypad too, so the keys that lead off it live in the panel's own
+        # navigation column beside the sliders, which exposes the buttons rather than the
+        # commands so the wiring stays here with every other key.
+        for amc2_attr, amc2_command in (
+            ("panel_toggle_button", host.on_show_generic_acc_panel),
+            ("info_button", host.on_info),
+            ("lcs_panel_button", host.on_lcs_config_panel),
+        ):
+            amc2_key = getattr(host.amc2_ops_panel, amc2_attr, None)
+            if amc2_key is not None:
+                amc2_key.update_command(amc2_command, [])
 
         # BPC2/ASC2 Buttons
         host.ac_on_cell, host.ac_on_btn = make_key(

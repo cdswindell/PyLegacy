@@ -110,10 +110,12 @@ class RecordingTitleBox(DummyTitleBox):
 
 
 class FakeAmc2Panel:
-    """The AMC2 panel as build() finds it, including the exposed toggle button."""
+    """The AMC2 panel as build() finds it, including the exposed navigation keys."""
 
     def __init__(self, _host) -> None:
         self.panel_toggle_button = DummyButton()
+        self.info_button = DummyButton()
+        self.lcs_panel_button = DummyButton()
         self.built: list[Any] = []
 
     def build(self, parent) -> None:
@@ -217,11 +219,14 @@ def test_the_sensor_track_panel_has_no_generic_toggle_on_the_pane(compact: bool)
 
 
 @pytest.mark.parametrize("compact", [True, False])
-def test_the_amc2_header_toggle_is_wired_on_the_pane_too(compact: bool) -> None:
+def test_the_amc2_nav_keys_are_wired_on_the_pane_too(compact: bool) -> None:
+    # All three keys of the panel's navigation column, not just the Acc... one it started with.
     host, _view = _built(compact)
 
     assert host.amc2_ops_panel.built == [host.amc2_ops_box]
     assert host.amc2_ops_panel.panel_toggle_button.on_press == (host.on_show_generic_acc_panel, [])
+    assert host.amc2_ops_panel.info_button.on_press == (host.on_info, [])
+    assert host.amc2_ops_panel.lcs_panel_button.on_press == (host.on_lcs_config_panel, [])
 
     command, args = host.amc2_ops_panel.panel_toggle_button.on_press
     command(*args)

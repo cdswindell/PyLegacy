@@ -19,7 +19,7 @@ from guizero import Box, Slider, Text
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.hold_button import HoldButton
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
-from .engine_gui_conf import ACC_PANEL_KEY
+from .engine_gui_conf import ACC_PANEL_KEY, INFO_KEY, LCS_PANEL_KEY
 from ...db.accessory_state import AccessoryState
 from ...pdi.amc2_req import Amc2Req
 from ...pdi.constants import Amc2Action, PdiCommand
@@ -40,6 +40,13 @@ PAGE_LAYOUT: list[tuple[str, list[tuple[str, int, str]]]] = [
     ("Lights", [("lamp", 1, "Light #1"), ("lamp", 2, "Light #2"), ("lamp", 3, "Light #3"), ("lamp", 4, "Light #4")]),
 ]
 
+# The navigation column that stands to the right of the sliders, top to bottom. These keys used
+# to share the header row with the page selector, where the selector's own width left the last
+# one clipped by the panel border on both the Steam Deck and the Pi. A column of its own is
+# always as wide as its widest label and takes its room from the sliders, which have height to
+# spare and can give up a little width.
+NAV_KEYS: tuple[str, ...] = (ACC_PANEL_KEY, INFO_KEY, LCS_PANEL_KEY)
+
 
 @dataclass(slots=True)
 class OutputWidgets:
@@ -59,7 +66,8 @@ class Amc2OpsPanel:
         self._parent: Box | None = None
         self._root: Box | None = None
         self._header: Box | None = None
-        self._panel_toggle_btn: HoldButton | None = None
+        self._nav_box: Box | None = None
+        self._nav_buttons: dict[str, HoldButton] = {}
         self._page_selector: CheckBoxGroup | None = None
         self._suspend_page_selector = False
         self._controls: Box | None = None
@@ -74,12 +82,22 @@ class Amc2OpsPanel:
 
     @property
     def panel_toggle_button(self) -> HoldButton | None:
-        """The header key that leaves this panel for the generic accessory one.
+        """The navigation key that leaves this panel for the generic accessory one.
 
         Exposed rather than wired here so KeypadView keeps the command, as it does for every
         other key; this panel replaces the keypad entirely, so the key has nowhere else to go.
         """
-        return self._panel_toggle_btn
+        return self._nav_buttons.get(ACC_PANEL_KEY)
+
+    @property
+    def info_button(self) -> HoldButton | None:
+        """The navigation key that opens the state info panel. Wired by KeypadView."""
+        return self._nav_buttons.get(INFO_KEY)
+
+    @property
+    def lcs_panel_button(self) -> HoldButton | None:
+        """The navigation key that opens the LCS module configuration panel. Wired by KeypadView."""
+        return self._nav_buttons.get(LCS_PANEL_KEY)
 
     def build(self, parent: Box) -> Box:
         if self._root is not None:
@@ -95,7 +113,7 @@ class Amc2OpsPanel:
         self._page_selector = CheckBoxGroup(
             header,
             size=host.s_18,
-            grid=[0, 0, 2, 1],
+            grid=[0, 0],
             options=PAGE_OPTS,
             selected=str(self._page_index),
             horizontal=True,
@@ -106,18 +124,8 @@ class Amc2OpsPanel:
             style="radio",
             command=self._on_page_selected,
         )
-        self._panel_toggle_btn = HoldButton(
-            header,
-            text=ACC_PANEL_KEY,
-            grid=[2, 0],
-            align="top",
-            text_size=host.s_12,
-            padx=max(2, int(round(4 * host.scale_by))),
-            pady=max(4, int(round(6 * host.scale_by))),
-        )
         try:
-            for col in range(3):
-                header.tk.grid_columnconfigure(col, weight=1)
+            header.tk.grid_columnconfigure(0, weight=1)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
@@ -141,8 +149,50 @@ class Amc2OpsPanel:
                 )
                 self._outputs[(output_type, output_id)] = output
 
+        self._build_nav_column(controls, col=max_cols)
         self._set_page(0)
         return root
+
+    def _build_nav_column(self, parent: Box, col: int) -> None:
+        """The Acc.../Info/LCS... keys, in a column of their own to the right of the sliders.
+
+        Placed in the controls grid rather than the header so the column is sized by its own
+        widest label and the sliders give up the width, which is the one dimension they have to
+        spare. The column sits past the last output column, so it stays hard against the right
+        edge on both the two-slider Motors page and the four-slider Lights page. Commands are
+        left to KeypadView, as with every other key that leaves a panel.
+        """
+        host = self._host
+        self._nav_box = nav_box = Box(parent, layout="grid", grid=[col, 0], align="top")
+        label_width = max(len(label) for label in NAV_KEYS)
+        for row, label in enumerate(NAV_KEYS):
+            btn = HoldButton(
+                nav_box,
+                text=label,
+                grid=[0, row],
+                align="top",
+                text_size=host.s_16,
+                width=label_width,
+                padx=max(2, int(round(4 * host.scale_by))),
+                pady=max(3, int(round(5 * host.scale_by))),
+            )
+            self._nav_buttons[label] = btn
+            try:
+                btn.tk.grid_configure(sticky="new", pady=max(2, int(round(3 * host.scale_by))))
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
+        try:
+            # Stretched over the full height of the controls row, with the keys spread down it:
+            # they are touch targets, and the sliders leave the column far more height than the
+            # three of them need.
+            parent.tk.grid_rowconfigure(0, weight=1)
+            parent.tk.grid_columnconfigure(col, weight=0)
+            nav_box.tk.grid_configure(sticky="nsew", padx=max(2, int(round(4 * host.scale_by))))
+            nav_box.tk.grid_columnconfigure(0, weight=1)
+            for row in range(len(NAV_KEYS)):
+                nav_box.tk.grid_rowconfigure(row, weight=1)
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            pass
 
     def show(self, state: AccessoryState | None = None) -> None:
         if self._root is None:
@@ -349,6 +399,18 @@ class Amc2OpsPanel:
         available = bottom - top
         return available if available > 0 else None
 
+    def _nav_column_width(self, panel_w: int) -> int:
+        """How much width the navigation column takes off the sliders.
+
+        What the column asks for, held to a share of the panel so it can never crowd the
+        sliders out on a narrow display; before the first map there is nothing to measure, so
+        a key's worth of width is assumed.
+        """
+        measured = self._measure_widget_w(self._nav_box)
+        if measured is None:
+            measured = max(48, int(round(self._host.button_size * 0.72)))
+        return min(measured, max(48, int(panel_w * 0.28)))
+
     def _apply_available_layout(self) -> None:
         if self._root is None or self._controls is None:
             return
@@ -407,7 +469,8 @@ class Amc2OpsPanel:
 
         if controls_tk is not None and panel_w > 0:
             side_pad = int(round(8 * sb))
-            usable_w = max(page_cols * 60, panel_w - (side_pad * 2))
+            nav_w = self._nav_column_width(panel_w)
+            usable_w = max(page_cols * 60, panel_w - (side_pad * 2) - nav_w)
             col_w = max(58, int(usable_w / page_cols))
             for col in range(max_cols):
                 min_size = col_w if col < page_cols else 0
@@ -415,6 +478,12 @@ class Amc2OpsPanel:
                     controls_tk.grid_columnconfigure(col, weight=1, minsize=min_size)
                 except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                     continue
+            try:
+                # The output columns share what is left over; the navigation column keeps the
+                # width it asked for, so its keys are never the ones that get clipped.
+                controls_tk.grid_columnconfigure(max_cols, weight=0, minsize=nav_w)
+            except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+                pass
         else:
             col_w = max(58, int(round(self._host.button_size * 0.9)))
 

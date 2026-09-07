@@ -138,6 +138,7 @@ def _new_host(state: DummyAccessoryState):
     return SimpleNamespace(
         s_22=22,
         s_18=18,
+        s_16=16,
         s_12=12,
         button_size=110,
         slider_height=330,
@@ -225,3 +226,42 @@ def test_external_light_zero_sets_button_and_trough_off() -> None:
 
     assert output.toggle_btn.bg == mod.BUTTON_OFF_BG
     assert output.slider.tk._config["troughcolor"] == "lightgrey"
+
+
+def test_the_nav_keys_stand_in_a_column_past_the_last_slider() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+
+    max_cols = max(len(outputs) for _, outputs in mod.PAGE_LAYOUT)
+    # Past the widest page, so the column is at the right edge on both pages.
+    assert panel._nav_box.grid == [max_cols, 0]
+    assert [btn.text for btn in panel._nav_buttons.values()] == list(mod.NAV_KEYS)
+    assert [btn.grid for btn in panel._nav_buttons.values()] == [[0, 0], [0, 1], [0, 2]]
+    # And the page selector has the header row to itself, where the Acc... key used to be
+    # clipped against the panel border.
+    assert panel._page_selector.grid == [0, 0]
+
+
+def test_the_nav_keys_are_exposed_for_the_keypad_to_wire() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+
+    assert panel.panel_toggle_button.text == mod.ACC_PANEL_KEY
+    assert panel.info_button.text == mod.INFO_KEY
+    assert panel.lcs_panel_button.text == mod.LCS_PANEL_KEY
+
+
+def test_the_nav_column_never_claims_more_than_its_share_of_a_narrow_panel() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+
+    # Nothing measurable before the first map, so a key's worth of width is assumed.
+    assert panel._nav_column_width(400) == 79
+    # On a narrow panel the sliders keep the rest of it.
+    assert panel._nav_column_width(200) == 56
