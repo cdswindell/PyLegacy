@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from tkinter import TclError
+from tkinter import font as tkfont, TclError
 from typing import Iterator, TYPE_CHECKING
 
 from guizero import Box, Slider, Text
@@ -68,6 +68,18 @@ NAV_COLUMN = 1
 # wider than the sliders they are laid out over and neither overhangs the navigation column.
 SELECTOR_ROW_CHROME_PX = 6
 
+# The least an output's toggle key is taken to spend around its label: its border and
+# highlight ring either side, and a little air so two neighboring labels do not read as one
+# word. A platform is free to spend more -- what a button pads its label by is the toolkit's
+# business, not the app's -- so this is a floor under a measurement, not the figure itself.
+TOGGLE_LABEL_CHROME_PX = 10
+
+# Pixels of label per character per point of font, for the one case where the font itself
+# cannot be measured (no display, as under test). Deliberately generous: a point is a pixel on
+# a 72dpi display and four thirds of one at 96dpi, which is part of why "Light #1" fits its
+# column on the Steam Deck and ran the full width of the Pi's at the same nominal size.
+TOGGLE_CHAR_WIDTH_RATIO = 0.9
+
 
 @dataclass(slots=True)
 class OutputWidgets:
@@ -88,6 +100,7 @@ class Amc2OpsPanel:
         self._root: Box | None = None
         self._header: Box | None = None
         self._nav_box: Box | None = None
+        self._nav_cells: list[Box] = []
         self._nav_buttons: dict[str, HoldButton] = {}
         self._page_selector: CheckBoxGroup | None = None
         self._suspend_page_selector = False
@@ -186,44 +199,71 @@ class Amc2OpsPanel:
         A column of the panel rather than of the sliders' grid, spanning the header row and the
         controls row both: the header then reaches only as far as the sliders it names, so the
         page selector cannot be laid over these keys and they cannot be mistaken for something
-        the Lights option leads to. It is sized by its own widest label and the sliders give up
-        the width, which is the one dimension they have to spare. Commands are left to
-        KeypadView, as with every other key that leaves a panel.
+        the Lights option leads to. Each key is an ops key's square, so the three match every
+        other key in the app and each other, and the sliders give up the width they take, which
+        is the one dimension they have to spare. Commands are left to KeypadView, as with every
+        other key that leaves a panel.
         """
         host = self._host
         self._nav_box = nav_box = Box(parent, layout="grid", grid=[NAV_COLUMN, 0, 1, 2], align="top")
-        label_width = max(len(label) for label in NAV_KEYS)
+        key_size = self._nav_key_size()
         for row, label in enumerate(NAV_KEYS):
+            # Each key in a cell of its own square, and the cell is what holds the size: a
+            # text button's own width and height are read by Tk in characters and lines, not
+            # pixels, so a button told it is 80 wide comes out 80 characters wide. Every ops
+            # key in the app is square for exactly this reason -- a fixed-size cell that does
+            # not propagate, with the button filling it; see GuiZeroBase._build_keypad_button.
+            cell = Box(nav_box, layout="auto", grid=[0, row], align="top")
             btn = HoldButton(
-                nav_box,
+                cell,
                 text=label,
-                grid=[0, row],
                 align="top",
                 text_size=host.s_16,
-                width=label_width,
-                padx=max(2, int(round(4 * host.scale_by))),
-                pady=max(3, int(round(5 * host.scale_by))),
             )
             self._nav_buttons[label] = btn
+            self._nav_cells.append(cell)
             try:
-                btn.tk.grid_configure(sticky="new", pady=max(2, int(round(3 * host.scale_by))))
+                cell.tk.config(width=key_size, height=key_size)
+                cell.tk.pack_propagate(False)
+                # Stacked from the top of the column rather than spread down it, so the first
+                # key is level with the page selector across from it.
+                cell.tk.grid_configure(sticky="n", pady=self._nav_key_gap())
+                btn.tk.config(
+                    compound="center",
+                    anchor="center",
+                    padx=0,
+                    pady=0,
+                    borderwidth=1,
+                    highlightthickness=1,
+                    width=key_size,
+                    height=key_size,
+                )
+                btn.tk.pack_configure(fill="both", expand=True)
             except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
                 pass
         try:
-            nav_box.tk.grid_columnconfigure(0, weight=1)
-            for row in range(len(NAV_KEYS)):
-                nav_box.tk.grid_rowconfigure(row, weight=1)
+            nav_box.tk.grid_columnconfigure(0, weight=0, minsize=key_size)
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
         self._pin_nav_column()
 
-    def _pin_nav_column(self) -> None:
-        """Hold the navigation column against the right edge, over the panel's full height.
+    def _nav_key_size(self) -> int:
+        """The side of a navigation key, in pixels: an ops key's, so all of them match."""
+        return max(40, int(getattr(self._host, "button_size", 0) or 0))
 
-        The keys are touch targets and the sliders leave the column far more height than the
-        three of them need, so they are spread down it rather than stacked at the top. Weight 0
-        on the column and 1 on the sliders' beside it means what a narrow display costs comes
-        off the sliders, which have width to give, rather than off a key.
+    def _nav_key_gap(self) -> int:
+        """The gap between one navigation key and the next, as the keypad's own grid leaves."""
+        return max(2, int(round(3 * self._host.scale_by)))
+
+    def _pin_nav_column(self) -> None:
+        """Hold the navigation column against the right edge, from the top of the panel down.
+
+        The keys are stacked from the top rather than spread down the height the column is
+        given, so the first of them is level with the page selector across from it and the
+        three read as one block of ops keys. Weight 0 on the column and 1 on the sliders'
+        beside it means what a narrow display costs comes off the sliders, which have width to
+        give, rather than off a key -- which is square, and cannot give up width without giving
+        up the same in height.
 
         Re-applied on every layout pass rather than set once: guizero re-grids a container's
         children whenever one of them is shown or hidden -- which is what turning the page does
@@ -237,7 +277,7 @@ class Amc2OpsPanel:
             root_tk.grid_columnconfigure(SLIDER_COLUMN, weight=1)
             root_tk.grid_columnconfigure(NAV_COLUMN, weight=0)
             root_tk.grid_rowconfigure(1, weight=1)
-            nav_tk.grid_configure(sticky="nsew", padx=self._nav_column_pad())
+            nav_tk.grid_configure(sticky="new", padx=self._nav_column_pad())
         except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
             pass
 
@@ -380,6 +420,18 @@ class Amc2OpsPanel:
         return value if value > 1 else None
 
     @staticmethod
+    def _measure_widget_req_w(widget) -> int | None:
+        tk_widget = getattr(widget, "tk", None)
+        method = getattr(tk_widget, "winfo_reqwidth", None) if tk_widget is not None else None
+        if method is None:
+            return None
+        try:
+            value = int(method())
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            return None
+        return value if value > 0 else None
+
+    @staticmethod
     def _measure_widget_req_h(widget) -> int | None:
         tk_widget = getattr(widget, "tk", None)
         if tk_widget is None:
@@ -512,11 +564,11 @@ class Amc2OpsPanel:
         configured with, so reserving less than that does not make the keys narrower -- it only
         leaves the sliders holding width the keys are about to take, and the difference is what
         goes off the right edge. Before the first map there is nothing to measure, so a key's
-        worth of width is assumed.
+        own square is assumed, which is what the column comes to.
         """
         measured = self._measure_widget_w(self._nav_box)
         if measured is None:
-            return max(48, int(round(self._host.button_size * 0.72)))
+            measured = self._nav_key_size()
         return measured + self._nav_column_pad() * 2
 
     def _sliders_width(self, panel_w: int, page_cols: int) -> int:
@@ -532,6 +584,79 @@ class Amc2OpsPanel:
         side_pad = int(round(8 * self._host.scale_by))
         floor = page_cols * 60
         return max(floor, panel_w - PANEL_CHROME_PX - (side_pad * 2) - self._nav_column_width())
+
+    def _toggle_base_text_size(self) -> int:
+        """The size an output's label is drawn at where its column has room for it."""
+        host = self._host
+        return max(host.s_12, int(round(14 * host.scale_by)))
+
+    def _toggle_min_text_size(self) -> int:
+        """The smallest an output's label is allowed to get before it is left to clip."""
+        return max(8, int(round(10 * self._host.scale_by)))
+
+    def _toggle_label_chrome(self, output: OutputWidgets) -> int:
+        """What the key around the label takes of the column, beyond the label itself.
+
+        Measured as the difference between the width the key asks for and the width its label
+        is drawn at, because how much a button pads its label by is the toolkit's and the
+        platform's business: the same key wants 42px more than its label on one and half that
+        on another. Reckoning it as a constant is how a label that measured as fitting its
+        column still came out wider than the column; TOGGLE_LABEL_CHROME_PX is only the floor.
+        """
+        requested = self._measure_widget_req_w(output.toggle_btn)
+        drawn = self._measure_label_width(
+            output.toggle_btn,
+            output.label,
+            int(getattr(output.toggle_btn, "text_size", 0) or self._toggle_base_text_size()),
+        )
+        if requested and drawn and requested > drawn:
+            return max(TOGGLE_LABEL_CHROME_PX, requested - drawn)
+        return TOGGLE_LABEL_CHROME_PX
+
+    @staticmethod
+    def _measure_label_width(widget, label: str, size: int) -> int | None:
+        """How wide the label is actually drawn at that size, or None with no display to ask.
+
+        Measured from the widget's own font rather than reckoned from the label's length: what
+        a point comes to in pixels is the display's business, not the app's, and it is the
+        difference between "Light #1" fitting its column on the Deck and filling the Pi's at
+        the same nominal size.
+        """
+        tk_widget = getattr(widget, "tk", None)
+        if tk_widget is None or not label:
+            return None
+        try:
+            font = tkfont.Font(font=tk_widget.cget("font"))
+            font.configure(size=size)
+            measured = int(font.measure(label))
+        except (AttributeError, RuntimeError, TclError, TypeError, ValueError):
+            return None
+        return measured if measured > 0 else None
+
+    def _toggle_text_size(self, output: OutputWidgets, col_w: int) -> int:
+        """The size an output's label is drawn at in a column that wide.
+
+        The largest that fits, never larger than the size a roomy column gets. Two sliders to a
+        page leave a column half the panel and the base size is never in question; four leave a
+        quarter of it, and on the Pi -- 480px across, where the Deck's pane has 639 -- "Light
+        #1" at the base size came to more than its column and the four labels ran together edge
+        to edge with no gap between them.
+        """
+        base = self._toggle_base_text_size()
+        floor = min(base, self._toggle_min_text_size())
+        usable = col_w - self._toggle_label_chrome(output)
+        if usable <= 0:
+            return base
+        for size in range(base, floor - 1, -1):
+            measured = self._measure_label_width(output.toggle_btn, output.label, size)
+            if measured is None:
+                # Nothing to measure the font with: fall back on what a character of it comes
+                # to, which is all that can be said about a label without a display.
+                estimated = int(usable / (len(output.label) or 1) / TOGGLE_CHAR_WIDTH_RATIO)
+                return max(floor, min(base, estimated))
+            if measured <= usable:
+                return size
+        return floor
 
     def _center_page_selector(self, sliders_w: int) -> None:
         """Give each page option an equal share of the sliders' width, centered in it.
@@ -637,6 +762,12 @@ class Amc2OpsPanel:
         slider_w = max(16, min(46, int(round(col_w * (0.38 if page_cols <= 2 else 0.30)))))
 
         for output in self._outputs.values():
+            # Each page's own column width, not the visible page's: a label is drawn once, and
+            # the four on the Lights page have a quarter of the panel each where the two on the
+            # Motors page have a half.
+            page_cols_here = max(1, len(PAGE_LAYOUT[output.page_idx][1]))
+            label_col_w = max(58, int(sliders_w / page_cols_here)) if sliders_w > 0 else col_w
+            output.toggle_btn.text_size = self._toggle_text_size(output, label_col_w)
             output.slider.height = slider_h
             output.slider.width = slider_w
             try:

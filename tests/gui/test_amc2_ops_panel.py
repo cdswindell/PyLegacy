@@ -34,6 +34,20 @@ class _DummyTk:
     def grid_columnconfigure(_col: int, **_kwargs: Any) -> None:
         return
 
+    @staticmethod
+    def grid_rowconfigure(_row: int, **_kwargs: Any) -> None:
+        return
+
+    def grid_configure(self, **kwargs: Any) -> None:
+        self._config.update(kwargs)
+
+    def pack_configure(self, **kwargs: Any) -> None:
+        self._config.update(kwargs)
+
+    @staticmethod
+    def pack_propagate(_flag: bool) -> None:
+        return
+
     def winfo_height(self) -> int:
         return self._height
 
@@ -250,7 +264,8 @@ def test_the_nav_keys_stand_in_a_column_of_the_panel_beside_the_sliders() -> Non
     assert panel._header.grid == [mod.SLIDER_COLUMN, 0]
     assert panel._controls.grid == [mod.SLIDER_COLUMN, 1]
     assert [btn.text for btn in panel._nav_buttons.values()] == list(mod.NAV_KEYS)
-    assert [btn.grid for btn in panel._nav_buttons.values()] == [[0, 0], [0, 1], [0, 2]]
+    # One key to a cell, and the cells down the single column of the box, top to bottom.
+    assert [cell.grid for cell in panel._nav_cells] == [[0, 0], [0, 1], [0, 2]]
     # And every slider column is the selector's to be laid out over.
     assert panel._page_selector.grid == [0, 0]
 
@@ -272,8 +287,8 @@ def test_the_nav_column_reserves_everything_its_keys_ask_for() -> None:
     panel = mod.Amc2OpsPanel(host)
     panel.build(DummyBox())
 
-    # Nothing measurable before the first map, so a key's worth of width is assumed.
-    assert panel._nav_column_width() == 79
+    # Nothing measurable before the first map, so a key's own square is assumed.
+    assert panel._nav_column_width() == 118
 
     panel._nav_box.tk.winfo_width = lambda: 120
 
@@ -314,9 +329,9 @@ def test_the_sliders_are_laid_out_in_what_is_left_after_the_borders_and_the_keys
     panel.build(DummyBox())
 
     # 400 measured, less the panel's border and its container's (8), the gaps at either edge
-    # (16) and the navigation column (79). Handing the columns all 400 is what drew the keys
+    # (16) and the navigation column (118). Handing the columns all 400 is what drew the keys
     # off the right edge of the display.
-    assert panel._sliders_width(400, 2) == 297
+    assert panel._sliders_width(400, 2) == 258
     # Never below a column's worth apiece, however narrow the panel is said to be.
     assert panel._sliders_width(120, 2) == 120
     assert panel._sliders_width(0, 2) == 0
@@ -335,9 +350,69 @@ def test_each_page_option_is_centered_over_its_half_of_the_sliders() -> None:
 
     panel._center_page_selector(panel._sliders_width(400, 2))
 
-    # Half of the 297 the sliders have, less what a painted row adds to the width it is given,
+    # Half of the 258 the sliders have, less what a painted row adds to the width it is given,
     # so the two options together are no wider than the sliders under them.
-    assert panel._page_selector.row_width == 142
+    assert panel._page_selector.row_width == 123
+
+
+def test_each_nav_key_is_an_ops_key_square_stacked_from_the_top_of_the_panel() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+
+    # The same square as every other ops key. The cell is what holds the size, as it does for
+    # every key in the keypad: a text button's own width is read in characters, so a key sized
+    # by its label is as wide as that label is long -- and "Acc..." is not "Info".
+    assert len(panel._nav_cells) == len(mod.NAV_KEYS)
+    for cell in panel._nav_cells:
+        assert cell.tk._config["width"] == host.button_size
+        assert cell.tk._config["height"] == host.button_size
+        # Stacked from the top of the column, so the first is level with the page selector
+        # across from it rather than spread down the sliders' full height.
+        assert cell.tk._config["sticky"] == "n"
+    for btn in panel._nav_buttons.values():
+        assert btn.master in panel._nav_cells
+        assert btn.tk._config["compound"] == "center"
+    assert panel._nav_box.tk._config["sticky"] == "new"
+
+
+def test_an_output_label_is_drawn_at_the_largest_size_its_column_has_room_for() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+    lamp = panel._outputs[("lamp", 1)]
+
+    # Room to spare -- a Deck pane's quarter -- and the label keeps the size a roomy column
+    # gets, which is what it already had there.
+    assert panel._toggle_text_size(lamp, 130) == panel._toggle_base_text_size()
+
+    # A Pi's quarter is narrower than "Light #1" at that size, which is why the four ran
+    # together edge to edge, so the label is drawn smaller rather than clipped.
+    fitted = panel._toggle_text_size(lamp, 92)
+    assert fitted < panel._toggle_base_text_size()
+    assert fitted >= panel._toggle_min_text_size()
+
+    # However narrow the column is said to be, the label stays readable.
+    assert panel._toggle_text_size(lamp, 20) == panel._toggle_min_text_size()
+
+
+def test_the_lights_labels_are_sized_against_their_own_quarter_of_the_sliders() -> None:
+    state = DummyAccessoryState()
+    host = _new_host(state)
+    panel = mod.Amc2OpsPanel(host)
+    panel.build(DummyBox())
+    host.width = 480
+    host.emergency_box_width = 480
+    panel._compute_available_panel_height = lambda: 600
+
+    panel.refresh_layout()
+
+    # Four to a page against two, so a light's label has half the room a motor's does and is
+    # the one that has to give, whichever page happens to be showing.
+    assert panel._outputs[("motor", 1)].toggle_btn.text_size == panel._toggle_base_text_size()
+    assert panel._outputs[("lamp", 1)].toggle_btn.text_size < panel._toggle_base_text_size()
 
 
 def test_the_page_options_are_left_alone_until_the_panel_has_been_measured() -> None:
