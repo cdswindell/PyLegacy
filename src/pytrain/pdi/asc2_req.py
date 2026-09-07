@@ -76,7 +76,8 @@ class Asc2Req(LcsReq):
             self._mode = mode
             self._debug = debug
             self._delay: float = delay
-            self._thru = self._values = values
+            self._values = values
+            self._thru = self._values == 0 if self._values is not None else None
             self._valids = valids
             self._time = time
             self._sub_id = sub_id
