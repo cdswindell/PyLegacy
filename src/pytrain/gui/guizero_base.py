@@ -870,6 +870,44 @@ class GuiZeroBase(Thread, ABC):
             self._titled_image_cache[key] = cached
         return cached
 
+    @property
+    def preserve_image_aspect(self) -> bool:
+        """Whether a picture keeps its proportions rather than filling the box it is drawn in.
+
+        False, which is what the Pi's control panel and every other host have always drawn
+        with; the compact Deck pane already keeps them, by its own branch in _fit_image_size.
+        Overridden by the stand-alone desktop window, whose image strip is short enough for
+        the difference to be the picture; see PyCabPanelGui.
+        """
+        return False
+
+    def _fit_image_size(
+        self,
+        orig_width: int,
+        orig_height: int,
+        available_width: int,
+        available_height: int,
+        preserve_height: bool = False,
+    ) -> tuple[int, int]:
+        """How large a picture is drawn in a box of that size, as (width, height).
+
+        The box is filled in one direction and fitted in the other: an engine picture spans
+        the pane, an accessory photo stands as tall as the strip it is in. What that costs is
+        the picture's proportions, whenever the direction being filled is not the one that
+        binds. Harmless where the two nearly agree, which is the Pi -- a 3:1 locomotive comes
+        out 3.26:1 in its 750x230 strip -- and not where they part: the same picture in the
+        desktop window's 631x91 strip was drawn at 6.9:1. A host that would rather have the
+        picture than the fill says so; see preserve_image_aspect.
+        """
+        width_scale = available_width / orig_width
+        height_scale = available_height / orig_height
+        scale = min(width_scale, height_scale)
+        if getattr(self, "_compact", False) or self.preserve_image_aspect:
+            return int(orig_width * scale), int(orig_height * scale)
+        if preserve_height:
+            return int(orig_width * scale), int(orig_height * height_scale)
+        return int(orig_width * width_scale), int(orig_height * scale)
+
     def _calc_scaled_image_size(
         self,
         orig_width: int,
@@ -881,19 +919,13 @@ class GuiZeroBase(Thread, ABC):
         if force_lionel:
             scaled_width, scaled_height = self._calc_scaled_image_size(300, 100)
         else:
-            # Calculate scaling to fit available space
-            width_scale = available_width / orig_width
-            height_scale = available_height / orig_height
-            scale = min(width_scale, height_scale)
-            if getattr(self, "_compact", False):
-                scaled_width = int(orig_width * scale)
-                scaled_height = int(orig_height * scale)
-            elif preserve_height:
-                scaled_width = int(orig_width * scale)
-                scaled_height = int(orig_height * height_scale)
-            else:
-                scaled_width = int(orig_width * width_scale)
-                scaled_height = int(orig_height * scale)
+            scaled_width, scaled_height = self._fit_image_size(
+                orig_width,
+                orig_height,
+                available_width,
+                available_height,
+                preserve_height,
+            )
         return max(1, scaled_width), max(1, scaled_height)
 
     def _prepare_scaled_pil_image(
@@ -915,18 +947,13 @@ class GuiZeroBase(Thread, ABC):
         if force_lionel:
             scaled_width, scaled_height = self._calc_scaled_image_size(300, 100)
         else:
-            width_scale = available_width / orig_width
-            height_scale = available_height / orig_height
-            scale = min(width_scale, height_scale)
-            if getattr(self, "_compact", False):
-                scaled_width = int(orig_width * scale)
-                scaled_height = int(orig_height * scale)
-            elif preserve_height:
-                scaled_width = int(orig_width * scale)
-                scaled_height = int(orig_height * height_scale)
-            else:
-                scaled_width = int(orig_width * width_scale)
-                scaled_height = int(orig_height * scale)
+            scaled_width, scaled_height = self._fit_image_size(
+                orig_width,
+                orig_height,
+                available_width,
+                available_height,
+                preserve_height,
+            )
         return pil_img.resize((max(1, scaled_width), max(1, scaled_height)))
 
     def _request_prod_info(self, bt_id: str) -> ProdInfo | None:

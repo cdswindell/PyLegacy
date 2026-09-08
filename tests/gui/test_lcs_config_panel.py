@@ -526,6 +526,10 @@ class FakeHost(SimpleNamespace):
             # wrapped at. A few pixels inside the pane, as the measured box is on a Pi.
             emergency_box_width=470,
             compact=False,
+            # An EngineGui pane, which is what this host stands for: the panel is a popup over
+            # it, and the window's close box ends the program rather than dismissing the popup.
+            # See LcsGui.panel_owns_window for the other kind of host, and has_close.
+            panel_owns_window=False,
             state_store=store,
             # Varargs, as the host's own cache is: a caller with two widgets to keep -- a
             # row and the spacer on it -- hands over both in one breath.
@@ -3239,14 +3243,27 @@ def test_the_panel_offers_no_footer_so_close_gets_a_line_of_its_own() -> None:
 
 
 @pytest.mark.parametrize("linux", [True, False])
-def test_close_is_asked_for_only_where_the_window_has_no_title_bar(monkeypatch, linux: bool) -> None:
-    # The Pi and the Deck run full screen, so a button below the panel is the only way off
-    # it. A Mac or a PC window has a close box already wired to the same shutdown, and a
-    # Close inside the window duplicates it. Same platform helper as the ID editor.
+def test_the_platform_alone_decides_close_only_where_the_panel_is_the_window(monkeypatch, linux: bool) -> None:
+    # The Pi and the Deck run full screen, so a button below the panel is the only way off it.
+    # That is the platform's part of the question, and the same helper the ID editor uses; a
+    # window with a frame answers it the other way only if the frame closes this panel and
+    # nothing more, which is the stand-alone LCS window.
     monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+    host = _new_host()
+    host.panel_owns_window = True
 
     assert mod.needs_close_button() is linux
-    assert _new_panel().has_close is linux
+    assert mod.LcsConfigPanel(host).has_close is linux
+
+
+@pytest.mark.parametrize("linux", [True, False])
+def test_a_panel_inside_a_pane_carries_close_whatever_the_platform(monkeypatch, linux: bool) -> None:
+    # pycab: the same panel on the same Mac as pylcs, but a popup over a cab pane rather than
+    # a window of its own. There the window's close box quits the program, so without this
+    # the panel had no way off it at all -- Back and Next turn its pages and neither leaves.
+    monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
+
+    assert _new_panel().has_close is True
 
 
 def test_declining_close_is_this_panel_and_no_other() -> None:
@@ -3259,7 +3276,10 @@ def test_declining_close_is_this_panel_and_no_other() -> None:
 
 
 @pytest.mark.parametrize("linux", [True, False])
-def test_the_panel_holds_the_screen_where_it_carries_its_own_way_off_it(monkeypatch, linux: bool) -> None:
+@pytest.mark.parametrize("owns_window", [True, False])
+def test_the_panel_holds_the_screen_where_it_carries_its_own_way_off_it(
+    monkeypatch, linux: bool, owns_window: bool
+) -> None:
     # The pane closes its popup whenever it re-reads what it has selected, and the layout
     # gives it every reason to while this panel is up -- most sharply when the module just
     # programmed is promoted into recents, which took the verdict off the screen before it
@@ -3267,9 +3287,11 @@ def test_the_panel_holds_the_screen_where_it_carries_its_own_way_off_it(monkeypa
     # operator can let it go, which is the same question has_close asks. Tied to it rather
     # than answered separately, so the two cannot come apart into a panel with no way out.
     monkeypatch.setattr(mod, "is_linux", lambda: linux, raising=True)
-    panel = _new_panel()
+    host = _new_host()
+    host.panel_owns_window = owns_window
+    panel = mod.LcsConfigPanel(host)
 
-    assert panel.closes_on_request_only is linux
+    assert panel.closes_on_request_only is (linux or not owns_window)
     assert panel.closes_on_request_only is panel.has_close
 
 

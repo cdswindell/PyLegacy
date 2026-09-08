@@ -386,6 +386,19 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def fit_info_id_width(self, actual_width: int, required_width: int) -> int:
         return max(actual_width, required_width) if self._compact else actual_width
 
+    def fit_popup_title_height(self, measured_height: int, required_height: int) -> int:
+        """The height of a popup's title row, given what it was measured at and what it needs.
+
+        The measured value, which is the row PopupManager.create_popup has always built:
+        button_size // 3 per line of title. That is a key size standing in for a text size,
+        and the two agree exactly at both pairings this is drawn at -- the Pi's 88px row for
+        an 88px two-line title, a Deck pane's 26px row for its own. Exactly, with nothing
+        over, so the answer here is the one to keep wherever the panel is drawn as it was
+        laid out. Overridden by the stand-alone desktop window, which turns the key size down
+        without turning the fonts down with it; see PyCabPanelGui.
+        """
+        return measured_height
+
     @property
     def controller_info_reserve(self) -> int:
         """Height to hold back from the engine image for the controller's info row.
@@ -401,6 +414,29 @@ class EngineGui(GuiZeroBase, Generic[S]):
         image give the pixels up; see PyCabPanelGui.
         """
         return 0
+
+    @property
+    def popup_may_cover_info_box(self) -> bool:
+        """Whether a popup with no room left may take the ID/road-name row's height.
+
+        False: on the Pi's screen and on a Deck pane every panel fits the band below that
+        row, so nothing is ever covered and the row stays where the operator expects it.
+        True only for the stand-alone desktop window, whose window is shorter than the Pi's
+        screen while its panels are not proportionally shorter; see PopupManager._make_room_for
+        for the measurement, and PyCabPanelGui for the one host that says yes.
+        """
+        return False
+
+    @property
+    def panel_owns_window(self) -> bool:
+        """Whether closing the panel on screen is the same as closing this window.
+
+        False: an EngineGui pane is a layout with popups over it, so the window's own close
+        box ends the program rather than dismissing what is on top of the pane -- which is
+        why a panel here has to carry its own way off. True where the panel *is* the window;
+        see LcsGui, and LcsConfigPanel.has_close, which is the one thing that asks.
+        """
+        return False
 
     def fit_emergency_box_width(self, measured_width: int) -> int:
         return self.width if getattr(self, "_compact", False) else measured_width

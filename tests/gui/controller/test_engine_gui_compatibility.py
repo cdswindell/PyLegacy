@@ -549,6 +549,22 @@ def test_the_baseline_reserves_nothing_for_the_controller_info_row_by_default() 
     assert gui.controller_info_reserve == 0
 
 
+def test_a_pane_keeps_its_id_row_and_its_title_rows_however_a_popup_is_drawn() -> None:
+    """The three answers an EngineGui pane gives about a popup, all of them the Pi's own.
+
+    Each is the seam a stand-alone desktop window turns the other way (see PyCabPanelGui),
+    and each is asked here of the base class, so a host that says nothing keeps the layout
+    it has always had: no popup covers the ID/road-name row, the panel is not the window --
+    the frame's close box quits the program rather than dismissing what is over the pane --
+    and a title row stays the height the key size made it.
+    """
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+
+    assert gui.popup_may_cover_info_box is False
+    assert gui.panel_owns_window is False
+    assert gui.fit_popup_title_height(88, 200) == 88, "even a title far too big for its row"
+
+
 def test_a_reserved_info_row_is_taken_out_of_the_image_and_nothing_else() -> None:
     class ReservingGui(mod.EngineGui):
         # A property on the class it inherits from, so a plain value shadows it here.

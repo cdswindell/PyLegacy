@@ -74,6 +74,16 @@ SCREEN_MARGIN = 16
 # builds EngineGui directly, full screen, and never passes a width).
 AQUA_HEIGHT_FRACTION = 0.8
 
+# What the panel's buttons are sized against: button_size = width / this, and the ops keypad's
+# speed slider is four of them tall. The Pi divides by 6, which puts a finger-sized key on an
+# 8 in touchscreen; a desktop window is worked with a mouse, and its keys can be smaller than a
+# fingertip. What that buys is the picture above them, which is the residual once every other
+# row has taken its height: measured at 631x1009, the ops keypad falls from 607px to 477 and
+# the engine image strip rises from 91px to 221, which is the difference between a locomotive
+# drawn as a stripe and one drawn as a locomotive. The Steam Deck divides its own pane by 8 for
+# a related reason, so this is the value the project already trusts a smaller key at.
+DESKTOP_BUTTON_DIVISOR = 8.0
+
 # Raised by Tk when there is no display to ask about, as on a headless server or over ssh.
 SCREEN_QUERY_EXCEPTIONS = (RuntimeError, TclError)
 
@@ -200,7 +210,52 @@ class PyCabPanelGui(EngineGui):
     guizero App inside that thread. macOS Aqua requires every NSWindow on the process
     main thread, so a stand-alone run must keep Tk where it was started from; see the
     recipe in lcs_gui, which LcsGui follows for the same reason.
+
+    It is also where the panel is drawn smaller than the touchscreen it was laid out for,
+    which is what the overrides below are: a window on a desk is a window among windows,
+    and shorter than the Pi's screen without its contents being proportionally shorter.
     """
+
+    def __init__(self, *args, button_divisor: float = DESKTOP_BUTTON_DIVISOR, **kwargs) -> None:
+        # Defaulted here rather than passed by the caller: the smaller key belongs to this
+        # window, not to one way of opening it, so anything that builds the desktop panel --
+        # the CLI, a probe -- gets the same panel. See DESKTOP_BUTTON_DIVISOR.
+        super().__init__(*args, button_divisor=button_divisor, **kwargs)
+
+    @property
+    def preserve_image_aspect(self) -> bool:
+        """True: draw the picture at its own proportions rather than filling the strip.
+
+        The strip here is short -- the residual after every other row, and this window has
+        fewer pixels to leave over than the Pi's screen -- so filling its width is what turned
+        a 3:1 locomotive into a 6.9:1 stripe. Costing nothing where the picture would have
+        filled the width anyway, which is the roomy case; see GuiZeroBase._fit_image_size.
+        """
+        return True
+
+    def fit_popup_title_height(self, measured_height: int, required_height: int) -> int:
+        """Whichever is larger: a title row built from the key size, or the title in it.
+
+        The two are the same number on a panel drawn as it was laid out, and this window is
+        not -- its keys are smaller than the Pi's while its fonts are only smaller in
+        proportion to the window, so a row of button_size // 3 per line came out 52px for a
+        70px two-line title and cut the version off the admin panel's heading. Costing the
+        panel below it the difference, which is why it is the row's height rather than the
+        title's size that gives way: a heading half drawn is worse than a panel 18px shorter.
+        """
+        return max(measured_height, required_height)
+
+    @property
+    def popup_may_cover_info_box(self) -> bool:
+        """True: a panel that will not fit may have the ID/road-name row's height.
+
+        The admin panel is the one that asks -- 787px of the 720 this window leaves below that
+        row, where the Pi's screen leaves it 941 for the 931 it asks there -- and what it lost
+        was its Close button, clipped to 3px of the 58 it wanted. The row names whatever the
+        pane had selected, which is nothing the admin panel is about. See
+        PopupManager._make_room_for, which hides it only for a panel that really does not fit.
+        """
+        return True
 
     @property
     def controller_info_reserve(self) -> int:

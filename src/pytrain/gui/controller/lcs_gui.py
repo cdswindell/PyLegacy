@@ -124,6 +124,17 @@ class LcsGui(GuiZeroBase):
         return self._compact
 
     @property
+    def panel_owns_window(self) -> bool:
+        """True: the panel is the whole window here, so the title bar is a way off it.
+
+        Nothing else is ever on screen -- build_gui puts the panel up and _on_panel_closed
+        ends the run -- so dismissing the panel and closing the window are the same act, and
+        a Close button inside would be a second copy of the one the window frame already
+        carries. An EngineGui pane answers no; see LcsConfigPanel.has_close.
+        """
+        return True
+
+    @property
     def popup_manager(self) -> PopupManager:
         return self._popup
 

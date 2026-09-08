@@ -35,6 +35,7 @@ class PopupState:
     on_close_show: Box | None = None
     restore_image_box: bool = False
     restore_acc_box: bool = False
+    restore_info_box: bool = False
 
 
 # Pack padding around a footer button. The compact pane cannot afford the portrait inset.
@@ -472,6 +473,25 @@ class PopupManager:
             # Deck drift top-aligned the way the Pi already had.
             title = Text(title_row, text=title_text, bold=True, size=host.s_18, height="fill")
             title.bg = "lightgrey"
+            # The row is sized from the key size and the text from the font scale: two dials
+            # that only agree at the pairings the panel was drawn for, and there they agree
+            # exactly -- the Pi's two-line admin title asks for 88px of an 88px row, and a
+            # 631px window at the same divisor asks for 70 of 70. Nothing in that is a margin,
+            # so a host that turns one dial without the other reads its own title cut in half.
+            # Offered to the host rather than corrected here, because a row grown to its text
+            # is height taken from the panel below it: see EngineGui.fit_popup_title_height,
+            # which keeps the measured value everywhere but the stand-alone desktop window.
+            # Before the padding below, since assigning a height re-packs the row's children
+            # and would otherwise discard it.
+            # Asked of the host rather than required of it, as every other hook here is: a
+            # host that has never heard of the question keeps the row it was given.
+            fit_title = getattr(host, "fit_popup_title_height", None)
+            if callable(fit_title):
+                required = title.tk.winfo_reqheight() + (0 if bool(getattr(host, "compact", False)) else TITLE_TOP_PAD)
+                # noinspection PyCallingNonCallable
+                fitted = fit_title(height, required)
+                if fitted != height:
+                    title_row.height = fitted
             if not bool(getattr(host, "compact", False)):
                 # Pack padding rather than a spacer widget, which is safe only because the title
                 # is the last thing ever created in this row. guizero packs it once already, at
@@ -768,6 +788,7 @@ class PopupManager:
 
             # manage image box
             self._hide_image_box(hide_image_box, host)
+            self._state.restore_info_box = False
 
             # Accessory popup
             self._state.restore_acc_box = False
@@ -781,6 +802,9 @@ class PopupManager:
             expand_overlay(overlay)
             overlay.show()
             shown = True
+            # After the show, which is the first moment the panel can be measured, and before
+            # anything is drawn: see _make_room_for.
+            self._make_room_for(overlay, host)
         except (AttributeError, RuntimeError, TclError):
             log.warning(f"Failed to place/show overlay: {overlay}")
             with host.locked():
@@ -790,6 +814,8 @@ class PopupManager:
                 if self._state.restore_image_box and host.image_box and not host.image_box.visible:
                     host.image_box.show()
                 self._state.restore_image_box = False
+                # No info row to restore here: _make_room_for runs after the show that failed,
+                # and does not record a row it did not manage to hide.
                 # restore content box
                 if self._state.on_close_show:
                     try:
@@ -854,6 +880,8 @@ class PopupManager:
                     host.image_box.show()
             self._state.restore_image_box = False
 
+            self._restore_info_box(host)
+
             if self._state.restore_acc_box and host.acc_overlay:
                 if not host.acc_overlay.visible:
                     host.acc_overlay.show()
@@ -877,6 +905,68 @@ class PopupManager:
         if hide_image_box and host.image_box and host.image_box.visible:
             host.image_box.hide()
             self._state.restore_image_box = True
+
+    def _make_room_for(self, overlay: Box, host: EngineGui) -> None:
+        """Let the ID/road-name row yield its height to a popup that would run off the bottom.
+
+        A popup is packed below that row and expands down to the scope buttons (see
+        expand_overlay), so the band it gets is decided by the rows above it -- and pack clips
+        in creation order, which lands the whole shortfall on the last thing in the overlay:
+        its Close button, drawn 3px tall against the 58 it asked for. The admin panel is the
+        one that runs out, and only in a window shorter than the Pi's screen. It asks for 787px
+        of the 720 a 631x1009 desktop window leaves it, where the Pi's own 800x1280 gives it
+        941 for the 931 it asks there -- which is the whole difference, since the panel shrinks
+        with the fonts and the band shrinks with the window.
+
+        The row above is worth 73px of that, and it has nothing to say while an admin panel is
+        up: it names whatever the pane had selected. So it yields -- but only where the host
+        allows it (see EngineGui.popup_may_cover_info_box, false everywhere but the stand-alone
+        desktop window) and only where the popup really does not fit, so on the Pi and the Deck
+        nothing moves at all.
+
+        **Called after the overlay is shown**, which is the first moment there is anything to
+        measure: guizero hides a container by forgetting its children, so a built-but-hidden
+        overlay asks for a height of 1 whatever is in it. Nothing is drawn in between -- the
+        row goes before this callback returns to the event loop -- so the panel still arrives
+        at its final size rather than jumping into it. The band itself is arithmetic rather
+        than the overlay's allotted height, which reads 1 until Tk's own geometry pass runs.
+        """
+        self._state.restore_info_box = False
+        if not getattr(host, "popup_may_cover_info_box", False):
+            return
+        info_box = getattr(host, "info_box", None)
+        if info_box is None or not getattr(info_box, "visible", True):
+            return
+        try:
+            # Tk defers a container's own requested size to its geometry pass, so a panel just
+            # shown still asks for 1 until this runs; flushing it is what makes the reading real.
+            host.app.tk.update_idletasks()
+            # winfo_y is where the row sits in the pack, so its bottom edge is where the popup
+            # starts, whatever else is above it. Zero means the pane has not been laid out yet,
+            # and a band measured from that would be the whole window: leave it be.
+            top = info_box.tk.winfo_y() + info_box.tk.winfo_reqheight()
+            room = host.height - top - host.scope_box.tk.winfo_reqheight()
+            if top <= 0 or overlay.tk.winfo_reqheight() <= room:
+                return
+            info_box.hide()
+        except (AttributeError, RuntimeError, TclError):
+            return
+        # Set last, so a row that could not be measured or could not be hidden is not one the
+        # close is going to put back.
+        self._state.restore_info_box = True
+
+    def _restore_info_box(self, host: EngineGui) -> None:
+        """Put the ID/road-name row back, if a popup was given its height; see _make_room_for.
+
+        Every popup closes through one place, so this is the only restore there is: the row
+        comes back whether the panel was dismissed by Close, by the pad's close key, or by the
+        layout re-reading what the pane has selected.
+        """
+        if self._state.restore_info_box:
+            info_box = getattr(host, "info_box", None)
+            if info_box is not None and not info_box.visible:
+                info_box.show()
+        self._state.restore_info_box = False
 
     def _restore_button_state(
         self,

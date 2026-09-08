@@ -16,6 +16,7 @@ as tests/cli/test_lcs.py does for pylcs.
 
 from __future__ import annotations
 
+from inspect import signature
 from queue import Queue
 from threading import Event, Thread
 from types import SimpleNamespace
@@ -489,3 +490,57 @@ def test_a_row_that_cannot_be_measured_reserves_nothing() -> None:
     assert _host_with_info_row(mod.TclError("bad window path name")).controller_info_reserve == 0
     # Nor is a negative reading something to hand back to the arithmetic.
     assert _host_with_info_row(-5).controller_info_reserve == 0
+
+
+#
+# A panel drawn smaller than the touchscreen it was laid out for
+#
+def test_the_desktop_keys_are_smaller_than_the_touchscreens() -> None:
+    # What the picture above the keypad is made of: the strip is the residual after every
+    # other row, and the ops keypad is the row with the most to give -- its speed slider
+    # alone is four keys tall. Measured at 631x1009: the keypad falls 607 -> 477 and the
+    # strip rises 91 -> 221. Defaulted in the constructor rather than passed by the CLI, so
+    # anything that opens this window gets the same panel.
+    assert mod.DESKTOP_BUTTON_DIVISOR == 8.0
+    assert signature(PyCabPanelGui.__init__).parameters["button_divisor"].default == mod.DESKTOP_BUTTON_DIVISOR
+    # And it is the Pi's divisor that it differs from: 800 / 6 is a fingertip, which is what
+    # a touchscreen needs and a mouse does not.
+    assert mod.DESKTOP_BUTTON_DIVISOR > 6.0
+
+
+def test_a_caller_may_still_ask_for_a_different_key_size(monkeypatch) -> None:
+    # A default, not a fixture: the value is still the caller's to set, and it is passed on
+    # to EngineGui as given rather than being swallowed here.
+    seen: list[float] = []
+    monkeypatch.setattr(mod.EngineGui, "__init__", lambda self, **kwargs: seen.append(kwargs["button_divisor"]))
+
+    PyCabPanelGui(width=631, height=1009)
+    PyCabPanelGui(width=631, height=1009, button_divisor=6.0)
+
+    assert seen == [mod.DESKTOP_BUTTON_DIVISOR, 6.0]
+
+
+def test_the_desktop_window_draws_a_picture_at_its_own_proportions() -> None:
+    # The strip here is short and the picture is drawn into it, so filling its width turned a
+    # 3:1 locomotive into a 6.9:1 stripe. Where the strip is deep enough the two answers are
+    # the same picture; see GuiZeroBase._fit_image_size for the arithmetic and its default.
+    assert _host().preserve_image_aspect is True
+
+
+def test_the_desktop_window_lets_a_panel_that_will_not_fit_cover_the_id_row() -> None:
+    # The admin panel asks for 787 px of the 720 this window leaves below that row, and what
+    # it lost was its Close button. The row names what the pane has selected, which is nothing
+    # an admin panel is about. Only where it does not fit: PopupManager._make_room_for measures.
+    assert _host().popup_may_cover_info_box is True
+
+
+def test_the_desktop_window_grows_a_title_row_to_the_title_in_it() -> None:
+    # The two dials the row and its text hang off -- the key size and the font scale -- are
+    # turned together only at the pairings the panel was drawn for, and this window turns the
+    # first without the second. The admin heading asked 70 px of a 52 px row and lost its
+    # version line; a row already deep enough is left exactly as measured.
+    gui = _host()
+
+    assert gui.fit_popup_title_height(52, 70) == 70
+    assert gui.fit_popup_title_height(88, 88) == 88
+    assert gui.fit_popup_title_height(44, 30) == 44, "never smaller than the row it was built"

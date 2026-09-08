@@ -29,6 +29,7 @@ from src.pytrain.cli.lcs import LcsCli, LcsGuiCmd, main
 from src.pytrain.gui.controller.lcs_config_panel import LcsConfigPanel
 from src.pytrain.gui.controller.lcs_gui import DEFAULT_HEIGHT, DEFAULT_WIDTH, LcsGui
 from src.pytrain.protocol.constants import DEFAULT_BAUDRATE, DEFAULT_PORT, CommandScope
+from src.pytrain.utils.host_info import is_linux
 
 
 #
@@ -288,6 +289,19 @@ def test_panel_is_constructible_against_the_stand_alone_host(_patch_runtime) -> 
         assert panel.device is None
         # The panel's own store lookup resolves to the host's state store.
         assert panel._store is gui.state_store
+    finally:
+        gui.close()
+
+
+def test_here_the_panel_is_the_window_so_the_frame_is_the_way_off_it(_patch_runtime) -> None:
+    # Nothing else is ever on screen in this window, so closing the panel and closing the
+    # window are one act and a Close button inside would be a second copy of the frame's. An
+    # EngineGui pane answers the other way -- there the frame quits the program -- which is
+    # why the platform alone cannot decide it: pycab is this same panel on the same Mac.
+    gui = _host()
+    try:
+        assert gui.panel_owns_window is True
+        assert LcsConfigPanel(gui).has_close is is_linux()
     finally:
         gui.close()
 

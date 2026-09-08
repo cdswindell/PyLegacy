@@ -9,12 +9,22 @@ import src.pytrain.gui.controller.popup_manager as mod
 
 
 class _Tk:
-    def __init__(self, fail_place: bool = False) -> None:
+    def __init__(self, fail_place: bool = False, req_height: int = 0, y: int = 0) -> None:
         self.fail_place = fail_place
         self.placed: list[tuple[int, int]] = []
         self.forgotten = 0
         self.configured: list[dict] = []
         self.packed: list[dict] = []
+        # What Tk would answer about a laid-out widget: the height it asks for, and where the
+        # pack put it. Both are read to decide whether a panel fits below the ID row.
+        self.req_height = req_height
+        self.y = y
+
+    def winfo_reqheight(self) -> int:
+        return self.req_height
+
+    def winfo_y(self) -> int:
+        return self.y
 
     def place(self, *, x: int, y: int) -> None:
         if self.fail_place:
@@ -36,11 +46,20 @@ _REPACKED = {"repacked": True}
 
 
 class _Widget:
-    def __init__(self, master=None, *, visible: bool = True, fail_place: bool = False, **kwargs) -> None:
+    def __init__(
+        self,
+        master=None,
+        *,
+        visible: bool = True,
+        fail_place: bool = False,
+        req_height: int = 0,
+        y: int = 0,
+        **kwargs,
+    ) -> None:
         self.master = master
         self.kwargs = kwargs
         self.visible = visible
-        self.tk = _Tk(fail_place=fail_place)
+        self.tk = _Tk(fail_place=fail_place, req_height=req_height, y=y)
         self._height = kwargs.get("height")
         # Every value ever assigned to height, in order. guizero derives a widget's pack fill
         # from this attribute on each repack (Container._pack_widget), so it is the whole
@@ -1065,7 +1084,15 @@ def test_a_popup_that_failed_to_appear_is_not_balanced() -> None:
     assert ran == []
 
 
-def _popup_with_title(monkeypatch: pytest.MonkeyPatch, title: str, *, button_size: int = 133, compact: bool = False):
+def _popup_with_title(
+    monkeypatch: pytest.MonkeyPatch,
+    title: str,
+    *,
+    button_size: int = 133,
+    compact: bool = False,
+    fit_title=None,
+    title_req_height: int = 0,
+):
     made: list[_Widget] = []
     texts: list[_Widget] = []
 
@@ -1074,7 +1101,7 @@ def _popup_with_title(monkeypatch: pytest.MonkeyPatch, title: str, *, button_siz
         return made[-1]
 
     def make_text(master=None, **kwargs):
-        texts.append(_Widget(master, **kwargs))
+        texts.append(_Widget(master, req_height=title_req_height, **kwargs))
         return texts[-1]
 
     monkeypatch.setattr(mod, "Box", make_box)
@@ -1083,6 +1110,8 @@ def _popup_with_title(monkeypatch: pytest.MonkeyPatch, title: str, *, button_siz
     host = _host()
     host.button_size = button_size
     host.compact = compact
+    if fit_title is not None:
+        host.fit_popup_title_height = fit_title
     manager = mod.PopupManager(host)
 
     manager.create_popup(title, lambda _body: None)
@@ -1149,3 +1178,172 @@ def test_the_nudge_still_leaves_the_title_centered(monkeypatch: pytest.MonkeyPat
 
     assert title.kwargs["height"] == "fill"
     assert "align" not in title.kwargs
+
+
+# ----------------------------------------------------------------------------------------
+# A title row built from the key size, holding a title built from the font scale
+# ----------------------------------------------------------------------------------------
+def _keep_measured(measured: int, _required: int) -> int:
+    """EngineGui's own answer: the row stays the size the key size made it."""
+    return measured
+
+
+def _grow_to_fit(measured: int, required: int) -> int:
+    """The stand-alone desktop window's answer; see PyCabPanelGui.fit_popup_title_height."""
+    return max(measured, required)
+
+
+def test_a_title_row_is_not_resized_for_a_host_that_keeps_the_measured_height(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The Pi and the Deck, whose row and title are the same size already. Not merely equal:
+    # the row is never assigned at all, so nothing re-packs and the widget keeps exactly the
+    # height it was built with.
+    title_row, _title = _popup_with_title(
+        monkeypatch,
+        "Manage PyTrain\nPyTrain v1.0",
+        fit_title=_keep_measured,
+        title_req_height=200,  # far more than the row: still not enough to move it
+    )
+
+    assert title_row.kwargs["height"] == 2 * (133 // 3)
+    assert title_row.height_history == []
+
+
+def test_a_host_may_grow_the_title_row_to_the_title_it_holds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The desktop window's admin heading, in the numbers it was measured at: a two-line title
+    # asking 70px (66 of text plus the 4px nudge it is packed with) in a row of 2 * 79 // 3.
+    # Unfitted it cut the version line off the bottom.
+    title_row, _title = _popup_with_title(
+        monkeypatch,
+        "Manage PyTrain\nPyTrain Client v2.9.12+",
+        button_size=79,
+        fit_title=_grow_to_fit,
+        title_req_height=70 - mod.TITLE_TOP_PAD,
+    )
+
+    assert title_row.kwargs["height"] == 52, "what the key size made it"
+    assert title_row.height_history == [70], "and what the title in it needs"
+
+
+def test_a_row_already_deep_enough_is_left_alone_by_the_same_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Pi's own numbers through the desktop's answer: an 88px row for an 88px title, which
+    # is the pairing the panel was drawn at. Equal, so there is nothing to grow -- and the row
+    # is not reassigned to the same number either, since assigning re-packs its children.
+    title_row, _title = _popup_with_title(
+        monkeypatch,
+        "Manage PyTrain\nPyTrain Client v2.9.12+",
+        fit_title=_grow_to_fit,
+        title_req_height=88 - mod.TITLE_TOP_PAD,
+    )
+
+    assert title_row.kwargs["height"] == 88
+    assert title_row.height_history == []
+
+
+def test_a_compact_title_is_measured_without_the_nudge_it_never_gets(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A Deck pane's title is packed with no top padding, so asking for room for it would be
+    # asking for whitespace that is not there. The row is 2 * 80 // 3 = 52; a 52px title fits.
+    title_row, _title = _popup_with_title(
+        monkeypatch,
+        "Two\nLines",
+        button_size=80,
+        compact=True,
+        fit_title=_grow_to_fit,
+        title_req_height=52,
+    )
+
+    assert title_row.height_history == [], "with the nudge added it would have grown by 4px"
+
+
+# ----------------------------------------------------------------------------------------
+# Room for a panel taller than the band below the rows above it
+# ----------------------------------------------------------------------------------------
+def _room_host(*, may_cover: bool, info_y: int = 159, info_height: int = 73) -> SimpleNamespace:
+    """A host laid out like the desktop cab window: 1009px tall, ID row at 159, scope row 57."""
+    host = _host()
+    host.app.tk = SimpleNamespace(update_idletasks=lambda: None)
+    host.height = 1009
+    host.info_box = _Widget(y=info_y, req_height=info_height)
+    host.scope_box = _Widget(req_height=57)
+    host.popup_may_cover_info_box = may_cover
+    return host
+
+
+def test_a_panel_that_will_not_fit_is_given_the_id_rows_height_and_handed_it_back() -> None:
+    # The admin panel: 787px of the 720 below the ID row (1009 - 232 - 57). Its Close was the
+    # last thing packed and so the whole shortfall landed on it, drawn 3px tall. With the row
+    # yielded the band is 793 and the panel is whole.
+    host = _room_host(may_cover=True)
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False, req_height=787)
+
+    manager.show(overlay)
+    assert host.info_box.visible is False
+
+    manager.close()
+    assert host.info_box.visible is True, "the row is the pane's again as soon as the panel goes"
+
+
+def test_a_panel_that_fits_leaves_the_id_row_where_it_is() -> None:
+    # Every other popup, the LCS configuration screens among them at 700px. The row is only
+    # ever taken by a panel that has actually run out of band.
+    host = _room_host(may_cover=True)
+    manager = mod.PopupManager(host)
+
+    manager.show(_Widget(visible=False, req_height=700))
+
+    assert host.info_box.visible is True
+
+
+def test_the_id_row_is_never_taken_where_the_host_has_not_offered_it() -> None:
+    # The Pi's control panel and a Deck pane: the same panel fits their screens, and the row
+    # stays put even were it not to -- the offer is the host's to make, not the popup's.
+    host = _room_host(may_cover=False)
+    manager = mod.PopupManager(host)
+
+    manager.show(_Widget(visible=False, req_height=787))
+
+    assert host.info_box.visible is True
+
+
+def test_a_popup_shown_before_the_pane_is_laid_out_leaves_the_row_alone() -> None:
+    # Tk answers 0 for a widget it has not placed yet, and a band measured from that would be
+    # the whole window -- which would hide the row for a panel that has plenty of space.
+    host = _room_host(may_cover=True, info_y=0, info_height=0)
+    manager = mod.PopupManager(host)
+
+    manager.show(_Widget(visible=False, req_height=787))
+
+    assert host.info_box.visible is True
+
+
+def test_a_host_with_no_id_row_to_offer_is_no_obstacle() -> None:
+    # LcsGui has no such row: its panel is the window. Nothing to hide, and nothing to raise.
+    host = _room_host(may_cover=True)
+    host.info_box = None
+    manager = mod.PopupManager(host)
+
+    manager.show(_Widget(visible=False, req_height=787))
+
+    assert manager._state.restore_info_box is False
+
+
+def test_a_row_that_cannot_be_measured_is_not_one_the_close_puts_back() -> None:
+    # Tk raising mid-measurement, which on a torn-down window it will. The panel is shown
+    # regardless -- a heading is worth less than the panel under it -- and the row, never
+    # hidden, is not restored into a pane that has moved on.
+    host = _room_host(may_cover=True)
+    host.app.tk = SimpleNamespace(update_idletasks=_raise_tcl)
+    manager = mod.PopupManager(host)
+    overlay = _Widget(visible=False, req_height=787)
+
+    manager.show(overlay)
+
+    assert manager._state.current_popup is overlay
+    assert manager._state.restore_info_box is False
+    assert host.info_box.visible is True
+
+
+def _raise_tcl() -> None:
+    raise RuntimeError("no window")

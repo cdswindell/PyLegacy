@@ -154,6 +154,86 @@ def test_compact_prepared_image_preserves_source_aspect_ratio() -> None:
     gui.close()
 
 
+class _BoxedGui(DummyGui):
+    """A DummyGui with an image strip of a stated size, and a host's answer on proportions."""
+
+    def __init__(self, height: int, width: int, preserve_aspect: bool = False) -> None:
+        self._box = (height, width)
+        self._preserve_aspect = preserve_aspect
+        super().__init__()
+
+    def calc_image_box_size(self) -> tuple[int, int]:
+        return self._box
+
+    @property
+    def preserve_image_aspect(self) -> bool:
+        return self._preserve_aspect
+
+
+def test_nothing_preserves_a_pictures_proportions_unless_a_host_asks_for_it() -> None:
+    # The Pi's control panel and the Steam Deck are every host that does not, and the Deck
+    # keeps them anyway through its own compact branch. So the default is the arithmetic
+    # everything has always been drawn with; see _fit_image_size.
+    assert mod.GuiZeroBase.preserve_image_aspect.fget(object()) is False
+
+
+def test_a_short_strip_stretches_the_engine_picture_unless_the_host_says_otherwise() -> None:
+    # The measured defect, in its own numbers: a 3:1 locomotive (1086x362 is the cached image
+    # for engine 12) in the desktop window's 631x91 strip. The width is filled and the height
+    # fitted, so the picture comes out 6.9:1 -- a stripe. Asked to keep its proportions it is
+    # drawn at the height instead, smaller and right.
+    stretching = _BoxedGui(height=91, width=631)
+    keeping = _BoxedGui(height=91, width=631, preserve_aspect=True)
+
+    assert stretching._calc_scaled_image_size(1086, 362) == (631, 91)
+    assert keeping._calc_scaled_image_size(1086, 362) == (273, 91)
+
+    stretching.close()
+    keeping.close()
+
+
+def test_a_strip_tall_enough_for_the_picture_costs_the_host_nothing_to_ask() -> None:
+    # The other half of the desktop fix: with the ops keypad drawn smaller the strip is 221px
+    # tall, the width binds again, and both answers are the same picture -- so preserving the
+    # proportions is not a smaller image, it is the same one whenever there is room for it.
+    stretching = _BoxedGui(height=221, width=631)
+    keeping = _BoxedGui(height=221, width=631, preserve_aspect=True)
+
+    assert stretching._calc_scaled_image_size(1086, 362) == (631, 210)
+    assert keeping._calc_scaled_image_size(1086, 362) == (631, 210)
+
+    stretching.close()
+    keeping.close()
+
+
+def test_an_accessory_photo_fills_the_height_it_is_given_either_way() -> None:
+    # The ACC path asks for preserve_height, so the photo is drawn as tall as the strip. Nearly
+    # square art (the LCS ASC2 photo is 1552x1145) is therefore tiny in a 91px strip and no
+    # arithmetic here can help -- what makes it bigger is the taller strip, and there the two
+    # answers agree, since the height is what binds in both.
+    stretching = _BoxedGui(height=91, width=631)
+    keeping = _BoxedGui(height=221, width=631, preserve_aspect=True)
+
+    assert stretching._calc_scaled_image_size(1552, 1145, preserve_height=True) == (123, 91)
+    assert keeping._calc_scaled_image_size(1552, 1145, preserve_height=True) == (299, 221)
+
+    stretching.close()
+    keeping.close()
+
+
+def test_a_host_that_asks_keeps_the_proportions_of_a_prepared_image_too() -> None:
+    # The other scaling path, the one that runs off the Tk thread for a product-info image.
+    # Both read the same helper, so a host cannot be answered one way in one and another in
+    # the other; the portrait case above it is the arithmetic the Pi keeps.
+    source = BytesIO()
+    Image.new("RGB", (600, 300)).save(source, format="PNG")
+    gui = _BoxedGui(height=120, width=360, preserve_aspect=True)
+
+    assert gui._prepare_scaled_pil_image(source, available_width=360, available_height=120).size == (240, 120)
+
+    gui.close()
+
+
 def test_button_divisor_supports_compact_landscape_controls() -> None:
     portrait = DummyGui()
     landscape = DummyGui(button_divisor=8.0)

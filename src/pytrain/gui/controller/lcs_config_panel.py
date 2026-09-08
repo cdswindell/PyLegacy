@@ -5383,11 +5383,18 @@ class LcsConfigPanel(OverlayPanel):
     def has_close(self) -> bool:
         """Whether the popup adds its Close button below the panel's Back/Next row.
 
-        Only where the panel is the only way off itself; see needs_close_button(). Read by
-        create_popup as the overlay is built, which is the one moment it is needed: an
-        overlay is built on the machine it is shown on.
+        Only where the panel is the only way off itself. Two ways it can be: a screen with no
+        window frame at all, which is the Pi and the Steam Deck (see needs_close_button), or a
+        window whose frame closes something larger than the panel. The second is what the
+        stand-alone cab panel is -- the panel is a popup over a pane there, and the window's
+        close box ends the program rather than dismissing the popup -- so the platform alone
+        cannot answer it: pylcs and pycab are the same panel on the same Mac, and only one of
+        them is its own window. See LcsGui.panel_owns_window, which is the one that is.
+
+        Read by create_popup as the overlay is built, which is the one moment it is needed: an
+        overlay is built on the machine it is shown on, and inside the host it belongs to.
         """
-        return needs_close_button()
+        return needs_close_button() or not self._gui.panel_owns_window
 
     @property
     def closes_on_request_only(self) -> bool:
@@ -5411,10 +5418,11 @@ class LcsConfigPanel(OverlayPanel):
 
         Asked of has_close rather than answered outright, because a panel may only hold the
         screen where the operator can let it go: has_close is that same question -- is there a
-        way off this panel that belongs to the panel itself? On the Pi and the Steam Deck
-        there is, and those are the machines this is operated from. On a desk the way off is
-        the pane's own controls, and holding the screen against them would be a panel with no
-        way out at all.
+        way off this panel that belongs to the panel itself? Wherever the panel is a popup over
+        a pane there is one, Close being it, so the screen is the operator's to give back. The
+        one place there is not is the stand-alone LCS window, where the panel is the window and
+        the way off is the window's own close box: holding the screen against that would be a
+        panel with no way out at all.
         """
         return self.has_close
 
