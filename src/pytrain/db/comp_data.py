@@ -476,7 +476,7 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", encode_target_speed),
     ],
     "SPEED": [("speed", encode_tmcc_speed)],
-    "TARGET_SPEED": [("target_speed", encode_tmcc_speed)],
+    "TARGET_SPEED": [("target_speed", encode_target_speed)],
     "DIESEL_RPM": [("rpm",)],
     "ENGINE_LABOR": [("labor",)],
     "ENGINEER_FUEL_REFILLED": [("fuel_level", lambda x: 255)],
@@ -1189,7 +1189,7 @@ class TrainData(EngineData):
 
 class SwitchData(CompData):
     """
-    Represents the SwitchData class which extends the CompData class.
+    Represents the SwitchData class, which extends the CompData class.
 
     This class is designed to handle and initialize switch-related data operations,
     using the base functionality provided by the CompData class. It incorporates
