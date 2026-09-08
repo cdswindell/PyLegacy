@@ -750,3 +750,19 @@ def test_no_other_engine_op_key_wears_a_border() -> None:
 
     bordered = [key for key, (_key, btn) in cells.items() if btn.border_thickness and key not in directions]
     assert bordered == []
+
+
+# noinspection PyProtectedMember
+def test_the_info_row_can_be_asked_for_by_name_so_its_height_can_be_reserved() -> None:
+    # The row (Mom, Brake, Smoke, Speed Lim, Effort, RPM) is built while the controller box is
+    # hidden, so it is not packed when EngineGui sizes the engine image and contributes nothing
+    # to the controller box's requested height -- which is why the row itself has to be
+    # reachable to be measured. See EngineGui.controller_info_reserve.
+    view = mod.ControllerView(SimpleNamespace())
+
+    assert view.controller_info_box is None, "nothing to measure before the controller is built"
+
+    row = _DummyWidget()
+    view._controller_info_box = row
+
+    assert view.controller_info_box is row

@@ -319,6 +319,17 @@ class ControllerView:
     # -----------------------------
     # Public API used by EngineGui
     # -----------------------------
+    @property
+    def controller_info_box(self) -> Box | None:
+        """The info row below the ops keypad: Mom, Brake, Smoke, Speed Lim, Effort, RPM.
+
+        It is created while the controller box is hidden, so it is not packed until ops
+        mode shows it, and until then it contributes nothing to controller_box's requested
+        height even though it knows its own. That is why the row has to be asked for by
+        name to be measured; see EngineGui.controller_info_reserve.
+        """
+        return self._controller_info_box
+
     # noinspection PyProtectedMember
     def build(self, app) -> None:
         """Create controller widgets if not already built."""

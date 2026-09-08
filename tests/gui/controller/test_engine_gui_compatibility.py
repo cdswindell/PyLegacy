@@ -534,6 +534,51 @@ def test_portrait_image_baseline_matches_the_measurements_taken_on_the_pi() -> N
     assert gui.avail_image_width == 780
 
 
+def test_the_baseline_reserves_nothing_for_the_controller_info_row_by_default() -> None:
+    """Which is what the reading above is: the Pi's own log line, with nothing held back.
+
+    The controller's info row (Mom, Brake, Smoke, Speed Lim, Effort, RPM) is built while the
+    controller box is hidden, so it is not packed when this runs and none of its height is
+    counted -- the image takes those pixels and ops mode leaves the row squeezed into the
+    20 px of slack below. controller_info_reserve is the seam for holding it back instead,
+    and it is the stand-alone desktop window that overrides it (see PyCabPanelGui); every
+    host that builds EngineGui itself keeps the arithmetic it has always had.
+    """
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+
+    assert gui.controller_info_reserve == 0
+
+
+def test_a_reserved_info_row_is_taken_out_of_the_image_and_nothing_else() -> None:
+    class ReservingGui(mod.EngineGui):
+        # A property on the class it inherits from, so a plain value shadows it here.
+        controller_info_reserve = 74
+
+    def widget(width: int, height: int):
+        return SimpleNamespace(tk=SimpleNamespace(winfo_reqwidth=lambda: width, winfo_reqheight=lambda: height))
+
+    gui = ReservingGui.__new__(ReservingGui)
+    gui._app = SimpleNamespace(tk=SimpleNamespace(update_idletasks=lambda: None))
+    gui._compact = False
+    gui.width = 800
+    gui.height = 1280
+    gui.header = widget(800, 69)
+    gui.emergency_box = widget(780, 112)
+    gui.emergency_box_width = 780
+    gui.emergency_box_height = 112
+    gui.info_box = widget(800, 89)
+    gui.scope_box = widget(800, 70)
+    gui.controller_box = widget(800, 624)
+
+    gui._compute_engine_image_baseline()
+
+    # The Pi's 296, less the 74 the row asked for: the image is the residual, so it is the
+    # image that gives the pixels up -- and the width is untouched.
+    assert gui.avail_image_height == 296 - 74
+    assert gui.avail_image_height_engine == 296 - 74
+    assert gui.avail_image_width == 780
+
+
 def test_compact_image_box_is_three_times_wider_and_height_limited() -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._compact = True

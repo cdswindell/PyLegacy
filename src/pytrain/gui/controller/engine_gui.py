@@ -386,6 +386,22 @@ class EngineGui(GuiZeroBase, Generic[S]):
     def fit_info_id_width(self, actual_width: int, required_width: int) -> int:
         return max(actual_width, required_width) if self._compact else actual_width
 
+    @property
+    def controller_info_reserve(self) -> int:
+        """Height to hold back from the engine image for the controller's info row.
+
+        Zero, which is what the Pi's control panel and the Steam Deck have always run
+        with. _compute_engine_image_baseline measures controller_box while the controller
+        is still hidden, and a Box created inside a hidden container is not packed yet, so
+        it does not count toward its master's requested height. The info row (Mom, Brake,
+        Smoke, Speed Lim, Effort, RPM) is built that way, so its height is missing from
+        that measurement: the image is handed those pixels instead, and when ops mode
+        finally packs the row it is left with whatever the 20 px of slack below allows.
+        Overridden by the stand-alone desktop window, which reserves the row and lets the
+        image give the pixels up; see PyCabPanelGui.
+        """
+        return 0
+
     def fit_emergency_box_width(self, measured_width: int) -> int:
         return self.width if getattr(self, "_compact", False) else measured_width
 
@@ -2626,7 +2642,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """Compute image height based on engine ops-mode layout and remember it.
 
         Baseline = device height - ops keypad/controller - scope buttons - info box
-                   - engine id/road name box - Emergency/reset box - top header - padding
+                   - engine id/road name box - Emergency/reset box - top header
+                   - controller_info_reserve - padding
         This is computed eagerly when entering ops mode so other modes use it.
         """
         try:
@@ -2640,7 +2657,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             # Use controller_box as the ops-mode keypad area; use reqheight even if hidden
             controller_h = self.controller_box.tk.winfo_reqheight() if self.controller_box else 0
 
-            baseline = self.height - header_h - emergency_h - info_h - scope_h - controller_h - 20
+            reserve_h = self.controller_info_reserve
+            baseline = self.height - header_h - emergency_h - info_h - scope_h - controller_h - reserve_h - 20
             baseline = max(0, int(baseline))
             available_width = self.emergency_box_width or (
                 self.emergency_box.tk.winfo_reqwidth() if self.emergency_box else 0
@@ -2655,7 +2673,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
             if log.isEnabledFor(logging.DEBUG):
                 log.debug(
                     f"Computed engine image baseline height={baseline} (hdr={header_h}, em={emergency_h}, "
-                    f"info={info_h}, scope={scope_h}, ctrl={controller_h})"
+                    f"info={info_h}, scope={scope_h}, ctrl={controller_h}, reserve={reserve_h})"
                 )
         except Exception as e:
             log.exception("Failed to compute engine image baseline", exc_info=e)

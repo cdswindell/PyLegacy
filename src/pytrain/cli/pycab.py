@@ -14,15 +14,20 @@ Follows the pylcs pattern exactly: a CliBase subclass parses the arguments, and 
 CommandBase subclass brings PyTrain up as a client, against a named server, or directly
 against a Base 3, then runs the GUI. No requests are built here -- the panel itself is
 what sends anything, through the GUI's own request queue.
+
+The window sizes itself to the display it opens on rather than to the Pi's touchscreen;
+see window_geometry, and DESIGN_WIDTH for why a fixed 800x1280 does not travel.
 """
 
 from __future__ import annotations
 
 import logging
 import sys
+import tkinter as tk
 from argparse import ArgumentParser
 from threading import current_thread, main_thread
-from typing import List
+from tkinter import TclError
+from typing import List, NamedTuple
 
 from ..gui.controller.engine_gui import EngineGui
 from ..protocol.command_base import CommandBase
@@ -32,10 +37,159 @@ from . import CliBase
 
 log = logging.getLogger(__name__)
 
-# The portrait geometry the cab panel is drawn for, so a desktop run is laid out like
-# the Pi's touchscreen rather than stretched across a full-screen desktop window.
-DEFAULT_WIDTH = 800
-DEFAULT_HEIGHT = 1280
+# The portrait geometry the cab panel is drawn for, and the largest window worth opening --
+# not a size that suits every display. The layout is proportioned around this pairing:
+# boxes and images follow the width (button_size = width / 6, EngineGui.scope_size =
+# width / 5), every text size follows scale_by alone, and the Pi runs 800 wide at
+# scale_by 1.5 (see make_gui's control_panel). Asking for it verbatim on a desktop is what
+# does not travel: on macOS a window's width and height are points, not pixels, so on a
+# 5120x2880 iMac set to "looks like 2560x1440" a 1280 pt window plus a title bar wants more
+# vertical room than the 1289 pt work area has, and lands as 2240 real pixels of a
+# 2520 pixel panel. Hence: fit the window to the screen, keep this 5:8 shape, and take
+# scale_by from the width that results.
+DESIGN_WIDTH = 800
+DESIGN_HEIGHT = 1280
+DESIGN_SCALE_BY = 1.5
+
+# The smallest window the panel is still proportioned for: GuiZeroBase.scale() clamps at
+# 480 (max(orig_value, value * width / 480)) and stops applying scale_by at or below it, so
+# a narrower window no longer shrinks the layout -- it only clips it.
+MIN_WIDTH = 520
+MIN_SCALE_BY = 0.75
+
+# What a window costs beyond the size asked for, and how much screen to leave alone. The
+# title bar is measured under Aqua: asked for +0+0, Tk reports the frame at y=30, below the
+# menu bar, with the client area starting at y=62. X11 and Windows title bars are of the
+# same order, and the margin absorbs the difference either way.
+TITLE_BAR_HEIGHT = 32
+SCREEN_MARGIN = 16
+
+# How much of the work area the window may take on the macOS desktop. Filling it is what a
+# touchscreen panel does and what a desktop window should not: the whole work area is
+# 1289 pt on the 2560x1440 iMac above, so a window fitted to it stands 1273 pt tall with its
+# title bar and reads as owning the screen -- and the panel is a window among windows there,
+# not the display. Four fifths leaves a quarter of the screen's height clear and lands the
+# panel at about the physical size of the Pi's 8 in touchscreen. Aqua only: X11 desktops keep
+# the fitted size, and the Pi's control panel does not come through here at all (make_gui
+# builds EngineGui directly, full screen, and never passes a width).
+AQUA_HEIGHT_FRACTION = 0.8
+
+# Raised by Tk when there is no display to ask about, as on a headless server or over ssh.
+SCREEN_QUERY_EXCEPTIONS = (RuntimeError, TclError)
+
+
+class Screen(NamedTuple):
+    """What a display offers a window: its work area, and who is drawing it."""
+
+    width: int
+    height: int
+    windowing_system: str = ""
+
+    @property
+    def is_aqua(self) -> bool:
+        """True on the macOS desktop, and false under X11 -- including XQuartz on a Mac."""
+        return self.windowing_system == "aqua"
+
+
+def portrait_height(width: int) -> int:
+    """The height that keeps the panel's shape at a given width."""
+    return int(round(width * DESIGN_HEIGHT / DESIGN_WIDTH))
+
+
+def portrait_width(height: int) -> int:
+    """The width that keeps the panel's shape at a given height."""
+    return int(round(height * DESIGN_WIDTH / DESIGN_HEIGHT))
+
+
+def scale_for(width: int) -> float:
+    """The text scale that pairs with a window width, from the Pi's 800 at 1.5.
+
+    Sizes are split between the two dials, so turning the width alone leaves text jammed
+    into smaller cells, or swimming in larger ones. Capped at the design factor, since a
+    window wider than the Pi's panel is a desktop convenience and no reason to draw text
+    larger than the panel ever draws it; floored so a deliberately tiny window keeps text
+    that can still be read.
+    """
+    return min(DESIGN_SCALE_BY, max(MIN_SCALE_BY, width * DESIGN_SCALE_BY / DESIGN_WIDTH))
+
+
+def fit_to_screen(screen: Screen) -> tuple[int, int]:
+    """The largest window of the panel's shape worth opening on a given screen.
+
+    Never larger than the design size: the panel is not drawn to grow, and a desktop
+    display big enough to hold it gets exactly what the Pi's touchscreen gets. On the macOS
+    desktop, never larger than its share of the work area either; see AQUA_HEIGHT_FRACTION.
+    """
+    budget = int(screen.height * AQUA_HEIGHT_FRACTION) if screen.is_aqua else screen.height
+    height = min(DESIGN_HEIGHT, budget - TITLE_BAR_HEIGHT - SCREEN_MARGIN)
+    width = portrait_width(height)
+    if width > screen.width - SCREEN_MARGIN:
+        # A screen shorter than it is narrow, or one turned portrait: the width is what
+        # binds, and the height follows it back down.
+        width = screen.width - SCREEN_MARGIN
+        height = portrait_height(width)
+    if width < MIN_WIDTH:
+        # Nothing sensible is left to give up: past here the layout stops shrinking, so a
+        # window that fit the screen would clip the panel rather than scale it.
+        return MIN_WIDTH, portrait_height(MIN_WIDTH)
+    return width, height
+
+
+def usable_screen() -> Screen | None:
+    """The screen area a window may occupy, in Tk pixels -- points, under Aqua.
+
+    wm maxsize is what Tk makes of the platform's work area: the screen less the menu bar
+    and the Dock on macOS, less panels and docks on X11. Measured (2560, 1289) against a
+    2560x1440 screen on the iMac above. Read from a throwaway root that is never mapped, so
+    nothing appears on screen, and None where there is no display to ask -- in which case
+    the caller is left with the design size. The windowing system comes from the same root,
+    as Tk sees it rather than as the platform is guessed at.
+    """
+    root = None
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        width, height = root.wm_maxsize()
+        # An X11 window manager that reports no work area answers with the screen itself, or
+        # with something larger still; the screen is the ceiling either way.
+        return Screen(
+            min(width, root.winfo_screenwidth()),
+            min(height, root.winfo_screenheight()),
+            root.tk.call("tk", "windowingsystem"),
+        )
+    except SCREEN_QUERY_EXCEPTIONS as e:
+        log.info(f"Cannot measure the screen, opening the cab panel at {DESIGN_WIDTH}x{DESIGN_HEIGHT}: {e}")
+        return None
+    finally:
+        if root is not None:
+            try:
+                root.destroy()
+            except TclError:
+                pass
+
+
+def window_geometry(
+    width: int | None = None,
+    height: int | None = None,
+    scale_by: float | None = None,
+    usable: Screen | None = None,
+) -> tuple[int, int, float]:
+    """Settle the window size and text scale, filling in whatever was not asked for.
+
+    Neither dimension given: fit the screen. One of them given: the other keeps the panel's
+    shape, which is what makes the width a single dial -- `-width 520` opens the window at
+    about the physical size of the Pi's 8 in panel on a desktop display, proportioned the
+    same way. Both given: both are honored, screen or no screen. The scale follows whatever
+    width is in force, unless -scale_by named one.
+    """
+    if width is None and height is None:
+        usable = usable if usable is not None else usable_screen()
+        width, height = fit_to_screen(usable) if usable else (DESIGN_WIDTH, DESIGN_HEIGHT)
+    elif height is None:
+        height = portrait_height(width)
+    elif width is None:
+        width = portrait_width(height)
+    return width, height, scale_by if scale_by is not None else scale_for(width)
 
 
 class PyCabPanelGui(EngineGui):
@@ -47,6 +201,28 @@ class PyCabPanelGui(EngineGui):
     main thread, so a stand-alone run must keep Tk where it was started from; see the
     recipe in lcs_gui, which LcsGui follows for the same reason.
     """
+
+    @property
+    def controller_info_reserve(self) -> int:
+        """Hold the controller's info row out of what the engine image is measured against.
+
+        The row -- Mom, Brake, Smoke, Speed Lim, Effort, RPM -- is built while the
+        controller box is hidden, so it is not packed when the image baseline is computed
+        and none of its height is reserved; the image takes those pixels, and ops mode
+        leaves the row clipped to whatever slack is left. Measured on this panel at
+        776x1241: the row asks for 72 px and is allotted 22. The row knows its own height
+        by then, packed or not, so reserve it and let the image be the residual it already
+        is. Desktop window only: the Pi's control panel and the Steam Deck build EngineGui
+        themselves and keep the default of 0.
+        """
+        view = self.controller_view
+        row = view.controller_info_box if view is not None else None
+        if row is None:
+            return 0
+        try:
+            return max(0, row.tk.winfo_reqheight())
+        except TclError:
+            return 0
 
     def start(self) -> None:
         """Deliberately does NOT start a thread.
@@ -120,7 +296,10 @@ class PyCabGuiCmd(CommandBase):
         # store, so it has to be loaded before the window is laid out.
         self.wait_for_sync()
 
-        log.info("Opening cab control panel window...")
+        log.info(
+            f"Opening cab control panel window "
+            f"({self._cli.gui_width}x{self._cli.gui_height}, scale_by {self._cli.scale_by:.2f})..."
+        )
         self._gui = PyCabPanelGui(
             width=self._cli.gui_width,
             height=self._cli.gui_height,
@@ -152,26 +331,28 @@ class PyCabCli(CliBase):
     @classmethod
     def command_parser(cls) -> ArgumentParser:
         parser = PyTrainArgumentParser(add_help=False)
+        # Each of the three is left unset rather than defaulted, as what makes a sensible
+        # value depends on the display and on the others; see window_geometry.
         parser.add_argument(
             "-width",
             action="store",
             type=int,
-            default=DEFAULT_WIDTH,
-            help=f"Window width, in pixels ({DEFAULT_WIDTH})",
+            # No percent sign in any of these: argparse runs a help string through
+            # %-formatting, so a literal % is read as a conversion and raises.
+            help=f"Window width, in pixels (fitted to the screen, at most {DESIGN_WIDTH}, "
+            f"and to a share of it on the macOS desktop)",
         )
         parser.add_argument(
             "-height",
             action="store",
             type=int,
-            default=DEFAULT_HEIGHT,
-            help=f"Window height, in pixels ({DEFAULT_HEIGHT})",
+            help="Window height, in pixels (proportional to the width)",
         )
         parser.add_argument(
             "-scale_by",
             action="store",
             type=float,
-            default=1.0,
-            help="Scale fonts and buttons by this factor (1.0)",
+            help="Scale fonts and buttons by this factor (derived from the window width)",
         )
         parser.add_argument(
             "-full_screen",
@@ -184,9 +365,7 @@ class PyCabCli(CliBase):
 
     def __init__(self, arg_parser: ArgumentParser = None, cmd_line: List[str] = None, do_fire: bool = True) -> None:
         super().__init__(arg_parser, cmd_line, do_fire)
-        self._gui_width = self._args.width
-        self._gui_height = self._args.height
-        self._scale_by = self._args.scale_by
+        self._gui_width, self._gui_height, self._scale_by = self._window_options()
         self._full_screen = self._args.full_screen
         self._scope = CommandScope.ENGINE
         try:
@@ -196,6 +375,14 @@ class PyCabCli(CliBase):
             self._command = cmd
         except ValueError as ve:
             log.exception(ve)
+
+    def _window_options(self) -> tuple[int, int, float]:
+        """The window size and text scale, filling in whatever the arguments left out."""
+        return window_geometry(
+            self._args.width,
+            self._args.height,
+            self._args.scale_by,
+        )
 
     @property
     def scope(self) -> CommandScope:
