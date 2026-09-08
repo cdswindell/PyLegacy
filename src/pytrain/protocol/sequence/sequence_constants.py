@@ -73,3 +73,5 @@ class SequenceCommandEnum(CommandDefEnum):
     STEWARD_CHATTER = SequenceDef(9)
     CYCLE_BELL_TONE = SequenceDef(10)
     CYCLE_HORN_TONE = SequenceDef(11)
+    RAMP_SPEED_SEQ = SequenceDef(12, d_max=199)
+    RAMP_SPEED_DIALOG_SEQ = SequenceDef(13, d_max=199)

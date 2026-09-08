@@ -107,9 +107,14 @@ class IrdaState(LcsState):
                             address = command.engine_id
                         state = ComponentStateStore.get_state(scope, address, False)
                         if state is not None:
-                            from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+                            from ..protocol.sequence.ramp_speed_req import RampSpeedReq
 
-                            RampedSpeedReq(address, rr_speed, scope=scope).send()
+                            # the function level import breaks the db <-> protocol.sequence
+                            # cycle, but it also defeats PyCharm's resolution of
+                            # RampSpeedReq, which it then treats as a function returning
+                            # None; engine_gui.py builds the same class and lints clean
+                            # noinspection PyArgumentList,PyNoneFunctionAssignment
+                            RampSpeedReq(address, rr_speed, scope=scope).send()
                     # send update to Train and component engines as well
                     orig_scope = command.scope
                     orig_tmcc_id = command.tmcc_id

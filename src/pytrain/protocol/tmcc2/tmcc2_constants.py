@@ -455,5 +455,66 @@ TMCC2_SPEED_TO_RPM = RangeKeyDict(
 )
 
 
-def tmcc2_speed_to_rpm(speed: int) -> int:
-    return TMCC2_SPEED_TO_RPM[speed]
+# The speed bands in TMCC2_SPEED_TO_RPM are hand-calibrated for an engine that can
+# reach TMCC2_HIGHBALL_SPEED. Engines with a lower max speed get a proportionally
+# reinterpolated copy of that same table, so RPM 7 is reached at their own top speed.
+RPM_CALIBRATION_SPEED: int = TMCC2_HIGHBALL_SPEED
+RPM_SCALE_THRESHOLD: int = 195
+RPM_MAP_TOP: int = 200
+
+# cache of scaled speed to RPM maps, keyed by max speed
+_SPEED_TO_RPM_CACHE: Dict[int, RangeKeyDict] = {}
+
+
+def reset_speed_to_rpm_cache() -> None:
+    """
+    Drop all memoized scaled maps; for use by tests and after a hand edit of
+    TMCC2_SPEED_TO_RPM.
+    """
+    _SPEED_TO_RPM_CACHE.clear()
+
+
+def speed_to_rpm_bands() -> Tuple[Tuple[int, int], ...]:
+    """
+    Recover the (lower bound, rpm) bands of TMCC2_SPEED_TO_RPM, the single
+    hand-edited source of truth, by reading the table itself.
+    """
+    bands: list[Tuple[int, int]] = []
+    for speed in range(0, RPM_MAP_TOP):
+        rpm = TMCC2_SPEED_TO_RPM.get(speed)
+        if rpm is None:
+            continue
+        if not bands or bands[-1][1] != rpm:
+            bands.append((speed, rpm))
+    return tuple(bands)
+
+
+def speed_to_rpm_map(max_speed: int = None) -> RangeKeyDict:
+    """
+    Return the base speed to RPM map, or a cached copy of it with its bands
+    reinterpolated onto 0..max_speed.
+    """
+    if max_speed is None or max_speed <= 0 or max_speed == 255 or max_speed >= RPM_SCALE_THRESHOLD:
+        return TMCC2_SPEED_TO_RPM
+    scaled = _SPEED_TO_RPM_CACHE.get(max_speed)
+    if scaled is not None:
+        return scaled
+    bands = speed_to_rpm_bands()
+    scale = max_speed / RPM_CALIBRATION_SPEED
+    lower_bounds: list[int] = []
+    for i, (base_lo, _) in enumerate(bands):
+        if i == 0:
+            lower_bounds.append(0)
+        else:
+            lower_bounds.append(max(lower_bounds[i - 1] + 1, round(base_lo * scale)))
+    scaled_bands = {}
+    for i, (_, rpm) in enumerate(bands):
+        hi = RPM_MAP_TOP if i == (len(bands) - 1) else lower_bounds[i + 1]
+        scaled_bands[(lower_bounds[i], hi)] = rpm
+    scaled = RangeKeyDict(scaled_bands)
+    _SPEED_TO_RPM_CACHE[max_speed] = scaled
+    return scaled
+
+
+def tmcc2_speed_to_rpm(speed: int, max_speed: int = None) -> int:
+    return speed_to_rpm_map(max_speed)[speed]

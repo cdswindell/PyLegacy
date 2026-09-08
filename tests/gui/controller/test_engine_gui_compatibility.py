@@ -1211,3 +1211,66 @@ def test_a_pane_that_has_never_opened_the_lcs_config_panel_is_safe_to_scroll() -
     gui = _gui_with_lcs_config(None)
 
     assert gui.scroll_lcs_config(90) is False
+
+
+class _RampRecorder:
+    """Stands in for a ramp request class, recording the ramp the pane asked for."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.calls: list[tuple[int, object, CommandScope]] = []
+
+    def __call__(self, tmcc_id: int, speed: object, scope: CommandScope):
+        self.calls.append((tmcc_id, speed, scope))
+        return SimpleNamespace(kind=self.name)
+
+
+def _gui_with_throttle(monkeypatch: pytest.MonkeyPatch, state) -> tuple[object, _RampRecorder, _RampRecorder]:
+    plain = _RampRecorder("ramp")
+    dialog = _RampRecorder("ramp_dialog")
+    monkeypatch.setattr(mod, "RampSpeedReq", plain)
+    monkeypatch.setattr(mod, "RampSpeedDialogReq", dialog)
+    monkeypatch.setattr(mod.EngineGui, "throttle_state", property(lambda _self: state))
+    monkeypatch.setattr(mod.EngineGui, "submit_request", lambda _self, req: _self.submitted.append(req))
+    gui = mod.EngineGui.__new__(mod.EngineGui)
+    gui.submitted = []
+    return gui, plain, dialog
+
+
+def test_a_rail_road_speed_is_driven_by_the_threaded_ramper(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The pane's throttle now goes through the threaded ramper rather than the queued
+    # sequence, so the next nudge of the stick retargets the ramp already in flight
+    # instead of racing a schedule that cannot be recalled.
+    state = SimpleNamespace(is_cab1=False, is_legacy=True, tmcc_id=12, scope=CommandScope.ENGINE)
+    gui, plain, dialog = _gui_with_throttle(monkeypatch, state)
+
+    gui.on_speed_command("SPEED_MEDIUM")
+
+    assert plain.calls == [(12, mod.TMCC2RRSpeedsEnum.MEDIUM, CommandScope.ENGINE)]
+    assert dialog.calls == []
+    assert [req.kind for req in gui.submitted] == ["ramp"]
+
+
+def test_a_held_rail_road_speed_button_ramps_with_its_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A hold pairs the tower dialog with the speed, and the dialog variant of the same
+    # threaded request is what carries it.
+    state = SimpleNamespace(is_cab1=False, is_legacy=True, tmcc_id=12, scope=CommandScope.TRAIN)
+    gui, plain, dialog = _gui_with_throttle(monkeypatch, state)
+
+    gui.on_speed_command("TOWER_SPEED_MEDIUM, SPEED_MEDIUM")
+
+    assert dialog.calls == [(12, mod.TMCC2RRSpeedsEnum.MEDIUM, CommandScope.TRAIN)]
+    assert plain.calls == []
+    assert [req.kind for req in gui.submitted] == ["ramp_dialog"]
+
+
+def test_a_cab1_engine_is_still_driven_relatively(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Unchanged by the switch: a CAB-1 engine has no target speed to ramp toward, so its
+    # throttle stays a relative speed command and never reaches a ramp at all.
+    state = SimpleNamespace(is_cab1=True, is_legacy=False, tmcc_id=8, scope=CommandScope.ENGINE)
+    gui, plain, dialog = _gui_with_throttle(monkeypatch, state)
+
+    gui.on_speed_command(3)
+
+    assert (plain.calls, dialog.calls) == ([], [])
+    assert [req.command for req in gui.submitted] == [TMCC1EngineCommandEnum.RELATIVE_SPEED]

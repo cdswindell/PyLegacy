@@ -187,6 +187,11 @@ CANCEL_PENDINGS_ON_ENQUEUE = RESET_SET | {TMCC2EngineCommandEnum.STOP_IMMEDIATE}
 
 CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
 
+# the commands a live speed ramp arbitrates for itself. RPM_SET and LABOR_SET are here
+# only so that notify_ramp gets to see them; it returns True for them unconditionally,
+# so a sound or effort trim can never reach cancel_ramps()
+RAMP_ARBITRATED = TARGET_SPEED_SET | SPEED_SET | RPM_SET | LABOR_SET
+
 R = TypeVar("R", bound=OfficialRRSpeeds)
 
 
@@ -220,6 +225,7 @@ class EngineState(ComponentState):
         self._d4_rec_no: int | None = None
         self._is_d4: bool = False
         self._ramping: bool = False
+        self._ramp = None  # SpeedRamp, when this instance owns a live ramp for this engine
         self._prod_info = None
         self._pdi_source: bool = False  # for train is LCS BPC2
 
@@ -338,6 +344,49 @@ class EngineState(ComponentState):
         with self._cv:
             self._ramping = value
 
+    @property
+    def ramp(self):
+        """The live speed ramp for this engine, if this instance owns one."""
+        return self._ramp
+
+    def ramp_to(self, speed: int, *, dialog: bool = False):
+        """
+        Ramp this engine toward a target speed, retargeting a ramp that is already
+        running rather than cancelling it and starting another.
+        """
+        from ..protocol.sequence.speed_ramp import RampRegistry
+
+        # the registry is the single owner of the (scope, tmcc_id) -> ramp mapping; the
+        # handle is mirrored here so state objects, and _update_state, reach it directly
+        ramp = RampRegistry.build().ramp_to(self, speed, dialog=dialog)
+        self._ramp = ramp
+        return ramp
+
+    def abort_ramp(self, reason: str = None) -> None:
+        """Stop this engine's ramp, if any, leaving it at its current speed."""
+        from ..protocol.sequence.speed_ramp import RampRegistry
+
+        ramp = self._ramp
+        self._ramp = None
+        RampRegistry.build().abort(self, reason)
+        if ramp is not None:
+            ramp.abort(reason)
+
+    def notify_ramp(self, command: L | P) -> bool:
+        """
+        Offer a command to the live ramp. Returns True when the pending commands must
+        *not* be cancelled: the ramp claimed the command as its own echo, or absorbed
+        it as an RPM or effort trim.
+
+        With no ramp of our own the widened arbitration set must not change anything
+        for a RampedSpeedReq ramp, so only a TARGET_SPEED still cancels, exactly as
+        it did before arbitration existed.
+        """
+        ramp = self._ramp
+        if ramp is None or ramp.is_active is False:
+            return command.command not in TARGET_SPEED_SET
+        return ramp.on_state_command(command)
+
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
             if self.is_legacy:
@@ -395,6 +444,7 @@ class EngineState(ComponentState):
                     self.comp_data.rpm_tmcc = 0
                     self.comp_data.labor_tmcc = 12
                 self.is_ramping = False
+                self.abort_ramp("halt")
                 self._numeric = None
 
             # get the downstream effects of this command, as they also impact state
@@ -402,9 +452,13 @@ class EngineState(ComponentState):
             log.debug(f"Update: {command}\nEffects: {cmd_effects}")
 
             # Cancel any delayed requests, if impacted
-            if command.command in CANCEL_PENDINGS_SET or (self._ramping and command.command in TARGET_SPEED_SET):
+            if command.command in CANCEL_PENDINGS_SET or (self._ramping and command.command in RAMP_ARBITRATED):
                 # ignore direction commands if they are the same as the current direction
                 if command.command in DIRECTIONS_SET and self.direction == command.command:
+                    pass
+                elif command.command not in CANCEL_PENDINGS_SET and self.notify_ramp(command) is True:
+                    # the live ramp claimed this command as its own echo, or absorbed it
+                    # as an RPM or effort trim: either way, the train keeps ramping
                     pass
                 else:
                     log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
@@ -431,6 +485,7 @@ class EngineState(ComponentState):
             # handle reset
             if command.command in RESET_SET or cmd_effects & RESET_SET:
                 self.is_ramping = False
+                self.abort_ramp("reset")
 
             # handle train brake
             if command.command in TRAIN_BRAKE_SET:
@@ -597,6 +652,7 @@ class EngineState(ComponentState):
         ):
             from ..pdi.base_req import EngineBits
 
+            # noinspection unbound-local-variable
             if self.speed is None and command.is_valid(EngineBits.SPEED):
                 self.comp_data.speed = command.speed
         elif (
@@ -625,6 +681,7 @@ class EngineState(ComponentState):
     def cancel_ramps(self) -> None:
         from ..comm.comm_buffer import CommBuffer
 
+        self.abort_ramp()
         CommBuffer.cancel_delayed_requests(self)
         self.update_target_speed(self.speed)
         self.comp_data.rpm_tmcc = 0
@@ -767,11 +824,10 @@ class EngineState(ComponentState):
         return self.is_diesel or self.is_electric or self.is_steam
 
     @property
-    def speed(self) -> int:
+    def speed(self) -> int | None:
         if self.comp_data:
             return decode_tmcc_speed(self.comp_data.speed, self.comp_data.is_legacy)
         else:
-            # noinspection PyTypeChecker
             return None
 
     @property

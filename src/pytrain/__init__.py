@@ -99,6 +99,10 @@ from .protocol.sequence.labor_effect import (
     LaborEffectDownReq,  # noqa: F401
     LaborEffectUpReq,  # noqa: F401
 )
+from .protocol.sequence.ramp_speed_req import (
+    RampSpeedDialogReq,  # noqa: F401
+    RampSpeedReq,  # noqa: F401
+)
 from .protocol.sequence.ramped_speed_req import (
     RampedSpeedDialogReq,  # noqa: F401
     RampedSpeedReq,  # noqa: F401

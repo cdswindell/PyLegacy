@@ -570,7 +570,7 @@ class EngineCli(CliBaseTMCC):
         speed.add_argument(
             "-dialog",
             action="store_const",
-            const="RAMPED_SPEED_DIALOG_SEQ",
+            const="RAMP_SPEED_DIALOG_SEQ",
             dest="option",
             help="Trigger tower/engineer dialog",
         )
@@ -579,7 +579,7 @@ class EngineCli(CliBaseTMCC):
         speed_group.add_argument(
             "-absolute",
             action="store_const",
-            const="RAMPED_SPEED_SEQ",
+            const="RAMP_SPEED_SEQ",
             dest="option",
             help="Set absolute speed (using ramp)",
         )
@@ -604,7 +604,7 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             help="Set target speed",
         )
-        speed_group.set_defaults(option="RAMPED_SPEED_SEQ")
+        speed_group.set_defaults(option="RAMP_SPEED_SEQ")
 
         volume = sp.add_parser("volume", aliases=["vo"], help="Volume Operations", parent=engine_parser)
         vg = volume.add_mutually_exclusive_group()

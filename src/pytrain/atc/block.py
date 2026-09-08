@@ -381,7 +381,7 @@ class Block:
 
     def slow_down(self):
         if self.next_block and self.next_block.is_occupied:
-            from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+            from ..protocol.sequence.ramp_speed_req import RampSpeedReq
 
             if self._current_motive:
                 restricted_speed = TMCC2_RESTRICTED_SPEED if self._current_motive.is_legacy else TMCC1_RESTRICTED_SPEED
@@ -390,7 +390,12 @@ class Block:
                     self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_SPEED_RESTRICTED)
                     scope = self._current_motive.scope
                     tmcc_id = self._current_motive.tmcc_id
-                    req = RampedSpeedReq(tmcc_id, "restricted", scope)
+                    # the function level import above breaks the db <-> protocol.sequence
+                    # cycle, but it also defeats PyCharm's resolution of RampSpeedReq, which
+                    # it then treats as a function returning None; engine_gui.py builds the
+                    # same class with the same arguments and lints clean
+                    # noinspection PyArgumentList,PyNoneFunctionAssignment
+                    req = RampSpeedReq(tmcc_id, "restricted", scope)
                     req.send()
 
     def stop_immediate(self):
@@ -414,14 +419,16 @@ class Block:
             CommandReq(TMCC1EngineCommandEnum.STOP_IMMEDIATE, 99).send()
 
     def resume_speed(self) -> None:
-        from ..protocol.sequence.ramped_speed_req import RampedSpeedReq
+        from ..protocol.sequence.ramp_speed_req import RampSpeedReq
 
         if self._current_motive and self._original_speed:
             scope = self._current_motive.scope
             tmcc_id = self._current_motive.tmcc_id
             log.info(f"Resume Speed: {self._original_speed} for {scope.title} {tmcc_id}")
             self.do_dialog(TMCC2RailSoundsDialogControl.TOWER_DEPARTURE_GRANTED)
-            req = RampedSpeedReq(tmcc_id, self._original_speed, scope)
+            # see slow_down: the function level import defeats PyCharm's resolution
+            # noinspection PyArgumentList,PyNoneFunctionAssignment
+            req = RampSpeedReq(tmcc_id, self._original_speed, scope)
             req.send()
 
     def do_dialog(self, dialog: CommandDefEnum | int) -> None:

@@ -11,14 +11,20 @@ from unittest.mock import PropertyMock, patch
 import pytest
 
 from src.pytrain import CommandScope, TMCC2EffectsControl
-from src.pytrain.db.comp_data import CompData
+from src.pytrain.comm.comm_buffer import CommBuffer
+from src.pytrain.db.comp_data import CompData, CompDataMixin
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
+from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
+from src.pytrain.protocol.sequence.speed_ramp import MAX_RPM_BIAS, SpeedRamp
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1, TMCC1HaltCommandEnum
+from src.pytrain.protocol.tmcc2.tmcc2_constants import (
+    TMCC2EngineCommandEnum as TMCC2,
+    tmcc2_speed_to_rpm,
+)
 
 
 class TestEngineStateBehavior:
@@ -346,3 +352,191 @@ class TestEngineStateBehavior:
         assert t.is_acela is True
         assert t.has_throttle is True
         assert t.has_lights is False
+
+
+class _CompDataRecord(CompDataMixin):
+    """A stand-in for the BaseReq / D4Req comp_data record the Base 3 pushes back."""
+
+    def __init__(self, comp_data) -> None:
+        super().__init__()
+        self._comp_data = comp_data
+        self._comp_data_record = True
+
+
+class _LiveRamp(SpeedRamp):
+    """
+    A SpeedRamp that is never started: it reports itself active so that arbitration
+    routes through it, and it records the aborts it is asked for.
+    """
+
+    def __init__(self, state: EngineState, target: int = 80) -> None:
+        super().__init__(state, target, sender=lambda *_args: None, linger=0.0, delay_scale=0.0)
+        self.aborts: list[str | None] = []
+
+    @property
+    def is_active(self) -> bool:
+        return True
+
+    def abort(self, reason: str = None) -> None:
+        self.aborts.append(reason)
+        super().abort(reason)
+
+
+class TestEngineStateRampArbitration:
+    """
+    A live ramp arbitrates the commands that reach engine state: its own echoes and
+    every RPM or effort trim leave it running, a foreign throttle command stops it,
+    and the hard-abort commands stop it unconditionally.
+    """
+
+    @staticmethod
+    @pytest.fixture(autouse=True)
+    def no_comm_buffer(monkeypatch):
+        # cancel_ramps() reaches CommBuffer for the legacy RampedSpeedReq path
+        monkeypatch.setattr(CommBuffer, "cancel_delayed_requests", staticmethod(lambda *_args, **_kw: None))
+
+    @staticmethod
+    def _ramping_engine(addr: int = 7, speed: int = 30) -> tuple[EngineState, _LiveRamp]:
+        state = EngineState(CommandScope.ENGINE)
+        state.initialize(CommandScope.ENGINE, addr)
+        state._address = addr
+        state.comp_data._control_type = LEGACY_CONTROL_TYPE
+        state.comp_data._speed = speed
+        state._is_legacy = True
+        ramp = _LiveRamp(state)
+        state._ramp = ramp
+        state.is_ramping = True
+        return state, ramp
+
+    @staticmethod
+    def _update(state: EngineState, command: CommandReq):
+        return state._update_state(command)
+
+    def test_ramp_hooks_present_on_engine_state(self):
+        state, ramp = self._ramping_engine()
+        assert state.ramp is ramp
+        state.abort_ramp("done")
+        assert state.ramp is None
+        assert ramp.aborts == ["done"]
+
+    def test_notify_ramp_without_ramp_preserves_legacy_answer(self):
+        state, _ = self._ramping_engine()
+        state._ramp = None
+        assert state.notify_ramp(CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=50)) is False
+        assert state.notify_ramp(CommandReq.build(TMCC2.DIESEL_RPM, 7, data=5)) is True
+        assert state.notify_ramp(CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=50)) is True
+
+    def test_self_echo_does_not_cancel(self):
+        state, ramp = self._ramping_engine()
+        echo = CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=ramp.commanded_speed)
+
+        self._update(state, echo)
+
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+
+    def test_own_target_echo_does_not_cancel(self):
+        state, ramp = self._ramping_engine()
+        echo = CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=ramp.requested_speed)
+
+        self._update(state, echo)
+
+        assert ramp.aborts == []
+        assert state.is_ramping is True
+
+    def test_foreign_absolute_speed_cancels(self):
+        state, ramp = self._ramping_engine()
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))
+
+        assert ramp.aborts == [None]
+        assert state.ramp is None
+        assert state.is_ramping is False
+
+    def test_foreign_target_speed_cancels(self):
+        state, ramp = self._ramping_engine()
+
+        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
+
+        assert ramp.aborts == [None]
+        assert state.ramp is None
+        # is_ramping is then re-established from the foreign target itself, exactly as
+        # it was before arbitration existed: another controller now owns this ramp
+
+    def test_foreign_rpm_absorbs_without_cancelling(self):
+        state, ramp = self._ramping_engine()
+        expected = 5 - tmcc2_speed_to_rpm(ramp.commanded_speed, ramp.rpm_max_speed)
+
+        self._update(state, CommandReq.build(TMCC2.DIESEL_RPM, 7, data=5))
+
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+        assert ramp.rpm_bias == max(-MAX_RPM_BIAS, min(MAX_RPM_BIAS, expected))
+
+    def test_foreign_labor_re_baselines_without_cancelling(self):
+        state, ramp = self._ramping_engine()
+
+        self._update(state, CommandReq.build(TMCC2.ENGINE_LABOR, 7, data=20))
+
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+        assert ramp.init_labor == 20
+
+    def test_pdi_speed_limit_record_never_cancels(self):
+        state, ramp = self._ramping_engine()
+        state.comp_data.speed_limit = 40
+
+        self._update(state, _CompDataRecord(state.comp_data))
+
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+
+    @pytest.mark.parametrize(
+        "command, data",
+        [
+            (TMCC1HaltCommandEnum.HALT, None),
+            (TMCC2.SYSTEM_HALT, None),
+            (TMCC2.STOP_IMMEDIATE, None),
+            (TMCC2.RESET, None),
+            (TMCC2.NUMERIC, 0),
+            (TMCC2.REVERSE_DIRECTION, None),
+            (TMCC2.SHUTDOWN_IMMEDIATE, None),
+        ],
+    )
+    def test_hard_aborts_stop_the_ramp_and_clear_is_ramping(self, command, data):
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.FORWARD_DIRECTION
+
+        self._update(state, CommandReq.build(command, 7, data=data))
+
+        assert ramp.aborts != []
+        assert state.ramp is None
+        assert state.is_ramping is False
+
+    def test_redundant_same_direction_command_does_not_abort(self):
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.FORWARD_DIRECTION
+
+        self._update(state, CommandReq.build(TMCC2.FORWARD_DIRECTION, 7))
+
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+
+    def test_ramp_to_starts_one_thread_and_then_retargets(self, monkeypatch):
+        state, _ = self._ramping_engine()
+        state._ramp = None
+        started: list[SpeedRamp] = []
+        monkeypatch.setattr(SpeedRamp, "start", lambda ramp: started.append(ramp))
+        monkeypatch.setattr(SpeedRamp, "is_active", property(lambda ramp: True))
+
+        first = state.ramp_to(60)
+        second = state.ramp_to(90)
+
+        assert first is second
+        assert started == [first]
+        assert first.requested_speed == 90

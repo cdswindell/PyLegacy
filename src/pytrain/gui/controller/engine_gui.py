@@ -71,7 +71,7 @@ from ...protocol.command_def import CommandDefEnum
 from ...protocol.command_req import CommandReq
 from ...protocol.constants import CommandScope
 from ...protocol.multibyte.multibyte_constants import TMCC2EffectsControl
-from ...protocol.sequence.ramped_speed_req import RampedSpeedDialogReq, RampedSpeedReq
+from ...protocol.sequence.ramp_speed_req import RampSpeedDialogReq, RampSpeedReq
 from ...protocol.sequence.sequence_constants import SequenceCommandEnum
 from ...protocol.tmcc1.tmcc1_constants import (
     TMCC1AuxCommandEnum,
@@ -2898,9 +2898,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
                 )
             else:
                 if do_dialog:
-                    req = RampedSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
+                    req = RampSpeedDialogReq(state.tmcc_id, rr_speed, state.scope)
                 else:
-                    req = RampedSpeedReq(state.tmcc_id, rr_speed, state.scope)
+                    req = RampSpeedReq(state.tmcc_id, rr_speed, state.scope)
         else:
             tmcc_id = self._scope_tmcc_ids[self.scope]
             req = CommandReq(TMCC1EngineCommandEnum.ABSOLUTE_SPEED, tmcc_id, scope=self.scope, data=rr_speed)
