@@ -68,6 +68,7 @@
       <w>gethostbyname</w>
       <w>gethostname</w>
       <w>getifaddr</w>
+      <w>gui's</w>
       <w>guizero's</w>
       <w>gvfs</w>
       <w>hciuart</w>
@@ -154,6 +155,7 @@
       <w>wayvnc</w>
       <w>wcomp</w>
       <w>weakref</w>
+      <w>windowingsystem</w>
       <w>wraplength</w>
       <w>wvkbd</w>
       <w>zxcvbnm</w>
