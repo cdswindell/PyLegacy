@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "BASE_STEP_DELAY",
     "CLAIMED_HISTORY",
+    "DEFAULT_LABOR",
     "DEFAULT_RAMP_LINGER",
     "ECHO_TTL",
     "LEGACY_SPEED_MAX",
@@ -569,19 +570,38 @@ class SpeedRamp(Thread):
         self._ledger.record(EchoFamily.SPEED, speed)
         self._wake.set()
 
-    def abort(self, reason: str = None) -> None:
+    def abort(self, reason: str = None, *, target_speed: int = None, restore_effort: bool = False) -> None:
         """
         Stop the ramp within one step interval, sending nothing further and leaving
         the engine at whatever speed it was last commanded to.
+
+        The target the ramp was chasing will never be reached now, so the state's
+        target speed is squared up with where the engine is actually headed:
+        `target_speed` when the caller knows it - 0 for a hard stop, the speed another
+        controller just commanded when it takes the throttle - and otherwise the speed
+        this ramp had reached.
+
+        `restore_effort` is set by the hard stops - a HALT, a reset, an emergency stop,
+        a direction change, a shutdown - which take the engine to a standstill and reset
+        effort to neutral in state. Effort is the one thing an engine does not return on
+        its own, so the command has to go out: without it the locomotive keeps laboring
+        at whatever notch the ramp had dialed in, and the next Base 3 record reports
+        that notch straight back into the state the abort just cleaned.
         """
         with self._lock:
             if self._is_running is False:
                 return
             self._is_running = False
             self._abort_reason = reason
+            settled = self._commanded_speed if target_speed is None else target_speed
         # every abort path must clear is_ramping, or encode_target_speed keeps returning
-        # None and the engine's target speed stops resyncing with the Base 3
+        # None and the engine's target speed stops resyncing with the Base 3. It is also
+        # what lets the target speed below be recorded at all
         self._set_ramping(False)
+        self._sync_target_speed(settled)
+        if restore_effort is True and self.is_legacy is True:
+            self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, DEFAULT_LABOR)
+            self._last_labor = DEFAULT_LABOR
         log.debug(f"Speed ramp aborted {self._scope.title} {self._address}: {reason}")
         self._wake.set()
 
@@ -726,10 +746,18 @@ class SpeedRamp(Thread):
                 self._last_rpm = rpm
 
     def _send_step(self, step: RampStep) -> None:
-        self._send(self._speed_enum, step.speed)
-        self._last_speed = step.speed
+        # the commanded speed is taken before the command goes out, for the same reason
+        # the ledger records it first: an abort or an echo that lands in between must
+        # see the value that is actually on the wire
         with self._lock:
             self._commanded_speed = step.speed
+        self._send(self._speed_enum, step.speed)
+        self._last_speed = step.speed
+        if self._is_running is False:
+            # aborted out from under this step: an abort sends nothing further, and its
+            # own effort restore has to be the last word on the wire rather than being
+            # overwritten by the trailing trim of a step already in flight
+            return
         if step.labor is not None and step.labor != self._last_labor:
             self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, step.labor)
             self._last_labor = step.labor
@@ -749,6 +777,8 @@ class SpeedRamp(Thread):
         if target != self._last_speed:
             self._send(self._speed_enum, target)
             self._last_speed = target
+        if self._is_running is False:
+            return
         if self.is_legacy is True:
             if state.is_rpm is True:
                 rpm = biased_rpm(target, self._rpm_bias, self._rpm_max_speed)
@@ -783,6 +813,13 @@ class SpeedRamp(Thread):
         try:
             self._state.is_ramping = value
         except AttributeError:  # pragma: no cover
+            pass
+
+    def _sync_target_speed(self, target_speed: int) -> None:
+        """Record where the engine is headed now that this ramp is no longer driving it."""
+        try:
+            self._state.sync_target_speed(target_speed)
+        except AttributeError:
             pass
 
     @property
@@ -856,20 +893,34 @@ class RampRegistry:
             self._reap()
             return self._ramps.get(self.key_for(state))
 
-    def abort(self, state: EngineState, reason: str = None) -> None:
+    def abort(
+        self,
+        state: EngineState,
+        reason: str = None,
+        *,
+        target_speed: int = None,
+        restore_effort: bool = False,
+    ) -> None:
         with self._ramps_lock:
             self._reap()
             ramp = self._ramps.pop(self.key_for(state), None)
         if ramp is not None:
-            ramp.abort(reason)
+            ramp.abort(reason, target_speed=target_speed, restore_effort=restore_effort)
 
-    def abort_all(self, scope: CommandScope = None, reason: str = None) -> None:
+    def abort_all(
+        self,
+        scope: CommandScope = None,
+        reason: str = None,
+        *,
+        target_speed: int = None,
+        restore_effort: bool = False,
+    ) -> None:
         """Stop every ramp, or every ramp in one scope, leaving the other scope alone."""
         with self._ramps_lock:
             keys = [k for k in self._ramps if scope is None or k[0] == scope]
             ramps = [self._ramps.pop(k) for k in keys]
         for ramp in ramps:
-            ramp.abort(reason)
+            ramp.abort(reason, target_speed=target_speed, restore_effort=restore_effort)
 
     @property
     def active_ramps(self) -> list[SpeedRamp]:

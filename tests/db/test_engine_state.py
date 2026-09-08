@@ -12,14 +12,14 @@ import pytest
 
 from src.pytrain import CommandScope, TMCC2EffectsControl
 from src.pytrain.comm.comm_buffer import CommBuffer
-from src.pytrain.db.comp_data import CompData, CompDataMixin
+from src.pytrain.db.comp_data import CompData, CompDataMixin, encode_tmcc_speed
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
-from src.pytrain.protocol.sequence.speed_ramp import MAX_RPM_BIAS, SpeedRamp
+from src.pytrain.protocol.sequence.speed_ramp import DEFAULT_LABOR, MAX_RPM_BIAS, SpeedRamp
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1, TMCC1HaltCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum as TMCC2,
@@ -366,20 +366,30 @@ class _CompDataRecord(CompDataMixin):
 class _LiveRamp(SpeedRamp):
     """
     A SpeedRamp that is never started: it reports itself active so that arbitration
-    routes through it, and it records the aborts it is asked for.
+    routes through it, and it records the aborts it is asked for and the commands it
+    puts on the wire.
     """
 
     def __init__(self, state: EngineState, target: int = 80) -> None:
-        super().__init__(state, target, sender=lambda *_args: None, linger=0.0, delay_scale=0.0)
+        # the sink is a bound method, so it has to exist before the base class stores it
+        self.sent: list[tuple] = []
+        super().__init__(state, target, sender=self._record, linger=0.0, delay_scale=0.0)
         self.aborts: list[str | None] = []
+        self.abort_targets: list[int | None] = []
+        self.abort_efforts: list[bool] = []
+
+    def _record(self, command, _address: int, data: int, _scope) -> None:
+        self.sent.append((command, data))
 
     @property
     def is_active(self) -> bool:
         return True
 
-    def abort(self, reason: str = None) -> None:
+    def abort(self, reason: str = None, *, target_speed: int = None, restore_effort: bool = False) -> None:
         self.aborts.append(reason)
-        super().abort(reason)
+        self.abort_targets.append(target_speed)
+        self.abort_efforts.append(restore_effort)
+        super().abort(reason, target_speed=target_speed, restore_effort=restore_effort)
 
 
 class TestEngineStateRampArbitration:
@@ -396,16 +406,18 @@ class TestEngineStateRampArbitration:
         monkeypatch.setattr(CommBuffer, "cancel_delayed_requests", staticmethod(lambda *_args, **_kw: None))
 
     @staticmethod
-    def _ramping_engine(addr: int = 7, speed: int = 30) -> tuple[EngineState, _LiveRamp]:
+    def _ramping_engine(addr: int = 7, speed: int = 30, target: int = 80) -> tuple[EngineState, _LiveRamp]:
         state = EngineState(CommandScope.ENGINE)
         state.initialize(CommandScope.ENGINE, addr)
         state._address = addr
         state.comp_data._control_type = LEGACY_CONTROL_TYPE
         state.comp_data._speed = speed
         state._is_legacy = True
-        ramp = _LiveRamp(state)
+        ramp = _LiveRamp(state, target)
         state._ramp = ramp
         state.is_ramping = True
+        # the façade's TARGET_SPEED announcement, as _update_state would have recorded it
+        state.comp_data.target_speed = encode_tmcc_speed(target, True)
         return state, ramp
 
     @staticmethod
@@ -450,7 +462,8 @@ class TestEngineStateRampArbitration:
 
         self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))
 
-        assert ramp.aborts == [None]
+        # the reason names the takeover, so an abort on a real layout is diagnosable
+        assert ramp.aborts == ["foreign ABSOLUTE_SPEED"]
         assert state.ramp is None
         assert state.is_ramping is False
 
@@ -459,7 +472,7 @@ class TestEngineStateRampArbitration:
 
         self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
 
-        assert ramp.aborts == [None]
+        assert ramp.aborts == ["foreign TARGET_SPEED"]
         assert state.ramp is None
         # is_ramping is then re-established from the foreign target itself, exactly as
         # it was before arbitration existed: another controller now owns this ramp
@@ -526,6 +539,170 @@ class TestEngineStateRampArbitration:
         assert ramp.aborts == []
         assert state.ramp is ramp
         assert state.is_ramping is True
+        # nothing was cancelled, so the target the ramp is chasing still stands
+        assert state.target_speed == 80
+
+    #
+    # a cancelled ramp leaves an honest target speed behind
+    #
+    @pytest.mark.parametrize(
+        "command, data",
+        [
+            (TMCC1HaltCommandEnum.HALT, None),
+            (TMCC2.SYSTEM_HALT, None),
+            (TMCC2.STOP_IMMEDIATE, None),
+            (TMCC2.RESET, None),
+            (TMCC2.NUMERIC, 0),
+            (TMCC2.REVERSE_DIRECTION, None),
+            (TMCC2.SHUTDOWN_IMMEDIATE, None),
+        ],
+    )
+    def test_hard_aborts_zero_the_target_speed(self, command, data):
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.FORWARD_DIRECTION
+        assert state.target_speed == 80
+
+        self._update(state, CommandReq.build(command, 7, data=data))
+
+        # the engine is going to a standstill, so the target it was ramping toward is
+        # no longer where it is headed
+        assert state.target_speed == 0
+        assert ramp.abort_targets[0] == 0
+
+    def test_foreign_absolute_speed_becomes_the_new_target(self):
+        state, ramp = self._ramping_engine()
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))
+
+        # another controller owns the throttle now: its speed is the new target
+        assert state.target_speed == 150
+        assert ramp.abort_targets == [150]
+
+    def test_a_speed_alias_resolves_to_its_absolute_speed(self):
+        # a railroad speed carries its speed in its alias rather than its data, so the
+        # cancel target is read the same way _update_state reads it further down
+        state, _ = self._ramping_engine()
+        req = CommandReq.build(TMCC2.SPEED_RESTRICTED, 7)
+
+        assert state._cancelled_target_speed(req) == int(TMCC2.SPEED_RESTRICTED.alias[1])
+
+    def test_foreign_target_speed_becomes_the_new_target(self):
+        state, ramp = self._ramping_engine()
+
+        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
+
+        assert state.target_speed == 150
+        assert ramp.abort_targets == [150]
+
+    def test_abort_ramp_leaves_the_speed_the_ramp_reached(self):
+        state, ramp = self._ramping_engine()
+
+        state.abort_ramp("done")
+
+        assert ramp.abort_targets == [None]
+        assert state.target_speed == ramp.commanded_speed == 30
+
+    def test_abort_ramp_records_a_target_without_a_ramp_of_our_own(self):
+        state, _ = self._ramping_engine()
+        state._ramp = None
+
+        state.abort_ramp("halt", target_speed=0)
+
+        assert state.target_speed == 0
+
+    def test_sync_target_speed_leaves_the_ramping_flag_alone(self):
+        state, _ = self._ramping_engine()
+
+        state.sync_target_speed(40)
+
+        assert state.target_speed == 40
+        assert state.is_ramping is True
+
+    #
+    # a hard stop returns effort to neutral on the engine, not just in state
+    #
+    @pytest.mark.parametrize(
+        "command, data",
+        [
+            (TMCC1HaltCommandEnum.HALT, None),
+            (TMCC2.SYSTEM_HALT, None),
+            (TMCC2.STOP_IMMEDIATE, None),
+            (TMCC2.RESET, None),
+            (TMCC2.NUMERIC, 0),
+            (TMCC2.FORWARD_DIRECTION, None),
+            (TMCC2.REVERSE_DIRECTION, None),
+            (TMCC2.TOGGLE_DIRECTION, None),
+            (TMCC2.SHUTDOWN_IMMEDIATE, None),
+        ],
+    )
+    def test_hard_aborts_return_effort_to_neutral_on_the_wire(self, command, data):
+        state, ramp = self._ramping_engine()
+        # start from the opposite direction, so a direction command is a real change
+        state._direction = TMCC2.REVERSE_DIRECTION if command is TMCC2.FORWARD_DIRECTION else TMCC2.FORWARD_DIRECTION
+        # the ramp has effort dialed up, as an acceleration leaves it
+        ramp._last_labor = 20
+        state.comp_data.labor_tmcc = 20
+
+        self._update(state, CommandReq.build(command, 7, data=data))
+
+        # an engine returns to a standstill on its own, but never gives effort back:
+        # without this command the locomotive keeps laboring, and the next Base 3
+        # record reports that notch straight back into state
+        assert ramp.abort_efforts[0] is True
+        assert (TMCC2.ENGINE_LABOR, DEFAULT_LABOR) in ramp.sent
+
+    def test_a_direction_change_during_a_ramp_returns_effort_to_neutral(self):
+        # the reported defect, end to end: state and engine have to agree afterward
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.FORWARD_DIRECTION
+        ramp._last_labor = 20
+        state.comp_data.labor_tmcc = 20
+
+        self._update(state, CommandReq.build(TMCC2.REVERSE_DIRECTION, 7))
+
+        assert ramp.aborts != []
+        assert (TMCC2.ENGINE_LABOR, DEFAULT_LABOR) in ramp.sent
+        assert state.labor == DEFAULT_LABOR
+        assert state.is_ramping is False
+        assert state.target_speed == 0
+
+    def test_a_redundant_direction_command_leaves_effort_alone(self):
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.FORWARD_DIRECTION
+        ramp._last_labor = 20
+        state.comp_data.labor_tmcc = 20
+
+        self._update(state, CommandReq.build(TMCC2.FORWARD_DIRECTION, 7))
+
+        # the engine never changed direction, so it is still ramping and still laboring
+        assert ramp.sent == []
+        assert state.labor == 20
+
+    @pytest.mark.parametrize(
+        "command, data", [(TMCC2.ABSOLUTE_SPEED, 150), (TMCC2EngineCommandEnumEx.TARGET_SPEED, 150)]
+    )
+    def test_a_foreign_throttle_command_leaves_effort_to_its_owner(self, command, data):
+        state, ramp = self._ramping_engine()
+        ramp._last_labor = 20
+
+        self._update(state, CommandReq.build(command, 7, data=data))
+
+        # another controller owns the throttle now; its effort setting is not ours to
+        # override, so the ramp stops interfering rather than trimming the engine
+        assert ramp.abort_efforts == [False]
+        assert ramp.sent == []
+
+    def test_a_tmcc1_hard_stop_sends_no_effort_command(self):
+        state, ramp = self._ramping_engine()
+        state.comp_data._control_type = TMCC_CONTROL_TYPE
+        state._is_legacy = False
+        state._direction = TMCC2.FORWARD_DIRECTION
+
+        self._update(state, CommandReq.build(TMCC1.REVERSE_DIRECTION, 7))
+
+        # ENGINE_LABOR is a Legacy command; a TMCC1 engine has no effort to restore
+        assert ramp.abort_efforts[0] is True
+        assert ramp.sent == []
 
     def test_ramp_to_starts_one_thread_and_then_retargets(self, monkeypatch):
         state, _ = self._ramping_engine()

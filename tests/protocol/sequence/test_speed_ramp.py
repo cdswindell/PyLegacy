@@ -4,6 +4,7 @@ import pytest
 
 from src.pytrain.protocol.constants import CommandScope, PROGRAM_NAME
 from src.pytrain.protocol.sequence.speed_ramp import (
+    DEFAULT_LABOR,
     DEFAULT_RAMP_LINGER,
     MAX_RPM,
     SpeedRamp,
@@ -32,6 +33,11 @@ class RampEngineState(FakeEngineState):
         self.scope = scope
         self.tmcc_id = tmcc_id
         self.is_ramping = False
+        self.target_speed: int | None = None
+
+    def sync_target_speed(self, target_speed: int) -> None:
+        """Stands in for EngineState.sync_target_speed, which every abort path calls."""
+        self.target_speed = target_speed
 
 
 class Recorder:
@@ -225,6 +231,78 @@ class TestSpeedRamp(TestBase):
         ramp = build_ramp(state, 60, recorder)
         ramp.abort("early")
         ramp.run()
+        assert recorder.sent == []
+
+    def test_abort_leaves_the_reached_speed_as_the_target(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                ramp.abort("test")
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # the target it was chasing will never be reached, so the state records where
+        # the engine actually is rather than where it was going
+        assert state.target_speed == ramp.commanded_speed == 9
+        assert state.is_ramping is False
+
+    @pytest.mark.parametrize("target", [0, 40])
+    def test_abort_with_an_explicit_target_records_it(self, target):
+        state = RampEngineState(speed=30)
+        recorder = Recorder()
+        ramp = build_ramp(state, 120, recorder)
+        ramp.abort("halt", target_speed=target)
+        assert state.target_speed == target
+        assert state.is_ramping is False
+
+    def test_a_second_abort_does_not_rewrite_the_target(self):
+        state = RampEngineState(speed=30)
+        ramp = build_ramp(state, 120, Recorder())
+        ramp.abort("stop immediate", target_speed=0)
+        ramp.abort("late", target_speed=90)
+        assert state.target_speed == 0
+        assert ramp.abort_reason == "stop immediate"
+
+    def test_a_hard_stop_returns_effort_to_neutral(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                ramp.abort("direction", target_speed=0, restore_effort=True)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # the acceleration had effort dialed up; a hard stop hands it back, because an
+        # engine returns to a standstill on its own but never gives effort back
+        assert recorder.labors[-2] > DEFAULT_LABOR
+        assert recorder.labors[-1] == DEFAULT_LABOR
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+        # and nothing else: no settle at the target it will never reach
+        assert 120 not in recorder.speeds
+
+    def test_an_ordinary_abort_leaves_effort_alone(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                ramp.abort("foreign speed", target_speed=90)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # whoever took the throttle owns the engine's effort now
+        assert recorder.labors[-1] > DEFAULT_LABOR
+        assert recorder.commands[-1] != TMCC2EngineCommandEnum.ENGINE_LABOR
+
+    def test_a_tmcc1_hard_stop_sends_no_effort_command(self):
+        state = RampEngineState(speed=0, is_legacy=False)
+        recorder = Recorder()
+        ramp = build_ramp(state, 20, recorder)
+        ramp.abort("direction", target_speed=0, restore_effort=True)
+        # ENGINE_LABOR is a Legacy command; a TMCC1 engine has no effort to restore
         assert recorder.sent == []
 
     #
