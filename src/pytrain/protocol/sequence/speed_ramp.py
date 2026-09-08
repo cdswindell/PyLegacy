@@ -48,6 +48,7 @@ __all__ = [
     "PendingEcho",
     "RampRegistry",
     "RampStep",
+    "SPEED_FAMILIES",
     "Sender",
     "SpeedRamp",
     "biased_rpm",
@@ -95,8 +96,10 @@ DEFAULT_LABOR: int = 12
 ECHO_TTL: float = 5.000
 
 # how many already claimed values are remembered, so a late re-echo of a step that has
-# already been matched is still recognized as the ramp's own reflection
-CLAIMED_HISTORY: int = 32
+# already been matched - or one that a later echo overtook - is still recognized as the
+# ramp's own reflection. It holds every value a ramp is likely to have in flight at once,
+# so a burst of retirements cannot evict a claim that is still needed
+CLAIMED_HISTORY: int = 64
 
 # a TMCC1 speed round trips through encode_tmcc_speed / decode_tmcc_speed, which can
 # shift it by one, so its echoes are matched with a little slack
@@ -107,11 +110,19 @@ Sender = Callable[[CommandDefEnum, int, int, CommandScope], None]
 
 class EchoFamily(Enum):
     """
-    The command families a ramp issues. Echoes of the three interleave arbitrarily,
+    The command families a ramp issues. Echoes of the four interleave arbitrarily,
     but each family's own order is preserved on the wire, so each gets its own queue.
+
+    SPEED and TARGET both carry a speed, and are deliberately kept apart: TARGET_SPEED
+    is declared noop, so CommBuffer never puts it on the rails and the dispatcher hands
+    it back in microseconds, while an ABSOLUTE_SPEED makes a real round trip through the
+    Base 3 and comes back hundreds of milliseconds later. Two paths that far apart are
+    not one ordered stream: sharing a queue let a target announcement overtake a step
+    still in flight, and the ramp then took its own echo for another controller's.
     """
 
-    SPEED = auto()  # ABSOLUTE_SPEED and TARGET_SPEED, both generations
+    SPEED = auto()  # ABSOLUTE_SPEED, both generations: a Base 3 round trip
+    TARGET = auto()  # TARGET_SPEED, both generations: announced in process, never railed
     RPM = auto()  # DIESEL_RPM
     EFFORT = auto()  # ENGINE_LABOR / ENGINE_LABOR_DEFAULT
 
@@ -126,13 +137,17 @@ class EchoOutcome(Enum):
 
 ECHO_FAMILIES: dict[CommandDefEnum, EchoFamily] = {
     TMCC1EngineCommandEnum.ABSOLUTE_SPEED: EchoFamily.SPEED,
-    TMCC1EngineCommandEnum.TARGET_SPEED: EchoFamily.SPEED,
+    TMCC1EngineCommandEnum.TARGET_SPEED: EchoFamily.TARGET,
     TMCC2EngineCommandEnum.ABSOLUTE_SPEED: EchoFamily.SPEED,
-    TMCC2EngineCommandEnumEx.TARGET_SPEED: EchoFamily.SPEED,
+    TMCC2EngineCommandEnumEx.TARGET_SPEED: EchoFamily.TARGET,
     TMCC2EngineCommandEnum.DIESEL_RPM: EchoFamily.RPM,
     TMCC2EngineCommandEnum.ENGINE_LABOR: EchoFamily.EFFORT,
     TMCC2EngineCommandEnum.ENGINE_LABOR_DEFAULT: EchoFamily.EFFORT,
 }
+
+# the two families that carry a throttle setting: matched with the generation's speed
+# tolerance, and a deviation in either is another controller taking the engine
+SPEED_FAMILIES: frozenset[EchoFamily] = frozenset({EchoFamily.SPEED, EchoFamily.TARGET})
 
 
 def echo_family(command: CommandDefEnum) -> EchoFamily | None:
@@ -183,11 +198,17 @@ class EchoLedger:
         """
         Try to account for an inbound value as one of this ramp's own commands.
 
-        Scanning from the head and discarding everything before the match is what makes
-        a skipped echo harmless: the steps ahead of it were superseded, filtered out by
-        the Base 3, or suppressed as duplicates by EngineState. A value already claimed
-        is accepted without consuming anything, which is what makes the documented
-        10, 20, 30, 10, 40, 30, 40 Ser2 replay a non-event.
+        Scanning from the head is what makes a skipped echo harmless: the steps ahead of
+        the match were superseded, filtered out by the Base 3, or suppressed as
+        duplicates by EngineState. They are *retired into the claimed history* rather
+        than forgotten, because a step ahead of the match may simply be late rather than
+        lost - the echo of a step still traveling to the Base 3 can be overtaken by one
+        that took a shorter path - and a value this ramp issued stays its own however
+        late it lands. Retired entries keep their original timestamp, so the lag budget
+        still expires them.
+
+        A value already claimed is accepted without consuming anything, which is what
+        makes the documented 10, 20, 30, 10, 40, 30, 40 Ser2 replay a non-event.
         """
         if data is None:
             return False
@@ -196,8 +217,9 @@ class EchoLedger:
             queue = self._pending[family]
             for index, entry in enumerate(queue):
                 if abs(entry.data - data) <= tolerance:
-                    for _ in range(index + 1):
-                        queue.popleft()
+                    for _ in range(index):
+                        self._claimed[family].append(queue.popleft())
+                    queue.popleft()
                     self._claimed[family].append(PendingEcho(data, time()))
                     return True
             for entry in self._claimed[family]:
@@ -214,9 +236,15 @@ class EchoLedger:
                 queue = self._pending[family]
                 while queue and queue[0].sent_at <= cutoff:
                     queue.popleft()
+                # the claimed ring is not in timestamp order: a retired entry carries the
+                # older timestamp of the step it belonged to, so it is filtered rather
+                # than popped from the head, which a fresher entry in front would block
                 claimed = self._claimed[family]
-                while claimed and claimed[0].sent_at <= cutoff:
-                    claimed.popleft()
+                if claimed:
+                    kept = [entry for entry in claimed if entry.sent_at > cutoff]
+                    if len(kept) != len(claimed):
+                        claimed.clear()
+                        claimed.extend(kept)
 
     @property
     def pending(self) -> dict[EchoFamily, tuple[int, ...]]:
@@ -483,7 +511,7 @@ class SpeedRamp(Thread):
         # the ordered record of what this ramp has issued, so its own lagged and
         # reordered echoes cannot be mistaken for another controller's throttle command
         self._ledger = EchoLedger()
-        self._ledger.record(EchoFamily.SPEED, self._requested_target)
+        self._ledger.record(EchoFamily.TARGET, self._requested_target)
 
     @property
     def state(self) -> EngineState:
@@ -566,8 +594,10 @@ class SpeedRamp(Thread):
                 self._dialog = True
         # a target delivered through the ramp itself is not foreign: note it before the
         # façade's TARGET_SPEED reaches the wire, so its echo is claimed rather than
-        # taken for another controller grabbing the throttle
-        self._ledger.record(EchoFamily.SPEED, speed)
+        # taken for another controller grabbing the throttle. It goes in the TARGET
+        # queue, never among the steps: a target announcement is handed back in process
+        # and would otherwise overtake a step still on its way to the Base 3
+        self._ledger.record(EchoFamily.TARGET, speed)
         self._wake.set()
 
     def abort(self, reason: str = None, *, target_speed: int = None, restore_effort: bool = False) -> None:
@@ -614,8 +644,9 @@ class SpeedRamp(Thread):
         if family is None:
             return EchoOutcome.MINE
         data = command.data
-        tolerance = self.speed_echo_tolerance if family is EchoFamily.SPEED else 0
-        if family is EchoFamily.SPEED and data is not None:
+        is_speed = family in SPEED_FAMILIES
+        tolerance = self.speed_echo_tolerance if is_speed else 0
+        if is_speed and data is not None:
             with self._lock:
                 commanded = self._commanded_speed
             # the value the ramp is sitting at is always its own, even once its ledger
@@ -624,7 +655,7 @@ class SpeedRamp(Thread):
                 return EchoOutcome.MINE
         if self._ledger.claim(family, data, tolerance=tolerance) is True:
             return EchoOutcome.MINE
-        return EchoOutcome.FOREIGN if family is EchoFamily.SPEED else EchoOutcome.ABSORB
+        return EchoOutcome.FOREIGN if is_speed else EchoOutcome.ABSORB
 
     def on_state_command(self, command: CommandReq) -> bool:
         """
@@ -637,9 +668,12 @@ class SpeedRamp(Thread):
             return True
         family = echo_family(command.command)
         if outcome is EchoOutcome.FOREIGN:
+            # both queues are reported: a value unclaimed in one of them may well be
+            # sitting in the other, which is exactly the confusion worth seeing in a log
             log.info(
                 f"Speed ramp {self._scope.title} {self._address} aborting: unclaimed speed "
-                f"{command.data}, pending {self._ledger.pending[EchoFamily.SPEED]}"
+                f"{command.data}, pending steps {self._ledger.pending[EchoFamily.SPEED]}, "
+                f"pending targets {self._ledger.pending[EchoFamily.TARGET]}"
             )
             return False
         if family is EchoFamily.RPM:

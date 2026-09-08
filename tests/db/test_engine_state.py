@@ -19,7 +19,7 @@ from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
-from src.pytrain.protocol.sequence.speed_ramp import DEFAULT_LABOR, MAX_RPM_BIAS, SpeedRamp
+from src.pytrain.protocol.sequence.speed_ramp import DEFAULT_LABOR, MAX_RPM_BIAS, EchoFamily, SpeedRamp
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1, TMCC1HaltCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum as TMCC2,
@@ -456,6 +456,25 @@ class TestEngineStateRampArbitration:
 
         assert ramp.aborts == []
         assert state.is_ramping is True
+
+    def test_a_retarget_does_not_strand_the_step_in_flight(self):
+        # the reported defect, through the real arbitration path: a step is still on its
+        # way to the Base 3 when the slider retargets, so its echo arrives *after* the
+        # TARGET_SPEED announcement, which is noop and comes back in process at once
+        state, ramp = self._ramping_engine()
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._commanded_speed = 36
+        ramp.echo_ledger.record(EchoFamily.SPEED, 36)
+        ramp.retarget(49)
+
+        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=49))
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=34))
+
+        # both are this ramp's own work, so it keeps driving the engine
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+        assert ramp.requested_speed == 49
 
     def test_foreign_absolute_speed_cancels(self):
         state, ramp = self._ramping_engine()

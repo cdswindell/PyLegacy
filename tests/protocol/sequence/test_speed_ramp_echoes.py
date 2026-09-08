@@ -5,10 +5,12 @@ import pytest
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
+from src.pytrain.protocol.sequence import speed_ramp
 from src.pytrain.protocol.sequence.speed_ramp import (
     CLAIMED_HISTORY,
     ECHO_TTL,
     MAX_RPM_BIAS,
+    SPEED_FAMILIES,
     TMCC1_ECHO_TOLERANCE,
     EchoFamily,
     EchoLedger,
@@ -57,13 +59,67 @@ class TestEchoLedger(TestBase):
         assert ledger.pending[EchoFamily.SPEED] == ()
         assert ledger.claim(EchoFamily.SPEED, None) is False
 
-    def test_skipped_echoes_discard_the_steps_before_the_match(self):
+    def test_skipped_echoes_are_retired_rather_than_forgotten(self):
         ledger = EchoLedger()
         for speed in (10, 20, 30, 40):
             ledger.record(EchoFamily.SPEED, speed)
         assert ledger.claim(EchoFamily.SPEED, 40) is True
         assert ledger.pending[EchoFamily.SPEED] == ()
-        assert ledger.claimed[EchoFamily.SPEED] == (40,)
+        # the three the match overtook are still this ramp's own commands, not another
+        # controller's, so they move to the claimed history instead of vanishing
+        assert ledger.claimed[EchoFamily.SPEED] == (10, 20, 30, 40)
+
+    def test_an_overtaken_step_is_still_ours_when_its_echo_lands(self):
+        # the reported defect: 34 was claimed while 32 was still traveling back, which
+        # dropped 32 from the ledger, and the ramp then aborted on its own reflection
+        ledger = EchoLedger()
+        ledger.record(EchoFamily.SPEED, 32)
+        ledger.record(EchoFamily.SPEED, 34)
+        assert ledger.claim(EchoFamily.SPEED, 34) is True
+        assert ledger.claim(EchoFamily.SPEED, 32) is True
+
+    def test_a_retired_entry_still_expires_with_the_lag_budget(self):
+        ledger = EchoLedger()
+        ledger.record(EchoFamily.SPEED, 32)
+        ledger.record(EchoFamily.SPEED, 34)
+        assert ledger.claim(EchoFamily.SPEED, 34) is True
+        # being retired is not a fresh lease: past the budget an echo is a deviation,
+        # whether it was overtaken or simply never came back
+        ledger.purge(ttl=0.0)
+        assert ledger.claimed[EchoFamily.SPEED] == ()
+        assert ledger.claim(EchoFamily.SPEED, 32) is False
+
+    def test_a_retired_entry_expires_from_behind_a_younger_claim(self, monkeypatch):
+        # retiring puts entries in the ring out of timestamp order, so expiry filters the
+        # ring rather than popping its head, which a younger entry in front would block
+        clock = [100.0]
+        monkeypatch.setattr(speed_ramp, "time", lambda: clock[0])
+        ledger = EchoLedger()
+        ledger.record(EchoFamily.SPEED, 10)
+        ledger.record(EchoFamily.SPEED, 20)
+        clock[0] = 103.0
+        assert ledger.claim(EchoFamily.SPEED, 10) is True
+        ledger.record(EchoFamily.SPEED, 30)
+        clock[0] = 104.0
+        # 30's echo overtakes 20's, retiring 20 with the age it was sent at: 100, which
+        # is older than the 10 claimed at 103 and already sitting in front of it
+        assert ledger.claim(EchoFamily.SPEED, 30) is True
+        assert ledger.claimed[EchoFamily.SPEED] == (10, 20, 30)
+        clock[0] = 100.0 + ECHO_TTL + 1.5
+        ledger.purge()
+        assert ledger.claimed[EchoFamily.SPEED] == (10, 30)
+
+    def test_a_target_echo_leaves_the_steps_in_flight_alone(self):
+        ledger = EchoLedger()
+        ledger.record(EchoFamily.SPEED, 34)
+        ledger.record(EchoFamily.TARGET, 49)
+        assert ledger.claim(EchoFamily.TARGET, 49) is True
+        # a TARGET_SPEED is noop, so it is handed back in process and always overtakes a
+        # step still on its way to the Base 3; its own queue is what stops it consuming
+        # or retiring one
+        assert ledger.pending[EchoFamily.SPEED] == (34,)
+        assert ledger.claimed[EchoFamily.SPEED] == ()
+        assert ledger.claim(EchoFamily.SPEED, 34) is True
 
     def test_echoes_arriving_in_order_are_claimed_one_at_a_time(self):
         ledger = EchoLedger()
@@ -152,9 +208,9 @@ class TestEchoFamily(TestBase):
         "command, family",
         [
             (TMCC1EngineCommandEnum.ABSOLUTE_SPEED, EchoFamily.SPEED),
-            (TMCC1EngineCommandEnum.TARGET_SPEED, EchoFamily.SPEED),
+            (TMCC1EngineCommandEnum.TARGET_SPEED, EchoFamily.TARGET),
             (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, EchoFamily.SPEED),
-            (TMCC2EngineCommandEnumEx.TARGET_SPEED, EchoFamily.SPEED),
+            (TMCC2EngineCommandEnumEx.TARGET_SPEED, EchoFamily.TARGET),
             (TMCC2EngineCommandEnum.DIESEL_RPM, EchoFamily.RPM),
             (TMCC2EngineCommandEnum.ENGINE_LABOR, EchoFamily.EFFORT),
             (TMCC2EngineCommandEnum.ENGINE_LABOR_DEFAULT, EchoFamily.EFFORT),
@@ -165,6 +221,10 @@ class TestEchoFamily(TestBase):
 
     def test_an_unarbitrated_command_has_no_family(self):
         assert echo_family(TMCC2EngineCommandEnum.MOMENTUM) is None
+
+    def test_both_speed_carrying_families_are_throttle_commands(self):
+        # a deviation in either aborts the ramp; a trim in the other two never does
+        assert SPEED_FAMILIES == {EchoFamily.SPEED, EchoFamily.TARGET}
 
 
 # noinspection PyMethodMayBeStatic
@@ -188,8 +248,40 @@ class TestRampArbitration(TestBase):
     def test_a_retarget_records_its_own_target(self):
         _, _, ramp = self.ramp()
         ramp.retarget(80)
-        assert 80 in ramp.echo_ledger.pending[EchoFamily.SPEED]
+        assert 80 in ramp.echo_ledger.pending[EchoFamily.TARGET]
         assert ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 80)) is True
+
+    def test_a_target_echo_does_not_consume_a_pending_step(self):
+        _, _, ramp = self.ramp()
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp.retarget(49)
+        assert ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 49)) is True
+        assert ramp.echo_ledger.pending[EchoFamily.SPEED] == (34,)
+        assert ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, 34)) is True
+
+    def test_a_retarget_mid_flight_does_not_orphan_the_step_in_flight(self):
+        # the reported defect, in the order the log shows it: a step goes out, the slider
+        # retargets, the loop wakes and sends the next step, the in process TARGET_SPEED
+        # echo lands, and only then does the previous step's echo come back from the
+        # Base 3. Every one of those is this ramp's own work.
+        state = RampEngineState(speed=0)
+        outcomes: list[bool] = []
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3 and ramp.requested_speed == 120:
+                overtaken = rec.speeds[-2]
+                ramp.retarget(49)
+                outcomes.append(ramp.on_state_command(req(TMCC2EngineCommandEnumEx.TARGET_SPEED, 49)))
+                outcomes.append(ramp.on_state_command(req(TMCC2EngineCommandEnum.ABSOLUTE_SPEED, overtaken)))
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        assert outcomes == [True, True]
+        assert ramp.abort_reason is None
+        # and the ramp carried on to the target the slider asked for
+        assert recorder.speeds[-1] == 49
+        assert ramp.commanded_speed == 49
 
     def test_every_step_the_ramp_sent_is_claimed(self):
         state, recorder, ramp = self.ramp()
