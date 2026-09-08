@@ -314,7 +314,7 @@ def rpm_max_speed(state: EngineState) -> int | None:
     The roster ceiling that shapes the engine's RPM curve, or None to use the base
     table. This is the one place the generation guard lives: a TMCC1 engine's
     `max_speed` is decoded onto the 0-31 scale, which would squeeze the entire RPM
-    curve into a 31 step window, and TMCC1 emits no DIESEL_RPM in any case.
+    curve into a 31-step window, and TMCC1 emits no DIESEL_RPM in any case.
 
     Note this is `max_speed`, the engine's own ceiling, and deliberately not
     `speed_max`: a speed limit changes where a ramp stops, not where the diesel
@@ -330,7 +330,7 @@ def rpm_max_speed(state: EngineState) -> int | None:
 
 def biased_rpm(speed: int, bias: int, max_speed: int = None) -> int:
     """
-    The RPM notch for a speed, offset by the ramp's bias and clamped to 0..MAX_RPM.
+    The RPM notch for a speed, offset by the ramp's bias and clamped to 0…MAX_RPM.
     RPM is sourced exclusively through tmcc2_constants.py, so TMCC2_SPEED_TO_RPM
     remains the one hand-edited curve.
     """
@@ -556,7 +556,7 @@ class SpeedRamp(Thread):
 
     def retarget(self, speed: int, *, dialog: bool = False) -> None:
         """
-        Point a running ramp at a new target. Nothing is cancelled and no second
+        Point a running ramp at a new target. Nothing is cancelled, and no second
         thread is started; the loop simply wakes and recomputes from where it is.
         """
         with self._lock:
