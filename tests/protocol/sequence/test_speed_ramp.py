@@ -2,11 +2,13 @@ from typing import Callable
 
 import pytest
 
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope, PROGRAM_NAME
 from src.pytrain.protocol.sequence.speed_ramp import (
     DEFAULT_LABOR,
     DEFAULT_RAMP_LINGER,
     MAX_RPM,
+    EchoFamily,
     SpeedRamp,
     biased_rpm,
     labor_delta,
@@ -207,7 +209,7 @@ class TestSpeedRamp(TestBase):
     #
     # abort
     #
-    def test_abort_mid_ramp_sends_nothing_further(self):
+    def test_abort_mid_ramp_drives_the_engine_no_further(self):
         state = RampEngineState(speed=0)
 
         def hook(rec: Recorder, _count: int) -> None:
@@ -224,6 +226,9 @@ class TestSpeedRamp(TestBase):
         assert ramp.is_active is False
         # nothing further, in particular no settle at the target
         assert 120 not in recorder.speeds
+        # the one thing an abort does still send is the effort it borrowed, which is a
+        # debt rather than a step: see test_an_ordinary_abort_hands_the_operators_effort_back
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
 
     def test_abort_before_the_first_step(self):
         state = RampEngineState(speed=0)
@@ -270,7 +275,7 @@ class TestSpeedRamp(TestBase):
 
         def hook(rec: Recorder, _count: int) -> None:
             if len(rec.speeds) == 3:
-                ramp.abort("direction", target_speed=0, restore_effort=True)
+                ramp.abort("direction", target_speed=0, hard_stop=True)
 
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
@@ -283,27 +288,117 @@ class TestSpeedRamp(TestBase):
         # and nothing else: no settle at the target it will never reach
         assert 120 not in recorder.speeds
 
-    def test_an_ordinary_abort_leaves_effort_alone(self):
-        state = RampEngineState(speed=0)
+    def test_an_ordinary_abort_hands_the_operators_effort_back(self):
+        state = RampEngineState(speed=0, labor=20)
 
         def hook(rec: Recorder, _count: int) -> None:
             if len(rec.speeds) == 3:
-                ramp.abort("foreign speed", target_speed=90)
+                ramp.abort("foreign ABSOLUTE_SPEED", target_speed=90)
 
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        # whoever took the throttle owns the engine's effort now
-        assert recorder.labors[-1] > DEFAULT_LABOR
-        assert recorder.commands[-1] != TMCC2EngineCommandEnum.ENGINE_LABOR
+        # not neutral, the way a hard stop is: the ramp borrowed against the operator's
+        # own setting while there was a gap to close, and that is what it owes back.
+        # Effort is the one axis nothing winds back on its own, so falling silent here
+        # leaves the locomotive laboring at a notch nobody asked for
+        assert recorder.labors[-2] > 20
+        assert recorder.labors[-1] == 20
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+
+    def test_an_abort_hands_back_an_effort_setting_changed_mid_ramp(self):
+        state = RampEngineState(speed=0, labor=12)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 2:
+                # another operator dials effort in while this ramp is running
+                ramp.on_state_command(CommandReq.build(TMCC2EngineCommandEnum.ENGINE_LABOR, 12, data=18))
+            elif len(rec.speeds) == 4:
+                ramp.abort("foreign ABSOLUTE_SPEED", target_speed=90)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # _absorb_labor re-baselined the debt, so the restore hands back their value
+        assert ramp.init_labor == 18
+        assert recorder.labors[-1] == 18
+
+    def test_a_ramp_that_never_raised_effort_hands_nothing_back(self):
+        state = RampEngineState(speed=30)
+        recorder = Recorder()
+        ramp = build_ramp(state, 120, recorder)
+        ramp.abort("foreign ABSOLUTE_SPEED", target_speed=40)
+        # the engine is already sitting at the value the restore would carry
+        assert recorder.sent == []
 
     def test_a_tmcc1_hard_stop_sends_no_effort_command(self):
         state = RampEngineState(speed=0, is_legacy=False)
         recorder = Recorder()
         ramp = build_ramp(state, 20, recorder)
-        ramp.abort("direction", target_speed=0, restore_effort=True)
+        ramp.abort("direction", target_speed=0, hard_stop=True)
         # ENGINE_LABOR is a Legacy command; a TMCC1 engine has no effort to restore
         assert recorder.sent == []
+
+    #
+    # yielding the road: a step of ours that overtook the command which stopped us
+    #
+    def test_a_takeover_our_step_overtook_is_re_asserted(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                # their command was created before our third step was sent, so its echo
+                # can only arrive after that step has already gone out
+                ramp.abort("foreign ABSOLUTE_SPEED", target_speed=30, yield_speed=30)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # without the yield the engine would sit at our 9 rather than at their 30, with
+        # the display honestly reporting a speed nobody asked for
+        assert recorder.speeds == [3, 6, 9, 30]
+        assert ramp.commanded_speed == 30
+        assert state.target_speed == 30
+        # the effort restore is still the last word
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+
+    def test_a_takeover_nothing_overtook_is_not_re_asserted(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                # every step is accounted for, so the engine heard ours and then theirs
+                for speed in rec.speeds:
+                    ramp.echo_ledger.claim(EchoFamily.SPEED, speed)
+                ramp.abort("foreign ABSOLUTE_SPEED", target_speed=30, yield_speed=30)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # their command is already the last word on the wire; repeating it would be us
+        # commanding an engine we have just conceded
+        assert recorder.speeds == [3, 6, 9]
+
+    def test_nothing_is_re_asserted_before_the_first_step(self):
+        state = RampEngineState(speed=30)
+        recorder = Recorder()
+        ramp = build_ramp(state, 120, recorder)
+        ramp.abort("foreign ABSOLUTE_SPEED", target_speed=40, yield_speed=40)
+        assert recorder.speeds == []
+
+    def test_a_hard_stop_yields_nothing(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                ramp.abort("STOP_IMMEDIATE", target_speed=0, hard_stop=True)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # a hard stop is taking the engine to a standstill by itself; there is no speed
+        # anyone is asking for, so the ramp adds none
+        assert recorder.speeds == [3, 6, 9]
 
     #
     # live momentum

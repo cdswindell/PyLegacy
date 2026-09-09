@@ -631,10 +631,17 @@ class SpeedRamp(Thread):
         self._ledger.record(EchoFamily.TARGET, speed)
         self._wake.set()
 
-    def abort(self, reason: str = None, *, target_speed: int = None, restore_effort: bool = False) -> None:
+    def abort(
+        self,
+        reason: str = None,
+        *,
+        target_speed: int = None,
+        hard_stop: bool = False,
+        yield_speed: int = None,
+    ) -> None:
         """
-        Stop the ramp within one step interval, sending nothing further and leaving
-        the engine at whatever speed it was last commanded to.
+        Stop the ramp within one step interval, driving the engine no further and
+        leaving it at whatever speed it was last commanded to.
 
         The target the ramp was chasing will never be reached now, so the state's
         target speed is squared up with where the engine is actually headed:
@@ -642,12 +649,16 @@ class SpeedRamp(Thread):
         controller just commanded when it takes the throttle - and otherwise the speed
         this ramp had reached.
 
-        `restore_effort` is set by the hard stops - a HALT, a reset, an emergency stop,
-        a direction change, a shutdown - which take the engine to a standstill and reset
-        effort to neutral in state. Effort is the one thing an engine does not return on
-        its own, so the command has to go out: without it the locomotive keeps laboring
-        at whatever notch the ramp had dialed in, and the next Base 3 record reports
-        that notch straight back into the state the abort just cleaned.
+        `hard_stop` marks a HALT, a reset, an emergency stop, a direction change or a
+        shutdown: the engine is being taken to a standstill by other means, so effort
+        goes back to neutral rather than to the setting this ramp borrowed against.
+
+        `yield_speed` is the speed another controller asked for, when the wire may still
+        be carrying a step of ours issued after theirs; see `_yield_road`.
+
+        Two obligations are settled here rather than by simply falling silent. Effort is
+        discharged on every exit path - see `_restore_effort` - and the road is yielded
+        when a step of this ramp's own overtook the command that stopped it.
         """
         with self._lock:
             if self._is_running is False:
@@ -660,11 +671,63 @@ class SpeedRamp(Thread):
         # what lets the target speed below be recorded at all
         self._set_ramping(False)
         self._sync_target_speed(settled)
-        if restore_effort is True and self.is_legacy is True:
-            self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, DEFAULT_LABOR)
-            self._last_labor = DEFAULT_LABOR
+        self._yield_road(yield_speed)
+        self._restore_effort(hard_stop)
         log.debug(f"Speed ramp aborted {self._scope.title} {self._address}: {reason}")
         self._wake.set()
+
+    def _yield_road(self, yield_speed: int | None) -> None:
+        """
+        Put the speed another controller asked for back on the wire, when a step of this
+        ramp's own reached the rails after theirs did.
+
+        A step is committed before the takeover can possibly be seen: `_send_step` hands
+        the command to the sender, and only the *echo* of the other controller's command
+        tells us it exists. So the two cross, and however quick the detection, the last
+        word on the wire is ours and the engine ends up at our step rather than at the
+        speed that was asked for.
+
+        The ledger is what makes that visible: a step still awaiting its echo was sent
+        after their command was created, so their command is not the latest thing the
+        engine heard. Re-asserting it once is the only way it is honored. It also squares
+        the Base 3's own target byte, because `is_ramping` is already clear by the time
+        this goes out and `sync_state` is free to write the target again.
+        """
+        if yield_speed is None or not self._ledger.pending[EchoFamily.SPEED]:
+            return
+        with self._lock:
+            self._commanded_speed = yield_speed
+        self._send(self._speed_enum, yield_speed)
+        self._last_speed = yield_speed
+
+    def _restore_effort(self, hard_stop: bool) -> None:
+        """
+        Discharge the effort this ramp borrowed. Every exit path pays it, differing only
+        in the destination.
+
+        Effort is the one axis nothing winds back on its own. Speed self-corrects,
+        because whatever stopped the ramp is driving the throttle itself; RPM is
+        recomputed from the speed on every emission, so the last notch sent is always the
+        right one for the last speed sent. But an engine holds the effort it was given
+        until something says otherwise, and a ramp raises effort *while* there is a gap
+        to close - an elevated notch mid-ramp is a transient, not a setting. Stopping
+        without discharging it strands the locomotive laboring, and the next Base 3
+        record reports that notch straight back into state.
+
+        A hard stop means the engine is done, so effort returns to neutral, agreeing with
+        what state records for it. Anything else means the ramp is done, so the operator
+        gets back the setting it borrowed against - `_absorb_labor` has already
+        re-baselined that to any effort command received mid-ramp, so it is their latest
+        value whoever the operator turned out to be.
+        """
+        if self.is_legacy is False:
+            return
+        labor = DEFAULT_LABOR if hard_stop is True else self._init_labor
+        if labor == self._last_labor:
+            # a ramp that never raised effort has nothing to hand back
+            return
+        self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, labor)
+        self._last_labor = labor
 
     def arbitrate(self, command: CommandReq) -> EchoOutcome:
         """
@@ -1007,13 +1070,14 @@ class RampRegistry:
         reason: str = None,
         *,
         target_speed: int = None,
-        restore_effort: bool = False,
+        hard_stop: bool = False,
+        yield_speed: int = None,
     ) -> None:
         with self._ramps_lock:
             self._reap()
             ramp = self._ramps.pop(self.key_for(state), None)
         if ramp is not None:
-            ramp.abort(reason, target_speed=target_speed, restore_effort=restore_effort)
+            ramp.abort(reason, target_speed=target_speed, hard_stop=hard_stop, yield_speed=yield_speed)
 
     def abort_all(
         self,
@@ -1021,14 +1085,19 @@ class RampRegistry:
         reason: str = None,
         *,
         target_speed: int = None,
-        restore_effort: bool = False,
+        hard_stop: bool = False,
     ) -> None:
-        """Stop every ramp, or every ramp in one scope, leaving the other scope alone."""
+        """
+        Stop every ramp, or every ramp in one scope, leaving the other scope alone.
+
+        There is deliberately no yield here: a scope-wide abort is a HALT or a shutdown,
+        which is nobody's request for a particular speed.
+        """
         with self._ramps_lock:
             keys = [k for k in self._ramps if scope is None or k[0] == scope]
             ramps = [self._ramps.pop(k) for k in keys]
         for ramp in ramps:
-            ramp.abort(reason, target_speed=target_speed, restore_effort=restore_effort)
+            ramp.abort(reason, target_speed=target_speed, hard_stop=hard_stop)
 
     @property
     def active_ramps(self) -> list[SpeedRamp]:

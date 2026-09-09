@@ -376,7 +376,8 @@ class _LiveRamp(SpeedRamp):
         super().__init__(state, target, sender=self._record, linger=0.0, delay_scale=0.0)
         self.aborts: list[str | None] = []
         self.abort_targets: list[int | None] = []
-        self.abort_efforts: list[bool] = []
+        self.abort_hard_stops: list[bool] = []
+        self.abort_yields: list[int | None] = []
 
     def _record(self, command, _address: int, data: int, _scope) -> None:
         self.sent.append((command, data))
@@ -385,11 +386,19 @@ class _LiveRamp(SpeedRamp):
     def is_active(self) -> bool:
         return True
 
-    def abort(self, reason: str = None, *, target_speed: int = None, restore_effort: bool = False) -> None:
+    def abort(
+        self,
+        reason: str = None,
+        *,
+        target_speed: int = None,
+        hard_stop: bool = False,
+        yield_speed: int = None,
+    ) -> None:
         self.aborts.append(reason)
         self.abort_targets.append(target_speed)
-        self.abort_efforts.append(restore_effort)
-        super().abort(reason, target_speed=target_speed, restore_effort=restore_effort)
+        self.abort_hard_stops.append(hard_stop)
+        self.abort_yields.append(yield_speed)
+        super().abort(reason, target_speed=target_speed, hard_stop=hard_stop, yield_speed=yield_speed)
 
 
 class TestEngineStateRampArbitration:
@@ -485,6 +494,43 @@ class TestEngineStateRampArbitration:
         assert ramp.aborts == ["foreign ABSOLUTE_SPEED"]
         assert state.ramp is None
         assert state.is_ramping is False
+
+    def test_the_reported_takeover_yields_the_road(self):
+        # the reported sequence: the ramp had swept up through 30 and had 34 on the wire
+        # when the other controller's ABSOLUTE_SPEED 30 came back to us
+        state, ramp = self._ramping_engine(speed=32)
+        for speed in (30, 32, 34):
+            ramp.echo_ledger.record(EchoFamily.SPEED, speed)
+        ramp._commanded_speed = 34
+        ramp._last_speed = 34
+        ramp._last_labor = 27
+        for speed in (30, 32):
+            assert ramp.echo_ledger.claim(EchoFamily.SPEED, speed) is True
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=30))
+
+        assert ramp.aborts == ["foreign ABSOLUTE_SPEED"]
+        assert ramp.abort_yields == [30]
+        # step 34 was committed before their command could possibly be seen, so it
+        # landed after theirs and the engine would have been left at 34. Detection
+        # cannot recall it; the only way their command is honored is to re-assert it
+        assert ramp.sent[0] == (TMCC2.ABSOLUTE_SPEED, 30)
+        assert ramp.sent[-1] == (TMCC2.ENGINE_LABOR, ramp.init_labor)
+        assert state.target_speed == 30
+        assert state.is_ramping is False
+
+    def test_a_takeover_nothing_overtook_is_not_re_asserted(self):
+        state, ramp = self._ramping_engine(speed=32)
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._commanded_speed = 34
+        assert ramp.echo_ledger.claim(EchoFamily.SPEED, 34) is True
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=30))
+
+        # every step is accounted for, so their command is already the last word on the
+        # wire: the yield is offered and declined
+        assert ramp.abort_yields == [30]
+        assert [cmd for cmd, _ in ramp.sent if cmd == TMCC2.ABSOLUTE_SPEED] == []
 
     def test_foreign_target_speed_cancels(self):
         state, ramp = self._ramping_engine()
@@ -727,7 +773,7 @@ class TestEngineStateRampArbitration:
         # an engine returns to a standstill on its own, but never gives effort back:
         # without this command the locomotive keeps laboring, and the next Base 3
         # record reports that notch straight back into state
-        assert ramp.abort_efforts[0] is True
+        assert ramp.abort_hard_stops[0] is True
         assert (TMCC2.ENGINE_LABOR, DEFAULT_LABOR) in ramp.sent
 
     def test_a_direction_change_during_a_ramp_returns_effort_to_neutral(self):
@@ -760,15 +806,26 @@ class TestEngineStateRampArbitration:
     @pytest.mark.parametrize(
         "command, data", [(TMCC2.ABSOLUTE_SPEED, 150), (TMCC2EngineCommandEnumEx.TARGET_SPEED, 150)]
     )
-    def test_a_foreign_throttle_command_leaves_effort_to_its_owner(self, command, data):
+    def test_a_foreign_throttle_command_hands_the_operators_effort_back(self, command, data):
         state, ramp = self._ramping_engine()
         ramp._last_labor = 20
 
         self._update(state, CommandReq.build(command, 7, data=data))
 
-        # another controller owns the throttle now; its effort setting is not ours to
-        # override, so the ramp stops interfering rather than trimming the engine
-        assert ramp.abort_efforts == [False]
+        # not a hard stop, so effort does not go to neutral - but it does go back. The
+        # ramp raised it while there was a gap to close, and nobody else asked for that
+        # notch: leaving it behind strands the locomotive laboring, and the next Base 3
+        # record reports it straight back into the state this abort just cleaned
+        assert ramp.abort_hard_stops == [False]
+        assert ramp.sent == [(TMCC2.ENGINE_LABOR, ramp.init_labor)]
+
+    def test_a_ramp_that_never_raised_effort_hands_nothing_back(self):
+        state, ramp = self._ramping_engine()
+
+        self._update(state, CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=150))
+
+        # the engine is already sitting at the value the restore would carry
+        assert ramp.init_labor == ramp._last_labor
         assert ramp.sent == []
 
     def test_a_tmcc1_hard_stop_sends_no_effort_command(self):
@@ -780,7 +837,7 @@ class TestEngineStateRampArbitration:
         self._update(state, CommandReq.build(TMCC1.REVERSE_DIRECTION, 7))
 
         # ENGINE_LABOR is a Legacy command; a TMCC1 engine has no effort to restore
-        assert ramp.abort_efforts[0] is True
+        assert ramp.abort_hard_stops[0] is True
         assert ramp.sent == []
 
     def test_ramp_to_starts_one_thread_and_then_retargets(self, monkeypatch):

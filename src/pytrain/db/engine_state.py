@@ -362,24 +362,41 @@ class EngineState(ComponentState):
         self._ramp = ramp
         return ramp
 
-    def abort_ramp(self, reason: str = None, *, target_speed: int = None, restore_effort: bool = False) -> None:
+    def abort_ramp(
+        self,
+        reason: str = None,
+        *,
+        target_speed: int = None,
+        hard_stop: bool = False,
+        yield_speed: int = None,
+    ) -> None:
         """
         Stop this engine's ramp, if any, leaving it at its current speed and its target
         speed reflecting where it is now headed: `target_speed` when the caller knows
         it - 0 for a hard stop, another controller's speed when it takes the throttle -
         and otherwise the speed the ramp had reached.
 
-        `restore_effort` marks the hard stops, which return effort to neutral here in
-        state; the ramp that owns the engine sends the matching command so the
-        locomotive returns with it.
+        `hard_stop` marks the stops that take the engine to a standstill by other means,
+        which return effort to neutral here in state; the ramp that owns the engine sends
+        the matching command so the locomotive returns with it. An ordinary abort hands
+        back the effort setting the ramp borrowed against instead.
+
+        `yield_speed` is the speed another controller asked for, so that the ramp can
+        re-assert it if one of its own steps was still on the wire.
         """
         from ..protocol.sequence.speed_ramp import RampRegistry
 
         ramp = self._ramp
         self._ramp = None
-        RampRegistry.build().abort(self, reason, target_speed=target_speed, restore_effort=restore_effort)
+        RampRegistry.build().abort(
+            self,
+            reason,
+            target_speed=target_speed,
+            hard_stop=hard_stop,
+            yield_speed=yield_speed,
+        )
         if ramp is not None:
-            ramp.abort(reason, target_speed=target_speed, restore_effort=restore_effort)
+            ramp.abort(reason, target_speed=target_speed, hard_stop=hard_stop, yield_speed=yield_speed)
         elif target_speed is not None:
             # no ramp of ours to square up, but the target still has to reflect reality:
             # a hard stop cannot be left advertising the speed something else was chasing
@@ -491,7 +508,7 @@ class EngineState(ComponentState):
                     self.comp_data.rpm_tmcc = 0
                     self.comp_data.labor_tmcc = 12
                 self.is_ramping = False
-                self.abort_ramp("halt", target_speed=0, restore_effort=True)
+                self.abort_ramp("halt", target_speed=0, hard_stop=True)
                 self._numeric = None
 
             # get the downstream effects of this command, as they also impact state
@@ -509,14 +526,17 @@ class EngineState(ComponentState):
                     pass
                 else:
                     log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command}")
-                    # a hard stop takes the engine to a standstill; anything else that
-                    # gets this far is another controller taking the throttle, and its
-                    # effort setting is not ours to override
+                    # a hard stop takes the engine to a standstill, so effort goes back
+                    # to neutral; anything else that gets this far is another controller
+                    # taking the throttle, which hands the operator's own effort setting
+                    # back and re-asserts the speed they asked for if a step of ours
+                    # crossed it on the wire
                     hard_stop = command.command in CANCEL_PENDINGS_SET
                     self.cancel_ramps(
                         self._cancelled_target_speed(command),
                         reason=command.command.name if hard_stop else f"foreign {command.command.name}",
-                        restore_effort=hard_stop,
+                        hard_stop=hard_stop,
+                        yield_speed=self._yielded_speed(command),
                     )
 
             # handle last numeric
@@ -540,7 +560,7 @@ class EngineState(ComponentState):
             # handle reset
             if command.command in RESET_SET or cmd_effects & RESET_SET:
                 self.is_ramping = False
-                self.abort_ramp("reset", target_speed=0, restore_effort=True)
+                self.abort_ramp("reset", target_speed=0, hard_stop=True)
 
             # handle train brake
             if command.command in TRAIN_BRAKE_SET:
@@ -733,10 +753,17 @@ class EngineState(ComponentState):
                     self._d4_rec_no = command.record_no
         return UpdateResult.UPDATED
 
-    def cancel_ramps(self, target_speed: int = None, *, reason: str = None, restore_effort: bool = False) -> None:
+    def cancel_ramps(
+        self,
+        target_speed: int = None,
+        *,
+        reason: str = None,
+        hard_stop: bool = False,
+        yield_speed: int = None,
+    ) -> None:
         from ..comm.comm_buffer import CommBuffer
 
-        self.abort_ramp(reason, target_speed=target_speed, restore_effort=restore_effort)
+        self.abort_ramp(reason, target_speed=target_speed, hard_stop=hard_stop, yield_speed=yield_speed)
         CommBuffer.cancel_delayed_requests(self)
         self.update_target_speed(self.speed if target_speed is None else target_speed)
         self.comp_data.rpm_tmcc = 0
@@ -754,6 +781,21 @@ class EngineState(ComponentState):
             return 0
         speed = self._speed_requested_by(command)
         return speed if speed is not None else self.speed
+
+    def _yielded_speed(self, command: L | P) -> int | None:
+        """
+        The speed a stopped ramp should re-assert, or None when there is nothing to yield.
+
+        Only an absolute speed qualifies. A hard stop is taking the engine somewhere by
+        itself, and a foreign TARGET_SPEED is an announcement of intent rather than a
+        position - whoever sent it is driving the engine there and does not need our
+        help. An absolute speed, though, is a command the other controller expects to be
+        the last word, and a step of ours issued before we could know about it may well
+        have landed after it did.
+        """
+        if command.command in CANCEL_PENDINGS_SET or command.command not in SPEED_SET:
+            return None
+        return self._speed_requested_by(command)
 
     @staticmethod
     def _speed_requested_by(command: L | P) -> int | None:

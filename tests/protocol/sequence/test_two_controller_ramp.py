@@ -167,24 +167,29 @@ class TestTwoControllerRamp(TestBase):
         # both intentions were announced layout-wide, in the order they were asked for
         assert first.layout.of(TMCC2EngineCommandEnumEx.TARGET_SPEED) == [120, 60]
 
-    def test_the_loser_sends_nothing_more(self):
+    def test_the_loser_drives_the_engine_no_further(self):
         first, _second, _first_ramp, _second_ramp = self._handed_off()
-        taken_over_at = max(first.speeds)
 
         assert len(first.speeds) == 3
         # no settle at the target it will never reach, and no trailing trim either
         assert 120 not in first.speeds
-        assert first.sent[-1] == (TMCC2EngineCommandEnum.ABSOLUTE_SPEED, taken_over_at)
+        # a foreign TARGET_SPEED is an announcement, not a position: the winner is
+        # driving the engine there itself, so the loser has no speed to yield to it
+        assert first.of(TMCC2EngineCommandEnum.ABSOLUTE_SPEED) == first.speeds
+        # the effort it borrowed is the only thing still owed, and the only thing sent
+        assert first.sent[-1] == (TMCC2EngineCommandEnum.ENGINE_LABOR, _first_ramp.init_labor)
 
-    def test_the_loser_does_not_trim_the_winners_effort(self):
-        first, _second, _first_ramp, _second_ramp = self._handed_off()
+    def test_the_loser_hands_back_the_effort_it_borrowed(self):
+        first, _second, first_ramp, _second_ramp = self._handed_off()
         labors = first.of(TMCC2EngineCommandEnum.ENGINE_LABOR)
 
-        # another controller taking the throttle is not a hard stop: its effort setting
-        # is not the loser's to override, so the ramp stops interfering rather than
-        # handing effort back the way a direction change or an emergency stop would
-        assert labors != []
-        assert labors[-1] != DEFAULT_LABOR
+        # another controller taking the throttle is not a hard stop, so effort does not
+        # go to neutral - but it does go back. The loser raised it while it had a gap to
+        # close, and leaving that notch behind would strand the engine laboring for a
+        # ramp that no longer exists, with the winner's own steps trimming from there
+        assert labors[:-1] != []
+        assert max(labors[:-1]) > first_ramp.init_labor
+        assert labors[-1] == first_ramp.init_labor
 
     def test_the_first_controller_is_left_clean(self):
         first, second, _first_ramp, second_ramp = self._handed_off()
@@ -225,6 +230,9 @@ class TestTwoControllerRamp(TestBase):
         for controller in (first, second):
             controller.state._direction = TMCC2EngineCommandEnum.FORWARD_DIRECTION
             controller.state.comp_data.labor_tmcc = 20
+        # the winner has effort dialed up, as an acceleration leaves it, so neutral is
+        # genuinely owed rather than already in effect
+        second_ramp._last_labor = 20
 
         # the engine is thrown into reverse while the winner is still ramping it
         second.layout.publish(TMCC2EngineCommandEnum.REVERSE_DIRECTION, ENGINE_ID, None, CommandScope.ENGINE)
