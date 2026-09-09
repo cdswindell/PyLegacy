@@ -748,16 +748,62 @@ class TestEngineStateCommandHandling:
 
         assert state.smoke_level is TMCC2EffectsControl.SMOKE_MEDIUM
 
-    def test_a_tmcc1_numeric_nine_turns_the_smoke_off(self):
-        # NOTE: characterizes today's behavior. Numeric 9 is the TMCC1 "smoke on"
-        # keypress, and the alias it resolves to is AUX_NUMBER_9 rather than SMOKE_ON;
-        # that is not a key of the smoke map, so the lookup falls back to its 0 default
-        # and state records the opposite of what the operator asked for
+    #
+    # a TMCC1 smoke keypress reaches state in either of two forms, and the numeric one
+    # used to be resolved through the general alias map, which answers AUX_NUMBER_9 for
+    # (NUMERIC, 9) and so recorded the opposite of what the operator asked for; the bare
+    # form matched no branch at all and was dropped
+    #
+    @pytest.mark.parametrize(
+        "command, data, smoke, raw",
+        [
+            (TMCC1.SMOKE_ON, None, TMCC1.SMOKE_ON, 1),
+            (TMCC1.NUMERIC, 9, TMCC1.SMOKE_ON, 1),
+            (TMCC1.SMOKE_OFF, None, TMCC1.SMOKE_OFF, 0),
+            (TMCC1.NUMERIC, 8, TMCC1.SMOKE_OFF, 0),
+        ],
+    )
+    def test_a_tmcc1_smoke_command_is_written_to_the_record(self, command, data, smoke, raw):
         state = new_engine()
+        state.comp_data._smoke = 255
 
-        state.update(CommandReq.build(TMCC1.NUMERIC, state.address, data=9))
+        state.update(CommandReq.build(command, state.address, data=data))
 
-        assert state.smoke_level is TMCC1.SMOKE_OFF
+        assert state.comp_data.smoke == raw
+        assert state.smoke_level is smoke
+
+    @pytest.mark.parametrize(
+        "smoke, raw",
+        [
+            (TMCC2EffectsControl.SMOKE_OFF, 0),
+            (TMCC2EffectsControl.SMOKE_LOW, 1),
+            (TMCC2EffectsControl.SMOKE_MEDIUM, 2),
+            (TMCC2EffectsControl.SMOKE_HIGH, 3),
+        ],
+    )
+    def test_a_legacy_smoke_level_survives_a_record_with_no_control_type(self, smoke, raw):
+        # the record stores one Base 3 level whatever syntax the command arrived in: a
+        # 4-digit engine is Legacy by its address alone, and answering from the record
+        # instead sent every level it cannot express -- medium and high -- to off
+        state = new_engine(addr=1234)
+        state.comp_data._smoke = 255
+
+        state.update(CommandReq.build(smoke, state.address))
+
+        assert state.comp_data.is_legacy is False  # the record says nothing
+        assert state.comp_data.smoke == raw
+        assert state.smoke_level is smoke
+
+    def test_a_tmcc1_keypress_on_a_legacy_engine_records_a_level(self):
+        # a Legacy engine can be driven from a CAB-1: the level is stored on the one
+        # Base 3 scale, so it reads back as the Legacy level of the same value
+        state = new_engine(legacy=True)
+        state.comp_data._smoke = 255
+
+        state.update(CommandReq.build(TMCC1.SMOKE_ON, state.address))
+
+        assert state.comp_data.smoke == 1
+        assert state.smoke_level is TMCC2EffectsControl.SMOKE_LOW
 
     @pytest.mark.parametrize("command", [TMCC1HaltCommandEnum.HALT, TMCC2.SYSTEM_HALT])
     def test_a_halt_stops_the_engine_and_kills_the_accessories(self, command):
@@ -987,14 +1033,36 @@ class TestEngineStateKnownDefects:
 
 
 class TestTrainStateCore:
-    def test_a_train_is_legacy_by_construction(self):
-        # NOTE: characterizes today's behavior - `TrainState` hard-codes the Legacy flag,
-        # so a train can never report TMCC whatever its own record says
+    def test_a_multi_digit_train_is_legacy_by_its_address(self):
         train = new_train()
 
         assert train.comp_data.is_legacy is False  # the record says nothing
         assert train.is_legacy is True
         assert train.is_tmcc is False
+
+    @pytest.mark.parametrize(
+        "control_type, is_legacy",
+        [(LEGACY_CONTROL_TYPE, True), (TMCC_CONTROL_TYPE, False), (CAB1_CONTROL_TYPE, False), (255, False)],
+    )
+    def test_a_train_under_a_hundred_takes_its_flavor_from_its_record(self, control_type, is_legacy):
+        # a train used to carry a hard-coded Legacy flag that no record could overrule,
+        # so a genuinely TMCC train was driven and rendered as Legacy
+        train = new_train(addr=21)
+        train.comp_data._control_type = control_type
+
+        assert train.is_legacy is is_legacy
+        assert train.is_tmcc is not is_legacy
+
+    def test_a_legacy_command_makes_a_train_legacy(self):
+        # nothing in the record says which protocol a train speaks until the base fills
+        # in its control type, so a Legacy command is the other sighting we get of it
+        train = new_train(addr=21)
+
+        assert train.is_legacy is False
+
+        train.update(CommandReq.build(TMCC2.NUMERIC, train.address, data=1, scope=CommandScope.TRAIN))
+
+        assert train.is_legacy is True
 
     def test_a_train_rejects_any_other_scope(self):
         with pytest.raises(ValueError, match="expected TRAIN"):

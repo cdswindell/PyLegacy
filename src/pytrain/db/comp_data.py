@@ -41,6 +41,12 @@ BASE_TO_TMCC1_SMOKE_MAP = {
 
 TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
 
+# A smoke command can arrive in either syntax, whatever syntax the engine's record
+# claims to speak; as the two maps have no key in common, the Base 3 value is resolved
+# from both. Only the reverse direction is flavor-specific, as the level is rendered
+# in the syntax the engine speaks.
+TMCC_TO_BASE_SMOKE_MAP = TMCC1_TO_BASE_SMOKE_MAP | TMCC2_TO_BASE_SMOKE_MAP
+
 FIRST_DATUM_ADDR = 0x03
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -721,10 +727,7 @@ class CompData(ABC, Generic[R]):
                             labor = data
                     base_value = conv_tpl[1](rpm, labor)
                 elif sub_field == "smoke":
-                    if is_legacy:
-                        base_value = conv_tpl[1](TMCC2_TO_BASE_SMOKE_MAP, data)
-                    else:
-                        base_value = conv_tpl[1](TMCC1_TO_BASE_SMOKE_MAP, data)
+                    base_value = conv_tpl[1](TMCC_TO_BASE_SMOKE_MAP, data)
                 else:
                     base_value = conv_tpl[1](data)
             else:
@@ -989,8 +992,7 @@ class CompData(ABC, Generic[R]):
                 labor = self.labor_tmcc if name == "rpm" else value
                 self.rpm_labor_tmcc = (rpm, labor)
             elif name == "smoke" and isinstance(self, EngineData):
-                map_dict = TMCC2_TO_BASE_SMOKE_MAP if self.is_legacy is True else TMCC1_TO_BASE_SMOKE_MAP
-                self.__dict__["_" + name] = tpl[1](map_dict, value) if value is not None else value
+                self.__dict__["_" + name] = tpl[1](TMCC_TO_BASE_SMOKE_MAP, value) if value is not None else value
             else:
                 # For RPM or Labor, we have to pass the 2 raw values to the conversion function
                 # as a tuple, thus requiring the isinstance check below.

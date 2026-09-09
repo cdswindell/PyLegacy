@@ -14,7 +14,14 @@ import logging
 from time import monotonic
 from typing import Any, Dict, List, TypeVar
 
-from .comp_data import CompDataHandler, CompDataMixin, decode_tmcc_speed, encode_tmcc_speed
+from .comp_data import (
+    BASE_TO_TMCC1_SMOKE_MAP,
+    BASE_TO_TMCC2_SMOKE_MAP,
+    CompDataHandler,
+    CompDataMixin,
+    decode_tmcc_speed,
+    encode_tmcc_speed,
+)
 from .component_state import ComponentState, L, LcsProxyState, P, SCOPE_TO_STATE_MAP, UpdateResult, log
 from .prod_info import ProdInfo
 from ..pdi.constants import Bpc2Action, D4Action, IrdaAction, PdiCommand
@@ -157,11 +164,16 @@ ENGINE_AUX2_SET = {
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE,
     TMCC2EngineCommandEnum.AUX2_OPTION_TWO,
 }
-SMOKE_SET = {
-    TMCC1EngineCommandEnum.SMOKE_ON,
-    (TMCC1EngineCommandEnum.NUMERIC, 9),
-    TMCC1EngineCommandEnum.SMOKE_OFF,
-    (TMCC1EngineCommandEnum.NUMERIC, 8),
+# A TMCC1 smoke keypress arrives either as the bare command or as the numeric it is
+# aliased to. Smoke has to be resolved from its own map: the general alias map is
+# many to one and last wins, so it answers AUX_NUMBER_9 for (NUMERIC, 9).
+TMCC1_SMOKE_MAP = {
+    TMCC1EngineCommandEnum.SMOKE_ON: TMCC1EngineCommandEnum.SMOKE_ON,
+    (TMCC1EngineCommandEnum.NUMERIC, 9): TMCC1EngineCommandEnum.SMOKE_ON,
+    TMCC1EngineCommandEnum.SMOKE_OFF: TMCC1EngineCommandEnum.SMOKE_OFF,
+    (TMCC1EngineCommandEnum.NUMERIC, 8): TMCC1EngineCommandEnum.SMOKE_OFF,
+}
+SMOKE_SET = TMCC1_SMOKE_MAP.keys() | {
     TMCC2EffectsControl.SMOKE_OFF,
     TMCC2EffectsControl.SMOKE_LOW,
     TMCC2EffectsControl.SMOKE_MEDIUM,
@@ -629,8 +641,10 @@ class EngineState(ComponentState):
             if command.command in SMOKE_SET or (command.command, command.data) in SMOKE_SET:
                 if isinstance(command.command, TMCC2EffectsControl):
                     self.comp_data.smoke_tmcc = command.command
-                elif command.is_data and (command.command, command.data) in TMCC1_COMMAND_TO_ALIAS_MAP:
-                    self.comp_data.smoke_tmcc = TMCC1_COMMAND_TO_ALIAS_MAP[(command.command, command.data)]
+                elif command.command in TMCC1_SMOKE_MAP:
+                    self.comp_data.smoke_tmcc = TMCC1_SMOKE_MAP[command.command]
+                elif command.is_data and (command.command, command.data) in TMCC1_SMOKE_MAP:
+                    self.comp_data.smoke_tmcc = TMCC1_SMOKE_MAP[(command.command, command.data)]
 
             # aux commands
             for cmd in {command.command} | (cmd_effects & ENGINE_AUX1_SET):
@@ -1186,9 +1200,13 @@ class EngineState(ComponentState):
 
     @property
     def smoke_level(self) -> CommandDefEnum | None:
-        if self.comp_data and self.comp_data.smoke != 255:
-            return self.comp_data.smoke_tmcc
-        return None
+        if self.comp_data is None or self.comp_data.smoke in {None, 255}:
+            return None
+        # the record holds the Base 3 level; the syntax it is rendered in has to be the
+        # state's own, as the record's control type can still be unreported
+        if self.is_legacy:
+            return BASE_TO_TMCC2_SMOKE_MAP.get(self.comp_data.smoke, TMCC2EffectsControl.SMOKE_OFF)
+        return BASE_TO_TMCC1_SMOKE_MAP.get(self.comp_data.smoke, TMCC1EngineCommandEnum.SMOKE_OFF)
 
     @property
     def smoke_label(self) -> str:
@@ -1392,9 +1410,6 @@ class TrainState(EngineState, LcsProxyState):
         if scope != CommandScope.TRAIN:
             raise ValueError(f"Invalid scope: {scope}, expected {CommandScope.TRAIN.name}")
         super().__init__(scope)
-        # TODO: FIXME!!
-        # hard code TMCC2, for now
-        self._is_legacy: bool = True
 
     def __repr__(self) -> str:
         if self.is_bpc2:
@@ -1581,7 +1596,7 @@ class TrainState(EngineState, LcsProxyState):
 
     @property
     def is_legacy(self) -> bool:
-        if self.is_lcs_component or self._is_legacy is True:
+        if self.is_lcs_component:
             return True
         return super().is_legacy
 

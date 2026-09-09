@@ -519,6 +519,17 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
         else:
             return None
 
+    NUMBER_1 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 1, alias="NUMERIC", data=1)
+    NUMBER_2 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 2, alias="NUMERIC", data=2)
+    NUMBER_3 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3)
+    NUMBER_4 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 4, alias="NUMERIC", data=4)
+    NUMBER_5 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5)
+    NUMBER_6 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 6, alias="NUMERIC", data=6)
+    NUMBER_7 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 7, alias="NUMERIC", data=7)
+    NUMBER_8 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8)
+    NUMBER_9 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9)
+    NUMBER_0 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0, interval=100)
+
     ABSOLUTE_SPEED = TMCC1CommandDef(TMCC1_ENG_ABSOLUTE_SPEED_COMMAND, d_max=31, filtered=True)
     TARGET_SPEED = TMCC1CommandDef(
         TMCC1_ENG_TARGET_SPEED_COMMAND, command_prefix=TMCC1_ALT_COMMAND_PREFIX, noop=True, d_max=31
@@ -629,16 +640,7 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
         data=0,
         filtered=True,
     )
-    NUMBER_1 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 1, alias="NUMERIC", data=1)
-    NUMBER_2 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 2, alias="NUMERIC", data=2)
-    NUMBER_3 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3)
-    NUMBER_4 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 4, alias="NUMERIC", data=4)
-    NUMBER_5 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5)
-    NUMBER_6 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 6, alias="NUMERIC", data=6)
-    NUMBER_7 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 7, alias="NUMERIC", data=7)
-    NUMBER_8 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8)
-    NUMBER_9 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9)
-    NUMBER_0 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0, interval=100)
+
     AUX_NUMBER_1 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 1, alias="NUMERIC", data=1, aux1=True)
     AUX_NUMBER_2 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 2, alias="NUMERIC", data=2, aux1=True)
     AUX_NUMBER_3 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3, aux1=True)

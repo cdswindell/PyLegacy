@@ -125,6 +125,30 @@ class TestCompData:
         eng.smoke_tmcc = TMCC1EngineCommandEnum.SMOKE_ON
         assert eng.smoke == 1
 
+    @pytest.mark.parametrize(
+        "smoke, raw",
+        [
+            (TMCC1EngineCommandEnum.SMOKE_OFF, 0),
+            (TMCC1EngineCommandEnum.SMOKE_ON, 1),
+            (TMCC2EffectsControl.SMOKE_OFF, 0),
+            (TMCC2EffectsControl.SMOKE_LOW, 1),
+            (TMCC2EffectsControl.SMOKE_MEDIUM, 2),
+            (TMCC2EffectsControl.SMOKE_HIGH, 3),
+        ],
+    )
+    @pytest.mark.parametrize("control_type", [LEGACY_CONTROL_TYPE, 0x00, 0xFF])
+    def test_engine_data_stores_a_smoke_level_from_either_syntax(self, control_type, smoke, raw):
+        # a smoke command arrives in whichever syntax the controller speaks, which is not
+        # always the one the record claims -- and the record may claim nothing at all;
+        # choosing the map by control type dropped every level the other syntax owns to
+        # off, so the Base 3 value is resolved from both maps
+        eng = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=1000)
+        eng._control_type = control_type
+
+        eng.smoke_tmcc = smoke
+
+        assert eng.smoke == raw
+
     def test_engine_data_direction_reads_bit_zero_of_the_soft_status(self):
         buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)
         eng = EngineData(buf, tmcc_id=1000)
