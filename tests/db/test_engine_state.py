@@ -5,6 +5,7 @@
 #
 #  SPDX-License-Identifier: LPGL
 #
+from threading import Thread
 from types import SimpleNamespace
 from unittest.mock import PropertyMock, patch
 
@@ -921,6 +922,114 @@ class TestEngineStateRampArbitration:
         # ENGINE_LABOR is a Legacy command; a TMCC1 engine has no effort to restore
         assert ramp.abort_hard_stops[0] is True
         assert ramp.sent == []
+
+    #
+    # a hard stop re-asserts the standstill a step of ours overtook
+    #
+    def test_a_direction_change_re_asserts_the_standstill_a_step_overtook(self):
+        # the reported defect: the direction change was already on the rails when we
+        # issued our next step, so the step lands behind it and tells the engine to move
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.FORWARD_DIRECTION
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._commanded_speed = 34
+        ramp._last_labor = 20
+
+        self._update(state, CommandReq.build(TMCC2.REVERSE_DIRECTION, 7))
+
+        assert ramp.aborts == ["REVERSE_DIRECTION"]
+        assert ramp.abort_yields == [0]
+        # the standstill, then the effort restore, and nothing whatever after them
+        assert ramp.sent == [(TMCC2.ABSOLUTE_SPEED, 0), (TMCC2.ENGINE_LABOR, DEFAULT_LABOR)]
+        assert state.target_speed == 0
+        assert state.is_ramping is False
+
+    @pytest.mark.parametrize(
+        "command, data",
+        [
+            (TMCC1HaltCommandEnum.HALT, None),
+            (TMCC2.SYSTEM_HALT, None),
+            (TMCC2.STOP_IMMEDIATE, None),
+            (TMCC2.RESET, None),
+            (TMCC2.NUMERIC, 0),
+            (TMCC2.FORWARD_DIRECTION, None),
+            (TMCC2.REVERSE_DIRECTION, None),
+            (TMCC2.TOGGLE_DIRECTION, None),
+            (TMCC2.SHUTDOWN_IMMEDIATE, None),
+        ],
+    )
+    def test_hard_aborts_re_assert_the_standstill(self, command, data):
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.REVERSE_DIRECTION if command is TMCC2.FORWARD_DIRECTION else TMCC2.FORWARD_DIRECTION
+        # a step still awaiting its echo: it was issued in the gap between the hard stop
+        # reaching the rails and its echo reaching us
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._commanded_speed = 34
+
+        self._update(state, CommandReq.build(command, 7, data=data))
+
+        assert ramp.abort_yields[0] == 0
+        assert (TMCC2.ABSOLUTE_SPEED, 0) in ramp.sent
+
+    def test_a_hard_stop_re_asserts_nothing_when_every_step_is_echoed(self):
+        state, ramp = self._ramping_engine()
+        state._direction = TMCC2.FORWARD_DIRECTION
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._commanded_speed = 34
+        assert ramp.echo_ledger.claim(EchoFamily.SPEED, 34) is True
+
+        self._update(state, CommandReq.build(TMCC2.REVERSE_DIRECTION, 7))
+
+        # nothing of ours is still in flight, so the direction change is already the last
+        # word and commanding the engine again would be noise
+        assert ramp.abort_yields == [0]
+        assert [cmd for cmd, _ in ramp.sent if cmd == TMCC2.ABSOLUTE_SPEED] == []
+
+    def test_a_foreign_target_speed_re_asserts_nothing(self):
+        state, ramp = self._ramping_engine()
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        ramp._commanded_speed = 34
+
+        self._update(state, CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=150))
+
+        # an announcement of intent rather than a position: whoever sent it is driving
+        # the engine there themselves and does not need our help
+        assert ramp.abort_yields == [None]
+        assert [cmd for cmd, _ in ramp.sent if cmd == TMCC2.ABSOLUTE_SPEED] == []
+
+    def test_a_settling_ramp_and_an_abort_do_not_deadlock(self):
+        # the ramp thread takes its send gate and then, outside it, the engine's
+        # condition; the dispatcher takes the condition and then the gate, through
+        # abort(). Nesting those the other way round would hang a real layout, so the
+        # order is exercised here rather than trusted
+        state, ramp = self._ramping_engine()
+        errors: list[BaseException] = []
+
+        def settling() -> None:
+            try:
+                for _ in range(300):
+                    ramp._is_running = True
+                    ramp._settle()
+            except BaseException as error:  # pragma: no cover
+                errors.append(error)
+
+        def dispatching() -> None:
+            try:
+                for _ in range(300):
+                    ramp._is_running = True
+                    with state._cv:  # exactly what ComponentState.update holds
+                        ramp.abort("test", target_speed=0)
+            except BaseException as error:  # pragma: no cover
+                errors.append(error)
+
+        threads = [Thread(target=settling, daemon=True), Thread(target=dispatching, daemon=True)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        assert [thread.is_alive() for thread in threads] == [False, False]
+        assert errors == []
 
     def test_ramp_to_starts_one_thread_and_then_retargets(self, monkeypatch):
         state, _ = self._ramping_engine()

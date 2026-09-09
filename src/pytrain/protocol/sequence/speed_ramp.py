@@ -31,6 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "ABORT_GATE_TIMEOUT",
     "BASE_STEP_DELAY",
     "CLAIMED_HISTORY",
     "DEFAULT_LABOR",
@@ -105,6 +106,13 @@ CLAIMED_HISTORY: int = 64
 # a TMCC1 speed round trips through encode_tmcc_speed / decode_tmcc_speed, which can
 # shift it by one, so its echoes are matched with a little slack
 TMCC1_ECHO_TOLERANCE: int = 1
+
+# how long an abort waits for a step already under way to finish before sending its own
+# commands. An abort runs on the dispatcher thread, holding the engine's condition, and a
+# client's send is a synchronous socket round trip: waiting on one indefinitely would
+# stall every state reader behind it, so a send that is taking too long degrades to the
+# old racy behavior instead
+ABORT_GATE_TIMEOUT: float = 0.500
 
 Sender = Callable[[CommandDefEnum, int, int, CommandScope], None]
 
@@ -503,6 +511,17 @@ class SpeedRamp(Thread):
         self._linger = linger
         self._delay_scale = delay_scale
         self._lock = RLock()
+
+        # the send gate: every emission is made under it, and so are the abort's own two
+        # sends, so that "the ramp was stopped" and "the ramp put a command on the wire"
+        # cannot interleave. Once an abort is given, nothing but the abort's sends reach
+        # the engine.
+        #
+        # LOCK ORDER: state.synchronizer -> _wire -> _lock, never the reverse. abort()
+        # runs with the engine's condition already held by ComponentState.update, so
+        # nothing that reaches for state's lock - _set_ramping, _sync_target_speed - may
+        # run while _wire is held, or the two threads deadlock against each other
+        self._wire = RLock()
         self._wake = Event()
         self._is_running = True
         self._abort_reason: str | None = None
@@ -658,7 +677,9 @@ class SpeedRamp(Thread):
 
         Two obligations are settled here rather than by simply falling silent. Effort is
         discharged on every exit path - see `_restore_effort` - and the road is yielded
-        when a step of this ramp's own overtook the command that stopped it.
+        when a step of this ramp's own overtook the command that stopped it. Those two
+        are the *only* commands this ramp can still put on the wire: every other emission
+        is silenced from here on, and a step already under way finishes before they go.
         """
         with self._lock:
             if self._is_running is False:
@@ -671,21 +692,31 @@ class SpeedRamp(Thread):
         # what lets the target speed below be recorded at all
         self._set_ramping(False)
         self._sync_target_speed(settled)
-        self._yield_road(yield_speed)
-        self._restore_effort(hard_stop)
+        # the two sends below are made under the send gate, so a step already under way
+        # completes and then nothing of this ramp's follows them. Both are the ramp's own
+        # obligations rather than steps, so they alone are allowed past the guard in
+        # `_send` that silences a stopped ramp
+        acquired = self._wire.acquire(timeout=ABORT_GATE_TIMEOUT)
+        try:
+            self._yield_road(yield_speed)
+            self._restore_effort(hard_stop)
+        finally:
+            if acquired is True:
+                self._wire.release()
         log.debug(f"Speed ramp aborted {self._scope.title} {self._address}: {reason}")
         self._wake.set()
 
     def _yield_road(self, yield_speed: int | None) -> None:
         """
-        Put the speed another controller asked for back on the wire, when a step of this
-        ramp's own reached the rails after theirs did.
+        Put the speed the command that stopped this ramp asked for back on the wire, when
+        a step of the ramp's own reached the rails after it did. That is another
+        controller's absolute speed, or the standstill a hard stop imposes.
 
-        A step is committed before the takeover can possibly be seen: `_send_step` hands
-        the command to the sender, and only the *echo* of the other controller's command
+        A step is committed before the command that stops us can possibly be seen:
+        `_send_step` hands it to the sender, and only the *echo* of the other command
         tells us it exists. So the two cross, and however quick the detection, the last
-        word on the wire is ours and the engine ends up at our step rather than at the
-        speed that was asked for.
+        word on the wire is ours and the engine ends up at our step rather than where it
+        was told to go - moving, when it was told to stop.
 
         The ledger is what makes that visible: a step still awaiting its echo was sent
         after their command was created, so their command is not the latest thing the
@@ -697,7 +728,7 @@ class SpeedRamp(Thread):
             return
         with self._lock:
             self._commanded_speed = yield_speed
-        self._send(self._speed_enum, yield_speed)
+        self._send(self._speed_enum, yield_speed, aborting=True)
         self._last_speed = yield_speed
 
     def _restore_effort(self, hard_stop: bool) -> None:
@@ -726,7 +757,7 @@ class SpeedRamp(Thread):
         if labor == self._last_labor:
             # a ramp that never raised effort has nothing to hand back
             return
-        self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, labor)
+        self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, labor, aborting=True)
         self._last_labor = labor
 
     def arbitrate(self, command: CommandReq) -> EchoOutcome:
@@ -906,35 +937,42 @@ class SpeedRamp(Thread):
         if self.is_legacy is False:
             return
         target = effective_target(requested, self._state)
-        labor = labor_delta(self._commanded_speed, target, self._init_labor)
-        if labor != self._last_labor:
-            self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, labor)
-            self._last_labor = labor
-        if self._state.is_rpm is True:
-            rpm = biased_rpm(target, self._rpm_bias, self._rpm_max_speed)
-            if rpm != self._last_rpm:
-                self._send(TMCC2EngineCommandEnum.DIESEL_RPM, rpm)
-                self._last_rpm = rpm
+        # under the send gate, like every other emission: an abort landing here would
+        # otherwise put this pair behind the abort's own effort restore, leaving the
+        # locomotive holding the notch the restore had just taken back
+        with self._wire:
+            if self._is_running is False:
+                return
+            labor = labor_delta(self._commanded_speed, target, self._init_labor)
+            if labor != self._last_labor:
+                self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, labor)
+                self._last_labor = labor
+            if self._state.is_rpm is True:
+                rpm = biased_rpm(target, self._rpm_bias, self._rpm_max_speed)
+                if rpm != self._last_rpm:
+                    self._send(TMCC2EngineCommandEnum.DIESEL_RPM, rpm)
+                    self._last_rpm = rpm
 
     def _send_step(self, step: RampStep) -> None:
-        # the commanded speed is taken before the command goes out, for the same reason
-        # the ledger records it first: an abort or an echo that lands in between must
-        # see the value that is actually on the wire
-        with self._lock:
-            self._commanded_speed = step.speed
-        self._send(self._speed_enum, step.speed)
-        self._last_speed = step.speed
-        if self._is_running is False:
-            # aborted out from under this step: an abort sends nothing further, and its
-            # own effort restore has to be the last word on the wire rather than being
-            # overwritten by the trailing trim of a step already in flight
-            return
-        if step.labor is not None and step.labor != self._last_labor:
-            self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, step.labor)
-            self._last_labor = step.labor
-        if step.rpm is not None and step.rpm != self._last_rpm:
-            self._send(TMCC2EngineCommandEnum.DIESEL_RPM, step.rpm)
-            self._last_rpm = step.rpm
+        # the whole step goes out under the send gate, so an abort cannot interleave its
+        # own commands with this one's: either the step completes and the abort's restore
+        # follows it, or the abort has already been given and nothing here is sent at all
+        with self._wire:
+            if self._is_running is False:
+                return
+            # the commanded speed is taken before the command goes out, for the same
+            # reason the ledger records it first: an abort or an echo that lands in
+            # between must see the value that is actually on the wire
+            with self._lock:
+                self._commanded_speed = step.speed
+            self._send(self._speed_enum, step.speed)
+            self._last_speed = step.speed
+            if step.labor is not None and step.labor != self._last_labor:
+                self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, step.labor)
+                self._last_labor = step.labor
+            if step.rpm is not None and step.rpm != self._last_rpm:
+                self._send(TMCC2EngineCommandEnum.DIESEL_RPM, step.rpm)
+                self._last_rpm = step.rpm
 
     def _settle(self) -> None:
         """
@@ -945,20 +983,26 @@ class SpeedRamp(Thread):
         with self._lock:
             target = effective_target(self._requested_target, state)
             self._commanded_speed = target
-        if target != self._last_speed:
-            self._send(self._speed_enum, target)
-            self._last_speed = target
-        if self._is_running is False:
-            return
-        if self.is_legacy is True:
-            if state.is_rpm is True:
-                rpm = biased_rpm(target, self._rpm_bias, self._rpm_max_speed)
-                if rpm != self._last_rpm:
-                    self._send(TMCC2EngineCommandEnum.DIESEL_RPM, rpm)
-                    self._last_rpm = rpm
-            self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, self._init_labor)
-            self._last_labor = self._init_labor
-        self._decelerating = False
+        with self._wire:
+            if self._is_running is False:
+                # aborted before the landing: the abort has already squared the target
+                # speed and cleared is_ramping, and its sends are the last word
+                return
+            if target != self._last_speed:
+                self._send(self._speed_enum, target)
+                self._last_speed = target
+            if self.is_legacy is True:
+                if state.is_rpm is True:
+                    rpm = biased_rpm(target, self._rpm_bias, self._rpm_max_speed)
+                    if rpm != self._last_rpm:
+                        self._send(TMCC2EngineCommandEnum.DIESEL_RPM, rpm)
+                        self._last_rpm = rpm
+                self._send(TMCC2EngineCommandEnum.ENGINE_LABOR, self._init_labor)
+                self._last_labor = self._init_labor
+            self._decelerating = False
+        # outside the gate: is_ramping reaches for the engine's condition, which the
+        # dispatcher holds while aborting, and taking the two in that order would
+        # deadlock against it
         self._set_ramping(False)
 
     def _linger_for_retarget(self) -> bool:
@@ -974,7 +1018,18 @@ class SpeedRamp(Thread):
             requested = self._requested_target
         return next_step(commanded, requested, self._state, self._init_labor, self._rpm_bias) is not None
 
-    def _send(self, command: CommandDefEnum, data: int) -> None:
+    def _send(self, command: CommandDefEnum, data: int, *, aborting: bool = False) -> None:
+        """
+        The one door out to the wire, and the one place a stopped ramp is silenced.
+
+        Once an abort is given the ramp drives the engine no further, whatever else is
+        in flight: a step whose speed has gone out sends no trailing trim, and a future
+        emission added elsewhere is safe by default rather than by remembering to guard
+        it. Only the abort's own two obligations - the yielded speed and the effort
+        restore - opt past this, which is what makes them the last word on the wire.
+        """
+        if self._is_running is False and aborting is False:
+            return
         family = echo_family(command)
         if family is not None:
             self._ledger.record(family, data)

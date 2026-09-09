@@ -1,3 +1,5 @@
+from threading import Event, Thread
+from time import monotonic
 from typing import Callable
 
 import pytest
@@ -396,9 +398,161 @@ class TestSpeedRamp(TestBase):
         recorder = Recorder(hook)
         ramp = build_ramp(state, 120, recorder)
         ramp.run()
-        # a hard stop is taking the engine to a standstill by itself; there is no speed
-        # anyone is asking for, so the ramp adds none
+        # the ramp re-asserts only what it is handed: with no yield speed it adds nothing,
+        # whatever stopped it. Deciding when a hard stop needs one is engine state's job
         assert recorder.speeds == [3, 6, 9]
+
+    def test_a_hard_stop_re_asserts_the_standstill_a_step_overtook(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                # the direction change was already on the rails when this step went out,
+                # so the step lands behind it and tells the engine to move again
+                ramp.abort("REVERSE_DIRECTION", target_speed=0, hard_stop=True, yield_speed=0)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # re-asserting the standstill is the only thing that takes that step back; a hard
+        # stop cannot be counted on to arrive after it
+        assert recorder.speeds == [3, 6, 9, 0]
+        assert recorder.labors[-1] == DEFAULT_LABOR
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+
+    def test_a_hard_stop_re_asserts_nothing_when_every_step_is_echoed(self):
+        state = RampEngineState(speed=0)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                for speed in rec.speeds:
+                    ramp.echo_ledger.claim(EchoFamily.SPEED, speed)
+                ramp.abort("REVERSE_DIRECTION", target_speed=0, hard_stop=True, yield_speed=0)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 120, recorder)
+        ramp.run()
+        # every step is accounted for, so the hard stop is already the last word on the
+        # wire and commanding the engine again would be noise
+        assert recorder.speeds == [3, 6, 9]
+
+    def test_a_tmcc1_hard_stop_re_asserts_the_standstill_without_effort(self):
+        state = RampEngineState(speed=0, is_legacy=False, is_rpm=False)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.speeds) == 3:
+                ramp.abort("direction", target_speed=0, hard_stop=True, yield_speed=0)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 20, recorder)
+        ramp.run()
+        # the standstill is re-asserted on both generations; effort and RPM are Legacy only
+        assert recorder.speeds == [1, 2, 3, 0]
+        assert recorder.labors == []
+        assert recorder.rpms == []
+
+    #
+    # the send gate: once an abort is given, nothing but the abort's own sends
+    #
+    def test_an_abort_waits_for_a_step_already_on_the_wire(self, monkeypatch):
+        # a long budget, so that "still waiting" cannot be the gate timing out
+        monkeypatch.setattr("src.pytrain.protocol.sequence.speed_ramp.ABORT_GATE_TIMEOUT", 30.0)
+        state = RampEngineState(speed=0)
+        ramp = build_ramp(state, 120, Recorder())
+        done = Event()
+
+        def aborting() -> None:
+            ramp.abort("foreign ABSOLUTE_SPEED", target_speed=30)
+            done.set()
+
+        # stand in for a step already under way: its sender has not returned yet
+        ramp._wire.acquire()
+        try:
+            Thread(target=aborting, daemon=True).start()
+            # the abort cannot slip its commands in between a step's own
+            assert done.wait(0.2) is False
+        finally:
+            ramp._wire.release()
+        assert done.wait(5) is True
+
+    def test_an_abort_stalled_on_the_wire_still_completes(self, monkeypatch):
+        # a client's send is a synchronous socket round trip that can retry for a long
+        # time; an abort runs on the dispatcher thread, holding the engine's condition,
+        # so it degrades to the old racy behavior rather than stalling every state reader
+        monkeypatch.setattr("src.pytrain.protocol.sequence.speed_ramp.ABORT_GATE_TIMEOUT", 0.05)
+        state = RampEngineState(speed=30, labor=20)
+        recorder = Recorder()
+        ramp = build_ramp(state, 120, recorder)
+        held = Event()
+        release = Event()
+
+        def hold() -> None:
+            with ramp._wire:
+                held.set()
+                release.wait(5)
+
+        Thread(target=hold, daemon=True).start()
+        assert held.wait(5) is True
+        try:
+            started = monotonic()
+            ramp.abort("stop immediate", target_speed=0, hard_stop=True)
+            elapsed = monotonic() - started
+        finally:
+            release.set()
+        assert elapsed < 1.0
+        assert recorder.labors == [DEFAULT_LABOR]
+
+    def test_an_abort_during_deceleration_priming_silences_the_rpm_drop(self):
+        state = RampEngineState(speed=120, rpm=tmcc2_speed_to_rpm(120), labor=12)
+
+        def hook(rec: Recorder, _count: int) -> None:
+            if len(rec.sent) == 1:
+                ramp.abort("REVERSE_DIRECTION", target_speed=0, hard_stop=True)
+
+        recorder = Recorder(hook)
+        ramp = build_ramp(state, 20, recorder)
+        # effort dialed up, so the restore has something to hand back
+        ramp._last_labor = 20
+        ramp.run()
+        # priming drops effort and RPM together; the abort landed between the two. The
+        # RPM drop is silenced, because a command behind the abort's restore would leave
+        # the locomotive holding a notch the restore had just taken back
+        assert recorder.rpms == []
+        assert recorder.speeds == []
+        assert recorder.labors[-1] == DEFAULT_LABOR
+        assert recorder.commands[-1] == TMCC2EngineCommandEnum.ENGINE_LABOR
+
+    def test_a_settle_after_an_abort_lands_nothing(self):
+        state = RampEngineState(speed=57, rpm=tmcc2_speed_to_rpm(57), labor=20)
+        recorder = Recorder()
+        ramp = build_ramp(state, 60, recorder)
+        ramp.abort("foreign ABSOLUTE_SPEED", target_speed=30)
+        recorder.sent.clear()
+
+        ramp._settle()
+
+        # the landing is a step like any other: the abort has already squared the target
+        # and handed effort back, and a settle behind it would drive the engine to a
+        # speed nobody is asking for any more
+        assert recorder.sent == []
+        assert state.target_speed == 30
+
+    def test_a_stopped_ramp_sends_nothing_but_the_aborts_own_commands(self):
+        state = RampEngineState(speed=30, labor=20)
+        recorder = Recorder()
+        ramp = build_ramp(state, 120, recorder)
+        ramp.abort("test", target_speed=30)
+        recorder.sent.clear()
+
+        ramp._send(TMCC2EngineCommandEnum.ENGINE_LABOR, 25)
+        # the guard is at the one door out, so an emission added anywhere is silenced by
+        # default rather than by remembering to guard it
+        assert recorder.sent == []
+
+        ramp._send(TMCC2EngineCommandEnum.ENGINE_LABOR, 25, aborting=True)
+        # the abort's own obligations are the single exception, which is what makes them
+        # the last word on the wire
+        assert recorder.labors == [25]
 
     #
     # live momentum

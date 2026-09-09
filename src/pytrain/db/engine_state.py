@@ -558,7 +558,7 @@ class EngineState(ComponentState):
                     self.comp_data.rpm_tmcc = 0
                     self.comp_data.labor_tmcc = 12
                 self.is_ramping = False
-                self.abort_ramp("halt", target_speed=0, hard_stop=True)
+                self.abort_ramp("halt", target_speed=0, hard_stop=True, yield_speed=0)
                 self._numeric = None
 
             # get the downstream effects of this command, as they also impact state
@@ -610,7 +610,7 @@ class EngineState(ComponentState):
             # handle reset
             if command.command in RESET_SET or cmd_effects & RESET_SET:
                 self.is_ramping = False
-                self.abort_ramp("reset", target_speed=0, hard_stop=True)
+                self.abort_ramp("reset", target_speed=0, hard_stop=True, yield_speed=0)
 
             # handle train brake
             if command.command in TRAIN_BRAKE_SET:
@@ -836,14 +836,24 @@ class EngineState(ComponentState):
         """
         The speed a stopped ramp should re-assert, or None when there is nothing to yield.
 
-        Only an absolute speed qualifies. A hard stop is taking the engine somewhere by
-        itself, and a foreign TARGET_SPEED is an announcement of intent rather than a
-        position - whoever sent it is driving the engine there and does not need our
-        help. An absolute speed, though, is a command the other controller expects to be
-        the last word, and a step of ours issued before we could know about it may well
-        have landed after it did.
+        A hard stop - a reset, an emergency stop, a direction change, a shutdown - was
+        already on the rails before its echo reached us, and a step this ramp issued in
+        that gap lands *behind* it, telling the engine to move again. Re-asserting the
+        standstill is the only thing that takes that back, and it agrees with everything
+        else these commands record: speed 0 in comp_data and a target speed of 0.
+
+        A foreign TARGET_SPEED yields nothing: it is an announcement of intent rather
+        than a position, and whoever sent it is driving the engine there themselves. An
+        absolute speed, though, is a command the other controller expects to be the last
+        word, and a step of ours issued before we could know about it may well have
+        landed after it did.
+
+        The ramp yields only when its own ledger shows a step still awaiting an echo, so
+        none of these puts a command on the wire unless one of ours really did cross it.
         """
-        if command.command in CANCEL_PENDINGS_SET or command.command not in SPEED_SET:
+        if command.command in CANCEL_PENDINGS_SET:
+            return 0
+        if command.command not in SPEED_SET:
             return None
         return self._speed_requested_by(command)
 
