@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from src.pytrain.utils.dual_logging import set_up_logging
+from src.pytrain.utils.dual_logging import set_log_level, set_up_logging
 
 
 def _reset_root_logger():
@@ -30,6 +30,8 @@ def _reset_root_logger():
         except (OSError, ValueError, io.UnsupportedOperation):
             pass
         logger.removeHandler(h)
+    # restore the default root level so the level does not leak between tests
+    logger.setLevel(logging.WARNING)
     logging.shutdown()
 
 
@@ -78,6 +80,71 @@ def test_set_up_logging_stdout_and_file_levels_and_color(tmp_path: Path, capsys)
     assert "debug should not appear" not in content
     # no ANSI escapes expected in file when logfile_log_color=False
     assert "\x1b[" not in content
+
+
+def test_root_level_is_the_minimum_of_the_handler_levels(tmp_path: Path):
+    assert set_up_logging(
+        console_log_output="stdout",
+        console_log_level="INFO",
+        logfile_file=str(tmp_path / "levels.log"),
+        logfile_log_level="INFO",
+    )
+    assert logging.getLogger().level == logging.INFO
+    # the assertion that pins the whole point: a debug record is never built
+    assert logging.getLogger().isEnabledFor(logging.DEBUG) is False
+
+
+def test_root_level_follows_the_more_permissive_handler(tmp_path: Path):
+    assert set_up_logging(
+        console_log_output="stdout",
+        console_log_level="WARNING",
+        logfile_file=str(tmp_path / "levels.log"),
+        logfile_log_level="INFO",
+    )
+    assert logging.getLogger().level == logging.INFO
+
+
+def test_root_level_left_sane_when_file_handler_setup_fails(tmp_path: Path):
+    assert (
+        set_up_logging(
+            console_log_output="stdout",
+            console_log_level="WARNING",
+            logfile_file=str(tmp_path / "x.log"),
+            logfile_log_level="BANANAS",
+        )
+        is False
+    )
+    assert logging.getLogger().level == logging.WARNING
+
+
+def test_set_log_level_moves_root_and_handlers_together(tmp_path: Path):
+    log_file = tmp_path / "toggle.log"
+    assert set_up_logging(
+        console_log_output="stdout",
+        console_log_level="INFO",
+        logfile_file=str(log_file),
+        logfile_log_level="INFO",
+        logfile_log_color=False,
+        logfile_template="%(levelname)s %(message)s",
+    )
+    root = logging.getLogger()
+
+    set_log_level(logging.DEBUG)
+    assert root.level == logging.DEBUG
+    assert all(h.level == logging.DEBUG for h in root.handlers)
+    logging.debug("debug is written")
+    for h in root.handlers:
+        h.flush()
+    assert "DEBUG debug is written" in log_file.read_text(encoding="utf-8")
+
+    set_log_level(logging.INFO)
+    assert root.level == logging.INFO
+    assert all(h.level == logging.INFO for h in root.handlers)
+    assert root.isEnabledFor(logging.DEBUG) is False
+    logging.debug("debug is dropped")
+    for h in root.handlers:
+        h.flush()
+    assert "debug is dropped" not in log_file.read_text(encoding="utf-8")
 
 
 def test_set_up_logging_stderr_and_invalid_console_level(tmp_path: Path):

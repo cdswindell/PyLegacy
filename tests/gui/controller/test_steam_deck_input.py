@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import queue
 import struct
@@ -7,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.pytrain.gui.controller import steam_deck_input as steam_deck_input_module
 from src.pytrain.gui.controller.accessory_bindings import (
     ACC_ASC2_CONTEXT,
     ACC_BPC2_CONTEXT,
@@ -2103,6 +2105,39 @@ def test_provider_logs_a_poll_that_stalled_during_a_hold(caplog: pytest.LogCaptu
     assert len(stalled) == 1, "the poll before the stall was on time and says nothing"
     assert "stalled gap=1.0" in stalled[0]
     assert "polls=1 into a hold" in stalled[0]
+
+
+def test_provider_diagnostics_are_inert_without_debug(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # What the comments on poll() and __init__ promise: with the root logger declining DEBUG
+    # -- which is what dual_logging leaves it at when -debug is off -- a whole squeeze and
+    # hold writes no deckpress line and does not even read the clock to gather the cadence.
+    readings: list[float] = []
+
+    def _monotonic() -> float:
+        readings.append(0.0)
+        return 0.0
+
+    monkeypatch.setattr(steam_deck_input_module, "time", SimpleNamespace(monotonic=_monotonic))
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=1, axis=5, value=1.0)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _quick_trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, 0.10, 0.30),
+    )
+
+    with caplog.at_level(logging.INFO):
+        assert provider.poll() == [], "the squeeze itself says nothing"
+        events[:] = []
+        held = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in held] == [(STARTUP_DELAYED, "focused", "pressed")]
+    assert [message for message in caplog.messages if message.startswith(DIAG)] == []
+    assert readings == [], "the guard short-circuits before the clock is read"
+    assert provider._diag_poll_at is None and provider._diag_polls == 0
 
 
 def test_provider_trigger_long_press_ignores_resting_position() -> None:

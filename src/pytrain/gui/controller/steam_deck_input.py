@@ -185,6 +185,15 @@ LONG_PRESS_RUNTIME_ACTIONS = frozenset(name for pair in LONG_PRESS_ACTIONS.value
 # the fraction it normalizes to, next to the dead zone and the release threshold they are
 # tested against, because a squeeze that is never seen to let go and a resting trigger that
 # reads as squeezed both look from the outside like a hold of the wrong length.
+#
+# What it costs, measured rather than claimed. dual_logging derives the root level from the
+# handler levels, so with -debug off log.isEnabledFor(logging.DEBUG) is genuinely false and
+# every helper here short-circuits on its first line: 0.041 us, the guard being memoized in
+# Logger._cache. With -debug on the tracing adds 0.089 us to an idle poll and 0.156 us to one
+# taken while a control is held, against the 20,000 us the GUI's CONTROLLER_POLL_MS allows --
+# about 0.003% of the budget, and no allocation on an idle poll. The reason the gate has to
+# close for real: a log.debug() nobody will read costs 0.062 us when the root declines it and
+# 2.139 us when the root admits it and both handlers then throw the LogRecord away.
 DIAG = "deckpress"
 # A gap between polls at least this wide earns a line of its own while a control is held: a
 # tenth of the threshold is enough of the measurement to matter, and well clear of the 20 ms
@@ -1433,6 +1442,11 @@ class SteamDeckInputProvider:
 
         Timed by time.monotonic() rather than by the injected clock: gathering diagnostics
         must not consume a canned test clock, and on the Deck the two are the same function.
+
+        The cadence starts cold when -debug is turned on mid-session. Nothing is gathered
+        while the gate is closed, so the first poll after it opens has no previous poll to
+        measure against and the next deckpress line reports polls=1 gap=0.000s. That is a
+        missing history, not a stall; the previous is None branch below is what produces it.
         """
         if not log.isEnabledFor(logging.DEBUG):
             return

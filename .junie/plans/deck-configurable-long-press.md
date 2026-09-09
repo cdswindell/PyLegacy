@@ -257,6 +257,204 @@ After the changes, per the project guidelines: `../bin/python -m ruff format --c
 - **Update:** `test_bundled_profile_uses_small_trigger_dead_zone` (lines 2105-2111) becomes a test of the *digital*-trigger dead zone — 0.10, below `dead_zone`, above `hysteresis` — with the reasoning that the bundled triggers carry startup/shutdown rather than the horn.
 - **Unchanged:** `test_trigger_dead_zone_defaults_when_omitted` (the Python fallback stays 0.02) and all `_horn_profile()` tests, which rely on that fallback.
 
+# Diagnostics Cost
+
+### The question
+
+Does the `deckpress` tracing added in `ca802b1d` cost anything, and should it be removed? Measured rather than estimated, driving the real `SteamDeckInputProvider` with the bundled profile under PyTrain's logging shape (root logger at DEBUG, handlers at INFO).
+
+### Measurements
+
+| Measurement | Diagnostics live | Short-circuited | Cost |
+|---|---|---|---|
+| idle `poll()` | 0.373 µs | 0.283 µs | **+0.09 µs** |
+| `poll()` while a trigger is held | 0.586 µs | 0.430 µs | **+0.156 µs** |
+| `_diag_trigger` per axis event (throttled, no line) | 0.170 µs | — | 0.170 µs |
+| eager f-string at a `_diag` call site | 0.583 µs | — | 0.583 µs |
+| `log.debug()` that both handlers reject | 1.98 µs | — | 1.98 µs |
+
+The poll budget is `CONTROLLER_POLL_MS = 20`, i.e. 20,000 µs, so the diagnostics take about **0.003%** of it — roughly 5 µs per second idle, 8 µs during a hold. Even allowing 4× for the Deck's Zen 2 against the machine measured on, that stays under 0.02% of one core. No allocation on an idle poll, and `_diag_trigger_at` is keyed by axis so nothing grows without bound.
+
+### The real finding: the guards never turn off
+
+`dual_logging.set_up_logging` pins the **root** logger at DEBUG (`dual_logging.py:90`, "required for handler levels to work") and filters on the handlers; `-debug` only moves handler levels (`pytrain.py._enable_debug` / `_disable_debug` walk `log.root.handlers`, plus that one module's own logger). So `log.isEnabledFor(logging.DEBUG)` inside `steam_deck_input` is **permanently True**:
+
+- `_diag_poll` takes its `time.monotonic()` and does its bookkeeping on every 20 ms poll, always.
+- Every edge builds its f-string eagerly — the guard inside `_diag` cannot decline work the caller already did — then calls `log.debug()`, building a `LogRecord` both handlers discard (~2.0 µs).
+
+Two comments therefore state something false, which matters more than the microseconds:
+
+- `poll()`: "Inert unless -debug is on."
+- `__init__`: "Long-press diagnostics, gathered only under -debug (see DIAG)".
+
+### Decision: keep, and correct
+
+- **It is the house pattern.** `ClientStateListener.offer` and `CommandListener.offer` run the identical `isEnabledFor(logging.DEBUG)` guard on every packet — far more traffic than 50 Hz — as do `comm_buffer.py`, `component_state.py` and `pdi_listener.py`. `hold_button.py` ships a permanent `DIAG = "holdbtn"` lifecycle trace for the same reason.
+- **It paid for itself.** The captured log killed the stalled-poll theory (`polls=50 gap=0.020s worst_gap=0.021s`), proved the hold measured 1.013 s, and exposed the resting trigger at raw −0.969 with the release threshold collapsed to 0.000 — the evidence behind Step 3.
+- **Maintenance cost is 231 lines** (`ca802b1d`: 150 in `steam_deck_input.py`, 81 in the tests) in a 2,830-line module, with three tests pinning the log format so it cannot rot silently.
+- **Log volume is bounded**: `DIAG_TRIGGER_INTERVAL_SECONDS` throttles the trigger trace to 4 lines/s per squeezed axis, and only L2/R2 reach `_diag_trigger`.
+
+### Alternatives Considered
+
+- **Remove it** — a clean revert of `ca802b1d` and its three tests. Rejected: the next "the pad feels slow" report would start from nothing again, and the measured cost does not justify it.
+- **A truthful runtime gate** (inspect `logging.getLogger().handlers` levels, which is what `-debug` actually toggles) — costs about as much per call as the guard it replaces. Superseded: the **Root Log Level** tab fixes the gate itself, so `log.isEnabledFor(logging.DEBUG)` becomes genuinely false and the two comments become true as written.
+- **Lazy `detail` and a `DIAG_VERBOSE` flag** (mirroring `HoldButton._vdiag`) — this was the original Step 4. **Withdrawn**: it optimizes the eager f-strings at the `_diag` call sites, which fire only on edges (a handful per hold, 0.583 µs each). Once the root level closes the gate, `_diag_poll` and `_diag_trigger` short-circuit at 0.041 µs and the remaining eager cost is not worth the indirection.
+
+# Root Log Level
+
+### The question
+
+> Can `dual_logging` use a different root log level so there is no cost?
+
+**Yes — and the comment justifying the current pin is wrong.** This tab covers Steps 4-6.
+
+### Why the pin is unnecessary
+
+`dual_logging.set_up_logging`, line 90:
+
+```python
+
+# Set global log level to 'debug' (required for handler levels to work)
+
+logger.setLevel(logging.DEBUG)
+```
+
+It is not required. Python filters twice, in order:
+
+1. `Logger.debug()` calls `isEnabledFor(DEBUG)`, which resolves the *effective* level by walking up to the first ancestor with a level set — the root, since every PyTrain module logger is `NOTSET`. Below that level nothing is built at all.
+2. `Logger.callHandlers` then tests `record.levelno >= handler.level` for each handler in the chain.
+
+A handler never sees a record its logger already rejected, so the root only has to admit what the **most permissive handler will write**: `min(console_handler.level, logfile_handler.level)`. Pinning the root at DEBUG does not make handler levels work — it makes stage 1 a no-op and defers all filtering to stage 2, *after* the `LogRecord` and its `findCaller` stack walk have been paid for.
+
+```mermaid
+graph LR
+    C["log.debug(...)"] --> L{"root level admits DEBUG?"}
+    L -->|"no — proposed: INFO"| X["0.062 us, nothing built"]
+    L -->|"yes — today: pinned DEBUG"| R["LogRecord + findCaller: 2.139 us"]
+    R --> H{"handler level admits DEBUG?"}
+    H -->|"no — INFO"| D["discarded, unread"]
+    H -->|yes| W["console / pytrain.log"]
+```
+
+### Measured
+
+Real `SteamDeckInputProvider` with the bundled profile, under PyTrain's handler shape (both handlers at INFO), 200,000 iterations each:
+
+| Call | root=DEBUG (today) | root=INFO (proposed) | Saved |
+|---|---|---|---|
+| `log.debug("m")`, both handlers reject | **2.139 µs** | **0.062 µs** | **34×** |
+| `log.isEnabledFor(DEBUG)` | 0.041 µs | 0.041 µs | — |
+| idle `provider.poll()` | 0.413 µs | 0.324 µs | 0.089 µs |
+| `provider.poll()` with a trigger held | 0.638 µs | 0.494 µs | 0.144 µs |
+
+The guard itself is free either way — `isEnabledFor` is memoized in `Logger._cache`. The win is everything it currently fails to stop: **74 of the 111 `log.debug(` call sites in `src` are unguarded**, as are **21 of zeroconf 0.151.3's 24**, and a client runs a `ServiceBrowser` for its whole life.
+
+The codebase already pays for the pin by hand. `swipe_detector._on_move`, line 161:
+
+> *"Deliberately does no logging: this fires continuously during a drag, on the same thread that services the touch screen, so even a debug call here is a real cost."*
+
+At root=INFO that call would cost 0.062 µs and the workaround would be unnecessary.
+
+### The blocker: one guard is load-bearing
+
+`pytrain.py:1126`, in `on_service_state_change`:
+
+```python
+info = zeroconf.get_service_info(service_type, name)
+if info and log.isEnabledFor(logging.DEBUG):     # <-- gates real work
+    if log.isEnabledFor(logging.DEBUG):          # <-- the tell: guarded twice
+        log.debug(f"Discovered {PROGRAM_NAME} Server {name} ...")
+    self._pytrain_servers.append(info)
+    self._server_discovered.set()
+```
+
+The `and log.isEnabledFor(logging.DEBUG)` was hoisted out of the inner guard by mistake and now gates **server discovery itself**. It works only because the root is pinned. Lower the root without fixing it and a client's `_find_server` never populates `_pytrain_servers` nor sets `_server_discovered`, so the `while waiting > 0` loop (`waiting = 480`, `self._server_discovered.wait(0.5)`, lines 1056-1063) spins the full **240 seconds** and reports *"No PyTrain Server found on local network."*
+
+An AST sweep of all 42 `isEnabledFor` guards in `src` found this is the **only** one that gates behavior. Every other is an early `return` inside a diagnostic helper (`hold_button._diag`/`_vdiag`, `steam_deck_input._diag`/`_diag_poll`/`_diag_trigger`) or a local built solely to be logged (`image_presenter.py:259`, `bt_id`).
+
+### The other half: `-debug` must move the root too
+
+`_enable_debug` / `_disable_debug` (`pytrain.py:1436` / `1429`) move the handler levels and **this one module's** logger:
+
+```python
+log.setLevel(logging.DEBUG)
+for handler in log.root.handlers:
+    handler.setLevel(logging.DEBUG)
+```
+
+That is why `-debug` appears to work today: `pytrain.cli.pytrain`'s own logger is explicitly DEBUG (and a child logger's records reach root handlers regardless of the root's *level*), while every other module rides the pinned root. Lower the root and `-debug` would silence every module but `pytrain.py`. Both must move together.
+
+### Scope
+
+**In Scope**
+
+- `set_up_logging` derives the root level from the handler levels instead of pinning DEBUG.
+- A shared `set_log_level(level)` helper in `dual_logging`, used by both `-debug` toggles, that moves the root and every root handler together.
+- The `on_service_state_change` discovery guard, fixed first as a prerequisite.
+- Reconciling the `deckpress` comments with a gate that now really closes.
+
+**Out of Scope**
+
+- Adding `isEnabledFor` guards to the 74 unguarded call sites — unnecessary once the root level does the filtering, which is the point.
+- Changing any handler level, log format, rotation, or what `-debug` writes.
+- The `DIAG_VERBOSE` / lazy-`detail` rework from the original Step 4 (withdrawn — see the Diagnostics Cost tab).
+- `set_up_logging`'s ignored return value at `pytrain.py:1832` and the half-configured state a failed setup leaves behind. Pre-existing; noted under Risks.
+
+### Data Models / Contracts
+
+```python
+
+# dual_logging.py -- new, beside set_up_logging
+
+def set_log_level(level: int) -> None:
+    """Move the root logger and every root handler to `level` together.
+
+    The root level decides whether a record is built at all; a handler level only
+    decides whether an already-built record is written. Setting the two apart -- a
+    DEBUG root with INFO handlers -- means every log.debug() in the program builds a
+    LogRecord that is then thrown away (2.139 us measured, against 0.062 us when the
+    root declines it) and every `if log.isEnabledFor(DEBUG)` guard is permanently true.
+    """
+    root = logging.getLogger()
+    root.setLevel(level)
+    for handler in root.handlers:
+        handler.setLevel(level)
+```
+
+In `set_up_logging`, the pin is replaced by two statements placed where the levels become known, so the early-return failure paths still leave a sane root:
+
+```python
+logger.addHandler(console_handler)
+logger.setLevel(console_handler.level)     # after the console handler is validated
+...
+logger.addHandler(logfile_handler)
+logger.setLevel(min(console_handler.level, logfile_handler.level))
+```
+
+| Configuration | Root level today | Root level proposed |
+|---|---|---|
+| Default (`set_up_logging()`, both handlers INFO) | DEBUG | INFO |
+| `-debug` on, or `debug on` at the prompt | DEBUG | DEBUG |
+| Console WARNING, file INFO (a test case) | DEBUG | INFO |
+| Setup failed before the file handler | DEBUG | console handler's level |
+
+### File Structure
+
+| File | Change |
+|---|---|
+| `src/pytrain/utils/dual_logging.py` | Root level derived from the handler levels; new `set_log_level` helper; the false "required for handler levels to work" comment replaced with the two-stage filter explanation |
+| `src/pytrain/cli/pytrain.py` | `on_service_state_change` discovery guard fixed; `_enable_debug` / `_disable_debug` delegate to `set_log_level` |
+| `src/pytrain/gui/controller/steam_deck_input.py` | `DIAG` block records the new cost model; the two comments that were false become accurate; a note that the poll cadence starts cold when `-debug` is toggled on mid-session |
+| `tests/utils/test_dual_logging.py` | Root-level assertions, `set_log_level` coverage, and `_reset_root_logger` restoring the level |
+| `tests/cli/test_pytrain_service_discovery.py` | New — discovery works with the root at INFO |
+
+### Risks
+
+- **A debug line someone relied on goes missing.** Only if a module logger was explicitly raised outside `_enable_debug` — an AST sweep found no such site. Nothing that is *written* today changes: both handlers are at INFO, so every DEBUG record is already discarded.
+- **A future load-bearing guard.** The `pytrain.py:1126` pattern could recur, and after this change it would fail silently instead of always passing. Mitigation: the discovery regression test asserts the append with the root at INFO, which is the shape of the failure.
+- **Test-order coupling.** Importing `src.pytrain.cli.pytrain` runs `set_up_logging()` as a side effect, so the root level leaks across the session — as DEBUG today, as INFO after. Verified harmless: the full suite passes with the root forced to INFO before every test (4033 passed). `_reset_root_logger` restoring `logging.WARNING` removes the coupling for good.
+- **Failed setup leaves a partial configuration.** Pre-existing (`set_up_logging()`'s return value is ignored at `pytrain.py:1832`); the two-stage `setLevel` keeps that path no worse than today.
+
 # Delivery Steps
 
 ### ✓ Step 1: Make the long-press threshold a profile setting at a 0.75 s default
@@ -288,3 +486,32 @@ A trigger at rest can no longer read as squeezed, and a release is recognized be
 - Rework `test_bundled_profile_uses_small_trigger_dead_zone` into a test of the digital-trigger dead zone: 0.10, still below `dead_zone`, strictly above `hysteresis`, with the reasoning that the bundled triggers carry startup/shutdown rather than the horn.
 - Add a normalization regression: raw -0.95 reads as rest under the bundled profile (it read as *engaged* at 0.02), while the log's raw -0.639 / fraction 0.164 still engages, so a real squeeze starts the hold on its first axis event.
 - Run `../bin/python -m ruff format --check` on both changed Python files and the full `../bin/python -m pytest`.
+
+### ✓ Step 4: Stop the debug guard from gating zeroconf server discovery
+A client records a discovered PyTrain server whatever the log level, so lowering the root level later cannot break discovery.
+
+- In `src/pytrain/cli/pytrain.py`, rewrite `on_service_state_change` (lines 1122-1130) so the compound test `if info and log.isEnabledFor(logging.DEBUG):` becomes `if info:`, with the debug line kept inside its own guard — the inner `if log.isEnabledFor(logging.DEBUG):` on line 1127 already there is the evidence that the outer one was hoisted by accident.
+- `self._pytrain_servers.append(info)` and `self._server_discovered.set()` then run for every added service, which is what `_find_server`'s `while waiting > 0` loop (lines 1060-1084) waits on; today they run only because the root logger is pinned at DEBUG.
+- Leave the first guard (line 1122, the state-change trace) exactly as it is — that one really is logging-only.
+- Add a comment recording why the shape matters: a guard that gates behavior costs a client the full `480 × wait(0.5)` = 240 s search and a "No PyTrain Server found on local network" before anyone suspects logging.
+- New `tests/cli/test_pytrain_service_discovery.py`: drive `PyTrain.on_service_state_change` against a stub `self` (it touches only `_pytrain_servers` and `_server_discovered`) and a stub Zeroconf returning a `ServiceInfo`, asserting the append and the `Event` set **with the root logger at INFO** — the case that fails today. Cover `ServiceStateChange.Added` with `get_service_info` returning `None` as the no-op.
+
+### ✓ Step 5: Derive the root log level from the handler levels and move it with `-debug`
+A `log.debug()` nobody will read costs 0.062 µs instead of 2.139 µs, and `-debug` still turns on debug logging for every module.
+
+- In `src/pytrain/utils/dual_logging.py`, delete the `logger.setLevel(logging.DEBUG)` pin (line 90) and its false comment ("required for handler levels to work"). Replace the comment with the two-stage filter: the logger level decides whether a `LogRecord` is built, the handler level only whether it is written, so the root must admit exactly what the most permissive handler will write.
+- Set `logger.setLevel(console_handler.level)` after the console handler is validated and added, then `logger.setLevel(min(console_handler.level, logfile_handler.level))` after the file handler — two statements so the early-return failure paths still leave the root at a sane level.
+- Add `set_log_level(level: int)` to `dual_logging`, moving the root logger and every root handler together, with a docstring carrying the measured reason the two must not be set apart.
+- In `src/pytrain/cli/pytrain.py`, have `_enable_debug` and `_disable_debug` (lines 1429-1441) call `set_log_level(logging.DEBUG)` / `set_log_level(logging.INFO)` instead of walking `log.root.handlers`, and drop the now-redundant `log.setLevel(...)` on this module's own logger so `pytrain.cli.pytrain` inherits from the root like every other module.
+- Tests in `tests/utils/test_dual_logging.py`: the root level equals the minimum of the two handler levels for INFO/INFO and for WARNING/INFO; `logging.getLogger().isEnabledFor(logging.DEBUG)` is false after a default setup, which is the assertion that pins the whole point; `set_log_level(logging.DEBUG)` raises the root and both handlers and a DEBUG record then reaches the file; `set_log_level(logging.INFO)` puts it back. Extend `_reset_root_logger` to restore `logging.WARNING` so the level no longer leaks between tests.
+- Add a `-debug`-toggle test driving `PyTrain._enable_debug` / `_disable_debug` against a stub `self`, asserting a non-`pytrain` module logger (e.g. `logging.getLogger("src.pytrain.comm.comm_buffer")`) gains and loses `isEnabledFor(DEBUG)` — the regression that a handler-only toggle would not catch.
+
+### ✓ Step 6: Reconcile the deckpress diagnostics with a gate that now really closes
+The `deckpress` comments describe what the code actually does, and the cost model in the module header is the measured one.
+
+- In `src/pytrain/gui/controller/steam_deck_input.py`, the `poll()` comment "Inert unless -debug is on" and the `__init__` comment "gathered only under -debug (see DIAG)" become **true** with Step 5 in place — keep them, and drop the correction planned when they were false.
+- Extend the `DIAG` block comment with the measured cost so the next reader has numbers rather than a claim: 0.041 µs for the guard, 0.089 µs of a 20,000 µs poll when debug is on, 0.062 µs versus 2.139 µs for a `log.debug` nobody reads.
+- Note in `_diag_poll`'s docstring that the poll cadence starts cold when `-debug` is toggled on mid-session: with the root at INFO the counters are not gathered, so the first `deckpress` line after enabling debug reports `polls=1 gap=0.000s`. The existing `previous is None` branch already handles it; the comment stops it being read as a stall.
+- Do **not** add `DIAG_VERBOSE` or the lazy `detail` callable planned earlier: `_diag_poll` and `_diag_trigger` now short-circuit at 0.041 µs, and the eager f-strings that remain are edge-only — a handful per hold at 0.583 µs.
+- Tests in `tests/gui/controller/test_steam_deck_input.py`: the three existing diagnostic tests keep passing unchanged (they set DEBUG explicitly via `caplog.at_level`); add one that a full press-and-hold emits **no** `deckpress` line and takes no `time.monotonic()` reading with the provider's logger at INFO, which is the behavior the comments now promise.
+- Run `../bin/python -m ruff format --check` on every changed Python file and the full `../bin/python -m pytest` (baseline 4033).

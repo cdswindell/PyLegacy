@@ -70,7 +70,7 @@ from ..protocol.constants import (
 )
 from ..protocol.tmcc1.tmcc1_constants import TMCC1SyncCommandEnum
 from ..utils.argument_parser import PyTrainArgumentParser, StripPrefixesHelpFormatter
-from ..utils.dual_logging import set_up_logging
+from ..utils.dual_logging import set_log_level, set_up_logging
 from ..utils.host_info import is_steam_deck
 from ..utils.ip_tools import find_base_address, get_ip_address, wait_for_network
 from ..utils.singleton import singleton
@@ -1123,7 +1123,11 @@ class PyTrain:
             log.debug(f"Service {name} of type {service_type} state changed: {state_change}")
         if state_change is ServiceStateChange.Added:
             info = zeroconf.get_service_info(service_type, name)
-            if info and log.isEnabledFor(logging.DEBUG):
+            # Recording the discovered server must never depend on the log level: a debug
+            # guard that gates behavior costs a client the full 480 x wait(0.5) = 240 second
+            # search in _find_server, followed by "No PyTrain Server found on local network",
+            # long before anyone suspects logging. Keep the debug line inside its own guard.
+            if info:
                 if log.isEnabledFor(logging.DEBUG):
                     log.debug(f"Discovered {PROGRAM_NAME} Server {name} on {info.server} on port {info.port} ({name})")
                 self._pytrain_servers.append(info)
@@ -1428,16 +1432,15 @@ class PyTrain:
 
     def _disable_debug(self):
         log.info("Debug logging DISABLED...")
-        log.setLevel(logging.INFO)
-        for handler in log.root.handlers:
-            handler.setLevel(logging.INFO)
+        # The root level and the handler levels must move together: the root decides whether a
+        # record is built at all, the handlers only whether it is written. This module's own
+        # logger is left at NOTSET so it inherits from the root like every other module.
+        set_log_level(logging.INFO)
         self._debug = False
 
     def _enable_debug(self):
         log.info("Debug logging ENABLED...")
-        log.setLevel(logging.DEBUG)
-        for handler in log.root.handlers:
-            handler.setLevel(logging.DEBUG)
+        set_log_level(logging.DEBUG)
         self._debug = True
 
     @property
