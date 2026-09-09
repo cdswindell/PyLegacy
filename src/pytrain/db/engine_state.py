@@ -412,7 +412,7 @@ class EngineState(ComponentState):
         *not* be cancelled: the ramp claimed the command as its own echo, or absorbed
         it as an RPM or effort trim.
 
-        With no ramp of our own the widened arbitration set must not change anything
+        Without a ramp of our own, the widened arbitration set must not change anything
         for a RampedSpeedReq ramp, so only a TARGET_SPEED still cancels, exactly as
         it did before arbitration existed.
         """
@@ -470,7 +470,7 @@ class EngineState(ComponentState):
         on our wire: it writes the base's own target byte, and the change reaches us only
         when the next record carries it back. That record is the only evidence of the
         takeover we get, so it has to count as one - otherwise this ramp keeps driving
-        the engine toward a target nobody is asking for any more.
+        the engine toward a target nobody is asking for anymore.
 
         The abort goes through `abort_ramp` rather than `cancel_ramps`: the record just
         installed carries the engine's real RPM and effort, straight from the base, and
@@ -823,7 +823,7 @@ class EngineState(ComponentState):
     def _cancelled_target_speed(self, command: L | P) -> int | None:
         """
         The target speed to leave behind when a command stops a ramp. A hard stop - a
-        reset, an emergency stop, a direction change or a shutdown - takes the engine to
+        reset, an emergency stop, a direction change, or a shutdown - takes the engine to
         a standstill, so its target becomes 0. Anything else that gets this far is
         another controller taking the throttle, so the speed it asked for is the target.
         """
