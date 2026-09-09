@@ -13,6 +13,7 @@ import pytest
 from src.pytrain import CommandScope, TMCC2EffectsControl
 from src.pytrain.comm.comm_buffer import CommBuffer
 from src.pytrain.db.comp_data import CompData, CompDataMixin, encode_tmcc_speed
+from src.pytrain.db.component_state import UpdateResult
 from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.db.components import ConsistComponent
 from src.pytrain.db.engine_state import EngineState, TrainState
@@ -541,6 +542,87 @@ class TestEngineStateRampArbitration:
         assert state.ramp is None
         # is_ramping is then re-established from the foreign target itself, exactly as
         # it was before arbitration existed: another controller now owns this ramp
+
+    #
+    # duplicate suppression must not hide a takeover
+    #
+    def test_a_suppressed_duplicate_still_reaches_the_ramp(self):
+        # another controller asks for exactly the speed the ramp is sitting at, which is
+        # genuinely ambiguous, so the first copy is accepted. By the time their second
+        # copy arrives the ramp has stepped on and it is provably not ours - but it is
+        # also an exact repeat of the last command, which is what used to drop it unseen
+        state, ramp = self._ramping_engine(speed=30)
+        foreign = CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=30)
+
+        state.update(foreign)
+        assert ramp.aborts == []
+
+        ramp._commanded_speed = 33
+        ramp.echo_ledger.record(EchoFamily.SPEED, 33)
+        state.update(foreign)
+
+        assert ramp.aborts == ["foreign ABSOLUTE_SPEED"]
+        assert state.ramp is None
+        assert state.is_ramping is False
+        assert state.target_speed == 30
+        # and a takeover found this way is a takeover like any other: step 33 was
+        # committed after their command, so their speed is re-asserted
+        assert ramp.sent[0] == (TMCC2.ABSOLUTE_SPEED, 30)
+
+    def test_our_own_echo_arriving_twice_does_not_cancel(self):
+        state, ramp = self._ramping_engine(speed=30)
+        ramp._commanded_speed = 34
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        echo = CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=34)
+
+        state.update(echo)  # matched from the head of the ledger
+        state.update(echo)  # the Lionel double-send, still dropped by state
+
+        # the ledger accepts an exact repeat of the value it just matched, and only that,
+        # which is what makes offering a duplicate to the ramp safe
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert state.is_ramping is True
+
+    def test_a_duplicate_is_still_suppressed(self):
+        state, ramp = self._ramping_engine(speed=30)
+        ramp._commanded_speed = 34
+        ramp.echo_ledger.record(EchoFamily.SPEED, 34)
+        echo = CommandReq.build(TMCC2.ABSOLUTE_SPEED, 7, data=34)
+        state.update(echo)
+
+        # arbitrating a duplicate does not stop it being one: the values it carries were
+        # recorded by the copy in front of it
+        assert self._update(state, echo) is UpdateResult.IGNORED
+
+    def test_a_duplicate_trim_is_not_absorbed_twice(self):
+        state, ramp = self._ramping_engine(speed=30)
+        trim = CommandReq.build(TMCC2.DIESEL_RPM, 7, data=5)
+
+        state.update(trim)
+        bias = ramp.rpm_bias
+        ramp._commanded_speed = 60  # the ramp steps on, into the next band of the curve
+        state.update(trim)
+
+        # an RPM trim can never stop a ramp, so the duplicate is left where the guard
+        # dropped it: absorbing it again would re-derive the offset against a speed the
+        # ramp has since left
+        assert bias == 5 - tmcc2_speed_to_rpm(30, ramp.rpm_max_speed)
+        assert ramp.rpm_bias == bias
+
+    def test_a_repeated_announcement_cannot_cancel_a_ramp_that_is_not_ours(self):
+        # the RampedSpeedReq path: state knows it is ramping but owns no thread, so
+        # nothing here can tell a takeover from a double-send. The repeat stays where the
+        # guard dropped it rather than tearing the ramp down a second time
+        state, _ = self._ramping_engine()
+        state._ramp = None
+        announcement = CommandReq.build(TMCC2EngineCommandEnumEx.TARGET_SPEED, 7, data=80)
+
+        state.update(announcement)
+        state.update(announcement)
+
+        assert state.is_ramping is True
+        assert state.target_speed == 80
 
     def test_foreign_rpm_absorbs_without_cancelling(self):
         state, ramp = self._ramping_engine()

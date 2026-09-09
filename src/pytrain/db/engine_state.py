@@ -192,6 +192,10 @@ CANCEL_PENDINGS_SET = DIRECTIONS_SET | CANCEL_PENDINGS_ON_ENQUEUE | SHUTDOWN_SET
 # so a sound or effort trim can never reach cancel_ramps()
 RAMP_ARBITRATED = TARGET_SPEED_SET | SPEED_SET | RPM_SET | LABOR_SET
 
+# the arbitrated commands that can actually stop a ramp, and so the only ones that have
+# to be judged before duplicate suppression drops them; see _arbitrate_duplicate
+RAMP_THROTTLE = TARGET_SPEED_SET | SPEED_SET
+
 R = TypeVar("R", bound=OfficialRRSpeeds)
 
 
@@ -417,6 +421,46 @@ class EngineState(ComponentState):
             return command.command not in TARGET_SPEED_SET
         return ramp.on_state_command(command)
 
+    # the defensive `is True` comparison is the idiom throughout this codebase, including
+    # the arbitration branch of _update_state that this mirrors
+    # noinspection PySimplifyBooleanCheck
+    def _arbitrate_duplicate(self, command: L | P) -> None:
+        """
+        Offer a command that duplicate suppression is about to drop to the live ramp.
+
+        A command is ignored when it repeats the last one inside a second, because the
+        Lionel ecosystem sends everything two or three times. But `CommandReq` equality
+        is by value: another controller asking for exactly the speed this ramp just sent
+        is indistinguishable *here* from our own echo arriving twice, and dropping it
+        without a word means the ramp never learns the engine was taken and drives on to
+        a target nobody is asking for.
+
+        The echo ledger is the component that can tell the two apart - it accepts an
+        exact repeat of the value it just matched, and only that - so the judgment is
+        made there rather than by a timing heuristic. Suppression itself is unchanged:
+        the values this command carries were already recorded by the copy in front of it.
+
+        Only a throttle command is offered. An RPM or effort trim can never stop a ramp,
+        and absorbing the same trim twice would only re-derive it against a speed the
+        ramp has since left.
+        """
+        ramp = self._ramp
+        if ramp is None or ramp.is_active is False:
+            # and only a ramp of our own is judged here: without one there is nothing that
+            # can tell a takeover from a double-send, and the RampedSpeedReq path would
+            # merely cancel itself a second time on the repeat of its own announcement
+            return
+        if isinstance(command, CommandReq) is False or command.command not in RAMP_THROTTLE:
+            return
+        if self.notify_ramp(command) is True:
+            return
+        log.debug(f"Cancelled pending commands TMCC ID: {self.tmcc_id} {command.command} (suppressed duplicate)")
+        self.cancel_ramps(
+            self._cancelled_target_speed(command),
+            reason=f"foreign {command.command.name}",
+            yield_speed=self._yielded_speed(command),
+        )
+
     def notify_ramp_target(self) -> None:
         """
         Offer the target speed a Base 3 memory record just installed to the live ramp,
@@ -464,7 +508,13 @@ class EngineState(ComponentState):
         # in the lionel ecosystem, as commands are frequently sent twice or even 3 times
         # consecutively.
         self._is_known = True
-        if command is None or (command == self._last_command and self.last_updated_ago < 1):
+        if command is None:
+            return UpdateResult.IGNORED
+        if command == self._last_command and self.last_updated_ago < 1:
+            # the command is dropped either way, but a live ramp has to be given the
+            # chance to recognize it first: it may be another controller taking the
+            # engine rather than the double-send this guard is here for
+            self._arbitrate_duplicate(command)
             return UpdateResult.IGNORED
         # Updates engine state transactionally from command or effects; handles duplicates, aux, speed, rpm, labor,
         # direction, halt, momentum, startup/shutdown
