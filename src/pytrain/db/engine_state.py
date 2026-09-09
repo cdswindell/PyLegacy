@@ -689,7 +689,7 @@ class EngineState(ComponentState):
                 else:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{command} {labor} {type(labor)} {cmd_effects}")
-                    self.comp_data.speed = 0
+                    self.comp_data.labor_tmcc = 12
 
             # handle speed
             if command.command in SPEED_SET:

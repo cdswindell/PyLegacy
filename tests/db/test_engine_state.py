@@ -21,12 +21,36 @@ from src.pytrain.db.engine_state import EngineState, TrainState
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, TMCC_CONTROL_TYPE
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EngineCommandEnumEx
-from src.pytrain.protocol.sequence.speed_ramp import DEFAULT_LABOR, MAX_RPM_BIAS, EchoFamily, SpeedRamp
+from src.pytrain.protocol.sequence.speed_ramp import (
+    DEFAULT_LABOR,
+    MAX_RPM_BIAS,
+    EchoFamily,
+    RampRegistry,
+    SpeedRamp,
+)
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1, TMCC1HaltCommandEnum
 from src.pytrain.protocol.tmcc2.tmcc2_constants import (
     TMCC2EngineCommandEnum as TMCC2,
     tmcc2_speed_to_rpm,
 )
+
+
+@pytest.fixture(autouse=True)
+def pin_process_globals(monkeypatch):
+    """
+    Keep an update from asking the Base 3 for a configuration record.
+
+    `ComponentState._prepare_update` treats a component whose record is empty as one it
+    has never heard from, and requests its configuration - which, for a state that is
+    not yet marked as carrying a record, re-initializes `comp_data` and so blanks the
+    speed and target speed a test has set. Both halves of that decision are process-wide
+    singletons: whether state is synchronized, and whether this instance is the server.
+    Another test module leaving either of them set therefore made these tests depend on
+    what ran before them, and only under load, so both are pinned to what a bare state
+    object actually is here: a client that has heard nothing from a Base 3.
+    """
+    monkeypatch.setattr(CommBuffer, "is_server", staticmethod(lambda: False))
+    monkeypatch.setattr(ComponentStateStore, "is_state_synchronized", classmethod(lambda _cls: False))
 
 
 class TestEngineStateBehavior:
@@ -415,6 +439,12 @@ class TestEngineStateRampArbitration:
     def no_comm_buffer(monkeypatch):
         # cancel_ramps() reaches CommBuffer for the legacy RampedSpeedReq path
         monkeypatch.setattr(CommBuffer, "cancel_delayed_requests", staticmethod(lambda *_args, **_kw: None))
+        # the registry is a process-wide singleton keyed by (scope, tmcc_id), and every
+        # engine here is engine 7: a handle left behind by another test would be reachable
+        # through abort_ramp, and one left behind here would outlive the test that made it
+        RampRegistry.reset()
+        yield
+        RampRegistry.reset()
 
     @staticmethod
     def _ramping_engine(addr: int = 7, speed: int = 30, target: int = 80) -> tuple[EngineState, _LiveRamp]:
@@ -424,6 +454,12 @@ class TestEngineStateRampArbitration:
         state.comp_data._control_type = LEGACY_CONTROL_TYPE
         state.comp_data._speed = speed
         state._is_legacy = True
+        # this engine's record has arrived, which is what having a speed and a control
+        # type means. Left empty - which is how `initialize` leaves it - every command
+        # would send `_prepare_update` down its never-heard-from path, and that path can
+        # re-initialize comp_data underneath the test, blanking exactly the speed and
+        # target set here
+        state._empty = False
         ramp = _LiveRamp(state, target)
         state._ramp = ramp
         state.is_ramping = True
@@ -623,6 +659,10 @@ class TestEngineStateRampArbitration:
         state.update(announcement)
 
         assert state.is_ramping is True
+        # the record these updates wrote to must still be the one being read: a comp_data
+        # blanked mid-test reports speed 0 and no control type, which is a different
+        # failure from the target write going wrong, and worth telling apart
+        assert state.speed == 30
         assert state.target_speed == 80
 
     def test_foreign_rpm_absorbs_without_cancelling(self):
