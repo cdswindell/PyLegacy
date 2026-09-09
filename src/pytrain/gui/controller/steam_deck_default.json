@@ -1,8 +1,9 @@
 {
   "dead_zone": 0.15,
-  "trigger_dead_zone": 0.02,
+  "trigger_dead_zone": 0.10,
   "touch_dead_zone": 0.05,
   "hysteresis": 0.05,
+  "long_press_seconds": 0.75,
   "throttle_rate": 36.0,
   "repeat_interval": 0.1,
   "direction_threshold": 0.75,

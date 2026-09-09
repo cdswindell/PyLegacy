@@ -1924,6 +1924,106 @@ def test_provider_trigger_hold_emits_shutdown_delayed_while_still_squeezed() -> 
     assert released == [], "the release adds nothing; the hold already reported"
 
 
+def _quick_startup_profile() -> ControlProfile:
+    # The same startup button, on a profile that asks for a much shorter hold than the
+    # shipped default, so the threshold the provider acts on can only have come from the
+    # profile.
+    return _profile(
+        buttons={
+            "0": {"action": "bell", "target": "focused"},
+            "5": {"action": "startup", "target": "focused"},
+        },
+        long_press_seconds=0.25,
+    )
+
+
+def _quick_trigger_long_press_profile() -> ControlProfile:
+    return _profile(
+        axes={
+            "1": {"action": "throttle", "target": "left", "invert": True},
+            "2": {"action": "shutdown", "target": "focused", "trigger": True},
+            "5": {"action": "startup", "target": "focused", "trigger": True},
+        },
+        long_press_seconds=0.25,
+    )
+
+
+def test_provider_button_hold_fires_at_the_profiles_threshold() -> None:
+    # 0.25 s is well short of the shipped default, so a hold that crosses it and nothing
+    # else says the sweep is reading the profile rather than the module constant.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=2, button=5)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _quick_startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, 0.10, 0.30),
+    )
+
+    assert provider.poll() == [], "0.10 s in, the hold has not reached 0.25 s"
+    events[:] = []
+    held = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in held] == [(STARTUP_DELAYED, "focused", "pressed")]
+
+
+def test_provider_trigger_hold_fires_at_the_profiles_threshold() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=1, axis=5, value=1.0)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _quick_trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, 0.10, 0.30),
+    )
+
+    assert provider.poll() == [], "the squeeze itself says nothing"
+    events[:] = []
+    held = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in held] == [(STARTUP_DELAYED, "focused", "pressed")]
+
+
+def test_provider_release_before_the_profiles_threshold_stays_immediate() -> None:
+    # 0.20 s is a tap against this profile's 0.25 s, so the release reports the immediate
+    # command -- the short-press side of the same profile-driven comparison.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=5), SimpleNamespace(type=3, button=5)])
+    provider = SteamDeckInputProvider(
+        _quick_startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, 0.20),
+    )
+
+    actions = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in actions] == [(STARTUP_IMMEDIATE, "focused", "pressed")]
+
+
+def test_provider_logs_the_profiles_threshold_rather_than_the_default(caplog: pytest.LogCaptureFixture) -> None:
+    # The trace is only worth reading if it reports the number actually in force, so a
+    # -debug session on a profile that shortened the hold says 0.250s, not the default.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=2, button=5)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _quick_startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, 0.10, 0.30),
+    )
+
+    with caplog.at_level("DEBUG"):
+        provider.poll()
+        events[:] = []
+        provider.poll()
+
+    traced = [message for message in caplog.messages if message.startswith(f"{DIAG}[hold]")]
+    assert [message.split()[1] for message in traced] == ["press", "fired"]
+    assert "threshold=0.250s" in traced[0]
+    assert "threshold=0.250s" in traced[1]
+    assert "held=0.300s" in traced[1]
+
+
 def test_provider_logs_the_hold_that_reported_a_delayed_startup(caplog: pytest.LogCaptureFixture) -> None:
     # Under -debug the timing reports itself: what the hold measured, the threshold it was
     # tested against, and how the polls fell while it ran. A hold is timed from the poll that
@@ -1957,9 +2057,10 @@ def test_provider_logs_the_hold_that_reported_a_delayed_startup(caplog: pytest.L
 def test_provider_logs_the_trigger_travel_with_its_thresholds(caplog: pytest.LogCaptureFixture) -> None:
     # The other half of the diagnostics: the raw axis value and the fraction it normalizes
     # to, next to the dead zone and the release threshold they are tested against. The
-    # release threshold collapses to 0.0 here as it does in the bundled profile -- a squeeze
-    # is only seen to let go once the fraction reaches exactly zero -- so the log says so
-    # rather than leaving it to be worked out.
+    # release threshold collapses to 0.0 here, on the Python fallback dead zone of 0.02 with a
+    # hysteresis of 0.05 -- a squeeze is only seen to let go once the fraction reaches exactly
+    # zero -- so the log says so rather than leaving it to be worked out. The bundled profile
+    # raises its dead zone above the hysteresis and so does not have this problem.
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
     pygame.event = SimpleNamespace(
         get=lambda: [
@@ -2102,13 +2203,47 @@ def test_stick_axes_are_not_flagged_as_triggers() -> None:
     assert profile.axes[3].trigger is False
 
 
-def test_bundled_profile_uses_small_trigger_dead_zone() -> None:
+def test_bundled_profile_uses_a_digital_trigger_dead_zone() -> None:
     profile = ControlProfile.load()
 
-    # The triggers get their own, much smaller dead zone than the sticks so the
-    # horn responds almost as soon as the trigger leaves its resting position.
-    assert profile.trigger_dead_zone == 0.02
+    # The bundled triggers carry startup/shutdown rather than the horn -- the quilling horn
+    # lives on the trackpads -- so they are read as buttons and lose nothing by needing more
+    # travel. The dead zone is therefore well clear of a resting value that drifts (the
+    # observed resting raw of -0.969 normalizes to 0.0155), while staying below the sticks'
+    # dead zone and strictly above the hysteresis, so the release threshold
+    # (trigger_dead_zone - hysteresis) is a real 0.05 rather than zero.
+    assert profile.trigger_dead_zone == 0.10
     assert profile.trigger_dead_zone < profile.dead_zone
+    assert profile.trigger_dead_zone > profile.hysteresis
+    assert profile.trigger_dead_zone - profile.hysteresis == pytest.approx(0.05)
+
+
+def test_bundled_trigger_dead_zone_reads_a_drifted_rest_as_rest() -> None:
+    # The hazard the bundled dead zone exists for: a trigger nobody is touching whose idle
+    # value has drifted off its resting extreme. Under the old 0.02 a raw -0.95 (fraction
+    # 0.025) read as *engaged* and the trigger looked permanently squeezed.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [])
+    provider = SteamDeckInputProvider(ControlProfile.load(), pygame_module=pygame)
+
+    assert provider._normalize_trigger(5, -0.95) == 0.0
+    assert provider._normalize_trigger(5, -0.969) == 0.0
+    # A real squeeze still engages on its first axis event: the observed first value of a
+    # deliberate squeeze, raw -0.639, is a fraction of 0.164 -- already past 0.10.
+    assert provider._normalize_trigger(5, -0.639) > 0.0
+
+
+def test_profile_warns_when_trigger_dead_zone_cannot_see_a_release(caplog: pytest.LogCaptureFixture) -> None:
+    # A dead zone no bigger than the hysteresis leaves release = 0.0, so a squeezed trigger is
+    # only seen to let go at its exact resting value. It still loads -- a profile may want it --
+    # but it says so at load rather than presenting later as stuck hardware.
+    with caplog.at_level("WARNING"):
+        profile = _profile(trigger_dead_zone=0.02, hysteresis=0.05)
+
+    assert profile.trigger_dead_zone == 0.02
+    warned = [message for message in caplog.messages if "trigger_dead_zone" in message]
+    assert len(warned) == 1
+    assert "0.020" in warned[0] and "0.050" in warned[0]
 
 
 def test_trigger_dead_zone_defaults_when_omitted() -> None:
@@ -2120,6 +2255,34 @@ def test_trigger_dead_zone_defaults_when_omitted() -> None:
 def test_profile_rejects_out_of_range_trigger_dead_zone() -> None:
     with pytest.raises(ProfileError, match="trigger_dead_zone"):
         _profile(trigger_dead_zone=1.0)
+
+
+def test_profile_exposes_configured_long_press_seconds() -> None:
+    profile = _profile(long_press_seconds=0.25)
+
+    assert profile.long_press_seconds == 0.25
+
+
+def test_long_press_seconds_defaults_when_omitted() -> None:
+    profile = _profile()
+
+    assert profile.long_press_seconds == 0.75
+
+
+def test_bundled_profile_ships_default_long_press_seconds() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.long_press_seconds == 0.75
+
+
+def test_profile_rejects_too_short_long_press_seconds() -> None:
+    with pytest.raises(ProfileError, match="long_press_seconds"):
+        _profile(long_press_seconds=0.05)
+
+
+def test_profile_rejects_too_long_long_press_seconds() -> None:
+    with pytest.raises(ProfileError, match="long_press_seconds"):
+        _profile(long_press_seconds=6.0)
 
 
 def test_provider_sounds_horn_just_past_trigger_rest() -> None:

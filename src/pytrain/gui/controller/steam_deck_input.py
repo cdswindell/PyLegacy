@@ -136,11 +136,12 @@ DPAD_COMMANDS = {
 }
 # A button assigned the "startup" or "shutdown" action distinguishes a short
 # press from a long press: a short press emits the *_IMMEDIATE action
-# (START_UP_IMMEDIATE / SHUTDOWN_IMMEDIATE) while a hold of at least
-# LONG_PRESS_SECONDS emits the *_DELAYED action (START_UP_DELAYED /
+# (START_UP_IMMEDIATE / SHUTDOWN_IMMEDIATE) while a hold of at least the
+# profile's long_press_seconds (LONG_PRESS_SECONDS when it says nothing)
+# emits the *_DELAYED action (START_UP_DELAYED /
 # SHUTDOWN_DELAYED, each falling back to its immediate variant for TMCC engines
 # that lack it). The command is emitted once: the delayed one the moment the
-# hold passes LONG_PRESS_SECONDS, with the control still down, so the operator
+# hold passes that threshold, with the control still down, so the operator
 # sees the dialog come up as they hold rather than after letting go; the
 # immediate one on the release of anything shorter, that release being the only
 # thing that tells a short press apart from a hold still in progress.
@@ -153,9 +154,17 @@ SHUTDOWN_DELAYED = "shutdown_delayed"
 # for the same step the slider's end offers, so the pad and the slider cannot ask for
 # different things.
 ACC_RELATIVE_SPEED_MAX = 5
-LONG_PRESS_SECONDS = 1.0
+# The default hold, in seconds, that separates a tap from a hold on a control bound to
+# startup/shutdown. A profile may override it with long_press_seconds; this is what one
+# that says nothing gets.
+LONG_PRESS_SECONDS = 0.75
 # Backwards-compatible alias for the shared long-press threshold.
 STARTUP_LONG_PRESS_SECONDS = LONG_PRESS_SECONDS
+# The range a profile's long_press_seconds must fall in. 0.1 s is five polls at
+# CONTROLLER_POLL_MS, the shortest hold that can honestly be told from a tap; anything
+# past 5 s reads as broken hardware.
+LONG_PRESS_SECONDS_MIN = 0.1
+LONG_PRESS_SECONDS_MAX = 5.0
 # Profile actions whose button distinguishes a short press from a long press,
 # mapped to the (immediate, delayed) runtime action names they emit.
 LONG_PRESS_ACTIONS = {
@@ -171,8 +180,8 @@ LONG_PRESS_RUNTIME_ACTIONS = frozenset(name for pair in LONG_PRESS_ACTIONS.value
 # and neither can be recovered after the fact. First the hold: what it measured, against
 # what threshold, and how the polls fell while it ran -- a hold is timed from the poll that
 # drains the press rather than from the event itself, so a Tk loop that stalls makes the
-# measurement start late and run short, and the control has to be held longer than
-# LONG_PRESS_SECONDS to cross it. Second an analog trigger's travel: the raw axis value and
+# measurement start late and run short, and the control has to be held longer than the
+# configured threshold to cross it. Second an analog trigger's travel: the raw axis value and
 # the fraction it normalizes to, next to the dead zone and the release threshold they are
 # tested against, because a squeeze that is never seen to let go and a resting trigger that
 # reads as squeezed both look from the outside like a hold of the wrong length.
@@ -180,7 +189,7 @@ DIAG = "deckpress"
 # A gap between polls at least this wide earns a line of its own while a control is held: a
 # tenth of the threshold is enough of the measurement to matter, and well clear of the 20 ms
 # the GUI polls at.
-DIAG_POLL_STALL_SECONDS = LONG_PRESS_SECONDS / 10.0
+DIAG_POLL_STALL_FRACTION = 0.1
 # A squeezed trigger's travel is traced no more often than this. Both edges are always
 # traced; in between, the Deck reports axis motion far faster than the log needs, and a line
 # every quarter second is enough to follow the fraction back down toward rest.
@@ -321,6 +330,13 @@ HORN_COMMAND = ["QUILLING_HORN", "BLOW_HORN_ONE"]
 # is kept just above zero as a guard against a trigger whose idle value drifts
 # slightly off its resting extreme. Profiles may override it via
 # trigger_dead_zone.
+#
+# This fallback assumes an *analog* trigger, where a responsive onset is the
+# point. The bundled profile puts startup/shutdown on both triggers and the
+# quilling horn on the trackpads, so it raises trigger_dead_zone to 0.10: a
+# digital trigger loses nothing by needing more travel, and the extra margin
+# keeps a resting value that drifts from reading as squeezed (and keeps the
+# release threshold, trigger_dead_zone - hysteresis, off zero).
 DEFAULT_TRIGGER_DEAD_ZONE = 0.02
 # The Steam Deck trackpads surface through SDL's Game Controller *touchpad*
 # events (CONTROLLERTOUCHPADDOWN/MOTION/UP), not the joystick API the rest of
@@ -619,6 +635,8 @@ class ControlProfile:
     repeat_interval: float
     direction_threshold: float
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
+    # The hold at which a control bound to startup/shutdown emits its *_DELAYED action.
+    long_press_seconds: float = LONG_PRESS_SECONDS
     touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
     touch_dead_zone: float = DEFAULT_TOUCH_DEAD_ZONE
     # The D-pad, which was hard-coded until it became as bindable as everything else. The
@@ -646,6 +664,9 @@ class ControlProfile:
             cls._number(data, "trigger_dead_zone") if "trigger_dead_zone" in data else DEFAULT_TRIGGER_DEAD_ZONE
         )
         touch_dead_zone = cls._number(data, "touch_dead_zone") if "touch_dead_zone" in data else DEFAULT_TOUCH_DEAD_ZONE
+        long_press_seconds = (
+            cls._number(data, "long_press_seconds") if "long_press_seconds" in data else LONG_PRESS_SECONDS
+        )
         if not 0.0 <= dead_zone < 1.0:
             raise ProfileError("dead_zone must be between 0 and 1")
         if not 0.0 <= trigger_dead_zone < 1.0:
@@ -660,6 +681,20 @@ class ControlProfile:
             raise ProfileError("repeat_interval must be between 0.02 and 1 second")
         if not dead_zone < direction_threshold <= 1.0:
             raise ProfileError("direction_threshold must be greater than dead_zone and at most 1")
+        if not LONG_PRESS_SECONDS_MIN <= long_press_seconds <= LONG_PRESS_SECONDS_MAX:
+            raise ProfileError("long_press_seconds must be between 0.1 and 5 seconds")
+        if trigger_dead_zone <= hysteresis:
+            # _normalize_trigger releases at trigger_dead_zone - hysteresis, floored at zero, so a
+            # dead zone no bigger than the hysteresis collapses the release threshold to 0.0: the
+            # trigger is only seen to let go at its exact resting extreme, and a resting value that
+            # drifts reads as permanently squeezed. Loading still succeeds -- the profile may want
+            # that -- but it says so rather than presenting later as stuck hardware.
+            log.warning(
+                "trigger_dead_zone %.3f is not above hysteresis %.3f: a squeezed trigger is only "
+                "seen to let go at its exact resting value",
+                trigger_dead_zone,
+                hysteresis,
+            )
 
         axes: dict[int, AxisBinding] = {}
         for raw_index, raw_binding in cls._mapping(data, "axes").items():
@@ -774,6 +809,7 @@ class ControlProfile:
             repeat_interval=repeat_interval,
             direction_threshold=direction_threshold,
             trigger_dead_zone=trigger_dead_zone,
+            long_press_seconds=long_press_seconds,
             touchpads=touchpads,
             touch_dead_zone=touch_dead_zone,
             dpad=dpad,
@@ -879,7 +915,7 @@ class SteamDeckInputProvider:
         # trigger was squeezed so the release can tell a short press from a long
         # one.
         self._trigger_long_press_pressed_at: dict[int, float] = {}
-        # The trigger axes whose hold has already passed LONG_PRESS_SECONDS and
+        # The trigger axes whose hold has already passed the long-press threshold and
         # so have had their delayed command sent while still squeezed. Their
         # release adds nothing.
         self._trigger_long_press_fired: set[int] = set()
@@ -1192,7 +1228,7 @@ class SteamDeckInputProvider:
                 # tracks its absolute vertical position (top ~ off, bottom ~ full).
                 actions.extend(self._touch_moved(event.touch_id, event.finger, float(event.y)))
         # Last, because nothing in the event stream reports the passing of time: a
-        # startup/shutdown held past LONG_PRESS_SECONDS is heard here, on the poll that
+        # startup/shutdown held past the profile's long-press threshold is heard here, on the poll that
         # crosses the threshold, rather than waiting for a release that may be seconds away.
         actions.extend(self._held_long_press_actions())
         return actions
@@ -1275,8 +1311,8 @@ class SteamDeckInputProvider:
         # behave like the equivalent button: squeezing it past the dead zone is
         # a press and letting it return to rest is a release. As with the
         # button, the command is emitted once and distinguishes a short press
-        # (*_IMMEDIATE, on the release) from a hold of at least
-        # LONG_PRESS_SECONDS (*_DELAYED, sent by _held_long_press_actions as
+        # (*_IMMEDIATE, on the release) from a hold of at least the profile's
+        # long_press_seconds (*_DELAYED, sent by _held_long_press_actions as
         # soon as the hold reaches it, which leaves this release with nothing to
         # add). _normalize_trigger applies the trigger dead zone and hysteresis,
         # so any non-zero fraction means the trigger is engaged.
@@ -1291,7 +1327,7 @@ class SteamDeckInputProvider:
             self._trigger_long_press_fired.discard(axis)
             self._diag(
                 "hold",
-                f"squeeze axis={axis} action={binding.action} threshold={LONG_PRESS_SECONDS:.3f}s "
+                f"squeeze axis={axis} action={binding.action} threshold={self._long_press_seconds:.3f}s "
                 f"{self._diag_cadence()}",
             )
             return []
@@ -1309,19 +1345,28 @@ class SteamDeckInputProvider:
         # late enough to see the squeeze and the release together never had a chance to
         # report the hold on its own, and a hold is what it was.
         held = self._clock() - pressed_at
-        name = delayed if held >= LONG_PRESS_SECONDS else immediate
+        name = delayed if held >= self._long_press_seconds else immediate
         self._diag(
             "hold",
-            f"release axis={axis} action={name} held={held:.3f}s threshold={LONG_PRESS_SECONDS:.3f}s "
+            f"release axis={axis} action={name} held={held:.3f}s threshold={self._long_press_seconds:.3f}s "
             f"{self._diag_cadence()}",
         )
         return [DeckAction(name, binding.target, 1.0, "pressed")]
+
+    @property
+    def _long_press_seconds(self) -> float:
+        """The hold, in seconds, this profile asks for on a startup/shutdown control.
+
+        Read through the profile at every decision point and in every diagnostic, so the
+        threshold acted on and the threshold reported cannot drift apart.
+        """
+        return self.profile.long_press_seconds
 
     def _held_long_press_actions(self) -> list[DeckAction]:
         """The *_DELAYED commands for controls that have just been held long enough.
 
         Called from poll() rather than from the release so the engine hears the delayed
-        startup or shutdown the moment the hold passes LONG_PRESS_SECONDS: the operator
+        startup or shutdown the moment the hold passes the profile's long_press_seconds: the operator
         gets the dialog while still holding the trigger, and letting go adds nothing. A
         press let go before then still reports its *_IMMEDIATE command on the release,
         which remains the only way a short press can be told apart from a hold.
@@ -1337,7 +1382,7 @@ class SteamDeckInputProvider:
             # startup/shutdown to that chord, as it would have on the release.
             if button in self._long_press_fired or button in self._long_press_chorded:
                 continue
-            if now - pressed_at < LONG_PRESS_SECONDS:
+            if now - pressed_at < self._long_press_seconds:
                 continue
             binding = self.profile.buttons.get(button)
             if binding is None or binding.action not in LONG_PRESS_ACTIONS:
@@ -1347,13 +1392,13 @@ class SteamDeckInputProvider:
             self._diag(
                 "hold",
                 f"fired button={button} action={delayed} held={now - pressed_at:.3f}s "
-                f"threshold={LONG_PRESS_SECONDS:.3f}s {self._diag_cadence()}",
+                f"threshold={self._long_press_seconds:.3f}s {self._diag_cadence()}",
             )
             actions.append(DeckAction(delayed, binding.target, 1.0, "pressed", button))
         for axis, pressed_at in self._trigger_long_press_pressed_at.items():
             if axis in self._trigger_long_press_fired:
                 continue
-            if now - pressed_at < LONG_PRESS_SECONDS:
+            if now - pressed_at < self._long_press_seconds:
                 continue
             binding = self.profile.axes.get(axis)
             if binding is None or binding.action not in LONG_PRESS_ACTIONS:
@@ -1363,7 +1408,7 @@ class SteamDeckInputProvider:
             self._diag(
                 "hold",
                 f"fired axis={axis} action={delayed} held={now - pressed_at:.3f}s "
-                f"threshold={LONG_PRESS_SECONDS:.3f}s {self._diag_cadence()}",
+                f"threshold={self._long_press_seconds:.3f}s {self._diag_cadence()}",
             )
             actions.append(DeckAction(delayed, binding.target, 1.0, "pressed"))
         return actions
@@ -1401,7 +1446,7 @@ class SteamDeckInputProvider:
             return
         self._diag_polls += 1
         self._diag_poll_worst_gap = max(self._diag_poll_worst_gap, self._diag_poll_gap)
-        if self._diag_poll_gap >= DIAG_POLL_STALL_SECONDS:
+        if self._diag_poll_gap >= self._long_press_seconds * DIAG_POLL_STALL_FRACTION:
             self._diag("poll", f"stalled gap={self._diag_poll_gap:.3f}s polls={self._diag_polls} into a hold")
 
     def _diag_cadence(self) -> str:
@@ -1414,10 +1459,12 @@ class SteamDeckInputProvider:
         Both edges are always traced, and the travel between them every
         DIAG_TRIGGER_INTERVAL_SECONDS, because the fraction on the way back down is what says
         whether the release is seen at all: _normalize_trigger calls a squeezed trigger
-        released only once the fraction falls to trigger_dead_zone - hysteresis, which the
-        bundled profile pins at exactly 0.0. A trigger whose resting value drifts off -1.0 is
-        therefore never seen to let go, and while it counts as squeezed no later squeeze can
-        start a hold of its own -- so the next release reports a hold measured from a much
+        released only once the fraction falls to trigger_dead_zone - hysteresis, floored at
+        zero. The bundled profile keeps its dead zone above the hysteresis so that threshold
+        is a real 0.05, but a profile whose dead zone is no bigger than the hysteresis pins it
+        at exactly 0.0 (and says so at load time). A trigger whose resting value drifts off
+        -1.0 is then never seen to let go, and while it counts as squeezed no later squeeze
+        can start a hold of its own -- so the next release reports a hold measured from a much
         earlier squeeze.
         """
         if not log.isEnabledFor(logging.DEBUG):
@@ -1557,7 +1604,7 @@ class SteamDeckInputProvider:
     def _long_press_button_actions(self, button: int, binding: ButtonBinding, pressed: bool) -> list[DeckAction]:
         # Distinguish a short press (*_IMMEDIATE, emitted on the release) from a
         # long press (*_DELAYED, emitted by _held_long_press_actions the moment
-        # the hold reaches LONG_PRESS_SECONDS, leaving this release nothing to
+        # the hold reaches the profile's long_press_seconds, leaving this release nothing to
         # add). If the button also completes a chord while held (e.g. the L1+R1
         # halt chord), the startup/shutdown command is suppressed so an
         # emergency stop never also starts or shuts down the engine.
@@ -1567,7 +1614,7 @@ class SteamDeckInputProvider:
             self._long_press_fired.discard(button)
             self._diag(
                 "hold",
-                f"press button={button} action={binding.action} threshold={LONG_PRESS_SECONDS:.3f}s "
+                f"press button={button} action={binding.action} threshold={self._long_press_seconds:.3f}s "
                 f"{self._diag_cadence()}",
             )
             return []
@@ -1586,11 +1633,11 @@ class SteamDeckInputProvider:
         # As on the trigger, the threshold is tested here too: a poll that saw the press and
         # the release together never had a poll of its own in which to report the hold.
         held = self._clock() - pressed_at
-        name = delayed if held >= LONG_PRESS_SECONDS else immediate
+        name = delayed if held >= self._long_press_seconds else immediate
         self._diag(
             "hold",
             f"release button={button} action={name} held={held:.3f}s "
-            f"threshold={LONG_PRESS_SECONDS:.3f}s {self._diag_cadence()}",
+            f"threshold={self._long_press_seconds:.3f}s {self._diag_cadence()}",
         )
         return [DeckAction(name, binding.target, 1.0, "pressed", button)]
 
