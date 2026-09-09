@@ -493,7 +493,7 @@ class EngineState(ComponentState):
 
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
-            if self.is_legacy:
+            if self._speed_is_legacy:
                 speed_info = 195
             else:
                 speed_info = 31
@@ -525,7 +525,15 @@ class EngineState(ComponentState):
                 self._d4_rec_no = command.record_no
                 self._is_d4 = True
             if self.speed and self.target_speed == 0 and not self.is_ramping:
-                self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
+                self.comp_data.target_speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
+            if not self._initialized:
+                self._initialized = True
+                # initialize direction from soft status
+                if self.comp_data and isinstance(self.comp_data.soft_status, int):
+                    if self.comp_data.is_forward:
+                        self._direction = TMCC2.FORWARD_DIRECTION if self._speed_is_legacy else TMCC1.FORWARD_DIRECTION
+                    elif self.comp_data.is_reverse:
+                        self._direction = TMCC2.REVERSE_DIRECTION if self._speed_is_legacy else TMCC1.REVERSE_DIRECTION
             # the record may be carrying another controller's target speed back to us,
             # which is the only sighting we get of an instance that talks to the base
             # directly rather than through our command stream
@@ -702,14 +710,14 @@ class EngineState(ComponentState):
                         raise ValueError(f"Invalid speed alias: {command.command.alias}")
                 else:
                     data = command.data
-                self.comp_data.speed = encode_tmcc_speed(data, self.is_legacy)
+                self.comp_data.speed = encode_tmcc_speed(data, self._speed_is_legacy)
                 self.update_target_speed()
             elif self.is_synchronized() and cmd_effects & SPEED_SET:
                 # ignore impact of direction command while synchronizing state
                 # it is only in command stream to set initial state
                 speed = self._harvest_effect(cmd_effects & SPEED_SET)
                 if isinstance(speed, tuple) and len(speed) > 1:
-                    self.comp_data.speed = encode_tmcc_speed(speed[1], self.is_legacy)
+                    self.comp_data.speed = encode_tmcc_speed(speed[1], self._speed_is_legacy)
                 else:
                     if log.isEnabledFor(logging.DEBUG):
                         log.debug(f"{command} {speed} {type(speed)} {cmd_effects}")
@@ -857,6 +865,11 @@ class EngineState(ComponentState):
             return None
         return self._speed_requested_by(command)
 
+    @property
+    def _speed_is_legacy(self) -> bool:
+        """The flavor every speed codec call must agree on."""
+        return self.is_legacy
+
     @staticmethod
     def _speed_requested_by(command: L | P) -> int | None:
         """The absolute speed a throttle command asks for, resolving the speed aliases."""
@@ -883,21 +896,21 @@ class EngineState(ComponentState):
         if target_speed is None or self.comp_data is None:
             return
         with self._cv:
-            self.comp_data.target_speed = encode_tmcc_speed(target_speed, self.comp_data.is_legacy)
+            self.comp_data.target_speed = encode_tmcc_speed(target_speed, self._speed_is_legacy)
 
     def update_target_speed(self, target_speed: int = None):
         if target_speed is None:
             if self._ramping:
                 if self.speed == self.target_speed:
                     self._ramping = False
-                    self.comp_data.speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
-                    self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
+                    self.comp_data.speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
+                    self.comp_data.target_speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
             else:
                 # if this PyTrain instance isn't ramping speed, set the target speed to match
-                self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
+                self.comp_data.target_speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
         else:
             self._ramping = target_speed != self.speed
-            self.comp_data.target_speed = encode_tmcc_speed(target_speed, self.comp_data.is_legacy)
+            self.comp_data.target_speed = encode_tmcc_speed(target_speed, self._speed_is_legacy)
 
     def _change_direction(self, new_dir: CommandDefEnum) -> CommandDefEnum:
         if new_dir in {TMCC1EngineCommandEnum.TOGGLE_DIRECTION, TMCC2EngineCommandEnum.TOGGLE_DIRECTION}:
@@ -1023,7 +1036,7 @@ class EngineState(ComponentState):
     @property
     def speed(self) -> int | None:
         if self.comp_data:
-            return decode_tmcc_speed(self.comp_data.speed, self.comp_data.is_legacy)
+            return decode_tmcc_speed(self.comp_data.speed, self._speed_is_legacy)
         else:
             return None
 
@@ -1040,15 +1053,15 @@ class EngineState(ComponentState):
 
     @property
     def target_speed(self) -> int:
-        return decode_tmcc_speed(self.comp_data.target_speed, self.comp_data.is_legacy)
+        return decode_tmcc_speed(self.comp_data.target_speed, self._speed_is_legacy)
 
     @property
     def speed_limit(self) -> int:
-        return decode_tmcc_speed(self.comp_data.speed_limit, self.comp_data.is_legacy)
+        return decode_tmcc_speed(self.comp_data.speed_limit, self._speed_is_legacy)
 
     @property
     def max_speed(self) -> int:
-        return decode_tmcc_speed(self.comp_data.max_speed, self.comp_data.is_legacy)
+        return decode_tmcc_speed(self.comp_data.max_speed, self._speed_is_legacy)
 
     @property
     def speed_max(self) -> int | None:
@@ -1060,8 +1073,8 @@ class EngineState(ComponentState):
         elif self.max_speed and self.max_speed != 255:
             ms = self.max_speed
         else:
-            ms = 199 if self.is_legacy is True else 31
-        if self.is_legacy is False and ms > 31:
+            ms = 199 if self._speed_is_legacy is True else 31
+        if self._speed_is_legacy is False and ms > 31:
             ms = 31
         return ms
 
@@ -1072,7 +1085,7 @@ class EngineState(ComponentState):
     @property
     def speeds(self) -> tuple[int, int, int, int]:
         if self.max_speed is None or self.max_speed == 255:
-            if self.is_legacy:
+            if self._speed_is_legacy:
                 max_speed = 199
             else:
                 max_speed = 31
@@ -1086,7 +1099,7 @@ class EngineState(ComponentState):
 
     @property
     def rr_speed(self) -> R | None:
-        if self.is_legacy:
+        if self._speed_is_legacy:
             return TMCC2RRSpeedsEnum.to_rr_speed(self.speed)
         return TMCC1RRSpeedsEnum.to_rr_speed(self.speed)
 
@@ -1122,6 +1135,10 @@ class EngineState(ComponentState):
         elif self.momentum is not None:
             return f"Med {self.momentum}"
         return self._as_label(self.momentum)
+
+    @property
+    def soft_status(self) -> int:
+        return self.comp_data.soft_status
 
     @property
     def fuel_level(self) -> int:
@@ -1291,7 +1308,7 @@ class EngineState(ComponentState):
 
     @property
     def is_aux1(self) -> bool:
-        return self._aux2 in {TMCC1.AUX1_ON, TMCC2.AUX1_ON}
+        return self._aux1 in {TMCC1.AUX1_ON, TMCC2.AUX1_ON}
 
     @property
     def is_aux2(self) -> bool:
@@ -1311,9 +1328,7 @@ class EngineState(ComponentState):
 
     @property
     def is_tmcc(self) -> bool:
-        if self.comp_data:
-            return self.comp_data.is_legacy is False
-        return self._is_legacy is False or self._is_legacy is None
+        return not self.is_legacy
 
     @property
     def is_legacy(self) -> bool:

@@ -486,6 +486,8 @@ REQUEST_TO_UPDATES_MAP = {
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
     ],
+    # "FORWARD_DIRECTION": [("soft_status", )],
+    # "REVERSE_DIRECTION": [("soft_status",)],
     "CONTROL_TYPE": [("control_type",)],
     "ENGINE_TYPE": [("engine_type",)],
     "SOUND_TYPE": [("sound_type",)],
@@ -497,6 +499,7 @@ REQUEST_TO_UPDATES_MAP = {
         ("speed", lambda x: 0),
         ("target_speed", lambda x: 0),
         ("rpm_labor", lambda x: 0),
+        ("soft_status", lambda x: 0),
     ],
     "ROAD_NAME": [("road_name",)],
     "ROAD_NAME_LEN": [("road_name_len", lambda t: min(31, len(t)))],
@@ -729,11 +732,9 @@ class CompData(ABC, Generic[R]):
         else:
             if transform == encode_tmcc_speed:
                 base_value = transform(data, is_legacy)
-                # print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
             elif transform == encode_target_speed:
                 state = cls.state_store().get_state(scope, address, False)
                 base_value = transform(data, is_legacy, state)
-                # print(f"{field}: {data} transformed to: {base_value} legacy: {is_legacy}")
             else:
                 base_value = transform(data)
         if base_value is None:
@@ -1161,6 +1162,14 @@ class EngineData(CompData):
     @property
     def is_legacy(self) -> bool:
         return self._control_type == LEGACY_CONTROL_TYPE
+
+    @property
+    def is_forward(self) -> bool | None:
+        return self._soft_status & 0x01 == 0 if isinstance(self._soft_status, int) else None
+
+    @property
+    def is_reverse(self) -> bool | None:
+        return self._soft_status & 0x01 == 1 if isinstance(self._soft_status, int) else None
 
 
 class TrainData(EngineData):

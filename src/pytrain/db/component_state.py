@@ -112,6 +112,7 @@ class ComponentState(ABC, CompDataMixin):
         self._dependencies = DependencyCache.build()
         self._config_requested = False
         self._deleted = False
+        self._initialized = False
 
     def __repr__(self) -> str:
         if self.is_comp_data_record is True and not self.payload:

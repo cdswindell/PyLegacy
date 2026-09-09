@@ -125,6 +125,37 @@ class TestCompData:
         eng.smoke_tmcc = TMCC1EngineCommandEnum.SMOKE_ON
         assert eng.smoke == 1
 
+    def test_engine_data_direction_reads_bit_zero_of_the_soft_status(self):
+        buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)
+        eng = EngineData(buf, tmcc_id=1000)
+
+        eng._soft_status = 0
+        assert eng.is_forward is True
+        assert eng.is_reverse is False
+
+        eng._soft_status = 1
+        assert eng.is_forward is False
+        assert eng.is_reverse is True
+
+    def test_engine_data_direction_is_unknown_without_a_soft_status(self):
+        # a truncated record never reaches the soft status byte, so the direction is
+        # unknown rather than forward - and asking for it must not raise
+        eng = EngineData(bytes(8), tmcc_id=7)
+
+        assert eng._soft_status is None
+        assert eng.is_forward is None
+        assert eng.is_reverse is None
+
+    def test_engine_data_reads_a_never_set_soft_status_as_reverse(self):
+        # NOTE: characterizes today's behavior. 0xFF is the "not set" marker everywhere
+        # else in this record, but bit zero of it is 1, so an engine whose soft status
+        # the base never wrote reports reverse rather than unknown
+        eng = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=1000)
+
+        assert eng._soft_status == 255
+        assert eng.is_reverse is True
+        assert eng.is_forward is False
+
     def test_engine_data_conversions_basic(self):
         buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)
         eng = EngineData(buf, tmcc_id=1000)
