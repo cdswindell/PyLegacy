@@ -27,7 +27,7 @@ ENGINEER_DIALOG_DELAY: float = 2.50
 
 class RampSpeedReqBase(SequenceReq, ABC):
     """
-    Command front door for the threaded speed ramper.
+    Base class for the threaded speed ramper.
 
     Unlike ``RampedSpeedReq``, this request expands no steps and schedules nothing;
     it emits the generation-appropriate ``TARGET_SPEED`` announcement (plus the tower
@@ -103,7 +103,7 @@ class RampSpeedReqBase(SequenceReq, ABC):
 
     @property
     def is_ramp(self) -> bool:
-        """True when this request starts or retargets a ramp thread."""
+        """True, when this request starts or retargets a ramp thread."""
         return self._is_ramp
 
     def _on_before_send(self) -> None:

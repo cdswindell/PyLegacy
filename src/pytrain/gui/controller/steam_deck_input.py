@@ -695,9 +695,9 @@ class ControlProfile:
     # lever was introduced to stop.
     throttle_commit_min_interval: float = DEFAULT_THROTTLE_COMMIT_MIN_INTERVAL
     # Where in a throttle gesture the speed request goes out. See ThrottleCommit: the lever
-    # travels identically under all three, and LEAD is the one that has the engine moving
-    # before the thumb comes off.
-    throttle_commit: ThrottleCommit = ThrottleCommit.LEAD
+    # travels identically under all three, and DWELL is the one that sends the lever's own
+    # position -- what the handle is already showing -- rather than a projection ahead of it.
+    throttle_commit: ThrottleCommit = ThrottleCommit.DWELL
     # How still, and for how long, a stick must be held for the DWELL policy to send what
     # the lever has reached. Ignored by the other two.
     throttle_dwell: float = DEFAULT_THROTTLE_DWELL
@@ -925,10 +925,11 @@ class ControlProfile:
     def _throttle_commit(data: Mapping[str, Any]) -> ThrottleCommit:
         # Named in the profile by the enum's value ("lead", "release", "dwell") rather than
         # by its member, so what an operator writes is the word the help screen and this
-        # module's documentation use. A profile saying nothing gets LEAD.
+        # module's documentation use. A profile saying nothing gets DWELL -- the same answer
+        # the bundled profile writes out, so "the default" means one thing in both places.
         raw = data.get("throttle_commit")
         if raw is None:
-            return ThrottleCommit.LEAD
+            return ThrottleCommit.DWELL
         try:
             return ThrottleCommit(str(raw).strip().lower())
         except ValueError as exc:
@@ -1894,6 +1895,9 @@ class ThrottleLever:
     lead_target: int | None = None
     last_commit: float | None = None
     steady_since: float | None = None
+    # The deflection the dwell clock started at. What "held still" is measured against, so
+    # the wobble of a thumb resting on a stick is not read as the thumb moving.
+    steady_value: float | None = None
     settling: bool = False
 
 
@@ -2506,14 +2510,22 @@ class DeckInputRouter:
                 lever.value = 0.0
                 lever.settling = True
                 lever.steady_since = None
+                lever.steady_value = None
             return
         if lever is None:
             lever = ThrottleLever()
             self._levers[target] = lever
-        if lever.value != deflection:
+        if lever.steady_value is None or abs(deflection - lever.steady_value) > self.profile.hysteresis:
             # Held steady is measured from the last time the thumb moved, so a stick being
             # pushed further is not mistaken for one resting where it is.
+            #
+            # Against the deflection the clock started at, and only outside the hysteresis
+            # band, because a thumb resting on a stick is never perfectly still: _normalize_axis
+            # returns a continuously rescaled float and SDL reports every wobble, so comparing
+            # exactly against the last reading restarts the clock on nearly every poll and a
+            # real hold is never seen as one -- which would leave dwell behaving as release.
             lever.steady_since = None
+            lever.steady_value = deflection
         if lever.value * deflection < 0.0:
             # The thumb has crossed center to the other side. What was asked for is now
             # behind the lever rather than ahead of it, so the new direction leads afresh
@@ -2585,6 +2597,9 @@ class DeckInputRouter:
         if lever.steady_since is None or now - lever.steady_since + 1e-9 < self.profile.throttle_dwell:
             return
         lever.steady_since = now
+        # And the band is re-anchored where the thumb now is, so a drift too slow to leave the
+        # band in one dwell period is eventually noticed rather than accumulating unbounded.
+        lever.steady_value = lever.value
         lever.last_commit = now
         gui.commit_throttle()
 

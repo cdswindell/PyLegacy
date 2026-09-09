@@ -13,6 +13,7 @@ import logging
 import tkinter as tk
 from contextlib import contextmanager
 from threading import Condition, RLock
+from time import monotonic
 from tkinter import TclError
 from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
@@ -34,6 +35,17 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 CAB_1_THROTTLE_REPEAT_MS = 200
+
+# How long the Speed slider keeps standing on a speed that was asked for while the engine
+# has yet to say it heard it. The ramp does not write comp_data.target_speed itself -- that
+# byte is the echo path's -- so for a few frames after a commit the state still advertises
+# the previous target, and a refresh in that window would drop the handle back to it.
+#
+# Comfortably longer than a Base 3 round trip and far shorter than a gesture, so in practice
+# the hold always ends by agreement: the deadline is the safety net for a command that never
+# lands -- a HALT, another controller taking the throttle, a dropped connection -- rather
+# than a timer anything waits on.
+THROTTLE_COMMIT_GRACE: float = 1.5
 
 
 # Vertical slack left around the freight pair inside its row: the horn's own pady plus a pixel or
@@ -311,6 +323,12 @@ class ControllerView:
         # displays and that is only sent on demand. None means no lever is held, so the
         # slider goes back to tracking the engine's announced target.
         self._throttle_intent: float | None = None
+        # The commit latch: the speed last asked for and when it was asked for. It outlives
+        # the lever so the handle stays on what the operator selected until the engine
+        # advertises it, rather than falling back to the target it is about to stop
+        # announcing. None means the state owns the handle.
+        self._throttle_committed: int | None = None
+        self._throttle_committed_at: float | None = None
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
@@ -696,9 +714,11 @@ class ControllerView:
                         else:
                             host._rr_speed_btn.on_hold = self.on_speed_limit_panel
 
-                # don't fight the user while dragging, nor the lever while it is held
+                # don't fight the user while dragging, nor the lever while it is held, nor a
+                # commit the engine has not yet been heard to acknowledge
                 if host.throttle.tk.focus_displayof() != host.throttle.tk and not self.throttle_intent_active:
-                    host.throttle.value = throttle_state.target_speed
+                    if not self._commit_latch_holds(throttle_state):
+                        host.throttle.value = throttle_state.target_speed
 
                 if throttle_state.is_cab1:
                     self._set_cab1_speed()
@@ -1285,9 +1305,18 @@ class ControllerView:
             value = host.throttle.value
         ms = state.speed_max
         value = max(0, min(int(ms), int(value)))
-        if host.throttle.value != value:
+        # The lever owns the handle while a gesture is in progress: what a commit carries may
+        # be a projection ahead of the lever rather than anything the operator selected, and
+        # it must not appear under their thumb. The touch path is unaffected --
+        # _on_throttle_release_event drops the lever before it sends -- so a handle dropped
+        # past speed_max is still pulled back to the clamped value.
+        if self._throttle_intent is None and host.throttle.value != value:
             with self.__updating():
                 host.throttle.value = value
+        # Latched even when nothing goes on the wire: it is still what was asked for, and the
+        # handle is to stand on it either way.
+        self._throttle_committed = value
+        self._throttle_committed_at = monotonic()
         if state.speed != value:
             host.on_speed_command(value)
 
@@ -1307,7 +1336,15 @@ class ControllerView:
         return int(round(self._throttle_intent))
 
     def throttle_intent_base(self) -> int:
-        """Where a lever starts: the engine's announced target, else its speed."""
+        """Where a lever starts: the speed last asked for, else the engine's announced
+        target, else its speed.
+
+        The latch comes first because the state's target is the slower of the two: for a few
+        frames after a commit it still advertises the previous one, and a gesture begun in
+        that window would seed from a speed nobody selected and jump on its first nudge.
+        """
+        if self._throttle_committed is not None:
+            return self._throttle_committed
         state = self._host.throttle_state
         if not isinstance(state, EngineState):
             return 0
@@ -1348,8 +1385,36 @@ class ControllerView:
         self._send_throttle_value(int(speed))
 
     def clear_throttle_intent(self) -> None:
-        """Drop the lever without sending; the slider resumes tracking state."""
+        """Drop the lever without sending; the slider resumes tracking state.
+
+        The ordinary end of a gesture, so the latch is deliberately kept: the handle is to go
+        on standing on the speed just asked for until the engine says it heard it.
+        """
         self._throttle_intent = None
+
+    def clear_throttle_commit(self) -> None:
+        """Let the state have the handle back, whatever was last asked for.
+
+        For the events that make a commit no longer worth standing on -- a HALT, a reset, a
+        different engine selected -- rather than for the end of a gesture.
+        """
+        self._throttle_committed = None
+        self._throttle_committed_at = None
+
+    def _commit_latch_holds(self, throttle_state) -> bool:
+        """Whether the handle is still standing on a commit the engine has not confirmed."""
+        if self._throttle_committed is None:
+            return False
+        if getattr(throttle_state, "target_speed", None) == self._throttle_committed:
+            # Agreed: the state can have the handle back.
+            self.clear_throttle_commit()
+            return False
+        if monotonic() - (self._throttle_committed_at or 0.0) >= THROTTLE_COMMIT_GRACE:
+            # A command that never landed. Freezing the handle on it indefinitely would be
+            # worse than following the engine one beat late.
+            self.clear_throttle_commit()
+            return False
+        return True
 
     def on_train_brake(self, value) -> None:
         if self._updating_from_state:

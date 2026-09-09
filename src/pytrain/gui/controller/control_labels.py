@@ -162,15 +162,17 @@ ACTION_NOTES: dict[str, str] = {
     # only full-size parenthesis on the screen, beside six small ones.
     "scope_catalog": "w focus",
     # The stick works a virtual lever rather than the engine directly: it moves the pane's
-    # Speed slider, and what the slider reads is sent when the thumb comes off. Worth a note
-    # because the behavior is not what an axis row otherwise implies -- the reader would
+    # Speed slider, and what the slider reads is sent when the thumb pauses on it. Worth a
+    # note because the behavior is not what an axis row otherwise implies -- the reader would
     # expect the stick to be the throttle, and it is the hand on the throttle instead.
     #
     # The slider half of that is left for the slider to say: it visibly moves under the
     # thumb, so the one thing a reader cannot see is when the engine is told. Said in full
-    # ("sets target; sends on release") this became the longest string on the screen and took
-    # the Joysticks column past the width the Deck's display has for it.
-    "throttle": "sends on release",
+    # ("sets target; sends on a pause") this became the longest string on the screen and took
+    # the Joysticks column past the width the Deck's display has for it. What is left names
+    # the bundled profile's dwell policy, under which the pause is how a command goes out and
+    # the release is only the last of them.
+    "throttle": "pause to send",
 }
 
 # Headings for the sections that describe one kind of panel: the bindings there apply only

@@ -2949,10 +2949,16 @@ class EngineGui(GuiZeroBase, Generic[S]):
             view.commit_throttle_intent(speed)
 
     def clear_throttle(self) -> None:
-        """Drop the throttle lever without sending anything."""
+        """Drop the throttle lever, and the commit standing on the handle, sending nothing.
+
+        Both, because what reaches here -- a HALT, a reset, a different engine selected --
+        is exactly what makes the speed last asked for no longer worth showing. The end of
+        an ordinary gesture goes to clear_throttle_intent alone, which keeps it.
+        """
         view = self._throttle_lever_view
         if view:
             view.clear_throttle_intent()
+            view.clear_throttle_commit()
 
     @property
     def throttle_target(self) -> int | None:

@@ -194,10 +194,11 @@ def test_bundled_profile_records_the_throttle_lead_defaults() -> None:
 
 
 def test_profile_defaults_and_validates_the_throttle_commit_policy() -> None:
-    # A profile saying nothing gets the documented default, so one written before the policy
-    # existed keeps loading and behaves as it always did.
+    # A profile saying nothing gets the documented default -- the same one the bundled
+    # profile writes out, so "the default" means one thing in both places rather than a
+    # hand-written profile behaving differently from the shipped one.
     profile = _profile()
-    assert profile.throttle_commit is ThrottleCommit.LEAD
+    assert profile.throttle_commit is ThrottleCommit.DWELL
     assert profile.throttle_dwell == 0.35
 
     # Named by the word an operator writes, not by the enum member.
@@ -219,7 +220,7 @@ def test_bundled_profile_records_the_throttle_commit_defaults() -> None:
     # discoverable where an operator will look for them.
     profile = ControlProfile.load()
 
-    assert profile.throttle_commit is ThrottleCommit.LEAD
+    assert profile.throttle_commit is ThrottleCommit.DWELL
     assert profile.throttle_dwell == 0.35
 
 
@@ -1373,7 +1374,7 @@ def test_held_throttle_moves_the_lever_and_commands_only_its_lead() -> None:
     # The polling loop generates no stream of ramp requests: a held stick moves the pane's
     # lever proportionally to how far it is pushed, and says one thing to the engine -- the
     # lead that starts it moving -- however long it is held.
-    router, left, right, _, _ = _router()
+    router, left, right, _, _ = _router(_profile(throttle_commit="lead"))
     router.handle(DeckAction("throttle", "left", 0.5, "changed"))
     router.handle(DeckAction("throttle", "right", 1.0, "changed"))
 
@@ -1393,7 +1394,7 @@ def test_held_throttle_moves_the_lever_and_commands_only_its_lead() -> None:
 def test_the_first_throttle_command_leads_the_lever_rather_than_matching_it() -> None:
     # Commanding where the lever already is would leave the ramp nothing to travel; the
     # command aims throttle_lead_time ahead so the engine is visibly under way.
-    router, left, _, _, _ = _router()
+    router, left, _, _, _ = _router(_profile(throttle_commit="lead"))
     router.handle(DeckAction("throttle", "left", 1.0, "changed"))
 
     router.tick(10.0)
@@ -1406,7 +1407,7 @@ def test_the_first_throttle_command_leads_the_lever_rather_than_matching_it() ->
 def test_a_long_throttle_hold_re_leads_no_faster_than_the_minimum_interval() -> None:
     # Held long enough, the lever outruns what was asked for and the lead is re-aimed -- but
     # at the profile's floor, not once a tick.
-    profile = _profile(throttle_lead_time=0.5, throttle_commit_min_interval=1.0)
+    profile = _profile(throttle_commit="lead", throttle_lead_time=0.5, throttle_commit_min_interval=1.0)
     router, left, _, _, _ = _router(profile)
     router.handle(DeckAction("throttle", "left", 1.0, "changed"))
 
@@ -1423,7 +1424,7 @@ def test_a_long_throttle_hold_re_leads_no_faster_than_the_minimum_interval() -> 
 
 
 def test_throttle_commits_once_when_the_stick_returns_to_center() -> None:
-    router, left, _, _, _ = _router()
+    router, left, _, _, _ = _router(_profile(throttle_commit="lead"))
     router.handle(DeckAction("throttle", "left", 1.0, "changed"))
     router.tick(10.0)
     router.tick(10.2)
@@ -1446,7 +1447,7 @@ def test_throttle_commits_once_when_the_stick_returns_to_center() -> None:
 
 def test_a_throttle_pulled_back_lowers_the_lever_and_stops_at_zero() -> None:
     left = _gui(speed=30, target_speed=30)
-    router, _, _, _, _ = _router(left=left)
+    router, _, _, _, _ = _router(_profile(throttle_commit="lead"), left=left)
     router.handle(DeckAction("throttle", "left", -1.0, "changed"))
 
     router.tick(10.0)
@@ -1460,7 +1461,7 @@ def test_a_throttle_pulled_back_lowers_the_lever_and_stops_at_zero() -> None:
 
 
 def test_a_throttle_lever_is_dropped_without_a_further_command_when_the_pad_disconnects() -> None:
-    router, left, _, _, _ = _router()
+    router, left, _, _, _ = _router(_profile(throttle_commit="lead"))
     router.handle(DeckAction("throttle", "left", 1.0, "changed"))
     router.tick(10.0)
     router.tick(10.2)
@@ -1522,7 +1523,9 @@ def test_the_dwell_policy_commits_while_the_stick_is_held_steady() -> None:
 
 def test_the_dwell_policy_restarts_its_clock_when_the_stick_moves() -> None:
     # Held steady is measured from the last time the thumb moved, so travel through a
-    # position on the way to another one is not read as a pause at it.
+    # position on the way to another one is not read as a pause at it. 0.2 a tick is four
+    # times the profile's hysteresis, so every step of this sweep is a genuine move rather
+    # than the wobble the steady band forgives.
     profile = _profile(throttle_commit="dwell", throttle_dwell=0.35)
     router, left, _, _, _ = _router(profile)
 
@@ -1534,6 +1537,62 @@ def test_the_dwell_policy_restarts_its_clock_when_the_stick_moves() -> None:
 
     assert left.nudge_calls, "the lever moved throughout"
     assert left.commit_calls == []
+
+
+def test_the_dwell_policy_reads_a_jittering_thumb_as_a_hold() -> None:
+    # The trap this would otherwise fall into: _normalize_axis returns a continuously
+    # rescaled float and SDL reports every wobble, so a thumb resting at three-quarters sends
+    # a slightly different number on nearly every poll. Compared exactly, the clock would be
+    # restarted each time, nothing would be sent until release, and dwell would be release
+    # under another name.
+    profile = _profile(throttle_commit="dwell", throttle_dwell=0.35)
+    router, left, _, _, _ = _router(profile)
+
+    router.tick(10.0)
+    for step, deflection in enumerate((0.80, 0.81, 0.80, 0.82, 0.81, 0.80), start=1):
+        router.handle(DeckAction("throttle", "left", deflection, "changed"))
+        router.tick(10.0 + step * 0.2)
+
+    assert left.commit_calls, "a hold at three-quarters is a hold"
+    # And what it sends is the lever's own position rather than a projection ahead of it: a
+    # lead from there would aim throttle_rate * throttle_lead_time = 40 steps further on.
+    assert left.commit_calls[0] < 20
+
+
+def test_a_move_out_of_the_steady_band_restarts_the_dwell_clock() -> None:
+    # The band forgives a wobble, not a change of mind: 0.80 -> 0.95 is well outside it, so
+    # the pause is measured from the new position rather than credited to the old one.
+    profile = _profile(throttle_commit="dwell", throttle_dwell=0.35)
+    router, left, _, _, _ = _router(profile)
+
+    router.handle(DeckAction("throttle", "left", 0.80, "changed"))
+    router.tick(10.0)
+    router.tick(10.2)
+    lever = router._levers["left"]
+    assert lever.steady_since == 10.2, "the clock started on the first tick of the hold"
+
+    router.handle(DeckAction("throttle", "left", 0.95, "changed"))
+
+    assert lever.steady_since is None
+    assert lever.steady_value == pytest.approx(0.95)
+    assert left.commit_calls == [], "nothing yet: the new position has not been held"
+
+
+def test_the_dwell_policy_re_anchors_its_band_where_the_thumb_now_is() -> None:
+    # Left anchored where the gesture began, a creep too slow to leave the band in one dwell
+    # period would go unnoticed however far it eventually went. Re-stamped whenever the clock
+    # rearms, the band is always measured from where the thumb was last read as resting.
+    profile = _profile(throttle_commit="dwell", throttle_dwell=0.35)
+    router, left, _, _, _ = _router(profile)
+
+    router.tick(10.0)
+    for step, deflection in enumerate((0.80, 0.81, 0.82, 0.83, 0.84, 0.85), start=1):
+        # A hundredth of the range a tick: inside the band every time, so the hold stands.
+        router.handle(DeckAction("throttle", "left", deflection, "changed"))
+        router.tick(10.0 + step * 0.2)
+
+    assert left.commit_calls, "a creep this slow still reads as a hold"
+    assert router._levers["left"].steady_value > 0.80, "the band went with the thumb"
 
 
 def test_cab1_rate_throttle_emits_bounded_relative_steps() -> None:

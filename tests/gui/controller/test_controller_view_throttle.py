@@ -64,6 +64,29 @@ class _FakeText:
         self.enabled = True
 
 
+class _FakeClock:
+    """The module's monotonic, under the test's control.
+
+    The commit latch expires on a deadline measured in seconds; crossing it by sleeping
+    would put THROTTLE_COMMIT_GRACE of real time into the suite for no added coverage.
+    """
+
+    def __init__(self, now: float = 1000.0) -> None:
+        self.now = now
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _clock(monkeypatch: pytest.MonkeyPatch) -> _FakeClock:
+    clock = _FakeClock()
+    monkeypatch.setattr(mod, "monotonic", clock)
+    return clock
+
+
 def _view(state: _FakeState | None, monkeypatch: pytest.MonkeyPatch):
     """A ControllerView over stand-ins, with the speed commands it sends recorded."""
     monkeypatch.setattr(mod, "EngineState", _FakeState)
@@ -89,6 +112,8 @@ def _view(state: _FakeState | None, monkeypatch: pytest.MonkeyPatch):
     view._host = host
     view._updating_from_state = False
     view._throttle_intent = None
+    view._throttle_committed = None
+    view._throttle_committed_at = None
     view._gauges = {}
     view._controller_info_box = SimpleNamespace(visible=False, show=lambda: None, hide=lambda: None)
     view._last_state = view._last_throttle_state = state
@@ -174,13 +199,17 @@ def test_committing_sends_one_command_for_where_the_lever_rests(monkeypatch: pyt
 def test_committing_an_explicit_speed_leaves_the_lever_where_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
     # The lead command asks for a speed ahead of the lever; the lever keeps its own position
     # so the settle that follows can still send where the operator actually stopped.
-    view, _host, speed_calls = _view(_FakeState(speed=0, target_speed=0), monkeypatch)
+    view, host, speed_calls = _view(_FakeState(speed=0, target_speed=0), monkeypatch)
 
     view.nudge_throttle_intent(10)
     view.commit_throttle_intent(80)
 
     assert speed_calls == [80]
     assert view.throttle_intent == 10
+    # And the handle stays with it. A lead is a projection rather than a selection: painting
+    # it on the slider threw the handle 70 steps up the dial for the one tick before the next
+    # nudge dragged it back, which is the swing the operator sees as the lever lurching.
+    assert host.throttle.value == 10
 
 
 def test_committing_clamps_to_the_engines_top_speed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -233,6 +262,117 @@ def test_a_state_refresh_moves_the_slider_once_the_lever_is_let_go(monkeypatch: 
     view.update(state, state)
 
     assert host.throttle.value == 55
+
+
+def _committed(monkeypatch: pytest.MonkeyPatch, *, speed: int = 5, lever: int = 68):
+    """A finished gesture: the lever committed at `lever` and let go, the latch live.
+
+    The state is left announcing the target it had before the commit, which is the window
+    the latch exists for -- the ramp records the new one in the echo ledger and comp_data
+    does not carry it until the TARGET_SPEED command comes back.
+    """
+    state = _FakeState(speed=speed, target_speed=0)
+    view, host, speed_calls = _view(state, monkeypatch)
+    clock = _clock(monkeypatch)
+
+    view.nudge_throttle_intent(lever)
+    view.commit_throttle_intent()
+    view.clear_throttle_intent()
+    return view, host, state, speed_calls, clock
+
+
+def test_the_handle_stays_on_the_committed_speed_while_the_engine_is_still_catching_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The thumb comes off at 68 and the state is still advertising 106. Without the latch the
+    # refresh drops the handle to 106 for as long as it takes the echo to arrive.
+    view, host, state, speed_calls, _clk = _committed(monkeypatch)
+    assert speed_calls == [68]
+
+    state.target_speed = 106
+    view.update(state, state)
+
+    assert host.throttle.value == 68
+
+
+def test_the_handle_follows_the_engine_again_once_it_announces_the_committed_speed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view, host, state, _speed_calls, _clk = _committed(monkeypatch)
+
+    state.target_speed = 68
+    view.update(state, state)
+    assert host.throttle.value == 68
+
+    # Agreed, so the latch is spent: a later target -- another controller, a speed limit --
+    # moves the handle as it always did.
+    state.target_speed = 40
+    view.update(state, state)
+
+    assert host.throttle.value == 40
+
+
+def test_the_handle_stops_waiting_for_a_command_that_never_lands(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A HALT, or another controller taking the throttle, means the committed speed is never
+    # announced. The grace is what keeps that from pinning the handle for good.
+    view, host, state, _speed_calls, clock = _committed(monkeypatch)
+    state.target_speed = 106
+
+    view.update(state, state)
+    assert host.throttle.value == 68, "still inside the grace"
+
+    clock.advance(mod.THROTTLE_COMMIT_GRACE)
+    view.update(state, state)
+
+    assert host.throttle.value == 106
+
+
+def test_a_new_lever_starts_from_the_speed_last_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Seeded from the state instead, a gesture begun in that window picks up the target the
+    # engine is about to stop announcing, and the handle jumps on the very first nudge.
+    view, host, state, _speed_calls, _clk = _committed(monkeypatch)
+    state.target_speed = 106
+
+    assert view.throttle_intent_base() == 68
+    assert view.nudge_throttle_intent(5) == 73
+    assert host.throttle.value == 73
+
+
+def test_clearing_the_throttle_drops_the_latch_as_well_as_the_lever(monkeypatch: pytest.MonkeyPatch) -> None:
+    # What EngineGui.clear_throttle() calls: a HALT, a reset, or a different engine selected
+    # leaves nothing worth standing on, so the handle is free to follow the engine down.
+    view, host, state, _speed_calls, _clk = _committed(monkeypatch)
+    state.target_speed = 106
+
+    view.clear_throttle_intent()
+    view.clear_throttle_commit()
+    view.update(state, state)
+
+    assert host.throttle.value == 106
+
+
+def test_a_commit_the_engine_is_already_obeying_still_holds_the_handle(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Nothing goes on the wire when the engine is already at the speed asked for, but it is
+    # still what the operator asked for and the handle is to stay on it.
+    view, host, state, speed_calls, _clk = _committed(monkeypatch, speed=68)
+
+    assert speed_calls == [], "the engine is already there"
+    state.target_speed = 106
+    view.update(state, state)
+
+    assert host.throttle.value == 68
+
+
+def test_a_cab_1_commit_takes_no_latch(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Its stick asks for relative steps and builds no ramp, so there is no announced target
+    # for a latch to wait on and nothing to hold the handle away from zero.
+    view, _host, speed_calls = _view(_FakeState(speed=0, target_speed=0, is_cab1=True), monkeypatch)
+    _clock(monkeypatch)
+
+    view._send_throttle_value(30)
+
+    assert speed_calls == [0]
+    assert view._throttle_committed is None
 
 
 def test_a_touch_drag_takes_the_lever_back_from_the_stick(monkeypatch: pytest.MonkeyPatch) -> None:

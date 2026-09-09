@@ -7,7 +7,7 @@
   "throttle_rate": 36.0,
   "throttle_lead_time": 2.0,
   "throttle_commit_min_interval": 1.0,
-  "throttle_commit": "lead",
+  "throttle_commit": "dwell",
   "throttle_dwell": 0.35,
   "repeat_interval": 0.1,
   "direction_threshold": 0.75,
