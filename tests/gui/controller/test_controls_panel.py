@@ -30,7 +30,7 @@ from src.pytrain.gui.controller.control_labels import (
 )
 import src.pytrain.gui.controller.controls_panel as mod
 from src.pytrain.gui.controller.controls_panel import COLUMNS, ROWS_PER_COLUMN, ControlsPanel
-from src.pytrain.gui.controller.steam_deck_input import ControlProfile
+from src.pytrain.gui.controller.steam_deck_input import ControlProfile, ThrottleCommit
 
 BUNDLED = Path(mod.__file__).with_name("steam_deck_default.json")
 
@@ -949,6 +949,30 @@ def test_no_bundled_row_wraps_however_wide_the_display_draws_it(monkeypatch, px_
                 if section.note:
                     note_px = panel.note_wrap_px(panel.column_px[index % COLUMNS])
                     assert panel._ruler.wrapped_rows(section.note, note_px) == 1, (section.title, section.note)
+
+
+@pytest.mark.parametrize("policy", list(ThrottleCommit))
+def test_no_throttle_note_wraps_whichever_commit_policy_is_selected(monkeypatch, policy) -> None:
+    # The throttle row's note is the profile's answer rather than a string of this screen's
+    # (control_labels.THROTTLE_COMMIT_NOTES), so a profile that selects another policy hands
+    # the Joysticks column a different string to hold. Driven at the wide end of the range the
+    # test above brackets, which is where a row breaks if one of them is going to.
+    def ruler(_cls, _widget, _entry_size: int = mod.ENTRY_SIZE) -> mod.TextRuler:
+        return mod.TextRuler(
+            measure=lambda text: 14 * len(text),
+            row_px=30,
+            footnote_px=15,
+            keycap_measure=lambda text: 14 * len(text) + 8,
+        )
+
+    monkeypatch.setattr(mod.TextRuler, "measured", classmethod(ruler))
+    data = {**json.loads(BUNDLED.read_text(encoding="utf-8")), "throttle_commit": policy.value}
+    panel = _panel(ControlProfile.from_dict(data))
+
+    panel._fit_text(object(), 738, 1274)
+
+    assert panel.entry_size == mod.ENTRY_SIZE
+    assert panel.rows_fit_their_columns()
 
 
 def test_the_columns_are_grown_until_the_sections_that_moved_fit(monkeypatch) -> None:

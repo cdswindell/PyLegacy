@@ -6,6 +6,8 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
+import json
+
 import pytest
 
 from src.pytrain.gui.controller.control_labels import (
@@ -21,11 +23,14 @@ from src.pytrain.gui.controller.control_labels import (
     POPUP_PANEL_TITLE,
     ROUTE_PANEL_TITLE,
     SWITCH_PANEL_TITLE,
+    THROTTLE_ACTION,
+    THROTTLE_COMMIT_NOTES,
     ARROW_HORIZONTAL,
     ARROW_RIGHT,
     ARROW_UP,
     ARROW_VERTICAL,
     action_label,
+    action_note,
     axis_label,
     button_label,
     chord_label,
@@ -36,6 +41,7 @@ from src.pytrain.gui.controller.control_labels import (
 from src.pytrain.gui.controller.steam_deck_input import (
     BACK_PAGE_BUTTON,
     CLOSE_POPUP_BUTTON,
+    DEFAULT_PROFILE,
     ROUTE_FIRE_BUTTON_ACTIONS,
     ROUTE_SWALLOW_BUTTON_ACTIONS,
     SELECT_BUTTON,
@@ -45,6 +51,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     SWITCH_THRU_ACTIONS,
     SWITCH_THRU_BUTTON_ACTIONS,
     ControlProfile,
+    ThrottleCommit,
 )
 
 CUSTOM_PROFILE = {
@@ -196,6 +203,78 @@ def test_axis_inversion_is_not_surfaced() -> None:
     entries = _section(ControlProfile.load(None), "Joysticks").entries
 
     assert all("invert" not in entry.note.lower() for entry in entries)
+
+
+def _throttle_notes(profile: ControlProfile) -> list[str]:
+    return [entry.note for entry in _section(profile, "Joysticks").entries if entry.action.startswith("Throttle")]
+
+
+def test_the_throttle_note_says_when_a_gesture_reaches_the_engine() -> None:
+    # The one note on the screen that is not a property of its action. The stick works a
+    # virtual lever, and the profile's throttle_commit decides at which point in a gesture
+    # the lever's position is sent -- so the row is read off the loaded profile rather than
+    # compared against a string of its own, which would date the moment the shipped policy
+    # changed.
+    profile = ControlProfile.load(None)
+    notes = {entry.action: entry.note for entry in _section(profile, "Joysticks").entries}
+
+    assert notes["Throttle LEFT"] == THROTTLE_COMMIT_NOTES[profile.throttle_commit]
+    assert notes["Throttle RIGHT"] == THROTTLE_COMMIT_NOTES[profile.throttle_commit]
+    # Both throttle rows and nothing else: a stick that picks a direction needs no note
+    # about when it is obeyed, because it is obeyed at once.
+    assert notes["Direction LEFT"] == "" and notes["Direction RIGHT"] == ""
+
+
+def test_the_throttle_note_is_the_bundled_profiles_own_commit_policy() -> None:
+    # Straight from the file an operator edits: the word in steam_deck_default.json names a
+    # ThrottleCommit member, and that member's note is what the screen draws. Neither the
+    # policy nor the note is spelled here, so this goes on holding whichever one ships.
+    shipped = json.loads(DEFAULT_PROFILE.read_text(encoding="utf-8"))["throttle_commit"]
+
+    notes = _throttle_notes(ControlProfile.load(None))
+
+    assert notes and set(notes) == {THROTTLE_COMMIT_NOTES[ThrottleCommit(shipped)]}
+
+
+@pytest.mark.parametrize("policy", list(ThrottleCommit))
+def test_a_profile_that_selects_a_commit_policy_reads_its_own_note(policy) -> None:
+    # And a user's own profile is answered the same way: whatever they select, the screen
+    # describes what their throttle actually does rather than what the bundled one does.
+    profile = ControlProfile.from_dict({**CUSTOM_PROFILE, "throttle_commit": policy.value})
+
+    assert _throttle_notes(profile) == [THROTTLE_COMMIT_NOTES[policy]]
+
+
+def test_a_profile_that_omits_the_commit_policy_reads_the_default_it_falls_back_to() -> None:
+    # CUSTOM_PROFILE names no policy, so ControlProfile supplies its default -- and the row
+    # follows that rather than assuming the key was there to read.
+    profile = ControlProfile.from_dict(CUSTOM_PROFILE)
+
+    assert _throttle_notes(profile) == [THROTTLE_COMMIT_NOTES[profile.throttle_commit]]
+
+
+def test_every_commit_policy_has_a_note_of_its_own() -> None:
+    # A policy with no note would leave the row silent about the one thing it cannot show,
+    # and two policies sharing a note would leave the reader unable to tell which is in
+    # force -- both of which a mapping keyed by the enum can be held to.
+    assert set(THROTTLE_COMMIT_NOTES) == set(ThrottleCommit)
+    assert len(set(THROTTLE_COMMIT_NOTES.values())) == len(ThrottleCommit)
+    # None of them wider than the widest note the screen already draws: these sit in the
+    # Joysticks column, and a note that outgrew the others would be the string that prices
+    # the page. What that costs is asserted where it is measured -- see
+    # test_no_bundled_row_wraps_however_wide_the_display_draws_it.
+    widest_note = max(len(note) for note in ACTION_NOTES.values())
+    assert max(len(note) for note in THROTTLE_COMMIT_NOTES.values()) <= widest_note
+    # And in one place only: written down beside the label as well, the two could disagree.
+    assert THROTTLE_ACTION not in ACTION_NOTES
+
+
+def test_a_note_that_needs_a_profile_is_empty_without_one() -> None:
+    # action_note takes the profile because one note depends on it. Asked without one it
+    # answers for the actions that need none and says nothing rather than guessing a policy.
+    assert action_note("startup") == "hold: w dialog"
+    assert action_note(THROTTLE_ACTION) == ""
+    assert action_note("bell", ControlProfile.load(None), "repeats") == "repeats"
 
 
 def test_triggers_describe_their_hold_behaviour() -> None:

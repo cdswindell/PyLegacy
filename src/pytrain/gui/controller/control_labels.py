@@ -17,6 +17,9 @@ Two rules shape the design:
 * **The profile is the source of truth.** A user may pass -controller_profile to
   make_gui and bind whatever they like, so nothing here assumes the bundled layout.
   Unknown buttons, axes and actions all degrade to something legible rather than raising.
+  That covers the profile's settings as well as its bindings: what a throttle gesture does
+  is chosen by throttle_commit, so the note on that row is derived from the loaded profile
+  rather than written down here -- see THROTTLE_COMMIT_NOTES.
 * **Engine commands name themselves.** Mixins.clean_title already turns
   REAR_COUPLER into "Rear Coupler", so the ~8 engine commands the profile can bind
   need no hand-written English. Only the handful whose enum name reads like a protocol
@@ -39,6 +42,7 @@ from .steam_deck_input import (
     SEQUENCE_CONTROL,
     SEQUENCE_CONTROL_COMMAND,
     ControlProfile,
+    ThrottleCommit,
 )
 
 # Joystick button index -> the glyph printed on the Deck. These are the numbers the
@@ -161,18 +165,43 @@ ACTION_NOTES: dict[str, str] = {
     # other six -- a size down, in the note column. Left in the label it would have been the
     # only full-size parenthesis on the screen, beside six small ones.
     "scope_catalog": "w focus",
-    # The stick works a virtual lever rather than the engine directly: it moves the pane's
-    # Speed slider, and what the slider reads is sent when the thumb pauses on it. Worth a
-    # note because the behavior is not what an axis row otherwise implies -- the reader would
-    # expect the stick to be the throttle, and it is the hand on the throttle instead.
-    #
-    # The slider half of that is left for the slider to say: it visibly moves under the
-    # thumb, so the one thing a reader cannot see is when the engine is told. Said in full
-    # ("sets target; sends on a pause") this became the longest string on the screen and took
-    # the Joysticks column past the width the Deck's display has for it. What is left names
-    # the bundled profile's dwell policy, under which the pause is how a command goes out and
-    # the release is only the last of them.
-    "throttle": "pause to send",
+    # No "throttle" entry: that row's note depends on a profile setting rather than on the
+    # action, so it is derived from the loaded profile. See THROTTLE_COMMIT_NOTES below.
+}
+
+# The action whose note the profile decides, rather than this module.
+THROTTLE_ACTION = "throttle"
+
+# The throttle row's note, by the policy the profile commits on.
+#
+# The stick works a virtual lever rather than the engine directly: it moves the pane's Speed
+# slider, and what the slider reads is what is sent. Worth a note because the behavior is not
+# what an axis row otherwise implies -- the reader would expect the stick to be the throttle,
+# and it is the hand on the throttle instead.
+#
+# The slider half of that is left for the slider to say: it visibly moves under the thumb, so
+# the one thing a reader cannot see is *when* the engine is told -- which is the whole of what
+# these say. And that is the profile's answer, not this module's: throttle_commit selects it,
+# so the note is looked up from the loaded profile instead of written down beside the label.
+# Written down it was a second place for the policy to be recorded, and the wrong one: change
+# steam_deck_default.json and the screen would go on describing the policy it used to ship,
+# while an operator who selected another one would read someone else's.
+#
+# All three are kept short. Said in full ("sets target; sends on a pause") this became the
+# longest string on the screen and took the Joysticks column past the width the Deck's display
+# has for it, so each of these stays inside the note budget the columns are priced at -- see
+# NOTE_SIZE in controls_panel.py.
+THROTTLE_COMMIT_NOTES: dict[ThrottleCommit, str] = {
+    # A command at the first deflection, aimed ahead of where the lever has reached, and
+    # another when the thumb comes off: the engine is under way during the gesture, which is
+    # what "ahead" says -- it is going somewhere the lever has not reached yet.
+    ThrottleCommit.LEAD: "sends ahead",
+    # Nothing at all until the thumb comes off, so what the reader has to know is that the
+    # slider moving is not the engine moving.
+    ThrottleCommit.RELEASE: "lift to send",
+    # A pause reads as "this is the speed I mean". Under the bundled policy that pause is how
+    # a command goes out, and the release is only the last of them.
+    ThrottleCommit.DWELL: "pause to send",
 }
 
 # Headings for the sections that describe one kind of panel: the bindings there apply only
@@ -286,6 +315,23 @@ def action_label(action: str) -> str:
             return label
     # A custom profile can name an action anything; render it rather than blowing up.
     return _sentence_case(action.replace("_", " "))
+
+
+def action_note(action: str, profile: ControlProfile | None = None, default: str = "") -> str:
+    """The note printed beside an action, for the profile it is bound in.
+
+    ACTION_NOTES answers for almost every one of them, because almost every note is true of
+    its action wherever it is bound. The throttle is the exception: when a gesture reaches
+    the engine is chosen by the profile's throttle_commit, so its note is read off the loaded
+    profile rather than written down.
+
+    A profile is optional so a caller with no profile in hand still gets the notes that do
+    not need one, and an unrecognized commit policy falls back the way an unknown action does
+    -- to the default, rather than raising on the help screen.
+    """
+    if action == THROTTLE_ACTION and profile is not None:
+        return THROTTLE_COMMIT_NOTES.get(profile.throttle_commit, default)
+    return ACTION_NOTES.get(action, default)
 
 
 def button_label(index: int) -> str:
@@ -568,7 +614,7 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         entry = ControlEntry(
             axis_label(index),
             action_label(binding.action) + target_suffix(binding.target),
-            ACTION_NOTES.get(binding.action, ""),
+            action_note(binding.action, profile),
         )
         (triggers if binding.trigger else sticks).append(entry)
 
@@ -587,7 +633,7 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         entry = ControlEntry(
             button_label(index),
             action_label(binding.action) + target_suffix(binding.target),
-            ACTION_NOTES.get(binding.action, "repeats" if binding.repeat else ""),
+            action_note(binding.action, profile, "repeats" if binding.repeat else ""),
         )
         (global_buttons if index in GLOBAL_SECTION_BUTTONS else buttons).append(entry)
         if index == TRIGGER_AFTER_BUTTON:
@@ -603,7 +649,7 @@ def controls_summary(profile: ControlProfile) -> tuple[ControlSection, ...]:
         entry = ControlEntry(
             chord_label(chord.buttons),
             action_label(chord.action) + target_suffix(chord.target),
-            ACTION_NOTES.get(chord.action, ""),
+            action_note(chord.action, profile),
         )
         if chord.action in ADMIN_CHORD_ACTIONS:
             # The hold these all share is the section's note, so the rows say only what

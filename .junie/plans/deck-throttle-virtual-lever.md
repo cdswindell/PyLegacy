@@ -432,5 +432,5 @@ The bundled profile commits on a pause, and a hold at three-quarters deflection 
 ### ✓ Step 4: Update / Follow-up
 Can you make the code changes too?
 
-###   Step 5: Update / Follow-up
+### ✓ Step 5: Update / Follow-up
 Modify the controls panel to annotate the joystick throttle documentation based on the throttle_commit mode in steam_deck_default.json (do not hard code it)
