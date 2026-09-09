@@ -139,7 +139,11 @@ DPAD_COMMANDS = {
 # (START_UP_IMMEDIATE / SHUTDOWN_IMMEDIATE) while a hold of at least
 # LONG_PRESS_SECONDS emits the *_DELAYED action (START_UP_DELAYED /
 # SHUTDOWN_DELAYED, each falling back to its immediate variant for TMCC engines
-# that lack it). The command is emitted once, on release.
+# that lack it). The command is emitted once: the delayed one the moment the
+# hold passes LONG_PRESS_SECONDS, with the control still down, so the operator
+# sees the dialog come up as they hold rather than after letting go; the
+# immediate one on the release of anything shorter, that release being the only
+# thing that tells a short press apart from a hold still in progress.
 STARTUP_IMMEDIATE = "startup_immediate"
 STARTUP_DELAYED = "startup_delayed"
 SHUTDOWN_IMMEDIATE = "shutdown_immediate"
@@ -856,6 +860,10 @@ class SteamDeckInputProvider:
         # trigger was squeezed so the release can tell a short press from a long
         # one.
         self._trigger_long_press_pressed_at: dict[int, float] = {}
+        # The trigger axes whose hold has already passed LONG_PRESS_SECONDS and
+        # so have had their delayed command sent while still squeezed. Their
+        # release adds nothing.
+        self._trigger_long_press_fired: set[int] = set()
         self._held_buttons: set[int] = set()
         # Indices already reported as unbound, so the discovery log names each button
         # once rather than on every press. This runs inside the Tk-driven poll, which
@@ -868,6 +876,9 @@ class SteamDeckInputProvider:
             index for index, binding in profile.buttons.items() if binding.action in LONG_PRESS_ACTIONS
         }
         self._long_press_pressed_at: dict[int, float] = {}
+        # The same for buttons: those already reported as a hold, whose release
+        # is therefore a no-op.
+        self._long_press_fired: set[int] = set()
         self._long_press_chorded: set[int] = set()
         # Raw hidraw trackpad reader state (Steam Deck built-in pads). On the
         # Deck SDL never delivers the built-in trackpads as controller touchpad
@@ -1077,11 +1088,13 @@ class SteamDeckInputProvider:
         self._active_axes.clear()
         self._trigger_pressed.clear()
         self._trigger_long_press_pressed_at.clear()
+        self._trigger_long_press_fired.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0
         self._hat_x = 0
         self._long_press_pressed_at.clear()
+        self._long_press_fired.clear()
         self._long_press_chorded.clear()
         self._started = False
 
@@ -1144,6 +1157,10 @@ class SteamDeckInputProvider:
                 # A finger touched or moved on a trackpad; the horn fraction
                 # tracks its absolute vertical position (top ~ off, bottom ~ full).
                 actions.extend(self._touch_moved(event.touch_id, event.finger, float(event.y)))
+        # Last, because nothing in the event stream reports the passing of time: a
+        # startup/shutdown held past LONG_PRESS_SECONDS is heard here, on the poll that
+        # crosses the threshold, rather than waiting for a release that may be seconds away.
+        actions.extend(self._held_long_press_actions())
         return actions
 
     def capability_warnings(self, *, axis_count: int, button_count: int) -> str:
@@ -1208,16 +1225,24 @@ class SteamDeckInputProvider:
             self._trigger_pressed.add(axis)
             return [DeckAction(binding.action, binding.target, 1.0, "pressed")]
         self._trigger_pressed.discard(axis)
+        # A trigger whose panel took a switch or a route while it was squeezed was timed as
+        # a long press on the way down and comes back here on the way up. Drop that timing
+        # with the release rather than leaving a startup/shutdown waiting to fire at a panel
+        # that has since acted on the squeeze.
+        self._trigger_long_press_pressed_at.pop(axis, None)
+        self._trigger_long_press_fired.discard(axis)
         return []
 
     def _trigger_long_press_actions(self, axis: int, binding: AxisBinding, value: float) -> list[DeckAction]:
         # A startup/shutdown action bound to an analog trigger makes the trigger
         # behave like the equivalent button: squeezing it past the dead zone is
         # a press and letting it return to rest is a release. As with the
-        # button, the command is emitted once on release and distinguishes a
-        # short press (*_IMMEDIATE) from a hold of at least LONG_PRESS_SECONDS
-        # (*_DELAYED). _normalize_trigger applies the trigger dead zone and
-        # hysteresis, so any non-zero fraction means the trigger is engaged.
+        # button, the command is emitted once and distinguishes a short press
+        # (*_IMMEDIATE, on the release) from a hold of at least
+        # LONG_PRESS_SECONDS (*_DELAYED, sent by _held_long_press_actions as
+        # soon as the hold reaches it, which leaves this release with nothing to
+        # add). _normalize_trigger applies the trigger dead zone and hysteresis,
+        # so any non-zero fraction means the trigger is engaged.
         fraction = self._normalize_trigger(axis, value)
         immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
         if fraction > 0.0:
@@ -1225,25 +1250,73 @@ class SteamDeckInputProvider:
                 return []
             self._trigger_pressed.add(axis)
             self._trigger_long_press_pressed_at[axis] = self._clock()
+            self._trigger_long_press_fired.discard(axis)
             return []
         if axis not in self._trigger_pressed:
             return []
         self._trigger_pressed.discard(axis)
         pressed_at = self._trigger_long_press_pressed_at.pop(axis, None)
+        if axis in self._trigger_long_press_fired:
+            self._trigger_long_press_fired.discard(axis)
+            return []
         if pressed_at is None:
             return []
+        # The threshold is still tested here as well as in the poll sweep: a poll that ran
+        # late enough to see the squeeze and the release together never had a chance to
+        # report the hold on its own, and a hold is what it was.
         held = self._clock() - pressed_at
         name = delayed if held >= LONG_PRESS_SECONDS else immediate
         return [DeckAction(name, binding.target, 1.0, "pressed")]
+
+    def _held_long_press_actions(self) -> list[DeckAction]:
+        """The *_DELAYED commands for controls that have just been held long enough.
+
+        Called from poll() rather than from the release so the engine hears the delayed
+        startup or shutdown the moment the hold passes LONG_PRESS_SECONDS: the operator
+        gets the dialog while still holding the trigger, and letting go adds nothing. A
+        press let go before then still reports its *_IMMEDIATE command on the release,
+        which remains the only way a short press can be told apart from a hold.
+        """
+        if not self._long_press_pressed_at and not self._trigger_long_press_pressed_at:
+            # Nothing is being held, which is the usual case: leave the clock unread rather
+            # than time a poll that has nothing to time.
+            return []
+        now = self._clock()
+        actions: list[DeckAction] = []
+        for button, pressed_at in self._long_press_pressed_at.items():
+            # A button that took part in a chord while held has already given up its
+            # startup/shutdown to that chord, as it would have on the release.
+            if button in self._long_press_fired or button in self._long_press_chorded:
+                continue
+            if now - pressed_at < LONG_PRESS_SECONDS:
+                continue
+            binding = self.profile.buttons.get(button)
+            if binding is None or binding.action not in LONG_PRESS_ACTIONS:
+                continue
+            self._long_press_fired.add(button)
+            _immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
+            actions.append(DeckAction(delayed, binding.target, 1.0, "pressed", button))
+        for axis, pressed_at in self._trigger_long_press_pressed_at.items():
+            if axis in self._trigger_long_press_fired:
+                continue
+            if now - pressed_at < LONG_PRESS_SECONDS:
+                continue
+            binding = self.profile.axes.get(axis)
+            if binding is None or binding.action not in LONG_PRESS_ACTIONS:
+                continue
+            self._trigger_long_press_fired.add(axis)
+            _immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
+            actions.append(DeckAction(delayed, binding.target, 1.0, "pressed"))
+        return actions
 
     def _target_fires_on_press(self, binding: AxisBinding) -> bool:
         """Whether this binding's panel acts the moment the trigger is squeezed.
 
         Asked of the router rather than worked out here: the provider has no view of the
         panels, and all it needs to know is that this squeeze acts now. That matters because
-        the two behave differently in time -- startup/shutdown reports on release so it can
-        tell a short press from a held one, while a switch throw or a route fire should
-        happen the moment the trigger moves.
+        the two behave differently in time -- startup/shutdown waits to tell a short press
+        from a held one, while a switch throw or a route fire should happen the moment the
+        trigger moves.
         """
         return bool(self._fires_on_press is not None and self._fires_on_press(binding.target))
 
@@ -1349,20 +1422,26 @@ class SteamDeckInputProvider:
         return actions
 
     def _long_press_button_actions(self, button: int, binding: ButtonBinding, pressed: bool) -> list[DeckAction]:
-        # Distinguish a short press (*_IMMEDIATE) from a long press (*_DELAYED);
-        # the command is emitted once, on release. If the button also completes
-        # a chord while held (e.g. the L1+R1 halt chord), the startup/shutdown
-        # command is suppressed so an emergency stop never also starts or shuts
-        # down the engine.
+        # Distinguish a short press (*_IMMEDIATE, emitted on the release) from a
+        # long press (*_DELAYED, emitted by _held_long_press_actions the moment
+        # the hold reaches LONG_PRESS_SECONDS, leaving this release nothing to
+        # add). If the button also completes a chord while held (e.g. the L1+R1
+        # halt chord), the startup/shutdown command is suppressed so an
+        # emergency stop never also starts or shuts down the engine.
         immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
         if pressed:
             self._long_press_pressed_at[button] = self._clock()
+            self._long_press_fired.discard(button)
             return []
         pressed_at = self._long_press_pressed_at.pop(button, None)
         chorded = button in self._long_press_chorded
         self._long_press_chorded.discard(button)
-        if chorded or pressed_at is None:
+        fired = button in self._long_press_fired
+        self._long_press_fired.discard(button)
+        if fired or chorded or pressed_at is None:
             return []
+        # As on the trigger, the threshold is tested here too: a poll that saw the press and
+        # the release together never had a poll of its own in which to report the hold.
         held = self._clock() - pressed_at
         name = delayed if held >= LONG_PRESS_SECONDS else immediate
         return [DeckAction(name, binding.target, 1.0, "pressed", button)]
@@ -1485,11 +1564,13 @@ class SteamDeckInputProvider:
         self._active_axes.clear()
         self._trigger_pressed.clear()
         self._trigger_long_press_pressed_at.clear()
+        self._trigger_long_press_fired.clear()
         self._held_buttons.clear()
         self._fired_chords.clear()
         self._hat_y = 0
         self._hat_x = 0
         self._long_press_pressed_at.clear()
+        self._long_press_fired.clear()
         self._long_press_chorded.clear()
 
 

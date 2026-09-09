@@ -1499,12 +1499,68 @@ def test_provider_long_press_emits_startup_delayed() -> None:
     assert [(a.name, a.target, a.phase) for a in actions] == [(STARTUP_DELAYED, "focused", "pressed")]
 
 
-def test_provider_startup_button_press_alone_emits_nothing() -> None:
+def test_provider_startup_button_held_briefly_emits_nothing() -> None:
+    # Down, but not yet for STARTUP_LONG_PRESS_SECONDS: the immediate command waits on the
+    # release and the delayed one on the hold reaching the threshold, so this poll says
+    # nothing either way.
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
     pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=5)])
-    provider = SteamDeckInputProvider(_startup_profile(), pygame_module=pygame, clock=_clock(0.0))
+    provider = SteamDeckInputProvider(
+        _startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
 
     assert provider.poll() == []
+
+
+def test_provider_startup_button_hold_emits_startup_delayed_while_still_held() -> None:
+    # The delayed command goes out on the poll that crosses STARTUP_LONG_PRESS_SECONDS
+    # rather than on the release, so the dialog comes up while the button is still down and
+    # letting go adds nothing.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=2, button=5)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(
+            0.0,
+            STARTUP_LONG_PRESS_SECONDS - 0.5,
+            STARTUP_LONG_PRESS_SECONDS + 0.1,
+            STARTUP_LONG_PRESS_SECONDS + 0.5,
+        ),
+    )
+
+    assert provider.poll() == [], "the press itself says nothing"
+    events[:] = []
+    held = provider.poll()
+    still_held = provider.poll()
+    events[:] = [SimpleNamespace(type=3, button=5)]
+    released = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in held] == [(STARTUP_DELAYED, "focused", "pressed")]
+    assert still_held == [], "one command per hold, however long it goes on"
+    assert released == [], "the release adds nothing; the hold already reported"
+
+
+def test_provider_holding_a_startup_button_into_a_chord_still_suppresses_it() -> None:
+    # The chord claims the button as it does when the two arrive together: a halt never also
+    # starts the engine, however long the button was down before the chord completed.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=2, button=5)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5, STARTUP_LONG_PRESS_SECONDS + 0.5),
+    )
+
+    assert provider.poll() == []
+    events[:] = [SimpleNamespace(type=2, button=4)]
+    chorded = provider.poll()
+
+    assert [(a.name, a.phase) for a in chorded] == [("halt", "pressed")], "the chord fired and nothing else"
 
 
 def test_provider_suppresses_startup_when_halt_chord_fires() -> None:
@@ -1608,12 +1664,36 @@ def test_provider_long_press_emits_shutdown_delayed() -> None:
     assert [(a.name, a.target, a.phase) for a in actions] == [(SHUTDOWN_DELAYED, "focused", "pressed")]
 
 
-def test_provider_shutdown_button_press_alone_emits_nothing() -> None:
+def test_provider_shutdown_button_held_briefly_emits_nothing() -> None:
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
     pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=2, button=4)])
-    provider = SteamDeckInputProvider(_shutdown_profile(), pygame_module=pygame, clock=_clock(0.0))
+    provider = SteamDeckInputProvider(
+        _shutdown_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
 
     assert provider.poll() == []
+
+
+def test_provider_shutdown_button_hold_emits_shutdown_delayed_while_still_held() -> None:
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=2, button=4)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _shutdown_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5, STARTUP_LONG_PRESS_SECONDS + 0.1),
+    )
+
+    assert provider.poll() == []
+    events[:] = []
+    held = provider.poll()
+    events[:] = [SimpleNamespace(type=3, button=4)]
+    released = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in held] == [(SHUTDOWN_DELAYED, "focused", "pressed")]
+    assert released == [], "the release adds nothing; the hold already reported"
 
 
 def test_provider_suppresses_shutdown_when_halt_chord_fires() -> None:
@@ -1799,14 +1879,48 @@ def test_provider_trigger_long_press_emits_startup_delayed() -> None:
     assert [(a.name, a.target, a.phase) for a in actions] == [(STARTUP_DELAYED, "focused", "pressed")]
 
 
-def test_provider_trigger_long_press_squeeze_alone_emits_nothing() -> None:
-    # Squeezing the trigger without releasing it emits nothing; the command is
-    # only decided on release (mirroring the startup/shutdown buttons).
+def test_provider_trigger_squeezed_briefly_emits_nothing() -> None:
+    # Squeezing the trigger and holding it a moment emits nothing: the immediate command is
+    # decided on the release and the delayed one once the hold reaches the threshold
+    # (mirroring the startup/shutdown buttons).
     pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
     pygame.event = SimpleNamespace(get=lambda: [SimpleNamespace(type=1, axis=2, value=1.0)])
-    provider = SteamDeckInputProvider(_trigger_long_press_profile(), pygame_module=pygame, clock=_clock(0.0))
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
 
     assert provider.poll() == []
+
+
+def test_provider_trigger_hold_emits_shutdown_delayed_while_still_squeezed() -> None:
+    # As with the button: the trigger reports the hold on the poll that crosses
+    # STARTUP_LONG_PRESS_SECONDS, so the dialog is up while the trigger is still squeezed.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=1, axis=2, value=1.0)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(
+            0.0,
+            STARTUP_LONG_PRESS_SECONDS - 0.5,
+            STARTUP_LONG_PRESS_SECONDS + 0.1,
+            STARTUP_LONG_PRESS_SECONDS + 0.5,
+        ),
+    )
+
+    assert provider.poll() == [], "the squeeze itself says nothing"
+    events[:] = []
+    held = provider.poll()
+    still_held = provider.poll()
+    events[:] = [SimpleNamespace(type=1, axis=2, value=-1.0)]
+    released = provider.poll()
+
+    assert [(a.name, a.target, a.phase) for a in held] == [(SHUTDOWN_DELAYED, "focused", "pressed")]
+    assert still_held == [], "one command per hold, however long the trigger stays down"
+    assert released == [], "the release adds nothing; the hold already reported"
 
 
 def test_provider_trigger_long_press_ignores_resting_position() -> None:
