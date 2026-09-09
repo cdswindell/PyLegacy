@@ -39,6 +39,7 @@ __all__ = [
     "LEGACY_SPEED_MAX",
     "MAX_RPM",
     "MAX_RPM_BIAS",
+    "ORDERED_FAMILIES",
     "TMCC1_ECHO_TOLERANCE",
     "TMCC1_SPEED_MAX",
     "UNSET_MAX_SPEED",
@@ -90,15 +91,15 @@ DEFAULT_RAMP_LINGER: float = 0.250
 # the effort value an engine that has never reported one is assumed to be at
 DEFAULT_LABOR: int = 12
 
-# how long a step the ramp issued stays claimable. The Base 3 echoes a speed command
-# almost immediately, but an LCS Ser2 re-echoes the same command a few seconds later,
-# and out of order (see CommandDispatcher.run), so the budget is generous
+# how long a step the ramp issued stays claimable. A command that reached the Base 3 is
+# always echoed back, but the round trip can take a while and a client sees it only
+# after the server has broadcast it, so the budget is generous
 ECHO_TTL: float = 5.000
 
-# how many already claimed values are remembered, so a late re-echo of a step that has
-# already been matched - or one that a later echo overtook - is still recognized as the
-# ramp's own reflection. It holds every value a ramp is likely to have in flight at once,
-# so a burst of retirements cannot evict a claim that is still needed
+# how many already matched values are remembered. Only the most recent one is ever
+# accepted again - a command sent two or three times, as the Lionel ecosystem does, is
+# not out of sequence - so the rest of the ring is diagnostic: it is what a log line
+# needs to explain why an echo was or was not recognized
 CLAIMED_HISTORY: int = 64
 
 # a TMCC1 speed round trips through encode_tmcc_speed / decode_tmcc_speed, which can
@@ -149,6 +150,14 @@ ECHO_FAMILIES: dict[CommandDefEnum, EchoFamily] = {
 # tolerance, and a deviation in either is another controller taking the engine
 SPEED_FAMILIES: frozenset[EchoFamily] = frozenset({EchoFamily.SPEED, EchoFamily.TARGET})
 
+# the families whose commands travel over the wire and are echoed back in the order they
+# were sent, so a value arriving out of that order came from somewhere else. TARGET is
+# deliberately not one of them: a TARGET_SPEED is declared noop, never reaches the rails,
+# and is handed straight back by the dispatcher, so its reflection has no ordering
+# relationship to anything - any target this ramp announced inside the lag budget is its
+# own, whichever order they come back in
+ORDERED_FAMILIES: frozenset[EchoFamily] = frozenset({EchoFamily.SPEED, EchoFamily.RPM, EchoFamily.EFFORT})
+
 
 def echo_family(command: CommandDefEnum) -> EchoFamily | None:
     """The family a command belongs to, or None if a ramp never arbitrates it."""
@@ -166,15 +175,23 @@ class PendingEcho:
 class EchoLedger:
     """
     An ordered record of the commands a ramp has issued, so that the ramp can tell its
-    own reflection from a genuine deviation.
+    own reflection from another controller taking the engine.
 
     Both a client, through the server broadcast, and a server, through base3_send and
-    the dispatcher, see their own commands come back - seconds late, duplicated, and
-    possibly reordered between the Base 3 and Ser2 paths. An unordered set would accept
-    a foreign value that happened to collide with a pending one; a "last sent only"
-    check would abort on the very first late echo. An ordered queue per family, scanned
-    from the head, plus a short history of what has already been claimed, tolerates all
-    three without opening that door.
+    the dispatcher, see their own commands come back. A command that reaches the Base 3
+    is *always* echoed, and always in the order it was sent, so for the railed families
+    the queue is strict: the only value that can be this ramp's own is the next echo it
+    is waiting for, and anything else arrived out of sequence, which means it came from
+    another controller.
+
+    The one documented exception - an LCS Ser2 re-echoing the Base 3's commands seconds
+    late and out of order (see CommandDispatcher.run) - cannot reach a ramp: those
+    commands are all declared `filtered`, and ComponentStateStore drops filtered
+    commands outright on the one configuration where the replay happens, a layout
+    listening to both a Base 3 and a Ser2.
+
+    TARGET_SPEED never travels that path at all, so its queue is matched by membership
+    rather than by order; see ORDERED_FAMILIES.
     """
 
     def __init__(self, ttl: float = ECHO_TTL, history: int = CLAIMED_HISTORY) -> None:
@@ -198,34 +215,38 @@ class EchoLedger:
         """
         Try to account for an inbound value as one of this ramp's own commands.
 
-        Scanning from the head is what makes a skipped echo harmless: the steps ahead of
-        the match were superseded, filtered out by the Base 3, or suppressed as
-        duplicates by EngineState. They are *retired into the claimed history* rather
-        than forgotten, because a step ahead of the match may simply be late rather than
-        lost - the echo of a step still traveling to the Base 3 can be overtaken by one
-        that took a shorter path - and a value this ramp issued stays its own however
-        late it lands. Retired entries keep their original timestamp, so the lag budget
-        still expires them.
+        For a family that travels over the wire, only the head of the queue can be ours.
+        Echoes come back in the order they were sent, so a value that is not the one we
+        are waiting for arrived out of sequence, and a value the ramp never issued is not
+        in the queue at all: both mean another controller. Matching anywhere in the queue
+        is what let a foreign speed be taken for a step this ramp had swept through
+        seconds earlier.
 
-        A value already claimed is accepted without consuming anything, which is what
-        makes the documented 10, 20, 30, 10, 40, 30, 40 Ser2 replay a non-event.
+        The single concession there is an exact repeat of the value just matched. The
+        Lionel ecosystem sends a command two or three times, and a repeat is not out of
+        sequence - nothing newer has been seen since - so it is accepted without
+        consuming the entry behind it.
+
+        A family that is never railed has no order to be out of, so any value it issued
+        inside the lag budget is its own.
         """
         if data is None:
             return False
         with self._lock:
             self.purge()
             queue = self._pending[family]
+            if family in ORDERED_FAMILIES:
+                if queue and abs(queue[0].data - data) <= tolerance:
+                    self._claimed[family].append(queue.popleft())
+                    return True
+                claimed = self._claimed[family]
+                return bool(claimed) and abs(claimed[-1].data - data) <= tolerance
             for index, entry in enumerate(queue):
                 if abs(entry.data - data) <= tolerance:
-                    for _ in range(index):
-                        self._claimed[family].append(queue.popleft())
-                    queue.popleft()
-                    self._claimed[family].append(PendingEcho(data, time()))
+                    del queue[index]
+                    self._claimed[family].append(entry)
                     return True
-            for entry in self._claimed[family]:
-                if abs(entry.data - data) <= tolerance:
-                    return True
-            return False
+            return any(abs(entry.data - data) <= tolerance for entry in self._claimed[family])
 
     def purge(self, ttl: float = None) -> None:
         """Drop entries older than the lag budget, claimed or not."""
@@ -236,9 +257,9 @@ class EchoLedger:
                 queue = self._pending[family]
                 while queue and queue[0].sent_at <= cutoff:
                     queue.popleft()
-                # the claimed ring is not in timestamp order: a retired entry carries the
-                # older timestamp of the step it belonged to, so it is filtered rather
-                # than popped from the head, which a fresher entry in front would block
+                # entries carry the time the command was sent rather than the time it was
+                # matched, so the ring is filtered rather than popped from the head: age
+                # is a property of the command, not of when its echo happened to land
                 claimed = self._claimed[family]
                 if claimed:
                     kept = [entry for entry in claimed if entry.sent_at > cutoff]
@@ -248,13 +269,13 @@ class EchoLedger:
 
     @property
     def pending(self) -> dict[EchoFamily, tuple[int, ...]]:
-        """The values still awaiting an echo, for assertions and diagnostics."""
+        """The values still awaiting an echo, in the order they were sent."""
         with self._lock:
             return {family: tuple(entry.data for entry in queue) for family, queue in self._pending.items()}
 
     @property
     def claimed(self) -> dict[EchoFamily, tuple[int, ...]]:
-        """The values already matched, for assertions and diagnostics."""
+        """The values already matched, oldest first; the last one is still claimable."""
         with self._lock:
             return {family: tuple(entry.data for entry in queue) for family, queue in self._claimed.items()}
 
@@ -508,10 +529,15 @@ class SpeedRamp(Thread):
         self._last_rpm: int | None = state.rpm if state.is_rpm is True else None
         self._decelerating = False
 
-        # the ordered record of what this ramp has issued, so its own lagged and
-        # reordered echoes cannot be mistaken for another controller's throttle command
+        # the ordered record of what this ramp has issued, so its own lagged echoes
+        # cannot be mistaken for another controller's throttle command
         self._ledger = EchoLedger()
         self._ledger.record(EchoFamily.TARGET, self._requested_target)
+
+        # whether the Base 3 has ever reported this ramp's own target back to us; until
+        # it has, a record still carrying the engine's previous target is stale news
+        # rather than evidence of another controller
+        self._target_confirmed = False
 
     @property
     def state(self) -> EngineState:
@@ -580,6 +606,11 @@ class SpeedRamp(Thread):
         return self._ledger
 
     @property
+    def is_target_confirmed(self) -> bool:
+        """Whether the Base 3 has yet reported this ramp's own target speed back to us."""
+        return self._target_confirmed
+
+    @property
     def speed_echo_tolerance(self) -> int:
         return 0 if self.is_legacy is True else TMCC1_ECHO_TOLERANCE
 
@@ -646,15 +677,20 @@ class SpeedRamp(Thread):
         data = command.data
         is_speed = family in SPEED_FAMILIES
         tolerance = self.speed_echo_tolerance if is_speed else 0
+        # the ledger goes first, so an echo consumes the entry it belongs to and the
+        # queue drains as the ramp runs. Asking the commanded speed first left every
+        # step pending for the whole lag budget, and any foreign speed inside that
+        # trailing band was then taken for one of them
+        if self._ledger.claim(family, data, tolerance=tolerance) is True:
+            return EchoOutcome.MINE
         if is_speed and data is not None:
             with self._lock:
                 commanded = self._commanded_speed
-            # the value the ramp is sitting at is always its own, even once its ledger
-            # entry has been claimed or has aged out
+            # the one genuinely ambiguous case: another controller asking for exactly the
+            # speed this ramp is sitting at is indistinguishable from a repeat of our own
+            # step, and harmless either way - the engine is already where it wants it
             if commanded is not None and abs(commanded - data) <= tolerance:
                 return EchoOutcome.MINE
-        if self._ledger.claim(family, data, tolerance=tolerance) is True:
-            return EchoOutcome.MINE
         return EchoOutcome.FOREIGN if is_speed else EchoOutcome.ABSORB
 
     def on_state_command(self, command: CommandReq) -> bool:
@@ -668,12 +704,14 @@ class SpeedRamp(Thread):
             return True
         family = echo_family(command.command)
         if outcome is EchoOutcome.FOREIGN:
-            # both queues are reported: a value unclaimed in one of them may well be
-            # sitting in the other, which is exactly the confusion worth seeing in a log
+            # everything needed to tell an out of sequence echo from a value this ramp
+            # never issued: what it is waiting for, what it last matched, and where it is
             log.info(
-                f"Speed ramp {self._scope.title} {self._address} aborting: unclaimed speed "
-                f"{command.data}, pending steps {self._ledger.pending[EchoFamily.SPEED]}, "
-                f"pending targets {self._ledger.pending[EchoFamily.TARGET]}"
+                f"Speed ramp {self._scope.title} {self._address} aborting: out of sequence speed "
+                f"{command.data}, commanded {self.commanded_speed}, "
+                f"pending steps {self._ledger.pending[EchoFamily.SPEED]}, "
+                f"pending targets {self._ledger.pending[EchoFamily.TARGET]}, "
+                f"last matched {self._ledger.claimed[family][-1:]}"
             )
             return False
         if family is EchoFamily.RPM:
@@ -681,6 +719,42 @@ class SpeedRamp(Thread):
         else:
             self._absorb_labor(command.data)
         return True
+
+    def owns_target_speed(self, target_speed: int | None) -> bool:
+        """
+        Whether a target speed reported back through engine state is one this ramp asked
+        for: the target it is chasing, that target clamped to the engine's live ceiling,
+        or any target it announced inside the echo lag budget - a Base 3 record queried
+        before a retarget went out can still be in flight when the new target lands.
+        """
+        if target_speed is None:
+            return False
+        with self._lock:
+            requested = self._requested_target
+            if target_speed == requested or target_speed == effective_target(requested, self._state):
+                return True
+        announced = self._ledger.pending[EchoFamily.TARGET] + self._ledger.claimed[EchoFamily.TARGET]
+        return target_speed in announced
+
+    def on_reported_target_speed(self, target_speed: int | None) -> bool:
+        """
+        Arbitrate the target speed a Base 3 memory record hands back. Returns True when
+        the ramp must *not* be cancelled.
+
+        A second PyTrain instance driving this engine directly leaves no TMCC command on
+        our wire: it writes the base's own target byte, and the change reaches us only in
+        the next record. That record is the sole evidence of the takeover, so it has to
+        count as one.
+
+        Nothing is judged until the base has reported this ramp's own target at least
+        once. A record queried before the ramp's announcement reached the base still
+        carries the engine's previous target, and aborting on one of those would kill a
+        ramp within a refresh cycle of starting it.
+        """
+        if self.owns_target_speed(target_speed) is True:
+            self._target_confirmed = True
+            return True
+        return self._target_confirmed is False
 
     def _absorb_rpm(self, rpm: int | None) -> None:
         """

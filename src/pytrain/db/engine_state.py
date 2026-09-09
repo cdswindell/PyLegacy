@@ -400,6 +400,36 @@ class EngineState(ComponentState):
             return command.command not in TARGET_SPEED_SET
         return ramp.on_state_command(command)
 
+    def notify_ramp_target(self) -> None:
+        """
+        Offer the target speed a Base 3 memory record just installed to the live ramp,
+        and stop the ramp if that target is not one it asked for.
+
+        Another PyTrain instance commanding this engine directly leaves no TMCC command
+        on our wire: it writes the base's own target byte, and the change reaches us only
+        when the next record carries it back. That record is the only evidence of the
+        takeover we get, so it has to count as one - otherwise this ramp keeps driving
+        the engine toward a target nobody is asking for any more.
+
+        The abort goes through `abort_ramp` rather than `cancel_ramps`: the record just
+        installed carries the engine's real RPM and effort, straight from the base, and
+        there is nothing to be gained by overwriting them with neutral values.
+        """
+        ramp = self._ramp
+        if ramp is None or ramp.is_active is False or self.comp_data is None:
+            return
+        # 255 is Lionel's "never set"; there is nothing to compare against yet
+        if self.comp_data.target_speed is None or self.comp_data.target_speed >= 255:
+            return
+        target_speed = self.target_speed
+        if ramp.on_reported_target_speed(target_speed) is True:
+            return
+        log.info(
+            f"Speed ramp {self.scope.title} {self.tmcc_id} aborting: Base 3 reports target speed "
+            f"{target_speed}, ramp is chasing {ramp.requested_speed}"
+        )
+        self.abort_ramp(f"foreign target speed {target_speed}", target_speed=target_speed)
+
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
             if self.is_legacy:
@@ -429,6 +459,10 @@ class EngineState(ComponentState):
                 self._is_d4 = True
             if self.speed and self.target_speed == 0 and not self.is_ramping:
                 self.comp_data.target_speed = encode_tmcc_speed(self.speed, self.comp_data.is_legacy)
+            # the record may be carrying another controller's target speed back to us,
+            # which is the only sighting we get of an instance that talks to the base
+            # directly rather than through our command stream
+            self.notify_ramp_target()
 
         elif isinstance(command, CommandReq):
             if command.is_tmcc2 is True or self.address > 99:

@@ -527,6 +527,66 @@ class TestEngineStateRampArbitration:
         assert state.ramp is ramp
         assert state.is_ramping is True
 
+    #
+    # a record's target speed is the only sighting of an instance that talks to the
+    # Base 3 directly rather than through our command stream
+    #
+    def test_a_record_carrying_the_ramps_own_target_never_cancels(self):
+        state, ramp = self._ramping_engine()
+
+        self._update(state, _CompDataRecord(state.comp_data))
+
+        assert ramp.aborts == []
+        assert ramp.is_target_confirmed is True
+
+    def test_a_record_that_predates_the_announcement_never_cancels(self):
+        # the base answers a query with its memory as of that moment, so a record queried
+        # just before the ramp's TARGET_SPEED reached it still carries the engine's
+        # previous target. Aborting on one of those would kill a ramp at birth
+        state, ramp = self._ramping_engine()
+        state.comp_data.target_speed = encode_tmcc_speed(0, True)
+
+        self._update(state, _CompDataRecord(state.comp_data))
+
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+        assert ramp.is_target_confirmed is False
+
+    def test_a_record_carrying_a_foreign_target_cancels_the_ramp(self):
+        # the reported takeover: another PyTrain instance commanded this engine directly,
+        # writing the base's own target byte. Nothing reached our wire, so this record is
+        # the only evidence of it, and without this check the ramp drove on to its target
+        state, ramp = self._ramping_engine()
+        self._update(state, _CompDataRecord(state.comp_data))
+        state.comp_data.target_speed = encode_tmcc_speed(30, True)
+
+        self._update(state, _CompDataRecord(state.comp_data))
+
+        assert ramp.aborts == ["foreign target speed 30"]
+        assert state.ramp is None
+        assert state.is_ramping is False
+        assert state.target_speed == 30
+
+    def test_a_record_with_no_target_never_cancels(self):
+        state, ramp = self._ramping_engine()
+        self._update(state, _CompDataRecord(state.comp_data))
+        state.comp_data.target_speed = 255  # Lionel's "never set"
+
+        self._update(state, _CompDataRecord(state.comp_data))
+
+        assert ramp.aborts == []
+        assert state.ramp is ramp
+
+    def test_a_record_never_cancels_without_a_ramp_of_our_own(self):
+        state, ramp = self._ramping_engine()
+        state._ramp = None
+        state.comp_data.target_speed = encode_tmcc_speed(30, True)
+
+        self._update(state, _CompDataRecord(state.comp_data))
+
+        assert ramp.aborts == []
+        assert state.is_ramping is True
+
     @pytest.mark.parametrize(
         "command, data",
         [
