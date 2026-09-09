@@ -166,6 +166,25 @@ LONG_PRESS_ACTIONS = {
 # startup / shutdown, because a trigger acting on a panel with no engine in it never waits to
 # tell a short press from a held one and so arrives under either name.
 LONG_PRESS_RUNTIME_ACTIONS = frozenset(name for pair in LONG_PRESS_ACTIONS.values() for name in pair)
+# Every long-press diagnostic in this module starts with this, so a -debug session's log
+# can be reduced to the timing alone: grep "deckpress" pytrain.log. Two things are traced,
+# and neither can be recovered after the fact. First the hold: what it measured, against
+# what threshold, and how the polls fell while it ran -- a hold is timed from the poll that
+# drains the press rather than from the event itself, so a Tk loop that stalls makes the
+# measurement start late and run short, and the control has to be held longer than
+# LONG_PRESS_SECONDS to cross it. Second an analog trigger's travel: the raw axis value and
+# the fraction it normalizes to, next to the dead zone and the release threshold they are
+# tested against, because a squeeze that is never seen to let go and a resting trigger that
+# reads as squeezed both look from the outside like a hold of the wrong length.
+DIAG = "deckpress"
+# A gap between polls at least this wide earns a line of its own while a control is held: a
+# tenth of the threshold is enough of the measurement to matter, and well clear of the 20 ms
+# the GUI polls at.
+DIAG_POLL_STALL_SECONDS = LONG_PRESS_SECONDS / 10.0
+# A squeezed trigger's travel is traced no more often than this. Both edges are always
+# traced; in between, the Deck reports axis motion far faster than the log needs, and a line
+# every quarter second is enough to follow the fraction back down toward rest.
+DIAG_TRIGGER_INTERVAL_SECONDS = 0.25
 # Actions no context may rebind or swallow. HALT has to work whatever is on screen, and the
 # focus and help actions are how an operator gets out of a pane that is misbehaving -- the
 # same reasoning that makes _validate_action_target refuse a HALT that is not global.
@@ -880,6 +899,18 @@ class SteamDeckInputProvider:
         # is therefore a no-op.
         self._long_press_fired: set[int] = set()
         self._long_press_chorded: set[int] = set()
+        # Long-press diagnostics, gathered only under -debug (see DIAG): when the last poll
+        # ran, the gap since the one before it, and -- for as long as a control is held --
+        # how many polls have run and the widest gap between two of them. Along with when
+        # each trigger axis was last traced, so a squeeze reports its travel at a readable
+        # cadence rather than once per axis event. None of it is cleared with the press state
+        # on a stop or a disconnect: every number is recomputed from the next poll, and a
+        # trace cadence means nothing beyond the axis it belongs to.
+        self._diag_poll_at: float | None = None
+        self._diag_poll_gap = 0.0
+        self._diag_poll_worst_gap = 0.0
+        self._diag_polls = 0
+        self._diag_trigger_at: dict[int, float] = {}
         # Raw hidraw trackpad reader state (Steam Deck built-in pads). On the
         # Deck SDL never delivers the built-in trackpads as controller touchpad
         # events, so their reports are read directly from /dev/hidraw* on a
@@ -1101,6 +1132,9 @@ class SteamDeckInputProvider:
     def poll(self) -> list[DeckAction]:
         if self._pygame is None:
             return []
+        # Before anything is drained, so a press this poll is about to see can report how
+        # late the poll that will time it ran. Inert unless -debug is on.
+        self._diag_poll()
         # The Steam Deck trackpads arrive as SDL game-controller touchpad
         # events. Resolve their (optional) type constants once so the decode
         # branches below never touch a missing attribute on an older SDL/pygame
@@ -1229,8 +1263,11 @@ class SteamDeckInputProvider:
         # a long press on the way down and comes back here on the way up. Drop that timing
         # with the release rather than leaving a startup/shutdown waiting to fire at a panel
         # that has since acted on the squeeze.
-        self._trigger_long_press_pressed_at.pop(axis, None)
+        pressed_at = self._trigger_long_press_pressed_at.pop(axis, None)
+        fired = axis in self._trigger_long_press_fired
         self._trigger_long_press_fired.discard(axis)
+        if pressed_at is not None or fired:
+            self._diag("hold", f"dropped axis={axis} fired={fired}; the panel acted on the squeeze")
         return []
 
     def _trigger_long_press_actions(self, axis: int, binding: AxisBinding, value: float) -> list[DeckAction]:
@@ -1244,6 +1281,7 @@ class SteamDeckInputProvider:
         # add). _normalize_trigger applies the trigger dead zone and hysteresis,
         # so any non-zero fraction means the trigger is engaged.
         fraction = self._normalize_trigger(axis, value)
+        self._diag_trigger(axis, value, fraction)
         immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
         if fraction > 0.0:
             if axis in self._trigger_pressed:
@@ -1251,6 +1289,11 @@ class SteamDeckInputProvider:
             self._trigger_pressed.add(axis)
             self._trigger_long_press_pressed_at[axis] = self._clock()
             self._trigger_long_press_fired.discard(axis)
+            self._diag(
+                "hold",
+                f"squeeze axis={axis} action={binding.action} threshold={LONG_PRESS_SECONDS:.3f}s "
+                f"{self._diag_cadence()}",
+            )
             return []
         if axis not in self._trigger_pressed:
             return []
@@ -1258,6 +1301,7 @@ class SteamDeckInputProvider:
         pressed_at = self._trigger_long_press_pressed_at.pop(axis, None)
         if axis in self._trigger_long_press_fired:
             self._trigger_long_press_fired.discard(axis)
+            self._diag("hold", f"release axis={axis} emitted nothing; the hold already reported")
             return []
         if pressed_at is None:
             return []
@@ -1266,6 +1310,11 @@ class SteamDeckInputProvider:
         # report the hold on its own, and a hold is what it was.
         held = self._clock() - pressed_at
         name = delayed if held >= LONG_PRESS_SECONDS else immediate
+        self._diag(
+            "hold",
+            f"release axis={axis} action={name} held={held:.3f}s threshold={LONG_PRESS_SECONDS:.3f}s "
+            f"{self._diag_cadence()}",
+        )
         return [DeckAction(name, binding.target, 1.0, "pressed")]
 
     def _held_long_press_actions(self) -> list[DeckAction]:
@@ -1295,6 +1344,11 @@ class SteamDeckInputProvider:
                 continue
             self._long_press_fired.add(button)
             _immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
+            self._diag(
+                "hold",
+                f"fired button={button} action={delayed} held={now - pressed_at:.3f}s "
+                f"threshold={LONG_PRESS_SECONDS:.3f}s {self._diag_cadence()}",
+            )
             actions.append(DeckAction(delayed, binding.target, 1.0, "pressed", button))
         for axis, pressed_at in self._trigger_long_press_pressed_at.items():
             if axis in self._trigger_long_press_fired:
@@ -1306,8 +1360,87 @@ class SteamDeckInputProvider:
                 continue
             self._trigger_long_press_fired.add(axis)
             _immediate, delayed = LONG_PRESS_ACTIONS[binding.action]
+            self._diag(
+                "hold",
+                f"fired axis={axis} action={delayed} held={now - pressed_at:.3f}s "
+                f"threshold={LONG_PRESS_SECONDS:.3f}s {self._diag_cadence()}",
+            )
             actions.append(DeckAction(delayed, binding.target, 1.0, "pressed"))
         return actions
+
+    def _diag(self, event: str, detail: str) -> None:
+        """Write one long-press diagnostic line, under PyTrain's -debug flag.
+
+        Nothing traced here can be worked out after the fact -- what a hold measured, how
+        late the poll that timed it ran, what a trigger's raw value was on the way back to
+        rest -- so each decision point reports the numbers it acted on. See DIAG.
+        """
+        if not log.isEnabledFor(logging.DEBUG):
+            return
+        log.debug("%s[%s] %s", DIAG, event, detail)
+
+    def _diag_poll(self) -> None:
+        """Note this poll for the diagnostics: the gap since the last one, and the count.
+
+        A hold is timed from the poll that drains the press rather than from the event that
+        arrived, so what says whether a hold measured what the operator felt is how the polls
+        fell around it. The counts cover one hold and start again with the next.
+
+        Timed by time.monotonic() rather than by the injected clock: gathering diagnostics
+        must not consume a canned test clock, and on the Deck the two are the same function.
+        """
+        if not log.isEnabledFor(logging.DEBUG):
+            return
+        now = time.monotonic()
+        previous = self._diag_poll_at
+        self._diag_poll_at = now
+        self._diag_poll_gap = 0.0 if previous is None else now - previous
+        if not self._long_press_pressed_at and not self._trigger_long_press_pressed_at:
+            self._diag_polls = 0
+            self._diag_poll_worst_gap = 0.0
+            return
+        self._diag_polls += 1
+        self._diag_poll_worst_gap = max(self._diag_poll_worst_gap, self._diag_poll_gap)
+        if self._diag_poll_gap >= DIAG_POLL_STALL_SECONDS:
+            self._diag("poll", f"stalled gap={self._diag_poll_gap:.3f}s polls={self._diag_polls} into a hold")
+
+    def _diag_cadence(self) -> str:
+        """The poll numbers behind a hold's timing: how many since the press, how far apart."""
+        return f"polls={self._diag_polls} gap={self._diag_poll_gap:.3f}s worst_gap={self._diag_poll_worst_gap:.3f}s"
+
+    def _diag_trigger(self, axis: int, value: float, fraction: float) -> None:
+        """Trace a trigger's travel against the thresholds it is tested against.
+
+        Both edges are always traced, and the travel between them every
+        DIAG_TRIGGER_INTERVAL_SECONDS, because the fraction on the way back down is what says
+        whether the release is seen at all: _normalize_trigger calls a squeezed trigger
+        released only once the fraction falls to trigger_dead_zone - hysteresis, which the
+        bundled profile pins at exactly 0.0. A trigger whose resting value drifts off -1.0 is
+        therefore never seen to let go, and while it counts as squeezed no later squeeze can
+        start a hold of its own -- so the next release reports a hold measured from a much
+        earlier squeeze.
+        """
+        if not log.isEnabledFor(logging.DEBUG):
+            return
+        engaged = fraction > 0.0
+        # Read before the caller acts on it, so this is the state the squeeze or the release
+        # is about to change.
+        pressed = axis in self._trigger_pressed
+        edge = "squeeze" if engaged and not pressed else "release" if pressed and not engaged else None
+        now = time.monotonic()
+        if edge is None:
+            traced_at = self._diag_trigger_at.get(axis)
+            if traced_at is not None and now - traced_at < DIAG_TRIGGER_INTERVAL_SECONDS:
+                return
+        self._diag_trigger_at[axis] = now
+        dead_zone = self.profile.trigger_dead_zone
+        release = max(0.0, dead_zone - self.profile.hysteresis)
+        self._diag(
+            "trigger",
+            f"{edge or ('held' if engaged else 'rest')} axis={axis} raw={value:+.3f} "
+            f"fraction={fraction:.3f} dead_zone={dead_zone:.3f} release={release:.3f} "
+            f"engaged={engaged} was_pressed={pressed} {self._diag_cadence()}",
+        )
 
     def _target_fires_on_press(self, binding: AxisBinding) -> bool:
         """Whether this binding's panel acts the moment the trigger is squeezed.
@@ -1432,6 +1565,11 @@ class SteamDeckInputProvider:
         if pressed:
             self._long_press_pressed_at[button] = self._clock()
             self._long_press_fired.discard(button)
+            self._diag(
+                "hold",
+                f"press button={button} action={binding.action} threshold={LONG_PRESS_SECONDS:.3f}s "
+                f"{self._diag_cadence()}",
+            )
             return []
         pressed_at = self._long_press_pressed_at.pop(button, None)
         chorded = button in self._long_press_chorded
@@ -1439,11 +1577,21 @@ class SteamDeckInputProvider:
         fired = button in self._long_press_fired
         self._long_press_fired.discard(button)
         if fired or chorded or pressed_at is None:
+            self._diag(
+                "hold",
+                f"release button={button} emitted nothing: reported={fired} chorded={chorded} "
+                f"timed={pressed_at is not None}",
+            )
             return []
         # As on the trigger, the threshold is tested here too: a poll that saw the press and
         # the release together never had a poll of its own in which to report the hold.
         held = self._clock() - pressed_at
         name = delayed if held >= LONG_PRESS_SECONDS else immediate
+        self._diag(
+            "hold",
+            f"release button={button} action={name} held={held:.3f}s "
+            f"threshold={LONG_PRESS_SECONDS:.3f}s {self._diag_cadence()}",
+        )
         return [DeckAction(name, binding.target, 1.0, "pressed", button)]
 
     def _hat_actions(self, value: Any) -> list[DeckAction]:

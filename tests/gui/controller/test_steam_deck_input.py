@@ -32,6 +32,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     CONFIG_PAD_TRAVEL_PX,
     CONFIG_SCROLL_RATE,
     DEFAULT_PROFILE,
+    DIAG,
     DPAD_DOWN,
     DPAD_LEFT,
     DPAD_RIGHT,
@@ -1921,6 +1922,86 @@ def test_provider_trigger_hold_emits_shutdown_delayed_while_still_squeezed() -> 
     assert [(a.name, a.target, a.phase) for a in held] == [(SHUTDOWN_DELAYED, "focused", "pressed")]
     assert still_held == [], "one command per hold, however long the trigger stays down"
     assert released == [], "the release adds nothing; the hold already reported"
+
+
+def test_provider_logs_the_hold_that_reported_a_delayed_startup(caplog: pytest.LogCaptureFixture) -> None:
+    # Under -debug the timing reports itself: what the hold measured, the threshold it was
+    # tested against, and how the polls fell while it ran. A hold is timed from the poll that
+    # drains the press, so those numbers are what say whether a hold that felt long to the
+    # operator measured long here.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    events = [SimpleNamespace(type=2, button=5)]
+    pygame.event = SimpleNamespace(get=lambda: list(events))
+    provider = SteamDeckInputProvider(
+        _startup_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5, STARTUP_LONG_PRESS_SECONDS + 0.25),
+    )
+
+    with caplog.at_level("DEBUG"):
+        provider.poll()
+        events[:] = []
+        provider.poll()
+
+    traced = [message for message in caplog.messages if message.startswith(f"{DIAG}[hold]")]
+    assert [message.split()[1] for message in traced] == ["press", "fired"]
+    assert f"press button=5 action=startup threshold={STARTUP_LONG_PRESS_SECONDS:.3f}s" in traced[0]
+    assert f"fired button=5 action={STARTUP_DELAYED}" in traced[1]
+    assert f"held={STARTUP_LONG_PRESS_SECONDS + 0.25:.3f}s" in traced[1]
+    assert f"threshold={STARTUP_LONG_PRESS_SECONDS:.3f}s" in traced[1]
+    # One poll ran between the press and the hold reporting, which is what says the sweep is
+    # keeping up rather than the hold having waited on a late poll.
+    assert "polls=1 gap=" in traced[1]
+
+
+def test_provider_logs_the_trigger_travel_with_its_thresholds(caplog: pytest.LogCaptureFixture) -> None:
+    # The other half of the diagnostics: the raw axis value and the fraction it normalizes
+    # to, next to the dead zone and the release threshold they are tested against. The
+    # release threshold collapses to 0.0 here as it does in the bundled profile -- a squeeze
+    # is only seen to let go once the fraction reaches exactly zero -- so the log says so
+    # rather than leaving it to be worked out.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(
+        get=lambda: [
+            SimpleNamespace(type=1, axis=5, value=1.0),
+            SimpleNamespace(type=1, axis=5, value=-1.0),
+        ]
+    )
+    provider = SteamDeckInputProvider(
+        _trigger_long_press_profile(),
+        pygame_module=pygame,
+        clock=_clock(0.0, STARTUP_LONG_PRESS_SECONDS - 0.5),
+    )
+
+    with caplog.at_level("DEBUG"):
+        provider.poll()
+
+    traced = [message for message in caplog.messages if message.startswith(f"{DIAG}[trigger]")]
+    assert [message.split()[1] for message in traced] == ["squeeze", "release"]
+    assert "axis=5 raw=+1.000 fraction=1.000 dead_zone=0.020 release=0.000 engaged=True" in traced[0]
+    assert "axis=5 raw=-1.000 fraction=0.000 dead_zone=0.020 release=0.000 engaged=False" in traced[1]
+    assert "was_pressed=True" in traced[1], "the release is reported against the squeeze it ends"
+
+
+def test_provider_logs_a_poll_that_stalled_during_a_hold(caplog: pytest.LogCaptureFixture) -> None:
+    # A hold is timed from the poll, so a Tk loop that stalls costs the measurement the time
+    # it was away: the gap gets a line of its own rather than being left to be inferred from
+    # a hold that came out shorter than it felt.
+    pygame = SimpleNamespace(JOYAXISMOTION=1, JOYBUTTONDOWN=2, JOYBUTTONUP=3, JOYDEVICEADDED=4, JOYDEVICEREMOVED=5)
+    pygame.event = SimpleNamespace(get=lambda: [])
+    provider = SteamDeckInputProvider(_startup_profile(), pygame_module=pygame, clock=_clock(0.0))
+
+    with caplog.at_level("DEBUG"):
+        provider.poll()
+        # A button down and the last poll a second ago: what a stalled loop leaves behind.
+        provider._long_press_pressed_at[5] = 0.0
+        provider._diag_poll_at -= 1.0
+        provider._diag_poll()
+
+    stalled = [message for message in caplog.messages if message.startswith(f"{DIAG}[poll]")]
+    assert len(stalled) == 1, "the poll before the stall was on time and says nothing"
+    assert "stalled gap=1.0" in stalled[0]
+    assert "polls=1 into a hold" in stalled[0]
 
 
 def test_provider_trigger_long_press_ignores_resting_position() -> None:
