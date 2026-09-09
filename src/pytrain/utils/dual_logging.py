@@ -60,12 +60,12 @@ class ConsoleFormatter(LogFormatter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def formatException(self, exc_info):
+    def formatException(self, ei):
         # Keep traceback in console output
-        return super().formatException(exc_info)
+        return super().formatException(ei)
 
-    def formatStack(self, stack_trace):
-        return super().formatStack(stack_trace)
+    def formatStack(self, stack_info):
+        return super().formatStack(stack_info)
 
 
 # Set up logging

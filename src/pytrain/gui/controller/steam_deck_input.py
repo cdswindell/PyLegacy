@@ -20,6 +20,7 @@ import struct
 import threading
 import time
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping
 
@@ -405,7 +406,46 @@ CATALOG_JUMP_MODIFIER = "front_coupler"
 # resting at the very top does not sound the horn. Profiles may override it via
 # touch_dead_zone.
 DEFAULT_TOUCH_DEAD_ZONE = 0.05
+# The throttle lever's lead. The first command of a stick gesture aims at where the lever
+# will be this many seconds from now rather than where it is, so the ramp has somewhere to
+# travel and the engine is visibly under way while the thumb is still on the stick. At the
+# bundled throttle_rate of 36 steps a second, two seconds is a gap of about 70 steps.
+DEFAULT_THROTTLE_LEAD_TIME = 2.0
+# Past this a "lead" is no longer a lead but the whole speed range, which is the direct
+# speed command the ramp exists to avoid.
+THROTTLE_LEAD_TIME_MAX = 10.0
+# The floor on how often a held stick may re-aim its lead once the lever has overrun it.
+DEFAULT_THROTTLE_COMMIT_MIN_INTERVAL = 1.0
+# How long a stick must be held still before the dwell policy sends what the lever has
+# reached. Short enough that a deliberate pause reads as one, long enough that the travel
+# through a position on the way to another one does not.
+DEFAULT_THROTTLE_DWELL = 0.35
+# Past this the pause is longer than the gestures it is meant to punctuate, and the policy
+# is indistinguishable from committing on release alone.
+THROTTLE_DWELL_MAX = 5.0
 DEFAULT_PROFILE = Path(__file__).with_name("steam_deck_default.json")
+
+
+class ThrottleCommit(Enum):
+    """When a throttle gesture turns into a speed request.
+
+    The stick moves the lever the same way under all three: what differs is only where in
+    the gesture the command goes out. Selectable from the profile because which of them a
+    given layout wants is a question about the feel of real hardware, and the answer is not
+    the same for every operator.
+    """
+
+    # A command at the first deflection, aimed ahead of the lever, and one more when the
+    # thumb comes off. The engine is visibly under way during the gesture, which is what a
+    # model railroad needs and a simulator's virtual cab does not.
+    LEAD = "lead"
+    # Nothing until the thumb comes off. The lever travels silently and the one command is
+    # for where it came to rest -- the strictest reading of "one gesture, one command".
+    RELEASE = "release"
+    # The settle command, plus one whenever the stick is held still for throttle_dwell. A
+    # pause is read as "this is the speed I mean", so a long hold can be steered in stages
+    # without letting go.
+    DWELL = "dwell"
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +684,23 @@ class ControlProfile:
     repeat_interval: float
     direction_threshold: float
     trigger_dead_zone: float = DEFAULT_TRIGGER_DEAD_ZONE
+    # How far ahead of the lever the first command of a gesture aims, in seconds of travel at
+    # throttle_rate. Commanding where the lever already is would leave the ramp no room to
+    # work: it would arrive at once and the momentum the ramp exists to show would not be
+    # seen. Leading it gives the engine somewhere to be going while the thumb is still on the
+    # stick, and the settle commit at the end of the gesture is what is authoritative.
+    throttle_lead_time: float = DEFAULT_THROTTLE_LEAD_TIME
+    # The floor on how often a held stick may re-aim that lead. Without it a lever that has
+    # overrun its lead target would re-command every tick -- the very per-poll stream the
+    # lever was introduced to stop.
+    throttle_commit_min_interval: float = DEFAULT_THROTTLE_COMMIT_MIN_INTERVAL
+    # Where in a throttle gesture the speed request goes out. See ThrottleCommit: the lever
+    # travels identically under all three, and LEAD is the one that has the engine moving
+    # before the thumb comes off.
+    throttle_commit: ThrottleCommit = ThrottleCommit.LEAD
+    # How still, and for how long, a stick must be held for the DWELL policy to send what
+    # the lever has reached. Ignored by the other two.
+    throttle_dwell: float = DEFAULT_THROTTLE_DWELL
     # The hold at which a control bound to startup/shutdown emits its *_DELAYED action.
     long_press_seconds: float = LONG_PRESS_SECONDS
     touchpads: Mapping[int, TouchpadBinding] = field(default_factory=dict)
@@ -676,6 +733,16 @@ class ControlProfile:
         long_press_seconds = (
             cls._number(data, "long_press_seconds") if "long_press_seconds" in data else LONG_PRESS_SECONDS
         )
+        throttle_lead_time = (
+            cls._number(data, "throttle_lead_time") if "throttle_lead_time" in data else DEFAULT_THROTTLE_LEAD_TIME
+        )
+        throttle_commit_min_interval = (
+            cls._number(data, "throttle_commit_min_interval")
+            if "throttle_commit_min_interval" in data
+            else DEFAULT_THROTTLE_COMMIT_MIN_INTERVAL
+        )
+        throttle_dwell = cls._number(data, "throttle_dwell") if "throttle_dwell" in data else DEFAULT_THROTTLE_DWELL
+        throttle_commit = cls._throttle_commit(data)
         if not 0.0 <= dead_zone < 1.0:
             raise ProfileError("dead_zone must be between 0 and 1")
         if not 0.0 <= trigger_dead_zone < 1.0:
@@ -688,6 +755,12 @@ class ControlProfile:
             raise ProfileError("throttle_rate must be positive")
         if not 0.02 <= repeat_interval <= 1.0:
             raise ProfileError("repeat_interval must be between 0.02 and 1 second")
+        if not 0.0 <= throttle_lead_time <= THROTTLE_LEAD_TIME_MAX:
+            raise ProfileError("throttle_lead_time must be between 0 and 10 seconds")
+        if throttle_commit_min_interval < 0.0:
+            raise ProfileError("throttle_commit_min_interval must be non-negative")
+        if not 0.0 < throttle_dwell <= THROTTLE_DWELL_MAX:
+            raise ProfileError("throttle_dwell must be greater than 0 and at most 5 seconds")
         if not dead_zone < direction_threshold <= 1.0:
             raise ProfileError("direction_threshold must be greater than dead_zone and at most 1")
         if not LONG_PRESS_SECONDS_MIN <= long_press_seconds <= LONG_PRESS_SECONDS_MAX:
@@ -818,6 +891,10 @@ class ControlProfile:
             repeat_interval=repeat_interval,
             direction_threshold=direction_threshold,
             trigger_dead_zone=trigger_dead_zone,
+            throttle_lead_time=throttle_lead_time,
+            throttle_commit_min_interval=throttle_commit_min_interval,
+            throttle_commit=throttle_commit,
+            throttle_dwell=throttle_dwell,
             long_press_seconds=long_press_seconds,
             touchpads=touchpads,
             touch_dead_zone=touch_dead_zone,
@@ -843,6 +920,20 @@ class ControlProfile:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ProfileError(f"{key} must be numeric")
         return float(value)
+
+    @staticmethod
+    def _throttle_commit(data: Mapping[str, Any]) -> ThrottleCommit:
+        # Named in the profile by the enum's value ("lead", "release", "dwell") rather than
+        # by its member, so what an operator writes is the word the help screen and this
+        # module's documentation use. A profile saying nothing gets LEAD.
+        raw = data.get("throttle_commit")
+        if raw is None:
+            return ThrottleCommit.LEAD
+        try:
+            return ThrottleCommit(str(raw).strip().lower())
+        except ValueError as exc:
+            known = ", ".join(policy.value for policy in ThrottleCommit)
+            raise ProfileError(f"Unknown throttle_commit: {raw!r} (expected one of {known})") from exc
 
     @staticmethod
     def _mapping(data: Mapping[str, Any], key: str) -> Mapping:
@@ -1783,6 +1874,41 @@ class SteamDeckInputProvider:
         self._long_press_chorded.clear()
 
 
+@dataclass
+class ThrottleLever:
+    """What one pane's throttle stick is asking of the engine's virtual lever.
+
+    A spring-centered stick cannot hold a position, so what it works is a rate: the
+    deflection is integrated into a pending target speed -- the lever -- which the pane's
+    Speed slider displays and which holds its value when the thumb comes off. The command
+    goes out at the ends of the gesture rather than on every tick, so a held stick moves the
+    lever without generating a RampSpeedReq per poll.
+
+    value is the deflection, -1.0 .. 1.0, and lever is the position the GUI last reported.
+    settling is set when the stick returns to center: the record is kept rather than dropped
+    so that tick has one last visit in which to commit what was selected.
+    """
+
+    value: float = 0.0
+    lever: float = 0.0
+    lead_target: int | None = None
+    last_commit: float | None = None
+    steady_since: float | None = None
+    settling: bool = False
+
+
+def lead_target(lever: float, value: float, profile: ControlProfile, speed_max: int) -> int:
+    """Where the first command of a gesture aims: the lever projected forward.
+
+    A command for the lever's own position would be arrived at as soon as it was sent -- no
+    gap, no ramp, no momentum to see. Projecting throttle_lead_time seconds of travel ahead
+    in the direction the thumb is pushing gives the ramp room to work, and the settle commit
+    at the end of the gesture is what finally says where the engine should be.
+    """
+    projected = lever + value * profile.throttle_rate * profile.throttle_lead_time
+    return max(0, min(speed_max, round(projected)))
+
+
 class DeckInputRouter:
     def __init__(
         self,
@@ -1798,12 +1924,13 @@ class DeckInputRouter:
         self._right = right
         self._focused = focused
         self._global_actions = global_actions
-        self._throttles: dict[Target, float] = {}
-        self._commanded_speeds: dict[Target, float] = {}
+        # One throttle lever per pane whose stick is working an engine, holding both the
+        # deflection and the pending target it has integrated to.
+        self._levers: dict[Target, ThrottleLever] = {}
         self._quills: dict[Target, float] = {}
         self._boosts: dict[Target, str] = {}
         # A stick working an accessory's speed, as a fraction of full deflection. Kept apart
-        # from _throttles because the two ramp differently: an engine's throttle accumulates
+        # from _levers because the two ramp differently: an engine's throttle accumulates
         # a speed to hold, while an accessory is asked for a relative step at the slider's
         # own cadence.
         self._acc_throttles: dict[Target, float] = {}
@@ -1864,11 +1991,7 @@ class DeckInputRouter:
             return
         if action.name == "throttle":
             self._acc_throttles.pop(action.target, None)
-            if action.value == 0.0:
-                self._throttles.pop(action.target, None)
-                self._commanded_speeds.pop(action.target, None)
-            else:
-                self._throttles[action.target] = max(-1.0, min(1.0, action.value))
+            self._record_deflection(action.target, action.value)
             return
         if action.name == "direction":
             self._handle_direction(action)
@@ -1988,22 +2111,40 @@ class DeckInputRouter:
             return
         self._last_tick = now
         elapsed = min(elapsed, max(0.25, self.profile.repeat_interval))
-        for target, value in tuple(self._throttles.items()):
+        for target, lever in tuple(self._levers.items()):
             gui = self._target_gui(target)
             state = getattr(gui, "throttle_state", None) if gui is not None else None
             if state is None:
                 continue
             if getattr(state, "is_cab1", False):
-                relative_speed = int(math.copysign(max(1, round(abs(value) * 5)), value))
+                # A Cab-1 engine has no ramp to aim at and so no lever: the stick asks for a
+                # relative step every interval for as long as it is held, and its return to
+                # center simply stops the asking.
+                if lever.settling:
+                    self._levers.pop(target, None)
+                    continue
+                relative_speed = int(math.copysign(max(1, round(abs(lever.value) * 5)), lever.value))
                 gui.on_speed_command(relative_speed)
                 continue
-            current = self._commanded_speeds.setdefault(target, float(getattr(state, "speed", 0) or 0))
-            speed_max = max(0, int(getattr(state, "speed_max", 199) or 199))
-            next_speed = max(0.0, min(float(speed_max), current + value * self.profile.throttle_rate * elapsed))
-            self._commanded_speeds[target] = next_speed
-            command_speed = round(next_speed)
-            if command_speed != round(current):
-                gui.on_speed_command(command_speed)
+            if lever.settling:
+                # The thumb has come off: one command for where the lever came to rest, and
+                # the record goes with it. The lever is dropped as well as committed, so the
+                # pane's Speed slider is free to follow the engine again.
+                self._levers.pop(target, None)
+                self._commit_lever(gui)
+                continue
+            position = self._nudge_lever(gui, lever.value * self.profile.throttle_rate * elapsed)
+            if position is not None:
+                lever.lever = float(position)
+            if lever.steady_since is None:
+                # The thumb has just arrived where it is (_record_deflection clears this on
+                # every change), so the hold the dwell policy measures starts now.
+                lever.steady_since = now
+            policy = self.profile.throttle_commit
+            if policy is ThrottleCommit.LEAD:
+                self._lead(gui, lever, state, now)
+            elif policy is ThrottleCommit.DWELL:
+                self._dwell(gui, lever, now)
         for target, fraction in tuple(self._quills.items()):
             gui = self._target_gui(target)
             if gui is None:
@@ -2111,8 +2252,11 @@ class DeckInputRouter:
                 self._sequences[target] = remaining - 1
 
     def clear(self) -> None:
-        self._throttles.clear()
-        self._commanded_speeds.clear()
+        # Dropped rather than committed: a pad that disconnects mid-gesture has said nothing
+        # about what speed it wanted, so the pending target is abandoned and the panes' Speed
+        # sliders go back to showing the engines.
+        for target in tuple(self._levers):
+            self._clear_lever(target)
         self._quills.clear()
         self._boosts.clear()
         self._acc_throttles.clear()
@@ -2348,6 +2492,117 @@ class DeckInputRouter:
         self._config_scrolls.pop(target, None)
         self._config_pads.pop(target, None)
 
+    def _record_deflection(self, target: Target, value: float) -> None:
+        """Note where a pane's throttle stick is, without sending anything.
+
+        Center is a word in its own right rather than the absence of one: the record is
+        flagged for settle and kept, so tick has a last visit in which to commit the lever
+        the gesture has arrived at. A stick already at center that has no lever says nothing.
+        """
+        deflection = max(-1.0, min(1.0, value))
+        lever = self._levers.get(target)
+        if deflection == 0.0:
+            if lever is not None:
+                lever.value = 0.0
+                lever.settling = True
+                lever.steady_since = None
+            return
+        if lever is None:
+            lever = ThrottleLever()
+            self._levers[target] = lever
+        if lever.value != deflection:
+            # Held steady is measured from the last time the thumb moved, so a stick being
+            # pushed further is not mistaken for one resting where it is.
+            lever.steady_since = None
+        if lever.value * deflection < 0.0:
+            # The thumb has crossed center to the other side. What was asked for is now
+            # behind the lever rather than ahead of it, so the new direction leads afresh
+            # instead of waiting out the rate limit on a target it is traveling away from.
+            lever.lead_target = None
+            lever.last_commit = None
+        lever.value = deflection
+        lever.settling = False
+
+    @staticmethod
+    def _nudge_lever(gui, delta: float) -> int | None:
+        """Move a pane's lever by delta speed steps, sending nothing.
+
+        Duck-typed like every other call the router makes at a GUI: a panel with no lever to
+        move simply has nothing here to be asked.
+        """
+        if not hasattr(gui, "nudge_throttle"):
+            return None
+        return gui.nudge_throttle(delta)
+
+    def _lead(self, gui, lever: ThrottleLever, state, now: float) -> None:
+        """Give the engine somewhere to be going while the stick is still held.
+
+        One command at the first deflection of a gesture, aimed ahead of the lever, so the
+        locomotive is visibly accelerating rather than waiting for the thumb to come off. It
+        is re-aimed only when the lever has run past what was asked for -- a hold long enough
+        to outlast its own lead -- and then no more often than throttle_commit_min_interval,
+        so a held stick still does not command per tick. Nothing here is authoritative: the
+        settle commit at the end of the gesture is, and a lead the gesture never reaches is
+        retargeted back down by it on the same ramp.
+        """
+        if not hasattr(gui, "commit_throttle"):
+            return
+        speed_max = int(getattr(state, "speed_max", 0) or 0)
+        if speed_max <= 0:
+            return
+        if lever.lead_target is not None:
+            # Still short of what was last asked for: the ramp has work left to do and needs
+            # nothing further said to it.
+            overrun = lever.lever >= lever.lead_target if lever.value > 0 else lever.lever <= lever.lead_target
+            if not overrun:
+                return
+            if (
+                lever.last_commit is not None
+                and now - lever.last_commit + 1e-9 < self.profile.throttle_commit_min_interval
+            ):
+                return
+        target = lead_target(lever.lever, lever.value, self.profile, speed_max)
+        if target == lever.lead_target:
+            # The lead is pinned at an end of the range: repeating it would say nothing.
+            lever.last_commit = now
+            return
+        lever.lead_target = target
+        lever.last_commit = now
+        gui.commit_throttle(target)
+
+    def _dwell(self, gui, lever: ThrottleLever, now: float) -> None:
+        """Send what the lever has reached when the stick is held still long enough.
+
+        A pause under the dwell policy is read as "this is the speed I mean", so a long hold
+        can be steered in stages without the thumb coming off. The clock is rearmed rather
+        than left run down, so a stick held still indefinitely commits once per
+        throttle_dwell instead of once per tick -- the per-poll stream the lever exists to
+        stop. The lever itself is kept: it is still the stick's, and the settle at the end of
+        the gesture remains what is authoritative.
+        """
+        if not hasattr(gui, "commit_throttle"):
+            return
+        if lever.steady_since is None or now - lever.steady_since + 1e-9 < self.profile.throttle_dwell:
+            return
+        lever.steady_since = now
+        lever.last_commit = now
+        gui.commit_throttle()
+
+    @staticmethod
+    def _commit_lever(gui) -> None:
+        """Send one speed request for where a pane's lever came to rest."""
+        if hasattr(gui, "commit_throttle"):
+            gui.commit_throttle()
+        if hasattr(gui, "clear_throttle"):
+            gui.clear_throttle()
+
+    def _clear_lever(self, target: Target) -> None:
+        """Drop a pane's lever with nothing sent, and let its Speed slider go."""
+        self._levers.pop(target, None)
+        gui = self._target_gui(target)
+        if gui is not None and hasattr(gui, "clear_throttle"):
+            gui.clear_throttle()
+
     def _release_engine_analog(self, target: Target) -> None:
         """Let go of whatever this pane's stick and pad were holding the engine to.
 
@@ -2355,8 +2610,7 @@ class DeckInputRouter:
         tick() until something says to stop, and the word that would have said so is the one
         the panel has just claimed.
         """
-        self._throttles.pop(target, None)
-        self._commanded_speeds.pop(target, None)
+        self._clear_lever(target)
         self._acc_throttles.pop(target, None)
         self._quills.pop(target, None)
 
@@ -2584,8 +2838,7 @@ class DeckInputRouter:
             # Drop any throttle this pane had pending: the stick does the pane's job now, and
             # a value left from before the pane changed scope would otherwise start ramping
             # whatever engine is put in the pane next.
-            self._throttles.pop(action.target, None)
-            self._commanded_speeds.pop(action.target, None)
+            self._clear_lever(action.target)
             # Ordered rather than assumed exclusive: the loader drops a binding claiming two
             # axis modes, but the outcome is defined here even if one slips past it.
             if dispatch.is_analog:

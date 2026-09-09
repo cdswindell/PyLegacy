@@ -57,6 +57,7 @@ from src.pytrain.gui.controller.steam_deck_input import (
     DeckInputRouter,
     ProfileError,
     SteamDeckInputProvider,
+    ThrottleCommit,
     TouchpadBinding,
     _DECK_PADDLE_BUTTONS,
     _decode_deck_paddles,
@@ -105,9 +106,40 @@ def _gui(
         is_forward=is_forward,
         is_reverse=is_reverse,
     )
-    gui = SimpleNamespace(throttle_state=state, speed_calls=[], command_calls=[])
+    gui = SimpleNamespace(
+        throttle_state=state,
+        speed_calls=[],
+        command_calls=[],
+        nudge_calls=[],
+        commit_calls=[],
+        clear_calls=0,
+        lever=None,
+    )
     gui.on_speed_command = lambda speed_req: gui.speed_calls.append(speed_req)
     gui.on_engine_command = lambda command: gui.command_calls.append(command)
+
+    def nudge_throttle(delta: float) -> int | None:
+        # The view's lever: seeded from the engine's announced target (falling back to its
+        # speed), moved by delta, and clamped to 0..speed_max. Nothing is sent.
+        gui.nudge_calls.append(delta)
+        base = state.target_speed if state.target_speed is not None else state.speed
+        current = gui.lever if gui.lever is not None else float(base or 0)
+        gui.lever = max(0.0, min(float(state.speed_max), current + delta))
+        return round(gui.lever)
+
+    def commit_throttle(speed: int | None = None) -> None:
+        value = speed if speed is not None else (None if gui.lever is None else round(gui.lever))
+        gui.commit_calls.append(value)
+        if value is not None:
+            gui.speed_calls.append(value)
+
+    def clear_throttle() -> None:
+        gui.clear_calls += 1
+        gui.lever = None
+
+    gui.nudge_throttle = nudge_throttle
+    gui.commit_throttle = commit_throttle
+    gui.clear_throttle = clear_throttle
     return gui
 
 
@@ -133,6 +165,62 @@ def test_profile_rejects_unknown_actions_and_unsafe_axis_targets() -> None:
         _profile(axes={"1": {"action": "throttle", "target": "focused"}})
     with pytest.raises(ProfileError, match="dead_zone"):
         _profile(dead_zone=1.0)
+
+
+def test_profile_defaults_and_validates_the_throttle_lead() -> None:
+    # A profile saying nothing about the lead is the documented default, so a hand-written
+    # one written before it existed keeps loading and behaves as the bundled one does.
+    profile = _profile()
+    assert profile.throttle_lead_time == 2.0
+    assert profile.throttle_commit_min_interval == 1.0
+
+    profile = _profile(throttle_lead_time=0.5, throttle_commit_min_interval=0.0)
+    assert profile.throttle_lead_time == 0.5
+    assert profile.throttle_commit_min_interval == 0.0
+
+    with pytest.raises(ProfileError, match="throttle_lead_time"):
+        _profile(throttle_lead_time=-1.0)
+    with pytest.raises(ProfileError, match="throttle_lead_time"):
+        _profile(throttle_lead_time=60.0)
+    with pytest.raises(ProfileError, match="throttle_commit_min_interval"):
+        _profile(throttle_commit_min_interval=-0.1)
+
+
+def test_bundled_profile_records_the_throttle_lead_defaults() -> None:
+    profile = ControlProfile.load()
+
+    assert profile.throttle_lead_time == 2.0
+    assert profile.throttle_commit_min_interval == 1.0
+
+
+def test_profile_defaults_and_validates_the_throttle_commit_policy() -> None:
+    # A profile saying nothing gets the documented default, so one written before the policy
+    # existed keeps loading and behaves as it always did.
+    profile = _profile()
+    assert profile.throttle_commit is ThrottleCommit.LEAD
+    assert profile.throttle_dwell == 0.35
+
+    # Named by the word an operator writes, not by the enum member.
+    assert _profile(throttle_commit="release").throttle_commit is ThrottleCommit.RELEASE
+    assert _profile(throttle_commit="dwell").throttle_commit is ThrottleCommit.DWELL
+    assert _profile(throttle_commit="LEAD").throttle_commit is ThrottleCommit.LEAD
+    assert _profile(throttle_dwell=1.5).throttle_dwell == 1.5
+
+    with pytest.raises(ProfileError, match="Unknown throttle_commit"):
+        _profile(throttle_commit="whenever")
+    with pytest.raises(ProfileError, match="throttle_dwell"):
+        _profile(throttle_dwell=0.0)
+    with pytest.raises(ProfileError, match="throttle_dwell"):
+        _profile(throttle_dwell=30.0)
+
+
+def test_bundled_profile_records_the_throttle_commit_defaults() -> None:
+    # Recorded in the bundled profile rather than left to the Python default, so the keys are
+    # discoverable where an operator will look for them.
+    profile = ControlProfile.load()
+
+    assert profile.throttle_commit is ThrottleCommit.LEAD
+    assert profile.throttle_dwell == 0.35
 
 
 def test_invalid_external_profile_falls_back_to_bundled_default(tmp_path) -> None:
@@ -1281,20 +1369,171 @@ def test_provider_start_wraps_only_sdl_runtime_errors() -> None:
         provider.start()
 
 
-def test_rate_throttle_is_proportional_bounded_and_center_holds_speed() -> None:
+def test_held_throttle_moves_the_lever_and_commands_only_its_lead() -> None:
+    # The polling loop generates no stream of ramp requests: a held stick moves the pane's
+    # lever proportionally to how far it is pushed, and says one thing to the engine -- the
+    # lead that starts it moving -- however long it is held.
     router, left, right, _, _ = _router()
     router.handle(DeckAction("throttle", "left", 0.5, "changed"))
     router.handle(DeckAction("throttle", "right", 1.0, "changed"))
 
     router.tick(10.0)
+    for step in range(1, 11):
+        router.tick(10.0 + step * 0.2)
+
+    assert left.lever == pytest.approx(20.0)
+    assert right.lever == pytest.approx(40.0)
+    # throttle_rate 20 and the default throttle_lead_time of 2 s: the lead is 20 steps ahead
+    # of the half-deflected lever and 40 ahead of the fully deflected one, each aimed from
+    # where its lever stood on the gesture's first tick.
+    assert left.speed_calls == [22]
+    assert right.speed_calls == [44]
+
+
+def test_the_first_throttle_command_leads_the_lever_rather_than_matching_it() -> None:
+    # Commanding where the lever already is would leave the ramp nothing to travel; the
+    # command aims throttle_lead_time ahead so the engine is visibly under way.
+    router, left, _, _, _ = _router()
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+
+    router.tick(10.0)
     router.tick(10.2)
 
-    assert left.speed_calls == [2]
-    assert right.speed_calls == [4]
+    assert left.lever == pytest.approx(4.0)
+    assert left.commit_calls == [44]
+
+
+def test_a_long_throttle_hold_re_leads_no_faster_than_the_minimum_interval() -> None:
+    # Held long enough, the lever outruns what was asked for and the lead is re-aimed -- but
+    # at the profile's floor, not once a tick.
+    profile = _profile(throttle_lead_time=0.5, throttle_commit_min_interval=1.0)
+    router, left, _, _, _ = _router(profile)
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+
+    router.tick(10.0)
+    for step in range(1, 26):
+        router.tick(10.0 + step * 0.2)
+
+    assert left.lever == pytest.approx(100.0)
+    # Five seconds of hold at a one-second floor: the opening lead and one re-lead a second
+    # thereafter, rather than the twenty-five commands a per-tick emission would make.
+    assert len(left.commit_calls) <= 6
+    assert left.commit_calls[0] == 14
+    assert left.commit_calls == sorted(left.commit_calls)
+
+
+def test_throttle_commits_once_when_the_stick_returns_to_center() -> None:
+    router, left, _, _, _ = _router()
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.2)
+    assert left.speed_calls == [44], "the lead, and nothing further while the stick is held"
+
     router.handle(DeckAction("throttle", "left", 0.0, "changed"))
     router.tick(10.4)
-    assert left.speed_calls == [2]
-    assert right.speed_calls == [4, 8]
+
+    # The settle is authoritative: the flick's lead is retargeted back down to where the
+    # lever actually came to rest.
+    assert left.commit_calls == [44, 4]
+    assert left.speed_calls == [44, 4]
+    # And the lever is let go with it, so nothing further is committed and the pane's Speed
+    # slider follows the engine again.
+    router.tick(10.6)
+    assert left.speed_calls == [44, 4]
+    assert left.clear_calls == 1
+    assert router._levers == {}
+
+
+def test_a_throttle_pulled_back_lowers_the_lever_and_stops_at_zero() -> None:
+    left = _gui(speed=30, target_speed=30)
+    router, _, _, _, _ = _router(left=left)
+    router.handle(DeckAction("throttle", "left", -1.0, "changed"))
+
+    router.tick(10.0)
+    for step in range(1, 21):
+        router.tick(10.0 + step * 0.2)
+
+    assert left.lever == pytest.approx(0.0), "clamped rather than run negative"
+    # The lead down the range is clamped at a stop rather than run negative, and a lead
+    # already pinned there is not repeated.
+    assert left.speed_calls == [0]
+
+
+def test_a_throttle_lever_is_dropped_without_a_further_command_when_the_pad_disconnects() -> None:
+    router, left, _, _, _ = _router()
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+    router.tick(10.0)
+    router.tick(10.2)
+
+    router.handle(DeckAction("disconnect", "global", 0.0, "disconnected"))
+
+    assert router._levers == {}
+    assert left.clear_calls == 1
+    # The lead that was already sent stands; the interrupted gesture commits nothing more.
+    assert left.speed_calls == [44]
+
+
+def test_the_release_policy_says_nothing_until_the_stick_is_let_go() -> None:
+    # release skips the lead entirely: the lever travels silently and the gesture's one
+    # command is for where it came to rest.
+    router, left, _, _, _ = _router(_profile(throttle_commit="release"))
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+
+    router.tick(10.0)
+    for step in range(1, 6):
+        router.tick(10.0 + step * 0.2)
+
+    assert left.lever == pytest.approx(20.0), "the lever still tracks the stick"
+    assert left.commit_calls == [], "and nothing has been said to the engine"
+
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(11.2)
+
+    assert left.commit_calls == [20]
+    assert left.speed_calls == [20]
+
+
+def test_the_dwell_policy_commits_while_the_stick_is_held_steady() -> None:
+    # dwell reads a pause as "this is the speed I mean", so a long hold can be steered in
+    # stages -- but it rearms rather than commanding once a tick.
+    profile = _profile(throttle_commit="dwell", throttle_dwell=0.35)
+    router, left, _, _, _ = _router(profile)
+    router.handle(DeckAction("throttle", "left", 1.0, "changed"))
+
+    router.tick(10.0)
+    for step in range(1, 11):
+        router.tick(10.0 + step * 0.2)
+
+    assert left.lever == pytest.approx(40.0)
+    # What it sends is the lever itself, not a lead ahead of it.
+    assert left.commit_calls[0] == 12
+    # Ten ticks over two seconds at a 0.35 s dwell: a commit every other tick or so, and
+    # certainly not one apiece.
+    assert 2 <= len(left.commit_calls) < 10
+    assert left.commit_calls == sorted(left.commit_calls)
+
+    router.handle(DeckAction("throttle", "left", 0.0, "changed"))
+    router.tick(12.2)
+
+    # The settle is still authoritative and still the last word.
+    assert left.commit_calls[-1] == 40
+    assert router._levers == {}
+
+
+def test_the_dwell_policy_restarts_its_clock_when_the_stick_moves() -> None:
+    # Held steady is measured from the last time the thumb moved, so travel through a
+    # position on the way to another one is not read as a pause at it.
+    profile = _profile(throttle_commit="dwell", throttle_dwell=0.35)
+    router, left, _, _, _ = _router(profile)
+
+    router.tick(10.0)
+    for step in range(1, 6):
+        # A stick being pushed further every tick never rests anywhere.
+        router.handle(DeckAction("throttle", "left", 0.2 * step, "changed"))
+        router.tick(10.0 + step * 0.2)
+
+    assert left.nudge_calls, "the lever moved throughout"
+    assert left.commit_calls == []
 
 
 def test_cab1_rate_throttle_emits_bounded_relative_steps() -> None:
@@ -3706,14 +3945,14 @@ def test_a_stick_already_held_when_the_lcs_config_panel_opens_lets_go_of_the_eng
     router, _left, _right, _focused, _global = _router(left=left)
 
     router.handle(DeckAction("throttle", "left", 1.0, "changed"))  # driving the engine
-    assert router._throttles == {"left": 1.0}
+    assert router._levers["left"].value == 1.0
 
     left.lcs_config_visible = True  # the panel opens under the held thumb
     router.handle(DeckAction("throttle", "left", 1.0, "changed"))
     router.tick(10.0)
     router.tick(10.25)
 
-    assert router._throttles == {}
+    assert router._levers == {}
     assert left.speed_calls == [], "no speed command went out behind the page"
     assert left.scroll_calls == [_config_scroll_pixels(1.0, 0.25)], "only the page moved"
 
@@ -3843,7 +4082,7 @@ def test_a_stick_held_through_a_panel_closing_and_opening_is_not_still_scrolling
     router.handle(DeckAction("throttle", "left", 0.5, "changed"))
 
     assert router._config_scrolls == {}
-    assert router._throttles == {"left": 0.5}, "and the engine has its stick back"
+    assert router._levers["left"].value == 0.5, "and the engine has its stick back"
 
 
 def test_a_pane_with_no_trackpad_bound_to_it_still_sounds_the_horn_over_the_panel() -> None:
@@ -3895,7 +4134,7 @@ def test_the_stick_drives_the_engine_again_while_the_lcs_config_panel_is_down() 
 
     assert router._config_scrolls == {}
     assert left.scroll_calls == []
-    assert left.speed_calls, "the stick went back to driving the engine"
+    assert left.nudge_calls, "the stick went back to driving the engine"
 
 
 def test_a_disconnect_forgets_a_held_scroll_and_a_stroke_in_progress() -> None:
@@ -4137,7 +4376,7 @@ def test_a_stick_keeps_driving_the_engine_in_the_other_panel() -> None:
     router.tick(1.0)
 
     assert left.switch_calls == [True]
-    assert right.speed_calls, "the engine panel's stick still ramps its throttle"
+    assert right.nudge_calls, "the engine panel's stick still moves its throttle lever"
 
 
 def _route_gui(*, route_active: bool = True):
@@ -4353,7 +4592,7 @@ def test_each_stick_fires_the_route_in_its_own_panel() -> None:
 
     assert left.route_calls == [True]
     assert left.speed_calls == [], "the stick fired the route instead of moving an engine"
-    assert right.speed_calls, "the engine panel's stick still ramps its throttle"
+    assert right.nudge_calls, "the engine panel's stick still moves its throttle lever"
 
 
 def test_fires_on_press_resolves_the_panel_a_target_names() -> None:
@@ -4844,7 +5083,7 @@ def test_an_engine_panel_is_untouched_by_the_accessory_context() -> None:
     router.tick(0.2)
 
     assert focused.acc_speed_calls == [], "no accessory context is reported for AMC2"
-    assert focused.speed_calls, "the stick still ramps the engine the pane holds"
+    assert focused.nudge_calls, "the stick still moves the lever of the engine the pane holds"
 
 
 # --------------------------------------------------------------------------------------- #

@@ -103,6 +103,19 @@ BPC2_OP_IMAGE = "op-bpc2.jpg"
 ASC2_OP_IMAGE = "op-asc2.jpg"
 OP_SCREEN_IMAGE = "op-screen.jpg"
 
+# Commands whose arrival makes a pending throttle lever stale: after any of them the
+# engine is no longer where the lever was aimed, so the lever is dropped un-sent.
+THROTTLE_LEVER_CLEARING = frozenset(
+    {
+        "RESET",
+        "FORWARD_DIRECTION",
+        "REVERSE_DIRECTION",
+        "TOGGLE_DIRECTION",
+        "STOP_IMMEDIATE",
+        "EMERGENCY_STOP",
+    }
+)
+
 
 @lru_cache(maxsize=1)
 def _common_button_image_paths() -> dict[str, str | None]:
@@ -1205,6 +1218,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
             raise ValueError(f"Invalid command scope: {scope}")
         if not isinstance(tmcc_id, int) or tmcc_id <= 0:
             raise ValueError(f"Invalid TMCC ID: {tmcc_id}")
+        # a stale lever must not be committed against a newly selected engine or train
+        self.clear_throttle()
         self.on_scope(scope)
         self.update_component_info(tmcc_id)
 
@@ -2260,6 +2275,8 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if cmd:
             # special case HALT cmd
             if key == HALT_KEY:
+                # a stale lever must not be committed after a HALT
+                self.clear_throttle()
                 # do this command on GUI thread; we want it sent immediately
                 cmd.send()
             elif tmcc_id > 0:
@@ -2908,6 +2925,41 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # dispatch command
         self.submit_request(req)
 
+    # -----------------------------
+    # Throttle lever facade
+    # -----------------------------
+    @property
+    def _throttle_lever_view(self) -> ControllerView | None:
+        """The view that owns the lever, or None before one has been made.
+
+        The clearing calls sit on paths a partly built panel can reach, so they ask rather
+        than assume: with no view there is no lever, and nothing to drop.
+        """
+        return getattr(self, "_controller_view", None)
+
+    def nudge_throttle(self, delta: float) -> int | None:
+        """Move this panel's throttle lever by `delta` speed steps, sending nothing."""
+        view = self._throttle_lever_view
+        return view.nudge_throttle_intent(delta) if view else None
+
+    def commit_throttle(self, speed: int | None = None) -> None:
+        """Send one speed command for `speed`, defaulting to the lever's position."""
+        view = self._throttle_lever_view
+        if view:
+            view.commit_throttle_intent(speed)
+
+    def clear_throttle(self) -> None:
+        """Drop the throttle lever without sending anything."""
+        view = self._throttle_lever_view
+        if view:
+            view.clear_throttle_intent()
+
+    @property
+    def throttle_target(self) -> int | None:
+        """The lever's position, in speed steps, or None when no lever is held."""
+        view = self._throttle_lever_view
+        return view.throttle_intent if view else None
+
     def on_engine_command(
         self,
         targets: str | list[str] | CommandReq,
@@ -2927,6 +2979,10 @@ class EngineGui(GuiZeroBase, Generic[S]):
         engine generation.
 
         """
+        # A reset, a direction change, or an emergency stop invalidates any pending throttle
+        # lever, so a stale target cannot be committed against the new state of the engine.
+        if isinstance(targets, str) and any(t.strip() in THROTTLE_LEVER_CLEARING for t in targets.split(",")):
+            self.clear_throttle()
         repeat = repeat if repeat else self.repeat
         scope = scope or self.scope
         tmcc_id = state.tmcc_id if state else self._scope_tmcc_ids[scope]

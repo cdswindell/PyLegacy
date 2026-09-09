@@ -307,6 +307,10 @@ class ControllerView:
         self._info_smoke = self._info_momentum = self._info_brake = None
         self._info_effort = self._info_rpm = self._info_limit = None
         self._speed_limit_panel = None
+        # The throttle lever: a pending target speed, in speed steps, that the Speed slider
+        # displays and that is only sent on demand. None means no lever is held, so the
+        # slider goes back to tracking the engine's announced target.
+        self._throttle_intent: float | None = None
 
     @contextmanager
     def __updating(self) -> Iterator[None]:
@@ -692,8 +696,8 @@ class ControllerView:
                         else:
                             host._rr_speed_btn.on_hold = self.on_speed_limit_panel
 
-                # don't fight the user while dragging
-                if host.throttle.tk.focus_displayof() != host.throttle.tk:
+                # don't fight the user while dragging, nor the lever while it is held
+                if host.throttle.tk.focus_displayof() != host.throttle.tk and not self.throttle_intent_active:
                     host.throttle.value = throttle_state.target_speed
 
                 if throttle_state.is_cab1:
@@ -1248,25 +1252,104 @@ class ControllerView:
         if self._updating_from_state:
             return
         host = self._host
+        # A touch drag takes the lever back from the joystick.
+        self.clear_throttle_intent()
         self._cancel_cab_1_throttle_repeat()
 
         state = host.throttle_state
         if not isinstance(state, EngineState):
             return
 
-        # send speed command
-        if state.is_cab1:
-            host.throttle.value = 0
-            host.on_speed_command(host.throttle.value)
-        else:
-            ms = state.speed_max
-            if host.throttle.value > ms:
-                host.throttle.value = ms
-            if state.speed != host.throttle.value:
-                host.on_speed_command(host.throttle.value)
+        self._send_throttle_value()
 
         # Now clear focus so the handle deactivates visually.
         host.app.tk.after_idle(self._do_clear_focus)
+
+    def _send_throttle_value(self, value: int | None = None) -> None:
+        """Send one speed command for `value`, defaulting to the slider's position.
+
+        The single commit path shared by a touch drag of the Speed slider and by the
+        joystick throttle lever.
+        """
+        host = self._host
+        state = host.throttle_state
+        if not isinstance(state, EngineState):
+            return
+
+        if state.is_cab1:
+            host.throttle.value = 0
+            host.on_speed_command(host.throttle.value)
+            return
+
+        if value is None:
+            value = host.throttle.value
+        ms = state.speed_max
+        value = max(0, min(int(ms), int(value)))
+        if host.throttle.value != value:
+            with self.__updating():
+                host.throttle.value = value
+        if state.speed != value:
+            host.on_speed_command(value)
+
+    # -----------------------------
+    # Throttle lever (pending target speed)
+    # -----------------------------
+    @property
+    def throttle_intent_active(self) -> bool:
+        """Whether a lever is being held, so the state refresh must leave the slider alone."""
+        return self._throttle_intent is not None
+
+    @property
+    def throttle_intent(self) -> int | None:
+        """The lever's position, in speed steps, or None when no lever is held."""
+        if self._throttle_intent is None:
+            return None
+        return int(round(self._throttle_intent))
+
+    def throttle_intent_base(self) -> int:
+        """Where a lever starts: the engine's announced target, else its speed."""
+        state = self._host.throttle_state
+        if not isinstance(state, EngineState):
+            return 0
+        base = state.target_speed
+        if base is None:
+            base = state.speed
+        return int(base or 0)
+
+    def nudge_throttle_intent(self, delta: float) -> int | None:
+        """Move the lever by `delta` steps and show it on the Speed slider.
+
+        Seeds from throttle_intent_base() on the first nudge, clamps to 0..speed_max, and
+        returns the lever's new position. Sends nothing.
+        """
+        host = self._host
+        state = host.throttle_state
+        if not isinstance(state, EngineState) or state.is_cab1:
+            return None
+
+        intent = self._throttle_intent
+        if intent is None:
+            intent = float(self.throttle_intent_base())
+        intent = max(0.0, min(float(state.speed_max), intent + float(delta)))
+        self._throttle_intent = intent
+
+        value = int(round(intent))
+        if host.throttle is not None:
+            with self.__updating():
+                host.throttle.value = value
+        return value
+
+    def commit_throttle_intent(self, speed: int | None = None) -> None:
+        """Send one speed command for `speed`, defaulting to the lever's position."""
+        if speed is None:
+            if self._throttle_intent is None:
+                return
+            speed = int(round(self._throttle_intent))
+        self._send_throttle_value(int(speed))
+
+    def clear_throttle_intent(self) -> None:
+        """Drop the lever without sending; the slider resumes tracking state."""
+        self._throttle_intent = None
 
     def on_train_brake(self, value) -> None:
         if self._updating_from_state:
