@@ -380,14 +380,7 @@ class ControllerView:
         )
         self.populate_keypad(ENGINE_OPS_LAYOUT, keypad_keys)
 
-        # Postprocess some buttons
-        self._setup_controller_behaviors()
-
-        # generate key maps
-        self.regen_engine_keys_map()
-
         # used to make sure brake and throttle get focus when needed
-
         sliders = Box(
             controls_top_row,
             border=1,
@@ -625,6 +618,14 @@ class ControllerView:
             "horn_btn": (horn_btn, image),
         }
         host._freight_sounds_bell_horn_box.hide()
+
+        # TODO: Add buttons for wide screen format here
+
+        # Postprocess main ops buttons
+        self._setup_controller_behaviors()
+
+        # generate key maps
+        self.regen_engine_keys_map()
 
         # info box to display smoke, rpm, labor, etc.
         self._controller_info_box = info_box = Box(

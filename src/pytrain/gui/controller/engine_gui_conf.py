@@ -268,7 +268,7 @@ EXTRA_FUNCTIONS = [
             ("AUX_NUMBER_1", "blend-up.jpg", "", "", "e"),
         ],
         [
-            ("LABOR_EFFECT_UP", "effect-up.jpg", "", "", "e"),
+            ("LABOR_EFFECT_UP", "effort-up.jpg", "", "", "e"),
         ],
     ],
     [
@@ -279,7 +279,35 @@ EXTRA_FUNCTIONS = [
             ("AUX_NUMBER_4", "blend-down.jpg", "", "", "e"),
         ],
         [
-            ("LABOR_EFFECT_DOWN", "effect-down.jpg", "", "", "e"),
+            ("LABOR_EFFECT_DOWN", "effort-down.jpg", "", "", "e"),
+        ],
+    ],
+]
+
+EXTRA_FUNCTIONS_WIDE = [
+    [
+        [
+            ("LABOR_EFFECT_UP_WIDE", "effort-up.jpg", "", "", "e"),
+        ],
+    ],
+    [
+        [
+            ("LABOR_EFFECT_DOWN_WIDE", "effort-down.jpg", "", "", "e"),
+        ],
+    ],
+    [
+        [
+            ("SPEED_ROLL_WIDE", "roll-speed.jpg", "", "", "e"),
+        ],
+    ],
+    [
+        [
+            ("START_UP_IMMEDIATE_WIDE", "on_button.jpg", "", "", "e"),
+        ],
+    ],
+    [
+        [
+            ("SHUTDOWN_IMMEDIATE_WIDE", "off_button.jpg", "", "", "e"),
         ],
     ],
 ]

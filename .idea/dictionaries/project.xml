@@ -12,6 +12,7 @@
       <w>Fonic</w>
       <w>Gamescope</w>
       <w>HIDRAW</w>
+      <w>IrdaState</w>
       <w>JOYBUTTONDOWN</w>
       <w>KDE's</w>
       <w>Lineville</w>
@@ -71,6 +72,7 @@
       <w>gethostname</w>
       <w>getifaddr</w>
       <w>gui's</w>
+      <w>guizero</w>
       <w>guizero's</w>
       <w>gvfs</w>
       <w>hciuart</w>
@@ -141,6 +143,7 @@
       <w>svsc</w>
       <w>swapchains</w>
       <w>tids</w>
+      <w>titlebar</w>
       <w>titlebox</w>
       <w>titleized</w>
       <w>tk's</w>

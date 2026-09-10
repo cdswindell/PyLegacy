@@ -405,7 +405,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         The measured value, which is the row PopupManager.create_popup has always built:
         button_size // 3 per line of title. That is a key size standing in for a text size,
         and the two agree exactly at both pairings this is drawn at -- the Pi's 88px row for
-        an 88px two-line title, a Deck pane's 26px row for its own. Exactly, with nothing
+        a 88px two-line title, a Deck pane's 26px row for its own. Exactly, with nothing
         over, so the answer here is the one to keep wherever the panel is drawn as it was
         laid out. Overridden by the stand-alone desktop window, which turns the key size down
         without turning the fonts down with it; see PyCabPanelGui.
