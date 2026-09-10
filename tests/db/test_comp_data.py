@@ -43,6 +43,24 @@ def road_number_update_data(road_number_text: str | None) -> bytes:
     return road_number_len.to_bytes(1, "big") + PdiReq.encode_text(road_number_text, 4)
 
 
+def train_record(consist_flags_addr: int, consist_flags: int, tmcc_id: int = None) -> bytes:
+    """
+    A train record as the Base sends it. A 4-digit train arrives over the D4 channel and
+    carries its own id, as text, in the record; a 1-99 train arrives over the base memory
+    channel, which supplies the id, and keeps its lighting byte where the D4 layout keeps
+    the consist flags.
+    """
+    buf = bytearray(b"\xff" * PdiReq.scope_record_length(CommandScope.TRAIN))
+    buf[0x00] = buf[0x01] = 0x00  # prev/next link
+    buf[0x02] = 3  # record type: train
+    buf[0x1E] = 6
+    buf[0x1F : 0x1F + 6] = b"Pennsy"
+    buf[consist_flags_addr] = consist_flags
+    if tmcc_id is not None:
+        buf[0xB8:0xBC] = str(tmcc_id).zfill(4).encode("ascii")
+    return bytes(buf)
+
+
 class TestCompData:
     def test_comp_data_handler(self):
         # default handler
@@ -96,6 +114,31 @@ class TestCompData:
         with pytest.raises(ValueError):
             # Invalid scope must raise
             CompData.from_bytes(b"", types.SimpleNamespace(name="BOGUS"), tmcc_id=1)  # type: ignore[arg-type]
+
+    #
+    # which of the two train layouts a record is read with and written with is decided by
+    # two different questions - the parse side asks whether an id was supplied, as only
+    # the base memory channel supplies one, and the serialize side asks whether the id is
+    # 4-digit. Both answer "D4" for the same records, as a D4 record carries a 4-digit id
+    # of its own at 0xB8, so the pair has to be read as one decision
+    #
+    def test_a_four_digit_train_record_is_read_and_written_with_the_d4_layout(self):
+        rec = train_record(0x6D, 0b10101010, tmcc_id=1234)
+
+        train = CompData.from_bytes(rec, CommandScope.TRAIN)  # the D4 channel supplies no id
+
+        assert train.tmcc_id == 1234  # it came from the record
+        assert train.consist_flags == 0b10101010
+        assert train.as_bytes() == rec
+
+    def test_a_two_digit_train_record_is_read_and_written_with_the_standard_layout(self):
+        rec = train_record(0x6F, 0b11001100)
+
+        train = CompData.from_bytes(rec, CommandScope.TRAIN, tmcc_id=21)
+
+        assert train.consist_flags == 0b11001100
+        assert train.lighting == 0xFF  # the byte the D4 layout spends on the consist flags
+        assert train.as_bytes() == rec
 
     def test_engine_data_is_legacy_flag_and_smoke_mapping(self):
         # Initialize with padded bytes so all fields get some numeric defaults

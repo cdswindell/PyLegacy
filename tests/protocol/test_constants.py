@@ -184,6 +184,31 @@ class TestConstants(TestBase):
         assert TMCC2_ENG_CYLINDER_HISS_SOUND_COMMAND == 0b101010010
         assert TMCC2_ENG_POP_OFF_SOUND_COMMAND == 0b101010011
 
+    def test_to_rr_speed_resolves_the_band_that_contains_the_speed(self) -> None:
+        """
+        A railroad speed names a band of speed steps, and an engine is running at that
+        railroad speed anywhere inside the band. Resolving only the first step of each
+        band left an engine between two band starts with no railroad speed at all.
+        """
+        for speeds in [TMCC1RRSpeedsEnum, TMCC2RRSpeedsEnum]:
+            for band in speeds:
+                for step in band.value:
+                    assert speeds.to_rr_speed(step) is band
+
+        # a speed no band claims, and anything that is not a speed at all
+        assert TMCC1RRSpeedsEnum.to_rr_speed(32) is None
+        assert TMCC2RRSpeedsEnum.to_rr_speed(200) is None
+        assert TMCC2RRSpeedsEnum.to_rr_speed(None) is None
+        assert TMCC2RRSpeedsEnum.to_rr_speed(62.0) is None
+        assert TMCC2RRSpeedsEnum.to_rr_speed("62") is None
+
+    def test_to_rr_speed_can_still_be_asked_for_the_step_a_band_starts_at(self) -> None:
+        for speeds in [TMCC1RRSpeedsEnum, TMCC2RRSpeedsEnum]:
+            for band in speeds:
+                assert speeds.to_rr_speed(band.speed, exact=True) is band
+                for step in band.value[1:]:
+                    assert speeds.to_rr_speed(step, exact=True) is None
+
     def test_command_scope_enum(self) -> None:
         # check that engine and train elements are in TMCC1CommandIdentifier
         assert TMCC1CommandIdentifier.ENGINE == TMCC1CommandIdentifier(CommandScope.ENGINE.name)

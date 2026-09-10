@@ -42,8 +42,12 @@ from src.pytrain.protocol.multibyte.multibyte_constants import (
     TMCC2R4LCEnum,
     UnitAssignment,
 )
-from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum as TMCC1, TMCC1HaltCommandEnum
-from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2
+from src.pytrain.protocol.tmcc1.tmcc1_constants import (
+    TMCC1EngineCommandEnum as TMCC1,
+    TMCC1HaltCommandEnum,
+    TMCC1RRSpeedsEnum,
+)
+from src.pytrain.protocol.tmcc2.tmcc2_constants import TMCC2EngineCommandEnum as TMCC2, TMCC2RRSpeedsEnum
 
 
 @pytest.fixture(autouse=True)
@@ -166,6 +170,7 @@ class TestEngineStateWithoutARecord:
             "labor",
             "max_speed",
             "momentum",
+            "rr_speed",
             "smoke_level",
             "soft_status",
             "sound_type",
@@ -362,14 +367,28 @@ class TestEngineStateSpeedProperties:
         state.comp_data._speed = 145
         assert state.rr_speed.name == "NORMAL"
 
-    def test_rr_speed_only_recognizes_the_first_speed_of_each_band(self):
-        # NOTE: characterizes today's behavior. Each railroad speed covers a range of
-        # speed steps, but only the first step of the range is resolved, so an engine
-        # anywhere inside a band reports no railroad speed at all
-        state = new_engine(legacy=True)
-        state.comp_data._speed = 62  # inside the SLOW band, which starts at 59
+    #
+    # a railroad speed names a band of speed steps, and an engine is running at that
+    # railroad speed anywhere inside the band; the band used to be resolved from its
+    # first step alone, so the speed limit panel read blank at every step but the eight
+    # band starts
+    #
+    @pytest.mark.parametrize(
+        "legacy, command, speeds",
+        [
+            (True, TMCC2.ABSOLUTE_SPEED, TMCC2RRSpeedsEnum),
+            (False, TMCC1.ABSOLUTE_SPEED, TMCC1RRSpeedsEnum),
+        ],
+    )
+    def test_every_speed_step_of_a_band_reports_that_band(self, legacy, command, speeds):
+        state = new_engine(legacy=legacy)
 
-        assert state.rr_speed is None
+        for band in speeds:
+            for step in band.value:
+                state.update(CommandReq.build(command, state.address, data=step))
+
+                assert state.speed == step
+                assert state.rr_speed is band
 
     def test_update_target_speed_follows_the_speed_when_not_ramping(self):
         state = new_engine(legacy=True)

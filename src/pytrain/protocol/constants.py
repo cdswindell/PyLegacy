@@ -75,6 +75,7 @@ class Mixins(Enum):
     Common mixins we want all PyLegacy enums to support
     """
 
+    # noinspection unreachable-code
     @classmethod
     def by_name(cls, name: str, raise_exception: bool = False) -> Self | None:
         if name is None:
@@ -161,12 +162,14 @@ class OfficialRRSpeeds(Mixins):
     """
 
     @classmethod
-    def to_rr_speed(cls, speed: int, exact: bool = True) -> Self | None:
-        if speed is None:
+    def to_rr_speed(cls, speed: int, exact: bool = False) -> Self | None:
+        if not isinstance(speed, int):
             return None
         for _, member in cls.__members__.items():
+            if not member:
+                continue
             if exact:
-                if speed == member.speed:
+                if speed == member.value[0]:
                     return member
             elif speed in member.value:
                 return member
