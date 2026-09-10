@@ -246,6 +246,10 @@ class EngineState(ComponentState):
         self._pdi_source: bool = False  # for train is LCS BPC2
 
     def __repr__(self) -> str:
+        if self.comp_data is None:
+            # nothing has arrived from the Base, so every field below would be rendered
+            # from a default rather than from a sighting of the engine
+            return f"{self.scope.title} {self._address:04}: no information provided from Base 2/3"
         try:
             sp = ss = name = num = mom = rl = yr = nu = lt = tb = aux = lb = sm = c = bt = tr = fl = rn = ""
             if self._direction in {TMCC1EngineCommandEnum.FORWARD_DIRECTION, TMCC2EngineCommandEnum.FORWARD_DIRECTION}:
@@ -1005,7 +1009,7 @@ class EngineState(ComponentState):
 
     @property
     def is_rpm(self) -> bool:
-        return self.comp_data.engine_type in RPM_TYPE
+        return self.comp_data and self.comp_data.engine_type in RPM_TYPE
 
     @property
     def is_steam(self) -> bool:
@@ -1067,15 +1071,21 @@ class EngineState(ComponentState):
 
     @property
     def target_speed(self) -> int:
-        return decode_tmcc_speed(self.comp_data.target_speed, self._speed_is_legacy)
+        if self.comp_data:
+            return decode_tmcc_speed(self.comp_data.target_speed, self._speed_is_legacy)
+        return None
 
     @property
     def speed_limit(self) -> int:
-        return decode_tmcc_speed(self.comp_data.speed_limit, self._speed_is_legacy)
+        if self.comp_data:
+            return decode_tmcc_speed(self.comp_data.speed_limit, self._speed_is_legacy)
+        return None
 
     @property
     def max_speed(self) -> int:
-        return decode_tmcc_speed(self.comp_data.max_speed, self._speed_is_legacy)
+        if self.comp_data:
+            return decode_tmcc_speed(self.comp_data.max_speed, self._speed_is_legacy)
+        return None
 
     @property
     def speed_max(self) -> int | None:
@@ -1119,7 +1129,9 @@ class EngineState(ComponentState):
 
     @property
     def bt_int(self) -> int:
-        return self.comp_data.bt_id
+        if self.comp_data:
+            return self.comp_data.bt_id
+        return None
 
     # noinspection PyTypeChecker
     @property
@@ -1134,7 +1146,9 @@ class EngineState(ComponentState):
 
     @property
     def momentum(self) -> int:
-        return self.comp_data.momentum_tmcc
+        if self.comp_data:
+            return self.comp_data.momentum_tmcc
+        return None
 
     @property
     def momentum_label(self) -> str:
@@ -1152,11 +1166,15 @@ class EngineState(ComponentState):
 
     @property
     def soft_status(self) -> int:
-        return self.comp_data.soft_status
+        if self.comp_data:
+            return self.comp_data.soft_status
+        return None
 
     @property
     def fuel_level(self) -> int:
-        return self.comp_data.fuel_level
+        if self.comp_data:
+            return self.comp_data.fuel_level
+        return None
 
     @property
     def fuel_level_pct(self) -> int:
@@ -1170,7 +1188,9 @@ class EngineState(ComponentState):
 
     @property
     def water_level(self) -> int:
-        return self.comp_data.water_level
+        if self.comp_data:
+            return self.comp_data.water_level
+        return None
 
     @property
     def water_level_pct(self) -> int:
@@ -1192,7 +1212,9 @@ class EngineState(ComponentState):
 
     @property
     def labor(self) -> int:
-        return self.comp_data.labor_tmcc
+        if self.comp_data:
+            return self.comp_data.labor_tmcc
+        return None
 
     @property
     def labor_label(self) -> str:
@@ -1222,7 +1244,9 @@ class EngineState(ComponentState):
 
     @property
     def train_brake(self) -> int:
-        return self.comp_data.train_brake_tmcc
+        if self.comp_data:
+            return self.comp_data.train_brake_tmcc
+        return None
 
     @property
     def train_brake_label(self) -> str:
@@ -1230,7 +1254,9 @@ class EngineState(ComponentState):
 
     @property
     def control_type(self) -> int:
-        return self.comp_data.control_type
+        if self.comp_data:
+            return self.comp_data.control_type
+        return None
 
     @property
     def control_type_label(self) -> str:
@@ -1245,7 +1271,9 @@ class EngineState(ComponentState):
 
     @property
     def sound_type(self) -> int:
-        return self.comp_data.sound_type
+        if self.comp_data:
+            return self.comp_data.sound_type
+        return None
 
     @property
     def sound_type_label(self) -> str:
@@ -1253,7 +1281,9 @@ class EngineState(ComponentState):
 
     @property
     def engine_type(self) -> int:
-        return self.comp_data.engine_type
+        if self.comp_data:
+            return self.comp_data.engine_type
+        return None
 
     @property
     def engine_type_enum(self) -> EngineType:
@@ -1265,7 +1295,9 @@ class EngineState(ComponentState):
 
     @property
     def engine_class(self) -> int:
-        return self.comp_data.engine_class
+        if self.comp_data:
+            return self.comp_data.engine_class
+        return None
 
     @property
     def engine_class_label(self) -> str:
@@ -1460,11 +1492,15 @@ class TrainState(EngineState, LcsProxyState):
 
     @property
     def consist_flags(self) -> int:
-        return self.comp_data.consist_flags
+        if self.comp_data:
+            return self.comp_data.consist_flags
+        return None
 
     @property
     def consist_components(self) -> List[ConsistComponent]:
-        return self.comp_data.consist_comps
+        if self.comp_data:
+            return self.comp_data.consist_comps
+        return None
 
     @property
     def head(self) -> EngineState | None:
@@ -1616,7 +1652,7 @@ class TrainState(EngineState, LcsProxyState):
     def as_dict(self) -> Dict[str, Any]:
         d = super().as_dict()
         d["flags"] = self.consist_flags
-        d["components"] = {c.tmcc_id: c.info for c in self.consist_components}
+        d["components"] = {c.tmcc_id: c.info for c in self.consist_components} if self.consist_components else {}
         return d
 
 

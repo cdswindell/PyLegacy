@@ -1103,7 +1103,7 @@ class CompData(ABC, Generic[R]):
             if not isinstance(v, CompDataHandler):
                 continue
             item_len = v.length
-            if data_len >= ((k + item_len) - 1) and hasattr(self, v.field) and getattr(self, v.field) is None:
+            if data_len >= (k + item_len) and hasattr(self, v.field) and getattr(self, v.field) is None:
                 func = v.from_bytes
                 try:
                     value = func(data[k : k + item_len])

@@ -138,6 +138,106 @@ class TestEngineStateConstruction:
         assert state.engine_class_label == "Universal"
 
 
+class TestEngineStateWithoutARecord:
+    """
+    A state exists as soon as a command names its address, which can be long before the
+    Base 3 sends its record. Every property has to answer from something in that window,
+    and the whole export path has to survive it: these all used to raise `AttributeError`
+    on the record they assumed was there, while `speed` and the engine type flags beside
+    them guarded for it.
+    """
+
+    @staticmethod
+    def bare_engine(addr: int = 7) -> EngineState:
+        state = EngineState(CommandScope.ENGINE)
+        state._address = addr
+        return state
+
+    @pytest.mark.parametrize(
+        "prop",
+        [
+            "bt_id",
+            "bt_int",
+            "control_type",
+            "engine_class",
+            "engine_type",
+            "fuel_level",
+            "fuel_level_pct",
+            "labor",
+            "max_speed",
+            "momentum",
+            "smoke_level",
+            "soft_status",
+            "sound_type",
+            "speed",
+            "speed_limit",
+            "target_speed",
+            "train_brake",
+            "train_tmcc_id",
+            "train_unit",
+            "water_level",
+            "water_level_pct",
+        ],
+    )
+    def test_a_property_with_nothing_to_report_answers_nothing(self, prop):
+        assert getattr(self.bare_engine(), prop) is None
+
+    @pytest.mark.parametrize(
+        "prop", ["is_rpm", "is_steam", "is_diesel", "is_electric", "is_crane", "is_passenger", "has_throttle"]
+    )
+    def test_a_capability_flag_with_nothing_to_report_is_not_claimed(self, prop):
+        assert not getattr(self.bare_engine(), prop)
+
+    def test_the_labels_of_an_engine_with_no_record_read_not_available(self):
+        state = self.bare_engine()
+
+        assert state.control_type_label == "NA"
+        assert state.control_type_text == "NA"
+        assert state.engine_type_label == "NA"
+        assert state.engine_class_label == "NA"
+        assert state.sound_type_label == "NA"
+        assert state.momentum_label == "NA"
+        assert state.momentum_text == "NA"
+        assert state.labor_label == "NA"
+        assert state.train_brake_label == "NA"
+        assert state.fuel_level_label == "NA"
+        assert state.water_level_label == "NA"
+        assert state.rpm_label == "NA"
+        assert state.smoke_text == ""
+
+    def test_an_engine_with_no_record_can_still_be_exported(self, monkeypatch):
+        # the symptom of the unguarded properties: any client update or CSV export of an
+        # engine that had heard nothing from the Base threw rather than reporting nothing
+        monkeypatch.setattr(ProdInfo, "is_capable", staticmethod(lambda: False))
+        state = self.bare_engine()
+
+        d = state.as_dict()
+        assert d["tmcc_id"] == 7
+        assert d["scope"] == "engine"
+        assert d["speed"] is None
+        assert d["control"] is None
+        assert d["engine_type"] is None
+
+        row = state.as_csv(include_state=True)
+        assert row["address"] == 7
+        assert row["control"] == "NA"
+        assert row["speed"] is None
+
+        # the replay packets carry no record, only what the state itself holds
+        assert all(isinstance(packet, bytes) for packet in state.as_bytes())
+
+    def test_a_train_with_no_record_reports_no_consist(self):
+        train = TrainState(CommandScope.TRAIN)
+        train._address = 21
+
+        assert train.consist_flags is None
+        assert train.consist_components is None
+
+        d = train.as_dict()
+        assert d["flags"] is None
+        assert d["components"] == {}
+
+
 class TestEngineStateProtocolFlavor:
     def test_a_short_address_without_a_control_type_is_tmcc(self):
         state = new_engine(addr=7)
@@ -1001,14 +1101,16 @@ class TestEngineStateKnownDefects:
     so that a correction is a deliberate, visible change to this file.
     """
 
-    @pytest.mark.parametrize("prop", ["is_rpm", "target_speed", "speed_limit", "max_speed", "momentum", "labor"])
-    def test_the_properties_that_do_not_guard_for_a_missing_record(self, prop):
-        # NOTE: `speed` returns None without a record, but these siblings do not guard
-        bare = EngineState(CommandScope.ENGINE)
-        bare._address = 7
+    def test_a_four_digit_engine_cannot_be_serialized_before_its_record_number_arrives(self):
+        # NOTE: characterizes today's behavior. `as_bytes` builds a D4 request from
+        # `record_no`, which is None until a D4 mapping arrives, so a client asking for
+        # the state of a 4-digit engine anywhere in that window gets an exception rather
+        # than the state the Base has already reported
+        state = new_engine(addr=1234, legacy=True)
 
-        with pytest.raises(AttributeError):
-            getattr(bare, prop)
+        assert state.record_no is None
+        with pytest.raises(TypeError):
+            state.as_bytes()
 
     def test_the_production_year_hides_the_road_number(self):
         # NOTE: `__repr__` assigns the year over the road number rather than to the
@@ -1021,15 +1123,6 @@ class TestEngineStateKnownDefects:
 
         assert "Released: 2021" in text
         assert "#1234" not in text
-
-    def test_a_train_without_a_consist_list_cannot_be_exported(self):
-        # NOTE: `consist_comps` is None until a record arrives, and `as_dict` iterates
-        # it unguarded
-        train = new_train()
-
-        assert train.consist_components is None
-        with pytest.raises(TypeError):
-            train.as_dict()
 
 
 class TestTrainStateCore:
@@ -1085,6 +1178,18 @@ class TestTrainStateCore:
         train.comp_data._engine_type = 15
 
         assert train.is_transformer is True
+
+    def test_a_train_without_a_consist_is_exported_with_no_components(self):
+        # `consist_comps` is None until a record arrives, and exporting a train used to
+        # iterate it unguarded
+        train = new_train()
+
+        assert train.consist_components is None
+
+        d = train.as_dict()
+
+        assert d["components"] == {}
+        assert d["flags"] == 255  # the default the record has not overwritten yet
 
     def test_a_train_as_dict_carries_its_consist(self):
         train = new_train()

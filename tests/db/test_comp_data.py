@@ -207,6 +207,17 @@ class TestCompData:
         assert eng.rpm_tmcc == 5
         assert eng.labor_tmcc == 14
 
+    def test_a_field_whose_last_byte_is_missing_is_not_decoded(self):
+        # a record can arrive shorter than the layout it is read with, and a field is
+        # only decoded when the buffer holds every one of its bytes: the length check
+        # used to admit one byte fewer than the field owns, so a two byte Bluetooth id
+        # was decoded from a single byte and a road number from three characters
+        assert EngineData(bytes(range(1, 6)), tmcc_id=7)._bt_id is None  # 0x04 - 0x05
+        assert EngineData(bytes(range(1, 7)), tmcc_id=7)._bt_id == 0x0605
+
+        assert EngineData(bytes(range(1, 67)), tmcc_id=7)._road_number is None  # 0x3F - 0x42
+        assert EngineData(bytes(range(1, 68)), tmcc_id=7)._road_number == "@ABC"
+
     def test_repr_formats_by_scope(self):
         # Engine/Train use 4 digits, others 2, include payload, name, and number
         ebuf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)
