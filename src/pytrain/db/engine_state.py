@@ -292,7 +292,7 @@ class EngineState(ComponentState):
             if self.road_number is not None:
                 num = f" #{self.road_number}"
             if self.year is not None:
-                num = f" Released: {self.year}"
+                yr = f" Released: {self.year}"
             if self.engine_type is not None:
                 lt = f" {LOCO_TYPE.get(self.engine_type, 'NA')}"
             if isinstance(self._aux2, CommandDefEnum):

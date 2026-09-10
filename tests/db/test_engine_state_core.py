@@ -1094,6 +1094,18 @@ class TestEngineStateSerialization:
 
         assert repr(state) == "Engine 0123: no information provided from Base 2/3"
 
+    def test_production_year_and_road_number(self):
+        # NOTE: `__repr__` assigns the year over the road number rather than to the
+        # empty slot reserved for it, so the two can never be shown together
+        state = new_engine(legacy=True)
+        state.comp_data._road_number = state._road_number = "1234"
+        state._prod_year = 2021
+
+        text = repr(state)
+
+        assert "Released: 2021" in text
+        assert "#1234" in text
+
 
 class TestEngineStateKnownDefects:
     """
@@ -1111,18 +1123,6 @@ class TestEngineStateKnownDefects:
         assert state.record_no is None
         with pytest.raises(TypeError):
             state.as_bytes()
-
-    def test_the_production_year_hides_the_road_number(self):
-        # NOTE: `__repr__` assigns the year over the road number rather than to the
-        # empty slot reserved for it, so the two can never be shown together
-        state = new_engine(legacy=True)
-        state.comp_data._road_number = state._road_number = "1234"
-        state._prod_year = 2021
-
-        text = repr(state)
-
-        assert "Released: 2021" in text
-        assert "#1234" not in text
 
 
 class TestTrainStateCore:
