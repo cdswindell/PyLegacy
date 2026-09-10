@@ -173,6 +173,7 @@ class TMCC1CommandDef(CommandDef):
     def classify(byte_data: bytes) -> CommandScope:
         return TMCC1CommandIdentifier.classify(byte_data)
 
+    # noinspection unreachable-code
     @property
     def alias(self) -> TMCC1EngineCommandEnum | Tuple[TMCC1EngineCommandEnum, int] | None:
         if isinstance(self._alias, str):
@@ -640,17 +641,6 @@ class TMCC1EngineCommandEnum(TMCC1Enum):
         data=0,
         filtered=True,
     )
-
-    AUX_NUMBER_1 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 1, alias="NUMERIC", data=1, aux1=True)
-    AUX_NUMBER_2 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 2, alias="NUMERIC", data=2, aux1=True)
-    AUX_NUMBER_3 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 3, alias="NUMERIC", data=3, aux1=True)
-    AUX_NUMBER_4 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 4, alias="NUMERIC", data=4, aux1=True)
-    AUX_NUMBER_5 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 5, alias="NUMERIC", data=5, aux1=True)
-    AUX_NUMBER_6 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 6, alias="NUMERIC", data=6, aux1=True)
-    AUX_NUMBER_7 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 7, alias="NUMERIC", data=7, aux1=True)
-    AUX_NUMBER_8 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 8, alias="NUMERIC", data=8, aux1=True)
-    AUX_NUMBER_9 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 9, alias="NUMERIC", data=9, aux1=True)
-    AUX_NUMBER_0 = TMCC1CommandDef(TMCC1_ENG_NUMERIC_COMMAND | 0, alias="NUMERIC", data=0, aux1=True)
 
 
 TMCC1_COMMAND_TO_ALIAS_MAP = {}

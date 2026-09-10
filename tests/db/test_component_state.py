@@ -16,6 +16,7 @@ import pytest
 from src.pytrain import AccessoryState, EngineState, TrainState
 from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener, Message
 from src.pytrain.db.block_state import BlockState
+from src.pytrain.db.comp_data import EngineData
 from src.pytrain.db.component_state import (
     ComponentState,
     ComponentStateDict,
@@ -30,6 +31,7 @@ from src.pytrain.pdi.asc2_req import Asc2Req
 from src.pytrain.pdi.bpc2_req import Bpc2Req
 from src.pytrain.pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from src.pytrain.pdi.irda_req import IrdaReq
+from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import BROADCAST_ADDRESS, CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import (
@@ -505,6 +507,39 @@ class TestComponentState(TestBase):
                 TrainState(scope)
 
         # TODO: add tests once Engine State is defined
+
+    def test_an_inactive_comp_data_record_leaves_the_state_reporting_empty(self) -> None:
+        eng_state = EngineState(CommandScope.ENGINE)
+        eng_state.initialize(CommandScope.ENGINE, 1000)
+        virgin = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=1000)
+
+        # is_active is a method, not a property; the bound method is always truthy, so
+        # reading it without the parens marked even an empty roster slot as populated
+        assert virgin.is_active() is False
+        assert bool(virgin.is_active) is True
+
+        eng_state._update_comp_data(virgin)
+
+        assert eng_state.is_comp_data_record is True
+        assert eng_state.is_comp_data_empty is True
+
+    def test_an_active_comp_data_record_clears_the_state_reporting_empty(self) -> None:
+        eng_state = EngineState(CommandScope.ENGINE)
+        eng_state.initialize(CommandScope.ENGINE, 1000)
+        record = bytearray(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE))
+        record[0x00] = record[0x01] = 0x00  # prev/next link
+        record[0x1E] = 6
+        record[0x1F : 0x1F + 6] = b"Pennsy"
+        record[0x3E] = 4
+        record[0x3F : 0x3F + 4] = b"1234"
+        populated = EngineData(bytes(record), tmcc_id=1000)
+
+        assert populated.is_active() is True
+
+        eng_state._update_comp_data(populated)
+
+        assert eng_state.is_comp_data_record is True
+        assert eng_state.is_comp_data_empty is False
 
     def test_system_state_dict(self) -> None:
         """

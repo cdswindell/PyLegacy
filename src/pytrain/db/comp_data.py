@@ -37,9 +37,14 @@ TMCC2_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC2_SMOKE_MAP.items()}
 BASE_TO_TMCC1_SMOKE_MAP = {
     0: TMCC1EngineCommandEnum.SMOKE_OFF,
     1: TMCC1EngineCommandEnum.SMOKE_ON,
+    2: TMCC1EngineCommandEnum.SMOKE_ON,
+    3: TMCC1EngineCommandEnum.SMOKE_ON,
 }
 
-TMCC1_TO_BASE_SMOKE_MAP = {v: k for k, v in BASE_TO_TMCC1_SMOKE_MAP.items()}
+TMCC1_TO_BASE_SMOKE_MAP = {
+    TMCC1EngineCommandEnum.SMOKE_OFF: 0,
+    TMCC1EngineCommandEnum.SMOKE_ON: 1,  # Peg the mapping we want
+}
 
 # A smoke command can arrive in either syntax, whatever syntax the engine's record
 # claims to speak; as the two maps have no key in common, the Base 3 value is resolved

@@ -98,7 +98,8 @@ class TestEngineStateBehavior:
         assert e.decode_speed_info(255) == 31
         e._comp_data._control_type = LEGACY_CONTROL_TYPE
         assert e.is_legacy
-        assert e.decode_speed_info(255) == 195
+        # the Legacy ceiling, and the same value speed_max reports below for an unset limit
+        assert e.decode_speed_info(255) == 199
         # Pass-through non-255
         assert e.decode_speed_info(20) == 20
 

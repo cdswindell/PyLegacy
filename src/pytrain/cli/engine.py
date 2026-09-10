@@ -492,6 +492,13 @@ class EngineCli(CliBaseTMCC):
             dest="option",
             help="Set smoke level to high",
         )
+        smoke_group.add_argument(
+            "-on",
+            action="store_const",
+            const="SMOKE_ON",
+            dest="option",
+            help="Set smoke on",
+        )
         smoke_group.add_argument("-off", action="store_const", const="SMOKE_OFF", dest="option", help="Set smoke off")
 
         sound = sp.add_parser("sound", aliases=["so"], help="Sound operations", parent=engine_parser)

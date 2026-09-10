@@ -122,6 +122,18 @@ class TestConstants(TestBase):
 
         assert TMCC1_ENG_SET_ADDRESS_COMMAND == eng_cmd_prefix | 0b0101011
 
+    def test_the_tmcc1_smoke_commands_own_the_numeric_keys_they_alias(self) -> None:
+        """
+        The alias map is built by walking the enum, so the last member declared with a
+        given alias owns the key. Nothing else states that SMOKE_ON and SMOKE_OFF have to
+        be declared below every other member aliased to (NUMERIC, 9) / (NUMERIC, 8), and
+        a member declared below either one takes the key silently: the keypress then
+        resolves to a name the Base 3 write map does not own, no write goes out, and the
+        record refresh the numeric itself triggers replaces the level the operator set.
+        """
+        assert TMCC1_COMMAND_TO_ALIAS_MAP[(TMCC1EngineCommandEnum.NUMERIC, 9)] is TMCC1EngineCommandEnum.SMOKE_ON
+        assert TMCC1_COMMAND_TO_ALIAS_MAP[(TMCC1EngineCommandEnum.NUMERIC, 8)] is TMCC1EngineCommandEnum.SMOKE_OFF
+
     def test_tmcc2_constants(self) -> None:
         """
         All bit patterns are from the Lionel LCS Partner Documentation,

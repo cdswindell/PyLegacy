@@ -188,10 +188,29 @@ class TestEngineStateWithoutARecord:
         assert getattr(self.bare_engine(), prop) is None
 
     @pytest.mark.parametrize(
-        "prop", ["is_rpm", "is_steam", "is_diesel", "is_electric", "is_crane", "is_passenger", "has_throttle"]
+        "prop",
+        [
+            "has_lights",
+            "has_throttle",
+            "is_acela",
+            "is_crane",
+            "is_diesel",
+            "is_electric",
+            "is_freight",
+            "is_passenger",
+            "is_rpm",
+            "is_steam",
+            "is_transformer",
+        ],
     )
     def test_a_capability_flag_with_nothing_to_report_is_not_claimed(self, prop):
-        assert not getattr(self.bare_engine(), prop)
+        # `False`, not merely falsy: these guards were once written as `self.comp_data and
+        # ...`, which answers None against a `-> bool` annotation, so a client saw null
+        # both for "this engine has no smoke unit" and for "we have not heard yet"
+        assert getattr(self.bare_engine(), prop) is False
+
+    def test_is_cab1_on_empty_record_answers_false(self):
+        assert self.bare_engine().is_cab1 is False
 
     def test_the_labels_of_an_engine_with_no_record_read_not_available(self):
         state = self.bare_engine()
@@ -350,13 +369,18 @@ class TestEngineStateSpeedProperties:
         assert state.speeds == (60, 80, 100, 150)
 
     def test_decode_speed_info_expands_the_never_set_sentinel(self):
+        # the sentinel expands to the ceiling of the engine's own scale, and to the same
+        # ceiling `speed_max` reports: the Legacy arm used to answer 195 against its 199,
+        # so the same engine logged a limit its own display contradicted
         state = new_engine()
 
         assert state.decode_speed_info(255) == 31
         assert state.decode_speed_info(30) == 30
+        assert state.decode_speed_info(255) == state.speed_max
 
         state.comp_data._control_type = LEGACY_CONTROL_TYPE
-        assert state.decode_speed_info(255) == 195
+        assert state.decode_speed_info(255) == 199
+        assert state.decode_speed_info(255) == state.speed_max
 
     def test_rr_speed_names_the_railroad_speed_band(self):
         state = new_engine(legacy=True)
@@ -600,6 +624,24 @@ class TestEngineStateDerivedProperties:
         assert state.smoke_label == label
         assert state.smoke_text == text
 
+    @pytest.mark.parametrize("smoke", [1, 2, 3])
+    def test_a_tmcc_engine_reports_any_smoke_level_as_on(self, smoke):
+        # the record holds one Base 3 level whatever syntax wrote it, so a TMCC engine can
+        # hold a level its own two word vocabulary cannot name; every level above off is
+        # on, where the map back to a TMCC command answered off for medium and high
+        state = new_engine()
+        state.comp_data._smoke = smoke
+
+        assert state.smoke_level is TMCC1.SMOKE_ON
+        assert state.smoke_label == "+"
+
+    def test_a_tmcc_engine_reports_the_base_level_of_zero_as_off(self):
+        state = new_engine()
+        state.comp_data._smoke = 0
+
+        assert state.smoke_level is TMCC1.SMOKE_OFF
+        assert state.smoke_label == "-"
+
     def test_an_unreported_smoke_level_has_no_caption(self):
         state = new_engine(legacy=True)
         state.comp_data._smoke = 255
@@ -752,6 +794,18 @@ class TestEngineStateDirectionAndAux:
         # later record cannot reach back and overwrite it
         assert state.direction is TMCC1.FORWARD_DIRECTION
 
+    def test_a_direction_command_is_not_overruled_by_a_later_first_record(self):
+        # the byte is the Base's account of an engine nobody was listening to, so it is
+        # only worth reading while we know nothing: a record arriving after the operator
+        # had already reversed the engine used to turn it around again
+        state = new_engine()
+        state.update(CommandReq.build(TMCC1.REVERSE_DIRECTION, state.address))
+        state.comp_data._soft_status = 0  # the Base says forward
+
+        state._update_state(_CompDataRecord(state.comp_data))
+
+        assert state.direction is TMCC1.REVERSE_DIRECTION
+
 
 class TestEngineStateCommandHandling:
     def test_a_numeric_command_is_remembered(self):
@@ -869,9 +923,10 @@ class TestEngineStateCommandHandling:
 
     #
     # a TMCC1 smoke keypress reaches state in either of two forms, and the numeric one
-    # used to be resolved through the general alias map, which answers AUX_NUMBER_9 for
-    # (NUMERIC, 9) and so recorded the opposite of what the operator asked for; the bare
-    # form matched no branch at all and was dropped
+    # used to be resolved through the general alias map, which is many to one and last
+    # wins and at the time answered AUX_NUMBER_9 for (NUMERIC, 9), so it recorded the
+    # opposite of what the operator asked for; the bare form matched no branch at all and
+    # was dropped. The smoke commands own those keys again, pinned in test_constants.py
     #
     @pytest.mark.parametrize(
         "command, data, smoke, raw",
@@ -996,6 +1051,39 @@ class TestEngineStateCommandHandling:
 
         assert state.year == 2021
 
+    def test_a_record_supplies_a_target_speed_for_an_engine_already_moving(self):
+        # a record reports the speed the engine is running at but carries no target of
+        # its own, so an engine already moving when its record arrives would otherwise
+        # read as bound for a stop
+        state = new_engine(legacy=True)
+        state.update(CommandReq.build(TMCC2.ABSOLUTE_SPEED, state.address, data=40))
+        state.comp_data.target_speed = 0
+
+        state._update_state(_CompDataRecord(state.comp_data))
+
+        assert state.target_speed == 40
+
+    def test_a_record_leaves_a_standing_engine_bound_for_nowhere(self):
+        state = new_engine(legacy=True)
+        state.comp_data.speed = 0
+        state.comp_data.target_speed = 0
+
+        state._update_state(_CompDataRecord(state.comp_data))
+
+        assert state.target_speed == 0
+
+    def test_a_record_leaves_the_target_alone_while_a_ramp_owns_it(self):
+        # a ramp writes the target itself, one step at a time, and a record arriving
+        # mid-ramp must not push it back up to wherever the engine has reached
+        state = new_engine(legacy=True)
+        state.comp_data.speed = 40
+        state.comp_data.target_speed = 0
+        state.is_ramping = True
+
+        state._update_state(_CompDataRecord(state.comp_data))
+
+        assert state.target_speed == 0
+
     def test_a_d4_mapping_records_the_four_digit_record_number(self):
         state = new_engine(addr=1234, legacy=True)
 
@@ -1114,8 +1202,8 @@ class TestEngineStateSerialization:
         assert repr(state) == "Engine 0123: no information provided from Base 2/3"
 
     def test_production_year_and_road_number(self):
-        # NOTE: `__repr__` assigns the year over the road number rather than to the
-        # empty slot reserved for it, so the two can never be shown together
+        # the year used to be assigned over the road number rather than to the slot the
+        # format string reserves for it, so the two could never be shown together
         state = new_engine(legacy=True)
         state.comp_data._road_number = state._road_number = "1234"
         state._prod_year = 2021
@@ -1142,6 +1230,39 @@ class TestEngineStateKnownDefects:
         assert state.record_no is None
         with pytest.raises(TypeError):
             state.as_bytes()
+
+    def test_a_runt_first_record_spends_the_one_chance_to_read_the_direction(self):
+        # NOTE: characterizes today's behavior. The one-shot flag is spent before the
+        # guard below it is evaluated, so a first record that never reached the soft
+        # status byte leaves the direction unknown -- and no later record can supply it
+        state = new_engine()
+        state.comp_data._soft_status = None
+        state._update_state(_CompDataRecord(state.comp_data))
+
+        state.comp_data._soft_status = 1
+        state._update_state(_CompDataRecord(state.comp_data))
+
+        assert state.direction is None
+
+    @pytest.mark.parametrize("prop", ["is_legacy", "is_tmcc", "rr_speed", "speed_max", "speeds", "syntax"])
+    def test_a_state_with_no_address_cannot_report_its_protocol_flavor(self, prop):
+        # NOTE: characterizes today's behavior. `is_legacy` compares the address to 99
+        # before checking that there is one, and every property that asks it which scale
+        # to read inherits the failure
+        state = EngineState(CommandScope.ENGINE)
+
+        assert state.address is None
+        with pytest.raises(TypeError):
+            getattr(state, prop)
+
+    def test_a_state_with_no_address_cannot_say_that_it_knows_nothing(self):
+        # NOTE: characterizes today's behavior. The early return formats the address with
+        # `:04`, which None cannot satisfy, so the one thing this branch exists to report
+        # is the one thing it cannot
+        state = EngineState(CommandScope.ENGINE)
+
+        with pytest.raises(TypeError):
+            repr(state)
 
 
 class TestTrainStateCore:

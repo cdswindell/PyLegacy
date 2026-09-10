@@ -14,7 +14,17 @@ from typing import Tuple
 
 from src.pytrain.pdi.base_req import BaseReq, decode_labor_rpm, encode_labor_rpm
 from src.pytrain.pdi.constants import PDI_EOP, PDI_SOP, PdiCommand
+from src.pytrain.pdi.pdi_req import PdiReq
 from src.pytrain.protocol.constants import CommandScope
+
+
+def engine_memory_req(record: bytes, tmcc_id: int = 20) -> BaseReq:
+    """
+    A BASE_MEMORY engine record, serialized and parsed back, so the record makes the
+    same trip over the wire it makes when the Base 3 answers a configuration request.
+    """
+    req = BaseReq(tmcc_id, PdiCommand.BASE_MEMORY, scope=CommandScope.ENGINE, data_bytes=record)
+    return PdiReq.from_bytes(req.as_bytes)
 
 
 def test_encode_decode_labor_rpm_roundtrip():
@@ -119,6 +129,32 @@ def test_is_active_logic_for_empty_records_engine_like_fields():
     parsed = BaseReq(pkt)
     assert parsed.pdi_command == PdiCommand.BASE_ENGINE
     assert parsed.is_active is False
+
+
+def test_a_populated_base_memory_record_does_not_report_itself_empty():
+    record = bytearray(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE))
+    record[0x00] = record[0x01] = 0x00  # prev/next link
+    record[0x1E] = 6
+    record[0x1F : 0x1F + 6] = b"Pennsy"
+    record[0x3E] = 4
+    record[0x3F : 0x3F + 4] = b"1234"
+
+    parsed = engine_memory_req(bytes(record))
+
+    assert parsed.is_comp_data_record is True
+    assert parsed.name == "Pennsy"
+    assert parsed.number == "1234"
+    assert parsed.is_comp_data_empty is False
+
+
+def test_a_never_written_base_memory_record_reports_itself_empty():
+    # a roster slot the base has never written: no road name or number, both links 255
+    parsed = engine_memory_req(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE))
+
+    assert parsed.is_comp_data_record is True
+    assert parsed.name is None
+    assert parsed.number is None
+    assert parsed.is_comp_data_empty is True
 
 
 def test_as_key_tuple_shape_and_content_stability():

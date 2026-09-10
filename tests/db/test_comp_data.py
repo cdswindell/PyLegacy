@@ -30,6 +30,7 @@ from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
 from src.pytrain.pdi.pdi_req import PdiReq
+from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import LEGACY_CONTROL_TYPE, CommandScope
 from src.pytrain.protocol.multibyte.multibyte_constants import TMCC2EffectsControl
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1EngineCommandEnum
@@ -140,6 +141,21 @@ class TestCompData:
         assert train.lighting == 0xFF  # the byte the D4 layout spends on the consist flags
         assert train.as_bytes() == rec
 
+    def test_a_record_from_the_d4_channel_needs_a_four_digit_id_to_be_written_back(self):
+        # NOTE: characterizes today's behavior. The two questions agree only while every
+        # record arriving on the D4 channel carries an id above 99: one that does not is
+        # read with the D4 layout and written with the standard one, which insists on the
+        # lighting byte the D4 layout never set. An empty D4 slot is the way in, as the
+        # 0xFF filler at 0xB8 decodes to an id of 0
+        rec = train_record(0x6D, 0b10101010, tmcc_id=21)
+
+        train = CompData.from_bytes(rec, CommandScope.TRAIN)  # the D4 channel supplies no id
+
+        assert train.tmcc_id == 21
+        assert train.consist_flags == 0b10101010  # read with the D4 layout
+        with pytest.raises(AttributeError):
+            train.as_bytes()
+
     def test_engine_data_is_legacy_flag_and_smoke_mapping(self):
         # Initialize with padded bytes so all fields get some numeric defaults
         buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)
@@ -192,6 +208,65 @@ class TestCompData:
 
         assert eng.smoke == raw
 
+    @pytest.mark.parametrize("level", [TMCC1EngineCommandEnum.SMOKE_OFF, TMCC1EngineCommandEnum.SMOKE_ON])
+    def test_a_tmcc1_smoke_level_is_stored_as_the_value_the_base_3_is_written(self, level):
+        # the two directions of the TMCC1 map have to agree: the read direction is many to
+        # one, as every level above off reads back as on, so inverting it to build the
+        # write direction pegs on to whichever level was declared last -- and the record
+        # then holds a level the Base 3 was never told, which a refresh silently undoes
+        eng = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=1000)
+
+        eng.smoke_tmcc = level
+
+        pkgs = CompData.request_to_updates(CommandReq.build(level, 24))
+        assert eng.smoke == pkgs[0].data_bytes[0]
+
+    @pytest.mark.parametrize(
+        "raw, level",
+        [
+            (0, TMCC1EngineCommandEnum.SMOKE_OFF),
+            (1, TMCC1EngineCommandEnum.SMOKE_ON),
+            (2, TMCC1EngineCommandEnum.SMOKE_ON),
+            (3, TMCC1EngineCommandEnum.SMOKE_ON),
+        ],
+    )
+    def test_engine_data_reads_any_smoke_level_as_on_without_a_legacy_record(self, raw, level):
+        # the set path above resolves a level from either syntax, so a record can
+        # legitimately hold 2 or 3 while its control type says nothing; the read path
+        # chooses its map by that control type, and the TMCC1 map owned only 0 and 1, so
+        # medium and high fell through its default and read back as off
+        eng = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=1000)
+        eng._control_type = 0x00
+        eng._smoke = raw
+
+        assert eng.smoke == raw
+        assert eng.smoke_tmcc is level
+
+    @pytest.mark.parametrize(
+        "command, data, alias, expected",
+        [
+            (TMCC1EngineCommandEnum.SMOKE_ON, None, None, b"\x01"),
+            (TMCC1EngineCommandEnum.NUMERIC, 9, TMCC1EngineCommandEnum.SMOKE_ON, b"\x01"),
+            (TMCC1EngineCommandEnum.SMOKE_OFF, None, None, b"\x00"),
+            (TMCC1EngineCommandEnum.NUMERIC, 8, TMCC1EngineCommandEnum.SMOKE_OFF, b"\x00"),
+        ],
+    )
+    def test_a_tmcc1_smoke_keypress_writes_the_base_smoke_byte(self, command, data, alias, expected):
+        # a TMCC1 numeric reaches this map only under the name the alias table gives it,
+        # and the bare form only under its own, as it carries no data to be aliased by.
+        # The write is what makes the level last: a numeric also asks the server for a
+        # full record refresh, which replaces every field the Base 3 was never told about
+        req = CommandReq.build(command, 24, data=data)
+        assert req.command_alias is alias
+
+        pkgs = CompData.request_to_updates(req)
+
+        assert len(pkgs) == 1
+        assert pkgs[0].field == "smoke"
+        assert pkgs[0].offset == 0x69
+        assert pkgs[0].length == 1
+        assert pkgs[0].data_bytes == expected
+
     def test_engine_data_direction_reads_bit_zero_of_the_soft_status(self):
         buf = b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE)
         eng = EngineData(buf, tmcc_id=1000)
@@ -213,10 +288,10 @@ class TestCompData:
         assert eng.is_forward is None
         assert eng.is_reverse is None
 
-    def test_engine_data_reads_a_never_set_soft_status_as_reverse(self):
-        # NOTE: characterizes today's behavior. 0xFF is the "not set" marker everywhere
-        # else in this record, but bit zero of it is 1, so an engine whose soft status
-        # the base never wrote reports reverse rather than unknown
+    def test_engine_data_reads_bit_zero_of_a_soft_status_with_every_bit_set(self):
+        # only bit zero carries the direction, so a soft status of 0xFF reads as reverse
+        # rather than as unknown: 0xFF is the "not set" marker for other fields of this
+        # record, but it is not treated as one here, as the base may legitimately send it
         eng = EngineData(b"\xff" * PdiReq.scope_record_length(CommandScope.ENGINE), tmcc_id=1000)
 
         assert eng._soft_status == 255

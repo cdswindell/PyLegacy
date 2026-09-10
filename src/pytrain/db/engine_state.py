@@ -15,7 +15,6 @@ from time import monotonic
 from typing import Any, Dict, List, TypeVar
 
 from .comp_data import (
-    BASE_TO_TMCC1_SMOKE_MAP,
     BASE_TO_TMCC2_SMOKE_MAP,
     CompDataHandler,
     CompDataMixin,
@@ -164,9 +163,10 @@ ENGINE_AUX2_SET = {
     TMCC2EngineCommandEnum.AUX2_OPTION_ONE,
     TMCC2EngineCommandEnum.AUX2_OPTION_TWO,
 }
-# A TMCC1 smoke keypress arrives either as the bare command or as the numeric it is
-# aliased to. Smoke has to be resolved from its own map: the general alias map is
-# many to one and last wins, so it answers AUX_NUMBER_9 for (NUMERIC, 9).
+# A TMCC1 smoke keypress arrives either as the numeric it is aliased to or as the bare
+# command, which carries no data and so never reaches the general alias map at all. Both
+# forms are resolved from this map, which also keeps state independent of which member
+# the alias map -- many to one, and last wins -- hands the numeric key to.
 TMCC1_SMOKE_MAP = {
     TMCC1EngineCommandEnum.SMOKE_ON: TMCC1EngineCommandEnum.SMOKE_ON,
     (TMCC1EngineCommandEnum.NUMERIC, 9): TMCC1EngineCommandEnum.SMOKE_ON,
@@ -510,7 +510,7 @@ class EngineState(ComponentState):
     def decode_speed_info(self, speed_info):
         if speed_info is not None and speed_info == 255:  # not set
             if self._speed_is_legacy:
-                speed_info = 195
+                speed_info = 199
             else:
                 speed_info = 31
         return speed_info
@@ -540,12 +540,13 @@ class EngineState(ComponentState):
                 self._is_legacy = True
                 self._d4_rec_no = command.record_no
                 self._is_d4 = True
-            if self.speed and self.target_speed == 0 and not self.is_ramping:
+            # If no target speed is set, set target to current speed unless we're ramping
+            if not self.is_ramping and self.speed is not None and not self.target_speed:
                 self.comp_data.target_speed = encode_tmcc_speed(self.speed, self._speed_is_legacy)
             if not self._initialized:
                 self._initialized = True
                 # initialize direction from soft status
-                if self.comp_data and isinstance(self.comp_data.soft_status, int):
+                if self._direction is None and self.comp_data and isinstance(self.comp_data.soft_status, int):
                     if self.comp_data.is_forward:
                         self._direction = TMCC2.FORWARD_DIRECTION if self._speed_is_legacy else TMCC1.FORWARD_DIRECTION
                     elif self.comp_data.is_reverse:
@@ -1009,43 +1010,63 @@ class EngineState(ComponentState):
 
     @property
     def is_rpm(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in RPM_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in RPM_TYPE
+        return False
 
     @property
     def is_steam(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in STEAM_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in STEAM_TYPE
+        return False
 
     @property
     def is_electric(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in ELECTRIC_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in ELECTRIC_TYPE
+        return False
 
     @property
     def is_diesel(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in DIESEL_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in DIESEL_TYPE
+        return False
 
     @property
     def is_crane(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in CRANE_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in CRANE_TYPE
+        return False
 
     @property
     def is_passenger(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in PASSENGER_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in PASSENGER_TYPE
+        return False
 
     @property
     def is_freight(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in FREIGHT_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in FREIGHT_TYPE
+        return False
 
     @property
     def is_transformer(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in TRANSFORMER_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in TRANSFORMER_TYPE
+        return False
 
     @property
     def is_acela(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in ACELA_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in ACELA_TYPE
+        return False
 
     @property
     def has_throttle(self) -> bool:
-        return self.comp_data and self.comp_data.engine_type in THROTTLE_TYPE
+        if self.comp_data:
+            return self.comp_data.engine_type in THROTTLE_TYPE
+        return False
 
     @property
     def has_lights(self) -> bool:
@@ -1228,7 +1249,7 @@ class EngineState(ComponentState):
         # state's own, as the record's control type can still be unreported
         if self.is_legacy:
             return BASE_TO_TMCC2_SMOKE_MAP.get(self.comp_data.smoke, TMCC2EffectsControl.SMOKE_OFF)
-        return BASE_TO_TMCC1_SMOKE_MAP.get(self.comp_data.smoke, TMCC1EngineCommandEnum.SMOKE_OFF)
+        return TMCC1EngineCommandEnum.SMOKE_ON if self.comp_data.smoke else TMCC1EngineCommandEnum.SMOKE_OFF
 
     @property
     def smoke_label(self) -> str:
@@ -1374,7 +1395,9 @@ class EngineState(ComponentState):
 
     @property
     def is_cab1(self) -> bool:
-        return self.comp_data and self.comp_data.control_type == CAB1_CONTROL_TYPE
+        if self.comp_data:
+            return self.comp_data.control_type == CAB1_CONTROL_TYPE
+        return False
 
     @property
     def is_tmcc(self) -> bool:

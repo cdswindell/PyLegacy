@@ -459,9 +459,9 @@ class BaseReq(PdiReq, CompDataMixin):
 
                         # a record is considered empty if there is no road name/number and both links are 255
                         self._empty = (
-                            True
+                            False
                             if self._name and self._number and self._rev_link != 255 and self._fwd_link != 255
-                            else False
+                            else True
                         )
                     else:
                         self._comp_data = None
