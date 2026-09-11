@@ -324,6 +324,7 @@ class PyCabGuiCmd(CommandBase):
             server=self._cli.args.server if "server" in self._cli.args else None,
             client=self._cli.args.client if "client" in self._cli.args else False,
             base=self._cli.args.base if "base" in self._cli.args else None,
+            cache_sync=True,
         )
         self._command = self._build_command()
 

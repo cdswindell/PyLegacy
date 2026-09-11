@@ -289,7 +289,7 @@ class RouteBuilderPanel(OverlayPanel):
         Text(
             self._main_page,
             text=(
-                "Click a card to modify; scroll or use ← / → to browse."
+                "Select a card to modify; scroll or use ← / → to browse."
                 if self.desktop_controls
                 else "Tap a card to change it; swipe to browse."
             ),

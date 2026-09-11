@@ -45,6 +45,7 @@ class CommandBase(ABC):
         server: str = None,
         client: bool = False,
         base: str = None,
+        cache_sync: bool = False,
     ) -> None:
         from ..cli.pytrain import PyTrain
 
@@ -66,7 +67,9 @@ class CommandBase(ABC):
 
         if PyTrain.current(raise_exception=False) is None:
             self._daemon = False
-            pt_args = "-api -no_cache_sync"
+            pt_args = "-api"
+            if not cache_sync:
+                pt_args += " -no_cache_sync"
             if client:
                 pt_args += " -client"
             elif server:

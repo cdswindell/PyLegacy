@@ -572,7 +572,7 @@ def test_touch_card_browsing_hint(panel):
 
 
 def test_desktop_card_browsing_hint(desktop_panel):
-    assert desktop_panel._main_page.children[1].value == "Click a card to modify; scroll or use ← / → to browse."
+    assert desktop_panel._main_page.children[1].value == "Select a card to modify; scroll or use ← / → to browse."
 
 
 def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
