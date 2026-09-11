@@ -72,6 +72,17 @@ def check_bounds(app, overlay, panel, width, budget, label):
         assert widget.winfo_x() >= panel.button_pad_x
         assert widget.winfo_y() >= panel.button_pad_y
     if not panel._picking:
+        route, count = panel._route_label.tk, panel._count.tk
+        assert count.winfo_rootx() - (route.winfo_rootx() + route.winfo_width()) >= panel.row_height
+        assert panel._selection.value.startswith(f"Card {panel._selected + 1}: ")
+        assert "\n" not in panel._selection.value
+        if panel.section_gap:
+            metadata, status, add = panel._metadata_box.tk, panel._status.tk, panel._add_btn.tk
+            assert metadata.winfo_rooty() - (add.winfo_rooty() + add.winfo_height()) >= panel.section_gap
+            assert status.winfo_rooty() - (metadata.winfo_rooty() + metadata.winfo_height()) >= panel.section_gap
+            assert (
+                panel._save_btn.tk.winfo_rooty() - (status.winfo_rooty() + status.winfo_height()) >= panel.section_gap
+            )
         texts = [item for item in panel._cards.find_all() if panel._cards.type(item) == "text"]
         for index in range(len(panel.draft.components)):
             title, name, mode = [panel._cards.bbox(item) for item in texts[index * 3 : index * 3 + 3]]
@@ -110,6 +121,47 @@ def check_touch_scroll(app, panel, canvas, horizontal):
     assert RouteComponent.to_bytes(panel.draft.components) == components
     assert panel.draft.dirty == dirty
     print(f"Mac touch-surface events passed: {'component cards' if horizontal else 'picker'}", flush=True)
+
+
+def check_discard_dialog(app, panel, width, height):
+    if panel.desktop_controls:
+        return
+    for action, expected in (("keep", False), ("close", False), ("discard", True)):
+        errors = []
+
+        def respond():
+            dialog = next(
+                child for child in app.tk.winfo_children() if isinstance(child, route_builder_panel.RouteDiscardDialog)
+            )
+            try:
+                assert dialog.winfo_width() >= width * 0.8
+                assert dialog.winfo_height() >= 200
+                assert dialog.winfo_rootx() >= app.tk.winfo_rootx()
+                assert dialog.winfo_rootx() + dialog.winfo_width() <= app.tk.winfo_rootx() + width
+                assert dialog.winfo_rooty() >= app.tk.winfo_rooty()
+                assert dialog.winfo_rooty() + dialog.winfo_height() <= app.tk.winfo_rooty() + height
+                assert dialog.grab_current() is dialog
+                for button in (dialog._keep_btn, dialog._discard_btn):
+                    assert button.winfo_width() >= 150
+                    assert button.winfo_height() >= 64
+                assert dialog.initial_focus is dialog._keep_btn
+                if action == "close":
+                    dialog.tk.call(dialog.protocol("WM_DELETE_WINDOW"))
+                else:
+                    (dialog._discard_btn if action == "discard" else dialog._keep_btn).invoke()
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                if dialog.winfo_exists():
+                    dialog.cancel()
+
+        app.tk.after(100, respond)
+        result = panel.confirm_close()
+        if errors:
+            raise errors[0]
+        assert result is expected
+        assert panel.draft.dirty
+    print("Large discard dialog: bounds, touch targets, and keep/close/discard checks passed.", flush=True)
 
 
 def main():
@@ -241,6 +293,7 @@ def main():
             assert panel._cards.xview()[0] > 0
             assert RouteComponent.to_bytes(panel.draft.components) == before
             check_touch_scroll(app, panel, panel._cards, True)
+        check_discard_dialog(app, panel, width, height)
         print("Rendering and interaction checks passed; no layout commands sent.", flush=True)
     finally:
         app.destroy()

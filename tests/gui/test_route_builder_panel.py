@@ -201,8 +201,9 @@ class Store:
 @pytest.fixture
 def panel(monkeypatch):
     monkeypatch.setattr(mod, "platform", "linux")
-    for name in ("Box", "PushButton", "Text", "EditableText"):
+    for name in ("Box", "TitleBox", "PushButton", "Text", "EditableText"):
         monkeypatch.setattr(mod, name, Widget)
+    monkeypatch.setattr(mod, "RouteDiscardDialog", Mock(return_value=SimpleNamespace(result=False)))
     monkeypatch.setattr(mod, "HoldButton", HoldWidget)
     monkeypatch.setattr(mod.tk, "Canvas", Canvas)
     monkeypatch.setattr(mod.tk, "StringVar", Variable)
@@ -219,7 +220,7 @@ def panel(monkeypatch):
         s_18=18,
         s_20=20,
         state_store=Store(),
-        app=SimpleNamespace(yesno=lambda *_args: False),
+        app=SimpleNamespace(tk=object(), yesno=lambda *_args: False),
         _scope_tmcc_ids={},
         ops_mode=lambda **_kw: None,
         _message_queue=Mock(),
@@ -520,6 +521,48 @@ def test_component_cards_are_twenty_five_percent_shorter(panel, width):
     assert panel.card_height == int(int(panel.row_height * 3.5) * 0.75)
 
 
+@pytest.mark.parametrize("compact,height,gap", [(True, 800, 0), (False, 800, 0), (False, 1280, 16)])
+def test_metadata_group_and_pi_section_spacing(panel, compact, height, gap):
+    panel.gui.width = panel.gui.emergency_box_width = 800
+    panel.gui.height, panel.gui.compact = height, compact
+    panel.build(Widget())
+    group = panel._metadata_box
+    assert group.options["text"] == ""
+    assert group.options["bd"] == 1
+    assert panel._name_field.parent.parent.parent is group
+    assert panel._number_field.parent.parent.parent is group
+    assert panel.section_gap == gap
+    if gap:
+        siblings = panel._main_page.children
+        index = siblings.index(group)
+        assert siblings[index - 1].options["height"] == gap
+        assert siblings[index + 1].options["height"] == gap
+        assert panel.footer_pad_px == gap
+    else:
+        assert panel.footer_pad_px == 4
+
+
+def test_header_and_single_line_selection_follow_card_order(panel):
+    assert panel._count.value == "0 of 16 cards used"
+    known_switch(panel, 33, "Suspended Right")
+    known_switch(panel, 34, "Suspended Left")
+    panel.configure(2, known_route(panel, 2, [RouteComponent(33, 1), RouteComponent(34, 1)]))
+    assert panel._route_label.value == "Route 02"
+    assert panel._count.value == "2 of 16 cards used"
+    assert panel._route_label.parent is panel._count.parent
+    assert panel._route_label.options["align"] == "left"
+    assert panel._count.options["align"] == "right"
+    assert panel._selection.value == "Card 1: Suspended Right"
+    assert panel._selection.options["height"] == 1
+    panel.select_relative(1)
+    assert panel._selection.value == "Card 2: Suspended Left"
+    panel.move_selected(-1)
+    assert panel._selection.value == "Card 1: Suspended Left"
+    panel.remove_selected()
+    assert panel._selection.value == "Card 1: Suspended Right"
+    assert panel._count.value == "1 of 16 cards used"
+
+
 def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
     buttons = [
         panel._previous_btn,
@@ -595,7 +638,7 @@ def test_long_card_names_fit_without_changing_the_full_selection_label(panel):
     assert name.endswith("…")
     bounds = panel._cards.bbox(item)
     assert bounds[3] - bounds[1] <= panel.card_height * 0.35
-    assert panel._selection.value.startswith("W" * 31)
+    assert panel._selection.value == "Card 1: " + "W" * 31
 
 
 def test_add_edit_and_remove_only_change_the_draft(panel):
@@ -793,8 +836,8 @@ def test_nested_route_add_is_draft_only_and_has_no_switch_controls(panel):
     panel.choose_candidate(0)
     panel.save()
     assert panel.draft.components[0].is_route
-    assert panel._selection.value == "Route 4\nRuns this route at this step."
-    assert panel._count.value == "Route 12   ·   1 of 16 slots used   ·   Selected 1"
+    assert panel._selection.value == "Card 1: Route 4"
+    assert panel._count.value == "1 of 16 cards used"
     card_text = [options["text"] for kind, _, options in panel._cards.drawn if kind == "text"]
     assert card_text == ["1   ROUTE", "Route 4", "ID 04"]
     assert all(radio.options["state"] == "disabled" for radio in panel._radios)
@@ -971,8 +1014,73 @@ def test_cancel_protects_components_metadata_and_pending_keyboard_edits(panel):
     assert panel.draft.dirty
     assert panel.confirm_close() is False
     panel.gui.app.yesno = lambda *_args: True
+    mod.RouteDiscardDialog.return_value.result = True
     assert panel.confirm_close() is True
     assert panel._lookup_route(12) is None
+
+
+@pytest.mark.parametrize("width,height,compact", [(639, 800, True), (800, 1280, False)])
+@pytest.mark.parametrize("result", [None, False, True])
+def test_touch_cancel_uses_large_pane_centered_confirmation(panel, width, height, compact, result):
+    panel.gui.width, panel.gui.height, panel.gui.compact = width, height, compact
+    panel.gui.emergency_box_width = width
+    panel.gui.root = SimpleNamespace(tk=object())
+    panel.gui.app.yesno = Mock(side_effect=AssertionError("touch displays must use the larger dialog"))
+    panel.draft.set_metadata("Unsaved", "")
+    mod.RouteDiscardDialog.return_value.result = result
+    assert panel.confirm_close() is bool(result)
+    args, kwargs = mod.RouteDiscardDialog.call_args
+    assert args == (panel.gui.root.tk,)
+    assert width * 0.8 <= kwargs["width"] < width
+    assert kwargs["text_size"] >= 18
+    assert kwargs["button_height"] >= 64
+    assert panel.draft.dirty
+
+
+def test_desktop_cancel_uses_new_wording_in_native_dialog(desktop_panel):
+    desktop_panel.draft.set_metadata("Unsaved", "")
+    desktop_panel.gui.app.yesno = Mock(return_value=True)
+    assert desktop_panel.confirm_close()
+    desktop_panel.gui.app.yesno.assert_called_once_with("Discard route changes?", "Discard unsaved route changes?")
+    mod.RouteDiscardDialog.assert_not_called()
+
+
+def test_discard_dialog_has_large_message_and_buttons_with_safe_default(monkeypatch):
+    frame, label = Mock(), Mock()
+    keep, discard = Mock(), Mock()
+    button = Mock(side_effect=[keep, discard])
+    monkeypatch.setattr(mod.tk, "Frame", frame)
+    monkeypatch.setattr(mod.tk, "Label", label)
+    monkeypatch.setattr(mod.tk, "Button", button)
+    dialog = object.__new__(mod.RouteDiscardDialog)
+    dialog._width, dialog._text_size, dialog._button_height = 540, 18, 64
+    dialog.bind = Mock()
+    dialog.body("body")
+    frame.assert_called_with("body", width=540, height=128)
+    assert label.call_args.kwargs["text"] == "Discard unsaved route changes?"
+    assert label.call_args.kwargs["font"] == ("Helvetica", 18)
+    dialog.buttonbox()
+    frame.assert_called_with(dialog, width=540, height=64)
+    assert button.call_args_list[0].kwargs["text"] == "Keep Editing"
+    assert button.call_args_list[0].kwargs["command"] == dialog.cancel
+    assert button.call_args_list[1].kwargs["text"] == "Discard"
+    assert button.call_args_list[1].kwargs["command"] == dialog.ok
+    assert dialog.initial_focus is keep
+    dialog.bind.assert_any_call("<Escape>", dialog.cancel)
+    dialog.bind.assert_any_call("<Return>", dialog._on_return)
+
+
+@pytest.mark.parametrize("discard_focused", [False, True])
+def test_discard_dialog_return_only_discards_when_explicitly_focused(discard_focused):
+    dialog = object.__new__(mod.RouteDiscardDialog)
+    dialog._discard_btn = object()
+    dialog.focus_get = Mock(return_value=dialog._discard_btn if discard_focused else object())
+    dialog.ok, dialog.cancel = Mock(), Mock()
+    dialog._on_return()
+    assert dialog.ok.call_count == int(discard_focused)
+    assert dialog.cancel.call_count == int(not discard_focused)
+    dialog.apply()
+    assert dialog.result is True
 
 
 def test_picker_cancel_does_not_discard_route_or_prompt_for_search(panel):
@@ -984,6 +1092,7 @@ def test_picker_cancel_does_not_discard_route_or_prompt_for_search(panel):
     panel.cancel()
     assert not panel._picking
     assert RouteComponent.to_bytes(panel.draft.components) == before
+    mod.RouteDiscardDialog.assert_not_called()
 
 
 def test_unchanged_route_can_close_without_prompt(panel):
@@ -991,6 +1100,7 @@ def test_unchanged_route_can_close_without_prompt(panel):
     panel.open_picker()
     panel.cancel()
     assert panel.confirm_close()
+    mod.RouteDiscardDialog.assert_not_called()
 
 
 def test_invalid_metadata_is_visible_and_prevents_save(panel):

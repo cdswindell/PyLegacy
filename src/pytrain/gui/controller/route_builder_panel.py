@@ -18,9 +18,10 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from sys import platform
+from tkinter import simpledialog
 from typing import TYPE_CHECKING
 
-from guizero import Box, PushButton, Text
+from guizero import Box, PushButton, Text, TitleBox
 
 from .overlay_panel import OverlayPanel
 from .route_draft import RouteDraft
@@ -41,6 +42,50 @@ BUTTON_BG = "#e7ebef"
 BUTTON_ACTIVE_BG = "#cfdeeb"
 SELECTED_BG = "#dcefff"
 SELECTED_COLOR = "#1266a5"
+
+
+class RouteDiscardDialog(simpledialog.Dialog):
+    def __init__(self, parent, *, width, text_size, button_height):
+        self._width = width
+        self._text_size = text_size
+        self._button_height = button_height
+        super().__init__(parent, "Discard route changes?")
+
+    def body(self, master):
+        message = tk.Frame(master, width=self._width, height=self._button_height * 2)
+        message.pack_propagate(False)
+        message.pack()
+        tk.Label(
+            message,
+            text="Discard unsaved route changes?",
+            font=("Helvetica", self._text_size),
+            wraplength=self._width - 32,
+            justify="center",
+        ).pack(fill="both", expand=True, padx=16, pady=16)
+
+    def buttonbox(self):
+        row = tk.Frame(self, width=self._width, height=self._button_height)
+        row.pack_propagate(False)
+        row.pack(fill="x", padx=12, pady=(0, 16))
+        self._keep_btn = tk.Button(
+            row,
+            text="Keep Editing",
+            command=self.cancel,
+            font=("Helvetica", self._text_size),
+            default="active",
+        )
+        self._discard_btn = tk.Button(row, text="Discard", command=self.ok, font=("Helvetica", self._text_size))
+        for button in (self._keep_btn, self._discard_btn):
+            button.pack(side="left", fill="both", expand=True, padx=6)
+        self.initial_focus = self._keep_btn
+        self.bind("<Return>", self._on_return)
+        self.bind("<Escape>", self.cancel)
+
+    def _on_return(self, _event=None):
+        self.ok() if self.focus_get() is self._discard_btn else self.cancel()
+
+    def apply(self):
+        self.result = True
 
 
 class RouteBuilderPanel(OverlayPanel):
@@ -77,7 +122,13 @@ class RouteBuilderPanel(OverlayPanel):
 
     @property
     def footer_pad_px(self) -> int:
-        return 4
+        return self.section_gap or 4
+
+    @property
+    def section_gap(self) -> int:
+        if not self.gui.compact and not self.desktop_controls and self.gui.height >= 1000:
+            return max(12, round(self.row_height * 0.3))
+        return 0
 
     @property
     def content_width(self) -> int:
@@ -167,8 +218,8 @@ class RouteBuilderPanel(OverlayPanel):
             for i, (text, command) in enumerate(buttons)
         )
 
-    def _field(self, parent, label, editor, max_length, on_commit):
-        row = Box(parent, align="top", width=self.content_width, height=self.control_row_height)
+    def _field(self, parent, label, editor, max_length, on_commit, *, width=None):
+        row = Box(parent, align="top", width=width or self.content_width, height=self.control_row_height)
         row.tk.pack_propagate(False)
         caption = Text(row, text=label, align="left", size=self.gui.s_12, width=12)
         caption.tk.config(anchor="e", justify="right", padx=6)
@@ -231,7 +282,10 @@ class RouteBuilderPanel(OverlayPanel):
 
     def build(self, body: Box):
         self._main_page = Box(body, align="top")
-        self._count = Text(self._main_page, text="", size=self.gui.s_14)
+        summary = Box(self._main_page, align="top", width="fill")
+        summary.tk.config(padx=self.row_height)
+        self._route_label = Text(summary, text="", size=self.gui.s_14, align="left")
+        self._count = Text(summary, text="", size=self.gui.s_14, align="right")
         Text(
             self._main_page,
             text=(
@@ -259,7 +313,7 @@ class RouteBuilderPanel(OverlayPanel):
             height=self.card_height,
             align="left",
         )
-        self._selection = Text(self._main_page, text="", size=self.gui.s_12, width="fill", height=2)
+        self._selection = Text(self._main_page, text="", size=self.gui.s_12, width="fill", height=1)
         self._selection.tk.config(wraplength=self.content_width)
         self._positions = Box(self._main_page, align="top", width=self.content_width, height=self.control_row_height)
         self._positions.tk.grid_propagate(False)
@@ -305,8 +359,19 @@ class RouteBuilderPanel(OverlayPanel):
             ("Remove", self.remove_selected),
             ("Clear All", self.clear_components),
         )
-        self._name_field = self._field(self._main_page, "Route Name", EditorType.KEYBOARD, 31, self._on_metadata)
-        self._number_field = self._field(self._main_page, "Route #", EditorType.KEYPAD, 4, self._on_metadata)
+        if self.section_gap:
+            Box(self._main_page, align="top", width=1, height=self.section_gap)
+        self._metadata_box = TitleBox(self._main_page, text="", align="top")
+        self._metadata_box.tk.config(bd=1, relief="groove", padx=self.button_pad_x, pady=self.button_pad_y)
+        field_width = self.content_width - 2 * (self.button_pad_x + 1)
+        self._name_field = self._field(
+            self._metadata_box, "Route Name", EditorType.KEYBOARD, 31, self._on_metadata, width=field_width
+        )
+        self._number_field = self._field(
+            self._metadata_box, "Route #", EditorType.KEYPAD, 4, self._on_metadata, width=field_width
+        )
+        if self.section_gap:
+            Box(self._main_page, align="top", width=1, height=self.section_gap)
 
         self._picker_page = Box(body, align="top", visible=False)
         Text(self._picker_page, text="ADD TO ROUTE", size=self.gui.s_14)
@@ -383,9 +448,8 @@ class RouteBuilderPanel(OverlayPanel):
             self._picker_page.hide()
             self._main_page.show()
         components = self.draft.components
-        self._count.value = f"Route {self._tmcc_id:02d}   ·   {len(components)} of 16 slots used"
-        if self._selected is not None:
-            self._count.value += f"   ·   Selected {self._selected + 1}"
+        self._route_label.value = f"Route {self._tmcc_id:02d}"
+        self._count.value = f"{len(components)} of 16 cards used"
         self._draw_cards()
         selected = self._selected is not None
         component = components[self._selected] if selected else None
@@ -403,8 +467,7 @@ class RouteBuilderPanel(OverlayPanel):
                 background=SELECTED_BG if self._position.get() == value else BUTTON_BG,
             )
         if component:
-            action = "Runs this route at this step." if component.is_route else "When this route fires:"
-            self._selection.value = f"{self._component_label(component)}\n{action}"
+            self._selection.value = f"Card {self._selected + 1}: {self._component_label(component)}"
         else:
             self._selection.value = "No components yet. Tap Add to choose a switch or route."
         self._save_btn.text = "Add to Route" if self._picking else "Save Route"
@@ -837,9 +900,15 @@ class RouteBuilderPanel(OverlayPanel):
 
     def confirm_close(self) -> bool:
         if (self.draft is not None and self.draft.dirty) or self._metadata_dirty():
-            return self.gui.app.yesno(
-                "Discard route changes?", "Discard unsaved components, order, and route information?"
+            if self.desktop_controls:
+                return self.gui.app.yesno("Discard route changes?", "Discard unsaved route changes?")
+            dialog = RouteDiscardDialog(
+                getattr(self.gui, "root", self.gui.app).tk,
+                width=min(self.content_width - 24, max(420, round(self.gui.width * 0.85))),
+                text_size=max(18, self.gui.s_14),
+                button_height=max(64, self.row_height + 16),
             )
+            return bool(dialog.result)
         return True
 
     def _end_inline_edits(self, *, commit: bool = False) -> None:
