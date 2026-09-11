@@ -318,6 +318,7 @@ def _new_host() -> SimpleNamespace:
     host.on_show_generic_acc_panel = lambda: host.on_show_panel_calls.append("generic")
     host.on_show_native_acc_panel = lambda: host.on_show_panel_calls.append("native")
     host.on_lcs_config_panel = lambda: host.on_show_panel_calls.append("lcs")
+    host.on_route_builder = lambda: host.on_show_panel_calls.append("route_builder")
     host.on_info_calls = []
     host.on_info = lambda state=None: host.on_info_calls.append(state)
     host.on_set_key_calls = []
@@ -868,7 +869,67 @@ def test_neither_key_appears_on_a_route_screen() -> None:
     host, _view = _ops(CommandScope.ROUTE, 5)
 
     assert host.sw_set_cell.visible is False
+    assert host.set_key_cell.visible is False
+
+
+def test_route_builder_and_info_appear_on_route_ops() -> None:
+    host, _view = _ops(CommandScope.ROUTE, 5)
+
+    assert host.info_cell.visible is True
+    assert host.info_cell.grid == [0, 4]
+    assert host.route_builder_cell.visible is True
+    assert host.route_builder_cell.grid == [2, 4]
+    assert host.fire_route_cell.visible is True
+    assert host.fire_route_cell.grid == [1, 4]
+    command, args = host.route_builder_btn.on_press
+    command(*args)
+    assert host.on_show_panel_calls == ["route_builder"]
+
+
+def test_route_builder_is_shared_with_entry_and_hidden_for_other_scopes() -> None:
+    host, view = _ops(CommandScope.ROUTE, 5)
+
+    view.entry_mode(clear_info=False)
+
+    assert host.route_builder_cell.visible is True
+    assert host.route_builder_cell.grid == [2, 4]
     assert host.info_cell.visible is False
+    assert host.set_key_cell.visible is False
+    assert host.keypad_keys.tk._column_config[3] == _COLLAPSED
+    assert host.keypad_keys.tk._column_config[4] == _COLLAPSED
+    assert host.route_builder_cell not in host.entry_cells | host.ops_cells
+    host.scope = CommandScope.SWITCH
+    view.entry_mode(clear_info=False)
+    assert host.route_builder_cell.visible is False
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine()
+    assert host.route_builder_cell.visible is False
+
+
+@pytest.mark.parametrize("scope", [CommandScope.SWITCH, CommandScope.ACC])
+def test_info_position_is_restored_when_leaving_route_ops(scope: CommandScope) -> None:
+    host, view = _ops(CommandScope.ROUTE, 5)
+
+    host.scope = scope
+    host.active_state = DummyAccessoryState() if scope == CommandScope.ACC else None
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine()
+
+    assert host.info_cell.visible is True
+    assert host.info_cell.grid == [3, 2]
+    assert host.route_builder_cell.visible is False
+    assert host.keypad_keys.tk._column_config[3] == _OCCUPIED
+
+    host.scope = CommandScope.ROUTE
+    host.active_state = None
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine()
+
+    assert host.info_cell.visible is True
+    assert host.info_cell.grid == [0, 4]
+    assert host.route_builder_cell.visible is True
+    assert host.route_builder_cell.grid == [2, 4]
+    assert host.keypad_keys.tk._column_config[3] == _COLLAPSED
 
 
 @pytest.mark.parametrize("flag", ["is_bpc2", "is_asc2", "is_sensor_track", "is_amc2"])
@@ -1477,10 +1538,15 @@ def test_entry_mode_collapses_the_fourth_and_fifth_columns() -> None:
 
 
 def test_route_ops_leaves_the_fourth_column_collapsed() -> None:
-    # The fire key lands in column 1, so the ops-only 4th column has nothing to hold.
-    host, _view = _ops(CommandScope.ROUTE, 5)
+    # Info, Fire, and Route Builder share the bottom row of the original three columns.
+    host, view = _ops(CommandScope.ROUTE, 5)
+    assert host.route_builder_cell.visible is True
+    assert host.info_cell.visible is True
+    visible_grids = [tuple(cell.grid) for cell in view._keypad_cells if cell.visible]
+    assert len(visible_grids) == len(set(visible_grids))
 
     cfg = host.keypad_keys.tk._column_config
+    assert cfg[0] == cfg[1] == cfg[2] == _OCCUPIED
     assert cfg[3] == _COLLAPSED
     assert cfg[4] == _COLLAPSED
 

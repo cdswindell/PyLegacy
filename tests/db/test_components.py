@@ -6,6 +6,8 @@
 #  SPDX-License-Identifier: LPGL
 #
 
+import pytest
+
 from src.pytrain.db.components import ConsistComponent, RouteComponent, UnitBits
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
@@ -109,11 +111,20 @@ class TestRouteComponent:
         raw += b"\xff" * (32 - len(raw))
 
         parsed = RouteComponent.from_bytes(raw)
-        # Should be sorted by tmcc_id: 2, 5, 8
-        assert [r.tmcc_id for r in parsed] == [2, 5, 8]
-        assert parsed[0].is_out is True
-        assert parsed[1].is_thru is True
+        # Preserve the order in the route record: 5, 2, 8
+        assert [r.tmcc_id for r in parsed] == [5, 2, 8]
+        assert parsed[0].is_thru is True
+        assert parsed[1].is_out is True
         assert parsed[2].is_route is True
+
+    @pytest.mark.parametrize("count", [0, 1, 4, 16])
+    def test_ordered_route_roundtrip_with_duplicate_ids_and_flags(self, count):
+        components = [RouteComponent(99, 0x80), RouteComponent(2, 0x83), RouteComponent(99, 0x81), RouteComponent(1, 0)]
+        components = (components * 4)[:count]
+        raw = RouteComponent.to_bytes(iter(components))
+        parsed = RouteComponent.from_bytes(raw)
+        assert [(c.tmcc_id, c.flags) for c in parsed] == [(c.tmcc_id, c.flags) for c in components]
+        assert RouteComponent.to_bytes(parsed) == raw
 
     def test_to_bytes_linear_and_padded(self):
         comps = [RouteComponent(1, 0x00), RouteComponent(2, 0x01)]
@@ -153,3 +164,44 @@ class TestRouteComponent:
         r = RouteComponent(9, 0x01)
         b = r.as_bytes
         assert b == bytes([0x01, 9])
+
+    def test_route_block_rejects_overflow(self):
+        with pytest.raises(ValueError, match="16"):
+            RouteComponent.to_bytes([RouteComponent(1, 0)] * 17)
+
+    def test_full_route_block_preserves_flags_and_boundary_ids(self):
+        comps = [RouteComponent(i, 0x81) for i in range(1, 16)] + [RouteComponent(99, 0x83)]
+        raw = RouteComponent.to_bytes(iter(comps))
+        assert len(raw) == 32
+        assert raw == b"".join(c.as_bytes for c in comps)
+        assert [(c.tmcc_id, c.flags) for c in RouteComponent.from_bytes(raw)] == [(c.tmcc_id, c.flags) for c in comps]
+
+    @pytest.mark.parametrize("raw", [b"\x00", b"\x00\x01\x03"])
+    def test_route_block_ignores_incomplete_pair(self, raw):
+        parsed = RouteComponent.from_bytes(raw)
+        assert [(c.tmcc_id, c.flags) for c in parsed] == ([(1, 0)] if len(raw) > 1 else [])
+
+    @pytest.mark.parametrize("tmcc_id", [0, 100, -1, True, "1", 1.5])
+    def test_route_block_rejects_invalid_ids(self, tmcc_id):
+        with pytest.raises(ValueError, match="ID"):
+            RouteComponent.to_bytes([RouteComponent(tmcc_id, 0)])
+
+    @pytest.mark.parametrize("flags", [0x02, 0x06, 0x82, 0xFE])
+    def test_stored_out_variant_is_preserved_and_uses_out_command(self, flags):
+        raw = bytes([flags, 7]) + b"\xff" * 30
+        components = RouteComponent.from_bytes(raw)
+        assert len(components) == 1
+        component = components[0]
+        assert component.is_switch
+        assert component.is_out
+        assert not component.is_thru
+        assert not component.is_route
+        assert component.as_signature == {"S7": False}
+        assert component.as_request.command == TMCC1SwitchCommandEnum.OUT
+        assert component.as_request.address == 7
+        assert RouteComponent.to_bytes(components) == raw
+
+    @pytest.mark.parametrize("flags", [-1, 255, 256, True, None, "0", 0.0, 1.5])
+    def test_route_block_rejects_invalid_flags(self, flags):
+        with pytest.raises(ValueError, match="THRU.*OUT.*ROUTE"):
+            RouteComponent.to_bytes([RouteComponent(1, flags)])

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, ABCMeta, abstractmethod
+from collections.abc import Iterable
 from typing import Any, Callable, Generic, TYPE_CHECKING, TypeVar, cast
 
 from ..pdi.constants import D4Action, PdiCommand
@@ -1229,6 +1230,13 @@ class RouteData(CompData):
         self._signal_initializing()
         self._components: list[RouteComponent] | None = None
         super().__init__(data, scope=CommandScope.ROUTE, tmcc_id=tmcc_id)
+
+    def set_components_req(self, components: Iterable[RouteComponent] | None) -> PdiReq:
+        """Build a component-only memory update without changing this record."""
+        if not isinstance(self.tmcc_id, int) or isinstance(self.tmcc_id, bool) or not 1 <= self.tmcc_id <= 99:
+            raise ValueError("Route ID must be an integer from 1 to 99.")
+        components = components if components is not None else ()
+        return self.generate_update_req("components", components, scope=self.scope, address=self.tmcc_id)
 
     def payload(self) -> str:
         sw = ""

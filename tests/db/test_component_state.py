@@ -16,7 +16,7 @@ import pytest
 from src.pytrain import AccessoryState, EngineState, TrainState
 from src.pytrain.comm.command_listener import CommandDispatcher, CommandListener, Message
 from src.pytrain.db.block_state import BlockState
-from src.pytrain.db.comp_data import EngineData
+from src.pytrain.db.comp_data import EngineData, RouteData
 from src.pytrain.db.component_state import (
     ComponentState,
     ComponentStateDict,
@@ -26,8 +26,11 @@ from src.pytrain.db.component_state import (
     SystemStateDict,
 )
 from src.pytrain.db.irda_state import IrdaState
+from src.pytrain.db.component_state_store import ComponentStateStore
+from src.pytrain.db.components import RouteComponent
 from src.pytrain.pdi.amc2_req import Amc2Req
 from src.pytrain.pdi.asc2_req import Asc2Req
+from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.bpc2_req import Bpc2Req
 from src.pytrain.pdi.constants import Asc2Action, Bpc2Action, IrdaAction, PdiCommand
 from src.pytrain.pdi.irda_req import IrdaReq
@@ -334,6 +337,81 @@ class TestComponentState(TestBase):
         complex_route.update_route_state(subroute)
         assert complex_route.is_active is True
         assert complex_route.is_not_active is False
+
+    def test_uninitialized_route_components_are_empty(self):
+        assert RouteState().components is None
+
+    def test_route_feedback_reconciles_replacement_and_clear(self, monkeypatch):
+        states = SystemStateDict()
+        monkeypatch.setattr(ComponentStateStore, "get", lambda: ComponentStateStore)
+        monkeypatch.setattr(
+            ComponentStateStore, "get_state", lambda scope, address, create=True: states[scope][address]
+        )
+        route = states[CommandScope.ROUTE][7]
+        old_switch = states[CommandScope.SWITCH][1]
+        new_switch = states[CommandScope.SWITCH][2]
+        old_switch._state = Switch.THRU
+        new_switch._state = Switch.OUT
+        child = states[CommandScope.ROUTE][8]
+        child._is_known = True
+
+        def refresh(components):
+            data = RouteData(None, 7)
+            data.components = components
+            req = BaseReq(7, PdiCommand.BASE_MEMORY, scope=CommandScope.ROUTE, data_bytes=data.as_bytes())
+            route.update(BaseReq(req.as_bytes))
+
+        refresh([RouteComponent(1, 0), RouteComponent(8, 3)])
+        assert route in old_switch._routes
+        assert route in child._routes
+        assert route.is_aligned
+
+        refresh([RouteComponent(2, 1)])
+        assert route.as_signature == {"S2": False}
+        assert route._current_state == {"S2": False}
+        assert route not in old_switch._routes
+        assert route not in child._routes
+        assert route in new_switch._routes
+        route.changed.clear()
+        old_switch.update_route_state()
+        route.update_switch_state(old_switch)
+        route.update_route_state(child)
+        assert not route.changed.is_set()
+        assert route.is_aligned
+
+        refresh([])
+        assert route.components is None
+        assert route.as_signature == {}
+        assert route._current_state == {}
+        assert route not in new_switch._routes
+
+    def test_route_feedback_propagates_nested_refresh_and_switch_changes(self, monkeypatch):
+        states = SystemStateDict()
+        monkeypatch.setattr(ComponentStateStore, "get", lambda: ComponentStateStore)
+        monkeypatch.setattr(
+            ComponentStateStore, "get_state", lambda scope, address, create=True: states[scope][address]
+        )
+        switch = states[CommandScope.SWITCH][1]
+        switch._state = Switch.THRU
+        child, parent, grandparent = [states[CommandScope.ROUTE][i] for i in (7, 8, 9)]
+        for route, component in (
+            (child, RouteComponent(1, 0)),
+            (parent, RouteComponent(7, 3)),
+            (grandparent, RouteComponent(8, 3)),
+        ):
+            route._is_known = True
+            data = RouteData(None, route.tmcc_id)
+            data.components = [component]
+            route._update_comp_data(data)
+
+        assert child.is_aligned and parent.is_aligned and grandparent.is_aligned
+        data = RouteData(None, 7)
+        data.components = [RouteComponent(1, 1)]
+        child._update_comp_data(data)
+        assert not child.is_aligned and not parent.is_aligned and not grandparent.is_aligned
+        switch._state = Switch.OUT
+        switch.update_route_state()
+        assert child.is_aligned and parent.is_aligned and grandparent.is_aligned
 
     def test_accessory_state(self) -> None:
         """

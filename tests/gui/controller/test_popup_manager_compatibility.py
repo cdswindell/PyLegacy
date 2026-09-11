@@ -194,6 +194,29 @@ def test_show_and_close_restore_host_content_image_and_accessory() -> None:
     assert host.acc_overlay.visible is True
 
 
+def test_editor_can_refuse_requested_close_and_replacement() -> None:
+    host = _host()
+    manager = mod.PopupManager(host)
+    editor = _Widget(visible=False)
+    editor.confirm_close = lambda: False
+    setattr(editor, mod._ON_REQUEST_ATTR, True)
+    manager.show(editor)
+    replacement = _Widget(visible=False)
+
+    assert manager.close() is False
+    assert manager.close_requested() is False
+    manager.show(replacement)
+
+    assert manager.current_popup is editor
+    assert editor.visible is True
+    assert replacement.visible is False
+    assert host.controller_box.visible is False
+    editor.confirm_close = lambda: True
+    assert manager.close_requested() is True
+    assert editor.visible is False
+    assert host.controller_box.visible is True
+
+
 def test_failed_show_restores_content_and_image_and_button_state() -> None:
     host = _host()
     host.acc_overlay.visible = False

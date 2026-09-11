@@ -509,6 +509,7 @@ class PopupManager:
             self.add_close_acc_btn(host, body_src, on_close, overlay)
             body_src.attach_overlay(overlay)
         elif isinstance(body_src, OverlayPanel):
+            overlay.confirm_close = body_src.confirm_close
             body = Box(overlay, align="top", layout="auto")
             body_src.build(body)
             # Recorded before anything is placed, because both the lead and Close's own
@@ -773,7 +774,8 @@ class PopupManager:
             # is something the pane has decided to show: a panel that stays put against the
             # layout's own reports (see close()) must still give way to another screen,
             # rather than be left placed underneath one.
-            self.close(requested=True)
+            if self.close(requested=True) is False:
+                return
 
             # set this overlay as current
             self._state.current_popup = overlay
@@ -856,6 +858,9 @@ class PopupManager:
                 # A panel the operator is working in stays until it is asked for; see
                 # OverlayPanel.closes_on_request_only. Left current as well as visible: it
                 # still owns the screen, so Close and the pad's close key must still find it.
+                return False
+            confirm_close = getattr(overlay, "confirm_close", None)
+            if requested and callable(confirm_close) and not confirm_close():
                 return False
             self._state.current_popup = None
 

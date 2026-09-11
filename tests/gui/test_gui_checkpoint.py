@@ -305,6 +305,7 @@ def _new_host(scope: CommandScope = CommandScope.ACC, tmcc_id: int = 19) -> Simp
     host.on_show_generic_acc_panel = lambda: host.calls.append(("show_generic",))
     host.on_show_native_acc_panel = lambda: host.calls.append(("show_native",))
     host.on_lcs_config_panel = lambda: host.calls.append(("lcs_config_panel",))
+    host.on_route_builder = lambda: host.calls.append(("route_builder",))
     host.on_set_key = lambda scope_, tmcc_id_: host.calls.append(("set_key", scope_, tmcc_id_))
     host.get_image = lambda _image, size=None: None
     host.on_configured_accessory = lambda _acc: None
@@ -458,6 +459,8 @@ def test_route_ops_mode_shows_the_fire_key_alone() -> None:
     _ops(host, view, state=None)
 
     assert host.fire_route_cell.visible is True
+    assert host.info_cell.visible is True
+    assert host.route_builder_cell.visible is True
     assert host.switch_thru_cell.visible is False
     assert host.switch_out_cell.visible is False
     assert host.ac_on_cell.visible is False
@@ -566,10 +569,9 @@ def test_each_lcs_panel_carries_a_key_to_the_generic_panel() -> None:
 # The width of the ops-only 4th keypad column, locked per view
 # ---------------------------------------------------------------------------
 #
-# The one intended change of this stage: the 4th column (grid column 3) reserves
-# space only where a view puts a visible key in it. Entry and the empty-column
-# views (Route) collapse it; the views that fill it (Switch, generic accessory,
-# BPC2 / ASC2) restore it. Every other locked expectation above is untouched.
+# The 4th column (grid column 3) reserves space only where a view puts a visible
+# key in it. Route Builder and Info share the bottom row with Fire on Route
+# screens, leaving that column empty.
 
 # button_size + 2 * grid_pad_by -> 96 + 4 = 100 in this host.
 _OCCUPIED_COL = {"weight": 1, "minsize": 100}
@@ -591,6 +593,11 @@ def test_route_ops_mode_collapses_the_fourth_column() -> None:
     host, view = _built(CommandScope.ROUTE, 5)
     _ops(host, view, state=None)
 
+    assert host.route_builder_cell.visible is True
+    assert host.route_builder_cell.grid == [2, 4]
+    assert host.info_cell.visible is True
+    assert host.info_cell.grid == [0, 4]
+    assert host.fire_route_cell.grid == [1, 4]
     assert host.keypad_keys.tk._column_config[3] == _COLLAPSED_COL
 
 
@@ -810,10 +817,10 @@ def test_scope_keypad_leaves_a_selected_component_in_ops_mode() -> None:
 
 @pytest.mark.parametrize(
     "scope",
-    [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ROUTE],
+    [CommandScope.ENGINE, CommandScope.TRAIN],
 )
 def test_enter_on_an_unknown_id_returns_to_entry_mode_in_every_scope(scope) -> None:
-    """The dead end that survives: creation is deliberately limited to Accessories and Switches.
+    """Engine and Train records still require an existing layout definition.
 
     make_recent answers False whenever the store has no state for the id, and a
     non-creatable scope then lands back on the entry keypad.
@@ -830,9 +837,9 @@ def test_enter_on_an_unknown_id_returns_to_entry_mode_in_every_scope(scope) -> N
     assert view.reset_on_keystroke is True, "and the next digit starts a fresh id"
 
 
-@pytest.mark.parametrize("scope", [CommandScope.ACC, CommandScope.SWITCH])
+@pytest.mark.parametrize("scope", [CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE])
 def test_enter_on_an_unknown_id_creates_a_provisional_component(scope) -> None:
-    """Changed by step 2: an undefined Accessory / Switch id is now created, not rejected."""
+    """An undefined Accessory, Switch, or Route ID is created rather than rejected."""
     host, view = _built(scope, 0)
     host.tmcc_id_text.value = "42"
     recorded: list[tuple] = []

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from enum import IntEnum, unique
 
 from ..protocol.multibyte.multibyte_constants import UnitAssignment
@@ -175,25 +176,30 @@ class ConsistComponent:
 class RouteComponent:
     from ..protocol.command_req import CommandReq
 
+    MAX_COMPONENTS = 16
+
     @classmethod
     def from_bytes(cls, data: bytes) -> list[RouteComponent]:
-        """Parses fixed‑length route components; sorts by ID"""
+        """Parse fixed-length route components in their stored order."""
         route_comps: list[RouteComponent] = list()
         data_len = len(data)
         for i in range(0, 32, 2):
-            if data_len > i:
+            if data_len > i + 1:
                 if data[i] != 0xFF and data[i + 1] != 0xFF:
-                    route_comps.insert(0, RouteComponent(tmcc_id=data[i + 1], flags=data[i]))
+                    route_comps.append(RouteComponent(tmcc_id=data[i + 1], flags=data[i]))
             else:
                 break
-        route_comps = sorted(route_comps, key=lambda s: s.tmcc_id)
         return route_comps
 
     @classmethod
-    def to_bytes(cls, components: list[RouteComponent]) -> bytes:
+    def to_bytes(cls, components: Iterable[RouteComponent] | None) -> bytes:
+        components = list(components) if components is not None else []
+        if len(components) > cls.MAX_COMPONENTS:
+            raise ValueError(f"A route can contain at most {cls.MAX_COMPONENTS} components.")
         byte_str = bytes()
         if components:
             for comp in components:
+                comp.validate()
                 byte_str += comp.as_bytes
         byte_str += b"\xff" * (32 - len(byte_str))
         return byte_str
@@ -202,13 +208,19 @@ class RouteComponent:
         self.tmcc_id = tmcc_id
         self.flags = flags
 
+    def validate(self) -> None:
+        if not isinstance(self.tmcc_id, int) or isinstance(self.tmcc_id, bool) or not 1 <= self.tmcc_id <= 99:
+            raise ValueError("Component ID must be an integer from 1 to 99.")
+        if not isinstance(self.flags, int) or isinstance(self.flags, bool) or not 0 <= self.flags < 0xFF:
+            raise ValueError("Choose switch THRU, switch OUT, or nested ROUTE.")
+
     @property
     def is_thru(self) -> bool:
         return 0x03 & self.flags == 0
 
     @property
     def is_out(self) -> bool:
-        return 0x03 & self.flags == 1
+        return 0x03 & self.flags in {1, 2}
 
     @property
     def is_route(self) -> bool:

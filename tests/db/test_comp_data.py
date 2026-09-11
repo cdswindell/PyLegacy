@@ -26,6 +26,7 @@ from src.pytrain.db.comp_data import (
     UpdatePkg,
 )
 from src.pytrain.db.component_state_store import ComponentStateStore
+from src.pytrain.db.components import RouteComponent
 from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import D4Action, PdiCommand
 from src.pytrain.pdi.d4_req import D4Req
@@ -63,6 +64,56 @@ def train_record(consist_flags_addr: int, consist_flags: int, tmcc_id: int = Non
 
 
 class TestCompData:
+    @pytest.mark.parametrize("components", [None, [], [RouteComponent(99, 0x81), RouteComponent(1, 0x83)]])
+    def test_route_components_request_is_component_only_and_nonmutating(self, components):
+        data = RouteData(None, tmcc_id=7)
+        data.set_road_name_req("Yard Route")
+        data.set_road_number_req(1234)
+        data.prev_link = 3
+        data.next_link = 8
+        data.components = [RouteComponent(2, 0)]
+        before = data.as_bytes()
+        original = data.components
+
+        req = data.set_components_req(components)
+
+        assert isinstance(req, BaseReq)
+        assert req.pdi_command == PdiCommand.BASE_MEMORY
+        assert req.scope == CommandScope.ROUTE
+        assert req.tmcc_id == 7
+        assert req.flags == 0xC3
+        assert req.start == 0x60
+        assert req.data_length == 32
+        assert req.data_bytes == RouteComponent.to_bytes(components)
+        decoded = BaseReq(req.as_bytes)
+        assert decoded.start == 0x60
+        assert decoded.data_bytes == req.data_bytes
+        assert decoded.flags == 0xC3
+        assert data.as_bytes() == before
+        assert data.components is original
+
+    def test_route_record_roundtrip_preserves_order_and_metadata(self):
+        data = RouteData(None, 7)
+        data.set_road_name_req("Yard Route")
+        data.set_road_number_req(12)
+        data.prev_link = 3
+        data.next_link = 8
+        data.components = [RouteComponent(99, 0x81), RouteComponent(1, 0x83), RouteComponent(99, 0x80)]
+        raw = data.as_bytes()
+        restored = RouteData(raw, 7)
+        assert [(c.tmcc_id, c.flags) for c in restored.components] == [(99, 0x81), (1, 0x83), (99, 0x80)]
+        assert restored.road_name == "Yard Route"
+        assert restored.road_number == "0012"
+        assert restored.prev_link == 3
+        assert restored.next_link == 8
+        assert restored.as_bytes() == raw
+        assert restored.set_components_req(restored.components).data_bytes == raw[0x60:0x80]
+
+    @pytest.mark.parametrize("tmcc_id", [0, 100, None, True])
+    def test_route_components_request_rejects_invalid_route_id(self, tmcc_id):
+        with pytest.raises(ValueError, match="Route ID"):
+            RouteData(None, tmcc_id).set_components_req([])
+
     def test_comp_data_handler(self):
         # default handler
         h = CompDataHandler("_speed")

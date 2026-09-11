@@ -1,0 +1,721 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#
+#
+
+from __future__ import annotations
+
+import logging
+import tkinter as tk
+from typing import TYPE_CHECKING
+
+from guizero import Box, PushButton, Text
+
+from .overlay_panel import OverlayPanel
+from .route_draft import RouteDraft
+from ..components.editable_text import EditableText, EditorType
+from ..components.hold_button import HoldButton
+from ...db.component_state import RouteState
+from ...pdi.base_req import BaseReq
+from ...protocol.constants import CommandScope
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .engine_gui import EngineGui
+
+log = logging.getLogger(__name__)
+PICKER_ROWS = 3
+CARD_BG = "#f4f6f8"
+SELECTED_BG = "#dcefff"
+SELECTED_COLOR = "#1266a5"
+
+
+class RouteBuilderPanel(OverlayPanel):
+    def __init__(self, gui: EngineGui):
+        super().__init__(gui, "Route Builder", post_close=self._on_closed)
+        self.draft: RouteDraft | None = None
+        self._state: RouteState | None = None
+        self._tmcc_id = 0
+        self._selected: int | None = None
+        self._picking = False
+        self._filter = "Switches"
+        self._sort = "Name"
+        self._descending = False
+        self._candidates = []
+        self._candidate: tuple[CommandScope, int] | None = None
+        self._main_page = self._picker_page = None
+        self._cards = self._picker = None
+        self._name_field = self._number_field = self._search_field = None
+        self._status = self._save_btn = self._cancel_btn = None
+        self._clear_route_btn = None
+        self._gesture = None
+
+    @property
+    def has_close(self) -> bool:
+        return False
+
+    @property
+    def has_footer(self) -> bool:
+        return True
+
+    @property
+    def closes_on_request_only(self) -> bool:
+        return True
+
+    @property
+    def footer_pad_px(self) -> int:
+        return 4
+
+    @property
+    def content_width(self) -> int:
+        return max(1, int(self.gui.emergency_box_width) - 16)
+
+    @property
+    def row_height(self) -> int:
+        return max(44, int(44 * self.gui.width / 639))
+
+    @property
+    def card_width(self) -> int:
+        return self.card_view_width // 3
+
+    @property
+    def card_view_width(self) -> int:
+        return self.content_width - 2 * self.row_height
+
+    @property
+    def card_height(self) -> int:
+        return int(self.row_height * 3.5)
+
+    @property
+    def picker_row_height(self) -> int:
+        return int(self.row_height * 1.6)
+
+    def _button(
+        self, parent, text, command, *, column=None, columns=1, width=None, height=None, align=None, hold=False
+    ):
+        slot = Box(
+            parent,
+            grid=[column, 0] if column is not None else None,
+            align=align or ("top" if column is None else None),
+            width=width or self.content_width // columns,
+            height=height or self.row_height,
+        )
+        slot.tk.pack_propagate(False)
+        if hold:
+            button = HoldButton(
+                slot,
+                text=text,
+                on_hold=command,
+                hold_threshold=3.0,
+                show_hold_progress=True,
+                critical_fill_color="red",
+                cancel_on_leave=True,
+                width="fill",
+                height="fill",
+            )
+        else:
+            button = PushButton(slot, text=text, command=command, width="fill", height="fill")
+        button.text_size = self.gui.s_14
+        return button
+
+    def _buttons(self, parent, *buttons):
+        row = Box(parent, align="top", layout="grid")
+        return tuple(
+            self._button(row, text, command, column=i, columns=len(buttons))
+            for i, (text, command) in enumerate(buttons)
+        )
+
+    def _field(self, parent, label, editor, max_length, on_commit):
+        row = Box(parent, align="top", width=self.content_width, height=self.row_height)
+        row.tk.pack_propagate(False)
+        Text(row, text=label, align="left", size=self.gui.s_12)
+        edit = PushButton(row, text="Edit", align="right", height="fill")
+        edit.text_size = self.gui.s_12
+        field = EditableText(
+            row,
+            text="",
+            editor=editor,
+            compact=bool(self.gui.compact),
+            field_name=label,
+            max_length=max_length,
+            size=self.gui.s_14,
+            width="fill",
+            height="fill",
+            on_commit=on_commit,
+        )
+        field.tk.config(relief="sunken", bd=1, anchor="w", padx=6)
+        field.when_clicked = field.begin_edit
+        edit.update_command(field.begin_edit)
+        return field
+
+    def _canvas(self, parent, height, horizontal):
+        width = self.card_view_width if horizontal else self.content_width
+        slot = Box(parent, align="left" if horizontal else "top", width=width, height=height)
+        slot.tk.pack_propagate(False)
+        canvas = tk.Canvas(
+            slot.tk,
+            width=width,
+            height=height,
+            highlightthickness=0,
+            background="white",
+            cursor="hand2",
+        )
+        canvas.pack(fill="both", expand=True)
+        canvas.bind("<ButtonPress-1>", lambda event: self._scroll_start(canvas, event))
+        canvas.bind("<B1-Motion>", lambda event: self._scroll_drag(canvas, event, horizontal))
+        canvas.bind("<ButtonRelease-1>", lambda event: self._scroll_end(canvas, event, horizontal))
+        canvas.bind("<MouseWheel>", lambda event: self._wheel(canvas, event, horizontal))
+        canvas.bind("<Button-4>", lambda event: self._wheel(canvas, event, horizontal))
+        canvas.bind("<Button-5>", lambda event: self._wheel(canvas, event, horizontal))
+        return canvas
+
+    def build(self, body: Box):
+        self._main_page = Box(body, align="top")
+        self._count = Text(self._main_page, text="", size=self.gui.s_14)
+        Text(self._main_page, text="Runs left to right. Tap a card to change it; swipe to browse.", size=self.gui.s_12)
+        strip = Box(self._main_page, align="top")
+        self._previous_btn = self._button(
+            strip,
+            "‹",
+            lambda: self.select_relative(-1),
+            width=self.row_height,
+            height=self.card_height,
+            align="left",
+        )
+        self._cards = self._canvas(strip, self.card_height, True)
+        self._next_btn = self._button(
+            strip,
+            "›",
+            lambda: self.select_relative(1),
+            width=self.row_height,
+            height=self.card_height,
+            align="left",
+        )
+        self._selection = Text(self._main_page, text="", size=self.gui.s_12, width="fill", height=2)
+        self._selection.tk.config(wraplength=self.content_width)
+        self._positions = Box(self._main_page, align="top", width=self.content_width, height=self.row_height)
+        self._positions.tk.pack_propagate(False)
+        self._position = tk.StringVar(master=self._positions.tk, value="")
+        self._radios = []
+        for label, value in (("THRU — straight", "thru"), ("OUT — diverging", "out")):
+            radio = tk.Radiobutton(
+                self._positions.tk,
+                text=label,
+                variable=self._position,
+                value=value,
+                command=lambda: self.set_position(0 if self._position.get() == "thru" else 1),
+                font=("Helvetica", self.gui.s_14),
+                anchor="w",
+                background="white",
+            )
+            radio.pack(side="left", fill="both", expand=True)
+            self._radios.append(radio)
+        self._earlier_btn, self._later_btn = self._buttons(
+            self._main_page,
+            ("Move Earlier", lambda: self.move_selected(-1)),
+            ("Move Later", lambda: self.move_selected(1)),
+        )
+        self._add_btn, self._remove_btn, self._clear_btn = self._buttons(
+            self._main_page,
+            ("Add…", self.open_picker),
+            ("Remove", self.remove_selected),
+            ("Clear All", self.clear_components),
+        )
+        self._name_field = self._field(self._main_page, "Route name", EditorType.KEYBOARD, 31, self._on_metadata)
+        self._number_field = self._field(self._main_page, "Road number", EditorType.KEYPAD, 4, self._on_metadata)
+
+        self._picker_page = Box(body, align="top", visible=False)
+        Text(self._picker_page, text="ADD TO ROUTE", size=self.gui.s_14)
+        self._filter_btns = self._buttons(
+            self._picker_page,
+            *((name, lambda value=name: self.set_filter(value)) for name in ("Switches", "Routes", "All")),
+        )
+        self._sort_btns = self._buttons(
+            self._picker_page,
+            ("Name", lambda: self.set_sort("Name")),
+            ("TMCC ID", lambda: self.set_sort("TMCC ID")),
+            ("Ascending ↑", self.toggle_sort_direction),
+        )
+        self._search_field = self._field(self._picker_page, "Search name", EditorType.KEYBOARD, 31, self._on_search)
+        self._picker_count = Text(self._picker_page, text="", size=self.gui.s_12)
+        self._picker = self._canvas(self._picker_page, self.picker_row_height * PICKER_ROWS, False)
+        self._picker.config(yscrollincrement=self.picker_row_height, yscrollcommand=self._picker_scrolled)
+        self._picker_previous, self._picker_next = self._buttons(
+            self._picker_page,
+            ("↑ Previous", lambda: self.scroll_picker(-1)),
+            ("Next ↓", lambda: self.scroll_picker(1)),
+        )
+        self._status = Text(body, text="", size=self.gui.s_12, width="fill", height=2)
+        self._status.tk.config(wraplength=self.content_width)
+
+    def build_footer(self, footer: Box) -> None:
+        row = Box(footer, align="top", layout="grid")
+        self._cancel_btn = self._button(row, "Cancel", self.cancel, column=0, columns=3)
+        self._clear_route_btn = self._button(row, "Clear", self.clear_route, column=1, columns=3, hold=True)
+        self._save_btn = self._button(row, "Save Route", self.save, column=2, columns=3)
+
+    def configure(self, tmcc_id: int, state: RouteState | None = None) -> None:
+        self._clear_route_btn.cancel_interaction()
+        self._end_inline_edits()
+        self._tmcc_id = tmcc_id
+        self._state = state
+        self.draft = RouteDraft(
+            tmcc_id,
+            (state.components or ()) if state else (),
+            road_name=state.road_name if state and state.is_road_name else "",
+            road_number=state.road_number if state and state.is_road_number else "",
+        )
+        self._name_field.value = self.draft.road_name
+        self._number_field.value = self.draft.road_number
+        self._selected = 0 if self.draft.components else None
+        self._picking = False
+        self._refresh()
+        self._cards.xview_moveto(0)
+
+    def _lookup_route(self, tmcc_id: int):
+        return self.gui.state_store.get_state(CommandScope.ROUTE, tmcc_id, False)
+
+    def _component_label(self, component):
+        scope = CommandScope.ROUTE if component.is_route else CommandScope.SWITCH
+        state = self.gui.state_store.get_state(scope, component.tmcc_id, False)
+        return self._state_name(state, scope, component.tmcc_id)
+
+    @staticmethod
+    def _state_name(state, scope, tmcc_id):
+        return (state.road_name if state and state.is_road_name else None) or (
+            state.name if state else f"{scope.title} {tmcc_id:02d}"
+        )
+
+    def _refresh(self, message: str = "") -> None:
+        if self.draft is None or self._main_page is None:
+            return
+        if self._picking:
+            self._main_page.hide()
+            self._picker_page.show()
+        else:
+            self._picker_page.hide()
+            self._main_page.show()
+        components = self.draft.components
+        self._count.value = f"Route {self._tmcc_id:02d}   ·   {len(components)} / 16 components"
+        if self._selected is not None:
+            self._count.value += f"   ·   Selected {self._selected + 1}"
+        self._draw_cards()
+        selected = self._selected is not None
+        component = components[self._selected] if selected else None
+        self._previous_btn.enabled = selected and self._selected > 0
+        self._next_btn.enabled = selected and self._selected < len(components) - 1
+        self._earlier_btn.enabled = self._previous_btn.enabled
+        self._later_btn.enabled = self._next_btn.enabled
+        self._remove_btn.enabled = selected
+        self._clear_btn.enabled = bool(components)
+        self._add_btn.enabled = len(components) < 16
+        self._position.set("" if component is None or component.is_route else "thru" if component.is_thru else "out")
+        for radio in self._radios:
+            radio.config(state="normal" if component and component.is_switch else "disabled")
+        if component:
+            action = "Sub-route — runs here in the sequence" if component.is_route else "When this route fires:"
+            self._selection.value = f"{self._component_label(component)}\n{action}"
+        else:
+            self._selection.value = "No components yet. Tap Add to choose a switch or route."
+        self._save_btn.text = "Add to Route" if self._picking else "Save Route"
+        self._save_btn.enabled = self._candidate is not None and len(components) < 16 if self._picking else True
+        state = self._lookup_route(self._tmcc_id)
+        self._clear_route_btn.enabled = (
+            not self._picking and isinstance(state, RouteState) and not state.is_deleted and state.is_deletable
+        )
+        self._status.value = message or (
+            "Choose a component, then tap Add to Route."
+            if self._picking
+            else ("Unsaved changes · " if self.draft.dirty else "") + "Editing does not operate the layout."
+        )
+        if not message and self._clear_route_btn.enabled:
+            self._status.value += "\nHold Clear for 3 seconds to delete from Base 3."
+
+    def _draw_cards(self):
+        canvas = self._cards
+        canvas.delete("all")
+        components = self.draft.components
+        canvas.config(
+            scrollregion=(0, 0, max(self.card_view_width, len(components) * self.card_width), self.card_height)
+        )
+        if not components:
+            canvas.create_text(
+                self.card_view_width / 2,
+                self.card_height / 2,
+                text="No components yet\nTap Add to get started",
+                font=("Helvetica", self.gui.s_14),
+                justify="center",
+            )
+        for index, component in enumerate(components):
+            x = index * self.card_width
+            selected = index == self._selected
+            canvas.create_rectangle(
+                x + 4,
+                4,
+                x + self.card_width - 4,
+                self.card_height - 4,
+                fill=SELECTED_BG if selected else CARD_BG,
+                outline=SELECTED_COLOR if selected else "#8b949e",
+                width=3 if selected else 1,
+            )
+            canvas.create_text(
+                x + 12,
+                14,
+                text=f"{index + 1}   {'ROUTE' if component.is_route else 'SWITCH'}",
+                anchor="nw",
+                font=("Helvetica", self.gui.s_12, "bold"),
+            )
+            self._draw_track(canvas, x, component)
+            canvas.create_text(
+                x + self.card_width / 2,
+                self.card_height * 0.65,
+                text=self._component_label(component)[:38],
+                width=self.card_width - 24,
+                font=("Helvetica", self.gui.s_12, "bold"),
+                justify="center",
+            )
+            mode = "SUB-ROUTE" if component.is_route else "THRU" if component.is_thru else "OUT"
+            canvas.create_text(
+                x + self.card_width / 2,
+                self.card_height - 17,
+                text=f"{mode} · ID {component.tmcc_id:02d}",
+                font=("Helvetica", self.gui.s_12),
+            )
+
+    def _draw_track(self, canvas, x, component):
+        left, middle, right = x + 24, x + self.card_width / 2, x + self.card_width - 24
+        y = self.card_height * 0.34
+        if component.is_route:
+            canvas.create_line(
+                left, y, middle, y, middle, y + 18, right, y + 18, arrow="last", width=4, fill=SELECTED_COLOR
+            )
+            return
+        canvas.create_line(left, y, right, y, fill="#9aa4ae", width=6)
+        canvas.create_line(middle, y, right, y + 24, fill="#9aa4ae", width=6)
+        path = (left, y, right, y) if component.is_thru else (left, y, middle, y, right, y + 24)
+        canvas.create_line(*path, fill=SELECTED_COLOR, width=6)
+
+    def select_row(self, index: int) -> None:
+        if self.draft is not None and 0 <= index < len(self.draft.components):
+            self._selected = index
+            self._refresh()
+            self._reveal_selected()
+
+    def select_relative(self, delta: int) -> None:
+        if self.draft and self.draft.components:
+            self.select_row(max(0, min((self._selected or 0) + delta, len(self.draft.components) - 1)))
+
+    def _reveal_selected(self):
+        if self._selected is None:
+            return
+        total = max(self.card_view_width, len(self.draft.components) * self.card_width)
+        left = self._cards.xview()[0] * total
+        start = self._selected * self.card_width
+        if start < left:
+            self._cards.xview_moveto(start / total)
+        elif start + self.card_width > left + self.card_view_width:
+            self._cards.xview_moveto((start + self.card_width - self.card_view_width) / total)
+
+    def set_position(self, flags: int) -> None:
+        if self.draft is None or self._selected is None or flags not in (0, 1):
+            return
+        component = self.draft.components[self._selected]
+        if component.is_route:
+            return
+        try:
+            self.draft.set_component(self._selected, component.tmcc_id, flags, self._lookup_route)
+        except ValueError as exc:
+            self._refresh(str(exc))
+            return
+        self._refresh()
+
+    def move_selected(self, delta: int) -> None:
+        if self.draft is not None and self._selected is not None:
+            self._selected = self.draft.move(self._selected, delta)
+            self._refresh()
+            self._reveal_selected()
+
+    def remove_selected(self) -> None:
+        if self.draft is not None and self._selected is not None:
+            self.draft.remove(self._selected)
+            self._selected = min(self._selected, len(self.draft.components) - 1) if self.draft.components else None
+            self._refresh()
+            self._reveal_selected()
+
+    def clear_components(self) -> None:
+        if (
+            self.draft
+            and self.draft.components
+            and self.gui.app.yesno("Clear route?", "Remove all components from this route draft?")
+        ):
+            self.draft.clear()
+            self._selected = None
+            self._refresh()
+
+    def open_picker(self) -> None:
+        if self.draft is None or len(self.draft.components) >= 16:
+            return
+        self._end_inline_edits(commit=True)
+        self._picking = True
+        self._candidate = None
+        self._refresh_picker()
+
+    def set_filter(self, value: str) -> None:
+        self._filter = value
+        self._refresh_picker()
+
+    def set_sort(self, value: str) -> None:
+        self._sort = value
+        self._refresh_picker()
+
+    def toggle_sort_direction(self) -> None:
+        self._descending = not self._descending
+        self._refresh_picker()
+
+    def _on_search(self, _field, _new, _old) -> None:
+        self._refresh_picker()
+
+    def _refresh_picker(self) -> None:
+        scopes = (
+            (CommandScope.SWITCH, CommandScope.ROUTE)
+            if self._filter == "All"
+            else (CommandScope.SWITCH if self._filter == "Switches" else CommandScope.ROUTE,)
+        )
+        search = str(self._search_field.value).strip().casefold()
+        self._candidates = [
+            (scope, state)
+            for scope in scopes
+            for state in self.gui.state_store.get_all(scope)
+            if not state.is_deleted
+            and 1 <= state.tmcc_id <= 99
+            and search in self._state_name(state, scope, state.tmcc_id).casefold()
+        ]
+        self._candidates.sort(
+            key=lambda item: (
+                (self._state_name(item[1], item[0], item[1].tmcc_id).casefold(), item[1].tmcc_id, item[0].name)
+                if self._sort == "Name"
+                else (item[1].tmcc_id, item[0].name)
+            ),
+            reverse=self._descending,
+        )
+        if self._candidate not in {(scope, state.tmcc_id) for scope, state in self._candidates}:
+            self._candidate = None
+        for name, button in zip(("Switches", "Routes", "All"), self._filter_btns):
+            button.text = f"{'● ' if self._filter == name else ''}{name}"
+        for name, button in zip(("Name", "TMCC ID"), self._sort_btns):
+            button.text = f"{'● ' if self._sort == name else ''}{name}"
+        self._sort_btns[2].text = "Descending ↓" if self._descending else "Ascending ↑"
+        self._picker_count.value = f"{len(self._candidates)} available · Tap to select; swipe to browse"
+        self._draw_picker()
+        self._picker.yview_moveto(0)
+        self._refresh()
+
+    def _draw_picker(self):
+        canvas = self._picker
+        canvas.delete("all")
+        canvas.config(
+            scrollregion=(0, 0, self.content_width, max(PICKER_ROWS, len(self._candidates)) * self.picker_row_height)
+        )
+        if not self._candidates:
+            canvas.create_text(
+                self.content_width / 2,
+                self.picker_row_height,
+                text="No matching components.\nTry another filter or clear the search.",
+                font=("Helvetica", self.gui.s_14),
+                justify="center",
+            )
+        for index, (scope, state) in enumerate(self._candidates):
+            y = index * self.picker_row_height
+            selected = self._candidate == (scope, state.tmcc_id)
+            canvas.create_rectangle(
+                2,
+                y + 2,
+                self.content_width - 2,
+                y + self.picker_row_height - 2,
+                fill=SELECTED_BG if selected else CARD_BG,
+                outline=SELECTED_COLOR if selected else "#c1c8d0",
+            )
+            canvas.create_text(
+                18, y + self.picker_row_height / 2, text="●" if selected else "○", font=("Helvetica", self.gui.s_14)
+            )
+            canvas.create_text(
+                40,
+                y + 10,
+                text=self._state_name(state, scope, state.tmcc_id),
+                anchor="nw",
+                width=self.content_width - 54,
+                font=("Helvetica", self.gui.s_14, "bold"),
+            )
+            number = state.road_number if state.is_road_number else "—"
+            canvas.create_text(
+                40,
+                y + self.picker_row_height - 20,
+                text=f"{scope.title} · Road no. {number} · ID {state.tmcc_id:02d}",
+                anchor="w",
+                font=("Helvetica", self.gui.s_12),
+            )
+
+    def choose_candidate(self, index: int) -> None:
+        if 0 <= index < len(self._candidates):
+            scope, state = self._candidates[index]
+            self._candidate = (scope, state.tmcc_id)
+            self._draw_picker()
+            self._refresh()
+
+    def add_selected(self) -> None:
+        if not self._picking or self._candidate is None:
+            return
+        scope, tmcc_id = self._candidate
+        state = self.gui.state_store.get_state(scope, tmcc_id, False)
+        if state is None or state.is_deleted:
+            self._candidate = None
+            self._refresh_picker()
+            self._status.value = "That component is no longer available. Choose another."
+            return
+        try:
+            self.draft.set_component(None, tmcc_id, 3 if scope == CommandScope.ROUTE else 0, self._lookup_route)
+        except ValueError as exc:
+            self._status.value = str(exc)
+            return
+        self._selected = len(self.draft.components) - 1
+        self._picking = False
+        self._refresh()
+        self._reveal_selected()
+
+    def scroll_picker(self, delta: int) -> None:
+        self._picker.yview_scroll(delta * PICKER_ROWS, "units")
+
+    def _picker_scrolled(self, first, last):
+        self._picker_previous.enabled = float(first) > 0
+        self._picker_next.enabled = float(last) < 1
+
+    def _scroll_start(self, canvas, event):
+        self._gesture = (canvas, event.x, event.y, False)
+        canvas.scan_mark(event.x, event.y)
+
+    def _scroll_drag(self, canvas, event, horizontal):
+        if self._gesture is None or self._gesture[0] is not canvas:
+            return
+        _, x, y, moved = self._gesture
+        moved = moved or abs(event.x - x if horizontal else event.y - y) > 8
+        self._gesture = (canvas, x, y, moved)
+        if moved:
+            canvas.scan_dragto(event.x if horizontal else x, y if horizontal else event.y, gain=1)
+
+    def _scroll_end(self, canvas, event, horizontal):
+        gesture, self._gesture = self._gesture, None
+        if gesture is None or gesture[0] is not canvas:
+            return
+        if gesture[3] or abs(event.x - gesture[1]) > 8 or abs(event.y - gesture[2]) > 8:
+            return
+        if horizontal:
+            self.select_row(int(canvas.canvasx(event.x) // self.card_width))
+        else:
+            self.choose_candidate(int(canvas.canvasy(event.y) // self.picker_row_height))
+
+    @staticmethod
+    def _wheel(canvas, event, horizontal):
+        delta = getattr(event, "delta", 0)
+        direction = -1 if getattr(event, "num", None) == 4 or delta > 0 else 1
+        (canvas.xview_scroll if horizontal else canvas.yview_scroll)(direction, "units")
+        return "break"
+
+    def _on_metadata(self, _field, _new, _old) -> None:
+        try:
+            self.draft.set_metadata(str(self._name_field.value), str(self._number_field.value))
+        except ValueError as exc:
+            self._refresh(str(exc))
+            return
+        self._refresh()
+
+    def _metadata_dirty(self) -> bool:
+        return self.draft is not None and (
+            (self._name_field.value, self._number_field.value) != (self.draft.road_name, self.draft.road_number)
+            or any(field.is_editing and field.is_changed for field in (self._name_field, self._number_field))
+        )
+
+    def cancel(self) -> None:
+        if self._picking:
+            self._end_inline_edits()
+            self._picking = False
+            self._refresh()
+        else:
+            self._close()
+
+    def confirm_close(self) -> bool:
+        if (self.draft is not None and self.draft.dirty) or self._metadata_dirty():
+            return self.gui.app.yesno(
+                "Discard route changes?", "Discard unsaved components, order, and route information?"
+            )
+        return True
+
+    def _end_inline_edits(self, *, commit: bool = False) -> None:
+        for field in (self._name_field, self._number_field, self._search_field):
+            if field is not None and field.is_editing:
+                field.commit_edit() if commit else field.cancel_edit()
+
+    def _on_closed(self, _overlay=None) -> None:
+        if self._clear_route_btn is not None:
+            self._clear_route_btn.cancel_interaction()
+        self._end_inline_edits()
+        self._picking = False
+        self._gesture = None
+
+    def clear_route(self) -> None:
+        if self.draft is None or self._picking:
+            return
+        self._clear_route_btn.cancel_interaction()
+        state = self._lookup_route(self._tmcc_id)
+        if not isinstance(state, RouteState) or state.is_deleted or not state.is_deletable:
+            self._refresh("Route not cleared: it is no longer available to clear.")
+            return
+        try:
+            self.gui.clear_record(state)
+        except Exception as exc:
+            log.warning("Unable to clear route %s: %s", self._tmcc_id, exc)
+            self._status.value = f"Route not cleared: {exc}"
+            return
+        if not state.is_deleted:
+            self._refresh("Route not cleared: the record could not be deleted.")
+            return
+        self._end_inline_edits()
+        self.draft = None
+        self._state = None
+        self._selected = None
+        self._clear_route_btn.enabled = False
+        self._save_btn.enabled = False
+        self._close()
+
+    def save(self) -> None:
+        if self.draft is None:
+            return
+        if self._picking:
+            self.add_selected()
+            return
+        self._end_inline_edits(commit=True)
+        try:
+            self.draft.set_metadata(str(self._name_field.value), str(self._number_field.value))
+            self.draft.validate(self._lookup_route)
+            state = self._lookup_route(self._tmcc_id)
+            if state is None:
+                state = self.gui.create_provisional_component(CommandScope.ROUTE, self._tmcc_id)
+            reqs = self.draft.build_requests(state, self._lookup_route)
+            BaseReq.process_sync_reqs([*reqs, state], do_async=True)
+        except Exception as exc:
+            log.warning("Unable to save route %s: %s", self._tmcc_id, exc)
+            self._status.value = f"Route not saved: {exc}"
+            return
+        self.draft.mark_saved()
+        self._state = state
+        self._close()
+        self.gui._scope_tmcc_ids[CommandScope.ROUTE] = self._tmcc_id
+        self.gui.ops_mode(update_info=True, state=state)

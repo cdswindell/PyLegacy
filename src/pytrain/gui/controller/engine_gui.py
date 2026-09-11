@@ -53,6 +53,7 @@ from .keypad_view import ACCESSORY_THROTTLE_MAX, ACCESSORY_THROTTLE_MIN, KeypadV
 from .lcs_config_panel import LcsConfigPanel
 from .lighting_panel import LightingPanel
 from .popup_manager import PopupManager
+from .route_builder_panel import RouteBuilderPanel
 from .rr_speed_panel import RrSpeedPanel
 from .state_info_overlay import StateInfoOverlay
 from ..accessories.accessory_base import preload_accessory_button_image_paths
@@ -278,6 +279,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.halt_btn = self.reset_btn = self.linked_cars_btn = self.off_btn = self.on_btn = self.set_btn = None
         self.fire_route_btn = self.switch_thru_btn = self.switch_out_btn = self.keypad_keys = None
         self.sw_set_btn = self.info_btn = self.acc_generic_btn = None
+        self.route_builder_cell = self.route_builder_btn = None
 
         # various fields
         self.tmcc_id_box = self.tmcc_id_text = self._nbi = self.header = None
@@ -329,6 +331,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self._image_parent = None  # container that owns that margin
         self._admin_panel = None
         self._lcs_config_panel = None
+        self._route_builder_panel = None
         self._catalog_panel = None
         self._lighting_panel = None
         self._rr_speed_panel = None
@@ -805,6 +808,27 @@ class EngineGui(GuiZeroBase, Generic[S]):
         overlay = self._rr_speed_panel.overlay
         self._rr_speed_panel.configure(self.active_engine_state)
         self.show_popup(overlay)
+
+    def on_route_builder(self) -> None:
+        if self.scope != CommandScope.ROUTE:
+            return
+        try:
+            tmcc_id = int(self.tmcc_id_text.value)
+        except (TypeError, ValueError):
+            tmcc_id = 0
+        state = self.state_store.get_state(CommandScope.ROUTE, tmcc_id, False) if 1 <= tmcc_id <= 98 else None
+        if not 1 <= tmcc_id <= 98 or (state is None and not KeypadView._can_create(CommandScope.ROUTE, tmcc_id)):
+            self.app.warn("Route Builder", "Enter an existing route ID, or a new route ID from 02 to 98.")
+            return
+        with self._cv:
+            if self._route_builder_panel is None:
+                self._route_builder_panel = RouteBuilderPanel(self)
+        panel = self._route_builder_panel
+        if panel.visible:
+            return
+        overlay = panel.overlay
+        panel.configure(tmcc_id, state)
+        self.show_popup(overlay, hide_image_box=True)
 
     # noinspection PyUnresolvedReferences
     def on_lights(self) -> None:
@@ -1450,6 +1474,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if state is None:
             tmcc_id = self._scope_tmcc_ids[CommandScope.ROUTE]
             state = self._state_store.get_state(CommandScope.ROUTE, tmcc_id, False) if 1 <= tmcc_id < 99 else None
+        self._promote_if_populated(state)
         if state:
             bg = self._active_bg if state.is_active else self._inactive_bg
             hc = "lightgreen" if state.is_active else "#e0e0e0"
@@ -1816,6 +1841,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
     # noinspection PyUnresolvedReferences
     def on_scope_hold(self, pb: HoldButton):
         self.on_scope(pb.scope, held=True)
+        panel = getattr(self, "_route_builder_panel", None)
+        if panel is not None and panel.visible:
+            return
         with self._cv:
             if self._catalog_panel is None:
                 self._catalog_panel = CatalogPanel(
@@ -1828,6 +1856,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
 
     # noinspection PyTypeChecker
     def on_scope(self, scope: CommandScope, held: bool = False) -> None:
+        panel = getattr(self, "_route_builder_panel", None)
+        if panel is not None and panel.visible and self._popup.close_requested() is False:
+            return
         self._begin_transition()
         try:
             # a forced accessory panel does not survive a scope press

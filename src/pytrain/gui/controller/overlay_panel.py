@@ -99,6 +99,10 @@ class OverlayPanel(metaclass=ABCMeta):
     def refresh_footer(self) -> None:
         pass
 
+    def confirm_close(self) -> bool:
+        """Allow editors to protect unsaved work when navigation requests a close."""
+        return True
+
     def _close(self) -> None:
         # A panel closing itself is the operator asking for it to go, so it goes even where
         # the panel would otherwise stay put; see closes_on_request_only.

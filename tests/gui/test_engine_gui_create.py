@@ -6,7 +6,7 @@
 #  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
 #  SPDX-License-Identifier: LGPL-3.0-only
 #
-"""Creation of Accessory and Switch records from the Enter key.
+"""Creation of Accessory, Switch, and Route records from the Enter key.
 
 Headless throughout: EngineGui is exercised through an __new__ shell carrying only the
 attributes the creation path touches, and KeypadView against a SimpleNamespace host, in
@@ -23,7 +23,7 @@ from pytrain.gui.controller import keypad_view as mod
 from pytrain.gui.controller.engine_gui_conf import CREATABLE_SCOPES, ENTER_KEY
 from pytrain.protocol.constants import CommandScope
 
-NON_CREATABLE = [CommandScope.ENGINE, CommandScope.TRAIN, CommandScope.ROUTE]
+NON_CREATABLE = [CommandScope.ENGINE, CommandScope.TRAIN]
 
 
 class DummyState:
@@ -216,7 +216,7 @@ def test_non_creatable_scopes_are_rejected_at_every_id(scope) -> None:
 
 def test_engines_are_deliberately_out_of_scope_for_now() -> None:
     assert CommandScope.ENGINE not in CREATABLE_SCOPES
-    assert CREATABLE_SCOPES == frozenset({CommandScope.ACC, CommandScope.SWITCH})
+    assert CREATABLE_SCOPES == frozenset({CommandScope.ACC, CommandScope.SWITCH, CommandScope.ROUTE})
 
 
 # ---------------------------------------------------------------------------

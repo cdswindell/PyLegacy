@@ -859,8 +859,11 @@ class SwitchState(TmccState, LcsProxyState):
     def register_route(self, route: RouteState) -> None:
         self._routes.add(route)
 
+    def unregister_route(self, route: RouteState) -> None:
+        self._routes.discard(route)
+
     def update_route_state(self) -> None:
-        for route in self._routes:
+        for route in tuple(self._routes):
             route.update_switch_state(self)
 
     def as_bytes(self) -> bytes:
@@ -904,6 +907,7 @@ class RouteState(TmccState):
         self._routes: set[RouteState] = set()
         self._signature: dict[str, bool] = dict()
         self._current_state: dict[str, bool | None] = dict()
+        self._feedback_sources: set[SwitchState | RouteState] = set()
 
     def as_csv(self, include_state: bool = False) -> dict[str, str | int | None]:
         data = super().as_csv(include_state=include_state)
@@ -923,30 +927,6 @@ class RouteState(TmccState):
             with self.synchronizer:
                 if isinstance(command, CompDataMixin) and command.is_comp_data_record:
                     self._update_comp_data(command.comp_data)
-                    # set up callbacks so that changes to component switch states
-                    # can real-time trigger updates to this route's state
-                    comps = self.components
-                    if comps:
-                        from .component_state_store import ComponentStateStore
-
-                        store = ComponentStateStore.get()
-                        # Updates route state from switch and route components via store
-                        for comp in comps:
-                            self._signature.update(comp.as_signature)
-                            if comp.is_switch:
-                                switch = store.get_state(CommandScope.SWITCH, comp.tmcc_id, True)
-                                if isinstance(switch, SwitchState):
-                                    self._current_state.update(
-                                        {f"S{switch.address}": switch.is_thru if switch.is_known else None}
-                                    )
-                                    switch.register_route(self)
-                            elif comp.is_route:
-                                route = store.get_state(CommandScope.ROUTE, comp.tmcc_id, True)
-                                if isinstance(route, RouteState):
-                                    self._current_state.update(
-                                        {f"R{route.address}": route.is_active if route.is_known else None}
-                                    )
-                                    route.register_route(self)
                 elif isinstance(command, CommandReq):
                     pass
                 else:
@@ -954,9 +934,38 @@ class RouteState(TmccState):
             return UpdateResult.UPDATED
         return UpdateResult.IGNORED
 
+    def _update_comp_data(self, comp_data: CompData) -> None:
+        with self.synchronizer:
+            for source in self._feedback_sources:
+                source.unregister_route(self)
+            self._feedback_sources.clear()
+            self._signature.clear()
+            self._current_state.clear()
+            super()._update_comp_data(comp_data)
+            comps = self.components
+            if comps:
+                from .component_state_store import ComponentStateStore
+
+                store = ComponentStateStore.get()
+                for comp in comps:
+                    self._signature.update(comp.as_signature)
+                    scope = CommandScope.ROUTE if comp.is_route else CommandScope.SWITCH
+                    source = store.get_state(scope, comp.tmcc_id, True)
+                    if isinstance(source, SwitchState):
+                        self._current_state[f"S{comp.tmcc_id}"] = source.is_thru if source.is_known else None
+                    elif isinstance(source, RouteState):
+                        self._current_state[f"R{comp.tmcc_id}"] = source.is_active if source.is_known else None
+                    else:
+                        self._current_state.update(dict.fromkeys(comp.as_signature))
+                        continue
+                    source.register_route(self)
+                    self._feedback_sources.add(source)
+            for route in tuple(self._routes):
+                route.update_route_state(self, {self})
+
     @property
     def components(self) -> List[RouteComponent] | None:
-        return self.comp_data.components.copy() if self.comp_data.components else None
+        return self.comp_data.components.copy() if self.comp_data and self.comp_data.components else None
 
     @property
     def payload(self) -> str:
@@ -988,17 +997,27 @@ class RouteState(TmccState):
     def register_route(self, route: RouteState):
         self._routes.add(route)
 
+    def unregister_route(self, route: RouteState) -> None:
+        self._routes.discard(route)
+
     def update_switch_state(self, switch: SwitchState) -> None:
         with self.synchronizer:
+            if f"S{switch.address}" not in self._signature:
+                return
             self._current_state.update({f"S{switch.address}": switch.is_thru if switch.is_known else None})
-            for route in self._routes:
-                route.update_route_state(self)
+            for route in tuple(self._routes):
+                route.update_route_state(self, {self})
             self.changed.set()
             self._cv.notify_all()
 
-    def update_route_state(self, route: RouteState) -> None:
+    def update_route_state(self, route: RouteState, visited: set[RouteState] | None = None) -> None:
         with self.synchronizer:
+            if f"R{route.address}" not in self._signature or (visited is not None and self in visited):
+                return
             self._current_state.update({f"R{route.address}": route.is_active if route.is_known else None})
+            visited = (visited or set()) | {self}
+            for parent in tuple(self._routes):
+                parent.update_route_state(self, visited)
             self.changed.set()
             self._cv.notify_all()
 

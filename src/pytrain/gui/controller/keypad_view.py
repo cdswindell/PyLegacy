@@ -39,6 +39,7 @@ from .engine_gui_conf import (
     INFO_KEY,
     LCS_PANEL_KEY,
     OP_SCREEN_IMAGE,
+    ROUTE_BUILDER_KEY,
     SENSOR_TRACK_OPTS,
     SET_KEY,
     SWITCH_OUT_KEY,
@@ -557,6 +558,18 @@ class KeypadView(Generic[S]):
             args=[],
         )
 
+        host.route_builder_cell, host.route_builder_btn = make_key(
+            keypad_keys,
+            ROUTE_BUILDER_KEY,
+            4,
+            2,
+            size=host.s_12,
+            visible=False,
+            hover=True,
+            command=host.on_route_builder,
+            args=[],
+        )
+
         # Sensor Track Buttons
         host.sensor_track_box = cell = TitleBox(app, "Sequence", layout="auto", align="top", visible=False, border=2)
         cell.text_size = host.s_10
@@ -873,7 +886,7 @@ class KeypadView(Generic[S]):
     def _can_create(scope: CommandScope, tmcc_id: int) -> bool:
         """
         True if a component of the given scope can be created at the given TMCC ID. Applies
-        the same range rule the Set key does; only Accessories and Switches qualify for now.
+        the same range rule the Set key does for Accessories, Switches, and Routes.
         """
         if scope not in CREATABLE_SCOPES:
             return False
@@ -885,6 +898,11 @@ class KeypadView(Generic[S]):
             grid = getattr(cell, "reset_grid", False)
             if grid:
                 cell.grid = grid
+
+    def _show_route_builder_key(self, visible: bool) -> None:
+        cell = getattr(self._host, "route_builder_cell", None)
+        if cell is not None:
+            cell.show() if visible else cell.hide()
 
     def _expand_acc_aux_cells(self) -> None:
         """Hides accelerator and auxiliary keys when not in ops mode"""
@@ -1026,6 +1044,8 @@ class KeypadView(Generic[S]):
         self.activate_numeric_keys()
         self.scope_power_btns()
         self.scope_set_btn()
+        if host.scope == CommandScope.ROUTE:
+            host.set_key_cell.hide()
         if host.acc_overlay and host.acc_overlay.visible:
             host.acc_overlay.hide()
         if not host.keypad_box.visible:
@@ -1040,6 +1060,7 @@ class KeypadView(Generic[S]):
             self._show_lcs_panel_key([0, 4])
         else:
             self._hide_lcs_panel_key()
+        self._show_route_builder_key(host.scope == CommandScope.ROUTE)
         self._reflow_keypad_columns()
 
     def enter_ops_mode_base(self) -> None:
@@ -1062,6 +1083,7 @@ class KeypadView(Generic[S]):
         # The shared LCS... key is in neither cell set, so hide it by hand on every ops entry;
         # the specific accessory panel below re-shows and re-grids it where it belongs.
         self._hide_lcs_panel_key()
+        self._show_route_builder_key(False)
 
         self._collapse_acc_aux_cells()
         self.activate_numeric_keys()
@@ -1099,6 +1121,8 @@ class KeypadView(Generic[S]):
         EngineGui should call this only when NOT engine/train.
         """
         host = self._host
+        # Route navigation shares the bottom row with Fire; other scopes keep Info beside the keypad.
+        host.info_cell.grid = [0, 4] if host.scope == CommandScope.ROUTE else [3, 2]
 
         # reset is only meaningful for engine/train
         if host.reset_btn.enabled:
@@ -1112,6 +1136,8 @@ class KeypadView(Generic[S]):
         if host.scope == CommandScope.ROUTE:
             host.on_new_route()
             host.fire_route_cell.show()
+            host.info_cell.show()
+            self._show_route_builder_key(True)
             if not host.keypad_box.visible:
                 host.keypad_box.show()
             self._reflow_keypad_columns()

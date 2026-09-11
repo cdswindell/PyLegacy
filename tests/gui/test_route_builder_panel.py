@@ -1,0 +1,778 @@
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#  Copyright (c) 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#
+#  SPDX-FileCopyrightText: 2024-2026 Dave Swindell <pytraininfo.gmail.com>
+#  SPDX-License-Identifier: LGPL-3.0-only
+#
+
+#
+#  PyTrain: a library for controlling Lionel Legacy engines, trains, switches, and accessories.
+#
+#
+#
+
+from __future__ import annotations
+
+from threading import RLock
+from types import MethodType, SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
+from pytrain.db.component_state import RouteState
+from pytrain.db.component_state_store import ComponentStateStore
+from pytrain.db.components import RouteComponent
+from pytrain.gui.controller import engine_gui as gui_mod
+from pytrain.gui.controller import route_builder_panel as mod
+from pytrain.gui.controller.popup_manager import PopupManager
+from pytrain.protocol.constants import CommandScope
+
+
+class Widget:
+    def __init__(self, *_args, **kwargs):
+        self.parent = _args[0] if _args else None
+        self.options = kwargs
+        self.value = self.text = kwargs.get("text", "")
+        self.visible = kwargs.get("visible", True)
+        self.enabled = True
+        self.is_editing = self.is_changed = False
+        self.tk = SimpleNamespace(config=lambda **_kw: None, pack_propagate=lambda _value: None)
+
+    def show(self):
+        self.visible = True
+
+    def hide(self):
+        self.visible = False
+
+    def begin_edit(self):
+        self.is_editing = True
+
+    def cancel_edit(self):
+        self.is_editing = False
+
+    def commit_edit(self):
+        self.is_editing = False
+
+    def update_command(self, command):
+        self.command = command
+
+
+class HoldWidget(Widget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.on_hold = kwargs.get("on_hold")
+        self.cancel_interaction = Mock()
+
+
+class Canvas:
+    def __init__(self, *_args, **kwargs):
+        self.options = kwargs
+        self.bindings = {}
+        self.drawn = []
+        self.x = self.y = 0
+        self.dragged = []
+
+    def config(self, **kwargs):
+        self.options.update(kwargs)
+
+    def pack(self, **_kwargs):
+        pass
+
+    def bind(self, sequence, command):
+        self.bindings[sequence] = command
+
+    def delete(self, _tag):
+        self.drawn.clear()
+
+    def create_text(self, *args, **kwargs):
+        self.drawn.append(("text", args, kwargs))
+
+    def create_rectangle(self, *args, **kwargs):
+        self.drawn.append(("rectangle", args, kwargs))
+
+    def create_line(self, *args, **kwargs):
+        self.drawn.append(("line", args, kwargs))
+
+    def xview(self):
+        total = self.options["scrollregion"][2]
+        return self.x / total, min(1, (self.x + self.options["width"]) / total)
+
+    def xview_moveto(self, fraction):
+        total = self.options["scrollregion"][2]
+        self.x = max(0, min(fraction * total, total - self.options["width"]))
+
+    def yview_moveto(self, fraction):
+        total = self.options["scrollregion"][3]
+        self.y = max(0, min(fraction * total, total - self.options["height"]))
+        callback = self.options.get("yscrollcommand")
+        if callback:
+            callback(self.y / total, min(1, (self.y + self.options["height"]) / total))
+
+    def xview_scroll(self, delta, _units):
+        self.xview_moveto((self.x + delta * 20) / self.options["scrollregion"][2])
+
+    def yview_scroll(self, delta, _units):
+        self.yview_moveto((self.y + delta * self.options["yscrollincrement"]) / self.options["scrollregion"][3])
+
+    def canvasx(self, x):
+        return self.x + x
+
+    def canvasy(self, y):
+        return self.y + y
+
+    def scan_mark(self, x, y):
+        self.mark = (x, y)
+
+    def scan_dragto(self, x, y, gain):
+        self.dragged.append((x, y, gain))
+
+
+class Variable:
+    def __init__(self, **kwargs):
+        self.value = kwargs.get("value", "")
+
+    def set(self, value):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+
+class Store:
+    def __init__(self):
+        self.states = {}
+
+    def get_state(self, scope, tmcc_id, create=False):
+        assert create is False
+        return self.states.get((scope, tmcc_id))
+
+    def get_all(self, scope):
+        return [state for (key, _), state in self.states.items() if key == scope]
+
+
+@pytest.fixture
+def panel(monkeypatch):
+    for name in ("Box", "PushButton", "Text", "EditableText"):
+        monkeypatch.setattr(mod, name, Widget)
+    monkeypatch.setattr(mod, "HoldButton", HoldWidget)
+    monkeypatch.setattr(mod.tk, "Canvas", Canvas)
+    monkeypatch.setattr(mod.tk, "StringVar", Variable)
+    monkeypatch.setattr(mod.tk, "Radiobutton", Canvas)
+    host = SimpleNamespace(
+        width=639,
+        compact=True,
+        emergency_box_width=639,
+        s_12=12,
+        s_14=14,
+        s_16=16,
+        s_18=18,
+        s_20=20,
+        state_store=Store(),
+        app=SimpleNamespace(yesno=lambda *_args: False),
+        _scope_tmcc_ids={},
+        ops_mode=lambda **_kw: None,
+        _message_queue=Mock(),
+        _rebuild_state_caches=Mock(),
+    )
+    host.clear_record = MethodType(gui_mod.EngineGui.clear_record, host)
+    builder = mod.RouteBuilderPanel(host)
+    builder.build(Widget())
+    builder.build_footer(Widget())
+    builder.configure(12)
+    return builder
+
+
+def known_switch(panel, tmcc_id=7, name="Main siding", *, deleted=False):
+    state = SimpleNamespace(
+        tmcc_id=tmcc_id,
+        name=name,
+        road_name=name,
+        is_road_name=True,
+        road_number=f"{tmcc_id:04d}",
+        is_road_number=True,
+        is_deleted=deleted,
+    )
+    panel.gui.state_store.states[(CommandScope.SWITCH, tmcc_id)] = state
+    return state
+
+
+def known_route(panel, tmcc_id=4, components=()):
+    state = RouteState()
+    state._address = tmcc_id
+    state.initialize(CommandScope.ROUTE, tmcc_id)
+    state.comp_data.components = list(components)
+    panel.gui.state_store.states[(CommandScope.ROUTE, tmcc_id)] = state
+    return state
+
+
+def add_switch(panel, tmcc_id=7):
+    known_switch(panel, tmcc_id)
+    panel.open_picker()
+    panel.choose_candidate(next(i for i, (_, state) in enumerate(panel._candidates) if state.tmcc_id == tmcc_id))
+    panel.add_selected()
+
+
+def test_add_edit_and_remove_only_change_the_draft(panel):
+    add_switch(panel)
+    assert panel.draft.components[0].is_thru
+    assert panel._selected == 0
+    panel.set_position(1)
+    assert panel.draft.dirty
+    assert [(c.tmcc_id, c.is_out) for c in panel.draft.components] == [(7, True)]
+    assert panel._lookup_route(12) is None
+    assert panel._main_page.visible
+    assert not hasattr(panel, "_id_field")
+    panel.remove_selected()
+    assert not panel.draft.components
+    assert not panel._remove_btn.enabled
+    assert "Tap Add" in panel._selection.value
+
+
+def test_empty_provisional_route_can_be_opened_without_display_fallback_metadata(panel):
+    state = known_route(panel, 12)
+    panel.configure(12, state)
+    assert panel.draft.components == ()
+    assert panel.draft.road_name == panel.draft.road_number == ""
+    assert not panel.draft.dirty
+
+
+def test_database_clear_is_a_three_second_hold_only_footer_button(panel):
+    button = panel._clear_route_btn
+    assert isinstance(button, HoldWidget)
+    assert button.text == "Clear"
+    assert button.options["hold_threshold"] == 3.0
+    assert button.options["show_hold_progress"] is True
+    assert button.options["cancel_on_leave"] is True
+    assert button.options.get("on_press") is None
+    assert button.options.get("command") is None
+    assert button.options.get("on_repeat") is None
+    assert button.on_hold == panel.clear_route
+    assert button.parent.parent is panel._cancel_btn.parent.parent
+    assert button.parent.parent is panel._save_btn.parent.parent
+    assert not button.enabled
+    state = known_route(panel, 12)
+    panel.configure(12, state)
+    assert button.enabled
+    assert "Hold Clear for 3 seconds" in panel._status.value
+
+
+@pytest.mark.parametrize("flags", [0, 2])
+def test_clear_deletes_only_the_edited_route_from_base3_and_discards_draft(panel, monkeypatch, flags):
+    state = known_route(panel, 12, [RouteComponent(7, flags)])
+    other = known_route(panel, 4)
+    panel.configure(12, state)
+    panel.set_position(1)
+    panel._name_field.value = "Unsaved name"
+    panel._number_field.is_editing = panel._number_field.is_changed = True
+    panel.gui.app.yesno = Mock(side_effect=AssertionError("The hold already confirms clearing"))
+    monkeypatch.setattr(panel.gui, "active_state", other, raising=False)
+    panel._close = Mock(side_effect=lambda: panel.confirm_close())
+    clear = Mock(wraps=state.clear)
+    monkeypatch.setattr(state, "clear", clear)
+    clear_record = Mock()
+    monkeypatch.setattr(state, "clear_record", clear_record)
+    monkeypatch.setattr(
+        ComponentStateStore,
+        "delete_state",
+        lambda target: panel.gui.state_store.states.pop((target.scope, target.tmcc_id)),
+    )
+    send = Mock()
+    monkeypatch.setattr(mod.BaseReq, "process_sync_reqs", send)
+
+    panel._clear_route_btn.on_hold()
+
+    clear.assert_called_once_with(notify=False, clear_db=True)
+    clear_record.assert_called_once_with(state)
+    assert state.is_deleted
+    assert panel._lookup_route(12) is None
+    assert panel._lookup_route(4) is other
+    assert not other.is_deleted
+    panel.gui._message_queue.put.assert_called_once_with((panel.gui._rebuild_state_caches, [state]))
+    panel._close.assert_called_once()
+    panel.gui.app.yesno.assert_not_called()
+    assert panel.draft is None
+    assert panel._state is None
+    assert not panel._number_field.is_editing
+    assert not panel._save_btn.enabled
+    assert not panel._clear_route_btn.enabled
+    panel.save()
+    panel.clear_route()
+    send.assert_not_called()
+    clear.assert_called_once()
+
+
+def test_successful_clear_hides_panel_through_popup_manager(panel, monkeypatch):
+    state = known_route(panel, 12, [RouteComponent(7, 0)])
+    panel.configure(12, state)
+    panel.set_position(1)
+    panel._name_field.value = "Unsaved name"
+    panel.gui.app.yesno = Mock(side_effect=AssertionError("Clear must not prompt to discard"))
+    panel.gui.locked = RLock
+    manager = panel.gui.popup_manager = PopupManager(panel.gui)
+    panel._overlay = overlay = Widget()
+    overlay.confirm_close = panel.confirm_close
+    overlay.tk.place_forget = Mock()
+    manager._state.current_popup = overlay
+    manager._post_close_actions[id(overlay)] = panel._on_closed
+    underlying = Widget(visible=False)
+    manager._state.on_close_show = underlying
+    monkeypatch.setattr(state, "clear_record", Mock())
+    monkeypatch.setattr(
+        ComponentStateStore,
+        "delete_state",
+        lambda target: panel.gui.state_store.states.pop((target.scope, target.tmcc_id)),
+    )
+
+    assert panel.visible
+    panel._clear_route_btn.on_hold()
+
+    assert state.is_deleted
+    assert not panel.visible
+    assert manager.current_popup is None
+    assert underlying.visible
+    overlay.tk.place_forget.assert_called_once()
+    panel.gui.app.yesno.assert_not_called()
+
+
+@pytest.mark.parametrize("unavailable", ["missing", "deleted", "nondeletable"])
+def test_clear_rechecks_route_availability_at_hold_completion(panel, monkeypatch, unavailable):
+    state = known_route(panel, 12)
+    panel.configure(12, state)
+    clear = Mock()
+    monkeypatch.setattr(state, "clear", clear)
+    if unavailable == "missing":
+        panel.gui.state_store.states.pop((CommandScope.ROUTE, 12))
+    elif unavailable == "deleted":
+        state._deleted = True
+    else:
+        monkeypatch.setattr(RouteState, "is_deletable", property(lambda _self: False))
+    panel.clear_route()
+    clear.assert_not_called()
+    assert not panel._clear_route_btn.enabled
+    assert panel.draft is not None
+
+
+def test_clear_is_disabled_while_choosing_a_component(panel, monkeypatch):
+    state = known_route(panel, 12)
+    panel.configure(12, state)
+    clear = Mock()
+    monkeypatch.setattr(state, "clear", clear)
+    panel.open_picker()
+    assert not panel._clear_route_btn.enabled
+    panel.clear_route()
+    clear.assert_not_called()
+    panel.cancel()
+    assert panel._clear_route_btn.enabled
+
+
+@pytest.mark.parametrize("failure", [False, OSError("offline")])
+def test_failed_clear_keeps_unsaved_route_open(panel, monkeypatch, failure):
+    state = known_route(panel, 12, [RouteComponent(7, 0)])
+    panel.configure(12, state)
+    panel.set_position(1)
+    original = panel.draft
+    clear = Mock(return_value=False, side_effect=failure if isinstance(failure, Exception) else None)
+    monkeypatch.setattr(state, "clear", clear)
+    panel._close = Mock()
+    panel.clear_route()
+    clear.assert_called_once_with(notify=False, clear_db=True)
+    panel._close.assert_not_called()
+    assert panel.draft is original and panel.draft.dirty
+    assert "not cleared" in panel._status.value
+    assert not state.is_deleted
+
+
+def test_closing_or_reconfiguring_cancels_a_pending_clear_hold(panel):
+    panel._clear_route_btn.cancel_interaction.reset_mock()
+    panel._on_closed()
+    panel._clear_route_btn.cancel_interaction.assert_called_once()
+    panel._clear_route_btn.cancel_interaction.reset_mock()
+    panel.configure(4, known_route(panel, 4))
+    panel._clear_route_btn.cancel_interaction.assert_called_once()
+
+
+def test_editing_switch_position_preserves_other_flag_bits(panel):
+    panel.draft = mod.RouteDraft(12, [RouteComponent(7, 0x81)])
+    panel._selected = 0
+    panel.set_position(0)
+    assert panel.draft.components[0].flags == 0x80
+    panel.set_position(1)
+    assert panel.draft.components[0].flags == 0x81
+
+
+def test_nested_route_add_is_draft_only_and_has_no_switch_controls(panel):
+    state = known_route(panel, components=[RouteComponent(7, 0)])
+    panel.open_picker()
+    panel.set_filter("Routes")
+    panel.choose_candidate(0)
+    panel.save()
+    assert panel.draft.components[0].is_route
+    assert "Sub-route" in panel._selection.value
+    assert all(radio.options["state"] == "disabled" for radio in panel._radios)
+    panel.set_position(0)
+    assert panel.draft.components[0].is_route
+    assert state.components[0].tmcc_id == 7
+    assert panel._lookup_route(12) is None
+
+
+@pytest.mark.parametrize("indirect", [False, True])
+def test_recursive_routes_are_blocked_with_an_explanation(panel, indirect):
+    known_route(panel, 12)
+    if indirect:
+        known_route(panel, 4, [RouteComponent(12, 3)])
+    panel.open_picker()
+    panel.set_filter("Routes")
+    panel.choose_candidate(
+        next(i for i, (_, state) in enumerate(panel._candidates) if state.tmcc_id == (4 if indirect else 12))
+    )
+    panel.add_selected()
+    assert not panel.draft.components
+    assert panel._picking
+    assert panel._status.value == "Route 12 cannot include itself, directly or through another route."
+
+
+def test_unloaded_nested_route_is_not_added(panel):
+    state = RouteState()
+    state._address = 4
+    panel.gui.state_store.states[(CommandScope.ROUTE, 4)] = state
+    panel.open_picker()
+    panel.set_filter("Routes")
+    panel.choose_candidate(0)
+    panel.add_selected()
+    assert not panel.draft.components
+    assert panel._picking
+    assert "load" in panel._status.value.lower()
+
+
+def test_navigation_reaches_all_sixteen_without_reordering(panel):
+    for tmcc_id in range(16, 0, -1):
+        panel.draft.set_component(None, tmcc_id, 0, panel._lookup_route)
+    panel.select_row(0)
+    before = RouteComponent.to_bytes(panel.draft.components)
+    assert not panel._add_btn.enabled
+    panel.select_relative(99)
+    assert panel._selected == 15
+    assert panel._cards.x > 0
+    assert not panel._next_btn.enabled
+    assert RouteComponent.to_bytes(panel.draft.components) == before
+    panel.remove_selected()
+    assert panel._selected == 14
+    assert panel._add_btn.enabled
+    panel.select_relative(-99)
+    assert panel._selected == 0
+    assert panel._cards.x == 0
+    assert not panel._previous_btn.enabled
+
+
+def test_move_keeps_selection_on_same_component_and_does_not_sort(panel):
+    add_switch(panel, 7)
+    add_switch(panel, 3)
+    panel.move_selected(-1)
+    assert [c.tmcc_id for c in panel.draft.components] == [3, 7]
+    assert panel._selected == 0
+    assert not panel._earlier_btn.enabled
+    panel.move_selected(1)
+    assert [c.tmcc_id for c in panel.draft.components] == [7, 3]
+    assert panel._selected == 1
+    assert not panel._later_btn.enabled
+
+
+def test_clear_all_requires_confirmation_and_preserves_metadata(panel):
+    add_switch(panel)
+    panel.draft.set_metadata("Yard", "0012")
+    panel.clear_components()
+    assert panel.draft.components
+    panel.gui.app.yesno = lambda *_args: True
+    panel.clear_components()
+    assert not panel.draft.components
+    assert panel._selected is None
+    assert panel.draft.road_name == "Yard"
+
+
+def test_picker_filter_sort_search_and_choices_are_remembered(panel):
+    known_switch(panel, 7, "Alpha")
+    known_switch(panel, 3, "zulu")
+    known_switch(panel, 8, "Deleted", deleted=True)
+    known_route(panel, 7)
+    panel.open_picker()
+    assert [state.tmcc_id for _, state in panel._candidates] == [7, 3]
+    panel.set_filter("All")
+    assert len(panel._candidates) == 3
+    assert {scope for scope, _ in panel._candidates} == {CommandScope.SWITCH, CommandScope.ROUTE}
+    panel.set_sort("TMCC ID")
+    assert [state.tmcc_id for _, state in panel._candidates] == [3, 7, 7]
+    panel.toggle_sort_direction()
+    assert [state.tmcc_id for _, state in panel._candidates] == [7, 7, 3]
+    panel.cancel()
+    panel.open_picker()
+    assert (panel._filter, panel._sort, panel._descending) == ("All", "TMCC ID", True)
+    panel._search_field.value = "ALP"
+    panel._on_search(None, None, None)
+    assert [(scope, state.tmcc_id) for scope, state in panel._candidates] == [(CommandScope.SWITCH, 7)]
+    panel.choose_candidate(0)
+    panel._search_field.value = "no match"
+    panel._on_search(None, None, None)
+    assert not panel._candidates
+    assert not panel._save_btn.enabled
+    assert panel._candidate is None
+
+
+def test_picker_selection_distinguishes_route_and_switch_with_same_id(panel):
+    known_switch(panel, 7)
+    known_route(panel, 7)
+    panel.open_picker()
+    panel.set_filter("All")
+    panel.choose_candidate(next(i for i, (scope, _) in enumerate(panel._candidates) if scope == CommandScope.ROUTE))
+    panel.add_selected()
+    assert panel.draft.components[0].is_route
+
+
+def test_picker_rechecks_deleted_components_before_adding(panel):
+    state = known_switch(panel)
+    panel.open_picker()
+    panel.choose_candidate(0)
+    state.is_deleted = True
+    panel.add_selected()
+    assert not panel.draft.components
+    assert "no longer available" in panel._status.value
+
+
+def test_picker_arrows_and_tap_use_scrolled_coordinates(panel):
+    for tmcc_id in range(1, 10):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    panel.set_sort("TMCC ID")
+    assert not panel._picker_previous.enabled
+    assert panel._picker_next.enabled
+    panel.scroll_picker(1)
+    assert panel._picker_previous.enabled
+    event = SimpleNamespace(x=40, y=10)
+    panel._scroll_start(panel._picker, event)
+    panel._scroll_end(panel._picker, event, False)
+    assert panel._candidate == (CommandScope.SWITCH, mod.PICKER_ROWS + 1)
+    panel.scroll_picker(99)
+    assert not panel._picker_next.enabled
+
+
+def test_swiping_cards_does_not_select_or_reorder_and_tap_does(panel):
+    add_switch(panel, 7)
+    add_switch(panel, 3)
+    original = RouteComponent.to_bytes(panel.draft.components)
+    panel.select_row(0)
+    start, end = SimpleNamespace(x=300, y=50), SimpleNamespace(x=20, y=50)
+    panel._scroll_start(panel._cards, start)
+    panel._scroll_drag(panel._cards, end, True)
+    panel._scroll_end(panel._cards, end, True)
+    assert panel._cards.dragged
+    assert panel._selected == 0
+    assert RouteComponent.to_bytes(panel.draft.components) == original
+    tap = SimpleNamespace(x=panel.card_width + 12, y=30)
+    panel._scroll_start(panel._cards, tap)
+    panel._scroll_end(panel._cards, tap, True)
+    assert panel._selected == 1
+    assert RouteComponent.to_bytes(panel.draft.components) == original
+
+
+def test_cancel_protects_components_metadata_and_pending_keyboard_edits(panel):
+    panel._name_field.is_editing = panel._name_field.is_changed = True
+    assert panel.confirm_close() is False
+    panel._end_inline_edits()
+    panel._name_field.value = "Yard departure"
+    panel._on_metadata(None, None, None)
+    assert panel.draft.dirty
+    assert panel.confirm_close() is False
+    panel.gui.app.yesno = lambda *_args: True
+    assert panel.confirm_close() is True
+    assert panel._lookup_route(12) is None
+
+
+def test_picker_cancel_does_not_discard_route_or_prompt_for_search(panel):
+    add_switch(panel)
+    before = RouteComponent.to_bytes(panel.draft.components)
+    panel.open_picker()
+    panel._search_field.value = "Main"
+    panel.gui.app.yesno = lambda *_args: pytest.fail("picker cancel must not discard route")
+    panel.cancel()
+    assert not panel._picking
+    assert RouteComponent.to_bytes(panel.draft.components) == before
+
+
+def test_unchanged_route_can_close_without_prompt(panel):
+    panel.gui.app.yesno = lambda *_args: pytest.fail("unchanged route should not prompt")
+    panel.open_picker()
+    panel.cancel()
+    assert panel.confirm_close()
+
+
+def test_invalid_metadata_is_visible_and_prevents_save(panel):
+    panel._number_field.value = "abcd"
+    panel._on_metadata(None, None, None)
+    assert panel.draft.road_number == ""
+    assert panel.confirm_close() is False
+    panel._close = lambda: pytest.fail("invalid save must stay open")
+    panel.save()
+    assert "Route not saved" in panel._status.value
+    assert panel._lookup_route(12) is None
+
+
+def test_existing_metadata_edits_are_isolated_and_reopening_discards_them(panel):
+    state = known_route(panel, 12, [RouteComponent(7, 0)])
+    state._road_name = "Yard Departure"
+    state._road_number = "0012"
+    panel.configure(12, state)
+    assert (panel._name_field.value, panel._number_field.value) == ("Yard Departure", "0012")
+    panel._name_field.value = "Main Line"
+    panel._number_field.value = "1234"
+    panel._on_metadata(None, None, None)
+    panel.set_position(1)
+    assert panel.draft.dirty
+    assert (state.road_name, state.road_number) == ("Yard Departure", "0012")
+    assert state.components[0].is_thru
+    panel._on_closed()
+    panel.configure(12, state)
+    assert (panel.draft.road_name, panel.draft.road_number) == ("Yard Departure", "0012")
+    assert panel.draft.components[0].is_thru
+    assert not panel.draft.dirty
+
+
+def test_save_new_route_creates_provisional_target_only_on_save(panel, monkeypatch):
+    calls = []
+
+    def create(scope, tmcc_id):
+        assert scope == CommandScope.ROUTE
+        calls.append(tmcc_id)
+        return known_route(panel, tmcc_id)
+
+    panel.gui.create_provisional_component = create
+    panel._close = lambda: None
+    monkeypatch.setattr(mod.BaseReq, "process_sync_reqs", lambda reqs, **_kwargs: calls.append(reqs))
+    add_switch(panel)
+    assert not calls
+    panel.save()
+    assert calls[0] == 12
+    assert calls[1][-1] is panel._lookup_route(12)
+    assert len(calls[1]) == 4
+    assert not panel.draft.dirty
+
+
+def test_failed_save_keeps_unsaved_draft_open(panel, monkeypatch):
+    add_switch(panel)
+    known_route(panel, 12)
+
+    def fail(*_args, **_kwargs):
+        raise OSError("offline")
+
+    monkeypatch.setattr(mod.BaseReq, "process_sync_reqs", fail)
+    panel._close = lambda: pytest.fail("failed save must stay open")
+    panel.save()
+    assert panel.draft.dirty
+    assert "offline" in panel._status.value
+
+
+def test_save_submits_metadata_and_ordered_components_without_operating_layout(panel, monkeypatch):
+    add_switch(panel, 7)
+    add_switch(panel, 3)
+    state = known_route(panel, 12)
+    panel._name_field.value = "Yard Departure"
+    panel._number_field.value = "0012"
+    events = []
+    monkeypatch.setattr(mod.BaseReq, "process_sync_reqs", lambda reqs, **kw: events.append((reqs, kw)))
+    panel._close = lambda: events.append("close")
+    panel.gui.ops_mode = lambda **kw: events.append(kw)
+    panel.save()
+
+    reqs, kwargs = events[0]
+    assert kwargs == {"do_async": True}
+    assert reqs[-1] is state
+    assert len(reqs) == 4
+    assert reqs[2].start == 0x60
+    assert reqs[2].data_bytes == b"\x00\x07\x00\x03" + b"\xff" * 28
+    assert events[1:] == ["close", {"update_info": True, "state": state}]
+    assert panel.gui._scope_tmcc_ids[CommandScope.ROUTE] == 12
+    assert panel.draft.road_name == "Yard Departure"
+    assert not state.components
+    assert not panel.draft.dirty
+
+
+class PanelRecorder:
+    def __init__(self, _gui):
+        self.visible = False
+        self.overlay = object()
+        self.configured = []
+
+    def configure(self, *args):
+        self.configured.append(args)
+
+
+def _gui(tmcc_id="42"):
+    gui = gui_mod.EngineGui.__new__(gui_mod.EngineGui)
+    gui.scope = CommandScope.ROUTE
+    gui._cv = RLock()
+    gui._route_builder_panel = None
+    gui._state_store = Store()
+    gui.tmcc_id_text = SimpleNamespace(value=tmcc_id)
+    gui._scope_tmcc_ids = {CommandScope.ROUTE: 7}
+    gui.opened = []
+    gui.show_popup = lambda *args, **kwargs: gui.opened.append((args, kwargs))
+    gui.warnings = []
+    gui._app = SimpleNamespace(warn=lambda *args: gui.warnings.append(args))
+    return gui
+
+
+def test_builder_uses_entered_id_not_previous_ops_selection_and_does_not_create_record(monkeypatch):
+    monkeypatch.setattr(gui_mod, "RouteBuilderPanel", PanelRecorder)
+    gui = _gui("42")
+    gui.on_route_builder()
+    assert gui._route_builder_panel.configured == [(42, None)]
+    assert gui._state_store.states == {}
+    assert gui.opened == [((gui._route_builder_panel.overlay,), {"hide_image_box": True})]
+
+
+@pytest.mark.parametrize("flags", [0x02, 0x06, 0x82, 0xFE])
+def test_builder_opens_existing_route_from_ops_and_preserves_out_variant(panel, monkeypatch, flags):
+    raw = bytes([flags, 7, 0, 3]) + b"\xff" * 28
+    state = known_route(panel, 12, RouteComponent.from_bytes(raw))
+    gui = _gui("12")
+    gui._state_store = panel.gui.state_store
+    gui._route_builder_panel = panel
+    panel._overlay = Widget(visible=False)
+    send = Mock()
+    monkeypatch.setattr(mod.BaseReq, "process_sync_reqs", send)
+
+    gui.on_route_builder()
+
+    assert gui.opened == [((panel.overlay,), {"hide_image_box": True})]
+    assert not gui.warnings
+    assert panel._main_page.visible
+    assert panel._position.get() == "out"
+    assert panel.draft.components[0].flags == flags
+    assert not panel.draft.dirty
+    send.assert_not_called()
+    panel.set_position(1)
+    assert panel.draft.components[0].flags == flags
+    assert not panel.draft.dirty
+    panel._close = Mock()
+    panel.save()
+    requests = send.call_args.args[0]
+    assert requests[2].data_bytes == raw
+    assert requests[-1] is state
+    panel._close.assert_called_once()
+    assert state.components[0].flags == flags
+
+
+@pytest.mark.parametrize("tmcc_id", ["00", "01", "99", "bad"])
+def test_builder_rejects_invalid_new_route_ids(tmcc_id):
+    gui = _gui(tmcc_id)
+    gui.on_route_builder()
+    assert gui.warnings
+    assert not gui.opened
+
+
+def test_declining_discard_prevents_scope_navigation():
+    gui = _gui()
+    gui._route_builder_panel = SimpleNamespace(visible=True)
+    gui._popup = SimpleNamespace(close_requested=lambda: False)
+    gui.on_scope(CommandScope.SWITCH)
+    assert gui.scope == CommandScope.ROUTE
