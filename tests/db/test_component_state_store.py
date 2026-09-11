@@ -1,4 +1,3 @@
-import time
 from unittest import mock
 
 # noinspection PyPackageRequirements
@@ -11,7 +10,7 @@ from src.pytrain.db.component_state_store import ComponentStateStore
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
-from tests.test_base import TestBase
+from tests.test_base import TestBase, wait_until
 
 
 # noinspection PyTypeChecker
@@ -52,7 +51,7 @@ class TestComponentStateStore(TestBase):
         # add some state
         sw_out = CommandReq.build(TMCC1SwitchCommandEnum.OUT, 15)
         dispatcher.offer(sw_out)
-        time.sleep(0.1)
+        wait_until(lambda: store.is_empty is False)
         assert store.is_empty is False
         sw_15_state: SwitchState = store.query(CommandScope.SWITCH, 15)
         assert sw_15_state is not None
@@ -66,7 +65,7 @@ class TestComponentStateStore(TestBase):
         # throw to through
         sw_through = CommandReq.build(TMCC1SwitchCommandEnum.THRU, 15)
         dispatcher.offer(sw_through)
-        time.sleep(0.1)
+        wait_until(lambda: sw_15_state.last_command == sw_through)
         assert sw_15_state is not None
         assert sw_15_state.last_updated is not None
         assert sw_15_state.last_command == sw_through
@@ -78,7 +77,7 @@ class TestComponentStateStore(TestBase):
         # set the address of a different switch. should not cause state to be known
         sw_addr = CommandReq.build(TMCC1SwitchCommandEnum.SET_ADDRESS, 47)
         dispatcher.offer(sw_addr)
-        time.sleep(0.1)
+        wait_until(lambda: store.query(CommandScope.SWITCH, 47) is not None)
         sw_47_state: SwitchState = store.query(CommandScope.SWITCH, 47)
         assert sw_47_state is not None
         assert sw_47_state.last_updated is not None
@@ -92,7 +91,7 @@ class TestComponentStateStore(TestBase):
         sw_out.address = 47
         assert sw_out.address == 47
         dispatcher.offer(sw_out)
-        time.sleep(0.1)
+        wait_until(lambda: sw_47_state.is_known is True)
         sw_47_state: SwitchState = store.query(CommandScope.SWITCH, 47)
         assert sw_47_state is not None
         assert sw_47_state.last_updated is not None

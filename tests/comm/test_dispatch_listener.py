@@ -1,5 +1,4 @@
 import threading
-import time
 from collections import defaultdict
 from queue import Queue
 from typing import Any
@@ -22,9 +21,20 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import (
     TMCC2HaltCommandEnum,
     TMCC2RouteCommandEnum,
 )
-from tests.test_base import TestBase
+from tests.test_base import TestBase, wait_until
 
 CALLBACK_DICT = {}
+
+
+def publishing_done(dispatcher: CommandDispatcher) -> bool:
+    """
+    Whether the dispatcher has finished publishing everything offered to it.
+
+    Its run loop calls task_done() only after the callbacks for a command have run, so
+    an unfinished count of zero is exactly the event these tests want - including the
+    ones that assert *no* callback fired, where there is no state change to wait for.
+    """
+    return dispatcher._queue.unfinished_tasks == 0
 
 
 # noinspection PyTypeChecker
@@ -79,7 +89,7 @@ class TestCommandDispatcher(TestBase):
     def test_command_dispatcher_singleton(self) -> None:
         assert CommandDispatcher.is_built() is False
         dispatcher = CommandDispatcher()
-        time.sleep(0.5)
+        assert wait_until(lambda: dispatcher.is_running() is True) is True
         assert dispatcher.is_built
         assert dispatcher.is_running() is True
         assert isinstance(dispatcher, CommandDispatcher)
@@ -193,7 +203,7 @@ class TestCommandDispatcher(TestBase):
         assert dispatcher.broadcasts_enabled is True
         ring_req = CommandReq.build(TMCC2EngineCommandEnum.RING_BELL, 2)
         dispatcher.offer(ring_req)
-        time.sleep(0.1)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         dispatcher.shutdown()
         dispatcher.join()
         assert dispatcher.is_running() is False
@@ -219,7 +229,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandEnum.RING_BELL, 3)
         assert ring_req.address == 3
         dispatcher.offer(ring_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         assert len(dispatcher._channels) == 4
         # listener should have triggered one exception
@@ -231,7 +241,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandEnum.RING_BELL, 13)
         assert ring_req.address == 13
         dispatcher.offer(ring_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
@@ -243,7 +253,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandEnum.RING_BELL, 22)
         assert ring_req.address == 22
         dispatcher.offer(ring_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 2
@@ -254,7 +264,7 @@ class TestCommandDispatcher(TestBase):
         CALLBACK_DICT.clear()
         rte_req = CommandReq.build(TMCC2RouteCommandEnum.FIRE, 13)
         dispatcher.offer(rte_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         assert len(CALLBACK_DICT) == 0
 
@@ -266,7 +276,7 @@ class TestCommandDispatcher(TestBase):
         ring_req = CommandReq.build(TMCC2EngineCommandEnum.RING_BELL, 22)
         assert ring_req.address == 22
         dispatcher.offer(ring_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         # listener should have triggered one exception
         assert len(CALLBACK_DICT) == 1
@@ -277,7 +287,7 @@ class TestCommandDispatcher(TestBase):
         sw_req = CommandReq.build(TMCC1SwitchCommandEnum.OUT, 22)
         assert sw_req.address == 22
         dispatcher.offer(sw_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         # listener should have triggered one callback
         assert len(CALLBACK_DICT) == 1
@@ -301,7 +311,7 @@ class TestCommandDispatcher(TestBase):
         # send a halt command; should be received by all listeners
         halt_req = CommandReq.build(TMCC1HaltCommandEnum.HALT)
         dispatcher.offer(halt_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         assert len(dispatcher._channels) == 4
         # listener should have triggered 4 exception
@@ -329,7 +339,7 @@ class TestCommandDispatcher(TestBase):
         # send a halt command; should be received by all listeners
         sys_halt_req = CommandReq.build(TMCC2HaltCommandEnum.HALT)
         dispatcher.offer(sys_halt_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         assert len(dispatcher._channels) == 4
         # listener should have triggered engine and train channels
@@ -344,7 +354,7 @@ class TestCommandDispatcher(TestBase):
         dispatcher.subscribe_any(self)
         assert len(dispatcher._channels) == 5
         dispatcher.offer(sys_halt_req)
-        time.sleep(0.05)
+        assert wait_until(lambda: publishing_done(dispatcher)) is True
         assert dispatcher.is_running() is True
         assert dispatcher.broadcasts_enabled
         assert len(CALLBACK_DICT) == 4

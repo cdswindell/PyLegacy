@@ -1,11 +1,11 @@
 import threading
-import time
 
 from src.pytrain.db.accessory_state import AccessoryState
 from src.pytrain.db.state_watcher import StateWatcher
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.constants import CommandScope
 from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1AuxCommandEnum as Aux
+from tests.test_base import wait_until
 
 
 class TestStateWatcher:
@@ -93,10 +93,15 @@ class TestStateWatcher:
             watcher.shutdown()
             watcher.join(timeout=2)
 
+            # Both of the watcher's threads are gone, so there is nothing left that could
+            # call the action: waiting for that is exact, where a settling sleep only made
+            # it likely
+            assert watcher.is_alive() is False
+            assert wait_until(lambda: watcher._notifier.is_alive() is False) is True
+
             # Further updates should not trigger action anymore
             before = calls["n"]
             acc.update(CommandReq.build(Aux.NUMERIC, acc.address, data=3))
-            time.sleep(0.2)
             assert calls["n"] == before, "Action should not be called after watcher shutdown"
         finally:
             # Ensure shutdown even on assertion errors without broad exception catching

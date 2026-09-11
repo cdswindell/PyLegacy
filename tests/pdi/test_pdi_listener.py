@@ -19,6 +19,7 @@ from src.pytrain.pdi.base_req import BaseReq
 from src.pytrain.pdi.constants import PdiCommand
 from src.pytrain.pdi.pdi_listener import PdiDispatcher, PdiListener
 from src.pytrain.pdi.pdi_req import PdiReq
+from tests.test_base import wait_until
 
 
 class _Catcher:
@@ -144,9 +145,19 @@ def test_scope_subscription_receives_expected_message():
     # Unsubscribe and ensure no further messages delivered
     listener.unsubscribe(catcher, CommandScope.ENGINE)
     catcher.ev.clear()
+
+    # a broadcast subscriber sees every dispatched message, so the negative check below
+    # waits on the message really having been dispatched rather than on a stopwatch
+    sentinel = _Catcher()
+    listener.subscribe_any(sentinel)
     listener.offer(req.as_bytes)
-    # Give it a bit of time; should not receive
-    assert catcher.wait(0.3) is False
+    assert sentinel.wait(5), "Timed out waiting for the message to be dispatched"
+
+    # broadcasts are published before the scoped channels, so the dispatcher's queue is
+    # drained as well: task_done is called only once every channel has been published to
+    assert wait_until(lambda: listener.dispatcher._queue.unfinished_tasks == 0) is True
+    assert catcher.ev.is_set() is False
+    listener.unsubscribe_any(sentinel)
 
     PdiListener.stop()
 

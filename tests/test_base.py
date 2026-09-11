@@ -1,5 +1,6 @@
 import random
-from typing import TypeVar
+from time import monotonic, sleep
+from typing import Callable, TypeVar
 
 from src.pytrain.protocol.command_req import CommandReq
 from src.pytrain.protocol.multibyte.multibyte_constants import *
@@ -8,6 +9,25 @@ from src.pytrain.protocol.tmcc2.tmcc2_constants import *
 from src.pytrain.utils.validations import Validations
 
 T = TypeVar("T", TMCC1Enum, TMCC2Enum)
+
+
+def wait_until(predicate: Callable[[], bool], timeout: float = 5.0, interval: float = 0.001) -> bool:
+    """
+    Wait for a background thread to reach a state, returning as soon as it does.
+
+    A fixed sleep has to be long enough for the slowest machine that will ever run the
+    suite, and then every machine pays it on every test. Polling the condition itself
+    costs a millisecond when the thread is prompt, and still gives a slow machine the
+    whole budget before it gives up. Returns the predicate's final value, so a caller
+    can assert on it or simply let the assertion that follows report the failure.
+    """
+    deadline = monotonic() + timeout
+    while True:
+        if predicate() is True:
+            return True
+        if monotonic() >= deadline:
+            return False
+        sleep(interval)
 
 
 # noinspection PyMethodMayBeStatic
