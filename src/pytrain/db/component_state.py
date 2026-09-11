@@ -651,7 +651,7 @@ class LcsProxyState(LcsState, ABC):
             return "Switch Sensor"
         elif self.is_sensor_track:
             return "Sensor Track"
-        return "Accessory"
+        return self.scope.title
 
     @property
     def is_bpc2(self):
