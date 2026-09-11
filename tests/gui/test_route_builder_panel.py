@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+from math import ceil
 from threading import RLock
 from types import MethodType, SimpleNamespace
 from unittest.mock import Mock
@@ -33,12 +34,21 @@ from pytrain.protocol.constants import CommandScope
 class Widget:
     def __init__(self, *_args, **kwargs):
         self.parent = _args[0] if _args else None
+        self.children = []
+        if isinstance(self.parent, Widget):
+            self.parent.children.append(self)
         self.options = kwargs
         self.value = self.text = kwargs.get("text", "")
         self.visible = kwargs.get("visible", True)
         self.enabled = True
         self.is_editing = self.is_changed = False
-        self.tk = SimpleNamespace(config=lambda **_kw: None, pack_propagate=lambda _value: None)
+        self.tk = SimpleNamespace(
+            config=lambda **kw: self.options.update(kw),
+            pack_propagate=lambda _value: None,
+            grid_propagate=lambda _value: None,
+            grid_columnconfigure=lambda *_args, **_kw: None,
+            grid_rowconfigure=lambda *_args, **_kw: None,
+        )
 
     def show(self):
         self.visible = True
@@ -80,6 +90,9 @@ class Canvas:
     def pack(self, **_kwargs):
         pass
 
+    def grid(self, **kwargs):
+        self.grid_options = kwargs
+
     def bind(self, sequence, command):
         self.bindings[sequence] = command
 
@@ -88,12 +101,25 @@ class Canvas:
 
     def create_text(self, *args, **kwargs):
         self.drawn.append(("text", args, kwargs))
+        return len(self.drawn) - 1
+
+    def bbox(self, item):
+        _, _, options = self.drawn[item]
+        size = options["font"][1]
+        lines = ceil(len(options["text"]) * size / options["width"])
+        return 0, 0, options["width"], lines * (size + 5)
+
+    def itemconfigure(self, item, **kwargs):
+        self.drawn[item][2].update(kwargs)
 
     def create_rectangle(self, *args, **kwargs):
         self.drawn.append(("rectangle", args, kwargs))
 
     def create_line(self, *args, **kwargs):
         self.drawn.append(("line", args, kwargs))
+
+    def create_oval(self, *args, **kwargs):
+        self.drawn.append(("oval", args, kwargs))
 
     def xview(self):
         total = self.options["scrollregion"][2]
@@ -140,6 +166,21 @@ class Variable:
         return self.value
 
 
+class PhotoImage:
+    def __init__(self, width, height):
+        self._width, self._height = width, height
+        self.pixels = []
+
+    def width(self):
+        return self._width
+
+    def height(self):
+        return self._height
+
+    def put(self, color, to):
+        self.pixels.append((color, to))
+
+
 class Store:
     def __init__(self):
         self.states = {}
@@ -160,8 +201,10 @@ def panel(monkeypatch):
     monkeypatch.setattr(mod.tk, "Canvas", Canvas)
     monkeypatch.setattr(mod.tk, "StringVar", Variable)
     monkeypatch.setattr(mod.tk, "Radiobutton", Canvas)
+    monkeypatch.setattr(mod.tk, "PhotoImage", PhotoImage)
     host = SimpleNamespace(
         width=639,
+        height=800,
         compact=True,
         emergency_box_width=639,
         s_12=12,
@@ -212,6 +255,120 @@ def add_switch(panel, tmcc_id=7):
     panel.open_picker()
     panel.choose_candidate(next(i for i, (_, state) in enumerate(panel._candidates) if state.tmcc_id == tmcc_id))
     panel.add_selected()
+
+
+@pytest.mark.parametrize(
+    "width,height,compact,rows", [(639, 800, True, 3), (800, 1280, False, 6), (800, 800, False, 3)]
+)
+def test_picker_size_and_page_navigation_follow_available_layout(panel, width, height, compact, rows):
+    panel.gui.width, panel.gui.height, panel.gui.compact = width, height, compact
+    panel.gui.emergency_box_width = width
+    panel.build(Widget())
+    panel.configure(12)
+    for tmcc_id in range(1, 16):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    panel.set_sort("TMCC ID")
+
+    assert panel._picker.options["height"] == rows * panel.picker_row_height
+    panel.scroll_picker(1)
+    assert panel._picker.y == rows * panel.picker_row_height
+    event = SimpleNamespace(x=40, y=10)
+    panel._scroll_start(panel._picker, event)
+    panel._scroll_end(panel._picker, event, False)
+    assert panel._candidate == (CommandScope.SWITCH, rows + 1)
+    panel.scroll_picker(99)
+    assert not panel._picker_next.enabled
+    panel.scroll_picker(-99)
+    assert not panel._picker_previous.enabled
+    panel._search_field.value = "no match"
+    panel._on_search(None, None, None)
+    assert not panel._picker_next.enabled
+    assert not panel._picker_previous.enabled
+
+
+@pytest.mark.parametrize("width", [639, 800])
+def test_component_cards_are_twenty_five_percent_shorter(panel, width):
+    panel.gui.width = width
+    assert panel.card_height == int(int(panel.row_height * 3.5) * 0.75)
+
+
+def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
+    buttons = [
+        panel._previous_btn,
+        panel._next_btn,
+        panel._earlier_btn,
+        panel._later_btn,
+        panel._add_btn,
+        panel._remove_btn,
+        panel._clear_btn,
+        panel._picker_previous,
+        panel._picker_next,
+        panel._cancel_btn,
+        panel._clear_route_btn,
+        panel._save_btn,
+        *panel._filter_btns,
+        *panel._sort_btns,
+    ]
+    for field in (panel._name_field, panel._number_field, panel._search_field):
+        row = field.parent.parent
+        buttons.extend(child for slot in row.children for child in slot.children if child.text == "Edit")
+    assert len(buttons) == 21
+    for button in buttons:
+        assert button.options["relief"] == "raised"
+        assert button.options["bd"] >= 2
+        assert button.bg == mod.BUTTON_BG
+        assert button.options["activebackground"] != button.bg
+        assert button.parent.options["padx"] >= 4
+        assert button.parent.options["pady"] >= 3
+        assert button.parent.options["height"] - 2 * button.parent.options["pady"] >= 44
+
+
+def test_switch_radios_use_large_indicators_and_keep_exclusive_draft_selection(panel):
+    add_switch(panel)
+    for radio in panel._radios:
+        assert radio.options["indicatoron"] is False
+        assert radio.options["compound"] == "left"
+        assert radio.options["image"].width() >= 24
+        assert radio.options["selectimage"].width() >= 24
+        assert radio.options["image"].pixels != radio.options["selectimage"].pixels
+        assert radio.grid_options["padx"] >= 4 and radio.grid_options["pady"] >= 3
+    for value, flag in (("out", 1), ("thru", 0)):
+        panel._position.set(value)
+        next(r for r in panel._radios if r.options["value"] == value).options["command"]()
+        assert panel.draft.components[0].flags == flag
+        assert sum(r.options["background"] == mod.SELECTED_BG for r in panel._radios) == 1
+    panel.remove_selected()
+    assert all(r.options["state"] == "disabled" for r in panel._radios)
+
+
+def test_picker_indicators_are_large_circles_not_font_glyphs(panel):
+    known_switch(panel)
+    panel.open_picker()
+    rings = [coords for kind, coords, _options in panel._picker.drawn if kind == "oval"]
+    assert len(rings) == 1
+    assert rings[0][2] - rings[0][0] >= 24
+    panel.choose_candidate(0)
+    assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == 2
+
+
+def test_long_card_names_fit_without_changing_the_full_selection_label(panel):
+    known_switch(panel, name="W" * 31)
+    panel.open_picker()
+    panel.choose_candidate(0)
+    panel.add_selected()
+
+    names = [
+        (item, options["text"])
+        for item, (kind, _, options) in enumerate(panel._cards.drawn)
+        if kind == "text" and options["text"].startswith("WW")
+    ]
+    assert len(names) == 1
+    item, name = names[0]
+    assert name.endswith("…")
+    bounds = panel._cards.bbox(item)
+    assert bounds[3] - bounds[1] <= panel.card_height * 0.35
+    assert panel._selection.value.startswith("W" * 31)
 
 
 def test_add_edit_and_remove_only_change_the_draft(panel):

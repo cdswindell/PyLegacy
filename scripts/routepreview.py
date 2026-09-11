@@ -65,8 +65,26 @@ def check_bounds(app, overlay, panel, width, budget, label):
     assert requested[0] <= width and requested[1] <= budget, (label, requested)
     for widget in (panel._save_btn.tk, panel._cancel_btn.tk, panel._clear_route_btn.tk):
         assert widget.winfo_ismapped()
-        assert widget.winfo_height() >= 40
+        assert widget.winfo_height() >= 44
         assert widget.winfo_rooty() + widget.winfo_height() <= app.tk.winfo_rooty() + budget
+        assert widget.winfo_x() >= panel.button_pad_x
+        assert widget.winfo_y() >= panel.button_pad_y
+    if not panel._picking:
+        texts = [item for item in panel._cards.find_all() if panel._cards.type(item) == "text"]
+        for index in range(len(panel.draft.components)):
+            title, name, mode = [panel._cards.bbox(item) for item in texts[index * 3 : index * 3 + 3]]
+            assert title[3] < name[1] and name[3] < mode[1], (label, title, name, mode)
+            assert title[1] >= 0 and mode[3] <= panel.card_height
+        for radio in panel._radios:
+            assert radio.winfo_height() >= 44
+            assert radio.winfo_width() >= radio.winfo_reqwidth()
+    else:
+        texts = [item for item in panel._picker.find_all() if panel._picker.type(item) == "text"]
+        for index in range(len(panel._candidates)):
+            name, details = [panel._picker.bbox(item) for item in texts[index * 2 : index * 2 + 2]]
+            assert name[3] < details[1], (label, name, details)
+            assert name[1] >= index * panel.picker_row_height
+            assert details[3] <= (index + 1) * panel.picker_row_height
 
 
 def main():
@@ -109,6 +127,8 @@ def main():
     panel.clear_route = preview_clear
     panel._close = lambda: app.destroy() if panel.confirm_close() else None
     overlay = panel.overlay
+    for field in (panel._name_field, panel._number_field, panel._search_field):
+        field.show_keyboard_on_edit = True
     panel.configure(12, host.state_store.get_state(CommandScope.ROUTE, 12))
     overlay.show()
     app.tk.update_idletasks()
@@ -125,6 +145,8 @@ def main():
         panel.open_picker()
         panel.set_filter("All")
         check_bounds(app, overlay, panel, width, budget, "Picker")
+        assert panel.picker_rows == (6 if args.pi else 3)
+        assert panel._picker.winfo_height() == panel.picker_rows * panel.picker_row_height
         panel.scroll_picker(1)
         app.tk.update_idletasks()
         assert panel._picker.yview()[0] > 0

@@ -799,6 +799,16 @@ class KeypadView(Generic[S]):
         if keypad_box is not None:
             keypad_box.tk.configure(width=total_width)
 
+    def _show_keypad_bottom_row(self, visible: bool) -> None:
+        """Releases the empty fifth row in Route entry mode; restores it for other views."""
+        host = self._host
+        min_cell_height = host.button_size + (2 * host.grid_pad_by)
+        num_rows = 5 if visible else 4
+        for box in (host.keypad_keys, host.keypad_box):
+            if box is not None:
+                box.tk.grid_rowconfigure(4, weight=1 if visible else 0, minsize=min_cell_height if visible else 0)
+                box.tk.configure(height=num_rows * min_cell_height)
+
     def on_keypress(self, key: str) -> None:
         host = self._host
 
@@ -1060,7 +1070,8 @@ class KeypadView(Generic[S]):
             self._show_lcs_panel_key([0, 4])
         else:
             self._hide_lcs_panel_key()
-        self._show_route_builder_key(host.scope == CommandScope.ROUTE)
+        self._show_route_builder_key(False)
+        self._show_keypad_bottom_row(host.scope != CommandScope.ROUTE)
         self._reflow_keypad_columns()
 
     def enter_ops_mode_base(self) -> None:
@@ -1084,6 +1095,7 @@ class KeypadView(Generic[S]):
         # the specific accessory panel below re-shows and re-grids it where it belongs.
         self._hide_lcs_panel_key()
         self._show_route_builder_key(False)
+        self._show_keypad_bottom_row(True)
 
         self._collapse_acc_aux_cells()
         self.activate_numeric_keys()

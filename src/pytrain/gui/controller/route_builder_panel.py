@@ -23,6 +23,7 @@ from guizero import Box, PushButton, Text
 
 from .overlay_panel import OverlayPanel
 from .route_draft import RouteDraft
+from ..components.checkbox_group import CheckBoxGroup
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ...db.component_state import RouteState
@@ -35,6 +36,8 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger(__name__)
 PICKER_ROWS = 3
 CARD_BG = "#f4f6f8"
+BUTTON_BG = "#e7ebef"
+BUTTON_ACTIVE_BG = "#cfdeeb"
 SELECTED_BG = "#dcefff"
 SELECTED_COLOR = "#1266a5"
 
@@ -84,6 +87,22 @@ class RouteBuilderPanel(OverlayPanel):
         return max(44, int(44 * self.gui.width / 639))
 
     @property
+    def button_pad_x(self) -> int:
+        return max(4, round(self.gui.width / 160))
+
+    @property
+    def button_pad_y(self) -> int:
+        return max(3, round(self.gui.width / 210))
+
+    @property
+    def control_row_height(self) -> int:
+        return self.row_height + 2 * self.button_pad_y
+
+    @property
+    def indicator_size(self) -> int:
+        return max(24, round(self.row_height * 0.55))
+
+    @property
     def card_width(self) -> int:
         return self.card_view_width // 3
 
@@ -93,11 +112,15 @@ class RouteBuilderPanel(OverlayPanel):
 
     @property
     def card_height(self) -> int:
-        return int(self.row_height * 3.5)
+        return int(int(self.row_height * 3.5) * 0.75)
+
+    @property
+    def picker_rows(self) -> int:
+        return 6 if not self.gui.compact and self.gui.height >= 1000 else PICKER_ROWS
 
     @property
     def picker_row_height(self) -> int:
-        return int(self.row_height * 1.6)
+        return max(70, int(self.row_height * 1.3))
 
     def _button(
         self, parent, text, command, *, column=None, columns=1, width=None, height=None, align=None, hold=False
@@ -107,9 +130,10 @@ class RouteBuilderPanel(OverlayPanel):
             grid=[column, 0] if column is not None else None,
             align=align or ("top" if column is None else None),
             width=width or self.content_width // columns,
-            height=height or self.row_height,
+            height=height or self.control_row_height,
         )
         slot.tk.pack_propagate(False)
+        slot.tk.config(padx=self.button_pad_x, pady=self.button_pad_y)
         if hold:
             button = HoldButton(
                 slot,
@@ -125,6 +149,8 @@ class RouteBuilderPanel(OverlayPanel):
         else:
             button = PushButton(slot, text=text, command=command, width="fill", height="fill")
         button.text_size = self.gui.s_14
+        button.bg = BUTTON_BG
+        button.tk.config(relief="raised", bd=2, activebackground=BUTTON_ACTIVE_BG, disabledforeground="#727b84")
         return button
 
     def _buttons(self, parent, *buttons):
@@ -135,19 +161,23 @@ class RouteBuilderPanel(OverlayPanel):
         )
 
     def _field(self, parent, label, editor, max_length, on_commit):
-        row = Box(parent, align="top", width=self.content_width, height=self.row_height)
+        row = Box(parent, align="top", width=self.content_width, height=self.control_row_height)
         row.tk.pack_propagate(False)
-        Text(row, text=label, align="left", size=self.gui.s_12)
-        edit = PushButton(row, text="Edit", align="right", height="fill")
+        caption = Text(row, text=label, align="left", size=self.gui.s_12, width=12)
+        caption.tk.config(anchor="e", justify="right", padx=6)
+        edit = self._button(row, "Edit", None, align="right", width=int(self.row_height * 1.6))
         edit.text_size = self.gui.s_12
+        field_slot = Box(row, align="left", width="fill", height="fill")
+        field_slot.tk.config(pady=self.button_pad_y)
         field = EditableText(
-            row,
+            field_slot,
             text="",
             editor=editor,
             compact=bool(self.gui.compact),
             field_name=label,
             max_length=max_length,
             size=self.gui.s_14,
+            align="left",
             width="fill",
             height="fill",
             on_commit=on_commit,
@@ -202,11 +232,13 @@ class RouteBuilderPanel(OverlayPanel):
         )
         self._selection = Text(self._main_page, text="", size=self.gui.s_12, width="fill", height=2)
         self._selection.tk.config(wraplength=self.content_width)
-        self._positions = Box(self._main_page, align="top", width=self.content_width, height=self.row_height)
-        self._positions.tk.pack_propagate(False)
+        self._positions = Box(self._main_page, align="top", width=self.content_width, height=self.control_row_height)
+        self._positions.tk.grid_propagate(False)
+        self._positions.tk.grid_rowconfigure(0, weight=1)
         self._position = tk.StringVar(master=self._positions.tk, value="")
         self._radios = []
-        for label, value in (("THRU — straight", "thru"), ("OUT — diverging", "out")):
+        for column, (label, value) in enumerate((("THRU — straight", "thru"), ("OUT — diverging", "out"))):
+            self._positions.tk.grid_columnconfigure(column, weight=1, uniform="route_positions")
             radio = tk.Radiobutton(
                 self._positions.tk,
                 text=label,
@@ -215,14 +247,28 @@ class RouteBuilderPanel(OverlayPanel):
                 command=lambda: self.set_position(0 if self._position.get() == "thru" else 1),
                 font=("Helvetica", self.gui.s_14),
                 anchor="w",
-                background="white",
+                background=BUTTON_BG,
+                activebackground=BUTTON_ACTIVE_BG,
+                selectcolor=SELECTED_BG,
+                relief="raised",
+                offrelief="raised",
+                bd=2,
+                padx=8,
+                pady=0,
             )
-            radio.pack(side="left", fill="both", expand=True)
+            unselected, _ = CheckBoxGroup.indicator_images(
+                radio, self.indicator_size, style="radio", background=BUTTON_BG, check_color=SELECTED_COLOR
+            )
+            _, selected = CheckBoxGroup.indicator_images(
+                radio, self.indicator_size, style="radio", background=SELECTED_BG, check_color=SELECTED_COLOR
+            )
+            radio.config(image=unselected, selectimage=selected, compound="left", indicatoron=False)
+            radio.grid(row=0, column=column, sticky="nsew", padx=self.button_pad_x, pady=self.button_pad_y)
             self._radios.append(radio)
         self._earlier_btn, self._later_btn = self._buttons(
             self._main_page,
-            ("Move Earlier", lambda: self.move_selected(-1)),
-            ("Move Later", lambda: self.move_selected(1)),
+            ("Move Left", lambda: self.move_selected(-1)),
+            ("Move Right", lambda: self.move_selected(1)),
         )
         self._add_btn, self._remove_btn, self._clear_btn = self._buttons(
             self._main_page,
@@ -230,8 +276,8 @@ class RouteBuilderPanel(OverlayPanel):
             ("Remove", self.remove_selected),
             ("Clear All", self.clear_components),
         )
-        self._name_field = self._field(self._main_page, "Route name", EditorType.KEYBOARD, 31, self._on_metadata)
-        self._number_field = self._field(self._main_page, "Road number", EditorType.KEYPAD, 4, self._on_metadata)
+        self._name_field = self._field(self._main_page, "Route Name", EditorType.KEYBOARD, 31, self._on_metadata)
+        self._number_field = self._field(self._main_page, "Route #", EditorType.KEYPAD, 4, self._on_metadata)
 
         self._picker_page = Box(body, align="top", visible=False)
         Text(self._picker_page, text="ADD TO ROUTE", size=self.gui.s_14)
@@ -247,7 +293,7 @@ class RouteBuilderPanel(OverlayPanel):
         )
         self._search_field = self._field(self._picker_page, "Search name", EditorType.KEYBOARD, 31, self._on_search)
         self._picker_count = Text(self._picker_page, text="", size=self.gui.s_12)
-        self._picker = self._canvas(self._picker_page, self.picker_row_height * PICKER_ROWS, False)
+        self._picker = self._canvas(self._picker_page, self.picker_row_height * self.picker_rows, False)
         self._picker.config(yscrollincrement=self.picker_row_height, yscrollcommand=self._picker_scrolled)
         self._picker_previous, self._picker_next = self._buttons(
             self._picker_page,
@@ -319,8 +365,11 @@ class RouteBuilderPanel(OverlayPanel):
         self._clear_btn.enabled = bool(components)
         self._add_btn.enabled = len(components) < 16
         self._position.set("" if component is None or component.is_route else "thru" if component.is_thru else "out")
-        for radio in self._radios:
-            radio.config(state="normal" if component and component.is_switch else "disabled")
+        for value, radio in zip(("thru", "out"), self._radios):
+            radio.config(
+                state="normal" if component and component.is_switch else "disabled",
+                background=SELECTED_BG if self._position.get() == value else BUTTON_BG,
+            )
         if component:
             action = "Sub-route — runs here in the sequence" if component.is_route else "When this route fires:"
             self._selection.value = f"{self._component_label(component)}\n{action}"
@@ -369,20 +418,26 @@ class RouteBuilderPanel(OverlayPanel):
             )
             canvas.create_text(
                 x + 12,
-                14,
+                8,
                 text=f"{index + 1}   {'ROUTE' if component.is_route else 'SWITCH'}",
                 anchor="nw",
                 font=("Helvetica", self.gui.s_12, "bold"),
             )
             self._draw_track(canvas, x, component)
-            canvas.create_text(
+            name = self._component_label(component)
+            name_item = canvas.create_text(
                 x + self.card_width / 2,
-                self.card_height * 0.65,
-                text=self._component_label(component)[:38],
+                self.card_height * 0.60,
+                text=name,
                 width=self.card_width - 24,
-                font=("Helvetica", self.gui.s_12, "bold"),
+                font=("Helvetica", min(self.gui.s_12, int(self.card_height * 0.105)), "bold"),
                 justify="center",
             )
+            bounds = canvas.bbox(name_item)
+            while name and bounds[3] - bounds[1] > self.card_height * 0.35:
+                name = name[:-1].rstrip()
+                canvas.itemconfigure(name_item, text=f"{name}…")
+                bounds = canvas.bbox(name_item)
             mode = "SUB-ROUTE" if component.is_route else "THRU" if component.is_thru else "OUT"
             canvas.create_text(
                 x + self.card_width / 2,
@@ -393,15 +448,26 @@ class RouteBuilderPanel(OverlayPanel):
 
     def _draw_track(self, canvas, x, component):
         left, middle, right = x + 24, x + self.card_width / 2, x + self.card_width - 24
-        y = self.card_height * 0.34
+        y = self.card_height * 0.29
+        divergence = self.card_height * 0.08
         if component.is_route:
             canvas.create_line(
-                left, y, middle, y, middle, y + 18, right, y + 18, arrow="last", width=4, fill=SELECTED_COLOR
+                left,
+                y,
+                middle,
+                y,
+                middle,
+                y + divergence,
+                right,
+                y + divergence,
+                arrow="last",
+                width=4,
+                fill=SELECTED_COLOR,
             )
             return
         canvas.create_line(left, y, right, y, fill="#9aa4ae", width=6)
-        canvas.create_line(middle, y, right, y + 24, fill="#9aa4ae", width=6)
-        path = (left, y, right, y) if component.is_thru else (left, y, middle, y, right, y + 24)
+        canvas.create_line(middle, y, right, y + divergence, fill="#9aa4ae", width=6)
+        path = (left, y, right, y) if component.is_thru else (left, y, middle, y, right, y + divergence)
         canvas.create_line(*path, fill=SELECTED_COLOR, width=6)
 
     def select_row(self, index: int) -> None:
@@ -523,7 +589,12 @@ class RouteBuilderPanel(OverlayPanel):
         canvas = self._picker
         canvas.delete("all")
         canvas.config(
-            scrollregion=(0, 0, self.content_width, max(PICKER_ROWS, len(self._candidates)) * self.picker_row_height)
+            scrollregion=(
+                0,
+                0,
+                self.content_width,
+                max(self.picker_rows, len(self._candidates)) * self.picker_row_height,
+            )
         )
         if not self._candidates:
             canvas.create_text(
@@ -544,24 +615,49 @@ class RouteBuilderPanel(OverlayPanel):
                 fill=SELECTED_BG if selected else CARD_BG,
                 outline=SELECTED_COLOR if selected else "#c1c8d0",
             )
-            canvas.create_text(
-                18, y + self.picker_row_height / 2, text="●" if selected else "○", font=("Helvetica", self.gui.s_14)
+            radius = self.indicator_size / 2
+            center_x, center_y = radius + 12, y + self.picker_row_height / 2
+            canvas.create_oval(
+                center_x - radius,
+                center_y - radius,
+                center_x + radius,
+                center_y + radius,
+                outline=SELECTED_COLOR if selected else "#586574",
+                width=2,
+                fill="white",
             )
-            canvas.create_text(
-                40,
-                y + 10,
-                text=self._state_name(state, scope, state.tmcc_id),
+            if selected:
+                dot = radius * 0.55
+                canvas.create_oval(
+                    center_x - dot,
+                    center_y - dot,
+                    center_x + dot,
+                    center_y + dot,
+                    outline=SELECTED_COLOR,
+                    fill=SELECTED_COLOR,
+                )
+            text_x = self.indicator_size + 24
+            name = self._state_name(state, scope, state.tmcc_id)
+            name_item = canvas.create_text(
+                text_x,
+                y + 8,
+                text=name,
                 anchor="nw",
-                width=self.content_width - 54,
-                font=("Helvetica", self.gui.s_14, "bold"),
+                width=self.content_width - text_x - 14,
+                font=("Helvetica", min(self.gui.s_14, int(self.picker_row_height * 0.26)), "bold"),
             )
+            bounds = canvas.bbox(name_item)
+            while name and bounds[3] - bounds[1] > self.picker_row_height * 0.45:
+                name = name[:-1].rstrip()
+                canvas.itemconfigure(name_item, text=f"{name}…")
+                bounds = canvas.bbox(name_item)
             number = state.road_number if state.is_road_number else "—"
             canvas.create_text(
-                40,
-                y + self.picker_row_height - 20,
-                text=f"{scope.title} · Road no. {number} · ID {state.tmcc_id:02d}",
+                text_x,
+                y + self.picker_row_height - 18,
+                text=f"{scope.title} · Road #{number} · ID {state.tmcc_id:02d}",
                 anchor="w",
-                font=("Helvetica", self.gui.s_12),
+                font=("Helvetica", min(self.gui.s_12, int(self.picker_row_height * 0.22))),
             )
 
     def choose_candidate(self, index: int) -> None:
@@ -592,7 +688,7 @@ class RouteBuilderPanel(OverlayPanel):
         self._reveal_selected()
 
     def scroll_picker(self, delta: int) -> None:
-        self._picker.yview_scroll(delta * PICKER_ROWS, "units")
+        self._picker.yview_scroll(delta * self.picker_rows, "units")
 
     def _picker_scrolled(self, first, last):
         self._picker_previous.enabled = float(first) > 0

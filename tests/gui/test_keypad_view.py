@@ -20,6 +20,7 @@ class DummyTk:
         # Records the last per-column grid_columnconfigure so the reflow tests can assert which
         # columns were collapsed (weight=0, minsize=0) and which were restored to a cell width.
         self._column_config: dict[int, dict[str, Any]] = {}
+        self._row_config: dict[int, dict[str, Any]] = {}
 
     def config(self, **kwargs: Any) -> None:
         self._config.update(kwargs)
@@ -55,9 +56,8 @@ class DummyTk:
     def focus_get():
         return None
 
-    @staticmethod
-    def grid_rowconfigure(_row: int, **_kwargs: Any) -> None:
-        return
+    def grid_rowconfigure(self, row: int, **kwargs: Any) -> None:
+        self._row_config[row] = dict(kwargs)
 
     def grid_columnconfigure(self, col: int, **kwargs: Any) -> None:
         self._column_config[col] = dict(kwargs)
@@ -886,18 +886,76 @@ def test_route_builder_and_info_appear_on_route_ops() -> None:
     assert host.on_show_panel_calls == ["route_builder"]
 
 
-def test_route_builder_is_shared_with_entry_and_hidden_for_other_scopes() -> None:
-    host, view = _ops(CommandScope.ROUTE, 5)
+@pytest.mark.parametrize("clear_info", [False, True])
+@pytest.mark.parametrize("from_ops", [False, True])
+def test_route_entry_collapses_the_bottom_row_and_ops_restores_it(clear_info: bool, from_ops: bool) -> None:
+    if from_ops:
+        host, view = _ops(CommandScope.ROUTE, 5)
+    else:
+        host = _new_host()
+        host.scope = CommandScope.ROUTE
+        view = mod.KeypadView(host)
+        view.build()
+    host.update_component_info = lambda _tmcc_id: None
+    cell_height = host.button_size + 2 * host.grid_pad_by
 
+    for _ in range(2):
+        view.entry_mode(clear_info=clear_info)
+
+        assert {cell.grid[1] for cell in view._keypad_cells if cell.visible} == set(range(4))
+        for box in (host.keypad_keys, host.keypad_box):
+            assert box.tk._row_config[4] == {"weight": 0, "minsize": 0}
+            assert box.tk._config["height"] == 4 * cell_height
+
+        view.enter_ops_mode_base()
+        view.apply_ops_mode_ui_non_engine()
+
+        for box in (host.keypad_keys, host.keypad_box):
+            assert box.tk._row_config[4] == {"weight": 1, "minsize": cell_height}
+            assert box.tk._config["height"] == 5 * cell_height
+        assert host.info_cell.visible and host.info_cell.grid == [0, 4]
+        assert host.fire_route_cell.visible and host.fire_route_cell.grid == [1, 4]
+        assert host.route_builder_cell.visible and host.route_builder_cell.grid == [2, 4]
+
+
+@pytest.mark.parametrize("scope", [CommandScope.ACC, CommandScope.SWITCH, CommandScope.ENGINE, CommandScope.TRAIN])
+def test_leaving_route_entry_restores_the_bottom_row_for_other_scopes(scope: CommandScope) -> None:
+    host, view = _ops(CommandScope.ROUTE, 5)
     view.entry_mode(clear_info=False)
 
-    assert host.route_builder_cell.visible is True
+    host.scope = scope
+    view.entry_mode(clear_info=False)
+
+    cell_height = host.button_size + 2 * host.grid_pad_by
+    for box in (host.keypad_keys, host.keypad_box):
+        assert box.tk._row_config[4] == {"weight": 1, "minsize": cell_height}
+        assert box.tk._config["height"] == 5 * cell_height
+    if scope in {CommandScope.ACC, CommandScope.SWITCH}:
+        assert host.lcs_panel_cell.visible and host.lcs_panel_cell.grid == [0, 4]
+    else:
+        assert host.on_key_cell.visible and host.off_key_cell.visible
+
+
+@pytest.mark.parametrize("clear_info", [False, True])
+def test_route_builder_is_shared_with_entry_and_hidden_for_other_scopes(clear_info: bool) -> None:
+    host, view = _ops(CommandScope.ROUTE, 5)
+    updated_ids = []
+    host.update_component_info = updated_ids.append
+
+    view.entry_mode(clear_info=clear_info)
+
+    assert updated_ids == ([0] if clear_info else [])
+    assert host.route_builder_cell.visible is False
     assert host.route_builder_cell.grid == [2, 4]
     assert host.info_cell.visible is False
     assert host.set_key_cell.visible is False
     assert host.keypad_keys.tk._column_config[3] == _COLLAPSED
     assert host.keypad_keys.tk._column_config[4] == _COLLAPSED
     assert host.route_builder_cell not in host.entry_cells | host.ops_cells
+    view.enter_ops_mode_base()
+    view.apply_ops_mode_ui_non_engine()
+    assert host.route_builder_cell.visible is True
+    assert host.route_builder_cell.grid == [2, 4]
     host.scope = CommandScope.SWITCH
     view.entry_mode(clear_info=False)
     assert host.route_builder_cell.visible is False
