@@ -793,7 +793,10 @@ def test_nested_route_add_is_draft_only_and_has_no_switch_controls(panel):
     panel.choose_candidate(0)
     panel.save()
     assert panel.draft.components[0].is_route
-    assert "Sub-route" in panel._selection.value
+    assert panel._selection.value == "Route 4\nRuns this route at this step."
+    assert panel._count.value == "Route 12   ·   1 of 16 slots used   ·   Selected 1"
+    card_text = [options["text"] for kind, _, options in panel._cards.drawn if kind == "text"]
+    assert card_text == ["1   ROUTE", "Route 4", "ID 04"]
     assert all(radio.options["state"] == "disabled" for radio in panel._radios)
     panel.set_position(0)
     assert panel.draft.components[0].is_route

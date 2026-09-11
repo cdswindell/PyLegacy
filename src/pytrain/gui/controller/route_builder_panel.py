@@ -383,7 +383,7 @@ class RouteBuilderPanel(OverlayPanel):
             self._picker_page.hide()
             self._main_page.show()
         components = self.draft.components
-        self._count.value = f"Route {self._tmcc_id:02d}   ·   {len(components)} / 16 components"
+        self._count.value = f"Route {self._tmcc_id:02d}   ·   {len(components)} of 16 slots used"
         if self._selected is not None:
             self._count.value += f"   ·   Selected {self._selected + 1}"
         self._draw_cards()
@@ -403,7 +403,7 @@ class RouteBuilderPanel(OverlayPanel):
                 background=SELECTED_BG if self._position.get() == value else BUTTON_BG,
             )
         if component:
-            action = "Sub-route — runs here in the sequence" if component.is_route else "When this route fires:"
+            action = "Runs this route at this step." if component.is_route else "When this route fires:"
             self._selection.value = f"{self._component_label(component)}\n{action}"
         else:
             self._selection.value = "No components yet. Tap Add to choose a switch or route."
@@ -470,11 +470,11 @@ class RouteBuilderPanel(OverlayPanel):
                 name = name[:-1].rstrip()
                 canvas.itemconfigure(name_item, text=f"{name}…")
                 bounds = canvas.bbox(name_item)
-            mode = "SUB-ROUTE" if component.is_route else "THRU" if component.is_thru else "OUT"
+            mode = "" if component.is_route else "THRU · " if component.is_thru else "OUT · "
             canvas.create_text(
                 x + self.card_width / 2,
                 self.card_height - 17,
-                text=f"{mode} · ID {component.tmcc_id:02d}",
+                text=f"{mode}ID {component.tmcc_id:02d}",
                 font=("Helvetica", self.gui.s_12),
             )
 
