@@ -446,11 +446,10 @@ def test_a_row_is_taken_as_the_widget_or_as_the_tk_inside_it() -> None:
 @pytest.mark.parametrize(
     "sequence, event, notches",
     [
-        # macOS reports single notches and Windows multiples of 120; either way the sign is
-        # what says which way the wheel turned.
-        ("<MouseWheel>", SimpleNamespace(delta=1), -1),
+        # Discrete wheel notches remain fixed steps; small Aqua deltas are tested below.
+        ("<MouseWheel>", SimpleNamespace(delta=240), -2),
         ("<MouseWheel>", SimpleNamespace(delta=120), -1),
-        ("<MouseWheel>", SimpleNamespace(delta=-1), 1),
+        ("<MouseWheel>", SimpleNamespace(delta=-240), 2),
         ("<MouseWheel>", SimpleNamespace(delta=-120), 1),
         # X11 reports a wheel as a pair of buttons, which is what the Pi's desktop sends.
         ("<Button-4>", SimpleNamespace(), -1),
@@ -467,6 +466,45 @@ def test_one_notch_of_the_wheel_moves_the_page_one_step_that_way(sequence: str, 
     _gesture(box, sequence)(event)
 
     assert box.offset == 200 + notches * mod.WHEEL_STEP
+
+
+@pytest.mark.parametrize("dx,dy", [(0, 1), (0, -1), (0, -48), (60, 0), (-60, 2), (0, 0)])
+def test_surface_scroll_moves_page_by_vertical_pixels_only(dx, dy):
+    box = _fitted(content_px=900, budget=400)
+    box.scroll_to(200)
+    event = SimpleNamespace(delta=(dx << 16) | (dy & 0xFFFF))
+    assert _gesture(box, "<TouchpadScroll>")(event) == "break"
+    assert box.offset == 200 - dy
+
+
+def test_surface_scroll_clamps_at_both_ends_and_ignores_short_pages():
+    for height in (300, 900):
+        box = _fitted(content_px=height, budget=400)
+        handler = _gesture(box, "<TouchpadScroll>")
+        handler(SimpleNamespace(delta=0x8000))
+        assert box.offset == max(0, height - 400)
+        handler(SimpleNamespace(delta=32767))
+        assert box.offset == 0
+
+
+def test_old_tk_fallback_keeps_small_mac_wheel_motion(monkeypatch):
+    bind = DummyTk.bind_class
+
+    def old_bind(self, tag, sequence, handler, add=None):
+        if sequence == "<TouchpadScroll>":
+            raise mod.TclError("unknown event")
+        bind(self, tag, sequence, handler, add)
+
+    monkeypatch.setattr(DummyTk, "bind_class", old_bind)
+    from src.pytrain.gui.components import scroll_input
+
+    monkeypatch.setattr(scroll_input, "platform", "darwin")
+    box = _fitted(content_px=900, budget=400)
+    assert "<TouchpadScroll>" not in {seq for _, seq, _, _ in box.viewport.tk.class_binds}
+    _gesture(box, "<MouseWheel>")(SimpleNamespace(delta=-1))
+    assert box.offset == 8
+    _gesture(box, "<MouseWheel>")(SimpleNamespace(delta=1))
+    assert box.offset == 0
 
 
 def test_a_press_that_barely_moves_is_left_to_whatever_is_under_it() -> None:

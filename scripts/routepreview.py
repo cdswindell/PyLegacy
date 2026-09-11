@@ -15,6 +15,7 @@ The Pi preview supplies target screen dimensions to the portrait keyboard positi
 
 import argparse
 import sys
+import tkinter as tk
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,6 +25,7 @@ from guizero import App
 
 from pytrain.db.component_state import RouteState, SwitchState
 from pytrain.db.components import RouteComponent
+from pytrain.gui.controller import route_builder_panel
 from pytrain.gui.controller.popup_manager import PopupManager
 from pytrain.gui.controller.route_builder_panel import RouteBuilderPanel
 from pytrain.protocol.constants import CommandScope
@@ -87,12 +89,40 @@ def check_bounds(app, overlay, panel, width, budget, label):
             assert details[3] <= (index + 1) * panel.picker_row_height
 
 
+def check_touch_scroll(app, panel, canvas, horizontal):
+    if sys.platform != "darwin" or tk.TkVersion < 9:
+        return
+    assert canvas.bind("<TouchpadScroll>")
+    selection = panel._selected, panel._candidate
+    components = RouteComponent.to_bytes(panel.draft.components)
+    dirty = panel.draft.dirty
+    (canvas.xview_moveto if horizontal else canvas.yview_moveto)(0)
+    position = canvas.canvasx if horizontal else canvas.canvasy
+    gestures = [(0, -7, 7), (0, 2, 5), (0, 1, 4), (0, 0, 4)]
+    if horizontal:
+        gestures.extend([(-7, 0, 11), (2, 0, 9)])
+    for dx, dy, expected in gestures:
+        packed = (dx << 16) | (dy & 0xFFFF)
+        canvas.event_generate("<TouchpadScroll>", delta=packed)
+        app.tk.update()
+        assert round(position(0)) == expected, (horizontal, dx, dy, position(0))
+    assert (panel._selected, panel._candidate) == selection
+    assert RouteComponent.to_bytes(panel.draft.components) == components
+    assert panel.draft.dirty == dirty
+    print(f"Mac touch-surface events passed: {'component cards' if horizontal else 'picker'}", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pi", action="store_true")
+    device = parser.add_mutually_exclusive_group()
+    device.add_argument("--pi", action="store_true")
+    device.add_argument("--pycab", action="store_true")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     width, height, budget, scale = (800, 1280, 941, 1.5) if args.pi else (639, 800, 600, 1.0)
+    if args.pycab:
+        width, height, budget, scale = 631, 1009, 720, 631 * 1.5 / 800
+    route_builder_panel.platform = sys.platform if args.pycab else "linux"
     app = App(title="Route Builder — offline preview", width=width, height=height, bg="white")
     if args.pi:
         app.tk.geometry(f"{width}x{height}+0+0")
@@ -103,7 +133,7 @@ def main():
         root=app,
         width=width,
         height=height,
-        compact=not args.pi,
+        compact=not (args.pi or args.pycab),
         emergency_box_width=width - 4,
         button_size=round(width / (6 if args.pi else 8)),
         state_store=PreviewStore(),
@@ -128,7 +158,7 @@ def main():
     panel._close = lambda: app.destroy() if panel.confirm_close() else None
     overlay = panel.overlay
     for field in (panel._name_field, panel._number_field, panel._search_field):
-        field.show_keyboard_on_edit = True
+        field.show_keyboard_on_edit = not args.pycab
     panel.configure(12, host.state_store.get_state(CommandScope.ROUTE, 12))
     overlay.show()
     app.tk.update_idletasks()
@@ -145,11 +175,27 @@ def main():
         panel.open_picker()
         panel.set_filter("All")
         check_bounds(app, overlay, panel, width, budget, "Picker")
-        assert panel.picker_rows == (6 if args.pi else 3)
+        assert panel.picker_rows == (6 if args.pi or args.pycab else 3)
         assert panel._picker.winfo_height() == panel.picker_rows * panel.picker_row_height
         panel.scroll_picker(1)
         app.tk.update_idletasks()
         assert panel._picker.yview()[0] > 0
+        if args.pycab:
+            panel._picker.focus_force()
+            panel._picker.yview_moveto(0)
+            for _ in panel._candidates:
+                panel._picker.event_generate("<Down>")
+                app.tk.update()
+            assert panel._candidate == (panel._candidates[-1][0], panel._candidates[-1][1].tmcc_id)
+            assert panel._picker.yview()[1] == 1
+            panel._picker.event_generate("<Up>")
+            app.tk.update()
+            assert panel._candidate == (panel._candidates[-2][0], panel._candidates[-2][1].tmcc_id)
+            panel._picker.yview_moveto(0)
+            panel._picker.event_generate("<MouseWheel>", delta=-1)
+            app.tk.update()
+            assert panel._picker.yview()[0] > 0
+            check_touch_scroll(app, panel, panel._picker, False)
         panel.cancel()
         for field in (panel._name_field, panel._number_field):
             field.begin_edit()
@@ -157,9 +203,22 @@ def main():
             app.tk.mainloop()
             app.tk.update_idletasks()
             keyboard = field._keyboard_window
-            assert field.is_editing and keyboard is not None
-            assert keyboard.winfo_rootx() >= app.tk.winfo_rootx()
-            assert keyboard.winfo_rootx() + keyboard.winfo_width() <= app.tk.winfo_rootx() + width
+            assert field.is_editing
+            if args.pycab:
+                assert keyboard is None
+                field._entry.focus_force()
+                field._entry.icursor(1)
+                before = panel._selected
+                panel._cards.event_generate("<Enter>")
+                field._entry.event_generate("<Left>")
+                app.tk.update()
+                assert app.tk.focus_get() is field._entry
+                assert field._entry.index("insert") == 0
+                assert panel._selected == before
+            else:
+                assert keyboard is not None
+                assert keyboard.winfo_rootx() >= app.tk.winfo_rootx()
+                assert keyboard.winfo_rootx() + keyboard.winfo_width() <= app.tk.winfo_rootx() + width
             field.cancel_edit()
         for tmcc_id in range(16, 3, -1):
             panel.draft.set_component(None, tmcc_id, 0, panel._lookup_route)
@@ -167,6 +226,21 @@ def main():
         app.tk.update_idletasks()
         assert panel._cards.xview()[1] == 1.0
         check_bounds(app, overlay, panel, width, budget, "Full route")
+        if args.pycab:
+            before = RouteComponent.to_bytes(panel.draft.components)
+            panel._cards.focus_force()
+            for _ in range(20):
+                panel._cards.event_generate("<Left>")
+                app.tk.update()
+            assert panel._selected == 0 and panel._cards.xview()[0] == 0
+            panel._cards.event_generate("<Right>")
+            app.tk.update()
+            assert panel._selected == 1
+            panel._cards.event_generate("<MouseWheel>", delta=-1)
+            app.tk.update()
+            assert panel._cards.xview()[0] > 0
+            assert RouteComponent.to_bytes(panel.draft.components) == before
+            check_touch_scroll(app, panel, panel._cards, True)
         print("Rendering and interaction checks passed; no layout commands sent.", flush=True)
     finally:
         app.destroy()

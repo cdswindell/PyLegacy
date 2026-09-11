@@ -83,6 +83,7 @@ class Canvas:
         self.drawn = []
         self.x = self.y = 0
         self.dragged = []
+        self.focus_set = Mock()
 
     def config(self, **kwargs):
         self.options.update(kwargs)
@@ -138,6 +139,10 @@ class Canvas:
 
     def xview_scroll(self, delta, _units):
         self.xview_moveto((self.x + delta * 20) / self.options["scrollregion"][2])
+
+    def yview(self):
+        total = self.options["scrollregion"][3]
+        return self.y / total, min(1, (self.y + self.options["height"]) / total)
 
     def yview_scroll(self, delta, _units):
         self.yview_moveto((self.y + delta * self.options["yscrollincrement"]) / self.options["scrollregion"][3])
@@ -195,6 +200,7 @@ class Store:
 
 @pytest.fixture
 def panel(monkeypatch):
+    monkeypatch.setattr(mod, "platform", "linux")
     for name in ("Box", "PushButton", "Text", "EditableText"):
         monkeypatch.setattr(mod, name, Widget)
     monkeypatch.setattr(mod, "HoldButton", HoldWidget)
@@ -258,9 +264,20 @@ def add_switch(panel, tmcc_id=7):
 
 
 @pytest.mark.parametrize(
-    "width,height,compact,rows", [(639, 800, True, 3), (800, 1280, False, 6), (800, 800, False, 3)]
+    "width,height,compact,system,rows",
+    [
+        (639, 800, True, "linux", 3),
+        (800, 1280, False, "linux", 6),
+        (800, 800, False, "linux", 3),
+        (600, 960, False, "darwin", 6),
+        (600, 960, False, "win32", 6),
+        (639, 800, True, "darwin", 3),
+    ],
 )
-def test_picker_size_and_page_navigation_follow_available_layout(panel, width, height, compact, rows):
+def test_picker_size_and_page_navigation_follow_available_layout(
+    panel, monkeypatch, width, height, compact, system, rows
+):
+    monkeypatch.setattr(mod, "platform", system)
     panel.gui.width, panel.gui.height, panel.gui.compact = width, height, compact
     panel.gui.emergency_box_width = width
     panel.build(Widget())
@@ -285,6 +302,216 @@ def test_picker_size_and_page_navigation_follow_available_layout(panel, width, h
     panel._on_search(None, None, None)
     assert not panel._picker_next.enabled
     assert not panel._picker_previous.enabled
+
+
+@pytest.fixture(params=["darwin", "win32"])
+def desktop_panel(panel, monkeypatch, request):
+    monkeypatch.setattr(mod, "platform", request.param)
+    panel.gui.compact = False
+    panel.gui.width, panel.gui.height = 600, 960
+    panel.gui.emergency_box_width = 600
+    panel.build(Widget())
+    panel.configure(12)
+    return panel
+
+
+def test_desktop_picker_keys_select_and_reveal_without_adding(desktop_panel):
+    panel = desktop_panel
+    for tmcc_id in range(1, 16):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    panel.set_sort("TMCC ID")
+    down, up = panel._picker.bindings["<Down>"], panel._picker.bindings["<Up>"]
+    assert down(None) == "break"
+    assert panel._candidate == (CommandScope.SWITCH, 1)
+    for _ in range(20):
+        down(None)
+    assert panel._candidate == (CommandScope.SWITCH, 15)
+    assert panel._picker.yview()[1] == 1
+    assert not panel._picker_next.enabled
+    for _ in range(20):
+        assert up(None) == "break"
+    assert panel._candidate == (CommandScope.SWITCH, 1)
+    assert panel._picker.yview()[0] == 0
+    assert not panel._picker_previous.enabled
+    assert not panel.draft.components and not panel.draft.dirty
+
+
+def test_desktop_picker_keys_use_current_filter_sort_and_scope(desktop_panel):
+    panel = desktop_panel
+    known_switch(panel, 7, "Alpha")
+    known_switch(panel, 3, "Zulu")
+    known_route(panel, 7)
+    panel.open_picker()
+    panel.set_filter("All")
+    panel.set_sort("TMCC ID")
+    panel.toggle_sort_direction()
+    for scope, state in panel._candidates:
+        panel._picker.bindings["<Down>"](None)
+        assert panel._candidate == (scope, state.tmcc_id)
+    panel._search_field.value = "Alpha"
+    panel._on_search(None, None, None)
+    panel._picker.bindings["<Up>"](None)
+    assert panel._candidate == (CommandScope.SWITCH, 7)
+    panel._search_field.value = "no matches"
+    panel._on_search(None, None, None)
+    for key in ("<Up>", "<Down>"):
+        assert panel._picker.bindings[key](None) == "break"
+    assert panel._candidate is None and not panel._save_btn.enabled
+
+
+def test_desktop_card_keys_browse_without_reordering_or_editing(desktop_panel):
+    panel = desktop_panel
+    assert panel._cards.bindings["<Right>"](None) == "break"
+    assert panel._selected is None
+    state = known_route(panel, 12, [RouteComponent(i, i % 3) for i in range(16, 0, -1)])
+    panel.configure(12, state)
+    before = RouteComponent.to_bytes(panel.draft.components)
+    for _ in range(20):
+        assert panel._cards.bindings["<Right>"](None) == "break"
+    assert panel._selected == 15 and panel._cards.xview()[1] == 1
+    for _ in range(20):
+        assert panel._cards.bindings["<Left>"](None) == "break"
+    assert panel._selected == 0 and panel._cards.xview()[0] == 0
+    assert RouteComponent.to_bytes(panel.draft.components) == before
+    assert not panel.draft.dirty
+
+
+def test_desktop_lists_receive_focus_without_stealing_inline_edits(desktop_panel):
+    panel = desktop_panel
+    for canvas, field in ((panel._cards, panel._name_field), (panel._picker, panel._search_field)):
+        assert canvas.options["takefocus"] is True
+        for event in ("<Map>", "<Enter>"):
+            canvas.focus_set.reset_mock()
+            canvas.bindings[event](None)
+            canvas.focus_set.assert_called_once_with()
+            field.is_editing = True
+            canvas.focus_set.reset_mock()
+            canvas.bindings[event](None)
+            canvas.focus_set.assert_not_called()
+            field.is_editing = False
+        canvas.focus_set.reset_mock()
+        canvas.bindings["<ButtonPress-1>"](SimpleNamespace(x=20, y=20))
+        canvas.focus_set.assert_called_once_with()
+
+
+def test_touch_lists_keep_touch_bindings_without_desktop_focus(panel):
+    for canvas in (panel._cards, panel._picker):
+        assert not canvas.options["takefocus"]
+        assert not {"<Map>", "<Enter>", "<Left>", "<Right>", "<Up>", "<Down>"}.intersection(canvas.bindings)
+        assert {"<B1-Motion>", "<MouseWheel>", "<Button-4>", "<Button-5>"}.issubset(canvas.bindings)
+
+
+@pytest.mark.parametrize("horizontal", [False, True])
+@pytest.mark.parametrize("delta,units", [(120, -1), (-240, 2), (1, -1), (-1, 1), (0, 0)])
+def test_desktop_wheel_browses_both_lists(desktop_panel, horizontal, delta, units):
+    panel = desktop_panel
+    canvas = panel._cards if horizontal else panel._picker
+    scroll = Mock()
+    if horizontal:
+        canvas.xview_scroll = scroll
+    else:
+        canvas.yview_scroll = scroll
+    assert canvas.bindings["<MouseWheel>"](SimpleNamespace(delta=delta)) == "break"
+    if delta:
+        if mod.platform == "darwin":
+            units = -delta
+        if not horizontal:
+            units *= panel.picker_row_height
+        scroll.assert_called_once_with(units, "units")
+    else:
+        scroll.assert_not_called()
+    if horizontal:
+        scroll.reset_mock()
+        assert canvas.bindings["<Shift-MouseWheel>"](SimpleNamespace(delta=-1)) == "break"
+        scroll.assert_called_once_with(1, "units")
+    assert not panel.draft.dirty
+
+
+@pytest.mark.parametrize("desktop_panel", ["darwin"], indirect=True)
+@pytest.mark.parametrize("horizontal", [False, True])
+@pytest.mark.parametrize("dx,dy", [(0, -1), (0, 1), (0, -40), (0, 40), (-25, 0), (25, 0), (2, -30), (-30, 2), (0, 0)])
+@pytest.mark.parametrize("signed", [False, True])
+def test_mac_touch_surface_scrolls_by_pixels_without_editing(desktop_panel, horizontal, dx, dy, signed):
+    panel = desktop_panel
+    state = known_route(panel, 12, [RouteComponent(i, i % 3) for i in range(8, 0, -1)])
+    panel.configure(12, state)
+    if horizontal:
+        canvas = panel._cards
+        canvas.xview_moveto(0.4)
+        before = canvas.x
+    else:
+        for tmcc_id in range(1, 16):
+            known_switch(panel, tmcc_id)
+        panel.open_picker()
+        panel.choose_candidate(0)
+        canvas = panel._picker
+        canvas.yview_moveto(0.4)
+        before = canvas.y
+    selection = panel._selected, panel._candidate
+    components = RouteComponent.to_bytes(panel.draft.components)
+    packed = ((dx & 0xFFFF) << 16) | (dy & 0xFFFF)
+    if signed and packed >= 0x80000000:
+        packed -= 0x100000000
+
+    assert canvas.bindings["<TouchpadScroll>"](SimpleNamespace(delta=packed)) == "break"
+
+    movement = dx if horizontal and abs(dx) > abs(dy) else dy
+    assert (canvas.x if horizontal else canvas.y) == pytest.approx(before - movement)
+    assert (panel._selected, panel._candidate) == selection
+    assert RouteComponent.to_bytes(panel.draft.components) == components
+    assert not panel.draft.dirty
+
+
+@pytest.mark.parametrize("desktop_panel", ["darwin"], indirect=True)
+def test_mac_touch_surface_scroll_handles_empty_lists_and_boundaries(desktop_panel):
+    panel = desktop_panel
+    for canvas in (panel._cards, panel._picker):
+        for packed in (0, 0x80008000, 0x7FFF7FFF):
+            assert canvas.bindings["<TouchpadScroll>"](SimpleNamespace(delta=packed)) == "break"
+        assert canvas.x == canvas.y == 0
+    for tmcc_id in range(1, 16):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    panel._picker.bindings["<TouchpadScroll>"](SimpleNamespace(delta=0x8000))
+    assert panel._picker.yview()[1] == 1
+    assert not panel._picker_next.enabled
+    panel._picker.bindings["<TouchpadScroll>"](SimpleNamespace(delta=0x7FFF))
+    assert panel._picker.yview()[0] == 0
+    assert not panel._picker_previous.enabled
+
+
+@pytest.mark.parametrize("desktop_panel", ["darwin"], indirect=True)
+def test_mac_older_tk_keeps_wheel_and_keyboard_navigation(desktop_panel, monkeypatch):
+    bind = Canvas.bind
+
+    def old_tk_bind(canvas, sequence, command):
+        if sequence == "<TouchpadScroll>":
+            raise mod.tk.TclError('bad event type or keysym "TouchpadScroll"')
+        bind(canvas, sequence, command)
+
+    monkeypatch.setattr(Canvas, "bind", old_tk_bind)
+    panel = desktop_panel
+    panel.build(Widget())
+    panel.configure(12)
+    for tmcc_id in range(1, 16):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    panel.set_sort("TMCC ID")
+    for canvas in (panel._cards, panel._picker):
+        assert "<TouchpadScroll>" not in canvas.bindings
+        assert "<MouseWheel>" in canvas.bindings
+    panel._picker.bindings["<MouseWheel>"](SimpleNamespace(delta=-1))
+    assert panel._picker.y == panel.picker_row_height
+    panel._picker.bindings["<Down>"](None)
+    assert panel._candidate == (CommandScope.SWITCH, 2)
+
+
+@pytest.mark.parametrize("desktop_panel", ["win32"], indirect=True)
+def test_windows_retains_its_existing_scroll_bindings(desktop_panel):
+    for canvas in (desktop_panel._cards, desktop_panel._picker):
+        assert "<TouchpadScroll>" not in canvas.bindings
+        assert "<MouseWheel>" in canvas.bindings
 
 
 @pytest.mark.parametrize("width", [639, 800])

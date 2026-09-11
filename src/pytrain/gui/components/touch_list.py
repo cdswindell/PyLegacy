@@ -11,6 +11,8 @@
 import tkinter as tk
 from tkinter import ttk
 
+from pytrain.gui.components.scroll_input import precise_scroll_deltas, wheel_scroll_pixels
+
 
 class TouchList(tk.Frame):
     """
@@ -26,7 +28,7 @@ class TouchList(tk.Frame):
         self.padding = padding
         self.on_select = on_select or (lambda item: None)
 
-        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.canvas = tk.Canvas(self, highlightthickness=0, yscrollincrement=1)
         self.canvas.pack(side="left", fill="both", expand=True)
 
         self.inner = tk.Frame(self.canvas)
@@ -40,10 +42,9 @@ class TouchList(tk.Frame):
         self.canvas.bind("<ButtonPress-1>", self._on_press)
         self.canvas.bind("<B1-Motion>", self._on_drag)
 
-        # Optional mouse wheel for desktop testing
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)  # Windows/macOS
-        self.canvas.bind_all("<Button-4>", lambda e: self._wheel_linux(-1))  # Linux up
-        self.canvas.bind_all("<Button-5>", lambda e: self._wheel_linux(1))  # Linux down
+        # Bind locally, including row surfaces: scrolling one list must not move another.
+        for widget in (self, self.canvas, self.inner):
+            self._bind_scrolling(widget)
 
         self._drag_start_y = 0
         self._scroll_start = 0
@@ -90,6 +91,18 @@ class TouchList(tk.Frame):
             # Optional separator line after each row (subtle, touch-friendly)
             sep = ttk.Separator(self.inner, orient="horizontal")
             sep.pack(fill="x", padx=self.padding, pady=(0, self.padding))
+            for widget in (row, btn, sep):
+                self._bind_scrolling(widget)
+
+    def _bind_scrolling(self, widget):
+        widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        widget.bind("<Button-4>", lambda e: self._wheel_linux(-1), add="+")
+        widget.bind("<Button-5>", lambda e: self._wheel_linux(1), add="+")
+        try:
+            widget.bind("<TouchpadScroll>", self._on_touchpad_scroll, add="+")
+        except tk.TclError:
+            # Tk 8.6 uses MouseWheel for touch-surface input instead.
+            pass
 
     def _on_inner_configure(self, _event=None):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -123,11 +136,18 @@ class TouchList(tk.Frame):
         self.canvas.yview_moveto(y / total)
 
     def _on_mousewheel(self, event):
-        # event.delta: Windows=120 increments; macOS often smaller
-        self.canvas.yview_scroll(int(-event.delta / 60), "units")
+        self._scroll_to_pixel(self.canvas.canvasy(0) + wheel_scroll_pixels(event))
+        return "break"
+
+    def _on_touchpad_scroll(self, event):
+        _, dy = precise_scroll_deltas(event)
+        if dy:
+            self._scroll_to_pixel(self.canvas.canvasy(0) - dy)
+        return "break"
 
     def _wheel_linux(self, direction):
-        self.canvas.yview_scroll(direction, "units")
+        self._scroll_to_pixel(self.canvas.canvasy(0) + direction * 48)
+        return "break"
 
 
 if __name__ == "__main__":

@@ -16,9 +16,12 @@
 import logging
 import threading
 import time
+from sys import platform
 from tkinter import TclError
 
 from guizero.base import Widget
+
+from .scroll_input import precise_scroll_deltas, wheel_scroll_pixels
 
 log = logging.getLogger(__name__)
 
@@ -107,8 +110,54 @@ class SwipeDetector:
         self.on_swipe_left = None
         self.on_swipe_right = None
         self.on_long_press = None
+        self._surface_time = None
+        self._surface_distance = 0
+        self._surface_fired = False
+        if platform == "darwin":
+            for sequence, handler in (
+                ("<MouseWheel>", self._on_surface_wheel),
+                ("<Shift-MouseWheel>", self._on_surface_wheel),
+                ("<TouchpadScroll>", self._on_touchpad_scroll),
+            ):
+                try:
+                    widget.tk.bind(sequence, handler, add="+")
+                except TclError:
+                    # Older Tk reports Apple Mouse gestures as MouseWheel.
+                    pass
 
     # ------------------------------
+
+    def _on_surface_wheel(self, event):
+        return self._surface_scroll(event, -wheel_scroll_pixels(event, self.min_distance))
+
+    def _on_touchpad_scroll(self, event):
+        dx, dy = precise_scroll_deltas(event)
+        return self._surface_scroll(event, dx if abs(dx) > abs(dy) else dy)
+
+    def _surface_scroll(self, event, distance):
+        if self.should_start is not None and not self.should_start(event):
+            self._surface_time = None
+            return None
+        if not distance:
+            return "break"
+        self._cancel_long_press_timer()
+        self.start_x = self.start_y = self.start_time = None
+        now = time.monotonic()
+        if self._surface_time is None or now - self._surface_time > 0.3 or distance * self._surface_distance < 0:
+            self._surface_distance = 0
+            self._surface_fired = False
+        self._surface_time = now
+        self._surface_distance += distance
+        # One navigation per gesture burst, not one per high-frequency pixel event.
+        if not self._surface_fired and abs(self._surface_distance) >= max(1, self.min_distance):
+            self._surface_fired = True
+            callback = self.on_swipe_right if distance > 0 else self.on_swipe_left
+            if callback:
+                try:
+                    self.widget.tk.after(0, callback)
+                except TclError:
+                    pass
+        return "break"
 
     def _cancel_long_press_timer(self):
         if self.long_press_timer:
@@ -137,6 +186,7 @@ class SwipeDetector:
     # ------------------------------
 
     def _on_press(self, e):
+        self._surface_time = None
         if self.should_start is not None and not self.should_start(e):
             # Outside this detector's region of interest: drop the whole gesture, so
             # the matching release cannot be mistaken for a swipe.

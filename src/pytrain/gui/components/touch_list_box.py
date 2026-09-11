@@ -10,10 +10,13 @@
 from __future__ import annotations
 
 import time
+from sys import platform
 from tkinter import TclError
 from typing import Any, Callable, Optional
 
 from guizero import ListBox
+
+from .scroll_input import ScrollAccumulator, precise_scroll_deltas, wheel_scroll_pixels
 
 
 class TouchListBox(ListBox):
@@ -60,6 +63,8 @@ class TouchListBox(ListBox):
         self._candidate_index: Optional[int] = None
         self._start_yview: float = 0.0
         self._hold_fired: bool = False
+        self._scroll_x = ScrollAccumulator()
+        self._scroll_y = ScrollAccumulator()
 
         # Resolve the inner Tk Listbox (the widget that actually receives events)
         self._lb = self._resolve_inner_listbox()
@@ -102,6 +107,7 @@ class TouchListBox(ListBox):
 
     def set_horizontal_scroll(self, enabled: bool) -> None:
         self.horizontal_scroll = bool(enabled)
+        self._scroll_x.reset()
         self._apply_horizontal_scroll_policy()
 
     def highlighted_index(self) -> Optional[int]:
@@ -247,6 +253,17 @@ class TouchListBox(ListBox):
         except TclError:
             # Widget may be destroying
             pass
+        if platform == "darwin":
+            for sequence, handler in (
+                ("<MouseWheel>", self._on_mousewheel),
+                ("<Shift-MouseWheel>", self._on_horizontal_mousewheel),
+                ("<TouchpadScroll>", self._on_touchpad_scroll),
+            ):
+                try:
+                    self._lb.bind(sequence, handler, add="+")
+                except TclError:
+                    # Tk 8.6 does not recognize TouchpadScroll.
+                    pass
 
     def _apply_horizontal_scroll_policy(self) -> None:
         if not self.horizontal_scroll:
@@ -321,7 +338,54 @@ class TouchListBox(ListBox):
 
     # ---------- Tk event handlers ----------
 
+    def _on_mousewheel(self, event: Any) -> str:
+        return self._scroll_by_pixels(0, wheel_scroll_pixels(event))
+
+    def _on_horizontal_mousewheel(self, event: Any) -> str:
+        return self._scroll_by_pixels(wheel_scroll_pixels(event), 0)
+
+    def _on_touchpad_scroll(self, event: Any) -> str:
+        dx, dy = precise_scroll_deltas(event)
+        return self._scroll_by_pixels(-dx, -dy)
+
+    def _scroll_by_pixels(self, dx: int, dy: int) -> str:
+        if not (dx or dy):
+            return "break"
+        # Brushing while a button is held must not activate the row left under it.
+        self._cancel_hold_timer()
+        self._moved = True
+        self._candidate_index = None
+        try:
+            if self._tk_size() <= 0 or self._lb.cget("state") == "disabled":
+                self._scroll_x.reset()
+                self._scroll_y.reset()
+                return "break"
+            bounds = self._lb.bbox(self._lb.nearest(0))
+            row_px = max(1, bounds[3]) if bounds else 20
+            self._scroll_axis(self._lb.yview, self._lb.yview_scroll, self._scroll_y, dy, row_px)
+            if self.horizontal_scroll:
+                char_px = max(1, int(self._lb.tk.call("font", "measure", self._lb.cget("font"), "0")))
+                self._scroll_axis(self._lb.xview, self._lb.xview_scroll, self._scroll_x, dx, char_px)
+            else:
+                self._reset_horizontal_view()
+        except TclError:
+            # A popup may be dismissed during a gesture's momentum events.
+            pass
+        return "break"
+
+    @staticmethod
+    def _scroll_axis(view, scroll, accumulator, pixels, unit):
+        first, last = view()
+        if (pixels < 0 and first <= 0) or (pixels > 0 and last >= 1):
+            accumulator.reset()
+            return
+        steps = accumulator.consume(pixels, unit)
+        if steps:
+            scroll(steps, "units")
+
     def _on_press(self, event: Any) -> None:
+        self._scroll_x.reset()
+        self._scroll_y.reset()
         self._press_y = int(event.y)
         self._press_time = time.monotonic()
         self._moved = False

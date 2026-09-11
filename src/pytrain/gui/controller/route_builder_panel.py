@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from sys import platform
 from typing import TYPE_CHECKING
 
 from guizero import Box, PushButton, Text
@@ -115,11 +116,17 @@ class RouteBuilderPanel(OverlayPanel):
         return int(int(self.row_height * 3.5) * 0.75)
 
     @property
+    def desktop_controls(self) -> bool:
+        return not self.gui.compact and platform in {"darwin", "win32"}
+
+    @property
     def picker_rows(self) -> int:
-        return 6 if not self.gui.compact and self.gui.height >= 1000 else PICKER_ROWS
+        return 6 if self.desktop_controls or (not self.gui.compact and self.gui.height >= 1000) else PICKER_ROWS
 
     @property
     def picker_row_height(self) -> int:
+        if self.desktop_controls:
+            return max(44, int(50 * self.gui.width / 639))
         return max(70, int(self.row_height * 1.3))
 
     def _button(
@@ -198,6 +205,7 @@ class RouteBuilderPanel(OverlayPanel):
             highlightthickness=0,
             background="white",
             cursor="hand2",
+            takefocus=self.desktop_controls,
         )
         canvas.pack(fill="both", expand=True)
         canvas.bind("<ButtonPress-1>", lambda event: self._scroll_start(canvas, event))
@@ -206,12 +214,33 @@ class RouteBuilderPanel(OverlayPanel):
         canvas.bind("<MouseWheel>", lambda event: self._wheel(canvas, event, horizontal))
         canvas.bind("<Button-4>", lambda event: self._wheel(canvas, event, horizontal))
         canvas.bind("<Button-5>", lambda event: self._wheel(canvas, event, horizontal))
+        if self.desktop_controls:
+            canvas.bind("<Map>", lambda _event: self._focus_list(canvas))
+            canvas.bind("<Enter>", lambda _event: self._focus_list(canvas))
+            for key, delta in (("Left", -1), ("Right", 1)) if horizontal else (("Up", -1), ("Down", 1)):
+                canvas.bind(f"<{key}>", lambda _event, step=delta: self._navigate_list(step, horizontal))
+            if horizontal:
+                canvas.bind("<Shift-MouseWheel>", lambda event: self._wheel(canvas, event, True))
+            if platform == "darwin":
+                try:
+                    canvas.bind("<TouchpadScroll>", lambda event: self._touchpad_scroll(canvas, event, horizontal))
+                except tk.TclError:
+                    # Tk 8.6 reports touch-surface gestures as MouseWheel instead.
+                    pass
         return canvas
 
     def build(self, body: Box):
         self._main_page = Box(body, align="top")
         self._count = Text(self._main_page, text="", size=self.gui.s_14)
-        Text(self._main_page, text="Runs left to right. Tap a card to change it; swipe to browse.", size=self.gui.s_12)
+        Text(
+            self._main_page,
+            text=(
+                "Runs left to right. Click a card; scroll or use ← / → to browse."
+                if self.desktop_controls
+                else "Runs left to right. Tap a card to change it; swipe to browse."
+            ),
+            size=self.gui.s_12,
+        )
         strip = Box(self._main_page, align="top")
         self._previous_btn = self._button(
             strip,
@@ -294,7 +323,10 @@ class RouteBuilderPanel(OverlayPanel):
         self._search_field = self._field(self._picker_page, "Search name", EditorType.KEYBOARD, 31, self._on_search)
         self._picker_count = Text(self._picker_page, text="", size=self.gui.s_12)
         self._picker = self._canvas(self._picker_page, self.picker_row_height * self.picker_rows, False)
-        self._picker.config(yscrollincrement=self.picker_row_height, yscrollcommand=self._picker_scrolled)
+        self._picker.config(
+            yscrollincrement=1 if self.desktop_controls else self.picker_row_height,
+            yscrollcommand=self._picker_scrolled,
+        )
         self._picker_previous, self._picker_next = self._buttons(
             self._picker_page,
             ("↑ Previous", lambda: self.scroll_picker(-1)),
@@ -427,7 +459,7 @@ class RouteBuilderPanel(OverlayPanel):
             name = self._component_label(component)
             name_item = canvas.create_text(
                 x + self.card_width / 2,
-                self.card_height * 0.60,
+                self.card_height * (0.57 if self.desktop_controls else 0.60),
                 text=name,
                 width=self.card_width - 24,
                 font=("Helvetica", min(self.gui.s_12, int(self.card_height * 0.105)), "bold"),
@@ -580,7 +612,8 @@ class RouteBuilderPanel(OverlayPanel):
         for name, button in zip(("Name", "TMCC ID"), self._sort_btns):
             button.text = f"{'● ' if self._sort == name else ''}{name}"
         self._sort_btns[2].text = "Descending ↓" if self._descending else "Ascending ↑"
-        self._picker_count.value = f"{len(self._candidates)} available · Tap to select; swipe to browse"
+        hint = "Click to select; scroll or use ↑ / ↓" if self.desktop_controls else "Tap to select; swipe to browse"
+        self._picker_count.value = f"{len(self._candidates)} available · {hint}"
         self._draw_picker()
         self._picker.yview_moveto(0)
         self._refresh()
@@ -654,7 +687,7 @@ class RouteBuilderPanel(OverlayPanel):
             number = state.road_number if state.is_road_number else "—"
             canvas.create_text(
                 text_x,
-                y + self.picker_row_height - 18,
+                y + self.picker_row_height - (12 if self.desktop_controls else 18),
                 text=f"{scope.title} · Road #{number} · ID {state.tmcc_id:02d}",
                 anchor="w",
                 font=("Helvetica", min(self.gui.s_12, int(self.picker_row_height * 0.22))),
@@ -666,6 +699,37 @@ class RouteBuilderPanel(OverlayPanel):
             self._candidate = (scope, state.tmcc_id)
             self._draw_picker()
             self._refresh()
+
+    def _focus_list(self, canvas) -> None:
+        if self.desktop_controls and not any(
+            field is not None and field.is_editing
+            for field in (self._name_field, self._number_field, self._search_field)
+        ):
+            canvas.focus_set()
+
+    def _navigate_list(self, delta: int, horizontal: bool):
+        if horizontal:
+            self.select_relative(delta)
+        elif self._candidates:
+            index = next(
+                (i for i, (scope, state) in enumerate(self._candidates) if self._candidate == (scope, state.tmcc_id)),
+                None,
+            )
+            if index is None:
+                index = int(self._picker.canvasy(0) // self.picker_row_height)
+            else:
+                index += delta
+            index = max(0, min(index, len(self._candidates) - 1))
+            self.choose_candidate(index)
+            total = max(self.picker_rows, len(self._candidates)) * self.picker_row_height
+            top = self._picker.yview()[0] * total
+            start = index * self.picker_row_height
+            height = self.picker_rows * self.picker_row_height
+            if start < top:
+                self._picker.yview_moveto(start / total)
+            elif start + self.picker_row_height > top + height:
+                self._picker.yview_moveto((start + self.picker_row_height - height) / total)
+        return "break"
 
     def add_selected(self) -> None:
         if not self._picking or self._candidate is None:
@@ -688,13 +752,15 @@ class RouteBuilderPanel(OverlayPanel):
         self._reveal_selected()
 
     def scroll_picker(self, delta: int) -> None:
-        self._picker.yview_scroll(delta * self.picker_rows, "units")
+        units = self.picker_row_height if self.desktop_controls else 1
+        self._picker.yview_scroll(delta * self.picker_rows * units, "units")
 
     def _picker_scrolled(self, first, last):
         self._picker_previous.enabled = float(first) > 0
         self._picker_next.enabled = float(last) < 1
 
     def _scroll_start(self, canvas, event):
+        self._focus_list(canvas)
         self._gesture = (canvas, event.x, event.y, False)
         canvas.scan_mark(event.x, event.y)
 
@@ -718,11 +784,33 @@ class RouteBuilderPanel(OverlayPanel):
         else:
             self.choose_candidate(int(canvas.canvasy(event.y) // self.picker_row_height))
 
-    @staticmethod
-    def _wheel(canvas, event, horizontal):
+    def _wheel(self, canvas, event, horizontal):
         delta = getattr(event, "delta", 0)
-        direction = -1 if getattr(event, "num", None) == 4 or delta > 0 else 1
+        number = getattr(event, "num", None)
+        if number in (4, 5):
+            direction = -1 if number == 4 else 1
+        elif delta:
+            units = max(1, int(abs(delta))) if platform == "darwin" else max(1, int(abs(delta) / 120))
+            direction = -units if delta > 0 else units
+        else:
+            return "break"
+        if not horizontal and self.desktop_controls:
+            direction *= self.picker_row_height
         (canvas.xview_scroll if horizontal else canvas.yview_scroll)(direction, "units")
+        return "break"
+
+    def _touchpad_scroll(self, canvas, event, horizontal):
+        # Tk 9 packs signed 16-bit horizontal/vertical pixel deltas into %D.
+        dx, dy = (event.delta >> 16) & 0xFFFF, event.delta & 0xFFFF
+        dx = dx if dx < 0x8000 else dx - 0x10000
+        dy = dy if dy < 0x8000 else dy - 0x10000
+        if horizontal:
+            delta = dx if abs(dx) > abs(dy) else dy
+            if delta and self.draft is not None and self.draft.components:
+                total = max(3, len(self.draft.components)) * self.card_width
+                canvas.xview_moveto(canvas.xview()[0] - delta / total)
+        elif dy and self._candidates:
+            canvas.yview_scroll(-dy, "units")
         return "break"
 
     def _on_metadata(self, _field, _new, _old) -> None:

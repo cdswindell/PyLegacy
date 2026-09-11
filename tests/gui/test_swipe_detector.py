@@ -10,7 +10,13 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.pytrain.gui.components import swipe_detector as mod
 from src.pytrain.gui.components.swipe_detector import SwipeDetector, event_screen_y, event_targets
+
+
+@pytest.fixture(autouse=True)
+def mac_platform(monkeypatch):
+    monkeypatch.setattr(mod, "platform", "darwin")
 
 
 class _HookWidget:
@@ -22,9 +28,10 @@ class _HookWidget:
 
     def __init__(self) -> None:
         self.hooks = {}
+        self.binds = {}
         self.tk = SimpleNamespace(
             after=lambda _ms, cb: cb(),
-            bind=lambda *a, **k: pytest.fail("a widget with guizero hooks must not be tk.bind()ed"),
+            bind=lambda seq, fn, add=None: self.binds.__setitem__(seq, fn),
             winfo_width=lambda: 400,
             winfo_height=lambda: 200,
             winfo_rootx=lambda: 880,
@@ -94,6 +101,7 @@ def test_widget_with_guizero_hooks_uses_them() -> None:
 
     # Picture and friends inherit EventsMixin, so the hooks are the binding surface.
     assert sorted(widget.hooks) == ["move", "press", "release"]
+    assert set(widget.binds) == {"<MouseWheel>", "<Shift-MouseWheel>", "<TouchpadScroll>"}
 
 
 def test_container_without_hooks_falls_back_to_tk_bind() -> None:
@@ -103,7 +111,14 @@ def test_container_without_hooks_falls_back_to_tk_bind() -> None:
     # guizero's ContainerWidget (Box) has no EventsMixin. Assigning the hooks would
     # silently create a plain attribute and bind nothing, so the detector must bind
     # the Tk widget directly -- this is what makes a swipe beside the image work.
-    assert sorted(widget.binds) == ["<ButtonPress-1>", "<ButtonRelease-1>", "<Motion>"]
+    assert set(widget.binds) == {
+        "<ButtonPress-1>",
+        "<ButtonRelease-1>",
+        "<Motion>",
+        "<MouseWheel>",
+        "<Shift-MouseWheel>",
+        "<TouchpadScroll>",
+    }
 
 
 @pytest.mark.parametrize("widget_factory", [_HookWidget, _ContainerWidget])
@@ -186,7 +201,14 @@ def test_bind_directly_avoids_guizero_hooks_and_preserves_bindings() -> None:
     # same sequence (<Button-1> and <ButtonPress-1> are one sequence in Tk). Direct
     # binding must be additive so a widget's other handlers survive.
     assert widget.hooks == {}
-    assert sorted(binds) == ["<ButtonPress-1>", "<ButtonRelease-1>", "<Motion>"]
+    assert set(binds) == {
+        "<ButtonPress-1>",
+        "<ButtonRelease-1>",
+        "<Motion>",
+        "<MouseWheel>",
+        "<Shift-MouseWheel>",
+        "<TouchpadScroll>",
+    }
     assert set(binds.values()) == {"+"}
 
 
@@ -211,6 +233,98 @@ def test_should_start_predicate_ignores_gestures_outside_the_region(monkeypatch)
     widget.release(SimpleNamespace(x=20, y=50))
     assert detector.fired == ["LEFT"]
     assert seen == [500, 50]
+
+
+@pytest.mark.parametrize("dx,dy,direction", [(1, 0, "RIGHT"), (-1, 0, "LEFT"), (0, 1, "RIGHT"), (0, -1, "LEFT")])
+def test_surface_motion_navigates_once_per_burst(dx, dy, direction, monkeypatch):
+    widget = _HookWidget()
+    detector = _detector(widget)
+    now = [10.0]
+    monkeypatch.setattr(mod.time, "monotonic", lambda: now[0])
+    handler = widget.binds["<TouchpadScroll>"]
+    event = SimpleNamespace(delta=(dx << 16) | (dy & 0xFFFF))
+    for _ in range(49):
+        assert handler(event) == "break"
+    assert detector.fired == []
+    handler(event)
+    assert detector.fired == [direction]
+    for _ in range(100):
+        handler(event)
+    assert detector.fired == [direction]
+    now[0] += 0.4
+    for _ in range(50):
+        handler(event)
+    assert detector.fired == [direction, direction]
+
+
+def test_surface_reversal_and_region_rejection_reset_gesture(monkeypatch):
+    widget = _ContainerWidget()
+    detector = SwipeDetector(widget, should_start=lambda event: event.y < 100)
+    detector.on_swipe_left = lambda: calls.append("LEFT")
+    detector.on_swipe_right = lambda: calls.append("RIGHT")
+    calls = []
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 10)
+    handler = widget.binds["<TouchpadScroll>"]
+    assert handler(SimpleNamespace(delta=32767, y=200)) is None
+    handler(SimpleNamespace(delta=40, y=50))
+    handler(SimpleNamespace(delta=(-50 & 0xFFFF), y=50))
+    assert calls == ["LEFT"]
+    handler(SimpleNamespace(delta=0, y=50))
+    handler(SimpleNamespace(delta=50, y=50))
+    assert calls == ["LEFT", "RIGHT"]
+
+
+def test_surface_input_cancels_press_without_long_press_or_release_navigation(monkeypatch):
+    widget = _HookWidget()
+    detector = _detector(widget)
+    widget.press(SimpleNamespace(x=300, y=100))
+    timer = detector.long_press_timer
+    widget.binds["<TouchpadScroll>"](SimpleNamespace(delta=1))
+    assert detector.long_press_timer is None
+    assert timer.finished.is_set()
+    widget.release(SimpleNamespace(x=0, y=100))
+    assert detector.fired == []
+
+
+def test_swipe_old_tk_fallback_preserves_bindings(monkeypatch):
+    widget = _ContainerWidget()
+    bind = widget.tk.bind
+
+    def old_bind(sequence, handler, add=None):
+        if sequence == "<TouchpadScroll>":
+            raise mod.TclError("unknown event")
+        bind(sequence, handler, add)
+
+    widget.tk.bind = old_bind
+    detector = _detector(widget)
+    assert "<TouchpadScroll>" not in widget.binds
+    from src.pytrain.gui.components import scroll_input
+
+    monkeypatch.setattr(scroll_input, "platform", "darwin")
+    for _ in range(7):
+        widget.binds["<MouseWheel>"](SimpleNamespace(delta=-1))
+    assert detector.fired == ["LEFT"]
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux"])
+def test_non_mac_swipe_bindings_unchanged(platform, monkeypatch):
+    monkeypatch.setattr(mod, "platform", platform)
+    widget = _HookWidget()
+    _detector(widget)
+    assert set(widget.hooks) == {"press", "move", "release"}
+    assert widget.binds == {}
+
+
+def test_swipe_surface_handles_destroyed_widget():
+    widget = _HookWidget()
+    detector = _detector(widget)
+
+    def destroyed(*_args):
+        raise mod.TclError("destroyed")
+
+    widget.tk.after = destroyed
+    assert widget.binds["<TouchpadScroll>"](SimpleNamespace(delta=50)) == "break"
+    assert detector.fired == []
 
 
 def test_should_start_rejection_does_not_leave_a_stale_press(monkeypatch) -> None:

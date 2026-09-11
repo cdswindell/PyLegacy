@@ -15,6 +15,7 @@ from typing import Any, Callable, Iterator
 
 from guizero import Box
 
+from .scroll_input import precise_scroll_deltas, wheel_scroll_pixels
 from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
 
 # What a widget may raise when it is asked about a screen it is no longer on -- a popup taken
@@ -363,7 +364,7 @@ class ScrollBox:
         time the module changes -- and passing over what is already tagged is what makes
         calling it again free.
         """
-        for widget in descendants(self._content.tk):
+        for widget in (self._viewport.tk, *descendants(self._content.tk)):
             try:
                 name = str(widget)
                 if name in self._tagged:
@@ -392,6 +393,8 @@ class ScrollBox:
             ("<B1-Motion>", self._on_drag),
             ("<ButtonRelease-1>", self._on_release),
             ("<MouseWheel>", self._on_wheel),
+            # Tk 9 sends pixel deltas for an Apple Mouse or trackpad gesture.
+            ("<TouchpadScroll>", self._on_touchpad_scroll),
             # X11 reports a wheel as a button, which is what the Pi's desktop sends.
             ("<Button-4>", self._on_wheel_up),
             ("<Button-5>", self._on_wheel_down),
@@ -420,18 +423,23 @@ class ScrollBox:
         self._drag_from = None
         self._dragging = False
 
-    def _on_wheel(self, event: Any) -> None:
-        delta = int(getattr(event, "delta", 0) or 0)
-        if delta:
-            # macOS reports single notches, Windows multiples of 120; either way the sign is
-            # what matters and one notch is one step.
-            self.scroll_by(-WHEEL_STEP if delta > 0 else WHEEL_STEP)
+    def _on_wheel(self, event: Any) -> str:
+        self.scroll_by(wheel_scroll_pixels(event, WHEEL_STEP))
+        return "break"
 
-    def _on_wheel_up(self, _event: Any = None) -> None:
+    def _on_touchpad_scroll(self, event: Any) -> str:
+        _, dy = precise_scroll_deltas(event)
+        if dy:
+            self.scroll_by(-dy)
+        return "break"
+
+    def _on_wheel_up(self, _event: Any = None) -> str:
         self.scroll_by(-WHEEL_STEP)
+        return "break"
 
-    def _on_wheel_down(self, _event: Any = None) -> None:
+    def _on_wheel_down(self, _event: Any = None) -> str:
         self.scroll_by(WHEEL_STEP)
+        return "break"
 
     #
     # The bar, the gutter it stands in, and the line across the foot of the window
@@ -490,9 +498,9 @@ class ScrollBox:
             self._bar = None
 
     def _hide_bar(self) -> None:
-        """Take the bar and the line down, and give the page the gutter back.
+        """Take the bar and the line down and give the page the gutter back.
 
-        The gutter first and whether or not there is a bar to forget: a window that has never
+        The gutter first and whether there is a bar to forget: a window that has never
         overflowed has never made one, and it still owes the page an answer about the room --
         which is that a page with nothing hidden pays nothing for a bar that is not drawn.
         """
@@ -555,7 +563,7 @@ class ScrollBox:
         """Close the foot of the window with a hairline; see FOLD_COLOR.
 
         Placed against the window's own foot rather than at a height of its own, so it stays
-        on it however often the window is fitted and re-fitted: rely puts it at the bottom
+        on it, however often the window is fitted and re-fitted: rely puts it at the bottom
         edge whatever that comes to, and y brings it back inside by its own thickness.
         """
         try:

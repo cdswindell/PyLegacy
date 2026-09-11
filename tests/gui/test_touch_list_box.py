@@ -19,6 +19,9 @@ class DummyTkListbox:
         self._after_id = 0
         self._selection: tuple[int, ...] = ()
         self._active = 0
+        self._yview = 0.0
+        self.state = "normal"
+        self.tk = SimpleNamespace(call=lambda *_args: 8)
 
     def config(self, **_kwargs: Any) -> None:
         return
@@ -69,6 +72,24 @@ class DummyTkListbox:
     def xview_moveto(self, fraction: float) -> None:
         self._xview = float(fraction)
 
+    def xview_scroll(self, count, _units):
+        self._xview = max(0, min(0.8, self._xview + count * 0.1))
+
+    def yview(self):
+        return self._yview, min(1.0, self._yview + 1 / 3)
+
+    def yview_scroll(self, count, _units):
+        self._yview = max(0, min(2 / 3, self._yview + count / 3))
+
+    def nearest(self, _y):
+        return round(self._yview * 3)
+
+    def bbox(self, _index):
+        return 0, 0, 80, 20
+
+    def cget(self, option):
+        return self.state if option == "state" else "Helvetica"
+
 
 class DummyListBox:
     initial_xview = 0.0
@@ -83,7 +104,7 @@ def mod(monkeypatch: pytest.MonkeyPatch):
     fake_guizero = ModuleType("guizero")
     fake_guizero.ListBox = DummyListBox
     monkeypatch.setitem(sys.modules, "guizero", fake_guizero)
-    module_name = "_test_touch_list_box_module"
+    module_name = "src.pytrain.gui.components._test_touch_list_box_module"
     sys.modules.pop(module_name, None)
     module_path = Path(__file__).resolve().parents[2] / "src/pytrain/gui/components/touch_list_box.py"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
@@ -92,8 +113,95 @@ def mod(monkeypatch: pytest.MonkeyPatch):
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "platform", "darwin")
     yield module
     sys.modules.pop(module_name, None)
+
+
+def test_precise_scrolling_accumulates_small_deltas_without_selecting(mod):
+    calls = []
+    widget = mod.TouchListBox(object(), on_hold_select=lambda *args: calls.append(args), tap_highlight=True)
+    lb = widget._lb
+    lb.selection_set(1)
+    widget._on_press(SimpleNamespace(y=0))
+    handler = lb._bindings["<TouchpadScroll>"]
+    for _ in range(19):
+        assert handler(SimpleNamespace(delta=0xFFFF)) == "break"
+    assert lb.yview()[0] == 0
+    handler(SimpleNamespace(delta=0xFFFF))
+    assert lb.yview()[0] == pytest.approx(1 / 3)
+    assert widget._after_id is None
+    widget._fire_hold_select()
+    widget._on_release(None)
+    assert calls == []
+    assert lb.curselection() == (1,)
+
+
+@pytest.mark.parametrize("horizontal", [False, True])
+def test_precise_horizontal_scroll_obeys_policy(mod, horizontal):
+    DummyListBox.initial_xview = 0
+    widget = mod.TouchListBox(object(), horizontal_scroll=horizontal)
+    widget._lb._bindings["<TouchpadScroll>"](SimpleNamespace(delta=(-16 << 16)))
+    assert widget._lb.xview()[0] == pytest.approx(0.2 if horizontal else 0)
+    assert widget._lb.yview()[0] == 0
+
+
+def test_precise_scroll_clamps_and_discards_outward_remainder(mod):
+    widget = mod.TouchListBox(object())
+    handler = widget._lb._bindings["<TouchpadScroll>"]
+    handler(SimpleNamespace(delta=0x8000))
+    assert widget._lb.yview()[1] == 1
+    handler(SimpleNamespace(delta=0xFFFF))
+    handler(SimpleNamespace(delta=20))
+    assert widget._lb.yview()[0] == pytest.approx(1 / 3)
+    handler(SimpleNamespace(delta=32767))
+    assert widget._lb.yview()[0] == 0
+
+
+def test_empty_disabled_and_destroyed_list_ignores_scroll(mod):
+    widget = mod.TouchListBox(object())
+    handler = widget._lb._bindings["<TouchpadScroll>"]
+    widget._lb.state = "disabled"
+    handler(SimpleNamespace(delta=0x8000))
+    assert widget._lb.yview()[0] == 0
+    widget._lb.state = "normal"
+    widget._lb.size = lambda: 0
+    handler(SimpleNamespace(delta=0x8000))
+    assert widget._lb.yview()[0] == 0
+    widget._lb.size = lambda: 3
+
+    def destroyed(_option):
+        raise mod.TclError("destroyed")
+
+    widget._lb.cget = destroyed
+    assert handler(SimpleNamespace(delta=0x8000)) == "break"
+
+
+def test_old_tk_retains_small_mac_wheel_events(mod, monkeypatch):
+    bind = DummyTkListbox.bind
+
+    def old_bind(self, sequence, handler, add=None):
+        if sequence == "<TouchpadScroll>":
+            raise mod.TclError("unknown event")
+        bind(self, sequence, handler, add)
+
+    monkeypatch.setattr(DummyTkListbox, "bind", old_bind)
+    from src.pytrain.gui.components import scroll_input
+
+    monkeypatch.setattr(scroll_input, "platform", "darwin")
+    widget = mod.TouchListBox(object())
+    assert "<TouchpadScroll>" not in widget._lb._bindings
+    for _ in range(3):
+        assert widget._lb._bindings["<MouseWheel>"](SimpleNamespace(delta=-1)) == "break"
+    assert widget._lb.yview()[0] == pytest.approx(1 / 3)
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux"])
+def test_non_mac_list_keeps_native_wheel_bindings(mod, monkeypatch, platform):
+    monkeypatch.setattr(mod, "platform", platform)
+    widget = mod.TouchListBox(object())
+    assert "<MouseWheel>" not in widget._lb._bindings
+    assert "<TouchpadScroll>" not in widget._lb._bindings
 
 
 def test_init_disables_horizontal_scroll_by_default(mod) -> None:
