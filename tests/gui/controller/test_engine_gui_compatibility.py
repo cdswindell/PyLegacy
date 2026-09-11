@@ -215,6 +215,38 @@ def test_horn_command_falls_back_to_blow_horn_for_non_legacy_engine() -> None:
     assert gui.submitted[0].command is TMCC1EngineCommandEnum.BLOW_HORN_ONE
 
 
+@pytest.mark.parametrize("alias, real", sorted(mod.COMMAND_ALIASES.items()))
+def test_an_aliased_button_sends_exactly_what_the_button_it_copies_sends(
+    alias: str, real: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The extra function column beside the sliders repeats buttons that are already on screen,
+    # so each of its cells is registered under a name of its own -- a name no command enum
+    # knows. Unresolved, every one of them dispatches nothing at all, silently.
+    state = SimpleNamespace(is_legacy=True, tmcc_id=5, scope=CommandScope.ENGINE)
+
+    # Which enum each name resolves to is the whole question here, and some of these are
+    # sequence commands, which reach for the component state store the moment one is really
+    # built. So the build is recorded instead of performed; the resolution above it is untouched.
+    def record(command, address=None, data=0, scope=None):
+        return SimpleNamespace(command=command, address=address, data=data, scope=scope)
+
+    monkeypatch.setattr(mod.CommandReq, "build", record)
+    aliased, original = _horn_gui(), _horn_gui()
+
+    aliased.on_engine_command(alias, state=state)
+    original.on_engine_command(real, state=state)
+
+    assert original.submitted, f"{real} is not a command this panel can send"
+    assert [cmd.command for cmd in aliased.submitted] == [cmd.command for cmd in original.submitted]
+
+
+def test_a_command_that_is_not_an_alias_is_passed_through_untouched() -> None:
+    # The table is consulted on every dispatch, so anything it does not know has to come out the
+    # far side exactly as it went in.
+    assert mod.EngineGui.resolve_command_alias("BLOW_HORN_ONE") == "BLOW_HORN_ONE"
+    assert mod.EngineGui.resolve_command_alias("SHUTDOWN_IMMEDIATE_WIDE") == "SHUTDOWN_IMMEDIATE"
+
+
 def test_destroy_gui_releases_standalone_subscriptions_and_widget_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui._accessory_config_watcher_future = None

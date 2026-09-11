@@ -28,6 +28,7 @@ from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .configured_accessory_adapter_provider import ConfiguredAccessoryAdapterProvider
 from .controller_view import ControllerView
 from .engine_gui_conf import (
+    COMMAND_ALIASES,
     COMMAND_FALLBACKS,
     CONDUCTOR_ACTIONS,
     CREW_DIALOGS,
@@ -315,6 +316,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         self.throttle_box = self.throttle = self.speed = self._rr_speed_btn = self._rr_speed_box = None
         self._bell_btn = self._horn_btn = None
         self._freight_sounds_bell_horn_box = None
+        # The extra function column beside the sliders, on the layouts wide enough to hold one;
+        # None where the controls row has no room for it. See controller_view.extra_column_fits.
+        self._extra_functions_box = None
         self.momentum_box = self.momentum_level = self.momentum = None
         self.horn_box = self.horn_title_box = self.horn_level = self.horn = None
         self.horn_overlay = None
@@ -2987,7 +2991,11 @@ class EngineGui(GuiZeroBase, Generic[S]):
         """
         # A reset, a direction change, or an emergency stop invalidates any pending throttle
         # lever, so a stale target cannot be committed against the new state of the engine.
-        if isinstance(targets, str) and any(t.strip() in THROTTLE_LEVER_CLEARING for t in targets.split(",")):
+        # Resolved first, so a duplicate button for one of these clears the lever the same way
+        # the original does; the alias is a button name, not a command.
+        if isinstance(targets, str) and any(
+            self.resolve_command_alias(t.strip()) in THROTTLE_LEVER_CLEARING for t in targets.split(",")
+        ):
             self.clear_throttle()
         repeat = repeat if repeat else self.repeat
         scope = scope or self.scope
@@ -3004,6 +3012,18 @@ class EngineGui(GuiZeroBase, Generic[S]):
                     self.do_engine_command(tmcc_id, target, data, scope, do_entry, do_ops, repeat, state, delay)
             else:
                 self.do_engine_command(tmcc_id, targets, data, scope, do_entry, do_ops, repeat, state, delay)
+
+    @staticmethod
+    def resolve_command_alias(target: str) -> str:
+        """The command a button name stands for, which for all but a handful is itself.
+
+        A button that repeats a command already on screen elsewhere carries a name of its own,
+        because a cell is registered under (command, engine-type tag) and two cells cannot share
+        one key. That name never leaves the GUI: everything that resolves a command to an enum
+        goes through here first, so the extra column beside the sliders sends exactly what the
+        button it copies sends. See COMMAND_ALIASES.
+        """
+        return COMMAND_ALIASES.get(target, target)
 
     @staticmethod
     def get_repeats(cmd: CommandDefEnum, repeat: int) -> int:
@@ -3029,6 +3049,7 @@ class EngineGui(GuiZeroBase, Generic[S]):
         if isinstance(targets, str):
             targets = [targets]
         for target in targets:
+            target = self.resolve_command_alias(target)
             if state and state.is_legacy:
                 # there are a few special cases
                 if target in {SMOKE_ON, SMOKE_OFF}:

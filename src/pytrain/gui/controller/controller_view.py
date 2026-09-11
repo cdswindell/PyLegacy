@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 from guizero import Box, Slider, Text, TitleBox
 from guizero.base import Widget
 
-from .engine_gui_conf import ENGINE_OPS_LAYOUT, MOMENTUM, MOM_TB, TRAIN_BRAKE
+from .engine_gui_conf import COMMAND_ALIASES, ENGINE_OPS_LAYOUT, EXTRA_FUNCTIONS_WIDE, MOMENTUM, MOM_TB, TRAIN_BRAKE
 from .speed_limit_panel import SpeedLimitPanel
 from .state_info_overlay import StateInfoOverlay
 from ..components.analog_gauge import AnalogGaugeWidget
@@ -68,6 +68,14 @@ FREIGHT_CELL_BORDER = 2
 # The horn's edge. It has no TitleBox frame around it the way the bell does, and it fills its pad
 # exactly, so without a relief its 2px border is invisible. Same value rr_btn uses above.
 FREIGHT_HORN_RELIEF = "ridge"
+
+# What the controls row loses out of the width the panel declares, before the extra function
+# column can have any of it. Tk draws a frame's border inside its own allocation, and the row sits
+# inside two of them that nothing measured here reports: on a Steam Deck pane, 639 wide, the
+# pane's own 3px focus border on each side and the controller box's 2px inside that -- ten pixels
+# the panel's width knows nothing about. Cheap either way: the column is a whole button wide, so
+# ten pixels never decides it on a screen that has the room.
+EXTRA_COLUMN_SLACK = 10
 
 
 def fit_freight_pair(host) -> None:
@@ -288,6 +296,28 @@ def slider_row_height_for_keypad_alignment(row_top: int, row_height: int) -> int
     return max(1, row_top + row_height)
 
 
+def extra_column_fits(row_width: int, keypad_width: int, sliders_width: int, cell_width: int) -> bool:
+    """Whether one more column of buttons fits to the right of the sliders.
+
+    Measured, not gated on the device: any panel wide enough gets the extra function column --
+    a Steam Deck pane, the stand-alone desktop window, whatever handheld comes next -- and the
+    portrait panel, where the keypad and the sliders already use the whole row, does not. Nothing
+    here knows what it is running on, only how much room the row has.
+
+    cell_width is a real keypad cell, read from the keypad's own grid. The column's buttons *are*
+    keypad buttons -- populate_keypad builds them at the same size as every other op key, in a
+    grid whose columns are set to one button plus its padding -- so one cell is exactly what the
+    column costs, with nothing modeled.
+
+    A widget that has not been laid out yet reports 1, the trap freight_pair_size's docstring
+    describes, so anything that small means the answer is not knowable and the column is left
+    out. That is the safe failure: the row is then exactly what it was before this column existed.
+    """
+    if min(row_width, keypad_width, sliders_width, cell_width) <= 1:
+        return False
+    return keypad_width + sliders_width + cell_width + EXTRA_COLUMN_SLACK <= row_width
+
+
 class ControllerView:
     def __init__(self, host: "EngineGui") -> None:
         self._cv = Condition(RLock())
@@ -379,6 +409,20 @@ class ControllerView:
             align="left",
         )
         self.populate_keypad(ENGINE_OPS_LAYOUT, keypad_keys)
+
+        # The extra function column, outboard of the sliders (see EXTRA_FUNCTIONS_WIDE). Created
+        # here, ahead of them, and left empty until the row has been measured further down: two
+        # right-aligned children stack right-to-left, so the one created *first* is the one that
+        # ends up outboard, and creation order is the only order that survives -- guizero re-packs
+        # a row's children in it every time one of them is shown or hidden (display_widgets), which
+        # would drop any "pack before" this asked for after the fact. An empty box costs the row
+        # nothing, and a row too narrow for the column drops it again rather than filling it.
+        host._extra_functions_box = extra_functions = Box(
+            controls_top_row,
+            layout="grid",
+            border=0,
+            align="right",
+        )
 
         # used to make sure brake and throttle get focus when needed
         sliders = Box(
@@ -619,7 +663,40 @@ class ControllerView:
         }
         host._freight_sounds_bell_horn_box.hide()
 
-        # TODO: Add buttons for wide screen format here
+        # Buttons for the wide screen format: one more column of engine functions beside the
+        # sliders, but only on a row with room for a whole one. The keypad's own grid says what a
+        # column costs, and the sliders' measured width is what is already spoken for, so this can
+        # only be asked here -- after both. Where the answer is no, the box created above is hidden
+        # and the row is exactly what it has always been.
+        host.app.tk.update_idletasks()
+        _, _, keypad_cell_width, _ = keypad_keys.tk.grid_bbox(0, 0)
+        if extra_column_fits(host.width, keypad_keys.tk.winfo_reqwidth(), target_sliders_width, keypad_cell_width):
+            self.populate_keypad(EXTRA_FUNCTIONS_WIDE, extra_functions)
+            # Pinned to the size it asks for while full, the way the sliders column above is.
+            # Every key here is an engine key, so unlike a keypad column -- where each cell
+            # position holds one variant per engine type and something is always showing -- this
+            # one empties completely on a freight or passenger car. Left to track its content the
+            # box would collapse to nothing there and slide the sliders across the row and back
+            # again on the next engine.
+            host.app.tk.update_idletasks()
+            column_width = extra_functions.tk.winfo_reqwidth()
+            column_height = extra_functions.tk.winfo_reqheight()
+            if column_width > 1 and column_height > 1:
+                # Measured before propagation is turned off, never after: with it off the box asks
+                # for its own -width/-height, which are still 0 here, so reading it then would pin
+                # the column to nothing at all. Left unpinned if the reading has not settled --
+                # a column that shifts is worth more than a column one pixel wide.
+                extra_functions.tk.grid_propagate(False)
+                extra_functions.tk.config(width=column_width, height=column_height)
+        else:
+            # Dropped from the row by Tk rather than by guizero's hide(), and not destroyed.
+            # hide() would run display_widgets, which re-packs *every* child of the row from
+            # scratch -- taking the fill the sliders were packed with above off a portrait panel
+            # that has never had this column and must not change because of it. pack_forget
+            # touches nothing else, and nothing re-displays this row afterwards, so the empty box
+            # cannot come back.
+            extra_functions.tk.pack_forget()
+            host._extra_functions_box = None
 
         # Postprocess main ops buttons
         self._setup_controller_behaviors()
@@ -1048,6 +1125,19 @@ class ControllerView:
         ]
         for key, callback in holds:
             get_btn(key).on_hold = callback
+
+        # 3a. A duplicate button inherits the hold of the command it duplicates, so it behaves the
+        # same wherever it is drawn: the extra column's Start Up and Shut Down carry the delayed
+        # variants their originals in the "More..." popup do, and its Labor Effect and Speed Roll
+        # keys, whose originals have no hold, get none. Driven off COMMAND_ALIASES rather than
+        # listed above, so a button added to that table is not a hold quietly left behind. Each is
+        # conditional: the column is only built where the controls row has room for it.
+        hold_for = dict(holds)
+        for alias, real in COMMAND_ALIASES.items():
+            callback = hold_for.get((real, "e"))
+            key = (alias, "e")
+            if callback is not None and key in host.engine_ops_cells:
+                get_btn(key).on_hold = callback
 
         # 4. Loco-specific Horn/Whistle control holds
         for loco in ["d", "s", "l"]:

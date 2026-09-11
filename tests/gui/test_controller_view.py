@@ -711,8 +711,13 @@ class _OpsCells(dict):
 
 # The behavior setup is private and called only from ControllerView's own build.
 # noinspection PyProtectedMember
-def _behaviors() -> tuple[_OpsCells, mod.ControllerView]:
+def _behaviors(*built: tuple[str, str]) -> tuple[_OpsCells, mod.ControllerView]:
+    # `built` is the keys of any cells that exist before the setup runs. Only the extra function
+    # column needs them: it is built conditionally, so the setup has to find its buttons rather
+    # than ask for them, and _OpsCells conjures a button for anything asked for by name.
     cells = _OpsCells()
+    for key in built:
+        _ = cells[key]
     host = SimpleNamespace(s_12=12, border_size=_BORDER, engine_ops_cells=cells)
     # The hold callbacks are read off the host and stored, never called here.
     for name in (
@@ -750,6 +755,171 @@ def test_no_other_engine_op_key_wears_a_border() -> None:
 
     bordered = [key for key, (_key, btn) in cells.items() if btn.border_thickness and key not in directions]
     assert bordered == []
+
+
+# ---------------------------------------------------------------------------
+# The extra function column beside the sliders (EXTRA_FUNCTIONS_WIDE)
+# ---------------------------------------------------------------------------
+
+# A Steam Deck pane: 1280 less the 2px divider, halved. Its sliders column measures 137 (see
+# FREIGHT_CELL_BORDER), and its keypad is four cells of a button plus its padding.
+_DECK = dict(row_width=639, keypad_width=336, sliders_width=137, cell_width=84)
+# The portrait panel, where the keypad and the 220px sliders column already use the whole row.
+_PORTRAIT = dict(row_width=480, keypad_width=260, sliders_width=220, cell_width=65)
+
+
+def test_a_row_with_a_spare_button_of_width_gets_the_extra_column() -> None:
+    # The point of measuring rather than gating on the device: what earns the column is room,
+    # so the next handheld wide enough gets it without this code learning what it is.
+    assert mod.extra_column_fits(**_DECK) is True
+
+
+def test_a_row_already_spoken_for_does_not() -> None:
+    # Portrait: the keypad and the sliders leave nothing, and the column must not be squeezed in
+    # beside them -- the layout there stays exactly what it has always been.
+    assert mod.extra_column_fits(**_PORTRAIT) is False
+
+
+def test_the_column_has_to_fit_whole() -> None:
+    # A partial column is a clipped button, so the test is for a full cell, not for whatever is
+    # left over. Exactly enough is enough; one pixel short is not.
+    exact = mod.EXTRA_COLUMN_SLACK + 336 + 137 + 84
+
+    assert mod.extra_column_fits(exact, 336, 137, 84) is True
+    assert mod.extra_column_fits(exact - 1, 336, 137, 84) is False
+
+
+@pytest.mark.parametrize("unmeasured", ["row_width", "keypad_width", "sliders_width", "cell_width"])
+@pytest.mark.parametrize("reading", [0, 1, -5])
+def test_a_measurement_that_has_not_settled_yet_gets_no_column(unmeasured: str, reading: int) -> None:
+    # A widget Tk has not laid out reports 1 -- the trap freight_pair_size's docstring describes.
+    # Believing it here would add a column against a row that was never really measured, or (for
+    # the keypad and the sliders) against a row that looks empty.
+    assert mod.extra_column_fits(**{**_DECK, unmeasured: reading}) is False
+
+
+def test_the_fit_test_is_wired_up() -> None:
+    # Same reasoning as the freight helpers above: build() is far too large to stub, so a gate
+    # that quietly stopped being called would look exactly like a column that appears on a panel
+    # with no room for it -- or never appears at all.
+    calls = _calls_to("extra_column_fits")
+
+    assert len(calls) == 1, "asked once, during build"
+    assert len(calls[0].args) == 4, "the row, the keypad, the sliders, and one cell"
+
+
+def test_the_extra_column_is_created_before_the_sliders() -> None:
+    """Creation order is the whole of its position, and nothing on screen explains why.
+
+    Both boxes are packed to the right of the controls row, and two right-aligned children stack
+    right-to-left: the one created *first* is the one that ends up outboard. Creating this box
+    after the sliders -- the obvious reading of "add it to the right of them" -- puts the column
+    between the keypad and the sliders instead. A "pack before" fixes that for exactly as long as
+    it takes for one of the row's children to be shown or hidden, because guizero's
+    display_widgets re-packs them all in creation order with freshly built options.
+    """
+    column = _box_call_for("extra_functions")
+    sliders = _box_call_for("sliders")
+
+    assert column is not None, "the column's box is still built from a Box(...) call"
+    assert sliders is not None
+    assert column.lineno < sliders.lineno, "created after the sliders, it would land inboard of them"
+    align = {kw.arg: kw.value for kw in column.keywords}.get("align")
+    assert align is not None and align.value == "right", "outboard, on the slider side of the row"
+
+
+def _tk_calls_on(name: str, method: str) -> list[ast.Call]:
+    """Every <name>.tk.<method>(...) call in the module, generalizing _pack_calls_on."""
+    tree = ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8"))
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == method
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "tk"
+        and isinstance(node.func.value.value, ast.Name)
+        and node.func.value.value.id == name
+    ]
+
+
+def test_the_extra_column_holds_its_place_when_its_keys_hide() -> None:
+    """Every key in the column is an engine key, so all five hide together.
+
+    A keypad column never empties -- each cell position stacks one variant per engine type and
+    something is always showing -- but this one does, on any freight or passenger car. Left to
+    track its content the box would collapse to nothing there and slide the sliders across the
+    row, then back again on the next engine. The sliders column is pinned for the same reason.
+    """
+    calls = _tk_calls_on("extra_functions", "grid_propagate")
+
+    assert len(calls) == 1, "pinned exactly once, at build time"
+    assert calls[0].args and calls[0].args[0].value is False
+    assert _tk_calls_on("extra_functions", "config"), "propagation off with no size is a 1px column"
+
+
+def test_a_row_with_no_room_loses_the_box_without_repacking_its_neighbors() -> None:
+    """The portrait panel has never had this column and must not change because of it.
+
+    guizero's hide() runs display_widgets, which re-packs every child of the row from scratch
+    with freshly built options -- taking the fill the sliders were packed with off a layout that
+    has nothing to do with this change. pack_forget drops the one box and touches nothing else.
+    """
+    assert len(_tk_calls_on("extra_functions", "pack_forget")) == 1
+
+    hides = [
+        node
+        for node in ast.walk(ast.parse(pathlib.Path(mod.__file__).read_text(encoding="utf-8")))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in {"hide", "show"}
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "extra_functions"
+    ]
+    assert hides == [], "guizero visibility here re-packs the keypad and the sliders with it"
+
+
+def test_every_button_in_the_extra_column_is_an_alias_of_a_real_command() -> None:
+    # The column repeats buttons that are already on screen, so each cell carries a name of its
+    # own -- a cell is registered under (command, engine-type tag) and two cells cannot share one
+    # key. A name with no entry in the table is a button that would send nothing at all.
+    from src.pytrain.utils.path_utils import find_file
+
+    for row in mod.EXTRA_FUNCTIONS_WIDE:
+        for cell in row:
+            for command, image, _label, _title, scope in cell:
+                assert command in mod.COMMAND_ALIASES, command
+                real = mod.COMMAND_ALIASES[command]
+                assert real not in mod.COMMAND_ALIASES, f"{command} resolves to another alias"
+                assert scope == "e", "the column follows the same show/hide rules as the ops keys"
+                assert find_file(image), image
+
+
+# noinspection PyProtectedMember
+def test_the_extra_column_inherits_the_holds_of_the_buttons_it_copies() -> None:
+    # A duplicate that ignores a press-and-hold is a duplicate that behaves differently from the
+    # button it copies: Start Up and Shut Down would lose their delayed variants.
+    wide = [(alias, "e") for alias in mod.COMMAND_ALIASES]
+    cells, _view = _behaviors(*wide)
+
+    for alias, real in mod.COMMAND_ALIASES.items():
+        assert cells[(alias, "e")][1].on_hold == cells[(real, "e")][1].on_hold, alias
+
+    # Two of them have one to inherit; the rest -- Labor Effect, Speed Roll -- have none, and
+    # equal-to-nothing on every button is how a copy that never happened would also read.
+    held = sorted(alias for alias in mod.COMMAND_ALIASES if cells[(alias, "e")][1].on_hold is not None)
+    assert held == ["SHUTDOWN_IMMEDIATE_WIDE", "START_UP_IMMEDIATE_WIDE"]
+
+
+# noinspection PyProtectedMember
+def test_a_hold_is_only_copied_onto_a_button_that_was_built() -> None:
+    # The column is conditional, so on a narrow panel none of its buttons exist. Asking for one
+    # by name would conjure it (KeyError against the real engine_ops_cells) and configure a hold
+    # on a button nobody can press.
+    cells, _view = _behaviors()
+
+    assert [key for key in cells if key[0].endswith("_WIDE")] == []
 
 
 # noinspection PyProtectedMember

@@ -519,6 +519,23 @@ COMMAND_FALLBACKS = {
     "WATER_INJECTOR": "NUMBER_5",
     "LET_OFF_LONG": "NUMBER_6",
 }
+# Buttons that repeat a command already on screen somewhere else, and the command each one
+# really sends. A cell is registered under (command, engine-type tag) -- see
+# ControllerView.scope_key -- so a second button for the same command needs a name of its own,
+# or it collides with the first: the duplicate is logged, engine_ops_cells keeps only one of
+# them, and _setup_controller_behaviors can no longer say which button it is configuring. The
+# alias is a button name, never a command, so the dispatch route resolves it back before
+# looking anything up; see EngineGui.resolve_command_alias.
+#
+# The _WIDE names are the extra function column the wide layouts get beside the sliders (see
+# EXTRA_FUNCTIONS_WIDE), each of which is a second copy of a button in the "More..." popup.
+COMMAND_ALIASES = {
+    "LABOR_EFFECT_UP_WIDE": "LABOR_EFFECT_UP",
+    "LABOR_EFFECT_DOWN_WIDE": "LABOR_EFFECT_DOWN",
+    "SPEED_ROLL_WIDE": "SPEED_ROLL",
+    "START_UP_IMMEDIATE_WIDE": "START_UP_IMMEDIATE",
+    "SHUTDOWN_IMMEDIATE_WIDE": "SHUTDOWN_IMMEDIATE",
+}
 LIONEL_ORANGE = "#FF6600"
 
 
