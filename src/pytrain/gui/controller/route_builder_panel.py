@@ -282,16 +282,16 @@ class RouteBuilderPanel(OverlayPanel):
 
     def build(self, body: Box):
         self._main_page = Box(body, align="top")
-        summary = Box(self._main_page, align="top", width="fill")
-        summary.tk.config(padx=self.row_height)
+        summary = Box(self._main_page, align="top")
         self._route_label = Text(summary, text="", size=self.gui.s_14, align="left")
-        self._count = Text(summary, text="", size=self.gui.s_14, align="right")
+        Text(summary, text="   ·   ", size=self.gui.s_14, align="left")
+        self._count = Text(summary, text="", size=self.gui.s_14, align="left")
         Text(
             self._main_page,
             text=(
-                "Runs left to right. Click a card; scroll or use ← / → to browse."
+                "Click a card to modify; scroll or use ← / → to browse."
                 if self.desktop_controls
-                else "Runs left to right. Tap a card to change it; swipe to browse."
+                else "Tap a card to change it; swipe to browse."
             ),
             size=self.gui.s_12,
         )

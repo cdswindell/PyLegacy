@@ -73,7 +73,11 @@ def check_bounds(app, overlay, panel, width, budget, label):
         assert widget.winfo_y() >= panel.button_pad_y
     if not panel._picking:
         route, count = panel._route_label.tk, panel._count.tk
-        assert count.winfo_rootx() - (route.winfo_rootx() + route.winfo_width()) >= panel.row_height
+        summary = route.master
+        separator = summary.winfo_children()[1]
+        assert separator.cget("text") == "   ·   "
+        assert count.winfo_rootx() - (route.winfo_rootx() + route.winfo_width()) == separator.winfo_width()
+        assert abs(2 * summary.winfo_x() + summary.winfo_width() - panel._main_page.tk.winfo_width()) <= 2
         assert panel._selection.value.startswith(f"Card {panel._selected + 1}: ")
         assert "\n" not in panel._selection.value
         if panel.section_gap:

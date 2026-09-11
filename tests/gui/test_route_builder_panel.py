@@ -550,8 +550,12 @@ def test_header_and_single_line_selection_follow_card_order(panel):
     assert panel._route_label.value == "Route 02"
     assert panel._count.value == "2 of 16 cards used"
     assert panel._route_label.parent is panel._count.parent
+    summary = panel._route_label.parent
+    assert summary.options["align"] == "top"
+    assert summary.options.get("width") != "fill"
+    assert [child.value for child in summary.children] == ["Route 02", "   ·   ", "2 of 16 cards used"]
     assert panel._route_label.options["align"] == "left"
-    assert panel._count.options["align"] == "right"
+    assert panel._count.options["align"] == "left"
     assert panel._selection.value == "Card 1: Suspended Right"
     assert panel._selection.options["height"] == 1
     panel.select_relative(1)
@@ -561,6 +565,14 @@ def test_header_and_single_line_selection_follow_card_order(panel):
     panel.remove_selected()
     assert panel._selection.value == "Card 1: Suspended Right"
     assert panel._count.value == "1 of 16 cards used"
+
+
+def test_touch_card_browsing_hint(panel):
+    assert panel._main_page.children[1].value == "Tap a card to change it; swipe to browse."
+
+
+def test_desktop_card_browsing_hint(desktop_panel):
+    assert desktop_panel._main_page.children[1].value == "Click a card to modify; scroll or use ← / → to browse."
 
 
 def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
