@@ -13,6 +13,7 @@ import logging
 import time
 import tkinter as tk
 from enum import Enum, auto
+from sys import platform
 from tkinter import TclError
 from typing import Any, Callable
 
@@ -51,6 +52,8 @@ class EditableText(Text):
 
     The displayed widget remains the guizero Text/Label. While editing, a Tk Entry is
     temporarily placed over the label, so the existing GuiZero layout code does not need to change.
+    Keyboard and Keypad use the physical keyboard by default on macOS and Windows;
+    other platforms keep the on-screen editors. Choices always uses the generated list.
     """
 
     def __init__(
@@ -71,7 +74,7 @@ class EditableText(Text):
         commit_on_focus_lost: bool = True,
         select_all_on_edit: bool = True,
         cancel_on_leave: bool = False,
-        show_keyboard_on_edit: bool = True,
+        show_keyboard_on_edit: bool | None = None,
         hide_keyboard_on_finish: bool = True,
         edit_bg: str = "white",
         edit_fg: str = "black",
@@ -100,7 +103,9 @@ class EditableText(Text):
         self.commit_on_focus_lost = bool(commit_on_focus_lost)
         self.select_all_on_edit = bool(select_all_on_edit)
         self.cancel_on_leave = bool(cancel_on_leave)
-        self.show_keyboard_on_edit = bool(show_keyboard_on_edit)
+        self.show_keyboard_on_edit = (
+            platform not in {"darwin", "win32"} if show_keyboard_on_edit is None else bool(show_keyboard_on_edit)
+        )
         self.hide_keyboard_on_finish = bool(hide_keyboard_on_finish)
         self.edit_bg = edit_bg
         self.edit_fg = edit_fg

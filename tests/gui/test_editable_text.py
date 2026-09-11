@@ -383,7 +383,118 @@ def editable_text_module(monkeypatch: pytest.MonkeyPatch):
     sys.modules[module_name] = mod
     spec.loader.exec_module(mod)
     monkeypatch.setattr(mod.tk, "Entry", DummyEntry, raising=True)
+    # Existing keyboard geometry tests model the Linux touch appliances, on any test host.
+    monkeypatch.setattr(mod, "platform", "linux")
     return mod
+
+
+@pytest.mark.parametrize("desktop", ["darwin", "win32"])
+@pytest.mark.parametrize("editor, original, replacement", [("KEYBOARD", "Old", "New"), ("KEYPAD", "0001", "0007")])
+@pytest.mark.parametrize("enter_key", ["<Return>", "<KP_Enter>"])
+def test_desktop_uses_native_entry_and_enter_commits(
+    editable_text_module, monkeypatch, desktop, editor, original, replacement, enter_key
+) -> None:
+    monkeypatch.setattr(editable_text_module, "platform", desktop)
+    seen = []
+    widget = editable_text_module.EditableText(
+        None,
+        text=original,
+        editor=getattr(editable_text_module.EditorType, editor),
+        on_commit=lambda field, new, old: seen.append((field, new, old)),
+    )
+
+    widget.begin_edit()
+
+    assert widget.show_keyboard_on_edit is False
+    assert widget._keyboard_after_id is None
+    assert widget._keyboard_window is None
+    assert widget._choice_window is None
+    assert widget._entry.placed
+    assert widget.tk.winfo_toplevel().focus_get() is widget._entry
+    assert widget._entry._selection == (0, len(original))
+    widget._entry.delete(0, "end")
+    widget._entry.insert(0, replacement)
+    widget._entry._bindings[enter_key][0](None)
+
+    assert widget.value == replacement
+    assert seen == [(widget, replacement, original)]
+    assert not widget.is_editing
+    assert not widget._entry.placed
+
+
+@pytest.mark.parametrize("desktop", ["darwin", "win32"])
+@pytest.mark.parametrize("editor", ["KEYBOARD", "KEYPAD"])
+def test_desktop_escape_cancels_and_entry_can_be_reopened(editable_text_module, monkeypatch, desktop, editor) -> None:
+    monkeypatch.setattr(editable_text_module, "platform", desktop)
+    committed, canceled = [], []
+    widget = editable_text_module.EditableText(
+        None,
+        text="0012",
+        editor=getattr(editable_text_module.EditorType, editor),
+        on_commit=lambda *args: committed.append(args),
+        on_cancel=lambda *args: canceled.append(args),
+    )
+    widget.begin_edit()
+    entry = widget._entry
+    entry.delete(0, "end")
+    entry.insert(0, "0099")
+    entry._bindings["<Escape>"][0](None)
+
+    assert widget.value == "0012"
+    assert not widget.is_editing
+    assert not entry.placed
+    assert committed == []
+    assert canceled == [(widget, "0012")]
+    widget.begin_edit()
+    assert widget._entry is entry
+    assert entry.get() == "0012"
+    assert entry.placed
+    assert widget.tk.winfo_toplevel().focus_get() is entry
+    assert widget._keyboard_after_id is None
+
+
+@pytest.mark.parametrize("desktop", ["darwin", "win32"])
+@pytest.mark.parametrize("editor", ["KEYBOARD", "KEYPAD"])
+def test_desktop_native_input_keeps_length_limit_and_commits_on_focus_loss(
+    editable_text_module, monkeypatch, desktop, editor
+) -> None:
+    monkeypatch.setattr(editable_text_module, "platform", desktop)
+    seen = []
+    widget = editable_text_module.EditableText(
+        None,
+        text="1",
+        max_length=4,
+        editor=getattr(editable_text_module.EditorType, editor),
+        on_commit=lambda *args: seen.append(args),
+    )
+    widget.begin_edit()
+    widget._entry.delete(0, "end")
+    widget._entry.insert(0, "00123")
+    widget._entry._bindings["<KeyRelease>"][0](None)
+    assert widget._entry.get() == "0012"
+    assert widget._entry.index("insert") == 4
+    widget.tk.winfo_toplevel()._focus = DummyTk()
+    widget._entry._bindings["<FocusOut>"][0](None)
+    for after_id in list(widget.tk._after_calls):
+        widget.tk.run_after(after_id)
+
+    assert widget.value == "0012"
+    assert seen == [(widget, "0012", "1")]
+    assert not widget.is_editing
+    assert widget._keyboard_window is None
+
+
+@pytest.mark.parametrize("platform_name", ["darwin", "win32", "linux"])
+@pytest.mark.parametrize("show_keyboard", [False, True])
+def test_explicit_keyboard_preference_overrides_platform_default(
+    editable_text_module, monkeypatch, platform_name, show_keyboard
+) -> None:
+    monkeypatch.setattr(editable_text_module, "platform", platform_name)
+    widget = editable_text_module.EditableText(None, text="Old", show_keyboard_on_edit=show_keyboard)
+    widget.begin_edit()
+
+    assert widget.show_keyboard_on_edit is show_keyboard
+    assert (widget._keyboard_after_id is not None) is show_keyboard
 
 
 def test_hold_begins_inline_edit(editable_text_module) -> None:
@@ -617,10 +728,13 @@ def test_keypad_editor_shows_number_pad_and_enforces_max_length(
     assert any(btn.text == "Del" for btn in DummyButton.instances)
 
 
+@pytest.mark.parametrize("platform_name", ["linux", "darwin", "win32"])
 def test_choices_editor_commits_choice_keys_and_keeps_display_text(
     editable_text_module,
     monkeypatch: pytest.MonkeyPatch,
+    platform_name,
 ) -> None:
+    monkeypatch.setattr(editable_text_module, "platform", platform_name)
     seen = []
     DummyButton.instances = []
     DummyFrame.instances = []
@@ -642,6 +756,10 @@ def test_choices_editor_commits_choice_keys_and_keeps_display_text(
     )
 
     widget.begin_edit()
+    assert isinstance(widget._choice_window, DummyWindow)
+    assert widget._entry is None
+    assert widget._keyboard_window is None
+    assert widget._keyboard_after_id is None
     widget._select_choice_index(1)
     widget.commit_edit()
 
