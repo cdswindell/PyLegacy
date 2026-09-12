@@ -249,6 +249,7 @@ def panel(monkeypatch):
     monkeypatch.setattr(mod, "HoldButton", HoldWidget)
     monkeypatch.setattr(mod.tk, "Canvas", Canvas)
     monkeypatch.setattr(mod.tk, "Scrollbar", Scrollbar)
+    monkeypatch.setattr(mod, "TouchScrollbar", Mock(side_effect=Scrollbar))
     monkeypatch.setattr(mod.tk, "StringVar", Variable)
     monkeypatch.setattr(mod.tk, "Radiobutton", Canvas)
     monkeypatch.setattr(mod.tk, "PhotoImage", PhotoImage)
@@ -371,14 +372,24 @@ def test_picker_size_and_page_navigation_follow_available_layout(
     assert not panel._save_btn.enabled
 
 
-def test_picker_scrollbar_replaces_page_buttons_and_matches_scroll_box(panel):
+@pytest.mark.parametrize("compact", [True, False])
+def test_picker_scrollbar_replaces_page_buttons_and_matches_scroll_box(panel, monkeypatch, compact):
+    monkeypatch.setattr(panel.gui, "compact", compact)
+    mod.TouchScrollbar.reset_mock()
+    panel.build(Widget())
     bar = panel._picker_scrollbar
-    assert bar.options["orient"] == "vertical"
-    assert bar.options["takefocus"] == 0
-    assert bar.options["bg"] == mod.BAR_COLOR
-    assert bar.options["troughcolor"] == mod.BAR_TROUGH_COLOR
-    assert bar.options["activebackground"] == mod.BAR_ACTIVE_COLOR
-    assert bar.options["highlightbackground"] == mod.BAR_EDGE_COLOR
+    if compact:
+        mod.TouchScrollbar.assert_called_once_with(
+            panel._picker.master, command=panel.scroll_picker, width=38, min_thumb_length=64
+        )
+    else:
+        mod.TouchScrollbar.assert_not_called()
+        assert bar.options["orient"] == "vertical"
+        assert bar.options["takefocus"] == 0
+        assert bar.options["bg"] == mod.BAR_COLOR
+        assert bar.options["troughcolor"] == mod.BAR_TROUGH_COLOR
+        assert bar.options["activebackground"] == mod.BAR_ACTIVE_COLOR
+        assert bar.options["highlightbackground"] == mod.BAR_EDGE_COLOR
     assert not hasattr(panel, "_picker_previous")
     assert not hasattr(panel, "_picker_next")
 

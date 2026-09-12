@@ -31,6 +31,7 @@ from ..components.checkbox_group import CheckBoxGroup
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
 from ..components.scroll_box import BAR_ACTIVE_COLOR, BAR_COLOR, BAR_EDGE_COLOR, BAR_EDGE_PX, BAR_TROUGH_COLOR
+from ..components.touch_scrollbar import TouchScrollbar
 from ..guizero_base import ACTIVE_STATE_BG
 from ...db.component_state import RouteState, SwitchState
 from ...pdi.base_req import BaseReq
@@ -458,18 +459,23 @@ class RouteBuilderPanel(OverlayPanel):
         self._search_btn.update_command(self._edit_search)
         self._picker_count = Text(self._picker_page, text="", size=self.gui.s_12)
         self._picker = self._canvas(self._picker_page, self.picker_row_height * self.picker_rows, False)
-        self._picker_scrollbar = tk.Scrollbar(
-            self._picker.master,
-            orient="vertical",
-            command=self.scroll_picker,
-            width=self.picker_bar_width,
-            troughcolor=BAR_TROUGH_COLOR,
-            bg=BAR_COLOR,
-            activebackground=BAR_ACTIVE_COLOR,
-            highlightthickness=BAR_EDGE_PX,
-            highlightbackground=BAR_EDGE_COLOR,
-            takefocus=0,
-        )
+        if self.gui.compact:
+            self._picker_scrollbar = TouchScrollbar(
+                self._picker.master, command=self.scroll_picker, width=self.picker_bar_width, min_thumb_length=64
+            )
+        else:
+            self._picker_scrollbar = tk.Scrollbar(
+                self._picker.master,
+                orient="vertical",
+                command=self.scroll_picker,
+                width=self.picker_bar_width,
+                troughcolor=BAR_TROUGH_COLOR,
+                bg=BAR_COLOR,
+                activebackground=BAR_ACTIVE_COLOR,
+                highlightthickness=BAR_EDGE_PX,
+                highlightbackground=BAR_EDGE_COLOR,
+                takefocus=0,
+            )
         self._picker_scrollbar.place(
             relx=1.0, x=-self.picker_bar_width, y=0, width=self.picker_bar_width, relheight=1.0
         )
