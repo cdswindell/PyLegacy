@@ -511,11 +511,8 @@ def main():
         panel._save_btn.tk.invoke()
         assert panel._picking and RouteComponent.to_bytes(panel.draft.components) == before
         rows = [item for item in panel._picker.find_all() if panel._picker.type(item) == "rectangle"]
-        for row, (scope, state) in zip(rows, panel._candidates):
-            active = state.is_thru if scope == CommandScope.SWITCH else state.is_aligned
-            assert panel._picker.itemcget(row, "fill") == (
-                route_builder_panel.ACTIVE_STATE_BG if active else route_builder_panel.CARD_BG
-            )
+        for row in rows:
+            assert panel._picker.itemcget(row, "fill") == route_builder_panel.CARD_BG
         panel.choose_candidate(0)
         assert panel._save_btn.enabled
         assert str(panel._save_btn.tk.cget("state")) == "normal"

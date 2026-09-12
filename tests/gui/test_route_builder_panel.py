@@ -480,6 +480,7 @@ def test_route_metadata_editing_consumes_analog_input_without_scrolling(deck_pic
 
 def test_deck_picker_browses_without_selecting_and_reveals_complete_rows(deck_picker):
     panel, router, _, _ = deck_picker
+    sort = panel._sort, panel._descending, [button.text for button in panel._sort_btns]
     for index in range(12):
         pad_press(router, deck.DPAD_DOWN)
         assert panel._picker_cursor == (CommandScope.SWITCH, index + 1)
@@ -494,22 +495,42 @@ def test_deck_picker_browses_without_selecting_and_reveals_complete_rows(deck_pi
     assert panel._picker_cursor == (CommandScope.SWITCH, 1)
     assert panel._picker.y == 0
     assert not panel.draft.components and not panel.draft.dirty
+    assert (panel._sort, panel._descending, [button.text for button in panel._sort_btns]) == sort
+    panel.gui.on_engine_command.assert_not_called()
+
+
+@pytest.mark.parametrize("sort", ["Name", "TMCC ID"])
+@pytest.mark.parametrize("descending", [False, True])
+def test_deck_picker_browses_mixed_choices_without_changing_sort(deck_picker, sort, descending):
+    panel, router, _, _ = deck_picker
+    known_route(panel, 4)
+    panel.set_filter("All")
+    panel.set_sort(sort)
+    if descending:
+        panel.toggle_sort_direction()
+    choices = [(scope, state.tmcc_id) for scope, state in panel._candidates]
+    for choice in choices:
+        pad_press(router, deck.DPAD_DOWN)
+        assert panel._picker_cursor == choice
+    for choice in reversed(choices[:-1]):
+        pad_press(router, deck.DPAD_UP)
+        assert panel._picker_cursor == choice
+    assert panel._sort == sort and panel._descending == descending
+    assert panel._filter == "All" and panel._candidate is None
+    assert not panel.draft.components and not panel.draft.dirty
     panel.gui.on_engine_command.assert_not_called()
 
 
 @pytest.mark.parametrize("context", [(), (deck.SWITCH_CONTEXT,), (deck.ROUTE_CONTEXT,)])
-@pytest.mark.parametrize("clear_name,button", [(deck.DPAD_LEFT, None), ("bell", deck.BACK_PAGE_BUTTON)])
-def test_deck_picker_selects_clears_and_adds_highlighted_not_previous_choice(
-    deck_picker, monkeypatch, context, clear_name, button
-):
+def test_deck_picker_selects_clears_and_adds_highlighted_not_previous_choice(deck_picker, monkeypatch, context):
     panel, router, _, _ = deck_picker
     monkeypatch.setattr(panel.gui, "input_contexts", context)
-    pad_press(router, deck.DPAD_RIGHT)
+    panel.choose_candidate(0)
     assert panel._candidate == (CommandScope.SWITCH, 1) and panel._save_btn.enabled
-    pad_press(router, clear_name, button)
+    pad_press(router, "bell", deck.BACK_PAGE_BUTTON)
     assert panel._candidate is None and not panel._save_btn.enabled
     assert panel._picking
-    pad_press(router, deck.DPAD_RIGHT)
+    panel.choose_candidate(0)
     pad_press(router, deck.DPAD_DOWN)
     assert panel._candidate == (CommandScope.SWITCH, 1)
     pad_press(router, deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)
@@ -518,23 +539,58 @@ def test_deck_picker_selects_clears_and_adds_highlighted_not_previous_choice(
     panel.gui.on_engine_command.assert_not_called()
 
 
-def test_deck_picker_x_cancels_only_add_and_reopening_resets_cursor(deck_picker):
+@pytest.mark.parametrize("context", [(), (deck.SWITCH_CONTEXT,), (deck.ROUTE_CONTEXT,)])
+@pytest.mark.parametrize("scope", [CommandScope.SWITCH, CommandScope.ROUTE])
+def test_deck_picker_right_adds_highlighted_not_previous_choice(deck_picker, monkeypatch, context, scope):
     panel, router, _, _ = deck_picker
+    monkeypatch.setattr(panel.gui, "input_contexts", context)
+    if scope == CommandScope.ROUTE:
+        known_route(panel, 1)
+        known_route(panel, 2)
+        panel.set_filter("Routes")
+    panel.choose_candidate(0)
+    router.handle(deck.DeckAction(deck.DPAD_DOWN, "focused", 1.0, "pressed"))
+    router.tick(10.0)
+    router.tick(10.1)
+    assert panel._picker_cursor == (scope, 2) and panel._candidate == (scope, 1)
+    pad_press(router, deck.DPAD_RIGHT)
+    assert [component.tmcc_id for component in panel.draft.components] == [2]
+    assert panel.draft.components[0].is_route == (scope == CommandScope.ROUTE)
+    assert panel.draft.dirty and not panel._picking and panel.visible
+    assert not router._picker_scrolls
+    router.tick(10.8)
+    assert len(panel.draft.components) == 1
+    panel.gui.on_engine_command.assert_not_called()
+
+
+@pytest.mark.parametrize("name,button", [("volume_down", deck.CLOSE_POPUP_BUTTON), (deck.DPAD_LEFT, None)])
+def test_deck_picker_x_cancels_only_add_and_reopening_resets_cursor(deck_picker, name, button):
+    panel, router, _, _ = deck_picker
+    add_switch(panel, 7)
+    panel.open_picker()
+    components = RouteComponent.to_bytes(panel.draft.components)
     panel.draft.set_metadata("Keep this route", "12")
     panel._close = Mock()
-    pad_press(router, deck.DPAD_DOWN)
-    pad_press(router, "volume_down", deck.CLOSE_POPUP_BUTTON)
+    router.handle(deck.DeckAction(deck.DPAD_DOWN, "focused", 1.0, "pressed"))
+    router.tick(10.0)
+    router.tick(10.1)
+    pad_press(router, name, button)
     assert not panel._picking and panel.gui.route_picker is None
     assert panel.draft.dirty and panel.draft.road_name == "Keep this route"
+    assert RouteComponent.to_bytes(panel.draft.components) == components
+    assert not router._picker_scrolls
+    router.tick(10.8)
     panel._close.assert_not_called()
+    panel.gui.on_engine_command.assert_not_called()
     panel.open_picker()
     assert panel._picker_cursor is None and panel._candidate is None
 
 
-def test_deck_picker_a_selects_and_adds_without_prior_dpad_press(deck_picker):
+@pytest.mark.parametrize("name,button", [(deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON), (deck.DPAD_RIGHT, None)])
+def test_deck_picker_a_selects_and_adds_without_prior_dpad_press(deck_picker, name, button):
     panel, router, _, _ = deck_picker
     panel.scroll_picker("scroll", "4", "units")
-    pad_press(router, deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)
+    pad_press(router, name, button)
     assert [c.tmcc_id for c in panel.draft.components] == [5]
 
 
@@ -544,7 +600,7 @@ def test_deck_picker_cursor_tracks_touch_sort_and_filter_without_stale_selection
     pad_press(router, deck.DPAD_DOWN)
     assert panel._picker_cursor == (CommandScope.SWITCH, 8)
     panel.toggle_sort_direction()
-    pad_press(router, deck.DPAD_RIGHT)
+    assert panel.pad_mark()
     assert panel._candidate == (CommandScope.SWITCH, 8)
     panel.set_filter("Routes")
     for name, button in [(deck.DPAD_DOWN, None), (deck.DPAD_RIGHT, None), (deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)]:
@@ -590,7 +646,12 @@ def test_deck_picker_stops_held_navigation_when_no_longer_available(deck_picker,
     panel.gui.on_engine_command.assert_not_called()
 
 
-def test_deck_picker_search_editing_blocks_selection_but_allows_cancel_and_halt(deck_picker):
+@pytest.mark.parametrize(
+    "cancel_name,cancel_button", [("volume_down", deck.CLOSE_POPUP_BUTTON), (deck.DPAD_LEFT, None)]
+)
+def test_deck_picker_search_editing_blocks_selection_but_allows_cancel_and_halt(
+    deck_picker, cancel_name, cancel_button
+):
     panel, router, _, halt = deck_picker
     panel._search_field.begin_edit()
     for name, button in [(deck.DPAD_DOWN, None), (deck.DPAD_RIGHT, None), (deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)]:
@@ -598,7 +659,7 @@ def test_deck_picker_search_editing_blocks_selection_but_allows_cancel_and_halt(
     assert panel._candidate is None and not panel.draft.components
     router.handle(deck.DeckAction("halt", "global", 1.0, "pressed"))
     halt.assert_called_once_with()
-    pad_press(router, "volume_down", deck.CLOSE_POPUP_BUTTON)
+    pad_press(router, cancel_name, cancel_button)
     assert not panel._picking and not panel._search_field.is_editing
     panel.gui.on_engine_command.assert_not_called()
 
@@ -623,6 +684,7 @@ def test_deck_picker_stops_commands_held_before_opening(deck_picker, name, butto
 
 
 def test_deck_picker_highlight_does_not_check_radio_or_replace_active_green(deck_picker):
+    """Active-state shading is removed; controller focus and selection remain visible."""
     panel, router, _, _ = deck_picker
     state = SwitchState()
     state._address = 1
@@ -631,25 +693,30 @@ def test_deck_picker_highlight_does_not_check_radio_or_replace_active_green(deck
     panel.set_sort("TMCC ID")
     pad_press(router, deck.DPAD_DOWN)
     rectangles = [options for kind, _, options in panel._picker.drawn if kind == "rectangle"]
-    assert rectangles[0]["fill"] == mod.ACTIVE_STATE_BG
+    assert all(options["fill"] == mod.CARD_BG for options in rectangles)
     assert rectangles[0]["outline"] == mod.SELECTED_COLOR and rectangles[0]["width"] == 3
     assert all(options["width"] == 1 for options in rectangles[1:])
     assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == len(panel._candidates)
-    pad_press(router, deck.DPAD_RIGHT)
+    panel.choose_candidate(0)
+    rectangles = [options for kind, _, options in panel._picker.drawn if kind == "rectangle"]
+    assert rectangles[0]["fill"] == mod.SELECTED_BG
     assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == len(panel._candidates) + 1
-    pad_press(router, deck.DPAD_LEFT)
+    pad_press(router, "bell", deck.BACK_PAGE_BUTTON)
+    rectangles = [options for kind, _, options in panel._picker.drawn if kind == "rectangle"]
+    assert all(options["fill"] == mod.CARD_BG for options in rectangles)
     assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == len(panel._candidates)
 
 
 @pytest.mark.parametrize("invalid", ["deleted", "self_route"])
-def test_deck_picker_a_keeps_existing_component_validation(deck_picker, invalid):
+@pytest.mark.parametrize("name,button", [(deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON), (deck.DPAD_RIGHT, None)])
+def test_deck_picker_a_keeps_existing_component_validation(deck_picker, invalid, name, button):
     panel, router, _, _ = deck_picker
     if invalid == "self_route":
         known_route(panel, 12)
         panel.set_filter("Routes")
     else:
         panel._candidates[0][1].is_deleted = True
-    pad_press(router, deck.SEQUENCE_CONTROL, deck.SELECT_BUTTON)
+    pad_press(router, name, button)
     assert not panel.draft.components and panel._picking
     assert (
         "no longer available" in panel._status.value
@@ -1321,6 +1388,7 @@ def test_picker_indicators_are_large_circles_not_font_glyphs(panel):
 @pytest.mark.parametrize("filter_name", ["Switches", "Routes", "All"])
 @pytest.mark.parametrize("selected", [False, True])
 def test_picker_backgrounds_match_catalog_state_and_preserve_selection(panel, filter_name, selected):
+    """Catalog state colors no longer apply here; only selection changes the background."""
     switch = SwitchState()
     switch._address = 7
     switch.initialize(CommandScope.SWITCH, 7)
@@ -1341,9 +1409,7 @@ def test_picker_backgrounds_match_catalog_state_and_preserve_selection(panel, fi
             rows = [options for kind, _, options in panel._picker.drawn if kind == "rectangle"]
             for row_index, row in enumerate(rows):
                 is_selected = selected and row_index == index
-                assert row["fill"] == (
-                    mod.ACTIVE_STATE_BG if active else mod.SELECTED_BG if is_selected else mod.CARD_BG
-                )
+                assert row["fill"] == (mod.SELECTED_BG if is_selected else mod.CARD_BG)
                 assert row["outline"] == (mod.SELECTED_COLOR if is_selected else "#c1c8d0")
             dots = [
                 options for kind, _, options in panel._picker.drawn if kind == "oval" and options["fill"] != "white"

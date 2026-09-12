@@ -457,6 +457,13 @@ class ComponentState(ABC, CompDataMixin):
             req = BaseReq(self.address, PdiCommand.BASE_MEMORY, scope=self.scope, state=self)
             return req.as_bytes if req.data_bytes else bytes()
 
+    @property
+    def is_user_defined(self) -> bool:
+        """
+        Returns True if the component's state is known, False otherwise.
+        """
+        return self.comp_data and self.comp_data.is_active()
+
     def _update_comp_data(self, comp_data: CompData):
         with self._cv:
             self._comp_data = comp_data

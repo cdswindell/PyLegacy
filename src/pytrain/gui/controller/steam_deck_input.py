@@ -2467,14 +2467,12 @@ class DeckInputRouter:
             delta = -1 if action.name == DPAD_UP else 1
             if panel.pad_step(delta):
                 self._picker_scrolls[action.target] = [panel, delta, None]
-        elif action.name == DPAD_RIGHT:
-            panel.pad_mark()
-        elif action.name == DPAD_LEFT or action.button == BACK_PAGE_BUTTON:
+        elif action.button == BACK_PAGE_BUTTON:
             panel.pad_clear()
-        elif action.button == SELECT_BUTTON:
+        elif action.name == DPAD_RIGHT or action.button == SELECT_BUTTON:
             self._picker_scrolls.pop(action.target, None)
             panel.pad_add()
-        elif action.button == CLOSE_POPUP_BUTTON:
+        elif action.name == DPAD_LEFT or action.button == CLOSE_POPUP_BUTTON:
             self._picker_scrolls.pop(action.target, None)
             panel.cancel()
         return True

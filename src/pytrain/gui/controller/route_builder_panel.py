@@ -33,8 +33,7 @@ from ..components.hold_button import HoldButton
 from ..components.scroll_box import BAR_ACTIVE_COLOR, BAR_COLOR, BAR_EDGE_COLOR, BAR_EDGE_PX, BAR_TROUGH_COLOR
 from ..components.scroll_input import ScrollAccumulator
 from ..components.touch_scrollbar import TouchScrollbar
-from ..guizero_base import ACTIVE_STATE_BG
-from ...db.component_state import RouteState, SwitchState
+from ...db.component_state import RouteState
 from ...pdi.base_req import BaseReq
 from ...protocol.constants import CommandScope
 
@@ -873,15 +872,12 @@ class RouteBuilderPanel(OverlayPanel):
             y = index * self.picker_row_height
             selected = self._candidate == (scope, state.tmcc_id)
             focused = self.gui.compact and self._picker_cursor == (scope, state.tmcc_id)
-            active = (isinstance(state, SwitchState) and state.is_thru) or (
-                isinstance(state, RouteState) and state.is_aligned
-            )
             canvas.create_rectangle(
                 2,
                 y + 2,
                 self.picker_view_width - 2,
                 y + self.picker_row_height - 2,
-                fill=ACTIVE_STATE_BG if active else SELECTED_BG if selected else CARD_BG,
+                fill=SELECTED_BG if selected else CARD_BG,
                 outline=SELECTED_COLOR if selected or focused else "#c1c8d0",
                 width=3 if focused else 1,
             )
