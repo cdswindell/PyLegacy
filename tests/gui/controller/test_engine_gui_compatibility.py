@@ -405,8 +405,15 @@ def test_compact_emergency_row_uses_short_actions_and_minimal_padding(monkeypatc
     assert gui.linked_cars_btn.grid_configs == [{"sticky": "ew"}]
 
 
+@pytest.mark.parametrize(
+    "compact, scale, expected_height",
+    [(False, 1.0, 34), (False, 0.9, 30), (True, 0.9, 36)],
+)
 def test_scope_row_wears_its_color_as_a_border_without_taking_more_room(
     monkeypatch: pytest.MonkeyPatch,
+    compact: bool,
+    scale: float,
+    expected_height: int,
 ) -> None:
     # The selected scope is signaled by color alone, which macOS will not paint on a
     # button's face, so the border carries it. Each button is a fifth of the panel and the
@@ -432,7 +439,8 @@ def test_scope_row_wears_its_color_as_a_border_without_taking_more_room(
     gui = mod.EngineGui.__new__(mod.EngineGui)
     gui.scope_box = None
     gui.scope_size = 96  # a 480 wide panel, five scopes across
-    gui._scale_by = 1.0
+    gui._scale_by = scale
+    gui._compact = compact
     gui.border_size = 3
     gui.s_18 = 18
     gui._btn_images = []
@@ -453,13 +461,13 @@ def test_scope_row_wears_its_color_as_a_border_without_taking_more_room(
     for scope, button in gui._scope_buttons.items():
         assert button.border_thickness == 3, scope
         (config,) = button.tk_configs
-        # 90 + two 3px borders is the 96 the row was laid out with, and 34 + two the 40.
+        # The borders stay inside the budget, including the compact row's extra 6px.
         assert config["width"] == 90, scope
-        assert config["height"] == 34, scope
+        assert config["height"] == expected_height, scope
         # The blank image is what sizes the button in pixels, so it has to match the face
         # the border leaves rather than the one it was drawn around.
         assert config["image"] is images[0]
-    assert [(image.width, image.height) for image in images] == [(90, 34)]
+    assert [(image.width, image.height) for image in images] == [(90, expected_height)]
     # Still ends by highlighting the scope in force, which is what paints the border.
     assert selected == [CommandScope.ENGINE]
 

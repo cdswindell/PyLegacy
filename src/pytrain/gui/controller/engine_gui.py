@@ -1574,7 +1574,9 @@ class EngineGui(GuiZeroBase, Generic[S]):
         # are a fifth of the panel each and have no width to spare.
         border = self.border_size
         button_width = max(1, self.scope_size - (2 * border))
-        button_height = max(1, int(round(40 * self._scale_by)) - (2 * border))
+        # Give Deck touch targets 6px more; image sizing reserves the measured scope row.
+        extra_height = 6 if getattr(self, "_compact", False) else 0
+        button_height = max(1, int(round(40 * self._scale_by)) + extra_height - (2 * border))
         img = tk.PhotoImage(width=button_width, height=button_height)
         self._btn_images.append(img)
         for i, scope_abbrev in enumerate(["ACC", "SW", "RTE", "TR", "ENG"]):
