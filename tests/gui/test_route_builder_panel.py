@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from math import ceil
 from threading import RLock
+from tkinter import font as tkfont
 from types import MethodType, SimpleNamespace
 from unittest.mock import Mock
 
@@ -110,8 +111,9 @@ class Canvas:
     def bbox(self, item):
         _, _, options = self.drawn[item]
         size = options["font"][1]
-        lines = ceil(len(options["text"]) * size / options["width"])
-        return 0, 0, options["width"], lines * (size + 5)
+        width = options["width"] or max(1, len(options["text"]) * size)
+        lines = ceil(len(options["text"]) * size / width)
+        return 0, 0, width, lines * (size + 5)
 
     def itemconfigure(self, item, **kwargs):
         self.drawn[item][2].update(kwargs)
@@ -212,6 +214,7 @@ def panel(monkeypatch):
     monkeypatch.setattr(mod.tk, "StringVar", Variable)
     monkeypatch.setattr(mod.tk, "Radiobutton", Canvas)
     monkeypatch.setattr(mod.tk, "PhotoImage", PhotoImage)
+    monkeypatch.setattr(tkfont, "Font", lambda *, root, font: SimpleNamespace(measure=lambda text: len(text) * font[1]))
     host = SimpleNamespace(
         width=639,
         height=800,
@@ -270,12 +273,13 @@ def add_switch(panel, tmcc_id=7):
 @pytest.mark.parametrize(
     "width,height,compact,system,rows",
     [
-        (639, 800, True, "linux", 3),
+        (639, 800, True, "linux", 4),
+        (480, 800, True, "linux", 3),
         (800, 1280, False, "linux", 6),
         (800, 800, False, "linux", 3),
         (600, 960, False, "darwin", 6),
         (600, 960, False, "win32", 6),
-        (639, 800, True, "darwin", 3),
+        (639, 800, True, "darwin", 4),
     ],
 )
 def test_picker_size_and_page_navigation_follow_available_layout(
@@ -306,6 +310,58 @@ def test_picker_size_and_page_navigation_follow_available_layout(
     panel._on_search(None, None, None)
     assert not panel._picker_next.enabled
     assert not panel._picker_previous.enabled
+
+
+def test_steam_deck_picker_fits_four_touch_rows_in_original_height(panel):
+    assert panel.picker_rows == 4
+    assert panel.picker_row_height - 4 >= 44
+    assert panel._picker.options["height"] <= 3 * 70
+    for tmcc_id in range(1, 6):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    panel.set_sort("TMCC ID")
+    event = SimpleNamespace(x=panel.content_width - 20, y=3.5 * panel.picker_row_height)
+    panel._scroll_start(panel._picker, event)
+    panel._scroll_end(panel._picker, event, False)
+    assert panel._candidate == (CommandScope.SWITCH, 4)
+    assert panel._save_btn.enabled
+    panel.add_selected()
+    assert panel.draft.components[0].tmcc_id == 4
+
+
+def test_steam_deck_picker_aligns_inline_details_and_truncates_long_names(panel):
+    long_name = "W" * 31
+    known_switch(panel, 7, long_name)
+    known_switch(panel, 8, "Short")
+    route = known_route(panel, 4)
+    route._road_name = "Yard exit"
+    panel.open_picker()
+    panel.set_filter("All")
+    texts = [(coords, options) for kind, coords, options in panel._picker.drawn if kind == "text"]
+    assert len(texts) == 4 * len(panel._candidates)
+    columns = None
+    for index, (scope, state) in enumerate(panel._candidates):
+        row = texts[index * 4 : index * 4 + 4]
+        positions = [coords[0] for coords, _ in row]
+        assert positions == sorted(positions)
+        assert columns is None or columns == positions
+        columns = positions
+        assert all(coords[1] == (index + 0.5) * panel.picker_row_height for coords, _ in row)
+        assert all(options["anchor"] == "w" for _, options in row)
+        number = state.road_number if state.is_road_number else "—"
+        assert [options["text"] for _, options in row[1:]] == [
+            scope.title,
+            f"· Road #{number}",
+            f"· ID {state.tmcc_id:02d}",
+        ]
+        name = row[0][1]
+        assert name["font"][1] == panel.gui.s_14
+        assert name["width"] == 0
+        assert positions[0] + len(name["text"]) * name["font"][1] < positions[1]
+        if state.road_name == long_name:
+            assert name["text"].endswith("…")
+            assert len(name["text"]) < len(long_name)
+    assert panel.gui.state_store.get_state(CommandScope.SWITCH, 7).road_name == long_name
 
 
 @pytest.fixture(params=["darwin", "win32"])
@@ -1226,7 +1282,7 @@ def test_picker_arrows_and_tap_use_scrolled_coordinates(panel):
     event = SimpleNamespace(x=40, y=10)
     panel._scroll_start(panel._picker, event)
     panel._scroll_end(panel._picker, event, False)
-    assert panel._candidate == (CommandScope.SWITCH, mod.PICKER_ROWS + 1)
+    assert panel._candidate == (CommandScope.SWITCH, panel.picker_rows + 1)
     panel.scroll_picker(99)
     assert not panel._picker_next.enabled
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from sys import platform
+from tkinter import font as tkfont
 from tkinter import simpledialog
 from typing import TYPE_CHECKING
 
@@ -174,11 +175,19 @@ class RouteBuilderPanel(OverlayPanel):
         return not self.gui.compact and platform in {"darwin", "win32"}
 
     @property
+    def picker_inline_details(self) -> bool:
+        return self.gui.compact and self.content_width >= 600
+
+    @property
     def picker_rows(self) -> int:
+        if self.picker_inline_details:
+            return 4
         return 6 if self.desktop_controls or (not self.gui.compact and self.gui.height >= 1000) else PICKER_ROWS
 
     @property
     def picker_row_height(self) -> int:
+        if self.picker_inline_details:
+            return max(48, int(self.row_height * 1.1))
         if self.desktop_controls:
             return max(44, int(50 * self.gui.width / 639))
         return max(70, int(self.row_height * 1.3))
@@ -728,6 +737,13 @@ class RouteBuilderPanel(OverlayPanel):
     def _draw_picker(self):
         canvas = self._picker
         canvas.delete("all")
+        columns = None
+        if self.picker_inline_details:
+            detail_font = tkfont.Font(root=canvas, font=("Helvetica", self.gui.s_12))
+            id_x = self.content_width - 14 - detail_font.measure("· ID 99")
+            number_x = id_x - 12 - detail_font.measure("· Road #0000")
+            scope_x = number_x - 12 - detail_font.measure("Switch")
+            columns = (scope_x, number_x, id_x)
         canvas.config(
             scrollregion=(
                 0,
@@ -781,27 +797,38 @@ class RouteBuilderPanel(OverlayPanel):
                 )
             text_x = self.indicator_size + 24
             name = self._state_name(state, scope, state.tmcc_id)
+            name_width = (columns[0] if columns else self.content_width) - text_x - 14
             name_item = canvas.create_text(
                 text_x,
-                y + 8,
+                center_y if columns else y + 8,
                 text=name,
-                anchor="nw",
-                width=self.content_width - text_x - 14,
-                font=("Helvetica", min(self.gui.s_14, int(self.picker_row_height * 0.26)), "bold"),
+                anchor="w" if columns else "nw",
+                width=0 if columns else name_width,
+                font=(
+                    "Helvetica",
+                    self.gui.s_14 if columns else min(self.gui.s_14, int(self.picker_row_height * 0.26)),
+                    "bold",
+                ),
             )
             bounds = canvas.bbox(name_item)
-            while name and bounds[3] - bounds[1] > self.picker_row_height * 0.45:
+            while name and (
+                bounds[2] - bounds[0] > name_width if columns else bounds[3] - bounds[1] > self.picker_row_height * 0.45
+            ):
                 name = name[:-1].rstrip()
                 canvas.itemconfigure(name_item, text=f"{name}…")
                 bounds = canvas.bbox(name_item)
             number = state.road_number if state.is_road_number else "—"
-            canvas.create_text(
-                text_x,
-                y + self.picker_row_height - (12 if self.desktop_controls else 18),
-                text=f"{scope.title} · Road #{number} · ID {state.tmcc_id:02d}",
-                anchor="w",
-                font=("Helvetica", min(self.gui.s_12, int(self.picker_row_height * 0.22))),
-            )
+            if columns:
+                for x, text in zip(columns, (scope.title, f"· Road #{number}", f"· ID {state.tmcc_id:02d}")):
+                    canvas.create_text(x, center_y, text=text, anchor="w", font=("Helvetica", self.gui.s_12))
+            else:
+                canvas.create_text(
+                    text_x,
+                    y + self.picker_row_height - (12 if self.desktop_controls else 18),
+                    text=f"{scope.title} · Road #{number} · ID {state.tmcc_id:02d}",
+                    anchor="w",
+                    font=("Helvetica", min(self.gui.s_12, int(self.picker_row_height * 0.22))),
+                )
 
     def choose_candidate(self, index: int) -> None:
         if 0 <= index < len(self._candidates):

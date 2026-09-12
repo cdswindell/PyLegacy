@@ -36,7 +36,14 @@ class PreviewStore:
     def __init__(self):
         self.states = {}
         for tmcc_id, name in enumerate(
-            ("East turnout", "Main siding", "Station approach", "West yard", "Longest switch name on the track"),
+            (
+                "East turnout",
+                "Main siding",
+                "Station approach",
+                "West yard",
+                "Longest switch name on the track",
+                "W" * 31,
+            ),
             1,
         ):
             state = self.add(SwitchState(), CommandScope.SWITCH, tmcc_id, name)
@@ -140,11 +147,34 @@ def check_bounds(app, overlay, panel, width, budget, label):
         assert field.winfo_width() == search_width
         print(f"Search field gained {gained_width} pixels from the shorter label.", flush=True)
         texts = [item for item in panel._picker.find_all() if panel._picker.type(item) == "text"]
+        columns = None
         for index in range(len(panel._candidates)):
-            name, details = [panel._picker.bbox(item) for item in texts[index * 2 : index * 2 + 2]]
-            assert name[3] < details[1], (label, name, details)
-            assert name[1] >= index * panel.picker_row_height
-            assert details[3] <= (index + 1) * panel.picker_row_height
+            count = 4 if panel.picker_inline_details else 2
+            items = texts[index * count : index * count + count]
+            bounds = [panel._picker.bbox(item) for item in items]
+            if panel.picker_inline_details:
+                positions = [panel._picker.coords(item) for item in items]
+                assert all(y == (index + 0.5) * panel.picker_row_height for _, y in positions)
+                assert columns is None or columns == [x for x, _ in positions]
+                columns = [x for x, _ in positions]
+                assert all(left[2] < right[0] for left, right in zip(bounds, bounds[1:])), bounds
+                assert bounds[0][0] > panel.indicator_size + 12
+                assert bounds[-1][2] < panel.content_width - 2
+                if panel._candidates[index][1].road_name == "W" * 31:
+                    assert panel._picker.itemcget(items[0], "text").endswith("…")
+            else:
+                assert bounds[0][3] < bounds[1][1], (label, bounds)
+            assert all(box[1] >= index * panel.picker_row_height for box in bounds), bounds
+            assert all(box[3] <= (index + 1) * panel.picker_row_height for box in bounds), bounds
+        if panel.picker_inline_details:
+            rows = [item for item in panel._picker.find_all() if panel._picker.type(item) == "rectangle"]
+            assert panel.picker_rows == 4
+            assert panel._picker.winfo_height() <= 210
+            for row in rows[:4]:
+                _, top, _, bottom = panel._picker.coords(row)
+                assert bottom - top >= 44
+                assert 0 <= top < bottom <= panel._picker.winfo_height()
+            print("Steam Deck picker: four visible touch rows with aligned, nonoverlapping columns.", flush=True)
 
 
 def check_touch_scroll(app, panel, canvas, horizontal):
@@ -321,7 +351,7 @@ def main():
         assert panel._search_btn.text == "Edit"
         assert panel._candidates == candidates
         assert not panel._save_btn.enabled
-        assert panel.picker_rows == (6 if args.pi or args.pycab else 3)
+        assert panel.picker_rows == (6 if args.pi or args.pycab else 4)
         assert panel._picker.winfo_height() == panel.picker_rows * panel.picker_row_height
         panel.scroll_picker(1)
         app.tk.update_idletasks()
