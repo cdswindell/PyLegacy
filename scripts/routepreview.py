@@ -76,6 +76,7 @@ def check_bounds(app, overlay, panel, width, budget, label):
     requested = (overlay.tk.winfo_reqwidth(), overlay.tk.winfo_reqheight())
     print(f"{label}: popup requests {requested[0]} × {requested[1]}; budget {width} × {budget}", flush=True)
     assert requested[0] <= width and requested[1] <= budget, (label, requested)
+    check_button_sizes(app, panel, width, budget)
     for widget in (panel._save_btn.tk, panel._cancel_btn.tk, panel._clear_route_btn.tk):
         assert widget.winfo_ismapped()
         assert widget.winfo_height() >= 44
@@ -188,6 +189,35 @@ def check_bounds(app, overlay, panel, width, budget, label):
                 assert bottom - top >= 44
                 assert 0 <= top < bottom <= panel._picker.winfo_height()
             print("Steam Deck picker: fitted touch rows with aligned, nonoverlapping columns.", flush=True)
+
+
+def check_button_sizes(app, panel, width, budget):
+    extra = 0 if panel.gui.compact else (7 if panel.desktop_controls else 6)
+    buttons = [panel._save_btn.tk, panel._cancel_btn.tk, panel._clear_route_btn.tk]
+    pending = [(panel._picker_page if panel.picking else panel._main_page).tk]
+    while pending:
+        widget = pending.pop()
+        pending.extend(widget.winfo_children())
+        if isinstance(widget, (tk.Button, tk.Checkbutton, tk.Radiobutton)):
+            buttons.append(widget)
+    assert len(buttons) == (10 if panel.picking else 14)
+    for button in buttons:
+        original_height = (
+            panel.card_height - 2 * panel.button_pad_y
+            if button in (panel._previous_btn.tk, panel._next_btn.tk)
+            else panel.row_height
+        )
+        assert button.winfo_ismapped()
+        assert button.winfo_height() == original_height + extra, (
+            button.cget("text"),
+            button.winfo_height(),
+            original_height + extra,
+        )
+        assert button.winfo_y() >= panel.button_pad_y
+        assert button.winfo_rootx() >= app.tk.winfo_rootx()
+        assert button.winfo_rootx() + button.winfo_width() <= app.tk.winfo_rootx() + width
+        assert button.winfo_rooty() >= app.tk.winfo_rooty()
+        assert button.winfo_rooty() + button.winfo_height() <= app.tk.winfo_rooty() + budget
 
 
 def check_picker_resize(app, overlay, panel, width, budget, reserved):

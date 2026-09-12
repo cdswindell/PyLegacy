@@ -1339,7 +1339,28 @@ def test_search_field_reclaims_label_space_and_uses_search_commit_label(panel, m
         assert metadata.options["commit_label"] == "Save"
 
 
-def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
+@pytest.mark.parametrize(
+    "width,height,compact,system,extra,pad_x,pad_y",
+    [
+        (639, 800, True, "linux", 0, 4, 3),
+        (800, 1280, False, "linux", 6, 5, 4),
+        (631, 1009, False, "darwin", 7, 4, 3),
+        (631, 1009, False, "win32", 7, 4, 3),
+    ],
+)
+def test_route_builder_buttons_have_shading_relief_and_surrounding_space(
+    panel, monkeypatch, width, height, compact, system, extra, pad_x, pad_y
+):
+    panel.gui.width = panel.gui.emergency_box_width = width
+    panel.gui.height = height
+    monkeypatch.setattr(panel.gui, "compact", compact)
+    monkeypatch.setattr(mod, "platform", system)
+    panel.build(Widget())
+    panel.build_footer(Widget())
+    assert panel.row_height == max(44, int(44 * width / 639))
+    assert panel.card_height == int(int(panel.row_height * 3.5) * 0.75)
+    assert (panel.button_pad_x, panel.button_pad_y) == (pad_x, pad_y)
+    assert panel.control_row_height == panel.row_height + extra + 2 * pad_y
     buttons = [
         panel._previous_btn,
         panel._next_btn,
@@ -1357,6 +1378,7 @@ def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
     for field in (panel._name_field, panel._number_field, panel._search_field):
         row = field.parent.parent
         buttons.extend(child for slot in row.children for child in slot.children if child.text == "Edit")
+        assert row.options["height"] == panel.control_row_height
     assert len(buttons) == 18
     for button in buttons:
         assert button.options["relief"] == "raised"
@@ -1366,6 +1388,16 @@ def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
         assert button.parent.options["padx"] >= 4
         assert button.parent.options["pady"] >= 3
         assert button.parent.options["height"] - 2 * button.parent.options["pady"] >= 44
+        original_height = (
+            panel.card_height if button in (panel._previous_btn, panel._next_btn) else panel.row_height + 2 * pad_y
+        )
+        assert button.parent.options["height"] == original_height + extra
+        assert (button.parent.options["padx"], button.parent.options["pady"]) == (pad_x, pad_y)
+    assert panel._positions.options["height"] == panel.control_row_height
+    assert panel._show_unlabeled.parent.options["height"] == panel.control_row_height
+    assert panel._cards.options["height"] == panel.card_height
+    if not compact:
+        assert panel._tmcc_id_field.parent.parent.options["height"] == panel.control_row_height
 
 
 def test_switch_radios_use_large_indicators_and_keep_exclusive_draft_selection(panel):

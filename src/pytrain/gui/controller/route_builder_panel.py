@@ -174,8 +174,14 @@ class RouteBuilderPanel(OverlayPanel):
         return max(3, round(self.gui.width / 210))
 
     @property
+    def button_height_extra(self) -> int:
+        if self.gui.compact:
+            return 0
+        return 7 if self.desktop_controls else 6
+
+    @property
     def control_row_height(self) -> int:
-        return self.row_height + 2 * self.button_pad_y
+        return self.row_height + self.button_height_extra + 2 * self.button_pad_y
 
     @property
     def indicator_size(self) -> int:
@@ -379,7 +385,7 @@ class RouteBuilderPanel(OverlayPanel):
             "‹",
             lambda: self.select_relative(-1),
             width=self.row_height,
-            height=self.card_height,
+            height=self.card_height + self.button_height_extra,
             align="left",
         )
         self._cards = self._canvas(strip, self.card_height, True)
@@ -388,7 +394,7 @@ class RouteBuilderPanel(OverlayPanel):
             "›",
             lambda: self.select_relative(1),
             width=self.row_height,
-            height=self.card_height,
+            height=self.card_height + self.button_height_extra,
             align="left",
         )
         self._selection = Text(self._main_page, text="", size=self.gui.s_12, width="fill", height=1)
