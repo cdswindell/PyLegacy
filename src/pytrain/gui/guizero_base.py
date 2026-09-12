@@ -54,6 +54,7 @@ log = logging.getLogger(__name__)
 E = TypeVar("E", bound=CommandDefEnum)
 LIONEL_ORANGE = "#FF6600"
 LIONEL_BLUE = "#003366"
+ACTIVE_STATE_BG = "#4c9a4c"  # "#66b366"
 
 GUI_CLEANUP_EXCEPTIONS = (AttributeError, RuntimeError, TclError, TypeError, ValueError)
 WINDOW_SIZE_EXCEPTIONS = (ImportError, RuntimeError, TclError)

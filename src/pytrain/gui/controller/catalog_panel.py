@@ -15,7 +15,7 @@ from .configured_accessory_adapter import ConfiguredAccessoryAdapter
 from .overlay_panel import OverlayPanel
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.touch_list_box import TouchListBox
-from ..guizero_base import LIONEL_BLUE, LIONEL_ORANGE
+from ..guizero_base import ACTIVE_STATE_BG, LIONEL_BLUE, LIONEL_ORANGE
 from ...db.accessory_state import AccessoryState
 from ...db.component_state import RouteState, SwitchState
 from ...db.engine_state import EngineState
@@ -219,9 +219,9 @@ class CatalogPanel(OverlayPanel):
                         elif state.is_asc2 and state.is_aux2_on:
                             self._catalog.set_item_style(background="green")
                     elif isinstance(state, SwitchState) and state.is_thru:
-                        self._catalog.set_item_style(background="green")
+                        self._catalog.set_item_style(background=ACTIVE_STATE_BG)
                     elif isinstance(state, RouteState) and state.is_aligned:
-                        self._catalog.set_item_style(background="green")
+                        self._catalog.set_item_style(background=ACTIVE_STATE_BG)
             self._scope = scope or self.gui.scope
 
     def configure_selection_btns(self, scope: CommandScope):

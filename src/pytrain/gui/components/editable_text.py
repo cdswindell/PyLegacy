@@ -54,6 +54,7 @@ class EditableText(Text):
     temporarily placed over the label, so the existing GuiZero layout code does not need to change.
     Keyboard and Keypad use the physical keyboard by default on macOS and Windows;
     other platforms keep the on-screen editors. Choices always uses the generated list.
+    The on-screen editors use commit_label for their confirmation button, defaulting to "Save".
     """
 
     def __init__(
@@ -66,6 +67,7 @@ class EditableText(Text):
         editor: EditorType | None = EditorType.KEYBOARD,
         compact: bool = False,
         field_name: str = "",
+        commit_label: str = "Save",
         choices: dict[Any, Any] | None = None,
         initial_value: Any = None,
         choice_rows: int = 12,
@@ -93,6 +95,7 @@ class EditableText(Text):
         # only on a compact pane: it is centered there rather than dropping out of the field, so
         # it covers the label that would otherwise say what is being edited.
         self.field_name = str(field_name or "")
+        self.commit_label = commit_label
         self._editable = editor is not None
         self.max_length = max_length
         self.choices = choices or {}
@@ -472,7 +475,7 @@ class EditableText(Text):
         self._make_repeat_key(action_row, "↓", lambda: self._move_choice(1), weight=1)
         self._make_key(action_row, "Current", lambda: self._select_choice_key(self._value_before_edit), weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Save", self.commit_edit, weight=1)
+        self._make_key(action_row, self.commit_label, self.commit_edit, weight=1)
 
         self._choice_listbox = tk.Listbox(
             picker,
@@ -878,7 +881,7 @@ class EditableText(Text):
         action_row.pack(fill="x", padx=self._ui(8), pady=(self._ui(8), 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Save", self.commit_edit, weight=1)
+        self._make_key(action_row, self.commit_label, self.commit_edit, weight=1)
 
         for row_idx, keys in enumerate(self._keyboard_rows()):
             row = tk.Frame(kb, background="#202020")
@@ -917,7 +920,7 @@ class EditableText(Text):
         action_row.pack(fill="x", padx=self._ui(8), pady=(self._ui(8), 0))
         self._make_key(action_row, "Clear", self._clear_entry, weight=1)
         self._make_key(action_row, "Cancel", self.cancel_edit, weight=1)
-        self._make_key(action_row, "Save", self.commit_edit, weight=1)
+        self._make_key(action_row, self.commit_label, self.commit_edit, weight=1)
 
         for keys in (("7", "8", "9"), ("4", "5", "6"), ("1", "2", "3")):
             row = tk.Frame(kb, background="#202020")

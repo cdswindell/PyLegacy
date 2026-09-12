@@ -642,6 +642,56 @@ def test_builtin_keyboard_is_shown_and_inserts_text(editable_text_module, monkey
     assert any(btn.text == "Del" for btn in DummyButton.instances)
 
 
+@pytest.mark.parametrize("editor", ["KEYBOARD", "KEYPAD", "CHOICES"])
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("options,label", [({}, "Save"), ({"commit_label": "Search"}, "Search")])
+def test_editor_commit_label_defaults_to_save_and_can_be_customized(
+    editable_text_module, monkeypatch, editor, compact, options, label
+) -> None:
+    DummyButton.instances = []
+    monkeypatch.setattr(editable_text_module.tk, "Toplevel", DummyWindow)
+    monkeypatch.setattr(editable_text_module.tk, "Frame", DummyFrame)
+    monkeypatch.setattr(editable_text_module.tk, "Label", DummyLabel)
+    monkeypatch.setattr(editable_text_module.tk, "Listbox", DummyListbox)
+    monkeypatch.setattr(editable_text_module.tk, "Button", DummyButton)
+    seen = []
+    widget = editable_text_module.EditableText(
+        None,
+        text="1",
+        debounce_ms=0,
+        compact=compact,
+        editor=getattr(editable_text_module.EditorType, editor),
+        choices={1: "Old", 2: "New"},
+        initial_value=1,
+        on_commit=lambda field, new, old: seen.append((field, new, old)),
+        **options,
+    )
+    widget.begin_edit()
+    if editor == "CHOICES":
+        window = widget._choice_window
+        widget._select_choice_index(1)
+    else:
+        widget.tk.run_after(widget._keyboard_after_id)
+        window = widget._keyboard_window
+        widget._insert_text("2")
+
+    for mode in ("upper", "lower", "symbols", "upper") if editor == "KEYBOARD" else (None,):
+        if mode is not None:
+            DummyButton.instances = []
+            widget._set_keyboard_mode(mode)
+        commit = next(button for button in DummyButton.instances if button.command == widget.commit_edit)
+        assert commit.text == label
+        assert commit.master.children[-1] is commit
+        assert commit.master.children[-2].text == "Cancel"
+        if editor != "CHOICES":
+            assert [button.text for button in commit.master.children] == ["Clear", "Cancel", label]
+
+    commit.command()
+    assert seen == [(widget, 2, 1) if editor == "CHOICES" else (widget, "2", "1")]
+    assert not widget.is_editing
+    assert window.destroyed
+
+
 def test_builtin_keyboard_supports_lower_upper_and_symbols(
     editable_text_module,
     monkeypatch: pytest.MonkeyPatch,

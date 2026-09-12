@@ -29,6 +29,7 @@ from pytrain.gui.controller import route_builder_panel
 from pytrain.gui.controller.popup_manager import PopupManager
 from pytrain.gui.controller.route_builder_panel import RouteBuilderPanel
 from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
 
 class PreviewStore:
@@ -38,7 +39,8 @@ class PreviewStore:
             ("East turnout", "Main siding", "Station approach", "West yard", "Longest switch name on the track"),
             1,
         ):
-            self.add(SwitchState(), CommandScope.SWITCH, tmcc_id, name)
+            state = self.add(SwitchState(), CommandScope.SWITCH, tmcc_id, name)
+            state._state = TMCC1SwitchCommandEnum.THRU if tmcc_id % 2 else TMCC1SwitchCommandEnum.OUT
         route = self.add(RouteState(), CommandScope.ROUTE, 4, "Yard exit")
         route.comp_data.components = [RouteComponent(4, 1)]
         route = self.add(RouteState(), CommandScope.ROUTE, 12, "Yard departure")
@@ -124,6 +126,19 @@ def check_bounds(app, overlay, panel, width, budget, label):
             assert radio.winfo_height() >= 44
             assert radio.winfo_width() >= radio.winfo_reqwidth()
     else:
+        field = panel._search_field.tk
+        caption = field.master.master.winfo_children()[0]
+        assert caption.cget("text") == "Search"
+        assert int(caption.cget("width")) == 6
+        search_width, caption_width = field.winfo_width(), caption.winfo_width()
+        caption.config(width=12)
+        app.tk.update_idletasks()
+        gained_width = search_width - field.winfo_width()
+        assert gained_width == caption.winfo_width() - caption_width > 0
+        caption.config(width=6)
+        app.tk.update_idletasks()
+        assert field.winfo_width() == search_width
+        print(f"Search field gained {gained_width} pixels from the shorter label.", flush=True)
         texts = [item for item in panel._picker.find_all() if panel._picker.type(item) == "text"]
         for index in range(len(panel._candidates)):
             name, details = [panel._picker.bbox(item) for item in texts[index * 2 : index * 2 + 2]]
@@ -259,6 +274,53 @@ def main():
         panel.open_picker()
         panel.set_filter("All")
         check_bounds(app, overlay, panel, width, budget, "Picker")
+        assert panel._candidate is None
+        assert not panel._save_btn.enabled
+        assert str(panel._save_btn.tk.cget("state")) == "disabled"
+        before = RouteComponent.to_bytes(panel.draft.components)
+        panel._save_btn.tk.invoke()
+        assert panel._picking and RouteComponent.to_bytes(panel.draft.components) == before
+        rows = [item for item in panel._picker.find_all() if panel._picker.type(item) == "rectangle"]
+        for row, (scope, state) in zip(rows, panel._candidates):
+            active = state.is_thru if scope == CommandScope.SWITCH else state.is_aligned
+            assert panel._picker.itemcget(row, "fill") == (
+                route_builder_panel.ACTIVE_STATE_BG if active else route_builder_panel.CARD_BG
+            )
+        panel.choose_candidate(0)
+        assert panel._save_btn.enabled
+        assert str(panel._save_btn.tk.cget("state")) == "normal"
+        candidates = panel._candidates.copy()
+        field = panel._search_field
+        assert panel._search_btn.text == "Edit"
+        panel._search_btn.tk.invoke()
+        app.tk.after(field.debounce_ms + 100, app.tk.quit)
+        app.tk.mainloop()
+        assert field.is_editing
+        field._insert_text("no matches")
+        if args.pycab:
+            assert field._keyboard_window is None
+            field.commit_edit()
+        else:
+            actions = field._keyboard_window.winfo_children()[0].winfo_children()
+            assert [button.cget("text") for button in actions] == ["Clear", "Cancel", "Search"]
+            actions[-1].invoke()
+        assert not field.is_editing
+        assert field.value == "no matches"
+        assert panel._candidates == []
+        assert panel._candidate is None
+        assert str(panel._save_btn.tk.cget("state")) == "disabled"
+        assert panel._search_btn.text == "Clear"
+        app.tk.update_idletasks()
+        assert panel._search_btn.tk.winfo_width() >= panel._search_btn.tk.winfo_reqwidth(), (
+            panel._search_btn.tk.winfo_width(),
+            panel._search_btn.tk.winfo_reqwidth(),
+        )
+        panel._search_btn.tk.invoke()
+        assert field.value == ""
+        assert not field.is_editing
+        assert panel._search_btn.text == "Edit"
+        assert panel._candidates == candidates
+        assert not panel._save_btn.enabled
         assert panel.picker_rows == (6 if args.pi or args.pycab else 3)
         assert panel._picker.winfo_height() == panel.picker_rows * panel.picker_row_height
         panel.scroll_picker(1)
@@ -303,6 +365,8 @@ def main():
                 assert keyboard is not None
                 assert keyboard.winfo_rootx() >= app.tk.winfo_rootx()
                 assert keyboard.winfo_rootx() + keyboard.winfo_width() <= app.tk.winfo_rootx() + width
+                actions = keyboard.winfo_children()[0].winfo_children()
+                assert [button.cget("text") for button in actions] == ["Clear", "Cancel", "Save"]
             field.cancel_edit()
         for tmcc_id in range(16, 3, -1):
             panel.draft.set_component(None, tmcc_id, 0, panel._lookup_route)

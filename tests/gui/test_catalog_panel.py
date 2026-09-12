@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import pytest
+
+from src.pytrain.db.component_state import RouteState, SwitchState
 from src.pytrain.gui.controller.catalog_panel import CatalogPanel
+from src.pytrain.gui.guizero_base import ACTIVE_STATE_BG
 from src.pytrain.protocol.constants import CommandScope
+from src.pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
 
 class _Button:
@@ -13,12 +20,17 @@ class _Button:
 class _Catalog:
     def __init__(self) -> None:
         self.items: list[str] = []
+        self.styles: dict[int, dict] = {}
 
     def clear(self) -> None:
         self.items.clear()
+        self.styles.clear()
 
     def append(self, item: str) -> None:
         self.items.append(item)
+
+    def set_item_style(self, **kwargs) -> None:
+        self.styles[len(self.items) - 1] = kwargs
 
 
 class _Accessory:
@@ -143,3 +155,42 @@ def test_reset_configured_accessory_cache_rebuilds_from_current_scope() -> None:
         "New Crane": "adapter:New Crane",
         "New Loader": "adapter:New Loader",
     }
+
+
+@pytest.mark.parametrize("scope", [CommandScope.SWITCH, CommandScope.ROUTE])
+@pytest.mark.parametrize("sort_order", [0, 1, 2])
+def test_active_catalog_rows_use_lighter_green_and_reset_when_inactive(scope, sort_order) -> None:
+    state = SwitchState() if scope == CommandScope.SWITCH else RouteState()
+    state._address = 7
+    state.initialize(scope, 7)
+    state._road_name = "Main siding"
+    state._road_number = "0007"
+    panel = CatalogPanel.__new__(CatalogPanel)
+    panel._overlay = object()
+    panel._state_store = SimpleNamespace(get_all=lambda _scope: [state])
+    panel._catalog = _Catalog()
+    panel._scope = None
+    panel._scoped_sort_order = {scope: sort_order}
+    panel._scoped_selection = {}
+    panel._sort_btns = SimpleNamespace(value="0")
+    panel._sel_1_btn = _Button()
+    panel._sel_2_btn = _Button()
+    panel._sel_3_btn = _Button()
+    panel._entry_state_map = {}
+
+    for active in (True, False, None, True):
+        if scope == CommandScope.SWITCH:
+            state._state = {True: TMCC1SwitchCommandEnum.THRU, False: TMCC1SwitchCommandEnum.OUT, None: None}[active]
+        else:
+            state._signature = {"S7": True}
+            state._current_state = {"S7": active}
+        panel.configure(scope)
+        assert len(panel._catalog.items) == 1
+        assert panel._catalog.styles == ({0: {"background": "#4c9a4c"}} if active else {})
+
+
+def test_active_background_has_high_contrast_with_black_text() -> None:
+    channels = [int(ACTIVE_STATE_BG[index : index + 2], 16) / 255 for index in (1, 3, 5)]
+    linear = [channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4 for channel in channels]
+    luminance = sum(weight * channel for weight, channel in zip((0.2126, 0.7152, 0.0722), linear))
+    assert (luminance + 0.05) / 0.05 >= 6

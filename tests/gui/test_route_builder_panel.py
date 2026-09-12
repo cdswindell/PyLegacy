@@ -22,13 +22,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from pytrain.db.component_state import RouteState
+from pytrain.db.component_state import RouteState, SwitchState
 from pytrain.db.component_state_store import ComponentStateStore
 from pytrain.db.components import RouteComponent
 from pytrain.gui.controller import engine_gui as gui_mod
 from pytrain.gui.controller import route_builder_panel as mod
 from pytrain.gui.controller.popup_manager import PopupManager
 from pytrain.protocol.constants import CommandScope
+from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
 
 class Widget:
@@ -43,11 +44,13 @@ class Widget:
         self.enabled = True
         self.is_editing = self.is_changed = False
         self.tk = SimpleNamespace(
+            master=self.parent.tk if isinstance(self.parent, Widget) else None,
             config=lambda **kw: self.options.update(kw),
             pack_propagate=lambda _value: None,
             grid_propagate=lambda _value: None,
             grid_columnconfigure=lambda *_args, **_kw: None,
             grid_rowconfigure=lambda *_args, **_kw: None,
+            winfo_reqwidth=lambda: 100,
         )
 
     def show(self):
@@ -630,6 +633,27 @@ def test_desktop_card_browsing_hint(desktop_panel):
     assert desktop_panel._main_page.children[1].value == "Select a card to modify; scroll or use ← / → to browse."
 
 
+@pytest.mark.parametrize("width,height,compact", [(800, 1280, False), (631, 1009, False), (639, 800, True)])
+def test_search_field_reclaims_label_space_and_uses_search_commit_label(panel, width, height, compact):
+    panel.gui.width = panel.gui.emergency_box_width = width
+    panel.gui.height, panel.gui.compact = height, compact
+    panel.build(Widget())
+    field = panel._search_field
+    row = field.parent.parent
+    caption = row.children[0]
+    assert caption.value == "Search"
+    assert caption.options["width"] == 6
+    assert row.options["width"] == panel.content_width
+    assert field.parent.options["width"] == "fill"
+    assert field.options["width"] == "fill"
+    assert field.options["field_name"] == "Search"
+    assert field.options["commit_label"] == "Search"
+    assert field.options["on_commit"] == panel._on_search
+    for metadata in (panel._name_field, panel._number_field):
+        assert metadata.parent.parent.children[0].options["width"] == 12
+        assert metadata.options["commit_label"] == "Save"
+
+
 def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
     buttons = [
         panel._previous_btn,
@@ -687,6 +711,40 @@ def test_picker_indicators_are_large_circles_not_font_glyphs(panel):
     assert rings[0][2] - rings[0][0] >= 24
     panel.choose_candidate(0)
     assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == 2
+
+
+@pytest.mark.parametrize("filter_name", ["Switches", "Routes", "All"])
+@pytest.mark.parametrize("selected", [False, True])
+def test_picker_backgrounds_match_catalog_state_and_preserve_selection(panel, filter_name, selected):
+    switch = SwitchState()
+    switch._address = 7
+    switch.initialize(CommandScope.SWITCH, 7)
+    panel.gui.state_store.states[(CommandScope.SWITCH, 7)] = switch
+    route = known_route(panel, 7, [RouteComponent(7, 0)])
+    route._signature = {"S7": True}
+    panel.open_picker()
+    panel.set_filter(filter_name)
+
+    for active in (True, False, None):
+        switch._state = {True: TMCC1SwitchCommandEnum.THRU, False: TMCC1SwitchCommandEnum.OUT, None: None}[active]
+        route._current_state = {"S7": active}
+        for index in range(len(panel._candidates)):
+            if selected:
+                panel.choose_candidate(index)
+            else:
+                panel._draw_picker()
+            rows = [options for kind, _, options in panel._picker.drawn if kind == "rectangle"]
+            for row_index, row in enumerate(rows):
+                is_selected = selected and row_index == index
+                assert row["fill"] == (
+                    mod.ACTIVE_STATE_BG if active else mod.SELECTED_BG if is_selected else mod.CARD_BG
+                )
+                assert row["outline"] == (mod.SELECTED_COLOR if is_selected else "#c1c8d0")
+            dots = [
+                options for kind, _, options in panel._picker.drawn if kind == "oval" and options["fill"] != "white"
+            ]
+            assert len(dots) == int(selected)
+            assert panel._save_btn.enabled is selected
 
 
 def test_long_card_names_fit_without_changing_the_full_selection_label(panel):
@@ -988,6 +1046,45 @@ def test_clear_all_requires_confirmation_and_preserves_metadata(panel):
     assert panel.draft.road_name == "Yard"
 
 
+@pytest.mark.parametrize("filter_name", ["Switches", "Routes", "All"])
+def test_add_to_route_requires_a_current_selection(panel, filter_name):
+    known_switch(panel)
+    known_route(panel)
+    panel.open_picker()
+    panel.set_filter(filter_name)
+    assert panel._save_btn.text == "Add to Route"
+    assert panel._candidate is None
+    assert not panel._save_btn.enabled
+    panel.save()
+    assert panel.draft.components == ()
+    panel.set_sort("TMCC ID")
+    panel.toggle_sort_direction()
+    assert not panel._save_btn.enabled
+
+    event = SimpleNamespace(x=40, y=10)
+    panel._scroll_start(panel._picker, event)
+    panel._scroll_end(panel._picker, event, False)
+    assert panel._candidate is not None
+    assert panel._save_btn.enabled
+    panel.set_sort("Name")
+    assert panel._save_btn.enabled
+    panel._search_field.value = "no matches"
+    panel._on_search(None, None, None)
+    assert panel._candidate is None
+    assert not panel._save_btn.enabled
+    panel._search_field.value = ""
+    panel._on_search(None, None, None)
+    assert not panel._save_btn.enabled
+    panel._navigate_list(1, False)
+    assert panel._save_btn.enabled
+    panel.cancel()
+    assert panel._save_btn.text == "Save Route"
+    assert panel._save_btn.enabled
+    panel.open_picker()
+    assert panel._candidate is None
+    assert not panel._save_btn.enabled
+
+
 def test_picker_filter_sort_search_and_choices_are_remembered(panel):
     known_switch(panel, 7, "Alpha")
     known_switch(panel, 3, "zulu")
@@ -1014,6 +1111,87 @@ def test_picker_filter_sort_search_and_choices_are_remembered(panel):
     assert not panel._candidates
     assert not panel._save_btn.enabled
     assert panel._candidate is None
+
+
+@pytest.mark.parametrize("filter_name", ["Switches", "Routes", "All"])
+@pytest.mark.parametrize("search", ["ALP", "no match", "   "])
+def test_search_button_clears_text_and_restores_filtered_sorted_list(panel, filter_name, search):
+    known_switch(panel, 7, "Alpha")
+    known_switch(panel, 3, "Zulu")
+    known_switch(panel, 8, "Deleted", deleted=True)
+    known_route(panel, 7)._road_name = "Alpha route"
+    known_route(panel, 4)._road_name = "Yard route"
+    panel.open_picker()
+    panel.set_filter(filter_name)
+    panel.set_sort("TMCC ID")
+    panel.toggle_sort_direction()
+    candidates = panel._candidates.copy()
+    field = panel._search_field
+    button = field.parent.parent.children[1].children[0]
+    assert button.text == "Edit"
+    button.command()
+    assert field.is_editing
+    field.cancel_edit()
+
+    field.value = search
+    panel._on_search(field, search, "")
+    assert button.text == "Clear"
+    assert panel._candidates == [
+        (scope, state) for scope, state in candidates if search.strip().casefold() in state.road_name.casefold()
+    ]
+    panel.cancel()
+    panel.open_picker()
+    assert button.text == "Clear"
+    button.command()
+
+    assert field.value == ""
+    assert not field.is_editing
+    assert button.text == "Edit"
+    assert panel._candidates == candidates
+    assert panel._picker_count.value.startswith(f"{len(candidates)} available")
+    assert panel._picker.yview()[0] == 0
+    assert (panel._filter, panel._sort, panel._descending) == (filter_name, "TMCC ID", True)
+    assert panel._candidate is None
+    assert not panel._save_btn.enabled
+    assert not panel.draft.dirty
+    button.command()
+    assert field.is_editing
+
+
+def test_search_can_still_be_edited_by_selecting_text_and_cleared_during_edit(panel):
+    known_switch(panel)
+    panel.open_picker()
+    field = panel._search_field
+    button = field.parent.parent.children[1].children[0]
+    field.value = "Main"
+    panel._on_search(field, "Main", "")
+    assert button.text == "Clear"
+    field.when_clicked()
+    assert field.is_editing
+    button.command()
+    assert field.value == ""
+    assert not field.is_editing
+    assert button.text == "Edit"
+    assert len(panel._candidates) == 1
+
+
+def test_clearing_search_in_editor_restores_edit_button_without_changing_metadata_buttons(panel):
+    known_switch(panel)
+    panel.open_picker()
+    field = panel._search_field
+    button = field.parent.parent.children[1].children[0]
+    field.value = "Main"
+    panel._on_search(field, "Main", "")
+    assert button.text == "Clear"
+    field.value = ""
+    panel._on_search(field, "", "Main")
+    assert button.text == "Edit"
+    for metadata in (panel._name_field, panel._number_field):
+        metadata.value = "12"
+        edit = metadata.parent.parent.children[1].children[0]
+        assert edit.text == "Edit"
+        edit.command()
+        assert metadata.is_editing
 
 
 def test_picker_selection_distinguishes_route_and_switch_with_same_id(panel):

@@ -28,7 +28,8 @@ from .route_draft import RouteDraft
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
-from ...db.component_state import RouteState
+from ..guizero_base import ACTIVE_STATE_BG
+from ...db.component_state import RouteState, SwitchState
 from ...pdi.base_req import BaseReq
 from ...protocol.constants import CommandScope
 
@@ -104,6 +105,7 @@ class RouteBuilderPanel(OverlayPanel):
         self._main_page = self._picker_page = None
         self._cards = self._picker = None
         self._name_field = self._number_field = self._search_field = None
+        self._search_btn = None
         self._tmcc_id_field: Text | None = None
         self._status = self._save_btn = self._cancel_btn = None
         self._clear_route_btn = None
@@ -219,10 +221,21 @@ class RouteBuilderPanel(OverlayPanel):
             for i, (text, command) in enumerate(buttons)
         )
 
-    def _field(self, parent, label, editor=None, max_length=None, on_commit=None, *, width=None):
+    def _field(
+        self,
+        parent,
+        label,
+        editor=None,
+        max_length=None,
+        on_commit=None,
+        *,
+        width=None,
+        label_width=12,
+        commit_label="Save",
+    ):
         row = Box(parent, align="top", width=width or self.content_width, height=self.control_row_height)
         row.tk.pack_propagate(False)
-        caption = Text(row, text=label, align="left", size=self.gui.s_12, width=12)
+        caption = Text(row, text=label, align="left", size=self.gui.s_12, width=label_width)
         caption.tk.config(anchor="e", justify="right", padx=6)
         if editor is not None:
             edit = self._button(row, "Edit", None, align="right", width=int(self.row_height * 1.6))
@@ -232,13 +245,14 @@ class RouteBuilderPanel(OverlayPanel):
         if editor is None:
             field = Text(field_slot, text="", size=self.gui.s_14, align="left", width="fill", height="fill")
             field.tk.config(bd=1, anchor="w", padx=6)
-            return field
+            return field, None
         field = EditableText(
             field_slot,
             text="",
             editor=editor,
             compact=bool(self.gui.compact),
             field_name=label,
+            commit_label=commit_label,
             max_length=max_length,
             size=self.gui.s_14,
             align="left",
@@ -249,7 +263,7 @@ class RouteBuilderPanel(OverlayPanel):
         field.tk.config(relief="sunken", bd=1, anchor="w", padx=6)
         field.when_clicked = field.begin_edit
         edit.update_command(field.begin_edit)
-        return field
+        return field, edit
 
     def _canvas(self, parent, height, horizontal):
         width = self.card_view_width if horizontal else self.content_width
@@ -372,14 +386,14 @@ class RouteBuilderPanel(OverlayPanel):
         self._metadata_box = TitleBox(self._main_page, text="Info", align="top")
         self._metadata_box.tk.config(bd=1, relief="groove", padx=self.button_pad_x, pady=self.button_pad_y)
         field_width = self.content_width - 2 * (self.button_pad_x + 1)
-        self._name_field = self._field(
+        self._name_field, _ = self._field(
             self._metadata_box, "Route Name", EditorType.KEYBOARD, 31, self._on_metadata, width=field_width
         )
-        self._number_field = self._field(
+        self._number_field, _ = self._field(
             self._metadata_box, "Route #", EditorType.KEYPAD, 4, self._on_metadata, width=field_width
         )
-        self._tmcc_id_field = (
-            self._field(self._metadata_box, "TMCC ID", width=field_width) if not self.gui.compact else None
+        self._tmcc_id_field, _ = (
+            self._field(self._metadata_box, "TMCC ID", width=field_width) if not self.gui.compact else (None, None)
         )
         if self.section_gap:
             Box(self._main_page, align="top", width=1, height=self.section_gap)
@@ -396,7 +410,15 @@ class RouteBuilderPanel(OverlayPanel):
             ("TMCC ID", lambda: self.set_sort("TMCC ID")),
             ("Ascending ↑", self.toggle_sort_direction),
         )
-        self._search_field = self._field(self._picker_page, "Search name", EditorType.KEYBOARD, 31, self._on_search)
+        self._search_field, self._search_btn = self._field(
+            self._picker_page, "Search", EditorType.KEYBOARD, 31, self._on_search, label_width=6, commit_label="Search"
+        )
+        self._search_btn.text = "Clear"
+        self._search_btn.tk.master.config(
+            width=max(int(self.row_height * 1.6), self._search_btn.tk.winfo_reqwidth() + 2 * self.button_pad_x)
+        )
+        self._search_btn.text = "Edit"
+        self._search_btn.update_command(self._edit_search)
         self._picker_count = Text(self._picker_page, text="", size=self.gui.s_12)
         self._picker = self._canvas(self._picker_page, self.picker_row_height * self.picker_rows, False)
         self._picker.config(
@@ -658,7 +680,16 @@ class RouteBuilderPanel(OverlayPanel):
     def _on_search(self, _field, _new, _old) -> None:
         self._refresh_picker()
 
+    def _edit_search(self) -> None:
+        if self._search_field.value:
+            self._search_field.cancel_edit()
+            self._search_field.value = ""
+            self._refresh_picker()
+        else:
+            self._search_field.begin_edit()
+
     def _refresh_picker(self) -> None:
+        self._search_btn.text = "Clear" if self._search_field.value else "Edit"
         scopes = (
             (CommandScope.SWITCH, CommandScope.ROUTE)
             if self._filter == "All"
@@ -716,12 +747,15 @@ class RouteBuilderPanel(OverlayPanel):
         for index, (scope, state) in enumerate(self._candidates):
             y = index * self.picker_row_height
             selected = self._candidate == (scope, state.tmcc_id)
+            active = (isinstance(state, SwitchState) and state.is_thru) or (
+                isinstance(state, RouteState) and state.is_aligned
+            )
             canvas.create_rectangle(
                 2,
                 y + 2,
                 self.content_width - 2,
                 y + self.picker_row_height - 2,
-                fill=SELECTED_BG if selected else CARD_BG,
+                fill=ACTIVE_STATE_BG if active else SELECTED_BG if selected else CARD_BG,
                 outline=SELECTED_COLOR if selected else "#c1c8d0",
             )
             radius = self.indicator_size / 2
