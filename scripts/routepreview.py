@@ -133,6 +133,13 @@ def check_bounds(app, overlay, panel, width, budget, label):
             assert radio.winfo_height() >= 44
             assert radio.winfo_width() >= radio.winfo_reqwidth()
     else:
+        canvas, bar = panel._picker, panel._picker_scrollbar
+        assert bar.winfo_ismapped()
+        assert bar.winfo_width() == panel.picker_bar_width >= 30
+        assert bar.winfo_height() == canvas.winfo_height()
+        assert canvas.winfo_width() == panel.picker_view_width
+        assert canvas.winfo_rootx() + canvas.winfo_width() == bar.winfo_rootx()
+        assert bar.winfo_rootx() + bar.winfo_width() <= panel._picker_page.tk.winfo_rootx() + panel.content_width
         field = panel._search_field.tk
         caption = field.master.master.winfo_children()[0]
         assert caption.cget("text") == "Search"
@@ -159,13 +166,14 @@ def check_bounds(app, overlay, panel, width, budget, label):
                 columns = [x for x, _ in positions]
                 assert all(left[2] < right[0] for left, right in zip(bounds, bounds[1:])), bounds
                 assert bounds[0][0] > panel.indicator_size + 12
-                assert bounds[-1][2] < panel.content_width - 2
+                assert bounds[-1][2] < panel.picker_view_width - 2
                 if panel._candidates[index][1].road_name == "W" * 31:
                     assert panel._picker.itemcget(items[0], "text").endswith("…")
             else:
                 assert bounds[0][3] < bounds[1][1], (label, bounds)
             assert all(box[1] >= index * panel.picker_row_height for box in bounds), bounds
             assert all(box[3] <= (index + 1) * panel.picker_row_height for box in bounds), bounds
+            assert all(0 <= box[0] < box[2] < panel.picker_view_width for box in bounds), bounds
         if panel.picker_inline_details:
             rows = [item for item in panel._picker.find_all() if panel._picker.type(item) == "rectangle"]
             assert panel.picker_rows == 4
@@ -175,6 +183,40 @@ def check_bounds(app, overlay, panel, width, budget, label):
                 assert bottom - top >= 44
                 assert 0 <= top < bottom <= panel._picker.winfo_height()
             print("Steam Deck picker: four visible touch rows with aligned, nonoverlapping columns.", flush=True)
+
+
+def check_picker_scrollbar(app, panel):
+    canvas, bar = panel._picker, panel._picker_scrollbar
+    command = bar.cget("command")
+    before = RouteComponent.to_bytes(panel.draft.components)
+    dirty = panel.draft.dirty
+    app.tk.call(command, "scroll", 1, "units")
+    app.tk.update_idletasks()
+    assert round(canvas.canvasy(0)) == panel.picker_row_height
+    assert bar.get() == canvas.yview()
+    app.tk.call(command, "moveto", 0)
+    app.tk.call(command, "scroll", 1, "pages")
+    app.tk.update_idletasks()
+    assert canvas.yview()[0] > 0
+    assert bar.get() == canvas.yview()
+    app.tk.call(command, "moveto", 1)
+    app.tk.update_idletasks()
+    assert bar.get()[1] == canvas.yview()[1] == 1
+    assert panel._candidate is None and not panel._save_btn.enabled
+    y = round((len(panel._candidates) - 0.5) * panel.picker_row_height - canvas.canvasy(0))
+    canvas.event_generate("<ButtonPress-1>", x=40, y=y)
+    canvas.event_generate("<ButtonRelease-1>", x=40, y=y)
+    app.tk.update_idletasks()
+    scope, state = panel._candidates[-1]
+    assert panel._candidate == (scope, state.tmcc_id)
+    app.tk.call(command, "moveto", 0)
+    app.tk.update_idletasks()
+    assert bar.get()[0] == canvas.yview()[0] == 0
+    assert panel._candidate == (scope, state.tmcc_id)
+    assert RouteComponent.to_bytes(panel.draft.components) == before
+    assert panel.draft.dirty == dirty
+    panel.open_picker()
+    print("Picker scrollbar: arrows, paging, thumb position, and scrolled selection passed.", flush=True)
 
 
 def check_touch_scroll(app, panel, canvas, horizontal):
@@ -304,6 +346,7 @@ def main():
         panel.open_picker()
         panel.set_filter("All")
         check_bounds(app, overlay, panel, width, budget, "Picker")
+        check_picker_scrollbar(app, panel)
         assert panel._candidate is None
         assert not panel._save_btn.enabled
         assert str(panel._save_btn.tk.cget("state")) == "disabled"
@@ -341,6 +384,7 @@ def main():
         assert str(panel._save_btn.tk.cget("state")) == "disabled"
         assert panel._search_btn.text == "Clear"
         app.tk.update_idletasks()
+        assert panel._picker_scrollbar.get() == (0, 1)
         assert panel._search_btn.tk.winfo_width() >= panel._search_btn.tk.winfo_reqwidth(), (
             panel._search_btn.tk.winfo_width(),
             panel._search_btn.tk.winfo_reqwidth(),
@@ -353,7 +397,7 @@ def main():
         assert not panel._save_btn.enabled
         assert panel.picker_rows == (6 if args.pi or args.pycab else 4)
         assert panel._picker.winfo_height() == panel.picker_rows * panel.picker_row_height
-        panel.scroll_picker(1)
+        app.tk.call(panel._picker_scrollbar.cget("command"), "scroll", 1, "pages")
         app.tk.update_idletasks()
         assert panel._picker.yview()[0] > 0
         if args.pycab:

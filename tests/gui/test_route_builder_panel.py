@@ -82,6 +82,7 @@ class HoldWidget(Widget):
 
 class Canvas:
     def __init__(self, *_args, **kwargs):
+        self.master = _args[0] if _args else None
         self.options = kwargs
         self.bindings = {}
         self.drawn = []
@@ -92,8 +93,8 @@ class Canvas:
     def config(self, **kwargs):
         self.options.update(kwargs)
 
-    def pack(self, **_kwargs):
-        pass
+    def pack(self, **kwargs):
+        self.pack_options = kwargs
 
     def grid(self, **kwargs):
         self.grid_options = kwargs
@@ -145,12 +146,19 @@ class Canvas:
     def xview_scroll(self, delta, _units):
         self.xview_moveto((self.x + delta * 20) / self.options["scrollregion"][2])
 
-    def yview(self):
+    def yview(self, *args):
+        if args:
+            if args[0] == "moveto":
+                self.yview_moveto(float(args[1]))
+            else:
+                self.yview_scroll(int(args[1]), args[2])
+            return
         total = self.options["scrollregion"][3]
         return self.y / total, min(1, (self.y + self.options["height"]) / total)
 
-    def yview_scroll(self, delta, _units):
-        self.yview_moveto((self.y + delta * self.options["yscrollincrement"]) / self.options["scrollregion"][3])
+    def yview_scroll(self, delta, units):
+        step = self.options["height"] * 0.9 if units == "pages" else self.options["yscrollincrement"]
+        self.yview_moveto((self.y + delta * step) / self.options["scrollregion"][3])
 
     def canvasx(self, x):
         return self.x + x
@@ -163,6 +171,22 @@ class Canvas:
 
     def scan_dragto(self, x, y, gain):
         self.dragged.append((x, y, gain))
+
+
+class Scrollbar:
+    def __init__(self, master, **kwargs):
+        self.master = master
+        self.options = kwargs
+        self.fractions = (0.0, 1.0)
+
+    def place(self, **kwargs):
+        self.place_options = kwargs
+
+    def set(self, first, last):
+        self.fractions = (float(first), float(last))
+
+    def get(self):
+        return self.fractions
 
 
 class Variable:
@@ -211,6 +235,7 @@ def panel(monkeypatch):
     monkeypatch.setattr(mod, "RouteDiscardDialog", Mock(return_value=SimpleNamespace(result=False)))
     monkeypatch.setattr(mod, "HoldButton", HoldWidget)
     monkeypatch.setattr(mod.tk, "Canvas", Canvas)
+    monkeypatch.setattr(mod.tk, "Scrollbar", Scrollbar)
     monkeypatch.setattr(mod.tk, "StringVar", Variable)
     monkeypatch.setattr(mod.tk, "Radiobutton", Canvas)
     monkeypatch.setattr(mod.tk, "PhotoImage", PhotoImage)
@@ -296,20 +321,90 @@ def test_picker_size_and_page_navigation_follow_available_layout(
     panel.set_sort("TMCC ID")
 
     assert panel._picker.options["height"] == rows * panel.picker_row_height
-    panel.scroll_picker(1)
+    bar = panel._picker_scrollbar
+    assert panel._picker.options["width"] + panel.picker_bar_width == panel.content_width
+    assert bar.place_options["width"] == panel.picker_bar_width >= 30
+    assert bar.place_options["relheight"] == 1.0
+    assert bar.master is panel._picker.master
+    assert panel._picker.pack_options["padx"] == (0, panel.picker_bar_width)
+    assert bar.get() == (0, rows / 15)
+    bar.options["command"]("moveto", str(rows / 15))
     assert panel._picker.y == rows * panel.picker_row_height
     event = SimpleNamespace(x=40, y=10)
     panel._scroll_start(panel._picker, event)
     panel._scroll_end(panel._picker, event, False)
     assert panel._candidate == (CommandScope.SWITCH, rows + 1)
-    panel.scroll_picker(99)
-    assert not panel._picker_next.enabled
-    panel.scroll_picker(-99)
-    assert not panel._picker_previous.enabled
+    bar.options["command"]("scroll", "99", "pages")
+    assert bar.get()[1] == 1
+    bar.options["command"]("scroll", "-99", "pages")
+    assert bar.get()[0] == 0
     panel._search_field.value = "no match"
     panel._on_search(None, None, None)
-    assert not panel._picker_next.enabled
-    assert not panel._picker_previous.enabled
+    assert bar.get() == (0, 1)
+    assert not panel._save_btn.enabled
+
+
+def test_picker_scrollbar_replaces_page_buttons_and_matches_scroll_box(panel):
+    bar = panel._picker_scrollbar
+    assert bar.options["orient"] == "vertical"
+    assert bar.options["takefocus"] == 0
+    assert bar.options["bg"] == mod.BAR_COLOR
+    assert bar.options["troughcolor"] == mod.BAR_TROUGH_COLOR
+    assert bar.options["activebackground"] == mod.BAR_ACTIVE_COLOR
+    assert bar.options["highlightbackground"] == mod.BAR_EDGE_COLOR
+    assert not hasattr(panel, "_picker_previous")
+    assert not hasattr(panel, "_picker_next")
+
+
+@pytest.mark.parametrize("action", ["search", "filter", "sort", "direction", "reopen"])
+def test_picker_refresh_resets_scrollbar_and_keeps_selection_rules(panel, action):
+    for tmcc_id in range(1, 16):
+        known_switch(panel, tmcc_id, f"Switch {tmcc_id:02d}")
+    known_route(panel, 4)
+    panel.open_picker()
+    panel.choose_candidate(14)
+    bar = panel._picker_scrollbar
+    bar.options["command"]("moveto", "1")
+    assert bar.get()[0] > 0
+    if action == "search":
+        panel._search_field.value = "Switch 01"
+        panel._on_search(None, None, None)
+    elif action == "filter":
+        panel.set_filter("Routes")
+    elif action == "sort":
+        panel.set_sort("TMCC ID")
+    elif action == "direction":
+        panel.toggle_sort_direction()
+    else:
+        panel.cancel()
+        panel.open_picker()
+    assert bar.get()[0] == 0
+    assert bar.get() == panel._picker.yview()
+    assert panel._save_btn.enabled == (action in {"sort", "direction"})
+    if action in {"search", "filter"}:
+        assert bar.get() == (0, 1)
+        bar.options["command"]("scroll", "1", "pages")
+        assert panel._picker.y == 0
+    assert not panel.draft.components and not panel.draft.dirty
+
+
+@pytest.mark.parametrize("desktop", [False, True])
+def test_picker_scrollbar_arrows_move_one_row_without_selecting(panel, desktop, monkeypatch):
+    monkeypatch.setattr(mod, "platform", "win32" if desktop else "linux")
+    panel.gui.compact = not desktop
+    panel.build(Widget())
+    panel.configure(12)
+    for tmcc_id in range(1, 16):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    bar = panel._picker_scrollbar
+    bar.options["command"]("scroll", "1", "units")
+    assert panel._picker.y == panel.picker_row_height
+    assert bar.get() == panel._picker.yview()
+    assert panel._candidate is None and not panel._save_btn.enabled
+    bar.options["command"]("scroll", "-1", "units")
+    assert bar.get()[0] == 0
+    assert not panel.draft.components and not panel.draft.dirty
 
 
 def test_steam_deck_picker_fits_four_touch_rows_in_original_height(panel):
@@ -388,12 +483,12 @@ def test_desktop_picker_keys_select_and_reveal_without_adding(desktop_panel):
         down(None)
     assert panel._candidate == (CommandScope.SWITCH, 15)
     assert panel._picker.yview()[1] == 1
-    assert not panel._picker_next.enabled
+    assert panel._picker_scrollbar.get()[1] == 1
     for _ in range(20):
         assert up(None) == "break"
     assert panel._candidate == (CommandScope.SWITCH, 1)
     assert panel._picker.yview()[0] == 0
-    assert not panel._picker_previous.enabled
+    assert panel._picker_scrollbar.get()[0] == 0
     assert not panel.draft.components and not panel.draft.dirty
 
 
@@ -535,10 +630,10 @@ def test_mac_touch_surface_scroll_handles_empty_lists_and_boundaries(desktop_pan
     panel.open_picker()
     panel._picker.bindings["<TouchpadScroll>"](SimpleNamespace(delta=0x8000))
     assert panel._picker.yview()[1] == 1
-    assert not panel._picker_next.enabled
+    assert panel._picker_scrollbar.get()[1] == 1
     panel._picker.bindings["<TouchpadScroll>"](SimpleNamespace(delta=0x7FFF))
     assert panel._picker.yview()[0] == 0
-    assert not panel._picker_previous.enabled
+    assert panel._picker_scrollbar.get()[0] == 0
 
 
 @pytest.mark.parametrize("desktop_panel", ["darwin"], indirect=True)
@@ -719,8 +814,6 @@ def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
         panel._add_btn,
         panel._remove_btn,
         panel._clear_btn,
-        panel._picker_previous,
-        panel._picker_next,
         panel._cancel_btn,
         panel._clear_route_btn,
         panel._save_btn,
@@ -730,7 +823,7 @@ def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
     for field in (panel._name_field, panel._number_field, panel._search_field):
         row = field.parent.parent
         buttons.extend(child for slot in row.children for child in slot.children if child.text == "Edit")
-    assert len(buttons) == 21
+    assert len(buttons) == 19
     for button in buttons:
         assert button.options["relief"] == "raised"
         assert button.options["bd"] >= 2
@@ -1275,16 +1368,17 @@ def test_picker_arrows_and_tap_use_scrolled_coordinates(panel):
         known_switch(panel, tmcc_id)
     panel.open_picker()
     panel.set_sort("TMCC ID")
-    assert not panel._picker_previous.enabled
-    assert panel._picker_next.enabled
-    panel.scroll_picker(1)
-    assert panel._picker_previous.enabled
+    bar = panel._picker_scrollbar
+    assert bar.get()[0] == 0
+    assert bar.get()[1] < 1
+    bar.options["command"]("scroll", str(panel.picker_rows), "units")
+    assert bar.get()[0] > 0
     event = SimpleNamespace(x=40, y=10)
     panel._scroll_start(panel._picker, event)
     panel._scroll_end(panel._picker, event, False)
     assert panel._candidate == (CommandScope.SWITCH, panel.picker_rows + 1)
-    panel.scroll_picker(99)
-    assert not panel._picker_next.enabled
+    bar.options["command"]("moveto", "1")
+    assert bar.get()[1] == 1
 
 
 def test_swiping_cards_does_not_select_or_reorder_and_tap_does(panel):

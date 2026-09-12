@@ -29,6 +29,7 @@ from .route_draft import RouteDraft
 from ..components.checkbox_group import CheckBoxGroup
 from ..components.editable_text import EditableText, EditorType
 from ..components.hold_button import HoldButton
+from ..components.scroll_box import BAR_ACTIVE_COLOR, BAR_COLOR, BAR_EDGE_COLOR, BAR_EDGE_PX, BAR_TROUGH_COLOR
 from ..guizero_base import ACTIVE_STATE_BG
 from ...db.component_state import RouteState, SwitchState
 from ...pdi.base_req import BaseReq
@@ -192,6 +193,14 @@ class RouteBuilderPanel(OverlayPanel):
             return max(44, int(50 * self.gui.width / 639))
         return max(70, int(self.row_height * 1.3))
 
+    @property
+    def picker_bar_width(self) -> int:
+        return max(30, round(30 * self.gui.width / 639))
+
+    @property
+    def picker_view_width(self) -> int:
+        return self.content_width - self.picker_bar_width
+
     def _button(
         self, parent, text, command, *, column=None, columns=1, width=None, height=None, align=None, hold=False
     ):
@@ -280,14 +289,14 @@ class RouteBuilderPanel(OverlayPanel):
         slot.tk.pack_propagate(False)
         canvas = tk.Canvas(
             slot.tk,
-            width=width,
+            width=width if horizontal else self.picker_view_width,
             height=height,
             highlightthickness=0,
             background="white",
             cursor="hand2",
             takefocus=self.desktop_controls,
         )
-        canvas.pack(fill="both", expand=True)
+        canvas.pack(fill="both", expand=True, padx=0 if horizontal else (0, self.picker_bar_width))
         canvas.bind("<ButtonPress-1>", lambda event: self._scroll_start(canvas, event))
         canvas.bind("<B1-Motion>", lambda event: self._scroll_drag(canvas, event, horizontal))
         canvas.bind("<ButtonRelease-1>", lambda event: self._scroll_end(canvas, event, horizontal))
@@ -430,14 +439,24 @@ class RouteBuilderPanel(OverlayPanel):
         self._search_btn.update_command(self._edit_search)
         self._picker_count = Text(self._picker_page, text="", size=self.gui.s_12)
         self._picker = self._canvas(self._picker_page, self.picker_row_height * self.picker_rows, False)
+        self._picker_scrollbar = tk.Scrollbar(
+            self._picker.master,
+            orient="vertical",
+            command=self.scroll_picker,
+            width=self.picker_bar_width,
+            troughcolor=BAR_TROUGH_COLOR,
+            bg=BAR_COLOR,
+            activebackground=BAR_ACTIVE_COLOR,
+            highlightthickness=BAR_EDGE_PX,
+            highlightbackground=BAR_EDGE_COLOR,
+            takefocus=0,
+        )
+        self._picker_scrollbar.place(
+            relx=1.0, x=-self.picker_bar_width, y=0, width=self.picker_bar_width, relheight=1.0
+        )
         self._picker.config(
             yscrollincrement=1 if self.desktop_controls else self.picker_row_height,
-            yscrollcommand=self._picker_scrolled,
-        )
-        self._picker_previous, self._picker_next = self._buttons(
-            self._picker_page,
-            ("↑ Previous", lambda: self.scroll_picker(-1)),
-            ("Next ↓", lambda: self.scroll_picker(1)),
+            yscrollcommand=self._picker_scrollbar.set,
         )
         self._status = Text(body, text="", size=self.gui.s_12, width="fill", height=2)
         self._status.tk.config(wraplength=self.content_width)
@@ -740,7 +759,7 @@ class RouteBuilderPanel(OverlayPanel):
         columns = None
         if self.picker_inline_details:
             detail_font = tkfont.Font(root=canvas, font=("Helvetica", self.gui.s_12))
-            id_x = self.content_width - 14 - detail_font.measure("· ID 99")
+            id_x = self.picker_view_width - 14 - detail_font.measure("· ID 99")
             number_x = id_x - 12 - detail_font.measure("· Road #0000")
             scope_x = number_x - 12 - detail_font.measure("Switch")
             columns = (scope_x, number_x, id_x)
@@ -748,13 +767,13 @@ class RouteBuilderPanel(OverlayPanel):
             scrollregion=(
                 0,
                 0,
-                self.content_width,
+                self.picker_view_width,
                 max(self.picker_rows, len(self._candidates)) * self.picker_row_height,
             )
         )
         if not self._candidates:
             canvas.create_text(
-                self.content_width / 2,
+                self.picker_view_width / 2,
                 self.picker_row_height,
                 text="No matching components.\nTry another filter or clear the search.",
                 font=("Helvetica", self.gui.s_14),
@@ -769,7 +788,7 @@ class RouteBuilderPanel(OverlayPanel):
             canvas.create_rectangle(
                 2,
                 y + 2,
-                self.content_width - 2,
+                self.picker_view_width - 2,
                 y + self.picker_row_height - 2,
                 fill=ACTIVE_STATE_BG if active else SELECTED_BG if selected else CARD_BG,
                 outline=SELECTED_COLOR if selected else "#c1c8d0",
@@ -797,7 +816,7 @@ class RouteBuilderPanel(OverlayPanel):
                 )
             text_x = self.indicator_size + 24
             name = self._state_name(state, scope, state.tmcc_id)
-            name_width = (columns[0] if columns else self.content_width) - text_x - 14
+            name_width = (columns[0] if columns else self.picker_view_width) - text_x - 14
             name_item = canvas.create_text(
                 text_x,
                 center_y if columns else y + 8,
@@ -888,13 +907,12 @@ class RouteBuilderPanel(OverlayPanel):
         self._refresh()
         self._reveal_selected()
 
-    def scroll_picker(self, delta: int) -> None:
-        units = self.picker_row_height if self.desktop_controls else 1
-        self._picker.yview_scroll(delta * self.picker_rows * units, "units")
-
-    def _picker_scrolled(self, first, last):
-        self._picker_previous.enabled = float(first) > 0
-        self._picker_next.enabled = float(last) < 1
+    def scroll_picker(self, *args) -> None:
+        if len(args) == 3 and args[0] == "scroll" and args[2] == "units":
+            units = self.picker_row_height if self.desktop_controls else 1
+            self._picker.yview_scroll(int(args[1]) * units, "units")
+        else:
+            self._picker.yview(*args)
 
     def _scroll_start(self, canvas, event):
         self._focus_list(canvas)
