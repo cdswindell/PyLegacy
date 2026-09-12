@@ -45,8 +45,14 @@ class Widget:
         self.enabled = True
         self.is_editing = self.is_changed = False
         self.tk = SimpleNamespace(
-            master=self.parent.tk if isinstance(self.parent, Widget) else None,
+            master=self.parent.tk if isinstance(self.parent, Widget) else Mock(),
             config=lambda **kw: self.options.update(kw),
+            bind=Mock(),
+            after_idle=Mock(),
+            update_idletasks=Mock(),
+            winfo_exists=lambda: True,
+            winfo_ismapped=lambda: self.visible,
+            winfo_reqheight=lambda: self.options.get("height", 1),
             pack_propagate=lambda _value: None,
             grid_propagate=lambda _value: None,
             grid_columnconfigure=lambda *_args, **_kw: None,
@@ -295,20 +301,27 @@ def add_switch(panel, tmcc_id=7):
     panel.add_selected()
 
 
+def picker_space(panel, available, overhead=280):
+    overlay = panel._picker_page.tk.master.master
+    overlay.winfo_height.return_value = overhead + available
+    overlay.winfo_reqheight.side_effect = lambda: overhead + panel._picker.master.winfo_reqheight()
+    panel._resize_picker()
+
+
 @pytest.mark.parametrize(
-    "width,height,compact,system,rows",
+    "width,height,compact,system,available",
     [
-        (639, 800, True, "linux", 4),
-        (480, 800, True, "linux", 3),
-        (800, 1280, False, "linux", 6),
-        (800, 800, False, "linux", 3),
-        (600, 960, False, "darwin", 6),
-        (600, 960, False, "win32", 6),
-        (639, 800, True, "darwin", 4),
+        (639, 800, True, "linux", 330),
+        (480, 800, True, "linux", 330),
+        (800, 1280, False, "linux", 590),
+        (800, 800, False, "linux", 287),
+        (600, 960, False, "darwin", 431),
+        (600, 960, False, "win32", 431),
+        (639, 800, True, "darwin", 240),
     ],
 )
 def test_picker_size_and_page_navigation_follow_available_layout(
-    panel, monkeypatch, width, height, compact, system, rows
+    panel, monkeypatch, width, height, compact, system, available
 ):
     monkeypatch.setattr(mod, "platform", system)
     panel.gui.width, panel.gui.height, panel.gui.compact = width, height, compact
@@ -319,8 +332,12 @@ def test_picker_size_and_page_navigation_follow_available_layout(
         known_switch(panel, tmcc_id)
     panel.open_picker()
     panel.set_sort("TMCC ID")
+    picker_space(panel, available)
 
+    rows = available // panel.picker_row_height
+    assert panel.picker_rows == rows
     assert panel._picker.options["height"] == rows * panel.picker_row_height
+    assert 0 <= available - panel._picker.options["height"] < panel.picker_row_height
     bar = panel._picker_scrollbar
     assert panel._picker.options["width"] + panel.picker_bar_width == panel.content_width
     assert bar.place_options["width"] == panel.picker_bar_width >= 30
@@ -329,11 +346,12 @@ def test_picker_size_and_page_navigation_follow_available_layout(
     assert panel._picker.pack_options["padx"] == (0, panel.picker_bar_width)
     assert bar.get() == (0, rows / 15)
     bar.options["command"]("moveto", str(rows / 15))
-    assert panel._picker.y == rows * panel.picker_row_height
+    first = min(rows, 15 - rows)
+    assert panel._picker.y == first * panel.picker_row_height
     event = SimpleNamespace(x=40, y=10)
     panel._scroll_start(panel._picker, event)
     panel._scroll_end(panel._picker, event, False)
-    assert panel._candidate == (CommandScope.SWITCH, rows + 1)
+    assert panel._candidate == (CommandScope.SWITCH, first + 1)
     bar.options["command"]("scroll", "99", "pages")
     assert bar.get()[1] == 1
     bar.options["command"]("scroll", "-99", "pages")
@@ -408,6 +426,8 @@ def test_picker_scrollbar_arrows_move_one_row_without_selecting(panel, desktop, 
 
 
 def test_steam_deck_picker_fits_four_touch_rows_in_original_height(panel):
+    panel.open_picker()
+    picker_space(panel, 210)
     assert panel.picker_rows == 4
     assert panel.picker_row_height - 4 >= 44
     assert panel._picker.options["height"] <= 3 * 70
@@ -422,6 +442,76 @@ def test_steam_deck_picker_fits_four_touch_rows_in_original_height(panel):
     assert panel._save_btn.enabled
     panel.add_selected()
     assert panel.draft.components[0].tmcc_id == 4
+
+
+@pytest.mark.parametrize("rows,remainder", [(1, 0), (2, 47), (4, 0), (7, 15), (10, 47), (0, 47)])
+def test_picker_resize_uses_whole_rows_without_changing_entry_height(panel, rows, remainder):
+    panel.open_picker()
+    row_height = panel.picker_row_height
+    picker_space(panel, rows * row_height + remainder)
+    assert panel.picker_rows == rows
+    assert panel.picker_row_height == row_height
+    assert panel._picker.options["height"] == max(1, rows * row_height)
+    assert panel._picker.master.winfo_reqheight() == panel._picker.options["height"]
+    assert panel._picker_scrollbar.get() == (0, 1)
+
+
+def test_picker_resize_preserves_selection_and_clamps_scroll_position(panel):
+    for tmcc_id in range(1, 16):
+        known_switch(panel, tmcc_id)
+    panel.open_picker()
+    picker_space(panel, 4 * panel.picker_row_height)
+    panel.choose_candidate(14)
+    panel.scroll_picker("moveto", "1")
+    picker_space(panel, 7 * panel.picker_row_height + 10)
+    assert panel.picker_rows == 7
+    assert panel._picker.y == 8 * panel.picker_row_height
+    assert panel._picker_scrollbar.get() == (8 / 15, 1)
+    picker_space(panel, 2 * panel.picker_row_height)
+    assert panel._picker.y == 8 * panel.picker_row_height
+    assert panel._candidate == (CommandScope.SWITCH, 15)
+    assert panel._save_btn.enabled
+    assert not panel.draft.components and not panel.draft.dirty
+
+
+def test_picker_resize_accounts_for_changes_to_controls_and_is_stable(panel):
+    panel.open_picker()
+    picker_space(panel, 300, overhead=280)
+    assert panel.picker_rows == 6
+    picker_space(panel, 300 - panel.picker_row_height, overhead=280 + panel.picker_row_height)
+    assert panel.picker_rows == 5
+    panel._picker.config = Mock(wraps=panel._picker.config)
+    panel._resize_picker()
+    panel._picker.config.assert_not_called()
+
+
+@pytest.mark.parametrize("unavailable", ["editor", "hidden", "destroyed", "unmeasured"])
+def test_picker_resize_ignores_unavailable_geometry(panel, unavailable):
+    panel.open_picker()
+    picker_space(panel, 240)
+    if unavailable == "editor":
+        panel.cancel()
+    elif unavailable == "hidden":
+        panel._picker_page.hide()
+    elif unavailable == "destroyed":
+        panel._picker_page.tk.winfo_exists = lambda: False
+    else:
+        panel._picker_page.tk.master.master.winfo_height.return_value = 1
+    panel._picker.config = Mock(wraps=panel._picker.config)
+    panel._resize_picker()
+    panel._picker.config.assert_not_called()
+
+
+def test_picker_resize_is_scheduled_once_for_geometry_changes(panel):
+    panel.open_picker()
+    picker_space(panel, 240)
+    overlay = panel._picker_page.tk.master.master
+    overlay.after_idle.reset_mock()
+    panel._schedule_picker_resize()
+    panel._schedule_picker_resize()
+    overlay.after_idle.assert_called_once_with(panel._resize_picker)
+    assert any(call.args[0] == "<Configure>" for call in overlay.bind.call_args_list)
+    assert any(call.args[0] == "<Map>" for call in panel._picker_page.tk.bind.call_args_list)
 
 
 def test_steam_deck_picker_aligns_inline_details_and_truncates_long_names(panel):

@@ -21,12 +21,12 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from guizero import App
+from guizero import App, Box
 
 from pytrain.db.component_state import RouteState, SwitchState
 from pytrain.db.components import RouteComponent
 from pytrain.gui.controller import route_builder_panel
-from pytrain.gui.controller.popup_manager import PopupManager
+from pytrain.gui.controller.popup_manager import PopupManager, expand_overlay
 from pytrain.gui.controller.route_builder_panel import RouteBuilderPanel
 from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
@@ -48,6 +48,8 @@ class PreviewStore:
         ):
             state = self.add(SwitchState(), CommandScope.SWITCH, tmcc_id, name)
             state._state = TMCC1SwitchCommandEnum.THRU if tmcc_id % 2 else TMCC1SwitchCommandEnum.OUT
+        for tmcc_id in range(7, 25):
+            self.add(SwitchState(), CommandScope.SWITCH, tmcc_id, f"Yard switch {tmcc_id:02d}")
         route = self.add(RouteState(), CommandScope.ROUTE, 4, "Yard exit")
         route.comp_data.components = [RouteComponent(4, 1)]
         route = self.add(RouteState(), CommandScope.ROUTE, 12, "Yard departure")
@@ -134,6 +136,11 @@ def check_bounds(app, overlay, panel, width, budget, label):
             assert radio.winfo_width() >= radio.winfo_reqwidth()
     else:
         canvas, bar = panel._picker, panel._picker_scrollbar
+        assert overlay.tk.winfo_height() == budget
+        assert canvas.winfo_height() == panel.picker_rows * panel.picker_row_height
+        assert 0 <= budget - requested[1] < panel.picker_row_height
+        assert panel._status.tk.winfo_rooty() >= canvas.winfo_rooty() + canvas.winfo_height()
+        print(f"Picker fits {panel.picker_rows} complete entries at {panel.picker_row_height} pixels each.", flush=True)
         assert bar.winfo_ismapped()
         assert bar.winfo_width() == panel.picker_bar_width >= 30
         assert bar.winfo_height() == canvas.winfo_height()
@@ -176,13 +183,42 @@ def check_bounds(app, overlay, panel, width, budget, label):
             assert all(0 <= box[0] < box[2] < panel.picker_view_width for box in bounds), bounds
         if panel.picker_inline_details:
             rows = [item for item in panel._picker.find_all() if panel._picker.type(item) == "rectangle"]
-            assert panel.picker_rows == 4
-            assert panel._picker.winfo_height() <= 210
-            for row in rows[:4]:
+            for row in rows[: panel.picker_rows]:
                 _, top, _, bottom = panel._picker.coords(row)
                 assert bottom - top >= 44
                 assert 0 <= top < bottom <= panel._picker.winfo_height()
-            print("Steam Deck picker: four visible touch rows with aligned, nonoverlapping columns.", flush=True)
+            print("Steam Deck picker: fitted touch rows with aligned, nonoverlapping columns.", flush=True)
+
+
+def check_picker_resize(app, overlay, panel, width, budget, reserved):
+    rows = panel.picker_rows
+    row_height = panel.picker_row_height
+    reserved_height = reserved.height
+    panel.choose_candidate(len(panel._candidates) - 1)
+    candidate = panel._candidate
+    before = RouteComponent.to_bytes(panel.draft.components)
+    dirty = panel.draft.dirty
+    panel.scroll_picker("moveto", "1")
+    for delta in (2, -1, 0):
+        reserved.height = reserved_height + delta * row_height
+        check_bounds(app, overlay, panel, width, budget - delta * row_height, "Resized picker")
+        assert panel.picker_rows == rows - delta
+        assert panel.picker_row_height == row_height
+        assert panel._candidate == candidate and panel._save_btn.enabled
+        assert panel._picker_scrollbar.get() == panel._picker.yview()
+    status_height = panel._status.height
+    panel._status.height = status_height + 3
+    check_bounds(app, overlay, panel, width, budget, "Taller notes")
+    assert panel.picker_rows < rows
+    panel._status.height = status_height
+    app.tk.update_idletasks()
+    assert panel.picker_rows == rows
+    panel.cancel()
+    panel.open_picker()
+    check_bounds(app, overlay, panel, width, budget, "Reopened picker")
+    assert panel.picker_rows == rows
+    assert RouteComponent.to_bytes(panel.draft.components) == before and panel.draft.dirty == dirty
+    print("Picker resizing: whole rows, reserved controls, selection, and reopening passed.", flush=True)
 
 
 def check_picker_scrollbar(app, panel):
@@ -295,6 +331,7 @@ def main():
         width, height, budget, scale = 631, 1009, 720, 631 * 1.5 / 800
     route_builder_panel.platform = sys.platform if args.pycab else "linux"
     app = App(title="Route Builder — offline preview", width=width, height=height, bg="white")
+    reserved = Box(app, align="bottom", width="fill", height=height - budget)
     if args.pi:
         app.tk.geometry(f"{width}x{height}+0+0")
         app.tk.winfo_screenwidth = lambda: width
@@ -331,6 +368,7 @@ def main():
     for field in (panel._name_field, panel._number_field, panel._search_field):
         field.show_keyboard_on_edit = not args.pycab
     panel.configure(12, host.state_store.get_state(CommandScope.ROUTE, 12))
+    expand_overlay(overlay)
     overlay.show()
     app.tk.update_idletasks()
     if not args.check:
@@ -346,6 +384,9 @@ def main():
         panel.open_picker()
         panel.set_filter("All")
         check_bounds(app, overlay, panel, width, budget, "Picker")
+        if panel.picker_inline_details:
+            assert panel.picker_rows >= 4
+        check_picker_resize(app, overlay, panel, width, budget, reserved)
         check_picker_scrollbar(app, panel)
         assert panel._candidate is None
         assert not panel._save_btn.enabled
@@ -395,7 +436,7 @@ def main():
         assert panel._search_btn.text == "Edit"
         assert panel._candidates == candidates
         assert not panel._save_btn.enabled
-        assert panel.picker_rows == (6 if args.pi or args.pycab else 4)
+        app.tk.update_idletasks()
         assert panel._picker.winfo_height() == panel.picker_rows * panel.picker_row_height
         app.tk.call(panel._picker_scrollbar.cget("command"), "scroll", 1, "pages")
         app.tk.update_idletasks()

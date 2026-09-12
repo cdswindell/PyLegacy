@@ -39,7 +39,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .engine_gui import EngineGui
 
 log = logging.getLogger(__name__)
-PICKER_ROWS = 3
 CARD_BG = "#f4f6f8"
 BUTTON_BG = "#e7ebef"
 BUTTON_ACTIVE_BG = "#cfdeeb"
@@ -106,6 +105,8 @@ class RouteBuilderPanel(OverlayPanel):
         self._candidate: tuple[CommandScope, int] | None = None
         self._main_page = self._picker_page = None
         self._cards = self._picker = None
+        self._picker_rows = 1
+        self._picker_resize_pending = False
         self._name_field = self._number_field = self._search_field = None
         self._search_btn = None
         self._tmcc_id_field: Text | None = None
@@ -181,9 +182,7 @@ class RouteBuilderPanel(OverlayPanel):
 
     @property
     def picker_rows(self) -> int:
-        if self.picker_inline_details:
-            return 4
-        return 6 if self.desktop_controls or (not self.gui.compact and self.gui.height >= 1000) else PICKER_ROWS
+        return self._picker_rows
 
     @property
     def picker_row_height(self) -> int:
@@ -319,6 +318,7 @@ class RouteBuilderPanel(OverlayPanel):
         return canvas
 
     def build(self, body: Box):
+        self._picker_rows = 1
         self._main_page = Box(body, align="top")
         summary = Box(self._main_page, align="top")
         self._route_label = Text(summary, text="", size=self.gui.s_14, align="left")
@@ -460,12 +460,51 @@ class RouteBuilderPanel(OverlayPanel):
         )
         self._status = Text(body, text="", size=self.gui.s_12, width="fill", height=2)
         self._status.tk.config(wraplength=self.content_width)
+        for widget in (body.tk.master, body.tk, self._picker_page.tk):
+            widget.bind("<Configure>", self._schedule_picker_resize, add="+")
+        self._picker_page.tk.bind("<Map>", self._schedule_picker_resize, add="+")
 
     def build_footer(self, footer: Box) -> None:
         row = Box(footer, align="top", layout="grid")
         self._cancel_btn = self._button(row, "Cancel", self.cancel, column=0, columns=3)
         self._clear_route_btn = self._button(row, "Clear", self.clear_route, column=1, columns=3, hold=True)
         self._save_btn = self._button(row, "Save Route", self.save, column=2, columns=3)
+        footer.tk.bind("<Configure>", self._schedule_picker_resize, add="+")
+
+    def _schedule_picker_resize(self, _event=None):
+        if self._picking and not self._picker_resize_pending:
+            self._picker_resize_pending = True
+            self._picker_page.tk.master.master.after_idle(self._resize_picker)
+
+    def _resize_picker(self):
+        self._picker_resize_pending = True
+        try:
+            page = self._picker_page.tk
+            if not self._picking or not page.winfo_exists():
+                return
+            overlay = page.master.master
+            overlay.update_idletasks()
+            if not self._picking or not page.winfo_exists() or not page.winfo_ismapped():
+                return
+            available = overlay.winfo_height()
+            if available <= 1:
+                return
+            slot = self._picker.master
+            # Subtract everything but the list: banner, controls, notes, footer, and spacing.
+            available -= overlay.winfo_reqheight() - slot.winfo_reqheight()
+            rows = max(0, available // self.picker_row_height)
+            height = max(1, rows * self.picker_row_height)
+            if rows == self._picker_rows and height == slot.winfo_reqheight():
+                return
+            top = self._picker.canvasy(0)
+            self._picker_rows = rows
+            slot.config(height=height)
+            self._picker.config(height=height)
+            self._draw_picker()
+            total = max(1, max(rows, len(self._candidates)) * self.picker_row_height)
+            self._picker.yview_moveto(max(0, min(top, total - height)) / total)
+        finally:
+            self._picker_resize_pending = False
 
     def configure(self, tmcc_id: int, state: RouteState | None = None) -> None:
         self._clear_route_btn.cancel_interaction()
@@ -546,6 +585,7 @@ class RouteBuilderPanel(OverlayPanel):
         )
         if not message and self._clear_route_btn.enabled:
             self._status.value += "\nHold Clear for 3 seconds to delete from Base 3."
+        self._schedule_picker_resize()
 
     def _draw_cards(self):
         canvas = self._cards
@@ -768,13 +808,13 @@ class RouteBuilderPanel(OverlayPanel):
                 0,
                 0,
                 self.picker_view_width,
-                max(self.picker_rows, len(self._candidates)) * self.picker_row_height,
+                max(1, max(self.picker_rows, len(self._candidates)) * self.picker_row_height),
             )
         )
         if not self._candidates:
             canvas.create_text(
                 self.picker_view_width / 2,
-                self.picker_row_height,
+                min(self.picker_row_height, self.picker_rows * self.picker_row_height / 2),
                 text="No matching components.\nTry another filter or clear the search.",
                 font=("Helvetica", self.gui.s_14),
                 justify="center",
