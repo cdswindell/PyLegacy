@@ -997,6 +997,92 @@ def desktop_panel(panel, monkeypatch, request):
     return panel
 
 
+@pytest.mark.parametrize("filter_name", ["Routes", "Switches"])
+def test_desktop_picker_double_click_adds_scrolled_component_and_returns_to_main(desktop_panel, filter_name):
+    panel = desktop_panel
+    for tmcc_id in range(1, 10):
+        known_switch(panel, tmcc_id)
+        known_route(panel, tmcc_id)
+    panel.open_picker()
+    panel.set_filter(filter_name)
+    panel.set_sort("TMCC ID")
+    panel.toggle_sort_direction()
+    panel.choose_candidate(0)
+    canvas = panel._picker
+    canvas.yview_moveto(0.5)
+    event = SimpleNamespace(x=40, y=10)
+    index = int(canvas.canvasy(event.y) // panel.picker_row_height)
+    scope, state = panel._candidates[index]
+    assert index > 0
+
+    canvas.bindings["<ButtonPress-1>"](event)
+    canvas.bindings["<ButtonRelease-1>"](event)
+    assert panel._candidate == (scope, state.tmcc_id)
+    assert panel._picking and not panel.draft.components
+
+    assert canvas.bindings["<Double-Button-1>"](event) == "break"
+    canvas.bindings["<ButtonRelease-1>"](event)
+    assert [component.tmcc_id for component in panel.draft.components] == [state.tmcc_id]
+    assert panel.draft.components[0].is_route is (scope == CommandScope.ROUTE)
+    assert panel.draft.dirty
+    assert panel._selected == 0 and panel._gesture is None
+    assert panel._main_page.visible and not panel._picker_page.visible and not panel._picking
+    assert panel._save_btn.text == "Save Route"
+    assert panel._lookup_route(12) is None
+
+    canvas.bindings["<Double-Button-1>"](event)
+    assert len(panel.draft.components) == 1
+
+
+@pytest.mark.parametrize("location", ["above", "below", "empty"])
+def test_desktop_picker_double_click_outside_rows_does_not_add_selection(desktop_panel, location):
+    panel = desktop_panel
+    known_switch(panel)
+    panel.open_picker()
+    panel.choose_candidate(0)
+    if location == "empty":
+        panel._search_field.value = "no matches"
+        panel._on_search(None, None, None)
+    event = SimpleNamespace(x=40, y=-1 if location == "above" else panel.picker_row_height + 10)
+
+    assert panel._picker.bindings["<Double-Button-1>"](event) == "break"
+
+    assert not panel.draft.components and not panel.draft.dirty
+    assert panel._picking and panel._picker_page.visible and not panel._main_page.visible
+
+
+@pytest.mark.parametrize("unavailable", ["deleted", "missing", "recursive"])
+def test_desktop_picker_double_click_keeps_validation_errors_in_picker(desktop_panel, unavailable):
+    panel = desktop_panel
+    state = known_switch(panel)
+    panel.open_picker()
+    if unavailable == "recursive":
+        known_route(panel, 12)
+        panel.set_filter("Routes")
+    elif unavailable == "deleted":
+        state.is_deleted = True
+    else:
+        del panel.gui.state_store.states[(CommandScope.SWITCH, state.tmcc_id)]
+    event = SimpleNamespace(x=40, y=10)
+
+    assert panel._picker.bindings["<Double-Button-1>"](event) == "break"
+    panel._picker.bindings["<ButtonRelease-1>"](event)
+
+    assert not panel.draft.components and not panel.draft.dirty
+    assert panel._picking and panel._picker_page.visible and not panel._main_page.visible
+    assert ("cannot include itself" if unavailable == "recursive" else "no longer available") in panel._status.value
+
+
+@pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
+@pytest.mark.parametrize("compact", [False, True])
+def test_double_click_is_limited_to_desktop_picker(panel, monkeypatch, platform, compact):
+    monkeypatch.setattr(mod, "platform", platform)
+    monkeypatch.setattr(panel.gui, "compact", compact)
+    panel.build(Widget())
+    assert ("<Double-Button-1>" in panel._picker.bindings) is (not compact and platform in {"darwin", "win32"})
+    assert "<Double-Button-1>" not in panel._cards.bindings
+
+
 def test_desktop_picker_keys_select_and_reveal_without_adding(desktop_panel):
     panel = desktop_panel
     for tmcc_id in range(1, 16):

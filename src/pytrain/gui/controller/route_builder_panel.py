@@ -360,6 +360,8 @@ class RouteBuilderPanel(OverlayPanel):
                 canvas.bind(f"<{key}>", lambda _event, step=delta: self._navigate_list(step, horizontal))
             if horizontal:
                 canvas.bind("<Shift-MouseWheel>", lambda event: self._wheel(canvas, event, True))
+            else:
+                canvas.bind("<Double-Button-1>", self._picker_double_click)
             if platform == "darwin":
                 try:
                     canvas.bind("<TouchpadScroll>", lambda event: self._touchpad_scroll(canvas, event, horizontal))
@@ -455,7 +457,7 @@ class RouteBuilderPanel(OverlayPanel):
         if self.section_gap:
             Box(self._main_page, align="top", width=1, height=self.section_gap)
         self._metadata_box = TitleBox(self._main_page, text="Info", align="top")
-        self._metadata_box.tk.config(bd=1, relief="groove", padx=self.button_pad_x, pady=self.button_pad_y)
+        self._metadata_box.tk.config(bd=1, relief="solid", padx=self.button_pad_x, pady=self.button_pad_y)
         field_width = self.content_width - 2 * (self.button_pad_x + 1)
         self._name_field, _ = self._field(
             self._metadata_box, "Route Name", EditorType.KEYBOARD, 31, self._on_metadata, width=field_width
@@ -1018,6 +1020,15 @@ class RouteBuilderPanel(OverlayPanel):
             self._picker_cursor = self._candidate
             self._draw_picker()
             self._refresh()
+
+    def _picker_double_click(self, event):
+        self._gesture = None
+        if self._picking:
+            index = int(self._picker.canvasy(event.y) // self.picker_row_height)
+            if 0 <= index < len(self._candidates):
+                self.choose_candidate(index)
+                self.add_selected()
+        return "break"
 
     def pad_step(self, delta: int) -> bool:
         if not self.pad_ready or not self._candidates:
