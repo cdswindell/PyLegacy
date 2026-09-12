@@ -194,7 +194,8 @@ class RouteBuilderPanel(OverlayPanel):
 
     @property
     def picker_bar_width(self) -> int:
-        return max(30, round(30 * self.gui.width / 639))
+        width = max(30, round(30 * self.gui.width / 639))
+        return width if self.desktop_controls else round(width * 1.25)
 
     @property
     def picker_view_width(self) -> int:

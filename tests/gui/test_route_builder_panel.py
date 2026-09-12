@@ -309,19 +309,19 @@ def picker_space(panel, available, overhead=280):
 
 
 @pytest.mark.parametrize(
-    "width,height,compact,system,available",
+    "width,height,compact,system,available,bar_width",
     [
-        (639, 800, True, "linux", 330),
-        (480, 800, True, "linux", 330),
-        (800, 1280, False, "linux", 590),
-        (800, 800, False, "linux", 287),
-        (600, 960, False, "darwin", 431),
-        (600, 960, False, "win32", 431),
-        (639, 800, True, "darwin", 240),
+        (639, 800, True, "linux", 330, 38),
+        (480, 800, True, "linux", 330, 38),
+        (800, 1280, False, "linux", 590, 48),
+        (800, 800, False, "linux", 287, 48),
+        (600, 960, False, "darwin", 431, 30),
+        (600, 960, False, "win32", 431, 30),
+        (639, 800, True, "darwin", 240, 38),
     ],
 )
 def test_picker_size_and_page_navigation_follow_available_layout(
-    panel, monkeypatch, width, height, compact, system, available
+    panel, monkeypatch, width, height, compact, system, available, bar_width
 ):
     monkeypatch.setattr(mod, "platform", system)
     panel.gui.width, panel.gui.height, panel.gui.compact = width, height, compact
@@ -340,7 +340,8 @@ def test_picker_size_and_page_navigation_follow_available_layout(
     assert 0 <= available - panel._picker.options["height"] < panel.picker_row_height
     bar = panel._picker_scrollbar
     assert panel._picker.options["width"] + panel.picker_bar_width == panel.content_width
-    assert bar.place_options["width"] == panel.picker_bar_width >= 30
+    assert bar.options["width"] == bar.place_options["width"] == panel.picker_bar_width == bar_width
+    assert bar.place_options["x"] == -bar_width
     assert bar.place_options["relheight"] == 1.0
     assert bar.master is panel._picker.master
     assert panel._picker.pack_options["padx"] == (0, panel.picker_bar_width)

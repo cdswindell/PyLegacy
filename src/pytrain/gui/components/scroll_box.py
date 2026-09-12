@@ -384,6 +384,7 @@ class ScrollBox:
     # window behind it -- binding the window alone would scroll only where the page happens
     # to have nothing on it, which on a full page is nowhere.
     #
+    # noinspection calling-non-callable
     def _bind_gestures(self) -> None:
         bind = getattr(self._viewport.tk, "bind_class", None)
         if bind is None:
