@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import cached_property
 from math import ceil
 from threading import RLock
 from tkinter import font as tkfont
@@ -35,6 +36,21 @@ from pytrain.protocol.constants import CommandScope
 from pytrain.protocol.tmcc1.tmcc1_constants import TMCC1SwitchCommandEnum
 
 
+class TkWidget(SimpleNamespace):
+    # Most widgets never use these callbacks; keep call tracking without eager mock allocation.
+    @cached_property
+    def bind(self):
+        return Mock()
+
+    @cached_property
+    def after_idle(self):
+        return Mock()
+
+    @cached_property
+    def update_idletasks(self):
+        return Mock()
+
+
 class Widget:
     def __init__(self, *_args, **kwargs):
         self.parent = _args[0] if _args else None
@@ -47,12 +63,9 @@ class Widget:
         self.enabled = True
         self.is_editing = self.is_changed = False
         self.command = kwargs.get("command")
-        self.tk = SimpleNamespace(
+        self.tk = TkWidget(
             master=self.parent.tk if isinstance(self.parent, Widget) else Mock(),
             config=lambda **kw: self.options.update(kw),
-            bind=Mock(),
-            after_idle=Mock(),
-            update_idletasks=Mock(),
             winfo_exists=lambda: True,
             winfo_ismapped=lambda: self.visible,
             winfo_reqheight=lambda: self.options.get("height", 1),
@@ -277,6 +290,19 @@ def panel(monkeypatch):
     builder.build_footer(Widget())
     builder.configure(12)
     return builder
+
+
+@pytest.mark.parametrize("callback_name", ["bind", "after_idle", "update_idletasks"])
+def test_widget_callbacks_are_created_on_demand_and_isolated(callback_name):
+    widget, other = Widget(), Widget()
+    assert callback_name not in vars(widget.tk)
+    assert callback_name not in vars(other.tk)
+    callback = getattr(widget.tk, callback_name)
+    assert getattr(widget.tk, callback_name) is callback
+    assert callback_name not in vars(other.tk)
+    callback("event")
+    callback.assert_called_once_with("event")
+    getattr(other.tk, callback_name).assert_not_called()
 
 
 def known_switch(panel, tmcc_id=7, name="Main siding", *, deleted=False):

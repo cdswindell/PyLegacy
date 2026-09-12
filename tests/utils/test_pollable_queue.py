@@ -27,8 +27,8 @@ def test_fileno_is_valid() -> None:
     assert isinstance(fd, int)
     # FD should be positive and selectable
     assert fd > 0
-    # Not readable initially
-    assert _select_readable(fd, timeout=0.05) is False
+    # These tests put/get synchronously, so empty checks need no waiting period.
+    assert _select_readable(fd, timeout=0) is False
 
 
 def test_select_ready_on_put_and_clears_on_get() -> None:
@@ -44,7 +44,7 @@ def test_select_ready_on_put_and_clears_on_get() -> None:
     assert item == "a"
 
     # No pending signals after get
-    assert _select_readable(fd, timeout=0.05) is False
+    assert _select_readable(fd, timeout=0) is False
 
 
 def test_multiple_puts_and_gets_signal_and_drain() -> None:
@@ -63,7 +63,7 @@ def test_multiple_puts_and_gets_signal_and_drain() -> None:
     assert out == items
 
     # Socket drained as well
-    assert _select_readable(fd, timeout=0.05) is False
+    assert _select_readable(fd, timeout=0) is False
 
 
 def test_put_when_full_does_not_signal_extra_bytes() -> None:
@@ -84,7 +84,7 @@ def test_put_when_full_does_not_signal_extra_bytes() -> None:
 
     # After consuming, there should be no pending readability, ensuring
     # the failed put didn't add an extra byte to the socket
-    assert _select_readable(fd, timeout=0.05) is False
+    assert _select_readable(fd, timeout=0) is False
 
 
 def test_non_posix_fallback_socket_pair(monkeypatch) -> None:
@@ -94,8 +94,8 @@ def test_non_posix_fallback_socket_pair(monkeypatch) -> None:
     fd = q.fileno()
 
     # Basic signaling semantics should still hold
-    assert _select_readable(fd, timeout=0.05) is False
+    assert _select_readable(fd, timeout=0) is False
     q.put(123)
     assert _select_readable(fd, timeout=0.5) is True
     assert q.get() == 123
-    assert _select_readable(fd, timeout=0.05) is False
+    assert _select_readable(fd, timeout=0) is False
