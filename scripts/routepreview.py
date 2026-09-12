@@ -80,8 +80,36 @@ def check_bounds(app, overlay, panel, width, budget, label):
         assert abs(2 * summary.winfo_x() + summary.winfo_width() - panel._main_page.tk.winfo_width()) <= 2
         assert panel._selection.value.startswith(f"Card {panel._selected + 1}: ")
         assert "\n" not in panel._selection.value
+        if not panel.gui.compact:
+            field = panel._tmcc_id_field
+            assert type(field) is route_builder_panel.Text
+            assert field.value == f"{panel.draft.tmcc_id:02d}"
+            value = field.tk
+            row = value.master.master
+            caption = row.winfo_children()[0]
+            assert caption.cget("text") == "TMCC ID"
+            assert value.winfo_ismapped()
+            assert not value.bind("<Button-1>")
+            for editable in (panel._name_field.tk, panel._number_field.tk):
+                edit_row = editable.master.master
+                edit_caption = edit_row.winfo_children()[0]
+                assert caption.winfo_rootx() == edit_caption.winfo_rootx()
+                assert caption.winfo_width() == edit_caption.winfo_width()
+                assert value.winfo_rootx() == editable.winfo_rootx()
+                assert value.winfo_height() == editable.winfo_height()
+                assert row.winfo_rooty() >= edit_row.winfo_rooty() + edit_row.winfo_height()
+                for option in ("anchor", "padx", "bd"):
+                    assert value.cget(option) == editable.cget(option)
+            assert (
+                abs(caption.winfo_rooty() + caption.winfo_height() / 2 - value.winfo_rooty() - value.winfo_height() / 2)
+                <= 1
+            )
+        else:
+            assert panel._tmcc_id_field is None
         if panel.section_gap:
             metadata, status, add = panel._metadata_box.tk, panel._status.tk, panel._add_btn.tk
+            move = panel._earlier_btn.tk
+            assert add.winfo_rooty() - (move.winfo_rooty() + move.winfo_height()) >= panel.section_gap
             assert metadata.winfo_rooty() - (add.winfo_rooty() + add.winfo_height()) >= panel.section_gap
             assert status.winfo_rooty() - (metadata.winfo_rooty() + metadata.winfo_height()) >= panel.section_gap
             assert (

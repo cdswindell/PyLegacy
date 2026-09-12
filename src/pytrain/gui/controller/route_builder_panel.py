@@ -104,6 +104,7 @@ class RouteBuilderPanel(OverlayPanel):
         self._main_page = self._picker_page = None
         self._cards = self._picker = None
         self._name_field = self._number_field = self._search_field = None
+        self._tmcc_id_field: Text | None = None
         self._status = self._save_btn = self._cancel_btn = None
         self._clear_route_btn = None
         self._gesture = None
@@ -218,15 +219,20 @@ class RouteBuilderPanel(OverlayPanel):
             for i, (text, command) in enumerate(buttons)
         )
 
-    def _field(self, parent, label, editor, max_length, on_commit, *, width=None):
+    def _field(self, parent, label, editor=None, max_length=None, on_commit=None, *, width=None):
         row = Box(parent, align="top", width=width or self.content_width, height=self.control_row_height)
         row.tk.pack_propagate(False)
         caption = Text(row, text=label, align="left", size=self.gui.s_12, width=12)
         caption.tk.config(anchor="e", justify="right", padx=6)
-        edit = self._button(row, "Edit", None, align="right", width=int(self.row_height * 1.6))
-        edit.text_size = self.gui.s_12
+        if editor is not None:
+            edit = self._button(row, "Edit", None, align="right", width=int(self.row_height * 1.6))
+            edit.text_size = self.gui.s_12
         field_slot = Box(row, align="left", width="fill", height="fill")
         field_slot.tk.config(pady=self.button_pad_y)
+        if editor is None:
+            field = Text(field_slot, text="", size=self.gui.s_14, align="left", width="fill", height="fill")
+            field.tk.config(bd=1, anchor="w", padx=6)
+            return field
         field = EditableText(
             field_slot,
             text="",
@@ -353,6 +359,8 @@ class RouteBuilderPanel(OverlayPanel):
             ("Move Left", lambda: self.move_selected(-1)),
             ("Move Right", lambda: self.move_selected(1)),
         )
+        if self.section_gap:
+            Box(self._main_page, align="top", width=1, height=self.section_gap)
         self._add_btn, self._remove_btn, self._clear_btn = self._buttons(
             self._main_page,
             ("Add…", self.open_picker),
@@ -361,7 +369,7 @@ class RouteBuilderPanel(OverlayPanel):
         )
         if self.section_gap:
             Box(self._main_page, align="top", width=1, height=self.section_gap)
-        self._metadata_box = TitleBox(self._main_page, text="", align="top")
+        self._metadata_box = TitleBox(self._main_page, text="Info", align="top")
         self._metadata_box.tk.config(bd=1, relief="groove", padx=self.button_pad_x, pady=self.button_pad_y)
         field_width = self.content_width - 2 * (self.button_pad_x + 1)
         self._name_field = self._field(
@@ -369,6 +377,9 @@ class RouteBuilderPanel(OverlayPanel):
         )
         self._number_field = self._field(
             self._metadata_box, "Route #", EditorType.KEYPAD, 4, self._on_metadata, width=field_width
+        )
+        self._tmcc_id_field = (
+            self._field(self._metadata_box, "TMCC ID", width=field_width) if not self.gui.compact else None
         )
         if self.section_gap:
             Box(self._main_page, align="top", width=1, height=self.section_gap)
@@ -419,6 +430,8 @@ class RouteBuilderPanel(OverlayPanel):
         )
         self._name_field.value = self.draft.road_name
         self._number_field.value = self.draft.road_number
+        if self._tmcc_id_field is not None:
+            self._tmcc_id_field.value = f"{tmcc_id:02d}"
         self._selected = 0 if self.draft.components else None
         self._picking = False
         self._refresh()

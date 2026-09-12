@@ -527,19 +527,74 @@ def test_metadata_group_and_pi_section_spacing(panel, compact, height, gap):
     panel.gui.height, panel.gui.compact = height, compact
     panel.build(Widget())
     group = panel._metadata_box
-    assert group.options["text"] == ""
+    assert group.options["text"] == "Info"
     assert group.options["bd"] == 1
     assert panel._name_field.parent.parent.parent is group
     assert panel._number_field.parent.parent.parent is group
     assert panel.section_gap == gap
+    siblings = panel._main_page.children
+    move_index = siblings.index(panel._earlier_btn.parent.parent)
+    add_index = siblings.index(panel._add_btn.parent.parent)
+    assert add_index == move_index + (2 if gap else 1)
     if gap:
-        siblings = panel._main_page.children
+        assert siblings[add_index - 1].options["height"] == gap
         index = siblings.index(group)
         assert siblings[index - 1].options["height"] == gap
         assert siblings[index + 1].options["height"] == gap
         assert panel.footer_pad_px == gap
     else:
         assert panel.footer_pad_px == 4
+
+
+@pytest.mark.parametrize("width,height,system", [(800, 1280, "linux"), (631, 1009, "darwin"), (631, 1009, "win32")])
+@pytest.mark.parametrize("existing", [False, True])
+def test_info_tmcc_id_is_read_only_aligned_and_follows_edited_route(
+    panel, monkeypatch, width, height, system, existing
+):
+    class PlainText(Widget):
+        pass
+
+    monkeypatch.setattr(mod, "Text", PlainText)
+    monkeypatch.setattr(mod, "platform", system)
+    panel.gui.width = panel.gui.emergency_box_width = width
+    panel.gui.height, panel.gui.compact = height, False
+    panel.build(Widget())
+
+    for tmcc_id in (2, 42):
+        state = known_route(panel, tmcc_id, [RouteComponent(7, 0), RouteComponent(4, 3)]) if existing else None
+        if state:
+            state._road_name = "Yard departure"
+            state._road_number = "0099"
+        panel.configure(tmcc_id, state)
+        field = panel._tmcc_id_field
+        rows = panel._metadata_box.children
+        assert [row.children[0].value for row in rows] == ["Route Name", "Route #", "TMCC ID"]
+        assert type(field) is PlainText
+        assert field.value == f"{tmcc_id:02d}"
+        assert field.parent.parent is rows[2]
+        assert rows[2].children == [rows[2].children[0], field.parent]
+        assert "editor" not in field.options
+        assert "on_commit" not in field.options
+        assert not hasattr(field, "when_clicked")
+        for editable in (panel._name_field, panel._number_field):
+            row = editable.parent.parent
+            assert row.options == rows[2].options
+            assert row.children[0].options == {**rows[2].children[0].options, "text": row.children[0].value}
+            assert editable.parent.options == field.parent.options
+            for option in ("align", "size", "height", "anchor", "padx", "bd"):
+                assert editable.options[option] == field.options[option]
+        panel._name_field.value = "Main line"
+        panel._number_field.value = "1234"
+        panel._on_metadata(None, None, None)
+        if existing:
+            panel.select_relative(1)
+        assert field.value == f"{tmcc_id:02d}"
+        assert panel.draft.tmcc_id == tmcc_id
+
+
+def test_compact_info_keeps_two_rows(panel):
+    assert panel._tmcc_id_field is None
+    assert [row.children[0].value for row in panel._metadata_box.children] == ["Route Name", "Route #"]
 
 
 def test_header_and_single_line_selection_follow_card_order(panel):
