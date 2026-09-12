@@ -462,7 +462,7 @@ class ComponentState(ABC, CompDataMixin):
         """
         Returns True if the component's state is known, False otherwise.
         """
-        return self.comp_data and self.comp_data.is_active()
+        return self.comp_data and self.comp_data.is_user_defined()
 
     def _update_comp_data(self, comp_data: CompData):
         with self._cv:

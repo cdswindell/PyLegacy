@@ -926,22 +926,23 @@ class CompData(ABC, Generic[R]):
                 else:
                     raise ValueError(f"Unknown field {field.field} for scope {self._scope.name}")
 
-    def is_active(self) -> bool:
+    def is_user_defined(self) -> bool:
         """
         If there is no name, road number, or prev/next links, the record is considered inactive.
         Subclasses should override this method to return True if there are other signs of
         activity that should be considered active.
         """
         if self.prev_link == 255 and self.next_link == 255 and not self.road_name and not self.road_number:
-            # do one more check; if this is an accessory or a switch, check if associated state
-            # has recorded any LCS activity, which would indicate activity
-            if self.scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}:
-                state = self.state_store().get_state(self.scope, self.tmcc_id, False)
-                # noinspection PyUnresolvedReferences
-                if state and state.is_lcs_component:
-                    return True
             return False
         return True
+
+    def is_active(self) -> bool:
+        ud = self.is_user_defined()
+        if not ud and self.scope in {CommandScope.ACC, CommandScope.SWITCH, CommandScope.TRAIN}:
+            state = self.state_store().get_state(self.scope, self.tmcc_id, False)
+            if state and state.is_lcs_component:
+                return True
+        return ud
 
     def __repr__(self) -> str:
         nm = nu = ""

@@ -58,8 +58,8 @@ class PreviewStore:
     def add(self, state, scope, tmcc_id, name):
         state._address = tmcc_id
         state.initialize(scope, tmcc_id)
-        state._road_name = name
-        state._road_number = f"{tmcc_id:04d}"
+        state._road_name = state.comp_data.road_name = name
+        state._road_number = state.comp_data.road_number = f"{tmcc_id:04d}"
         self.states[scope, tmcc_id] = state
         return state
 
@@ -326,6 +326,56 @@ def check_controller_scroll(app, panel):
     print(f"Controller scrolling passed: {'picker' if panel.picking else 'component cards'}", flush=True)
 
 
+def check_picker_filters(app, panel):
+    checkbox = panel._show_unlabeled
+    assert checkbox.text == "Show Unlabeled"
+    assert checkbox.value == 0 and checkbox.enabled
+    assert [button.text.removeprefix("● ") for button in panel._filter_btns] == ["Routes", "Switches"]
+    app.tk.update_idletasks()
+    for widget in (*panel._filter_btns, checkbox):
+        assert widget.tk.winfo_ismapped()
+        assert widget.tk.winfo_height() >= 44
+        assert widget.tk.winfo_width() >= widget.tk.winfo_reqwidth(), (
+            widget.text,
+            widget.tk.winfo_width(),
+            widget.tk.winfo_reqwidth(),
+        )
+        assert widget.tk.winfo_rooty() == checkbox.tk.winfo_rooty()
+    store = panel.gui.state_store
+    candidates = panel._candidates.copy()
+    switch = SwitchState()
+    switch._address = 99
+    assert not switch.is_user_defined
+    store.states[CommandScope.SWITCH, 99] = switch
+    try:
+        panel.open_picker()
+        assert panel._candidates == candidates
+        checkbox.tk.invoke()
+        assert checkbox.value == 1
+        assert (CommandScope.SWITCH, switch) in panel._candidates
+        panel.choose_candidate(panel._candidates.index((CommandScope.SWITCH, switch)))
+        assert panel._save_btn.enabled
+        checkbox.tk.invoke()
+        assert checkbox.value == 0
+        assert panel._candidates == candidates
+        assert panel._candidate is None and not panel._save_btn.enabled
+        checkbox.tk.invoke()
+        panel._filter_btns[0].tk.invoke()
+        assert not checkbox.enabled and str(checkbox.tk.cget("state")) == "disabled"
+        routes = panel._candidates.copy()
+        assert routes and all(scope == CommandScope.ROUTE for scope, _ in routes)
+        checkbox.tk.invoke()
+        assert checkbox.value == 1 and panel._candidates == routes
+        panel._filter_btns[1].tk.invoke()
+        assert checkbox.enabled and (CommandScope.SWITCH, switch) in panel._candidates
+        checkbox.tk.invoke()
+        assert panel._candidates == candidates
+    finally:
+        del store.states[CommandScope.SWITCH, 99]
+        panel.open_picker()
+    print("Picker filters: order, checkbox bounds, disabled state, and unlabeled filtering passed.", flush=True)
+
+
 def check_picker_thumb(app, panel):
     if not panel.gui.compact:
         return
@@ -339,9 +389,9 @@ def check_picker_thumb(app, panel):
             for scope, state_type in ((CommandScope.SWITCH, SwitchState), (CommandScope.ROUTE, RouteState)):
                 if (scope, tmcc_id) not in store.states:
                     store.add(state_type(), scope, tmcc_id, f"{scope.title} {tmcc_id:02d}")
-        panel.set_filter("All")
+        panel.set_filter("Switches")
         app.tk.update_idletasks()
-        assert len(panel._candidates) == 198
+        assert len(panel._candidates) == 99
         x = bar.winfo_width() // 2
         for destination in (bar.winfo_height(), 0):
             thumb = [y for y in range(bar.winfo_height()) if bar.identify(x, y).endswith("thumb")]
@@ -362,7 +412,7 @@ def check_picker_thumb(app, panel):
         store.states = states
         panel.open_picker()
         app.tk.update_idletasks()
-    print("Steam Deck thumb: 32-pixel minimum and dragging through 198 entries passed.", flush=True)
+    print("Steam Deck thumb: 32-pixel minimum and dragging through 99 entries passed.", flush=True)
 
 
 def check_touch_scroll(app, panel, canvas, horizontal):
@@ -495,8 +545,8 @@ def main():
         panel.move_selected(-1)
         assert panel.draft.components[0].tmcc_id == 2
         panel.open_picker()
-        panel.set_filter("All")
         check_bounds(app, overlay, panel, width, budget, "Picker")
+        check_picker_filters(app, panel)
         if panel.picker_inline_details:
             assert panel.picker_rows >= 4
         check_picker_resize(app, overlay, panel, width, budget, reserved)

@@ -257,7 +257,7 @@ class Store:
 @pytest.fixture
 def panel(monkeypatch):
     monkeypatch.setattr(mod, "platform", "linux")
-    for name in ("Box", "TitleBox", "PushButton", "Text", "EditableText"):
+    for name in ("Box", "TitleBox", "PushButton", "CheckBox", "Text", "EditableText"):
         monkeypatch.setattr(mod, name, Widget)
     monkeypatch.setattr(mod, "RouteDiscardDialog", Mock(return_value=SimpleNamespace(result=False)))
     monkeypatch.setattr(mod, "HoldButton", HoldWidget)
@@ -315,6 +315,7 @@ def known_switch(panel, tmcc_id=7, name="Main siding", *, deleted=False):
         road_number=f"{tmcc_id:04d}",
         is_road_number=True,
         is_deleted=deleted,
+        is_user_defined=True,
     )
     panel.gui.state_store.states[(CommandScope.SWITCH, tmcc_id)] = state
     return state
@@ -501,10 +502,12 @@ def test_deck_picker_browses_without_selecting_and_reveals_complete_rows(deck_pi
 
 @pytest.mark.parametrize("sort", ["Name", "TMCC ID"])
 @pytest.mark.parametrize("descending", [False, True])
-def test_deck_picker_browses_mixed_choices_without_changing_sort(deck_picker, sort, descending):
+@pytest.mark.parametrize("filter_name", ["Routes", "Switches"])
+def test_deck_picker_browses_mixed_choices_without_changing_sort(deck_picker, sort, descending, filter_name):
     panel, router, _, _ = deck_picker
-    known_route(panel, 4)
-    panel.set_filter("All")
+    for tmcc_id in range(1, 5):
+        known_route(panel, tmcc_id)
+    panel.set_filter(filter_name)
     panel.set_sort(sort)
     if descending:
         panel.toggle_sort_direction()
@@ -516,7 +519,7 @@ def test_deck_picker_browses_mixed_choices_without_changing_sort(deck_picker, so
         pad_press(router, deck.DPAD_UP)
         assert panel._picker_cursor == choice
     assert panel._sort == sort and panel._descending == descending
-    assert panel._filter == "All" and panel._candidate is None
+    assert panel._filter == filter_name and panel._candidate is None
     assert not panel.draft.components and not panel.draft.dirty
     panel.gui.on_engine_command.assert_not_called()
 
@@ -688,6 +691,8 @@ def test_deck_picker_highlight_does_not_check_radio_or_replace_active_green(deck
     panel, router, _, _ = deck_picker
     state = SwitchState()
     state._address = 1
+    state.initialize(CommandScope.SWITCH, 1)
+    state.comp_data.road_name = "Main siding"
     state._state = TMCC1SwitchCommandEnum.THRU
     panel.gui.state_store.states[(CommandScope.SWITCH, 1)] = state
     panel.set_sort("TMCC ID")
@@ -944,14 +949,16 @@ def test_picker_resize_is_scheduled_once_for_geometry_changes(panel):
     assert any(call.args[0] == "<Map>" for call in panel._picker_page.tk.bind.call_args_list)
 
 
-def test_steam_deck_picker_aligns_inline_details_and_truncates_long_names(panel):
+@pytest.mark.parametrize("filter_name", ["Routes", "Switches"])
+def test_steam_deck_picker_aligns_inline_details_and_truncates_long_names(panel, filter_name):
     long_name = "W" * 31
     known_switch(panel, 7, long_name)
     known_switch(panel, 8, "Short")
     route = known_route(panel, 4)
     route._road_name = "Yard exit"
+    known_route(panel, 5)._road_name = long_name
     panel.open_picker()
-    panel.set_filter("All")
+    panel.set_filter(filter_name)
     texts = [(coords, options) for kind, coords, options in panel._picker.drawn if kind == "text"]
     assert len(texts) == 4 * len(panel._candidates)
     columns = None
@@ -1012,13 +1019,17 @@ def test_desktop_picker_keys_select_and_reveal_without_adding(desktop_panel):
     assert not panel.draft.components and not panel.draft.dirty
 
 
-def test_desktop_picker_keys_use_current_filter_sort_and_scope(desktop_panel):
+@pytest.mark.parametrize(
+    "filter_name,expected_scope", [("Routes", CommandScope.ROUTE), ("Switches", CommandScope.SWITCH)]
+)
+def test_desktop_picker_keys_use_current_filter_sort_and_scope(desktop_panel, filter_name, expected_scope):
     panel = desktop_panel
     known_switch(panel, 7, "Alpha")
     known_switch(panel, 3, "Zulu")
-    known_route(panel, 7)
+    known_route(panel, 7)._road_name = "Alpha route"
+    known_route(panel, 3)._road_name = "Zulu route"
     panel.open_picker()
-    panel.set_filter("All")
+    panel.set_filter(filter_name)
     panel.set_sort("TMCC ID")
     panel.toggle_sort_direction()
     for scope, state in panel._candidates:
@@ -1027,7 +1038,7 @@ def test_desktop_picker_keys_use_current_filter_sort_and_scope(desktop_panel):
     panel._search_field.value = "Alpha"
     panel._on_search(None, None, None)
     panel._picker.bindings["<Up>"](None)
-    assert panel._candidate == (CommandScope.SWITCH, 7)
+    assert panel._candidate == (expected_scope, 7)
     panel._search_field.value = "no matches"
     panel._on_search(None, None, None)
     for key in ("<Up>", "<Down>"):
@@ -1346,7 +1357,7 @@ def test_route_builder_buttons_have_shading_relief_and_surrounding_space(panel):
     for field in (panel._name_field, panel._number_field, panel._search_field):
         row = field.parent.parent
         buttons.extend(child for slot in row.children for child in slot.children if child.text == "Edit")
-    assert len(buttons) == 19
+    assert len(buttons) == 18
     for button in buttons:
         assert button.options["relief"] == "raised"
         assert button.options["bd"] >= 2
@@ -1385,13 +1396,14 @@ def test_picker_indicators_are_large_circles_not_font_glyphs(panel):
     assert len([kind for kind, _, _ in panel._picker.drawn if kind == "oval"]) == 2
 
 
-@pytest.mark.parametrize("filter_name", ["Switches", "Routes", "All"])
+@pytest.mark.parametrize("filter_name", ["Routes", "Switches"])
 @pytest.mark.parametrize("selected", [False, True])
 def test_picker_backgrounds_match_catalog_state_and_preserve_selection(panel, filter_name, selected):
     """Catalog state colors no longer apply here; only selection changes the background."""
     switch = SwitchState()
     switch._address = 7
     switch.initialize(CommandScope.SWITCH, 7)
+    switch.comp_data.road_name = "Main siding"
     panel.gui.state_store.states[(CommandScope.SWITCH, 7)] = switch
     route = known_route(panel, 7, [RouteComponent(7, 0)])
     route._signature = {"S7": True}
@@ -1718,7 +1730,7 @@ def test_clear_all_requires_confirmation_and_preserves_metadata(panel):
     assert panel.draft.road_name == "Yard"
 
 
-@pytest.mark.parametrize("filter_name", ["Switches", "Routes", "All"])
+@pytest.mark.parametrize("filter_name", ["Routes", "Switches"])
 def test_add_to_route_requires_a_current_selection(panel, filter_name):
     known_switch(panel)
     known_route(panel)
@@ -1757,6 +1769,119 @@ def test_add_to_route_requires_a_current_selection(panel, filter_name):
     assert not panel._save_btn.enabled
 
 
+def test_picker_scope_order_and_show_unlabeled_checkbox(panel):
+    panel.open_picker()
+    assert [button.text.removeprefix("● ") for button in panel._filter_btns] == ["Routes", "Switches"]
+    checkbox = panel._show_unlabeled
+    assert checkbox.text == "Show Unlabeled"
+    assert checkbox.value == 0
+    assert checkbox.enabled
+    assert checkbox.parent.options["grid"] == [2, 0]
+    assert checkbox.parent.options["height"] == panel.control_row_height
+    widths = [widget.parent.options["width"] for widget in (*panel._filter_btns, checkbox)]
+    assert sum(widths) == panel.content_width
+    assert widths[2] > widths[0] == widths[1]
+    assert checkbox.options["indicatoron"] is False
+    assert checkbox.options["image"].width() >= 24
+    assert checkbox.options["selectimage"].pixels != checkbox.options["image"].pixels
+    panel._filter_btns[0].command()
+    assert panel._filter == "Routes"
+    assert not checkbox.enabled
+    assert [button.text for button in panel._filter_btns] == ["● Routes", "Switches"]
+    panel._filter_btns[1].command()
+    assert checkbox.enabled
+    assert [button.text for button in panel._filter_btns] == ["Routes", "● Switches"]
+
+
+@pytest.mark.parametrize("user_defined", [True, False, None])
+@pytest.mark.parametrize("labeled", [True, False])
+def test_picker_filters_switches_by_is_user_defined_not_display_labels(panel, user_defined, labeled):
+    switch = known_switch(panel)
+    switch.is_user_defined = user_defined
+    switch.is_road_name = switch.is_road_number = labeled
+    panel.open_picker()
+    assert panel._candidates == ([(CommandScope.SWITCH, switch)] if user_defined else [])
+    panel._show_unlabeled.value = 1
+    panel._show_unlabeled.command()
+    assert panel._candidates == [(CommandScope.SWITCH, switch)]
+    panel.choose_candidate(0)
+    panel.add_selected()
+    assert [component.tmcc_id for component in panel.draft.components] == [switch.tmcc_id]
+
+
+@pytest.mark.parametrize("show_unlabeled", [0, 1])
+def test_show_unlabeled_never_includes_deleted_or_out_of_range_switches(panel, show_unlabeled):
+    for tmcc_id in (0, 7, 100):
+        known_switch(panel, tmcc_id, deleted=tmcc_id == 7).is_user_defined = False
+    panel.open_picker()
+    panel._show_unlabeled.value = show_unlabeled
+    panel._show_unlabeled.command()
+    assert panel._candidates == []
+    assert not panel._save_btn.enabled
+
+
+def test_show_unlabeled_clears_hidden_selection_and_cursor_and_preserves_draft(panel):
+    for tmcc_id in range(1, 10):
+        known_switch(panel, tmcc_id).is_user_defined = False
+    panel.draft.set_metadata("Keep this route", "12")
+    panel.open_picker()
+    assert not panel._candidates
+    panel._show_unlabeled.value = 1
+    panel._show_unlabeled.command()
+    panel.set_sort("TMCC ID")
+    panel.choose_candidate(8)
+    panel.pad_step(0)
+    assert panel._picker.yview()[0] > 0
+    assert panel._candidate == panel._picker_cursor == (CommandScope.SWITCH, 9)
+    assert panel._save_btn.enabled
+    panel._show_unlabeled.value = 0
+    panel._show_unlabeled.command()
+    assert panel._candidate is None and panel._picker_cursor is None
+    assert not panel._candidates and not panel._save_btn.enabled
+    assert panel._picker_scrollbar.get() == (0, 1)
+    assert panel._picker_count.value.startswith("0 available")
+    assert panel.draft.road_name == "Keep this route" and panel.draft.road_number == "12"
+    assert not panel.draft.components
+
+
+def test_show_unlabeled_preserves_filter_sort_search_and_is_ignored_for_routes(panel):
+    known_switch(panel, 1, "Alpha")
+    known_switch(panel, 2, "Alpha unlabeled").is_user_defined = False
+    known_switch(panel, 3, "Zulu unlabeled").is_user_defined = False
+    route = known_route(panel, 4)
+    route._road_name = "Alpha route"
+    panel.open_picker()
+    panel.set_sort("TMCC ID")
+    panel.toggle_sort_direction()
+    panel._search_field.value = "ALP"
+    panel._on_search(None, None, None)
+    panel.choose_candidate(0)
+    panel._show_unlabeled.value = 1
+    panel._show_unlabeled.command()
+    assert [state.tmcc_id for _, state in panel._candidates] == [2, 1]
+    assert panel._candidate == (CommandScope.SWITCH, 1)
+    assert panel._save_btn.enabled
+    panel.set_filter("Routes")
+    assert not panel._show_unlabeled.enabled
+    assert panel._candidates == [(CommandScope.ROUTE, route)]
+    assert panel._candidate is None and not panel._save_btn.enabled
+    panel.cancel()
+    panel.open_picker()
+    assert panel._show_unlabeled.value == 1
+    assert not panel._show_unlabeled.enabled
+    assert panel._candidates == [(CommandScope.ROUTE, route)]
+    panel.set_filter("Switches")
+    assert panel._show_unlabeled.enabled and panel._show_unlabeled.value == 1
+    assert [state.tmcc_id for _, state in panel._candidates] == [2, 1]
+    assert (panel._sort, panel._descending, panel._search_field.value) == ("TMCC ID", True, "ALP")
+    panel._show_unlabeled.value = 0
+    panel._show_unlabeled.command()
+    assert [state.tmcc_id for _, state in panel._candidates] == [1]
+    panel.set_filter("Routes")
+    assert panel._candidates == [(CommandScope.ROUTE, route)]
+    assert not panel.draft.dirty
+
+
 def test_picker_filter_sort_search_and_choices_are_remembered(panel):
     known_switch(panel, 7, "Alpha")
     known_switch(panel, 3, "zulu")
@@ -1764,16 +1889,17 @@ def test_picker_filter_sort_search_and_choices_are_remembered(panel):
     known_route(panel, 7)
     panel.open_picker()
     assert [state.tmcc_id for _, state in panel._candidates] == [7, 3]
-    panel.set_filter("All")
-    assert len(panel._candidates) == 3
-    assert {scope for scope, _ in panel._candidates} == {CommandScope.SWITCH, CommandScope.ROUTE}
+    panel.set_filter("Routes")
+    assert [(scope, state.tmcc_id) for scope, state in panel._candidates] == [(CommandScope.ROUTE, 7)]
+    panel.set_filter("Switches")
+    assert {scope for scope, _ in panel._candidates} == {CommandScope.SWITCH}
     panel.set_sort("TMCC ID")
-    assert [state.tmcc_id for _, state in panel._candidates] == [3, 7, 7]
+    assert [state.tmcc_id for _, state in panel._candidates] == [3, 7]
     panel.toggle_sort_direction()
-    assert [state.tmcc_id for _, state in panel._candidates] == [7, 7, 3]
+    assert [state.tmcc_id for _, state in panel._candidates] == [7, 3]
     panel.cancel()
     panel.open_picker()
-    assert (panel._filter, panel._sort, panel._descending) == ("All", "TMCC ID", True)
+    assert (panel._filter, panel._sort, panel._descending) == ("Switches", "TMCC ID", True)
     panel._search_field.value = "ALP"
     panel._on_search(None, None, None)
     assert [(scope, state.tmcc_id) for scope, state in panel._candidates] == [(CommandScope.SWITCH, 7)]
@@ -1785,15 +1911,18 @@ def test_picker_filter_sort_search_and_choices_are_remembered(panel):
     assert panel._candidate is None
 
 
-@pytest.mark.parametrize("filter_name", ["Switches", "Routes", "All"])
+@pytest.mark.parametrize("filter_name", ["Routes", "Switches"])
+@pytest.mark.parametrize("show_unlabeled", [0, 1])
 @pytest.mark.parametrize("search", ["ALP", "no match", "   "])
-def test_search_button_clears_text_and_restores_filtered_sorted_list(panel, filter_name, search):
+def test_search_button_clears_text_and_restores_filtered_sorted_list(panel, filter_name, show_unlabeled, search):
     known_switch(panel, 7, "Alpha")
     known_switch(panel, 3, "Zulu")
     known_switch(panel, 8, "Deleted", deleted=True)
+    known_switch(panel, 9, "Alpha unlabeled").is_user_defined = False
     known_route(panel, 7)._road_name = "Alpha route"
     known_route(panel, 4)._road_name = "Yard route"
     panel.open_picker()
+    panel._show_unlabeled.value = show_unlabeled
     panel.set_filter(filter_name)
     panel.set_sort("TMCC ID")
     panel.toggle_sort_direction()
@@ -1870,8 +1999,13 @@ def test_picker_selection_distinguishes_route_and_switch_with_same_id(panel):
     known_switch(panel, 7)
     known_route(panel, 7)
     panel.open_picker()
-    panel.set_filter("All")
-    panel.choose_candidate(next(i for i, (scope, _) in enumerate(panel._candidates) if scope == CommandScope.ROUTE))
+    panel.choose_candidate(0)
+    assert panel._candidate == (CommandScope.SWITCH, 7)
+    panel.set_filter("Routes")
+    assert panel._candidate is None and panel._picker_cursor is None
+    assert not panel._save_btn.enabled
+    panel.choose_candidate(0)
+    assert panel._candidate == (CommandScope.ROUTE, 7)
     panel.add_selected()
     assert panel.draft.components[0].is_route
 

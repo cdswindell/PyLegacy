@@ -23,7 +23,7 @@ from tkinter import font as tkfont
 from tkinter import simpledialog
 from typing import TYPE_CHECKING
 
-from guizero import Box, PushButton, Text, TitleBox
+from guizero import Box, CheckBox, PushButton, Text, TitleBox
 
 from .overlay_panel import OverlayPanel
 from .route_draft import RouteDraft
@@ -132,6 +132,7 @@ class RouteBuilderPanel(OverlayPanel):
         self._positions = self._position = None
         self._radios = []
         self._filter_btns = self._sort_btns = ()
+        self._show_unlabeled: CheckBox | None = None
         self._picker_scrollbar = None
 
     @property
@@ -457,9 +458,34 @@ class RouteBuilderPanel(OverlayPanel):
 
         self._picker_page = Box(body, align="top", visible=False)
         Text(self._picker_page, text="ADD TO ROUTE", size=self.gui.s_14)
-        self._filter_btns = self._buttons(
-            self._picker_page,
-            *((name, partial(self.set_filter, name)) for name in ("Switches", "Routes", "All")),
+        filters = Box(self._picker_page, align="top", layout="grid")
+        filter_width = self.content_width * 3 // 10
+        self._filter_btns = tuple(
+            self._button(filters, name, partial(self.set_filter, name), column=i, width=filter_width)
+            for i, name in enumerate(("Routes", "Switches"))
+        )
+        slot = Box(filters, grid=[2, 0], width=self.content_width - 2 * filter_width, height=self.control_row_height)
+        slot.tk.pack_propagate(False)
+        slot.tk.config(padx=self.button_pad_x, pady=self.button_pad_y)
+        self._show_unlabeled = CheckBox(
+            slot, text="Show Unlabeled", command=self._refresh_picker, width="fill", height="fill"
+        )
+        self._show_unlabeled.value = 0
+        self._show_unlabeled.text_size = self.gui.s_14
+        unselected, selected = CheckBoxGroup.indicator_images(
+            self._show_unlabeled.tk, self.indicator_size, background=BUTTON_BG, check_color=SELECTED_COLOR
+        )
+        self._show_unlabeled.tk.config(
+            image=unselected,
+            selectimage=selected,
+            compound="left",
+            indicatoron=False,
+            background=BUTTON_BG,
+            activebackground=BUTTON_ACTIVE_BG,
+            selectcolor=BUTTON_BG,
+            disabledforeground="#727b84",
+            padx=4,
+            pady=0,
         )
         self._sort_btns = self._buttons(
             self._picker_page,
@@ -804,11 +830,8 @@ class RouteBuilderPanel(OverlayPanel):
     def _refresh_picker(self) -> None:
         self._picker_scroll_pixels.reset()
         self._search_btn.text = "Clear" if self._search_field.value else "Edit"
-        scopes = (
-            (CommandScope.SWITCH, CommandScope.ROUTE)
-            if self._filter == "All"
-            else (CommandScope.SWITCH if self._filter == "Switches" else CommandScope.ROUTE,)
-        )
+        scopes = (CommandScope.SWITCH if self._filter == "Switches" else CommandScope.ROUTE,)
+        self._show_unlabeled.enabled = self._filter == "Switches"
         search = str(self._search_field.value).strip().casefold()
         self._candidates = [
             (scope, state)
@@ -816,6 +839,7 @@ class RouteBuilderPanel(OverlayPanel):
             for state in self.gui.state_store.get_all(scope)
             if not state.is_deleted
             and 1 <= state.tmcc_id <= 99
+            and (scope != CommandScope.SWITCH or self._show_unlabeled.value or state.is_user_defined)
             and search in self._state_name(state, scope, state.tmcc_id).casefold()
         ]
         self._candidates.sort(
@@ -831,7 +855,7 @@ class RouteBuilderPanel(OverlayPanel):
             self._candidate = None
         if self._picker_cursor not in keys:
             self._picker_cursor = None
-        for name, button in zip(("Switches", "Routes", "All"), self._filter_btns):
+        for name, button in zip(("Routes", "Switches"), self._filter_btns):
             button.text = f"{'● ' if self._filter == name else ''}{name}"
         for name, button in zip(("Name", "TMCC ID"), self._sort_btns):
             button.text = f"{'● ' if self._sort == name else ''}{name}"
