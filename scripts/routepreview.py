@@ -192,7 +192,13 @@ def check_bounds(app, overlay, panel, width, budget, label):
 
 
 def check_button_sizes(app, panel, width, budget):
-    extra = 0 if panel.gui.compact else (7 if panel.desktop_controls else 6)
+    extra = panel.button_height_extra
+    if panel.gui.compact:
+        assert extra == 0
+    elif panel.desktop_controls:
+        assert extra == 7
+    else:
+        assert 6 <= extra <= 18
     buttons = [panel._save_btn.tk, panel._cancel_btn.tk, panel._clear_route_btn.tk]
     pending = [(panel._picker_page if panel.picking else panel._main_page).tk]
     while pending:
@@ -218,6 +224,29 @@ def check_button_sizes(app, panel, width, budget):
         assert button.winfo_rootx() + button.winfo_width() <= app.tk.winfo_rootx() + width
         assert button.winfo_rooty() >= app.tk.winfo_rooty()
         assert button.winfo_rooty() + button.winfo_height() <= app.tk.winfo_rooty() + budget
+
+
+def check_pi_button_growth(app, overlay, panel, width, budget, reserved):
+    original_extra = panel.button_height_extra
+    original_requested = overlay.tk.winfo_reqheight()
+    original_reserved = reserved.height
+    before = RouteComponent.to_bytes(panel.draft.components), panel._selected, panel.draft.dirty
+    reserved.height = original_reserved - 128
+    check_bounds(app, overlay, panel, width, budget + 128, "Roomier Pi editor")
+    assert panel.button_height_extra == 18
+    assert panel._save_btn.tk.winfo_height() == panel.row_height + 18
+    assert overlay.tk.winfo_reqheight() == original_requested + 8 * (18 - original_extra)
+    panel.open_picker()
+    check_bounds(app, overlay, panel, width, budget + 128, "Roomier Pi picker")
+    assert panel.button_height_extra == 18
+    panel.cancel()
+    check_bounds(app, overlay, panel, width, budget + 128, "Roomier Pi editor reopened")
+    assert panel.button_height_extra == 18
+    reserved.height = original_reserved
+    check_bounds(app, overlay, panel, width, budget, "Pi editor restored")
+    assert panel.button_height_extra == original_extra
+    assert (RouteComponent.to_bytes(panel.draft.components), panel._selected, panel.draft.dirty) == before
+    print("Pi buttons: grow into spare height, preserve padding, and shrink without clipping.", flush=True)
 
 
 def check_picker_resize(app, overlay, panel, width, budget, reserved):
@@ -569,6 +598,8 @@ def main():
             app.tk.focus_force()
             app.tk.update()
         check_bounds(app, overlay, panel, width, budget, "Editor")
+        if args.pi:
+            check_pi_button_growth(app, overlay, panel, width, budget, reserved)
         panel.select_row(1)
         panel._radios[0].invoke()
         assert panel.draft.components[1].is_thru

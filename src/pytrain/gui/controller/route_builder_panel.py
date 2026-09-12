@@ -117,6 +117,9 @@ class RouteBuilderPanel(OverlayPanel):
         self._cards = self._picker = None
         self._picker_rows = 1
         self._picker_resize_pending = False
+        self._button_resize_pending = False
+        self._button_height_growth = 0
+        self._button_slots: list[tuple[Box, int]] = []
         self._picker_scroll_pixels = ScrollAccumulator()
         self._name_field = self._number_field = self._search_field = None
         self._search_btn = None
@@ -177,7 +180,7 @@ class RouteBuilderPanel(OverlayPanel):
     def button_height_extra(self) -> int:
         if self.gui.compact:
             return 0
-        return 7 if self.desktop_controls else 6
+        return 7 if self.desktop_controls else 6 + self._button_height_growth
 
     @property
     def control_row_height(self) -> int:
@@ -257,6 +260,7 @@ class RouteBuilderPanel(OverlayPanel):
         )
         slot.tk.pack_propagate(False)
         slot.tk.config(padx=self.button_pad_x, pady=self.button_pad_y)
+        self._button_slots.append((slot, (height or self.control_row_height) - self._button_height_growth))
         if hold:
             button = HoldButton(
                 slot,
@@ -297,6 +301,7 @@ class RouteBuilderPanel(OverlayPanel):
     ):
         row = Box(parent, align="top", width=width or self.content_width, height=self.control_row_height)
         row.tk.pack_propagate(False)
+        self._button_slots.append((row, self.control_row_height - self._button_height_growth))
         caption = Text(row, text=label, align="left", size=self.gui.s_12, width=label_width)
         caption.tk.config(anchor="e", justify="right", padx=6)
         edit = None
@@ -365,6 +370,7 @@ class RouteBuilderPanel(OverlayPanel):
 
     def build(self, body: Box):
         self._picker_rows = 1
+        self._button_slots.clear()
         self._main_page = Box(body, align="top")
         summary = Box(self._main_page, align="top")
         self._route_label = Text(summary, text="", size=self.gui.s_14, align="left")
@@ -401,6 +407,7 @@ class RouteBuilderPanel(OverlayPanel):
         self._selection.tk.config(wraplength=self.content_width)
         self._positions = Box(self._main_page, align="top", width=self.content_width, height=self.control_row_height)
         self._positions.tk.grid_propagate(False)
+        self._button_slots.append((self._positions, self.control_row_height - self._button_height_growth))
         self._positions.tk.grid_rowconfigure(0, weight=1)
         self._position = tk.StringVar(master=self._positions.tk, value="")
         self._radios = []
@@ -473,6 +480,7 @@ class RouteBuilderPanel(OverlayPanel):
         slot = Box(filters, grid=[2, 0], width=self.content_width - 2 * filter_width, height=self.control_row_height)
         slot.tk.pack_propagate(False)
         slot.tk.config(padx=self.button_pad_x, pady=self.button_pad_y)
+        self._button_slots.append((slot, self.control_row_height - self._button_height_growth))
         self._show_unlabeled = CheckBox(
             slot, text="Show Unlabeled", command=self._refresh_picker, width="fill", height="fill"
         )
@@ -534,10 +542,13 @@ class RouteBuilderPanel(OverlayPanel):
             yscrollincrement=1 if self.desktop_controls else self.picker_row_height,
             yscrollcommand=self._picker_scrollbar.set,
         )
-        self._status = Text(body, text="", size=self.gui.s_12, width="fill", height=2)
+        self._status = Text(body, text="", size=self.gui.s_12, width="fill", height=0)
         self._status.tk.config(wraplength=self.content_width)
         for widget in (body.tk.master, body.tk, self._picker_page.tk):
             widget.bind("<Configure>", self._schedule_picker_resize, add="+")
+        for widget in (body.tk.master, body.tk, self._main_page.tk):
+            widget.bind("<Configure>", self._schedule_button_resize, add="+")
+        self._main_page.tk.bind("<Map>", self._schedule_button_resize, add="+")
         self._picker_page.tk.bind("<Map>", self._schedule_picker_resize, add="+")
 
     def build_footer(self, footer: Box) -> None:
@@ -545,7 +556,38 @@ class RouteBuilderPanel(OverlayPanel):
         self._cancel_btn = self._button(row, "Cancel", self.cancel, column=0, columns=3)
         self._clear_route_btn = self._button(row, "Clear", self.clear_route, column=1, columns=3, hold=True)
         self._save_btn = self._button(row, "Save Route", self.save, column=2, columns=3)
+        Text(footer, text="", size=self.gui.s_12, align="top", height=1)
         footer.tk.bind("<Configure>", self._schedule_picker_resize, add="+")
+        footer.tk.bind("<Configure>", self._schedule_button_resize, add="+")
+
+    def _schedule_button_resize(self, _event=None):
+        if not (self.gui.compact or self.desktop_controls or self._picking or self._button_resize_pending):
+            self._button_resize_pending = True
+            self._main_page.tk.master.master.after_idle(self._resize_buttons)
+
+    def _resize_buttons(self):
+        self._button_resize_pending = True
+        try:
+            page = self._main_page.tk
+            if self.gui.compact or self.desktop_controls or self._picking or not page.winfo_exists():
+                return
+            overlay = page.master.master
+            overlay.update_idletasks()
+            if self._picking or not page.winfo_exists() or not page.winfo_ismapped():
+                return
+            available = overlay.winfo_height()
+            if available <= 1:
+                return
+            # Eight editor rows grow together, including the card arrows, Info rows, and footer.
+            spare = available - overlay.winfo_reqheight() - self.footer_pad_px
+            growth = max(0, min(12, self._button_height_growth + spare // 8))
+            if growth == self._button_height_growth:
+                return
+            self._button_height_growth = growth
+            for slot, height in self._button_slots:
+                slot.tk.config(height=height + growth)
+        finally:
+            self._button_resize_pending = False
 
     def _schedule_picker_resize(self, _event=None):
         if self._picking and not self._picker_resize_pending:
@@ -657,10 +699,12 @@ class RouteBuilderPanel(OverlayPanel):
         self._status.value = message or (
             "Choose a component, then tap Add to Route."
             if self._picking
-            else ("Unsaved changes · " if self.draft.dirty else "") + "Editing does not operate the layout."
+            else ("Unsaved changes" if self.draft.dirty else "")
         )
         if not message and self._clear_route_btn.enabled:
-            self._status.value += "\nHold Clear for 3 seconds to delete from Base 3."
+            self._status.value += (
+                " · " if self._status.value else ""
+            ) + "Hold Clear for 3 seconds to delete from Base 3."
         self._schedule_picker_resize()
 
     def _draw_cards(self):

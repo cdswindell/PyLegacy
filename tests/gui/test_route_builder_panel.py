@@ -1340,16 +1340,18 @@ def test_search_field_reclaims_label_space_and_uses_search_commit_label(panel, m
 
 
 @pytest.mark.parametrize(
-    "width,height,compact,system,extra,pad_x,pad_y",
+    "width,height,compact,system,extra,pad_x,pad_y,spare",
     [
-        (639, 800, True, "linux", 0, 4, 3),
-        (800, 1280, False, "linux", 6, 5, 4),
-        (631, 1009, False, "darwin", 7, 4, 3),
-        (631, 1009, False, "win32", 7, 4, 3),
+        (639, 800, True, "linux", 0, 4, 3, 200),
+        (800, 1280, False, "linux", 6, 5, 4, 0),
+        (800, 1280, False, "linux", 11, 5, 4, 56),
+        (800, 1280, False, "linux", 18, 5, 4, 200),
+        (631, 1009, False, "darwin", 7, 4, 3, 200),
+        (631, 1009, False, "win32", 7, 4, 3, 200),
     ],
 )
 def test_route_builder_buttons_have_shading_relief_and_surrounding_space(
-    panel, monkeypatch, width, height, compact, system, extra, pad_x, pad_y
+    panel, monkeypatch, width, height, compact, system, extra, pad_x, pad_y, spare
 ):
     panel.gui.width = panel.gui.emergency_box_width = width
     panel.gui.height = height
@@ -1357,6 +1359,11 @@ def test_route_builder_buttons_have_shading_relief_and_surrounding_space(
     monkeypatch.setattr(mod, "platform", system)
     panel.build(Widget())
     panel.build_footer(Widget())
+    overlay = panel._main_page.tk.master.master
+    baseline = panel.button_height_extra
+    overlay.winfo_height.return_value = 941 + spare
+    overlay.winfo_reqheight.side_effect = lambda: 941 + 8 * (panel.button_height_extra - baseline)
+    panel._resize_buttons()
     assert panel.row_height == max(44, int(44 * width / 639))
     assert panel.card_height == int(int(panel.row_height * 3.5) * 0.75)
     assert (panel.button_pad_x, panel.button_pad_y) == (pad_x, pad_y)
@@ -1398,6 +1405,76 @@ def test_route_builder_buttons_have_shading_relief_and_surrounding_space(
     assert panel._cards.options["height"] == panel.card_height
     if not compact:
         assert panel._tmcc_id_field.parent.parent.options["height"] == panel.control_row_height
+
+
+@pytest.fixture
+def pi_panel(panel, monkeypatch):
+    panel.gui.width = panel.gui.emergency_box_width = 800
+    panel.gui.height = 1280
+    monkeypatch.setattr(panel.gui, "compact", False)
+    panel.build(Widget())
+    panel.build_footer(Widget())
+    overlay = panel._main_page.tk.master.master
+    overlay.winfo_height.return_value = 1060
+    overlay.winfo_reqheight.side_effect = lambda: 941 + 8 * (panel.button_height_extra - 6)
+    return panel
+
+
+def test_pi_buttons_resize_stably_and_shrink_when_space_is_reduced(pi_panel):
+    panel = pi_panel
+    overlay = panel._main_page.tk.master.master
+    panel._resize_buttons()
+    assert panel.button_height_extra == 18
+    assert panel._save_btn.parent.options["height"] == 81
+    for slot, _ in panel._button_slots:
+        slot.tk.config = Mock(wraps=slot.tk.config)
+    panel._resize_buttons()
+    assert panel.button_height_extra == 18
+    for slot, _ in panel._button_slots:
+        slot.tk.config.assert_not_called()
+    overlay.winfo_height.return_value = 941
+    panel._resize_buttons()
+    assert panel.button_height_extra == 6
+    assert panel._save_btn.parent.options["height"] == 69
+    overlay.winfo_height.return_value = 1060
+    panel._resize_buttons()
+    assert panel.button_height_extra == 18
+
+
+@pytest.mark.parametrize("unavailable", ["picker", "hidden", "destroyed", "unmeasured"])
+def test_pi_button_resize_ignores_unavailable_editor_geometry(pi_panel, unavailable):
+    panel = pi_panel
+    if unavailable == "picker":
+        panel.open_picker()
+    elif unavailable == "hidden":
+        panel._main_page.hide()
+    elif unavailable == "destroyed":
+        panel._main_page.tk.winfo_exists = lambda: False
+    else:
+        panel._main_page.tk.master.master.winfo_height.return_value = 1
+    panel._resize_buttons()
+    assert panel.button_height_extra == 6
+    assert not panel._button_resize_pending
+
+
+def test_pi_button_resize_is_scheduled_once_and_retained_in_picker(pi_panel):
+    panel = pi_panel
+    overlay = panel._main_page.tk.master.master
+    panel._schedule_button_resize()
+    panel._schedule_button_resize()
+    overlay.after_idle.assert_called_once_with(panel._resize_buttons)
+    assert any(call.args[0] == "<Configure>" for call in overlay.bind.call_args_list)
+    assert any(call.args[0] == "<Map>" for call in panel._main_page.tk.bind.call_args_list)
+    panel._resize_buttons()
+    panel.open_picker()
+    assert panel.button_height_extra == 18
+    assert panel._search_btn.parent.options["height"] == panel.control_row_height
+    panel._schedule_button_resize()
+    assert [invocation.args for invocation in overlay.after_idle.call_args_list] == [
+        (panel._resize_buttons,),
+        (panel._resize_picker,),
+    ]
+    assert not panel._button_resize_pending
 
 
 def test_switch_radios_use_large_indicators_and_keep_exclusive_draft_selection(panel):
