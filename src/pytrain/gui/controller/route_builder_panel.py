@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from functools import partial
 from sys import platform
 from tkinter import font as tkfont
 from tkinter import simpledialog
@@ -51,6 +52,10 @@ class RouteDiscardDialog(simpledialog.Dialog):
         self._width = width
         self._text_size = text_size
         self._button_height = button_height
+        self._keep_btn: tk.Button | None = None
+        self._discard_btn: tk.Button | None = None
+        self.initial_focus: tk.Widget | None = None
+        self.result: bool | None = None
         super().__init__(parent, "Discard route changes?")
 
     def body(self, master):
@@ -84,7 +89,10 @@ class RouteDiscardDialog(simpledialog.Dialog):
         self.bind("<Escape>", self.cancel)
 
     def _on_return(self, _event=None):
-        self.ok() if self.focus_get() is self._discard_btn else self.cancel()
+        if self.focus_get() is self._discard_btn:
+            self.ok()
+        else:
+            self.cancel()
 
     def apply(self):
         self.result = True
@@ -113,6 +121,15 @@ class RouteBuilderPanel(OverlayPanel):
         self._status = self._save_btn = self._cancel_btn = None
         self._clear_route_btn = None
         self._gesture = None
+        self._metadata_box = None
+        self._route_label = self._count = self._selection = self._picker_count = None
+        self._previous_btn = self._next_btn = None
+        self._earlier_btn = self._later_btn = None
+        self._add_btn = self._remove_btn = self._clear_btn = None
+        self._positions = self._position = None
+        self._radios = []
+        self._filter_btns = self._sort_btns = ()
+        self._picker_scrollbar = None
 
     @property
     def has_close(self) -> bool:
@@ -255,12 +272,13 @@ class RouteBuilderPanel(OverlayPanel):
         row.tk.pack_propagate(False)
         caption = Text(row, text=label, align="left", size=self.gui.s_12, width=label_width)
         caption.tk.config(anchor="e", justify="right", padx=6)
+        edit = None
         if editor is not None:
             edit = self._button(row, "Edit", None, align="right", width=int(self.row_height * 1.6))
             edit.text_size = self.gui.s_12
         field_slot = Box(row, align="left", width="fill", height="fill")
         field_slot.tk.config(pady=self.button_pad_y)
-        if editor is None:
+        if edit is None:
             field = Text(field_slot, text="", size=self.gui.s_14, align="left", width="fill", height="fill")
             field.tk.config(bd=1, anchor="w", padx=6)
             return field, None
@@ -421,7 +439,7 @@ class RouteBuilderPanel(OverlayPanel):
         Text(self._picker_page, text="ADD TO ROUTE", size=self.gui.s_14)
         self._filter_btns = self._buttons(
             self._picker_page,
-            *((name, lambda value=name: self.set_filter(value)) for name in ("Switches", "Routes", "All")),
+            *((name, partial(self.set_filter, name)) for name in ("Switches", "Routes", "All")),
         )
         self._sort_btns = self._buttons(
             self._picker_page,
@@ -1103,5 +1121,6 @@ class RouteBuilderPanel(OverlayPanel):
         self.draft.mark_saved()
         self._state = state
         self._close()
+        # noinspection protected-member
         self.gui._scope_tmcc_ids[CommandScope.ROUTE] = self._tmcc_id
         self.gui.ops_mode(update_info=True, state=state)

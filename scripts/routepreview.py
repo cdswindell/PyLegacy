@@ -375,6 +375,9 @@ def main():
         app.display()
         return
     try:
+        if args.pycab:
+            app.tk.focus_force()
+            app.tk.update()
         check_bounds(app, overlay, panel, width, budget, "Editor")
         panel.select_row(1)
         panel._radios[0].invoke()
@@ -443,6 +446,8 @@ def main():
         assert panel._picker.yview()[0] > 0
         if args.pycab:
             panel._picker.focus_force()
+            app.tk.update()
+            assert app.tk.focus_get() is panel._picker
             panel._picker.yview_moveto(0)
             for _ in panel._candidates:
                 panel._picker.event_generate("<Down>")
@@ -468,6 +473,8 @@ def main():
             if args.pycab:
                 assert keyboard is None
                 field._entry.focus_force()
+                app.tk.update()
+                assert app.tk.focus_get() is field._entry
                 field._entry.icursor(1)
                 before = panel._selected
                 panel._cards.event_generate("<Enter>")
@@ -492,6 +499,8 @@ def main():
         if args.pycab:
             before = RouteComponent.to_bytes(panel.draft.components)
             panel._cards.focus_force()
+            app.tk.update()
+            assert app.tk.focus_get() is panel._cards
             for _ in range(20):
                 panel._cards.event_generate("<Left>")
                 app.tk.update()

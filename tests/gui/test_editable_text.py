@@ -93,7 +93,7 @@ class DummyEntry:
         _ = add
         self._bindings.setdefault(event, []).append(func)
 
-    def delete(self, start: int, end: str) -> None:
+    def delete(self, start: int | str, end: int | str) -> None:
         if start == "sel.first" and end == "sel.last" and self._selection is not None:
             first, last = self._selection
             self.text = self.text[:first] + self.text[last:]
@@ -675,6 +675,7 @@ def test_editor_commit_label_defaults_to_save_and_can_be_customized(
         window = widget._keyboard_window
         widget._insert_text("2")
 
+    commit = None
     for mode in ("upper", "lower", "symbols", "upper") if editor == "KEYBOARD" else (None,):
         if mode is not None:
             DummyButton.instances = []
@@ -686,6 +687,7 @@ def test_editor_commit_label_defaults_to_save_and_can_be_customized(
         if editor != "CHOICES":
             assert [button.text for button in commit.master.children] == ["Clear", "Cancel", label]
 
+    assert commit is not None
     commit.command()
     assert seen == [(widget, 2, 1) if editor == "CHOICES" else (widget, "2", "1")]
     assert not widget.is_editing

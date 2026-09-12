@@ -15,10 +15,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from math import ceil
 from threading import RLock
 from tkinter import font as tkfont
 from types import MethodType, SimpleNamespace
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -44,6 +46,7 @@ class Widget:
         self.visible = kwargs.get("visible", True)
         self.enabled = True
         self.is_editing = self.is_changed = False
+        self.command = kwargs.get("command")
         self.tk = SimpleNamespace(
             master=self.parent.tk if isinstance(self.parent, Widget) else Mock(),
             config=lambda **kw: self.options.update(kw),
@@ -89,12 +92,15 @@ class HoldWidget(Widget):
 class Canvas:
     def __init__(self, *_args, **kwargs):
         self.master = _args[0] if _args else None
-        self.options = kwargs
+        self.options: dict[str, Any] = kwargs
         self.bindings = {}
         self.drawn = []
         self.x = self.y = 0
         self.dragged = []
         self.focus_set = Mock()
+        self.pack_options = {}
+        self.grid_options = {}
+        self.mark = None
 
     def config(self, **kwargs):
         self.options.update(kwargs)
@@ -145,8 +151,8 @@ class Canvas:
     def yview_moveto(self, fraction):
         total = self.options["scrollregion"][3]
         self.y = max(0, min(fraction * total, total - self.options["height"]))
-        callback = self.options.get("yscrollcommand")
-        if callback:
+        callback: Callable[[float, float], None] | None = self.options.get("yscrollcommand")
+        if callback is not None:
             callback(self.y / total, min(1, (self.y + self.options["height"]) / total))
 
     def xview_scroll(self, delta, _units):
@@ -158,7 +164,7 @@ class Canvas:
                 self.yview_moveto(float(args[1]))
             else:
                 self.yview_scroll(int(args[1]), args[2])
-            return
+            return None
         total = self.options["scrollregion"][3]
         return self.y / total, min(1, (self.y + self.options["height"]) / total)
 
@@ -184,6 +190,7 @@ class Scrollbar:
         self.master = master
         self.options = kwargs
         self.fractions = (0.0, 1.0)
+        self.place_options = {}
 
     def place(self, **kwargs):
         self.place_options = kwargs
@@ -324,7 +331,8 @@ def test_picker_size_and_page_navigation_follow_available_layout(
     panel, monkeypatch, width, height, compact, system, available, bar_width
 ):
     monkeypatch.setattr(mod, "platform", system)
-    panel.gui.width, panel.gui.height, panel.gui.compact = width, height, compact
+    panel.gui.width, panel.gui.height = width, height
+    monkeypatch.setattr(panel.gui, "compact", compact)
     panel.gui.emergency_box_width = width
     panel.build(Widget())
     panel.configure(12)
@@ -410,7 +418,7 @@ def test_picker_refresh_resets_scrollbar_and_keeps_selection_rules(panel, action
 @pytest.mark.parametrize("desktop", [False, True])
 def test_picker_scrollbar_arrows_move_one_row_without_selecting(panel, desktop, monkeypatch):
     monkeypatch.setattr(mod, "platform", "win32" if desktop else "linux")
-    panel.gui.compact = not desktop
+    monkeypatch.setattr(panel.gui, "compact", not desktop)
     panel.build(Widget())
     panel.configure(12)
     for tmcc_id in range(1, 16):
@@ -553,7 +561,7 @@ def test_steam_deck_picker_aligns_inline_details_and_truncates_long_names(panel)
 @pytest.fixture(params=["darwin", "win32"])
 def desktop_panel(panel, monkeypatch, request):
     monkeypatch.setattr(mod, "platform", request.param)
-    panel.gui.compact = False
+    monkeypatch.setattr(panel.gui, "compact", False)
     panel.gui.width, panel.gui.height = 600, 960
     panel.gui.emergency_box_width = 600
     panel.build(Widget())
@@ -767,9 +775,10 @@ def test_component_cards_are_twenty_five_percent_shorter(panel, width):
 
 
 @pytest.mark.parametrize("compact,height,gap", [(True, 800, 0), (False, 800, 0), (False, 1280, 16)])
-def test_metadata_group_and_pi_section_spacing(panel, compact, height, gap):
+def test_metadata_group_and_pi_section_spacing(panel, monkeypatch, compact, height, gap):
     panel.gui.width = panel.gui.emergency_box_width = 800
-    panel.gui.height, panel.gui.compact = height, compact
+    panel.gui.height = height
+    monkeypatch.setattr(panel.gui, "compact", compact)
     panel.build(Widget())
     group = panel._metadata_box
     assert group.options["text"] == "Info"
@@ -802,7 +811,8 @@ def test_info_tmcc_id_is_read_only_aligned_and_follows_edited_route(
     monkeypatch.setattr(mod, "Text", PlainText)
     monkeypatch.setattr(mod, "platform", system)
     panel.gui.width = panel.gui.emergency_box_width = width
-    panel.gui.height, panel.gui.compact = height, False
+    panel.gui.height = height
+    monkeypatch.setattr(panel.gui, "compact", False)
     panel.build(Widget())
 
     for tmcc_id in (2, 42):
@@ -876,9 +886,10 @@ def test_desktop_card_browsing_hint(desktop_panel):
 
 
 @pytest.mark.parametrize("width,height,compact", [(800, 1280, False), (631, 1009, False), (639, 800, True)])
-def test_search_field_reclaims_label_space_and_uses_search_commit_label(panel, width, height, compact):
+def test_search_field_reclaims_label_space_and_uses_search_commit_label(panel, monkeypatch, width, height, compact):
     panel.gui.width = panel.gui.emergency_box_width = width
-    panel.gui.height, panel.gui.compact = height, compact
+    panel.gui.height = height
+    monkeypatch.setattr(panel.gui, "compact", compact)
     panel.build(Widget())
     field = panel._search_field
     row = field.parent.parent
@@ -1102,7 +1113,8 @@ def test_successful_clear_hides_panel_through_popup_manager(panel, monkeypatch):
     panel._name_field.value = "Unsaved name"
     panel.gui.app.yesno = Mock(side_effect=AssertionError("Clear must not prompt to discard"))
     panel.gui.locked = RLock
-    manager = panel.gui.popup_manager = PopupManager(panel.gui)
+    manager = PopupManager(panel.gui)
+    monkeypatch.setattr(panel.gui, "popup_manager", manager, raising=False)
     panel._overlay = overlay = Widget()
     overlay.confirm_close = panel.confirm_close
     overlay.tk.place_forget = Mock()
@@ -1507,10 +1519,11 @@ def test_cancel_protects_components_metadata_and_pending_keyboard_edits(panel):
 
 @pytest.mark.parametrize("width,height,compact", [(639, 800, True), (800, 1280, False)])
 @pytest.mark.parametrize("result", [None, False, True])
-def test_touch_cancel_uses_large_pane_centered_confirmation(panel, width, height, compact, result):
-    panel.gui.width, panel.gui.height, panel.gui.compact = width, height, compact
+def test_touch_cancel_uses_large_pane_centered_confirmation(panel, monkeypatch, width, height, compact, result):
+    panel.gui.width, panel.gui.height = width, height
+    monkeypatch.setattr(panel.gui, "compact", compact)
     panel.gui.emergency_box_width = width
-    panel.gui.root = SimpleNamespace(tk=object())
+    monkeypatch.setattr(panel.gui, "root", SimpleNamespace(tk=object()), raising=False)
     panel.gui.app.yesno = Mock(side_effect=AssertionError("touch displays must use the larger dialog"))
     panel.draft.set_metadata("Unsaved", "")
     mod.RouteDiscardDialog.return_value.result = result

@@ -774,7 +774,7 @@ class PopupManager:
             # is something the pane has decided to show: a panel that stays put against the
             # layout's own reports (see close()) must still give way to another screen,
             # rather than be left placed underneath one.
-            if self.close(requested=True) is False:
+            if not self.close(requested=True):
                 return
 
             # set this overlay as current
@@ -859,7 +859,7 @@ class PopupManager:
                 # OverlayPanel.closes_on_request_only. Left current as well as visible: it
                 # still owns the screen, so Close and the pad's close key must still find it.
                 return False
-            confirm_close = getattr(overlay, "confirm_close", None)
+            confirm_close: Callable[[], bool] | None = getattr(overlay, "confirm_close", None)
             if requested and callable(confirm_close) and not confirm_close():
                 return False
             self._state.current_popup = None
